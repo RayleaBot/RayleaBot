@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
 
 	"rayleabot/server/internal/config"
 )
@@ -46,13 +45,6 @@ type Shell struct {
 	cancel   context.CancelFunc
 	done     chan struct{}
 	started  bool
-}
-
-type oneBotMetaFrame struct {
-	PostType      string `json:"post_type"`
-	MetaEventType string `json:"meta_event_type"`
-	SubType       string `json:"sub_type"`
-	Interval      int    `json:"interval"`
 }
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
@@ -271,8 +263,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 		return false, false
 	}
 
-	now := s.deps.now()
-	s.markConnected(now, ready.heartbeatInterval, ready.frameTime)
+	s.markConnected(ready.ObservedAt)
 	s.logger.Info(
 		"adapter connected",
 		"component", "adapter",
@@ -301,33 +292,25 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	return true, false
 }
 
-type readyFrame struct {
-	frameTime         time.Time
-	heartbeatInterval time.Duration
-}
-
-func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (readyFrame, error) {
+func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (FrameSummary, error) {
 	waitingForFirstFrame := true
 
 	for {
 		readyCtx, cancel := s.waitContext(ctx)
-		frame, frameTime, err := s.readFrame(readyCtx, conn)
+		frame, err := s.consumeFrame(readyCtx, conn)
 		cancel()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				if waitingForFirstFrame {
-					return readyFrame{}, fmt.Errorf("timed out waiting for first frame: %w", err)
+					return FrameSummary{}, fmt.Errorf("timed out waiting for first frame: %w", err)
 				}
-				return readyFrame{}, fmt.Errorf("timed out waiting for ready frame: %w", err)
+				return FrameSummary{}, fmt.Errorf("timed out waiting for ready frame: %w", err)
 			}
-			return readyFrame{}, err
+			return FrameSummary{}, err
 		}
 
-		if isReadyFrame(frame) {
-			return readyFrame{
-				frameTime:         frameTime,
-				heartbeatInterval: heartbeatInterval(frame),
-			}, nil
+		if isReadySummary(frame) {
+			return frame, nil
 		}
 
 		waitingForFirstFrame = false
@@ -337,13 +320,11 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (re
 func (s *Shell) readLoop(ctx context.Context, conn *websocket.Conn) error {
 	for {
 		readCtx, cancel := s.readContext(ctx)
-		frame, frameTime, err := s.readFrame(readCtx, conn)
+		_, err := s.consumeFrame(readCtx, conn)
 		cancel()
 		if err != nil {
 			return err
 		}
-
-		s.recordFrame(frameTime, heartbeatInterval(frame))
 	}
 }
 
@@ -353,13 +334,46 @@ func (s *Shell) readContext(ctx context.Context) (context.Context, context.Cance
 	return context.WithTimeout(ctx, timeout)
 }
 
-func (s *Shell) readFrame(ctx context.Context, conn *websocket.Conn) (oneBotMetaFrame, time.Time, error) {
-	var frame oneBotMetaFrame
-	if err := wsjson.Read(ctx, conn, &frame); err != nil {
-		return oneBotMetaFrame{}, time.Time{}, err
+func (s *Shell) consumeFrame(ctx context.Context, conn *websocket.Conn) (FrameSummary, error) {
+	frame, err := s.readFrame(ctx, conn)
+	if err != nil {
+		return FrameSummary{}, err
 	}
 
-	return frame, s.deps.now(), nil
+	snapshot := s.recordFrame(frame.Summary)
+
+	switch {
+	case frame.Summary.Category == FrameCategoryInvalid:
+		s.logger.Warn(
+			"adapter invalid frame received",
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"frame_type", frame.Summary.Type,
+			"invalid_frame_count", snapshot.InvalidReceivedFrames,
+			"reason", frame.InvalidSummary,
+			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+		)
+		return frame.Summary, fmt.Errorf("invalid frame: %s", frame.InvalidSummary)
+	case isLifecycleDisable(frame.Frame):
+		s.logger.Warn(
+			"adapter lifecycle disable observed",
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"frame_type", frame.Summary.Type,
+			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+		)
+	}
+
+	return frame.Summary, nil
+}
+
+func (s *Shell) readFrame(ctx context.Context, conn *websocket.Conn) (classifiedFrame, error) {
+	messageType, payload, err := conn.Read(ctx)
+	if err != nil {
+		return classifiedFrame{}, err
+	}
+
+	return classifyFrame(messageType, payload, s.deps.now()), nil
 }
 
 func (s *Shell) dial(ctx context.Context) (*websocket.Conn, *http.Response, error) {
@@ -376,15 +390,12 @@ func (s *Shell) dial(ctx context.Context) (*websocket.Conn, *http.Response, erro
 	})
 }
 
-func (s *Shell) recordFrame(frameTime time.Time, heartbeatInterval time.Duration) {
+func (s *Shell) recordFrame(summary FrameSummary) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.snapshot.LastFrameAt = cloneTime(&frameTime)
-	if heartbeatInterval > 0 {
-		s.snapshot.LastHeartbeatAt = cloneTime(&frameTime)
-		s.snapshot.HeartbeatInterval = heartbeatInterval
-	}
+	applyFrameSummary(&s.snapshot, summary)
+	return cloneSnapshot(s.snapshot)
 }
 
 func (s *Shell) setConn(conn *websocket.Conn) {
@@ -410,12 +421,15 @@ func (s *Shell) markConnecting() {
 	s.snapshot.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
+	s.snapshot.LastFrameCategory = ""
+	s.snapshot.LastFrameType = ""
 	s.snapshot.LastFrameAt = nil
+	s.snapshot.HeartbeatSeen = false
 	s.snapshot.LastHeartbeatAt = nil
 	s.snapshot.HeartbeatInterval = 0
 }
 
-func (s *Shell) markConnected(now time.Time, heartbeatInterval time.Duration, frameTime time.Time) {
+func (s *Shell) markConnected(now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -424,14 +438,6 @@ func (s *Shell) markConnected(now time.Time, heartbeatInterval time.Duration, fr
 	s.snapshot.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = true
 	s.snapshot.ConnectedAt = cloneTime(&now)
-	s.snapshot.LastFrameAt = cloneTime(&frameTime)
-	if heartbeatInterval > 0 {
-		s.snapshot.LastHeartbeatAt = cloneTime(&frameTime)
-		s.snapshot.HeartbeatInterval = heartbeatInterval
-	} else {
-		s.snapshot.LastHeartbeatAt = nil
-		s.snapshot.HeartbeatInterval = 0
-	}
 }
 
 func (s *Shell) markAuthFailed(err error) {
@@ -443,9 +449,6 @@ func (s *Shell) markAuthFailed(err error) {
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
-	s.snapshot.LastFrameAt = nil
-	s.snapshot.LastHeartbeatAt = nil
-	s.snapshot.HeartbeatInterval = 0
 }
 
 func (s *Shell) markReconnecting(code string, err error) {
@@ -457,9 +460,6 @@ func (s *Shell) markReconnecting(code string, err error) {
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
-	s.snapshot.LastFrameAt = nil
-	s.snapshot.LastHeartbeatAt = nil
-	s.snapshot.HeartbeatInterval = 0
 }
 
 func (s *Shell) markStopped() {
@@ -469,29 +469,6 @@ func (s *Shell) markStopped() {
 	s.snapshot.State = StateStopped
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
-	s.snapshot.LastFrameAt = nil
-	s.snapshot.LastHeartbeatAt = nil
-	s.snapshot.HeartbeatInterval = 0
-}
-
-func isReadyFrame(frame oneBotMetaFrame) bool {
-	if frame.PostType != "meta_event" {
-		return false
-	}
-
-	if frame.MetaEventType == "heartbeat" {
-		return true
-	}
-
-	return frame.MetaEventType == "lifecycle" && frame.SubType == "enable"
-}
-
-func heartbeatInterval(frame oneBotMetaFrame) time.Duration {
-	if frame.MetaEventType != "heartbeat" || frame.Interval <= 0 {
-		return 0
-	}
-
-	return time.Duration(frame.Interval) * time.Millisecond
 }
 
 func isAuthFailure(response *http.Response) bool {

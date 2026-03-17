@@ -2,7 +2,7 @@
 
 本目录承载 RayleaBot 的 Go 服务端工程。
 
-Phase 4B 范围：
+Phase 5 范围：
 
 - 读取 `-config` 和 `-config-schema`。
 - 解析 YAML 配置。
@@ -18,6 +18,9 @@ Phase 4B 范围：
 - 启动 OneBot11 反向 WebSocket 只读 adapter shell。
 - 使用 `onebot.ws_url` 与既有 `onebot.*` 重连参数建立只读连接尝试。
 - 通过只读接收循环维护保守 adapter 状态，并把状态映射到 `/readyz`。
+- 在 adapter 内对接收到的 OneBot 帧做最小只读 intake 分类。
+- 仅维护内存 observability：最近帧类别、最近心跳、是否见过心跳、累计帧数、无效帧数。
+- intake observability 只复用现有日志与 readiness 相关内部状态，不新增外部 API。
 - 建立最小任务状态类型和只读内存注册表骨架。
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
@@ -38,6 +41,8 @@ Phase 4B 范围：
 - `/api/tasks`、插件安装、启用、禁用等写操作 API。
 - OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
+- `/ws/events` 管理摘要推送。
+- OneBot intake observability 的持久化、重放或历史查询。
 - 数据库打开、迁移执行、渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。
 - 文件监听热刷新与目录热刷新。

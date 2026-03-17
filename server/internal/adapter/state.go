@@ -14,14 +14,19 @@ const (
 )
 
 type Snapshot struct {
-	State            State
-	LastErrorCode    string
-	LastErrorMessage string
-	ReadyFrameSeen   bool
-	ConnectedAt      *time.Time
-	LastFrameAt      *time.Time
-	LastHeartbeatAt  *time.Time
-	HeartbeatInterval time.Duration
+	State                 State
+	LastErrorCode         string
+	LastErrorMessage      string
+	ReadyFrameSeen        bool
+	ConnectedAt           *time.Time
+	LastFrameAt           *time.Time
+	LastHeartbeatAt       *time.Time
+	HeartbeatInterval     time.Duration
+	TotalReceivedFrames   uint64
+	InvalidReceivedFrames uint64
+	HeartbeatSeen         bool
+	LastFrameCategory     FrameCategory
+	LastFrameType         string
 }
 
 func cloneSnapshot(snapshot Snapshot) Snapshot {

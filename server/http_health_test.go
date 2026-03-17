@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"testing"
 
-	"rayleabot/server/internal/adapter"
 	"gopkg.in/yaml.v3"
+	"rayleabot/server/internal/adapter"
 
 	"rayleabot/server/internal/app"
 	"rayleabot/server/internal/health"
@@ -52,7 +52,14 @@ func TestReadyzConnectedStateIsReady(t *testing.T) {
 
 	assertReadinessResponse(
 		t,
-		adapter.Snapshot{State: adapter.StateConnected},
+		adapter.Snapshot{
+			State:                 adapter.StateConnected,
+			TotalReceivedFrames:   7,
+			InvalidReceivedFrames: 2,
+			HeartbeatSeen:         true,
+			LastFrameCategory:     adapter.FrameCategoryInvalid,
+			LastFrameType:         "invalid",
+		},
 		http.StatusOK,
 		map[string]any{
 			"status": "ready",
