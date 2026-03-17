@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 
-	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
+
+	"rayleabot/server/internal/schema"
 )
 
 type Config struct {
@@ -169,32 +169,12 @@ func normalizeDocument(raw map[string]any) (any, error) {
 }
 
 func validateDocument(schemaPath string, document any) error {
-	absolutePath, err := filepath.Abs(schemaPath)
+	validator, err := schema.Compile(schemaPath)
 	if err != nil {
 		return err
 	}
 
-	schemaBytes, err := os.ReadFile(absolutePath)
-	if err != nil {
-		return fmt.Errorf("read schema %s: %w", absolutePath, err)
-	}
-
-	var schemaDocument any
-	if err := json.Unmarshal(schemaBytes, &schemaDocument); err != nil {
-		return fmt.Errorf("parse schema %s: %w", absolutePath, err)
-	}
-
-	compiler := jsonschema.NewCompiler()
-	if err := compiler.AddResource(absolutePath, schemaDocument); err != nil {
-		return fmt.Errorf("add schema resource %s: %w", absolutePath, err)
-	}
-
-	schema, err := compiler.Compile(absolutePath)
-	if err != nil {
-		return fmt.Errorf("compile schema %s: %w", absolutePath, err)
-	}
-
-	if err := schema.Validate(document); err != nil {
+	if err := validator.Validate(document); err != nil {
 		return err
 	}
 

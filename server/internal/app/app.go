@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/logging"
+	"rayleabot/server/internal/plugins"
+	"rayleabot/server/internal/schema"
 	"rayleabot/server/internal/tasks"
 )
 
@@ -28,6 +31,7 @@ type App struct {
 	Summary   config.Summary
 	Logger    *slog.Logger
 	Tasks     *tasks.Registry
+	Plugins   *plugins.Catalog
 	readiness health.ReadinessReport
 	router    http.Handler
 	server    *http.Server
@@ -45,6 +49,11 @@ func New(options Options) (*App, error) {
 	}
 
 	taskRegistry := tasks.NewRegistry()
+	pluginCatalog, err := discoverPlugins(options.SchemaPath, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	readiness := health.ReadinessReport{
 		Status: "ready",
 		Checks: map[string]string{
@@ -57,6 +66,7 @@ func New(options Options) (*App, error) {
 	router.Get("/readyz", health.NewReadinessHandler(func() health.ReadinessReport {
 		return readiness
 	}))
+	plugins.RegisterRoutes(router, pluginCatalog)
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	server := &http.Server{
@@ -90,6 +100,7 @@ func New(options Options) (*App, error) {
 		Summary:   summary,
 		Logger:    logger,
 		Tasks:     taskRegistry,
+		Plugins:   pluginCatalog,
 		readiness: readiness,
 		router:    router,
 		server:    server,
@@ -124,4 +135,52 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		return nil
 	}
+}
+
+func discoverPlugins(configSchemaPath string, logger *slog.Logger) (*plugins.Catalog, error) {
+	repoRoot, pluginSchemaPath, roots, err := pluginDiscoveryContext(configSchemaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	validator, err := schema.Compile(pluginSchemaPath)
+	if err != nil {
+		return nil, fmt.Errorf("compile plugin manifest schema %s: %w", pluginSchemaPath, err)
+	}
+
+	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots:     roots,
+		RepoRoot:  repoRoot,
+		Logger:    logger,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("discover plugins: %w", err)
+	}
+
+	return plugins.NewCatalog(snapshots), nil
+}
+
+func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.ScanRoot, error) {
+	absoluteConfigSchemaPath, err := filepath.Abs(configSchemaPath)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("resolve config schema path %s: %w", configSchemaPath, err)
+	}
+
+	contractsDir := filepath.Dir(absoluteConfigSchemaPath)
+	repoRoot := filepath.Dir(contractsDir)
+	pluginSchemaPath := filepath.Join(contractsDir, "plugin-info.schema.json")
+
+	roots := []plugins.ScanRoot{
+		{
+			Label: "examples/plugins",
+			Path:  filepath.Join(repoRoot, "examples", "plugins"),
+		},
+		{
+			Label: "plugins/installed",
+			Path:  filepath.Join(repoRoot, "plugins", "installed"),
+		},
+	}
+
+	return repoRoot, pluginSchemaPath, roots, nil
 }
