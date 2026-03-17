@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"rayleabot/server/internal/adapter"
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/logging"
@@ -32,7 +33,7 @@ type App struct {
 	Logger    *slog.Logger
 	Tasks     *tasks.Registry
 	Plugins   *plugins.Catalog
-	readiness health.ReadinessReport
+	Adapter   *adapter.Shell
 	router    http.Handler
 	server    *http.Server
 }
@@ -53,18 +54,21 @@ func New(options Options) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	adapterShell := adapter.New(cfg.OneBot, logger)
 
-	readiness := health.ReadinessReport{
-		Status: "ready",
-		Checks: map[string]string{
-			"config": "ok",
-		},
+	application := &App{
+		Config:  cfg,
+		Summary: summary,
+		Logger:  logger,
+		Tasks:   taskRegistry,
+		Plugins: pluginCatalog,
+		Adapter: adapterShell,
 	}
 
 	router := chi.NewRouter()
 	router.Get("/healthz", health.NewLivenessHandler())
 	router.Get("/readyz", health.NewReadinessHandler(func() health.ReadinessReport {
-		return readiness
+		return application.currentReadiness()
 	}))
 	plugins.RegisterRoutes(router, pluginCatalog)
 
@@ -95,16 +99,9 @@ func New(options Options) (*App, error) {
 		"listen_addr", listenAddr,
 	)
 
-	return &App{
-		Config:    cfg,
-		Summary:   summary,
-		Logger:    logger,
-		Tasks:     taskRegistry,
-		Plugins:   pluginCatalog,
-		readiness: readiness,
-		router:    router,
-		server:    server,
-	}, nil
+	application.router = router
+	application.server = server
+	return application, nil
 }
 
 func (a *App) Handler() http.Handler {
@@ -113,6 +110,8 @@ func (a *App) Handler() http.Handler {
 
 func (a *App) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
+
+	a.Adapter.Start(ctx)
 
 	go func() {
 		a.Logger.Info("http server starting", "component", "app", "listen_addr", a.server.Addr)
@@ -126,10 +125,22 @@ func (a *App) Run(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		a.Logger.Info("http server shutting down", "component", "app", "listen_addr", a.server.Addr)
+		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer adapterStopCancel()
+		if err := a.Adapter.Stop(adapterStopCtx); err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("stop adapter shell: %w", err)
+		}
+
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return a.server.Shutdown(shutdownCtx)
 	case err := <-errCh:
+		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer adapterStopCancel()
+		if stopErr := a.Adapter.Stop(adapterStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
+			return fmt.Errorf("stop adapter shell after http server error: %w", stopErr)
+		}
+
 		if err != nil {
 			return fmt.Errorf("listen on %s: %w", a.server.Addr, err)
 		}
@@ -183,4 +194,55 @@ func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.
 	}
 
 	return repoRoot, pluginSchemaPath, roots, nil
+}
+
+func (a *App) currentReadiness() health.ReadinessReport {
+	if a == nil || a.Adapter == nil {
+		return ReadinessReportFromAdapter(adapter.Snapshot{State: adapter.StateIdle})
+	}
+
+	return ReadinessReportFromAdapter(a.Adapter.Snapshot())
+}
+
+func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessReport {
+	report := health.ReadinessReport{
+		Checks: map[string]string{
+			"config":  "ok",
+			"adapter": string(stateOrIdle(snapshot.State)),
+		},
+	}
+
+	switch stateOrIdle(snapshot.State) {
+	case adapter.StateConnected:
+		report.Status = "ready"
+	case adapter.StateAuthFailed:
+		report.Status = "degraded"
+		report.Reason = "OneBot authentication failed"
+		report.ReasonCodes = []string{"adapter.auth_failed"}
+	case adapter.StateConnecting:
+		report.Status = "degraded"
+		report.Reason = "OneBot reverse WebSocket is connecting"
+	case adapter.StateReconnecting:
+		report.Status = "degraded"
+		report.Reason = "OneBot reverse WebSocket is reconnecting"
+		if snapshot.LastErrorCode != "" {
+			report.ReasonCodes = []string{snapshot.LastErrorCode}
+		}
+	case adapter.StateStopped:
+		report.Status = "degraded"
+		report.Reason = "OneBot adapter has stopped"
+	default:
+		report.Status = "degraded"
+		report.Reason = "OneBot adapter has not started connecting yet"
+	}
+
+	return report
+}
+
+func stateOrIdle(state adapter.State) adapter.State {
+	if state == "" {
+		return adapter.StateIdle
+	}
+
+	return state
 }

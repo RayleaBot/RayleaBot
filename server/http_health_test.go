@@ -2,12 +2,14 @@ package server
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"rayleabot/server/internal/adapter"
 	"gopkg.in/yaml.v3"
 
 	"rayleabot/server/internal/app"
@@ -45,33 +47,69 @@ func TestHealthzResponseMatchesFixture(t *testing.T) {
 	}
 }
 
-func TestReadyzReturnsReadyWithConfigCheckOnly(t *testing.T) {
+func TestReadyzConnectedStateIsReady(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-
-	request := httptest.NewRequest("GET", "/readyz", nil)
-	recorder := httptest.NewRecorder()
-	application.Handler().ServeHTTP(recorder, request)
-
-	if recorder.Code != 200 {
-		t.Fatalf("unexpected status: got %d want 200", recorder.Code)
-	}
-
-	var body map[string]any
-	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
-		t.Fatalf("unmarshal /readyz body: %v", err)
-	}
-
-	expected := map[string]any{
-		"status": "ready",
-		"checks": map[string]any{
-			"config": "ok",
+	assertReadinessResponse(
+		t,
+		adapter.Snapshot{State: adapter.StateConnected},
+		http.StatusOK,
+		map[string]any{
+			"status": "ready",
+			"checks": map[string]any{
+				"config":  "ok",
+				"adapter": "connected",
+			},
 		},
-	}
-	if !reflect.DeepEqual(body, expected) {
-		t.Fatalf("unexpected /readyz body: got %#v want %#v", body, expected)
-	}
+	)
+}
+
+func TestReadyzAuthFailedIsDegraded(t *testing.T) {
+	t.Parallel()
+
+	assertReadinessResponse(
+		t,
+		adapter.Snapshot{
+			State:         adapter.StateAuthFailed,
+			LastErrorCode: "adapter.auth_failed",
+		},
+		http.StatusOK,
+		map[string]any{
+			"status": "degraded",
+			"reason": "OneBot authentication failed",
+			"reason_codes": []any{
+				"adapter.auth_failed",
+			},
+			"checks": map[string]any{
+				"config":  "ok",
+				"adapter": "auth_failed",
+			},
+		},
+	)
+}
+
+func TestReadyzReconnectingIsDegraded(t *testing.T) {
+	t.Parallel()
+
+	assertReadinessResponse(
+		t,
+		adapter.Snapshot{
+			State:         adapter.StateReconnecting,
+			LastErrorCode: "adapter.connection_lost",
+		},
+		http.StatusOK,
+		map[string]any{
+			"status": "degraded",
+			"reason": "OneBot reverse WebSocket is reconnecting",
+			"reason_codes": []any{
+				"adapter.connection_lost",
+			},
+			"checks": map[string]any{
+				"config":  "ok",
+				"adapter": "reconnecting",
+			},
+		},
+	)
 }
 
 func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
@@ -153,4 +191,29 @@ func toStringSlice(values []any) []string {
 	}
 
 	return result
+}
+
+func assertReadinessResponse(t *testing.T, snapshot adapter.Snapshot, wantStatus int, wantBody map[string]any) {
+	t.Helper()
+
+	handler := health.NewReadinessHandler(func() health.ReadinessReport {
+		return app.ReadinessReportFromAdapter(snapshot)
+	})
+
+	request := httptest.NewRequest("GET", "/readyz", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != wantStatus {
+		t.Fatalf("unexpected status: got %d want %d", recorder.Code, wantStatus)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal /readyz body: %v", err)
+	}
+
+	if !reflect.DeepEqual(body, wantBody) {
+		t.Fatalf("unexpected /readyz body: got %#v want %#v", body, wantBody)
+	}
 }

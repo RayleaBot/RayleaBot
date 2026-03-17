@@ -2,7 +2,7 @@
 
 本目录承载 RayleaBot 的 Go 服务端工程。
 
-Phase 4A 范围：
+Phase 4B 范围：
 
 - 读取 `-config` 和 `-config-schema`。
 - 解析 YAML 配置。
@@ -15,6 +15,9 @@ Phase 4A 范围：
 - 暴露只读插件查询：
   - `GET /api/plugins`
   - `GET /api/plugins/{plugin_id}`
+- 启动 OneBot11 反向 WebSocket 只读 adapter shell。
+- 使用 `onebot.ws_url` 与既有 `onebot.*` 重连参数建立只读连接尝试。
+- 通过只读接收循环维护保守 adapter 状态，并把状态映射到 `/readyz`。
 - 建立最小任务状态类型和只读内存注册表骨架。
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
@@ -31,13 +34,15 @@ Phase 4A 范围：
 
 当前明确未实现：
 
-- OneBot 真实连接与 Adapter。
 - 插件进程拉起、插件 IPC、plugin protocol bridge。
 - `/api/tasks`、插件安装、启用、禁用等写操作 API。
+- OneBot 出站 send / reply / action API。
+- OneBot 事件标准化、插件事件投递与业务处理。
 - 数据库打开、迁移执行、渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。
 - 文件监听热刷新与目录热刷新。
 - 权限授予流程执行、迁移执行与持久化 desired_state。
+- 多协议或多 adapter 抽象。
 
 当前插件状态边界：
 
@@ -46,3 +51,13 @@ Phase 4A 范围：
 - `display_state=conflict` 只表示检测到 `plugin_id` 冲突。
 - 这些状态都不表示插件已经启动、授权完成或迁移完成。
 - 本轮不会为冲突目录隐式选择胜者，也不会根据目录优先级覆盖已有快照。
+
+当前 adapter 状态边界：
+
+- `idle`：adapter shell 尚未开始连接。
+- `connecting`：正在进行反向 WebSocket 握手或等待首个 ready frame。
+- `connected`：底层链路已建立，且已看到首个 `meta.heartbeat` 或 `meta.lifecycle(enable)`。
+- `auth_failed`：握手阶段明确收到 401/403，不自动重连。
+- `reconnecting`：连接失败、断开或心跳超时后，正在等待下一次窄退避重连。
+- `stopped`：服务关闭时 adapter 已停止。
+- `/readyz` 在 adapter 未连接成功时会保守返回 `degraded`，但 `/healthz` 仍只表示进程存活。
