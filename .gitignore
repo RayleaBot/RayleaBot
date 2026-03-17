@@ -1,0 +1,46 @@
+# Runtime-managed directories from the project plan.
+/data/
+/cache/
+/logs/
+/config/user.yaml
+/plugins/installed/*
+!/plugins/installed/.gitkeep
+
+# Keep the tracked dependency manifest, ignore downloaded runtimes and caches.
+/.deps/*
+!/.deps/manifest.json
+
+# Python plugin and local tooling artifacts.
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+plugins/**/.venv/
+plugins/**/__pycache__/
+examples/plugins/**/__pycache__/
+
+# Node.js dependency and build artifacts.
+node_modules/
+plugins/**/node_modules/
+/web/node_modules/
+/web/dist/
+
+# Go local outputs.
+/server/raylea-server
+/server/*.exe
+/server/coverage.out
+/server/.coverprofile
+
+# .NET build outputs.
+/launcher/bin/
+/launcher/obj/
+
+# Environment files and local editor cruft.
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
