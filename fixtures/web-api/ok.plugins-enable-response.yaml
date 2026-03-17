@@ -1,0 +1,20 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Enable is synchronous and only updates desired_state.
+request:
+  method: POST
+  path: /api/plugins/weather/enable
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      registration_state: installed
+      desired_state: enabled
+      runtime_state: starting
+      display_state: enabling
+expect:
+  valid: true
+  notes:
+    - No task_id is returned.
+    - runtime_state is allowed to lag behind desired_state.

@@ -1,0 +1,17 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Disable is synchronous and may return while runtime_state is still stopping.
+request:
+  method: POST
+  path: /api/plugins/weather/disable
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      registration_state: installed
+      desired_state: disabled
+      runtime_state: stopping
+      display_state: disabling
+expect:
+  valid: true

@@ -1,0 +1,19 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "logs",
+    "type": "logs.appended",
+    "timestamp": "2026-03-17T09:31:00Z",
+    "data": {
+      "timestamp": "2026-03-17T09:31:00Z",
+      "level": "warn",
+      "source": "adapter.onebot11",
+      "message": "authentication failed for reverse websocket",
+      "request_id": "req_adapter_0001"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

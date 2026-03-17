@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin install uses the asynchronous task model.
+request:
+  method: POST
+  path: /api/plugins/install
+  body:
+    source_type: local_zip
+    source: C:/plugins/weather.zip
+response:
+  status: 202
+  body:
+    task_id: task_plugin_install_0001
+expect:
+  valid: true

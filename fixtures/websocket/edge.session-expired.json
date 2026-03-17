@@ -1,0 +1,13 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "edge",
+  "frame": {
+    "channel": "events",
+    "type": "session_expired",
+    "timestamp": "2026-03-17T09:34:00Z",
+    "data": {}
+  },
+  "expect": {
+    "valid": true
+  }
+}

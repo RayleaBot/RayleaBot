@@ -1,4 +1,12 @@
 version: 1
+description: >
+  Phase 1 fixture-ready error catalog. This file is the only formal source for
+  v0.1 HTTP, task, WebSocket, and plugin-protocol error codes.
+x-fixtures:
+  - fixtures/errors/ok.core-catalog.yaml
+  - fixtures/errors/invalid.missing-required-fields.yaml
+  - fixtures/errors/edge.applicability.yaml
+
 domains:
   - platform
   - plugin
@@ -6,202 +14,302 @@ domains:
   - adapter
 
 codes:
-  platform.render_timeout:
-    domain: platform
-    message_key: errors.platform.render_timeout
-    default_message:
-      zh-CN: 渲染任务超时
-    http_status: 504
-    task_status: failed
-
   platform.render_queue_full:
+    code: platform.render_queue_full
     domain: platform
     message_key: errors.platform.render_queue_full
-    default_message:
-      zh-CN: 渲染队列已满
+    message: 渲染队列已满
+    description: Render queue capacity was exhausted before the request could be accepted.
     http_status: 429
-    task_status: failed
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol]
+
+  platform.render_timeout:
+    code: platform.render_timeout
+    domain: platform
+    message_key: errors.platform.render_timeout
+    message: 渲染任务超时
+    description: A render request exceeded either queue wait timeout or execution timeout.
+    http_status: 504
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol, task]
 
   platform.invalid_request:
+    code: platform.invalid_request
     domain: platform
     message_key: errors.platform.invalid_request
-    default_message:
-      zh-CN: 请求参数不合法
+    message: 请求参数不合法
+    description: Request parameters or body shape did not satisfy the formal contract.
     http_status: 400
-    task_status: null
+    retryable: false
+    applies_to: [http, websocket]
+
+  platform.invalid_config:
+    code: platform.invalid_config
+    domain: platform
+    message_key: errors.platform.invalid_config
+    message: 配置校验失败
+    description: Platform configuration did not satisfy the formal config schema or startup constraints.
+    http_status: 400
+    retryable: false
+    applies_to: [http, websocket, readiness]
 
   platform.task_timeout:
+    code: platform.task_timeout
     domain: platform
     message_key: errors.platform.task_timeout
-    default_message:
-      zh-CN: 后台任务超时
+    message: 后台任务超时
+    description: A managed background task exceeded its absolute runtime limit and was forcefully recovered.
     http_status: 504
-    task_status: failed
+    retryable: true
+    applies_to: [http, websocket, task]
+
+  platform.task_not_cancellable:
+    code: platform.task_not_cancellable
+    domain: platform
+    message_key: errors.platform.task_not_cancellable
+    message: 当前任务不可取消
+    description: The task has already entered an irreversible stage and can no longer be cancelled.
+    http_status: 409
+    retryable: false
+    applies_to: [http, websocket, task]
 
   platform.install_script_blocked:
+    code: platform.install_script_blocked
     domain: platform
     message_key: errors.platform.install_script_blocked
-    default_message:
-      zh-CN: 插件安装脚本被默认安全策略阻止
+    message: 插件安装脚本被默认安全策略阻止
+    description: The plugin requested an install-time script that is blocked by the current safety policy.
     http_status: 403
-    task_status: failed
+    retryable: false
+    applies_to: [http, websocket, task]
 
   platform.rate_limited:
+    code: platform.rate_limited
     domain: platform
     message_key: errors.platform.rate_limited
-    default_message:
-      zh-CN: 触发平台级限流
+    message: 触发平台级限流
+    description: A platform-level rate limiter rejected the current action.
     http_status: 429
-    task_status: null
-
-  platform.config_error:
-    domain: platform
-    message_key: errors.platform.config_error
-    default_message:
-      zh-CN: 配置校验失败
-    http_status: 400
-    task_status: failed
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol]
 
   platform.migration_required:
+    code: platform.migration_required
     domain: platform
     message_key: errors.platform.migration_required
-    default_message:
-      zh-CN: 检测到必须先执行迁移
+    message: 检测到必须先执行迁移
+    description: Startup or an operation was blocked because an offline-required migration must run first.
     http_status: 409
-    task_status: failed
+    retryable: false
+    applies_to: [http, websocket, readiness]
 
   platform.resource_missing:
+    code: platform.resource_missing
     domain: platform
     message_key: errors.platform.resource_missing
-    default_message:
-      zh-CN: 必要运行时资源缺失
+    message: 必要运行时资源缺失
+    description: A required managed runtime, browser, or other platform resource was missing.
     http_status: 503
-    task_status: failed
+    retryable: false
+    applies_to: [http, websocket, readiness]
 
   platform.value_too_large:
+    code: platform.value_too_large
     domain: platform
     message_key: errors.platform.value_too_large
-    default_message:
-      zh-CN: 写入值超过大小限制
+    message: 写入值超过大小限制
+    description: A requested value exceeded the configured platform storage size limit.
     http_status: 413
-    task_status: failed
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol]
 
   platform.user_rate_limited:
+    code: platform.user_rate_limited
     domain: platform
     message_key: errors.platform.user_rate_limited
-    default_message:
-      zh-CN: 用户命令触发冷却限流
+    message: 用户命令触发冷却限流
+    description: A chat-side user command was rejected before plugin dispatch because the cooldown window was still active.
     http_status: 429
-    task_status: null
+    retryable: true
+    applies_to: [plugin_protocol, logs]
 
   plugin.not_handled:
+    code: plugin.not_handled
     domain: plugin
     message_key: errors.plugin.not_handled
-    default_message:
-      zh-CN: 插件声明不处理该事件
+    message: 插件声明不处理该事件
+    description: The plugin explicitly reported that it does not handle the current event.
     http_status: null
-    task_status: null
+    retryable: false
+    applies_to: [plugin_protocol]
 
   plugin.internal_error:
+    code: plugin.internal_error
     domain: plugin
     message_key: errors.plugin.internal_error
-    default_message:
-      zh-CN: 插件内部处理异常
+    message: 插件内部处理异常
+    description: The plugin failed while processing an accepted event or action.
     http_status: null
-    task_status: failed
+    retryable: false
+    applies_to: [plugin_protocol, websocket, task]
 
   plugin.init_timeout:
+    code: plugin.init_timeout
     domain: plugin
     message_key: errors.plugin.init_timeout
-    default_message:
-      zh-CN: 插件初始化超时
+    message: 插件初始化超时
+    description: The plugin did not complete init_ack within the allowed initialization window.
     http_status: null
-    task_status: failed
+    retryable: true
+    applies_to: [plugin_protocol, websocket, task]
 
   plugin.stopping:
+    code: plugin.stopping
     domain: plugin
     message_key: errors.plugin.stopping
-    default_message:
-      zh-CN: 插件正在停止，不再接受新动作
+    message: 插件正在停止，不再接受新动作
+    description: The runtime has already started plugin shutdown and rejects newly submitted actions.
     http_status: null
-    task_status: null
+    retryable: false
+    applies_to: [plugin_protocol]
 
   plugin.protocol_violation:
+    code: plugin.protocol_violation
     domain: plugin
     message_key: errors.plugin.protocol_violation
-    default_message:
-      zh-CN: 插件协议违规
+    message: 插件协议违规
+    description: The plugin violated the JSONL protocol, message framing rules, or IPC backpressure limits.
     http_status: null
-    task_status: failed
+    retryable: false
+    applies_to: [plugin_protocol, websocket, task]
 
   plugin.event_timeout:
+    code: plugin.event_timeout
     domain: plugin
     message_key: errors.plugin.event_timeout
-    default_message:
-      zh-CN: 插件事件处理超时
+    message: 插件事件处理超时
+    description: The plugin exceeded the allowed event handling duration.
     http_status: null
-    task_status: failed
+    retryable: true
+    applies_to: [plugin_protocol, websocket, task]
 
   plugin.shutdown_timeout:
+    code: plugin.shutdown_timeout
     domain: plugin
     message_key: errors.plugin.shutdown_timeout
-    default_message:
-      zh-CN: 插件优雅退出超时
+    message: 插件优雅退出超时
+    description: The plugin did not exit within the shutdown grace window and required forced termination.
     http_status: null
-    task_status: failed
+    retryable: true
+    applies_to: [plugin_protocol, websocket, task]
+
+  plugin.install_failed:
+    code: plugin.install_failed
+    domain: plugin
+    message_key: errors.plugin.install_failed
+    message: 插件安装失败
+    description: Plugin installation failed after preflight or environment preparation had already started.
+    http_status: 409
+    retryable: true
+    applies_to: [http, websocket, task]
+
+  plugin.migration_failed:
+    code: plugin.migration_failed
+    domain: plugin
+    message_key: errors.plugin.migration_failed
+    message: 插件数据迁移失败
+    description: A plugin data schema migration failed and the plugin must remain blocked pending manual intervention.
+    http_status: 409
+    retryable: false
+    applies_to: [http, websocket, task]
+
+  plugin.permission_pending:
+    code: plugin.permission_pending
+    domain: plugin
+    message_key: errors.plugin.permission_pending
+    message: 插件尚未完成权限授权
+    description: The plugin requested required capabilities that have not been granted yet, so enablement cannot proceed.
+    http_status: 409
+    retryable: true
+    applies_to: [http, websocket, task]
 
   permission.denied:
+    code: permission.denied
     domain: permission
     message_key: errors.permission.denied
-    default_message:
-      zh-CN: 当前用户无权执行该操作
+    message: 当前用户无权执行该操作
+    description: The caller does not have permission for the requested command or management action.
     http_status: 403
-    task_status: null
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol]
 
   permission.scope_violation:
+    code: permission.scope_violation
     domain: permission
     message_key: errors.permission.scope_violation
-    default_message:
-      zh-CN: 插件访问了未授权作用域
+    message: 插件访问了未授权作用域
+    description: The plugin attempted to access a capability scope that was not granted.
     http_status: 403
-    task_status: failed
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol]
 
   permission.blacklisted:
+    code: permission.blacklisted
     domain: permission
     message_key: errors.permission.blacklisted
-    default_message:
-      zh-CN: 当前用户或群处于黑名单中
+    message: 当前用户或群处于黑名单中
+    description: The event source is blacklisted and the event must not be dispatched to plugins.
     http_status: 403
-    task_status: null
+    retryable: false
+    applies_to: [plugin_protocol, logs]
 
-  adapter.send_failed:
+  adapter.connection_failed:
+    code: adapter.connection_failed
     domain: adapter
-    message_key: errors.adapter.send_failed
-    default_message:
-      zh-CN: 消息发送失败
-    http_status: 502
-    task_status: failed
-
-  adapter.reply_target_missing:
-    domain: adapter
-    message_key: errors.adapter.reply_target_missing
-    default_message:
-      zh-CN: 回复目标不存在或已失效
-    http_status: 409
-    task_status: failed
+    message_key: errors.adapter.connection_failed
+    message: 协议连接建立失败
+    description: The reverse WebSocket handshake or first-packet wait failed before the adapter became connected.
+    http_status: 503
+    retryable: true
+    applies_to: [http, websocket, readiness]
 
   adapter.connection_lost:
+    code: adapter.connection_lost
     domain: adapter
     message_key: errors.adapter.connection_lost
-    default_message:
-      zh-CN: 协议连接已断开
+    message: 协议连接已断开
+    description: An established reverse WebSocket session was lost while the adapter had already been running.
     http_status: 503
-    task_status: failed
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol, readiness]
 
   adapter.auth_failed:
+    code: adapter.auth_failed
     domain: adapter
     message_key: errors.adapter.auth_failed
-    default_message:
-      zh-CN: 协议鉴权失败
+    message: 协议鉴权失败
+    description: The upstream reverse WebSocket handshake was rejected with authentication failure.
     http_status: 401
-    task_status: failed
+    retryable: false
+    applies_to: [http, websocket, readiness]
+
+  adapter.send_failed:
+    code: adapter.send_failed
+    domain: adapter
+    message_key: errors.adapter.send_failed
+    message: 消息发送失败
+    description: The adapter failed to send a message or other supported outbound action to the protocol upstream.
+    http_status: 502
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol]
+
+  adapter.reply_target_missing:
+    code: adapter.reply_target_missing
+    domain: adapter
+    message_key: errors.adapter.reply_target_missing
+    message: 回复目标不存在或已失效
+    description: A requested reply target was missing, deleted, or no longer valid on the upstream platform.
+    http_status: 409
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol]

@@ -1,0 +1,22 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "invalid",
+  "description": "Invalid because events.received must not be used as a raw chat event stream.",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-03-17T09:35:00Z",
+    "data": {
+      "event_id": "evt-raw-chat-0001",
+      "source_protocol": "onebot11",
+      "event_type": "message.group",
+      "message": {
+        "plain_text": "/ping"
+      }
+    }
+  },
+  "expect": {
+    "valid": false,
+    "reason": "events.received is reserved for management summaries, not raw normalized chat events"
+  }
+}

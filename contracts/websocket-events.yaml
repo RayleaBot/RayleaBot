@@ -1,9 +1,18 @@
 version: 1
 description: >
-  Phase 0 skeleton. This file is the only formal source for WebSocket channels,
-  shared envelope, server-push event names, and close semantics.
+  Phase 1 fixture-ready WebSocket contract. This file freezes the shared
+  envelope and the smallest set of server-push event types needed by the
+  management surface.
+x-fixtures:
+  - fixtures/websocket/ok.tasks-updated-running.json
+  - fixtures/websocket/ok.logs-appended.json
+  - fixtures/websocket/ok.plugins-console-stderr.json
+  - fixtures/websocket/edge.events-received-degraded.json
+  - fixtures/websocket/edge.session-expired.json
+  - fixtures/websocket/invalid.events-received-raw-chat.json
 
 envelope:
+  description: Shared envelope for all management WebSocket channels.
   required:
     - channel
     - type
@@ -12,52 +21,225 @@ envelope:
   optional:
     - request_id
     - error
-  error_fields:
-    - code
-    - message
-    - message_key
-    - details
+  properties:
+    channel:
+      type: string
+      enum: [logs, events, tasks, plugin_console]
+    type:
+      type: string
+    timestamp:
+      type: string
+      format: date-time
+    data:
+      type: object
+    request_id:
+      type: string
+    error:
+      type: object
+      required: [code, message_key]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        message_key:
+          type: string
+        details:
+          type: object
 
 channels:
+  - path: /ws/tasks
+    channel: tasks
+    auth: session_token
+    replay_policy: latest_task_updates
+    events:
+      - event: tasks.updated
+        channel: tasks
+        description: Push a task snapshot update for a long-running background task.
+        payload_schema:
+          type: object
+          additionalProperties: false
+          required: [task_id, task_type, status, summary]
+          properties:
+            task_id:
+              type: string
+            task_type:
+              type: string
+              enum:
+                - plugin.install
+                - plugin.uninstall
+                - plugin.reload
+                - backup.create
+                - restore.apply
+                - config.migrate
+                - db.migrate
+                - render.preview
+            status:
+              type: string
+              enum: [pending, running, succeeded, failed, cancelled, interrupted]
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+            summary:
+              type: string
+            result:
+              type: object
+              additionalProperties: false
+              required: [summary]
+              properties:
+                summary:
+                  type: string
+                details:
+                  type: object
+            error:
+              type: object
+              additionalProperties: false
+              required: [code, message]
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
+                details:
+                  type: object
+        required: [task_id, task_type, status, summary]
+        example_ref: fixtures/websocket/ok.tasks-updated-running.json
+
   - path: /ws/logs
     channel: logs
     auth: session_token
     replay_policy: summary_only
-    server_push_types: []
-    notes:
-      - "TODO(contract): define concrete log event type names here before implementing ws/logs."
+    events:
+      - event: logs.appended
+        channel: logs
+        description: Push a structured log line summary to the management surface.
+        payload_schema:
+          type: object
+          additionalProperties: false
+          required: [timestamp, level, source, message]
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            level:
+              type: string
+              enum: [debug, info, warn, error]
+            source:
+              type: string
+            message:
+              type: string
+            plugin_id:
+              type: string
+            request_id:
+              type: string
+        required: [timestamp, level, source, message]
+        example_ref: fixtures/websocket/ok.logs-appended.json
 
   - path: /ws/events
     channel: events
     auth: session_token
     replay_policy: state_changes_only
-    server_push_types: []
-    notes:
-      - "TODO(contract): define service status, plugin status, adapter status, and key event push types here before implementing ws/events."
-
-  - path: /ws/tasks
-    channel: tasks
-    auth: session_token
-    replay_policy: latest_task_updates
-    server_push_types: []
-    notes:
-      - "TODO(contract): define task lifecycle event type names here before implementing ws/tasks."
+    events:
+      - event: events.received
+        channel: events
+        description: >
+          Push a management-facing summary event. This event is not a raw chat
+          event broadcast and must not be used as a general replay stream for
+          protocol events.
+        payload_schema:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [service_status, summary]
+              properties:
+                service_status:
+                  type: string
+                  enum: [setup_required, stopped, starting, running, degraded, stopping, failed]
+                summary:
+                  type: string
+                reason:
+                  type: string
+                reason_codes:
+                  type: array
+                  items:
+                    type: string
+            - type: object
+              additionalProperties: false
+              required: [plugin_id, registration_state, desired_state, runtime_state]
+              properties:
+                plugin_id:
+                  type: string
+                registration_state:
+                  type: string
+                  enum: [installed, removed]
+                desired_state:
+                  type: string
+                  enum: [enabled, disabled]
+                runtime_state:
+                  type: string
+                  enum: [starting, running, stopping, crashed, backoff, dead_letter, stopped]
+                display_state:
+                  type: string
+            - type: object
+              additionalProperties: false
+              required: [connection_status, summary]
+              properties:
+                connection_status:
+                  type: string
+                  enum: [disconnected, connecting, connected, authenticated, auth_failed, reconnecting]
+                summary:
+                  type: string
+            - type: object
+              additionalProperties: false
+              required: [event_type, summary]
+              properties:
+                event_type:
+                  type: string
+                summary:
+                  type: string
+        required:
+          - [service_status, summary]
+          - [plugin_id, registration_state, desired_state, runtime_state]
+          - [connection_status, summary]
+          - [event_type, summary]
+        required_note: The payload must satisfy exactly one of the required field sets above.
+        example_ref: fixtures/websocket/edge.events-received-degraded.json
 
   - path: /ws/plugins/{id}/console
     channel: plugin_console
     auth: session_token
     replay_policy: ring_buffer
-    server_push_types: []
-    notes:
-      - "TODO(contract): define stdout/stderr console frame types here before implementing plugin console streaming."
+    events:
+      - event: plugins.console
+        channel: plugin_console
+        description: Push a single plugin console frame after platform-side redaction and rate limiting.
+        payload_schema:
+          type: object
+          additionalProperties: false
+          required: [plugin_id, stream, text, timestamp]
+          properties:
+            plugin_id:
+              type: string
+            stream:
+              type: string
+              enum: [stdout, stderr, system]
+            text:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+        required: [plugin_id, stream, text, timestamp]
+        example_ref: fixtures/websocket/ok.plugins-console-stderr.json
 
 session_events:
-  - type: session_expired
+  - event: session_expired
     description: >
-      Sent when the current management session has expired or has been invalidated.
-      Client should reconnect with a refreshed session token, or redirect to login/init flow.
-
-close_semantics:
-  notes:
-    - "TODO(contract): define explicit server close reason names here before implementing WS close handling."
-    - "Do not invent per-channel close reason names in server or Web UI before they are added here."
+      Sent when the current management session expires or is invalidated. The
+      client must reconnect with a fresh session token. This event is channel
+      agnostic and does not authorize continued use of an expired connection.
+    payload_schema:
+      type: object
+      additionalProperties: false
+    required: []
+    example_ref: fixtures/websocket/edge.session-expired.json

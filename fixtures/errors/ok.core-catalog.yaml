@@ -1,0 +1,21 @@
+contract: contracts/error-codes.yaml
+case: ok
+description: Core catalog excerpt with required fields and applicability metadata.
+input:
+  codes:
+    - code: platform.task_not_cancellable
+      message_key: errors.platform.task_not_cancellable
+      message: 当前任务不可取消
+      description: The task has already entered an irreversible stage.
+      http_status: 409
+      retryable: false
+      applies_to: [http, websocket, task]
+    - code: plugin.permission_pending
+      message_key: errors.plugin.permission_pending
+      message: 插件尚未完成权限授权
+      description: Required capabilities are still waiting for approval.
+      http_status: 409
+      retryable: true
+      applies_to: [http, websocket, task]
+expect:
+  valid: true

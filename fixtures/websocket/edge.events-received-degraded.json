@@ -1,0 +1,22 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "edge",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-03-17T09:33:00Z",
+    "data": {
+      "service_status": "degraded",
+      "summary": "OneBot authentication failed",
+      "reason": "OneBot authentication failed",
+      "reason_codes": ["adapter.auth_failed"]
+    }
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "This is a management summary event.",
+      "It is not a raw chat event broadcast."
+    ]
+  }
+}

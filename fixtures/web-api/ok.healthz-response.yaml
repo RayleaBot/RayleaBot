@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Minimal healthz response.
+request:
+  method: GET
+  path: /healthz
+response:
+  status: 200
+  body:
+    status: ok
+expect:
+  valid: true

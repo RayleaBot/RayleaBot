@@ -32,6 +32,7 @@ jobs:
 
           root = Path('.')
           contracts = root / 'contracts'
+          fixtures = root / 'fixtures'
 
           required_files = {
               'README.md',
@@ -49,6 +50,22 @@ jobs:
           if missing:
               raise SystemExit(f'missing contract files: {sorted(missing)}')
 
+          required_fixture_dirs = [
+              fixtures / 'config',
+              fixtures / 'web-api',
+              fixtures / 'websocket',
+              fixtures / 'errors',
+          ]
+          for path in required_fixture_dirs:
+              if not path.is_dir():
+                  raise SystemExit(f'missing fixture directory: {path}')
+
+          for path in required_fixture_dirs:
+              names = {p.name for p in path.iterdir() if p.is_file()}
+              for prefix in ['ok.', 'invalid.', 'edge.']:
+                  if not any(name.startswith(prefix) for name in names):
+                      raise SystemExit(f'fixture category {path} must contain at least one file starting with {prefix}')
+
           def load_json(path: Path):
               with path.open('r', encoding='utf-8') as f:
                   return json.load(f)
@@ -56,6 +73,30 @@ jobs:
           def load_yaml(path: Path):
               with path.open('r', encoding='utf-8') as f:
                   return yaml.safe_load(f)
+
+          def load_any(path: Path):
+              if path.suffix == '.json':
+                  return load_json(path)
+              if path.suffix in {'.yaml', '.yml'}:
+                  return load_yaml(path)
+              raise SystemExit(f'unsupported fixture extension: {path}')
+
+          def collect_fixture_refs(document, refs):
+              if isinstance(document, dict):
+                  for key, value in document.items():
+                      if key in {'x-fixtures', 'example_ref'}:
+                          if isinstance(value, list):
+                              refs.extend(value)
+                          else:
+                              refs.append(value)
+                      collect_fixture_refs(value, refs)
+              elif isinstance(document, list):
+                  for item in document:
+                      collect_fixture_refs(item, refs)
+
+          for path in fixtures.rglob('*'):
+              if path.is_file() and path.suffix in {'.json', '.yaml', '.yml'}:
+                  load_any(path)
 
           plugin_info = load_json(contracts / 'plugin-info.schema.json')
           plugin_protocol = load_json(contracts / 'plugin-protocol.schema.json')
@@ -77,40 +118,58 @@ jobs:
                   raise SystemExit(f'plugin-protocol.schema.json missing $defs.{msg}')
 
           props = config_schema.get('properties', {})
-          for top in ['schema_version', 'server', 'onebot', 'runtime', 'adapter', 'render']:
+          for top in ['schema_version', 'server', 'onebot', 'database', 'logging', 'auth', 'runtime', 'render', 'web', 'backup', 'retention']:
               if top not in props:
                   raise SystemExit(f'config.user.schema.json missing top-level property: {top}')
           if props['server']['properties']['host'].get('default') != '127.0.0.1':
               raise SystemExit('config.user.schema.json server.host default must be 127.0.0.1')
           if 'ws_url' not in props['onebot']['properties']:
               raise SystemExit('config.user.schema.json must use onebot.ws_url')
+          if props['database']['properties']['engine'].get('const') != 'sqlite':
+              raise SystemExit('config.user.schema.json database.engine must be fixed to sqlite')
+          if 'path' not in props['database']['properties']:
+              raise SystemExit('config.user.schema.json database.path must exist')
+          auth_props = set(props['auth']['properties'].keys())
+          web_props = set(props['web']['properties'].keys())
+          forbidden_in_auth = {'host', 'port', 'exposure_mode', 'setup_local_only'}
+          forbidden_in_web = {
+              'super_admins',
+              'default_level',
+              'auto_grant_capabilities',
+              'session_ttl_days',
+              'sliding_renewal',
+              'max_sessions',
+              'login_fail_limit',
+              'login_fail_window_seconds',
+          }
+          if auth_props & forbidden_in_auth:
+              raise SystemExit(f'auth must not contain web exposure fields: {sorted(auth_props & forbidden_in_auth)}')
+          if web_props & forbidden_in_web:
+              raise SystemExit(f'web must not contain auth/session fields: {sorted(web_props & forbidden_in_web)}')
 
           if web_api.get('openapi') != '3.1.0':
               raise SystemExit('web-api.openapi.yaml must use OpenAPI 3.1.0')
-          required_paths = [
-              '/api/setup/status',
-              '/api/setup/admin',
-              '/api/session/login',
-              '/api/session',
-              '/api/session/launcher-token',
-              '/api/system/shutdown',
-              '/api/system/status',
-              '/api/plugins',
-              '/api/plugins/install',
-              '/api/plugins/{id}',
-              '/api/plugins/{id}/reload',
-              '/api/config',
-              '/api/logs',
-              '/api/tasks',
-              '/api/tasks/{id}',
-              '/api/tasks/{id}/cancel',
-              '/api/webhooks/{plugin_id}/{route}',
+          required_paths = {
               '/healthz',
               '/readyz',
-          ]
-          for path in required_paths:
-              if path not in web_api.get('paths', {}):
-                  raise SystemExit(f'web-api.openapi.yaml missing path: {path}')
+              '/api/tasks',
+              '/api/tasks/{task_id}',
+              '/api/tasks/{task_id}/cancel',
+              '/api/plugins',
+              '/api/plugins/{plugin_id}',
+              '/api/plugins/{plugin_id}/enable',
+              '/api/plugins/{plugin_id}/disable',
+              '/api/plugins/install',
+          }
+          actual_paths = set(web_api.get('paths', {}).keys())
+          if actual_paths != required_paths:
+              raise SystemExit(f'web-api.openapi.yaml paths must exactly match Phase 1 set: {sorted(required_paths)}; got {sorted(actual_paths)}')
+          if web_api['paths']['/api/plugins/{plugin_id}/enable']['post']['responses'].get('202'):
+              raise SystemExit('enable must be synchronous and must not return 202')
+          if web_api['paths']['/api/plugins/{plugin_id}/disable']['post']['responses'].get('202'):
+              raise SystemExit('disable must be synchronous and must not return 202')
+          if 'task_id' not in web_api['components']['schemas']['TaskAcceptedResponse']['required']:
+              raise SystemExit('TaskAcceptedResponse must require task_id')
 
           channels = {item.get('path') for item in websocket_events.get('channels', [])}
           for expected in ['/ws/logs', '/ws/events', '/ws/tasks', '/ws/plugins/{id}/console']:
@@ -120,20 +179,46 @@ jobs:
           for field in ['channel', 'type', 'timestamp', 'data']:
               if field not in envelope.get('required', []):
                   raise SystemExit(f'websocket-events.yaml envelope missing required field: {field}')
+          event_names = []
+          for channel in websocket_events.get('channels', []):
+              for event in channel.get('events', []):
+                  event_names.append(event.get('event'))
+          required_events = {'tasks.updated', 'logs.appended', 'events.received', 'plugins.console'}
+          if set(event_names) != required_events:
+              raise SystemExit(f'websocket-events.yaml events must exactly match {sorted(required_events)}; got {sorted(event_names)}')
+          events_received = None
+          for channel in websocket_events.get('channels', []):
+              for event in channel.get('events', []):
+                  if event.get('event') == 'events.received':
+                      events_received = event
+                      break
+              if events_received is not None:
+                  break
+          if events_received is None:
+              raise SystemExit('websocket-events.yaml must define events.received')
+          description = events_received.get('description', '')
+          if 'not a raw chat' not in description:
+              raise SystemExit('events.received description must explicitly forbid raw chat event broadcasting')
 
           codes = error_codes.get('codes', {})
           for code in [
               'platform.render_timeout',
               'platform.render_queue_full',
               'platform.invalid_request',
+              'platform.invalid_config',
               'platform.task_timeout',
+              'platform.task_not_cancellable',
               'plugin.not_handled',
               'plugin.internal_error',
               'plugin.init_timeout',
               'plugin.protocol_violation',
+              'plugin.install_failed',
+              'plugin.migration_failed',
+              'plugin.permission_pending',
               'permission.denied',
               'permission.scope_violation',
               'permission.blacklisted',
+              'adapter.connection_failed',
               'adapter.send_failed',
               'adapter.reply_target_missing',
               'adapter.connection_lost',
@@ -141,11 +226,29 @@ jobs:
           ]:
               if code not in codes:
                   raise SystemExit(f'error-codes.yaml missing code: {code}')
-              if 'message_key' not in codes[code]:
-                  raise SystemExit(f'error-codes.yaml code missing message_key: {code}')
+              for field in ['code', 'message_key', 'message', 'description', 'http_status', 'retryable', 'applies_to']:
+                  if field not in codes[code]:
+                      raise SystemExit(f'error-codes.yaml code missing {field}: {code}')
+
+          contracts_snapshot = json.dumps({'error_codes': error_codes, 'websocket_events': websocket_events}, ensure_ascii=False)
+          for legacy in ['platform.config_error', '"task.updated"']:
+              if legacy in contracts_snapshot:
+                  raise SystemExit(f'legacy Phase 0 or prose-only name leaked into formal contracts: {legacy}')
 
           if 'oneOf' not in release_schema:
               raise SystemExit('release-manifest.schema.json must distinguish release_manifest and build_info via oneOf')
+
+          refs = []
+          for document in [config_schema, error_codes, web_api, websocket_events]:
+              collect_fixture_refs(document, refs)
+          if not refs:
+              raise SystemExit('Phase 1 contracts must declare fixture references')
+          for ref in refs:
+              ref_path = root / ref
+              if not ref_path.exists():
+                  raise SystemExit(f'missing referenced fixture: {ref}')
+              if ref_path.is_file() and ref_path.suffix in {'.json', '.yaml', '.yml'}:
+                  load_any(ref_path)
 
           print('contracts validation passed')
           PY

@@ -3,390 +3,233 @@ info:
   title: RayleaBot Web API
   version: 0.1.0
   description: >
-    Phase 0 skeleton. This file is the only formal source for HTTP API shape.
-    Any TODOs in this file must be resolved here before Web API or Web UI business implementation starts.
-servers:
-  - url: http://127.0.0.1:8080
+    Phase 1 fixture-ready HTTP contract. This file intentionally contains only
+    the ten management routes that are frozen in this round. Other planned
+    routes remain TODOs in contracts/README.md and are not formalized here yet.
+x-fixtures:
+  - fixtures/web-api/ok.healthz-response.yaml
+  - fixtures/web-api/ok.plugins-install-accepted.yaml
+  - fixtures/web-api/ok.plugins-enable-response.yaml
+  - fixtures/web-api/edge.plugins-disable-response.yaml
+  - fixtures/web-api/edge.readyz-degraded-response.yaml
+  - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
 
 paths:
-  /api/setup/status:
-    get:
-      summary: Query whether the service is in setup_required mode.
-      responses:
-        '200':
-          description: Setup mode snapshot.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SetupStatus'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/setup/admin:
-    post:
-      summary: Create the first administrator during setup_required.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              description: 'TODO(contract): formalize setup request body here before implementation.'
-      responses:
-        '201':
-          description: First administrator created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/session/login:
-    post:
-      summary: Administrator login.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              description: 'TODO(contract): formalize login request body here before implementation.'
-      responses:
-        '200':
-          description: Login succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/session:
-    delete:
-      summary: Logout current management session.
-      responses:
-        '204':
-          description: Session deleted.
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/session/launcher-token:
-    post:
-      summary: Issue a one-time launcher token for local browser bootstrap.
-      responses:
-        '200':
-          description: One-time launcher token issued.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LauncherTokenEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/shutdown:
-    post:
-      summary: Trigger in-process graceful shutdown.
-      responses:
-        '200':
-          description: Shutdown accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AckEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/status:
-    get:
-      summary: Query service status, version, uptime, and adapter state.
-      responses:
-        '200':
-          description: System status snapshot.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SystemStatus'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/plugins:
-    get:
-      summary: List plugins and tri-layer states.
-      responses:
-        '200':
-          description: Plugin list.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PluginList'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      summary: Reserved. Phase 0 does not define plugin creation through HTTP.
-      responses:
-        '405':
-          description: Method not allowed.
-
-  /api/plugins/install:
-    post:
-      summary: Start asynchronous plugin install.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              description: 'TODO(contract): formalize install source request body here before implementation.'
-      responses:
-        '202':
-          description: Install task accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskAccepted'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/plugins/{id}:
-    parameters:
-      - $ref: '#/components/parameters/PluginId'
-    patch:
-      summary: Enable, disable, or restart a plugin.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              description: 'TODO(contract): formalize plugin patch body here before implementation.'
-      responses:
-        '200':
-          description: Plugin state change accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AckEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-    delete:
-      summary: Uninstall a plugin.
-      responses:
-        '200':
-          description: Uninstall request accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AckEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/plugins/{id}/reload:
-    parameters:
-      - $ref: '#/components/parameters/PluginId'
-    post:
-      summary: Trigger plugin hot reload.
-      responses:
-        '202':
-          description: Reload task accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskAccepted'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/config:
-    get:
-      summary: Read public-safe config snapshot.
-      responses:
-        '200':
-          description: Current public config snapshot.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                description: 'TODO(contract): define redacted config response body here before implementation.'
-        default:
-          $ref: '#/components/responses/Error'
-    put:
-      summary: Update base configuration.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              description: 'TODO(contract): define config update request body here before implementation.'
-      responses:
-        '200':
-          description: Config update accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AckEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/logs:
-    get:
-      summary: Query structured log slices.
-      responses:
-        '200':
-          description: Log query result.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                description: 'TODO(contract): formalize log query response here before implementation.'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/tasks:
-    get:
-      summary: Query recent tasks with optional filters.
-      responses:
-        '200':
-          description: Task list.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                description: 'TODO(contract): formalize task list response here before implementation.'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/tasks/{id}:
-    parameters:
-      - $ref: '#/components/parameters/TaskId'
-    get:
-      summary: Query task snapshot.
-      responses:
-        '200':
-          description: Task snapshot.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                description: 'TODO(contract): formalize task snapshot response here before implementation.'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/tasks/{id}/cancel:
-    parameters:
-      - $ref: '#/components/parameters/TaskId'
-    post:
-      summary: Cancel a cancellable task.
-      responses:
-        '202':
-          description: Cancellation accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AckEnvelope'
-        '409':
-          description: Task is no longer cancellable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/webhooks/{plugin_id}/{route}:
-    parameters:
-      - $ref: '#/components/parameters/PluginIdPath'
-      - $ref: '#/components/parameters/WebhookRoute'
-    post:
-      summary: Controlled inbound webhook entry for plugins with granted capability.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '202':
-          description: Webhook accepted for controlled dispatch.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AckEnvelope'
-        default:
-          $ref: '#/components/responses/Error'
-
   /healthz:
     get:
-      summary: Liveness probe.
+      summary: Probe whether the RayleaBot process is alive.
+      operationId: getHealthz
       responses:
         '200':
-          description: Process is alive.
+          description: Process liveness status.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthStatus'
+                $ref: '#/components/schemas/LivenessStatusResponse'
         default:
           $ref: '#/components/responses/Error'
 
   /readyz:
     get:
-      summary: Readiness probe.
+      summary: Probe whether the management surface is ready for normal use.
+      operationId: getReadyz
       responses:
         '200':
           description: Service is ready or degraded-but-manageable.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthStatus'
+                $ref: '#/components/schemas/ReadinessStatusResponse'
         '503':
-          description: Service is not ready.
+          description: Service is not ready yet.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthStatus'
+                $ref: '#/components/schemas/ReadinessStatusResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/tasks:
+    get:
+      summary: List recent background tasks.
+      operationId: listTasks
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+        - name: task_type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TaskType'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Recent task snapshots.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/tasks/{task_id}:
+    get:
+      summary: Get a background task snapshot.
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Latest task snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/tasks/{task_id}/cancel:
+    post:
+      summary: Request cancellation for a cancellable background task.
+      operationId: cancelTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '202':
+          description: Cancellation request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins:
+    get:
+      summary: List registered plugins with tri-layer state snapshots.
+      operationId: listPlugins
+      responses:
+        '200':
+          description: Plugin list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}:
+    get:
+      summary: Get one plugin snapshot.
+      operationId: getPlugin
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Latest plugin snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/enable:
+    post:
+      summary: Set the plugin desired_state to enabled.
+      operationId: enablePlugin
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Desired state updated. The runtime may still be catching up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/disable:
+    post:
+      summary: Set the plugin desired_state to disabled.
+      operationId: disablePlugin
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Desired state updated. The runtime may still be stopping the plugin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/install:
+    post:
+      summary: Start asynchronous plugin installation from a local source.
+      operationId: installPlugin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginInstallRequest'
+      responses:
+        '202':
+          description: Installation task accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
         default:
           $ref: '#/components/responses/Error'
 
 components:
   parameters:
-    PluginId:
-      name: id
+    TaskId:
+      name: task_id
       in: path
       required: true
       schema:
         type: string
-    PluginIdPath:
+        minLength: 1
+    PluginId:
       name: plugin_id
       in: path
       required: true
       schema:
         type: string
-    WebhookRoute:
-      name: route
-      in: path
-      required: true
-      schema:
-        type: string
-    TaskId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
+        minLength: 1
 
   responses:
     Error:
-      description: Standard error envelope.
+      description: Standard structured error response.
       content:
         application/json:
           schema:
@@ -415,93 +258,23 @@ components:
               type: object
               additionalProperties: true
 
-    AckEnvelope:
-      type: object
-      additionalProperties: false
-      required: [ok]
-      properties:
-        ok:
-          type: boolean
-          const: true
-
-    TaskAccepted:
-      type: object
-      additionalProperties: false
-      required: [task_id]
-      properties:
-        task_id:
-          type: string
-
-    SessionEnvelope:
-      type: object
-      additionalProperties: false
-      required: [session]
-      properties:
-        session:
-          type: object
-          additionalProperties: true
-
-    LauncherTokenEnvelope:
-      type: object
-      additionalProperties: false
-      required: [token]
-      properties:
-        token:
-          type: string
-
-    SetupStatus:
+    LivenessStatusResponse:
       type: object
       additionalProperties: false
       required: [status]
       properties:
         status:
           type: string
-          enum: [setup_required, ready]
+          const: ok
 
-    PluginList:
-      type: object
-      additionalProperties: false
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            additionalProperties: true
-            required:
-              - id
-              - registration_state
-              - desired_state
-              - runtime_state
-            properties:
-              id:
-                type: string
-              registration_state:
-                type: string
-              desired_state:
-                type: string
-              runtime_state:
-                type: string
-              display_state:
-                type: string
-
-    SystemStatus:
-      type: object
-      additionalProperties: true
-      required: [service_status]
-      properties:
-        service_status:
-          type: string
-        connection_status:
-          type: string
-
-    HealthStatus:
+    ReadinessStatusResponse:
       type: object
       additionalProperties: false
       required: [status]
       properties:
         status:
           type: string
+          enum: [ready, degraded, setup_required, failed]
         reason:
           type: string
         reason_codes:
@@ -510,5 +283,168 @@ components:
             type: string
         checks:
           type: object
-          additionalProperties:
-            type: string
+          additionalProperties: false
+          properties:
+            config:
+              type: string
+            database:
+              type: string
+            runtime:
+              type: string
+            adapter:
+              type: string
+            render:
+              type: string
+
+    TaskStatus:
+      type: string
+      enum: [pending, running, succeeded, failed, cancelled, interrupted]
+
+    TaskType:
+      type: string
+      enum:
+        - plugin.install
+        - plugin.uninstall
+        - plugin.reload
+        - backup.create
+        - restore.apply
+        - config.migrate
+        - db.migrate
+        - render.preview
+
+    TaskErrorSummary:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    TaskResultSummary:
+      type: object
+      additionalProperties: false
+      required: [summary]
+      properties:
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    TaskSummary:
+      type: object
+      additionalProperties: false
+      required: [task_id, task_type, status, summary]
+      properties:
+        task_id:
+          type: string
+        task_type:
+          $ref: '#/components/schemas/TaskType'
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        summary:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        result:
+          $ref: '#/components/schemas/TaskResultSummary'
+        error:
+          $ref: '#/components/schemas/TaskErrorSummary'
+
+    TaskListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskSummary'
+
+    TaskDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [task]
+      properties:
+        task:
+          $ref: '#/components/schemas/TaskSummary'
+
+    TaskAcceptedResponse:
+      type: object
+      additionalProperties: false
+      required: [task_id]
+      properties:
+        task_id:
+          type: string
+
+    PluginRegistrationState:
+      type: string
+      enum: [installed, removed]
+
+    PluginDesiredState:
+      type: string
+      enum: [enabled, disabled]
+
+    PluginRuntimeState:
+      type: string
+      enum: [starting, running, stopping, crashed, backoff, dead_letter, stopped]
+
+    PluginSummary:
+      type: object
+      additionalProperties: false
+      required: [id, registration_state, desired_state, runtime_state]
+      properties:
+        id:
+          type: string
+        registration_state:
+          $ref: '#/components/schemas/PluginRegistrationState'
+        desired_state:
+          $ref: '#/components/schemas/PluginDesiredState'
+        runtime_state:
+          $ref: '#/components/schemas/PluginRuntimeState'
+        display_state:
+          type: string
+
+    PluginListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginSummary'
+
+    PluginDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [plugin]
+      properties:
+        plugin:
+          $ref: '#/components/schemas/PluginSummary'
+
+    PluginInstallRequest:
+      type: object
+      additionalProperties: false
+      required: [source_type, source]
+      properties:
+        source_type:
+          type: string
+          enum: [local_zip, local_directory]
+        source:
+          type: string
+          minLength: 1
+          description: Local filesystem path to the plugin package or directory.

@@ -1,0 +1,13 @@
+contract: contracts/error-codes.yaml
+case: invalid
+description: Invalid catalog excerpt because required fields are missing.
+input:
+  codes:
+    - code: adapter.auth_failed
+      message: 协议鉴权失败
+      description: Missing message_key and applies_to on purpose.
+      http_status: 401
+      retryable: false
+expect:
+  valid: false
+  reason: Each error entry must include at least code, message_key, message, description, http_status, retryable, and applies_to.

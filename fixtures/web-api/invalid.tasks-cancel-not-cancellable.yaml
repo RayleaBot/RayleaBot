@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Cancel is rejected once a task enters a non-cancellable phase.
+request:
+  method: POST
+  path: /api/tasks/task_plugin_reload_0009/cancel
+response:
+  status: 409
+  body:
+    error:
+      code: platform.task_not_cancellable
+      message: 当前任务不可取消
+      message_key: errors.platform.task_not_cancellable
+      request_id: req_cancel_0009
+      details:
+        task_id: task_plugin_reload_0009
+        status: running
+expect:
+  valid: true

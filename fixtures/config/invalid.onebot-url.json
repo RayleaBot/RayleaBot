@@ -1,0 +1,83 @@
+{
+  "contract": "contracts/config.user.schema.json",
+  "case": "invalid",
+  "description": "Invalid because onebot.ws_url must use ws:// or wss://.",
+  "input": {
+    "schema_version": "1",
+    "server": {
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    "onebot": {
+      "ws_url": "http://127.0.0.1:6700",
+      "access_token": "",
+      "connect_timeout_seconds": 15,
+      "reconnect_initial_seconds": 2,
+      "reconnect_multiplier": 2,
+      "reconnect_max_seconds": 120,
+      "reconnect_jitter_ratio": 0.2
+    },
+    "database": {
+      "engine": "sqlite",
+      "path": "data/rayleabot.db"
+    },
+    "logging": {
+      "level": "info",
+      "retention_days": 7,
+      "rate_limit_per_plugin": "200/10s"
+    },
+    "auth": {
+      "super_admins": [],
+      "default_level": "everyone",
+      "auto_grant_capabilities": [],
+      "session_ttl_days": 7,
+      "sliding_renewal": true,
+      "max_sessions": 3,
+      "login_fail_limit": 5,
+      "login_fail_window_seconds": 300
+    },
+    "runtime": {
+      "scheduler_timezone": "",
+      "plugin_init_timeout_seconds": 30,
+      "plugin_init_max_total_seconds": 300,
+      "plugin_event_timeout_seconds": 60,
+      "max_pending_events_per_plugin": 16,
+      "max_pending_control_events_per_plugin": 4,
+      "nodejs_max_old_space_size_mb": 256,
+      "dependency_install_timeout_seconds": 900,
+      "max_concurrent_dependency_installs": 1,
+      "ipc_pending_actions_max": 256,
+      "ipc_action_burst_limit": "100/1s",
+      "stderr_rate_limit_bytes_per_second": 262144,
+      "max_concurrent_tasks_per_plugin": 4,
+      "crash_backoff_initial_seconds": 2,
+      "crash_backoff_max_seconds": 60,
+      "shutdown_grace_seconds": 10,
+      "ipc_message_max_bytes": 8388608
+    },
+    "render": {
+      "worker_count": 1,
+      "browser_args": ["--disable-gpu"],
+      "browser_path": "",
+      "timeout_seconds": 30,
+      "queue_wait_timeout_seconds": 15,
+      "queue_max_length": 32
+    },
+    "web": {
+      "exposure_mode": "localhost_only",
+      "setup_local_only": true
+    },
+    "backup": {
+      "default_consistency": "offline"
+    },
+    "retention": {
+      "audit_logs_retention_days": 90,
+      "event_records_retention_days": 7,
+      "download_cache_retention_days": 15
+    }
+  },
+  "expect": {
+    "valid": false,
+    "reason": "onebot.ws_url must satisfy the formal reverse WebSocket URI constraint"
+  }
+}
