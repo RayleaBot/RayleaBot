@@ -33,6 +33,7 @@ jobs:
           root = Path('.')
           contracts = root / 'contracts'
           fixtures = root / 'fixtures'
+          examples = root / 'examples'
 
           required_files = {
               'README.md',
@@ -59,9 +60,17 @@ jobs:
               fixtures / 'plugin-protocol',
               fixtures / 'release-manifest',
           ]
+          required_example_files = [
+              examples / 'plugins' / 'hello-python' / 'info.json',
+              examples / 'plugins' / 'hello-node' / 'info.json',
+          ]
           for path in required_fixture_dirs:
               if not path.is_dir():
                   raise SystemExit(f'missing fixture directory: {path}')
+
+          for path in required_example_files:
+              if not path.is_file():
+                  raise SystemExit(f'missing example manifest: {path}')
 
           for path in required_fixture_dirs:
               names = {p.name for p in path.iterdir() if p.is_file()}
@@ -100,6 +109,9 @@ jobs:
           for path in fixtures.rglob('*'):
               if path.is_file() and path.suffix in {'.json', '.yaml', '.yml'}:
                   load_any(path)
+
+          for path in required_example_files:
+              load_json(path)
 
           plugin_info = load_json(contracts / 'plugin-info.schema.json')
           plugin_protocol = load_json(contracts / 'plugin-protocol.schema.json')

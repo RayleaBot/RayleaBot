@@ -1,0 +1,21 @@
+{
+  "id": "hello-python",
+  "name": "Hello Python",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Contract-aligned Python example plugin for the minimum init and event/result flow.",
+  "author": "raylea",
+  "capabilities": [
+    "event.subscribe",
+    "logger.write"
+  ],
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}

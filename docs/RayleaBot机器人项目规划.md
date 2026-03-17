@@ -112,7 +112,7 @@ RayleaBot
 │
 ├─ server
 │  ├─ cmd
-│  │  └─ raylea
+│  │  └─ raylea-server
 │  │     └─ main.go
 │  ├─ internal
 │  │  ├─ adapter
@@ -3594,7 +3594,7 @@ Launcher 与 Server 通信机制：
 
 默认构建与测试命令应一并固定：
 
-- Server：默认构建命令为 `go build ./cmd/raylea`，默认测试命令为 `go test ./...`。
+- Server：默认构建命令为 `go build ./cmd/raylea-server`，默认测试命令为 `go test ./...`。
 - Web：默认安装命令为 `pnpm install --frozen-lockfile`，本地开发命令为 `pnpm dev`，生产构建命令为 `pnpm build`。
 - Web 测试：默认单元 / 组件测试工具固定为 Vitest，命令建议统一为 `pnpm test`；默认端到端 / 管理台关键流程测试工具固定为 Playwright，命令建议统一为 `pnpm test:e2e`。
 - Launcher：默认构建命令为 `dotnet publish ./launcher -c Release`，默认测试命令为 `dotnet test ./launcher`。

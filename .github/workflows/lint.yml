@@ -114,6 +114,16 @@ jobs:
               if snippet not in baseline:
                   raise SystemExit(f'baseline.md missing expected snippet: {snippet}')
 
+          command_snippet = 'go build ./cmd/raylea-server'
+          docs_to_check = {
+              'AGENTS.md': (root / 'AGENTS.md').read_text(encoding='utf-8'),
+              'docs/engineering/baseline.md': baseline,
+              'docs/engineering/implementation-order.md': (root / 'docs' / 'engineering' / 'implementation-order.md').read_text(encoding='utf-8'),
+          }
+          for label, text in docs_to_check.items():
+              if command_snippet not in text:
+                  raise SystemExit(f'{label} must mention the Phase 3 server build command: {command_snippet}')
+
           manifest = json.loads((root / '.deps' / 'manifest.json').read_text(encoding='utf-8'))
           if manifest.get('manifest_version') != 1:
               raise SystemExit('.deps/manifest.json manifest_version must be 1')
@@ -131,3 +141,23 @@ jobs:
 
           print('baseline validation passed')
           PY
+
+  server-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Run go test
+        working-directory: server
+        run: go test ./...
+
+      - name: Build server shell
+        working-directory: server
+        run: go build ./cmd/raylea-server

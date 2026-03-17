@@ -63,7 +63,7 @@ v0.1 暂不纳入：
 
 ### Server
 
-- 构建：`go build ./cmd/raylea`
+- 构建：`go build ./cmd/raylea-server`
 - 测试：`go test ./...`
 
 ### Web

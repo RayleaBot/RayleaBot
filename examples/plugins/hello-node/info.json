@@ -1,0 +1,21 @@
+{
+  "id": "hello-node",
+  "name": "Hello Node",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "nodejs",
+  "entry": "index.js",
+  "license": "MIT",
+  "description": "Contract-aligned Node.js example plugin for the minimum init and event/result flow.",
+  "author": "raylea",
+  "capabilities": [
+    "event.subscribe",
+    "logger.write"
+  ],
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}

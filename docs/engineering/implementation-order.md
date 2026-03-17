@@ -15,7 +15,7 @@
 ## 3. server 内核骨架
 
 前置条件：plugin manifest、plugin protocol、config schema、错误码、健康接口契约已稳定到可依赖。
-产出物：`server/cmd/raylea` 入口、基础包结构、配置加载入口、健康接口占位、状态模型占位、空的 repository/service 边界。
+产出物：`server/cmd/raylea-server` 入口、基础包结构、配置加载入口、健康接口占位、状态模型占位、空的 repository/service 边界。
 暂不做什么：不写 OneBot 适配逻辑、不写插件运行逻辑、不写正式 Web API 业务逻辑。
 
 ## 4. adapter
