@@ -7,6 +7,7 @@ type Snapshot struct {
 	Name              string
 	Version           string
 	Runtime           string
+	Entry             string
 	Description       string
 	ManifestPath      string
 	SourceRoot        string

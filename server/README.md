@@ -2,7 +2,7 @@
 
 本目录承载 RayleaBot 的 Go 服务端工程。
 
-Phase 5 范围：
+Phase 6 范围：
 
 - 读取 `-config` 和 `-config-schema`。
 - 解析 YAML 配置。
@@ -21,6 +21,13 @@ Phase 5 范围：
 - 在 adapter 内对接收到的 OneBot 帧做最小只读 intake 分类。
 - 仅维护内存 observability：最近帧类别、最近心跳、是否见过心跳、累计帧数、无效帧数。
 - intake observability 只复用现有日志与 readiness 相关内部状态，不新增外部 API。
+- 建立最小 plugin runtime manager vertical slice。
+- 仅支持从已发现且 manifest 有效的插件快照构建 runtime spec。
+- 仅支持最小 plugin protocol 握手：
+  - platform 发送 `init`
+  - plugin 返回 `init_ack`
+- 在内存中维护最小 runtime lifecycle 状态。
+- 支持最小 `shutdown(stop)` 退出路径。
 - 建立最小任务状态类型和只读内存注册表骨架。
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
@@ -37,7 +44,9 @@ Phase 5 范围：
 
 当前明确未实现：
 
-- 插件进程拉起、插件 IPC、plugin protocol bridge。
+- adapter 到 plugin 的事件投递。
+- 插件 action 请求、send / reply / API 调用。
+- `init/init_ack` 之外的 plugin protocol bridge。
 - `/api/tasks`、插件安装、启用、禁用等写操作 API。
 - OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
@@ -48,6 +57,7 @@ Phase 5 范围：
 - 文件监听热刷新与目录热刷新。
 - 权限授予流程执行、迁移执行与持久化 desired_state。
 - 多协议或多 adapter 抽象。
+- runtime restart loop、通用 supervisor、热重载。
 
 当前插件状态边界：
 
@@ -66,3 +76,12 @@ Phase 5 范围：
 - `reconnecting`：连接失败、断开或心跳超时后，正在等待下一次窄退避重连。
 - `stopped`：服务关闭时 adapter 已停止。
 - `/readyz` 在 adapter 未连接成功时会保守返回 `degraded`，但 `/healthz` 仍只表示进程存活。
+
+当前 runtime 状态边界：
+
+- `starting`：子进程已拉起，正在等待 `init_ack`。
+- `running`：已完成最小 `init -> init_ack` 握手。
+- `stopping`：已发送 `shutdown(stop)`，正在等待退出。
+- `stopped`：未运行、已退出，或最小握手失败后已回到静止态。
+- 当前 runtime 状态只用于最小内部生命周期跟踪，不会在本轮被扩展成写操作 API 或虚假的 readiness。
+- 当前 runtime shell 仍假定宿主机可直接提供 `python` / `node` 命令；托管 runtime 解析与绑定不在本轮范围内。

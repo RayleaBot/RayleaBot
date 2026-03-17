@@ -226,6 +226,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		Name:              stringField(manifest, "name"),
 		Version:           stringField(manifest, "version"),
 		Runtime:           stringField(manifest, "runtime"),
+		Entry:             stringField(manifest, "entry"),
 		Description:       stringField(manifest, "description"),
 		ManifestPath:      displayPath(repoRoot, infoPath),
 		SourceRoot:        sourceRoot,

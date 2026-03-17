@@ -18,6 +18,7 @@ import (
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/plugins"
+	"rayleabot/server/internal/runtime"
 	"rayleabot/server/internal/schema"
 	"rayleabot/server/internal/tasks"
 )
@@ -28,14 +29,15 @@ type Options struct {
 }
 
 type App struct {
-	Config    config.Config
-	Summary   config.Summary
-	Logger    *slog.Logger
-	Tasks     *tasks.Registry
-	Plugins   *plugins.Catalog
-	Adapter   *adapter.Shell
-	router    http.Handler
-	server    *http.Server
+	Config  config.Config
+	Summary config.Summary
+	Logger  *slog.Logger
+	Tasks   *tasks.Registry
+	Plugins *plugins.Catalog
+	Adapter *adapter.Shell
+	Runtime *runtime.Manager
+	router  http.Handler
+	server  *http.Server
 }
 
 func New(options Options) (*App, error) {
@@ -55,6 +57,7 @@ func New(options Options) (*App, error) {
 		return nil, err
 	}
 	adapterShell := adapter.New(cfg.OneBot, logger)
+	runtimeManager := runtime.New(logger)
 
 	application := &App{
 		Config:  cfg,
@@ -63,6 +66,7 @@ func New(options Options) (*App, error) {
 		Tasks:   taskRegistry,
 		Plugins: pluginCatalog,
 		Adapter: adapterShell,
+		Runtime: runtimeManager,
 	}
 
 	router := chi.NewRouter()
@@ -125,6 +129,12 @@ func (a *App) Run(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		a.Logger.Info("http server shutting down", "component", "app", "listen_addr", a.server.Addr)
+		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer runtimeStopCancel()
+		if err := a.Runtime.Stop(runtimeStopCtx); err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("stop runtime manager: %w", err)
+		}
+
 		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer adapterStopCancel()
 		if err := a.Adapter.Stop(adapterStopCtx); err != nil && !errors.Is(err, context.Canceled) {
@@ -135,6 +145,12 @@ func (a *App) Run(ctx context.Context) error {
 		defer cancel()
 		return a.server.Shutdown(shutdownCtx)
 	case err := <-errCh:
+		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer runtimeStopCancel()
+		if stopErr := a.Runtime.Stop(runtimeStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
+			return fmt.Errorf("stop runtime manager after http server error: %w", stopErr)
+		}
+
 		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer adapterStopCancel()
 		if stopErr := a.Adapter.Stop(adapterStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
