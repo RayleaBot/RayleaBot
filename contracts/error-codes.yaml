@@ -1,0 +1,207 @@
+version: 1
+domains:
+  - platform
+  - plugin
+  - permission
+  - adapter
+
+codes:
+  platform.render_timeout:
+    domain: platform
+    message_key: errors.platform.render_timeout
+    default_message:
+      zh-CN: 渲染任务超时
+    http_status: 504
+    task_status: failed
+
+  platform.render_queue_full:
+    domain: platform
+    message_key: errors.platform.render_queue_full
+    default_message:
+      zh-CN: 渲染队列已满
+    http_status: 429
+    task_status: failed
+
+  platform.invalid_request:
+    domain: platform
+    message_key: errors.platform.invalid_request
+    default_message:
+      zh-CN: 请求参数不合法
+    http_status: 400
+    task_status: null
+
+  platform.task_timeout:
+    domain: platform
+    message_key: errors.platform.task_timeout
+    default_message:
+      zh-CN: 后台任务超时
+    http_status: 504
+    task_status: failed
+
+  platform.install_script_blocked:
+    domain: platform
+    message_key: errors.platform.install_script_blocked
+    default_message:
+      zh-CN: 插件安装脚本被默认安全策略阻止
+    http_status: 403
+    task_status: failed
+
+  platform.rate_limited:
+    domain: platform
+    message_key: errors.platform.rate_limited
+    default_message:
+      zh-CN: 触发平台级限流
+    http_status: 429
+    task_status: null
+
+  platform.config_error:
+    domain: platform
+    message_key: errors.platform.config_error
+    default_message:
+      zh-CN: 配置校验失败
+    http_status: 400
+    task_status: failed
+
+  platform.migration_required:
+    domain: platform
+    message_key: errors.platform.migration_required
+    default_message:
+      zh-CN: 检测到必须先执行迁移
+    http_status: 409
+    task_status: failed
+
+  platform.resource_missing:
+    domain: platform
+    message_key: errors.platform.resource_missing
+    default_message:
+      zh-CN: 必要运行时资源缺失
+    http_status: 503
+    task_status: failed
+
+  platform.value_too_large:
+    domain: platform
+    message_key: errors.platform.value_too_large
+    default_message:
+      zh-CN: 写入值超过大小限制
+    http_status: 413
+    task_status: failed
+
+  platform.user_rate_limited:
+    domain: platform
+    message_key: errors.platform.user_rate_limited
+    default_message:
+      zh-CN: 用户命令触发冷却限流
+    http_status: 429
+    task_status: null
+
+  plugin.not_handled:
+    domain: plugin
+    message_key: errors.plugin.not_handled
+    default_message:
+      zh-CN: 插件声明不处理该事件
+    http_status: null
+    task_status: null
+
+  plugin.internal_error:
+    domain: plugin
+    message_key: errors.plugin.internal_error
+    default_message:
+      zh-CN: 插件内部处理异常
+    http_status: null
+    task_status: failed
+
+  plugin.init_timeout:
+    domain: plugin
+    message_key: errors.plugin.init_timeout
+    default_message:
+      zh-CN: 插件初始化超时
+    http_status: null
+    task_status: failed
+
+  plugin.stopping:
+    domain: plugin
+    message_key: errors.plugin.stopping
+    default_message:
+      zh-CN: 插件正在停止，不再接受新动作
+    http_status: null
+    task_status: null
+
+  plugin.protocol_violation:
+    domain: plugin
+    message_key: errors.plugin.protocol_violation
+    default_message:
+      zh-CN: 插件协议违规
+    http_status: null
+    task_status: failed
+
+  plugin.event_timeout:
+    domain: plugin
+    message_key: errors.plugin.event_timeout
+    default_message:
+      zh-CN: 插件事件处理超时
+    http_status: null
+    task_status: failed
+
+  plugin.shutdown_timeout:
+    domain: plugin
+    message_key: errors.plugin.shutdown_timeout
+    default_message:
+      zh-CN: 插件优雅退出超时
+    http_status: null
+    task_status: failed
+
+  permission.denied:
+    domain: permission
+    message_key: errors.permission.denied
+    default_message:
+      zh-CN: 当前用户无权执行该操作
+    http_status: 403
+    task_status: null
+
+  permission.scope_violation:
+    domain: permission
+    message_key: errors.permission.scope_violation
+    default_message:
+      zh-CN: 插件访问了未授权作用域
+    http_status: 403
+    task_status: failed
+
+  permission.blacklisted:
+    domain: permission
+    message_key: errors.permission.blacklisted
+    default_message:
+      zh-CN: 当前用户或群处于黑名单中
+    http_status: 403
+    task_status: null
+
+  adapter.send_failed:
+    domain: adapter
+    message_key: errors.adapter.send_failed
+    default_message:
+      zh-CN: 消息发送失败
+    http_status: 502
+    task_status: failed
+
+  adapter.reply_target_missing:
+    domain: adapter
+    message_key: errors.adapter.reply_target_missing
+    default_message:
+      zh-CN: 回复目标不存在或已失效
+    http_status: 409
+    task_status: failed
+
+  adapter.connection_lost:
+    domain: adapter
+    message_key: errors.adapter.connection_lost
+    default_message:
+      zh-CN: 协议连接已断开
+    http_status: 503
+    task_status: failed
+
+  adapter.auth_failed:
+    domain: adapter
+    message_key: errors.adapter.auth_failed
+    default_message:
+      zh-CN: 协议鉴权失败
+    http_status: 401
+    task_status: failed

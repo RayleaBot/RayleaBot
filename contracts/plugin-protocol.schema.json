@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
+  "title": "RayleaBot Plugin JSONL Protocol",
+  "oneOf": [
+    { "$ref": "#/$defs/init" },
+    { "$ref": "#/$defs/init_ack" },
+    { "$ref": "#/$defs/init_progress" },
+    { "$ref": "#/$defs/event" },
+    { "$ref": "#/$defs/action" },
+    { "$ref": "#/$defs/result" },
+    { "$ref": "#/$defs/error" },
+    { "$ref": "#/$defs/ping" },
+    { "$ref": "#/$defs/pong" },
+    { "$ref": "#/$defs/shutdown" }
+  ],
+  "$defs": {
+    "common": {
+      "type": "object",
+      "required": ["protocol_version", "type", "timestamp", "plugin_id", "request_id"],
+      "properties": {
+        "protocol_version": { "type": "string", "const": "1" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "integer" },
+        "plugin_id": { "type": "string", "minLength": 1 },
+        "request_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "init": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "init" },
+            "bot": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string" },
+                "nickname": { "type": "string" }
+              }
+            },
+            "capabilities": {
+              "type": "array",
+              "items": { "type": "string" },
+              "uniqueItems": true
+            }
+          },
+          "required": ["bot"]
+        }
+      ]
+    },
+    "init_ack": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "init_ack" },
+            "status": {
+              "type": "string",
+              "enum": ["ready", "error"]
+            },
+            "subscriptions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "uniqueItems": true
+            },
+            "error_message": { "type": "string" }
+          },
+          "required": ["status"]
+        }
+      ]
+    },
+    "init_progress": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "init_progress" },
+            "summary": { "type": "string", "minLength": 1 }
+          },
+          "required": ["summary"]
+        }
+      ]
+    },
+    "event": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "event" },
+            "event": {
+              "type": "object",
+              "required": [
+                "event_id",
+                "source_protocol",
+                "source_adapter",
+                "event_type",
+                "timestamp"
+              ],
+              "properties": {
+                "event_id": { "type": "string" },
+                "source_protocol": { "type": "string" },
+                "source_adapter": { "type": "string" },
+                "event_type": { "type": "string" },
+                "timestamp": { "type": "integer" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "required": ["event"]
+        }
+      ]
+    },
+    "action": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "action" },
+            "action": {
+              "type": "string",
+              "pattern": "^[a-z]+(\\.[a-z_]+)+$"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": ["action", "data"]
+        }
+      ]
+    },
+    "result": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "result" },
+            "status": { "type": "string", "const": "success" },
+            "data": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": ["status", "data"]
+        }
+      ]
+    },
+    "error": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "error" },
+            "code": {
+              "type": "string",
+              "pattern": "^(platform|plugin|permission|adapter)\\.[a-z0-9_]+$"
+            },
+            "message": { "type": "string" },
+            "details": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": ["code", "message"]
+        }
+      ]
+    },
+    "ping": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "ping" }
+          }
+        }
+      ]
+    },
+    "pong": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "pong" }
+          }
+        }
+      ]
+    },
+    "shutdown": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "shutdown" },
+            "reason": {
+              "type": "string",
+              "enum": ["stop", "restart", "reload"]
+            }
+          },
+          "required": ["reason"]
+        }
+      ]
+    }
+  },
+  "$comment": "Phase 0 skeleton. The detailed action payloads and richer event shapes must be completed here before any runtime bridge or SDK implementation starts."
+}

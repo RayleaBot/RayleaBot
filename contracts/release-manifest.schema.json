@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/release-manifest.schema.json",
+  "title": "RayleaBot Release Manifest",
+  "oneOf": [
+    { "$ref": "#/$defs/releaseManifest" },
+    { "$ref": "#/$defs/buildInfo" }
+  ],
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "file_name",
+        "platform",
+        "sha256",
+        "size",
+        "support_level",
+        "deps_manifest_sha256",
+        "smoke_profile"
+      ],
+      "properties": {
+        "artifact_id": { "type": "string" },
+        "file_name": { "type": "string" },
+        "platform": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "size": { "type": "integer", "minimum": 0 },
+        "support_level": { "type": "string" },
+        "deps_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "smoke_profile": { "type": "string" }
+      }
+    },
+    "releaseManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "git_commit",
+        "built_at",
+        "config_schema_version",
+        "db_schema_version",
+        "plugin_protocol_version",
+        "artifacts",
+        "release_notes_ref"
+      ],
+      "properties": {
+        "version": { "type": "string" },
+        "git_commit": { "type": "string" },
+        "built_at": { "type": "string", "format": "date-time" },
+        "config_schema_version": { "type": "string" },
+        "db_schema_version": { "type": "string" },
+        "plugin_protocol_version": { "type": "string" },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" },
+          "minItems": 1
+        },
+        "release_notes_ref": { "type": "string" }
+      }
+    },
+    "buildInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "git_commit",
+        "artifact_id",
+        "built_at",
+        "release_manifest_sha256"
+      ],
+      "properties": {
+        "version": { "type": "string" },
+        "git_commit": { "type": "string" },
+        "artifact_id": { "type": "string" },
+        "built_at": { "type": "string", "format": "date-time" },
+        "release_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      }
+    }
+  },
+  "$comment": "Phase 0 skeleton. support_level allowed values and exact artifact matrix must be finalized here before release automation is implemented."
+}

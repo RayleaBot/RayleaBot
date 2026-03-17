@@ -1,0 +1,16 @@
+{
+  "name": "rayleabot-web",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": "24.14.0",
+    "pnpm": "10.32.1"
+  },
+  "scripts": {
+    "dev": "node -e \"console.log('TODO(web): scaffold Vite app after contracts and fixtures land')\"",
+    "build": "node -e \"console.log('TODO(web): scaffold production build after contracts and fixtures land')\"",
+    "test": "node -e \"console.log('TODO(web): add Vitest after web scaffold lands')\"",
+    "test:e2e": "node -e \"console.log('TODO(web): add Playwright after web scaffold lands')\""
+  }
+}

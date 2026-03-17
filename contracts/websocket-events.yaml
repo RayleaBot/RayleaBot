@@ -1,0 +1,63 @@
+version: 1
+description: >
+  Phase 0 skeleton. This file is the only formal source for WebSocket channels,
+  shared envelope, server-push event names, and close semantics.
+
+envelope:
+  required:
+    - channel
+    - type
+    - timestamp
+    - data
+  optional:
+    - request_id
+    - error
+  error_fields:
+    - code
+    - message
+    - message_key
+    - details
+
+channels:
+  - path: /ws/logs
+    channel: logs
+    auth: session_token
+    replay_policy: summary_only
+    server_push_types: []
+    notes:
+      - "TODO(contract): define concrete log event type names here before implementing ws/logs."
+
+  - path: /ws/events
+    channel: events
+    auth: session_token
+    replay_policy: state_changes_only
+    server_push_types: []
+    notes:
+      - "TODO(contract): define service status, plugin status, adapter status, and key event push types here before implementing ws/events."
+
+  - path: /ws/tasks
+    channel: tasks
+    auth: session_token
+    replay_policy: latest_task_updates
+    server_push_types: []
+    notes:
+      - "TODO(contract): define task lifecycle event type names here before implementing ws/tasks."
+
+  - path: /ws/plugins/{id}/console
+    channel: plugin_console
+    auth: session_token
+    replay_policy: ring_buffer
+    server_push_types: []
+    notes:
+      - "TODO(contract): define stdout/stderr console frame types here before implementing plugin console streaming."
+
+session_events:
+  - type: session_expired
+    description: >
+      Sent when the current management session has expired or has been invalidated.
+      Client should reconnect with a refreshed session token, or redirect to login/init flow.
+
+close_semantics:
+  notes:
+    - "TODO(contract): define explicit server close reason names here before implementing WS close handling."
+    - "Do not invent per-channel close reason names in server or Web UI before they are added here."

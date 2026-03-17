@@ -1,0 +1,151 @@
+name: contracts
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install YAML parser
+        run: python -m pip install --disable-pip-version-check pyyaml
+
+      - name: Validate contracts
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import yaml
+
+          root = Path('.')
+          contracts = root / 'contracts'
+
+          required_files = {
+              'README.md',
+              'plugin-info.schema.json',
+              'plugin-protocol.schema.json',
+              'web-api.openapi.yaml',
+              'websocket-events.yaml',
+              'config.user.schema.json',
+              'error-codes.yaml',
+              'release-manifest.schema.json',
+          }
+
+          existing = {p.name for p in contracts.iterdir() if p.is_file()}
+          missing = required_files - existing
+          if missing:
+              raise SystemExit(f'missing contract files: {sorted(missing)}')
+
+          def load_json(path: Path):
+              with path.open('r', encoding='utf-8') as f:
+                  return json.load(f)
+
+          def load_yaml(path: Path):
+              with path.open('r', encoding='utf-8') as f:
+                  return yaml.safe_load(f)
+
+          plugin_info = load_json(contracts / 'plugin-info.schema.json')
+          plugin_protocol = load_json(contracts / 'plugin-protocol.schema.json')
+          config_schema = load_json(contracts / 'config.user.schema.json')
+          release_schema = load_json(contracts / 'release-manifest.schema.json')
+          web_api = load_yaml(contracts / 'web-api.openapi.yaml')
+          websocket_events = load_yaml(contracts / 'websocket-events.yaml')
+          error_codes = load_yaml(contracts / 'error-codes.yaml')
+
+          if plugin_info.get('type') != 'object':
+              raise SystemExit('plugin-info.schema.json must define an object schema')
+          for field in ['id', 'name', 'version', 'manifest_version', 'plugin_protocol_version', 'type', 'entry', 'runtime', 'license']:
+              if field not in plugin_info.get('required', []):
+                  raise SystemExit(f'plugin-info.schema.json missing required field: {field}')
+
+          defs = plugin_protocol.get('$defs', {})
+          for msg in ['init', 'init_ack', 'init_progress', 'event', 'action', 'result', 'error', 'ping', 'pong', 'shutdown']:
+              if msg not in defs:
+                  raise SystemExit(f'plugin-protocol.schema.json missing $defs.{msg}')
+
+          props = config_schema.get('properties', {})
+          for top in ['schema_version', 'server', 'onebot', 'runtime', 'adapter', 'render']:
+              if top not in props:
+                  raise SystemExit(f'config.user.schema.json missing top-level property: {top}')
+          if props['server']['properties']['host'].get('default') != '127.0.0.1':
+              raise SystemExit('config.user.schema.json server.host default must be 127.0.0.1')
+          if 'ws_url' not in props['onebot']['properties']:
+              raise SystemExit('config.user.schema.json must use onebot.ws_url')
+
+          if web_api.get('openapi') != '3.1.0':
+              raise SystemExit('web-api.openapi.yaml must use OpenAPI 3.1.0')
+          required_paths = [
+              '/api/setup/status',
+              '/api/setup/admin',
+              '/api/session/login',
+              '/api/session',
+              '/api/session/launcher-token',
+              '/api/system/shutdown',
+              '/api/system/status',
+              '/api/plugins',
+              '/api/plugins/install',
+              '/api/plugins/{id}',
+              '/api/plugins/{id}/reload',
+              '/api/config',
+              '/api/logs',
+              '/api/tasks',
+              '/api/tasks/{id}',
+              '/api/tasks/{id}/cancel',
+              '/api/webhooks/{plugin_id}/{route}',
+              '/healthz',
+              '/readyz',
+          ]
+          for path in required_paths:
+              if path not in web_api.get('paths', {}):
+                  raise SystemExit(f'web-api.openapi.yaml missing path: {path}')
+
+          channels = {item.get('path') for item in websocket_events.get('channels', [])}
+          for expected in ['/ws/logs', '/ws/events', '/ws/tasks', '/ws/plugins/{id}/console']:
+              if expected not in channels:
+                  raise SystemExit(f'websocket-events.yaml missing channel path: {expected}')
+          envelope = websocket_events.get('envelope', {})
+          for field in ['channel', 'type', 'timestamp', 'data']:
+              if field not in envelope.get('required', []):
+                  raise SystemExit(f'websocket-events.yaml envelope missing required field: {field}')
+
+          codes = error_codes.get('codes', {})
+          for code in [
+              'platform.render_timeout',
+              'platform.render_queue_full',
+              'platform.invalid_request',
+              'platform.task_timeout',
+              'plugin.not_handled',
+              'plugin.internal_error',
+              'plugin.init_timeout',
+              'plugin.protocol_violation',
+              'permission.denied',
+              'permission.scope_violation',
+              'permission.blacklisted',
+              'adapter.send_failed',
+              'adapter.reply_target_missing',
+              'adapter.connection_lost',
+              'adapter.auth_failed',
+          ]:
+              if code not in codes:
+                  raise SystemExit(f'error-codes.yaml missing code: {code}')
+              if 'message_key' not in codes[code]:
+                  raise SystemExit(f'error-codes.yaml code missing message_key: {code}')
+
+          if 'oneOf' not in release_schema:
+              raise SystemExit('release-manifest.schema.json must distinguish release_manifest and build_info via oneOf')
+
+          print('contracts validation passed')
+          PY

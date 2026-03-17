@@ -1,0 +1,133 @@
+name: lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate repository baseline
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          root = Path('.')
+
+          required_dirs = [
+              root / 'docs' / 'engineering',
+              root / 'docs' / 'architecture',
+              root / 'docs' / 'dev',
+              root / 'docs' / 'plugin',
+              root / 'docs' / 'plugin' / 'sdk',
+              root / 'docs' / 'user',
+              root / 'docs' / 'release',
+              root / 'fixtures',
+              root / 'examples',
+              root / '.deps',
+              root / 'server',
+              root / 'web',
+              root / 'launcher',
+              root / '.github' / 'workflows',
+          ]
+
+          required_files = [
+              root / 'AGENTS.md',
+              root / 'docs' / 'engineering' / 'baseline.md',
+              root / 'docs' / 'engineering' / 'implementation-order.md',
+              root / '.deps' / 'manifest.json',
+              root / 'server' / 'go.mod',
+              root / 'server' / 'go.sum',
+              root / 'web' / 'package.json',
+              root / 'web' / 'pnpm-lock.yaml',
+              root / 'launcher' / 'global.json',
+              root / 'launcher' / 'Directory.Packages.props',
+          ]
+
+          for path in required_dirs:
+              if not path.is_dir():
+                  raise SystemExit(f'missing directory: {path}')
+
+          for path in required_files:
+              if not path.exists():
+                  raise SystemExit(f'missing file: {path}')
+
+          go_mod = (root / 'server' / 'go.mod').read_text(encoding='utf-8')
+          if 'module rayleabot/server' not in go_mod:
+              raise SystemExit('server/go.mod must use the temporary Phase 0 module path: rayleabot/server')
+          if 'go 1.25.8' not in go_mod:
+              raise SystemExit('server/go.mod must pin Go 1.25.8')
+          if 'toolchain go1.25.8' not in go_mod:
+              raise SystemExit('server/go.mod must pin toolchain go1.25.8')
+
+          package_json = json.loads((root / 'web' / 'package.json').read_text(encoding='utf-8'))
+          if package_json.get('packageManager') != 'pnpm@10.32.1':
+              raise SystemExit('web/package.json packageManager must be pnpm@10.32.1')
+          engines = package_json.get('engines', {})
+          if engines.get('node') != '24.14.0':
+              raise SystemExit('web/package.json engines.node must be 24.14.0')
+          if engines.get('pnpm') != '10.32.1':
+              raise SystemExit('web/package.json engines.pnpm must be 10.32.1')
+
+          global_json = json.loads((root / 'launcher' / 'global.json').read_text(encoding='utf-8'))
+          sdk = global_json.get('sdk', {})
+          if sdk.get('version') != '10.0.103':
+              raise SystemExit('launcher/global.json sdk.version must be 10.0.103')
+          if sdk.get('rollForward') != 'latestPatch':
+              raise SystemExit('launcher/global.json sdk.rollForward must be latestPatch')
+
+          props_root = ET.parse(root / 'launcher' / 'Directory.Packages.props').getroot()
+          versions = [
+              item.attrib.get('Version')
+              for item in props_root.findall('.//PackageVersion')
+          ]
+          if not versions or any(v != '11.3.12' for v in versions):
+              raise SystemExit('launcher/Directory.Packages.props must centrally pin Avalonia packages to 11.3.12')
+
+          baseline = (root / 'docs' / 'engineering' / 'baseline.md').read_text(encoding='utf-8')
+          expected_snippets = [
+              'Go `1.25.8`',
+              'Node.js `24.14.0`',
+              '`pnpm 10.32.1`',
+              'Python `3.12.13`',
+              '`10.0.103`',
+              '`11.3.12`',
+              '`127.0.0.1`',
+              '`onebot.ws_url`'
+          ]
+          for snippet in expected_snippets:
+              if snippet not in baseline:
+                  raise SystemExit(f'baseline.md missing expected snippet: {snippet}')
+
+          manifest = json.loads((root / '.deps' / 'manifest.json').read_text(encoding='utf-8'))
+          if manifest.get('manifest_version') != 1:
+              raise SystemExit('.deps/manifest.json manifest_version must be 1')
+          resource_ids = {item.get('id') for item in manifest.get('resources', [])}
+          for expected in [
+              'chromium-windows-x64',
+              'chromium-linux-x64',
+              'python-windows-x64',
+              'python-linux-x64',
+              'nodejs-windows-x64',
+              'nodejs-linux-x64',
+          ]:
+              if expected not in resource_ids:
+                  raise SystemExit(f'.deps/manifest.json missing resource: {expected}')
+
+          print('baseline validation passed')
+          PY

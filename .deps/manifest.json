@@ -1,0 +1,57 @@
+{
+  "manifest_version": 1,
+  "resources": [
+    {
+      "id": "chromium-windows-x64",
+      "kind": "chromium",
+      "version": "TODO(v0.1-phase0)",
+      "platform": "windows-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
+      "id": "chromium-linux-x64",
+      "kind": "chromium",
+      "version": "TODO(v0.1-phase0)",
+      "platform": "linux-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
+      "id": "python-windows-x64",
+      "kind": "python-runtime",
+      "version": "3.12.13",
+      "platform": "windows-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
+      "id": "python-linux-x64",
+      "kind": "python-runtime",
+      "version": "3.12.13",
+      "platform": "linux-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
+      "id": "nodejs-windows-x64",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "windows-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
+      "id": "nodejs-linux-x64",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "linux-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    }
+  ],
+  "notes": [
+    "TODO(v0.1-phase0): fill Chromium version/source/SHA256 before runtime bootstrap or launcher environment check is implemented.",
+    "TODO(v0.1-phase0): fill Python and Node.js runtime source/SHA256 before dependency bootstrap logic is implemented."
+  ]
+}

@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/config.user.schema.json",
+  "title": "RayleaBot User Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 8080
+        }
+      }
+    },
+    "onebot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ws_url": {
+          "type": "string",
+          "pattern": "^(ws|wss)://.+$"
+        },
+        "access_token": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prefixes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "default": ["/"]
+        }
+      }
+    },
+    "admin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "super_admins": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_level": {
+          "type": "string",
+          "enum": ["super_admin", "group_admin", "everyone"],
+          "default": "everyone"
+        },
+        "auto_grant_capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "worker_count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "browser_args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["--disable-gpu"]
+        },
+        "browser_path": {
+          "type": "string",
+          "default": ""
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "queue_wait_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 15
+        },
+        "queue_max_length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 32
+        }
+      }
+    },
+    "scheduler": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "plugin_init_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "plugin_init_max_total_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 300
+        },
+        "plugin_event_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 60
+        },
+        "max_pending_events_per_plugin": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 16
+        },
+        "max_pending_control_events_per_plugin": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 4
+        },
+        "nodejs_max_old_space_size_mb": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 256
+        },
+        "dependency_install_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 900
+        },
+        "max_concurrent_dependency_installs": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "ipc_pending_actions_max": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 256
+        },
+        "ipc_action_burst_limit": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "100/1s"
+        },
+        "stderr_rate_limit_bytes_per_second": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 262144
+        },
+        "max_concurrent_tasks_per_plugin": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 4
+        },
+        "crash_backoff_initial_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
+        "crash_backoff_max_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 60
+        },
+        "shutdown_grace_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10
+        },
+        "ipc_message_max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 8388608
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kv_value_max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 65536
+        },
+        "plugin_workdir_soft_limit_mb": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 256
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "audit_logs_retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 90
+        },
+        "event_records_retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
+        "download_cache_retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 15
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
+        "rate_limit_per_plugin": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "200/10s"
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rate_limit_per_plugin": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "20/10s"
+        },
+        "rate_limit_per_target": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "5/5s"
+        },
+        "circuit_breaker_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "command_rate_limit": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "10/60s"
+        },
+        "cooldown_reply": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "command_rate_limit": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "30/60s"
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reconnect_initial_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
+        "reconnect_multiplier": {
+          "type": "number",
+          "minimum": 1,
+          "default": 2
+        },
+        "reconnect_max_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 120
+        },
+        "reconnect_jitter_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.2
+        },
+        "connect_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 15
+        }
+      }
+    },
+    "http": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rateLimit": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*/[1-9][0-9]*(s|m|h)$"
+    }
+  },
+  "$comment": "Phase 0 canonical resolution: server.host defaults to 127.0.0.1; OneBot endpoint key is onebot.ws_url. This file is the formal source, not the Markdown examples."
+}
