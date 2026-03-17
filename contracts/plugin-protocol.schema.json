@@ -2,102 +2,185 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
+  "description": "Phase 2 fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract only freezes startup, startup progress, event dispatch, result, error, and shutdown semantics.",
   "oneOf": [
-    { "$ref": "#/$defs/init" },
-    { "$ref": "#/$defs/init_ack" },
-    { "$ref": "#/$defs/init_progress" },
-    { "$ref": "#/$defs/event" },
-    { "$ref": "#/$defs/action" },
-    { "$ref": "#/$defs/result" },
-    { "$ref": "#/$defs/error" },
-    { "$ref": "#/$defs/ping" },
-    { "$ref": "#/$defs/pong" },
-    { "$ref": "#/$defs/shutdown" }
+    {
+      "$ref": "#/$defs/init"
+    },
+    {
+      "$ref": "#/$defs/init_progress"
+    },
+    {
+      "$ref": "#/$defs/init_ack"
+    },
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "#/$defs/error"
+    },
+    {
+      "$ref": "#/$defs/shutdown"
+    }
   ],
   "$defs": {
     "common": {
       "type": "object",
-      "required": ["protocol_version", "type", "timestamp", "plugin_id", "request_id"],
+      "required": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id"
+      ],
       "properties": {
-        "protocol_version": { "type": "string", "const": "1" },
-        "type": { "type": "string" },
-        "timestamp": { "type": "integer" },
-        "plugin_id": { "type": "string", "minLength": 1 },
-        "request_id": { "type": "string", "minLength": 1 }
+        "protocol_version": {
+          "type": "string",
+          "const": "1"
+        },
+        "type": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plugin_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "init": {
       "allOf": [
-        { "$ref": "#/$defs/common" },
+        {
+          "$ref": "#/$defs/common"
+        },
         {
           "type": "object",
-          "additionalProperties": false,
+          "required": [
+            "type",
+            "bot"
+          ],
           "properties": {
-            "type": { "const": "init" },
+            "type": {
+              "const": "init"
+            },
             "bot": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["id"],
+              "required": [
+                "id"
+              ],
               "properties": {
-                "id": { "type": "string" },
-                "nickname": { "type": "string" }
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "nickname": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             },
             "capabilities": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z]+\\.[a-z_]+$"
+              },
               "uniqueItems": true
             }
-          },
-          "required": ["bot"]
+          }
         }
-      ]
-    },
-    "init_ack": {
-      "allOf": [
-        { "$ref": "#/$defs/common" },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "type": { "const": "init_ack" },
-            "status": {
-              "type": "string",
-              "enum": ["ready", "error"]
-            },
-            "subscriptions": {
-              "type": "array",
-              "items": { "type": "string" },
-              "uniqueItems": true
-            },
-            "error_message": { "type": "string" }
-          },
-          "required": ["status"]
-        }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "init_progress": {
       "allOf": [
-        { "$ref": "#/$defs/common" },
+        {
+          "$ref": "#/$defs/common"
+        },
         {
           "type": "object",
-          "additionalProperties": false,
+          "required": [
+            "type",
+            "summary"
+          ],
           "properties": {
-            "type": { "const": "init_progress" },
-            "summary": { "type": "string", "minLength": 1 }
-          },
-          "required": ["summary"]
+            "type": {
+              "const": "init_progress"
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
+    },
+    "init_ack": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "status"
+          ],
+          "properties": {
+            "type": {
+              "const": "init_ack"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "error"
+              ]
+            },
+            "subscriptions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "error_message": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     },
     "event": {
       "allOf": [
-        { "$ref": "#/$defs/common" },
+        {
+          "$ref": "#/$defs/common"
+        },
         {
           "type": "object",
-          "additionalProperties": false,
+          "required": [
+            "type",
+            "event"
+          ],
           "properties": {
-            "type": { "const": "event" },
+            "type": {
+              "const": "event"
+            },
             "event": {
               "type": "object",
               "required": [
@@ -108,121 +191,314 @@
                 "timestamp"
               ],
               "properties": {
-                "event_id": { "type": "string" },
-                "source_protocol": { "type": "string" },
-                "source_adapter": { "type": "string" },
-                "event_type": { "type": "string" },
-                "timestamp": { "type": "integer" }
+                "event_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_protocol": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_adapter": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "event_type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "timestamp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "actor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "nickname": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "target": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "id"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "payload": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "message": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "segments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "plain_text": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "raw_payload": {
+                  "type": "object",
+                  "description": "Only present when the plugin manifest declares event.raw_payload and the corresponding high-sensitivity permission has been granted.",
+                  "additionalProperties": true
+                }
               },
-              "additionalProperties": true
+              "unevaluatedProperties": false
             }
-          },
-          "required": ["event"]
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
-    "action": {
+    "result": {
       "allOf": [
-        { "$ref": "#/$defs/common" },
+        {
+          "$ref": "#/$defs/common"
+        },
         {
           "type": "object",
-          "additionalProperties": false,
+          "required": [
+            "type",
+            "status",
+            "data"
+          ],
           "properties": {
-            "type": { "const": "action" },
-            "action": {
+            "type": {
+              "const": "result"
+            },
+            "status": {
               "type": "string",
-              "pattern": "^[a-z]+(\\.[a-z_]+)+$"
+              "const": "success"
             },
             "data": {
               "type": "object",
               "additionalProperties": true
             }
-          },
-          "required": ["action", "data"]
+          }
         }
-      ]
-    },
-    "result": {
-      "allOf": [
-        { "$ref": "#/$defs/common" },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "type": { "const": "result" },
-            "status": { "type": "string", "const": "success" },
-            "data": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          },
-          "required": ["status", "data"]
-        }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "error": {
       "allOf": [
-        { "$ref": "#/$defs/common" },
+        {
+          "$ref": "#/$defs/common"
+        },
         {
           "type": "object",
-          "additionalProperties": false,
+          "required": [
+            "type",
+            "code",
+            "message"
+          ],
           "properties": {
-            "type": { "const": "error" },
+            "type": {
+              "const": "error"
+            },
             "code": {
               "type": "string",
               "pattern": "^(platform|plugin|permission|adapter)\\.[a-z0-9_]+$"
             },
-            "message": { "type": "string" },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
             "details": {
               "type": "object",
               "additionalProperties": true
             }
-          },
-          "required": ["code", "message"]
-        }
-      ]
-    },
-    "ping": {
-      "allOf": [
-        { "$ref": "#/$defs/common" },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "type": { "const": "ping" }
           }
         }
-      ]
-    },
-    "pong": {
-      "allOf": [
-        { "$ref": "#/$defs/common" },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "type": { "const": "pong" }
-          }
-        }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "shutdown": {
       "allOf": [
-        { "$ref": "#/$defs/common" },
+        {
+          "$ref": "#/$defs/common"
+        },
         {
           "type": "object",
-          "additionalProperties": false,
+          "required": [
+            "type",
+            "reason"
+          ],
           "properties": {
-            "type": { "const": "shutdown" },
+            "type": {
+              "const": "shutdown"
+            },
             "reason": {
               "type": "string",
-              "enum": ["stop", "restart", "reload"]
+              "enum": [
+                "stop",
+                "restart",
+                "reload"
+              ]
             }
-          },
-          "required": ["reason"]
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     }
   },
-  "$comment": "Phase 0 skeleton. The detailed action payloads and richer event shapes must be completed here before any runtime bridge or SDK implementation starts."
+  "x-message-catalog": [
+    {
+      "type": "init",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "bot"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.init-init-ack.yaml"
+    },
+    {
+      "type": "init_progress",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "summary"
+      ],
+      "example_ref": "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml"
+    },
+    {
+      "type": "init_ack",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "status"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.init-init-ack.yaml"
+    },
+    {
+      "type": "event",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "event"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.event-result.yaml"
+    },
+    {
+      "type": "result",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "status",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.event-result.yaml"
+    },
+    {
+      "type": "error",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "code",
+        "message"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.event-error.yaml"
+    },
+    {
+      "type": "shutdown",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "reason"
+      ],
+      "example_ref": "fixtures/plugin-protocol/edge.shutdown-with-result.yaml"
+    }
+  ],
+  "x-fixtures": [
+    "fixtures/plugin-protocol/ok.init-init-ack.yaml",
+    "fixtures/plugin-protocol/ok.event-result.yaml",
+    "fixtures/plugin-protocol/ok.event-error.yaml",
+    "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
+    "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
+    "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
+    "fixtures/plugin-protocol/invalid.unsupported-action.yaml"
+  ],
+  "$comment": "Phase 2 intentionally excludes action, ping, pong, file transfer, batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics."
 }

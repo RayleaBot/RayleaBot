@@ -1,0 +1,24 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: init
+    timestamp: 1710000000
+    plugin_id: weather
+    request_id: init_0001
+    bot:
+      id: "10001"
+      nickname: RayleaBot
+    capabilities:
+      - message.send
+      - event.subscribe
+  - protocol_version: "1"
+    type: init_ack
+    timestamp: 1710000001
+    plugin_id: weather
+    request_id: init_0001
+    status: ready
+    subscriptions:
+      - message.group
+expect:
+  valid: true

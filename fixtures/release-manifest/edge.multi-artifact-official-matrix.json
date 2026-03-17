@@ -1,0 +1,43 @@
+{
+  "contract": "contracts/release-manifest.schema.json",
+  "case": "edge",
+  "document_type": "release_manifest",
+  "input": {
+    "version": "0.1.0",
+    "git_commit": "a8ee7bb",
+    "built_at": "2026-03-17T10:00:00Z",
+    "config_schema_version": "1",
+    "db_schema_version": "1",
+    "plugin_protocol_version": "1",
+    "artifacts": [
+      {
+        "artifact_id": "windows-x64-full",
+        "file_name": "RayleaBot-v0.1.0-windows-x64-full.zip",
+        "platform": "windows-x64",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "size": 104857600,
+        "support_level": "first_class",
+        "deps_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "smoke_profile": "windows_full_smoke"
+      },
+      {
+        "artifact_id": "linux-x64-server",
+        "file_name": "RayleaBot-v0.1.0-linux-x64-server.tar.gz",
+        "platform": "linux-x64",
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "size": 73400320,
+        "support_level": "first_class",
+        "deps_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "smoke_profile": "linux_server_smoke"
+      }
+    ],
+    "release_notes_ref": "https://example.com/releases/v0.1.0"
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "This fixture represents the full v0.1 official release matrix.",
+      "The controlled runtime inventory remains external to release_manifest.json and is linked only by deps_manifest_sha256."
+    ]
+  }
+}

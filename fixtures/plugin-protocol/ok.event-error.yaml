@@ -1,0 +1,23 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000002
+    plugin_id: weather
+    request_id: evt_0002
+    event:
+      event_id: evt_550e8401
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: message.group
+      timestamp: 1710000002
+  - protocol_version: "1"
+    type: error
+    timestamp: 1710000003
+    plugin_id: weather
+    request_id: evt_0002
+    code: plugin.not_handled
+    message: event is not handled by this plugin
+expect:
+  valid: true

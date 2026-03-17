@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-info.schema.json",
-  "title": "RayleaBot Plugin Info",
+  "title": "RayleaBot Plugin Manifest",
+  "description": "Phase 2 fixture-ready schema for plugin info.json. This file is the only formal source for install-time validation, compatibility gating, permission declaration, and migration boundary metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,102 +12,164 @@
     "manifest_version",
     "plugin_protocol_version",
     "type",
-    "entry",
     "runtime",
+    "entry",
     "license"
   ],
   "properties": {
-    "id": { "type": "string", "minLength": 1 },
-    "name": { "type": "string", "minLength": 1 },
-    "version": { "type": "string", "minLength": 1 },
-    "manifest_version": { "type": "string", "const": "1" },
-    "plugin_protocol_version": { "type": "string", "const": "1" },
-    "sdk_min_version": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$",
+      "description": "Stable plugin identifier used by install validation, task tracing, permission grants, and plugin data paths."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name shown in management surfaces."
+    },
+    "version": {
+      "$ref": "#/$defs/semver",
+      "description": "Plugin package version."
+    },
+    "manifest_version": {
+      "type": "string",
+      "const": "1",
+      "description": "Manifest structure version. v0.1 is fixed to 1."
+    },
+    "plugin_protocol_version": {
+      "type": "string",
+      "const": "1",
+      "description": "Plugin JSONL protocol version required by this package."
+    },
     "type": {
       "type": "string",
-      "enum": ["managed_runtime", "binary", "dev_source"]
+      "enum": [
+        "managed_runtime",
+        "dev_source"
+      ],
+      "description": "Plugin package form supported by v0.1."
     },
-    "entry": { "type": "string", "minLength": 1 },
     "runtime": {
       "type": "string",
-      "enum": ["python", "nodejs", "binary"]
+      "enum": [
+        "python",
+        "nodejs"
+      ],
+      "description": "Managed runtime family supported by v0.1."
     },
-    "runtime_version": { "type": "string" },
-    "data_schema_version": { "type": "string" },
-    "license": { "type": "string", "minLength": 1 },
-    "min_core_version": { "type": "string" },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative plugin entry path inside the package root."
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Open-source license identifier retained as required manifest metadata."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short plugin summary."
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Single author identifier retained from the planning document. This contract does not introduce an authors array."
+    },
+    "sdk_min_version": {
+      "$ref": "#/$defs/semver",
+      "description": "Minimum supported official SDK version, when the plugin depends on an official SDK helper layer."
+    },
+    "runtime_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Runtime minimum-version expression. The contract keeps this as a narrow string field and does not freeze range syntax in Phase 2."
+    },
+    "min_core_version": {
+      "$ref": "#/$defs/semver",
+      "description": "Minimum supported RayleaBot core version."
+    },
+    "data_schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Plugin-private data schema version used to decide migration windows and automatic re-enable eligibility."
+    },
     "platforms": {
       "type": "array",
-      "items": { "type": "string" },
+      "description": "Optional platform compatibility filter used during install-time gating.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "windows-x64",
+          "linux-x64"
+        ]
+      },
       "uniqueItems": true
     },
-    "role": {
-      "type": "string",
-      "enum": ["builtin", "user", "example", "dev"]
-    },
-    "icon": { "type": "string" },
-    "description": { "type": "string" },
-    "author": { "type": "string" },
     "capabilities": {
       "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
-    },
-    "commands": {
-      "type": "array",
+      "description": "Platform capabilities the plugin intends to use.",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["name"],
-        "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "aliases": {
-            "type": "array",
-            "items": { "type": "string" },
-            "uniqueItems": true
-          },
-          "description": { "type": "string" },
-          "usage": { "type": "string" },
-          "permission": {
-            "type": "string",
-            "enum": ["super_admin", "group_admin", "everyone"]
-          }
-        }
-      }
-    },
-    "concurrency": {
-      "type": "integer",
-      "minimum": 1
+        "$ref": "#/$defs/capability_name"
+      },
+      "uniqueItems": true
     },
     "permissions": {
       "type": "object",
+      "description": "Permission declaration used for first install grants, upgrade re-grant decisions, and scope review.",
       "additionalProperties": false,
+      "required": [
+        "required",
+        "optional"
+      ],
       "properties": {
         "required": {
           "type": "array",
-          "items": { "type": "string" },
+          "description": "Capabilities that must be explicitly granted before the plugin may be enabled.",
+          "items": {
+            "$ref": "#/$defs/capability_name"
+          },
           "uniqueItems": true
         },
         "optional": {
           "type": "array",
-          "items": { "type": "string" },
+          "description": "Capabilities that stay disabled by default and may be granted later.",
+          "items": {
+            "$ref": "#/$defs/capability_name"
+          },
           "uniqueItems": true
         },
         "scopes": {
           "type": "object",
-          "additionalProperties": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
+          "description": "Scope boundaries attached to permission grants.",
+          "additionalProperties": false,
           "properties": {
             "http_hosts": {
               "type": "array",
-              "items": { "type": "string" },
+              "description": "Allowed outbound HTTP hosts for the http.request capability.",
+              "items": {
+                "$ref": "#/$defs/host_name"
+              },
               "uniqueItems": true
             },
-            "storage": {
+            "storage_roots": {
               "type": "array",
-              "items": { "type": "string" },
+              "description": "Allowed storage roots for storage.file. v0.1 only freezes plugin_data.",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "plugin_data"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "webhooks": {
+              "type": "array",
+              "description": "Controlled webhook route declarations used with event.expose_webhook.",
+              "items": {
+                "$ref": "#/$defs/webhook_scope"
+              },
               "uniqueItems": true
             }
           }
@@ -115,36 +178,94 @@
     },
     "dependencies": {
       "type": "object",
+      "description": "Language-level package dependencies only. Plugin-to-plugin dependencies are intentionally out of scope for v0.1.",
       "additionalProperties": false,
       "properties": {
         "python": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "nodejs": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
-    "require_install_scripts": { "type": "boolean" },
-    "repo": { "type": "string", "format": "uri" },
-    "homepage": { "type": "string", "format": "uri" },
-    "keywords": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
-    },
-    "screenshots": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
-    },
-    "system_dependencies": {
-      "type": "array",
-      "items": { "type": "string" },
-      "uniqueItems": true
+    "require_install_scripts": {
+      "type": "boolean",
+      "description": "Explicit high-risk install-path declaration for packages that require npm lifecycle scripts or local build steps."
     }
   },
-  "$comment": "Phase 0 skeleton. Any future manifest field additions must be added here first, not only in Markdown or implementation."
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "capability_name": {
+      "type": "string",
+      "pattern": "^[a-z]+\\.[a-z_]+$"
+    },
+    "host_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9.-]+$"
+    },
+    "secret_ref": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+    },
+    "cidr_or_ip": {
+      "type": "string",
+      "minLength": 1
+    },
+    "webhook_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route",
+        "auth_strategy",
+        "header",
+        "secret_ref"
+      ],
+      "properties": {
+        "route": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,31})$",
+          "description": "Controlled short route segment without slashes, dot-dot, or query strings."
+        },
+        "auth_strategy": {
+          "type": "string",
+          "enum": [
+            "fixed_token",
+            "hmac_sha256"
+          ]
+        },
+        "header": {
+          "type": "string",
+          "minLength": 1
+        },
+        "secret_ref": {
+          "$ref": "#/$defs/secret_ref"
+        },
+        "source_ips": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cidr_or_ip"
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  },
+  "x-fixtures": [
+    "fixtures/plugin-info/ok.minimal-python.json",
+    "fixtures/plugin-info/invalid.unsupported-binary-runtime.json",
+    "fixtures/plugin-info/edge.permission-regrant-and-migration.json"
+  ],
+  "$comment": "Phase 2 intentionally excludes default_config, commands, concurrency, role, icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support. Those remain README TODOs until they become fixture-ready."
 }

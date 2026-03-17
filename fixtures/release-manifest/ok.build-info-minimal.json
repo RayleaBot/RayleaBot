@@ -1,0 +1,15 @@
+{
+  "contract": "contracts/release-manifest.schema.json",
+  "case": "ok",
+  "document_type": "build_info",
+  "input": {
+    "version": "0.1.0",
+    "git_commit": "a8ee7bb",
+    "artifact_id": "windows-x64-full",
+    "built_at": "2026-03-17T10:00:00Z",
+    "release_manifest_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "expect": {
+    "valid": true
+  }
+}

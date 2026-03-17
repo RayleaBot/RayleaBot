@@ -2,11 +2,28 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/release-manifest.schema.json",
   "title": "RayleaBot Release Manifest",
+  "description": "Phase 2 fixture-ready schema for release_manifest.json and build_info.json. This contract only freezes release-level metadata and the link to the controlled dependency manifest via deps_manifest_sha256.",
   "oneOf": [
-    { "$ref": "#/$defs/releaseManifest" },
-    { "$ref": "#/$defs/buildInfo" }
+    {
+      "$ref": "#/$defs/releaseManifest"
+    },
+    {
+      "$ref": "#/$defs/buildInfo"
+    }
   ],
   "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "gitCommit": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{7,40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
     "artifact": {
       "type": "object",
       "additionalProperties": false,
@@ -21,17 +38,48 @@
         "smoke_profile"
       ],
       "properties": {
-        "artifact_id": { "type": "string" },
-        "file_name": { "type": "string" },
-        "platform": { "type": "string" },
-        "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
-        "size": { "type": "integer", "minimum": 0 },
-        "support_level": { "type": "string" },
-        "deps_manifest_sha256": {
+        "artifact_id": {
           "type": "string",
-          "pattern": "^[a-fA-F0-9]{64}$"
+          "enum": [
+            "windows-x64-full",
+            "linux-x64-server"
+          ]
         },
-        "smoke_profile": { "type": "string" }
+        "file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "windows-x64",
+            "linux-x64"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "support_level": {
+          "type": "string",
+          "enum": [
+            "first_class",
+            "experimental"
+          ]
+        },
+        "deps_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "smoke_profile": {
+          "type": "string",
+          "enum": [
+            "windows_full_smoke",
+            "linux_server_smoke"
+          ]
+        }
       }
     },
     "releaseManifest": {
@@ -48,18 +96,39 @@
         "release_notes_ref"
       ],
       "properties": {
-        "version": { "type": "string" },
-        "git_commit": { "type": "string" },
-        "built_at": { "type": "string", "format": "date-time" },
-        "config_schema_version": { "type": "string" },
-        "db_schema_version": { "type": "string" },
-        "plugin_protocol_version": { "type": "string" },
+        "version": {
+          "$ref": "#/$defs/semver"
+        },
+        "git_commit": {
+          "$ref": "#/$defs/gitCommit"
+        },
+        "built_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "config_schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "db_schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "plugin_protocol_version": {
+          "type": "string",
+          "minLength": 1
+        },
         "artifacts": {
           "type": "array",
-          "items": { "$ref": "#/$defs/artifact" },
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
           "minItems": 1
         },
-        "release_notes_ref": { "type": "string" }
+        "release_notes_ref": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "buildInfo": {
@@ -73,16 +142,34 @@
         "release_manifest_sha256"
       ],
       "properties": {
-        "version": { "type": "string" },
-        "git_commit": { "type": "string" },
-        "artifact_id": { "type": "string" },
-        "built_at": { "type": "string", "format": "date-time" },
-        "release_manifest_sha256": {
+        "version": {
+          "$ref": "#/$defs/semver"
+        },
+        "git_commit": {
+          "$ref": "#/$defs/gitCommit"
+        },
+        "artifact_id": {
           "type": "string",
-          "pattern": "^[a-fA-F0-9]{64}$"
+          "enum": [
+            "windows-x64-full",
+            "linux-x64-server"
+          ]
+        },
+        "built_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "release_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
         }
       }
     }
   },
-  "$comment": "Phase 0 skeleton. support_level allowed values and exact artifact matrix must be finalized here before release automation is implemented."
+  "x-fixtures": [
+    "fixtures/release-manifest/ok.release-manifest-minimal.json",
+    "fixtures/release-manifest/ok.build-info-minimal.json",
+    "fixtures/release-manifest/invalid.artifact-missing-sha256.json",
+    "fixtures/release-manifest/edge.multi-artifact-official-matrix.json"
+  ],
+  "$comment": "Phase 2 keeps release manifest metadata narrow. Explicit manifest_version, project_name, target_platform, target_arch, bundled_runtimes, compatible_core_range, signatures, incremental updates, and checksum-file structure remain README TODOs. The actual managed runtime inventory stays in .deps/manifest.json."
 }

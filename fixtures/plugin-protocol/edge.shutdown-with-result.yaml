@@ -1,0 +1,21 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: shutdown
+    timestamp: 1710000100
+    plugin_id: weather
+    request_id: shutdown_0001
+    reason: reload
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000101
+    plugin_id: weather
+    request_id: shutdown_0001
+    status: success
+    data:
+      cleanup_completed: true
+expect:
+  valid: true
+  notes:
+    - result may serve as the optional shutdown acknowledgement in the shutdown grace window.

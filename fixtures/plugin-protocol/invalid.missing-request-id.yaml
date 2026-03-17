@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000002
+    plugin_id: weather
+    event:
+      event_id: evt_550e8402
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: message.group
+      timestamp: 1710000002
+expect:
+  valid: false
+  reason: request_id is mandatory for every Phase 2 protocol message.

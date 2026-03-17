@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000002
+    plugin_id: weather
+    request_id: req_0001
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+expect:
+  valid: false
+  reason: action remains out of the Phase 2 fixture-ready protocol surface.

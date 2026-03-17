@@ -1,0 +1,19 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "legacy-binary-tool",
+    "name": "Legacy Binary Tool",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "binary",
+    "entry": "plugin.exe",
+    "license": "MIT"
+  },
+  "expect": {
+    "valid": false,
+    "reason": "Phase 2 freezes only python and nodejs managed runtimes."
+  }
+}

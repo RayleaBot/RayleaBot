@@ -1,0 +1,43 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000002
+    plugin_id: weather
+    request_id: evt_0001
+    event:
+      event_id: evt_550e8400
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: message.group
+      timestamp: 1710000002
+      actor:
+        id: "123"
+        nickname: 小明
+        role: member
+      target:
+        type: group
+        id: "456"
+        name: 测试群
+      payload:
+        command: weather
+        args:
+          - 上海
+      message:
+        segments:
+          - type: text
+            data:
+              text: 天气 上海
+        plain_text: 天气 上海
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000003
+    plugin_id: weather
+    request_id: evt_0001
+    status: success
+    data:
+      handled: true
+      summary: weather request accepted
+expect:
+  valid: true

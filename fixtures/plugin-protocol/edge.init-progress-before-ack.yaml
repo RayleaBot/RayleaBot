@@ -1,0 +1,26 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: init
+    timestamp: 1710000000
+    plugin_id: weather
+    request_id: init_0002
+    bot:
+      id: "10001"
+  - protocol_version: "1"
+    type: init_progress
+    timestamp: 1710000005
+    plugin_id: weather
+    request_id: init_0002
+    summary: loading local model
+  - protocol_version: "1"
+    type: init_ack
+    timestamp: 1710000010
+    plugin_id: weather
+    request_id: init_0002
+    status: ready
+expect:
+  valid: true
+  notes:
+    - init_progress is only legal after init and before the final init_ack.

@@ -1,0 +1,28 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "weather",
+    "name": "Weather",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "plugin.py",
+    "license": "MIT",
+    "description": "Minimal weather plugin",
+    "author": "raylea",
+    "capabilities": [
+      "event.subscribe",
+      "logger.write"
+    ],
+    "permissions": {
+      "required": [],
+      "optional": []
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}
