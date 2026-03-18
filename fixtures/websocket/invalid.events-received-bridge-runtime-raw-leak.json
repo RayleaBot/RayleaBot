@@ -1,0 +1,22 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "invalid",
+  "description": "Invalid because aggregate bridge/runtime observability must not expose raw chat or protocol payload content.",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-03-18T10:22:00Z",
+    "data": {
+      "observability_scope": "bridge_runtime",
+      "summary": "bridge runtime emitted a protocol error",
+      "delivered_count": 3,
+      "result_count": 2,
+      "error_count": 1,
+      "last_runtime_protocol_error_summary": "mismatched request_id req_evt_0003 for /ping"
+    }
+  },
+  "expect": {
+    "valid": false,
+    "reason": "bridge/runtime aggregate observability must not freeze raw message content, request identifiers, or verbatim plugin error text"
+  }
+}

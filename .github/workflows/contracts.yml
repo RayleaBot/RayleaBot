@@ -243,6 +243,21 @@ jobs:
           description = events_received.get('description', '')
           if 'not a raw chat' not in description:
               raise SystemExit('events.received description must explicitly forbid raw chat event broadcasting')
+          payload_variants = events_received.get('payload_schema', {}).get('oneOf', [])
+          bridge_runtime_variant = None
+          for variant in payload_variants:
+              scope = variant.get('properties', {}).get('observability_scope', {})
+              if scope.get('enum') == ['bridge_runtime']:
+                  bridge_runtime_variant = variant
+                  break
+          if bridge_runtime_variant is None:
+              raise SystemExit('events.received must define a bridge_runtime observability variant')
+          bridge_required = bridge_runtime_variant.get('required', [])
+          if bridge_required != ['observability_scope', 'summary', 'delivered_count', 'result_count', 'error_count']:
+              raise SystemExit('bridge_runtime observability variant must require observability_scope, summary, delivered_count, result_count, and error_count')
+          bridge_props = bridge_runtime_variant.get('properties', {})
+          if 'last_runtime_protocol_error_summary' in bridge_props:
+              raise SystemExit('bridge_runtime observability variant must not expose free-form runtime error summaries')
 
           codes = error_codes.get('codes', {})
           for code in [

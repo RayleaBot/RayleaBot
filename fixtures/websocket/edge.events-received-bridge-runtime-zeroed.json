@@ -1,0 +1,23 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "edge",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-03-18T10:21:00Z",
+    "data": {
+      "observability_scope": "bridge_runtime",
+      "summary": "bridge observability initialized but no supported deliveries have completed yet",
+      "delivered_count": 0,
+      "result_count": 0,
+      "error_count": 0
+    }
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "Zeroed aggregate counters remain valid.",
+      "The payload stays summary-only without replay, identifier, or error-text fields."
+    ]
+  }
+}
