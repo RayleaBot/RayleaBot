@@ -28,6 +28,17 @@ Phase 6 范围：
   - plugin 返回 `init_ack`
 - 在内存中维护最小 runtime lifecycle 状态。
 - 支持最小 `shutdown(stop)` 退出路径。
+- 建立最小 read-only adapter -> runtime event bridge。
+- 当前只支持一个内部事件形状：
+  - `onebot11.message_text`
+  - 映射为 plugin protocol `event`
+  - `event.event_type` 保留 `message.group` / `message.private`
+  - plugin 仅可返回 `result` 或 `error`
+- bridge 只保留内存计数和最近事件摘要，不新增外部 API。
+- 当首个可投递事件到达且当前尚无运行中的 runtime 时：
+  - 按 `plugin_id` 排序选择首个 manifest 有效的单个 plugin
+  - 使用事件中的 OneBot `self_id` 填充 `init.bot.id`
+  - 以 lazy-start 方式补齐最小 `init -> init_ack -> event` 链路
 - 建立最小任务状态类型和只读内存注册表骨架。
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
@@ -46,7 +57,7 @@ Phase 6 范围：
 
 - adapter 到 plugin 的事件投递。
 - 插件 action 请求、send / reply / API 调用。
-- `init/init_ack` 之外的 plugin protocol bridge。
+- 除单一 `event -> result|error` 外的 plugin protocol bridge。
 - `/api/tasks`、插件安装、启用、禁用等写操作 API。
 - OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
@@ -58,6 +69,7 @@ Phase 6 范围：
 - 权限授予流程执行、迁移执行与持久化 desired_state。
 - 多协议或多 adapter 抽象。
 - runtime restart loop、通用 supervisor、热重载。
+- 广义事件总线、多插件 fan-out、宽事件归一化。
 
 当前插件状态边界：
 
@@ -85,3 +97,11 @@ Phase 6 范围：
 - `stopped`：未运行、已退出，或最小握手失败后已回到静止态。
 - 当前 runtime 状态只用于最小内部生命周期跟踪，不会在本轮被扩展成写操作 API 或虚假的 readiness。
 - 当前 runtime shell 仍假定宿主机可直接提供 `python` / `node` 命令；托管 runtime 解析与绑定不在本轮范围内。
+
+当前 bridge 状态边界：
+
+- 只有 `onebot11.message_text` 会被接受并转发到运行中的单个 plugin runtime。
+- 该内部事件会保留 OneBot 消息方向语义，输出为 `message.group` 或 `message.private`。
+- 其它 adapter 事件在本轮只会被忽略，不会进入通用 dispatch framework。
+- plugin `result` 只被视为内部只读结果，不会触发任何 OneBot send / reply / action。
+- plugin `error` 只被记录为内部 bridge/runtime 结果，不会升级为新的 public API。

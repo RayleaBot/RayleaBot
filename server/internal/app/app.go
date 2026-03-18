@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"rayleabot/server/internal/adapter"
+	"rayleabot/server/internal/bridge"
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/logging"
@@ -29,15 +30,17 @@ type Options struct {
 }
 
 type App struct {
-	Config  config.Config
-	Summary config.Summary
-	Logger  *slog.Logger
-	Tasks   *tasks.Registry
-	Plugins *plugins.Catalog
-	Adapter *adapter.Shell
-	Runtime *runtime.Manager
-	router  http.Handler
-	server  *http.Server
+	Config   config.Config
+	Summary  config.Summary
+	Logger   *slog.Logger
+	Tasks    *tasks.Registry
+	Plugins  *plugins.Catalog
+	Adapter  *adapter.Shell
+	Bridge   *bridge.Bridge
+	Runtime  *runtime.Manager
+	repoRoot string
+	router   http.Handler
+	server   *http.Server
 }
 
 func New(options Options) (*App, error) {
@@ -52,22 +55,26 @@ func New(options Options) (*App, error) {
 	}
 
 	taskRegistry := tasks.NewRegistry()
-	pluginCatalog, err := discoverPlugins(options.SchemaPath, logger)
+	pluginCatalog, repoRoot, err := discoverPlugins(options.SchemaPath, logger)
 	if err != nil {
 		return nil, err
 	}
 	adapterShell := adapter.New(cfg.OneBot, logger)
 	runtimeManager := runtime.New(logger)
+	eventBridge := bridge.New(logger, runtimeManager)
 
 	application := &App{
-		Config:  cfg,
-		Summary: summary,
-		Logger:  logger,
-		Tasks:   taskRegistry,
-		Plugins: pluginCatalog,
-		Adapter: adapterShell,
-		Runtime: runtimeManager,
+		Config:   cfg,
+		Summary:  summary,
+		Logger:   logger,
+		Tasks:    taskRegistry,
+		Plugins:  pluginCatalog,
+		Adapter:  adapterShell,
+		Bridge:   eventBridge,
+		Runtime:  runtimeManager,
+		repoRoot: repoRoot,
 	}
+	adapterShell.SetEventHandler(application.handleAdapterEvent)
 
 	router := chi.NewRouter()
 	router.Get("/healthz", health.NewLivenessHandler())
@@ -164,15 +171,15 @@ func (a *App) Run(ctx context.Context) error {
 	}
 }
 
-func discoverPlugins(configSchemaPath string, logger *slog.Logger) (*plugins.Catalog, error) {
+func discoverPlugins(configSchemaPath string, logger *slog.Logger) (*plugins.Catalog, string, error) {
 	repoRoot, pluginSchemaPath, roots, err := pluginDiscoveryContext(configSchemaPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	validator, err := schema.Compile(pluginSchemaPath)
 	if err != nil {
-		return nil, fmt.Errorf("compile plugin manifest schema %s: %w", pluginSchemaPath, err)
+		return nil, "", fmt.Errorf("compile plugin manifest schema %s: %w", pluginSchemaPath, err)
 	}
 
 	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
@@ -182,10 +189,10 @@ func discoverPlugins(configSchemaPath string, logger *slog.Logger) (*plugins.Cat
 		Logger:    logger,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("discover plugins: %w", err)
+		return nil, "", fmt.Errorf("discover plugins: %w", err)
 	}
 
-	return plugins.NewCatalog(snapshots), nil
+	return plugins.NewCatalog(snapshots), repoRoot, nil
 }
 
 func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.ScanRoot, error) {

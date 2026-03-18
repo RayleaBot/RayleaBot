@@ -35,6 +35,37 @@ type Snapshot struct {
 	StoppedAt        *time.Time
 }
 
+type Event struct {
+	EventID        string
+	SourceProtocol string
+	SourceAdapter  string
+	EventType      string
+	Timestamp      int64
+	Actor          *EventActor
+	Target         *EventTarget
+	Message        *EventMessage
+}
+
+type EventActor struct {
+	ID string
+}
+
+type EventTarget struct {
+	Type string
+	ID   string
+}
+
+type EventMessage struct {
+	PlainText string
+}
+
+type Delivery struct {
+	RequestID    string
+	Result       map[string]any
+	ErrorCode    string
+	ErrorMessage string
+}
+
 type managerDeps struct {
 	now       func() time.Time
 	requestID func() string
@@ -44,15 +75,17 @@ type Manager struct {
 	logger *slog.Logger
 	deps   managerDeps
 
-	mu   sync.RWMutex
-	proc *processHandle
-	snap Snapshot
+	mu        sync.RWMutex
+	deliverMu sync.Mutex
+	proc      *processHandle
+	snap      Snapshot
 }
 
 type processHandle struct {
-	cmd   *exec.Cmd
-	stdin io.WriteCloser
-	spec  Spec
+	cmd    *exec.Cmd
+	stdin  io.WriteCloser
+	stdout *bufio.Reader
+	spec   Spec
 
 	done    chan struct{}
 	exitMu  sync.RWMutex
@@ -81,6 +114,39 @@ type shutdownFrame struct {
 	PluginID        string `json:"plugin_id"`
 	RequestID       string `json:"request_id"`
 	Reason          string `json:"reason"`
+}
+
+type eventFrame struct {
+	ProtocolVersion string             `json:"protocol_version"`
+	Type            string             `json:"type"`
+	Timestamp       int64              `json:"timestamp"`
+	PluginID        string             `json:"plugin_id"`
+	RequestID       string             `json:"request_id"`
+	Event           protocolEventFrame `json:"event"`
+}
+
+type protocolEventFrame struct {
+	EventID        string                `json:"event_id"`
+	SourceProtocol string                `json:"source_protocol"`
+	SourceAdapter  string                `json:"source_adapter"`
+	EventType      string                `json:"event_type"`
+	Timestamp      int64                 `json:"timestamp"`
+	Actor          *protocolActorFrame   `json:"actor,omitempty"`
+	Target         *protocolTargetFrame  `json:"target,omitempty"`
+	Message        *protocolMessageFrame `json:"message,omitempty"`
+}
+
+type protocolActorFrame struct {
+	ID string `json:"id"`
+}
+
+type protocolTargetFrame struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+type protocolMessageFrame struct {
+	PlainText string `json:"plain_text,omitempty"`
 }
 
 type frameEnvelope struct {
@@ -113,6 +179,13 @@ type errorFrame struct {
 	RequestID string `json:"request_id"`
 	Code      string `json:"code"`
 	Message   string `json:"message"`
+}
+
+type resultFrame struct {
+	Type      string         `json:"type"`
+	RequestID string         `json:"request_id"`
+	Status    string         `json:"status"`
+	Data      map[string]any `json:"data"`
 }
 
 type initResponseStatus int
@@ -153,12 +226,13 @@ func newManager(logger *slog.Logger, deps managerDeps) *Manager {
 	}
 }
 
-func newProcessHandle(cmd *exec.Cmd, stdin io.WriteCloser, spec Spec) *processHandle {
+func newProcessHandle(cmd *exec.Cmd, stdin io.WriteCloser, stdout *bufio.Reader, spec Spec) *processHandle {
 	return &processHandle{
-		cmd:   cmd,
-		stdin: stdin,
-		spec:  spec,
-		done:  make(chan struct{}),
+		cmd:    cmd,
+		stdin:  stdin,
+		stdout: stdout,
+		spec:   spec,
+		done:   make(chan struct{}),
 	}
 }
 
@@ -240,7 +314,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 
 	go drainOutput(stderr)
 
-	handle := newProcessHandle(cmd, stdin, spec)
+	handle := newProcessHandle(cmd, stdin, bufio.NewReader(stdout), spec)
 	go func() {
 		handle.setExit(cmd.Wait())
 	}()
@@ -274,7 +348,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		return errorf(codePluginInternalError, "write init frame", err)
 	}
 
-	if err := m.awaitInitAck(ctx, handle, bufio.NewReader(stdout), requestID); err != nil {
+	if err := m.awaitInitAck(ctx, handle, requestID); err != nil {
 		m.cleanupFailedStart(handle, err.Code, err.Message, err.Err)
 		return err
 	}
@@ -301,6 +375,9 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 }
 
 func (m *Manager) Stop(ctx context.Context) error {
+	m.deliverMu.Lock()
+	defer m.deliverMu.Unlock()
+
 	m.mu.Lock()
 	handle := m.proc
 	if handle == nil {
@@ -375,7 +452,66 @@ func (m *Manager) Stop(ctx context.Context) error {
 	}
 }
 
-func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, reader *bufio.Reader, requestID string) *Error {
+func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, error) {
+	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp <= 0 {
+		return Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
+	}
+
+	m.deliverMu.Lock()
+	defer m.deliverMu.Unlock()
+
+	m.mu.RLock()
+	handle := m.proc
+	snapshot := m.snap
+	m.mu.RUnlock()
+
+	if handle == nil || snapshot.State == StateStopped {
+		return Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
+	}
+	if snapshot.State == StateStopping {
+		return Delivery{}, errorf(codePluginStopping, "plugin runtime is stopping", nil)
+	}
+	if snapshot.State != StateRunning {
+		return Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not ready for event delivery", nil)
+	}
+
+	requestID := m.deps.requestID()
+	frame := eventFrame{
+		ProtocolVersion: "1",
+		Type:            "event",
+		Timestamp:       m.deps.now().Unix(),
+		PluginID:        handle.spec.PluginID,
+		RequestID:       requestID,
+		Event: protocolEventFrame{
+			EventID:        event.EventID,
+			SourceProtocol: event.SourceProtocol,
+			SourceAdapter:  event.SourceAdapter,
+			EventType:      event.EventType,
+			Timestamp:      event.Timestamp,
+		},
+	}
+
+	if event.Actor != nil && event.Actor.ID != "" {
+		frame.Event.Actor = &protocolActorFrame{ID: event.Actor.ID}
+	}
+	if event.Target != nil && event.Target.Type != "" && event.Target.ID != "" {
+		frame.Event.Target = &protocolTargetFrame{
+			Type: event.Target.Type,
+			ID:   event.Target.ID,
+		}
+	}
+	if event.Message != nil && event.Message.PlainText != "" {
+		frame.Event.Message = &protocolMessageFrame{PlainText: event.Message.PlainText}
+	}
+
+	if err := writeJSONLine(handle.stdin, frame); err != nil {
+		return Delivery{}, errorf(codePluginInternalError, "write event frame", err)
+	}
+
+	return m.awaitEventResponse(ctx, handle, requestID)
+}
+
+func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, requestID string) *Error {
 	silenceTimer := time.NewTimer(handle.spec.InitTimeout)
 	defer silenceTimer.Stop()
 
@@ -387,7 +523,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, reade
 		readErrCh := make(chan error, 1)
 
 		go func() {
-			line, err := reader.ReadBytes('\n')
+			line, err := handle.stdout.ReadBytes('\n')
 			if err != nil {
 				readErrCh <- err
 				return
@@ -497,7 +633,122 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 	}
 }
 
+func (m *Manager) awaitEventResponse(ctx context.Context, handle *processHandle, requestID string) (Delivery, error) {
+	readCh := make(chan []byte, 1)
+	readErrCh := make(chan error, 1)
+
+	go func() {
+		line, err := handle.stdout.ReadBytes('\n')
+		if err != nil {
+			readErrCh <- err
+			return
+		}
+		readCh <- line
+	}()
+
+	timeout := handle.spec.EventTimeout
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining > 0 && remaining < timeout {
+			timeout = remaining
+		}
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case line := <-readCh:
+		return m.parseEventResponse(line, handle.spec.PluginID, requestID)
+	case readErr := <-readErrCh:
+		if errors.Is(readErr, io.EOF) {
+			waitErr, _ := handle.exitResult()
+			if waitErr == nil {
+				return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", nil)
+			}
+			return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", waitErr)
+		}
+		return Delivery{}, errorf(codePluginProtocolViolation, "read plugin event response", readErr)
+	case <-handle.done:
+		waitErr, _ := handle.exitResult()
+		if waitErr == nil {
+			return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", nil)
+		}
+		return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", waitErr)
+	case <-timer.C:
+		runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", nil)
+		m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+		return Delivery{}, runtimeErr
+	case <-ctx.Done():
+		runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", ctx.Err())
+		m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+		return Delivery{}, runtimeErr
+	}
+}
+
+func (m *Manager) parseEventResponse(line []byte, pluginID string, requestID string) (Delivery, error) {
+	var envelope frameEnvelope
+	if err := json.Unmarshal(line, &envelope); err != nil {
+		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+	}
+	if envelope.ProtocolVersion != "1" {
+		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
+	}
+	if envelope.PluginID == "" || envelope.PluginID != pluginID {
+		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
+	}
+	if envelope.RequestID == "" || envelope.RequestID != requestID {
+		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+	}
+
+	switch envelope.Type {
+	case "result":
+		var frame resultFrame
+		if err := json.Unmarshal(line, &frame); err != nil {
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
+		}
+		if frame.Status != "success" {
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin result frame must use status=success", nil)
+		}
+		if frame.Data == nil {
+			frame.Data = map[string]any{}
+		}
+		return Delivery{
+			RequestID: requestID,
+			Result:    frame.Data,
+		}, nil
+	case "error":
+		var frame errorFrame
+		if err := json.Unmarshal(line, &frame); err != nil {
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
+		}
+		if frame.Code == "" || frame.Message == "" {
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
+		}
+		delivery := Delivery{
+			RequestID:    requestID,
+			ErrorCode:    frame.Code,
+			ErrorMessage: frame.Message,
+		}
+		return delivery, errorf(frame.Code, frame.Message, nil)
+	default:
+		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during event delivery", nil)
+	}
+}
+
 func (m *Manager) cleanupFailedStart(handle *processHandle, code, message string, err error) {
+	if handle != nil && handle.cmd != nil && handle.cmd.Process != nil {
+		_ = handle.cmd.Process.Kill()
+	}
+	if handle != nil {
+		select {
+		case <-handle.done:
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	m.markStopped(code, message, err)
+}
+
+func (m *Manager) cleanupFailedDelivery(handle *processHandle, code, message string, err error) {
 	if handle != nil && handle.cmd != nil && handle.cmd.Process != nil {
 		_ = handle.cmd.Process.Kill()
 	}

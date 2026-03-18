@@ -147,6 +147,90 @@ func TestManagerGracefulStop(t *testing.T) {
 	}
 }
 
+func TestManagerDeliverEventReturnsResult(t *testing.T) {
+	t.Parallel()
+
+	recordPath := filepath.Join(t.TempDir(), "frames.jsonl")
+	manager := testManager()
+	spec := helperSpec(t, "event-result", recordPath)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.RequestID == "" {
+		t.Fatal("expected request id on successful delivery")
+	}
+	if handled, _ := delivery.Result["handled"].(bool); !handled {
+		t.Fatalf("unexpected delivery result: %#v", delivery.Result)
+	}
+
+	frames := recordedFrames(t, recordPath)
+	if len(frames) < 2 {
+		t.Fatalf("expected init and event frames, got %d", len(frames))
+	}
+	if frames[1]["type"] != "event" {
+		t.Fatalf("unexpected event frame type: %#v", frames[1]["type"])
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-error", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginNotHandled)
+	if delivery.ErrorCode != codePluginNotHandled {
+		t.Fatalf("unexpected delivery error code: got %q want %q", delivery.ErrorCode, codePluginNotHandled)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventFailsWhenRuntimeIsNotRunning(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePlatformInvalidRequest)
+}
+
+func TestManagerDeliverEventTimeoutStopsRuntime(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpecWithEventTimeout(t, "event-timeout", "", 80*time.Millisecond)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginEventTimeout)
+
+	waitForRuntimeState(t, manager, StateStopped)
+
+	_, err = manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePlatformInvalidRequest)
+}
+
 func TestManagerStopIgnoresPluginThatAlreadyExited(t *testing.T) {
 	t.Parallel()
 
@@ -175,6 +259,139 @@ func TestHelperProcessRuntime(t *testing.T) {
 
 	switch scenario {
 	case "early-exit":
+		os.Exit(0)
+	case "event-error":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		recordFrame(recordPath, line)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "error",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"code":             "plugin.not_handled",
+			"message":          "plugin chose not to handle this event",
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
+	case "event-result":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		recordFrame(recordPath, line)
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		recordFrame(recordPath, line)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "result",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"status":           "success",
+			"data": map[string]any{
+				"handled": true,
+			},
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			recordFrame(recordPath, line)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
+	case "event-timeout":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		recordFrame(recordPath, line)
+		time.Sleep(500 * time.Millisecond)
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "result",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       "req_test",
+			"status":           "success",
+			"data": map[string]any{
+				"handled": true,
+			},
+		})
+		for scanner.Scan() {
+		}
 		os.Exit(0)
 	case "exit-after-ready":
 		if !scanner.Scan() {
@@ -350,6 +567,14 @@ func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 	return helperSpecWithTimings(t, scenario, recordPath, 300*time.Millisecond, time.Second, 400*time.Millisecond)
 }
 
+func helperSpecWithEventTimeout(t *testing.T, scenario string, recordPath string, eventTimeout time.Duration) Spec {
+	t.Helper()
+
+	spec := helperSpec(t, scenario, recordPath)
+	spec.EventTimeout = eventTimeout
+	return spec
+}
+
 func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, initMaxTotal time.Duration, shutdownGrace time.Duration) Spec {
 	t.Helper()
 
@@ -375,6 +600,7 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 		EntryPath:     "helper",
 		InitTimeout:   initTimeout,
 		InitMaxTotal:  initMaxTotal,
+		EventTimeout:  300 * time.Millisecond,
 		ShutdownGrace: shutdownGrace,
 	}
 }
@@ -386,6 +612,26 @@ func testInitPayload() InitPayload {
 			Nickname: "RayleaBot",
 		},
 		Capabilities: []string{"event.subscribe"},
+	}
+}
+
+func testRuntimeEvent() Event {
+	return Event{
+		EventID:        "evt-1",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "adapter.onebot11",
+		EventType:      "message.group",
+		Timestamp:      time.Unix(1_700_000_200, 0).Unix(),
+		Actor: &EventActor{
+			ID: "3001",
+		},
+		Target: &EventTarget{
+			Type: "group",
+			ID:   "2001",
+		},
+		Message: &EventMessage{
+			PlainText: "hello from adapter bridge",
+		},
 	}
 }
 

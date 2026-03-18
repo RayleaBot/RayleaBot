@@ -15,9 +15,12 @@ const (
 	codePlatformInvalidRequest  = "platform.invalid_request"
 	codePlatformResourceMissing = "platform.resource_missing"
 	codePluginInitTimeout       = "plugin.init_timeout"
+	codePluginEventTimeout      = "plugin.event_timeout"
 	codePluginInternalError     = "plugin.internal_error"
+	codePluginNotHandled        = "plugin.not_handled"
 	codePluginProtocolViolation = "plugin.protocol_violation"
 	codePluginShutdownTimeout   = "plugin.shutdown_timeout"
+	codePluginStopping          = "plugin.stopping"
 )
 
 type Error struct {
@@ -71,6 +74,7 @@ type Spec struct {
 	EntryPath     string
 	InitTimeout   time.Duration
 	InitMaxTotal  time.Duration
+	EventTimeout  time.Duration
 	ShutdownGrace time.Duration
 }
 
@@ -147,6 +151,7 @@ func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.
 		EntryPath:     resolvedEntryPath,
 		InitTimeout:   initTimeout,
 		InitMaxTotal:  initMaxTotal,
+		EventTimeout:  durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
 		ShutdownGrace: durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
 	}, nil
 }

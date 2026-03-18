@@ -204,3 +204,72 @@ func TestIsLifecycleDisable(t *testing.T) {
 		t.Fatal("expected lifecycle disable to be recognized")
 	}
 }
+
+func TestNormalizeSupportedEventFromTextMessage(t *testing.T) {
+	t.Parallel()
+
+	observedAt := time.Unix(1700000000, 0).UTC()
+	event, ok := normalizeSupportedEvent(oneBotFrame{
+		PostType:    "message",
+		MessageType: "group",
+		MessageID:   1001,
+		Time:        observedAt.Unix(),
+		SelfID:      10001,
+		UserID:      3001,
+		GroupID:     2001,
+		RawMessage:  "hello adapter bridge",
+	}, observedAt)
+	if !ok {
+		t.Fatal("expected supported text message event")
+	}
+	if event.Kind != EventKindMessageText {
+		t.Fatalf("unexpected kind: got %q want %q", event.Kind, EventKindMessageText)
+	}
+	if event.BotID != "10001" {
+		t.Fatalf("unexpected bot id: got %q want %q", event.BotID, "10001")
+	}
+	if event.EventType != "message.group" {
+		t.Fatalf("unexpected event type: got %q want %q", event.EventType, "message.group")
+	}
+	if event.ConversationType != "group" || event.ConversationID != "2001" {
+		t.Fatalf("unexpected conversation: %+v", event)
+	}
+	if event.SenderID != "3001" || event.PlainText != "hello adapter bridge" {
+		t.Fatalf("unexpected normalized event: %+v", event)
+	}
+}
+
+func TestNormalizeSupportedEventRejectsUnsupportedShape(t *testing.T) {
+	t.Parallel()
+
+	if _, ok := normalizeSupportedEvent(oneBotFrame{
+		PostType:    "notice",
+		MessageType: "group",
+		SelfID:      10001,
+		GroupID:     2001,
+		UserID:      3001,
+		RawMessage:  "should not pass",
+	}, time.Unix(1700000000, 0).UTC()); ok {
+		t.Fatal("notice event should not be normalized as supported bridge event")
+	}
+
+	if _, ok := normalizeSupportedEvent(oneBotFrame{
+		PostType:    "message",
+		MessageType: "group",
+		SelfID:      10001,
+		GroupID:     2001,
+		UserID:      3001,
+		RawMessage:  "   ",
+	}, time.Unix(1700000000, 0).UTC()); ok {
+		t.Fatal("empty text message should not be normalized as supported bridge event")
+	}
+
+	if _, ok := normalizeSupportedEvent(oneBotFrame{
+		PostType:    "message",
+		MessageType: "private",
+		UserID:      3001,
+		RawMessage:  "hello",
+	}, time.Unix(1700000000, 0).UTC()); ok {
+		t.Fatal("message without self_id should not be normalized as supported bridge event")
+	}
+}

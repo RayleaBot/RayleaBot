@@ -39,12 +39,13 @@ type Shell struct {
 	logger *slog.Logger
 	deps   shellDeps
 
-	mu       sync.RWMutex
-	snapshot Snapshot
-	conn     *websocket.Conn
-	cancel   context.CancelFunc
-	done     chan struct{}
-	started  bool
+	mu           sync.RWMutex
+	snapshot     Snapshot
+	conn         *websocket.Conn
+	cancel       context.CancelFunc
+	done         chan struct{}
+	started      bool
+	eventHandler func(context.Context, NormalizedEvent)
 }
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
@@ -156,6 +157,12 @@ func (s *Shell) Snapshot() Snapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return cloneSnapshot(s.snapshot)
+}
+
+func (s *Shell) SetEventHandler(handler func(context.Context, NormalizedEvent)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.eventHandler = handler
 }
 
 func (s *Shell) run(ctx context.Context) {
@@ -297,7 +304,7 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (Fr
 
 	for {
 		readyCtx, cancel := s.waitContext(ctx)
-		frame, err := s.consumeFrame(readyCtx, conn)
+		frame, err := s.readFrame(readyCtx, conn)
 		cancel()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -309,8 +316,11 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (Fr
 			return FrameSummary{}, err
 		}
 
-		if isReadySummary(frame) {
-			return frame, nil
+		if err := s.recordAndValidateFrame(frame); err != nil {
+			return FrameSummary{}, err
+		}
+		if isReadySummary(frame.Summary) {
+			return frame.Summary, nil
 		}
 
 		waitingForFirstFrame = false
@@ -320,11 +330,17 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (Fr
 func (s *Shell) readLoop(ctx context.Context, conn *websocket.Conn) error {
 	for {
 		readCtx, cancel := s.readContext(ctx)
-		_, err := s.consumeFrame(readCtx, conn)
+		frame, err := s.readFrame(readCtx, conn)
 		cancel()
 		if err != nil {
 			return err
 		}
+
+		if err := s.recordAndValidateFrame(frame); err != nil {
+			return err
+		}
+
+		s.forwardSupportedEvent(ctx, frame)
 	}
 }
 
@@ -334,12 +350,7 @@ func (s *Shell) readContext(ctx context.Context) (context.Context, context.Cance
 	return context.WithTimeout(ctx, timeout)
 }
 
-func (s *Shell) consumeFrame(ctx context.Context, conn *websocket.Conn) (FrameSummary, error) {
-	frame, err := s.readFrame(ctx, conn)
-	if err != nil {
-		return FrameSummary{}, err
-	}
-
+func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
 	snapshot := s.recordFrame(frame.Summary)
 
 	switch {
@@ -353,7 +364,7 @@ func (s *Shell) consumeFrame(ctx context.Context, conn *websocket.Conn) (FrameSu
 			"reason", frame.InvalidSummary,
 			"ws_url", sanitizeWSURL(s.cfg.WSURL),
 		)
-		return frame.Summary, fmt.Errorf("invalid frame: %s", frame.InvalidSummary)
+		return fmt.Errorf("invalid frame: %s", frame.InvalidSummary)
 	case isLifecycleDisable(frame.Frame):
 		s.logger.Warn(
 			"adapter lifecycle disable observed",
@@ -364,7 +375,7 @@ func (s *Shell) consumeFrame(ctx context.Context, conn *websocket.Conn) (FrameSu
 		)
 	}
 
-	return frame.Summary, nil
+	return nil
 }
 
 func (s *Shell) readFrame(ctx context.Context, conn *websocket.Conn) (classifiedFrame, error) {
@@ -557,4 +568,34 @@ func maxInt(value, fallback int) int {
 	}
 
 	return value
+}
+
+func (s *Shell) forwardSupportedEvent(ctx context.Context, frame classifiedFrame) {
+	if frame.Summary.Category != FrameCategoryEvent {
+		return
+	}
+
+	normalizedEvent, ok := normalizeSupportedEvent(frame.Frame, frame.Summary.ObservedAt)
+	if !ok {
+		s.logger.Debug(
+			"adapter event ignored by runtime bridge",
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"frame_type", frame.Summary.Type,
+		)
+		return
+	}
+
+	handler := s.currentEventHandler()
+	if handler == nil {
+		return
+	}
+
+	handler(ctx, normalizedEvent)
+}
+
+func (s *Shell) currentEventHandler() func(context.Context, NormalizedEvent) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.eventHandler
 }

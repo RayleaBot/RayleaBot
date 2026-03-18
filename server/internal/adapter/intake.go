@@ -2,6 +2,8 @@ package adapter
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -24,11 +26,34 @@ type FrameSummary struct {
 	HeartbeatInterval time.Duration
 }
 
+const EventKindMessageText = "onebot11.message_text"
+
+type NormalizedEvent struct {
+	Kind             string
+	EventID          string
+	BotID            string
+	SourceProtocol   string
+	SourceAdapter    string
+	EventType        string
+	Timestamp        int64
+	ConversationType string
+	ConversationID   string
+	SenderID         string
+	PlainText        string
+}
+
 type oneBotFrame struct {
 	PostType      string `json:"post_type"`
 	MetaEventType string `json:"meta_event_type"`
 	SubType       string `json:"sub_type"`
 	Interval      int    `json:"interval"`
+	MessageType   string `json:"message_type"`
+	MessageID     int64  `json:"message_id"`
+	Time          int64  `json:"time"`
+	SelfID        int64  `json:"self_id"`
+	UserID        int64  `json:"user_id"`
+	GroupID       int64  `json:"group_id"`
+	RawMessage    string `json:"raw_message"`
 }
 
 type classifiedFrame struct {
@@ -119,4 +144,58 @@ func isReadySummary(summary FrameSummary) bool {
 
 func isLifecycleDisable(frame oneBotFrame) bool {
 	return frame.PostType == "meta_event" && frame.MetaEventType == "lifecycle" && frame.SubType == "disable"
+}
+
+func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	if frame.PostType != "message" {
+		return NormalizedEvent{}, false
+	}
+
+	plainText := strings.TrimSpace(frame.RawMessage)
+	if plainText == "" || frame.SelfID <= 0 || frame.UserID <= 0 {
+		return NormalizedEvent{}, false
+	}
+
+	var eventType string
+	var conversationType string
+	var conversationID string
+	switch frame.MessageType {
+	case "private":
+		eventType = "message.private"
+		conversationType = "private"
+		conversationID = fmt.Sprintf("%d", frame.UserID)
+	case "group":
+		if frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "message.group"
+		conversationType = "group"
+		conversationID = fmt.Sprintf("%d", frame.GroupID)
+	default:
+		return NormalizedEvent{}, false
+	}
+
+	timestamp := frame.Time
+	if timestamp <= 0 {
+		timestamp = observedAt.Unix()
+	}
+
+	eventID := fmt.Sprintf("onebot11-message-%d-%d", timestamp, frame.UserID)
+	if frame.MessageID > 0 {
+		eventID = fmt.Sprintf("onebot11-message-%d", frame.MessageID)
+	}
+
+	return NormalizedEvent{
+		Kind:             EventKindMessageText,
+		EventID:          eventID,
+		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        eventType,
+		Timestamp:        timestamp,
+		ConversationType: conversationType,
+		ConversationID:   conversationID,
+		SenderID:         fmt.Sprintf("%d", frame.UserID),
+		PlainText:        plainText,
+	}, true
 }
