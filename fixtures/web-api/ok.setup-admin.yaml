@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: First-time bootstrap creates the initial management credential source and immediately issues a session token.
+request:
+  method: POST
+  path: /api/setup/admin
+  body:
+    identifier: admin
+    secret: fixture-only-secret
+response:
+  status: 200
+  body:
+    session_token: session_token_fixture_bootstrap_0001
+expect:
+  valid: true

@@ -8,12 +8,15 @@ info:
     routes remain TODOs in contracts/README.md and are not formalized here yet.
 x-fixtures:
   - fixtures/web-api/ok.healthz-response.yaml
+  - fixtures/web-api/ok.setup-admin.yaml
   - fixtures/web-api/ok.session-login.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
+  - fixtures/web-api/edge.setup-admin-already-initialized.yaml
   - fixtures/web-api/edge.session-login-max-sessions.yaml
+  - fixtures/web-api/invalid.setup-admin-bad-request.yaml
   - fixtures/web-api/invalid.session-login-bad-credentials.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
 
@@ -49,6 +52,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessStatusResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/setup/admin:
+    post:
+      summary: Bootstrap the initial management credential source and issue a session token.
+      operationId: setupAdmin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionLoginRequest'
+      responses:
+        '200':
+          description: Initial management credential source created and session token issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionLoginResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 

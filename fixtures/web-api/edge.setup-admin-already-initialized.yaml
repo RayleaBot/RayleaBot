@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Repeated bootstrap is conservatively rejected after the initial management credential source already exists.
+request:
+  method: POST
+  path: /api/setup/admin
+  body:
+    identifier: admin
+    secret: fixture-only-secret
+response:
+  status: 403
+  body:
+    error:
+      code: permission.denied
+      message: 当前用户无权执行该操作
+      message_key: errors.permission.denied
+      request_id: req_setup_admin_denied_0001
+expect:
+  valid: true

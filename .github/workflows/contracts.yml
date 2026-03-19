@@ -196,6 +196,7 @@ jobs:
           required_paths = {
               '/healthz',
               '/readyz',
+              '/api/setup/admin',
               '/api/session/login',
               '/api/tasks',
               '/api/tasks/{task_id}',

@@ -24,7 +24,7 @@
 - `error-codes.yaml`
   - 负责统一错误码命名、默认消息资源键、HTTP 语义和适用范围。
 - `web-api.openapi.yaml`
-  - 负责当前已冻结的最小管理 HTTP 接口，包括最小 management session issuance surface。
+  - 负责当前已冻结的最小管理 HTTP 接口，包括最小 bootstrap/admin credential-source 与 management session issuance surfaces。
 - `websocket-events.yaml`
   - 负责 Phase 1 最小管理通道的 shared envelope、事件名和 payload 约束。
 - `plugin-info.schema.json`
@@ -91,7 +91,6 @@
 以下 HTTP 路由仍属于规划内能力，但不在正式 OpenAPI 冻结范围内：
 
 - `GET /api/setup/status`
-- `POST /api/setup/admin`
 - `DELETE /api/session`
 - `POST /api/session/launcher-token`
 - `POST /api/system/shutdown`
