@@ -2,6 +2,7 @@
 /data/
 /cache/
 /.cache/
+/server/.cache/
 /logs/
 /config/user.yaml
 /plugins/installed/*
