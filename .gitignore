@@ -1,6 +1,7 @@
 # Runtime-managed directories from the project plan.
 /data/
 /cache/
+/.cache/
 /logs/
 /config/user.yaml
 /plugins/installed/*
