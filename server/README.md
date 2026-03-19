@@ -40,6 +40,8 @@ Phase 6 范围：
   - 使用事件中的 OneBot `self_id` 填充 `init.bot.id`
   - 以 lazy-start 方式补齐最小 `init -> init_ack -> event` 链路
 - 建立最小任务状态类型和只读内存注册表骨架。
+- 建立最小内部 management session/token validation shell。
+- 当前仅提供 server 内部复用的签发与校验 primitive，不新增公开 login / session route。
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
 
@@ -62,6 +64,7 @@ Phase 6 范围：
 - OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
 - `/ws/events` 管理摘要推送。
+- 公开 management session / login / launcher-token surface。
 - OneBot intake observability 的持久化、重放或历史查询。
 - 数据库打开、迁移执行、渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。

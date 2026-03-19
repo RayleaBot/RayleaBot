@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"rayleabot/server/internal/adapter"
+	"rayleabot/server/internal/auth"
 	"rayleabot/server/internal/bridge"
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/health"
@@ -35,6 +36,7 @@ type App struct {
 	Logger   *slog.Logger
 	Tasks    *tasks.Registry
 	Plugins  *plugins.Catalog
+	Auth     *auth.Manager
 	Adapter  *adapter.Shell
 	Bridge   *bridge.Bridge
 	Runtime  *runtime.Manager
@@ -62,6 +64,14 @@ func New(options Options) (*App, error) {
 	adapterShell := adapter.New(cfg.OneBot, logger)
 	runtimeManager := runtime.New(logger)
 	eventBridge := bridge.New(logger, runtimeManager)
+	authManager, err := auth.NewManager(auth.Config{
+		SessionTTLDays: cfg.Auth.SessionTTLDays,
+		SlidingRenewal: cfg.Auth.SlidingRenewal,
+		MaxSessions:    cfg.Auth.MaxSessions,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create auth manager: %w", err)
+	}
 
 	application := &App{
 		Config:   cfg,
@@ -69,6 +79,7 @@ func New(options Options) (*App, error) {
 		Logger:   logger,
 		Tasks:    taskRegistry,
 		Plugins:  pluginCatalog,
+		Auth:     authManager,
 		Adapter:  adapterShell,
 		Bridge:   eventBridge,
 		Runtime:  runtimeManager,
