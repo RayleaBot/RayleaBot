@@ -151,6 +151,7 @@ channels:
           event broadcast and must not be used as a general replay stream for
           protocol events.
         payload_schema:
+          description: The payload must satisfy exactly one of the branches below.
           oneOf:
             - type: object
               additionalProperties: false
@@ -210,6 +211,11 @@ channels:
                   enum: [bridge_runtime]
                 summary:
                   type: string
+                  description: >
+                    Aggregate-only bridge/runtime observability summary. This
+                    summary must not include raw message content, protocol
+                    payload fragments, request identifiers, sender identifiers,
+                    or conversation identifiers.
                 last_supported_event_kind:
                   type: string
                 last_delivery_outcome:
@@ -224,13 +230,6 @@ channels:
                 error_count:
                   type: integer
                   minimum: 0
-        required:
-          - [service_status, summary]
-          - [plugin_id, registration_state, desired_state, runtime_state]
-          - [connection_status, summary]
-          - [event_type, summary]
-          - [observability_scope, summary, delivered_count, result_count, error_count]
-        required_note: The payload must satisfy exactly one of the required field sets above.
         example_ref: fixtures/websocket/edge.events-received-degraded.json
 
   - path: /ws/plugins/{id}/console
