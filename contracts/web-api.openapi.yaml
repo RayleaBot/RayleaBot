@@ -3,15 +3,18 @@ info:
   title: RayleaBot Web API
   version: 0.1.0
   description: >
-    Phase 1 fixture-ready HTTP contract. This file intentionally contains only
-    the ten management routes that are frozen in this round. Other planned
+    Fixture-ready HTTP contract. This file intentionally contains only
+    the currently frozen management routes. Other planned
     routes remain TODOs in contracts/README.md and are not formalized here yet.
 x-fixtures:
   - fixtures/web-api/ok.healthz-response.yaml
+  - fixtures/web-api/ok.session-login.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
+  - fixtures/web-api/edge.session-login-max-sessions.yaml
+  - fixtures/web-api/invalid.session-login-bad-credentials.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
 
 paths:
@@ -46,6 +49,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessStatusResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/session/login:
+    post:
+      summary: Exchange management credentials for a session token.
+      operationId: loginSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionLoginRequest'
+      responses:
+        '200':
+          description: Session token issued for later management admission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionLoginResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -257,6 +284,28 @@ components:
             details:
               type: object
               additionalProperties: true
+
+    SessionLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [identifier, secret]
+      properties:
+        identifier:
+          type: string
+          minLength: 1
+        secret:
+          type: string
+          minLength: 1
+
+    SessionLoginResponse:
+      type: object
+      additionalProperties: false
+      required: [session_token]
+      properties:
+        session_token:
+          type: string
+          minLength: 1
+          description: Opaque management session token for later auth=session_token admission.
 
     LivenessStatusResponse:
       type: object

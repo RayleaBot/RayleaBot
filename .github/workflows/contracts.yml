@@ -196,6 +196,7 @@ jobs:
           required_paths = {
               '/healthz',
               '/readyz',
+              '/api/session/login',
               '/api/tasks',
               '/api/tasks/{task_id}',
               '/api/tasks/{task_id}/cancel',
@@ -207,7 +208,7 @@ jobs:
           }
           actual_paths = set(web_api.get('paths', {}).keys())
           if actual_paths != required_paths:
-              raise SystemExit(f'web-api.openapi.yaml paths must exactly match Phase 1 set: {sorted(required_paths)}; got {sorted(actual_paths)}')
+              raise SystemExit(f'web-api.openapi.yaml paths must exactly match the current frozen set: {sorted(required_paths)}; got {sorted(actual_paths)}')
           if web_api['paths']['/api/plugins/{plugin_id}/enable']['post']['responses'].get('202'):
               raise SystemExit('enable must be synchronous and must not return 202')
           if web_api['paths']['/api/plugins/{plugin_id}/disable']['post']['responses'].get('202'):

@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Minimal management login issues one opaque session token.
+request:
+  method: POST
+  path: /api/session/login
+  body:
+    identifier: admin
+    secret: fixture-only-secret
+response:
+  status: 200
+  body:
+    session_token: session_token_fixture_issued_0001
+expect:
+  valid: true
