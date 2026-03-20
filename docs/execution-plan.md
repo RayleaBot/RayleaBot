@@ -19,7 +19,7 @@
 | Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化与单一 `message.send -> send_msg` 出站 action slice 已落地；更广 action family 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> action(message.send) \| result \| error` bridge 已落地；`ping/pong` contract 已 formalize，runtime 实现仍未落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
 | Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）、auth persistence（bootstrap state + admin sessions 跨重启存活）与 plugin desired_state persistence（`plugin_instances` migration + SQLite repository + startup hydration）已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与运维工具链仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown`、`/api/tasks` list/detail/cancel、统一 `RequireAuth` 与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到最小异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state`；config/logs 查询面、通用 task executor 与更完整插件管理面仍未实现 |
+| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/config`、`PUT /api/config`、`GET /api/system/status`、`POST /api/system/shutdown`、`GET /api/logs`、`/api/tasks` list/detail/cancel、统一 `RequireAuth`、共享 HTTP error/write 路径与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到最小异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state`；通用 task executor 与更完整插件管理面仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -77,7 +77,7 @@
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
 | `fixtures/config` | ✅ | `ok` / `invalid` / `edge` 配置样例已落库 |
-| `fixtures/web-api` | ✅ | health、ready、plugin、setup-admin、session-login、auth、tasks 与 plugin install progression 相关样例已落库 |
+| `fixtures/web-api` | ✅ | health、ready、plugin、setup-admin、session-login、auth、config、logs、tasks 与 plugin install progression 相关样例已落库 |
 | `fixtures/websocket` | ✅ | management WebSocket 消息样例已落库，包含 tasks/logs/console/events 的正向与边界样例 |
 | `fixtures/plugin-info` | ✅ | plugin manifest 的正反与边界样例已落库 |
 | `fixtures/plugin-protocol` | ✅ | plugin protocol 的 init / progress / ack 等样例已落库 |
@@ -227,8 +227,10 @@
 | `plugin console` WebSocket | ✅ | `/ws/plugins/{id}/console` 已实现：连接建立时回放每插件 bounded in-memory ring buffer，后续推送经 platform-side redaction + rate limiting 的 runtime `stderr` / `system` console frames；当前不提供历史持久化，也不暴露原始协议 `stdout` |
 | HTTP 鉴权中间件 | ✅ | 统一 `RequireAuth` chi 中间件已落地：从 `Authorization: Bearer <token>` 头提取 token，调用 `auth.Manager.Validate` 校验，Claims 存入 request context；公开路由（`/healthz`、`/readyz`、`/api/setup/admin`、`/api/session/login`）与受保护路由组已分离；当前所有已实现的 management WebSocket 路径（`/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console`）都支持 `session_token` 查询参数向后兼容；鉴权失败统一返回 401 ErrorEnvelope（`permission.denied`）；契约已补充 `BearerAuth` 安全方案与 401 响应；鉴权失败 fixtures 已落库 |
 | Management status / session / system handlers | ✅ | `GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 已按现有 contract 落地；当前 `launcher-token` 为进程内、单次使用、短 TTL 的最小 issuance shell |
+| Config / logs management handlers | ✅ | `GET /api/config`、`PUT /api/config`、`GET /api/logs` 已落地；配置读取返回当前生效配置的可公开快照，敏感字段做基础掩码；配置更新按 formal schema 校验后原子写回 `config/user.yaml`，并显式返回 `restart_required`；日志查询复用 bounded in-memory summary stream 与既有 redaction 逻辑 |
 | `/api/tasks` list / detail / cancel handlers | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` 已落地；当前直接复用内存 `tasks.Registry`，并对运行中的 `plugin.install` 提供最小取消接线；其余不可取消状态继续返回既有 `platform.task_not_cancellable` 错误形状 |
 | 最小插件写操作入口 | ✅ | `POST /api/plugins/install` 已接入最小异步 local-source install 执行链：支持 `local_directory` / `local_zip`、来源准备、manifest 校验、正式目录写入、catalog refresh、task progress 更新与最小取消；`POST /api/plugins/{plugin_id}/enable` / `disable` 已切换到 SQLite 持久化 `desired_state`，并在现有读 API 中反映变更；runtime_state 保持进程内语义 |
+| 共享 HTTP error / request context 写入路径 | ✅ | 路由级 request_id 注入、统一 JSON error envelope 写入与最小 panic recovery 已在 server router 上接通；management handlers 与 plugin handlers 当前共享同一写出路径 |
 
 ### 仍未完成
 
@@ -237,9 +239,8 @@
 | 通用 task executor / progress writer | ❌ | 当前实现范围包括 `plugin.install` 的最小异步执行切片；backup/restore/migrate 等更广 task type 的统一执行编排、历史持久化与恢复仍未建立 |
 | 更完整 plugin install pipeline | ❌ | 当前实现范围包括本地目录 / 压缩包来源、manifest 校验、正式目录写入与 catalog refresh；依赖安装与环境准备、`plugin_packages` 元数据、install scripts 授权、远程来源与 interrupted-task recovery 仍未实现 |
 | plugin reload / uninstall 管理面 | ❌ | `POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 仍未 formalize / implement |
-| `/api/config` 配置管理接口 | ❌ | `GET /api/config` / `PUT /api/config` 仍未 formalize / implement |
-| `/api/logs` 日志查询接口 | ❌ | 日志检索/查询面仍未 formalize / implement |
-| 全局错误中间件 | ❌ | 统一错误响应中间件仍未完善 |
+| 配置热更新 / 局部重载 | ❌ | `PUT /api/config` 当前只完成 formal schema 校验、原子写盘与 `restart_required` 响应；热更新、局部重载与字段级即时生效尚未实现 |
+| 日志历史检索 / 持久化查询 | ❌ | `GET /api/logs` 当前只查询 bounded in-memory summary stream，不提供日志文件检索、全量 attrs 或历史持久化查询 |
 
 ---
 
@@ -304,6 +305,8 @@
 | `auth_surface_test.go` | Auth 路由攻击面审计（无内部路由暴露） |
 | `auth_middleware_test.go` | HTTP 鉴权中间件（token 提取、统一拒绝、request_id 唯一性、Claims 上下文传递、管理 WebSocket 查询参数备用、头优先级、未鉴权零值、公开/受保护路由分类） |
 | `management_http_test.go` | `setup/status`、`session logout`、`launcher-token`、`system/status`、`system/shutdown` handlers |
+| `config_http_test.go` | `/api/config` 读取、原子写盘、敏感字段保留/掩码与 `restart_required` 语义 |
+| `logs_http_test.go` | `/api/logs` 过滤、空结果、无效查询拒绝与 redaction/字段白名单 |
 | `tasks_http_test.go` | `/api/tasks` list / detail / cancel handlers（过滤、404、取消接受与不可取消拒绝） |
 | `events_ws_test.go` | `/ws/events` WebSocket（鉴权、observability 帧投递） |
 | `tasks_ws_test.go` | `/ws/tasks` WebSocket（鉴权、snapshot replay、live task updates） |
@@ -337,23 +340,20 @@
 
 ### 1. 近期主线（优先继续补平台闭环）
 
-1. **把 config/logs 查询面与统一错误中间件 formalize 后补齐**
-   - `/api/config`、`/api/logs` 的 handler 实现，以及全局错误中间件，避免后续 handler 与 WebSocket 入口继续各自散落错误落点。
-
-2. **把当前 plugin.install 扩到更完整的安装执行模型**
+1. **把当前 plugin.install 扩到更完整的安装执行模型**
    - 当前实现范围覆盖 `local_directory` / `local_zip`、manifest 校验、正式目录写入、catalog refresh、task progress 更新与最小取消。
    - 依赖安装与环境准备、`plugin_packages` 元数据、install scripts 授权、远程来源与 interrupted-task recovery 仍需继续补齐。
 
-3. **把 persisted desired_state 继续接入更真实的 runtime / grants / lifecycle 流程**
+2. **把 persisted desired_state 继续接入更真实的 runtime / grants / lifecycle 流程**
    - `enable` / `disable` 已具备 persisted `desired_state`。
    - 后续推进重点是 runtime 实际启停、grants / lifecycle 约束与更完整插件管理语义。
 
-4. **在下一条 action contract 落定后，补第二个最小 outbound action slice**
+3. **在下一条 action contract 落定后，补第二个最小 outbound action slice**
    - 继续保持"一次只落一个动作种类"的节奏，不直接扩成通用 action 平台。
    - 优先考虑 `message.reply` 这类最贴近现有聊天闭环的单动作切片，再做更广 send semantics。
    - 新 action 种类必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
 
-5. **运维工具链的 contract / execution model 收口**
+4. **运维工具链的 contract / execution model 收口**
    - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍无正式 CLI/后端执行面。
    - 在进入实现前，需要先把哪些能力通过 HTTP、哪些能力只保留 CLI、本地/停服窗口要求、任务模型与恢复语义进一步收口。
 
