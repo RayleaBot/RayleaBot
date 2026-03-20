@@ -18,6 +18,8 @@ x-fixtures:
   - fixtures/web-api/edge.session-login-max-sessions.yaml
   - fixtures/web-api/invalid.setup-admin-bad-request.yaml
   - fixtures/web-api/invalid.session-login-bad-credentials.yaml
+  - fixtures/web-api/invalid.auth-missing-token.yaml
+  - fixtures/web-api/invalid.auth-invalid-bearer.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
 
 paths:
@@ -107,6 +109,8 @@ paths:
     get:
       summary: List recent background tasks.
       operationId: listTasks
+      security:
+        - BearerAuth: []
       parameters:
         - name: status
           in: query
@@ -133,6 +137,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -140,6 +146,8 @@ paths:
     get:
       summary: Get a background task snapshot.
       operationId: getTask
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/TaskId'
       responses:
@@ -149,6 +157,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
         default:
@@ -158,6 +168,8 @@ paths:
     post:
       summary: Request cancellation for a cancellable background task.
       operationId: cancelTask
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/TaskId'
       responses:
@@ -167,6 +179,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
         '409':
@@ -178,6 +192,8 @@ paths:
     get:
       summary: List registered plugins with tri-layer state snapshots.
       operationId: listPlugins
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: Plugin list.
@@ -185,6 +201,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PluginListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
@@ -192,6 +210,8 @@ paths:
     get:
       summary: Get one plugin snapshot.
       operationId: getPlugin
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -201,6 +221,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PluginDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
         default:
@@ -210,6 +232,8 @@ paths:
     post:
       summary: Set the plugin desired_state to enabled.
       operationId: enablePlugin
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -219,6 +243,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PluginDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
         '409':
@@ -230,6 +256,8 @@ paths:
     post:
       summary: Set the plugin desired_state to disabled.
       operationId: disablePlugin
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
       responses:
@@ -239,6 +267,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PluginDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
         default:
@@ -248,6 +278,8 @@ paths:
     post:
       summary: Start asynchronous plugin installation from a local source.
       operationId: installPlugin
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -261,10 +293,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Session token issued by /api/session/login or /api/setup/admin,
+        passed as a Bearer token in the Authorization header.
+
   parameters:
     TaskId:
       name: task_id

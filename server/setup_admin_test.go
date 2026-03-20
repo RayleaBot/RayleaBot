@@ -208,3 +208,22 @@ func newDeterministicAuthManager(t *testing.T) *auth.Manager {
 
 	return manager
 }
+
+// deterministicAuthOptions returns auth.Option values that produce a
+// deterministic auth.Manager when passed to app.New via Options.AuthOptions.
+// Unlike newDeterministicAuthManager, these options are applied at router
+// creation time so the RequireAuth middleware captures the correct manager.
+func deterministicAuthOptions() []auth.Option {
+	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
+	sessionCounter := 0
+	return []auth.Option{
+		auth.WithClock(func() time.Time {
+			return current
+		}),
+		auth.WithSigningKey([]byte("0123456789abcdef0123456789abcdef")),
+		auth.WithSessionIDGenerator(func() (string, error) {
+			sessionCounter++
+			return "session-test-" + string(rune('0'+sessionCounter)), nil
+		}),
+	}
+}

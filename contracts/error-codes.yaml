@@ -239,7 +239,10 @@ codes:
     domain: permission
     message_key: errors.permission.denied
     message: 当前用户无权执行该操作
-    description: The caller does not have permission for the requested command or management action.
+    description: >
+      The caller does not have permission for the requested command or management action.
+      When returned by the HTTP auth middleware due to a missing or invalid Bearer token,
+      the HTTP status code is 401 (Unauthorized) instead of the default 403 (Forbidden).
     http_status: 403
     retryable: false
     applies_to: [http, websocket, plugin_protocol]

@@ -19,8 +19,7 @@ import (
 func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application := newTestApp(t, deterministicAuthOptions()...)
 	application.Bridge = bridge.New(application.Logger, &eventsRuntimeStub{
 		snapshot: runtime.Snapshot{State: runtime.StateRunning},
 		deliverResult: runtime.Delivery{
@@ -105,8 +104,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 func TestEventsWebSocketIsLiveOnlyWithoutReplay(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application := newTestApp(t, deterministicAuthOptions()...)
 	application.Bridge = bridge.New(application.Logger, &eventsRuntimeStub{
 		snapshot: runtime.Snapshot{State: runtime.StateRunning},
 	}, nil)

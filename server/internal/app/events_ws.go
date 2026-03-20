@@ -2,30 +2,15 @@ package app
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-
-	"rayleabot/server/internal/auth"
 )
 
 func (a *App) handleEventsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sessionToken := strings.TrimSpace(r.URL.Query().Get("session_token"))
-		if sessionToken == "" {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-			return
-		}
-
-		if _, err := a.Auth.Validate(sessionToken); err != nil {
-			if errors.Is(err, auth.ErrInvalidToken) || errors.Is(err, auth.ErrExpiredToken) {
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-				return
-			}
-
+		if _, ok := ClaimsFromContext(r.Context()); !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}

@@ -13,6 +13,7 @@ import (
 	"rayleabot/server/internal/adapter"
 
 	"rayleabot/server/internal/app"
+	"rayleabot/server/internal/auth"
 	"rayleabot/server/internal/health"
 )
 
@@ -157,7 +158,7 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 	}
 }
 
-func newTestApp(t *testing.T) *app.App {
+func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	t.Helper()
 
 	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
@@ -165,8 +166,9 @@ func newTestApp(t *testing.T) *app.App {
 	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
 
 	application, err := app.New(app.Options{
-		ConfigPath: configPath,
-		SchemaPath: schemaPath,
+		ConfigPath:  configPath,
+		SchemaPath:  schemaPath,
+		AuthOptions: authOptions,
 	})
 	if err != nil {
 		t.Fatalf("app.New failed: %v", err)

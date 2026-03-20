@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: A protected route request without an Authorization header is rejected with 401 ErrorEnvelope.
+request:
+  method: GET
+  path: /api/plugins
+response:
+  status: 401
+  headers:
+    Content-Type: application/json
+  body:
+    error:
+      code: permission.denied
+      message: 当前用户无权执行该操作
+      message_key: errors.permission.denied
+      request_id: req_0123456789abcdef
+expect:
+  valid: true

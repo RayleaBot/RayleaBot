@@ -109,14 +109,21 @@ func New(options Options) (*App, error) {
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 
 	router := chi.NewRouter()
+
+	// Public routes — no authentication required.
 	router.Get("/healthz", health.NewLivenessHandler())
 	router.Get("/readyz", health.NewReadinessHandler(func() health.ReadinessReport {
 		return application.currentReadiness()
 	}))
-	router.Get("/ws/events", application.handleEventsWebSocket())
 	router.Post("/api/setup/admin", application.handleSetupAdmin())
 	router.Post("/api/session/login", application.handleSessionLogin())
-	plugins.RegisterRoutes(router, pluginCatalog)
+
+	// Protected routes — require a valid session token.
+	router.Group(func(r chi.Router) {
+		r.Use(RequireAuth(application.Auth))
+		r.Get("/ws/events", application.handleEventsWebSocket())
+		plugins.RegisterRoutes(r, pluginCatalog)
+	})
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	server := &http.Server{
