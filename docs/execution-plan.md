@@ -323,13 +323,77 @@
 
 ## 十五、下一步行动建议
 
-按当前主线缺口，下一批最小推进建议为：
+以下路线只保留当前**仍未完成**的工作，并按“近期主线 -> 中期平台基础 -> 后续产品化”重排，避免已完成项继续占据建议列表。
 
-1. ~~**SQLite 存储层 & Migration**（Phase 6）~~：✅ 已落地。SQLite 打开 / WAL 模式 / read-write handle split / migration runner / `0001_auth_core.sql` 已完成。
-2. ~~**Auth persistence**（Phase 6）~~：✅ 已落地。Bootstrap state、admin sessions、signing key 已持久化到 SQLite，跨重启存活已验证。
-3. ~~**HTTP 鉴权中间件**（Phase 7）~~：✅ 已落地。统一 `RequireAuth` chi 中间件、公开/受保护路由组分离、`/ws/events` 向后兼容迁移、契约 `BearerAuth` 安全方案与鉴权失败 fixtures 已完成。
-4. ~~**插件写操作 API**（Phase 7）~~：✅ 已落地。`POST /api/plugins/install`（异步安装，202 + task_id）、`POST /api/plugins/{plugin_id}/enable`（同步启用）、`POST /api/plugins/{plugin_id}/disable`（同步禁用）已实现；`tasks.Registry.Create`（含 Mutex）与 `plugins.Catalog.SetDesiredState`（含 RWMutex）已落地；`RegisterRoutes` 已扩展并在 `app.go` 中接线；8 个正确性属性测试 + 12 个单元测试已通过。
-5. ~~**其余 WebSocket 通道（部分）**（Phase 7）~~：✅ `/ws/tasks` 与 `/ws/logs` 已落地，并复用了现有 management session admission 语义。
-6. ~~**`/ws/plugins/{id}/console` 的 redaction-first 前置**（Phase 7）~~：✅ 已落地。当前最小切片会对 runtime `stderr` 做 per-plugin rate limiting、基础敏感字面值掩码、bounded ring-buffer replay，并通过 `/ws/plugins/{id}/console` 暴露 `stderr` / `system` frames。
-7. **更广 outbound action family 的 contract-first 前置**（Phase 4 / Phase 5）：当前 formal plugin protocol 只冻结单一 `action=message.send`；`message.reply` 与更宽发送语义必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
-8. **`/api/tasks` 执行面与 system/config/logs 查询面**（Phase 7）：当前仍缺少 `/api/tasks` 执行/取消/进度接口、`/api/system/*`、`/api/config` 与 `/api/logs` 查询接口；这些接口在进入实现前应继续保持 contract-aligned 的最小切片。
+### 1. 近期主线（优先继续补平台闭环）
+
+1. **更广 outbound action family 的 contract-first 前置**（Phase 4 / Phase 5）
+   - 当前 formal plugin protocol 只冻结单一 `action=message.send`。
+   - `message.reply` 与更宽发送语义必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
+   - 这仍是最直接影响 v0.1 端到端闭环能力的主线缺口。
+
+2. **在上一步 formalize 之后，补第二个最小 outbound action slice**
+   - 继续保持“一次只落一个动作种类”的节奏，不直接扩成通用 action 平台。
+   - 优先考虑 `message.reply` 这类最贴近现有聊天闭环的单动作切片，再做更广 send semantics。
+
+3. **补 `/api/tasks` 执行面与 system/config/logs 查询面**（Phase 7）
+   - 当前仍缺少 `/api/tasks` 执行/取消/进度接口、`/api/system/*`、`/api/config` 与 `/api/logs` 查询接口。
+   - 这些接口应继续保持 contract-aligned 的最小切片，避免直接跳到“大而全管理面”。
+
+4. **补全全局错误中间件与统一错误落点**
+   - 当前虽然多数 handler 已返回 ErrorEnvelope，但统一错误中间件仍未完善。
+   - 这会影响后续新增 API 与 WebSocket 通道的一致性和可维护性。
+
+### 2. 中期平台基础（为状态化与可恢复能力铺路）
+
+1. **Scheduler persistence / recovery**
+   - 当前 SQLite foundation 与 auth persistence 已就位，但调度持久化与恢复仍未开始。
+   - 这是把“进程内状态”进一步推进到“可恢复平台状态”的下一层基础。
+
+2. **Secret store 独立抽象**
+   - 当前 signing key 已持久化到 SQLite，但还没有独立 secret store 层。
+   - 后续若要扩展更多鉴权、外部连接或 render 依赖，这一层应先收口。
+
+3. **Grants / RBAC storage 与真实授权状态机**
+   - 当前只有最小 management auth/session；真实授权记录、grants 存储和 grant manager 状态机尚未进入实现。
+   - 这项能力会直接影响插件能力授予、后续 Web UI 管理面和 CLI 运维面。
+
+4. **Config hot reload / 局部重载**
+   - 当前配置仍是启动时加载模式。
+   - 热更新和局部重载是后续 scheduler、logging、runtime 限流、render 队列等动态调优能力的基础。
+
+### 3. Runtime / Adapter / Plugin 扩展路线
+
+1. **更广 OneBot 事件归一化**
+   - 当前只有 `onebot11.message_text` 进入 runtime bridge。
+   - 通知、请求、更多消息段和 richer event shapes 仍未进入实现。
+
+2. **多插件并发调度与 fan-out**
+   - 当前仍是“单 runtime、单插件、lazy-start first valid plugin”的最小切片。
+   - 进入更真实的插件生态前，这一层必须先被 formalize 并最小落地。
+
+3. **热重载、restart loop、`backoff` / `dead_letter`**
+   - 当前 runtime 生命周期仍停留在最小 shell。
+   - 更完整的恢复策略和生命周期流转仍是后续 Phase 5 的主缺口。
+
+4. **Command Parser / routing、聊天侧 Permission / 黑名单 / 冷却限流**
+   - 这些仍属于 v0.1 路线图，但现在都还没进入真实实现阶段。
+   - 它们应建立在更完整的 plugin/runtime/event 能力之上，而不是提前孤立落地。
+
+### 4. 产品化外层路线（在核心平台更稳定后推进）
+
+1. **Web UI**（Phase 8）
+   - 当前仍停留在 scaffold/baseline。
+   - 在更多管理 API 与 WebSocket surface 稳定后，再进入真实页面与交互流会更顺畅。
+
+2. **Launcher**（Phase 9）
+   - 当前只有 .NET / Avalonia baseline。
+   - 真正进入 Launcher 之前，server 管理面与 shutdown / status / launcher-token 边界还需要继续收口。
+
+3. **Render Service**（Phase 10）
+   - 当前 `.deps/manifest.json` 仍只是 baseline 资源占位。
+   - render queue、browser scheduling、cache 与 render contract 仍未进入实现。
+
+4. **CLI / SDK / 官方内置插件体系**
+   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 等 CLI 仍未实现。
+   - 官方 Python / Node.js SDK、官方内置插件体系与更正式示例插件体系也仍是后续路线的一部分。
