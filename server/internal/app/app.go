@@ -109,7 +109,17 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create auth manager: %w", err)
 	}
-
+	pluginRepository, err := plugins.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create plugin repository: %w", err)
+	}
+	desiredStates, err := pluginRepository.LoadDesiredStates(context.Background())
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("load persisted plugin desired_state: %w", err)
+	}
+	pluginCatalog.ApplyDesiredStates(desiredStates)
 
 	application := &App{
 		Config:         cfg,
@@ -155,7 +165,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/tasks", application.handleTasksWebSocket())
 		r.Get("/ws/logs", application.handleLogsWebSocket())
 		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
-		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry)
+		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository)
 	})
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
@@ -411,4 +421,3 @@ func stateOrIdle(state adapter.State) adapter.State {
 
 	return state
 }
-

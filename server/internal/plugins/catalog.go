@@ -105,6 +105,31 @@ func (c *Catalog) SetDesiredState(pluginID string, desired string) (Snapshot, er
 	return cloneSnapshot(entry), nil
 }
 
+func (c *Catalog) ApplyDesiredStates(states map[string]string) {
+	if len(states) == 0 {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for pluginID, desired := range states {
+		entry, ok := c.items[pluginID]
+		if !ok {
+			continue
+		}
+		if entry.RegistrationState != "installed" {
+			continue
+		}
+		if desired != "enabled" && desired != "disabled" {
+			continue
+		}
+
+		entry.DesiredState = desired
+		c.items[pluginID] = entry
+	}
+}
+
 func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned := snapshot
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)

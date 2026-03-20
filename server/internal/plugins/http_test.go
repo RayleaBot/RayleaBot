@@ -2,11 +2,13 @@ package plugins
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"pgregory.net/rapid"
@@ -15,14 +17,34 @@ import (
 
 // --- helpers ---
 
-func setupRouter(entries []Snapshot) (chi.Router, *Catalog, *tasks.Registry) {
+type stubDesiredStateRepository struct {
+	saved map[string]string
+}
+
+func (r *stubDesiredStateRepository) LoadDesiredStates(context.Context) (map[string]string, error) {
+	if r == nil {
+		return nil, nil
+	}
+	return r.saved, nil
+}
+
+func (r *stubDesiredStateRepository) SaveDesiredState(_ context.Context, pluginID string, desiredState string, _ time.Time) error {
+	if r.saved == nil {
+		r.saved = make(map[string]string)
+	}
+	r.saved[pluginID] = desiredState
+	return nil
+}
+
+func setupRouter(entries []Snapshot) (chi.Router, *Catalog, *tasks.Registry, *stubDesiredStateRepository) {
 	catalog := NewCatalog(entries)
 	taskRegistry := tasks.NewRegistry()
+	repo := &stubDesiredStateRepository{}
 	router := chi.NewRouter()
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog))
-	return router, catalog, taskRegistry
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
+	return router, catalog, taskRegistry, repo
 }
 
 type fataler interface {
@@ -46,7 +68,7 @@ func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
 		sourceType := rapid.SampledFrom([]string{"local_zip", "local_directory"}).Draw(t, "sourceType")
 		source := rapid.StringMatching("[a-zA-Z0-9/_\\\\.:]{1,100}").Draw(t, "source")
 
-		router, _, taskRegistry := setupRouter(nil)
+		router, _, taskRegistry, _ := setupRouter(nil)
 
 		reqBody, _ := json.Marshal(pluginInstallRequest{SourceType: sourceType, Source: source})
 		req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(reqBody))
@@ -84,7 +106,7 @@ func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
 // Validates: Requirements 1.3, 1.4, 1.5
 func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		router, _, taskRegistry := setupRouter(nil)
+		router, _, taskRegistry, _ := setupRouter(nil)
 		tasksBefore := len(taskRegistry.List())
 
 		// Generate one of several invalid request variants.
@@ -139,7 +161,7 @@ func TestProperty_NonExistentPluginReturns404(t *testing.T) {
 		pluginID := rapid.StringMatching("[a-z][a-z0-9_]{2,30}").Draw(t, "pluginID")
 
 		// Empty catalog — no plugins exist.
-		router, _, _ := setupRouter(nil)
+		router, _, _, _ := setupRouter(nil)
 
 		for _, action := range []string{"enable", "disable"} {
 			path := "/api/plugins/" + pluginID + "/" + action
@@ -175,10 +197,11 @@ func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 			Valid:             true,
 		}})
 		taskRegistry := tasks.NewRegistry()
+		repo := &stubDesiredStateRepository{}
 		router := chi.NewRouter()
 		router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry))
-		router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog))
-		router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog))
+		router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
+		router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
 
 		// Pick one of several error-triggering scenarios.
 		scenario := rapid.IntRange(0, 3).Draw(t, "scenario")
@@ -231,7 +254,7 @@ func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 // TestInstallHandler_ValidLocalZip: valid install request returns 202 with task_id.
 // Reproduces fixture ok.plugins-install-accepted.yaml.
 func TestInstallHandler_ValidLocalZip(t *testing.T) {
-	router, _, taskRegistry := setupRouter(nil)
+	router, _, taskRegistry, _ := setupRouter(nil)
 
 	body, _ := json.Marshal(pluginInstallRequest{SourceType: "local_zip", Source: "C:/plugins/weather.zip"})
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
@@ -267,7 +290,7 @@ func TestInstallHandler_ValidLocalZip(t *testing.T) {
 // TestEnableHandler_Success: enable a disabled+installed plugin returns 200.
 // Reproduces fixture ok.plugins-enable-response.yaml.
 func TestEnableHandler_Success(t *testing.T) {
-	router, _, _ := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -297,12 +320,15 @@ func TestEnableHandler_Success(t *testing.T) {
 	if resp.Plugin.DesiredState != "enabled" {
 		t.Fatalf("plugin.desired_state = %q, want enabled", resp.Plugin.DesiredState)
 	}
+	if repo.saved["weather"] != "enabled" {
+		t.Fatalf("persisted desired_state = %q, want enabled", repo.saved["weather"])
+	}
 }
 
 // TestDisableHandler_RuntimeStillStopping: disable an enabled plugin returns 200.
 // runtime_state may still be "stopping". Reproduces fixture edge.plugins-disable-response.yaml.
 func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
-	router, _, _ := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -339,11 +365,14 @@ func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
 	if resp.Plugin.RuntimeState != "stopping" {
 		t.Fatalf("plugin.runtime_state = %q, want stopping", resp.Plugin.RuntimeState)
 	}
+	if repo.saved["weather"] != "disabled" {
+		t.Fatalf("persisted desired_state = %q, want disabled", repo.saved["weather"])
+	}
 }
 
 // TestEnableHandler_AlreadyEnabled_409: enable already-enabled plugin returns 409.
 func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
-	router, _, _ := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -366,11 +395,14 @@ func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
 	if env.Error.Code == "" {
 		t.Fatal("error.code is empty")
 	}
+	if _, ok := repo.saved["weather"]; ok {
+		t.Fatal("state conflict should not persist desired_state")
+	}
 }
 
 // TestDisableHandler_AlreadyDisabled_409: disable already-disabled plugin returns 409.
 func TestDisableHandler_AlreadyDisabled_409(t *testing.T) {
-	router, _, _ := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.0.0",
@@ -393,11 +425,14 @@ func TestDisableHandler_AlreadyDisabled_409(t *testing.T) {
 	if env.Error.Code == "" {
 		t.Fatal("error.code is empty")
 	}
+	if _, ok := repo.saved["weather"]; ok {
+		t.Fatal("state conflict should not persist desired_state")
+	}
 }
 
 // TestEnableHandler_RemovedPlugin_409: enable plugin with registration_state=removed returns 409.
 func TestEnableHandler_RemovedPlugin_409(t *testing.T) {
-	router, _, _ := setupRouter([]Snapshot{{
+	router, _, _, repo := setupRouter([]Snapshot{{
 		PluginID:          "old_plugin",
 		Name:              "Old Plugin",
 		Version:           "1.0.0",
@@ -420,11 +455,14 @@ func TestEnableHandler_RemovedPlugin_409(t *testing.T) {
 	if env.Error.Code == "" {
 		t.Fatal("error.code is empty")
 	}
+	if _, ok := repo.saved["old_plugin"]; ok {
+		t.Fatal("removed plugin should not persist desired_state")
+	}
 }
 
 // TestInstallHandler_EmptySource_400: source="" returns 400.
 func TestInstallHandler_EmptySource_400(t *testing.T) {
-	router, _, _ := setupRouter(nil)
+	router, _, _, _ := setupRouter(nil)
 
 	body, _ := json.Marshal(pluginInstallRequest{SourceType: "local_zip", Source: ""})
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
@@ -445,7 +483,7 @@ func TestInstallHandler_EmptySource_400(t *testing.T) {
 
 // TestInstallHandler_MalformedJSON_400: invalid JSON body returns 400.
 func TestInstallHandler_MalformedJSON_400(t *testing.T) {
-	router, _, _ := setupRouter(nil)
+	router, _, _, _ := setupRouter(nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{not valid json`))
 	req.Header.Set("Content-Type", "application/json")

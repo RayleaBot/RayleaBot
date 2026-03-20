@@ -1,12 +1,14 @@
 package plugins
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"rayleabot/server/internal/tasks"
@@ -80,45 +82,51 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry) http.Hand
 	}
 }
 
-func newEnableHandler(catalog *Catalog) http.HandlerFunc {
+func newEnableHandler(catalog *Catalog, repo DesiredStateRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
+		if err := validateDesiredStateChange(catalog, pluginID, "enabled"); err != nil {
+			writeDesiredStateError(w, pluginID, err)
+			return
+		}
+		if repo != nil {
+			if err := repo.SaveDesiredState(context.Background(), pluginID, "enabled", time.Now().UTC()); err != nil {
+				writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				return
+			}
+		}
 		snapshot, err := catalog.SetDesiredState(pluginID, "enabled")
 		if err == nil {
 			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
 			return
 		}
-		if errors.Is(err, ErrPluginNotFound) {
-			writeError(w, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
-			return
-		}
-		if errors.Is(err, ErrStateConflict) {
-			writeError(w, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
-			return
-		}
+		writeDesiredStateError(w, pluginID, err)
 	}
 }
 
-func newDisableHandler(catalog *Catalog) http.HandlerFunc {
+func newDisableHandler(catalog *Catalog, repo DesiredStateRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
+		if err := validateDesiredStateChange(catalog, pluginID, "disabled"); err != nil {
+			writeDesiredStateError(w, pluginID, err)
+			return
+		}
+		if repo != nil {
+			if err := repo.SaveDesiredState(context.Background(), pluginID, "disabled", time.Now().UTC()); err != nil {
+				writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				return
+			}
+		}
 		snapshot, err := catalog.SetDesiredState(pluginID, "disabled")
 		if err == nil {
 			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
 			return
 		}
-		if errors.Is(err, ErrPluginNotFound) {
-			writeError(w, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
-			return
-		}
-		if errors.Is(err, ErrStateConflict) {
-			writeError(w, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
-			return
-		}
+		writeDesiredStateError(w, pluginID, err)
 	}
 }
 
-func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry) {
+func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository) {
 	if catalog == nil {
 		catalog = NewCatalog(nil)
 	}
@@ -126,8 +134,35 @@ func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Reg
 	router.Get("/api/plugins", newListHandler(catalog))
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog))
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
+}
+
+func validateDesiredStateChange(catalog *Catalog, pluginID string, desired string) error {
+	snapshot, ok := catalog.Get(pluginID)
+	if !ok {
+		return ErrPluginNotFound
+	}
+	if snapshot.RegistrationState != "installed" {
+		return ErrStateConflict
+	}
+	if snapshot.DesiredState == desired {
+		return ErrStateConflict
+	}
+	return nil
+}
+
+func writeDesiredStateError(w http.ResponseWriter, pluginID string, err error) {
+	if errors.Is(err, ErrPluginNotFound) {
+		writeError(w, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+		return
+	}
+	if errors.Is(err, ErrStateConflict) {
+		writeError(w, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
+		return
+	}
+
+	writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 }
 
 func newListHandler(catalog *Catalog) http.HandlerFunc {
