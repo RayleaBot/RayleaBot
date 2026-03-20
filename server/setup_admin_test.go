@@ -169,7 +169,21 @@ func assertErrorEnvelopeMatchesFixture(t *testing.T, actual map[string]any, expe
 	if !ok || !strings.HasPrefix(requestID, "req_") {
 		t.Fatalf("unexpected request_id: %#v", errorBody["request_id"])
 	}
-	if len(errorBody) != 4 {
+
+	expectedDetails, hasExpectedDetails := expectedError["details"]
+	actualDetails, hasActualDetails := errorBody["details"]
+	if hasExpectedDetails != hasActualDetails {
+		t.Fatalf("unexpected error details presence: got %#v want %#v", actualDetails, expectedDetails)
+	}
+	if hasExpectedDetails && !reflect.DeepEqual(actualDetails, expectedDetails) {
+		t.Fatalf("unexpected error details: got %#v want %#v", actualDetails, expectedDetails)
+	}
+
+	wantLen := 4
+	if hasExpectedDetails {
+		wantLen = 5
+	}
+	if len(errorBody) != wantLen {
 		t.Fatalf("unexpected error body shape: %#v", errorBody)
 	}
 }

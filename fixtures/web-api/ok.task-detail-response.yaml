@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Task detail returns the latest snapshot for one task.
+request:
+  method: GET
+  path: /api/tasks/task_plugin_install_0001
+response:
+  status: 200
+  body:
+    task:
+      task_id: task_plugin_install_0001
+      task_type: plugin.install
+      status: pending
+      summary: install weather
+expect:
+  valid: true

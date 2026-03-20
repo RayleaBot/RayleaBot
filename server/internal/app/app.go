@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -34,21 +36,27 @@ type Options struct {
 }
 
 type App struct {
-	Config   config.Config
-	Summary  config.Summary
-	Logger   *slog.Logger
-	Tasks    *tasks.Registry
-	Plugins  *plugins.Catalog
-	Auth     *auth.Manager
-	Storage  *storage.Store
-	Logs     *logging.Stream
-	Console  *console.Stream
-	Adapter  *adapter.Shell
-	Bridge   *bridge.Bridge
-	Runtime  *runtime.Manager
-	repoRoot string
-	router   http.Handler
-	server   *http.Server
+	Config         config.Config
+	Summary        config.Summary
+	Logger         *slog.Logger
+	Tasks          *tasks.Registry
+	Plugins        *plugins.Catalog
+	Auth           *auth.Manager
+	Storage        *storage.Store
+	Logs           *logging.Stream
+	Console        *console.Stream
+	Adapter        *adapter.Shell
+	Bridge         *bridge.Bridge
+	Runtime        *runtime.Manager
+	repoRoot       string
+	router         http.Handler
+	server         *http.Server
+	startedAt      time.Time
+	launcherTokens *launcherTokenStore
+	shuttingDown   atomic.Bool
+	runCancelMu    sync.Mutex
+	runCancel      context.CancelFunc
+	shutdownOnce   sync.Once
 }
 
 func New(options Options) (*App, error) {
@@ -102,20 +110,23 @@ func New(options Options) (*App, error) {
 		return nil, fmt.Errorf("create auth manager: %w", err)
 	}
 
+
 	application := &App{
-		Config:   cfg,
-		Summary:  summary,
-		Logger:   logger,
-		Tasks:    taskRegistry,
-		Plugins:  pluginCatalog,
-		Auth:     authManager,
-		Storage:  storageStore,
-		Logs:     logStream,
-		Console:  consoleStream,
-		Adapter:  adapterShell,
-		Bridge:   eventBridge,
-		Runtime:  runtimeManager,
-		repoRoot: repoRoot,
+		Config:         cfg,
+		Summary:        summary,
+		Logger:         logger,
+		Tasks:          taskRegistry,
+		Plugins:        pluginCatalog,
+		Auth:           authManager,
+		Storage:        storageStore,
+		Logs:           logStream,
+		Console:        consoleStream,
+		Adapter:        adapterShell,
+		Bridge:         eventBridge,
+		Runtime:        runtimeManager,
+		repoRoot:       repoRoot,
+		startedAt:      time.Now().UTC(),
+		launcherTokens: newLauncherTokenStore(time.Now, 5*time.Minute),
 	}
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 
@@ -127,11 +138,19 @@ func New(options Options) (*App, error) {
 		return application.currentReadiness()
 	}))
 	router.Post("/api/setup/admin", application.handleSetupAdmin())
+	router.Get("/api/setup/status", application.handleSetupStatus())
 	router.Post("/api/session/login", application.handleSessionLogin())
 
 	// Protected routes — require a valid session token.
 	router.Group(func(r chi.Router) {
 		r.Use(RequireAuth(application.Auth))
+		r.Delete("/api/session", application.handleSessionLogout())
+		r.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
+		r.Get("/api/system/status", application.handleSystemStatus())
+		r.Post("/api/system/shutdown", application.handleSystemShutdown())
+		r.Get("/api/tasks", application.handleTaskList())
+		r.Get("/api/tasks/{task_id}", application.handleTaskDetail())
+		r.Post("/api/tasks/{task_id}/cancel", application.handleTaskCancel())
 		r.Get("/ws/events", application.handleEventsWebSocket())
 		r.Get("/ws/tasks", application.handleTasksWebSocket())
 		r.Get("/ws/logs", application.handleLogsWebSocket())
@@ -177,8 +196,11 @@ func (a *App) Handler() http.Handler {
 
 func (a *App) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
+	runCtx, cancel := context.WithCancel(ctx)
+	a.setRunCancel(cancel)
+	defer a.clearRunCancel()
 
-	a.Adapter.Start(ctx)
+	a.Adapter.Start(runCtx)
 
 	go func() {
 		a.Logger.Info("http server starting", "component", "app", "listen_addr", a.server.Addr)
@@ -190,7 +212,8 @@ func (a *App) Run(ctx context.Context) error {
 	}()
 
 	select {
-	case <-ctx.Done():
+	case <-runCtx.Done():
+		a.shuttingDown.Store(true)
 		a.Logger.Info("http server shutting down", "component", "app", "listen_addr", a.server.Addr)
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
@@ -233,6 +256,34 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		return closeErr
 	}
+}
+
+func (a *App) setRunCancel(cancel context.CancelFunc) {
+	a.runCancelMu.Lock()
+	defer a.runCancelMu.Unlock()
+	a.runCancel = cancel
+}
+
+func (a *App) clearRunCancel() {
+	a.runCancelMu.Lock()
+	defer a.runCancelMu.Unlock()
+	a.runCancel = nil
+}
+
+func (a *App) requestShutdown() {
+	if a == nil {
+		return
+	}
+
+	a.shuttingDown.Store(true)
+	a.shutdownOnce.Do(func() {
+		a.runCancelMu.Lock()
+		cancel := a.runCancel
+		a.runCancelMu.Unlock()
+		if cancel != nil {
+			cancel()
+		}
+	})
 }
 
 func resolveDatabasePath(configPath, databasePath string) (string, error) {
@@ -360,3 +411,4 @@ func stateOrIdle(state adapter.State) adapter.State {
 
 	return state
 }
+

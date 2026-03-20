@@ -15,6 +15,9 @@ x-fixtures:
   - fixtures/web-api/ok.session-launcher-token.yaml
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
+  - fixtures/web-api/ok.tasks-list-response.yaml
+  - fixtures/web-api/ok.task-detail-response.yaml
+  - fixtures/web-api/ok.task-cancel-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml

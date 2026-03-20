@@ -11,8 +11,11 @@ import (
 )
 
 const (
-	codePermissionDenied = "permission.denied"
-	codeInvalidRequest   = "platform.invalid_request"
+	codePermissionDenied   = "permission.denied"
+	codeInvalidRequest     = "platform.invalid_request"
+	codeResourceMissing    = "platform.resource_missing"
+	codeInternalError      = "platform.internal_error"
+	codeTaskNotCancellable = "platform.task_not_cancellable"
 )
 
 type authRequest struct {
@@ -24,15 +27,16 @@ type authResponse struct {
 	SessionToken string `json:"session_token"`
 }
 
-type authErrorEnvelope struct {
-	Error authErrorBody `json:"error"`
+type appErrorEnvelope struct {
+	Error appErrorBody `json:"error"`
 }
 
-type authErrorBody struct {
-	Code       string `json:"code"`
-	Message    string `json:"message"`
-	MessageKey string `json:"message_key"`
-	RequestID  string `json:"request_id"`
+type appErrorBody struct {
+	Code       string         `json:"code"`
+	Message    string         `json:"message"`
+	MessageKey string         `json:"message_key"`
+	RequestID  string         `json:"request_id"`
+	Details    map[string]any `json:"details,omitempty"`
 }
 
 func (a *App) handleSetupAdmin() http.HandlerFunc {
@@ -99,15 +103,20 @@ func decodeStrictJSON(r *http.Request, target any) error {
 }
 
 func writeAuthError(w http.ResponseWriter, statusCode int, code, message, messageKey string) {
+	writeAppError(w, statusCode, code, message, messageKey, nil)
+}
+
+func writeAppError(w http.ResponseWriter, statusCode int, code, message, messageKey string, details map[string]any) {
 	writeAuthJSON(
 		w,
 		statusCode,
-		authErrorEnvelope{
-			Error: authErrorBody{
+		appErrorEnvelope{
+			Error: appErrorBody{
 				Code:       code,
 				Message:    message,
 				MessageKey: messageKey,
 				RequestID:  newAuthRequestID(),
+				Details:    details,
 			},
 		},
 	)

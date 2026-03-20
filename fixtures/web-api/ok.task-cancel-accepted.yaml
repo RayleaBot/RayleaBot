@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Pending task cancel is accepted and returns the task identifier.
+request:
+  method: POST
+  path: /api/tasks/task_plugin_reload_0001/cancel
+response:
+  status: 202
+  body:
+    task_id: task_plugin_reload_0001
+expect:
+  valid: true

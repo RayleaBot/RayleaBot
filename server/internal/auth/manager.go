@@ -165,6 +165,19 @@ func (m *Manager) Issue(subject string) (string, Claims, error) {
 	return m.issueLocked(subject, now)
 }
 
+func (m *Manager) Revoke(sessionID string) error {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return ErrInvalidToken
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.sessions, sessionID)
+	return m.deleteSessionsLocked(context.Background(), sessionID)
+}
+
 func (m *Manager) Validate(token string) (Claims, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {

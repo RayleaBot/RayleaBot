@@ -20,9 +20,13 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		want   int
 	}{
 		{method: http.MethodPost, path: "/api/setup/admin", want: http.StatusBadRequest},
+		{method: http.MethodGet, path: "/api/setup/status", want: http.StatusOK},
 		{method: http.MethodPost, path: "/api/session/login", want: http.StatusBadRequest},
-		{method: http.MethodDelete, path: "/api/session", want: http.StatusNotFound},
-		{method: http.MethodPost, path: "/api/session/launcher-token", want: http.StatusNotFound},
+		{method: http.MethodDelete, path: "/api/session", want: http.StatusUnauthorized},
+		{method: http.MethodPost, path: "/api/session/launcher-token", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/system/status", want: http.StatusUnauthorized},
+		{method: http.MethodPost, path: "/api/system/shutdown", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/events", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/logs", want: http.StatusUnauthorized},

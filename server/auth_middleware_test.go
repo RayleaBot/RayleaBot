@@ -474,6 +474,7 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 	}{
 		{http.MethodGet, "/healthz"},
 		{http.MethodGet, "/readyz"},
+		{http.MethodGet, "/api/setup/status"},
 		{http.MethodPost, "/api/setup/admin"},
 		{http.MethodPost, "/api/session/login"},
 	}
@@ -519,6 +520,11 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 		method string
 		path   string
 	}{
+		{http.MethodDelete, "/api/session"},
+		{http.MethodPost, "/api/session/launcher-token"},
+		{http.MethodGet, "/api/system/status"},
+		{http.MethodPost, "/api/system/shutdown"},
+		{http.MethodGet, "/api/tasks"},
 		{http.MethodGet, "/api/plugins"},
 		{http.MethodGet, "/api/plugins/fake-plugin-id"},
 		{http.MethodGet, "/ws/events"},
