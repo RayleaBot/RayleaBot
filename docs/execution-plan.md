@@ -16,9 +16,9 @@
 | Phase 1 | 契约文件补全 | ✅ | 当前 formal contract 范围内的 7 份正式契约均已 fixture-ready |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest 的 golden fixtures 已落库 |
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
-| Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake 与最小内部事件归一化已落地；出站 action 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> result|error` bridge 已落地；完整 bridge 能力仍未实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验与既有 `onebot.*` / server 配置消费已完成；`auth.Manager`（Bootstrap / Login / Session Token）已落地；SQLite 存储、迁移与 secret store 仍未落地 |
+| Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化与单一 `message.send -> send_msg` 出站 action slice 已落地；更广 action family 仍未实现 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> action(message.send) | result | error` bridge 已落地；完整 bridge 编排仍未实现 |
+| Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）与 auth persistence（bootstrap state + admin sessions 跨重启存活）已落地；secret store、grants/RBAC storage、config hot reload 仍未落地 |
 | Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、最小任务状态骨架已存在；`POST /api/setup/admin`、`POST /api/session/login` 已实现；`/ws/events` auth-gated aggregate-only WebSocket 已实现；写操作插件 API、任务执行接口与其余管理路由仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
@@ -113,13 +113,14 @@
 | 心跳感知与超时处理 | ✅ | 已接入心跳观测与超时回退逻辑 |
 | read-only intake 分类 | ✅ | 已对接收到的 OneBot 帧做最小只读 intake 分类 |
 | 最小内部事件归一化 | ✅ | 当前仅支持 `onebot11.message_text` 这一内部事件形状 |
+| 单一 outbound request-response path | ✅ | 已支持最小 `message.send -> send_msg` 请求构造、`echo` 配对与窄成功/失败观察 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| OneBot 出站 action / request-response path | ❌ | 尚未实现 OneBot API 调用与 action 执行链路 |
-| send / reply / API action | ❌ | 仍未实现任何出站消息或动作能力 |
+| 更广 OneBot 出站 action / request-response path | ❌ | 当前只实现单一 `message.send -> send_msg`；更广 OneBot API 调用与 action 执行链路仍未实现 |
+| `message.reply` / media / richer API action | ❌ | 仍未实现 `message.reply`、图片/文件/媒体发送与更广动作族 |
 | 广义事件归一化 | ❌ | 尚未扩展到更完整的消息段、通知、请求与其他事件类别 |
 | 多 adapter / 多 bot 抽象 | ❌ | 仍为单协议、单实例、单 adapter 的最小壳 |
 
@@ -137,15 +138,16 @@
 | `shutdown(stop)` | ✅ | 最小优雅停止路径已实现 |
 | 最小 lifecycle tracking | ✅ | runtime 最小生命周期状态已在内存中维护 |
 | 单一 adapter -> runtime read-only bridge | ✅ | 已支持最小只读事件投递 |
-| `event -> result | error` | ✅ | 当前只支持最小 `event` 投递与 `result/error` 回收 |
+| `event -> action(message.send) | result | error` | ✅ | 当前最小 bridge 已支持单一动作、`result` 与 `error` 三种回收路径 |
 | lazy-start first valid plugin | ✅ | 首个可投递事件到达时可 lazy-start 单个有效插件 |
 | bridge/runtime summary state | ✅ | 内存计数与最近摘要状态已落地 |
+| runtime -> adapter outbound mapper | ✅ | plugin runtime 的单一 `action=message.send` 已可经 bridge 映射到 adapter 的最小 `send_msg` 执行链路 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| adapter 出站 action 执行 | ❌ | plugin `result` 不会触发 OneBot action 执行 |
+| 更广 adapter 出站 action 执行 | ❌ | 当前只实现单一 `action=message.send`；其余动作族与更丰富发送语义仍未落地 |
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
 | supervisor / backoff / dead_letter 扩展 | ❌ | 尚未建立完整 supervisor 与恢复策略 |
 | 完整权限授予状态机 | ❌ | 授权、重确认、撤销等流程尚未实现 |
@@ -163,18 +165,24 @@
 | schema validation | ✅ | 启动前执行严格 schema 校验 |
 | 既有 `onebot.*` / server config consumption | ✅ | 当前最小 server、adapter、runtime 会消费已有配置字段 |
 | 启动前失败阻断 | ✅ | 配置校验失败时阻止进入正常运行态 |
-| `auth.Manager` | ✅ | Session token 管理（HMAC-SHA256 签名、in-memory session store、TTL、sliding renewal、max sessions）已实现 |
+| `auth.Manager` | ✅ | Session token 管理（HMAC-SHA256 签名、TTL、sliding renewal、max sessions）已实现 |
 | Bootstrap & Login | ✅ | 首次管理员初始化与登录已实现（SHA256 摘要 + 常量时间比较） |
 | Token Validate | ✅ | Session token 格式校验、HMAC 签名校验、过期检查、自动续期已实现 |
+| SQLite 存储层 | ✅ | `internal/storage` 已落地：`modernc.org/sqlite` 纯 Go 驱动、WAL 模式、read/write handle 分离（write max 1 conn、read max 4 conn）、`busy_timeout` 配置、`foreign_keys = ON`、自动创建父目录 |
+| Migration runner | ✅ | `internal/storage/migrations.go` 已落地：`schema_migrations` 版本表、嵌入式 `embed.FS` 迁移文件、SHA256 checksum 校验（防止已应用迁移被篡改）、事务性逐条应用、重复 ID 检测、空迁移拒绝 |
+| 初始迁移 `0001_auth_core.sql` | ✅ | 创建 `auth_bootstrap_state`（singleton 约束）与 `admin_sessions`（含 `expires_at` 索引）两张表 |
+| Auth persistence — Repository 接口 | ✅ | `internal/auth/repository.go` 定义 `Repository` 接口（`LoadBootstrap` / `LoadSessions` / `SaveBootstrap` / `SaveSession` / `DeleteSessions`）与 `SQLiteRepository` 实现 |
+| Auth persistence — Bootstrap 持久化 | ✅ | `SaveBootstrap` 在事务中原子写入 bootstrap state + 首个 session；singleton 约束防止重复初始化；signing key 持久化到 SQLite，重启后恢复 |
+| Auth persistence — Session 持久化 | ✅ | session 的创建、sliding renewal 续期、过期清理均已持久化到 SQLite；`hydrate()` 在 `NewManager` 时从 SQLite 恢复 bootstrap state、signing key 与未过期 sessions |
+| Auth persistence — 跨重启验证 | ✅ | `persistence_test.go` 覆盖：跨重启 bootstrap state 存活、跨重启 token 校验、跨重启过期 session 清理、跨重启 sliding renewal 续期存活 |
+| App 集成 — Storage + Auth Repository | ✅ | `internal/app/app.go` 在启动时解析 `database.path`（支持相对路径基于 config 目录解析）、打开 `storage.Store`、构建 `auth.SQLiteRepository` 并注入 `auth.Manager`；关闭时按序释放 storage handle |
+| Database config consumption | ✅ | `config.Config` 已包含 `DatabaseConfig{Engine, Path}`，`config.Summary` 已包含 `DatabaseEngine` 与 `DatabasePath`，启动日志已输出数据库引擎与路径 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| SQLite | ❌ | 状态库仍未实现 |
-| migration | ❌ | 迁移执行与版本演进尚未落地 |
-| secret store | ❌ | 敏感凭据存储与注入尚未实现（当前 signing key 为内存随机生成，session 为 in-memory map） |
-| session persistence | ❌ | 当前 session 仅存于内存，服务重启后全部失效 |
+| secret store | ❌ | 独立敏感凭据存储与注入尚未实现；当前 signing key 已持久化到 SQLite `auth_bootstrap_state` 表，但尚无独立 secret store 抽象 |
 | scheduler persistence / recovery | ❌ | 调度持久化与恢复能力尚未实现 |
 | grants / RBAC storage | ❌ | 授权记录与权限数据库尚未实现 |
 | config hot reload | ❌ | 配置热更新与局部重载尚未实现 |
@@ -253,11 +261,13 @@
 - 聊天侧 Permission System、黑名单与冷却限流尚未实现。
 - Capabilities / grant manager 的真实授权状态机尚未实现。
 - 热重载、`backoff` / `dead_letter` 等更完整插件生命周期流转尚未实现。
-- SQLite 存储层、migration 框架与 secret store 尚未实现。
-- Session 持久化尚未实现；当前 session 仅存内存，服务重启后丢失。
+- Secret store 独立抽象尚未实现；当前 signing key 已持久化到 SQLite，但无独立 secret store 层。
 - HTTP 路由级统一鉴权中间件尚未建立。
-- Adapter 出站 action / 消息发送尚未实现。
+- Adapter 更广出站动作族尚未实现；当前仅有单一 `message.send -> send_msg` 切片，`message.reply`、media/file/image 与更丰富发送语义仍未落地。
 - 多插件并发调度与 fan-out 机制尚未实现。
+- Grants / RBAC 存储尚未实现。
+- 调度持久化与恢复能力尚未实现。
+- 配置热更新与局部重载尚未实现。
 
 这些能力属于 v0.1 路线图的一部分，但当前仓库尚未进入真实实现阶段，不能因为已有 contract、README 或规划正文而误记为“已落地”。
 
@@ -272,7 +282,7 @@
 | `contracts.yml` | push main / PR | 7 份 formal contracts 校验、fixture 目录结构、example manifests、server `go test` + `go build` |
 | `lint.yml` | push main / PR | baseline 版本锁定校验（Go、Node、pnpm、.NET、Avalonia）、必要目录与文件存在性 |
 
-### Server 根级测试文件（10 个）
+### Server 根级测试文件（11 个）
 
 | 测试文件 | 覆盖范围 |
 |----------|----------|
@@ -286,13 +296,15 @@
 | `session_login_test.go` | 管理员登录（token 签发、错误凭证拒绝、session 上限） |
 | `auth_surface_test.go` | Auth 路由攻击面审计（无内部路由暴露） |
 | `events_ws_test.go` | `/ws/events` WebSocket（鉴权、observability 帧投递、断连清理） |
+| `auth_persistence_test.go` | 端到端 auth 持久化（bootstrap state 跨重启存活、bootstrap token 跨重启校验、login token 跨重启 WebSocket 接入、重复初始化跨重启拒绝） |
 
 ### 内部包级测试
 
-- `internal/adapter/`: backoff_test、shell_test、intake_test — 覆盖退避算法、连接状态机、帧分类
-- `internal/auth/`: manager_test — 覆盖 token 签发/校验/过期、sliding renewal、session 上限、Bootstrap 幂等
-- `internal/bridge/`: bridge_test — 覆盖事件投递、outcome 统计、observability 订阅
-- `internal/runtime/`: manager_test、spec_test — 覆盖子进程生命周期、event → result/error、spec 校验
+- `internal/adapter/`: backoff_test、shell_test、intake_test — 覆盖退避算法、连接状态机、帧分类与最小 `send_msg` 出站 request-response
+- `internal/auth/`: manager_test、persistence_test — 覆盖 token 签发/校验/过期、sliding renewal、session 上限、Bootstrap 幂等；persistence_test 覆盖跨重启 bootstrap state 存活、跨重启 token 校验、跨重启过期 session 清理、跨重启 sliding renewal 续期
+- `internal/bridge/`: bridge_test — 覆盖事件投递、单一 `message.send` 映射、outcome 统计、observability 订阅
+- `internal/runtime/`: manager_test、spec_test — 覆盖子进程生命周期、`event -> action(message.send) | result | error`、spec 校验
+- `internal/storage/`: store_test — 覆盖 SQLite 打开、WAL pragma、read/write handle 分离、migration 幂等性、重复 migration ID 拒绝、表结构验证（`schema_migrations` / `auth_bootstrap_state` / `admin_sessions`）
 
 ### 总体状况
 
@@ -305,9 +317,9 @@
 
 按当前主线缺口，下一批最小推进建议为：
 
-1. **Adapter 出站 action 通道**（Phase 4）：落地 OneBot action 请求/发送能力，打通 plugin result → adapter → OneBot 的反向链路。这是 v0.1 端到端闭环的关键瓶颈。
-2. **SQLite 存储层 & Migration**（Phase 6）：落地 SQLite 打开 / WAL 模式 / 初始 migration，建立 repository 层骨架。阻塞 session 持久化、插件安装持久化、任务持久化等后续工作。
+1. ~~**SQLite 存储层 & Migration**（Phase 6）~~：✅ 已落地。SQLite 打开 / WAL 模式 / read-write handle split / migration runner / `0001_auth_core.sql` 已完成。
+2. ~~**Auth persistence**（Phase 6）~~：✅ 已落地。Bootstrap state、admin sessions、signing key 已持久化到 SQLite，跨重启存活已验证。
 3. **HTTP 鉴权中间件**（Phase 7）：将当前仅在 `/ws/events` URL 参数上执行的 token 校验，提升为统一 HTTP 路由级中间件，保护后续写操作 API。
 4. **插件写操作 API**（Phase 7）：落地 install / enable / disable，连通任务系统与插件生命周期。
 5. **其余 WebSocket 通道**（Phase 7）：`/ws/logs`、`/ws/tasks`、`/ws/plugins/{id}/console` — 在 `/ws/events` 模式基础上扩展。
-6. **多插件调度 & supervisor**（Phase 5）：fan-out、dead_letter、backoff restart 等完整插件编排。
+6. **更广 outbound action family**（Phase 4 / Phase 5）：在已完成的单一 `message.send` slice 之上，再逐步扩到 `message.reply`、更丰富发送语义与更完整 adapter/runtime action path。
