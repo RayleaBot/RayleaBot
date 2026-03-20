@@ -14,6 +14,10 @@ import (
 const (
 	codePlatformInvalidRequest = "platform.invalid_request"
 	codePluginStopping         = "plugin.stopping"
+	eventsChannel              = "events"
+	eventsTypeReceived         = "events.received"
+	observabilityScopeBridge   = "bridge_runtime"
+	summaryBridgeRuntime       = "bridge delivered recent adapter events while keeping bridge/runtime observability aggregate-only"
 )
 
 type Outcome string
@@ -39,6 +43,23 @@ type Snapshot struct {
 	LastEventAt    *time.Time
 }
 
+type ObservabilityFrame struct {
+	Channel   string            `json:"channel"`
+	Type      string            `json:"type"`
+	Timestamp string            `json:"timestamp"`
+	Data      ObservabilityData `json:"data"`
+}
+
+type ObservabilityData struct {
+	ObservabilityScope  string  `json:"observability_scope"`
+	Summary             string  `json:"summary"`
+	LastSupportedKind   string  `json:"last_supported_event_kind,omitempty"`
+	LastDeliveryOutcome Outcome `json:"last_delivery_outcome,omitempty"`
+	DeliveredCount      uint64  `json:"delivered_count"`
+	ResultCount         uint64  `json:"result_count"`
+	ErrorCount          uint64  `json:"error_count"`
+}
+
 type runtimeClient interface {
 	Snapshot() runtime.Snapshot
 	DeliverEvent(context.Context, runtime.Event) (runtime.Delivery, error)
@@ -48,8 +69,10 @@ type Bridge struct {
 	logger  *slog.Logger
 	runtime runtimeClient
 
-	mu       sync.RWMutex
-	snapshot Snapshot
+	mu               sync.RWMutex
+	snapshot         Snapshot
+	nextSubscriberID uint64
+	subscribers      map[uint64]chan ObservabilityFrame
 }
 
 func New(logger *slog.Logger, runtimeClient runtimeClient) *Bridge {
@@ -58,8 +81,9 @@ func New(logger *slog.Logger, runtimeClient runtimeClient) *Bridge {
 	}
 
 	return &Bridge{
-		logger:  logger,
-		runtime: runtimeClient,
+		logger:      logger,
+		runtime:     runtimeClient,
+		subscribers: make(map[uint64]chan ObservabilityFrame),
 	}
 }
 
@@ -73,6 +97,40 @@ func (b *Bridge) Snapshot() Snapshot {
 		cloned.LastEventAt = &lastEventAt
 	}
 	return cloned
+}
+
+func (b *Bridge) SubscribeObservability(buffer int) (<-chan ObservabilityFrame, func()) {
+	if buffer <= 0 {
+		buffer = 1
+	}
+
+	ch := make(chan ObservabilityFrame, buffer)
+
+	b.mu.Lock()
+	id := b.nextSubscriberID
+	b.nextSubscriberID++
+	b.subscribers[id] = ch
+	b.mu.Unlock()
+
+	return ch, func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+
+		subscriber, ok := b.subscribers[id]
+		if !ok {
+			return
+		}
+
+		delete(b.subscribers, id)
+		close(subscriber)
+	}
+}
+
+func (b *Bridge) ObservabilitySubscriberCount() int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return len(b.subscribers)
 }
 
 func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) Outcome {
@@ -224,6 +282,7 @@ func (b *Bridge) recordError(event adapter.NormalizedEvent, observedAt time.Time
 	b.snapshot.LastErrorCode = code
 	b.snapshot.LastErrorText = message
 	b.snapshot.LastEventAt = &observedAt
+	b.emitObservabilityLocked(observedAt, OutcomeError)
 }
 
 func (b *Bridge) recordDelivered(event adapter.NormalizedEvent, observedAt time.Time) {
@@ -238,4 +297,37 @@ func (b *Bridge) recordDelivered(event adapter.NormalizedEvent, observedAt time.
 	b.snapshot.LastErrorCode = ""
 	b.snapshot.LastErrorText = ""
 	b.snapshot.LastEventAt = &observedAt
+	b.emitObservabilityLocked(observedAt, OutcomeDelivered)
+}
+
+func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
+	frame := ObservabilityFrame{
+		Channel:   eventsChannel,
+		Type:      eventsTypeReceived,
+		Timestamp: observedAt.UTC().Format(time.RFC3339),
+		Data: ObservabilityData{
+			ObservabilityScope:  observabilityScopeBridge,
+			Summary:             summaryBridgeRuntime,
+			LastSupportedKind:   adapter.EventKindMessageText,
+			LastDeliveryOutcome: outcome,
+			DeliveredCount:      b.snapshot.DeliveredCount,
+			ResultCount:         b.snapshot.ResultCount,
+			ErrorCount:          b.snapshot.ErrorCount,
+		},
+	}
+
+	for _, subscriber := range b.subscribers {
+		select {
+		case subscriber <- frame:
+		default:
+			select {
+			case <-subscriber:
+			default:
+			}
+			select {
+			case subscriber <- frame:
+			default:
+			}
+		}
+	}
 }

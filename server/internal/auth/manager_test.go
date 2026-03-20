@@ -148,6 +148,95 @@ func TestIssueRejectsWhenMaxSessionsReached(t *testing.T) {
 	}
 }
 
+func TestBootstrapInitializesCredentialSourceAndIssuesToken(t *testing.T) {
+	t.Parallel()
+
+	now := fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC))
+	manager := newTestManager(t, Config{
+		SessionTTLDays: 1,
+		SlidingRenewal: false,
+		MaxSessions:    2,
+	}, now)
+
+	token, claims, err := manager.Bootstrap("admin", "fixture-only-secret")
+	if err != nil {
+		t.Fatalf("Bootstrap failed: %v", err)
+	}
+	if token == "" {
+		t.Fatalf("expected session token to be issued")
+	}
+	if claims.Subject != "admin" {
+		t.Fatalf("unexpected subject: got %q want admin", claims.Subject)
+	}
+	if !manager.IsBootstrapped() {
+		t.Fatalf("expected manager to be bootstrapped")
+	}
+}
+
+func TestBootstrapRejectsRepeatedInitialization(t *testing.T) {
+	t.Parallel()
+
+	manager := newTestManager(t, Config{
+		SessionTTLDays: 1,
+		SlidingRenewal: false,
+		MaxSessions:    2,
+	}, fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)))
+
+	if _, _, err := manager.Bootstrap("admin", "fixture-only-secret"); err != nil {
+		t.Fatalf("first Bootstrap failed: %v", err)
+	}
+
+	_, _, err := manager.Bootstrap("admin", "fixture-only-secret")
+	if !errors.Is(err, ErrBootstrapAlreadyInitialized) {
+		t.Fatalf("expected ErrBootstrapAlreadyInitialized, got %v", err)
+	}
+}
+
+func TestLoginIssuesTokenForBootstrappedCredentials(t *testing.T) {
+	t.Parallel()
+
+	now := fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC))
+	manager := newTestManager(t, Config{
+		SessionTTLDays: 1,
+		SlidingRenewal: false,
+		MaxSessions:    3,
+	}, now)
+
+	if _, _, err := manager.Bootstrap("admin", "fixture-only-secret"); err != nil {
+		t.Fatalf("Bootstrap failed: %v", err)
+	}
+
+	token, claims, err := manager.Login("admin", "fixture-only-secret")
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	if token == "" {
+		t.Fatalf("expected session token to be issued")
+	}
+	if claims.Subject != "admin" {
+		t.Fatalf("unexpected subject: got %q want admin", claims.Subject)
+	}
+}
+
+func TestLoginRejectsInvalidCredentials(t *testing.T) {
+	t.Parallel()
+
+	manager := newTestManager(t, Config{
+		SessionTTLDays: 1,
+		SlidingRenewal: false,
+		MaxSessions:    3,
+	}, fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)))
+
+	if _, _, err := manager.Bootstrap("admin", "fixture-only-secret"); err != nil {
+		t.Fatalf("Bootstrap failed: %v", err)
+	}
+
+	_, _, err := manager.Login("admin", "wrong-secret")
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+}
+
 func newTestManager(t *testing.T, cfg Config, now func() time.Time) *Manager {
 	t.Helper()
 

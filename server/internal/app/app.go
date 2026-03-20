@@ -92,6 +92,9 @@ func New(options Options) (*App, error) {
 	router.Get("/readyz", health.NewReadinessHandler(func() health.ReadinessReport {
 		return application.currentReadiness()
 	}))
+	router.Get("/ws/events", application.handleEventsWebSocket())
+	router.Post("/api/setup/admin", application.handleSetupAdmin())
+	router.Post("/api/session/login", application.handleSessionLogin())
 	plugins.RegisterRoutes(router, pluginCatalog)
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))

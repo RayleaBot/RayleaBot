@@ -17,11 +17,13 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 	cases := []struct {
 		method string
 		path   string
+		want   int
 	}{
-		{method: http.MethodPost, path: "/api/session/login"},
-		{method: http.MethodDelete, path: "/api/session"},
-		{method: http.MethodPost, path: "/api/session/launcher-token"},
-		{method: http.MethodGet, path: "/ws/events"},
+		{method: http.MethodPost, path: "/api/setup/admin", want: http.StatusBadRequest},
+		{method: http.MethodPost, path: "/api/session/login", want: http.StatusBadRequest},
+		{method: http.MethodDelete, path: "/api/session", want: http.StatusNotFound},
+		{method: http.MethodPost, path: "/api/session/launcher-token", want: http.StatusNotFound},
+		{method: http.MethodGet, path: "/ws/events", want: http.StatusUnauthorized},
 	}
 
 	for _, tc := range cases {
@@ -29,8 +31,8 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		application.Handler().ServeHTTP(recorder, request)
 
-		if recorder.Code != http.StatusNotFound {
-			t.Fatalf("expected %s %s to remain unimplemented, got status %d", tc.method, tc.path, recorder.Code)
+		if recorder.Code != tc.want {
+			t.Fatalf("unexpected status for %s %s: got %d want %d", tc.method, tc.path, recorder.Code, tc.want)
 		}
 	}
 }

@@ -35,13 +35,26 @@ Phase 6 范围：
   - `event.event_type` 保留 `message.group` / `message.private`
   - plugin 仅可返回 `result` 或 `error`
 - bridge 只保留内存计数和最近事件摘要，不新增外部 API。
+- 暴露最小 live-only `/ws/events`：
+  - 仅接受已登录 `session_token`
+  - 仅推送 `events.received` 的 `bridge_runtime` aggregate-only 摘要
+  - 不提供 replay / history / backfill
 - 当首个可投递事件到达且当前尚无运行中的 runtime 时：
   - 按 `plugin_id` 排序选择首个 manifest 有效的单个 plugin
   - 使用事件中的 OneBot `self_id` 填充 `init.bot.id`
   - 以 lazy-start 方式补齐最小 `init -> init_ack -> event` 链路
 - 建立最小任务状态类型和只读内存注册表骨架。
 - 建立最小内部 management session/token validation shell。
-- 当前仅提供 server 内部复用的签发与校验 primitive，不新增公开 login / session route。
+- 当前提供最小公开 management auth surface：
+  - `POST /api/setup/admin`
+  - `POST /api/session/login`
+  - 两者都只返回 opaque `session_token`
+- 暴露最小 bootstrap/admin 入口：
+  - `POST /api/setup/admin`
+  - 仅用于首次建立 management credential source，并立即返回 `session_token`
+- 暴露最小 login 入口：
+  - `POST /api/session/login`
+  - 仅复用 bootstrap 后的 management credential source 换取 `session_token`
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
 
@@ -63,8 +76,8 @@ Phase 6 范围：
 - `/api/tasks`、插件安装、启用、禁用等写操作 API。
 - OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
-- `/ws/events` 管理摘要推送。
-- 公开 management session / login / launcher-token surface。
+- 公开 launcher-token surface。
+- `/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 等其他管理 WebSocket 通道。
 - OneBot intake observability 的持久化、重放或历史查询。
 - 数据库打开、迁移执行、渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。

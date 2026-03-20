@@ -48,8 +48,9 @@ type Manager struct {
 	signingKey []byte
 	sessionID  func() (string, error)
 
-	mu       sync.Mutex
-	sessions map[string]Claims
+	mu        sync.Mutex
+	sessions  map[string]Claims
+	bootstrap *bootstrapCredentials
 }
 
 type tokenClaims struct {
@@ -135,33 +136,11 @@ func (m *Manager) Issue(subject string) (string, Claims, error) {
 	}
 
 	now := m.now().UTC()
-	sessionID, err := m.sessionID()
-	if err != nil {
-		return "", Claims{}, fmt.Errorf("generate session id: %w", err)
-	}
-
-	claims := Claims{
-		SessionID: sessionID,
-		Subject:   subject,
-		IssuedAt:  now,
-		ExpiresAt: now.Add(m.ttl()),
-	}
-
-	token, err := m.sign(claims)
-	if err != nil {
-		return "", Claims{}, err
-	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.pruneExpiredLocked(now)
-	if len(m.sessions) >= m.cfg.MaxSessions {
-		return "", Claims{}, ErrSessionLimitReached
-	}
-
-	m.sessions[claims.SessionID] = claims
-	return token, claims, nil
+	return m.issueLocked(subject, now)
 }
 
 func (m *Manager) Validate(token string) (Claims, error) {
@@ -210,6 +189,33 @@ func (m *Manager) pruneExpiredLocked(now time.Time) {
 			delete(m.sessions, sessionID)
 		}
 	}
+}
+
+func (m *Manager) issueLocked(subject string, now time.Time) (string, Claims, error) {
+	sessionID, err := m.sessionID()
+	if err != nil {
+		return "", Claims{}, fmt.Errorf("generate session id: %w", err)
+	}
+
+	claims := Claims{
+		SessionID: sessionID,
+		Subject:   subject,
+		IssuedAt:  now,
+		ExpiresAt: now.Add(m.ttl()),
+	}
+
+	token, err := m.sign(claims)
+	if err != nil {
+		return "", Claims{}, err
+	}
+
+	m.pruneExpiredLocked(now)
+	if len(m.sessions) >= m.cfg.MaxSessions {
+		return "", Claims{}, ErrSessionLimitReached
+	}
+
+	m.sessions[claims.SessionID] = claims
+	return token, claims, nil
 }
 
 func (m *Manager) sign(claims Claims) (string, error) {
