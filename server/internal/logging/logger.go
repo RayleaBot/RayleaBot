@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 )
@@ -11,12 +12,18 @@ func Bootstrap() *slog.Logger {
 }
 
 func New(levelName string) (*slog.Logger, error) {
+	logger, _, err := NewWithStream(levelName)
+	return logger, err
+}
+
+func NewWithStream(levelName string) (*slog.Logger, *Stream, error) {
 	level, err := parseLevel(levelName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return newLogger(level), nil
+	stream := NewStream(32)
+	return newLoggerWithWriter(level, NewSummaryWriter(os.Stdout, stream)), stream, nil
 }
 
 func parseLevel(levelName string) (slog.Level, error) {
@@ -35,9 +42,13 @@ func parseLevel(levelName string) (slog.Level, error) {
 }
 
 func newLogger(level slog.Level) *slog.Logger {
+	return newLoggerWithWriter(level, os.Stdout)
+}
+
+func newLoggerWithWriter(level slog.Level, writer io.Writer) *slog.Logger {
 	return slog.New(
 		slog.NewJSONHandler(
-			os.Stdout,
+			writer,
 			&slog.HandlerOptions{
 				Level: level,
 				ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {

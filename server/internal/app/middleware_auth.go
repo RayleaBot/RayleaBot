@@ -14,14 +14,14 @@ type claimsKey struct{}
 
 // RequireAuth returns a chi-compatible middleware that validates a Bearer token
 // from the Authorization header and stores the resulting Claims in the request context.
-// For the /ws/events path, it additionally supports the session_token query parameter
+// For management WebSocket paths, it additionally supports the session_token query parameter
 // as a fallback token source (Authorization header takes priority).
 func RequireAuth(authManager *auth.Manager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractBearerToken(r)
 
-			if token == "" && r.URL.Path == "/ws/events" {
+			if token == "" && strings.HasPrefix(r.URL.Path, "/ws/") {
 				token = strings.TrimSpace(r.URL.Query().Get("session_token"))
 			}
 

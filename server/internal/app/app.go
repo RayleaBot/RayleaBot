@@ -40,6 +40,7 @@ type App struct {
 	Plugins  *plugins.Catalog
 	Auth     *auth.Manager
 	Storage  *storage.Store
+	Logs     *logging.Stream
 	Adapter  *adapter.Shell
 	Bridge   *bridge.Bridge
 	Runtime  *runtime.Manager
@@ -54,7 +55,7 @@ func New(options Options) (*App, error) {
 		return nil, err
 	}
 
-	logger, err := logging.New(cfg.Logging.Level)
+	logger, logStream, err := logging.NewWithStream(cfg.Logging.Level)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +102,7 @@ func New(options Options) (*App, error) {
 		Plugins:  pluginCatalog,
 		Auth:     authManager,
 		Storage:  storageStore,
+		Logs:     logStream,
 		Adapter:  adapterShell,
 		Bridge:   eventBridge,
 		Runtime:  runtimeManager,
@@ -122,6 +124,8 @@ func New(options Options) (*App, error) {
 	router.Group(func(r chi.Router) {
 		r.Use(RequireAuth(application.Auth))
 		r.Get("/ws/events", application.handleEventsWebSocket())
+		r.Get("/ws/tasks", application.handleTasksWebSocket())
+		r.Get("/ws/logs", application.handleLogsWebSocket())
 		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry)
 	})
 

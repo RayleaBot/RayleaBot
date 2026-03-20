@@ -44,6 +44,14 @@ Phase 6 范围：
   - 仅接受已登录 `session_token`
   - 仅推送 `events.received` 的 `bridge_runtime` aggregate-only 摘要
   - 不提供 replay / history / backfill
+- 暴露最小 `/ws/tasks`：
+  - 仅接受已登录 `session_token`
+  - 连接建立时回放当前内存 `tasks.Registry` 中的最新 task snapshots
+  - 后续仅推送 `tasks.updated`，不提供历史查询或独立 `/api/tasks` 执行面
+- 暴露最小 `/ws/logs`：
+  - 仅接受已登录 `session_token`
+  - 连接建立时回放 bounded in-memory log summaries
+  - 后续仅推送 `logs.appended` 的白名单字段，不暴露任意结构化日志 attrs
 - 建立最小 SQLite foundation：
   - 启动时按配置打开 SQLite
   - 显式启用 WAL mode
@@ -88,14 +96,14 @@ Phase 6 范围：
 
 当前明确未实现：
 
-- adapter 到 plugin 的事件投递。
+- 除单一 `onebot11.message_text -> event -> action(message.send)|result|error` 外的更广 adapter 到 plugin 事件投递。
 - `message.send` 之外的插件 action 请求、send / reply / API 调用。
 - 除单一 `event -> action(message.send)|result|error` 外的 plugin protocol bridge。
-- `/api/tasks`、插件安装、启用、禁用等写操作 API。
+- `/api/tasks` 执行面与更完整任务管理 API。
 - `send_msg` 之外的 OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
 - 公开 launcher-token surface。
-- `/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 等其他管理 WebSocket 通道。
+- `/ws/plugins/{id}/console` 调试通道；当前仍缺少 contract 要求的 redaction + rate limiting 前置能力。
 - OneBot intake observability 的持久化、重放或历史查询。
 - 渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。

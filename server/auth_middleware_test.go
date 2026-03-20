@@ -200,7 +200,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 		handler, wasCalled, _ := dummyHandler()
 		wrapped := middleware(handler)
 
-		path := rapid.SampledFrom([]string{"/api/plugins", "/api/tasks", "/ws/events"}).Draw(t, "path")
+		path := rapid.SampledFrom([]string{"/api/plugins", "/api/tasks", "/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		if sc.header != "" {
 			req.Header.Set("Authorization", sc.header)
@@ -347,14 +347,14 @@ func TestPropertyWebSocketQueryParamFallback(t *testing.T) {
 		handler, wasCalled, claimsResult := dummyHandler()
 		wrapped := middleware(handler)
 
-		// Send to /ws/events with session_token query param, no Authorization header.
-		req := httptest.NewRequest(http.MethodGet, "/ws/events?session_token="+token, nil)
+		path := rapid.SampledFrom([]string{"/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
+		req := httptest.NewRequest(http.MethodGet, path+"?session_token="+token, nil)
 		rec := httptest.NewRecorder()
 
 		wrapped.ServeHTTP(rec, req)
 
 		if !wasCalled() {
-			t.Fatal("handler should have been called for valid query param token on /ws/events")
+			t.Fatalf("handler should have been called for valid query param token on %s", path)
 		}
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", rec.Code)
@@ -394,8 +394,8 @@ func TestPropertyAuthHeaderPrecedence(t *testing.T) {
 		handler, wasCalled, claimsResult := dummyHandler()
 		wrapped := middleware(handler)
 
-		// Put tokenA in Authorization header, tokenB in query param.
-		req := httptest.NewRequest(http.MethodGet, "/ws/events?session_token="+tokenB, nil)
+		path := rapid.SampledFrom([]string{"/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
+		req := httptest.NewRequest(http.MethodGet, path+"?session_token="+tokenB, nil)
 		req.Header.Set("Authorization", "Bearer "+tokenA)
 		rec := httptest.NewRecorder()
 
@@ -522,6 +522,8 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 		{http.MethodGet, "/api/plugins"},
 		{http.MethodGet, "/api/plugins/fake-plugin-id"},
 		{http.MethodGet, "/ws/events"},
+		{http.MethodGet, "/ws/tasks"},
+		{http.MethodGet, "/ws/logs"},
 	}
 
 	client := server.Client()
@@ -629,4 +631,46 @@ func TestWebSocketEventsSupportsSessionTokenQueryParam(t *testing.T) {
 		t.Fatalf("dial websocket with session_token query param failed (status %d): %v", status, err)
 	}
 	_ = conn.Close(websocket.StatusNormalClosure, "")
+}
+
+func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *testing.T) {
+	t.Parallel()
+
+	paths := []string{"/ws/tasks", "/ws/logs"}
+	for _, path := range paths {
+		path := path
+		t.Run(path, func(t *testing.T) {
+			application := newTestApp(t, deterministicAuthOptions()...)
+			token := issueLoginToken(t, application)
+			server := httptest.NewServer(application.Handler())
+			defer server.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			conn, resp, err := websocket.Dial(ctx, websocketURL(server.URL)+path, &websocket.DialOptions{
+				HTTPHeader: http.Header{
+					"Authorization": []string{"Bearer " + token},
+				},
+			})
+			if err != nil {
+				status := 0
+				if resp != nil {
+					status = resp.StatusCode
+				}
+				t.Fatalf("dial websocket with Authorization header failed (status %d): %v", status, err)
+			}
+			_ = conn.Close(websocket.StatusNormalClosure, "")
+
+			queryConn, queryResp, queryErr := websocket.Dial(ctx, websocketURL(server.URL)+path+"?session_token="+token, nil)
+			if queryErr != nil {
+				status := 0
+				if queryResp != nil {
+					status = queryResp.StatusCode
+				}
+				t.Fatalf("dial websocket with session_token query param failed (status %d): %v", status, queryErr)
+			}
+			_ = queryConn.Close(websocket.StatusNormalClosure, "")
+		})
+	}
 }

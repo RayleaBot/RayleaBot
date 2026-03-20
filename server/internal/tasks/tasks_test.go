@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"testing"
+	"time"
 
 	"pgregory.net/rapid"
 )
@@ -89,5 +90,58 @@ func TestCreate_ListIncludesNewTask(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("List() does not contain newly created task %q", taskID)
+	}
+}
+
+func TestUpdate_ReplacesTaskSnapshotAndPublishes(t *testing.T) {
+	registry := NewRegistry()
+	taskID, err := registry.Create("plugin.install", "install hello plugin")
+	if err != nil {
+		t.Fatalf("Create returned unexpected error: %v", err)
+	}
+
+	updates, unsubscribe := registry.Subscribe(2)
+	defer unsubscribe()
+
+	status := StatusRunning
+	progress := 40
+	summary := "安装 Python 依赖"
+	startedAt := time.Date(2026, time.March, 20, 10, 0, 0, 0, time.UTC)
+	result := &ResultSummary{Summary: "still running"}
+
+	snapshot, ok := registry.Update(taskID, Update{
+		Status:    &status,
+		Progress:  &progress,
+		Summary:   &summary,
+		StartedAt: &startedAt,
+		Result:    result,
+	})
+	if !ok {
+		t.Fatalf("Update(%q) returned ok=false", taskID)
+	}
+
+	if snapshot.Status != StatusRunning {
+		t.Fatalf("Status = %q, want %q", snapshot.Status, StatusRunning)
+	}
+	if snapshot.Progress != 40 {
+		t.Fatalf("Progress = %d, want 40", snapshot.Progress)
+	}
+	if snapshot.Summary != "安装 Python 依赖" {
+		t.Fatalf("Summary = %q, want %q", snapshot.Summary, "安装 Python 依赖")
+	}
+	if snapshot.StartedAt == nil || !snapshot.StartedAt.Equal(startedAt) {
+		t.Fatalf("StartedAt = %v, want %v", snapshot.StartedAt, startedAt)
+	}
+
+	select {
+	case published := <-updates:
+		if published.TaskID != taskID {
+			t.Fatalf("published TaskID = %q, want %q", published.TaskID, taskID)
+		}
+		if published.Status != StatusRunning {
+			t.Fatalf("published Status = %q, want %q", published.Status, StatusRunning)
+		}
+	default:
+		t.Fatal("expected update to be published")
 	}
 }

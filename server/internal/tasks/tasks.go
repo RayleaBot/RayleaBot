@@ -42,37 +42,50 @@ type Snapshot struct {
 	Error      *ErrorSummary  `json:"error,omitempty"`
 }
 
+type Update struct {
+	Status     *Status
+	Progress   *int
+	Summary    *string
+	StartedAt  *time.Time
+	FinishedAt *time.Time
+	Result     *ResultSummary
+	Error      *ErrorSummary
+}
+
 type Registry struct {
-	mu    sync.Mutex
-	items map[string]Snapshot
-	order []string
+	mu               sync.RWMutex
+	items            map[string]Snapshot
+	order            []string
+	nextSubscriberID uint64
+	subscribers      map[uint64]chan Snapshot
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		items: map[string]Snapshot{},
-		order: []string{},
+		items:       map[string]Snapshot{},
+		order:       []string{},
+		subscribers: map[uint64]chan Snapshot{},
 	}
 }
 
 func (r *Registry) List() []Snapshot {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	result := make([]Snapshot, 0, len(r.order))
 	for _, taskID := range r.order {
-		result = append(result, r.items[taskID])
+		result = append(result, cloneSnapshot(r.items[taskID]))
 	}
 
 	return result
 }
 
 func (r *Registry) Get(taskID string) (Snapshot, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	snapshot, ok := r.items[taskID]
-	return snapshot, ok
+	return cloneSnapshot(snapshot), ok
 }
 
 // Create creates a new task snapshot with the given type and summary.
@@ -84,16 +97,160 @@ func (r *Registry) Create(taskType string, summary string) (string, error) {
 	}
 	taskID := "task_" + hex.EncodeToString(buf[:])
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.items[taskID] = Snapshot{
+	snapshot := Snapshot{
 		TaskID:   taskID,
 		TaskType: taskType,
 		Status:   StatusPending,
 		Summary:  summary,
 	}
+
+	r.mu.Lock()
+	r.items[taskID] = snapshot
 	r.order = append(r.order, taskID)
+	r.broadcastLocked(snapshot)
+	r.mu.Unlock()
 
 	return taskID, nil
+}
+
+func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	snapshot, ok := r.items[taskID]
+	if !ok {
+		return Snapshot{}, false
+	}
+
+	if update.Status != nil {
+		snapshot.Status = *update.Status
+	}
+	if update.Progress != nil {
+		snapshot.Progress = *update.Progress
+	}
+	if update.Summary != nil {
+		snapshot.Summary = *update.Summary
+	}
+	if update.StartedAt != nil {
+		startedAt := (*update.StartedAt).UTC()
+		snapshot.StartedAt = &startedAt
+	}
+	if update.FinishedAt != nil {
+		finishedAt := (*update.FinishedAt).UTC()
+		snapshot.FinishedAt = &finishedAt
+	}
+	if update.Result != nil {
+		snapshot.Result = cloneResult(update.Result)
+	}
+	if update.Error != nil {
+		snapshot.Error = cloneError(update.Error)
+	}
+
+	r.items[taskID] = snapshot
+	r.broadcastLocked(snapshot)
+	return cloneSnapshot(snapshot), true
+}
+
+func (r *Registry) Subscribe(buffer int) (<-chan Snapshot, func()) {
+	if buffer <= 0 {
+		buffer = 1
+	}
+
+	ch := make(chan Snapshot, buffer)
+
+	r.mu.Lock()
+	id := r.nextSubscriberID
+	r.nextSubscriberID++
+	r.subscribers[id] = ch
+	r.mu.Unlock()
+
+	return ch, func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		subscriber, ok := r.subscribers[id]
+		if !ok {
+			return
+		}
+
+		delete(r.subscribers, id)
+		close(subscriber)
+	}
+}
+
+func (r *Registry) SubscriberCount() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return len(r.subscribers)
+}
+
+func (r *Registry) broadcastLocked(snapshot Snapshot) {
+	cloned := cloneSnapshot(snapshot)
+	for _, subscriber := range r.subscribers {
+		select {
+		case subscriber <- cloned:
+		default:
+			select {
+			case <-subscriber:
+			default:
+			}
+			select {
+			case subscriber <- cloned:
+			default:
+			}
+		}
+	}
+}
+
+func cloneSnapshot(snapshot Snapshot) Snapshot {
+	cloned := snapshot
+	if snapshot.StartedAt != nil {
+		startedAt := *snapshot.StartedAt
+		cloned.StartedAt = &startedAt
+	}
+	if snapshot.FinishedAt != nil {
+		finishedAt := *snapshot.FinishedAt
+		cloned.FinishedAt = &finishedAt
+	}
+	cloned.Result = cloneResult(snapshot.Result)
+	cloned.Error = cloneError(snapshot.Error)
+	return cloned
+}
+
+func cloneResult(result *ResultSummary) *ResultSummary {
+	if result == nil {
+		return nil
+	}
+
+	cloned := &ResultSummary{
+		Summary: result.Summary,
+	}
+	if result.Details != nil {
+		cloned.Details = cloneMap(result.Details)
+	}
+	return cloned
+}
+
+func cloneError(errSummary *ErrorSummary) *ErrorSummary {
+	if errSummary == nil {
+		return nil
+	}
+
+	cloned := &ErrorSummary{
+		Code:    errSummary.Code,
+		Message: errSummary.Message,
+	}
+	if errSummary.Details != nil {
+		cloned.Details = cloneMap(errSummary.Details)
+	}
+	return cloned
+}
+
+func cloneMap(source map[string]any) map[string]any {
+	cloned := make(map[string]any, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
 }
