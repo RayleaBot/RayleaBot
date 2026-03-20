@@ -47,7 +47,7 @@ Phase 6 范围：
 - 暴露最小 `/ws/tasks`：
   - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
   - 连接建立时回放当前内存 `tasks.Registry` 中的最新 task snapshots
-  - 后续仅推送 `tasks.updated`，不提供历史查询或独立 `/api/tasks` 执行面
+  - 后续仅推送 `tasks.updated`，不提供历史持久化或真实任务执行编排
 - 暴露最小 `/ws/logs`：
   - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
   - 连接建立时回放 bounded in-memory log summaries
@@ -71,6 +71,10 @@ Phase 6 范围：
   - 当前 session signing key 与 bootstrap credential source 一并窄持久化
   - active admin sessions 会写入 `admin_sessions`
   - 服务重启后仍可复用既有 bootstrap/login `session_token` 做最小管理面 admission
+- 将当前插件 `desired_state` 持久化到 SQLite：
+  - `plugin_instances` 表当前仅保存 `plugin_id`、`desired_state` 与 `updated_at`
+  - 启动时会在 plugin discovery 之后恢复已安装插件的 `desired_state`
+  - `runtime_state` 继续保持进程内语义，不做持久化
 - 当首个可投递事件到达且当前尚无运行中的 runtime 时：
   - 按 `plugin_id` 排序选择首个 manifest 有效的单个 plugin
   - 使用事件中的 OneBot `self_id` 填充 `init.bot.id`
@@ -79,14 +83,34 @@ Phase 6 范围：
 - 建立最小内部 management session/token validation shell。
 - 当前提供最小公开 management auth surface：
   - `POST /api/setup/admin`
+  - `GET /api/setup/status`
   - `POST /api/session/login`
-  - 两者都只返回 opaque `session_token`
+- 以上公开入口里，只有 bootstrap 与 login 会返回 opaque token
+- 当前提供最小受保护 management write/query surface：
+  - `DELETE /api/session`
+  - `POST /api/session/launcher-token`
+  - `GET /api/system/status`
+  - `POST /api/system/shutdown`
+  - `GET /api/tasks`
+  - `GET /api/tasks/{task_id}`
+  - `POST /api/tasks/{task_id}/cancel`
 - 暴露最小 bootstrap/admin 入口：
   - `POST /api/setup/admin`
   - 仅用于首次建立 management credential source，并立即返回 `session_token`
+- 暴露最小 setup status / session / system handlers：
+  - `GET /api/setup/status` 返回 bootstrap 是否完成
+  - `DELETE /api/session` 仅撤销当前 session
+  - `POST /api/session/launcher-token` 返回单次使用、短 TTL 的 opaque launcher token
+  - `GET /api/system/status` 返回最小运行态摘要
+  - `POST /api/system/shutdown` 仅接受 graceful shutdown 请求
 - 暴露最小 login 入口：
   - `POST /api/session/login`
   - 仅复用 bootstrap 后的 management credential source 换取 `session_token`
+- 暴露最小 task query / cancel 入口：
+  - `GET /api/tasks`
+  - `GET /api/tasks/{task_id}`
+  - `POST /api/tasks/{task_id}/cancel`
+  - 当前直接复用内存 `tasks.Registry`，`cancel` 只接受 `pending` 任务
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
 
@@ -105,16 +129,15 @@ Phase 6 范围：
 - 除单一 `onebot11.message_text -> event -> action(message.send)|result|error` 外的更广 adapter 到 plugin 事件投递。
 - `message.send` 之外的插件 action 请求、send / reply / API 调用。
 - 除单一 `event -> action(message.send)|result|error` 外的 plugin protocol bridge。
-- `/api/tasks` 执行面与更完整任务管理 API。
+- 真实 task executor、进度写入、历史持久化与更完整任务管理 API。
 - `send_msg` 之外的 OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
-- 公开 launcher-token surface。
 - `/ws/plugins/{id}/console` 之外的更完整调试面；当前仅支持 redacted/rate-limited `stderr` / `system` console frames，不提供历史持久化、原始协议 `stdout` 或高级过滤。
 - OneBot intake observability 的持久化、重放或历史查询。
 - 渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。
 - 文件监听热刷新与目录热刷新。
-- 权限授予流程执行、迁移执行与持久化 desired_state。
+- 权限授予流程执行、迁移执行与更完整插件生命周期编排。
 - 多协议或多 adapter 抽象。
 - runtime restart loop、通用 supervisor、热重载。
 - 广义事件总线、多插件 fan-out、宽事件归一化。
