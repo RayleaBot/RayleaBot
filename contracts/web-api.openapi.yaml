@@ -13,8 +13,11 @@ x-fixtures:
   - fixtures/web-api/ok.session-login.yaml
   - fixtures/web-api/ok.session-logout.yaml
   - fixtures/web-api/ok.session-launcher-token.yaml
+  - fixtures/web-api/ok.config-get-response.yaml
+  - fixtures/web-api/ok.config-update-response.yaml
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
+  - fixtures/web-api/ok.logs-list-response.yaml
   - fixtures/web-api/ok.tasks-list-response.yaml
   - fixtures/web-api/ok.task-detail-response.yaml
   - fixtures/web-api/ok.task-detail-succeeded-install.yaml
@@ -25,12 +28,14 @@ x-fixtures:
   - fixtures/web-api/edge.task-detail-failed-install.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
+  - fixtures/web-api/edge.logs-empty-response.yaml
   - fixtures/web-api/edge.setup-admin-already-initialized.yaml
   - fixtures/web-api/edge.session-login-max-sessions.yaml
   - fixtures/web-api/invalid.setup-admin-bad-request.yaml
   - fixtures/web-api/invalid.session-login-bad-credentials.yaml
   - fixtures/web-api/invalid.auth-missing-token.yaml
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
+  - fixtures/web-api/invalid.config-update-invalid.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
 
 paths:
@@ -162,6 +167,48 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/config:
+    get:
+      summary: Query the current effective management configuration snapshot.
+      operationId: getConfig
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current effective config snapshot with sensitive fields redacted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigSnapshotResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      summary: Validate and persist a new management configuration snapshot.
+      operationId: updateConfig
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigDocument'
+      responses:
+        '200':
+          description: Config written successfully. Restart is required before changes take effect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/system/status:
     get:
       summary: Query the current system operational status.
@@ -277,6 +324,58 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/logs:
+    get:
+      summary: List recent redacted management log summaries.
+      operationId: listLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: level
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LogLevel'
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+        - name: plugin_id
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+        - name: request_id
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Recent bounded log summaries using the same whitelist fields as /ws/logs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogListResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -488,6 +587,36 @@ components:
           minLength: 1
           description: Single-use short-lived token for Launcher admission. Valid for one use only.
 
+    ConfigDocument:
+      $ref: './config.user.schema.json'
+
+    ConfigSnapshotResponse:
+      type: object
+      additionalProperties: false
+      required: [config]
+      properties:
+        config:
+          $ref: '#/components/schemas/ConfigDocument'
+        redacted_fields:
+          type: array
+          items:
+            type: string
+
+    ConfigUpdateResponse:
+      type: object
+      additionalProperties: false
+      required: [config, restart_required]
+      properties:
+        config:
+          $ref: '#/components/schemas/ConfigDocument'
+        redacted_fields:
+          type: array
+          items:
+            type: string
+        restart_required:
+          type: boolean
+          description: Whether a server restart is required before the new config takes effect.
+
     SystemStatusResponse:
       type: object
       additionalProperties: false
@@ -512,6 +641,38 @@ components:
       properties:
         accepted:
           type: boolean
+
+    LogLevel:
+      type: string
+      enum: [debug, info, warn, error]
+
+    LogSummary:
+      type: object
+      additionalProperties: false
+      required: [timestamp, level, source, message]
+      properties:
+        timestamp:
+          type: string
+        level:
+          $ref: '#/components/schemas/LogLevel'
+        source:
+          type: string
+        message:
+          type: string
+        plugin_id:
+          type: string
+        request_id:
+          type: string
+
+    LogListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogSummary'
 
     LivenessStatusResponse:
       type: object

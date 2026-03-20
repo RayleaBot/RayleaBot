@@ -90,9 +90,6 @@
 
 - `POST /api/plugins/{plugin_id}/reload`
 - `DELETE /api/plugins/{plugin_id}`
-- `GET /api/config`
-- `PUT /api/config`
-- `GET /api/logs`
 - `POST /api/webhooks/{plugin_id}/{route}`
 
 这些接口在进入 fixture-ready 前，不得以 skeleton 形式提前回写到 `contracts/web-api.openapi.yaml`。
