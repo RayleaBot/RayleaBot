@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"rayleabot/server/internal/console"
 )
 
 type State string
@@ -79,9 +81,16 @@ type managerDeps struct {
 	requestID func() string
 }
 
+type Options struct {
+	Console                    *console.Stream
+	RedactText                 func(string) string
+	StderrRateLimitBytesPerSec int
+}
+
 type Manager struct {
 	logger *slog.Logger
 	deps   managerDeps
+	opts   Options
 
 	mu        sync.RWMutex
 	deliverMu sync.Mutex
@@ -219,16 +228,16 @@ const (
 	initResponseReady
 )
 
-func New(logger *slog.Logger) *Manager {
+func New(logger *slog.Logger, options Options) *Manager {
 	return newManager(logger, managerDeps{
 		now: time.Now,
 		requestID: func() string {
 			return fmt.Sprintf("req_%d", time.Now().UnixNano())
 		},
-	})
+	}, options)
 }
 
-func newManager(logger *slog.Logger, deps managerDeps) *Manager {
+func newManager(logger *slog.Logger, deps managerDeps, options Options) *Manager {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -240,10 +249,19 @@ func newManager(logger *slog.Logger, deps managerDeps) *Manager {
 			return fmt.Sprintf("req_%d", time.Now().UnixNano())
 		}
 	}
+	if options.Console == nil {
+		options.Console = console.NewStream(1000, 2*1024*1024)
+	}
+	if options.RedactText == nil {
+		options.RedactText = func(text string) string {
+			return text
+		}
+	}
 
 	return &Manager{
 		logger: logger,
 		deps:   deps,
+		opts:   options,
 		snap: Snapshot{
 			State: StateStopped,
 		},
@@ -336,7 +354,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		return errorf(codePluginInternalError, "start plugin process", err)
 	}
 
-	go drainOutput(stderr)
+	go m.captureStderr(spec.PluginID, stderr)
 
 	handle := newProcessHandle(cmd, stdin, bufio.NewReader(stdout), spec)
 	go func() {

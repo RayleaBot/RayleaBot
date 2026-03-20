@@ -17,6 +17,7 @@ import (
 	"rayleabot/server/internal/auth"
 	"rayleabot/server/internal/bridge"
 	"rayleabot/server/internal/config"
+	"rayleabot/server/internal/console"
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/plugins"
@@ -41,6 +42,7 @@ type App struct {
 	Auth     *auth.Manager
 	Storage  *storage.Store
 	Logs     *logging.Stream
+	Console  *console.Stream
 	Adapter  *adapter.Shell
 	Bridge   *bridge.Bridge
 	Runtime  *runtime.Manager
@@ -55,7 +57,8 @@ func New(options Options) (*App, error) {
 		return nil, err
 	}
 
-	logger, logStream, err := logging.NewWithStream(cfg.Logging.Level)
+	managementRedactor := buildManagementRedactor(cfg)
+	logger, logStream, err := logging.NewWithStream(cfg.Logging.Level, managementRedactor.Redact)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +69,12 @@ func New(options Options) (*App, error) {
 		return nil, err
 	}
 	adapterShell := adapter.New(cfg.OneBot, logger)
-	runtimeManager := runtime.New(logger)
+	consoleStream := console.NewStream(1000, 2*1024*1024)
+	runtimeManager := runtime.New(logger, runtime.Options{
+		Console:                    consoleStream,
+		RedactText:                 managementRedactor.Redact,
+		StderrRateLimitBytesPerSec: cfg.Runtime.StderrRateLimitBytesPerSec,
+	})
 	eventBridge := bridge.New(logger, runtimeManager, adapterShell)
 	databasePath, err := resolveDatabasePath(options.ConfigPath, cfg.Database.Path)
 	if err != nil {
@@ -103,6 +111,7 @@ func New(options Options) (*App, error) {
 		Auth:     authManager,
 		Storage:  storageStore,
 		Logs:     logStream,
+		Console:  consoleStream,
 		Adapter:  adapterShell,
 		Bridge:   eventBridge,
 		Runtime:  runtimeManager,
@@ -126,6 +135,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/events", application.handleEventsWebSocket())
 		r.Get("/ws/tasks", application.handleTasksWebSocket())
 		r.Get("/ws/logs", application.handleLogsWebSocket())
+		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
 		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry)
 	})
 

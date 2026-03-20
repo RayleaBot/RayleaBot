@@ -26,6 +26,7 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodGet, path: "/ws/events", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/logs", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/ws/plugins/hello-node/console", want: http.StatusUnauthorized},
 	}
 
 	for _, tc := range cases {

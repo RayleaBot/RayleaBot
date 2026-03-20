@@ -41,17 +41,23 @@ Phase 6 范围：
   - 当前只观察窄成功/失败结果，不扩张为广义 action 平台
 - bridge 只保留内存计数和最近事件摘要，不新增外部 API。
 - 暴露最小 live-only `/ws/events`：
-  - 仅接受已登录 `session_token`
+  - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
   - 仅推送 `events.received` 的 `bridge_runtime` aggregate-only 摘要
   - 不提供 replay / history / backfill
 - 暴露最小 `/ws/tasks`：
-  - 仅接受已登录 `session_token`
+  - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
   - 连接建立时回放当前内存 `tasks.Registry` 中的最新 task snapshots
   - 后续仅推送 `tasks.updated`，不提供历史查询或独立 `/api/tasks` 执行面
 - 暴露最小 `/ws/logs`：
-  - 仅接受已登录 `session_token`
+  - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
   - 连接建立时回放 bounded in-memory log summaries
   - 后续仅推送 `logs.appended` 的白名单字段，不暴露任意结构化日志 attrs
+  - 当前会对已知敏感字面值做基础掩码
+- 暴露最小 `/ws/plugins/{id}/console`：
+  - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
+  - 连接建立时回放每插件 bounded in-memory ring buffer
+  - 后续仅推送经 platform-side redaction + rate limiting 处理后的 runtime `stderr` / `system` console frames
+  - 当前不提供历史持久化，也不暴露原始协议 `stdout`
 - 建立最小 SQLite foundation：
   - 启动时按配置打开 SQLite
   - 显式启用 WAL mode
@@ -103,7 +109,7 @@ Phase 6 范围：
 - `send_msg` 之外的 OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
 - 公开 launcher-token surface。
-- `/ws/plugins/{id}/console` 调试通道；当前仍缺少 contract 要求的 redaction + rate limiting 前置能力。
+- `/ws/plugins/{id}/console` 之外的更完整调试面；当前仅支持 redacted/rate-limited `stderr` / `system` console frames，不提供历史持久化、原始协议 `stdout` 或高级过滤。
 - OneBot intake observability 的持久化、重放或历史查询。
 - 渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。

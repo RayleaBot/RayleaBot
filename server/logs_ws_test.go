@@ -2,14 +2,18 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 
+	"rayleabot/server/internal/app"
+	"rayleabot/server/internal/auth"
 	"rayleabot/server/internal/logging"
 )
 
@@ -121,6 +125,44 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	}
 }
 
+func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
+	application := newTestAppWithOneBotAccessToken(t, "fixture-only-secret", deterministicAuthOptions()...)
+	replayCount := len(application.Logs.Snapshot())
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	waitForLogSubscriber(t, application.Logs)
+	for i := 0; i < replayCount; i++ {
+		_ = readWebSocketJSON(t, conn)
+	}
+
+	application.Logger.Error(
+		"downstream rejected fixture-only-secret during adapter handshake",
+		"component", "runtime",
+	)
+
+	payload := readWebSocketPayloadWhere(t, conn, func(frame map[string]any) bool {
+		data, ok := frame["data"].(map[string]any)
+		if !ok {
+			return false
+		}
+		message, _ := data["message"].(string)
+		return strings.Contains(message, "adapter handshake")
+	})
+
+	raw := string(payload)
+	if strings.Contains(raw, "fixture-only-secret") {
+		t.Fatalf("websocket payload leaked sensitive message content: %s", raw)
+	}
+	if !strings.Contains(raw, "[REDACTED]") {
+		t.Fatalf("expected redacted websocket payload, got %s", raw)
+	}
+}
+
 func TestLogsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 
@@ -158,6 +200,47 @@ func waitForLogSubscriber(t *testing.T, stream *logging.Stream) {
 	}
 
 	t.Fatal("timed out waiting for log websocket subscriber")
+}
+
+func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptions ...auth.Option) *app.App {
+	t.Helper()
+
+	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+
+	var input map[string]any
+	if err := json.Unmarshal(fixture.Input, &input); err != nil {
+		t.Fatalf("unmarshal config fixture input: %v", err)
+	}
+
+	onebot := input["onebot"].(map[string]any)
+	onebot["access_token"] = accessToken
+
+	updated, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("marshal config fixture input: %v", err)
+	}
+
+	configPath := writeYAMLConfig(t, updated)
+	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
+
+	application, err := app.New(app.Options{
+		ConfigPath:  configPath,
+		SchemaPath:  schemaPath,
+		AuthOptions: authOptions,
+	})
+	if err != nil {
+		t.Fatalf("app.New failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if application.Storage != nil {
+			if err := application.Storage.Close(); err != nil {
+				t.Fatalf("close sqlite store: %v", err)
+			}
+			application.Storage = nil
+		}
+	})
+
+	return application
 }
 
 func readWebSocketFrameWhere(t *testing.T, conn *websocket.Conn, match func(map[string]any) bool) map[string]any {

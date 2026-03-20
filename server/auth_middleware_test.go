@@ -636,7 +636,7 @@ func TestWebSocketEventsSupportsSessionTokenQueryParam(t *testing.T) {
 func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *testing.T) {
 	t.Parallel()
 
-	paths := []string{"/ws/tasks", "/ws/logs"}
+	paths := []string{"/ws/tasks", "/ws/logs", "/ws/plugins/hello-node/console"}
 	for _, path := range paths {
 		path := path
 		t.Run(path, func(t *testing.T) {

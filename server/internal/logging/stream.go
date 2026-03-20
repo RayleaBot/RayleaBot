@@ -110,28 +110,29 @@ func (s *Stream) SubscriberCount() int {
 type SummaryWriter struct {
 	out    io.Writer
 	stream *Stream
+	redact func(string) string
 
 	mu  sync.Mutex
 	buf bytes.Buffer
 }
 
-func NewSummaryWriter(out io.Writer, stream *Stream) *SummaryWriter {
+func NewSummaryWriter(out io.Writer, stream *Stream, redact func(string) string) *SummaryWriter {
 	return &SummaryWriter{
 		out:    out,
 		stream: stream,
+		redact: redact,
 	}
 }
 
 func (w *SummaryWriter) Write(p []byte) (int, error) {
-	n, err := w.out.Write(p)
-	if n <= 0 || w.stream == nil {
-		return n, err
+	if len(p) == 0 {
+		return 0, nil
 	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	_, _ = w.buf.Write(p[:n])
+	_, _ = w.buf.Write(p)
 	for {
 		buffered := w.buf.Bytes()
 		index := bytes.IndexByte(buffered, '\n')
@@ -141,12 +142,72 @@ func (w *SummaryWriter) Write(p []byte) (int, error) {
 
 		line := append([]byte(nil), buffered[:index+1]...)
 		w.buf.Next(index + 1)
+		line = w.normalizeLine(line)
+		if _, err := w.out.Write(line); err != nil {
+			return len(p), err
+		}
 		if summary, ok := summaryFromJSONLine(line); ok {
-			w.stream.Append(summary)
+			if w.stream != nil {
+				w.stream.Append(summary)
+			}
 		}
 	}
 
-	return n, err
+	return len(p), nil
+}
+
+func (w *SummaryWriter) normalizeLine(line []byte) []byte {
+	if w.redact == nil {
+		return line
+	}
+
+	if redacted, ok := redactJSONLine(line, w.redact); ok {
+		return redacted
+	}
+
+	trimmed := strings.TrimRight(string(line), "\r\n")
+	return append([]byte(w.redact(trimmed)), '\n')
+}
+
+func redactJSONLine(line []byte, redact func(string) string) ([]byte, bool) {
+	trimmed := bytes.TrimSpace(line)
+	if len(trimmed) == 0 {
+		return line, false
+	}
+
+	var body any
+	if err := json.Unmarshal(trimmed, &body); err != nil {
+		return nil, false
+	}
+
+	redacted := redactJSONValue(body, redact)
+	encoded, err := json.Marshal(redacted)
+	if err != nil {
+		return nil, false
+	}
+
+	return append(encoded, '\n'), true
+}
+
+func redactJSONValue(value any, redact func(string) string) any {
+	switch typed := value.(type) {
+	case string:
+		return redact(typed)
+	case []any:
+		result := make([]any, len(typed))
+		for index := range typed {
+			result[index] = redactJSONValue(typed[index], redact)
+		}
+		return result
+	case map[string]any:
+		result := make(map[string]any, len(typed))
+		for key, inner := range typed {
+			result[key] = redactJSONValue(inner, redact)
+		}
+		return result
+	default:
+		return value
+	}
 }
 
 func summaryFromJSONLine(line []byte) (Summary, bool) {

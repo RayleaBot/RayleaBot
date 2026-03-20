@@ -12,18 +12,18 @@ func Bootstrap() *slog.Logger {
 }
 
 func New(levelName string) (*slog.Logger, error) {
-	logger, _, err := NewWithStream(levelName)
+	logger, _, err := NewWithStream(levelName, nil)
 	return logger, err
 }
 
-func NewWithStream(levelName string) (*slog.Logger, *Stream, error) {
+func NewWithStream(levelName string, redactText func(string) string) (*slog.Logger, *Stream, error) {
 	level, err := parseLevel(levelName)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	stream := NewStream(32)
-	return newLoggerWithWriter(level, NewSummaryWriter(os.Stdout, stream)), stream, nil
+	return newLoggerWithWriter(level, NewSummaryWriter(os.Stdout, stream, redactText)), stream, nil
 }
 
 func parseLevel(levelName string) (slog.Level, error) {

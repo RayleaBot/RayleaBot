@@ -641,6 +641,37 @@ func TestHelperProcessRuntime(t *testing.T) {
 			}
 		}
 		os.Exit(0)
+	case "stderr-secret":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		if _, err := fmt.Fprintln(os.Stderr, "token=fixture-only-secret"); err != nil {
+			os.Exit(9)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(4)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
 	case "timeout":
 		if scanner.Scan() {
 			recordFrame(recordPath, scanner.Bytes())
@@ -782,7 +813,7 @@ func testManager() *Manager {
 		requestID: func() string {
 			return "req_test"
 		},
-	})
+	}, Options{})
 }
 
 func assertRuntimeErrorCode(t *testing.T, err error, want string) {
