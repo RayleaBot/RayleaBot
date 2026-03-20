@@ -171,6 +171,14 @@ func newTestApp(t *testing.T) *app.App {
 	if err != nil {
 		t.Fatalf("app.New failed: %v", err)
 	}
+	t.Cleanup(func() {
+		if application.Storage != nil {
+			if err := application.Storage.Close(); err != nil {
+				t.Fatalf("close sqlite store: %v", err)
+			}
+			application.Storage = nil
+		}
+	})
 
 	return application
 }

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -39,6 +40,7 @@ type managerOptions struct {
 	now        func() time.Time
 	signingKey []byte
 	sessionID  func() (string, error)
+	repo       Repository
 }
 
 type Manager struct {
@@ -47,6 +49,7 @@ type Manager struct {
 	now        func() time.Time
 	signingKey []byte
 	sessionID  func() (string, error)
+	repo       Repository
 
 	mu        sync.Mutex
 	sessions  map[string]Claims
@@ -91,6 +94,16 @@ func WithSessionIDGenerator(generator func() (string, error)) Option {
 	}
 }
 
+func WithRepository(repo Repository) Option {
+	return func(options *managerOptions) error {
+		if repo == nil {
+			return errors.New("repository is required")
+		}
+		options.repo = repo
+		return nil
+	}
+}
+
 func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 	if cfg.SessionTTLDays <= 0 {
 		return nil, fmt.Errorf("session_ttl_days must be positive")
@@ -120,13 +133,22 @@ func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 		options.signingKey = signingKey
 	}
 
-	return &Manager{
+	manager := &Manager{
 		cfg:        cfg,
 		now:        options.now,
 		signingKey: options.signingKey,
 		sessionID:  options.sessionID,
+		repo:       options.repo,
 		sessions:   make(map[string]Claims),
-	}, nil
+	}
+
+	if manager.repo != nil {
+		if err := manager.hydrate(context.Background()); err != nil {
+			return nil, err
+		}
+	}
+
+	return manager, nil
 }
 
 func (m *Manager) Issue(subject string) (string, Claims, error) {
@@ -168,11 +190,17 @@ func (m *Manager) Validate(token string) (Claims, error) {
 	}
 	if !now.Before(stored.ExpiresAt) {
 		delete(m.sessions, stored.SessionID)
+		if err := m.deleteSessionsLocked(context.Background(), stored.SessionID); err != nil {
+			return Claims{}, err
+		}
 		return Claims{}, ErrExpiredToken
 	}
 
 	if m.cfg.SlidingRenewal {
 		stored.ExpiresAt = now.Add(m.ttl())
+		if err := m.saveSessionLocked(context.Background(), stored); err != nil {
+			return Claims{}, err
+		}
 		m.sessions[stored.SessionID] = stored
 	}
 
@@ -183,35 +211,32 @@ func (m *Manager) ttl() time.Duration {
 	return time.Duration(m.cfg.SessionTTLDays) * 24 * time.Hour
 }
 
-func (m *Manager) pruneExpiredLocked(now time.Time) {
+func (m *Manager) pruneExpiredLocked(now time.Time) []string {
+	var removed []string
 	for sessionID, claims := range m.sessions {
 		if !now.Before(claims.ExpiresAt) {
 			delete(m.sessions, sessionID)
+			removed = append(removed, sessionID)
 		}
 	}
+	return removed
 }
 
 func (m *Manager) issueLocked(subject string, now time.Time) (string, Claims, error) {
-	sessionID, err := m.sessionID()
-	if err != nil {
-		return "", Claims{}, fmt.Errorf("generate session id: %w", err)
-	}
-
-	claims := Claims{
-		SessionID: sessionID,
-		Subject:   subject,
-		IssuedAt:  now,
-		ExpiresAt: now.Add(m.ttl()),
-	}
-
-	token, err := m.sign(claims)
+	token, claims, err := m.newTokenClaimsLocked(subject, now)
 	if err != nil {
 		return "", Claims{}, err
 	}
 
-	m.pruneExpiredLocked(now)
+	removed := m.pruneExpiredLocked(now)
+	if err := m.deleteSessionsLocked(context.Background(), removed...); err != nil {
+		return "", Claims{}, err
+	}
 	if len(m.sessions) >= m.cfg.MaxSessions {
 		return "", Claims{}, ErrSessionLimitReached
+	}
+	if err := m.saveSessionLocked(context.Background(), claims); err != nil {
+		return "", Claims{}, err
 	}
 
 	m.sessions[claims.SessionID] = claims
@@ -285,4 +310,63 @@ func randomTokenSegment(size int) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(buffer), nil
+}
+
+func (m *Manager) hydrate(ctx context.Context) error {
+	state, err := m.repo.LoadBootstrap(ctx)
+	if err != nil {
+		return fmt.Errorf("load bootstrap state: %w", err)
+	}
+	if state != nil {
+		m.bootstrap = &bootstrapCredentials{
+			Identifier:    state.Identifier,
+			SecretDigest:  append([]byte(nil), state.SecretDigest...),
+			InitializedAt: state.InitializedAt.UTC(),
+		}
+		m.signingKey = append([]byte(nil), state.SigningKey...)
+	}
+
+	sessions, err := m.repo.LoadSessions(ctx)
+	if err != nil {
+		return fmt.Errorf("load admin sessions: %w", err)
+	}
+
+	now := m.now().UTC()
+	var expired []string
+	for _, claims := range sessions {
+		if now.Before(claims.ExpiresAt) {
+			m.sessions[claims.SessionID] = claims
+			continue
+		}
+		expired = append(expired, claims.SessionID)
+	}
+	if err := m.deleteSessionsLocked(ctx, expired...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) saveSessionLocked(ctx context.Context, claims Claims) error {
+	if m.repo == nil {
+		return nil
+	}
+
+	if err := m.repo.SaveSession(ctx, claims); err != nil {
+		return fmt.Errorf("persist admin session: %w", err)
+	}
+
+	return nil
+}
+
+func (m *Manager) deleteSessionsLocked(ctx context.Context, sessionIDs ...string) error {
+	if m.repo == nil || len(sessionIDs) == 0 {
+		return nil
+	}
+
+	if err := m.repo.DeleteSessions(ctx, sessionIDs); err != nil {
+		return fmt.Errorf("delete persisted sessions: %w", err)
+	}
+
+	return nil
 }

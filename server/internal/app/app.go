@@ -22,12 +22,14 @@ import (
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
 	"rayleabot/server/internal/schema"
+	"rayleabot/server/internal/storage"
 	"rayleabot/server/internal/tasks"
 )
 
 type Options struct {
-	ConfigPath string
-	SchemaPath string
+	ConfigPath  string
+	SchemaPath  string
+	AuthOptions []auth.Option
 }
 
 type App struct {
@@ -37,6 +39,7 @@ type App struct {
 	Tasks    *tasks.Registry
 	Plugins  *plugins.Catalog
 	Auth     *auth.Manager
+	Storage  *storage.Store
 	Adapter  *adapter.Shell
 	Bridge   *bridge.Bridge
 	Runtime  *runtime.Manager
@@ -64,12 +67,29 @@ func New(options Options) (*App, error) {
 	adapterShell := adapter.New(cfg.OneBot, logger)
 	runtimeManager := runtime.New(logger)
 	eventBridge := bridge.New(logger, runtimeManager, adapterShell)
+	databasePath, err := resolveDatabasePath(options.ConfigPath, cfg.Database.Path)
+	if err != nil {
+		return nil, err
+	}
+	storageStore, err := storage.Open(databasePath)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite store: %w", err)
+	}
+	authRepository, err := auth.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create auth repository: %w", err)
+	}
+	authOptions := append([]auth.Option{
+		auth.WithRepository(authRepository),
+	}, options.AuthOptions...)
 	authManager, err := auth.NewManager(auth.Config{
 		SessionTTLDays: cfg.Auth.SessionTTLDays,
 		SlidingRenewal: cfg.Auth.SlidingRenewal,
 		MaxSessions:    cfg.Auth.MaxSessions,
-	})
+	}, authOptions...)
 	if err != nil {
+		_ = storageStore.Close()
 		return nil, fmt.Errorf("create auth manager: %w", err)
 	}
 
@@ -80,6 +100,7 @@ func New(options Options) (*App, error) {
 		Tasks:    taskRegistry,
 		Plugins:  pluginCatalog,
 		Auth:     authManager,
+		Storage:  storageStore,
 		Adapter:  adapterShell,
 		Bridge:   eventBridge,
 		Runtime:  runtimeManager,
@@ -164,7 +185,10 @@ func (a *App) Run(ctx context.Context) error {
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		return a.server.Shutdown(shutdownCtx)
+		if err := a.server.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
+		return a.closeStorage()
 	case err := <-errCh:
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
@@ -178,11 +202,43 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("stop adapter shell after http server error: %w", stopErr)
 		}
 
+		closeErr := a.closeStorage()
+
 		if err != nil {
+			if closeErr != nil {
+				return errors.Join(fmt.Errorf("listen on %s: %w", a.server.Addr, err), closeErr)
+			}
 			return fmt.Errorf("listen on %s: %w", a.server.Addr, err)
 		}
+		return closeErr
+	}
+}
+
+func resolveDatabasePath(configPath, databasePath string) (string, error) {
+	if filepath.IsAbs(databasePath) {
+		return filepath.Clean(databasePath), nil
+	}
+
+	baseDir := filepath.Dir(configPath)
+	resolved, err := filepath.Abs(filepath.Join(baseDir, databasePath))
+	if err != nil {
+		return "", fmt.Errorf("resolve database path %s: %w", databasePath, err)
+	}
+
+	return resolved, nil
+}
+
+func (a *App) closeStorage() error {
+	if a == nil || a.Storage == nil {
 		return nil
 	}
+
+	if err := a.Storage.Close(); err != nil {
+		return fmt.Errorf("close sqlite store: %w", err)
+	}
+
+	a.Storage = nil
+	return nil
 }
 
 func discoverPlugins(configSchemaPath string, logger *slog.Logger) (*plugins.Catalog, string, error) {

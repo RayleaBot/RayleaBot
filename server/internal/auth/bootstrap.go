@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -32,16 +34,40 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 		return "", Claims{}, ErrBootstrapAlreadyInitialized
 	}
 
-	token, claims, err := m.issueLocked(identifier, now)
+	bootstrapState := BootstrapState{
+		Identifier:    identifier,
+		SecretDigest:  digestSecret(secret),
+		SigningKey:    append([]byte(nil), m.signingKey...),
+		InitializedAt: now,
+	}
+	token, claims, err := m.newTokenClaimsLocked(identifier, now)
 	if err != nil {
 		return "", Claims{}, err
 	}
 
-	m.bootstrap = &bootstrapCredentials{
-		Identifier:    identifier,
-		SecretDigest:  digestSecret(secret),
-		InitializedAt: now,
+	removed := m.pruneExpiredLocked(now)
+	if err := m.deleteSessionsLocked(context.Background(), removed...); err != nil {
+		return "", Claims{}, err
 	}
+	if len(m.sessions) >= m.cfg.MaxSessions {
+		return "", Claims{}, ErrSessionLimitReached
+	}
+
+	if m.repo != nil {
+		if err := m.repo.SaveBootstrap(context.Background(), bootstrapState, claims); err != nil {
+			if errors.Is(err, ErrBootstrapAlreadyInitialized) {
+				return "", Claims{}, ErrBootstrapAlreadyInitialized
+			}
+			return "", Claims{}, err
+		}
+	}
+
+	m.bootstrap = &bootstrapCredentials{
+		Identifier:    bootstrapState.Identifier,
+		SecretDigest:  append([]byte(nil), bootstrapState.SecretDigest...),
+		InitializedAt: bootstrapState.InitializedAt,
+	}
+	m.sessions[claims.SessionID] = claims
 
 	return token, claims, nil
 }
@@ -81,4 +107,25 @@ func digestSecret(secret string) []byte {
 
 func secretsEqual(secret string, digest []byte) bool {
 	return hmac.Equal(digestSecret(secret), digest)
+}
+
+func (m *Manager) newTokenClaimsLocked(subject string, now time.Time) (string, Claims, error) {
+	sessionID, err := m.sessionID()
+	if err != nil {
+		return "", Claims{}, fmt.Errorf("generate session id: %w", err)
+	}
+
+	claims := Claims{
+		SessionID: sessionID,
+		Subject:   subject,
+		IssuedAt:  now,
+		ExpiresAt: now.Add(m.ttl()),
+	}
+
+	token, err := m.sign(claims)
+	if err != nil {
+		return "", Claims{}, err
+	}
+
+	return token, claims, nil
 }

@@ -44,6 +44,19 @@ Phase 6 范围：
   - 仅接受已登录 `session_token`
   - 仅推送 `events.received` 的 `bridge_runtime` aggregate-only 摘要
   - 不提供 replay / history / backfill
+- 建立最小 SQLite foundation：
+  - 启动时按配置打开 SQLite
+  - 显式启用 WAL mode
+  - 分离 read / write handle
+  - write handle 序列化为 `MaxOpenConns=1`
+  - 设置最小 busy timeout
+  - 执行显式 migration runner 与 `schema_migrations`
+  - 当前首个 migration 仅建立 auth 持久化后续所需的最小表
+- 将当前最小 auth/session core 持久化到 SQLite：
+  - 首次 bootstrap 建立的 management credential source 会写入 `auth_bootstrap_state`
+  - 当前 session signing key 与 bootstrap credential source 一并窄持久化
+  - active admin sessions 会写入 `admin_sessions`
+  - 服务重启后仍可复用既有 bootstrap/login `session_token` 做最小管理面 admission
 - 当首个可投递事件到达且当前尚无运行中的 runtime 时：
   - 按 `plugin_id` 排序选择首个 manifest 有效的单个 plugin
   - 使用事件中的 OneBot `self_id` 填充 `init.bot.id`
@@ -84,7 +97,7 @@ Phase 6 范围：
 - 公开 launcher-token surface。
 - `/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 等其他管理 WebSocket 通道。
 - OneBot intake observability 的持久化、重放或历史查询。
-- 数据库打开、迁移执行、渲染服务、Web UI、Launcher。
+- 渲染服务、Web UI、Launcher。
 - 配置默认值回填、热更新和初始化向导。
 - 文件监听热刷新与目录热刷新。
 - 权限授予流程执行、迁移执行与持久化 desired_state。
