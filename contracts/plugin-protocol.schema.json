@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Phase 2 fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract only freezes startup, startup progress, event dispatch, result, error, and shutdown semantics.",
+  "description": "Phase 2 fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract only freezes startup, startup progress, one minimal outbound action, event dispatch, result, error, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -15,6 +15,9 @@
     },
     {
       "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/action"
     },
     {
       "$ref": "#/$defs/result"
@@ -298,6 +301,57 @@
       ],
       "unevaluatedProperties": false
     },
+    "action": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "message.send"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "target_type",
+                "target_id",
+                "text"
+              ],
+              "properties": {
+                "target_type": {
+                  "type": "string",
+                  "enum": [
+                    "group",
+                    "private"
+                  ]
+                },
+                "target_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
     "result": {
       "allOf": [
         {
@@ -447,6 +501,21 @@
       "example_ref": "fixtures/plugin-protocol/ok.event-result.yaml"
     },
     {
+      "type": "action",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-message-send.yaml"
+    },
+    {
       "type": "result",
       "direction": "plugin->platform",
       "request_id_policy": "required_same_as_request",
@@ -495,10 +564,12 @@
     "fixtures/plugin-protocol/ok.init-init-ack.yaml",
     "fixtures/plugin-protocol/ok.event-result.yaml",
     "fixtures/plugin-protocol/ok.event-error.yaml",
+    "fixtures/plugin-protocol/ok.action-message-send.yaml",
     "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
+    "fixtures/plugin-protocol/edge.action-message-send-failure.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml"
   ],
-  "$comment": "Phase 2 intentionally excludes action, ping, pong, file transfer, batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics."
+  "$comment": "Phase 2 freezes exactly one outbound action shape: action=message.send. Ping, pong, additional action kinds, file transfer, batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
 }

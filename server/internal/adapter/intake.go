@@ -15,6 +15,7 @@ const (
 	FrameCategoryLifecycleReady FrameCategory = "lifecycle_ready"
 	FrameCategoryHeartbeat      FrameCategory = "heartbeat"
 	FrameCategoryEvent          FrameCategory = "event"
+	FrameCategoryAPIResponse    FrameCategory = "api_response"
 	FrameCategoryUnknown        FrameCategory = "unknown"
 	FrameCategoryInvalid        FrameCategory = "invalid"
 )
@@ -43,17 +44,22 @@ type NormalizedEvent struct {
 }
 
 type oneBotFrame struct {
-	PostType      string `json:"post_type"`
-	MetaEventType string `json:"meta_event_type"`
-	SubType       string `json:"sub_type"`
-	Interval      int    `json:"interval"`
-	MessageType   string `json:"message_type"`
-	MessageID     int64  `json:"message_id"`
-	Time          int64  `json:"time"`
-	SelfID        int64  `json:"self_id"`
-	UserID        int64  `json:"user_id"`
-	GroupID       int64  `json:"group_id"`
-	RawMessage    string `json:"raw_message"`
+	PostType      string         `json:"post_type"`
+	MetaEventType string         `json:"meta_event_type"`
+	SubType       string         `json:"sub_type"`
+	Interval      int            `json:"interval"`
+	MessageType   string         `json:"message_type"`
+	MessageID     int64          `json:"message_id"`
+	Time          int64          `json:"time"`
+	SelfID        int64          `json:"self_id"`
+	UserID        int64          `json:"user_id"`
+	GroupID       int64          `json:"group_id"`
+	RawMessage    string         `json:"raw_message"`
+	Status        string         `json:"status"`
+	RetCode       int            `json:"retcode"`
+	Wording       string         `json:"wording"`
+	Data          map[string]any `json:"data"`
+	Echo          any            `json:"echo"`
 }
 
 type classifiedFrame struct {
@@ -100,6 +106,19 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 		if frame.Interval > 0 {
 			summary.HeartbeatInterval = time.Duration(frame.Interval) * time.Millisecond
 		}
+	case frame.Echo != nil:
+		if _, ok := frameEcho(frame.Echo); !ok {
+			return classifiedFrame{
+				Summary: FrameSummary{
+					Category:   FrameCategoryInvalid,
+					Type:       string(FrameCategoryInvalid),
+					ObservedAt: observedAt,
+				},
+				InvalidSummary: "api response echo must be a non-empty string",
+			}
+		}
+		summary.Category = FrameCategoryAPIResponse
+		summary.Type = "api.response"
 	case frame.PostType != "":
 		summary.Category = FrameCategoryEvent
 		summary.Type = frame.PostType
@@ -112,6 +131,18 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 		Summary: summary,
 		Frame:   frame,
 	}
+}
+
+func frameEcho(value any) (string, bool) {
+	echo, ok := value.(string)
+	if !ok {
+		return "", false
+	}
+	echo = strings.TrimSpace(echo)
+	if echo == "" {
+		return "", false
+	}
+	return echo, true
 }
 
 func applyFrameSummary(snapshot *Snapshot, summary FrameSummary) {

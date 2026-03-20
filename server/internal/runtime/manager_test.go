@@ -203,6 +203,56 @@ func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
 	}
 }
 
+func TestManagerDeliverEventReturnsAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-send", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.Action == nil {
+		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+	}
+	if delivery.Action.Kind != "message.send" {
+		t.Fatalf("unexpected action kind: got %q want %q", delivery.Action.Kind, "message.send")
+	}
+	if delivery.Action.TargetType != "group" || delivery.Action.TargetID != "2001" || delivery.Action.Text != "hello from plugin" {
+		t.Fatalf("unexpected action payload: %#v", delivery.Action)
+	}
+	if delivery.Result != nil {
+		t.Fatalf("did not expect result payload alongside action: %#v", delivery.Result)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventRejectsUnsupportedAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-unsupported-action", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
 func TestManagerDeliverEventFailsWhenRuntimeIsNotRunning(t *testing.T) {
 	t.Parallel()
 
@@ -259,6 +309,55 @@ func TestHelperProcessRuntime(t *testing.T) {
 
 	switch scenario {
 	case "early-exit":
+		os.Exit(0)
+	case "event-action-message-send":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "action",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"action":           "message.send",
+			"data": map[string]any{
+				"target_type": "group",
+				"target_id":   "2001",
+				"text":        "hello from plugin",
+			},
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
 		os.Exit(0)
 	case "event-error":
 		if !scanner.Scan() {
@@ -355,6 +454,45 @@ func TestHelperProcessRuntime(t *testing.T) {
 				os.Exit(0)
 			}
 		}
+		os.Exit(0)
+	case "event-unsupported-action":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "action",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"action":           "message.reply",
+			"data": map[string]any{
+				"target_type": "group",
+				"target_id":   "2001",
+				"text":        "out of scope",
+			},
+		})
 		os.Exit(0)
 	case "event-timeout":
 		if !scanner.Scan() {

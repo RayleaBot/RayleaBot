@@ -6,10 +6,11 @@ frames:
     timestamp: 1710000002
     plugin_id: weather
     request_id: req_0001
-    action: message.send
+    action: message.reply
     data:
       target_type: group
       target_id: "456"
+      text: reply text
 expect:
   valid: false
-  reason: action remains out of the Phase 2 fixture-ready protocol surface.
+  reason: only the single outbound action action=message.send is frozen; other action kinds remain out of scope.

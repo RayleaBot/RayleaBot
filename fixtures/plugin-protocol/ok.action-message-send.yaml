@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000004
+    plugin_id: weather
+    request_id: act_0001
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+      text: 当前天气晴，气温 24°C。
+expect:
+  valid: true
+  notes:
+    - This freezes the single outbound action shape for text-send style delivery.
+    - Adapter execution success/failure must not widen this action frame with extra fields.

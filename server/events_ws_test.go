@@ -29,7 +29,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 				"handled": true,
 			},
 		},
-	})
+	}, nil)
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
@@ -109,7 +109,7 @@ func TestEventsWebSocketIsLiveOnlyWithoutReplay(t *testing.T) {
 	application.Auth = newDeterministicAuthManager(t)
 	application.Bridge = bridge.New(application.Logger, &eventsRuntimeStub{
 		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-	})
+	}, nil)
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())

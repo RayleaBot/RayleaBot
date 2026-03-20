@@ -63,7 +63,7 @@ func New(options Options) (*App, error) {
 	}
 	adapterShell := adapter.New(cfg.OneBot, logger)
 	runtimeManager := runtime.New(logger)
-	eventBridge := bridge.New(logger, runtimeManager)
+	eventBridge := bridge.New(logger, runtimeManager, adapterShell)
 	authManager, err := auth.NewManager(auth.Config{
 		SessionTTLDays: cfg.Auth.SessionTTLDays,
 		SlidingRenewal: cfg.Auth.SlidingRenewal,

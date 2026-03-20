@@ -14,18 +14,24 @@ import (
 func TestBridgeDeliversSupportedEventToRunningRuntime(t *testing.T) {
 	t.Parallel()
 
+	fakeSender := &fakeActionSender{
+		sendResult: adapter.SendMessageResult{MessageID: "9001"},
+	}
 	fakeRuntime := &fakeRuntimeClient{
 		snapshot: runtime.Snapshot{State: runtime.StateRunning},
 		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
 			return runtime.Delivery{
 				RequestID: "req_evt_1",
-				Result: map[string]any{
-					"handled": true,
+				Action: &runtime.Action{
+					Kind:       "message.send",
+					TargetType: "group",
+					TargetID:   "2001",
+					Text:       "hello bridge",
 				},
 			}, nil
 		},
 	}
-	eventBridge := testBridge(fakeRuntime)
+	eventBridge := testBridge(fakeRuntime, fakeSender)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeDelivered {
@@ -38,6 +44,12 @@ func TestBridgeDeliversSupportedEventToRunningRuntime(t *testing.T) {
 	delivered := fakeRuntime.events[0]
 	if delivered.EventType != "message.group" {
 		t.Fatalf("unexpected delivered event type: got %q want %q", delivered.EventType, "message.group")
+	}
+	if len(fakeSender.actions) != 1 {
+		t.Fatalf("expected one outbound action, got %d", len(fakeSender.actions))
+	}
+	if fakeSender.actions[0].TargetType != "group" || fakeSender.actions[0].TargetID != "2001" || fakeSender.actions[0].Text != "hello bridge" {
+		t.Fatalf("unexpected outbound action payload: %#v", fakeSender.actions[0])
 	}
 	if delivered.Message == nil || delivered.Message.PlainText != "hello bridge" {
 		t.Fatalf("unexpected delivered message: %#v", delivered.Message)
@@ -65,7 +77,7 @@ func TestBridgeReturnsPluginErrorForDeliveredEvent(t *testing.T) {
 				}
 		},
 	}
-	eventBridge := testBridge(fakeRuntime)
+	eventBridge := testBridge(fakeRuntime, nil)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeError {
@@ -87,7 +99,7 @@ func TestBridgeIgnoresUnsupportedAdapterEventShape(t *testing.T) {
 	fakeRuntime := &fakeRuntimeClient{
 		snapshot: runtime.Snapshot{State: runtime.StateRunning},
 	}
-	eventBridge := testBridge(fakeRuntime)
+	eventBridge := testBridge(fakeRuntime, nil)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:      "onebot11.unsupported",
@@ -112,7 +124,7 @@ func TestBridgeRejectsEventWhenRuntimeIsNotRunning(t *testing.T) {
 	fakeRuntime := &fakeRuntimeClient{
 		snapshot: runtime.Snapshot{State: runtime.StateStopped},
 	}
-	eventBridge := testBridge(fakeRuntime)
+	eventBridge := testBridge(fakeRuntime, nil)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeRejected {
@@ -128,25 +140,22 @@ func TestBridgeRejectsEventWhenRuntimeIsNotRunning(t *testing.T) {
 	}
 }
 
-func TestBridgeDoesNotAttemptOutgoingActionOnResult(t *testing.T) {
+func TestBridgeAllowsOpaqueResultWithoutOutboundAction(t *testing.T) {
 	t.Parallel()
 
+	fakeSender := &fakeActionSender{}
 	fakeRuntime := &fakeRuntimeClient{
 		snapshot: runtime.Snapshot{State: runtime.StateRunning},
 		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
 			return runtime.Delivery{
 				RequestID: "req_evt_3",
 				Result: map[string]any{
-					"actions": []map[string]any{
-						{
-							"type": "send_message",
-						},
-					},
+					"handled": true,
 				},
 			}, nil
 		},
 	}
-	eventBridge := testBridge(fakeRuntime)
+	eventBridge := testBridge(fakeRuntime, fakeSender)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeDelivered {
@@ -159,6 +168,74 @@ func TestBridgeDoesNotAttemptOutgoingActionOnResult(t *testing.T) {
 	snapshot := eventBridge.Snapshot()
 	if snapshot.ResultCount != 1 || snapshot.ErrorCount != 0 || snapshot.RejectedCount != 0 {
 		t.Fatalf("unexpected bridge counters after opaque result: %+v", snapshot)
+	}
+	if len(fakeSender.actions) != 0 {
+		t.Fatalf("opaque result should not trigger outbound action: %#v", fakeSender.actions)
+	}
+}
+
+func TestBridgeReturnsAdapterErrorForOutboundActionFailure(t *testing.T) {
+	t.Parallel()
+
+	fakeSender := &fakeActionSender{
+		sendErr: &adapter.Error{
+			Code:    "adapter.send_failed",
+			Message: "onebot send_msg failed",
+		},
+	}
+	fakeRuntime := &fakeRuntimeClient{
+		snapshot: runtime.Snapshot{State: runtime.StateRunning},
+		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
+			return runtime.Delivery{
+				RequestID: "req_evt_4",
+				Action: &runtime.Action{
+					Kind:       "message.send",
+					TargetType: "group",
+					TargetID:   "2001",
+					Text:       "hello bridge",
+				},
+			}, nil
+		},
+	}
+	eventBridge := testBridge(fakeRuntime, fakeSender)
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
+	if outcome != OutcomeError {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeError)
+	}
+
+	snapshot := eventBridge.Snapshot()
+	if snapshot.ErrorCount != 1 || snapshot.LastErrorCode != "adapter.send_failed" {
+		t.Fatalf("unexpected bridge error snapshot: %+v", snapshot)
+	}
+}
+
+func TestBridgeRejectsUnsupportedOutboundActionKind(t *testing.T) {
+	t.Parallel()
+
+	fakeSender := &fakeActionSender{}
+	fakeRuntime := &fakeRuntimeClient{
+		snapshot: runtime.Snapshot{State: runtime.StateRunning},
+		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
+			return runtime.Delivery{
+				RequestID: "req_evt_5",
+				Action: &runtime.Action{
+					Kind:       "message.reply",
+					TargetType: "group",
+					TargetID:   "2001",
+					Text:       "out of scope",
+				},
+			}, nil
+		},
+	}
+	eventBridge := testBridge(fakeRuntime, fakeSender)
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
+	if outcome != OutcomeError {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeError)
+	}
+	if len(fakeSender.actions) != 0 {
+		t.Fatalf("unsupported action kind should not reach adapter sender")
 	}
 }
 
@@ -180,9 +257,23 @@ func (f *fakeRuntimeClient) DeliverEvent(ctx context.Context, event runtime.Even
 	return f.deliverFunc(ctx, event)
 }
 
-func testBridge(runtimeClient runtimeClient) *Bridge {
+type fakeActionSender struct {
+	actions    []adapter.OutboundMessageSend
+	sendResult adapter.SendMessageResult
+	sendErr    error
+}
+
+func (f *fakeActionSender) SendMessage(ctx context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
+	f.actions = append(f.actions, action)
+	if f.sendErr != nil {
+		return adapter.SendMessageResult{}, f.sendErr
+	}
+	return f.sendResult, nil
+}
+
+func testBridge(runtimeClient runtimeClient, sender actionSender) *Bridge {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(logger, runtimeClient)
+	return New(logger, runtimeClient, sender)
 }
 
 func supportedAdapterEvent() adapter.NormalizedEvent {

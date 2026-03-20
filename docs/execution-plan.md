@@ -18,8 +18,8 @@
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake 与最小内部事件归一化已落地；出站 action 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> result|error` bridge 已落地；完整 bridge 能力仍未实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验与既有 `onebot.*` / server 配置消费已完成；存储、安全与迁移仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询与最小任务状态骨架已存在；内部 aggregate-only events emitter 已落地，但公开 WS 传输与写操作 API 仍未实现 |
+| Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验与既有 `onebot.*` / server 配置消费已完成；`auth.Manager`（Bootstrap / Login / Session Token）已落地；SQLite 存储、迁移与 secret store 仍未落地 |
+| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、最小任务状态骨架已存在；`POST /api/setup/admin`、`POST /api/session/login` 已实现；`/ws/events` auth-gated aggregate-only WebSocket 已实现；写操作插件 API、任务执行接口与其余管理路由仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -71,7 +71,7 @@
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
 | `fixtures/config` | ✅ | `ok` / `invalid` / `edge` 配置样例已落库 |
-| `fixtures/web-api` | ✅ | health、ready、plugin 相关响应样例已落库 |
+| `fixtures/web-api` | ✅ | health、ready、plugin、setup-admin、session-login 相关响应样例已落库（12 份） |
 | `fixtures/websocket` | ✅ | management WebSocket 消息样例已落库 |
 | `fixtures/plugin-info` | ✅ | plugin manifest 的正反与边界样例已落库 |
 | `fixtures/plugin-protocol` | ✅ | plugin protocol 的 init / progress / ack 等样例已落库 |
@@ -163,6 +163,9 @@
 | schema validation | ✅ | 启动前执行严格 schema 校验 |
 | 既有 `onebot.*` / server config consumption | ✅ | 当前最小 server、adapter、runtime 会消费已有配置字段 |
 | 启动前失败阻断 | ✅ | 配置校验失败时阻止进入正常运行态 |
+| `auth.Manager` | ✅ | Session token 管理（HMAC-SHA256 签名、in-memory session store、TTL、sliding renewal、max sessions）已实现 |
+| Bootstrap & Login | ✅ | 首次管理员初始化与登录已实现（SHA256 摘要 + 常量时间比较） |
+| Token Validate | ✅ | Session token 格式校验、HMAC 签名校验、过期检查、自动续期已实现 |
 
 ### 仍未完成
 
@@ -170,7 +173,8 @@
 |--------|------|------|
 | SQLite | ❌ | 状态库仍未实现 |
 | migration | ❌ | 迁移执行与版本演进尚未落地 |
-| secret store | ❌ | 敏感凭据存储与注入尚未实现 |
+| secret store | ❌ | 敏感凭据存储与注入尚未实现（当前 signing key 为内存随机生成，session 为 in-memory map） |
+| session persistence | ❌ | 当前 session 仅存于内存，服务重启后全部失效 |
 | scheduler persistence / recovery | ❌ | 调度持久化与恢复能力尚未实现 |
 | grants / RBAC storage | ❌ | 授权记录与权限数据库尚未实现 |
 | config hot reload | ❌ | 配置热更新与局部重载尚未实现 |
@@ -190,16 +194,22 @@
 | 最小任务状态模型 skeleton | ✅ | 任务状态枚举与最小内存模型已存在 |
 | contract-backed `events.received` aggregate payload variant | ✅ | `bridge_runtime` aggregate-only 变体已进入 formal contract 与 fixtures |
 | 内部 aggregate-only events emitter | ✅ | server 内部已经可以从 bridge/runtime 内存摘要状态发射 `events.received` 的 aggregate-only `bridge_runtime` 载荷 |
+| `POST /api/setup/admin` | ✅ | 首次管理员 Bootstrap 接口已实现：接收 `{identifier, secret}`，返回 `{session_token}`；已阻止重复初始化（403） |
+| `POST /api/session/login` | ✅ | 管理员登录接口已实现：凭证校验 + token 签发；错误凭证返回 403 |
+| `/ws/events` WebSocket | ✅ | auth-gated aggregate-only observability WebSocket 已实现：URL 参数 `session_token` 鉴权，订阅 bridge observability 流，自动在 token 过期或断连时关闭 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| setup / session / system routes | ❌ | 规划中的更广管理路由尚未实现 |
+| system routes | ❌ | `/api/system/shutdown`、`/api/system/info` 尚未实现 |
 | 写操作插件 API | ❌ | enable / disable / install 仍未实现 |
 | `/api/tasks` 执行型接口 | ❌ | 任务执行、取消与进度接口尚未落地 |
-| public WebSocket transport implementation | ❌ | `/ws/events` 等公开管理会话传输尚未实现；当前只有内部 aggregate-only emitter，不是公开会话传输 |
-| 全局错误中间件与更完整 session surface | ❌ | 统一错误中间件与管理会话能力仍未完善 |
+| `/api/config` 配置管理接口 | ❌ | 获取/更新配置尚未实现 |
+| `/api/logs` 日志查询接口 | ❌ | 日志查询尚未实现 |
+| 其余 WebSocket 通道 | ❌ | `/ws/logs`、`/ws/tasks`、`/ws/plugins/{id}/console` 等尚未实现；当前仅有 `/ws/events` aggregate-only 通道 |
+| 全局错误中间件 | ❌ | 统一错误响应中间件仍未完善 |
+| HTTP 级 session 鉴权中间件 | ❌ | 当前 token 校验仅在 `/ws/events` 以 URL 参数方式执行，尚未建立 HTTP 路由级统一鉴权中间件 |
 
 ---
 
@@ -243,7 +253,11 @@
 - 聊天侧 Permission System、黑名单与冷却限流尚未实现。
 - Capabilities / grant manager 的真实授权状态机尚未实现。
 - 热重载、`backoff` / `dead_letter` 等更完整插件生命周期流转尚未实现。
-- 管理 `setup` / `session` surface 尚未实现。
+- SQLite 存储层、migration 框架与 secret store 尚未实现。
+- Session 持久化尚未实现；当前 session 仅存内存，服务重启后丢失。
+- HTTP 路由级统一鉴权中间件尚未建立。
+- Adapter 出站 action / 消息发送尚未实现。
+- 多插件并发调度与 fan-out 机制尚未实现。
 
 这些能力属于 v0.1 路线图的一部分，但当前仓库尚未进入真实实现阶段，不能因为已有 contract、README 或规划正文而误记为“已落地”。
 
@@ -251,10 +265,38 @@
 
 ## 十四、测试 & CI 现状
 
-- server CI 已执行 `go test ./...` 与 `go build ./cmd/raylea-server`。
-- contracts CI 已校验 7 份 formal contracts、必要 fixture 目录、example manifests 与精确的 web-api path set。
-- fixture / golden 回归已覆盖 config、web-api、websocket、plugin-info、plugin-protocol、release-manifest。
-- 当前 server 测试面已经覆盖 adapter 状态、runtime 生命周期、bridge 投递与 contract-backed fixtures 的关键路径。
+### CI 工作流
+
+| 工作流 | 触发 | 覆盖 |
+|--------|------|------|
+| `contracts.yml` | push main / PR | 7 份 formal contracts 校验、fixture 目录结构、example manifests、server `go test` + `go build` |
+| `lint.yml` | push main / PR | baseline 版本锁定校验（Go、Node、pnpm、.NET、Avalonia）、必要目录与文件存在性 |
+
+### Server 根级测试文件（10 个）
+
+| 测试文件 | 覆盖范围 |
+|----------|----------|
+| `config_fixture_test.go` | 配置 fixture golden case 校验 |
+| `example_manifests_test.go` | 示例插件 manifest 合法性校验 |
+| `http_health_test.go` | `/healthz` 与 `/readyz` 端点 |
+| `plugin_discovery_test.go` | 插件发现与 catalog 构建 |
+| `plugin_http_test.go` | 插件 HTTP API（列表、详情、404） |
+| `tasks_test.go` | 任务注册表只读操作 |
+| `setup_admin_test.go` | Bootstrap 管理员（创建 token、凭证不泄漏、重复初始化拒绝） |
+| `session_login_test.go` | 管理员登录（token 签发、错误凭证拒绝、session 上限） |
+| `auth_surface_test.go` | Auth 路由攻击面审计（无内部路由暴露） |
+| `events_ws_test.go` | `/ws/events` WebSocket（鉴权、observability 帧投递、断连清理） |
+
+### 内部包级测试
+
+- `internal/adapter/`: backoff_test、shell_test、intake_test — 覆盖退避算法、连接状态机、帧分类
+- `internal/auth/`: manager_test — 覆盖 token 签发/校验/过期、sliding renewal、session 上限、Bootstrap 幂等
+- `internal/bridge/`: bridge_test — 覆盖事件投递、outcome 统计、observability 订阅
+- `internal/runtime/`: manager_test、spec_test — 覆盖子进程生命周期、event → result/error、spec 校验
+
+### 总体状况
+
+- fixture / golden 回归已覆盖 config、web-api（12 份）、websocket、plugin-info、plugin-protocol、release-manifest。
 - web / launcher 仍主要停留在 baseline scaffold，尚无真实功能测试面。
 
 ---
@@ -263,6 +305,9 @@
 
 按当前主线缺口，下一批最小推进建议为：
 
-1. 落地 Phase 7 的 public WebSocket 管理通道。
-2. 落地 Phase 6 的 SQLite / migration / state persistence。
-3. 补 Phase 4 / Phase 5 中的 outgoing adapter action path 与更完整 plugin bridge。
+1. **Adapter 出站 action 通道**（Phase 4）：落地 OneBot action 请求/发送能力，打通 plugin result → adapter → OneBot 的反向链路。这是 v0.1 端到端闭环的关键瓶颈。
+2. **SQLite 存储层 & Migration**（Phase 6）：落地 SQLite 打开 / WAL 模式 / 初始 migration，建立 repository 层骨架。阻塞 session 持久化、插件安装持久化、任务持久化等后续工作。
+3. **HTTP 鉴权中间件**（Phase 7）：将当前仅在 `/ws/events` URL 参数上执行的 token 校验，提升为统一 HTTP 路由级中间件，保护后续写操作 API。
+4. **插件写操作 API**（Phase 7）：落地 install / enable / disable，连通任务系统与插件生命周期。
+5. **其余 WebSocket 通道**（Phase 7）：`/ws/logs`、`/ws/tasks`、`/ws/plugins/{id}/console` — 在 `/ws/events` 模式基础上扩展。
+6. **多插件调度 & supervisor**（Phase 5）：fan-out、dead_letter、backoff restart 等完整插件编排。

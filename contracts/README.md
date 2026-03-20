@@ -32,7 +32,7 @@
   - 依赖 Phase 1 已冻结的配置、错误码和管理面语义。
 - `plugin-protocol.schema.json`
   - 负责插件 Runtime 最小 JSONL 协议。
-  - 本轮只冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`shutdown`。
+  - 本轮冻结 `init`、`init_progress`、`init_ack`、`event`、单一 `action=message.send`、`result`、`error`、`shutdown`。
   - 依赖 Phase 1 已冻结的错误码、任务状态和运行时边界。
 - `release-manifest.schema.json`
   - 负责 `release_manifest.json` 与 `build_info.json` 的正式字段结构。
@@ -65,7 +65,6 @@
 
 ### Plugin Protocol
 
-- `action`
 - `ping`
 - `pong`
 - 调试流
@@ -73,6 +72,7 @@
 - 批量消息
 - 复杂流式回传
 - 平台到插件方向的扩展 `error` 语义
+- `message.send` 之外的其他 `action` 种类
 
 ### Release Metadata
 

@@ -39,13 +39,17 @@ type Shell struct {
 	logger *slog.Logger
 	deps   shellDeps
 
-	mu           sync.RWMutex
-	snapshot     Snapshot
-	conn         *websocket.Conn
-	cancel       context.CancelFunc
-	done         chan struct{}
-	started      bool
-	eventHandler func(context.Context, NormalizedEvent)
+	sendMu           sync.Mutex
+	mu               sync.RWMutex
+	snapshot         Snapshot
+	conn             *websocket.Conn
+	cancel           context.CancelFunc
+	done             chan struct{}
+	started          bool
+	eventHandler     func(context.Context, NormalizedEvent)
+	eventQueue       chan NormalizedEvent
+	nextEcho         uint64
+	pendingResponses map[string]chan apiResponse
 }
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
@@ -85,6 +89,8 @@ func newShell(cfg config.OneBotConfig, logger *slog.Logger, deps shellDeps) *She
 		snapshot: Snapshot{
 			State: StateIdle,
 		},
+		eventQueue:       make(chan NormalizedEvent, 16),
+		pendingResponses: make(map[string]chan apiResponse),
 	}
 }
 
@@ -116,6 +122,7 @@ func (s *Shell) Start(ctx context.Context) {
 		)
 	}
 
+	go s.dispatchEvents(runCtx)
 	go s.run(runCtx)
 }
 
@@ -340,6 +347,7 @@ func (s *Shell) readLoop(ctx context.Context, conn *websocket.Conn) error {
 			return err
 		}
 
+		s.routeAPIResponse(frame)
 		s.forwardSupportedEvent(ctx, frame)
 	}
 }
@@ -591,11 +599,38 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, frame classifiedFrame
 		return
 	}
 
-	handler(ctx, normalizedEvent)
+	select {
+	case s.eventQueue <- normalizedEvent:
+	case <-ctx.Done():
+		return
+	default:
+		s.logger.Warn(
+			"adapter event queue is full; dropping event",
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"event_kind", normalizedEvent.Kind,
+			"event_type", normalizedEvent.EventType,
+		)
+	}
 }
 
 func (s *Shell) currentEventHandler() func(context.Context, NormalizedEvent) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.eventHandler
+}
+
+func (s *Shell) dispatchEvents(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event := <-s.eventQueue:
+			handler := s.currentEventHandler()
+			if handler == nil {
+				continue
+			}
+			handler(ctx, event)
+		}
+	}
 }

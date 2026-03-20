@@ -59,8 +59,16 @@ type EventMessage struct {
 	PlainText string
 }
 
+type Action struct {
+	Kind       string
+	TargetType string
+	TargetID   string
+	Text       string
+}
+
 type Delivery struct {
 	RequestID    string
+	Action       *Action
 	Result       map[string]any
 	ErrorCode    string
 	ErrorMessage string
@@ -147,6 +155,22 @@ type protocolTargetFrame struct {
 
 type protocolMessageFrame struct {
 	PlainText string `json:"plain_text,omitempty"`
+}
+
+type actionFrame struct {
+	ProtocolVersion string                  `json:"protocol_version"`
+	Type            string                  `json:"type"`
+	Timestamp       int64                   `json:"timestamp"`
+	PluginID        string                  `json:"plugin_id"`
+	RequestID       string                  `json:"request_id"`
+	Action          string                  `json:"action"`
+	Data            protocolActionDataFrame `json:"data"`
+}
+
+type protocolActionDataFrame struct {
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	Text       string `json:"text"`
 }
 
 type frameEnvelope struct {
@@ -701,6 +725,36 @@ func (m *Manager) parseEventResponse(line []byte, pluginID string, requestID str
 	}
 
 	switch envelope.Type {
+	case "action":
+		var frame actionFrame
+		if err := json.Unmarshal(line, &frame); err != nil {
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
+		}
+		if frame.Action != "message.send" {
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
+		}
+
+		targetType := strings.TrimSpace(frame.Data.TargetType)
+		targetID := strings.TrimSpace(frame.Data.TargetID)
+		text := strings.TrimSpace(frame.Data.Text)
+		if targetID == "" || text == "" {
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send fields", nil)
+		}
+		switch targetType {
+		case "group", "private":
+		default:
+			return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported target_type", nil)
+		}
+
+		return Delivery{
+			RequestID: requestID,
+			Action: &Action{
+				Kind:       frame.Action,
+				TargetType: targetType,
+				TargetID:   targetID,
+				Text:       text,
+			},
+		}, nil
 	case "result":
 		var frame resultFrame
 		if err := json.Unmarshal(line, &frame); err != nil {

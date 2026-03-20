@@ -33,7 +33,12 @@ Phase 6 范围：
   - `onebot11.message_text`
   - 映射为 plugin protocol `event`
   - `event.event_type` 保留 `message.group` / `message.private`
-  - plugin 仅可返回 `result` 或 `error`
+  - plugin 可返回 `result`、`error` 或单一 `action=message.send`
+- 建立最小 outbound adapter action slice：
+  - plugin runtime 仅可输出单一 `action=message.send`
+  - bridge 仅将该动作映射为 OneBot11 `send_msg`
+  - adapter 仅维护最小 `echo` request-response 配对
+  - 当前只观察窄成功/失败结果，不扩张为广义 action 平台
 - bridge 只保留内存计数和最近事件摘要，不新增外部 API。
 - 暴露最小 live-only `/ws/events`：
   - 仅接受已登录 `session_token`
@@ -71,10 +76,10 @@ Phase 6 范围：
 当前明确未实现：
 
 - adapter 到 plugin 的事件投递。
-- 插件 action 请求、send / reply / API 调用。
-- 除单一 `event -> result|error` 外的 plugin protocol bridge。
+- `message.send` 之外的插件 action 请求、send / reply / API 调用。
+- 除单一 `event -> action(message.send)|result|error` 外的 plugin protocol bridge。
 - `/api/tasks`、插件安装、启用、禁用等写操作 API。
-- OneBot 出站 send / reply / action API。
+- `send_msg` 之外的 OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
 - 公开 launcher-token surface。
 - `/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 等其他管理 WebSocket 通道。
@@ -119,5 +124,7 @@ Phase 6 范围：
 - 只有 `onebot11.message_text` 会被接受并转发到运行中的单个 plugin runtime。
 - 该内部事件会保留 OneBot 消息方向语义，输出为 `message.group` 或 `message.private`。
 - 其它 adapter 事件在本轮只会被忽略，不会进入通用 dispatch framework。
-- plugin `result` 只被视为内部只读结果，不会触发任何 OneBot send / reply / action。
+- plugin `action=message.send` 会被窄映射为单一 OneBot11 `send_msg` 请求，并使用 `echo` 观察响应。
+- 其它 action 种类仍不会触发任何 OneBot send / reply / action。
+- plugin `result` 仍只被视为内部只读结果，不会触发额外的 OneBot 动作扩张。
 - plugin `error` 只被记录为内部 bridge/runtime 结果，不会升级为新的 public API。

@@ -2,6 +2,8 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -770,6 +772,196 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 
 	if shell.Snapshot().State != StateStopped {
 		t.Fatalf("expected stopped state, got %s", shell.Snapshot().State)
+	}
+}
+
+func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
+	t.Parallel()
+
+	requests := make(chan map[string]any, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+		requests <- request
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"message_id": 12345,
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	result, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+		TargetType: "group",
+		TargetID:   "2001",
+		Text:       "hello outbound",
+	})
+	if err != nil {
+		t.Fatalf("SendMessage failed: %v", err)
+	}
+	if result.MessageID != "12345" {
+		t.Fatalf("unexpected message id: got %q want %q", result.MessageID, "12345")
+	}
+
+	var request map[string]any
+	select {
+	case request = <-requests:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for send_msg request")
+	}
+
+	raw, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	if request["action"] != "send_msg" {
+		t.Fatalf("unexpected request action: %#v", request["action"])
+	}
+	if _, ok := request["echo"].(string); !ok {
+		t.Fatalf("expected string echo, got %#v", request["echo"])
+	}
+	params, ok := request["params"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected params object, got %#v", request["params"])
+	}
+	if params["message_type"] != "group" {
+		t.Fatalf("unexpected message_type: %#v", params["message_type"])
+	}
+	if params["group_id"] != float64(2001) {
+		t.Fatalf("unexpected group_id: %#v", params["group_id"])
+	}
+	if params["message"] != "hello outbound" {
+		t.Fatalf("unexpected message payload: %#v", params["message"])
+	}
+	for _, forbidden := range []string{"plain_text", "event_id", "request_id", "target_type", "target_id"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("send_msg request leaked forbidden field %q: %s", forbidden, raw)
+		}
+	}
+	if len(params) != 3 {
+		t.Fatalf("unexpected params shape: %#v", params)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "failed",
+			"retcode": 1200,
+			"wording": "send failed",
+			"echo":    request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	_, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+		TargetType: "private",
+		TargetID:   "3001",
+		Text:       "hello outbound",
+	})
+	if err == nil {
+		t.Fatal("expected SendMessage to fail")
+	}
+	var adapterErr *Error
+	if !errors.As(err, &adapterErr) {
+		t.Fatalf("expected *adapter.Error, got %T", err)
+	}
+	if adapterErr.Code != errorCodeSendFailed {
+		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, errorCodeSendFailed)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
 	}
 }
 

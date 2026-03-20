@@ -65,9 +65,14 @@ type runtimeClient interface {
 	DeliverEvent(context.Context, runtime.Event) (runtime.Delivery, error)
 }
 
+type actionSender interface {
+	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
+}
+
 type Bridge struct {
 	logger  *slog.Logger
 	runtime runtimeClient
+	sender  actionSender
 
 	mu               sync.RWMutex
 	snapshot         Snapshot
@@ -75,7 +80,7 @@ type Bridge struct {
 	subscribers      map[uint64]chan ObservabilityFrame
 }
 
-func New(logger *slog.Logger, runtimeClient runtimeClient) *Bridge {
+func New(logger *slog.Logger, runtimeClient runtimeClient, sender actionSender) *Bridge {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -83,6 +88,7 @@ func New(logger *slog.Logger, runtimeClient runtimeClient) *Bridge {
 	return &Bridge{
 		logger:      logger,
 		runtime:     runtimeClient,
+		sender:      sender,
 		subscribers: make(map[uint64]chan ObservabilityFrame),
 	}
 }
@@ -191,7 +197,16 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 				return OutcomeRejected
 			}
 
-			b.recordError(event, now, delivery.ErrorCode, delivery.ErrorMessage)
+			errorCode := delivery.ErrorCode
+			errorMessage := delivery.ErrorMessage
+			if errorCode == "" {
+				errorCode = runtimeErr.Code
+			}
+			if errorMessage == "" {
+				errorMessage = runtimeErr.Message
+			}
+
+			b.recordError(event, now, errorCode, errorMessage)
 			b.logger.Warn(
 				"runtime bridge received plugin error",
 				"component", "bridge",
@@ -211,6 +226,40 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 			"error_code", "plugin.internal_error",
 		)
 		return OutcomeError
+	}
+
+	if delivery.Action != nil {
+		result, sendErr := b.sendOutboundAction(ctx, *delivery.Action)
+		if sendErr != nil {
+			code := "adapter.send_failed"
+			message := sendErr.Error()
+			var adapterErr *adapter.Error
+			if errors.As(sendErr, &adapterErr) {
+				code = adapterErr.Code
+				message = adapterErr.Message
+			}
+
+			b.recordError(event, now, code, message)
+			b.logger.Warn(
+				"runtime bridge failed to execute outbound adapter action",
+				"component", "bridge",
+				"event_kind", event.Kind,
+				"event_type", event.EventType,
+				"error_code", code,
+			)
+			return OutcomeError
+		}
+
+		b.recordDelivered(event, now)
+		b.logger.Info(
+			"runtime bridge executed outbound adapter action",
+			"component", "bridge",
+			"event_kind", event.Kind,
+			"event_type", event.EventType,
+			"request_id", delivery.RequestID,
+			"message_id", result.MessageID,
+		)
+		return OutcomeDelivered
 	}
 
 	b.recordDelivered(event, now)
@@ -246,6 +295,27 @@ func isSupportedEventType(event adapter.NormalizedEvent) bool {
 	default:
 		return false
 	}
+}
+
+func (b *Bridge) sendOutboundAction(ctx context.Context, action runtime.Action) (adapter.SendMessageResult, error) {
+	if action.Kind != "message.send" {
+		return adapter.SendMessageResult{}, &adapter.Error{
+			Code:    "plugin.protocol_violation",
+			Message: "runtime bridge received unsupported outbound action kind",
+		}
+	}
+	if b.sender == nil {
+		return adapter.SendMessageResult{}, &adapter.Error{
+			Code:    "adapter.send_failed",
+			Message: "adapter outbound sender is not available",
+		}
+	}
+
+	return b.sender.SendMessage(ctx, adapter.OutboundMessageSend{
+		TargetType: action.TargetType,
+		TargetID:   action.TargetID,
+		Text:       action.Text,
+	})
 }
 
 func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Time) {

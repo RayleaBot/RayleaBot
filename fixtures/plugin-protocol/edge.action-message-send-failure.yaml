@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000005
+    plugin_id: weather
+    request_id: act_0002
+    action: message.send
+    data:
+      target_type: private
+      target_id: "123"
+      text: 当前天气服务暂时不可用，请稍后再试。
+expect:
+  valid: true
+  notes:
+    - The same single action shape is reused even when downstream adapter execution later fails.
+    - Adapter-side failure handling must stay on existing frozen error semantics and must not add extra action fields.
