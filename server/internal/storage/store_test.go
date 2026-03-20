@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"io/fs"
 	"path/filepath"
 	"testing"
 	"testing/fstest"
@@ -29,9 +30,10 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "schema_migrations")
 	assertTableExists(t, store.Read, "auth_bootstrap_state")
 	assertTableExists(t, store.Read, "admin_sessions")
+	assertTableExists(t, store.Read, "plugin_instances")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 3 {
+	if len(tables) != 4 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
 }
@@ -50,8 +52,8 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("unexpected migration count: got %d want 1", count)
+	if count != 2 {
+		t.Fatalf("unexpected migration count: got %d want 2", count)
 	}
 }
 
@@ -64,6 +66,100 @@ func TestLoadMigrationsRejectsDuplicateIDs(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected duplicate migration id error")
+	}
+}
+
+func TestOpenUpgradesExistingAuthDatabaseToPluginInstances(t *testing.T) {
+	t.Parallel()
+
+	authOnlyFS := readAuthOnlyMigrations(t)
+	databasePath := filepath.Join(t.TempDir(), "state.db")
+
+	store := mustOpenStoreWithMigrations(t, databasePath, authOnlyFS)
+	if _, err := store.Write.Exec(
+		`INSERT INTO auth_bootstrap_state (singleton_id, identifier, secret_digest, signing_key, initialized_at)
+		 VALUES (1, ?, ?, ?, ?)`,
+		"admin",
+		[]byte("digest"),
+		[]byte("signing-key"),
+		"2026-03-20T09:00:00Z",
+	); err != nil {
+		t.Fatalf("seed bootstrap state: %v", err)
+	}
+	if _, err := store.Write.Exec(
+		`INSERT INTO admin_sessions (session_id, subject, issued_at, expires_at)
+		 VALUES (?, ?, ?, ?)`,
+		"sess_1",
+		"admin",
+		"2026-03-20T09:00:00Z",
+		"2026-03-21T09:00:00Z",
+	); err != nil {
+		t.Fatalf("seed admin session: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close auth-only store: %v", err)
+	}
+
+	upgraded := mustOpenStore(t, databasePath)
+	defer upgraded.Close()
+
+	assertTableExists(t, upgraded.Read, "plugin_instances")
+
+	var migrationCount int
+	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
+		t.Fatalf("count schema_migrations rows: %v", err)
+	}
+	if migrationCount != 2 {
+		t.Fatalf("unexpected migration count after upgrade: got %d want 2", migrationCount)
+	}
+
+	var bootstrapCount int
+	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM auth_bootstrap_state`).Scan(&bootstrapCount); err != nil {
+		t.Fatalf("count auth_bootstrap_state rows: %v", err)
+	}
+	if bootstrapCount != 1 {
+		t.Fatalf("unexpected bootstrap row count: got %d want 1", bootstrapCount)
+	}
+
+	var sessionCount int
+	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM admin_sessions`).Scan(&sessionCount); err != nil {
+		t.Fatalf("count admin_sessions rows: %v", err)
+	}
+	if sessionCount != 1 {
+		t.Fatalf("unexpected session row count: got %d want 1", sessionCount)
+	}
+}
+
+func TestPluginInstancesRejectsDuplicateIDsAndInvalidDesiredState(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+
+	if _, err := store.Write.Exec(
+		`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES (?, ?, ?)`,
+		"weather",
+		"enabled",
+		"2026-03-20T09:00:00Z",
+	); err != nil {
+		t.Fatalf("insert initial plugin instance: %v", err)
+	}
+
+	if _, err := store.Write.Exec(
+		`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES (?, ?, ?)`,
+		"weather",
+		"disabled",
+		"2026-03-20T09:05:00Z",
+	); err == nil {
+		t.Fatalf("expected duplicate plugin_id insert to fail")
+	}
+
+	if _, err := store.Write.Exec(
+		`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES (?, ?, ?)`,
+		"clock",
+		"paused",
+		"2026-03-20T09:10:00Z",
+	); err == nil {
+		t.Fatalf("expected invalid desired_state insert to fail")
 	}
 }
 
@@ -87,6 +183,29 @@ func mustOpenStore(t *testing.T, path string) *Store {
 		t.Fatalf("Open(%s) failed: %v", path, err)
 	}
 	return store
+}
+
+func mustOpenStoreWithMigrations(t *testing.T, path string, migrations fs.FS) *Store {
+	t.Helper()
+
+	store, err := Open(path, WithMigrationsFS(migrations))
+	if err != nil {
+		t.Fatalf("Open(%s) with custom migrations failed: %v", path, err)
+	}
+	return store
+}
+
+func readAuthOnlyMigrations(t *testing.T) fs.FS {
+	t.Helper()
+
+	script, err := fs.ReadFile(embeddedMigrations, "migrations/0001_auth_core.sql")
+	if err != nil {
+		t.Fatalf("read embedded 0001_auth_core.sql: %v", err)
+	}
+
+	return fstest.MapFS{
+		"0001_auth_core.sql": {Data: script},
+	}
 }
 
 func assertPragmaString(t *testing.T, db *sql.DB, name, want string) {
