@@ -200,7 +200,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 		handler, wasCalled, _ := dummyHandler()
 		wrapped := middleware(handler)
 
-		path := rapid.SampledFrom([]string{"/api/plugins", "/api/tasks", "/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
+		path := rapid.SampledFrom([]string{"/api/config", "/api/logs", "/api/plugins", "/api/tasks", "/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		if sc.header != "" {
 			req.Header.Set("Authorization", sc.header)
@@ -522,8 +522,11 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 	}{
 		{http.MethodDelete, "/api/session"},
 		{http.MethodPost, "/api/session/launcher-token"},
+		{http.MethodGet, "/api/config"},
+		{http.MethodPut, "/api/config"},
 		{http.MethodGet, "/api/system/status"},
 		{http.MethodPost, "/api/system/shutdown"},
+		{http.MethodGet, "/api/logs"},
 		{http.MethodGet, "/api/tasks"},
 		{http.MethodGet, "/api/plugins"},
 		{http.MethodGet, "/api/plugins/fake-plugin-id"},

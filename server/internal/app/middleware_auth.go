@@ -26,13 +26,13 @@ func RequireAuth(authManager *auth.Manager) func(http.Handler) http.Handler {
 			}
 
 			if strings.TrimSpace(token) == "" {
-				writeAuthError(w, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+				writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 				return
 			}
 
 			claims, err := authManager.Validate(token)
 			if err != nil {
-				writeAuthError(w, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+				writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 				return
 			}
 

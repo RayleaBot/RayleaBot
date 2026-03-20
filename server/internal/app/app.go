@@ -21,6 +21,7 @@ import (
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/console"
 	"rayleabot/server/internal/health"
+	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
@@ -174,6 +175,7 @@ func New(options Options) (*App, error) {
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 
 	router := chi.NewRouter()
+	router.Use(httpapi.WithRequestContext)
 
 	// Public routes — no authentication required.
 	router.Get("/healthz", health.NewLivenessHandler())
@@ -189,6 +191,9 @@ func New(options Options) (*App, error) {
 		r.Use(RequireAuth(application.Auth))
 		r.Delete("/api/session", application.handleSessionLogout())
 		r.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
+		r.Get("/api/config", application.handleConfigGet())
+		r.Put("/api/config", application.handleConfigPut())
+		r.Get("/api/logs", application.handleLogsList())
 		r.Get("/api/system/status", application.handleSystemStatus())
 		r.Post("/api/system/shutdown", application.handleSystemShutdown())
 		r.Get("/api/tasks", application.handleTaskList())

@@ -2,8 +2,6 @@ package plugins
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/tasks"
 )
 
@@ -62,12 +61,12 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
 
 		if (req.SourceType != "local_zip" && req.SourceType != "local_directory") || req.Source == "" {
-			writeError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
 
@@ -77,7 +76,7 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer
 				Source:     req.Source,
 			})
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 				return
 			}
 
@@ -88,7 +87,7 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer
 		summary := fmt.Sprintf("install plugin from %s: %s", req.SourceType, req.Source)
 		taskID, err := taskRegistry.Create("plugin.install", summary)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -100,12 +99,12 @@ func newEnableHandler(catalog *Catalog, repo DesiredStateRepository) http.Handle
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if err := validateDesiredStateChange(catalog, pluginID, "enabled"); err != nil {
-			writeDesiredStateError(w, pluginID, err)
+			writeDesiredStateError(w, r, pluginID, err)
 			return
 		}
 		if repo != nil {
 			if err := repo.SaveDesiredState(context.Background(), pluginID, "enabled", time.Now().UTC()); err != nil {
-				writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 				return
 			}
 		}
@@ -114,7 +113,7 @@ func newEnableHandler(catalog *Catalog, repo DesiredStateRepository) http.Handle
 			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
 			return
 		}
-		writeDesiredStateError(w, pluginID, err)
+		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
@@ -122,12 +121,12 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository) http.Handl
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if err := validateDesiredStateChange(catalog, pluginID, "disabled"); err != nil {
-			writeDesiredStateError(w, pluginID, err)
+			writeDesiredStateError(w, r, pluginID, err)
 			return
 		}
 		if repo != nil {
 			if err := repo.SaveDesiredState(context.Background(), pluginID, "disabled", time.Now().UTC()); err != nil {
-				writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 				return
 			}
 		}
@@ -136,7 +135,7 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository) http.Handl
 			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
 			return
 		}
-		writeDesiredStateError(w, pluginID, err)
+		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
@@ -166,17 +165,17 @@ func validateDesiredStateChange(catalog *Catalog, pluginID string, desired strin
 	return nil
 }
 
-func writeDesiredStateError(w http.ResponseWriter, pluginID string, err error) {
+func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID string, err error) {
 	if errors.Is(err, ErrPluginNotFound) {
-		writeError(w, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+		writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, ErrStateConflict) {
-		writeError(w, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
+		writeError(w, r, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
 		return
 	}
 
-	writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+	writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 }
 
 func newListHandler(catalog *Catalog) http.HandlerFunc {
@@ -198,6 +197,7 @@ func newDetailHandler(catalog *Catalog) http.HandlerFunc {
 		if !ok {
 			writeError(
 				w,
+				r,
 				http.StatusNotFound,
 				codeResourceMissing,
 				"必要运行时资源缺失",
@@ -226,6 +226,7 @@ func newDetailHandler(catalog *Catalog) http.HandlerFunc {
 
 			writeError(
 				w,
+				r,
 				http.StatusConflict,
 				codeInvalidRequest,
 				"请求参数不合法",
@@ -249,33 +250,10 @@ func toPluginSummary(snapshot Snapshot) pluginSummaryResponse {
 	}
 }
 
-func writeError(w http.ResponseWriter, statusCode int, code, message, messageKey string, details map[string]any) {
-	writeJSON(
-		w,
-		statusCode,
-		errorEnvelope{
-			Error: errorBody{
-				Code:       code,
-				Message:    message,
-				MessageKey: messageKey,
-				RequestID:  newRequestID(),
-				Details:    details,
-			},
-		},
-	)
+func writeError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string, details map[string]any) {
+	httpapi.WriteError(w, r, statusCode, code, message, messageKey, details)
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(body)
-}
-
-func newRequestID() string {
-	bytes := make([]byte, 8)
-	if _, err := rand.Read(bytes); err != nil {
-		return "req_0000000000000000"
-	}
-
-	return "req_" + hex.EncodeToString(bytes)
+	httpapi.WriteJSON(w, statusCode, body)
 }

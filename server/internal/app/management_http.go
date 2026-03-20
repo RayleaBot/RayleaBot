@@ -38,11 +38,11 @@ func (a *App) handleSessionLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := ClaimsFromContext(r.Context())
 		if !ok || claims.SessionID == "" {
-			writeAuthError(w, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
 		if err := a.Auth.Revoke(claims.SessionID); err != nil {
-			writeAppError(w, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -51,10 +51,10 @@ func (a *App) handleSessionLogout() http.HandlerFunc {
 }
 
 func (a *App) handleLauncherTokenIssue() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		token, err := a.launcherTokens.Issue()
 		if err != nil {
-			writeAppError(w, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 

@@ -47,7 +47,7 @@ func (a *App) handleTaskList() http.HandlerFunc {
 		statusFilter := r.URL.Query().Get("status")
 		if statusFilter != "" {
 			if _, ok := allowedTaskStatuses[statusFilter]; !ok {
-				writeAuthError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+				writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
 				return
 			}
 		}
@@ -55,7 +55,7 @@ func (a *App) handleTaskList() http.HandlerFunc {
 		taskTypeFilter := r.URL.Query().Get("task_type")
 		if taskTypeFilter != "" {
 			if _, ok := allowedTaskTypes[taskTypeFilter]; !ok {
-				writeAuthError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+				writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
 				return
 			}
 		}
@@ -64,7 +64,7 @@ func (a *App) handleTaskList() http.HandlerFunc {
 		if raw := r.URL.Query().Get("limit"); raw != "" {
 			parsed, err := strconv.Atoi(raw)
 			if err != nil || parsed < 1 || parsed > 100 {
-				writeAuthError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+				writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
 				return
 			}
 			limit = parsed
@@ -93,7 +93,7 @@ func (a *App) handleTaskDetail() http.HandlerFunc {
 		taskID := chi.URLParam(r, "task_id")
 		snapshot, ok := a.Tasks.Get(taskID)
 		if !ok {
-			writeAppError(w, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
 				"task_id":       taskID,
 			})
@@ -109,7 +109,7 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 		taskID := chi.URLParam(r, "task_id")
 		snapshot, ok := a.Tasks.Get(taskID)
 		if !ok {
-			writeAppError(w, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
 				"task_id":       taskID,
 			})
@@ -122,7 +122,7 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 		}
 
 		if snapshot.Status != tasks.StatusPending {
-			writeAppError(w, http.StatusConflict, codeTaskNotCancellable, "当前任务不可取消", "errors.platform.task_not_cancellable", map[string]any{
+			writeAppError(w, r, http.StatusConflict, codeTaskNotCancellable, "当前任务不可取消", "errors.platform.task_not_cancellable", map[string]any{
 				"task_id": taskID,
 				"status":  string(snapshot.Status),
 			})
@@ -135,7 +135,7 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 			Status:     &cancelled,
 			FinishedAt: &now,
 		}); !ok {
-			writeAppError(w, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
 				"task_id":       taskID,
 			})

@@ -89,8 +89,11 @@ Phase 6 范围：
 - 当前提供最小受保护 management write/query surface：
   - `DELETE /api/session`
   - `POST /api/session/launcher-token`
+  - `GET /api/config`
+  - `PUT /api/config`
   - `GET /api/system/status`
   - `POST /api/system/shutdown`
+  - `GET /api/logs`
   - `GET /api/tasks`
   - `GET /api/tasks/{task_id}`
   - `POST /api/tasks/{task_id}/cancel`
@@ -104,8 +107,14 @@ Phase 6 范围：
   - `GET /api/setup/status` 返回 bootstrap 是否完成
   - `DELETE /api/session` 仅撤销当前 session
   - `POST /api/session/launcher-token` 返回单次使用、短 TTL 的 opaque launcher token
+  - `GET /api/config` 返回当前生效配置的可公开快照，并对敏感字段做基础掩码
+  - `PUT /api/config` 按 formal schema 校验后原子写回 `config/user.yaml`，并返回 `restart_required`
   - `GET /api/system/status` 返回最小运行态摘要
   - `POST /api/system/shutdown` 仅接受 graceful shutdown 请求
+- 暴露最小 logs query 入口：
+  - `GET /api/logs`
+  - 当前只查询 bounded in-memory log summaries
+  - 字段范围与 `/ws/logs` 一致，并复用同一 redaction 逻辑
 - 暴露最小 login 入口：
   - `POST /api/session/login`
   - 仅复用 bootstrap 后的 management credential source 换取 `session_token`
@@ -123,6 +132,7 @@ Phase 6 范围：
   - `POST /api/plugins/{plugin_id}/enable`
   - `POST /api/plugins/{plugin_id}/disable`
   - 当前只切换并持久化 `desired_state`，不扩展为完整 runtime supervisor
+- management HTTP handlers 当前共享统一 JSON error envelope 写出路径、request_id 注入与最小 panic recovery。
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
 
@@ -143,6 +153,8 @@ Phase 6 范围：
 - 除单一 `event -> action(message.send)|result|error` 外的 plugin protocol bridge。
 - 通用 task executor / progress writer substrate、历史持久化与更完整任务管理 API。
 - 更完整 plugin.install pipeline：依赖安装与环境准备、`plugin_packages` 元数据、install scripts 授权、远程来源与 interrupted-task recovery。
+- `/api/config` 的热更新、局部重载与字段级即时生效。
+- `/api/logs` 的历史持久化、日志文件检索与更广查询语义。
 - `send_msg` 之外的 OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
 - `/ws/plugins/{id}/console` 之外的更完整调试面；当前仅支持 redacted/rate-limited `stderr` / `system` console frames，不提供历史持久化、原始协议 `stdout` 或高级过滤。
