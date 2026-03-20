@@ -17,17 +17,17 @@
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest 的 golden fixtures 已落库 |
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化与单一 `message.send -> send_msg` 出站 action slice 已落地；更广 action family 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> action(message.send) | result | error` bridge 已落地；`ping/pong`、多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> action(message.send) \| result \| error` bridge 已落地；`ping/pong` contract 已 formalize，runtime 实现仍未落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
 | Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）与 auth persistence（bootstrap state + admin sessions 跨重启存活）已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与运维工具链仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、统一 `RequireAuth` 与 4 条管理 WebSocket 通道已落地；插件 install 目前仅到 task acceptance、enable/disable 仅到 desired_state 切换；真实 task/system/config/logs 查询面与更完整插件管理面仍未实现 |
+| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、统一 `RequireAuth` 与 4 条管理 WebSocket 通道已落地；`setup/status`、`session logout`、`launcher-token`、`system/status`、`system/shutdown` 的 contract + fixtures 已落地，handler 仍未实现；真实 task/config/logs 查询面与更完整插件管理面仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
 
 ### 判定口径
 
-- “已完成”只用于当前仓库里同时存在**实现、测试与可回指证据**的能力，不把规划目标、README TODO 或 contract 预留项误记为已落地。
-- “已 formalize / 未实现”的能力写入对应 phase 的“仍未完成”或末尾路线图。
+- "已完成"只用于当前仓库里同时存在**实现、测试与可回指证据**的能力，不把规划目标、README TODO 或 contract 预留项误记为已落地。
+- "已 formalize / 未实现"的能力写入对应 phase 的"仍未完成"或末尾路线图。
 - 跨 phase 的产品化能力（如 CLI、SDK、官方内置插件体系）按真实依赖关系归并到对应 phase 和后续路线。
 
 ---
@@ -66,7 +66,7 @@
 
 说明：
 
-- 本阶段的“已完成”仅表示当前 formal contract 范围已经冻结并有 fixtures 支撑。
+- 本阶段的"已完成"仅表示当前 formal contract 范围已经冻结并有 fixtures 支撑。
 - 规划文档中更广的 API、状态或载荷边界，若尚未进入 `contracts/`，仍应视为后续 formalization 工作，不计入本阶段完成范围。
 - 当前正式 contract 以 `contracts/` 为准，不应再从规划正文、README 或实现代码反向推断契约状态。
 
@@ -144,10 +144,11 @@
 | `shutdown(stop)` | ✅ | 最小优雅停止路径已实现 |
 | 最小 lifecycle tracking | ✅ | runtime 最小生命周期状态已在内存中维护 |
 | 单一 adapter -> runtime read-only bridge | ✅ | 已支持最小只读事件投递 |
-| `event -> action(message.send) | result | error` | ✅ | 当前最小 bridge 已支持单一动作、`result` 与 `error` 三种回收路径 |
+| `event -> action(message.send) \| result \| error` | ✅ | 当前最小 bridge 已支持单一动作、`result` 与 `error` 三种回收路径 |
 | lazy-start first valid plugin | ✅ | 首个可投递事件到达时可 lazy-start 单个有效插件 |
 | bridge/runtime summary state | ✅ | 内存计数与最近摘要状态已落地 |
 | runtime -> adapter outbound mapper | ✅ | plugin runtime 的单一 `action=message.send` 已可经 bridge 映射到 adapter 的最小 `send_msg` 执行链路 |
+| `ping` / `pong` contract formalize | ✅ | `ping`/`pong` 已进入 `contracts/plugin-protocol.schema.json`、x-message-catalog 与 `fixtures/plugin-protocol/ok.ping-pong.yaml` |
 
 ### 仍未完成
 
@@ -155,7 +156,7 @@
 |--------|------|------|
 | 更广 adapter 出站 action 执行 | ❌ | 当前实现范围为单一 `action=message.send`；其余动作族与更丰富发送语义仍未落地 |
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
-| protocol-level `ping` / `pong` | ❌ | `implementation-order` 里的 `ping/pong` 基础链路尚未进入当前 formal plugin protocol 与实现 |
+| protocol-level `ping` / `pong` 实现 | ❌ | contract + fixtures 已落地；runtime manager 中的实际收发处理链路仍未实现 |
 | supervisor / backoff / dead_letter 扩展 | ❌ | 尚未建立完整 supervisor 与恢复策略 |
 | 完整权限授予状态机 | ❌ | 授权、重确认、撤销等流程尚未实现 |
 | 热重载 / restart loop | ❌ | 尚未实现 runtime 热重载与自动重启循环 |
@@ -223,6 +224,11 @@
 | `plugin console` WebSocket | ✅ | `/ws/plugins/{id}/console` 已实现：连接建立时回放每插件 bounded in-memory ring buffer，后续推送经 platform-side redaction + rate limiting 的 runtime `stderr` / `system` console frames；当前不提供历史持久化，也不暴露原始协议 `stdout` |
 | HTTP 鉴权中间件 | ✅ | 统一 `RequireAuth` chi 中间件已落地：从 `Authorization: Bearer <token>` 头提取 token，调用 `auth.Manager.Validate` 校验，Claims 存入 request context；公开路由（`/healthz`、`/readyz`、`/api/setup/admin`、`/api/session/login`）与受保护路由组已分离；当前所有已实现的 management WebSocket 路径（`/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console`）都支持 `session_token` 查询参数向后兼容；鉴权失败统一返回 401 ErrorEnvelope（`permission.denied`）；契约已补充 `BearerAuth` 安全方案与 401 响应；鉴权失败 fixtures 已落库 |
 | 最小插件写操作入口 | ✅ | `POST /api/plugins/install` 当前仅做请求校验并创建 `plugin.install` 任务接受回执；`POST /api/plugins/{plugin_id}/enable` / `disable` 当前仅切换 catalog 内存 `desired_state`，尚未进入完整安装/卸载/重载与持久化编排 |
+| `GET /api/setup/status` contract + fixtures | ✅ | 接口已进入正式 OpenAPI 与 fixtures；server handler 仍未实现（路由返回 404） |
+| `DELETE /api/session` contract + fixtures | ✅ | 接口已进入正式 OpenAPI 与 fixtures；server handler 仍未实现（路由返回 404） |
+| `POST /api/session/launcher-token` contract + fixtures | ✅ | 接口已进入正式 OpenAPI 与 fixtures；server handler 仍未实现（路由返回 404） |
+| `GET /api/system/status` contract + fixtures | ✅ | 接口已进入正式 OpenAPI 与 fixtures；server handler 仍未实现（路由返回 404） |
+| `POST /api/system/shutdown` contract + fixtures | ✅ | 接口已进入正式 OpenAPI 与 fixtures；server handler 仍未实现（路由返回 404） |
 
 ### 仍未完成
 
@@ -232,8 +238,11 @@
 | 真实 task executor / progress writer | ❌ | 当前实现范围为任务创建与只读 snapshot；持续进度写入、取消驱动和任务执行编排尚未建立 |
 | 真实 plugin install pipeline | ❌ | `POST /api/plugins/install` 目前只返回 202 + task_id，并未执行解包、校验、落库或目录安装 |
 | plugin reload / uninstall 管理面 | ❌ | `POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 仍未 formalize / implement |
-| system routes | ❌ | `/api/system/status`、`POST /api/system/shutdown` 仍未 formalize / implement |
-| `/api/session/launcher-token` | ❌ | Launcher 所需的一次性 token surface 仍未 formalize / implement |
+| `GET /api/setup/status` handler | ❌ | contract + fixtures 已落地，server handler 仍未实现 |
+| `DELETE /api/session` handler | ❌ | contract + fixtures 已落地，server handler 仍未实现 |
+| `POST /api/session/launcher-token` handler | ❌ | contract + fixtures 已落地，server handler 仍未实现 |
+| `GET /api/system/status` handler | ❌ | contract + fixtures 已落地，server handler 仍未实现 |
+| `POST /api/system/shutdown` handler | ❌ | contract + fixtures 已落地，server handler 仍未实现 |
 | `/api/config` 配置管理接口 | ❌ | `GET /api/config` / `PUT /api/config` 仍未 formalize / implement |
 | `/api/logs` 日志查询接口 | ❌ | 日志检索/查询面仍未 formalize / implement |
 | 全局错误中间件 | ❌ | 统一错误响应中间件仍未完善 |
@@ -326,46 +335,38 @@
 
 ## 十四、下一步行动建议
 
-以下路线聚焦当前**仍未完成**的工作，并按“contract-first 前置 -> 近期主线 -> 状态化基础 -> 生态与产品化外层”排列。
+以下路线聚焦当前**仍未完成**的工作，并按"近期主线 -> 状态化基础 -> 生态与产品化外层"排列。
 
-### 1. 先补必须先 formalize 的前置缺口
+### 1. 近期主线（优先继续补平台闭环）
 
-1. **更广 outbound action family 的 contract-first 前置**（Phase 4 / Phase 5）
-   - 当前 formal plugin protocol 冻结范围为单一 `action=message.send`，`ping`/`pong` 最小保活语义已进入 `contracts/plugin-protocol.schema.json`、fixtures 与 x-message-catalog。
-   - `message.reply`、更宽发送语义以及后续 richer adapter action，都必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
+1. **补全 Phase 7 已 formalize 但仍缺实现的接口 handlers**
+   - `GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 的 contract + fixtures 均已落地，server handler 仍未实现。
+   - 优先补齐这批已有 contract 支撑的 handler，使管理面闭环。
 
-2. **Launcher 前置 contract surfaces**
-   - `POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 已进入正式 OpenAPI，对应 fixtures 已落库。
-   - Launcher 真实能力实现可在此基础上推进。
-
-3. **运维工具链的 contract / execution model 收口**
-   - `GET /api/setup/status`、`DELETE /api/session` 已进入正式 OpenAPI，对应 fixtures 已落库。
-   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍无正式 CLI/后端执行面。
-   - 在进入实现前，需要先把哪些能力通过 HTTP、哪些能力只保留 CLI、本地/停服窗口要求、任务模型与恢复语义进一步收口。
-
-### 2. 近期主线（优先继续补平台闭环）
-
-1. **在下一条 action contract 落定后，补第二个最小 outbound action slice**
-   - 继续保持“一次只落一个动作种类”的节奏，不直接扩成通用 action 平台。
-   - 优先考虑 `message.reply` 这类最贴近现有聊天闭环的单动作切片，再做更广 send semantics。
-
-2. **补全 Phase 7 已 formalize 但仍缺实现的任务面**
-   - 先实现 `/api/tasks` list / detail / cancel 三个已冻结接口。
+2. **实现 `/api/tasks` list / detail / cancel 三个已冻结接口**
    - 再补真实 task executor / progress writer，使当前 install acceptance 与 future backup/restore/migrate task type 有统一执行落点。
 
-3. **补 system/config/logs 查询与统一错误中间件**
-   - `/api/config`、`/api/logs` 与 system routes 仍未 formalize / implement。
-   - 与此同时，应补齐全局错误中间件，避免后续 handler 与 WebSocket 入口继续各自散落错误落点。
+3. **补 config/logs 查询与统一错误中间件**
+   - `/api/config`、`/api/logs` 的 handler 实现，以及全局错误中间件，避免后续 handler 与 WebSocket 入口继续各自散落错误落点。
 
-4. **把当前“入口级插件写操作”推进成“真实执行链路”**
+4. **把当前"入口级插件写操作"推进成"真实执行链路"**
    - `POST /api/plugins/install` 目前只做到 task acceptance。
    - `enable` / `disable` 目前只做到内存 `desired_state` 切换，后续应逐步接到更真实的 runtime / persistence / grants 流程。
 
-### 3. 状态化基础（为恢复、运维与长期运行铺路）
+5. **在下一条 action contract 落定后，补第二个最小 outbound action slice**
+   - 继续保持"一次只落一个动作种类"的节奏，不直接扩成通用 action 平台。
+   - 优先考虑 `message.reply` 这类最贴近现有聊天闭环的单动作切片，再做更广 send semantics。
+   - 新 action 种类必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
+
+6. **运维工具链的 contract / execution model 收口**
+   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍无正式 CLI/后端执行面。
+   - 在进入实现前，需要先把哪些能力通过 HTTP、哪些能力只保留 CLI、本地/停服窗口要求、任务模型与恢复语义进一步收口。
+
+### 2. 状态化基础（为恢复、运维与长期运行铺路）
 
 1. **Scheduler persistence / recovery**
    - 当前 SQLite foundation 与 auth persistence 已就位，但调度持久化与恢复仍未开始。
-   - 这是把“进程内状态”推进为“可恢复平台状态”的下一层关键基础。
+   - 这是把"进程内状态"推进为"可恢复平台状态"的下一层关键基础。
 
 2. **Secret store 独立抽象**
    - 当前 signing key 已持久化到 SQLite，但还没有独立 secret store 层。
@@ -379,10 +380,10 @@
    - 当前配置仍是启动时加载模式。
    - 热更新和局部重载是后续 scheduler、logging、runtime 限流、render 队列以及长运行服务调优的基础。
 
-### 4. Runtime / Adapter / Plugin 扩展路线
+### 3. Runtime / Adapter / Plugin 扩展路线
 
-1. **补 protocol-level `ping` / `pong`**
-   - `implementation-order` 里的基础链路仍未进入当前 formal plugin protocol 与实现。
+1. **protocol-level `ping` / `pong` 实现**
+   - contract + fixtures 已落地；runtime manager 中的实际收发处理链路仍未实现。
    - 在进入更高层 SDK 与 richer runtime behavior 前，应先把最小心跳/保活语义补齐。
 
 2. **更广 OneBot 事件归一化**
@@ -390,7 +391,7 @@
    - 通知、请求、更多消息段和 richer event shapes 仍未进入实现。
 
 3. **多插件并发调度与 fan-out**
-   - 当前仍是“单 runtime、单插件、lazy-start first valid plugin”的最小切片。
+   - 当前仍是"单 runtime、单插件、lazy-start first valid plugin"的最小切片。
    - 进入更真实的插件生态前，这一层必须先被 formalize 并最小落地。
 
 4. **热重载、restart loop、`backoff` / `dead_letter`**
@@ -405,19 +406,19 @@
    - 这些仍属于 v0.1 路线图，但还没有进入真实实现阶段。
    - 其依赖包括 richer event model、grants/storage、multi-plugin dispatch 与更完整 runtime 生命周期。
 
-### 5. 产品化外层路线（在核心平台更稳定后推进）
+### 4. 产品化外层路线（在核心平台更稳定后推进）
 
 1. **Web UI**（Phase 8）
    - 当前仍停留在 scaffold / baseline。
-   - 在更多管理 API、任务面、system/config/logs 查询面与 session lifecycle 稳定后，再进入真实页面与交互流会更顺畅。
+   - 在更多管理 API、任务面、config/logs 查询面与 session lifecycle 稳定后，再进入真实页面与交互流会更顺畅。
 
 2. **Launcher**（Phase 9）
    - 当前已落定 .NET / Avalonia baseline。
-   - 真正进入 Launcher 之前，`launcher-token`、`system/status`、`system/shutdown` 和最小本机运维流程需要继续收口。
+   - `launcher-token`、`system/status`、`system/shutdown` 的 contract + fixtures 均已就位，Launcher 真实能力实现可在此基础上推进。
 
 3. **Render Service**（Phase 10）
    - 当前 `.deps/manifest.json` 仍只是 baseline 资源占位。
    - render queue、browser scheduling、cache、模板输入校验与 render contract 仍未进入实现。
 
 4. **CLI / 本地运维体验**
-   - 即使后续已有部分后端与存储基础，`reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍需要单独设计本地执行体验、停服窗口、诊断输出和与 Web/Launcher 的职责边界。
+   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍需要单独设计本地执行体验、停服窗口、诊断输出和与 Web/Launcher 的职责边界。
