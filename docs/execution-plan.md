@@ -194,6 +194,7 @@
 |--------|------|------|
 | secret store | ❌ | 独立敏感凭据存储与注入尚未实现；当前 signing key 已持久化到 SQLite `auth_bootstrap_state` 表，但尚无独立 secret store 抽象 |
 | scheduler persistence / recovery | ❌ | 调度持久化与恢复能力尚未实现 |
+| plugin desired_state persistence | ❌ | `POST /api/plugins/{plugin_id}/enable` / `disable` 当前会修改 catalog 内存 `desired_state`，跨重启持久化仍未建立 |
 | grants / RBAC storage | ❌ | 授权记录与权限数据库尚未实现 |
 | 聊天侧 Permission / 黑名单 / 冷却限流持久化基座 | ❌ | 当前既无相关规则执行面，也无与之配套的持久化结构；后续应建立在 grants / RBAC 与 richer event/runtime 能力之上 |
 | config hot reload | ❌ | 配置热更新与局部重载尚未实现 |
@@ -330,14 +331,15 @@
 ### 1. 先补必须先 formalize 的前置缺口
 
 1. **更广 outbound action family 的 contract-first 前置**（Phase 4 / Phase 5）
-   - 当前 formal plugin protocol 冻结范围为单一 `action=message.send`。
+   - 当前 formal plugin protocol 冻结范围为单一 `action=message.send`，`ping`/`pong` 最小保活语义已进入 `contracts/plugin-protocol.schema.json`、fixtures 与 x-message-catalog。
    - `message.reply`、更宽发送语义以及后续 richer adapter action，都必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
 
 2. **Launcher 前置 contract surfaces**
-   - `POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 仍未进入正式 OpenAPI。
-   - 在这些边界 formalize 前，不应启动 Launcher 真实能力实现。
+   - `POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 已进入正式 OpenAPI，对应 fixtures 已落库。
+   - Launcher 真实能力实现可在此基础上推进。
 
 3. **运维工具链的 contract / execution model 收口**
+   - `GET /api/setup/status`、`DELETE /api/session` 已进入正式 OpenAPI，对应 fixtures 已落库。
    - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍无正式 CLI/后端执行面。
    - 在进入实现前，需要先把哪些能力通过 HTTP、哪些能力只保留 CLI、本地/停服窗口要求、任务模型与恢复语义进一步收口。
 

@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Graceful shutdown request is accepted; server will stop after draining.
+request:
+  method: POST
+  path: /api/system/shutdown
+response:
+  status: 202
+  body:
+    accepted: true
+expect:
+  valid: true

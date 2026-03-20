@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Setup status query returns initialized=true after bootstrap has completed.
+request:
+  method: GET
+  path: /api/setup/status
+response:
+  status: 200
+  body:
+    initialized: true
+expect:
+  valid: true

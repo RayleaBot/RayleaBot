@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: System status query returns running state with basic operational counters.
+request:
+  method: GET
+  path: /api/system/status
+response:
+  status: 200
+  body:
+    status: running
+    adapter_state: connected
+    active_plugins: 1
+    uptime_seconds: 3600
+expect:
+  valid: true

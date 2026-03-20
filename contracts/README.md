@@ -65,8 +65,6 @@
 
 ### Plugin Protocol
 
-- `ping`
-- `pong`
 - 调试流
 - 文件传输
 - 批量消息
@@ -90,11 +88,6 @@
 
 以下 HTTP 路由仍属于规划内能力，但不在正式 OpenAPI 冻结范围内：
 
-- `GET /api/setup/status`
-- `DELETE /api/session`
-- `POST /api/session/launcher-token`
-- `POST /api/system/shutdown`
-- `GET /api/system/status`
 - `POST /api/plugins/{plugin_id}/reload`
 - `DELETE /api/plugins/{plugin_id}`
 - `GET /api/config`

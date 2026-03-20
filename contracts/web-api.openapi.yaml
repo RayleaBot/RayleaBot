@@ -9,7 +9,12 @@ info:
 x-fixtures:
   - fixtures/web-api/ok.healthz-response.yaml
   - fixtures/web-api/ok.setup-admin.yaml
+  - fixtures/web-api/ok.setup-status.yaml
   - fixtures/web-api/ok.session-login.yaml
+  - fixtures/web-api/ok.session-logout.yaml
+  - fixtures/web-api/ok.session-launcher-token.yaml
+  - fixtures/web-api/ok.system-status.yaml
+  - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
@@ -81,6 +86,20 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/setup/status:
+    get:
+      summary: Query whether the initial management credential source has been bootstrapped.
+      operationId: getSetupStatus
+      responses:
+        '200':
+          description: Setup status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupStatusResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/session/login:
     post:
       summary: Exchange management credentials for a session token.
@@ -101,6 +120,74 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/session:
+    delete:
+      summary: Invalidate the current session token.
+      operationId: logoutSession
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Session invalidated.
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/session/launcher-token:
+    post:
+      summary: Issue a single-use short-lived token for Launcher admission.
+      operationId: issueLauncherToken
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Single-use launcher token issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LauncherTokenResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/status:
+    get:
+      summary: Query the current system operational status.
+      operationId: getSystemStatus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current system status snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatusResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/shutdown:
+    post:
+      summary: Request a graceful server shutdown.
+      operationId: shutdownSystem
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Shutdown request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemShutdownResponse'
+        '401':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -375,6 +462,50 @@ components:
           type: string
           minLength: 1
           description: Opaque management session token for later auth=session_token admission.
+
+    SetupStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [initialized]
+      properties:
+        initialized:
+          type: boolean
+          description: Whether the initial management credential source has been bootstrapped.
+
+    LauncherTokenResponse:
+      type: object
+      additionalProperties: false
+      required: [launcher_token]
+      properties:
+        launcher_token:
+          type: string
+          minLength: 1
+          description: Single-use short-lived token for Launcher admission. Valid for one use only.
+
+    SystemStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [running, shutting_down]
+        adapter_state:
+          type: string
+        active_plugins:
+          type: integer
+          minimum: 0
+        uptime_seconds:
+          type: integer
+          minimum: 0
+
+    SystemShutdownResponse:
+      type: object
+      additionalProperties: false
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean
 
     LivenessStatusResponse:
       type: object

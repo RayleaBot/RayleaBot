@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: ping
+    timestamp: 1710000010
+    plugin_id: weather
+    request_id: ping_0001
+  - protocol_version: "1"
+    type: pong
+    timestamp: 1710000010
+    plugin_id: weather
+    request_id: ping_0001
+expect:
+  valid: true
+  notes:
+    - ping is sent platform->plugin; pong is the plugin->platform reply with the same request_id.
+    - No additional payload fields are required or permitted beyond the common envelope.

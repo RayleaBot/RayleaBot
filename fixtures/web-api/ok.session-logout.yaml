@@ -1,0 +1,10 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Session logout invalidates the current bearer token.
+request:
+  method: DELETE
+  path: /api/session
+response:
+  status: 204
+expect:
+  valid: true

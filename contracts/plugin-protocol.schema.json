@@ -26,6 +26,12 @@
       "$ref": "#/$defs/error"
     },
     {
+      "$ref": "#/$defs/ping"
+    },
+    {
+      "$ref": "#/$defs/pong"
+    },
+    {
       "$ref": "#/$defs/shutdown"
     }
   ],
@@ -414,6 +420,44 @@
       ],
       "unevaluatedProperties": false
     },
+    "ping": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "ping"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "pong": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "pong"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
     "shutdown": {
       "allOf": [
         {
@@ -558,6 +602,32 @@
         "reason"
       ],
       "example_ref": "fixtures/plugin-protocol/edge.shutdown-with-result.yaml"
+    },
+    {
+      "type": "ping",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.ping-pong.yaml"
+    },
+    {
+      "type": "pong",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.ping-pong.yaml"
     }
   ],
   "x-fixtures": [
@@ -565,11 +635,12 @@
     "fixtures/plugin-protocol/ok.event-result.yaml",
     "fixtures/plugin-protocol/ok.event-error.yaml",
     "fixtures/plugin-protocol/ok.action-message-send.yaml",
+    "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
     "fixtures/plugin-protocol/edge.action-message-send-failure.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml"
   ],
-  "$comment": "Phase 2 freezes exactly one outbound action shape: action=message.send. Ping, pong, additional action kinds, file transfer, batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
+  "$comment": "Phase 2 freezes exactly one outbound action shape: action=message.send. Ping and pong are now frozen as the minimum keepalive semantics. Additional action kinds, file transfer, batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
 }
