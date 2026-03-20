@@ -19,7 +19,7 @@
 | Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化与单一 `message.send -> send_msg` 出站 action slice 已落地；更广 action family 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> action(message.send) | result | error` bridge 已落地；完整 bridge 编排仍未实现 |
 | Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）与 auth persistence（bootstrap state + admin sessions 跨重启存活）已落地；secret store、grants/RBAC storage、config hot reload 仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、最小任务状态骨架已存在；`POST /api/setup/admin`、`POST /api/session/login` 已实现；`/ws/events`、`/ws/tasks`、`/ws/logs` 已实现；统一 HTTP 鉴权中间件（`RequireAuth`）已落地，受保护路由组与公开路由组已分离；插件写操作 API（install / enable / disable）已实现；任务执行接口、配置/日志查询与 `plugin console` 通道仍未实现 |
+| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、最小任务状态骨架已存在；`POST /api/setup/admin`、`POST /api/session/login` 已实现；`/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 已实现；统一 HTTP 鉴权中间件（`RequireAuth`）已落地，受保护路由组与公开路由组已分离；插件写操作 API（install / enable / disable）已实现；任务执行接口、配置/日志查询与 system routes 仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -204,21 +204,21 @@
 | 内部 aggregate-only events emitter | ✅ | server 内部已经可以从 bridge/runtime 内存摘要状态发射 `events.received` 的 aggregate-only `bridge_runtime` 载荷 |
 | `POST /api/setup/admin` | ✅ | 首次管理员 Bootstrap 接口已实现：接收 `{identifier, secret}`，返回 `{session_token}`；已阻止重复初始化（403） |
 | `POST /api/session/login` | ✅ | 管理员登录接口已实现：凭证校验 + token 签发；错误凭证返回 403 |
-| `/ws/events` WebSocket | ✅ | auth-gated aggregate-only observability WebSocket 已实现：统一中间件鉴权（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容），订阅 bridge observability 流，自动在 token 过期或断连时关闭 |
+| `/ws/events` WebSocket | ✅ | auth-gated aggregate-only observability WebSocket 已实现：统一中间件鉴权（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容），订阅 bridge observability 流；当前为 connect-time admission，不提供已建立连接上的 session_expired push / 强制关断 |
 | `/ws/tasks` WebSocket | ✅ | auth-gated tasks 通道已实现：连接建立时回放当前内存 `tasks.Registry` 的最新 snapshots，后续推送 live `tasks.updated` |
-| `/ws/logs` WebSocket | ✅ | auth-gated logs 通道已实现：连接建立时回放 bounded in-memory log summaries，后续推送 live `logs.appended`；当前只暴露 contract 允许的白名单字段 |
-| HTTP 鉴权中间件 | ✅ | 统一 `RequireAuth` chi 中间件已落地：从 `Authorization: Bearer <token>` 头提取 token，调用 `auth.Manager.Validate` 校验，Claims 存入 request context；公开路由（`/healthz`、`/readyz`、`/api/setup/admin`、`/api/session/login`）与受保护路由组已分离；当前所有已实现的 management WebSocket 路径（`/ws/events`、`/ws/tasks`、`/ws/logs`）都支持 `session_token` 查询参数向后兼容；鉴权失败统一返回 401 ErrorEnvelope（`permission.denied`）；契约已补充 `BearerAuth` 安全方案与 401 响应；鉴权失败 fixtures 已落库 |
+| `/ws/logs` WebSocket | ✅ | auth-gated logs 通道已实现：连接建立时回放 bounded in-memory log summaries，后续推送 live `logs.appended`；当前只暴露 contract 允许的白名单字段，并对已知敏感字面值做基础掩码 |
+| `plugin console` WebSocket | ✅ | `/ws/plugins/{id}/console` 已实现：连接建立时回放每插件 bounded in-memory ring buffer，后续推送经 platform-side redaction + rate limiting 的 runtime `stderr` / `system` console frames；当前不提供历史持久化，也不暴露原始协议 `stdout` |
+| HTTP 鉴权中间件 | ✅ | 统一 `RequireAuth` chi 中间件已落地：从 `Authorization: Bearer <token>` 头提取 token，调用 `auth.Manager.Validate` 校验，Claims 存入 request context；公开路由（`/healthz`、`/readyz`、`/api/setup/admin`、`/api/session/login`）与受保护路由组已分离；当前所有已实现的 management WebSocket 路径（`/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console`）都支持 `session_token` 查询参数向后兼容；鉴权失败统一返回 401 ErrorEnvelope（`permission.denied`）；契约已补充 `BearerAuth` 安全方案与 401 响应；鉴权失败 fixtures 已落库 |
+| 写操作插件 API | ✅ | `POST /api/plugins/install`（异步安装，返回 202 + task_id）、`POST /api/plugins/{plugin_id}/enable`（同步启用）、`POST /api/plugins/{plugin_id}/disable`（同步禁用）已实现；`tasks.Registry.Create` 与 `plugins.Catalog.SetDesiredState` 已落地（含并发安全） |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | system routes | ❌ | `/api/system/shutdown`、`/api/system/info` 尚未实现 |
-| 写操作插件 API | ✅ | `POST /api/plugins/install`（异步安装，返回 202 + task_id）、`POST /api/plugins/{plugin_id}/enable`（同步启用）、`POST /api/plugins/{plugin_id}/disable`（同步禁用）已实现；`tasks.Registry.Create` 与 `plugins.Catalog.SetDesiredState` 已落地（含并发安全）；8 个正确性属性测试 + 12 个单元测试已通过 |
 | `/api/tasks` 执行型接口 | ❌ | 任务执行、取消与进度接口尚未落地 |
 | `/api/config` 配置管理接口 | ❌ | 获取/更新配置尚未实现 |
 | `/api/logs` 日志查询接口 | ❌ | 日志查询尚未实现 |
-| `plugin console` WebSocket | ❌ | `/ws/plugins/{id}/console` 仍未实现；当前 contract 已要求 platform-side redaction + rate limiting，而仓库里还没有足够窄且可复用的 console redaction substrate |
 | 全局错误中间件 | ❌ | 统一错误响应中间件仍未完善 |
 
 ---
@@ -297,9 +297,10 @@
 | `session_login_test.go` | 管理员登录（token 签发、错误凭证拒绝、session 上限） |
 | `auth_surface_test.go` | Auth 路由攻击面审计（无内部路由暴露） |
 | `auth_middleware_test.go` | HTTP 鉴权中间件（token 提取、统一拒绝、request_id 唯一性、Claims 上下文传递、管理 WebSocket 查询参数备用、头优先级、未鉴权零值、公开/受保护路由分类） |
-| `events_ws_test.go` | `/ws/events` WebSocket（鉴权、observability 帧投递、断连清理） |
+| `events_ws_test.go` | `/ws/events` WebSocket（鉴权、observability 帧投递） |
 | `tasks_ws_test.go` | `/ws/tasks` WebSocket（鉴权、snapshot replay、live task updates） |
-| `logs_ws_test.go` | `/ws/logs` WebSocket（鉴权、bounded summary replay、live append、payload whitelist） |
+| `logs_ws_test.go` | `/ws/logs` WebSocket（鉴权、bounded summary replay、live append、payload whitelist、基础敏感字面值掩码） |
+| `console_ws_test.go` | `/ws/plugins/{id}/console` WebSocket（鉴权、ring-buffer replay、live plugin console frames） |
 | `auth_persistence_test.go` | 端到端 auth 持久化（bootstrap state 跨重启存活、bootstrap token 跨重启校验、login token 跨重启 WebSocket 接入、重复初始化跨重启拒绝） |
 
 ### 内部包级测试
@@ -307,7 +308,8 @@
 - `internal/adapter/`: backoff_test、shell_test、intake_test — 覆盖退避算法、连接状态机、帧分类与最小 `send_msg` 出站 request-response
 - `internal/auth/`: manager_test、persistence_test — 覆盖 token 签发/校验/过期、sliding renewal、session 上限、Bootstrap 幂等；persistence_test 覆盖跨重启 bootstrap state 存活、跨重启 token 校验、跨重启过期 session 清理、跨重启 sliding renewal 续期
 - `internal/bridge/`: bridge_test — 覆盖事件投递、单一 `message.send` 映射、outcome 统计、observability 订阅
-- `internal/runtime/`: manager_test、spec_test — 覆盖子进程生命周期、`event -> action(message.send) | result | error`、spec 校验
+- `internal/runtime/`: manager_test、console_test、spec_test — 覆盖子进程生命周期、`event -> action(message.send) | result | error`、受控 `stderr` console capture / redaction / rate limiting、spec 校验
+- `internal/logging/`: stream_test — 覆盖结构化日志在进入管理面摘要流前的基础敏感字面值掩码
 - `internal/plugins/`: catalog_test、http_test — 覆盖 `SetDesiredState` 状态更新（启用/禁用/冲突/未找到）、并发安全、install handler（round-trip / 无效请求拒绝）、enable/disable handler（成功/404/409）、错误响应 schema 一致性；4 个属性测试 + 4 个单元测试（catalog）、4 个属性测试 + 8 个单元测试（http）
 - `internal/tasks/`: tasks_test — 覆盖 `Registry.Create` task_id 唯一性属性测试、task_id 格式校验、创建后 Get/List 可查
 - `internal/storage/`: store_test — 覆盖 SQLite 打开、WAL pragma、read/write handle 分离、migration 幂等性、重复 migration ID 拒绝、表结构验证（`schema_migrations` / `auth_bootstrap_state` / `admin_sessions`）
@@ -328,5 +330,6 @@
 3. ~~**HTTP 鉴权中间件**（Phase 7）~~：✅ 已落地。统一 `RequireAuth` chi 中间件、公开/受保护路由组分离、`/ws/events` 向后兼容迁移、契约 `BearerAuth` 安全方案与鉴权失败 fixtures 已完成。
 4. ~~**插件写操作 API**（Phase 7）~~：✅ 已落地。`POST /api/plugins/install`（异步安装，202 + task_id）、`POST /api/plugins/{plugin_id}/enable`（同步启用）、`POST /api/plugins/{plugin_id}/disable`（同步禁用）已实现；`tasks.Registry.Create`（含 Mutex）与 `plugins.Catalog.SetDesiredState`（含 RWMutex）已落地；`RegisterRoutes` 已扩展并在 `app.go` 中接线；8 个正确性属性测试 + 12 个单元测试已通过。
 5. ~~**其余 WebSocket 通道（部分）**（Phase 7）~~：✅ `/ws/tasks` 与 `/ws/logs` 已落地，并复用了现有 management session admission 语义。
-6. **`/ws/plugins/{id}/console` 的 redaction-first 前置**（Phase 7）：先补足 contract 已要求的 platform-side redaction + rate limiting substrate，再实现 console 通道；当前 runtime 仍只有 `stderr` drain，不能直接把原始输出暴露为 public WebSocket。
+6. ~~**`/ws/plugins/{id}/console` 的 redaction-first 前置**（Phase 7）~~：✅ 已落地。当前最小切片会对 runtime `stderr` 做 per-plugin rate limiting、基础敏感字面值掩码、bounded ring-buffer replay，并通过 `/ws/plugins/{id}/console` 暴露 `stderr` / `system` frames。
 7. **更广 outbound action family 的 contract-first 前置**（Phase 4 / Phase 5）：当前 formal plugin protocol 只冻结单一 `action=message.send`；`message.reply` 与更宽发送语义必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
+8. **`/api/tasks` 执行面与 system/config/logs 查询面**（Phase 7）：当前仍缺少 `/api/tasks` 执行/取消/进度接口、`/api/system/*`、`/api/config` 与 `/api/logs` 查询接口；这些接口在进入实现前应继续保持 contract-aligned 的最小切片。
