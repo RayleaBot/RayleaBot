@@ -30,33 +30,37 @@ import (
 )
 
 type Options struct {
-	ConfigPath  string
-	SchemaPath  string
-	AuthOptions []auth.Option
+	ConfigPath       string
+	SchemaPath       string
+	AuthOptions      []auth.Option
+	PluginRepoRoot   string
+	PluginSchemaPath string
+	PluginRoots      []plugins.ScanRoot
 }
 
 type App struct {
-	Config         config.Config
-	Summary        config.Summary
-	Logger         *slog.Logger
-	Tasks          *tasks.Registry
-	Plugins        *plugins.Catalog
-	Auth           *auth.Manager
-	Storage        *storage.Store
-	Logs           *logging.Stream
-	Console        *console.Stream
-	Adapter        *adapter.Shell
-	Bridge         *bridge.Bridge
-	Runtime        *runtime.Manager
-	repoRoot       string
-	router         http.Handler
-	server         *http.Server
-	startedAt      time.Time
-	launcherTokens *launcherTokenStore
-	shuttingDown   atomic.Bool
-	runCancelMu    sync.Mutex
-	runCancel      context.CancelFunc
-	shutdownOnce   sync.Once
+	Config          config.Config
+	Summary         config.Summary
+	Logger          *slog.Logger
+	Tasks           *tasks.Registry
+	Plugins         *plugins.Catalog
+	Auth            *auth.Manager
+	Storage         *storage.Store
+	Logs            *logging.Stream
+	Console         *console.Stream
+	Adapter         *adapter.Shell
+	Bridge          *bridge.Bridge
+	Runtime         *runtime.Manager
+	PluginInstaller plugins.InstallCoordinator
+	repoRoot        string
+	router          http.Handler
+	server          *http.Server
+	startedAt       time.Time
+	launcherTokens  *launcherTokenStore
+	shuttingDown    atomic.Bool
+	runCancelMu     sync.Mutex
+	runCancel       context.CancelFunc
+	shutdownOnce    sync.Once
 }
 
 func New(options Options) (*App, error) {
@@ -72,10 +76,24 @@ func New(options Options) (*App, error) {
 	}
 
 	taskRegistry := tasks.NewRegistry()
-	pluginCatalog, repoRoot, err := discoverPlugins(options.SchemaPath, logger)
+	discoverySpec, err := resolvePluginDiscovery(options)
 	if err != nil {
 		return nil, err
 	}
+	pluginValidator, err := schema.Compile(discoverySpec.pluginSchemaPath)
+	if err != nil {
+		return nil, fmt.Errorf("compile plugin manifest schema %s: %w", discoverySpec.pluginSchemaPath, err)
+	}
+	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: pluginValidator,
+		Roots:     discoverySpec.roots,
+		RepoRoot:  discoverySpec.repoRoot,
+		Logger:    logger,
+	})
+	if err != nil {
+		return nil, err
+	}
+	pluginCatalog := plugins.NewCatalog(snapshots)
 	adapterShell := adapter.New(cfg.OneBot, logger)
 	consoleStream := console.NewStream(1000, 2*1024*1024)
 	runtimeManager := runtime.New(logger, runtime.Options{
@@ -120,23 +138,38 @@ func New(options Options) (*App, error) {
 		return nil, fmt.Errorf("load persisted plugin desired_state: %w", err)
 	}
 	pluginCatalog.ApplyDesiredStates(desiredStates)
+	pluginInstallService, err := plugins.NewInstallService(
+		logger,
+		taskRegistry,
+		pluginCatalog,
+		pluginRepository,
+		pluginValidator,
+		discoverySpec.repoRoot,
+		discoverySpec.roots,
+		time.Duration(cfg.Runtime.DependencyInstallTimeoutSecs)*time.Second,
+	)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create plugin install service: %w", err)
+	}
 
 	application := &App{
-		Config:         cfg,
-		Summary:        summary,
-		Logger:         logger,
-		Tasks:          taskRegistry,
-		Plugins:        pluginCatalog,
-		Auth:           authManager,
-		Storage:        storageStore,
-		Logs:           logStream,
-		Console:        consoleStream,
-		Adapter:        adapterShell,
-		Bridge:         eventBridge,
-		Runtime:        runtimeManager,
-		repoRoot:       repoRoot,
-		startedAt:      time.Now().UTC(),
-		launcherTokens: newLauncherTokenStore(time.Now, 5*time.Minute),
+		Config:          cfg,
+		Summary:         summary,
+		Logger:          logger,
+		Tasks:           taskRegistry,
+		Plugins:         pluginCatalog,
+		Auth:            authManager,
+		Storage:         storageStore,
+		Logs:            logStream,
+		Console:         consoleStream,
+		Adapter:         adapterShell,
+		Bridge:          eventBridge,
+		Runtime:         runtimeManager,
+		PluginInstaller: pluginInstallService,
+		repoRoot:        discoverySpec.repoRoot,
+		startedAt:       time.Now().UTC(),
+		launcherTokens:  newLauncherTokenStore(time.Now, 5*time.Minute),
 	}
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 
@@ -165,7 +198,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/tasks", application.handleTasksWebSocket())
 		r.Get("/ws/logs", application.handleLogsWebSocket())
 		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
-		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository)
+		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService)
 	})
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
@@ -202,6 +235,20 @@ func New(options Options) (*App, error) {
 
 func (a *App) Handler() http.Handler {
 	return a.router
+}
+
+func (a *App) Close() error {
+	var errs []error
+	if a != nil && a.PluginInstaller != nil {
+		if err := a.PluginInstaller.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
+		}
+		a.PluginInstaller = nil
+	}
+	if err := a.closeStorage(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 func (a *App) Run(ctx context.Context) error {
@@ -242,7 +289,7 @@ func (a *App) Run(ctx context.Context) error {
 		if err := a.server.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
-		return a.closeStorage()
+		return a.Close()
 	case err := <-errCh:
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
@@ -256,7 +303,7 @@ func (a *App) Run(ctx context.Context) error {
 			return fmt.Errorf("stop adapter shell after http server error: %w", stopErr)
 		}
 
-		closeErr := a.closeStorage()
+		closeErr := a.Close()
 
 		if err != nil {
 			if closeErr != nil {
@@ -323,28 +370,33 @@ func (a *App) closeStorage() error {
 	return nil
 }
 
-func discoverPlugins(configSchemaPath string, logger *slog.Logger) (*plugins.Catalog, string, error) {
-	repoRoot, pluginSchemaPath, roots, err := pluginDiscoveryContext(configSchemaPath)
-	if err != nil {
-		return nil, "", err
+type pluginDiscoverySpec struct {
+	repoRoot         string
+	pluginSchemaPath string
+	roots            []plugins.ScanRoot
+}
+
+func resolvePluginDiscovery(options Options) (pluginDiscoverySpec, error) {
+	if len(options.PluginRoots) > 0 || options.PluginRepoRoot != "" || options.PluginSchemaPath != "" {
+		if options.PluginRepoRoot == "" || options.PluginSchemaPath == "" || len(options.PluginRoots) == 0 {
+			return pluginDiscoverySpec{}, fmt.Errorf("plugin discovery override requires repo root, schema path, and roots")
+		}
+		return pluginDiscoverySpec{
+			repoRoot:         options.PluginRepoRoot,
+			pluginSchemaPath: options.PluginSchemaPath,
+			roots:            append([]plugins.ScanRoot(nil), options.PluginRoots...),
+		}, nil
 	}
 
-	validator, err := schema.Compile(pluginSchemaPath)
+	repoRoot, pluginSchemaPath, roots, err := pluginDiscoveryContext(options.SchemaPath)
 	if err != nil {
-		return nil, "", fmt.Errorf("compile plugin manifest schema %s: %w", pluginSchemaPath, err)
+		return pluginDiscoverySpec{}, err
 	}
-
-	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
-		Validator: validator,
-		Roots:     roots,
-		RepoRoot:  repoRoot,
-		Logger:    logger,
-	})
-	if err != nil {
-		return nil, "", fmt.Errorf("discover plugins: %w", err)
-	}
-
-	return plugins.NewCatalog(snapshots), repoRoot, nil
+	return pluginDiscoverySpec{
+		repoRoot:         repoRoot,
+		pluginSchemaPath: pluginSchemaPath,
+		roots:            roots,
+	}, nil
 }
 
 func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.ScanRoot, error) {

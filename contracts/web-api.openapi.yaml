@@ -17,9 +17,12 @@ x-fixtures:
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.tasks-list-response.yaml
   - fixtures/web-api/ok.task-detail-response.yaml
+  - fixtures/web-api/ok.task-detail-succeeded-install.yaml
   - fixtures/web-api/ok.task-cancel-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
+  - fixtures/web-api/edge.task-detail-running-install.yaml
+  - fixtures/web-api/edge.task-detail-failed-install.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
   - fixtures/web-api/edge.setup-admin-already-initialized.yaml

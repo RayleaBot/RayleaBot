@@ -116,6 +116,11 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 			return
 		}
 
+		if a.PluginInstaller != nil && a.PluginInstaller.Cancel(taskID) {
+			writeAuthJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
+			return
+		}
+
 		if snapshot.Status != tasks.StatusPending {
 			writeAppError(w, http.StatusConflict, codeTaskNotCancellable, "当前任务不可取消", "errors.platform.task_not_cancellable", map[string]any{
 				"task_id": taskID,

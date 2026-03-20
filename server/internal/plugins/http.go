@@ -56,7 +56,7 @@ type taskAcceptedResponse struct {
 	TaskID string `json:"task_id"`
 }
 
-func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry) http.HandlerFunc {
+func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallRequest
 		decoder := json.NewDecoder(r.Body)
@@ -68,6 +68,20 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry) http.Hand
 
 		if (req.SourceType != "local_zip" && req.SourceType != "local_directory") || req.Source == "" {
 			writeError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+
+		if installer != nil {
+			taskID, err := installer.Accept(r.Context(), InstallRequest{
+				SourceType: req.SourceType,
+				Source:     req.Source,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				return
+			}
+
+			writeJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
 			return
 		}
 
@@ -126,14 +140,14 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository) http.Handl
 	}
 }
 
-func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository) {
+func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator) {
 	if catalog == nil {
 		catalog = NewCatalog(nil)
 	}
 
 	router.Get("/api/plugins", newListHandler(catalog))
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
-	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry))
+	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
 	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
 	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
 }

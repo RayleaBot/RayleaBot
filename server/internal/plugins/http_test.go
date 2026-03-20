@@ -41,7 +41,7 @@ func setupRouter(entries []Snapshot) (chi.Router, *Catalog, *tasks.Registry, *st
 	taskRegistry := tasks.NewRegistry()
 	repo := &stubDesiredStateRepository{}
 	router := chi.NewRouter()
-	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry))
+	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, nil))
 	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
 	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
 	return router, catalog, taskRegistry, repo
@@ -199,7 +199,7 @@ func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 		taskRegistry := tasks.NewRegistry()
 		repo := &stubDesiredStateRepository{}
 		router := chi.NewRouter()
-		router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry))
+		router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, nil))
 		router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
 		router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
 

@@ -2,12 +2,15 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/tasks"
 )
 
@@ -194,6 +197,88 @@ func TestTaskCancelRejectsNonCancellableState(t *testing.T) {
 	expectedError["details"] = expectedDetails
 	expected["error"] = expectedError
 	assertErrorEnvelopeMatchesFixture(t, body, expected, "platform.task_not_cancellable")
+}
+
+type fakeInstallCoordinator struct {
+	cancelFunc func(string) bool
+}
+
+func (f fakeInstallCoordinator) Accept(_ context.Context, _ plugins.InstallRequest) (string, error) {
+	return "", nil
+}
+
+func (f fakeInstallCoordinator) Cancel(taskID string) bool {
+	if f.cancelFunc == nil {
+		return false
+	}
+	return f.cancelFunc(taskID)
+}
+
+func (f fakeInstallCoordinator) Close() error {
+	return nil
+}
+
+func TestTaskCancelAcceptsRunningInstallTaskViaInstaller(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	taskID, err := application.Tasks.Create("plugin.install", "install weather")
+	if err != nil {
+		t.Fatalf("Create task failed: %v", err)
+	}
+	running := tasks.StatusRunning
+	if _, ok := application.Tasks.Update(taskID, tasks.Update{Status: &running}); !ok {
+		t.Fatalf("Update task %s failed", taskID)
+	}
+
+	application.PluginInstaller = fakeInstallCoordinator{
+		cancelFunc: func(id string) bool {
+			if id != taskID {
+				return false
+			}
+			cancelled := tasks.StatusCancelled
+			now := time.Now().UTC()
+			summary := "插件安装已取消"
+			_, ok := application.Tasks.Update(taskID, tasks.Update{
+				Status:     &cancelled,
+				Summary:    &summary,
+				FinishedAt: &now,
+			})
+			return ok
+		},
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/tasks/"+taskID+"/cancel", nil)
+	if err != nil {
+		t.Fatalf("create task cancel request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform task cancel request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusAccepted {
+		t.Fatalf("unexpected task cancel status: got %d want 202", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if body["task_id"] != taskID {
+		t.Fatalf("unexpected task cancel body: %#v", body)
+	}
+
+	snapshot, ok := application.Tasks.Get(taskID)
+	if !ok {
+		t.Fatalf("expected cancelled task to remain queryable")
+	}
+	if snapshot.Status != tasks.StatusCancelled {
+		t.Fatalf("unexpected cancelled status: got %q want %q", snapshot.Status, tasks.StatusCancelled)
+	}
 }
 
 func TestTaskRoutesRequireAuth(t *testing.T) {

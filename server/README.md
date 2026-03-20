@@ -47,7 +47,7 @@ Phase 6 范围：
 - 暴露最小 `/ws/tasks`：
   - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
   - 连接建立时回放当前内存 `tasks.Registry` 中的最新 task snapshots
-  - 后续仅推送 `tasks.updated`，不提供历史持久化或真实任务执行编排
+  - 后续推送 `tasks.updated`；当前已接入 `plugin.install` 的最小异步执行切片，不提供历史持久化或更广任务编排
 - 暴露最小 `/ws/logs`：
   - 仅接受已登录 management session（`Authorization: Bearer` 头优先，`session_token` 查询参数向后兼容）
   - 连接建立时回放 bounded in-memory log summaries
@@ -94,6 +94,9 @@ Phase 6 范围：
   - `GET /api/tasks`
   - `GET /api/tasks/{task_id}`
   - `POST /api/tasks/{task_id}/cancel`
+  - `POST /api/plugins/install`
+  - `POST /api/plugins/{plugin_id}/enable`
+  - `POST /api/plugins/{plugin_id}/disable`
 - 暴露最小 bootstrap/admin 入口：
   - `POST /api/setup/admin`
   - 仅用于首次建立 management credential source，并立即返回 `session_token`
@@ -110,7 +113,16 @@ Phase 6 范围：
   - `GET /api/tasks`
   - `GET /api/tasks/{task_id}`
   - `POST /api/tasks/{task_id}/cancel`
-  - 当前直接复用内存 `tasks.Registry`，`cancel` 只接受 `pending` 任务
+  - 当前直接复用内存 `tasks.Registry`，并对运行中的 `plugin.install` 提供最小取消接线
+- 暴露最小插件安装执行入口：
+  - `POST /api/plugins/install`
+  - 当前支持 `local_directory` / `local_zip` 两种本地来源
+  - 安装链路会执行来源准备、manifest 校验、正式目录写入、catalog refresh 与 task progress 更新
+  - 当前已支持对运行中的 `plugin.install` 任务执行最小取消
+- 暴露最小插件状态写入口：
+  - `POST /api/plugins/{plugin_id}/enable`
+  - `POST /api/plugins/{plugin_id}/disable`
+  - 当前只切换并持久化 `desired_state`，不扩展为完整 runtime supervisor
 - 已发现但无效的 manifest，以及 `plugin_id` 冲突项，会进入只读列表摘要。
 - 这两类条目的详情查询会返回结构化错误，而不是被伪装成可运行插件。
 
@@ -129,7 +141,8 @@ Phase 6 范围：
 - 除单一 `onebot11.message_text -> event -> action(message.send)|result|error` 外的更广 adapter 到 plugin 事件投递。
 - `message.send` 之外的插件 action 请求、send / reply / API 调用。
 - 除单一 `event -> action(message.send)|result|error` 外的 plugin protocol bridge。
-- 真实 task executor、进度写入、历史持久化与更完整任务管理 API。
+- 通用 task executor / progress writer substrate、历史持久化与更完整任务管理 API。
+- 更完整 plugin.install pipeline：依赖安装与环境准备、`plugin_packages` 元数据、install scripts 授权、远程来源与 interrupted-task recovery。
 - `send_msg` 之外的 OneBot 出站 send / reply / action API。
 - OneBot 事件标准化、插件事件投递与业务处理。
 - `/ws/plugins/{id}/console` 之外的更完整调试面；当前仅支持 redacted/rate-limited `stderr` / `system` console frames，不提供历史持久化、原始协议 `stdout` 或高级过滤。

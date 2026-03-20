@@ -1,0 +1,22 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "tasks",
+    "type": "tasks.updated",
+    "timestamp": "2026-03-21T10:00:05Z",
+    "data": {
+      "task_id": "task_plugin_install_succeeded_0001",
+      "task_type": "plugin.install",
+      "status": "succeeded",
+      "progress": 100,
+      "summary": "插件安装完成",
+      "result": {
+        "summary": "插件已安装并刷新插件目录索引"
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

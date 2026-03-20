@@ -136,11 +136,10 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 func closePersistentTestApp(t *testing.T, application *app.App) {
 	t.Helper()
 
-	if application != nil && application.Storage != nil {
-		if err := application.Storage.Close(); err != nil {
-			t.Fatalf("close persistent app storage: %v", err)
+	if application != nil {
+		if err := application.Close(); err != nil {
+			t.Fatalf("close persistent app resources: %v", err)
 		}
-		application.Storage = nil
 	}
 }
 

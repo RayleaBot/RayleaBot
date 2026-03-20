@@ -5,9 +5,11 @@ description: >
   management surface.
 x-fixtures:
   - fixtures/websocket/ok.tasks-updated-running.json
+  - fixtures/websocket/ok.tasks-updated-succeeded-install.json
   - fixtures/websocket/ok.logs-appended.json
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
+  - fixtures/websocket/edge.tasks-updated-failed-install.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
   - fixtures/websocket/edge.session-expired.json

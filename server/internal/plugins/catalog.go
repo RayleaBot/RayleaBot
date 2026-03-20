@@ -130,6 +130,28 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 	}
 }
 
+func (c *Catalog) Replace(entries []Snapshot) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	items := make(map[string]Snapshot, len(entries))
+	order := make([]string, 0, len(entries))
+	seen := make(map[string]struct{}, len(entries))
+
+	for _, entry := range entries {
+		items[entry.PluginID] = cloneSnapshot(entry)
+		if _, ok := seen[entry.PluginID]; ok {
+			continue
+		}
+		seen[entry.PluginID] = struct{}{}
+		order = append(order, entry.PluginID)
+	}
+
+	sort.Strings(order)
+	c.items = items
+	c.order = order
+}
+
 func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned := snapshot
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
