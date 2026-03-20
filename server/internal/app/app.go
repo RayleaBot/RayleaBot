@@ -122,7 +122,7 @@ func New(options Options) (*App, error) {
 	router.Group(func(r chi.Router) {
 		r.Use(RequireAuth(application.Auth))
 		r.Get("/ws/events", application.handleEventsWebSocket())
-		plugins.RegisterRoutes(r, pluginCatalog)
+		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry)
 	})
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))

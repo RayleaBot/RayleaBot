@@ -249,7 +249,7 @@ func pluginRouter(t *testing.T, catalog *plugins.Catalog) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
-	plugins.RegisterRoutes(router, catalog)
+	plugins.RegisterRoutes(router, catalog, nil)
 	return router
 }
 

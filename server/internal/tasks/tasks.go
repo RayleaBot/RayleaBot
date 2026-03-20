@@ -1,6 +1,12 @@
 package tasks
 
-import "time"
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"sync"
+	"time"
+)
 
 type Status string
 
@@ -37,6 +43,7 @@ type Snapshot struct {
 }
 
 type Registry struct {
+	mu    sync.Mutex
 	items map[string]Snapshot
 	order []string
 }
@@ -49,6 +56,9 @@ func NewRegistry() *Registry {
 }
 
 func (r *Registry) List() []Snapshot {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	result := make([]Snapshot, 0, len(r.order))
 	for _, taskID := range r.order {
 		result = append(result, r.items[taskID])
@@ -58,6 +68,32 @@ func (r *Registry) List() []Snapshot {
 }
 
 func (r *Registry) Get(taskID string) (Snapshot, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	snapshot, ok := r.items[taskID]
 	return snapshot, ok
+}
+
+// Create creates a new task snapshot with the given type and summary.
+// It generates a unique task_id in the format "task_{16-byte-hex}" using crypto/rand.
+func (r *Registry) Create(taskType string, summary string) (string, error) {
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return "", fmt.Errorf("generate task id: %w", err)
+	}
+	taskID := "task_" + hex.EncodeToString(buf[:])
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.items[taskID] = Snapshot{
+		TaskID:   taskID,
+		TaskType: taskType,
+		Status:   StatusPending,
+		Summary:  summary,
+	}
+	r.order = append(r.order, taskID)
+
+	return taskID, nil
 }

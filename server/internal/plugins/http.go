@@ -4,9 +4,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"rayleabot/server/internal/tasks"
 )
 
 const (
@@ -42,13 +45,89 @@ type pluginDetailResponse struct {
 	Plugin pluginSummaryResponse `json:"plugin"`
 }
 
-func RegisterRoutes(router chi.Router, catalog *Catalog) {
+type pluginInstallRequest struct {
+	SourceType string `json:"source_type"`
+	Source     string `json:"source"`
+}
+
+type taskAcceptedResponse struct {
+	TaskID string `json:"task_id"`
+}
+
+func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req pluginInstallRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+
+		if (req.SourceType != "local_zip" && req.SourceType != "local_directory") || req.Source == "" {
+			writeError(w, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+
+		summary := fmt.Sprintf("install plugin from %s: %s", req.SourceType, req.Source)
+		taskID, err := taskRegistry.Create("plugin.install", summary)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+
+		writeJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
+	}
+}
+
+func newEnableHandler(catalog *Catalog) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		snapshot, err := catalog.SetDesiredState(pluginID, "enabled")
+		if err == nil {
+			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+			return
+		}
+		if errors.Is(err, ErrPluginNotFound) {
+			writeError(w, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			return
+		}
+		if errors.Is(err, ErrStateConflict) {
+			writeError(w, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
+			return
+		}
+	}
+}
+
+func newDisableHandler(catalog *Catalog) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		snapshot, err := catalog.SetDesiredState(pluginID, "disabled")
+		if err == nil {
+			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+			return
+		}
+		if errors.Is(err, ErrPluginNotFound) {
+			writeError(w, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			return
+		}
+		if errors.Is(err, ErrStateConflict) {
+			writeError(w, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
+			return
+		}
+	}
+}
+
+func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry) {
 	if catalog == nil {
 		catalog = NewCatalog(nil)
 	}
 
 	router.Get("/api/plugins", newListHandler(catalog))
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
+	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry))
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog))
 }
 
 func newListHandler(catalog *Catalog) http.HandlerFunc {

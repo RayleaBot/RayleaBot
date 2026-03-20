@@ -19,7 +19,7 @@
 | Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化与单一 `message.send -> send_msg` 出站 action slice 已落地；更广 action family 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> action(message.send) | result | error` bridge 已落地；完整 bridge 编排仍未实现 |
 | Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）与 auth persistence（bootstrap state + admin sessions 跨重启存活）已落地；secret store、grants/RBAC storage、config hot reload 仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、最小任务状态骨架已存在；`POST /api/setup/admin`、`POST /api/session/login` 已实现；`/ws/events` auth-gated aggregate-only WebSocket 已实现；统一 HTTP 鉴权中间件（`RequireAuth`）已落地，受保护路由组与公开路由组已分离；写操作插件 API、任务执行接口与其余管理路由仍未实现 |
+| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、最小任务状态骨架已存在；`POST /api/setup/admin`、`POST /api/session/login` 已实现；`/ws/events` auth-gated aggregate-only WebSocket 已实现；统一 HTTP 鉴权中间件（`RequireAuth`）已落地，受保护路由组与公开路由组已分离；插件写操作 API（install / enable / disable）已实现；任务执行接口与其余管理路由仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -212,7 +212,7 @@
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | system routes | ❌ | `/api/system/shutdown`、`/api/system/info` 尚未实现 |
-| 写操作插件 API | ❌ | enable / disable / install 仍未实现 |
+| 写操作插件 API | ✅ | `POST /api/plugins/install`（异步安装，返回 202 + task_id）、`POST /api/plugins/{plugin_id}/enable`（同步启用）、`POST /api/plugins/{plugin_id}/disable`（同步禁用）已实现；`tasks.Registry.Create` 与 `plugins.Catalog.SetDesiredState` 已落地（含并发安全）；8 个正确性属性测试 + 12 个单元测试已通过 |
 | `/api/tasks` 执行型接口 | ❌ | 任务执行、取消与进度接口尚未落地 |
 | `/api/config` 配置管理接口 | ❌ | 获取/更新配置尚未实现 |
 | `/api/logs` 日志查询接口 | ❌ | 日志查询尚未实现 |
@@ -304,6 +304,8 @@
 - `internal/auth/`: manager_test、persistence_test — 覆盖 token 签发/校验/过期、sliding renewal、session 上限、Bootstrap 幂等；persistence_test 覆盖跨重启 bootstrap state 存活、跨重启 token 校验、跨重启过期 session 清理、跨重启 sliding renewal 续期
 - `internal/bridge/`: bridge_test — 覆盖事件投递、单一 `message.send` 映射、outcome 统计、observability 订阅
 - `internal/runtime/`: manager_test、spec_test — 覆盖子进程生命周期、`event -> action(message.send) | result | error`、spec 校验
+- `internal/plugins/`: catalog_test、http_test — 覆盖 `SetDesiredState` 状态更新（启用/禁用/冲突/未找到）、并发安全、install handler（round-trip / 无效请求拒绝）、enable/disable handler（成功/404/409）、错误响应 schema 一致性；4 个属性测试 + 4 个单元测试（catalog）、4 个属性测试 + 8 个单元测试（http）
+- `internal/tasks/`: tasks_test — 覆盖 `Registry.Create` task_id 唯一性属性测试、task_id 格式校验、创建后 Get/List 可查
 - `internal/storage/`: store_test — 覆盖 SQLite 打开、WAL pragma、read/write handle 分离、migration 幂等性、重复 migration ID 拒绝、表结构验证（`schema_migrations` / `auth_bootstrap_state` / `admin_sessions`）
 
 ### 总体状况
@@ -320,6 +322,6 @@
 1. ~~**SQLite 存储层 & Migration**（Phase 6）~~：✅ 已落地。SQLite 打开 / WAL 模式 / read-write handle split / migration runner / `0001_auth_core.sql` 已完成。
 2. ~~**Auth persistence**（Phase 6）~~：✅ 已落地。Bootstrap state、admin sessions、signing key 已持久化到 SQLite，跨重启存活已验证。
 3. ~~**HTTP 鉴权中间件**（Phase 7）~~：✅ 已落地。统一 `RequireAuth` chi 中间件、公开/受保护路由组分离、`/ws/events` 向后兼容迁移、契约 `BearerAuth` 安全方案与鉴权失败 fixtures 已完成。
-4. **插件写操作 API**（Phase 7）：落地 install / enable / disable，连通任务系统与插件生命周期。
+4. ~~**插件写操作 API**（Phase 7）~~：✅ 已落地。`POST /api/plugins/install`（异步安装，202 + task_id）、`POST /api/plugins/{plugin_id}/enable`（同步启用）、`POST /api/plugins/{plugin_id}/disable`（同步禁用）已实现；`tasks.Registry.Create`（含 Mutex）与 `plugins.Catalog.SetDesiredState`（含 RWMutex）已落地；`RegisterRoutes` 已扩展并在 `app.go` 中接线；8 个正确性属性测试 + 12 个单元测试已通过。
 5. **其余 WebSocket 通道**（Phase 7）：`/ws/logs`、`/ws/tasks`、`/ws/plugins/{id}/console` — 在 `/ws/events` 模式基础上扩展。
 6. **更广 outbound action family**（Phase 4 / Phase 5）：在已完成的单一 `message.send` slice 之上，再逐步扩到 `message.reply`、更丰富发送语义与更完整 adapter/runtime action path。
