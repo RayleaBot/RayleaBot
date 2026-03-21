@@ -44,6 +44,7 @@ jobs:
               'config.user.schema.json',
               'error-codes.yaml',
               'release-manifest.schema.json',
+              'cli-commands.yaml',
           }
 
           existing = {p.name for p in contracts.iterdir() if p.is_file()}
@@ -148,7 +149,7 @@ jobs:
               raise SystemExit('plugin-info.schema.json storage_roots must only allow plugin_data')
 
           proto_defs = plugin_protocol.get('$defs', {})
-          expected_proto_defs = {'common', 'init', 'init_progress', 'init_ack', 'event', 'action', 'result', 'error', 'ping', 'pong', 'shutdown'}
+          expected_proto_defs = {'common', 'init', 'init_progress', 'init_ack', 'event', 'action', 'action_message_send', 'action_message_reply', 'action_message_send_image', 'result', 'error', 'ping', 'pong', 'shutdown'}
           if set(proto_defs.keys()) != expected_proto_defs:
               raise SystemExit(f'plugin-protocol.schema.json $defs must exactly match {sorted(expected_proto_defs)}; got {sorted(proto_defs.keys())}')
           message_catalog = plugin_protocol.get('x-message-catalog', [])
@@ -158,14 +159,25 @@ jobs:
           expected_catalog_types = {'init', 'init_progress', 'init_ack', 'event', 'action', 'result', 'error', 'ping', 'pong', 'shutdown'}
           if catalog_types != expected_catalog_types:
               raise SystemExit(f'plugin-protocol.schema.json x-message-catalog must exactly match {sorted(expected_catalog_types)}; got {sorted(catalog_types)}')
-          action_def = plugin_protocol['$defs']['action']['allOf'][1]
-          if action_def['properties']['action'].get('const') != 'message.send':
-              raise SystemExit('plugin-protocol.schema.json must freeze exactly one outbound action: message.send')
-          action_data = action_def['properties']['data']
-          if action_data.get('required') != ['target_type', 'target_id', 'text']:
-              raise SystemExit('plugin-protocol.schema.json action.data must require target_type, target_id, and text')
-          if set(action_data['properties']['target_type'].get('enum', [])) != {'group', 'private'}:
-              raise SystemExit('plugin-protocol.schema.json action.data.target_type must only allow group and private')
+          action_oneOf = plugin_protocol['$defs']['action'].get('oneOf', [])
+          action_refs = {item.get('$ref', '').split('/')[-1] for item in action_oneOf}
+          expected_action_refs = {'action_message_send', 'action_message_reply', 'action_message_send_image'}
+          if action_refs != expected_action_refs:
+              raise SystemExit(f'plugin-protocol.schema.json action oneOf must reference {sorted(expected_action_refs)}; got {sorted(action_refs)}')
+          send_def = plugin_protocol['$defs']['action_message_send']['allOf'][1]
+          if send_def['properties']['action'].get('const') != 'message.send':
+              raise SystemExit('plugin-protocol.schema.json action_message_send must freeze action const to message.send')
+          send_data = send_def['properties']['data']
+          if send_data.get('required') != ['target_type', 'target_id', 'text']:
+              raise SystemExit('plugin-protocol.schema.json action_message_send.data must require target_type, target_id, and text')
+          if set(send_data['properties']['target_type'].get('enum', [])) != {'group', 'private'}:
+              raise SystemExit('plugin-protocol.schema.json action_message_send.data.target_type must only allow group and private')
+          send_image_def = plugin_protocol['$defs']['action_message_send_image']['allOf'][1]
+          if send_image_def['properties']['action'].get('const') != 'message.send_image':
+              raise SystemExit('plugin-protocol.schema.json action_message_send_image must freeze action const to message.send_image')
+          send_image_data = send_image_def['properties']['data']
+          if send_image_data.get('required') != ['target_type', 'target_id', 'file']:
+              raise SystemExit('plugin-protocol.schema.json action_message_send_image.data must require target_type, target_id, and file')
           if plugin_protocol['$defs']['shutdown']['allOf'][1]['properties']['reason']['enum'] != ['stop', 'restart', 'reload']:
               raise SystemExit('plugin-protocol.schema.json shutdown.reason must be stop/restart/reload')
 
@@ -340,6 +352,23 @@ jobs:
                   raise SystemExit(f'missing referenced fixture: {ref}')
               if ref_path.is_file() and ref_path.suffix in {'.json', '.yaml', '.yml'}:
                   load_any(ref_path)
+
+          cli_commands = load_yaml(contracts / 'cli-commands.yaml')
+          expected_cli_commands = {'reset-admin', 'backup', 'restore', 'doctor', 'migrate', 'cleanup'}
+          actual_cli_commands = set(cli_commands.get('commands', {}).keys())
+          if actual_cli_commands != expected_cli_commands:
+              raise SystemExit(f'cli-commands.yaml commands must exactly match {sorted(expected_cli_commands)}; got {sorted(actual_cli_commands)}')
+          for cmd_name, cmd in cli_commands.get('commands', {}).items():
+              avail = cmd.get('availability', {})
+              if 'online' not in avail or 'offline' not in avail:
+                  raise SystemExit(f'cli-commands.yaml command {cmd_name} must declare online and offline availability')
+          task_model_commands = {name for name, cmd in cli_commands['commands'].items() if cmd.get('task_model')}
+          for cmd_name in task_model_commands:
+              cmd = cli_commands['commands'][cmd_name]
+              task_type = cmd.get('task_type', '')
+              task_types_enum = web_api['components']['schemas']['TaskType'].get('enum', [])
+              if task_type not in task_types_enum:
+                  raise SystemExit(f'cli-commands.yaml command {cmd_name} task_type {task_type} not found in web-api TaskType enum')
 
           print('contracts validation passed')
           PY
