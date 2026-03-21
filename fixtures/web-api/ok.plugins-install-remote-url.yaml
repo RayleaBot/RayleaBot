@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin install from a remote HTTPS URL uses the asynchronous task model.
+request:
+  method: POST
+  path: /api/plugins/install
+  body:
+    source_type: remote_url
+    source: https://example.com/plugins/weather-1.0.0.zip
+response:
+  status: 202
+  body:
+    task_id: task_plugin_install_0002
+expect:
+  valid: true
+  notes:
+    - The server downloads the ZIP archive before proceeding with the same install pipeline.
+    - Only HTTPS URLs are accepted.

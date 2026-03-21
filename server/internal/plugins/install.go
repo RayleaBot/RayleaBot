@@ -3,10 +3,13 @@ package plugins
 import (
 	"archive/zip"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +50,7 @@ type installerDeps struct {
 	hashDir       func(string) (string, error)
 	preparePython func(context.Context, string, []string) error
 	prepareNode   func(context.Context, string, []string, bool) error
+	downloadFile  func(context.Context, string, string) error
 }
 
 type InstallService struct {
@@ -163,6 +167,9 @@ func newInstallService(
 	}
 	if deps.prepareNode == nil {
 		deps.prepareNode = prepareNodeEnvironment
+	}
+	if deps.downloadFile == nil {
+		deps.downloadFile = downloadHTTPSFile
 	}
 
 	var packageRepo PackageRepository
@@ -552,6 +559,31 @@ func (s *InstallService) prepareSource(ctx context.Context, request InstallReque
 			return "", "", func() {}, err
 		}
 		return tempRoot, candidate, cleanup, nil
+	case "remote_url":
+		parsed, err := url.Parse(request.Source)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			cleanup()
+			return "", "", func() {}, installError(codeInvalidRequest, "远程来源必须是 HTTPS URL", "远程来源必须是 HTTPS URL")
+		}
+
+		downloadPath := filepath.Join(tempRoot, "download.zip")
+		if err := s.deps.downloadFile(ctx, request.Source, downloadPath); err != nil {
+			cleanup()
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return "", "", func() {}, err
+			}
+			return "", "", func() {}, installError(codePluginInstallFailed, "下载远程插件压缩包失败", "下载远程插件压缩包失败")
+		}
+
+		candidate, err := s.deps.extractZip(ctx, downloadPath, tempRoot)
+		if err != nil {
+			cleanup()
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return "", "", func() {}, err
+			}
+			return "", "", func() {}, err
+		}
+		return tempRoot, candidate, cleanup, nil
 	default:
 		cleanup()
 		return "", "", func() {}, installError(codeInvalidRequest, "插件来源类型不受支持", "插件来源类型不受支持")
@@ -806,4 +838,52 @@ func taskStatusPtr(status tasks.Status) *tasks.Status {
 
 func timePtr(value time.Time) *time.Time {
 	return &value
+}
+
+const maxRemoteDownloadBytes = 256 * 1024 * 1024 // 256 MB
+
+func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return fmt.Errorf("invalid HTTPS URL: %s", rawURL)
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Minute,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+		},
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("remote server returned HTTP %d", resp.StatusCode)
+	}
+
+	outFile, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	limitedReader := io.LimitReader(resp.Body, maxRemoteDownloadBytes+1)
+	written, err := io.Copy(outFile, limitedReader)
+	if err != nil {
+		return err
+	}
+	if written > maxRemoteDownloadBytes {
+		return fmt.Errorf("remote file exceeds maximum size of %d bytes", maxRemoteDownloadBytes)
+	}
+
+	return nil
 }

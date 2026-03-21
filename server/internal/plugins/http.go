@@ -72,7 +72,7 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer
 			return
 		}
 
-		if (req.SourceType != "local_zip" && req.SourceType != "local_directory") || req.Source == "" {
+		if (req.SourceType != "local_zip" && req.SourceType != "local_directory" && req.SourceType != "remote_url") || req.Source == "" {
 			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -205,7 +205,104 @@ func newUninstallHandler(catalog *Catalog, coordinator UninstallCoordinator) htt
 	}
 }
 
-func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator) {
+type grantRequest struct {
+	Capability string `json:"capability"`
+}
+
+type grantResponse struct {
+	PluginID   string `json:"plugin_id"`
+	Capability string `json:"capability"`
+	GrantedAt  string `json:"granted_at"`
+}
+
+type grantsListResponse struct {
+	Items []grantResponse `json:"items"`
+}
+
+func newListGrantsHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		if _, ok := catalog.Get(pluginID); !ok {
+			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			return
+		}
+		if repo == nil {
+			writeJSON(w, http.StatusOK, grantsListResponse{Items: []grantResponse{}})
+			return
+		}
+		grants, err := repo.LoadGrants(r.Context(), pluginID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		items := make([]grantResponse, 0, len(grants))
+		for _, g := range grants {
+			items = append(items, grantResponse{
+				PluginID:   g.PluginID,
+				Capability: g.Capability,
+				GrantedAt:  g.GrantedAt.UTC().Format(time.RFC3339),
+			})
+		}
+		writeJSON(w, http.StatusOK, grantsListResponse{Items: items})
+	}
+}
+
+func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		if _, ok := catalog.Get(pluginID); !ok {
+			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			return
+		}
+		if repo == nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		var req grantRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&req); err != nil || req.Capability == "" {
+			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		grant := PluginGrant{
+			PluginID:   pluginID,
+			Capability: req.Capability,
+			GrantedAt:  time.Now().UTC(),
+		}
+		if err := repo.SaveGrant(r.Context(), grant); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, grantResponse{
+			PluginID:   grant.PluginID,
+			Capability: grant.Capability,
+			GrantedAt:  grant.GrantedAt.Format(time.RFC3339),
+		})
+	}
+}
+
+func newRevokeGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		capability := chi.URLParam(r, "capability")
+		if _, ok := catalog.Get(pluginID); !ok {
+			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			return
+		}
+		if repo == nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		if err := repo.DeleteGrant(r.Context(), pluginID, capability); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo GrantRepository) {
 	if catalog == nil {
 		catalog = NewCatalog(nil)
 	}
@@ -217,6 +314,9 @@ func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Reg
 	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller))
 	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller))
 	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
+	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, grantRepo))
+	router.Post("/api/plugins/{plugin_id}/grants", newGrantHandler(catalog, grantRepo))
+	router.Delete("/api/plugins/{plugin_id}/grants/{capability}", newRevokeGrantHandler(catalog, grantRepo))
 }
 
 func validateDesiredStateChange(catalog *Catalog, pluginID string, desired string) error {
