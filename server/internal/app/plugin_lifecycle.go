@@ -45,6 +45,15 @@ func (c *pluginLifecycleController) Enable(ctx context.Context, pluginID string)
 		}
 	}
 
+	if c.app.grantRepository != nil {
+		if changed := scopeChangedSinceGrant(ctx, c.app.grantRepository, snapshot); changed {
+			return plugins.Snapshot{}, &plugins.PermissionPendingError{
+				PluginID:     pluginID,
+				ScopeChanged: true,
+			}
+		}
+	}
+
 	if err := c.app.persistPluginDesiredState(ctx, pluginID, "enabled"); err != nil {
 		return plugins.Snapshot{}, err
 	}
@@ -480,4 +489,21 @@ func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {
 		seconds = 300
 	}
 	return time.Duration(seconds+5) * time.Second
+}
+
+// scopeChangedSinceGrant compares the current manifest scope boundaries with
+// the scope_json persisted alongside each existing grant. If any grant's stored
+// scope differs from the current manifest scope, the plugin needs re-granting.
+func scopeChangedSinceGrant(ctx context.Context, repo plugins.GrantRepository, snapshot plugins.Snapshot) bool {
+	grants, err := repo.LoadGrants(ctx, snapshot.PluginID)
+	if err != nil || len(grants) == 0 {
+		return false
+	}
+	currentScope := plugins.BuildScopeJSON(snapshot)
+	for _, g := range grants {
+		if g.ScopeJSON != currentScope {
+			return true
+		}
+	}
+	return false
 }

@@ -536,3 +536,191 @@ func TestInstallHandler_MalformedJSON_400(t *testing.T) {
 		t.Fatalf("error.code = %q, want %q", env.Error.Code, codeInvalidRequest)
 	}
 }
+
+// --- Grants scope validation tests ---
+
+type stubGrantRepository struct {
+	grants map[string][]PluginGrant
+}
+
+func (r *stubGrantRepository) LoadGrants(_ context.Context, pluginID string) ([]PluginGrant, error) {
+	return r.grants[pluginID], nil
+}
+
+func (r *stubGrantRepository) LoadAllGrants(_ context.Context) (map[string][]string, error) {
+	result := make(map[string][]string)
+	for pid, gs := range r.grants {
+		for _, g := range gs {
+			result[pid] = append(result[pid], g.Capability)
+		}
+	}
+	return result, nil
+}
+
+func (r *stubGrantRepository) SaveGrant(_ context.Context, grant PluginGrant) error {
+	if r.grants == nil {
+		r.grants = make(map[string][]PluginGrant)
+	}
+	r.grants[grant.PluginID] = append(r.grants[grant.PluginID], grant)
+	return nil
+}
+
+func (r *stubGrantRepository) DeleteGrant(_ context.Context, pluginID, capability string) error {
+	gs := r.grants[pluginID]
+	for i, g := range gs {
+		if g.Capability == capability {
+			r.grants[pluginID] = append(gs[:i], gs[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
+func (r *stubGrantRepository) DeleteAllGrants(_ context.Context, pluginID string) error {
+	delete(r.grants, pluginID)
+	return nil
+}
+
+func grantsRouter(entries []Snapshot, grantRepo GrantRepository) chi.Router {
+	catalog := NewCatalog(entries)
+	router := chi.NewRouter()
+	RegisterRoutes(router, catalog, nil, nil, nil, nil, nil, grantRepo)
+	return router
+}
+
+func TestGrantHandler_ValidCapability(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:             "weather",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DesiredState:         "disabled",
+		RuntimeState:         "stopped",
+		DeclaredCapabilities: []string{"event.subscribe", "http.request"},
+		RequiredPermissions:  []string{"http.request"},
+		OptionalPermissions:  []string{"event.subscribe"},
+	}}, repo)
+
+	body, _ := json.Marshal(grantRequest{Capability: "http.request"})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp grantResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Capability != "http.request" {
+		t.Fatalf("capability = %q, want http.request", resp.Capability)
+	}
+}
+
+func TestGrantHandler_RejectsInvalidCapabilityFormat(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:             "weather",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DesiredState:         "disabled",
+		RuntimeState:         "stopped",
+		DeclaredCapabilities: []string{"event.subscribe"},
+	}}, repo)
+
+	for _, badCap := range []string{"INVALID", "no-dot", "has.Upper", "has.num3rs", "123.abc"} {
+		body, _ := json.Marshal(grantRequest{Capability: badCap})
+		req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("capability %q: status = %d, want 400", badCap, rec.Code)
+		}
+	}
+}
+
+func TestGrantHandler_RejectsUndeclaredCapability(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:             "weather",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DesiredState:         "disabled",
+		RuntimeState:         "stopped",
+		DeclaredCapabilities: []string{"event.subscribe"},
+		RequiredPermissions:  []string{"event.subscribe"},
+	}}, repo)
+
+	// http.request is valid format but not declared in this plugin's manifest.
+	body, _ := json.Marshal(grantRequest{Capability: "http.request"})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
+	}
+
+	env := decodeErrorEnvelope(t, rec.Body.Bytes())
+	if env.Error.Code != codeInvalidRequest {
+		t.Fatalf("error.code = %q, want %q", env.Error.Code, codeInvalidRequest)
+	}
+}
+
+func TestGrantHandler_AcceptsOptionalPermission(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:            "weather",
+		Valid:               true,
+		RegistrationState:   "installed",
+		DesiredState:        "disabled",
+		RuntimeState:        "stopped",
+		OptionalPermissions: []string{"logger.write"},
+	}}, repo)
+
+	body, _ := json.Marshal(grantRequest{Capability: "logger.write"})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGrantHandler_PluginNotFound(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter(nil, repo)
+
+	body, _ := json.Marshal(grantRequest{Capability: "http.request"})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/nonexistent/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}

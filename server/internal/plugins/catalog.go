@@ -14,6 +14,7 @@ var (
 type PermissionPendingError struct {
 	PluginID            string
 	MissingCapabilities []string
+	ScopeChanged        bool
 }
 
 func (e *PermissionPendingError) Error() string {
@@ -39,9 +40,13 @@ type Snapshot struct {
 	DisplayState          string
 	ConflictPaths         []string
 	RequiredPermissions   []string
+	OptionalPermissions   []string
+	DeclaredCapabilities  []string
 	PythonDependencies    []string
 	NodeDependencies      []string
 	RequireInstallScripts bool
+	ScopeHTTPHosts        []string
+	ScopeStorageRoots     []string
 }
 
 type Catalog struct {
@@ -189,8 +194,12 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
 	cloned.RequiredPermissions = append([]string(nil), snapshot.RequiredPermissions...)
+	cloned.OptionalPermissions = append([]string(nil), snapshot.OptionalPermissions...)
+	cloned.DeclaredCapabilities = append([]string(nil), snapshot.DeclaredCapabilities...)
 	cloned.PythonDependencies = append([]string(nil), snapshot.PythonDependencies...)
 	cloned.NodeDependencies = append([]string(nil), snapshot.NodeDependencies...)
+	cloned.ScopeHTTPHosts = append([]string(nil), snapshot.ScopeHTTPHosts...)
+	cloned.ScopeStorageRoots = append([]string(nil), snapshot.ScopeStorageRoots...)
 	return cloned
 }
 

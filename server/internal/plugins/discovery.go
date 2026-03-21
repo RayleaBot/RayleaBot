@@ -237,9 +237,13 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		RuntimeState:      stateStopped,
 	}
 	snapshot.RequiredPermissions = manifestPermissionList(manifest, "required")
+	snapshot.OptionalPermissions = manifestPermissionList(manifest, "optional")
+	snapshot.DeclaredCapabilities = stringListField(manifest, "capabilities")
 	snapshot.PythonDependencies = manifestDependencyList(manifest, "python")
 	snapshot.NodeDependencies = manifestDependencyList(manifest, "nodejs")
 	snapshot.RequireInstallScripts = manifestBoolField(manifest, "require_install_scripts")
+	snapshot.ScopeHTTPHosts = manifestScopeList(manifest, "http_hosts")
+	snapshot.ScopeStorageRoots = manifestScopeList(manifest, "storage_roots")
 
 	if err := validator.Validate(document); err != nil {
 		snapshot.Valid = false
@@ -378,6 +382,18 @@ func manifestDependencyList(document map[string]any, key string) []string {
 		return nil
 	}
 	return stringListField(dependencies, key)
+}
+
+func manifestScopeList(document map[string]any, key string) []string {
+	permissions, ok := document["permissions"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	scopes, ok := permissions["scopes"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return stringListField(scopes, key)
 }
 
 func stringListField(document map[string]any, key string) []string {

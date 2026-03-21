@@ -34,6 +34,7 @@ type PackageRepository interface {
 type PluginGrant struct {
 	PluginID   string
 	Capability string
+	ScopeJSON  string // JSON-encoded scope boundaries (http_hosts, storage_roots, etc.)
 	GrantedAt  time.Time
 }
 
@@ -151,7 +152,7 @@ func (r *SQLiteRepository) DeletePackageMetadata(ctx context.Context, pluginID s
 }
 
 func (r *SQLiteRepository) LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error) {
-	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability, granted_at FROM plugin_grants WHERE plugin_id = ? ORDER BY capability`, pluginID)
+	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability, scope_json, granted_at FROM plugin_grants WHERE plugin_id = ? ORDER BY capability`, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("query grants for %s: %w", pluginID, err)
 	}
@@ -161,7 +162,7 @@ func (r *SQLiteRepository) LoadGrants(ctx context.Context, pluginID string) ([]P
 	for rows.Next() {
 		var g PluginGrant
 		var grantedAt string
-		if err := rows.Scan(&g.PluginID, &g.Capability, &grantedAt); err != nil {
+		if err := rows.Scan(&g.PluginID, &g.Capability, &g.ScopeJSON, &grantedAt); err != nil {
 			return nil, fmt.Errorf("scan grant row: %w", err)
 		}
 		g.GrantedAt, _ = time.Parse(time.RFC3339Nano, grantedAt)
@@ -191,12 +192,14 @@ func (r *SQLiteRepository) LoadAllGrants(ctx context.Context) (map[string][]stri
 func (r *SQLiteRepository) SaveGrant(ctx context.Context, grant PluginGrant) error {
 	if _, err := r.write.ExecContext(
 		ctx,
-		`INSERT INTO plugin_grants (plugin_id, capability, granted_at)
-		VALUES (?, ?, ?)
+		`INSERT INTO plugin_grants (plugin_id, capability, scope_json, granted_at)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT(plugin_id, capability) DO UPDATE SET
+			scope_json = excluded.scope_json,
 			granted_at = excluded.granted_at`,
 		grant.PluginID,
 		grant.Capability,
+		grant.ScopeJSON,
 		grant.GrantedAt.UTC().Format(time.RFC3339Nano),
 	); err != nil {
 		return fmt.Errorf("upsert grant for %s/%s: %w", grant.PluginID, grant.Capability, err)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -219,6 +220,9 @@ type grantsListResponse struct {
 	Items []grantResponse `json:"items"`
 }
 
+// capabilityNamePattern matches the capability_name format from contracts/plugin-info.schema.json.
+var capabilityNamePattern = regexp.MustCompile(`^[a-z]+\.[a-z_]+$`)
+
 func newListGrantsHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
@@ -250,7 +254,8 @@ func newListGrantsHandler(catalog *Catalog, repo GrantRepository) http.HandlerFu
 func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
-		if _, ok := catalog.Get(pluginID); !ok {
+		snapshot, ok := catalog.Get(pluginID)
+		if !ok {
 			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 			return
 		}
@@ -265,9 +270,18 @@ func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
+		if !capabilityNamePattern.MatchString(req.Capability) {
+			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "capability 名称格式不合法", "errors.platform.invalid_request", map[string]any{"capability": req.Capability})
+			return
+		}
+		if !isCapabilityDeclared(snapshot, req.Capability) {
+			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "capability 未在插件 manifest 中声明", "errors.platform.invalid_request", map[string]any{"capability": req.Capability, "plugin_id": pluginID})
+			return
+		}
 		grant := PluginGrant{
 			PluginID:   pluginID,
 			Capability: req.Capability,
+			ScopeJSON:  BuildScopeJSON(snapshot),
 			GrantedAt:  time.Now().UTC(),
 		}
 		if err := repo.SaveGrant(r.Context(), grant); err != nil {
@@ -349,6 +363,9 @@ func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID str
 		}
 		if len(permissionPending.MissingCapabilities) > 0 {
 			details["missing_capabilities"] = append([]string(nil), permissionPending.MissingCapabilities...)
+		}
+		if permissionPending.ScopeChanged {
+			details["scope_changed"] = true
 		}
 		writeError(w, r, 409, "plugin.permission_pending", "插件所需能力尚未获批", "errors.plugin.permission_pending", details)
 		return
@@ -435,4 +452,45 @@ func writeError(w http.ResponseWriter, r *http.Request, statusCode int, code, me
 
 func writeJSON(w http.ResponseWriter, statusCode int, body any) {
 	httpapi.WriteJSON(w, statusCode, body)
+}
+
+// isCapabilityDeclared checks whether a capability is declared in the plugin's
+// manifest via capabilities, permissions.required, or permissions.optional.
+func isCapabilityDeclared(snapshot Snapshot, capability string) bool {
+	for _, c := range snapshot.DeclaredCapabilities {
+		if c == capability {
+			return true
+		}
+	}
+	for _, c := range snapshot.RequiredPermissions {
+		if c == capability {
+			return true
+		}
+	}
+	for _, c := range snapshot.OptionalPermissions {
+		if c == capability {
+			return true
+		}
+	}
+	return false
+}
+
+// BuildScopeJSON constructs a JSON string from the plugin manifest's scope
+// boundaries (http_hosts, storage_roots) for persistence alongside the grant.
+func BuildScopeJSON(snapshot Snapshot) string {
+	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 {
+		return ""
+	}
+	scope := map[string]any{}
+	if len(snapshot.ScopeHTTPHosts) > 0 {
+		scope["http_hosts"] = snapshot.ScopeHTTPHosts
+	}
+	if len(snapshot.ScopeStorageRoots) > 0 {
+		scope["storage_roots"] = snapshot.ScopeStorageRoots
+	}
+	data, err := json.Marshal(scope)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
