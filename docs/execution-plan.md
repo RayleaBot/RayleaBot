@@ -13,13 +13,13 @@
 | 阶段 | 名称 | 状态 | 当前落地摘要 |
 |------|------|------|--------------|
 | Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | 基线、治理、局部规则、repo-local skills 与 CI skeleton 已落库；`.deps/manifest.json` 的来源与哈希类字段仍待后续补全 |
-| Phase 1 | 契约文件补全 | ✅ | 当前 formal contract 范围内的 7 份正式契约均已 fixture-ready |
+| Phase 1 | 契约文件补全 | ✅ | 7 份正式契约均已 fixture-ready |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest 的 golden fixtures 已落库 |
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
-| Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化、`message.send -> send_msg`、`message.reply -> send_msg(CQ:reply)` 与 `message.send_image -> send_msg(CQ:image)` 出站 action slice 已落地；更广 action family 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)`、`ping/pong`、`event -> action(message.send \| message.reply \| message.send_image) \| result \| error` bridge 与 supervisor crash-backoff / dead_letter 已落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）、auth persistence（bootstrap state + admin sessions 跨重启存活）、plugin desired_state persistence（`plugin_instances` migration + SQLite repository + startup hydration）、`plugin_packages` 元数据持久化（`PackageRepository` + SQLite upsert）与 CLI 运维工具链正式契约骨架（`contracts/cli-commands.yaml`）已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与 CLI 子命令实现仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/config`、`PUT /api/config`、`GET /api/system/status`、`POST /api/system/shutdown`、`GET /api/logs`、`/api/tasks` list/detail/cancel、统一 `RequireAuth`、共享 HTTP error/write 路径与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到含依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据写入、install scripts 授权的异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state` 并接入 runtime 实际启停与 capability gating；`POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 已 formalize 并实现；启动时自动清理中断安装遗留临时目录已落地；通用 task executor 与更完整插件管理面仍未实现 |
+| Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket adapter、状态机、intake、最小事件归一化、三种出站 action（`message.send` / `message.reply` / `message.send_image`）已落地；更广 action family 与事件归一化仍未实现 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | runtime manager、init/shutdown/ping-pong、三种 action bridge、supervisor crash-backoff/dead_letter、用户主动 reload 已落地；多插件调度、SDK 便利层与完整权限授予状态机仍未实现 |
+| Phase 6 | Config / Storage / Security | 🟡 | 配置解析与校验、auth（session + bootstrap + persistence）、SQLite（WAL + migration）、plugin desired_state/packages 持久化、CLI 契约骨架已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与 CLI 子命令实现仍未落地 |
+| Phase 7 | Web API & Tasks | 🟡 | 全部管理路由（setup/session/config/system/logs/tasks）、4 条管理 WebSocket、plugin install/enable/disable/reload/uninstall、统一鉴权与中断安装清理已落地；通用 task executor、远程安装源、配置热更新与日志持久化查询仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -77,7 +77,7 @@
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
 | `fixtures/config` | ✅ | `ok` / `invalid` / `edge` 配置样例已落库 |
-| `fixtures/web-api` | ✅ | health、ready、plugin、setup-admin、session-login、auth、config、logs、tasks 与 plugin install progression 相关样例已落库 |
+| `fixtures/web-api` | ✅ | health、ready、plugin、setup-admin、session-login、auth、config、logs、tasks、plugin install/enable/disable/reload/uninstall 相关样例已落库 |
 | `fixtures/websocket` | ✅ | management WebSocket 消息样例已落库，包含 tasks/logs/console/events 的正向与边界样例 |
 | `fixtures/plugin-info` | ✅ | plugin manifest 的正反与边界样例已落库 |
 | `fixtures/plugin-protocol` | ✅ | plugin protocol 的 init / progress / ack 等样例已落库 |
@@ -155,6 +155,7 @@
 | `ping` / `pong` contract formalize | ✅ | `ping`/`pong` 已进入 `contracts/plugin-protocol.schema.json`、x-message-catalog 与 `fixtures/plugin-protocol/ok.ping-pong.yaml` |
 | `ping` / `pong` runtime 实现 | ✅ | runtime manager 中的 `Ping()` / `awaitPong()` / `parsePongResponse()` 已实现，含超时停止与协议违规检测 |
 | supervisor / crash-backoff / dead_letter | ✅ | runtime manager 支持 `crashed` / `backoff` / `dead_letter` 状态流转；lifecycle controller 驱动指数退避重启与最大重试次数后进入 `dead_letter`；配置消费 `crash_backoff_initial_seconds` / `crash_backoff_max_seconds` |
+| 用户主动 reload | ✅ | `POST /api/plugins/{plugin_id}/reload` 停止当前 runtime 后重新启动，desired_state 保持 enabled 不变 |
 
 ### 仍未完成
 
@@ -162,9 +163,8 @@
 |--------|------|------|
 | 更广 adapter 出站 action 执行 | ❌ | 当前实现范围为 `message.send`、`message.reply` 与 `message.send_image`；其余动作族与更丰富发送语义仍未落地 |
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
-| supervisor / crash-backoff / dead_letter | ✅ | runtime manager 已支持 `crashed` / `backoff` / `dead_letter` 状态流转，lifecycle controller 驱动指数退避重启与最大重试次数后进入 `dead_letter`；配置消费 `crash_backoff_initial_seconds` / `crash_backoff_max_seconds` |
 | 完整权限授予状态机 | ❌ | 授权、重确认、撤销等流程尚未实现 |
-| 热重载 / restart loop | 🟡 | `POST /api/plugins/{plugin_id}/reload` 已落地，支持用户主动触发 runtime 重启（stop + start）；crash-backoff 自动重启循环已落地；更精细的热重载（不停机代码更新）仍未实现 |
+| 不停机热重载 | ❌ | 当前 reload 通过 stop + start 实现；更精细的不停机代码更新仍未实现 |
 | 官方 SDK 便利层 | ❌ | 当前仅有 `docs/plugin/sdk/` 文档骨架，官方 Python / Node.js SDK 尚未进入实现 |
 | 官方内置插件与更正式示例插件体系 | ❌ | 当前仍只有最小 `hello-python` / `hello-node` examples，未建立官方内置插件与 richer examples 体系 |
 | Command Parser / routing | ❌ | 当前尚未建立基于更丰富事件模型与 runtime bridge 的命令路由层 |
@@ -192,10 +192,10 @@
 | Auth persistence — Session 持久化 | ✅ | session 的创建、sliding renewal 续期、过期清理均已持久化到 SQLite；`hydrate()` 在 `NewManager` 时从 SQLite 恢复 bootstrap state、signing key 与未过期 sessions |
 | Auth persistence — 跨重启验证 | ✅ | `persistence_test.go` 覆盖：跨重启 bootstrap state 存活、跨重启 token 校验、跨重启过期 session 清理、跨重启 sliding renewal 续期存活 |
 | 插件状态迁移 `0002_plugin_instances.sql` | ✅ | `plugin_instances` 表已落地，当前只持久化 `plugin_id`、`desired_state` 与 `updated_at` |
-| Plugin desired_state persistence — Repository 接口 | ✅ | `internal/plugins/repository.go` 已提供 `LoadDesiredStates` / `SaveDesiredState` 的最小 SQLite 实现 |
+| Plugin desired_state persistence — Repository 接口 | ✅ | `internal/plugins/repository.go` 已提供 `LoadDesiredStates` / `SaveDesiredState` / `DeleteDesiredState` 的 SQLite 实现 |
 | Plugin desired_state persistence — Startup hydration | ✅ | `internal/app/app.go` 启动后会读取 `plugin_instances`，并在 discovery 结果上恢复已安装插件的 `desired_state` |
 | Plugin desired_state persistence — 跨重启验证 | ✅ | `plugin_persistence_test.go` 覆盖 enable/disable 后重启仍保留 `desired_state`，`runtime_state` 保持进程内语义 |
-| Plugin `plugin_packages` 元数据持久化 | ✅ | `internal/plugins/repository.go` 提供 `PackageRepository` 接口与 `SavePackageMetadata` 的 SQLite upsert 实现；install 执行链在写入正式目录后持久化 `source_type`、`source_ref`、`version`、`manifest_hash`、`package_hash`、`installed_at` |
+| Plugin `plugin_packages` 元数据持久化 | ✅ | `internal/plugins/repository.go` 提供 `PackageRepository` 接口与 `SavePackageMetadata` / `DeletePackageMetadata` 的 SQLite upsert/delete 实现；install 执行链在写入正式目录后持久化 `source_type`、`source_ref`、`version`、`manifest_hash`、`package_hash`、`installed_at`；uninstall 执行链在卸载时清理对应记录 |
 | App 集成 — Storage + Auth Repository | ✅ | `internal/app/app.go` 在启动时解析 `database.path`（支持相对路径基于 config 目录解析）、打开 `storage.Store`、构建 `auth.SQLiteRepository` 并注入 `auth.Manager`；关闭时按序释放 storage handle |
 | Database config consumption | ✅ | `config.Config` 已包含 `DatabaseConfig{Engine, Path}`，`config.Summary` 已包含 `DatabaseEngine` 与 `DatabasePath`，启动日志已输出数据库引擎与路径 |
 
@@ -235,19 +235,19 @@
 | Management status / session / system handlers | ✅ | `GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 已按现有 contract 落地；当前 `launcher-token` 为进程内、单次使用、短 TTL 的最小 issuance shell |
 | Config / logs management handlers | ✅ | `GET /api/config`、`PUT /api/config`、`GET /api/logs` 已落地；配置读取返回当前生效配置的可公开快照，敏感字段做基础掩码；配置更新按 formal schema 校验后原子写回 `config/user.yaml`，并显式返回 `restart_required`；日志查询复用 bounded in-memory summary stream 与既有 redaction 逻辑 |
 | `/api/tasks` list / detail / cancel handlers | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` 已落地；当前直接复用内存 `tasks.Registry`，并对运行中的 `plugin.install` 提供最小取消接线；其余不可取消状态继续返回既有 `platform.task_not_cancellable` 错误形状 |
-| 最小插件写操作入口 | ✅ | `POST /api/plugins/install` 已接入异步 local-source install 执行链：支持 `local_directory` / `local_zip`、来源准备、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消；`POST /api/plugins/{plugin_id}/enable` / `disable` 已切换到 SQLite 持久化 `desired_state`，并在 `enable` 时触发 runtime 实际启动（含 capability gating）、在 `disable` 时触发 runtime 实际停止；runtime_state 保持进程内语义 |
-| 共享 HTTP error / request context 写入路径 | ✅ | 路由级 request_id 注入、统一 JSON error envelope 写入与最小 panic recovery 已在 server router 上接通；management handlers 与 plugin handlers 当前共享同一写出路径 |
+| `POST /api/plugins/install` | ✅ | 异步 local-source install 执行链：支持 `local_directory` / `local_zip`、来源准备、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消 |
+| `POST /api/plugins/{plugin_id}/enable` / `disable` | ✅ | 已切换到 SQLite 持久化 `desired_state`，并在 `enable` 时触发 runtime 实际启动（含 capability gating）、在 `disable` 时触发 runtime 实际停止；runtime_state 保持进程内语义 |
 | `POST /api/plugins/{plugin_id}/reload` | ✅ | 已 formalize（contract + fixtures）并实现：停止当前 runtime 后重新启动，desired_state 保持 enabled 不变；仅当 desired_state=enabled 时接受，否则返回 409 |
 | `DELETE /api/plugins/{plugin_id}` | ✅ | 已 formalize（contract + fixtures）并实现异步 `plugin.uninstall` task：停止 runtime、清理 `plugin_instances` 与 `plugin_packages` 数据库记录、删除安装目录、刷新 catalog |
 | 中断安装清理 | ✅ | 启动时自动扫描 `plugins/installed/` 中遗留的 `.plugin-install-*` 临时目录并清理，防止中断安装的孤立目录累积 |
+| 共享 HTTP error / request context 写入路径 | ✅ | 路由级 request_id 注入、统一 JSON error envelope 写入与最小 panic recovery 已在 server router 上接通；management handlers 与 plugin handlers 当前共享同一写出路径 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 通用 task executor / progress writer | ❌ | 当前实现范围包括 `plugin.install` 的最小异步执行切片；backup/restore/migrate 等更广 task type 的统一执行编排、历史持久化与恢复仍未建立 |
-| 更完整 plugin install pipeline | 🟡 | 当前实现范围覆盖本地目录 / 压缩包来源、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化与 install scripts 授权（`AllowInstallScripts`）；启动时自动清理中断安装遗留的临时目录已落地；远程来源仍未实现 |
-| plugin reload / uninstall 管理面 | ✅ | `POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 已 formalize 并 implement：reload 停止当前 runtime 后重新启动（desired_state 不变）；uninstall 异步执行停止 runtime、清理数据库记录（`plugin_instances` + `plugin_packages`）、删除安装目录并刷新 catalog |
+| 通用 task executor / progress writer | ❌ | 当前实现范围包括 `plugin.install` 与 `plugin.uninstall` 两种异步执行切片；backup/restore/migrate 等更广 task type 的统一执行编排、历史持久化与恢复仍未建立 |
+| 远程来源 plugin install | ❌ | 当前 install 仅支持 `local_directory` / `local_zip`；远程来源（HTTP/HTTPS、artifact repository）仍未实现 |
 | 配置热更新 / 局部重载 | ❌ | `PUT /api/config` 当前只完成 formal schema 校验、原子写盘与 `restart_required` 响应；热更新、局部重载与字段级即时生效尚未实现 |
 | 日志历史检索 / 持久化查询 | ❌ | `GET /api/logs` 当前只查询 bounded in-memory summary stream，不提供日志文件检索、全量 attrs 或历史持久化查询 |
 
@@ -349,23 +349,16 @@
 
 ### 1. 近期主线（优先继续补平台闭环）
 
-1. **把当前 plugin.install 扩到更完整的安装执行模型** 🟡
-   - 当前实现范围覆盖 `local_directory` / `local_zip`、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化（`PackageRepository` + SQLite upsert）、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消。
-   - 启动时自动清理中断安装遗留的 `.plugin-install-*` 临时目录已落地。
-   - 远程来源仍需继续补齐。
+1. **远程来源 plugin install**
+   - 当前 install 仅支持 `local_directory` / `local_zip`。
+   - 远程来源（HTTP/HTTPS、artifact repository）是进入真实分发体验前的必要能力。
 
-2. **把 persisted desired_state 继续接入更真实的 runtime / grants / lifecycle 流程** 🟡
-   - `enable` / `disable` 已具备 persisted `desired_state`，并接入 runtime 实际启停（`startPluginAsync` / `stopPluginAsync`）与 capability gating（`missingCapabilities` 检查）。
-   - `reload` 已落地：停止当前 runtime 后重新启动，desired_state 保持 enabled 不变。
-   - `uninstall` 已落地：异步执行停止 runtime、清理数据库记录、删除安装目录并刷新 catalog。
-   - 后续推进重点是 grants / RBAC 约束与完整权限授予状态机。
+2. **Grants / RBAC 与完整权限授予状态机**
+   - 当前 capability gating 仅基于 `config.auth.auto_grant_capabilities` 的静态匹配。
+   - 需要建立 grants storage、grant manager 状态机（授权/重确认/撤销）与 per-plugin 权限跟踪，这是多插件生态与聊天侧权限控制的前置依赖。
 
-3. **三种 outbound action slice** ✅
-   - `message.send`、`message.reply` 与 `message.send_image` 三种 action 均已落地，覆盖 contract、fixture、CI 校验、bridge 映射与 adapter 出站。
-   - 后续 action 种类（文件发送、更广 send semantics）按同一节奏继续推进。
-
-4. **运维工具链的 contract / execution model 收口** 🟡
-   - `contracts/cli-commands.yaml` 正式契约骨架已落地：6 条子命令（`reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup`）、在线/离线可用性矩阵、task 模型关联（`backup.create`、`restore.apply`、`db.migrate`）与可取消性。
+3. **运维工具链 CLI 子命令实现**
+   - `contracts/cli-commands.yaml` 正式契约骨架已落地（6 条子命令、在线/离线可用性矩阵、task 模型关联与可取消性）。
    - CI 已校验 CLI 命令集完整性与 task_type 与 web-api `TaskType` enum 的交叉一致性。
    - CLI 子命令的实际执行逻辑仍需在后续轮次中实现。
 
@@ -379,11 +372,7 @@
    - 当前 signing key 已持久化到 SQLite，但还没有独立 secret store 层。
    - 后续若要扩展更多鉴权、外部连接、render 或 CLI 恢复能力，这一层需要先收口。
 
-3. **Grants / RBAC storage 与真实授权状态机**
-   - 当前实现范围为最小 management auth/session；真实授权记录、grants 存储和 grant manager 状态机尚未进入实现。
-   - 这会直接影响插件能力授予、升级 re-grant、聊天侧权限控制和后续 Web UI / CLI 运维面。
-
-4. **Config hot reload / 局部重载**
+3. **Config hot reload / 局部重载**
    - 当前配置仍是启动时加载模式。
    - 热更新和局部重载是后续 scheduler、logging、runtime 限流、render 队列以及长运行服务调优的基础。
 
@@ -393,20 +382,19 @@
    - 当前进入 runtime bridge 的内部事件形状为 `onebot11.message_text`。
    - 通知、请求、更多消息段和 richer event shapes 仍未进入实现。
 
-3. **多插件并发调度与 fan-out**
+2. **多插件并发调度与 fan-out**
    - 当前仍是"单 runtime、单插件、lazy-start first valid plugin"的最小切片。
    - 进入更真实的插件生态前，这一层必须先被 formalize 并最小落地。
 
-4. **热重载与更精细 restart** 🟡
-   - crash-backoff 自动重启循环已落地（指数退避、最大重试次数、`dead_letter` 终态）。
-   - `POST /api/plugins/{plugin_id}/reload` 已落地，用户可主动触发 runtime 重启。
-   - 更精细的热重载（不停机代码更新）仍未实现。
+3. **不停机热重载**
+   - 当前 reload 通过 stop + start 实现，存在短暂中断窗口。
+   - 更精细的不停机代码更新仍未实现。
 
-5. **官方 SDK、内置插件体系与 richer examples**
+4. **官方 SDK、内置插件体系与 richer examples**
    - 当前仅有协议文档骨架和最小 examples。
    - 在 plugin protocol 与 runtime boundary 更稳定后，再推进官方 Python / Node.js SDK、内置插件体系和更正式的示例插件矩阵会更稳妥。
 
-6. **Command Parser / routing、聊天侧 Permission / 黑名单 / 冷却限流**
+5. **Command Parser / routing、聊天侧 Permission / 黑名单 / 冷却限流**
    - 这些仍属于 v0.1 路线图，但还没有进入真实实现阶段。
    - 其依赖包括 richer event model、grants/storage、multi-plugin dispatch 与更完整 runtime 生命周期。
 
