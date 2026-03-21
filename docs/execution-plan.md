@@ -19,7 +19,7 @@
 | Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化、`message.send -> send_msg`、`message.reply -> send_msg(CQ:reply)` 与 `message.send_image -> send_msg(CQ:image)` 出站 action slice 已落地；更广 action family 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)`、`ping/pong`、`event -> action(message.send \| message.reply \| message.send_image) \| result \| error` bridge 与 supervisor crash-backoff / dead_letter 已落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
 | Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）、auth persistence（bootstrap state + admin sessions 跨重启存活）、plugin desired_state persistence（`plugin_instances` migration + SQLite repository + startup hydration）、`plugin_packages` 元数据持久化（`PackageRepository` + SQLite upsert）与 CLI 运维工具链正式契约骨架（`contracts/cli-commands.yaml`）已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与 CLI 子命令实现仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/config`、`PUT /api/config`、`GET /api/system/status`、`POST /api/system/shutdown`、`GET /api/logs`、`/api/tasks` list/detail/cancel、统一 `RequireAuth`、共享 HTTP error/write 路径与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到含依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据写入、install scripts 授权的异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state` 并接入 runtime 实际启停与 capability gating；通用 task executor 与更完整插件管理面仍未实现 |
+| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/config`、`PUT /api/config`、`GET /api/system/status`、`POST /api/system/shutdown`、`GET /api/logs`、`/api/tasks` list/detail/cancel、统一 `RequireAuth`、共享 HTTP error/write 路径与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到含依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据写入、install scripts 授权的异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state` 并接入 runtime 实际启停与 capability gating；`POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 已 formalize 并实现；启动时自动清理中断安装遗留临时目录已落地；通用 task executor 与更完整插件管理面仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -164,7 +164,7 @@
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
 | supervisor / crash-backoff / dead_letter | ✅ | runtime manager 已支持 `crashed` / `backoff` / `dead_letter` 状态流转，lifecycle controller 驱动指数退避重启与最大重试次数后进入 `dead_letter`；配置消费 `crash_backoff_initial_seconds` / `crash_backoff_max_seconds` |
 | 完整权限授予状态机 | ❌ | 授权、重确认、撤销等流程尚未实现 |
-| 热重载 / restart loop | ❌ | 尚未实现 runtime 热重载；crash-backoff 自动重启循环已落地，但用户主动 restart / reload 仍未实现 |
+| 热重载 / restart loop | 🟡 | `POST /api/plugins/{plugin_id}/reload` 已落地，支持用户主动触发 runtime 重启（stop + start）；crash-backoff 自动重启循环已落地；更精细的热重载（不停机代码更新）仍未实现 |
 | 官方 SDK 便利层 | ❌ | 当前仅有 `docs/plugin/sdk/` 文档骨架，官方 Python / Node.js SDK 尚未进入实现 |
 | 官方内置插件与更正式示例插件体系 | ❌ | 当前仍只有最小 `hello-python` / `hello-node` examples，未建立官方内置插件与 richer examples 体系 |
 | Command Parser / routing | ❌ | 当前尚未建立基于更丰富事件模型与 runtime bridge 的命令路由层 |
@@ -237,14 +237,17 @@
 | `/api/tasks` list / detail / cancel handlers | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` 已落地；当前直接复用内存 `tasks.Registry`，并对运行中的 `plugin.install` 提供最小取消接线；其余不可取消状态继续返回既有 `platform.task_not_cancellable` 错误形状 |
 | 最小插件写操作入口 | ✅ | `POST /api/plugins/install` 已接入异步 local-source install 执行链：支持 `local_directory` / `local_zip`、来源准备、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消；`POST /api/plugins/{plugin_id}/enable` / `disable` 已切换到 SQLite 持久化 `desired_state`，并在 `enable` 时触发 runtime 实际启动（含 capability gating）、在 `disable` 时触发 runtime 实际停止；runtime_state 保持进程内语义 |
 | 共享 HTTP error / request context 写入路径 | ✅ | 路由级 request_id 注入、统一 JSON error envelope 写入与最小 panic recovery 已在 server router 上接通；management handlers 与 plugin handlers 当前共享同一写出路径 |
+| `POST /api/plugins/{plugin_id}/reload` | ✅ | 已 formalize（contract + fixtures）并实现：停止当前 runtime 后重新启动，desired_state 保持 enabled 不变；仅当 desired_state=enabled 时接受，否则返回 409 |
+| `DELETE /api/plugins/{plugin_id}` | ✅ | 已 formalize（contract + fixtures）并实现异步 `plugin.uninstall` task：停止 runtime、清理 `plugin_instances` 与 `plugin_packages` 数据库记录、删除安装目录、刷新 catalog |
+| 中断安装清理 | ✅ | 启动时自动扫描 `plugins/installed/` 中遗留的 `.plugin-install-*` 临时目录并清理，防止中断安装的孤立目录累积 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | 通用 task executor / progress writer | ❌ | 当前实现范围包括 `plugin.install` 的最小异步执行切片；backup/restore/migrate 等更广 task type 的统一执行编排、历史持久化与恢复仍未建立 |
-| 更完整 plugin install pipeline | ❌ | 当前实现范围覆盖本地目录 / 压缩包来源、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化与 install scripts 授权（`AllowInstallScripts`）；远程来源与 interrupted-task recovery 仍未实现 |
-| plugin reload / uninstall 管理面 | ❌ | `POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 仍未 formalize / implement |
+| 更完整 plugin install pipeline | 🟡 | 当前实现范围覆盖本地目录 / 压缩包来源、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化与 install scripts 授权（`AllowInstallScripts`）；启动时自动清理中断安装遗留的临时目录已落地；远程来源仍未实现 |
+| plugin reload / uninstall 管理面 | ✅ | `POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 已 formalize 并 implement：reload 停止当前 runtime 后重新启动（desired_state 不变）；uninstall 异步执行停止 runtime、清理数据库记录（`plugin_instances` + `plugin_packages`）、删除安装目录并刷新 catalog |
 | 配置热更新 / 局部重载 | ❌ | `PUT /api/config` 当前只完成 formal schema 校验、原子写盘与 `restart_required` 响应；热更新、局部重载与字段级即时生效尚未实现 |
 | 日志历史检索 / 持久化查询 | ❌ | `GET /api/logs` 当前只查询 bounded in-memory summary stream，不提供日志文件检索、全量 attrs 或历史持久化查询 |
 
@@ -304,7 +307,7 @@
 | `example_manifests_test.go` | 示例插件 manifest 合法性校验 |
 | `http_health_test.go` | `/healthz` 与 `/readyz` 端点 |
 | `plugin_discovery_test.go` | 插件发现与 catalog 构建 |
-| `plugin_http_test.go` | 插件 HTTP API（列表、详情、404） |
+| `plugin_http_test.go` | 插件 HTTP API（列表、详情、404、reload 成功/拒绝/404、uninstall 成功/404） |
 | `tasks_test.go` | 任务注册表只读操作 |
 | `setup_admin_test.go` | Bootstrap 管理员（创建 token、凭证不泄漏、重复初始化拒绝） |
 | `session_login_test.go` | 管理员登录（token 签发、错误凭证拒绝、session 上限） |
@@ -346,15 +349,18 @@
 
 ### 1. 近期主线（优先继续补平台闭环）
 
-1. **把当前 plugin.install 扩到更完整的安装执行模型**
+1. **把当前 plugin.install 扩到更完整的安装执行模型** 🟡
    - 当前实现范围覆盖 `local_directory` / `local_zip`、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化（`PackageRepository` + SQLite upsert）、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消。
-   - 远程来源与 interrupted-task recovery 仍需继续补齐。
+   - 启动时自动清理中断安装遗留的 `.plugin-install-*` 临时目录已落地。
+   - 远程来源仍需继续补齐。
 
-2. **把 persisted desired_state 继续接入更真实的 runtime / grants / lifecycle 流程**
+2. **把 persisted desired_state 继续接入更真实的 runtime / grants / lifecycle 流程** 🟡
    - `enable` / `disable` 已具备 persisted `desired_state`，并接入 runtime 实际启停（`startPluginAsync` / `stopPluginAsync`）与 capability gating（`missingCapabilities` 检查）。
-   - 后续推进重点是 grants / lifecycle 约束与更完整插件管理语义。
+   - `reload` 已落地：停止当前 runtime 后重新启动，desired_state 保持 enabled 不变。
+   - `uninstall` 已落地：异步执行停止 runtime、清理数据库记录、删除安装目录并刷新 catalog。
+   - 后续推进重点是 grants / RBAC 约束与完整权限授予状态机。
 
-3. **在下一条 action contract 落定后，补第三个最小 outbound action slice** ✅
+3. **三种 outbound action slice** ✅
    - `message.send`、`message.reply` 与 `message.send_image` 三种 action 均已落地，覆盖 contract、fixture、CI 校验、bridge 映射与 adapter 出站。
    - 后续 action 种类（文件发送、更广 send semantics）按同一节奏继续推进。
 
@@ -391,9 +397,10 @@
    - 当前仍是"单 runtime、单插件、lazy-start first valid plugin"的最小切片。
    - 进入更真实的插件生态前，这一层必须先被 formalize 并最小落地。
 
-4. **热重载与用户主动 restart / reload**
+4. **热重载与更精细 restart** 🟡
    - crash-backoff 自动重启循环已落地（指数退避、最大重试次数、`dead_letter` 终态）。
-   - 用户主动触发的 runtime 热重载与 restart 仍未实现。
+   - `POST /api/plugins/{plugin_id}/reload` 已落地，用户可主动触发 runtime 重启。
+   - 更精细的热重载（不停机代码更新）仍未实现。
 
 5. **官方 SDK、内置插件体系与 richer examples**
    - 当前仅有协议文档骨架和最小 examples。
