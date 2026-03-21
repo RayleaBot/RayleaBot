@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"rayleabot/server/internal/app"
+	"rayleabot/server/internal/cli"
 	"rayleabot/server/internal/logging"
 )
 
@@ -18,6 +19,19 @@ func main() {
 	flag.StringVar(&configPath, "config", "config/user.yaml", "path to config/user.yaml")
 	flag.StringVar(&schemaPath, "config-schema", "contracts/config.user.schema.json", "path to contracts/config.user.schema.json")
 	flag.Parse()
+
+	// If a subcommand is provided as the first non-flag argument, dispatch to CLI.
+	args := flag.Args()
+	if len(args) > 0 {
+		logger := logging.Bootstrap()
+		exitCode := cli.Run(cli.Command{
+			Name:       args[0],
+			ConfigPath: configPath,
+			SchemaPath: schemaPath,
+			Logger:     logger,
+		})
+		os.Exit(exitCode)
+	}
 
 	bootstrapLogger := logging.Bootstrap()
 	bootstrapLogger.Info(

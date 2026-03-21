@@ -24,7 +24,7 @@ commands:
       1: 数据库访问失败或锁冲突
     task_model: false
     cancellable: false
-    # TODO: 实现 reset-admin 子命令
+    implemented: true
 
   backup:
     name: backup
@@ -43,7 +43,7 @@ commands:
     task_model: true
     task_type: backup.create
     cancellable: true
-    # TODO: 实现 backup 子命令与 HTTP task 触发路径
+    # TODO: 实现 backup 完整执行逻辑（一致性快照、增量备份）
 
   restore:
     name: restore
@@ -60,7 +60,7 @@ commands:
     task_model: true
     task_type: restore.apply
     cancellable: false
-    # TODO: 实现 restore 子命令
+    # TODO: 实现 restore 完整执行逻辑（恢复包校验、数据恢复）
 
   doctor:
     name: doctor
@@ -78,7 +78,7 @@ commands:
       1: 存在 WARN 或 ERROR 级别问题
     task_model: false
     cancellable: false
-    # TODO: 实现 doctor 子命令
+    implemented: true
 
   migrate:
     name: migrate
@@ -96,7 +96,7 @@ commands:
     task_model: true
     task_type: db.migrate
     cancellable: false
-    # TODO: 实现 migrate 子命令
+    implemented: true
 
   cleanup:
     name: cleanup
@@ -113,4 +113,4 @@ commands:
       1: 清理过程中遇到错误
     task_model: false
     cancellable: false
-    # TODO: 实现 cleanup 子命令
+    implemented: true
