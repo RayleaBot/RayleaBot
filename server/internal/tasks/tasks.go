@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -58,6 +59,7 @@ type Registry struct {
 	order            []string
 	nextSubscriberID uint64
 	subscribers      map[uint64]chan Snapshot
+	repo             Repository
 }
 
 func NewRegistry() *Registry {
@@ -66,6 +68,43 @@ func NewRegistry() *Registry {
 		order:       []string{},
 		subscribers: map[uint64]chan Snapshot{},
 	}
+}
+
+// SetRepository attaches a persistence backend. When set, every Create and
+// Update call will also persist the snapshot to the repository.
+func (r *Registry) SetRepository(repo Repository) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.repo = repo
+}
+
+// Hydrate loads persisted task snapshots into the in-memory registry. It should
+// be called once at startup, before the registry is used by other components.
+func (r *Registry) Hydrate(ctx context.Context) error {
+	r.mu.Lock()
+	repo := r.repo
+	r.mu.Unlock()
+
+	if repo == nil {
+		return nil
+	}
+
+	snapshots, err := repo.LoadTasks(ctx)
+	if err != nil {
+		return fmt.Errorf("hydrate task registry: %w", err)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, s := range snapshots {
+		if _, exists := r.items[s.TaskID]; exists {
+			continue
+		}
+		r.items[s.TaskID] = s
+		r.order = append(r.order, s.TaskID)
+	}
+	return nil
 }
 
 func (r *Registry) List() []Snapshot {
@@ -108,17 +147,20 @@ func (r *Registry) Create(taskType string, summary string) (string, error) {
 	r.items[taskID] = snapshot
 	r.order = append(r.order, taskID)
 	r.broadcastLocked(snapshot)
+	repo := r.repo
 	r.mu.Unlock()
+
+	r.persistAsync(repo, snapshot)
 
 	return taskID, nil
 }
 
 func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	snapshot, ok := r.items[taskID]
 	if !ok {
+		r.mu.Unlock()
 		return Snapshot{}, false
 	}
 
@@ -148,7 +190,27 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 
 	r.items[taskID] = snapshot
 	r.broadcastLocked(snapshot)
-	return cloneSnapshot(snapshot), true
+	cloned := cloneSnapshot(snapshot)
+	repo := r.repo
+	r.mu.Unlock()
+
+	r.persistAsync(repo, snapshot)
+
+	return cloned, true
+}
+
+// persistAsync saves a snapshot to the repository in a fire-and-forget manner.
+// Persistence errors are silently dropped because the in-memory registry is the
+// authoritative source during the current process lifetime.
+func (r *Registry) persistAsync(repo Repository, snapshot Snapshot) {
+	if repo == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = repo.SaveTask(ctx, snapshot)
+	}()
 }
 
 func (r *Registry) Subscribe(buffer int) (<-chan Snapshot, func()) {
