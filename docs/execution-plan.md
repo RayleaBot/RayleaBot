@@ -18,8 +18,8 @@
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket adapter、状态机、intake、最小事件归一化、三种出站 action（`message.send` / `message.reply` / `message.send_image`）已落地；更广 action family 与事件归一化仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | runtime manager、init/shutdown/ping-pong、三种 action bridge、supervisor crash-backoff/dead_letter、用户主动 reload 已落地；多插件调度、SDK 便利层与完整权限授予状态机仍未实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置解析与校验、auth（session + bootstrap + persistence）、SQLite（WAL + migration）、plugin desired_state/packages 持久化、grants storage + lifecycle 集成、CLI 子命令框架（reset-admin/doctor/cleanup/migrate）已落地；secret store、scheduler persistence、config hot reload、CLI backup/restore 完整逻辑仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | 全部管理路由（setup/session/config/system/logs/tasks）、4 条管理 WebSocket、plugin install（含 remote_url）/enable/disable/reload/uninstall、per-plugin grants 管理端点、统一鉴权与中断安装清理已落地；通用 task executor、配置热更新与日志持久化查询仍未实现 |
+| Phase 6 | Config / Storage / Security | 🟡 | 配置解析与校验、auth（session + bootstrap + persistence）、SQLite（WAL + migration）、plugin desired_state/packages 持久化、grants storage + lifecycle 集成、grants scope 持久化（`scope_json`）与升级 re-grant 检测、CLI 子命令框架（reset-admin/doctor/cleanup/migrate/backup/restore）已落地；secret store、scheduler persistence、config hot reload 仍未落地 |
+| Phase 7 | Web API & Tasks | 🟡 | 全部管理路由（setup/session/config/system/logs/tasks）、4 条管理 WebSocket、plugin install（含 remote_url）/enable/disable/reload/uninstall、per-plugin grants 管理端点（含 scope validation）、统一鉴权、中断安装清理与通用 task executor 已落地；配置热更新与日志持久化查询仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -163,7 +163,7 @@
 |--------|------|------|
 | 更广 adapter 出站 action 执行 | ❌ | 当前实现范围为 `message.send`、`message.reply` 与 `message.send_image`；其余动作族与更丰富发送语义仍未落地 |
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
-| 完整权限授予状态机 | 🟡 | per-plugin grants storage（`plugin_grants` 表）、`GrantRepository`（CRUD）与 lifecycle 集成（auto_grant + per-plugin grants 合并）已落地；管理 HTTP 端点（list/grant/revoke）已实现；升级 re-grant、temporal grants、scope validation 仍未实现 |
+| 完整权限授予状态机 | 🟡 | per-plugin grants storage（`plugin_grants` 表）、`GrantRepository`（CRUD）与 lifecycle 集成（auto_grant + per-plugin grants 合并）已落地；管理 HTTP 端点（list/grant/revoke）已实现；grants scope validation（capability 名称格式校验、manifest 声明校验、`scope_json` 持久化）与升级 re-grant 检测（Enable 时比对存储 scope 与当前 manifest scope）已实现；temporal grants 仍未实现 |
 | 不停机热重载 | ❌ | 当前 reload 通过 stop + start 实现；更精细的不停机代码更新仍未实现 |
 | 官方 SDK 便利层 | ❌ | 当前仅有 `docs/plugin/sdk/` 文档骨架，官方 Python / Node.js SDK 尚未进入实现 |
 | 官方内置插件与更正式示例插件体系 | ❌ | 当前仍只有最小 `hello-python` / `hello-node` examples，未建立官方内置插件与 richer examples 体系 |
@@ -199,8 +199,9 @@
 | App 集成 — Storage + Auth Repository | ✅ | `internal/app/app.go` 在启动时解析 `database.path`（支持相对路径基于 config 目录解析）、打开 `storage.Store`、构建 `auth.SQLiteRepository` 并注入 `auth.Manager`；关闭时按序释放 storage handle |
 | Database config consumption | ✅ | `config.Config` 已包含 `DatabaseConfig{Engine, Path}`，`config.Summary` 已包含 `DatabaseEngine` 与 `DatabasePath`，启动日志已输出数据库引擎与路径 |
 | Grants storage — `plugin_grants` 迁移与 Repository | ✅ | `0005_plugin_grants.sql` 迁移已落地（`plugin_id` + `capability` 复合主键）；`GrantRepository` 接口提供 `LoadGrants` / `LoadAllGrants` / `SaveGrant` / `DeleteGrant` / `DeleteAllGrants`；`SQLiteRepository` 实现 CRUD |
+| Grants scope 持久化 — `0006_plugin_grants_scope.sql` | ✅ | `plugin_grants` 表增加 `scope_json TEXT NOT NULL DEFAULT ''` 列；`PluginGrant` 结构体包含 `ScopeJSON` 字段；`LoadGrants` 与 `SaveGrant` 读写 `scope_json`；授予 capability 时自动从 manifest 的 `permissions.scopes`（`http_hosts`、`storage_roots`）构建 scope JSON |
 | Grants lifecycle 集成 | ✅ | `pluginLifecycleController` 的 `grantedCapabilities()` 合并 `auto_grant_capabilities` 与 per-plugin 显式 grants；Enable、startPluginAsync、reconcileRuntime 均消费合并后的授权列表 |
-| CLI 子命令框架与核心实现 | ✅ | `internal/cli/` 包与 `main.go` 子命令分发已落地；`reset-admin`（清空 auth 表）、`doctor`（config/schema/database/runtime 环境检查）、`cleanup`（orphaned install dirs + download cache）、`migrate`（触发 SQLite migration runner）4 条子命令已实现；`backup` / `restore` 入口已注册但执行逻辑仍为 TODO |
+| CLI 子命令框架与核心实现 | ✅ | `internal/cli/` 包与 `main.go` 子命令分发已落地；`reset-admin`（清空 auth 表）、`doctor`（config/schema/database/runtime 环境检查）、`cleanup`（orphaned install dirs + download cache）、`migrate`（触发 SQLite migration runner）、`backup`（一致性快照导出 config/ + data/ + plugins/installed/ 为 ZIP 归档，含 backup-manifest.json）、`restore`（恢复包校验、manifest 版本检查、路径遍历防护与数据恢复）6 条子命令已实现 |
 
 ### 仍未完成
 
@@ -210,7 +211,6 @@
 | scheduler persistence / recovery | ❌ | 调度持久化与恢复能力尚未实现 |
 | 聊天侧 Permission / 黑名单 / 冷却限流持久化基座 | ❌ | 当前既无相关规则执行面，也无与之配套的持久化结构；后续应建立在 grants / RBAC 与 richer event/runtime 能力之上 |
 | config hot reload | ❌ | 配置热更新与局部重载尚未实现 |
-| CLI backup / restore 完整执行逻辑 | ❌ | 入口已注册；一致性快照、恢复包校验与数据恢复的完整执行管线尚未建立 |
 
 ---
 
@@ -243,13 +243,15 @@
 | `DELETE /api/plugins/{plugin_id}` | ✅ | 已 formalize（contract + fixtures）并实现异步 `plugin.uninstall` task：停止 runtime、清理 `plugin_instances` 与 `plugin_packages` 数据库记录、删除安装目录、刷新 catalog |
 | 中断安装清理 | ✅ | 启动时自动扫描 `plugins/installed/` 中遗留的 `.plugin-install-*` 临时目录并清理，防止中断安装的孤立目录累积 |
 | 共享 HTTP error / request context 写入路径 | ✅ | 路由级 request_id 注入、统一 JSON error envelope 写入与最小 panic recovery 已在 server router 上接通；management handlers 与 plugin handlers 当前共享同一写出路径 |
-| Plugin grants 管理端点 | ✅ | `GET /api/plugins/{plugin_id}/grants`（列出 per-plugin grants）、`POST /api/plugins/{plugin_id}/grants`（授予 capability）、`DELETE /api/plugins/{plugin_id}/grants/{capability}`（撤销 capability）已实现 |
+| Plugin grants 管理端点 | ✅ | `GET /api/plugins/{plugin_id}/grants`（列出 per-plugin grants）、`POST /api/plugins/{plugin_id}/grants`（授予 capability，含名称格式校验、manifest 声明校验与 scope_json 持久化）、`DELETE /api/plugins/{plugin_id}/grants/{capability}`（撤销 capability）已实现 |
+| Grants scope validation 与升级 re-grant | ✅ | 授予 capability 时校验 `capability_name` 格式（`^[a-z]+\.[a-z_]+$`）、校验 capability 在 manifest 的 `capabilities`/`permissions.required`/`permissions.optional` 中声明、从 manifest `permissions.scopes` 构建 `scope_json` 并持久化；Enable 时比对存储 scope 与当前 manifest scope，scope 变化时返回 `plugin.permission_pending`（`scope_changed: true`）阻止启用 |
+| 通用 task executor | ✅ | `internal/tasks/executor.go` 提供可复用的异步任务执行循环：`Submit`（创建 task + 入队）、`Cancel`（取消 pending/running task）、`Close`（优雅关闭）；`ExecuteFunc` 签名接收 `context.Context` 与 `ProgressReporter`，返回 `ResultSummary` 或 `TaskError`；executor 自动驱动 task 状态（pending → running → succeeded/failed/cancelled）；backup/restore/migrate 等更广 task type 可直接复用此 executor |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 通用 task executor / progress writer | ❌ | 当前实现范围包括 `plugin.install` 与 `plugin.uninstall` 两种异步执行切片；backup/restore/migrate 等更广 task type 的统一执行编排、历史持久化与恢复仍未建立 |
+| task 历史持久化与恢复 | ❌ | 当前 task executor 与 registry 均为进程内内存模型；task 历史持久化到 SQLite 与跨重启恢复仍未建立 |
 | 配置热更新 / 局部重载 | ❌ | `PUT /api/config` 当前只完成 formal schema 校验、原子写盘与 `restart_required` 响应；热更新、局部重载与字段级即时生效尚未实现 |
 | 日志历史检索 / 持久化查询 | ❌ | `GET /api/logs` 当前只查询 bounded in-memory summary stream，不提供日志文件检索、全量 attrs 或历史持久化查询 |
 
@@ -334,8 +336,9 @@
 - `internal/bridge/`: bridge_test — 覆盖事件投递、`message.send`、`message.reply` 与 `message.send_image` 映射、outcome 统计、observability 订阅
 - `internal/runtime/`: manager_test、backoff_test、console_test、spec_test — 覆盖子进程生命周期、`ping/pong`、`event -> action(message.send | message.reply | message.send_image) | result | error`、crash 检测与 `CrashCallback` 调用、crash count 跨重启累积、`ResetCrashCount` / `SetBackoffState` / `SetDeadLetterState` 状态流转、指数退避计算（含零值与负值边界）、受控 `stderr` console capture / redaction / rate limiting、spec 校验
 - `internal/logging/`: stream_test — 覆盖结构化日志在进入管理面摘要流前的基础敏感字面值掩码
-- `internal/plugins/`: catalog_test、http_test、repository_test、install_test — 覆盖 `SetDesiredState` 状态更新（启用/禁用/冲突/未找到）、并发安全、install handler（round-trip / 无效请求拒绝）、enable/disable handler（成功/404/409 + 持久化写入）、SQLite desired_state repository 读写与 startup hydration，以及最小 local-source install 执行链（目录/压缩包安装、catalog refresh、重复 `plugin_id` 拒绝、运行中任务取消）
-- `internal/tasks/`: tasks_test — 覆盖 `Registry.Create` task_id 唯一性属性测试、task_id 格式校验、创建后 Get/List 可查
+- `internal/plugins/`: catalog_test、http_test、repository_test、install_test — 覆盖 `SetDesiredState` 状态更新（启用/禁用/冲突/未找到）、并发安全、install handler（round-trip / 无效请求拒绝）、enable/disable handler（成功/404/409 + 持久化写入）、grants scope validation（capability 格式校验、manifest 声明校验、undeclared 拒绝、optional permission 接受、plugin 404）、SQLite desired_state repository 读写与 startup hydration，以及最小 local-source install 执行链（目录/压缩包安装、catalog refresh、重复 `plugin_id` 拒绝、运行中任务取消）
+- `internal/tasks/`: tasks_test、executor_test — 覆盖 `Registry.Create` task_id 唯一性属性测试、task_id 格式校验、创建后 Get/List 可查；executor 覆盖 submit+succeed、submit+fail（TaskError）、submit+generic error、cancel pending task、close 后 submit 拒绝
+- `internal/cli/`: cli_test — 覆盖 backup 创建有效归档（含 manifest 结构校验）、restore 提取归档内容、restore 拒绝无效 manifest 版本、restore 拒绝缺失 manifest、restore 路径遍历防护、restore 要求 backup 路径参数
 - `internal/storage/`: store_test — 覆盖 SQLite 打开、WAL pragma、read/write handle 分离、migration 幂等性、重复 migration ID 拒绝、表结构验证（`schema_migrations` / `auth_bootstrap_state` / `admin_sessions` / `plugin_instances`）
 
 ### 总体状况
@@ -351,17 +354,17 @@
 
 ### 1. 近期主线（优先继续补平台闭环）
 
-1. **CLI backup / restore 完整执行逻辑**
-   - `backup` / `restore` 入口已注册但执行逻辑仍为 TODO。
-   - 需要实现一致性快照导出（config/ + data/ + plugins/installed/）与恢复包校验 + 数据恢复管线。
+1. ✅ **CLI backup / restore 完整执行逻辑**
+   - `backup`：一致性快照导出 config/ + data/ + plugins/installed/ 为 ZIP 归档，含 `backup-manifest.json`（版本、时间戳、文件清单）。
+   - `restore`：恢复包校验（manifest 版本检查、路径遍历防护）与数据恢复管线。
 
-2. **Grants scope validation 与升级 re-grant**
-   - per-plugin grants CRUD 与 lifecycle 集成已落地，但尚未校验 scope 字段（http_hosts、storage_roots）。
-   - 插件升级后的 re-grant 确认流程仍未实现。
+2. ✅ **Grants scope validation 与升级 re-grant**
+   - 授予 capability 时校验名称格式（`^[a-z]+\.[a-z_]+$`）与 manifest 声明；从 manifest `permissions.scopes`（`http_hosts`、`storage_roots`）构建 `scope_json` 并持久化。
+   - Enable 时比对存储 scope 与当前 manifest scope，scope 变化时返回 `plugin.permission_pending`（`scope_changed: true`）阻止启用，要求管理员 re-grant。
 
-3. **通用 task executor**
-   - 当前 `plugin.install` 与 `plugin.uninstall` 各有独立的异步执行切片。
-   - backup/restore/migrate 等更广 task type 需要统一执行编排、历史持久化与恢复。
+3. ✅ **通用 task executor**
+   - `internal/tasks/executor.go` 提供可复用的异步任务执行循环：`Submit`、`Cancel`、`Close`；`ExecuteFunc` 签名接收 `context.Context` 与 `ProgressReporter`，返回 `ResultSummary` 或 `TaskError`；executor 自动驱动 task 状态（pending → running → succeeded/failed/cancelled）。
+   - backup/restore/migrate 等更广 task type 可直接复用此 executor。
 
 ### 2. 状态化基础（为恢复、运维与长期运行铺路）
 
@@ -415,4 +418,5 @@
 
 4. **CLI / 本地运维体验**
    - `contracts/cli-commands.yaml` 已定义 6 条子命令的正式执行模型、在线/离线可用性矩阵与 task 模型关联。
-   - CLI 子命令的实际执行逻辑、停服窗口检测、诊断输出格式和与 Web/Launcher 的共享后端路径仍需在后续轮次中实现。
+   - 6 条子命令（reset-admin / doctor / cleanup / migrate / backup / restore）均已实现。
+   - 停服窗口检测、诊断输出格式和与 Web/Launcher 的共享后端路径仍需在后续轮次中推进。

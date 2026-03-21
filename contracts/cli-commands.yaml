@@ -43,7 +43,7 @@ commands:
     task_model: true
     task_type: backup.create
     cancellable: true
-    # TODO: 实现 backup 完整执行逻辑（一致性快照、增量备份）
+    implemented: true
 
   restore:
     name: restore
@@ -60,7 +60,7 @@ commands:
     task_model: true
     task_type: restore.apply
     cancellable: false
-    # TODO: 实现 restore 完整执行逻辑（恢复包校验、数据恢复）
+    implemented: true
 
   doctor:
     name: doctor
