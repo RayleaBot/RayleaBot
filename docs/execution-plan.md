@@ -16,10 +16,10 @@
 | Phase 1 | 契约文件补全 | ✅ | 当前 formal contract 范围内的 7 份正式契约均已 fixture-ready |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest 的 golden fixtures 已落库 |
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
-| Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化与单一 `message.send -> send_msg` 出站 action slice 已落地；更广 action family 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)` 与单一 `event -> action(message.send) \| result \| error` bridge 已落地；`ping/pong` contract 已 formalize，runtime 实现仍未落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）、auth persistence（bootstrap state + admin sessions 跨重启存活）与 plugin desired_state persistence（`plugin_instances` migration + SQLite repository + startup hydration）已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与运维工具链仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/config`、`PUT /api/config`、`GET /api/system/status`、`POST /api/system/shutdown`、`GET /api/logs`、`/api/tasks` list/detail/cancel、统一 `RequireAuth`、共享 HTTP error/write 路径与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到最小异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state`；通用 task executor 与更完整插件管理面仍未实现 |
+| Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化、`message.send -> send_msg`、`message.reply -> send_msg(CQ:reply)` 与 `message.send_image -> send_msg(CQ:image)` 出站 action slice 已落地；更广 action family 仍未实现 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)`、`ping/pong` 与 `event -> action(message.send \| message.reply \| message.send_image) \| result \| error` bridge 已落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
+| Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）、auth persistence（bootstrap state + admin sessions 跨重启存活）、plugin desired_state persistence（`plugin_instances` migration + SQLite repository + startup hydration）、`plugin_packages` 元数据持久化（`PackageRepository` + SQLite upsert）与 CLI 运维工具链正式契约骨架（`contracts/cli-commands.yaml`）已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与 CLI 子命令实现仍未落地 |
+| Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/config`、`PUT /api/config`、`GET /api/system/status`、`POST /api/system/shutdown`、`GET /api/logs`、`/api/tasks` list/detail/cancel、统一 `RequireAuth`、共享 HTTP error/write 路径与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到含依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据写入、install scripts 授权的异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state` 并接入 runtime 实际启停与 capability gating；通用 task executor 与更完整插件管理面仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -120,13 +120,15 @@
 | read-only intake 分类 | ✅ | 已对接收到的 OneBot 帧做最小只读 intake 分类 |
 | 最小内部事件归一化 | ✅ | 当前仅支持 `onebot11.message_text` 这一内部事件形状 |
 | 单一 outbound request-response path | ✅ | 已支持最小 `message.send -> send_msg` 请求构造、`echo` 配对与窄成功/失败观察 |
+| `message.reply` outbound action slice | ✅ | 已支持 `message.reply -> send_msg(CQ:reply,id=<id>)` 请求构造与 `echo` 配对 |
+| `message.send_image` outbound action slice | ✅ | 已支持 `message.send_image -> send_msg(CQ:image,file=<file>)` 请求构造与 `echo` 配对 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 更广 OneBot 出站 action / request-response path | ❌ | 当前实现范围为单一 `message.send -> send_msg`；更广 OneBot API 调用与 action 执行链路仍未实现 |
-| `message.reply` / media / richer API action | ❌ | 仍未实现 `message.reply`、图片/文件/媒体发送与更广动作族 |
+| 更广 OneBot 出站 action / request-response path | ❌ | 当前实现范围为 `message.send`、`message.reply` 与 `message.send_image`；更广 OneBot API 调用与 action 执行链路仍未实现 |
+| `media / richer API action` | ❌ | 文件发送、媒体发送与更广动作族仍未实现 |
 | 广义事件归一化 | ❌ | 尚未扩展到更完整的消息段、通知、请求与其他事件类别 |
 | 多 adapter / 多 bot 抽象 | ❌ | 仍为单协议、单实例、单 adapter 的最小壳 |
 
@@ -145,18 +147,20 @@
 | 最小 lifecycle tracking | ✅ | runtime 最小生命周期状态已在内存中维护 |
 | 单一 adapter -> runtime read-only bridge | ✅ | 已支持最小只读事件投递 |
 | `event -> action(message.send) \| result \| error` | ✅ | 当前最小 bridge 已支持单一动作、`result` 与 `error` 三种回收路径 |
+| `event -> action(message.reply) \| result \| error` | ✅ | bridge 已支持 `message.reply` 动作路径，经 `SendReply` 映射到 `send_msg(CQ:reply)` |
+| `event -> action(message.send_image) \| result \| error` | ✅ | bridge 已支持 `message.send_image` 动作路径，经 `SendImage` 映射到 `send_msg(CQ:image)` |
 | lazy-start first valid plugin | ✅ | 首个可投递事件到达时可 lazy-start 单个有效插件 |
 | bridge/runtime summary state | ✅ | 内存计数与最近摘要状态已落地 |
-| runtime -> adapter outbound mapper | ✅ | plugin runtime 的单一 `action=message.send` 已可经 bridge 映射到 adapter 的最小 `send_msg` 执行链路 |
+| runtime -> adapter outbound mapper | ✅ | plugin runtime 的 `action=message.send`、`action=message.reply` 与 `action=message.send_image` 均已可经 bridge 映射到 adapter 的最小 `send_msg` 执行链路 |
 | `ping` / `pong` contract formalize | ✅ | `ping`/`pong` 已进入 `contracts/plugin-protocol.schema.json`、x-message-catalog 与 `fixtures/plugin-protocol/ok.ping-pong.yaml` |
+| `ping` / `pong` runtime 实现 | ✅ | runtime manager 中的 `Ping()` / `awaitPong()` / `parsePongResponse()` 已实现，含超时停止与协议违规检测 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 更广 adapter 出站 action 执行 | ❌ | 当前实现范围为单一 `action=message.send`；其余动作族与更丰富发送语义仍未落地 |
+| 更广 adapter 出站 action 执行 | ❌ | 当前实现范围为 `message.send`、`message.reply` 与 `message.send_image`；其余动作族与更丰富发送语义仍未落地 |
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
-| protocol-level `ping` / `pong` 实现 | ❌ | contract + fixtures 已落地；runtime manager 中的实际收发处理链路仍未实现 |
 | supervisor / backoff / dead_letter 扩展 | ❌ | 尚未建立完整 supervisor 与恢复策略 |
 | 完整权限授予状态机 | ❌ | 授权、重确认、撤销等流程尚未实现 |
 | 热重载 / restart loop | ❌ | 尚未实现 runtime 热重载与自动重启循环 |
@@ -190,6 +194,7 @@
 | Plugin desired_state persistence — Repository 接口 | ✅ | `internal/plugins/repository.go` 已提供 `LoadDesiredStates` / `SaveDesiredState` 的最小 SQLite 实现 |
 | Plugin desired_state persistence — Startup hydration | ✅ | `internal/app/app.go` 启动后会读取 `plugin_instances`，并在 discovery 结果上恢复已安装插件的 `desired_state` |
 | Plugin desired_state persistence — 跨重启验证 | ✅ | `plugin_persistence_test.go` 覆盖 enable/disable 后重启仍保留 `desired_state`，`runtime_state` 保持进程内语义 |
+| Plugin `plugin_packages` 元数据持久化 | ✅ | `internal/plugins/repository.go` 提供 `PackageRepository` 接口与 `SavePackageMetadata` 的 SQLite upsert 实现；install 执行链在写入正式目录后持久化 `source_type`、`source_ref`、`version`、`manifest_hash`、`package_hash`、`installed_at` |
 | App 集成 — Storage + Auth Repository | ✅ | `internal/app/app.go` 在启动时解析 `database.path`（支持相对路径基于 config 目录解析）、打开 `storage.Store`、构建 `auth.SQLiteRepository` 并注入 `auth.Manager`；关闭时按序释放 storage handle |
 | Database config consumption | ✅ | `config.Config` 已包含 `DatabaseConfig{Engine, Path}`，`config.Summary` 已包含 `DatabaseEngine` 与 `DatabasePath`，启动日志已输出数据库引擎与路径 |
 
@@ -202,7 +207,7 @@
 | grants / RBAC storage | ❌ | 授权记录与权限数据库尚未实现 |
 | 聊天侧 Permission / 黑名单 / 冷却限流持久化基座 | ❌ | 当前既无相关规则执行面，也无与之配套的持久化结构；后续应建立在 grants / RBAC 与 richer event/runtime 能力之上 |
 | config hot reload | ❌ | 配置热更新与局部重载尚未实现 |
-| 受控运维工具链（`reset-admin` / `backup` / `restore` / `doctor` / `migrate`） | ❌ | 当前实现范围包括内部 migration runner 与最小 auth persistence；CLI surface、备份/恢复/诊断执行管线尚未建立 |
+| 受控运维工具链 CLI 子命令实现 | ❌ | `contracts/cli-commands.yaml` 正式契约骨架已落地（6 条子命令、在线/离线可用性矩阵、task 模型关联与可取消性）；CLI 子命令的实际执行逻辑、备份/恢复/诊断执行管线尚未建立 |
 
 ---
 
@@ -229,7 +234,7 @@
 | Management status / session / system handlers | ✅ | `GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 已按现有 contract 落地；当前 `launcher-token` 为进程内、单次使用、短 TTL 的最小 issuance shell |
 | Config / logs management handlers | ✅ | `GET /api/config`、`PUT /api/config`、`GET /api/logs` 已落地；配置读取返回当前生效配置的可公开快照，敏感字段做基础掩码；配置更新按 formal schema 校验后原子写回 `config/user.yaml`，并显式返回 `restart_required`；日志查询复用 bounded in-memory summary stream 与既有 redaction 逻辑 |
 | `/api/tasks` list / detail / cancel handlers | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` 已落地；当前直接复用内存 `tasks.Registry`，并对运行中的 `plugin.install` 提供最小取消接线；其余不可取消状态继续返回既有 `platform.task_not_cancellable` 错误形状 |
-| 最小插件写操作入口 | ✅ | `POST /api/plugins/install` 已接入最小异步 local-source install 执行链：支持 `local_directory` / `local_zip`、来源准备、manifest 校验、正式目录写入、catalog refresh、task progress 更新与最小取消；`POST /api/plugins/{plugin_id}/enable` / `disable` 已切换到 SQLite 持久化 `desired_state`，并在现有读 API 中反映变更；runtime_state 保持进程内语义 |
+| 最小插件写操作入口 | ✅ | `POST /api/plugins/install` 已接入异步 local-source install 执行链：支持 `local_directory` / `local_zip`、来源准备、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消；`POST /api/plugins/{plugin_id}/enable` / `disable` 已切换到 SQLite 持久化 `desired_state`，并在 `enable` 时触发 runtime 实际启动（含 capability gating）、在 `disable` 时触发 runtime 实际停止；runtime_state 保持进程内语义 |
 | 共享 HTTP error / request context 写入路径 | ✅ | 路由级 request_id 注入、统一 JSON error envelope 写入与最小 panic recovery 已在 server router 上接通；management handlers 与 plugin handlers 当前共享同一写出路径 |
 
 ### 仍未完成
@@ -237,7 +242,7 @@
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | 通用 task executor / progress writer | ❌ | 当前实现范围包括 `plugin.install` 的最小异步执行切片；backup/restore/migrate 等更广 task type 的统一执行编排、历史持久化与恢复仍未建立 |
-| 更完整 plugin install pipeline | ❌ | 当前实现范围包括本地目录 / 压缩包来源、manifest 校验、正式目录写入与 catalog refresh；依赖安装与环境准备、`plugin_packages` 元数据、install scripts 授权、远程来源与 interrupted-task recovery 仍未实现 |
+| 更完整 plugin install pipeline | ❌ | 当前实现范围覆盖本地目录 / 压缩包来源、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化与 install scripts 授权（`AllowInstallScripts`）；远程来源与 interrupted-task recovery 仍未实现 |
 | plugin reload / uninstall 管理面 | ❌ | `POST /api/plugins/{plugin_id}/reload` 与 `DELETE /api/plugins/{plugin_id}` 仍未 formalize / implement |
 | 配置热更新 / 局部重载 | ❌ | `PUT /api/config` 当前只完成 formal schema 校验、原子写盘与 `restart_required` 响应；热更新、局部重载与字段级即时生效尚未实现 |
 | 日志历史检索 / 持久化查询 | ❌ | `GET /api/logs` 当前只查询 bounded in-memory summary stream，不提供日志文件检索、全量 attrs 或历史持久化查询 |
@@ -286,7 +291,7 @@
 
 | 工作流 / Job | 触发 | 覆盖 |
 |--------|------|------|
-| `contracts.yml` / `validate-contracts` | push main / PR | 7 份 formal contracts 解析与结构校验、fixture 目录存在性、example manifests、fixture 引用可达性、web-api exact path set、websocket exact channel/event set、plugin-protocol 单一 `message.send` shape |
+| `contracts.yml` / `validate-contracts` | push main / PR | 7 份 fixture-ready formal contracts 解析与结构校验、`cli-commands.yaml` 命令集与可用性矩阵校验、fixture 目录存在性、example manifests、fixture 引用可达性、web-api exact path set、websocket exact channel/event set、plugin-protocol 三种 action（`message.send` / `message.reply` / `message.send_image`）shape、CLI task_type 与 web-api TaskType enum 交叉校验 |
 | `lint.yml` / `baseline` | push main / PR | baseline 版本锁定校验（Go、Node、pnpm、.NET、Avalonia）、必要目录与文件存在性、`.deps/manifest.json` baseline 资源项校验 |
 | `lint.yml` / `server-smoke` | push main / PR | server `go test ./...` 与 `go build ./cmd/raylea-server` |
 
@@ -318,10 +323,10 @@
 
 ### 内部包级测试
 
-- `internal/adapter/`: backoff_test、shell_test、intake_test — 覆盖退避算法、连接状态机、帧分类与最小 `send_msg` 出站 request-response
+- `internal/adapter/`: backoff_test、shell_test、intake_test — 覆盖退避算法、连接状态机、帧分类、`message.send -> send_msg`、`message.reply -> send_msg(CQ:reply)` 与 `message.send_image -> send_msg(CQ:image)` 出站 request-response
 - `internal/auth/`: manager_test、persistence_test — 覆盖 token 签发/校验/过期、sliding renewal、session 上限、Bootstrap 幂等；persistence_test 覆盖跨重启 bootstrap state 存活、跨重启 token 校验、跨重启过期 session 清理、跨重启 sliding renewal 续期
-- `internal/bridge/`: bridge_test — 覆盖事件投递、单一 `message.send` 映射、outcome 统计、observability 订阅
-- `internal/runtime/`: manager_test、console_test、spec_test — 覆盖子进程生命周期、`event -> action(message.send) | result | error`、受控 `stderr` console capture / redaction / rate limiting、spec 校验
+- `internal/bridge/`: bridge_test — 覆盖事件投递、`message.send`、`message.reply` 与 `message.send_image` 映射、outcome 统计、observability 订阅
+- `internal/runtime/`: manager_test、console_test、spec_test — 覆盖子进程生命周期、`ping/pong`、`event -> action(message.send | message.reply | message.send_image) | result | error`、受控 `stderr` console capture / redaction / rate limiting、spec 校验
 - `internal/logging/`: stream_test — 覆盖结构化日志在进入管理面摘要流前的基础敏感字面值掩码
 - `internal/plugins/`: catalog_test、http_test、repository_test、install_test — 覆盖 `SetDesiredState` 状态更新（启用/禁用/冲突/未找到）、并发安全、install handler（round-trip / 无效请求拒绝）、enable/disable handler（成功/404/409 + 持久化写入）、SQLite desired_state repository 读写与 startup hydration，以及最小 local-source install 执行链（目录/压缩包安装、catalog refresh、重复 `plugin_id` 拒绝、运行中任务取消）
 - `internal/tasks/`: tasks_test — 覆盖 `Registry.Create` task_id 唯一性属性测试、task_id 格式校验、创建后 Get/List 可查
@@ -341,21 +346,21 @@
 ### 1. 近期主线（优先继续补平台闭环）
 
 1. **把当前 plugin.install 扩到更完整的安装执行模型**
-   - 当前实现范围覆盖 `local_directory` / `local_zip`、manifest 校验、正式目录写入、catalog refresh、task progress 更新与最小取消。
-   - 依赖安装与环境准备、`plugin_packages` 元数据、install scripts 授权、远程来源与 interrupted-task recovery 仍需继续补齐。
+   - 当前实现范围覆盖 `local_directory` / `local_zip`、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化（`PackageRepository` + SQLite upsert）、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消。
+   - 远程来源与 interrupted-task recovery 仍需继续补齐。
 
 2. **把 persisted desired_state 继续接入更真实的 runtime / grants / lifecycle 流程**
-   - `enable` / `disable` 已具备 persisted `desired_state`。
-   - 后续推进重点是 runtime 实际启停、grants / lifecycle 约束与更完整插件管理语义。
+   - `enable` / `disable` 已具备 persisted `desired_state`，并接入 runtime 实际启停（`startPluginAsync` / `stopPluginAsync`）与 capability gating（`missingCapabilities` 检查）。
+   - 后续推进重点是 grants / lifecycle 约束、更完整的 supervisor / backoff / dead_letter 恢复策略与更完整插件管理语义。
 
-3. **在下一条 action contract 落定后，补第二个最小 outbound action slice**
-   - 继续保持"一次只落一个动作种类"的节奏，不直接扩成通用 action 平台。
-   - 优先考虑 `message.reply` 这类最贴近现有聊天闭环的单动作切片，再做更广 send semantics。
-   - 新 action 种类必须先进入 `contracts/plugin-protocol.schema.json`、fixtures、examples、tests，再能进入实现。
+3. **在下一条 action contract 落定后，补第三个最小 outbound action slice** ✅
+   - `message.send`、`message.reply` 与 `message.send_image` 三种 action 均已落地，覆盖 contract、fixture、CI 校验、bridge 映射与 adapter 出站。
+   - 后续 action 种类（文件发送、更广 send semantics）按同一节奏继续推进。
 
-4. **运维工具链的 contract / execution model 收口**
-   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍无正式 CLI/后端执行面。
-   - 在进入实现前，需要先把哪些能力通过 HTTP、哪些能力只保留 CLI、本地/停服窗口要求、任务模型与恢复语义进一步收口。
+4. **运维工具链的 contract / execution model 收口** 🟡
+   - `contracts/cli-commands.yaml` 正式契约骨架已落地：6 条子命令（`reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup`）、在线/离线可用性矩阵、task 模型关联（`backup.create`、`restore.apply`、`db.migrate`）与可取消性。
+   - CI 已校验 CLI 命令集完整性与 task_type 与 web-api `TaskType` enum 的交叉一致性。
+   - CLI 子命令的实际执行逻辑仍需在后续轮次中实现。
 
 ### 2. 状态化基础（为恢复、运维与长期运行铺路）
 
@@ -377,11 +382,7 @@
 
 ### 3. Runtime / Adapter / Plugin 扩展路线
 
-1. **protocol-level `ping` / `pong` 实现**
-   - contract + fixtures 已落地；runtime manager 中的实际收发处理链路仍未实现。
-   - 在进入更高层 SDK 与 richer runtime behavior 前，应先把最小心跳/保活语义补齐。
-
-2. **更广 OneBot 事件归一化**
+1. **更广 OneBot 事件归一化**
    - 当前进入 runtime bridge 的内部事件形状为 `onebot11.message_text`。
    - 通知、请求、更多消息段和 richer event shapes 仍未进入实现。
 
@@ -416,4 +417,5 @@
    - render queue、browser scheduling、cache、模板输入校验与 render contract 仍未进入实现。
 
 4. **CLI / 本地运维体验**
-   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate` 仍需要单独设计本地执行体验、停服窗口、诊断输出和与 Web/Launcher 的职责边界。
+   - `contracts/cli-commands.yaml` 已定义 6 条子命令的正式执行模型、在线/离线可用性矩阵与 task 模型关联。
+   - CLI 子命令的实际执行逻辑、停服窗口检测、诊断输出格式和与 Web/Launcher 的共享后端路径仍需在后续轮次中实现。
