@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin install can explicitly authorize install-time scripts for manifests that declare require_install_scripts=true.
+request:
+  method: POST
+  path: /api/plugins/install
+  body:
+    source_type: local_directory
+    source: C:/plugins/weather
+    allow_install_scripts: true
+response:
+  status: 202
+  body:
+    task_id: task_plugin_install_0002
+expect:
+  valid: true

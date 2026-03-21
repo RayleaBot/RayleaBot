@@ -23,9 +23,11 @@ x-fixtures:
   - fixtures/web-api/ok.task-detail-succeeded-install.yaml
   - fixtures/web-api/ok.task-cancel-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
+  - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/edge.task-detail-running-install.yaml
   - fixtures/web-api/edge.task-detail-failed-install.yaml
+  - fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
   - fixtures/web-api/edge.logs-empty-response.yaml
@@ -485,6 +487,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         default:
@@ -864,3 +868,10 @@ components:
           type: string
           minLength: 1
           description: Local filesystem path to the plugin package or directory.
+        allow_install_scripts:
+          type: boolean
+          description: >
+            Explicitly authorizes install-time scripts for plugins whose manifest
+            declares require_install_scripts=true. When omitted or false, the
+            install task keeps the default safety policy and may later fail with
+            platform.install_script_blocked.
