@@ -54,8 +54,8 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 5 {
-		t.Fatalf("unexpected migration count: got %d want 5", count)
+	if count != 6 {
+		t.Fatalf("unexpected migration count: got %d want 6", count)
 	}
 }
 
@@ -112,8 +112,8 @@ func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if migrationCount != 5 {
-		t.Fatalf("unexpected migration count after upgrade: got %d want 5", migrationCount)
+	if migrationCount != 6 {
+		t.Fatalf("unexpected migration count after upgrade: got %d want 6", migrationCount)
 	}
 
 	var bootstrapCount int
