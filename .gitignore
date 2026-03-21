@@ -4,6 +4,7 @@
 /.cache/
 /server/.cache/
 /logs/
+/backups/
 /config/user.yaml
 /plugins/installed/*
 !/plugins/installed/.gitkeep
@@ -50,3 +51,4 @@ Thumbs.db
 
 # AI
 .kiro
+.claude

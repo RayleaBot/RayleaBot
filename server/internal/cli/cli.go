@@ -18,6 +18,7 @@ type Command struct {
 	ConfigPath  string
 	SchemaPath  string
 	Logger      *slog.Logger
+	Args        []string // additional positional arguments after the subcommand name
 }
 
 func Run(cmd Command) int {
@@ -29,11 +30,9 @@ func Run(cmd Command) int {
 	case "cleanup":
 		return runCleanup(cmd)
 	case "backup":
-		fmt.Fprintln(os.Stderr, "backup 子命令尚未实现")
-		return 1
+		return runBackup(cmd)
 	case "restore":
-		fmt.Fprintln(os.Stderr, "restore 子命令尚未实现")
-		return 1
+		return runRestore(cmd)
 	case "migrate":
 		return runMigrate(cmd)
 	default:

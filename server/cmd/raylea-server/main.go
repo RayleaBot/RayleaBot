@@ -29,6 +29,7 @@ func main() {
 			ConfigPath: configPath,
 			SchemaPath: schemaPath,
 			Logger:     logger,
+			Args:       args[1:],
 		})
 		os.Exit(exitCode)
 	}
