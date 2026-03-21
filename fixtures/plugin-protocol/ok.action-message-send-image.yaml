@@ -1,0 +1,19 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000006
+    plugin_id: weather
+    request_id: act_0003
+    action: message.send_image
+    data:
+      target_type: group
+      target_id: "456"
+      file: "file:///data/plugins/weather/output/forecast.png"
+expect:
+  valid: true
+  notes:
+    - This freezes the outbound action shape for image delivery.
+    - file accepts file:// local path or base64:// encoded data.
+    - Adapter maps file to the OneBot11 image segment format.

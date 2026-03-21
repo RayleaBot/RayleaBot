@@ -16,8 +16,16 @@
 
 这些文件都必须带 `x-fixtures` 或等价示例引用，并接受 PR 级 CI 的存在性、可解析性和最低契约覆盖校验。
 
+此外，以下契约文件为正式骨架（尚无 fixture 覆盖，所有命令标记为 TODO）：
+
+- `cli-commands.yaml`
+
 ## 文件职责
 
+- `cli-commands.yaml`
+  - 负责 v0.1 CLI 子命令的正式执行模型：命令名、在线/离线可用性、task 模型关联、可取消性与退出码。
+  - 设计来源为 `docs/RayleaBot机器人项目规划.md` § 3.12。
+  - 当前所有命令均标记为 TODO，尚无实现。
 - `config.user.schema.json`
   - 负责 `config/user.yaml` 的正式机器可校验结构。
   - 冻结 v0.1 首版闭环配置，不预留宽泛占位。
@@ -32,7 +40,7 @@
   - 依赖 Phase 1 已冻结的配置、错误码和管理面语义。
 - `plugin-protocol.schema.json`
   - 负责插件 Runtime 最小 JSONL 协议。
-  - 本轮冻结 `init`、`init_progress`、`init_ack`、`event`、单一 `action=message.send`、`result`、`error`、`shutdown`。
+  - 本轮冻结 `init`、`init_progress`、`init_ack`、`event`、`action=message.send`、`action=message.reply`、`action=message.send_image`、`result`、`error`、`shutdown`。
   - 依赖 Phase 1 已冻结的错误码、任务状态和运行时边界。
 - `release-manifest.schema.json`
   - 负责 `release_manifest.json` 与 `build_info.json` 的正式字段结构。
@@ -66,11 +74,10 @@
 ### Plugin Protocol
 
 - 调试流
-- 文件传输
 - 批量消息
 - 复杂流式回传
 - 平台到插件方向的扩展 `error` 语义
-- `message.send` 之外的其他 `action` 种类
+- `message.send`、`message.reply` 和 `message.send_image` 之外的其他 `action` 种类
 
 ### Release Metadata
 
@@ -83,6 +90,12 @@
 - 增量升级
 - 发布流水线策略
 - `SHA256SUMS.txt` 文件内容结构
+
+### CLI Commands
+
+- 全部 6 条子命令（`reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup`）的实现
+- CLI 与 HTTP task 模型的共享执行路径（`backup.create`、`restore.apply`、`db.migrate`）
+- CLI 专用 fixture 与 golden case
 
 ## 当前未进入 OpenAPI 的 TODO
 

@@ -1,0 +1,36 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000020
+    plugin_id: weather
+    request_id: evt_0002
+    event:
+      event_id: e-002
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: message.group
+      timestamp: 1710000020
+      actor:
+        id: "3001"
+      target:
+        type: group
+        id: "2001"
+      message:
+        plain_text: "!weather"
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000021
+    plugin_id: weather
+    request_id: act_0002
+    action: message.reply
+    data:
+      reply_to_message_id: "98765"
+      text: "今日天气：晴，25°C"
+expect:
+  valid: true
+  notes:
+    - message.reply quotes the original message by reply_to_message_id.
+    - reply_to_message_id is a string representation of the upstream message id.
+    - No target_type or target_id is required; the reply target is inferred from the quoted message.

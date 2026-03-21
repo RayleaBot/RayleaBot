@@ -6,11 +6,11 @@ frames:
     timestamp: 1710000002
     plugin_id: weather
     request_id: req_0001
-    action: message.reply
+    action: group.kick
     data:
       target_type: group
       target_id: "456"
-      text: reply text
+      user_id: "789"
 expect:
   valid: false
-  reason: only the single outbound action action=message.send is frozen; other action kinds remain out of scope.
+  reason: only message.send, message.reply, and message.send_image are frozen outbound action kinds; other action kinds remain out of scope.

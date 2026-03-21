@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Phase 2 fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract only freezes startup, startup progress, one minimal outbound action, event dispatch, result, error, and shutdown semantics.",
+  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, three outbound action kinds (message.send, message.reply, and message.send_image), event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -308,6 +308,19 @@
       "unevaluatedProperties": false
     },
     "action": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/action_message_send"
+        },
+        {
+          "$ref": "#/$defs/action_message_reply"
+        },
+        {
+          "$ref": "#/$defs/action_message_send_image"
+        }
+      ]
+    },
+    "action_message_send": {
       "allOf": [
         {
           "$ref": "#/$defs/common"
@@ -350,6 +363,102 @@
                 "text": {
                   "type": "string",
                   "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_message_reply": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "message.reply"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reply_to_message_id",
+                "text"
+              ],
+              "properties": {
+                "reply_to_message_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The message_id of the message to quote-reply to, as a string."
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_message_send_image": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "message.send_image"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "target_type",
+                "target_id",
+                "file"
+              ],
+              "properties": {
+                "target_type": {
+                  "type": "string",
+                  "enum": [
+                    "group",
+                    "private"
+                  ]
+                },
+                "target_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "file": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Image reference as file:// local path or base64:// encoded data."
                 }
               }
             }
@@ -546,6 +655,7 @@
     },
     {
       "type": "action",
+      "action_kind": "message.send",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request",
       "required_fields": [
@@ -558,6 +668,38 @@
         "data"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.action-message-send.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "message.reply",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-message-reply.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "message.send_image",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-message-send-image.yaml"
     },
     {
       "type": "result",
@@ -635,6 +777,8 @@
     "fixtures/plugin-protocol/ok.event-result.yaml",
     "fixtures/plugin-protocol/ok.event-error.yaml",
     "fixtures/plugin-protocol/ok.action-message-send.yaml",
+    "fixtures/plugin-protocol/ok.action-message-reply.yaml",
+    "fixtures/plugin-protocol/ok.action-message-send-image.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
@@ -642,5 +786,5 @@
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml"
   ],
-  "$comment": "Phase 2 freezes exactly one outbound action shape: action=message.send. Ping and pong are now frozen as the minimum keepalive semantics. Additional action kinds, file transfer, batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
+  "$comment": "Frozen outbound action kinds: message.send, message.reply, and message.send_image. Ping/pong frozen as minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
 }
