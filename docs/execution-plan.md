@@ -17,7 +17,7 @@
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest 的 golden fixtures 已落库 |
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | 只读 reverse WebSocket adapter shell、状态机、intake、最小内部事件归一化、`message.send -> send_msg`、`message.reply -> send_msg(CQ:reply)` 与 `message.send_image -> send_msg(CQ:image)` 出站 action slice 已落地；更广 action family 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)`、`ping/pong` 与 `event -> action(message.send \| message.reply \| message.send_image) \| result \| error` bridge 已落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | 最小 runtime manager、`init -> init_ack`、`shutdown(stop)`、`ping/pong`、`event -> action(message.send \| message.reply \| message.send_image) \| result \| error` bridge 与 supervisor crash-backoff / dead_letter 已落地；多插件调度、SDK 便利层与更完整 bridge 编排仍未实现 |
 | Phase 6 | Config / Storage / Security | 🟡 | 配置解析、schema 校验、`auth.Manager`、SQLite 存储层（WAL / read-write split / migration runner）、auth persistence（bootstrap state + admin sessions 跨重启存活）、plugin desired_state persistence（`plugin_instances` migration + SQLite repository + startup hydration）、`plugin_packages` 元数据持久化（`PackageRepository` + SQLite upsert）与 CLI 运维工具链正式契约骨架（`contracts/cli-commands.yaml`）已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与 CLI 子命令实现仍未落地 |
 | Phase 7 | Web API & Tasks | 🟡 | `healthz` / `readyz`、只读插件查询、`POST /api/setup/admin`、`POST /api/session/login`、`GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/config`、`PUT /api/config`、`GET /api/system/status`、`POST /api/system/shutdown`、`GET /api/logs`、`/api/tasks` list/detail/cancel、统一 `RequireAuth`、共享 HTTP error/write 路径与 4 条管理 WebSocket 通道已落地；`POST /api/plugins/install` 已接到含依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据写入、install scripts 授权的异步 local-source install 执行链，`enable/disable` 已走持久化 `desired_state` 并接入 runtime 实际启停与 capability gating；通用 task executor 与更完整插件管理面仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
@@ -154,6 +154,7 @@
 | runtime -> adapter outbound mapper | ✅ | plugin runtime 的 `action=message.send`、`action=message.reply` 与 `action=message.send_image` 均已可经 bridge 映射到 adapter 的最小 `send_msg` 执行链路 |
 | `ping` / `pong` contract formalize | ✅ | `ping`/`pong` 已进入 `contracts/plugin-protocol.schema.json`、x-message-catalog 与 `fixtures/plugin-protocol/ok.ping-pong.yaml` |
 | `ping` / `pong` runtime 实现 | ✅ | runtime manager 中的 `Ping()` / `awaitPong()` / `parsePongResponse()` 已实现，含超时停止与协议违规检测 |
+| supervisor / crash-backoff / dead_letter | ✅ | runtime manager 支持 `crashed` / `backoff` / `dead_letter` 状态流转；lifecycle controller 驱动指数退避重启与最大重试次数后进入 `dead_letter`；配置消费 `crash_backoff_initial_seconds` / `crash_backoff_max_seconds` |
 
 ### 仍未完成
 
@@ -161,9 +162,9 @@
 |--------|------|------|
 | 更广 adapter 出站 action 执行 | ❌ | 当前实现范围为 `message.send`、`message.reply` 与 `message.send_image`；其余动作族与更丰富发送语义仍未落地 |
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
-| supervisor / backoff / dead_letter 扩展 | ❌ | 尚未建立完整 supervisor 与恢复策略 |
+| supervisor / crash-backoff / dead_letter | ✅ | runtime manager 已支持 `crashed` / `backoff` / `dead_letter` 状态流转，lifecycle controller 驱动指数退避重启与最大重试次数后进入 `dead_letter`；配置消费 `crash_backoff_initial_seconds` / `crash_backoff_max_seconds` |
 | 完整权限授予状态机 | ❌ | 授权、重确认、撤销等流程尚未实现 |
-| 热重载 / restart loop | ❌ | 尚未实现 runtime 热重载与自动重启循环 |
+| 热重载 / restart loop | ❌ | 尚未实现 runtime 热重载；crash-backoff 自动重启循环已落地，但用户主动 restart / reload 仍未实现 |
 | 官方 SDK 便利层 | ❌ | 当前仅有 `docs/plugin/sdk/` 文档骨架，官方 Python / Node.js SDK 尚未进入实现 |
 | 官方内置插件与更正式示例插件体系 | ❌ | 当前仍只有最小 `hello-python` / `hello-node` examples，未建立官方内置插件与 richer examples 体系 |
 | Command Parser / routing | ❌ | 当前尚未建立基于更丰富事件模型与 runtime bridge 的命令路由层 |
@@ -326,7 +327,7 @@
 - `internal/adapter/`: backoff_test、shell_test、intake_test — 覆盖退避算法、连接状态机、帧分类、`message.send -> send_msg`、`message.reply -> send_msg(CQ:reply)` 与 `message.send_image -> send_msg(CQ:image)` 出站 request-response
 - `internal/auth/`: manager_test、persistence_test — 覆盖 token 签发/校验/过期、sliding renewal、session 上限、Bootstrap 幂等；persistence_test 覆盖跨重启 bootstrap state 存活、跨重启 token 校验、跨重启过期 session 清理、跨重启 sliding renewal 续期
 - `internal/bridge/`: bridge_test — 覆盖事件投递、`message.send`、`message.reply` 与 `message.send_image` 映射、outcome 统计、observability 订阅
-- `internal/runtime/`: manager_test、console_test、spec_test — 覆盖子进程生命周期、`ping/pong`、`event -> action(message.send | message.reply | message.send_image) | result | error`、受控 `stderr` console capture / redaction / rate limiting、spec 校验
+- `internal/runtime/`: manager_test、backoff_test、console_test、spec_test — 覆盖子进程生命周期、`ping/pong`、`event -> action(message.send | message.reply | message.send_image) | result | error`、crash 检测与 `CrashCallback` 调用、crash count 跨重启累积、`ResetCrashCount` / `SetBackoffState` / `SetDeadLetterState` 状态流转、指数退避计算（含零值与负值边界）、受控 `stderr` console capture / redaction / rate limiting、spec 校验
 - `internal/logging/`: stream_test — 覆盖结构化日志在进入管理面摘要流前的基础敏感字面值掩码
 - `internal/plugins/`: catalog_test、http_test、repository_test、install_test — 覆盖 `SetDesiredState` 状态更新（启用/禁用/冲突/未找到）、并发安全、install handler（round-trip / 无效请求拒绝）、enable/disable handler（成功/404/409 + 持久化写入）、SQLite desired_state repository 读写与 startup hydration，以及最小 local-source install 执行链（目录/压缩包安装、catalog refresh、重复 `plugin_id` 拒绝、运行中任务取消）
 - `internal/tasks/`: tasks_test — 覆盖 `Registry.Create` task_id 唯一性属性测试、task_id 格式校验、创建后 Get/List 可查
@@ -351,7 +352,7 @@
 
 2. **把 persisted desired_state 继续接入更真实的 runtime / grants / lifecycle 流程**
    - `enable` / `disable` 已具备 persisted `desired_state`，并接入 runtime 实际启停（`startPluginAsync` / `stopPluginAsync`）与 capability gating（`missingCapabilities` 检查）。
-   - 后续推进重点是 grants / lifecycle 约束、更完整的 supervisor / backoff / dead_letter 恢复策略与更完整插件管理语义。
+   - 后续推进重点是 grants / lifecycle 约束与更完整插件管理语义。
 
 3. **在下一条 action contract 落定后，补第三个最小 outbound action slice** ✅
    - `message.send`、`message.reply` 与 `message.send_image` 三种 action 均已落地，覆盖 contract、fixture、CI 校验、bridge 映射与 adapter 出站。
@@ -390,9 +391,9 @@
    - 当前仍是"单 runtime、单插件、lazy-start first valid plugin"的最小切片。
    - 进入更真实的插件生态前，这一层必须先被 formalize 并最小落地。
 
-4. **热重载、restart loop、`backoff` / `dead_letter`**
-   - 当前 runtime 生命周期仍停留在最小 shell。
-   - 更完整的恢复策略和生命周期流转仍是 Phase 5 的主缺口。
+4. **热重载与用户主动 restart / reload**
+   - crash-backoff 自动重启循环已落地（指数退避、最大重试次数、`dead_letter` 终态）。
+   - 用户主动触发的 runtime 热重载与 restart 仍未实现。
 
 5. **官方 SDK、内置插件体系与 richer examples**
    - 当前仅有协议文档骨架和最小 examples。
