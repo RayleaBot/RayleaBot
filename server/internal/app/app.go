@@ -56,6 +56,7 @@ type App struct {
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
 	pluginRepository plugins.DesiredStateRepository
+	grantRepository  plugins.GrantRepository
 	pluginLifecycle  *pluginLifecycleController
 	repoRoot        string
 	router          http.Handler
@@ -189,7 +190,8 @@ func New(options Options) (*App, error) {
 		Runtime:         runtimeManager,
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,
-		pluginRepository: pluginRepository,
+		pluginRepository:  pluginRepository,
+		grantRepository:   pluginRepository,
 		repoRoot:        discoverySpec.repoRoot,
 		startedAt:       time.Now().UTC(),
 		launcherTokens:  newLauncherTokenStore(time.Now, 5*time.Minute),
@@ -229,7 +231,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/tasks", application.handleTasksWebSocket())
 		r.Get("/ws/logs", application.handleLogsWebSocket())
 		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
-		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService, application.pluginLifecycle, pluginUninstallService)
+		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService, application.pluginLifecycle, pluginUninstallService, pluginRepository)
 	})
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))

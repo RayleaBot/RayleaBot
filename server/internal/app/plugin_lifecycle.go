@@ -37,7 +37,8 @@ func (c *pluginLifecycleController) Enable(ctx context.Context, pluginID string)
 		return plugins.Snapshot{}, plugins.ErrStateConflict
 	}
 
-	if missing := missingCapabilities(snapshot.RequiredPermissions, c.app.Config.Auth.AutoGrantCapabilities); len(missing) > 0 {
+	granted := c.grantedCapabilities(ctx, pluginID)
+	if missing := missingCapabilities(snapshot.RequiredPermissions, granted); len(missing) > 0 {
 		return plugins.Snapshot{}, &plugins.PermissionPendingError{
 			PluginID:            pluginID,
 			MissingCapabilities: missing,
@@ -180,7 +181,7 @@ func (c *pluginLifecycleController) reconcileRuntime(ctx context.Context, botID 
 		c.app.repoRoot,
 		c.app.Config.Runtime,
 		botID,
-		c.app.Config.Auth.AutoGrantCapabilities,
+		c.allGrantedCapabilities(ctx),
 	)
 	if err != nil {
 		c.logLifecycleWarn("plugin runtime reconcile failed", snapshot.PluginID, err)
@@ -228,7 +229,7 @@ func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
 		return
 	}
 
-	if missing := missingCapabilities(snapshot.RequiredPermissions, c.app.Config.Auth.AutoGrantCapabilities); len(missing) > 0 {
+	if missing := missingCapabilities(snapshot.RequiredPermissions, c.grantedCapabilities(ctx, pluginID)); len(missing) > 0 {
 		if err := c.app.persistPluginDesiredState(ctx, pluginID, "disabled"); err != nil {
 			c.logLifecycleWarn("persist disabled desired_state after permission rejection", pluginID, err)
 		}
@@ -250,7 +251,7 @@ func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
 		Bot: runtime.BotInfo{
 			ID: botID,
 		},
-		Capabilities: append([]string(nil), c.app.Config.Auth.AutoGrantCapabilities...),
+		Capabilities: c.grantedCapabilities(ctx, pluginID),
 	}
 
 	if err := c.app.Runtime.Start(ctx, spec, payload); err != nil {
@@ -425,6 +426,52 @@ func missingCapabilities(required []string, granted []string) []string {
 		missing = append(missing, capability)
 	}
 	return missing
+}
+
+// grantedCapabilities returns the union of auto_grant_capabilities from config
+// and per-plugin explicit grants from the database.
+func (c *pluginLifecycleController) grantedCapabilities(ctx context.Context, pluginID string) []string {
+	auto := append([]string(nil), c.app.Config.Auth.AutoGrantCapabilities...)
+	if c.app.grantRepository == nil {
+		return auto
+	}
+	grants, err := c.app.grantRepository.LoadGrants(ctx, pluginID)
+	if err != nil {
+		return auto
+	}
+	for _, g := range grants {
+		if !slices.Contains(auto, g.Capability) {
+			auto = append(auto, g.Capability)
+		}
+	}
+	return auto
+}
+
+// allGrantedCapabilities returns the union of auto_grant and all per-plugin
+// grants across all plugins. Used for reconciliation where any plugin's grants
+// should be considered.
+func (c *pluginLifecycleController) allGrantedCapabilities(ctx context.Context) []string {
+	auto := append([]string(nil), c.app.Config.Auth.AutoGrantCapabilities...)
+	if c.app.grantRepository == nil {
+		return auto
+	}
+	allGrants, err := c.app.grantRepository.LoadAllGrants(ctx)
+	if err != nil {
+		return auto
+	}
+	seen := make(map[string]struct{}, len(auto))
+	for _, cap := range auto {
+		seen[cap] = struct{}{}
+	}
+	for _, caps := range allGrants {
+		for _, cap := range caps {
+			if _, ok := seen[cap]; !ok {
+				seen[cap] = struct{}{}
+				auto = append(auto, cap)
+			}
+		}
+	}
+	return auto
 }
 
 func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {

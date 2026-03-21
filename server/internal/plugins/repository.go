@@ -31,6 +31,20 @@ type PackageRepository interface {
 	DeletePackageMetadata(context.Context, string) error
 }
 
+type PluginGrant struct {
+	PluginID   string
+	Capability string
+	GrantedAt  time.Time
+}
+
+type GrantRepository interface {
+	LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error)
+	LoadAllGrants(ctx context.Context) (map[string][]string, error)
+	SaveGrant(ctx context.Context, grant PluginGrant) error
+	DeleteGrant(ctx context.Context, pluginID, capability string) error
+	DeleteAllGrants(ctx context.Context, pluginID string) error
+}
+
 type SQLiteRepository struct {
 	read  *sql.DB
 	write *sql.DB
@@ -132,6 +146,74 @@ func (r *SQLiteRepository) SavePackageMetadata(ctx context.Context, pkg PackageM
 func (r *SQLiteRepository) DeletePackageMetadata(ctx context.Context, pluginID string) error {
 	if _, err := r.write.ExecContext(ctx, `DELETE FROM plugin_packages WHERE plugin_id = ?`, pluginID); err != nil {
 		return fmt.Errorf("delete plugin package metadata for %s: %w", pluginID, err)
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error) {
+	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability, granted_at FROM plugin_grants WHERE plugin_id = ? ORDER BY capability`, pluginID)
+	if err != nil {
+		return nil, fmt.Errorf("query grants for %s: %w", pluginID, err)
+	}
+	defer rows.Close()
+
+	var grants []PluginGrant
+	for rows.Next() {
+		var g PluginGrant
+		var grantedAt string
+		if err := rows.Scan(&g.PluginID, &g.Capability, &grantedAt); err != nil {
+			return nil, fmt.Errorf("scan grant row: %w", err)
+		}
+		g.GrantedAt, _ = time.Parse(time.RFC3339Nano, grantedAt)
+		grants = append(grants, g)
+	}
+	return grants, rows.Err()
+}
+
+func (r *SQLiteRepository) LoadAllGrants(ctx context.Context) (map[string][]string, error) {
+	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability FROM plugin_grants ORDER BY plugin_id, capability`)
+	if err != nil {
+		return nil, fmt.Errorf("query all grants: %w", err)
+	}
+	defer rows.Close()
+
+	grants := make(map[string][]string)
+	for rows.Next() {
+		var pluginID, capability string
+		if err := rows.Scan(&pluginID, &capability); err != nil {
+			return nil, fmt.Errorf("scan grant row: %w", err)
+		}
+		grants[pluginID] = append(grants[pluginID], capability)
+	}
+	return grants, rows.Err()
+}
+
+func (r *SQLiteRepository) SaveGrant(ctx context.Context, grant PluginGrant) error {
+	if _, err := r.write.ExecContext(
+		ctx,
+		`INSERT INTO plugin_grants (plugin_id, capability, granted_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(plugin_id, capability) DO UPDATE SET
+			granted_at = excluded.granted_at`,
+		grant.PluginID,
+		grant.Capability,
+		grant.GrantedAt.UTC().Format(time.RFC3339Nano),
+	); err != nil {
+		return fmt.Errorf("upsert grant for %s/%s: %w", grant.PluginID, grant.Capability, err)
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) DeleteGrant(ctx context.Context, pluginID, capability string) error {
+	if _, err := r.write.ExecContext(ctx, `DELETE FROM plugin_grants WHERE plugin_id = ? AND capability = ?`, pluginID, capability); err != nil {
+		return fmt.Errorf("delete grant %s/%s: %w", pluginID, capability, err)
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) DeleteAllGrants(ctx context.Context, pluginID string) error {
+	if _, err := r.write.ExecContext(ctx, `DELETE FROM plugin_grants WHERE plugin_id = ?`, pluginID); err != nil {
+		return fmt.Errorf("delete all grants for %s: %w", pluginID, err)
 	}
 	return nil
 }
