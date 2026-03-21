@@ -1,0 +1,116 @@
+version: 1
+description: >
+  v0.1 CLI 子命令正式契约。CLI 是本地离线恢复与运维入口，
+  不承担常规在线管理面职责。命令由主程序提供受控子命令，
+  文档中统一记为 raylea <subcommand>。
+
+x-fixtures: []
+
+x-design-source: docs/RayleaBot机器人项目规划.md § 3.12
+
+commands:
+  reset-admin:
+    name: reset-admin
+    summary: 重置管理员凭据并重新进入初始化向导。
+    availability:
+      online: false
+      offline: true
+    description: >
+      清除 auth_bootstrap_state 与 admin_sessions，使服务下次启动时
+      重新进入 setup_required 状态。必须在停服窗口执行，避免与运行中
+      的 auth.Manager 竞争写入。
+    exit_codes:
+      0: 重置成功
+      1: 数据库访问失败或锁冲突
+    task_model: false
+    cancellable: false
+    # TODO: 实现 reset-admin 子命令
+
+  backup:
+    name: backup
+    summary: 导出恢复用备份包。
+    availability:
+      online: true
+      offline: true
+    description: >
+      导出 config/、data/ 与 plugins/installed/ 的一致性快照为
+      可恢复备份包。在线执行时通过 task 模型异步运行（task_type:
+      backup.create）；停服后执行时直接同步完成。在线备份为尽力
+      一致性，追求强一致性时建议停服后执行。
+    exit_codes:
+      0: 备份成功
+      1: 备份失败
+    task_model: true
+    task_type: backup.create
+    cancellable: true
+    # TODO: 实现 backup 子命令与 HTTP task 触发路径
+
+  restore:
+    name: restore
+    summary: 从受支持的恢复包恢复数据。
+    availability:
+      online: false
+      offline: true
+    description: >
+      在停服窗口下从受支持的恢复包恢复 config/、data/ 与
+      plugins/installed/。恢复后应统一执行迁移与兼容检查。
+    exit_codes:
+      0: 恢复成功
+      1: 恢复包格式错误或恢复失败
+    task_model: true
+    task_type: restore.apply
+    cancellable: false
+    # TODO: 实现 restore 子命令
+
+  doctor:
+    name: doctor
+    summary: 执行本地环境与资源完整性检查。
+    availability:
+      online: true
+      offline: true
+    description: >
+      检查运行时资源完整性、托管 Python / Node.js 可用性、
+      .deps/ 资源清单一致性、SQLite 数据库可打开性与基础
+      schema 完整性。Windows 上额外检查 LongPathsEnabled
+      注册表项。
+    exit_codes:
+      0: 所有检查通过
+      1: 存在 WARN 或 ERROR 级别问题
+    task_model: false
+    cancellable: false
+    # TODO: 实现 doctor 子命令
+
+  migrate:
+    name: migrate
+    summary: 执行显式配置或数据库迁移。
+    availability:
+      online: false
+      offline: true
+    description: >
+      在停服窗口下执行受控配置迁移或数据库 schema 迁移，
+      避免与运行中写入竞争。迁移通过 task 模型记录进度
+      （task_type: db.migrate 或 config.migrate）。
+    exit_codes:
+      0: 迁移成功
+      1: 迁移失败
+    task_model: true
+    task_type: db.migrate
+    cancellable: false
+    # TODO: 实现 migrate 子命令
+
+  cleanup:
+    name: cleanup
+    summary: 回收可重建缓存与遗留临时目录。
+    availability:
+      online: true
+      offline: true
+    description: >
+      回收 cache/downloads/、过期渲染缓存与失败安装残留临时目录。
+      不触碰 config/、状态库和插件业务数据。在线执行时跳过当前
+      活跃安装 / 渲染任务占用的缓存与临时文件。
+    exit_codes:
+      0: 清理成功
+      1: 清理过程中遇到错误
+    task_model: false
+    cancellable: false
+    # TODO: 实现 cleanup 子命令
