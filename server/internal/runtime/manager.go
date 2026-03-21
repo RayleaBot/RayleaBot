@@ -20,10 +20,13 @@ import (
 type State string
 
 const (
-	StateStopped  State = "stopped"
-	StateStarting State = "starting"
-	StateRunning  State = "running"
-	StateStopping State = "stopping"
+	StateStopped    State = "stopped"
+	StateStarting   State = "starting"
+	StateRunning    State = "running"
+	StateStopping   State = "stopping"
+	StateCrashed    State = "crashed"
+	StateBackoff    State = "backoff"
+	StateDeadLetter State = "dead_letter"
 )
 
 type Snapshot struct {
@@ -35,7 +38,14 @@ type Snapshot struct {
 	PID              int
 	StartedAt        *time.Time
 	StoppedAt        *time.Time
+	CrashCount       int
+	NextRetryAt      *time.Time
 }
+
+// CrashCallback is invoked by the runtime manager when a running plugin
+// process exits unexpectedly. The lifecycle controller uses this to drive
+// the backoff/restart cycle.
+type CrashCallback func(pluginID string, crashCount int, lastErrorCode string)
 
 type Event struct {
 	EventID        string
@@ -87,6 +97,7 @@ type Options struct {
 	Console                    *console.Stream
 	RedactText                 func(string) string
 	StderrRateLimitBytesPerSec int
+	OnCrash                    CrashCallback
 }
 
 type Manager struct {
@@ -328,11 +339,13 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 
 	startedAt := m.deps.now()
 	requestID := m.deps.requestID()
+	crashCount := m.snap.CrashCount
 	m.snap = Snapshot{
 		PluginID:      spec.PluginID,
 		State:         StateStarting,
 		InitRequestID: requestID,
 		StartedAt:     &startedAt,
+		CrashCount:    crashCount,
 	}
 	m.mu.Unlock()
 
@@ -1031,7 +1044,60 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		stoppedAt := *snapshot.StoppedAt
 		cloned.StoppedAt = &stoppedAt
 	}
+	if snapshot.NextRetryAt != nil {
+		nextRetryAt := *snapshot.NextRetryAt
+		cloned.NextRetryAt = &nextRetryAt
+	}
 	return cloned
+}
+
+// ResetCrashCount resets the crash counter after a successful start.
+func (m *Manager) ResetCrashCount() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.snap.CrashCount = 0
+	m.snap.NextRetryAt = nil
+}
+
+// SetBackoffState transitions the runtime snapshot to backoff with a
+// scheduled next retry time. The lifecycle controller calls this after
+// a crash to indicate the backoff wait period.
+func (m *Manager) SetBackoffState(nextRetry time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.snap.State = StateBackoff
+	m.snap.NextRetryAt = &nextRetry
+}
+
+// SetDeadLetterState transitions the runtime snapshot to dead_letter,
+// indicating that the maximum crash-backoff attempts have been exhausted.
+func (m *Manager) SetDeadLetterState() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.snap.State = StateDeadLetter
+	m.snap.NextRetryAt = nil
+}
+
+// SetOnCrash registers the crash callback after construction. This is
+// used when the callback depends on objects that reference the manager
+// itself (e.g. the lifecycle controller).
+func (m *Manager) SetOnCrash(cb CrashCallback) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.opts.OnCrash = cb
+}
+
+// SetStopped transitions the runtime snapshot to stopped without
+// attempting to stop a process. Used when the runtime is in a
+// non-running state (crashed, backoff, dead_letter) and needs to
+// be reset.
+func (m *Manager) SetStopped() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := m.deps.now()
+	m.snap.State = StateStopped
+	m.snap.StoppedAt = &now
+	m.snap.NextRetryAt = nil
 }
 
 func (m *Manager) watchRunningProcess(handle *processHandle) {
@@ -1047,14 +1113,30 @@ func (m *Manager) watchRunningProcess(handle *processHandle) {
 	m.mu.RUnlock()
 
 	if waitErr != nil {
-		m.markStopped(codePluginInternalError, "plugin exited unexpectedly", waitErr)
+		m.mu.Lock()
+		m.snap.CrashCount++
+		crashCount := m.snap.CrashCount
+		m.snap.State = StateCrashed
+		now := m.deps.now()
+		m.snap.StoppedAt = &now
+		m.snap.LastErrorCode = codePluginInternalError
+		m.snap.LastErrorMessage = "plugin exited unexpectedly"
+		pluginID := m.snap.PluginID
+		m.proc = nil
+		m.mu.Unlock()
+
 		m.logger.Warn(
-			"plugin runtime exited unexpectedly",
+			"plugin runtime crashed",
 			"component", "runtime",
 			"plugin_id", handle.spec.PluginID,
-			"runtime_state", string(StateStopped),
+			"runtime_state", string(StateCrashed),
+			"crash_count", crashCount,
 			"err", waitErr.Error(),
 		)
+
+		if m.opts.OnCrash != nil {
+			m.opts.OnCrash(pluginID, crashCount, codePluginInternalError)
+		}
 		return
 	}
 

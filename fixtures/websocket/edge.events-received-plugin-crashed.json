@@ -1,0 +1,23 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "edge",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-03-17T09:35:00Z",
+    "data": {
+      "plugin_id": "weather",
+      "registration_state": "installed",
+      "desired_state": "enabled",
+      "runtime_state": "backoff",
+      "display_state": "backoff"
+    }
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "Plugin crashed and entered exponential backoff before automatic restart.",
+      "runtime_state transitions: running -> crashed -> backoff -> starting -> running (or dead_letter)."
+    ]
+  }
+}

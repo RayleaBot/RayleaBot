@@ -87,10 +87,18 @@ func (c *pluginLifecycleController) Disable(ctx context.Context, pluginID string
 
 	runtimeSnapshot := c.app.Runtime.Snapshot()
 	if runtimeSnapshot.PluginID == pluginID && runtimeSnapshot.State != runtime.StateStopped {
-		if stoppingSnapshot, runtimeErr := c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopping)); runtimeErr == nil {
-			updated = stoppingSnapshot
+		switch runtimeSnapshot.State {
+		case runtime.StateBackoff, runtime.StateCrashed, runtime.StateDeadLetter:
+			// No running process to stop; just reset state.
+			c.app.Runtime.ResetCrashCount()
+			c.app.Runtime.SetStopped()
+			_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		default:
+			if stoppingSnapshot, runtimeErr := c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopping)); runtimeErr == nil {
+				updated = stoppingSnapshot
+			}
+			go c.stopPluginAsync(pluginID)
 		}
-		go c.stopPluginAsync(pluginID)
 	}
 
 	return updated, nil
@@ -147,7 +155,10 @@ func (c *pluginLifecycleController) shouldStartRuntimeFor(pluginID string) bool 
 	}
 
 	snapshot := c.app.Runtime.Snapshot()
-	if snapshot.State != runtime.StateStopped {
+	switch snapshot.State {
+	case runtime.StateStopped:
+		// ok to start
+	default:
 		return false
 	}
 	if snapshot.PluginID == "" {
@@ -204,6 +215,7 @@ func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
 		return
 	}
 
+	c.app.Runtime.ResetCrashCount()
 	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
 }
 
@@ -218,7 +230,90 @@ func (c *pluginLifecycleController) stopPluginAsync(pluginID string) {
 	if err := c.app.Runtime.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		c.logLifecycleWarn("stop plugin runtime after disable", pluginID, err)
 	}
+	c.app.Runtime.ResetCrashCount()
 	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+}
+
+// handleCrash is the CrashCallback wired into the runtime manager. It drives
+// the backoff → restart → dead_letter cycle using the config-defined backoff
+// parameters and a fixed maximum retry count.
+func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int, _ string) {
+	if c == nil || c.app == nil {
+		return
+	}
+
+	snapshot, ok := c.app.Plugins.Get(pluginID)
+	if !ok || snapshot.DesiredState != "enabled" {
+		c.app.Runtime.SetDeadLetterState()
+		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		return
+	}
+
+	maxRetries := runtime.DefaultMaxCrashRetries
+	if crashCount >= maxRetries {
+		c.app.Runtime.SetDeadLetterState()
+		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		c.app.Logger.Warn(
+			"plugin entered dead_letter after repeated crashes",
+			"component", "app",
+			"plugin_id", pluginID,
+			"crash_count", crashCount,
+			"max_retries", maxRetries,
+		)
+		return
+	}
+
+	cfg := c.app.Config.Runtime
+	delay := runtime.CrashBackoff(crashCount, cfg.CrashBackoffInitialSeconds, cfg.CrashBackoffMaxSeconds)
+	nextRetry := time.Now().Add(delay)
+
+	c.app.Runtime.SetBackoffState(nextRetry)
+	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateBackoff))
+
+	c.app.Logger.Info(
+		"plugin runtime entering backoff before restart",
+		"component", "app",
+		"plugin_id", pluginID,
+		"crash_count", crashCount,
+		"backoff_seconds", int(delay.Seconds()),
+	)
+
+	go c.backoffRestart(pluginID, delay)
+}
+
+func (c *pluginLifecycleController) backoffRestart(pluginID string, delay time.Duration) {
+	if c == nil || c.app == nil {
+		return
+	}
+
+	time.Sleep(delay)
+
+	snapshot, ok := c.app.Plugins.Get(pluginID)
+	if !ok || snapshot.DesiredState != "enabled" {
+		c.app.Runtime.SetDeadLetterState()
+		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		return
+	}
+
+	runtimeSnap := c.app.Runtime.Snapshot()
+	if runtimeSnap.State != runtime.StateBackoff || runtimeSnap.PluginID != pluginID {
+		return
+	}
+
+	botID := c.currentBotID()
+	if botID == "" {
+		c.app.Runtime.SetDeadLetterState()
+		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		c.app.Logger.Warn(
+			"cannot restart plugin: no bot connection",
+			"component", "app",
+			"plugin_id", pluginID,
+		)
+		return
+	}
+
+	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))
+	c.startPluginAsync(pluginID, botID)
 }
 
 func (c *pluginLifecycleController) currentBotID() string {

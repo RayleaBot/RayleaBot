@@ -957,6 +957,25 @@ func TestHelperProcessRuntime(t *testing.T) {
 			}
 		}
 		os.Exit(0)
+	case "crash-after-ready":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		time.Sleep(20 * time.Millisecond)
+		os.Exit(1) // non-zero exit = crash
 	default:
 		os.Exit(5)
 	}
@@ -1033,6 +1052,141 @@ func testRuntimeEvent() Event {
 		Message: &EventMessage{
 			PlainText: "hello from adapter bridge",
 		},
+	}
+}
+
+func TestManagerCrashInvokesCrashCallback(t *testing.T) {
+	t.Parallel()
+
+	crashCh := make(chan struct{}, 1)
+	var gotPluginID string
+	var gotCrashCount int
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	manager := newManager(logger, managerDeps{
+		now: func() time.Time {
+			return time.Unix(1_700_000_000, 0).UTC()
+		},
+		requestID: func() string {
+			return "req_test"
+		},
+	}, Options{
+		OnCrash: func(pluginID string, crashCount int, lastErrorCode string) {
+			gotPluginID = pluginID
+			gotCrashCount = crashCount
+			crashCh <- struct{}{}
+		},
+	})
+
+	spec := helperSpec(t, "crash-after-ready", "")
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	select {
+	case <-crashCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("crash callback was not invoked within timeout")
+	}
+
+	if gotPluginID != spec.PluginID {
+		t.Errorf("crash callback plugin_id: got %q want %q", gotPluginID, spec.PluginID)
+	}
+	if gotCrashCount != 1 {
+		t.Errorf("crash callback crash_count: got %d want 1", gotCrashCount)
+	}
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateCrashed {
+		t.Errorf("runtime state after crash: got %q want %q", snapshot.State, StateCrashed)
+	}
+	if snapshot.CrashCount != 1 {
+		t.Errorf("crash count in snapshot: got %d want 1", snapshot.CrashCount)
+	}
+}
+
+func TestManagerCrashCountIncrementsAcrossMultipleCrashes(t *testing.T) {
+	t.Parallel()
+
+	crashCh := make(chan int, 5)
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	manager := newManager(logger, managerDeps{
+		now: func() time.Time {
+			return time.Unix(1_700_000_000, 0).UTC()
+		},
+		requestID: func() string {
+			return "req_test"
+		},
+	}, Options{
+		OnCrash: func(_ string, crashCount int, _ string) {
+			crashCh <- crashCount
+		},
+	})
+
+	for i := 1; i <= 3; i++ {
+		spec := helperSpec(t, "crash-after-ready", "")
+		// Reset to stopped so Start() can proceed
+		manager.SetStopped()
+
+		if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+			t.Fatalf("start runtime (iteration %d): %v", i, err)
+		}
+
+		select {
+		case count := <-crashCh:
+			if count != i {
+				t.Errorf("iteration %d: crash_count = %d, want %d", i, count, i)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("iteration %d: crash callback not invoked", i)
+		}
+	}
+}
+
+func TestManagerResetCrashCount(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	manager.mu.Lock()
+	manager.snap.CrashCount = 3
+	manager.mu.Unlock()
+
+	manager.ResetCrashCount()
+
+	snapshot := manager.Snapshot()
+	if snapshot.CrashCount != 0 {
+		t.Errorf("crash count after reset: got %d want 0", snapshot.CrashCount)
+	}
+}
+
+func TestManagerSetBackoffState(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	nextRetry := time.Now().Add(10 * time.Second)
+
+	manager.SetBackoffState(nextRetry)
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateBackoff {
+		t.Errorf("state after SetBackoffState: got %q want %q", snapshot.State, StateBackoff)
+	}
+	if snapshot.NextRetryAt == nil {
+		t.Fatal("NextRetryAt should not be nil after SetBackoffState")
+	}
+}
+
+func TestManagerSetDeadLetterState(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+
+	manager.SetDeadLetterState()
+
+	snapshot := manager.Snapshot()
+	if snapshot.State != StateDeadLetter {
+		t.Errorf("state after SetDeadLetterState: got %q want %q", snapshot.State, StateDeadLetter)
 	}
 }
 

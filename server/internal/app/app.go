@@ -176,6 +176,7 @@ func New(options Options) (*App, error) {
 		launcherTokens:  newLauncherTokenStore(time.Now, 5*time.Minute),
 	}
 	application.pluginLifecycle = newPluginLifecycleController(application)
+	runtimeManager.SetOnCrash(application.pluginLifecycle.handleCrash)
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 	adapterShell.SetReadyHandler(application.handleAdapterReady)
 
