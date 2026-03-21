@@ -26,7 +26,9 @@ import (
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
+	"rayleabot/server/internal/scheduler"
 	"rayleabot/server/internal/schema"
+	"rayleabot/server/internal/secrets"
 	"rayleabot/server/internal/storage"
 	"rayleabot/server/internal/tasks"
 )
@@ -44,10 +46,13 @@ type App struct {
 	Config          config.Config
 	Summary         config.Summary
 	Logger          *slog.Logger
+	LogLevel        *logging.LevelController
 	Tasks           *tasks.Registry
 	Plugins         *plugins.Catalog
 	Auth            *auth.Manager
 	Storage         *storage.Store
+	Secrets         secrets.Store
+	Scheduler       *scheduler.Engine
 	Logs            *logging.Stream
 	Console         *console.Stream
 	Adapter         *adapter.Shell
@@ -76,7 +81,7 @@ func New(options Options) (*App, error) {
 	}
 
 	managementRedactor := buildManagementRedactor(cfg)
-	logger, logStream, err := logging.NewWithStream(cfg.Logging.Level, managementRedactor.Redact)
+	logger, logStream, logLevel, err := logging.NewWithStreamAndController(cfg.Logging.Level, managementRedactor.Redact)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +126,11 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create auth repository: %w", err)
 	}
+	secretStore, err := secrets.NewSQLiteStore(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create secret store: %w", err)
+	}
 	authOptions := append([]auth.Option{
 		auth.WithRepository(authRepository),
 	}, options.AuthOptions...)
@@ -133,10 +143,38 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create auth manager: %w", err)
 	}
+	taskRepository, err := tasks.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create task repository: %w", err)
+	}
+	taskRegistry.SetRepository(taskRepository)
+	if err := taskRegistry.Hydrate(context.Background()); err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("hydrate task registry: %w", err)
+	}
 	pluginRepository, err := plugins.NewSQLiteRepository(storageStore)
 	if err != nil {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create plugin repository: %w", err)
+	}
+	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create scheduler repository: %w", err)
+	}
+	schedulerEngine, err := scheduler.New(scheduler.Options{
+		Repository: schedulerRepo,
+		Logger:     logger,
+		Timezone:   cfg.Runtime.SchedulerTimezone,
+	})
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create scheduler engine: %w", err)
+	}
+	if err := schedulerEngine.Hydrate(context.Background()); err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("hydrate scheduler: %w", err)
 	}
 	desiredStates, err := pluginRepository.LoadDesiredStates(context.Background())
 	if err != nil {
@@ -179,10 +217,13 @@ func New(options Options) (*App, error) {
 		Config:          cfg,
 		Summary:         summary,
 		Logger:          logger,
+		LogLevel:        logLevel,
 		Tasks:           taskRegistry,
 		Plugins:         pluginCatalog,
 		Auth:            authManager,
 		Storage:         storageStore,
+		Secrets:         secretStore,
+		Scheduler:       schedulerEngine,
 		Logs:            logStream,
 		Console:         consoleStream,
 		Adapter:         adapterShell,
@@ -299,6 +340,7 @@ func (a *App) Run(ctx context.Context) error {
 	defer a.clearRunCancel()
 
 	a.Adapter.Start(runCtx)
+	a.Scheduler.Start(runCtx)
 
 	go func() {
 		a.Logger.Info("http server starting", "component", "app", "listen_addr", a.server.Addr)
@@ -313,6 +355,7 @@ func (a *App) Run(ctx context.Context) error {
 	case <-runCtx.Done():
 		a.shuttingDown.Store(true)
 		a.Logger.Info("http server shutting down", "component", "app", "listen_addr", a.server.Addr)
+		a.Scheduler.Stop()
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
 		if err := a.Runtime.Stop(runtimeStopCtx); err != nil && !errors.Is(err, context.Canceled) {
@@ -332,6 +375,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		return a.Close()
 	case err := <-errCh:
+		a.Scheduler.Stop()
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
 		if stopErr := a.Runtime.Stop(runtimeStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
