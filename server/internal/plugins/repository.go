@@ -13,6 +13,7 @@ import (
 type DesiredStateRepository interface {
 	LoadDesiredStates(context.Context) (map[string]string, error)
 	SaveDesiredState(context.Context, string, string, time.Time) error
+	DeleteDesiredState(context.Context, string) error
 }
 
 type PackageMetadata struct {
@@ -27,6 +28,7 @@ type PackageMetadata struct {
 
 type PackageRepository interface {
 	SavePackageMetadata(context.Context, PackageMetadata) error
+	DeletePackageMetadata(context.Context, string) error
 }
 
 type SQLiteRepository struct {
@@ -86,6 +88,13 @@ func (r *SQLiteRepository) SaveDesiredState(ctx context.Context, pluginID string
 	return nil
 }
 
+func (r *SQLiteRepository) DeleteDesiredState(ctx context.Context, pluginID string) error {
+	if _, err := r.write.ExecContext(ctx, `DELETE FROM plugin_instances WHERE plugin_id = ?`, pluginID); err != nil {
+		return fmt.Errorf("delete plugin desired_state for %s: %w", pluginID, err)
+	}
+	return nil
+}
+
 func (r *SQLiteRepository) SavePackageMetadata(ctx context.Context, pkg PackageMetadata) error {
 	if _, err := r.write.ExecContext(
 		ctx,
@@ -117,5 +126,12 @@ func (r *SQLiteRepository) SavePackageMetadata(ctx context.Context, pkg PackageM
 		return fmt.Errorf("upsert plugin package metadata for %s: %w", pkg.PluginID, err)
 	}
 
+	return nil
+}
+
+func (r *SQLiteRepository) DeletePackageMetadata(ctx context.Context, pluginID string) error {
+	if _, err := r.write.ExecContext(ctx, `DELETE FROM plugin_packages WHERE plugin_id = ?`, pluginID); err != nil {
+		return fmt.Errorf("delete plugin package metadata for %s: %w", pluginID, err)
+	}
 	return nil
 }

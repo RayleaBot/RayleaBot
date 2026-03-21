@@ -368,6 +368,14 @@ func (r *stubInstallRepository) SavePackageMetadata(_ context.Context, pkg Packa
 	return nil
 }
 
+func (r *stubInstallRepository) DeleteDesiredState(_ context.Context, _ string) error {
+	return nil
+}
+
+func (r *stubInstallRepository) DeletePackageMetadata(_ context.Context, _ string) error {
+	return nil
+}
+
 func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry string, options ...installSourceOptions) string {
 	t.Helper()
 

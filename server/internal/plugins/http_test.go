@@ -36,6 +36,10 @@ func (r *stubDesiredStateRepository) SaveDesiredState(_ context.Context, pluginI
 	return nil
 }
 
+func (r *stubDesiredStateRepository) DeleteDesiredState(_ context.Context, _ string) error {
+	return nil
+}
+
 func setupRouter(entries []Snapshot) (chi.Router, *Catalog, *tasks.Registry, *stubDesiredStateRepository) {
 	catalog := NewCatalog(entries)
 	taskRegistry := tasks.NewRegistry()

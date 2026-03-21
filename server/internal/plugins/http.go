@@ -59,6 +59,7 @@ type taskAcceptedResponse struct {
 type DesiredStateController interface {
 	Enable(context.Context, string) (Snapshot, error)
 	Disable(context.Context, string) (Snapshot, error)
+	Reload(context.Context, string) (Snapshot, error)
 }
 
 func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer InstallCoordinator) http.HandlerFunc {
@@ -164,7 +165,47 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository, controller
 	}
 }
 
-func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController) {
+func newReloadHandler(catalog *Catalog, controller DesiredStateController) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		if controller == nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		snapshot, err := controller.Reload(r.Context(), pluginID)
+		if err == nil {
+			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+			return
+		}
+		writeDesiredStateError(w, r, pluginID, err)
+	}
+}
+
+type UninstallCoordinator interface {
+	Accept(ctx context.Context, pluginID string) (string, error)
+}
+
+func newUninstallHandler(catalog *Catalog, coordinator UninstallCoordinator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		if _, ok := catalog.Get(pluginID); !ok {
+			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			return
+		}
+		if coordinator == nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		taskID, err := coordinator.Accept(r.Context(), pluginID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		writeJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
+	}
+}
+
+func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator) {
 	if catalog == nil {
 		catalog = NewCatalog(nil)
 	}
@@ -174,6 +215,8 @@ func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Reg
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
 	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller))
 	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller))
+	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller))
+	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
 }
 
 func validateDesiredStateChange(catalog *Catalog, pluginID string, desired string) error {

@@ -63,6 +63,50 @@ func (c *pluginLifecycleController) Enable(ctx context.Context, pluginID string)
 	return updated, nil
 }
 
+func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
+	if c == nil || c.app == nil || c.app.Plugins == nil {
+		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
+	}
+
+	snapshot, ok := c.app.Plugins.Get(pluginID)
+	if !ok {
+		return plugins.Snapshot{}, plugins.ErrPluginNotFound
+	}
+	if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
+		return plugins.Snapshot{}, plugins.ErrStateConflict
+	}
+
+	// Stop current runtime if running.
+	runtimeSnapshot := c.app.Runtime.Snapshot()
+	if runtimeSnapshot.PluginID == pluginID && runtimeSnapshot.State != runtime.StateStopped {
+		switch runtimeSnapshot.State {
+		case runtime.StateBackoff, runtime.StateCrashed, runtime.StateDeadLetter:
+			c.app.Runtime.ResetCrashCount()
+			c.app.Runtime.SetStopped()
+			_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		default:
+			stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer stopCancel()
+			if err := c.app.Runtime.Stop(stopCtx); err != nil && !errors.Is(err, context.Canceled) {
+				c.logLifecycleWarn("stop plugin runtime during reload", pluginID, err)
+			}
+			c.app.Runtime.ResetCrashCount()
+			_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		}
+	}
+
+	// Start runtime again.
+	updated := snapshot
+	if botID := c.currentBotID(); botID != "" {
+		if runtimeUpdated, runtimeErr := c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStarting)); runtimeErr == nil {
+			updated = runtimeUpdated
+		}
+		go c.startPluginAsync(pluginID, botID)
+	}
+
+	return updated, nil
+}
+
 func (c *pluginLifecycleController) Disable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 	if c == nil || c.app == nil || c.app.Plugins == nil {
 		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
@@ -217,6 +261,31 @@ func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
 
 	c.app.Runtime.ResetCrashCount()
 	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+}
+
+func (c *pluginLifecycleController) stopAndResetPlugin(pluginID string) {
+	if c == nil || c.app == nil || c.app.Runtime == nil {
+		return
+	}
+
+	runtimeSnapshot := c.app.Runtime.Snapshot()
+	if runtimeSnapshot.PluginID != pluginID || runtimeSnapshot.State == runtime.StateStopped {
+		return
+	}
+
+	switch runtimeSnapshot.State {
+	case runtime.StateBackoff, runtime.StateCrashed, runtime.StateDeadLetter:
+		c.app.Runtime.ResetCrashCount()
+		c.app.Runtime.SetStopped()
+	default:
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := c.app.Runtime.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			c.logLifecycleWarn("stop plugin runtime for uninstall", pluginID, err)
+		}
+		c.app.Runtime.ResetCrashCount()
+	}
+	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 }
 
 func (c *pluginLifecycleController) stopPluginAsync(pluginID string) {

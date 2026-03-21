@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -52,7 +53,8 @@ type App struct {
 	Adapter         *adapter.Shell
 	Bridge          *bridge.Bridge
 	Runtime         *runtime.Manager
-	PluginInstaller plugins.InstallCoordinator
+	PluginInstaller   plugins.InstallCoordinator
+	PluginUninstaller plugins.UninstallCoordinator
 	pluginRepository plugins.DesiredStateRepository
 	pluginLifecycle  *pluginLifecycleController
 	repoRoot        string
@@ -141,6 +143,7 @@ func New(options Options) (*App, error) {
 		return nil, fmt.Errorf("load persisted plugin desired_state: %w", err)
 	}
 	pluginCatalog.ApplyDesiredStates(desiredStates)
+	cleanupOrphanedInstallDirs(logger, discoverySpec.roots)
 	pluginInstallService, err := plugins.NewInstallService(
 		logger,
 		taskRegistry,
@@ -156,6 +159,21 @@ func New(options Options) (*App, error) {
 		return nil, fmt.Errorf("create plugin install service: %w", err)
 	}
 
+	pluginUninstallService, err := plugins.NewUninstallService(
+		logger,
+		taskRegistry,
+		pluginCatalog,
+		pluginRepository,
+		pluginValidator,
+		discoverySpec.repoRoot,
+		discoverySpec.roots,
+		nil, // stopPlugin callback wired after application is created
+	)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create plugin uninstall service: %w", err)
+	}
+
 	application := &App{
 		Config:          cfg,
 		Summary:         summary,
@@ -169,13 +187,15 @@ func New(options Options) (*App, error) {
 		Adapter:         adapterShell,
 		Bridge:          eventBridge,
 		Runtime:         runtimeManager,
-		PluginInstaller: pluginInstallService,
+		PluginInstaller:   pluginInstallService,
+		PluginUninstaller: pluginUninstallService,
 		pluginRepository: pluginRepository,
 		repoRoot:        discoverySpec.repoRoot,
 		startedAt:       time.Now().UTC(),
 		launcherTokens:  newLauncherTokenStore(time.Now, 5*time.Minute),
 	}
 	application.pluginLifecycle = newPluginLifecycleController(application)
+	pluginUninstallService.SetStopPlugin(application.pluginLifecycle.stopAndResetPlugin)
 	runtimeManager.SetOnCrash(application.pluginLifecycle.handleCrash)
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 	adapterShell.SetReadyHandler(application.handleAdapterReady)
@@ -209,7 +229,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/tasks", application.handleTasksWebSocket())
 		r.Get("/ws/logs", application.handleLogsWebSocket())
 		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
-		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService, application.pluginLifecycle)
+		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService, application.pluginLifecycle, pluginUninstallService)
 	})
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
@@ -255,6 +275,14 @@ func (a *App) Close() error {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
 		}
 		a.PluginInstaller = nil
+	}
+	if a != nil && a.PluginUninstaller != nil {
+		if closer, ok := a.PluginUninstaller.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
+			}
+		}
+		a.PluginUninstaller = nil
 	}
 	if err := a.closeStorage(); err != nil {
 		errs = append(errs, err)
@@ -483,4 +511,37 @@ func stateOrIdle(state adapter.State) adapter.State {
 	}
 
 	return state
+}
+
+func cleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugins.ScanRoot) {
+	for _, root := range roots {
+		if root.Label != "plugins/installed" {
+			continue
+		}
+		entries, err := os.ReadDir(root.Path)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if len(name) > len(".plugin-install-") && name[:len(".plugin-install-")] == ".plugin-install-" {
+				orphanPath := filepath.Join(root.Path, name)
+				if err := os.RemoveAll(orphanPath); err != nil {
+					logger.Warn("failed to clean up orphaned install directory",
+						"component", "app",
+						"path", orphanPath,
+						"err", err.Error(),
+					)
+				} else {
+					logger.Info("cleaned up orphaned install directory",
+						"component", "app",
+						"path", orphanPath,
+					)
+				}
+			}
+		}
+	}
 }
