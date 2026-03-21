@@ -47,6 +47,7 @@ type Shell struct {
 	done             chan struct{}
 	started          bool
 	eventHandler     func(context.Context, NormalizedEvent)
+	readyHandler     func(context.Context)
 	eventQueue       chan NormalizedEvent
 	nextEcho         uint64
 	pendingResponses map[string]chan apiResponse
@@ -172,6 +173,12 @@ func (s *Shell) SetEventHandler(handler func(context.Context, NormalizedEvent)) 
 	s.eventHandler = handler
 }
 
+func (s *Shell) SetReadyHandler(handler func(context.Context)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.readyHandler = handler
+}
+
 func (s *Shell) run(ctx context.Context) {
 	defer func() {
 		s.clearConn(nil)
@@ -284,6 +291,9 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 		"adapter_state", StateConnected,
 		"ws_url", sanitizeWSURL(s.cfg.WSURL),
 	)
+	if handler := s.currentReadyHandler(); handler != nil {
+		go handler(ctx)
+	}
 
 	err = s.readLoop(ctx, conn)
 	if err == nil {
@@ -359,7 +369,7 @@ func (s *Shell) readContext(ctx context.Context) (context.Context, context.Cance
 }
 
 func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
-	snapshot := s.recordFrame(frame.Summary)
+	snapshot := s.recordFrame(frame)
 
 	switch {
 	case frame.Summary.Category == FrameCategoryInvalid:
@@ -409,11 +419,11 @@ func (s *Shell) dial(ctx context.Context) (*websocket.Conn, *http.Response, erro
 	})
 }
 
-func (s *Shell) recordFrame(summary FrameSummary) Snapshot {
+func (s *Shell) recordFrame(frame classifiedFrame) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	applyFrameSummary(&s.snapshot, summary)
+	applyFrameSummary(&s.snapshot, frame)
 	return cloneSnapshot(s.snapshot)
 }
 
@@ -618,6 +628,12 @@ func (s *Shell) currentEventHandler() func(context.Context, NormalizedEvent) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.eventHandler
+}
+
+func (s *Shell) currentReadyHandler() func(context.Context) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.readyHandler
 }
 
 func (s *Shell) dispatchEvents(ctx context.Context) {

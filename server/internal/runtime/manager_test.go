@@ -235,6 +235,38 @@ func TestManagerDeliverEventReturnsAction(t *testing.T) {
 	}
 }
 
+func TestManagerDeliverEventReturnsMessageReplyAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-reply", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.Action == nil {
+		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+	}
+	if delivery.Action.Kind != "message.reply" {
+		t.Fatalf("unexpected action kind: got %q want %q", delivery.Action.Kind, "message.reply")
+	}
+	if delivery.Action.ReplyToMessageID != "98765" || delivery.Action.Text != "reply from plugin" {
+		t.Fatalf("unexpected action payload: %#v", delivery.Action)
+	}
+	if delivery.Action.TargetType != "" || delivery.Action.TargetID != "" {
+		t.Fatalf("message.reply should not carry target_type/target_id: %#v", delivery.Action)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
 func TestManagerDeliverEventRejectsUnsupportedAction(t *testing.T) {
 	t.Parallel()
 
@@ -281,6 +313,64 @@ func TestManagerDeliverEventTimeoutStopsRuntime(t *testing.T) {
 	assertRuntimeErrorCode(t, err, codePlatformInvalidRequest)
 }
 
+func TestManagerPingReturnsPong(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "ping-pong", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	if err := manager.Ping(context.Background()); err != nil {
+		t.Fatalf("ping: %v", err)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerPingFailsWhenRuntimeIsNotRunning(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+
+	err := manager.Ping(context.Background())
+	assertRuntimeErrorCode(t, err, codePlatformInvalidRequest)
+}
+
+func TestManagerPingTimeoutStopsRuntime(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpecWithEventTimeout(t, "ping-timeout", "", 80*time.Millisecond)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	err := manager.Ping(context.Background())
+	assertRuntimeErrorCode(t, err, codePluginEventTimeout)
+
+	waitForRuntimeState(t, manager, StateStopped)
+}
+
+func TestManagerPingRejectsProtocolViolation(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "ping-wrong-type", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	err := manager.Ping(context.Background())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+}
+
 func TestManagerStopIgnoresPluginThatAlreadyExited(t *testing.T) {
 	t.Parallel()
 
@@ -308,6 +398,102 @@ func TestHelperProcessRuntime(t *testing.T) {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	switch scenario {
+	case "ping-pong":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(4)
+			}
+			switch frame["type"] {
+			case "ping":
+				writeHelperFrame(map[string]any{
+					"protocol_version": "1",
+					"type":             "pong",
+					"timestamp":        time.Now().Unix(),
+					"plugin_id":        frame["plugin_id"],
+					"request_id":       frame["request_id"],
+				})
+			case "shutdown":
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
+	case "ping-timeout":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		// receive ping but never respond — triggers timeout
+		if scanner.Scan() {
+			time.Sleep(500 * time.Millisecond)
+		}
+		os.Exit(0)
+	case "ping-wrong-type":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(4)
+			}
+			// respond with wrong type instead of pong
+			writeHelperFrame(map[string]any{
+				"protocol_version": "1",
+				"type":             "result",
+				"timestamp":        time.Now().Unix(),
+				"plugin_id":        frame["plugin_id"],
+				"request_id":       frame["request_id"],
+				"status":           "success",
+				"data":             map[string]any{},
+			})
+		}
+		for scanner.Scan() {
+		}
+		os.Exit(0)
 	case "early-exit":
 		os.Exit(0)
 	case "event-action-message-send":
@@ -455,7 +641,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			}
 		}
 		os.Exit(0)
-	case "event-unsupported-action":
+	case "event-action-message-reply":
 		if !scanner.Scan() {
 			os.Exit(2)
 		}
@@ -488,9 +674,55 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"request_id":       eventFrame["request_id"],
 			"action":           "message.reply",
 			"data": map[string]any{
-				"target_type": "group",
-				"target_id":   "2001",
-				"text":        "out of scope",
+				"reply_to_message_id": "98765",
+				"text":                "reply from plugin",
+			},
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
+	case "event-unsupported-action":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "action",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"action":           "message.broadcast",
+			"data": map[string]any{
+				"text": "out of scope",
 			},
 		})
 		os.Exit(0)

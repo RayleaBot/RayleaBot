@@ -49,6 +49,17 @@ type OutboundMessageSend struct {
 	Text       string
 }
 
+type OutboundMessageReply struct {
+	ReplyToMessageID string
+	Text             string
+}
+
+type OutboundMessageSendImage struct {
+	TargetType string
+	TargetID   string
+	File       string
+}
+
 type SendMessageResult struct {
 	MessageID string
 }
@@ -124,6 +135,109 @@ func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (Se
 		return parseSendMessageResponse(response)
 	case <-ctx.Done():
 		return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg response timed out", ctx.Err())
+	}
+}
+
+// SendImage sends an image message via the OneBot11 adapter using the
+// [CQ:image,file=<file>] segment format.
+func (s *Shell) SendImage(ctx context.Context, action OutboundMessageSendImage) (SendMessageResult, error) {
+	targetType := strings.TrimSpace(action.TargetType)
+	targetID := strings.TrimSpace(action.TargetID)
+	file := strings.TrimSpace(action.File)
+	if targetID == "" || file == "" {
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send_image action is missing required fields", nil)
+	}
+	switch targetType {
+	case "group", "private":
+	default:
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send_image uses unsupported target_type", nil)
+	}
+
+	echo := s.nextRequestEcho()
+	responseCh := make(chan apiResponse, 1)
+	s.registerPendingResponse(echo, responseCh)
+	defer s.dropPendingResponse(echo)
+
+	cqMessage := fmt.Sprintf("[CQ:image,file=%s]", file)
+
+	request := sendMsgRequest{
+		Action: "send_msg",
+		Params: sendMsgParams{
+			MessageType: targetType,
+			Message:     cqMessage,
+		},
+		Echo: echo,
+	}
+	switch targetType {
+	case "group":
+		request.Params.GroupID = oneBotTargetValue(targetID)
+	case "private":
+		request.Params.UserID = oneBotTargetValue(targetID)
+	}
+
+	conn, snapshot := s.currentConn()
+	if conn == nil || snapshot.State != StateConnected {
+		return SendMessageResult{}, errorf(errorCodeConnectionLost, "adapter websocket is not connected", nil)
+	}
+
+	s.sendMu.Lock()
+	writeErr := wsjsonWrite(ctx, conn, request)
+	s.sendMu.Unlock()
+	if writeErr != nil {
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "write send_msg image request", writeErr)
+	}
+
+	select {
+	case response := <-responseCh:
+		return parseSendMessageResponse(response)
+	case <-ctx.Done():
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg image response timed out", ctx.Err())
+	}
+}
+
+// SendReply sends a quote-reply message via the OneBot11 adapter using the
+// [CQ:reply,id=<reply_to_message_id>] segment prepended to the text.
+func (s *Shell) SendReply(ctx context.Context, action OutboundMessageReply) (SendMessageResult, error) {
+	replyToID := strings.TrimSpace(action.ReplyToMessageID)
+	text := strings.TrimSpace(action.Text)
+	if replyToID == "" || text == "" {
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.reply action is missing required fields", nil)
+	}
+
+	echo := s.nextRequestEcho()
+	responseCh := make(chan apiResponse, 1)
+	s.registerPendingResponse(echo, responseCh)
+	defer s.dropPendingResponse(echo)
+
+	// OneBot11 quote-reply: prepend [CQ:reply,id=<id>] to the message text.
+	cqMessage := fmt.Sprintf("[CQ:reply,id=%s]%s", replyToID, text)
+
+	request := sendMsgRequest{
+		Action: "send_msg",
+		Params: sendMsgParams{
+			MessageType: "group",
+			Message:     cqMessage,
+		},
+		Echo: echo,
+	}
+
+	conn, snapshot := s.currentConn()
+	if conn == nil || snapshot.State != StateConnected {
+		return SendMessageResult{}, errorf(errorCodeConnectionLost, "adapter websocket is not connected", nil)
+	}
+
+	s.sendMu.Lock()
+	writeErr := wsjsonWrite(ctx, conn, request)
+	s.sendMu.Unlock()
+	if writeErr != nil {
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "write send_msg reply request", writeErr)
+	}
+
+	select {
+	case response := <-responseCh:
+		return parseSendMessageResponse(response)
+	case <-ctx.Done():
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg reply response timed out", ctx.Err())
 	}
 }
 

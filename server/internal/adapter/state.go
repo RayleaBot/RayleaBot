@@ -15,6 +15,7 @@ const (
 
 type Snapshot struct {
 	State                 State
+	BotID                 string
 	LastErrorCode         string
 	LastErrorMessage      string
 	ReadyFrameSeen        bool

@@ -62,10 +62,12 @@ type EventMessage struct {
 }
 
 type Action struct {
-	Kind       string
-	TargetType string
-	TargetID   string
-	Text       string
+	Kind              string
+	TargetType        string
+	TargetID          string
+	Text              string
+	ReplyToMessageID  string
+	File              string
 }
 
 type Delivery struct {
@@ -107,6 +109,14 @@ type processHandle struct {
 	done    chan struct{}
 	exitMu  sync.RWMutex
 	exitErr error
+}
+
+type pingFrame struct {
+	ProtocolVersion string `json:"protocol_version"`
+	Type            string `json:"type"`
+	Timestamp       int64  `json:"timestamp"`
+	PluginID        string `json:"plugin_id"`
+	RequestID       string `json:"request_id"`
 }
 
 type initFrame struct {
@@ -177,9 +187,11 @@ type actionFrame struct {
 }
 
 type protocolActionDataFrame struct {
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	Text       string `json:"text"`
+	TargetType       string `json:"target_type,omitempty"`
+	TargetID         string `json:"target_id,omitempty"`
+	Text             string `json:"text,omitempty"`
+	ReplyToMessageID string `json:"reply_to_message_id,omitempty"`
+	File             string `json:"file,omitempty"`
 }
 
 type frameEnvelope struct {
@@ -494,6 +506,121 @@ func (m *Manager) Stop(ctx context.Context) error {
 	}
 }
 
+// Ping sends a ping frame to the plugin and waits for a pong response.
+// Returns an error if the runtime is not running, the plugin does not respond
+// within the event timeout, or the plugin returns a protocol violation.
+// A timeout causes the runtime to be stopped.
+func (m *Manager) Ping(ctx context.Context) error {
+	m.deliverMu.Lock()
+	defer m.deliverMu.Unlock()
+
+	m.mu.RLock()
+	handle := m.proc
+	snapshot := m.snap
+	m.mu.RUnlock()
+
+	if handle == nil || snapshot.State == StateStopped {
+		return errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
+	}
+	if snapshot.State == StateStopping {
+		return errorf(codePluginStopping, "plugin runtime is stopping", nil)
+	}
+	if snapshot.State != StateRunning {
+		return errorf(codePlatformInvalidRequest, "plugin runtime is not ready for ping", nil)
+	}
+
+	requestID := m.deps.requestID()
+	if err := writeJSONLine(handle.stdin, pingFrame{
+		ProtocolVersion: "1",
+		Type:            "ping",
+		Timestamp:       m.deps.now().Unix(),
+		PluginID:        handle.spec.PluginID,
+		RequestID:       requestID,
+	}); err != nil {
+		return errorf(codePluginInternalError, "write ping frame", err)
+	}
+
+	return m.awaitPong(ctx, handle, requestID)
+}
+
+func (m *Manager) awaitPong(ctx context.Context, handle *processHandle, requestID string) error {
+	readCh := make(chan []byte, 1)
+	readErrCh := make(chan error, 1)
+
+	go func() {
+		line, err := handle.stdout.ReadBytes('\n')
+		if err != nil {
+			readErrCh <- err
+			return
+		}
+		readCh <- line
+	}()
+
+	timeout := handle.spec.EventTimeout
+	if deadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
+			timeout = remaining
+		}
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case line := <-readCh:
+		if err := m.parsePongResponse(line, handle.spec.PluginID, requestID); err != nil {
+			var runtimeErr *Error
+			if errors.As(err, &runtimeErr) {
+				m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+			}
+			return err
+		}
+		return nil
+	case readErr := <-readErrCh:
+		if errors.Is(readErr, io.EOF) {
+			waitErr, _ := handle.exitResult()
+			if waitErr == nil {
+				return errorf(codePluginInternalError, "plugin exited during ping", nil)
+			}
+			return errorf(codePluginInternalError, "plugin exited during ping", waitErr)
+		}
+		return errorf(codePluginProtocolViolation, "read plugin pong response", readErr)
+	case <-handle.done:
+		waitErr, _ := handle.exitResult()
+		if waitErr == nil {
+			return errorf(codePluginInternalError, "plugin exited during ping", nil)
+		}
+		return errorf(codePluginInternalError, "plugin exited during ping", waitErr)
+	case <-timer.C:
+		runtimeErr := errorf(codePluginEventTimeout, "plugin pong response timed out", nil)
+		m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+		return runtimeErr
+	case <-ctx.Done():
+		runtimeErr := errorf(codePluginEventTimeout, "plugin pong response timed out", ctx.Err())
+		m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+		return runtimeErr
+	}
+}
+
+func (m *Manager) parsePongResponse(line []byte, pluginID string, requestID string) error {
+	var envelope frameEnvelope
+	if err := json.Unmarshal(line, &envelope); err != nil {
+		return errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+	}
+	if envelope.ProtocolVersion != "1" {
+		return errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
+	}
+	if envelope.PluginID == "" || envelope.PluginID != pluginID {
+		return errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
+	}
+	if envelope.RequestID == "" || envelope.RequestID != requestID {
+		return errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+	}
+	if envelope.Type != "pong" {
+		return errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)
+	}
+	return nil
+}
+
 func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, error) {
 	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp <= 0 {
 		return Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
@@ -748,31 +875,70 @@ func (m *Manager) parseEventResponse(line []byte, pluginID string, requestID str
 		if err := json.Unmarshal(line, &frame); err != nil {
 			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
 		}
-		if frame.Action != "message.send" {
+
+		switch frame.Action {
+		case "message.send":
+			targetType := strings.TrimSpace(frame.Data.TargetType)
+			targetID := strings.TrimSpace(frame.Data.TargetID)
+			text := strings.TrimSpace(frame.Data.Text)
+			if targetID == "" || text == "" {
+				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send fields", nil)
+			}
+			switch targetType {
+			case "group", "private":
+			default:
+				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported target_type", nil)
+			}
+			return Delivery{
+				RequestID: requestID,
+				Action: &Action{
+					Kind:       frame.Action,
+					TargetType: targetType,
+					TargetID:   targetID,
+					Text:       text,
+				},
+			}, nil
+
+		case "message.reply":
+			replyToMessageID := strings.TrimSpace(frame.Data.ReplyToMessageID)
+			text := strings.TrimSpace(frame.Data.Text)
+			if replyToMessageID == "" || text == "" {
+				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
+			}
+			return Delivery{
+				RequestID: requestID,
+				Action: &Action{
+					Kind:             frame.Action,
+					ReplyToMessageID: replyToMessageID,
+					Text:             text,
+				},
+			}, nil
+
+		case "message.send_image":
+			targetType := strings.TrimSpace(frame.Data.TargetType)
+			targetID := strings.TrimSpace(frame.Data.TargetID)
+			file := strings.TrimSpace(frame.Data.File)
+			if targetID == "" || file == "" {
+				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send_image fields", nil)
+			}
+			switch targetType {
+			case "group", "private":
+			default:
+				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported target_type", nil)
+			}
+			return Delivery{
+				RequestID: requestID,
+				Action: &Action{
+					Kind:       frame.Action,
+					TargetType: targetType,
+					TargetID:   targetID,
+					File:       file,
+				},
+			}, nil
+
+		default:
 			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
 		}
-
-		targetType := strings.TrimSpace(frame.Data.TargetType)
-		targetID := strings.TrimSpace(frame.Data.TargetID)
-		text := strings.TrimSpace(frame.Data.Text)
-		if targetID == "" || text == "" {
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send fields", nil)
-		}
-		switch targetType {
-		case "group", "private":
-		default:
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported target_type", nil)
-		}
-
-		return Delivery{
-			RequestID: requestID,
-			Action: &Action{
-				Kind:       frame.Action,
-				TargetType: targetType,
-				TargetID:   targetID,
-				Text:       text,
-			},
-		}, nil
 	case "result":
 		var frame resultFrame
 		if err := json.Unmarshal(line, &frame); err != nil {

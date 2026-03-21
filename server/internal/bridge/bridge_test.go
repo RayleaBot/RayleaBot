@@ -210,6 +210,42 @@ func TestBridgeReturnsAdapterErrorForOutboundActionFailure(t *testing.T) {
 	}
 }
 
+func TestBridgeDeliversMessageReplyAction(t *testing.T) {
+	t.Parallel()
+
+	fakeSender := &fakeActionSender{
+		sendResult: adapter.SendMessageResult{MessageID: "9002"},
+	}
+	fakeRuntime := &fakeRuntimeClient{
+		snapshot: runtime.Snapshot{State: runtime.StateRunning},
+		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
+			return runtime.Delivery{
+				RequestID: "req_evt_reply",
+				Action: &runtime.Action{
+					Kind:             "message.reply",
+					ReplyToMessageID: "98765",
+					Text:             "今日天气：晴",
+				},
+			}, nil
+		},
+	}
+	eventBridge := testBridge(fakeRuntime, fakeSender)
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
+	if outcome != OutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	}
+	if len(fakeSender.replyActions) != 1 {
+		t.Fatalf("expected one reply action, got %d", len(fakeSender.replyActions))
+	}
+	if fakeSender.replyActions[0].ReplyToMessageID != "98765" || fakeSender.replyActions[0].Text != "今日天气：晴" {
+		t.Fatalf("unexpected reply action payload: %#v", fakeSender.replyActions[0])
+	}
+	if len(fakeSender.actions) != 0 {
+		t.Fatalf("message.reply should not call SendMessage, got %d calls", len(fakeSender.actions))
+	}
+}
+
 func TestBridgeRejectsUnsupportedOutboundActionKind(t *testing.T) {
 	t.Parallel()
 
@@ -220,10 +256,8 @@ func TestBridgeRejectsUnsupportedOutboundActionKind(t *testing.T) {
 			return runtime.Delivery{
 				RequestID: "req_evt_5",
 				Action: &runtime.Action{
-					Kind:       "message.reply",
-					TargetType: "group",
-					TargetID:   "2001",
-					Text:       "out of scope",
+					Kind: "message.broadcast",
+					Text: "out of scope",
 				},
 			}, nil
 		},
@@ -234,7 +268,7 @@ func TestBridgeRejectsUnsupportedOutboundActionKind(t *testing.T) {
 	if outcome != OutcomeError {
 		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeError)
 	}
-	if len(fakeSender.actions) != 0 {
+	if len(fakeSender.actions) != 0 || len(fakeSender.replyActions) != 0 {
 		t.Fatalf("unsupported action kind should not reach adapter sender")
 	}
 }
@@ -258,13 +292,31 @@ func (f *fakeRuntimeClient) DeliverEvent(ctx context.Context, event runtime.Even
 }
 
 type fakeActionSender struct {
-	actions    []adapter.OutboundMessageSend
-	sendResult adapter.SendMessageResult
-	sendErr    error
+	actions       []adapter.OutboundMessageSend
+	replyActions  []adapter.OutboundMessageReply
+	imageActions  []adapter.OutboundMessageSendImage
+	sendResult    adapter.SendMessageResult
+	sendErr       error
 }
 
 func (f *fakeActionSender) SendMessage(ctx context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
 	f.actions = append(f.actions, action)
+	if f.sendErr != nil {
+		return adapter.SendMessageResult{}, f.sendErr
+	}
+	return f.sendResult, nil
+}
+
+func (f *fakeActionSender) SendReply(ctx context.Context, action adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
+	f.replyActions = append(f.replyActions, action)
+	if f.sendErr != nil {
+		return adapter.SendMessageResult{}, f.sendErr
+	}
+	return f.sendResult, nil
+}
+
+func (f *fakeActionSender) SendImage(ctx context.Context, action adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error) {
+	f.imageActions = append(f.imageActions, action)
 	if f.sendErr != nil {
 		return adapter.SendMessageResult{}, f.sendErr
 	}

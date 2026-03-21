@@ -145,14 +145,18 @@ func frameEcho(value any) (string, bool) {
 	return echo, true
 }
 
-func applyFrameSummary(snapshot *Snapshot, summary FrameSummary) {
+func applyFrameSummary(snapshot *Snapshot, frame classifiedFrame) {
 	if snapshot == nil {
 		return
 	}
+	summary := frame.Summary
 
 	snapshot.TotalReceivedFrames++
 	snapshot.LastFrameCategory = summary.Category
 	snapshot.LastFrameType = summary.Type
+	if frame.Frame.SelfID > 0 {
+		snapshot.BotID = fmt.Sprintf("%d", frame.Frame.SelfID)
+	}
 
 	if summary.Category == FrameCategoryInvalid {
 		snapshot.InvalidReceivedFrames++

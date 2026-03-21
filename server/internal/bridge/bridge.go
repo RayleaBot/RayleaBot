@@ -67,6 +67,8 @@ type runtimeClient interface {
 
 type actionSender interface {
 	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
+	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
+	SendImage(context.Context, adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error)
 }
 
 type Bridge struct {
@@ -298,12 +300,6 @@ func isSupportedEventType(event adapter.NormalizedEvent) bool {
 }
 
 func (b *Bridge) sendOutboundAction(ctx context.Context, action runtime.Action) (adapter.SendMessageResult, error) {
-	if action.Kind != "message.send" {
-		return adapter.SendMessageResult{}, &adapter.Error{
-			Code:    "plugin.protocol_violation",
-			Message: "runtime bridge received unsupported outbound action kind",
-		}
-	}
 	if b.sender == nil {
 		return adapter.SendMessageResult{}, &adapter.Error{
 			Code:    "adapter.send_failed",
@@ -311,11 +307,30 @@ func (b *Bridge) sendOutboundAction(ctx context.Context, action runtime.Action) 
 		}
 	}
 
-	return b.sender.SendMessage(ctx, adapter.OutboundMessageSend{
-		TargetType: action.TargetType,
-		TargetID:   action.TargetID,
-		Text:       action.Text,
-	})
+	switch action.Kind {
+	case "message.send":
+		return b.sender.SendMessage(ctx, adapter.OutboundMessageSend{
+			TargetType: action.TargetType,
+			TargetID:   action.TargetID,
+			Text:       action.Text,
+		})
+	case "message.reply":
+		return b.sender.SendReply(ctx, adapter.OutboundMessageReply{
+			ReplyToMessageID: action.ReplyToMessageID,
+			Text:             action.Text,
+		})
+	case "message.send_image":
+		return b.sender.SendImage(ctx, adapter.OutboundMessageSendImage{
+			TargetType: action.TargetType,
+			TargetID:   action.TargetID,
+			File:       action.File,
+		})
+	default:
+		return adapter.SendMessageResult{}, &adapter.Error{
+			Code:    "plugin.protocol_violation",
+			Message: "runtime bridge received unsupported outbound action kind",
+		}
+	}
 }
 
 func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Time) {

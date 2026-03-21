@@ -150,21 +150,28 @@ func TestApplyFrameSummaryUpdatesSnapshotObservability(t *testing.T) {
 	unknownAt := heartbeatAt.Add(5 * time.Second)
 	snapshot := Snapshot{}
 
-	applyFrameSummary(&snapshot, FrameSummary{
-		Category:          FrameCategoryHeartbeat,
-		Type:              "meta.heartbeat",
-		ObservedAt:        heartbeatAt,
-		HeartbeatInterval: 5 * time.Second,
+	applyFrameSummary(&snapshot, classifiedFrame{
+		Summary: FrameSummary{
+			Category:          FrameCategoryHeartbeat,
+			Type:              "meta.heartbeat",
+			ObservedAt:        heartbeatAt,
+			HeartbeatInterval: 5 * time.Second,
+		},
+		Frame: oneBotFrame{SelfID: 10001},
 	})
-	applyFrameSummary(&snapshot, FrameSummary{
-		Category:   FrameCategoryUnknown,
-		Type:       "unknown",
-		ObservedAt: unknownAt,
+	applyFrameSummary(&snapshot, classifiedFrame{
+		Summary: FrameSummary{
+			Category:   FrameCategoryUnknown,
+			Type:       "unknown",
+			ObservedAt: unknownAt,
+		},
 	})
-	applyFrameSummary(&snapshot, FrameSummary{
-		Category:   FrameCategoryInvalid,
-		Type:       "invalid",
-		ObservedAt: unknownAt.Add(5 * time.Second),
+	applyFrameSummary(&snapshot, classifiedFrame{
+		Summary: FrameSummary{
+			Category:   FrameCategoryInvalid,
+			Type:       "invalid",
+			ObservedAt: unknownAt.Add(5 * time.Second),
+		},
 	})
 
 	if snapshot.TotalReceivedFrames != 3 {
@@ -184,6 +191,9 @@ func TestApplyFrameSummaryUpdatesSnapshotObservability(t *testing.T) {
 	}
 	if snapshot.HeartbeatInterval != 5*time.Second {
 		t.Fatalf("unexpected heartbeat interval: got %s want %s", snapshot.HeartbeatInterval, 5*time.Second)
+	}
+	if snapshot.BotID != "10001" {
+		t.Fatalf("unexpected bot id: got %q want %q", snapshot.BotID, "10001")
 	}
 	if snapshot.LastFrameCategory != FrameCategoryInvalid {
 		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryInvalid)

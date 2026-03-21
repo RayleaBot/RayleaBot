@@ -965,6 +965,103 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	}
 }
 
+func TestShellSendReplyWritesCQReplyRequestAndReturnsMessageID(t *testing.T) {
+	t.Parallel()
+
+	requests := make(chan map[string]any, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+		requests <- request
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"message_id": 98765,
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	result, err := shell.SendReply(context.Background(), OutboundMessageReply{
+		ReplyToMessageID: "98765",
+		Text:             "reply text",
+	})
+	if err != nil {
+		t.Fatalf("SendReply failed: %v", err)
+	}
+	if result.MessageID != "98765" {
+		t.Fatalf("unexpected message id: got %q want %q", result.MessageID, "98765")
+	}
+
+	var request map[string]any
+	select {
+	case request = <-requests:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for send_msg request")
+	}
+
+	if request["action"] != "send_msg" {
+		t.Fatalf("unexpected request action: %#v", request["action"])
+	}
+	params, ok := request["params"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected params object, got %#v", request["params"])
+	}
+	if params["message_type"] != "group" {
+		t.Fatalf("unexpected message_type: %#v", params["message_type"])
+	}
+	wantMessage := "[CQ:reply,id=98765]reply text"
+	if params["message"] != wantMessage {
+		t.Fatalf("unexpected message payload: got %q want %q", params["message"], wantMessage)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
 func newTestShell(cfg config.OneBotConfig, deps shellDeps) *Shell {
 	if deps.sleep == nil {
 		deps.sleep = blockingSleep
