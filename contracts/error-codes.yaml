@@ -214,6 +214,16 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
+  plugin.uninstall_failed:
+    code: plugin.uninstall_failed
+    domain: plugin
+    message_key: errors.plugin.uninstall_failed
+    message: 插件卸载失败
+    description: Plugin uninstallation failed during runtime shutdown, directory removal, or database cleanup.
+    http_status: 409
+    retryable: true
+    applies_to: [http, websocket, task]
+
   plugin.migration_failed:
     code: plugin.migration_failed
     domain: plugin

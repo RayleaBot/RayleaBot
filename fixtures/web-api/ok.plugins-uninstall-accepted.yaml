@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin uninstall uses the asynchronous task model.
+request:
+  method: DELETE
+  path: /api/plugins/weather
+response:
+  status: 202
+  body:
+    task_id: task_plugin_uninstall_0001
+expect:
+  valid: true

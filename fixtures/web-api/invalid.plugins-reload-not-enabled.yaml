@@ -1,0 +1,20 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Reload is rejected when desired_state is not enabled.
+request:
+  method: POST
+  path: /api/plugins/weather/reload
+response:
+  status: 409
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数不合法
+      message_key: errors.platform.invalid_request
+      request_id: req_001
+      details:
+        plugin_id: weather
+expect:
+  valid: true
+  notes:
+    - Reload requires desired_state=enabled.

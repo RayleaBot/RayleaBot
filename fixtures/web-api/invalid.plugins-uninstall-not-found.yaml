@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Uninstall is rejected when plugin_id does not exist.
+request:
+  method: DELETE
+  path: /api/plugins/nonexistent
+response:
+  status: 404
+  body:
+    error:
+      code: platform.resource_missing
+      message: 必要运行时资源缺失
+      message_key: errors.platform.resource_missing
+      request_id: req_001
+      details:
+        resource_type: plugin
+        plugin_id: nonexistent
+expect:
+  valid: true

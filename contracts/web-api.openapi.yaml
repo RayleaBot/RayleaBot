@@ -38,6 +38,10 @@ x-fixtures:
   - fixtures/web-api/invalid.auth-missing-token.yaml
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
+  - fixtures/web-api/ok.plugins-reload-response.yaml
+  - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
+  - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
+  - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
 
 paths:
@@ -400,28 +404,6 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/plugins/{plugin_id}:
-    get:
-      summary: Get one plugin snapshot.
-      operationId: getPlugin
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PluginId'
-      responses:
-        '200':
-          description: Latest plugin snapshot.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PluginDetailResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
   /api/plugins/{plugin_id}/enable:
     post:
       summary: Set the plugin desired_state to enabled.
@@ -464,6 +446,74 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/reload:
+    post:
+      summary: Restart the plugin runtime without changing desired_state.
+      operationId: reloadPlugin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Reload accepted. The runtime may still be restarting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}:
+    get:
+      summary: Get one plugin snapshot.
+      operationId: getPlugin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Latest plugin snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      summary: Uninstall a plugin asynchronously.
+      operationId: uninstallPlugin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '202':
+          description: Uninstall task accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
