@@ -18,8 +18,8 @@
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket adapter、状态机、intake、最小事件归一化、三种出站 action（`message.send` / `message.reply` / `message.send_image`）已落地；更广 action family 与事件归一化仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | runtime manager、init/shutdown/ping-pong、三种 action bridge、supervisor crash-backoff/dead_letter、用户主动 reload 已落地；多插件调度、SDK 便利层与完整权限授予状态机仍未实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置解析与校验、auth（session + bootstrap + persistence）、SQLite（WAL + migration）、plugin desired_state/packages 持久化、CLI 契约骨架已落地；secret store、scheduler persistence、grants/RBAC、config hot reload 与 CLI 子命令实现仍未落地 |
-| Phase 7 | Web API & Tasks | 🟡 | 全部管理路由（setup/session/config/system/logs/tasks）、4 条管理 WebSocket、plugin install/enable/disable/reload/uninstall、统一鉴权与中断安装清理已落地；通用 task executor、远程安装源、配置热更新与日志持久化查询仍未实现 |
+| Phase 6 | Config / Storage / Security | 🟡 | 配置解析与校验、auth（session + bootstrap + persistence）、SQLite（WAL + migration）、plugin desired_state/packages 持久化、grants storage + lifecycle 集成、CLI 子命令框架（reset-admin/doctor/cleanup/migrate）已落地；secret store、scheduler persistence、config hot reload、CLI backup/restore 完整逻辑仍未落地 |
+| Phase 7 | Web API & Tasks | 🟡 | 全部管理路由（setup/session/config/system/logs/tasks）、4 条管理 WebSocket、plugin install（含 remote_url）/enable/disable/reload/uninstall、per-plugin grants 管理端点、统一鉴权与中断安装清理已落地；通用 task executor、配置热更新与日志持久化查询仍未实现 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 版本与包基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 尚未实现；`.deps/manifest.json` 仅为 baseline 资源占位，不代表渲染链路已落地 |
@@ -163,7 +163,7 @@
 |--------|------|------|
 | 更广 adapter 出站 action 执行 | ❌ | 当前实现范围为 `message.send`、`message.reply` 与 `message.send_image`；其余动作族与更丰富发送语义仍未落地 |
 | 多插件调度 / fan-out | ❌ | 当前无多插件并发调度与分发引擎 |
-| 完整权限授予状态机 | ❌ | 授权、重确认、撤销等流程尚未实现 |
+| 完整权限授予状态机 | 🟡 | per-plugin grants storage（`plugin_grants` 表）、`GrantRepository`（CRUD）与 lifecycle 集成（auto_grant + per-plugin grants 合并）已落地；管理 HTTP 端点（list/grant/revoke）已实现；升级 re-grant、temporal grants、scope validation 仍未实现 |
 | 不停机热重载 | ❌ | 当前 reload 通过 stop + start 实现；更精细的不停机代码更新仍未实现 |
 | 官方 SDK 便利层 | ❌ | 当前仅有 `docs/plugin/sdk/` 文档骨架，官方 Python / Node.js SDK 尚未进入实现 |
 | 官方内置插件与更正式示例插件体系 | ❌ | 当前仍只有最小 `hello-python` / `hello-node` examples，未建立官方内置插件与 richer examples 体系 |
@@ -198,6 +198,9 @@
 | Plugin `plugin_packages` 元数据持久化 | ✅ | `internal/plugins/repository.go` 提供 `PackageRepository` 接口与 `SavePackageMetadata` / `DeletePackageMetadata` 的 SQLite upsert/delete 实现；install 执行链在写入正式目录后持久化 `source_type`、`source_ref`、`version`、`manifest_hash`、`package_hash`、`installed_at`；uninstall 执行链在卸载时清理对应记录 |
 | App 集成 — Storage + Auth Repository | ✅ | `internal/app/app.go` 在启动时解析 `database.path`（支持相对路径基于 config 目录解析）、打开 `storage.Store`、构建 `auth.SQLiteRepository` 并注入 `auth.Manager`；关闭时按序释放 storage handle |
 | Database config consumption | ✅ | `config.Config` 已包含 `DatabaseConfig{Engine, Path}`，`config.Summary` 已包含 `DatabaseEngine` 与 `DatabasePath`，启动日志已输出数据库引擎与路径 |
+| Grants storage — `plugin_grants` 迁移与 Repository | ✅ | `0005_plugin_grants.sql` 迁移已落地（`plugin_id` + `capability` 复合主键）；`GrantRepository` 接口提供 `LoadGrants` / `LoadAllGrants` / `SaveGrant` / `DeleteGrant` / `DeleteAllGrants`；`SQLiteRepository` 实现 CRUD |
+| Grants lifecycle 集成 | ✅ | `pluginLifecycleController` 的 `grantedCapabilities()` 合并 `auto_grant_capabilities` 与 per-plugin 显式 grants；Enable、startPluginAsync、reconcileRuntime 均消费合并后的授权列表 |
+| CLI 子命令框架与核心实现 | ✅ | `internal/cli/` 包与 `main.go` 子命令分发已落地；`reset-admin`（清空 auth 表）、`doctor`（config/schema/database/runtime 环境检查）、`cleanup`（orphaned install dirs + download cache）、`migrate`（触发 SQLite migration runner）4 条子命令已实现；`backup` / `restore` 入口已注册但执行逻辑仍为 TODO |
 
 ### 仍未完成
 
@@ -205,10 +208,9 @@
 |--------|------|------|
 | secret store | ❌ | 独立敏感凭据存储与注入尚未实现；当前 signing key 已持久化到 SQLite `auth_bootstrap_state` 表，但尚无独立 secret store 抽象 |
 | scheduler persistence / recovery | ❌ | 调度持久化与恢复能力尚未实现 |
-| grants / RBAC storage | ❌ | 授权记录与权限数据库尚未实现 |
 | 聊天侧 Permission / 黑名单 / 冷却限流持久化基座 | ❌ | 当前既无相关规则执行面，也无与之配套的持久化结构；后续应建立在 grants / RBAC 与 richer event/runtime 能力之上 |
 | config hot reload | ❌ | 配置热更新与局部重载尚未实现 |
-| 受控运维工具链 CLI 子命令实现 | ❌ | `contracts/cli-commands.yaml` 正式契约骨架已落地（6 条子命令、在线/离线可用性矩阵、task 模型关联与可取消性）；CLI 子命令的实际执行逻辑、备份/恢复/诊断执行管线尚未建立 |
+| CLI backup / restore 完整执行逻辑 | ❌ | 入口已注册；一致性快照、恢复包校验与数据恢复的完整执行管线尚未建立 |
 
 ---
 
@@ -235,19 +237,19 @@
 | Management status / session / system handlers | ✅ | `GET /api/setup/status`、`DELETE /api/session`、`POST /api/session/launcher-token`、`GET /api/system/status`、`POST /api/system/shutdown` 已按现有 contract 落地；当前 `launcher-token` 为进程内、单次使用、短 TTL 的最小 issuance shell |
 | Config / logs management handlers | ✅ | `GET /api/config`、`PUT /api/config`、`GET /api/logs` 已落地；配置读取返回当前生效配置的可公开快照，敏感字段做基础掩码；配置更新按 formal schema 校验后原子写回 `config/user.yaml`，并显式返回 `restart_required`；日志查询复用 bounded in-memory summary stream 与既有 redaction 逻辑 |
 | `/api/tasks` list / detail / cancel handlers | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` 已落地；当前直接复用内存 `tasks.Registry`，并对运行中的 `plugin.install` 提供最小取消接线；其余不可取消状态继续返回既有 `platform.task_not_cancellable` 错误形状 |
-| `POST /api/plugins/install` | ✅ | 异步 local-source install 执行链：支持 `local_directory` / `local_zip`、来源准备、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消 |
+| `POST /api/plugins/install` | ✅ | 异步 install 执行链：支持 `local_directory` / `local_zip` / `remote_url`（HTTPS ZIP 下载，256 MB 上限，TLS 1.2+）、来源准备、manifest 校验、正式目录写入、catalog refresh、依赖安装（`preparePython` / `prepareNode`）、`plugin_packages` 元数据持久化、install scripts 授权（`AllowInstallScripts`）、task progress 更新与最小取消 |
 | `POST /api/plugins/{plugin_id}/enable` / `disable` | ✅ | 已切换到 SQLite 持久化 `desired_state`，并在 `enable` 时触发 runtime 实际启动（含 capability gating）、在 `disable` 时触发 runtime 实际停止；runtime_state 保持进程内语义 |
 | `POST /api/plugins/{plugin_id}/reload` | ✅ | 已 formalize（contract + fixtures）并实现：停止当前 runtime 后重新启动，desired_state 保持 enabled 不变；仅当 desired_state=enabled 时接受，否则返回 409 |
 | `DELETE /api/plugins/{plugin_id}` | ✅ | 已 formalize（contract + fixtures）并实现异步 `plugin.uninstall` task：停止 runtime、清理 `plugin_instances` 与 `plugin_packages` 数据库记录、删除安装目录、刷新 catalog |
 | 中断安装清理 | ✅ | 启动时自动扫描 `plugins/installed/` 中遗留的 `.plugin-install-*` 临时目录并清理，防止中断安装的孤立目录累积 |
 | 共享 HTTP error / request context 写入路径 | ✅ | 路由级 request_id 注入、统一 JSON error envelope 写入与最小 panic recovery 已在 server router 上接通；management handlers 与 plugin handlers 当前共享同一写出路径 |
+| Plugin grants 管理端点 | ✅ | `GET /api/plugins/{plugin_id}/grants`（列出 per-plugin grants）、`POST /api/plugins/{plugin_id}/grants`（授予 capability）、`DELETE /api/plugins/{plugin_id}/grants/{capability}`（撤销 capability）已实现 |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | 通用 task executor / progress writer | ❌ | 当前实现范围包括 `plugin.install` 与 `plugin.uninstall` 两种异步执行切片；backup/restore/migrate 等更广 task type 的统一执行编排、历史持久化与恢复仍未建立 |
-| 远程来源 plugin install | ❌ | 当前 install 仅支持 `local_directory` / `local_zip`；远程来源（HTTP/HTTPS、artifact repository）仍未实现 |
 | 配置热更新 / 局部重载 | ❌ | `PUT /api/config` 当前只完成 formal schema 校验、原子写盘与 `restart_required` 响应；热更新、局部重载与字段级即时生效尚未实现 |
 | 日志历史检索 / 持久化查询 | ❌ | `GET /api/logs` 当前只查询 bounded in-memory summary stream，不提供日志文件检索、全量 attrs 或历史持久化查询 |
 
@@ -349,18 +351,17 @@
 
 ### 1. 近期主线（优先继续补平台闭环）
 
-1. **远程来源 plugin install**
-   - 当前 install 仅支持 `local_directory` / `local_zip`。
-   - 远程来源（HTTP/HTTPS、artifact repository）是进入真实分发体验前的必要能力。
+1. **CLI backup / restore 完整执行逻辑**
+   - `backup` / `restore` 入口已注册但执行逻辑仍为 TODO。
+   - 需要实现一致性快照导出（config/ + data/ + plugins/installed/）与恢复包校验 + 数据恢复管线。
 
-2. **Grants / RBAC 与完整权限授予状态机**
-   - 当前 capability gating 仅基于 `config.auth.auto_grant_capabilities` 的静态匹配。
-   - 需要建立 grants storage、grant manager 状态机（授权/重确认/撤销）与 per-plugin 权限跟踪，这是多插件生态与聊天侧权限控制的前置依赖。
+2. **Grants scope validation 与升级 re-grant**
+   - per-plugin grants CRUD 与 lifecycle 集成已落地，但尚未校验 scope 字段（http_hosts、storage_roots）。
+   - 插件升级后的 re-grant 确认流程仍未实现。
 
-3. **运维工具链 CLI 子命令实现**
-   - `contracts/cli-commands.yaml` 正式契约骨架已落地（6 条子命令、在线/离线可用性矩阵、task 模型关联与可取消性）。
-   - CI 已校验 CLI 命令集完整性与 task_type 与 web-api `TaskType` enum 的交叉一致性。
-   - CLI 子命令的实际执行逻辑仍需在后续轮次中实现。
+3. **通用 task executor**
+   - 当前 `plugin.install` 与 `plugin.uninstall` 各有独立的异步执行切片。
+   - backup/restore/migrate 等更广 task type 需要统一执行编排、历史持久化与恢复。
 
 ### 2. 状态化基础（为恢复、运维与长期运行铺路）
 
