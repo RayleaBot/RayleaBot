@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,7 +21,8 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	repoRoot := t.TempDir()
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather-src"), "weather", "nodejs", "index.js")
-	service, catalog := newInstallTestService(t, repoRoot, registry, nil, installerDeps{})
+	repository := &stubInstallRepository{}
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer service.Close()
 
 	taskID, err := service.Accept(context.Background(), InstallRequest{
@@ -59,6 +61,18 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	if installed.RuntimeState != "stopped" {
 		t.Fatalf("unexpected runtime_state: got %q want stopped", installed.RuntimeState)
 	}
+	if repository.lastPackage.PluginID != "weather" {
+		t.Fatalf("expected package metadata for weather, got %#v", repository.lastPackage)
+	}
+	if repository.lastPackage.SourceType != "local_directory" {
+		t.Fatalf("unexpected source_type metadata: got %q want local_directory", repository.lastPackage.SourceType)
+	}
+	if repository.lastPackage.Version != "0.1.0" {
+		t.Fatalf("unexpected version metadata: got %q want 0.1.0", repository.lastPackage.Version)
+	}
+	if repository.lastPackage.ManifestHash == "" || repository.lastPackage.PackageHash == "" {
+		t.Fatalf("expected package metadata hashes to be populated, got %#v", repository.lastPackage)
+	}
 }
 
 func TestInstallServiceInstallsLocalZip(t *testing.T) {
@@ -70,7 +84,7 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "zip-weather.zip")
 	writePluginZip(t, archivePath, sourceDir)
 
-	service, catalog := newInstallTestService(t, repoRoot, registry, nil, installerDeps{})
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
 	taskID, err := service.Accept(context.Background(), InstallRequest{
@@ -105,7 +119,7 @@ func TestInstallServiceFailsDuplicatePluginID(t *testing.T) {
 		DisplayState:      "discovered",
 	}}
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "dup-src"), "hello-node", "nodejs", "index.js")
-	service, _ := newInstallTestService(t, repoRoot, registry, existing, installerDeps{})
+	service, _ := newInstallTestService(t, repoRoot, registry, existing, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
 	taskID, err := service.Accept(context.Background(), InstallRequest{
@@ -144,7 +158,7 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 		},
 	}
 
-	service, _ := newInstallTestService(t, repoRoot, registry, nil, deps)
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, deps)
 	defer service.Close()
 
 	taskID, err := service.Accept(context.Background(), InstallRequest{
@@ -171,7 +185,120 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 	}
 }
 
-func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []Snapshot, deps installerDeps) (*InstallService, *Catalog) {
+func TestInstallServiceBlocksInstallScriptsWithoutAuthorization(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "script-src"), "scripted-node", "nodejs", "index.js", installSourceOptions{
+		RequireInstallScripts: true,
+		WritePackageJSON:      true,
+	})
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	defer service.Close()
+
+	taskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType: "local_directory",
+		Source:     sourceDir,
+	})
+	if err != nil {
+		t.Fatalf("Accept failed: %v", err)
+	}
+
+	snapshot := waitForTaskCompletion(t, registry, taskID)
+	if snapshot.Status != tasks.StatusFailed {
+		t.Fatalf("unexpected task status: got %q want %q", snapshot.Status, tasks.StatusFailed)
+	}
+	if snapshot.Error == nil || snapshot.Error.Code != "platform.install_script_blocked" {
+		t.Fatalf("unexpected task error: %#v", snapshot.Error)
+	}
+}
+
+func TestInstallServicePreparesRuntimeDependencies(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	pythonSource := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "python-src"), "weather-python", "python", "main.py", installSourceOptions{
+		PythonDependencies: []string{"httpx==0.27.0"},
+	})
+	nodeSource := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "node-src"), "weather-node", "nodejs", "index.js", installSourceOptions{
+		NodeDependencies:      []string{"left-pad@1.3.0"},
+		RequireInstallScripts: true,
+		WritePackageJSON:      true,
+	})
+
+	var (
+		mu                sync.Mutex
+		pythonPreparedFor []string
+		nodePrepared      []struct {
+			pluginID            string
+			allowInstallScripts bool
+		}
+	)
+
+	repository := &stubInstallRepository{}
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{
+		preparePython: func(_ context.Context, pluginDir string, dependencies []string) error {
+			mu.Lock()
+			defer mu.Unlock()
+			pythonPreparedFor = append(pythonPreparedFor, filepath.Base(pluginDir)+":"+dependencies[0])
+			return nil
+		},
+		prepareNode: func(_ context.Context, pluginDir string, dependencies []string, allowInstallScripts bool) error {
+			mu.Lock()
+			defer mu.Unlock()
+			nodePrepared = append(nodePrepared, struct {
+				pluginID            string
+				allowInstallScripts bool
+			}{
+				pluginID:            filepath.Base(pluginDir),
+				allowInstallScripts: allowInstallScripts,
+			})
+			return nil
+		},
+	})
+	defer service.Close()
+
+	pythonTaskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType: "local_directory",
+		Source:     pythonSource,
+	})
+	if err != nil {
+		t.Fatalf("python Accept failed: %v", err)
+	}
+	nodeTaskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType:          "local_directory",
+		Source:              nodeSource,
+		AllowInstallScripts: true,
+	})
+	if err != nil {
+		t.Fatalf("node Accept failed: %v", err)
+	}
+
+	pythonSnapshot := waitForTaskCompletion(t, registry, pythonTaskID)
+	if pythonSnapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("unexpected python task status: got %q want %q", pythonSnapshot.Status, tasks.StatusSucceeded)
+	}
+	nodeSnapshot := waitForTaskCompletion(t, registry, nodeTaskID)
+	if nodeSnapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("unexpected node task status: got %q want %q", nodeSnapshot.Status, tasks.StatusSucceeded)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(pythonPreparedFor) != 1 {
+		t.Fatalf("expected python dependency preparation once, got %#v", pythonPreparedFor)
+	}
+	if len(nodePrepared) != 1 {
+		t.Fatalf("expected node dependency preparation once, got %#v", nodePrepared)
+	}
+	if !nodePrepared[0].allowInstallScripts {
+		t.Fatalf("expected allow_install_scripts=true to reach node preparation, got %#v", nodePrepared)
+	}
+}
+
+func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []Snapshot, repository DesiredStateRepository, deps installerDeps) (*InstallService, *Catalog) {
 	t.Helper()
 
 	validator, err := schema.Compile(filepath.Join("..", "..", "..", "contracts", "plugin-info.schema.json"))
@@ -193,7 +320,7 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 		nil,
 		registry,
 		catalog,
-		&stubDesiredStateRepository{},
+		repository,
 		validator,
 		repoRoot,
 		[]ScanRoot{
@@ -209,8 +336,45 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 	return service, catalog
 }
 
-func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry string) string {
+type installSourceOptions struct {
+	PythonDependencies    []string
+	NodeDependencies      []string
+	RequireInstallScripts bool
+	WritePackageJSON      bool
+}
+
+type stubInstallRepository struct {
+	saved       map[string]string
+	lastPackage PackageMetadata
+}
+
+func (r *stubInstallRepository) LoadDesiredStates(context.Context) (map[string]string, error) {
+	if r == nil {
+		return nil, nil
+	}
+	return r.saved, nil
+}
+
+func (r *stubInstallRepository) SaveDesiredState(_ context.Context, pluginID string, desiredState string, _ time.Time) error {
+	if r.saved == nil {
+		r.saved = make(map[string]string)
+	}
+	r.saved[pluginID] = desiredState
+	return nil
+}
+
+func (r *stubInstallRepository) SavePackageMetadata(_ context.Context, pkg PackageMetadata) error {
+	r.lastPackage = pkg
+	return nil
+}
+
+func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry string, options ...installSourceOptions) string {
 	t.Helper()
+
+	opts := installSourceOptions{}
+	if len(options) > 0 {
+		opts = options[0]
+	}
 
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatalf("create plugin root: %v", err)
@@ -233,6 +397,11 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry s
 			"required": []string{},
 			"optional": []string{},
 		},
+		"dependencies": map[string]any{
+			"python": append([]string{}, opts.PythonDependencies...),
+			"nodejs": append([]string{}, opts.NodeDependencies...),
+		},
+		"require_install_scripts": opts.RequireInstallScripts,
 	}
 
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
@@ -248,6 +417,19 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry s
 	}
 	if err := os.WriteFile(filepath.Join(root, entry), []byte(entryContent), 0o644); err != nil {
 		t.Fatalf("write entry: %v", err)
+	}
+	if opts.WritePackageJSON {
+		packageJSON := map[string]any{
+			"name":    pluginID,
+			"version": "0.1.0",
+		}
+		packageJSONBytes, err := json.MarshalIndent(packageJSON, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal package.json: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "package.json"), packageJSONBytes, 0o644); err != nil {
+			t.Fatalf("write package.json: %v", err)
+		}
 	}
 
 	return root

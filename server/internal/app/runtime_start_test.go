@@ -12,7 +12,7 @@ import (
 	"rayleabot/server/internal/runtime"
 )
 
-func TestEnsureRuntimeStartedForEventStartsFirstValidPlugin(t *testing.T) {
+func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -31,6 +31,8 @@ func TestEnsureRuntimeStartedForEventStartsFirstValidPlugin(t *testing.T) {
 			Runtime:      "nodejs",
 			Entry:        "index.js",
 			ManifestPath: "examples/plugins/hello-node/info.json",
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
 		},
 		{
 			PluginID:     "zzz-plugin",
@@ -38,6 +40,8 @@ func TestEnsureRuntimeStartedForEventStartsFirstValidPlugin(t *testing.T) {
 			Runtime:      "python",
 			Entry:        "main.py",
 			ManifestPath: "examples/plugins/zzz-plugin/info.json",
+			RegistrationState: "installed",
+			DesiredState:      "disabled",
 		},
 	})
 	manager := &fakeRuntimeStarter{
@@ -56,7 +60,7 @@ func TestEnsureRuntimeStartedForEventStartsFirstValidPlugin(t *testing.T) {
 		t.Fatalf("ensure runtime started: %v", err)
 	}
 	if !started {
-		t.Fatal("expected runtime to start for the first valid plugin")
+		t.Fatal("expected runtime to start for the first enabled installed plugin")
 	}
 	if snapshot.PluginID != "hello-node" {
 		t.Fatalf("unexpected startup plugin: got %q want %q", snapshot.PluginID, "hello-node")
@@ -85,6 +89,8 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 			Runtime:      "nodejs",
 			Entry:        "index.js",
 			ManifestPath: "examples/plugins/hello-node/info.json",
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
 		},
 	})
 
@@ -123,6 +129,8 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 			Runtime:      "nodejs",
 			Entry:        "index.js",
 			ManifestPath: "examples/plugins/hello-node/info.json",
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
 		},
 	})
 
@@ -139,6 +147,46 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 	}
 	if started {
 		t.Fatal("runtime should not start without a bot id")
+	}
+}
+
+func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	createPluginEntry(t, repoRoot, "examples/plugins/hello-node", "index.js")
+
+	manager := &fakeRuntimeStarter{
+		snapshot: runtime.Snapshot{State: runtime.StateStopped},
+	}
+	catalog := plugins.NewCatalog([]plugins.Snapshot{
+		{
+			PluginID:          "hello-node",
+			Valid:             true,
+			Runtime:           "nodejs",
+			Entry:             "index.js",
+			ManifestPath:      "examples/plugins/hello-node/info.json",
+			RegistrationState: "installed",
+			DesiredState:      "disabled",
+		},
+	})
+
+	_, started, err := ensureRuntimeStartedForEvent(
+		context.Background(),
+		manager,
+		catalog,
+		repoRoot,
+		config.RuntimeConfig{},
+		adapter.NormalizedEvent{BotID: "10001"},
+	)
+	if err != nil {
+		t.Fatalf("ensure runtime started: %v", err)
+	}
+	if started {
+		t.Fatal("runtime should not start for a disabled plugin")
+	}
+	if manager.startCount != 0 {
+		t.Fatalf("unexpected start count: got %d want 0", manager.startCount)
 	}
 }
 

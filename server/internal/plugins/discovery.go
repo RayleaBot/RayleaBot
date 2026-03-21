@@ -225,6 +225,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		PluginID:          pluginID,
 		Name:              stringField(manifest, "name"),
 		Version:           stringField(manifest, "version"),
+		Type:              stringField(manifest, "type"),
 		Runtime:           stringField(manifest, "runtime"),
 		Entry:             stringField(manifest, "entry"),
 		Description:       stringField(manifest, "description"),
@@ -235,6 +236,10 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		DesiredState:      stateDisabled,
 		RuntimeState:      stateStopped,
 	}
+	snapshot.RequiredPermissions = manifestPermissionList(manifest, "required")
+	snapshot.PythonDependencies = manifestDependencyList(manifest, "python")
+	snapshot.NodeDependencies = manifestDependencyList(manifest, "nodejs")
+	snapshot.RequireInstallScripts = manifestBoolField(manifest, "require_install_scripts")
 
 	if err := validator.Validate(document); err != nil {
 		snapshot.Valid = false
@@ -345,6 +350,51 @@ func stringField(document map[string]any, key string) string {
 	}
 
 	return stringValue
+}
+
+func manifestBoolField(document map[string]any, key string) bool {
+	value, ok := document[key]
+	if !ok {
+		return false
+	}
+	booleanValue, ok := value.(bool)
+	if !ok {
+		return false
+	}
+	return booleanValue
+}
+
+func manifestPermissionList(document map[string]any, key string) []string {
+	permissions, ok := document["permissions"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return stringListField(permissions, key)
+}
+
+func manifestDependencyList(document map[string]any, key string) []string {
+	dependencies, ok := document["dependencies"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return stringListField(dependencies, key)
+}
+
+func stringListField(document map[string]any, key string) []string {
+	values, ok := document[key].([]any)
+	if !ok {
+		return nil
+	}
+
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		text, ok := value.(string)
+		if !ok || text == "" {
+			continue
+		}
+		items = append(items, text)
+	}
+	return items
 }
 
 func trimSummary(summary string, maxLen int) string {

@@ -47,12 +47,18 @@ type pluginDetailResponse struct {
 }
 
 type pluginInstallRequest struct {
-	SourceType string `json:"source_type"`
-	Source     string `json:"source"`
+	SourceType          string `json:"source_type"`
+	Source              string `json:"source"`
+	AllowInstallScripts bool   `json:"allow_install_scripts,omitempty"`
 }
 
 type taskAcceptedResponse struct {
 	TaskID string `json:"task_id"`
+}
+
+type DesiredStateController interface {
+	Enable(context.Context, string) (Snapshot, error)
+	Disable(context.Context, string) (Snapshot, error)
 }
 
 func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer InstallCoordinator) http.HandlerFunc {
@@ -72,8 +78,9 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer
 
 		if installer != nil {
 			taskID, err := installer.Accept(r.Context(), InstallRequest{
-				SourceType: req.SourceType,
-				Source:     req.Source,
+				SourceType:          req.SourceType,
+				Source:              req.Source,
+				AllowInstallScripts: req.AllowInstallScripts,
 			})
 			if err != nil {
 				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
@@ -95,9 +102,18 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer
 	}
 }
 
-func newEnableHandler(catalog *Catalog, repo DesiredStateRepository) http.HandlerFunc {
+func newEnableHandler(catalog *Catalog, repo DesiredStateRepository, controller DesiredStateController) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
+		if controller != nil {
+			snapshot, err := controller.Enable(r.Context(), pluginID)
+			if err == nil {
+				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+				return
+			}
+			writeDesiredStateError(w, r, pluginID, err)
+			return
+		}
 		if err := validateDesiredStateChange(catalog, pluginID, "enabled"); err != nil {
 			writeDesiredStateError(w, r, pluginID, err)
 			return
@@ -117,9 +133,18 @@ func newEnableHandler(catalog *Catalog, repo DesiredStateRepository) http.Handle
 	}
 }
 
-func newDisableHandler(catalog *Catalog, repo DesiredStateRepository) http.HandlerFunc {
+func newDisableHandler(catalog *Catalog, repo DesiredStateRepository, controller DesiredStateController) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
+		if controller != nil {
+			snapshot, err := controller.Disable(r.Context(), pluginID)
+			if err == nil {
+				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+				return
+			}
+			writeDesiredStateError(w, r, pluginID, err)
+			return
+		}
 		if err := validateDesiredStateChange(catalog, pluginID, "disabled"); err != nil {
 			writeDesiredStateError(w, r, pluginID, err)
 			return
@@ -139,7 +164,7 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository) http.Handl
 	}
 }
 
-func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator) {
+func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController) {
 	if catalog == nil {
 		catalog = NewCatalog(nil)
 	}
@@ -147,8 +172,8 @@ func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Reg
 	router.Get("/api/plugins", newListHandler(catalog))
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller))
 }
 
 func validateDesiredStateChange(catalog *Catalog, pluginID string, desired string) error {
@@ -172,6 +197,17 @@ func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID str
 	}
 	if errors.Is(err, ErrStateConflict) {
 		writeError(w, r, 409, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
+		return
+	}
+	var permissionPending *PermissionPendingError
+	if errors.As(err, &permissionPending) {
+		details := map[string]any{
+			"plugin_id": pluginID,
+		}
+		if len(permissionPending.MissingCapabilities) > 0 {
+			details["missing_capabilities"] = append([]string(nil), permissionPending.MissingCapabilities...)
+		}
+		writeError(w, r, 409, "plugin.permission_pending", "插件所需能力尚未获批", "errors.plugin.permission_pending", details)
 		return
 	}
 

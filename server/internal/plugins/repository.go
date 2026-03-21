@@ -15,6 +15,20 @@ type DesiredStateRepository interface {
 	SaveDesiredState(context.Context, string, string, time.Time) error
 }
 
+type PackageMetadata struct {
+	PluginID     string
+	SourceType   string
+	SourceRef    string
+	Version      string
+	ManifestHash string
+	PackageHash  string
+	InstalledAt  time.Time
+}
+
+type PackageRepository interface {
+	SavePackageMetadata(context.Context, PackageMetadata) error
+}
+
 type SQLiteRepository struct {
 	read  *sql.DB
 	write *sql.DB
@@ -67,6 +81,40 @@ func (r *SQLiteRepository) SaveDesiredState(ctx context.Context, pluginID string
 		updatedAt.UTC().Format(time.RFC3339Nano),
 	); err != nil {
 		return fmt.Errorf("upsert plugin desired_state for %s: %w", pluginID, err)
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) SavePackageMetadata(ctx context.Context, pkg PackageMetadata) error {
+	if _, err := r.write.ExecContext(
+		ctx,
+		`INSERT INTO plugin_packages (
+			plugin_id,
+			source_type,
+			source_ref,
+			version,
+			manifest_hash,
+			package_hash,
+			installed_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(plugin_id) DO UPDATE SET
+			source_type = excluded.source_type,
+			source_ref = excluded.source_ref,
+			version = excluded.version,
+			manifest_hash = excluded.manifest_hash,
+			package_hash = excluded.package_hash,
+			installed_at = excluded.installed_at`,
+		pkg.PluginID,
+		pkg.SourceType,
+		pkg.SourceRef,
+		pkg.Version,
+		pkg.ManifestHash,
+		pkg.PackageHash,
+		pkg.InstalledAt.UTC().Format(time.RFC3339Nano),
+	); err != nil {
+		return fmt.Errorf("upsert plugin package metadata for %s: %w", pkg.PluginID, err)
 	}
 
 	return nil

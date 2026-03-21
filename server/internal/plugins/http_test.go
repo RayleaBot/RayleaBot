@@ -42,8 +42,8 @@ func setupRouter(entries []Snapshot) (chi.Router, *Catalog, *tasks.Registry, *st
 	repo := &stubDesiredStateRepository{}
 	router := chi.NewRouter()
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, nil))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil))
 	return router, catalog, taskRegistry, repo
 }
 
@@ -200,8 +200,8 @@ func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 		repo := &stubDesiredStateRepository{}
 		router := chi.NewRouter()
 		router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, nil))
-		router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo))
-		router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo))
+		router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil))
+		router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil))
 
 		// Pick one of several error-triggering scenarios.
 		scenario := rapid.IntRange(0, 3).Draw(t, "scenario")
@@ -284,6 +284,38 @@ func TestInstallHandler_ValidLocalZip(t *testing.T) {
 	}
 	if snap.Status != tasks.StatusPending {
 		t.Fatalf("status = %q, want pending", snap.Status)
+	}
+}
+
+func TestInstallHandler_AllowsExplicitInstallScriptAuthorization(t *testing.T) {
+	router, _, taskRegistry, _ := setupRouter(nil)
+
+	body, _ := json.Marshal(pluginInstallRequest{
+		SourceType:          "local_directory",
+		Source:              "C:/plugins/weather",
+		AllowInstallScripts: true,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp taskAcceptedResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	snap, ok := taskRegistry.Get(resp.TaskID)
+	if !ok {
+		t.Fatalf("task %q not in registry", resp.TaskID)
+	}
+	if snap.TaskType != "plugin.install" {
+		t.Fatalf("task_type = %q, want plugin.install", snap.TaskType)
 	}
 }
 

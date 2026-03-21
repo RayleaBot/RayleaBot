@@ -11,23 +11,37 @@ var (
 	ErrStateConflict  = errors.New("state conflict")
 )
 
+type PermissionPendingError struct {
+	PluginID            string
+	MissingCapabilities []string
+}
+
+func (e *PermissionPendingError) Error() string {
+	return "plugin permission pending"
+}
+
 type Snapshot struct {
-	PluginID          string
-	Name              string
-	Version           string
-	Runtime           string
-	Entry             string
-	Description       string
-	ManifestPath      string
-	SourceRoot        string
-	SourceRoots       []string
-	Valid             bool
-	ValidationSummary string
-	RegistrationState string
-	DesiredState      string
-	RuntimeState      string
-	DisplayState      string
-	ConflictPaths     []string
+	PluginID              string
+	Name                  string
+	Version               string
+	Runtime               string
+	Entry                 string
+	Type                  string
+	Description           string
+	ManifestPath          string
+	SourceRoot            string
+	SourceRoots           []string
+	Valid                 bool
+	ValidationSummary     string
+	RegistrationState     string
+	DesiredState          string
+	RuntimeState          string
+	DisplayState          string
+	ConflictPaths         []string
+	RequiredPermissions   []string
+	PythonDependencies    []string
+	NodeDependencies      []string
+	RequireInstallScripts bool
 }
 
 type Catalog struct {
@@ -100,6 +114,23 @@ func (c *Catalog) SetDesiredState(pluginID string, desired string) (Snapshot, er
 	}
 
 	entry.DesiredState = desired
+	entry.DisplayState = defaultDisplayState(entry)
+	c.items[pluginID] = entry
+
+	return cloneSnapshot(entry), nil
+}
+
+func (c *Catalog) SetRuntimeState(pluginID string, runtimeState string) (Snapshot, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	entry, ok := c.items[pluginID]
+	if !ok {
+		return Snapshot{}, ErrPluginNotFound
+	}
+
+	entry.RuntimeState = runtimeState
+	entry.DisplayState = defaultDisplayState(entry)
 	c.items[pluginID] = entry
 
 	return cloneSnapshot(entry), nil
@@ -126,6 +157,7 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 		}
 
 		entry.DesiredState = desired
+		entry.DisplayState = defaultDisplayState(entry)
 		c.items[pluginID] = entry
 	}
 }
@@ -156,5 +188,37 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned := snapshot
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
+	cloned.RequiredPermissions = append([]string(nil), snapshot.RequiredPermissions...)
+	cloned.PythonDependencies = append([]string(nil), snapshot.PythonDependencies...)
+	cloned.NodeDependencies = append([]string(nil), snapshot.NodeDependencies...)
 	return cloned
+}
+
+func defaultDisplayState(snapshot Snapshot) string {
+	if !snapshot.Valid || snapshot.RegistrationState != "installed" {
+		return snapshot.DisplayState
+	}
+
+	switch snapshot.RuntimeState {
+	case "starting":
+		return "enabling"
+	case "running":
+		return "running"
+	case "stopping":
+		if snapshot.DesiredState == "disabled" {
+			return "disabling"
+		}
+		return "stopping"
+	case "crashed":
+		return "crashed"
+	case "backoff":
+		return "backoff"
+	case "dead_letter":
+		return "dead_letter"
+	}
+
+	if snapshot.DesiredState == "enabled" {
+		return "enabled"
+	}
+	return "disabled"
 }

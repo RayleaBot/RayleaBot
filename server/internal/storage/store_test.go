@@ -31,9 +31,10 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "auth_bootstrap_state")
 	assertTableExists(t, store.Read, "admin_sessions")
 	assertTableExists(t, store.Read, "plugin_instances")
+	assertTableExists(t, store.Read, "plugin_packages")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 4 {
+	if len(tables) != 5 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
 }
@@ -52,8 +53,8 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 2 {
-		t.Fatalf("unexpected migration count: got %d want 2", count)
+	if count != 3 {
+		t.Fatalf("unexpected migration count: got %d want 3", count)
 	}
 }
 
@@ -69,7 +70,7 @@ func TestLoadMigrationsRejectsDuplicateIDs(t *testing.T) {
 	}
 }
 
-func TestOpenUpgradesExistingAuthDatabaseToPluginInstances(t *testing.T) {
+func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	t.Parallel()
 
 	authOnlyFS := readAuthOnlyMigrations(t)
@@ -104,13 +105,14 @@ func TestOpenUpgradesExistingAuthDatabaseToPluginInstances(t *testing.T) {
 	defer upgraded.Close()
 
 	assertTableExists(t, upgraded.Read, "plugin_instances")
+	assertTableExists(t, upgraded.Read, "plugin_packages")
 
 	var migrationCount int
 	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if migrationCount != 2 {
-		t.Fatalf("unexpected migration count after upgrade: got %d want 2", migrationCount)
+	if migrationCount != 3 {
+		t.Fatalf("unexpected migration count after upgrade: got %d want 3", migrationCount)
 	}
 
 	var bootstrapCount int
@@ -160,6 +162,33 @@ func TestPluginInstancesRejectsDuplicateIDsAndInvalidDesiredState(t *testing.T) 
 		"2026-03-20T09:10:00Z",
 	); err == nil {
 		t.Fatalf("expected invalid desired_state insert to fail")
+	}
+}
+
+func TestPluginPackagesRejectInvalidSourceType(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+
+	if _, err := store.Write.Exec(
+		`INSERT INTO plugin_packages (
+			plugin_id,
+			source_type,
+			source_ref,
+			version,
+			manifest_hash,
+			package_hash,
+			installed_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"weather",
+		"remote_zip",
+		"https://example.invalid/weather.zip",
+		"0.1.0",
+		"manifest",
+		"package",
+		"2026-03-20T09:00:00Z",
+	); err == nil {
+		t.Fatalf("expected invalid source_type insert to fail")
 	}
 }
 

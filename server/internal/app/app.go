@@ -53,6 +53,8 @@ type App struct {
 	Bridge          *bridge.Bridge
 	Runtime         *runtime.Manager
 	PluginInstaller plugins.InstallCoordinator
+	pluginRepository plugins.DesiredStateRepository
+	pluginLifecycle  *pluginLifecycleController
 	repoRoot        string
 	router          http.Handler
 	server          *http.Server
@@ -168,11 +170,14 @@ func New(options Options) (*App, error) {
 		Bridge:          eventBridge,
 		Runtime:         runtimeManager,
 		PluginInstaller: pluginInstallService,
+		pluginRepository: pluginRepository,
 		repoRoot:        discoverySpec.repoRoot,
 		startedAt:       time.Now().UTC(),
 		launcherTokens:  newLauncherTokenStore(time.Now, 5*time.Minute),
 	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
+	adapterShell.SetReadyHandler(application.handleAdapterReady)
 
 	router := chi.NewRouter()
 	router.Use(httpapi.WithRequestContext)
@@ -203,7 +208,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/tasks", application.handleTasksWebSocket())
 		r.Get("/ws/logs", application.handleLogsWebSocket())
 		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
-		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService)
+		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService, application.pluginLifecycle)
 	})
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))

@@ -159,6 +159,31 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(installedRoot, "weather-install", "info.json")); err != nil {
 		t.Fatalf("expected installed manifest to exist: %v", err)
 	}
+
+	var (
+		sourceType   string
+		sourceRef    string
+		version      string
+		manifestHash string
+		packageHash  string
+	)
+	if err := application.Storage.Read.QueryRow(
+		`SELECT source_type, source_ref, version, manifest_hash, package_hash
+		   FROM plugin_packages
+		  WHERE plugin_id = ?`,
+		"weather-install",
+	).Scan(&sourceType, &sourceRef, &version, &manifestHash, &packageHash); err != nil {
+		t.Fatalf("query plugin_packages row: %v", err)
+	}
+	if sourceType != "local_directory" {
+		t.Fatalf("unexpected source_type metadata: got %q want local_directory", sourceType)
+	}
+	if sourceRef != sourceDir {
+		t.Fatalf("unexpected source_ref metadata: got %q want %q", sourceRef, sourceDir)
+	}
+	if version != "0.1.0" || manifestHash == "" || packageHash == "" {
+		t.Fatalf("unexpected package metadata values: version=%q manifest_hash=%q package_hash=%q", version, manifestHash, packageHash)
+	}
 }
 
 func writePluginInstallSource(t *testing.T, root, pluginID, runtimeName, entry string) string {

@@ -20,30 +20,21 @@ func (a *App) handleAdapterEvent(ctx context.Context, event adapter.NormalizedEv
 		return
 	}
 
-	if snapshot, started, err := ensureRuntimeStartedForEvent(ctx, a.Runtime, a.Plugins, a.repoRoot, a.Config.Runtime, event); err != nil {
-		if a.Logger != nil {
-			a.Logger.Warn(
-				"plugin runtime startup failed before adapter event delivery",
-				"component", "app",
-				"plugin_id", snapshot.PluginID,
-				"event_id", event.EventID,
-				"event_type", event.EventType,
-				"err", err.Error(),
-			)
-		}
-	} else if started && a.Logger != nil {
-		a.Logger.Info(
-			"plugin runtime started for adapter event bridge",
-			"component", "app",
-			"plugin_id", snapshot.PluginID,
-			"event_id", event.EventID,
-			"event_type", event.EventType,
-		)
+	if a.pluginLifecycle != nil {
+		a.pluginLifecycle.HandleAdapterEvent(ctx, event)
 	}
 
 	if a.Bridge != nil {
 		a.Bridge.HandleAdapterEvent(ctx, event)
 	}
+}
+
+func (a *App) handleAdapterReady(ctx context.Context) {
+	if a == nil || a.pluginLifecycle == nil {
+		return
+	}
+
+	a.pluginLifecycle.HandleAdapterReady(ctx)
 }
 
 func ensureRuntimeStartedForEvent(
@@ -54,17 +45,33 @@ func ensureRuntimeStartedForEvent(
 	runtimeConfig config.RuntimeConfig,
 	event adapter.NormalizedEvent,
 ) (plugins.Snapshot, bool, error) {
+	if event.BotID == "" {
+		return plugins.Snapshot{}, false, fmt.Errorf("normalized adapter event is missing bot_id")
+	}
+
+	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, runtimeConfig, event.BotID, nil)
+}
+
+func ensureRuntimeStartedForBot(
+	ctx context.Context,
+	manager runtimeStarter,
+	catalog *plugins.Catalog,
+	repoRoot string,
+	runtimeConfig config.RuntimeConfig,
+	botID string,
+	grantedCapabilities []string,
+) (plugins.Snapshot, bool, error) {
 	if manager == nil || catalog == nil {
 		return plugins.Snapshot{}, false, nil
 	}
 	if manager.Snapshot().State != runtime.StateStopped {
 		return plugins.Snapshot{}, false, nil
 	}
-	if event.BotID == "" {
+	if botID == "" {
 		return plugins.Snapshot{}, false, fmt.Errorf("normalized adapter event is missing bot_id")
 	}
 
-	snapshot, ok := selectRuntimeStartupPlugin(catalog)
+	snapshot, ok := selectRuntimeStartupPlugin(catalog, grantedCapabilities)
 	if !ok {
 		return plugins.Snapshot{}, false, nil
 	}
@@ -76,8 +83,9 @@ func ensureRuntimeStartedForEvent(
 
 	payload := runtime.InitPayload{
 		Bot: runtime.BotInfo{
-			ID: event.BotID,
+			ID: botID,
 		},
+		Capabilities: append([]string(nil), grantedCapabilities...),
 	}
 
 	if err := manager.Start(ctx, spec, payload); err != nil {
@@ -87,13 +95,16 @@ func ensureRuntimeStartedForEvent(
 	return snapshot, true, nil
 }
 
-func selectRuntimeStartupPlugin(catalog *plugins.Catalog) (plugins.Snapshot, bool) {
+func selectRuntimeStartupPlugin(catalog *plugins.Catalog, grantedCapabilities []string) (plugins.Snapshot, bool) {
 	if catalog == nil {
 		return plugins.Snapshot{}, false
 	}
 
 	for _, snapshot := range catalog.List() {
-		if snapshot.Valid {
+		if snapshot.Valid &&
+			snapshot.RegistrationState == "installed" &&
+			snapshot.DesiredState == "enabled" &&
+			len(missingCapabilities(snapshot.RequiredPermissions, grantedCapabilities)) == 0 {
 			return snapshot, true
 		}
 	}
