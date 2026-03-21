@@ -104,11 +104,11 @@ func TestConfigPutWritesValidatedDocumentAndPreservesRedactedSecret(t *testing.T
 		t.Fatalf("unexpected persisted access_token: got %#v want preserved secret", got)
 	}
 
-	if application.Config.Server.Port != 8080 {
-		t.Fatalf("expected live config server.port to remain 8080 before restart, got %d", application.Config.Server.Port)
+	if application.Config.Server.Port != 8081 {
+		t.Fatalf("expected live config server.port to reflect saved value 8081, got %d", application.Config.Server.Port)
 	}
-	if application.Config.Logging.Level != "info" {
-		t.Fatalf("expected live config logging.level to remain info before restart, got %q", application.Config.Logging.Level)
+	if application.Config.Logging.Level != "debug" {
+		t.Fatalf("expected live config logging.level to be hot-reloaded to debug, got %q", application.Config.Logging.Level)
 	}
 }
 

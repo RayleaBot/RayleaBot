@@ -38,19 +38,79 @@ func (a *App) handleConfigPut() http.HandlerFunc {
 		}
 
 		resolved := resolveRedactedConfigValues(request, a.Config)
-		_, _, err := internalconfig.SaveDocument(a.Summary.ConfigPath, a.Summary.SchemaPath, resolved)
+		newCfg, _, err := internalconfig.SaveDocument(a.Summary.ConfigPath, a.Summary.SchemaPath, resolved)
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", nil)
 			return
 		}
 
+		restartRequired := applyHotReloadableFields(a, newCfg)
+
 		document, redactedFields := sanitizeConfigDocument(resolved)
 		writeAuthJSON(w, http.StatusOK, configUpdateResponse{
 			Config:          document,
 			RedactedFields:  redactedFields,
-			RestartRequired: true,
+			RestartRequired: restartRequired,
 		})
 	}
+}
+
+// applyHotReloadableFields compares the new config with the current config,
+// applies fields that can take effect immediately, and returns true if any
+// non-hot-reloadable field has changed (requiring a restart).
+func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
+	oldCfg := a.Config
+	restartRequired := false
+
+	// logging.level — immediate effect via LevelController.
+	if newCfg.Logging.Level != oldCfg.Logging.Level {
+		if a.LogLevel != nil {
+			if err := a.LogLevel.SetLevel(newCfg.Logging.Level); err == nil {
+				a.Logger.Info("log level changed",
+					"component", "config",
+					"old_level", oldCfg.Logging.Level,
+					"new_level", newCfg.Logging.Level,
+				)
+			}
+		}
+	}
+
+	// Fields that require a restart when changed.
+	if newCfg.Server.Host != oldCfg.Server.Host ||
+		newCfg.Server.Port != oldCfg.Server.Port {
+		restartRequired = true
+	}
+	if newCfg.Database.Engine != oldCfg.Database.Engine ||
+		newCfg.Database.Path != oldCfg.Database.Path {
+		restartRequired = true
+	}
+	if newCfg.OneBot.WSURL != oldCfg.OneBot.WSURL ||
+		newCfg.OneBot.AccessToken != oldCfg.OneBot.AccessToken ||
+		newCfg.OneBot.ConnectTimeoutSeconds != oldCfg.OneBot.ConnectTimeoutSeconds ||
+		newCfg.OneBot.ReconnectInitialSeconds != oldCfg.OneBot.ReconnectInitialSeconds ||
+		newCfg.OneBot.ReconnectMultiplier != oldCfg.OneBot.ReconnectMultiplier ||
+		newCfg.OneBot.ReconnectMaxSeconds != oldCfg.OneBot.ReconnectMaxSeconds ||
+		newCfg.OneBot.ReconnectJitterRatio != oldCfg.OneBot.ReconnectJitterRatio {
+		restartRequired = true
+	}
+	if newCfg.Auth.SessionTTLDays != oldCfg.Auth.SessionTTLDays ||
+		newCfg.Auth.SlidingRenewal != oldCfg.Auth.SlidingRenewal ||
+		newCfg.Auth.MaxSessions != oldCfg.Auth.MaxSessions {
+		restartRequired = true
+	}
+	if newCfg.Web.ExposureMode != oldCfg.Web.ExposureMode ||
+		newCfg.Web.SetupLocalOnly != oldCfg.Web.SetupLocalOnly {
+		restartRequired = true
+	}
+	if newCfg.Render.WorkerCount != oldCfg.Render.WorkerCount ||
+		newCfg.Render.BrowserPath != oldCfg.Render.BrowserPath {
+		restartRequired = true
+	}
+
+	// Update in-memory config to reflect the saved state.
+	a.Config = newCfg
+
+	return restartRequired
 }
 
 func configDocumentFromTyped(cfg internalconfig.Config) map[string]any {
