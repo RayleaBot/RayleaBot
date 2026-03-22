@@ -38,6 +38,25 @@ export function createPlugin() {
       sendAction(pluginId, requestId, 'message.reply', { reply_to_message_id: replyToMessageId, text });
     },
 
+    sendMessageSegments(requestId, targetType, targetId, segments) {
+      sendAction(pluginId, requestId, 'message.send', {
+        target_type: targetType,
+        target_id: targetId,
+        message: { segments },
+      });
+    },
+
+    replyToEvent(requestId, replyToEventId, segments, options = {}) {
+      const data = {
+        reply_to_event_id: replyToEventId,
+        message: { segments },
+      };
+      if (options.fallbackToSendIfMissing) {
+        data.fallback_to_send_if_missing = true;
+      }
+      sendAction(pluginId, requestId, 'message.reply', data);
+    },
+
     sendImage(requestId, targetType, targetId, file) {
       sendAction(pluginId, requestId, 'message.send_image', { target_type: targetType, target_id: targetId, file });
     },

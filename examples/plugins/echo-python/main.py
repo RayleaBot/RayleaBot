@@ -7,7 +7,6 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sdk", "python"))
 
 from rayleabot import RayleaBotPlugin
-from rayleabot import protocol
 
 plugin = RayleaBotPlugin()
 plugin.subscribe("message.group", "message.private")
@@ -23,11 +22,15 @@ def handle_echo(event, request_id):
     if not text.strip():
         text = "(空消息)"
 
-    protocol.send_action(plugin._plugin_id, request_id, "message.send", {
-        "target_type": target.get("type", "group"),
-        "target_id": target.get("id", ""),
-        "text": text,
-    })
+    plugin.send_message_segments(
+        request_id,
+        target.get("type", "group"),
+        target.get("id", ""),
+        [{
+            "type": "text",
+            "data": {"text": text},
+        }],
+    )
 
 
 if __name__ == "__main__":

@@ -51,6 +51,31 @@ class RayleaBotPlugin:
             "text": text,
         })
 
+    def send_message_segments(self, request_id, target_type, target_id, segments):
+        """Send a rich message to a target using shared message.segments."""
+        protocol.send_action(self._plugin_id, request_id, "message.send", {
+            "target_type": target_type,
+            "target_id": target_id,
+            "message": {
+                "segments": segments,
+            },
+        })
+
+    def reply_to_event(self, request_id, reply_to_event_id, segments, fallback_to_send_if_missing=False):
+        """Reply to a recent upstream event using reply_to_event_id."""
+        data = {
+            "reply_to_event_id": reply_to_event_id,
+            "message": {
+                "segments": segments,
+            },
+        }
+        if fallback_to_send_if_missing:
+            data["fallback_to_send_if_missing"] = True
+        protocol.send_action(self._plugin_id, request_id, "message.reply", data)
+
+    sendMessageSegments = send_message_segments
+    replyToEvent = reply_to_event
+
     def send_image(self, request_id, target_type, target_id, file):
         """Send an image to a target."""
         protocol.send_action(self._plugin_id, request_id, "message.send_image", {
