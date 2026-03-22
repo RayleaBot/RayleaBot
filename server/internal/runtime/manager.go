@@ -40,6 +40,7 @@ type Snapshot struct {
 	StoppedAt        *time.Time
 	CrashCount       int
 	NextRetryAt      *time.Time
+	Subscriptions    []string
 }
 
 // CrashCallback is invoked by the runtime manager when a running plugin
@@ -83,12 +84,12 @@ type EventSegment struct {
 }
 
 type Action struct {
-	Kind              string
-	TargetType        string
-	TargetID          string
-	Text              string
-	ReplyToMessageID  string
-	File              string
+	Kind             string
+	TargetType       string
+	TargetID         string
+	Text             string
+	ReplyToMessageID string
+	File             string
 }
 
 type Delivery struct {
@@ -444,9 +445,10 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		return errorf(codePluginInternalError, "write init frame", err)
 	}
 
-	if err := m.awaitInitAck(ctx, handle, requestID); err != nil {
-		m.cleanupFailedStart(handle, err.Code, err.Message, err.Err)
-		return err
+	subscriptions, runtimeErr := m.awaitInitAck(ctx, handle, requestID)
+	if runtimeErr != nil {
+		m.cleanupFailedStart(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+		return runtimeErr
 	}
 
 	m.mu.Lock()
@@ -454,6 +456,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		m.snap.State = StateRunning
 		m.snap.LastErrorCode = ""
 		m.snap.LastErrorMessage = ""
+		m.snap.Subscriptions = append([]string(nil), subscriptions...)
 	}
 	m.mu.Unlock()
 
@@ -763,7 +766,7 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	return m.awaitEventResponse(ctx, handle, requestID)
 }
 
-func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, requestID string) *Error {
+func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, requestID string) ([]string, *Error) {
 	silenceTimer := time.NewTimer(handle.spec.InitTimeout)
 	defer silenceTimer.Stop()
 
@@ -785,12 +788,16 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, reque
 
 		select {
 		case line := <-readCh:
-			status, summary, err := m.parseInitResponse(line, handle.spec.PluginID, requestID)
+			status, payload, err := m.parseInitResponse(line, handle.spec.PluginID, requestID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if status == initResponseReady {
-				return nil
+				return payload, nil
+			}
+			summary := ""
+			if len(payload) > 0 {
+				summary = payload[0]
 			}
 
 			m.logger.Info(
@@ -805,83 +812,83 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, reque
 			if errors.Is(readErr, io.EOF) {
 				waitErr, _ := handle.exitResult()
 				if waitErr == nil {
-					return errorf(codePluginInternalError, "plugin exited before init_ack", nil)
+					return nil, errorf(codePluginInternalError, "plugin exited before init_ack", nil)
 				}
-				return errorf(codePluginInternalError, "plugin exited before init_ack", waitErr)
+				return nil, errorf(codePluginInternalError, "plugin exited before init_ack", waitErr)
 			}
-			return errorf(codePluginProtocolViolation, "read plugin init response", readErr)
+			return nil, errorf(codePluginProtocolViolation, "read plugin init response", readErr)
 		case <-handle.done:
 			waitErr, _ := handle.exitResult()
 			if waitErr == nil {
-				return errorf(codePluginInternalError, "plugin exited before init_ack", nil)
+				return nil, errorf(codePluginInternalError, "plugin exited before init_ack", nil)
 			}
-			return errorf(codePluginInternalError, "plugin exited before init_ack", waitErr)
+			return nil, errorf(codePluginInternalError, "plugin exited before init_ack", waitErr)
 		case <-silenceTimer.C:
-			return errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
+			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
 		case <-totalTimer.C:
-			return errorf(codePluginInitTimeout, "plugin init exceeded maximum total duration", nil)
+			return nil, errorf(codePluginInitTimeout, "plugin init exceeded maximum total duration", nil)
 		case <-ctx.Done():
-			return errorf(codePluginInitTimeout, "plugin init_ack timed out", ctx.Err())
+			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", ctx.Err())
 		}
 	}
 }
 
-func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (initResponseStatus, string, *Error) {
+func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (initResponseStatus, []string, *Error) {
 	var envelope frameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
-		return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
 
 	if envelope.ProtocolVersion != "1" {
-		return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
+		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
 	}
 	if envelope.PluginID == "" || envelope.PluginID != pluginID {
-		return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
+		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
 	}
 
 	if envelope.RequestID == "" || envelope.RequestID != requestID {
-		return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
 	}
 
 	switch envelope.Type {
 	case "init_progress":
 		var progress initProgressFrame
 		if err := json.Unmarshal(line, &progress); err != nil {
-			return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned malformed init_progress", err)
+			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_progress", err)
 		}
 
 		summary := strings.TrimSpace(progress.Summary)
 		if summary == "" {
-			return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin init_progress is missing summary", nil)
+			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin init_progress is missing summary", nil)
 		}
-		return initResponseWait, summary, nil
+		return initResponseWait, []string{summary}, nil
 	case "init_ack":
 		var ack initAckFrame
 		if err := json.Unmarshal(line, &ack); err != nil {
-			return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned malformed init_ack", err)
+			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_ack", err)
 		}
 		if ack.Status == "ready" {
-			return initResponseReady, "", nil
+			return initResponseReady, append([]string(nil), ack.Subscriptions...), nil
 		}
 		if ack.Status == "error" {
 			message := strings.TrimSpace(ack.ErrorMessage)
 			if message == "" {
 				message = "plugin reported init error"
 			}
-			return initResponseWait, "", errorf(codePluginInternalError, message, nil)
+			return initResponseWait, nil, errorf(codePluginInternalError, message, nil)
 		}
-		return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned unsupported init_ack status", nil)
+		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned unsupported init_ack status", nil)
 	case "error":
 		var frame errorFrame
 		if err := json.Unmarshal(line, &frame); err != nil {
-			return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
+			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
 		}
 		if frame.Code == "" || frame.Message == "" {
-			return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
+			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
 		}
-		return initResponseWait, "", errorf(frame.Code, frame.Message, nil)
+		return initResponseWait, nil, errorf(frame.Code, frame.Message, nil)
 	default:
-		return initResponseWait, "", errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during init", nil)
+		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during init", nil)
 	}
 }
 
@@ -1118,6 +1125,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		nextRetryAt := *snapshot.NextRetryAt
 		cloned.NextRetryAt = &nextRetryAt
 	}
+	cloned.Subscriptions = append([]string(nil), snapshot.Subscriptions...)
 	return cloned
 }
 

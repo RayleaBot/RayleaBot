@@ -2,11 +2,13 @@ package logging
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Summary struct {
@@ -24,6 +26,8 @@ type Stream struct {
 	limit            int
 	nextSubscriberID uint64
 	subscribers      map[uint64]chan Summary
+	repository       Repository
+	retentionDays    int
 }
 
 func NewStream(limit int) *Stream {
@@ -46,9 +50,22 @@ func (s *Stream) Snapshot() []Summary {
 	return cloned
 }
 
-func (s *Stream) Append(summary Summary) {
+func (s *Stream) Limit() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.limit
+}
+
+func (s *Stream) SetRepository(repository Repository, retentionDays int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	s.repository = repository
+	s.retentionDays = retentionDays
+}
+
+func (s *Stream) Append(summary Summary) {
+	s.mu.Lock()
 
 	if len(s.history) == s.limit {
 		copy(s.history, s.history[1:])
@@ -70,6 +87,22 @@ func (s *Stream) Append(summary Summary) {
 			default:
 			}
 		}
+	}
+
+	repository := s.repository
+	retentionDays := s.retentionDays
+	s.mu.Unlock()
+
+	if repository == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = repository.SaveSummary(ctx, summary)
+	if retentionDays > 0 {
+		cutoff := time.Now().AddDate(0, 0, -retentionDays)
+		_ = repository.PruneOlderThan(ctx, cutoff)
 	}
 }
 

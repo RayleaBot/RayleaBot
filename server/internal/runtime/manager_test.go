@@ -59,6 +59,30 @@ func TestManagerStartAllowsInitProgressBeforeReady(t *testing.T) {
 	}
 }
 
+func TestManagerStartStoresInitAckSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "success", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+	defer func() {
+		if err := manager.Stop(context.Background()); err != nil {
+			t.Fatalf("stop runtime: %v", err)
+		}
+	}()
+
+	snapshot := manager.Snapshot()
+	if len(snapshot.Subscriptions) != 2 {
+		t.Fatalf("unexpected subscriptions: %#v", snapshot.Subscriptions)
+	}
+	if snapshot.Subscriptions[0] != "message.group" || snapshot.Subscriptions[1] != "scheduler.trigger" {
+		t.Fatalf("unexpected subscriptions: %#v", snapshot.Subscriptions)
+	}
+}
+
 func TestManagerStartFailsOnInitAckTimeout(t *testing.T) {
 	t.Parallel()
 
@@ -944,6 +968,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"plugin_id":        initFrame["plugin_id"],
 			"request_id":       initFrame["request_id"],
 			"status":           "ready",
+			"subscriptions":    []string{"message.group", "scheduler.trigger"},
 		})
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)

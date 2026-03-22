@@ -60,11 +60,11 @@ type pluginSlot struct {
 
 // Dispatcher manages per-plugin event queues and fan-out delivery.
 type Dispatcher struct {
-	logger       *slog.Logger
-	sender       actionSender
-	queueSize    int
-	mu           sync.RWMutex
-	slots        map[string]*pluginSlot
+	logger    *slog.Logger
+	sender    actionSender
+	queueSize int
+	mu        sync.RWMutex
+	slots     map[string]*pluginSlot
 }
 
 // New creates a Dispatcher.
@@ -133,6 +133,15 @@ func (d *Dispatcher) PluginIDs() []string {
 	return ids
 }
 
+// HasPlugin reports whether a plugin slot is currently registered.
+func (d *Dispatcher) HasPlugin(pluginID string) bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	_, ok := d.slots[pluginID]
+	return ok
+}
+
 // Dispatch fans out an event to all matching registered plugins.
 // If commandName is non-empty, plugins declaring that command are
 // preferred (directed delivery). Otherwise all message-subscribed
@@ -142,6 +151,23 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event runtime.Event, commandN
 	targets := d.selectTargets(event, commandName)
 	d.mu.RUnlock()
 
+	return d.enqueueTargets(ctx, event, targets)
+}
+
+// DispatchToPlugin delivers an event to one specific registered plugin.
+func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event runtime.Event) DeliveryResult {
+	results := d.enqueueTargets(ctx, event, []string{pluginID})
+	if len(results) == 0 {
+		return DeliveryResult{
+			PluginID:  pluginID,
+			Outcome:   OutcomeError,
+			ErrorCode: "platform.invalid_request",
+		}
+	}
+	return results[0]
+}
+
+func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtime.Event, targets []string) []DeliveryResult {
 	results := make([]DeliveryResult, 0, len(targets))
 	for _, pluginID := range targets {
 		d.mu.RLock()

@@ -242,3 +242,38 @@ func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
 		t.Fatal("expected conflict paths to include manifest filenames")
 	}
 }
+
+func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := repoRootPath(t)
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{
+			{
+				Label: "plugins/builtin",
+				Path:  filepath.Join(repoRoot, "plugins", "builtin"),
+			},
+		},
+		RepoRoot: repoRoot,
+	})
+	if err != nil {
+		t.Fatalf("Discover builtin plugins failed: %v", err)
+	}
+
+	catalog := plugins.NewCatalog(snapshots)
+	snapshot, ok := catalog.Get("raylea.help")
+	if !ok {
+		t.Fatal("expected builtin help plugin to be discovered")
+	}
+	if snapshot.DesiredState != "enabled" {
+		t.Fatalf("unexpected desired_state: got %q want enabled", snapshot.DesiredState)
+	}
+	if len(snapshot.Commands) != 1 {
+		t.Fatalf("unexpected builtin command count: got %d want 1", len(snapshot.Commands))
+	}
+	if snapshot.Commands[0].Name != "help" {
+		t.Fatalf("unexpected builtin command name: got %q want help", snapshot.Commands[0].Name)
+	}
+}

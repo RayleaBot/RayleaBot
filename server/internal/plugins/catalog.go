@@ -21,6 +21,14 @@ func (e *PermissionPendingError) Error() string {
 	return "plugin permission pending"
 }
 
+type Command struct {
+	Name        string
+	Aliases     []string
+	Description string
+	Usage       string
+	Permission  string
+}
+
 type Snapshot struct {
 	PluginID              string
 	Name                  string
@@ -47,6 +55,7 @@ type Snapshot struct {
 	RequireInstallScripts bool
 	ScopeHTTPHosts        []string
 	ScopeStorageRoots     []string
+	Commands              []Command
 }
 
 type Catalog struct {
@@ -200,6 +209,14 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.NodeDependencies = append([]string(nil), snapshot.NodeDependencies...)
 	cloned.ScopeHTTPHosts = append([]string(nil), snapshot.ScopeHTTPHosts...)
 	cloned.ScopeStorageRoots = append([]string(nil), snapshot.ScopeStorageRoots...)
+	if len(snapshot.Commands) > 0 {
+		cloned.Commands = make([]Command, 0, len(snapshot.Commands))
+		for _, cmd := range snapshot.Commands {
+			copied := cmd
+			copied.Aliases = append([]string(nil), cmd.Aliases...)
+			cloned.Commands = append(cloned.Commands, copied)
+		}
+	}
 	return cloned
 }
 

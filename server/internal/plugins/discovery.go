@@ -233,7 +233,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		SourceRoot:        sourceRoot,
 		SourceRoots:       []string{sourceRoot},
 		RegistrationState: stateInstalled,
-		DesiredState:      stateDisabled,
+		DesiredState:      defaultDesiredStateForSourceRoot(sourceRoot),
 		RuntimeState:      stateStopped,
 	}
 	snapshot.RequiredPermissions = manifestPermissionList(manifest, "required")
@@ -244,6 +244,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	snapshot.RequireInstallScripts = manifestBoolField(manifest, "require_install_scripts")
 	snapshot.ScopeHTTPHosts = manifestScopeList(manifest, "http_hosts")
 	snapshot.ScopeStorageRoots = manifestScopeList(manifest, "storage_roots")
+	snapshot.Commands = manifestCommands(manifest)
 
 	if err := validator.Validate(document); err != nil {
 		snapshot.Valid = false
@@ -394,6 +395,44 @@ func manifestScopeList(document map[string]any, key string) []string {
 		return nil
 	}
 	return stringListField(scopes, key)
+}
+
+func manifestCommands(document map[string]any) []Command {
+	values, ok := document["commands"].([]any)
+	if !ok {
+		return nil
+	}
+
+	commands := make([]Command, 0, len(values))
+	for _, value := range values {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		name := stringField(item, "name")
+		if name == "" {
+			continue
+		}
+		command := Command{
+			Name:        name,
+			Aliases:     stringListField(item, "aliases"),
+			Description: stringField(item, "description"),
+			Usage:       stringField(item, "usage"),
+			Permission:  stringField(item, "permission"),
+		}
+		if command.Permission == "" {
+			command.Permission = "everyone"
+		}
+		commands = append(commands, command)
+	}
+	return commands
+}
+
+func defaultDesiredStateForSourceRoot(sourceRoot string) string {
+	if sourceRoot == "plugins/builtin" {
+		return "enabled"
+	}
+	return stateDisabled
 }
 
 func stringListField(document map[string]any, key string) []string {

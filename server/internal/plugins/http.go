@@ -189,8 +189,13 @@ type UninstallCoordinator interface {
 func newUninstallHandler(catalog *Catalog, coordinator UninstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
-		if _, ok := catalog.Get(pluginID); !ok {
+		snapshot, ok := catalog.Get(pluginID)
+		if !ok {
 			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			return
+		}
+		if snapshot.SourceRoot == "plugins/builtin" {
+			writeError(w, r, http.StatusConflict, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
 			return
 		}
 		if coordinator == nil {

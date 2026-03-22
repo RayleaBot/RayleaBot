@@ -401,6 +401,37 @@ func TestUninstallPluginRejectsNotFound(t *testing.T) {
 	}
 }
 
+func TestUninstallBuiltinPluginRejected(t *testing.T) {
+	t.Parallel()
+
+	catalog := plugins.NewCatalog([]plugins.Snapshot{
+		{
+			PluginID:          "raylea.help",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "stopped",
+			SourceRoot:        "plugins/builtin",
+		},
+	})
+	uninstaller := &stubUninstallCoordinator{taskID: "should-not-run"}
+	router := pluginRouterWithController(t, catalog, nil, uninstaller)
+
+	request := httptest.NewRequest("DELETE", "/api/plugins/raylea.help", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != 409 {
+		t.Fatalf("unexpected status: got %d want 409", recorder.Code)
+	}
+
+	body := decodeBody(t, recorder.Body.Bytes())
+	errorBody := body["error"].(map[string]any)
+	if errorBody["code"] != "platform.invalid_request" {
+		t.Fatalf("unexpected error code: %v", errorBody["code"])
+	}
+}
+
 func decodeBody(t *testing.T, raw []byte) map[string]any {
 	t.Helper()
 

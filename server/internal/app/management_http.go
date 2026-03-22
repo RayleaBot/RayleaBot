@@ -3,8 +3,6 @@ package app
 import (
 	"net/http"
 	"time"
-
-	"rayleabot/server/internal/runtime"
 )
 
 type setupStatusResponse struct {
@@ -81,20 +79,10 @@ func (a *App) handleSystemShutdown() http.HandlerFunc {
 }
 
 func (a *App) activePluginCount() int {
-	if a == nil || a.Runtime == nil {
+	if a == nil || a.Runtimes == nil {
 		return 0
 	}
-
-	snapshot := a.Runtime.Snapshot()
-	if snapshot.PluginID == "" {
-		return 0
-	}
-	switch snapshot.State {
-	case runtime.StateStarting, runtime.StateRunning, runtime.StateStopping:
-		return 1
-	default:
-		return 0
-	}
+	return a.Runtimes.ActiveCount()
 }
 
 func (a *App) uptimeSeconds() int64 {

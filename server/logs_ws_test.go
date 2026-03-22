@@ -188,6 +188,41 @@ func TestLogsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	}
 }
 
+func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
+	t.Parallel()
+
+	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
+	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-ws-a")
+	_ = issueLoginToken(t, appA)
+	appA.Logger.Warn(
+		"persisted websocket replay",
+		"component", "adapter.onebot11",
+		"request_id", "req_ws_persist_1",
+	)
+	closePersistentTestApp(t, appA)
+
+	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 10, 0, 0, time.UTC) }, "logs-ws-b")
+	defer closePersistentTestApp(t, appB)
+	server := httptest.NewServer(appB.Handler())
+	defer server.Close()
+
+	token := issueExistingBootstrapLoginToken(t, appB)
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
+		data, ok := frame["data"].(map[string]any)
+		return ok && data["request_id"] == "req_ws_persist_1"
+	})
+	data := frame["data"].(map[string]any)
+	if data["message"] != "persisted websocket replay" {
+		t.Fatalf("unexpected websocket replay message: %#v", data["message"])
+	}
+	if data["source"] != "adapter.onebot11" {
+		t.Fatalf("unexpected websocket replay source: %#v", data["source"])
+	}
+}
+
 func waitForLogSubscriber(t *testing.T, stream *logging.Stream) {
 	t.Helper()
 

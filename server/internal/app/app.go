@@ -19,8 +19,10 @@ import (
 	"rayleabot/server/internal/adapter"
 	"rayleabot/server/internal/auth"
 	"rayleabot/server/internal/bridge"
+	"rayleabot/server/internal/command"
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/console"
+	"rayleabot/server/internal/dispatch"
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/logging"
@@ -43,35 +45,38 @@ type Options struct {
 }
 
 type App struct {
-	Config          config.Config
-	Summary         config.Summary
-	Logger          *slog.Logger
-	LogLevel        *logging.LevelController
-	Tasks           *tasks.Registry
-	Plugins         *plugins.Catalog
-	Auth            *auth.Manager
-	Storage         *storage.Store
-	Secrets         secrets.Store
-	Scheduler       *scheduler.Engine
-	Logs            *logging.Stream
-	Console         *console.Stream
-	Adapter         *adapter.Shell
-	Bridge          *bridge.Bridge
-	Runtime         *runtime.Manager
+	Config            config.Config
+	Summary           config.Summary
+	Logger            *slog.Logger
+	LogLevel          *logging.LevelController
+	Tasks             *tasks.Registry
+	Plugins           *plugins.Catalog
+	Auth              *auth.Manager
+	Storage           *storage.Store
+	Secrets           secrets.Store
+	Scheduler         *scheduler.Engine
+	Logs              *logging.Stream
+	LogRepository     logging.Repository
+	Console           *console.Stream
+	Adapter           *adapter.Shell
+	Bridge            *bridge.Bridge
+	Dispatcher        *dispatch.Dispatcher
+	Runtimes          *runtimeRegistry
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
-	pluginRepository plugins.DesiredStateRepository
-	grantRepository  plugins.GrantRepository
-	pluginLifecycle  *pluginLifecycleController
-	repoRoot        string
-	router          http.Handler
-	server          *http.Server
-	startedAt       time.Time
-	launcherTokens  *launcherTokenStore
-	shuttingDown    atomic.Bool
-	runCancelMu     sync.Mutex
-	runCancel       context.CancelFunc
-	shutdownOnce    sync.Once
+	pluginRepository  plugins.DesiredStateRepository
+	grantRepository   plugins.GrantRepository
+	pluginLifecycle   *pluginLifecycleController
+	commandParser     *command.Parser
+	repoRoot          string
+	router            http.Handler
+	server            *http.Server
+	startedAt         time.Time
+	launcherTokens    *launcherTokenStore
+	shuttingDown      atomic.Bool
+	runCancelMu       sync.Mutex
+	runCancel         context.CancelFunc
+	shutdownOnce      sync.Once
 }
 
 func New(options Options) (*App, error) {
@@ -107,12 +112,14 @@ func New(options Options) (*App, error) {
 	pluginCatalog := plugins.NewCatalog(snapshots)
 	adapterShell := adapter.New(cfg.OneBot, logger)
 	consoleStream := console.NewStream(1000, 2*1024*1024)
-	runtimeManager := runtime.New(logger, runtime.Options{
+	runtimeOptions := runtime.Options{
 		Console:                    consoleStream,
 		RedactText:                 managementRedactor.Redact,
 		StderrRateLimitBytesPerSec: cfg.Runtime.StderrRateLimitBytesPerSec,
-	})
-	eventBridge := bridge.New(logger, runtimeManager, adapterShell)
+	}
+	runtimeRegistry := newRuntimeRegistry(logger, runtimeOptions)
+	eventDispatcher := dispatch.New(logger, adapterShell, cfg.Runtime.MaxPendingEventsPerPlugin)
+	eventBridge := bridge.New(logger, newDispatcherRuntimeClient(eventDispatcher), adapterShell)
 	databasePath, err := resolveDatabasePath(options.ConfigPath, cfg.Database.Path)
 	if err != nil {
 		return nil, err
@@ -153,6 +160,18 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("hydrate task registry: %w", err)
 	}
+	logRepository, err := logging.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create logging repository: %w", err)
+	}
+	logStream.SetRepository(logRepository, cfg.Logging.RetentionDays)
+	if cfg.Logging.RetentionDays > 0 {
+		if err := logRepository.PruneOlderThan(context.Background(), time.Now().AddDate(0, 0, -cfg.Logging.RetentionDays)); err != nil {
+			_ = storageStore.Close()
+			return nil, fmt.Errorf("prune persisted management logs: %w", err)
+		}
+	}
 	pluginRepository, err := plugins.NewSQLiteRepository(storageStore)
 	if err != nil {
 		_ = storageStore.Close()
@@ -163,10 +182,16 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create scheduler repository: %w", err)
 	}
+	var application *App
 	schedulerEngine, err := scheduler.New(scheduler.Options{
 		Repository: schedulerRepo,
 		Logger:     logger,
-		Timezone:   cfg.Runtime.SchedulerTimezone,
+		Trigger: func(ctx context.Context, job scheduler.Job) {
+			if application != nil && application.pluginLifecycle != nil {
+				application.pluginLifecycle.HandleSchedulerTrigger(ctx, job)
+			}
+		},
+		Timezone: cfg.Runtime.SchedulerTimezone,
 	})
 	if err != nil {
 		_ = storageStore.Close()
@@ -213,33 +238,36 @@ func New(options Options) (*App, error) {
 		return nil, fmt.Errorf("create plugin uninstall service: %w", err)
 	}
 
-	application := &App{
-		Config:          cfg,
-		Summary:         summary,
-		Logger:          logger,
-		LogLevel:        logLevel,
-		Tasks:           taskRegistry,
-		Plugins:         pluginCatalog,
-		Auth:            authManager,
-		Storage:         storageStore,
-		Secrets:         secretStore,
-		Scheduler:       schedulerEngine,
-		Logs:            logStream,
-		Console:         consoleStream,
-		Adapter:         adapterShell,
-		Bridge:          eventBridge,
-		Runtime:         runtimeManager,
+	application = &App{
+		Config:            cfg,
+		Summary:           summary,
+		Logger:            logger,
+		LogLevel:          logLevel,
+		Tasks:             taskRegistry,
+		Plugins:           pluginCatalog,
+		Auth:              authManager,
+		Storage:           storageStore,
+		Secrets:           secretStore,
+		Scheduler:         schedulerEngine,
+		Logs:              logStream,
+		LogRepository:     logRepository,
+		Console:           consoleStream,
+		Adapter:           adapterShell,
+		Bridge:            eventBridge,
+		Dispatcher:        eventDispatcher,
+		Runtimes:          runtimeRegistry,
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,
 		pluginRepository:  pluginRepository,
 		grantRepository:   pluginRepository,
-		repoRoot:        discoverySpec.repoRoot,
-		startedAt:       time.Now().UTC(),
-		launcherTokens:  newLauncherTokenStore(time.Now, 5*time.Minute),
+		commandParser:     newCommandParser(cfg),
+		repoRoot:          discoverySpec.repoRoot,
+		startedAt:         time.Now().UTC(),
+		launcherTokens:    newLauncherTokenStore(time.Now, 5*time.Minute),
 	}
 	application.pluginLifecycle = newPluginLifecycleController(application)
 	pluginUninstallService.SetStopPlugin(application.pluginLifecycle.stopAndResetPlugin)
-	runtimeManager.SetOnCrash(application.pluginLifecycle.handleCrash)
+	runtimeRegistry.SetOnCrash(application.pluginLifecycle.handleCrash)
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 	adapterShell.SetReadyHandler(application.handleAdapterReady)
 
@@ -313,6 +341,18 @@ func (a *App) Handler() http.Handler {
 
 func (a *App) Close() error {
 	var errs []error
+	if a != nil && a.Runtimes != nil {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := a.Runtimes.StopAll(stopCtx); err != nil {
+			errs = append(errs, fmt.Errorf("stop runtime managers: %w", err))
+		}
+		cancel()
+		a.Runtimes = nil
+	}
+	if a != nil && a.Dispatcher != nil {
+		a.Dispatcher.Close()
+		a.Dispatcher = nil
+	}
 	if a != nil && a.PluginInstaller != nil {
 		if err := a.PluginInstaller.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
@@ -358,8 +398,8 @@ func (a *App) Run(ctx context.Context) error {
 		a.Scheduler.Stop()
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
-		if err := a.Runtime.Stop(runtimeStopCtx); err != nil && !errors.Is(err, context.Canceled) {
-			return fmt.Errorf("stop runtime manager: %w", err)
+		if err := a.Runtimes.StopAll(runtimeStopCtx); err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("stop runtime managers: %w", err)
 		}
 
 		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -378,8 +418,8 @@ func (a *App) Run(ctx context.Context) error {
 		a.Scheduler.Stop()
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
-		if stopErr := a.Runtime.Stop(runtimeStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
-			return fmt.Errorf("stop runtime manager after http server error: %w", stopErr)
+		if stopErr := a.Runtimes.StopAll(runtimeStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
+			return fmt.Errorf("stop runtime managers after http server error: %w", stopErr)
 		}
 
 		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -495,6 +535,10 @@ func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.
 	pluginSchemaPath := filepath.Join(contractsDir, "plugin-info.schema.json")
 
 	roots := []plugins.ScanRoot{
+		{
+			Label: "plugins/builtin",
+			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
+		},
 		{
 			Label: "examples/plugins",
 			Path:  filepath.Join(repoRoot, "examples", "plugins"),

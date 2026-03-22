@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"rayleabot/server/internal/logging"
 )
@@ -214,5 +215,69 @@ func TestLogsRouteRequiresAuth(t *testing.T) {
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unexpected logs auth status: got %d want 401", response.StatusCode)
+	}
+}
+
+func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
+	t.Parallel()
+
+	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
+	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-a")
+	tokenA := issueLoginToken(t, appA)
+	serverA := httptest.NewServer(appA.Handler())
+
+	requestA, err := http.NewRequest(http.MethodGet, serverA.URL+"/api/logs?limit=1", nil)
+	if err != nil {
+		t.Fatalf("create seed request: %v", err)
+	}
+	requestA.Header.Set("Authorization", "Bearer "+tokenA)
+	responseA, err := serverA.Client().Do(requestA)
+	if err != nil {
+		t.Fatalf("perform seed request: %v", err)
+	}
+	responseA.Body.Close()
+
+	appA.Logger.Error(
+		"persisted log survives restart",
+		"component", "runtime",
+		"plugin_id", "weather",
+		"request_id", "req_persist_1",
+	)
+
+	serverA.Close()
+	closePersistentTestApp(t, appA)
+
+	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 5, 0, 0, time.UTC) }, "logs-b")
+	defer closePersistentTestApp(t, appB)
+	tokenB := issueExistingBootstrapLoginToken(t, appB)
+	serverB := httptest.NewServer(appB.Handler())
+	defer serverB.Close()
+
+	requestB, err := http.NewRequest(http.MethodGet, serverB.URL+"/api/logs?request_id=req_persist_1&limit=10", nil)
+	if err != nil {
+		t.Fatalf("create persisted logs request: %v", err)
+	}
+	requestB.Header.Set("Authorization", "Bearer "+tokenB)
+
+	responseB, err := serverB.Client().Do(requestB)
+	if err != nil {
+		t.Fatalf("perform persisted logs request: %v", err)
+	}
+	defer responseB.Body.Close()
+	if responseB.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected persisted logs status: got %d want 200", responseB.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, responseB))
+	items := body["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("unexpected persisted logs count: %#v", body["items"])
+	}
+	item := items[0].(map[string]any)
+	if item["message"] != "persisted log survives restart" {
+		t.Fatalf("unexpected persisted log message: %#v", item["message"])
+	}
+	if item["plugin_id"] != "weather" || item["request_id"] != "req_persist_1" {
+		t.Fatalf("unexpected persisted log envelope: %#v", item)
 	}
 }
