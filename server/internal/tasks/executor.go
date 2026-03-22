@@ -48,6 +48,7 @@ type Executor struct {
 	jobs       chan executorJob
 
 	mu      sync.Mutex
+	closed  bool
 	cancels map[string]context.CancelFunc
 }
 
@@ -82,6 +83,13 @@ func NewExecutor(registry *Registry, timeout time.Duration) *Executor {
 // Submit creates a task in the registry and enqueues it for async execution.
 // Returns the task_id on success.
 func (e *Executor) Submit(taskType, summary string, fn ExecuteFunc) (string, error) {
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		return "", context.Canceled
+	}
+	e.mu.Unlock()
+
 	taskID, err := e.registry.Create(taskType, summary)
 	if err != nil {
 		return "", err
@@ -89,6 +97,11 @@ func (e *Executor) Submit(taskType, summary string, fn ExecuteFunc) (string, err
 
 	runCtx, cancel := context.WithTimeout(e.baseCtx, e.timeout)
 	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		cancel()
+		return "", context.Canceled
+	}
 	e.cancels[taskID] = cancel
 	e.mu.Unlock()
 
@@ -134,12 +147,19 @@ func (e *Executor) Close() error {
 	if e == nil {
 		return nil
 	}
-	e.baseCancel()
+
 	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		e.wg.Wait()
+		return nil
+	}
+	e.closed = true
 	for _, cancel := range e.cancels {
 		cancel()
 	}
 	e.mu.Unlock()
+	e.baseCancel()
 	e.wg.Wait()
 	return nil
 }
