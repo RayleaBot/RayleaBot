@@ -63,6 +63,7 @@ type App struct {
 	Bridge            *bridge.Bridge
 	Dispatcher        *dispatch.Dispatcher
 	Runtimes          *runtimeRegistry
+	replyTargets      *replyTargetCache
 	outboundSender    outboundActionSender
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
@@ -122,8 +123,9 @@ func New(options Options) (*App, error) {
 		StderrRateLimitBytesPerSec: cfg.Runtime.StderrRateLimitBytesPerSec,
 	}
 	runtimeRegistry := newRuntimeRegistry(logger, runtimeOptions)
-	eventDispatcher := dispatch.New(logger, adapterShell, cfg.Runtime.MaxPendingEventsPerPlugin)
-	eventBridge := bridge.New(logger, newDispatcherRuntimeClient(eventDispatcher), adapterShell)
+	replyTargets := newReplyTargetCache(defaultReplyTargetCacheSize)
+	eventDispatcher := dispatch.New(logger, adapterShell, replyTargets, cfg.Runtime.MaxPendingEventsPerPlugin)
+	eventBridge := bridge.New(logger, newDispatcherRuntimeClient(eventDispatcher), adapterShell, replyTargets)
 	databasePath, err := resolveDatabasePath(options.ConfigPath, cfg.Database.Path)
 	if err != nil {
 		return nil, err
@@ -261,6 +263,7 @@ func New(options Options) (*App, error) {
 		Bridge:            eventBridge,
 		Dispatcher:        eventDispatcher,
 		Runtimes:          runtimeRegistry,
+		replyTargets:      replyTargets,
 		outboundSender:    adapterShell,
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"rayleabot/server/internal/adapter"
+	"rayleabot/server/internal/outbound"
 	"rayleabot/server/internal/runtime"
 )
 
@@ -273,6 +274,65 @@ func TestBridgeRejectsUnsupportedOutboundActionKind(t *testing.T) {
 	}
 }
 
+func TestBridgeFallsBackToSendWhenRichReplyTargetIsMissing(t *testing.T) {
+	t.Parallel()
+
+	fakeSender := &fakeActionSender{
+		sendResult: adapter.SendMessageResult{MessageID: "9003"},
+		replyErr: &adapter.Error{
+			Code:    "adapter.reply_target_missing",
+			Message: "reply target missing",
+		},
+	}
+	fakeRuntime := &fakeRuntimeClient{
+		snapshot: runtime.Snapshot{State: runtime.StateRunning},
+		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
+			return runtime.Delivery{
+				RequestID: "req_evt_reply_fallback",
+				Action: &runtime.Action{
+					Kind:                    "message.reply",
+					ReplyToEventID:          "onebot11-message-12345",
+					FallbackToSendIfMissing: true,
+					MessageSegments: []runtime.ActionSegment{{
+						Type: "text",
+						Data: map[string]any{"text": "rich fallback body"},
+					}},
+				},
+			}, nil
+		},
+	}
+
+	eventBridge := New(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		fakeRuntime,
+		fakeSender,
+		stubReplyTargetResolver{
+			"onebot11-message-12345": {
+				MessageID:  "98765",
+				TargetType: "group",
+				TargetID:   "2001",
+			},
+		},
+	)
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
+	if outcome != OutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	}
+	if len(fakeSender.replyActions) != 1 {
+		t.Fatalf("expected one reply attempt, got %d", len(fakeSender.replyActions))
+	}
+	if len(fakeSender.actions) != 1 {
+		t.Fatalf("expected one fallback send, got %d", len(fakeSender.actions))
+	}
+	if fakeSender.actions[0].TargetType != "group" || fakeSender.actions[0].TargetID != "2001" {
+		t.Fatalf("unexpected fallback send target: %#v", fakeSender.actions[0])
+	}
+	if len(fakeSender.actions[0].Segments) != 1 || fakeSender.actions[0].Segments[0].Type != "text" {
+		t.Fatalf("unexpected fallback segments: %#v", fakeSender.actions[0].Segments)
+	}
+}
+
 type fakeRuntimeClient struct {
 	snapshot    runtime.Snapshot
 	deliverFunc func(context.Context, runtime.Event) (runtime.Delivery, error)
@@ -292,11 +352,12 @@ func (f *fakeRuntimeClient) DeliverEvent(ctx context.Context, event runtime.Even
 }
 
 type fakeActionSender struct {
-	actions       []adapter.OutboundMessageSend
-	replyActions  []adapter.OutboundMessageReply
-	imageActions  []adapter.OutboundMessageSendImage
-	sendResult    adapter.SendMessageResult
-	sendErr       error
+	actions      []adapter.OutboundMessageSend
+	replyActions []adapter.OutboundMessageReply
+	imageActions []adapter.OutboundMessageSendImage
+	sendResult   adapter.SendMessageResult
+	sendErr      error
+	replyErr     error
 }
 
 func (f *fakeActionSender) SendMessage(ctx context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
@@ -309,6 +370,9 @@ func (f *fakeActionSender) SendMessage(ctx context.Context, action adapter.Outbo
 
 func (f *fakeActionSender) SendReply(ctx context.Context, action adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
 	f.replyActions = append(f.replyActions, action)
+	if f.replyErr != nil {
+		return adapter.SendMessageResult{}, f.replyErr
+	}
 	if f.sendErr != nil {
 		return adapter.SendMessageResult{}, f.sendErr
 	}
@@ -323,9 +387,27 @@ func (f *fakeActionSender) SendImage(ctx context.Context, action adapter.Outboun
 	return f.sendResult, nil
 }
 
-func testBridge(runtimeClient runtimeClient, sender actionSender) *Bridge {
+func testBridge(runtimeClient runtimeClient, sender *fakeActionSender) *Bridge {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(logger, runtimeClient, sender)
+	return New(logger, runtimeClient, sender, nil)
+}
+
+type stubReplyTargetResolver map[string]struct {
+	MessageID  string
+	TargetType string
+	TargetID   string
+}
+
+func (r stubReplyTargetResolver) ResolveReplyTarget(eventID string) (outbound.ReplyTarget, bool) {
+	target, ok := r[eventID]
+	if !ok {
+		return outbound.ReplyTarget{}, false
+	}
+	return outbound.ReplyTarget{
+		MessageID:  target.MessageID,
+		TargetType: target.TargetType,
+		TargetID:   target.TargetID,
+	}, true
 }
 
 func supportedAdapterEvent() adapter.NormalizedEvent {

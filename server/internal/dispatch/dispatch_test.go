@@ -74,7 +74,7 @@ func testEvent() runtime.Event {
 
 func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
@@ -98,7 +98,7 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 
 func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
@@ -130,7 +130,7 @@ func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 
 func TestDispatchDirectedDeliveryByAlias(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
@@ -146,7 +146,7 @@ func TestDispatchDirectedDeliveryByAlias(t *testing.T) {
 
 func TestDispatchFallbackWhenNoCommandMatch(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
@@ -163,7 +163,7 @@ func TestDispatchFallbackWhenNoCommandMatch(t *testing.T) {
 
 func TestDispatchSubscriptionFiltering(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
@@ -183,7 +183,7 @@ func TestDispatchSubscriptionFiltering(t *testing.T) {
 
 func TestDispatchQueueOverflow(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 1)
+	d := New(slog.Default(), sender, nil, 1)
 	defer d.Close()
 
 	blocker := &fakeDeliverer{
@@ -216,7 +216,7 @@ func TestDispatchQueueOverflow(t *testing.T) {
 
 func TestDispatchDeregister(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
@@ -231,7 +231,7 @@ func TestDispatchDeregister(t *testing.T) {
 
 func TestDispatchActionExecution(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: runtime.Delivery{
@@ -253,5 +253,36 @@ func TestDispatchActionExecution(t *testing.T) {
 
 	if count != 1 {
 		t.Fatalf("expected 1 sent message, got %d", count)
+	}
+}
+
+func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{
+		Action: &runtime.Action{
+			Kind:       "message.send",
+			TargetType: "group",
+			TargetID:   "200",
+			MessageSegments: []runtime.ActionSegment{
+				{Type: "at", Data: map[string]any{"user_id": "300"}},
+				{Type: "text", Data: map[string]any{"text": " rich dispatch"}},
+			},
+		},
+	}}
+	d.Register("action-plugin", rt, nil, nil)
+
+	d.Dispatch(context.Background(), testEvent(), "")
+	time.Sleep(100 * time.Millisecond)
+
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	if len(sender.messages) != 1 {
+		t.Fatalf("expected 1 sent message, got %d", len(sender.messages))
+	}
+	if len(sender.messages[0].Segments) != 2 {
+		t.Fatalf("unexpected rich segments: %#v", sender.messages[0])
 	}
 }

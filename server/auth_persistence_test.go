@@ -152,7 +152,7 @@ func newPersistentEventsBridge(application *app.App) *bridge.Bridge {
 				"handled": true,
 			},
 		},
-	}, nil)
+	}, nil, nil)
 }
 
 func writePersistentYAMLConfig(t *testing.T, databasePath string) string {

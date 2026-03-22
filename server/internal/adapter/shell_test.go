@@ -871,8 +871,20 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 	if params["group_id"] != float64(2001) {
 		t.Fatalf("unexpected group_id: %#v", params["group_id"])
 	}
-	if params["message"] != "hello outbound" {
+	message, ok := params["message"].([]any)
+	if !ok || len(message) != 1 {
 		t.Fatalf("unexpected message payload: %#v", params["message"])
+	}
+	firstSegment, ok := message[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected first message segment: %#v", message[0])
+	}
+	if firstSegment["type"] != "text" {
+		t.Fatalf("unexpected first segment type: %#v", firstSegment["type"])
+	}
+	firstData, ok := firstSegment["data"].(map[string]any)
+	if !ok || firstData["text"] != "hello outbound" {
+		t.Fatalf("unexpected first segment data: %#v", firstSegment["data"])
 	}
 	for _, forbidden := range []string{"plain_text", "event_id", "request_id", "target_type", "target_id"} {
 		if strings.Contains(string(raw), forbidden) {
@@ -1023,6 +1035,8 @@ func TestShellSendReplyWritesCQReplyRequestAndReturnsMessageID(t *testing.T) {
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
 	result, err := shell.SendReply(context.Background(), OutboundMessageReply{
+		TargetType:       "group",
+		TargetID:         "2001",
 		ReplyToMessageID: "98765",
 		Text:             "reply text",
 	})
@@ -1050,9 +1064,209 @@ func TestShellSendReplyWritesCQReplyRequestAndReturnsMessageID(t *testing.T) {
 	if params["message_type"] != "group" {
 		t.Fatalf("unexpected message_type: %#v", params["message_type"])
 	}
-	wantMessage := "[CQ:reply,id=98765]reply text"
-	if params["message"] != wantMessage {
-		t.Fatalf("unexpected message payload: got %q want %q", params["message"], wantMessage)
+	if params["group_id"] != float64(2001) {
+		t.Fatalf("unexpected group_id: %#v", params["group_id"])
+	}
+	message, ok := params["message"].([]any)
+	if !ok || len(message) != 2 {
+		t.Fatalf("unexpected message payload: %#v", params["message"])
+	}
+	replySegment, ok := message[0].(map[string]any)
+	if !ok || replySegment["type"] != "reply" {
+		t.Fatalf("unexpected reply segment: %#v", message[0])
+	}
+	replyData, ok := replySegment["data"].(map[string]any)
+	if !ok || replyData["id"] != "98765" {
+		t.Fatalf("unexpected reply segment data: %#v", replySegment["data"])
+	}
+	textSegment, ok := message[1].(map[string]any)
+	if !ok || textSegment["type"] != "text" {
+		t.Fatalf("unexpected text segment: %#v", message[1])
+	}
+	textData, ok := textSegment["data"].(map[string]any)
+	if !ok || textData["text"] != "reply text" {
+		t.Fatalf("unexpected text segment data: %#v", textSegment["data"])
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
+	t.Parallel()
+
+	requests := make(chan map[string]any, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+		requests <- request
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"message_id": 11111,
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	_, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+		TargetType: "group",
+		TargetID:   "2001",
+		Segments: []OutboundMessageSegment{
+			{Type: "at", Data: map[string]any{"user_id": "3001"}},
+			{Type: "text", Data: map[string]any{"text": " rich outbound"}},
+			{Type: "image", Data: map[string]any{"url": "https://example.test/rich.png"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SendMessage failed: %v", err)
+	}
+
+	var request map[string]any
+	select {
+	case request = <-requests:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for rich send_msg request")
+	}
+
+	params := request["params"].(map[string]any)
+	message := params["message"].([]any)
+	if len(message) != 3 {
+		t.Fatalf("unexpected message segment count: %#v", params["message"])
+	}
+	first := message[0].(map[string]any)
+	if first["type"] != "at" {
+		t.Fatalf("unexpected first rich segment: %#v", first)
+	}
+	second := message[1].(map[string]any)
+	if second["type"] != "text" {
+		t.Fatalf("unexpected second rich segment: %#v", second)
+	}
+	third := message[2].(map[string]any)
+	if third["type"] != "image" {
+		t.Fatalf("unexpected third rich segment: %#v", third)
+	}
+	thirdData := third["data"].(map[string]any)
+	if thirdData["file"] != "https://example.test/rich.png" {
+		t.Fatalf("unexpected rich image data: %#v", thirdData)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "failed",
+			"retcode": 1404,
+			"wording": "reply target missing",
+			"echo":    request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	_, err := shell.SendReply(context.Background(), OutboundMessageReply{
+		TargetType:       "group",
+		TargetID:         "2001",
+		ReplyToMessageID: "98765",
+		Text:             "reply text",
+	})
+	if err == nil {
+		t.Fatal("expected SendReply to fail")
+	}
+
+	var adapterErr *Error
+	if !errors.As(err, &adapterErr) {
+		t.Fatalf("expected *adapter.Error, got %T", err)
+	}
+	if adapterErr.Code != errorCodeReplyTargetMissing {
+		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, errorCodeReplyTargetMissing)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

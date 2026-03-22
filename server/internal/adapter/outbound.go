@@ -11,6 +11,7 @@ import (
 )
 
 const errorCodeSendFailed = "adapter.send_failed"
+const errorCodeReplyTargetMissing = "adapter.reply_target_missing"
 
 type Error struct {
 	Code    string
@@ -47,17 +48,26 @@ type OutboundMessageSend struct {
 	TargetType string
 	TargetID   string
 	Text       string
+	Segments   []OutboundMessageSegment
 }
 
 type OutboundMessageReply struct {
+	TargetType       string
+	TargetID         string
 	ReplyToMessageID string
 	Text             string
+	Segments         []OutboundMessageSegment
 }
 
 type OutboundMessageSendImage struct {
 	TargetType string
 	TargetID   string
 	File       string
+}
+
+type OutboundMessageSegment struct {
+	Type string
+	Data map[string]any
 }
 
 type SendMessageResult struct {
@@ -74,7 +84,12 @@ type sendMsgParams struct {
 	MessageType string `json:"message_type"`
 	UserID      any    `json:"user_id,omitempty"`
 	GroupID     any    `json:"group_id,omitempty"`
-	Message     string `json:"message"`
+	Message     any    `json:"message"`
+}
+
+type oneBotMessageSegment struct {
+	Type string         `json:"type"`
+	Data map[string]any `json:"data,omitempty"`
 }
 
 type apiResponse struct {
@@ -86,18 +101,215 @@ type apiResponse struct {
 }
 
 func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (SendMessageResult, error) {
-	targetType := strings.TrimSpace(action.TargetType)
-	targetID := strings.TrimSpace(action.TargetID)
-	text := strings.TrimSpace(action.Text)
-	if targetID == "" || text == "" {
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send action is missing required fields", nil)
+	targetType, targetID, err := validateOutboundTarget(action.TargetType, action.TargetID, "message.send")
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+
+	segments, err := s.normalizeOutboundSegments("message.send", action.Text, action.Segments, "")
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+
+	return s.sendSegments(ctx, targetType, targetID, segments, false)
+}
+
+func (s *Shell) SendImage(ctx context.Context, action OutboundMessageSendImage) (SendMessageResult, error) {
+	targetType, targetID, err := validateOutboundTarget(action.TargetType, action.TargetID, "message.send_image")
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+
+	file := strings.TrimSpace(action.File)
+	if file == "" {
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send_image action is missing required fields", nil)
+	}
+
+	return s.sendSegments(ctx, targetType, targetID, []oneBotMessageSegment{{
+		Type: "image",
+		Data: map[string]any{"file": file},
+	}}, false)
+}
+
+func (s *Shell) SendReply(ctx context.Context, action OutboundMessageReply) (SendMessageResult, error) {
+	targetType, targetID, err := validateOutboundTarget(action.TargetType, action.TargetID, "message.reply")
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+
+	replyToID := strings.TrimSpace(action.ReplyToMessageID)
+	if replyToID == "" {
+		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.reply action is missing required fields", nil)
+	}
+
+	segments, err := s.normalizeOutboundSegments("message.reply", action.Text, action.Segments, replyToID)
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+
+	return s.sendSegments(ctx, targetType, targetID, segments, true)
+}
+
+func validateOutboundTarget(rawType, rawID, actionKind string) (string, string, error) {
+	targetType := strings.TrimSpace(rawType)
+	targetID := strings.TrimSpace(rawID)
+	if targetID == "" {
+		return "", "", errorf(errorCodeSendFailed, actionKind+" action is missing required fields", nil)
 	}
 	switch targetType {
 	case "group", "private":
+		return targetType, targetID, nil
 	default:
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send uses unsupported target_type", nil)
+		return "", "", errorf(errorCodeSendFailed, actionKind+" uses unsupported target_type", nil)
+	}
+}
+
+func (s *Shell) normalizeOutboundSegments(actionKind, legacyText string, declared []OutboundMessageSegment, replyToMessageID string) ([]oneBotMessageSegment, error) {
+	segments := make([]OutboundMessageSegment, 0, len(declared)+1)
+	for _, segment := range declared {
+		segments = append(segments, OutboundMessageSegment{
+			Type: segment.Type,
+			Data: cloneOutboundSegmentData(segment.Data),
+		})
+	}
+	if len(segments) == 0 {
+		text := strings.TrimSpace(legacyText)
+		if text == "" {
+			return nil, errorf(errorCodeSendFailed, actionKind+" action is missing required fields", nil)
+		}
+		segments = append(segments, OutboundMessageSegment{
+			Type: "text",
+			Data: map[string]any{"text": text},
+		})
+	}
+	if replyToMessageID != "" {
+		reply := OutboundMessageSegment{
+			Type: "reply",
+			Data: map[string]any{"message_id": replyToMessageID},
+		}
+		segments = prependReplySegment(segments, reply)
 	}
 
+	converted := make([]oneBotMessageSegment, 0, len(segments))
+	for _, segment := range segments {
+		oneBotSegment, ok := convertOutboundSegment(segment)
+		if !ok {
+			s.logger.Warn(
+				"dropping unsupported outbound message segment",
+				"component", "adapter",
+				"segment_type", segment.Type,
+			)
+			continue
+		}
+		converted = append(converted, oneBotSegment)
+	}
+	if len(converted) == 0 {
+		return nil, errorf(errorCodeSendFailed, "outbound message became empty after segment normalization", nil)
+	}
+	return converted, nil
+}
+
+func prependReplySegment(segments []OutboundMessageSegment, reply OutboundMessageSegment) []OutboundMessageSegment {
+	result := make([]OutboundMessageSegment, 0, len(segments)+1)
+	result = append(result, reply)
+	for _, segment := range segments {
+		if strings.TrimSpace(segment.Type) == "reply" {
+			continue
+		}
+		result = append(result, segment)
+	}
+	return result
+}
+
+func convertOutboundSegment(segment OutboundMessageSegment) (oneBotMessageSegment, bool) {
+	switch strings.TrimSpace(segment.Type) {
+	case "text":
+		text, ok := outboundSegmentString(segment.Data, "text")
+		if !ok || text == "" {
+			return oneBotMessageSegment{}, false
+		}
+		return oneBotMessageSegment{
+			Type: "text",
+			Data: map[string]any{"text": text},
+		}, true
+	case "image":
+		if file, ok := outboundSegmentString(segment.Data, "file"); ok && file != "" {
+			return oneBotMessageSegment{
+				Type: "image",
+				Data: map[string]any{"file": file},
+			}, true
+		}
+		if url, ok := outboundSegmentString(segment.Data, "url"); ok && url != "" {
+			return oneBotMessageSegment{
+				Type: "image",
+				Data: map[string]any{"file": url},
+			}, true
+		}
+		return oneBotMessageSegment{}, false
+	case "at":
+		userID, ok := outboundSegmentString(segment.Data, "user_id")
+		if !ok || userID == "" {
+			return oneBotMessageSegment{}, false
+		}
+		return oneBotMessageSegment{
+			Type: "at",
+			Data: map[string]any{"qq": userID},
+		}, true
+	case "at_all":
+		return oneBotMessageSegment{
+			Type: "at",
+			Data: map[string]any{"qq": "all"},
+		}, true
+	case "face":
+		faceID, ok := outboundSegmentString(segment.Data, "face_id")
+		if !ok || faceID == "" {
+			return oneBotMessageSegment{}, false
+		}
+		return oneBotMessageSegment{
+			Type: "face",
+			Data: map[string]any{"id": faceID},
+		}, true
+	case "reply":
+		messageID, ok := outboundSegmentString(segment.Data, "message_id")
+		if !ok || messageID == "" {
+			return oneBotMessageSegment{}, false
+		}
+		return oneBotMessageSegment{
+			Type: "reply",
+			Data: map[string]any{"id": messageID},
+		}, true
+	default:
+		return oneBotMessageSegment{}, false
+	}
+}
+
+func cloneOutboundSegmentData(data map[string]any) map[string]any {
+	if len(data) == 0 {
+		return map[string]any{}
+	}
+	cloned := make(map[string]any, len(data))
+	for key, value := range data {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func outboundSegmentString(data map[string]any, key string) (string, bool) {
+	if len(data) == 0 {
+		return "", false
+	}
+	value, ok := data[key]
+	if !ok {
+		return "", false
+	}
+	text, ok := value.(string)
+	if !ok {
+		return "", false
+	}
+	return text, true
+}
+
+func (s *Shell) sendSegments(ctx context.Context, targetType, targetID string, segments []oneBotMessageSegment, replyAttempt bool) (SendMessageResult, error) {
 	echo := s.nextRequestEcho()
 	responseCh := make(chan apiResponse, 1)
 	s.registerPendingResponse(echo, responseCh)
@@ -107,7 +319,7 @@ func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (Se
 		Action: "send_msg",
 		Params: sendMsgParams{
 			MessageType: targetType,
-			Message:     text,
+			Message:     segments,
 		},
 		Echo: echo,
 	}
@@ -132,112 +344,9 @@ func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (Se
 
 	select {
 	case response := <-responseCh:
-		return parseSendMessageResponse(response)
+		return parseSendMessageResponse(response, replyAttempt)
 	case <-ctx.Done():
 		return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg response timed out", ctx.Err())
-	}
-}
-
-// SendImage sends an image message via the OneBot11 adapter using the
-// [CQ:image,file=<file>] segment format.
-func (s *Shell) SendImage(ctx context.Context, action OutboundMessageSendImage) (SendMessageResult, error) {
-	targetType := strings.TrimSpace(action.TargetType)
-	targetID := strings.TrimSpace(action.TargetID)
-	file := strings.TrimSpace(action.File)
-	if targetID == "" || file == "" {
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send_image action is missing required fields", nil)
-	}
-	switch targetType {
-	case "group", "private":
-	default:
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send_image uses unsupported target_type", nil)
-	}
-
-	echo := s.nextRequestEcho()
-	responseCh := make(chan apiResponse, 1)
-	s.registerPendingResponse(echo, responseCh)
-	defer s.dropPendingResponse(echo)
-
-	cqMessage := fmt.Sprintf("[CQ:image,file=%s]", file)
-
-	request := sendMsgRequest{
-		Action: "send_msg",
-		Params: sendMsgParams{
-			MessageType: targetType,
-			Message:     cqMessage,
-		},
-		Echo: echo,
-	}
-	switch targetType {
-	case "group":
-		request.Params.GroupID = oneBotTargetValue(targetID)
-	case "private":
-		request.Params.UserID = oneBotTargetValue(targetID)
-	}
-
-	conn, snapshot := s.currentConn()
-	if conn == nil || snapshot.State != StateConnected {
-		return SendMessageResult{}, errorf(errorCodeConnectionLost, "adapter websocket is not connected", nil)
-	}
-
-	s.sendMu.Lock()
-	writeErr := wsjsonWrite(ctx, conn, request)
-	s.sendMu.Unlock()
-	if writeErr != nil {
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "write send_msg image request", writeErr)
-	}
-
-	select {
-	case response := <-responseCh:
-		return parseSendMessageResponse(response)
-	case <-ctx.Done():
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg image response timed out", ctx.Err())
-	}
-}
-
-// SendReply sends a quote-reply message via the OneBot11 adapter using the
-// [CQ:reply,id=<reply_to_message_id>] segment prepended to the text.
-func (s *Shell) SendReply(ctx context.Context, action OutboundMessageReply) (SendMessageResult, error) {
-	replyToID := strings.TrimSpace(action.ReplyToMessageID)
-	text := strings.TrimSpace(action.Text)
-	if replyToID == "" || text == "" {
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.reply action is missing required fields", nil)
-	}
-
-	echo := s.nextRequestEcho()
-	responseCh := make(chan apiResponse, 1)
-	s.registerPendingResponse(echo, responseCh)
-	defer s.dropPendingResponse(echo)
-
-	// OneBot11 quote-reply: prepend [CQ:reply,id=<id>] to the message text.
-	cqMessage := fmt.Sprintf("[CQ:reply,id=%s]%s", replyToID, text)
-
-	request := sendMsgRequest{
-		Action: "send_msg",
-		Params: sendMsgParams{
-			MessageType: "group",
-			Message:     cqMessage,
-		},
-		Echo: echo,
-	}
-
-	conn, snapshot := s.currentConn()
-	if conn == nil || snapshot.State != StateConnected {
-		return SendMessageResult{}, errorf(errorCodeConnectionLost, "adapter websocket is not connected", nil)
-	}
-
-	s.sendMu.Lock()
-	writeErr := wsjsonWrite(ctx, conn, request)
-	s.sendMu.Unlock()
-	if writeErr != nil {
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "write send_msg reply request", writeErr)
-	}
-
-	select {
-	case response := <-responseCh:
-		return parseSendMessageResponse(response)
-	case <-ctx.Done():
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg reply response timed out", ctx.Err())
 	}
 }
 
@@ -339,11 +448,14 @@ func apiResponseFromFrame(frame oneBotFrame) (apiResponse, bool) {
 	}, true
 }
 
-func parseSendMessageResponse(response apiResponse) (SendMessageResult, error) {
+func parseSendMessageResponse(response apiResponse, replyAttempt bool) (SendMessageResult, error) {
 	if response.Status != "ok" || response.RetCode != 0 {
 		message := "adapter send_msg failed"
 		if response.Wording != "" {
 			message = response.Wording
+		}
+		if replyAttempt && isReplyTargetMissing(message) {
+			return SendMessageResult{}, errorf(errorCodeReplyTargetMissing, message, nil)
 		}
 		return SendMessageResult{}, errorf(errorCodeSendFailed, message, nil)
 	}
@@ -351,6 +463,36 @@ func parseSendMessageResponse(response apiResponse) (SendMessageResult, error) {
 	return SendMessageResult{
 		MessageID: extractMessageID(response.Data),
 	}, nil
+}
+
+func isReplyTargetMissing(message string) bool {
+	message = strings.TrimSpace(strings.ToLower(message))
+	if message == "" {
+		return false
+	}
+
+	needles := []string{
+		"reply target",
+		"reply message",
+		"reply to message",
+		"quoted message",
+		"message not found",
+		"message not exist",
+		"message is not exist",
+		"message has been recalled",
+		"引用消息不存在",
+		"回复目标不存在",
+		"回复消息不存在",
+		"消息不存在",
+		"消息已撤回",
+		"目标消息不存在",
+	}
+	for _, needle := range needles {
+		if strings.Contains(message, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func extractMessageID(data map[string]any) string {

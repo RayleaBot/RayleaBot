@@ -206,6 +206,8 @@ func (a *App) sendCooldownReply(event adapter.NormalizedEvent) {
 	case "group":
 		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
 			_, err = a.outboundSender.SendReply(ctx, adapter.OutboundMessageReply{
+				TargetType:       "group",
+				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
 				Text:             cooldownReplyText,
 			})

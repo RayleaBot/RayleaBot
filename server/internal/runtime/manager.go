@@ -83,13 +83,21 @@ type EventSegment struct {
 	Data map[string]any
 }
 
+type ActionSegment struct {
+	Type string
+	Data map[string]any
+}
+
 type Action struct {
-	Kind             string
-	TargetType       string
-	TargetID         string
-	Text             string
-	ReplyToMessageID string
-	File             string
+	Kind                    string
+	TargetType              string
+	TargetID                string
+	Text                    string
+	ReplyToMessageID        string
+	ReplyToEventID          string
+	FallbackToSendIfMissing bool
+	File                    string
+	MessageSegments         []ActionSegment
 }
 
 type Delivery struct {
@@ -218,21 +226,38 @@ type protocolPayloadFrame struct {
 }
 
 type actionFrame struct {
-	ProtocolVersion string                  `json:"protocol_version"`
-	Type            string                  `json:"type"`
-	Timestamp       int64                   `json:"timestamp"`
-	PluginID        string                  `json:"plugin_id"`
-	RequestID       string                  `json:"request_id"`
-	Action          string                  `json:"action"`
-	Data            protocolActionDataFrame `json:"data"`
+	ProtocolVersion string          `json:"protocol_version"`
+	Type            string          `json:"type"`
+	Timestamp       int64           `json:"timestamp"`
+	PluginID        string          `json:"plugin_id"`
+	RequestID       string          `json:"request_id"`
+	Action          string          `json:"action"`
+	Data            json.RawMessage `json:"data"`
 }
 
-type protocolActionDataFrame struct {
-	TargetType       string `json:"target_type,omitempty"`
-	TargetID         string `json:"target_id,omitempty"`
-	Text             string `json:"text,omitempty"`
-	ReplyToMessageID string `json:"reply_to_message_id,omitempty"`
-	File             string `json:"file,omitempty"`
+type protocolOutboundMessageFrame struct {
+	Segments []protocolSegmentFrame `json:"segments"`
+}
+
+type protocolActionMessageSendFrame struct {
+	TargetType string                        `json:"target_type"`
+	TargetID   string                        `json:"target_id"`
+	Text       *string                       `json:"text,omitempty"`
+	Message    *protocolOutboundMessageFrame `json:"message,omitempty"`
+}
+
+type protocolActionMessageReplyFrame struct {
+	ReplyToMessageID        *string                       `json:"reply_to_message_id,omitempty"`
+	ReplyToEventID          *string                       `json:"reply_to_event_id,omitempty"`
+	Text                    *string                       `json:"text,omitempty"`
+	Message                 *protocolOutboundMessageFrame `json:"message,omitempty"`
+	FallbackToSendIfMissing bool                          `json:"fallback_to_send_if_missing,omitempty"`
+}
+
+type protocolActionMessageSendImageFrame struct {
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	File       string `json:"file"`
 }
 
 type frameEnvelope struct {
@@ -968,62 +993,33 @@ func (m *Manager) parseEventResponse(line []byte, pluginID string, requestID str
 
 		switch frame.Action {
 		case "message.send":
-			targetType := strings.TrimSpace(frame.Data.TargetType)
-			targetID := strings.TrimSpace(frame.Data.TargetID)
-			text := strings.TrimSpace(frame.Data.Text)
-			if targetID == "" || text == "" {
-				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send fields", nil)
-			}
-			switch targetType {
-			case "group", "private":
-			default:
-				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported target_type", nil)
+			action, err := parseMessageSendAction(frame.Data)
+			if err != nil {
+				return Delivery{}, err
 			}
 			return Delivery{
 				RequestID: requestID,
-				Action: &Action{
-					Kind:       frame.Action,
-					TargetType: targetType,
-					TargetID:   targetID,
-					Text:       text,
-				},
+				Action:    action,
 			}, nil
 
 		case "message.reply":
-			replyToMessageID := strings.TrimSpace(frame.Data.ReplyToMessageID)
-			text := strings.TrimSpace(frame.Data.Text)
-			if replyToMessageID == "" || text == "" {
-				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
+			action, err := parseMessageReplyAction(frame.Data)
+			if err != nil {
+				return Delivery{}, err
 			}
 			return Delivery{
 				RequestID: requestID,
-				Action: &Action{
-					Kind:             frame.Action,
-					ReplyToMessageID: replyToMessageID,
-					Text:             text,
-				},
+				Action:    action,
 			}, nil
 
 		case "message.send_image":
-			targetType := strings.TrimSpace(frame.Data.TargetType)
-			targetID := strings.TrimSpace(frame.Data.TargetID)
-			file := strings.TrimSpace(frame.Data.File)
-			if targetID == "" || file == "" {
-				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send_image fields", nil)
-			}
-			switch targetType {
-			case "group", "private":
-			default:
-				return Delivery{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported target_type", nil)
+			action, err := parseMessageSendImageAction(frame.Data)
+			if err != nil {
+				return Delivery{}, err
 			}
 			return Delivery{
 				RequestID: requestID,
-				Action: &Action{
-					Kind:       frame.Action,
-					TargetType: targetType,
-					TargetID:   targetID,
-					File:       file,
-				},
+				Action:    action,
 			}, nil
 
 		default:
@@ -1061,6 +1057,239 @@ func (m *Manager) parseEventResponse(line []byte, pluginID string, requestID str
 	default:
 		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during event delivery", nil)
 	}
+}
+
+func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionMessageSendFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.send data", err)
+	}
+
+	targetType, targetID, err := validateActionTarget(frame.TargetType, frame.TargetID, "message.send")
+	if err != nil {
+		return nil, err
+	}
+
+	if frame.Message != nil {
+		segments, err := parseOutboundActionSegments(frame.Message.Segments)
+		if err != nil {
+			return nil, err
+		}
+		return &Action{
+			Kind:            "message.send",
+			TargetType:      targetType,
+			TargetID:        targetID,
+			MessageSegments: segments,
+		}, nil
+	}
+
+	if frame.Text == nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send fields", nil)
+	}
+	text := strings.TrimSpace(*frame.Text)
+	if text == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send fields", nil)
+	}
+	return &Action{
+		Kind:       "message.send",
+		TargetType: targetType,
+		TargetID:   targetID,
+		Text:       text,
+		MessageSegments: []ActionSegment{{
+			Type: "text",
+			Data: map[string]any{"text": text},
+		}},
+	}, nil
+}
+
+func parseMessageReplyAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionMessageReplyFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.reply data", err)
+	}
+
+	legacyReply := frame.ReplyToMessageID != nil || frame.Text != nil
+	richReply := frame.ReplyToEventID != nil || frame.Message != nil
+	if legacyReply && richReply {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame mixes legacy and rich message.reply fields", nil)
+	}
+
+	if richReply {
+		if frame.ReplyToEventID == nil || frame.Message == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
+		}
+		replyToEventID := strings.TrimSpace(*frame.ReplyToEventID)
+		if replyToEventID == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
+		}
+		segments, err := parseOutboundActionSegments(frame.Message.Segments)
+		if err != nil {
+			return nil, err
+		}
+		return &Action{
+			Kind:                    "message.reply",
+			ReplyToEventID:          replyToEventID,
+			FallbackToSendIfMissing: frame.FallbackToSendIfMissing,
+			MessageSegments:         segments,
+		}, nil
+	}
+
+	if frame.ReplyToMessageID == nil || frame.Text == nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
+	}
+
+	replyToMessageID := strings.TrimSpace(*frame.ReplyToMessageID)
+	text := strings.TrimSpace(*frame.Text)
+	if replyToMessageID == "" || text == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
+	}
+	return &Action{
+		Kind:             "message.reply",
+		ReplyToMessageID: replyToMessageID,
+		Text:             text,
+		MessageSegments: []ActionSegment{{
+			Type: "text",
+			Data: map[string]any{"text": text},
+		}},
+	}, nil
+}
+
+func parseMessageSendImageAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionMessageSendImageFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.send_image data", err)
+	}
+
+	targetType, targetID, err := validateActionTarget(frame.TargetType, frame.TargetID, "message.send_image")
+	if err != nil {
+		return nil, err
+	}
+	file := strings.TrimSpace(frame.File)
+	if file == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.send_image fields", nil)
+	}
+	return &Action{
+		Kind:       "message.send_image",
+		TargetType: targetType,
+		TargetID:   targetID,
+		File:       file,
+		MessageSegments: []ActionSegment{{
+			Type: "image",
+			Data: map[string]any{"file": file},
+		}},
+	}, nil
+}
+
+func validateActionTarget(rawType, rawID, actionKind string) (string, string, error) {
+	targetType := strings.TrimSpace(rawType)
+	targetID := strings.TrimSpace(rawID)
+	if targetID == "" {
+		return "", "", errorf(codePluginProtocolViolation, "plugin action frame is missing required "+actionKind+" fields", nil)
+	}
+	switch targetType {
+	case "group", "private":
+		return targetType, targetID, nil
+	default:
+		return "", "", errorf(codePluginProtocolViolation, "plugin action frame uses unsupported target_type", nil)
+	}
+}
+
+func parseOutboundActionSegments(raw []protocolSegmentFrame) ([]ActionSegment, error) {
+	if len(raw) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required rich message segments", nil)
+	}
+
+	segments := make([]ActionSegment, 0, len(raw))
+	for index, segment := range raw {
+		actionSegment, err := parseOutboundActionSegment(segment, index)
+		if err != nil {
+			return nil, err
+		}
+		segments = append(segments, actionSegment)
+	}
+	return segments, nil
+}
+
+func parseOutboundActionSegment(segment protocolSegmentFrame, index int) (ActionSegment, error) {
+	segmentType := strings.TrimSpace(segment.Type)
+	data := cloneActionSegmentData(segment.Data)
+
+	switch segmentType {
+	case "text":
+		text, ok := data["text"].(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid text segment", nil)
+		}
+		data["text"] = text
+	case "image":
+		file := outboundActionString(data, "file")
+		url := outboundActionString(data, "url")
+		if file == "" && url == "" {
+			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid image segment", nil)
+		}
+		if file != "" {
+			data["file"] = file
+		}
+		if url != "" {
+			data["url"] = url
+		}
+	case "at":
+		userID := outboundActionString(data, "user_id")
+		if userID == "" {
+			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid at segment", nil)
+		}
+		data["user_id"] = userID
+	case "at_all":
+		data = map[string]any{}
+	case "face":
+		faceID := outboundActionString(data, "face_id")
+		if faceID == "" {
+			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid face segment", nil)
+		}
+		data["face_id"] = faceID
+	case "reply":
+		if index != 0 {
+			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame places reply segment outside the message head", nil)
+		}
+		messageID := outboundActionString(data, "message_id")
+		if messageID == "" {
+			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid reply segment", nil)
+		}
+		data["message_id"] = messageID
+	default:
+		return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported message segment type", nil)
+	}
+
+	return ActionSegment{
+		Type: segmentType,
+		Data: data,
+	}, nil
+}
+
+func cloneActionSegmentData(data map[string]any) map[string]any {
+	if len(data) == 0 {
+		return map[string]any{}
+	}
+	cloned := make(map[string]any, len(data))
+	for key, value := range data {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func outboundActionString(data map[string]any, key string) string {
+	if len(data) == 0 {
+		return ""
+	}
+	value, ok := data[key]
+	if !ok {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(text)
 }
 
 func (m *Manager) cleanupFailedStart(handle *processHandle, code, message string, err error) {

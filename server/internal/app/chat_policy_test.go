@@ -61,7 +61,7 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 		Config:            config.Config{},
 		permissionChecker: newPermissionChecker(config.Config{}, repo),
 		commandParser:     newCommandParser(config.Config{}),
-		Bridge:            bridge.New(slog.Default(), runtimeClient, nil),
+		Bridge:            bridge.New(slog.Default(), runtimeClient, nil, nil),
 	}
 
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
@@ -120,7 +120,7 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 				}},
 			},
 		}),
-		Bridge: bridge.New(slog.Default(), runtimeClient, nil),
+		Bridge: bridge.New(slog.Default(), runtimeClient, nil, nil),
 	}
 
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
@@ -417,7 +417,7 @@ func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGr
 		Config:     config.Config{},
 		Logger:     slog.Default(),
 		Plugins:    catalog,
-		Dispatcher: dispatch.New(slog.Default(), nil, 16),
+		Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
 		Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
 		grantRepository: &stubLifecycleGrantRepository{
 			grants: map[string][]plugins.PluginGrant{

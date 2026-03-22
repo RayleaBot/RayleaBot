@@ -21,6 +21,9 @@ func (a *App) handleAdapterEvent(ctx context.Context, event adapter.NormalizedEv
 	if a == nil {
 		return
 	}
+	if a.replyTargets != nil {
+		a.replyTargets.Record(event)
+	}
 
 	if a.pluginLifecycle != nil {
 		a.pluginLifecycle.HandleAdapterEvent(ctx, event)

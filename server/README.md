@@ -36,7 +36,10 @@
   - ready frame gating
   - reconnect / heartbeat timeout
   - message / notice 最小归一化
-  - `message.send`、`message.reply`、`message.send_image`
+  - richer `message.send` / `message.reply`
+  - legacy compatibility `message.send_image`
+  - shared outbound `message.segments` 映射到 OneBot11 消息段数组
+  - `reply_to_event_id` 最近事件窗口解析与 `adapter.reply_target_missing` fallback
 - runtime manager：
   - `init` / `init_progress` / `init_ack`
   - `event` / `result` / `error`
@@ -77,7 +80,7 @@
 
 ## 当前边界
 
-- 三种 action 之外的更广插件动作族仍未进入正式链路
+- richer 消息动作之外的更广插件动作族仍未进入正式链路
 
 ## 默认命令
 

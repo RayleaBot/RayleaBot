@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"rayleabot/server/internal/adapter"
+	"rayleabot/server/internal/outbound"
 	"rayleabot/server/internal/runtime"
 )
 
@@ -13,13 +13,6 @@ import (
 type runtimeDeliverer interface {
 	DeliverEvent(context.Context, runtime.Event) (runtime.Delivery, error)
 	Snapshot() runtime.Snapshot
-}
-
-// actionSender mirrors the adapter outbound action interface.
-type actionSender interface {
-	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
-	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
-	SendImage(context.Context, adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error)
 }
 
 // Outcome represents the result of delivering an event to a single plugin.
@@ -61,14 +54,15 @@ type pluginSlot struct {
 // Dispatcher manages per-plugin event queues and fan-out delivery.
 type Dispatcher struct {
 	logger    *slog.Logger
-	sender    actionSender
+	sender    outbound.ActionSender
+	resolver  outbound.ReplyTargetResolver
 	queueSize int
 	mu        sync.RWMutex
 	slots     map[string]*pluginSlot
 }
 
 // New creates a Dispatcher.
-func New(logger *slog.Logger, sender actionSender, queueSize int) *Dispatcher {
+func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.ReplyTargetResolver, queueSize int) *Dispatcher {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -78,6 +72,7 @@ func New(logger *slog.Logger, sender actionSender, queueSize int) *Dispatcher {
 	return &Dispatcher{
 		logger:    logger,
 		sender:    sender,
+		resolver:  resolver,
 		queueSize: queueSize,
 		slots:     make(map[string]*pluginSlot),
 	}
@@ -263,43 +258,17 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 		}
 
 		if delivery.Action != nil {
-			d.executeAction(item.ctx, pluginID, *delivery.Action)
+			d.executeAction(item.ctx, pluginID, item.event, *delivery.Action)
 		}
 	}
 }
 
-func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, action runtime.Action) {
+func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, event runtime.Event, action runtime.Action) {
 	if d.sender == nil {
 		return
 	}
 
-	var err error
-	switch action.Kind {
-	case "message.send":
-		_, err = d.sender.SendMessage(ctx, adapter.OutboundMessageSend{
-			TargetType: action.TargetType,
-			TargetID:   action.TargetID,
-			Text:       action.Text,
-		})
-	case "message.reply":
-		_, err = d.sender.SendReply(ctx, adapter.OutboundMessageReply{
-			ReplyToMessageID: action.ReplyToMessageID,
-			Text:             action.Text,
-		})
-	case "message.send_image":
-		_, err = d.sender.SendImage(ctx, adapter.OutboundMessageSendImage{
-			TargetType: action.TargetType,
-			TargetID:   action.TargetID,
-			File:       action.File,
-		})
-	default:
-		d.logger.Warn("unsupported action kind from plugin",
-			"component", "dispatch",
-			"plugin_id", pluginID,
-			"action_kind", action.Kind,
-		)
-		return
-	}
+	_, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
 
 	if err != nil {
 		d.logger.Warn("outbound action failed",

@@ -11,7 +11,7 @@ import (
 
 func TestReloadPluginSwapsRuntime(t *testing.T) {
 	sender := &fakeSender{}
-	d := New(slog.Default(), sender, 16)
+	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
 	oldRT := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"version": "old"}}}

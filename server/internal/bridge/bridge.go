@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"rayleabot/server/internal/adapter"
+	"rayleabot/server/internal/outbound"
 	"rayleabot/server/internal/runtime"
 )
 
@@ -66,16 +67,11 @@ type runtimeClient interface {
 	DeliverEvent(context.Context, runtime.Event) (runtime.Delivery, error)
 }
 
-type actionSender interface {
-	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
-	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
-	SendImage(context.Context, adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error)
-}
-
 type Bridge struct {
-	logger  *slog.Logger
-	runtime runtimeClient
-	sender  actionSender
+	logger   *slog.Logger
+	runtime  runtimeClient
+	sender   outbound.ActionSender
+	resolver outbound.ReplyTargetResolver
 
 	mu               sync.RWMutex
 	snapshot         Snapshot
@@ -83,7 +79,7 @@ type Bridge struct {
 	subscribers      map[uint64]chan ObservabilityFrame
 }
 
-func New(logger *slog.Logger, runtimeClient runtimeClient, sender actionSender) *Bridge {
+func New(logger *slog.Logger, runtimeClient runtimeClient, sender outbound.ActionSender, resolver outbound.ReplyTargetResolver) *Bridge {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -92,6 +88,7 @@ func New(logger *slog.Logger, runtimeClient runtimeClient, sender actionSender) 
 		logger:      logger,
 		runtime:     runtimeClient,
 		sender:      sender,
+		resolver:    resolver,
 		subscribers: make(map[uint64]chan ObservabilityFrame),
 	}
 }
@@ -249,7 +246,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 	}
 
 	if delivery.Action != nil {
-		result, sendErr := b.sendOutboundAction(ctx, *delivery.Action)
+		result, sendErr := b.sendOutboundAction(ctx, runtimeEvent, *delivery.Action)
 		if sendErr != nil {
 			code := "adapter.send_failed"
 			message := sendErr.Error()
@@ -339,38 +336,8 @@ func isSupportedEventType(event adapter.NormalizedEvent) bool {
 	}
 }
 
-func (b *Bridge) sendOutboundAction(ctx context.Context, action runtime.Action) (adapter.SendMessageResult, error) {
-	if b.sender == nil {
-		return adapter.SendMessageResult{}, &adapter.Error{
-			Code:    "adapter.send_failed",
-			Message: "adapter outbound sender is not available",
-		}
-	}
-
-	switch action.Kind {
-	case "message.send":
-		return b.sender.SendMessage(ctx, adapter.OutboundMessageSend{
-			TargetType: action.TargetType,
-			TargetID:   action.TargetID,
-			Text:       action.Text,
-		})
-	case "message.reply":
-		return b.sender.SendReply(ctx, adapter.OutboundMessageReply{
-			ReplyToMessageID: action.ReplyToMessageID,
-			Text:             action.Text,
-		})
-	case "message.send_image":
-		return b.sender.SendImage(ctx, adapter.OutboundMessageSendImage{
-			TargetType: action.TargetType,
-			TargetID:   action.TargetID,
-			File:       action.File,
-		})
-	default:
-		return adapter.SendMessageResult{}, &adapter.Error{
-			Code:    "plugin.protocol_violation",
-			Message: "runtime bridge received unsupported outbound action kind",
-		}
-	}
+func (b *Bridge) sendOutboundAction(ctx context.Context, origin runtime.Event, action runtime.Action) (adapter.SendMessageResult, error) {
+	return outbound.SendAction(ctx, b.sender, b.resolver, origin, action)
 }
 
 func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Time) {

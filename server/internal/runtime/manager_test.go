@@ -291,6 +291,67 @@ func TestManagerDeliverEventReturnsMessageReplyAction(t *testing.T) {
 	}
 }
 
+func TestManagerDeliverEventReturnsRichMessageSendAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-send-segments", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.Action == nil {
+		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+	}
+	if len(delivery.Action.MessageSegments) != 3 {
+		t.Fatalf("unexpected message segments: %#v", delivery.Action.MessageSegments)
+	}
+	if delivery.Action.MessageSegments[0].Type != "at" || delivery.Action.MessageSegments[1].Type != "text" || delivery.Action.MessageSegments[2].Type != "image" {
+		t.Fatalf("unexpected rich action payload: %#v", delivery.Action)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventReturnsRichMessageReplyAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-reply-to-event", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	if delivery.Action == nil {
+		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+	}
+	if delivery.Action.ReplyToEventID != "onebot11-message-12345" {
+		t.Fatalf("unexpected rich reply action payload: %#v", delivery.Action)
+	}
+	if !delivery.Action.FallbackToSendIfMissing {
+		t.Fatalf("expected fallback flag on rich reply: %#v", delivery.Action)
+	}
+	if len(delivery.Action.MessageSegments) != 1 || delivery.Action.MessageSegments[0].Type != "text" {
+		t.Fatalf("unexpected rich reply segments: %#v", delivery.Action.MessageSegments)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
 func TestManagerDeliverEventRejectsUnsupportedAction(t *testing.T) {
 	t.Parallel()
 
@@ -700,6 +761,126 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"data": map[string]any{
 				"reply_to_message_id": "98765",
 				"text":                "reply from plugin",
+			},
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
+	case "event-action-message-send-segments":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "action",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"action":           "message.send",
+			"data": map[string]any{
+				"target_type": "group",
+				"target_id":   "2001",
+				"message": map[string]any{
+					"segments": []map[string]any{
+						{
+							"type": "at",
+							"data": map[string]any{"user_id": "3001"},
+						},
+						{
+							"type": "text",
+							"data": map[string]any{"text": "hello rich runtime"},
+						},
+						{
+							"type": "image",
+							"data": map[string]any{"file": "file://cache/weather.png"},
+						},
+					},
+				},
+			},
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
+	case "event-action-message-reply-to-event":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "action",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"action":           "message.reply",
+			"data": map[string]any{
+				"reply_to_event_id":           "onebot11-message-12345",
+				"fallback_to_send_if_missing": true,
+				"message": map[string]any{
+					"segments": []map[string]any{
+						{
+							"type": "text",
+							"data": map[string]any{"text": "rich reply body"},
+						},
+					},
+				},
 			},
 		})
 		for scanner.Scan() {
