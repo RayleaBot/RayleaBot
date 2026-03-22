@@ -16,6 +16,7 @@ type Config struct {
 	Server        ServerConfig    `json:"server" yaml:"server"`
 	OneBot        OneBotConfig    `json:"onebot" yaml:"onebot"`
 	Database      DatabaseConfig  `json:"database" yaml:"database"`
+	Storage       StorageConfig   `json:"storage" yaml:"storage"`
 	Logging       LoggingConfig   `json:"logging" yaml:"logging"`
 	Auth          AuthConfig      `json:"auth" yaml:"auth"`
 	Runtime       RuntimeConfig   `json:"runtime" yaml:"runtime"`
@@ -23,8 +24,8 @@ type Config struct {
 	Web           WebConfig       `json:"web" yaml:"web"`
 	Backup        BackupConfig    `json:"backup" yaml:"backup"`
 	Retention     RetentionConfig `json:"retention" yaml:"retention"`
-	Command       *CommandConfig   `json:"command,omitempty" yaml:"command,omitempty"`
-	Cooldown      *CooldownConfig  `json:"cooldown,omitempty" yaml:"cooldown,omitempty"`
+	Command       *CommandConfig  `json:"command,omitempty" yaml:"command,omitempty"`
+	Cooldown      *CooldownConfig `json:"cooldown,omitempty" yaml:"cooldown,omitempty"`
 }
 
 type CommandConfig struct {
@@ -55,6 +56,11 @@ type OneBotConfig struct {
 type DatabaseConfig struct {
 	Engine string `json:"engine" yaml:"engine"`
 	Path   string `json:"path" yaml:"path"`
+}
+
+type StorageConfig struct {
+	KVValueMaxBytes int `json:"kv_value_max_bytes" yaml:"kv_value_max_bytes"`
+	KVTotalLimitMB  int `json:"kv_total_limit_mb" yaml:"kv_total_limit_mb"`
 }
 
 type LoggingConfig struct {
@@ -104,8 +110,8 @@ type RenderConfig struct {
 }
 
 type WebConfig struct {
-	ExposureMode  string `json:"exposure_mode" yaml:"exposure_mode"`
-	SetupLocalOnly bool  `json:"setup_local_only" yaml:"setup_local_only"`
+	ExposureMode   string `json:"exposure_mode" yaml:"exposure_mode"`
+	SetupLocalOnly bool   `json:"setup_local_only" yaml:"setup_local_only"`
 }
 
 type BackupConfig struct {
@@ -113,8 +119,8 @@ type BackupConfig struct {
 }
 
 type RetentionConfig struct {
-	AuditLogsRetentionDays    int `json:"audit_logs_retention_days" yaml:"audit_logs_retention_days"`
-	EventRecordsRetentionDays int `json:"event_records_retention_days" yaml:"event_records_retention_days"`
+	AuditLogsRetentionDays     int `json:"audit_logs_retention_days" yaml:"audit_logs_retention_days"`
+	EventRecordsRetentionDays  int `json:"event_records_retention_days" yaml:"event_records_retention_days"`
 	DownloadCacheRetentionDays int `json:"download_cache_retention_days" yaml:"download_cache_retention_days"`
 }
 

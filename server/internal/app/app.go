@@ -27,6 +27,7 @@ import (
 	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/permission"
+	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
 	"rayleabot/server/internal/scheduler"
@@ -68,11 +69,14 @@ type App struct {
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
 	pluginRepository  plugins.DesiredStateRepository
+	pluginKV          pluginkv.Repository
 	grantRepository   plugins.GrantRepository
 	blacklistRepo     permission.BlacklistRepository
 	permissionChecker *permission.Checker
 	pluginLifecycle   *pluginLifecycleController
 	commandParser     *command.Parser
+	pluginLogLimiter  *pluginLogLimiter
+	redactText        func(string) string
 	repoRoot          string
 	router            http.Handler
 	server            *http.Server
@@ -117,10 +121,20 @@ func New(options Options) (*App, error) {
 	pluginCatalog := plugins.NewCatalog(snapshots)
 	adapterShell := adapter.New(cfg.OneBot, logger)
 	consoleStream := console.NewStream(1000, 2*1024*1024)
+	var application *App
 	runtimeOptions := runtime.Options{
 		Console:                    consoleStream,
 		RedactText:                 managementRedactor.Redact,
 		StderrRateLimitBytesPerSec: cfg.Runtime.StderrRateLimitBytesPerSec,
+		ExecuteLocalAction: func(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
+			if application == nil {
+				return nil, &runtime.Error{
+					Code:    "plugin.internal_error",
+					Message: "plugin local action executor is not available",
+				}
+			}
+			return application.executeLocalAction(ctx, pluginID, requestID, action)
+		},
 	}
 	runtimeRegistry := newRuntimeRegistry(logger, runtimeOptions)
 	replyTargets := newReplyTargetCache(defaultReplyTargetCacheSize)
@@ -183,13 +197,17 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create plugin repository: %w", err)
 	}
+	pluginKVRepository, err := pluginkv.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create plugin kv repository: %w", err)
+	}
 	blacklistRepo := permission.NewSQLiteBlacklistRepository(storageStore.Read, storageStore.Write)
 	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
 	if err != nil {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create scheduler repository: %w", err)
 	}
-	var application *App
 	schedulerEngine, err := scheduler.New(scheduler.Options{
 		Repository: schedulerRepo,
 		Logger:     logger,
@@ -268,10 +286,13 @@ func New(options Options) (*App, error) {
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,
 		pluginRepository:  pluginRepository,
+		pluginKV:          pluginKVRepository,
 		grantRepository:   pluginRepository,
 		blacklistRepo:     blacklistRepo,
 		permissionChecker: newPermissionChecker(cfg, blacklistRepo),
 		commandParser:     newCommandParser(cfg),
+		pluginLogLimiter:  newPluginLogLimiter(cfg),
+		redactText:        managementRedactor.Redact,
 		repoRoot:          discoverySpec.repoRoot,
 		startedAt:         time.Now().UTC(),
 		launcherTokens:    newLauncherTokenStore(time.Now, 5*time.Minute),

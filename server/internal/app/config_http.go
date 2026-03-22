@@ -74,6 +74,12 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 			}
 		}
 	}
+	if newCfg.Logging.RetentionDays != oldCfg.Logging.RetentionDays && a.Logs != nil {
+		a.Logs.SetRepository(a.LogRepository, newCfg.Logging.RetentionDays)
+	}
+	if newCfg.Logging.RateLimitPerPlugin != oldCfg.Logging.RateLimitPerPlugin && a.pluginLogLimiter != nil {
+		a.pluginLogLimiter.SetLimit(parsePluginLogRateLimit(newCfg))
+	}
 
 	// Fields that require a restart when changed.
 	if newCfg.Server.Host != oldCfg.Server.Host ||
@@ -134,6 +140,10 @@ func configDocumentFromTyped(cfg internalconfig.Config) map[string]any {
 		"database": map[string]any{
 			"engine": cfg.Database.Engine,
 			"path":   cfg.Database.Path,
+		},
+		"storage": map[string]any{
+			"kv_value_max_bytes": cfg.Storage.KVValueMaxBytes,
+			"kv_total_limit_mb":  cfg.Storage.KVTotalLimitMB,
 		},
 		"logging": map[string]any{
 			"level":                 cfg.Logging.Level,

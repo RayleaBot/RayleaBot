@@ -98,6 +98,13 @@ type Action struct {
 	FallbackToSendIfMissing bool
 	File                    string
 	MessageSegments         []ActionSegment
+	LogLevel                string
+	LogMessage              string
+	LogFields               map[string]any
+	StorageOperation        string
+	StorageKey              string
+	StoragePrefix           string
+	StorageValue            any
 }
 
 type Delivery struct {
@@ -113,11 +120,14 @@ type managerDeps struct {
 	requestID func() string
 }
 
+type LocalActionExecutor func(context.Context, string, string, Action) (map[string]any, error)
+
 type Options struct {
 	Console                    *console.Stream
 	RedactText                 func(string) string
 	StderrRateLimitBytesPerSec int
 	OnCrash                    CrashCallback
+	ExecuteLocalAction         LocalActionExecutor
 }
 
 type Manager struct {
@@ -258,6 +268,19 @@ type protocolActionMessageSendImageFrame struct {
 	TargetType string `json:"target_type"`
 	TargetID   string `json:"target_id"`
 	File       string `json:"file"`
+}
+
+type protocolActionLoggerWriteFrame struct {
+	Level   string         `json:"level"`
+	Message string         `json:"message"`
+	Fields  map[string]any `json:"fields,omitempty"`
+}
+
+type protocolActionStorageKVFrame struct {
+	Operation string           `json:"operation"`
+	Key       *string          `json:"key,omitempty"`
+	Prefix    *string          `json:"prefix,omitempty"`
+	Value     *json.RawMessage `json:"value,omitempty"`
 }
 
 type frameEnvelope struct {
@@ -918,18 +941,6 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 }
 
 func (m *Manager) awaitEventResponse(ctx context.Context, handle *processHandle, requestID string) (Delivery, error) {
-	readCh := make(chan []byte, 1)
-	readErrCh := make(chan error, 1)
-
-	go func() {
-		line, err := handle.stdout.ReadBytes('\n')
-		if err != nil {
-			readErrCh <- err
-			return
-		}
-		readCh <- line
-	}()
-
 	timeout := handle.spec.EventTimeout
 	if deadline, ok := ctx.Deadline(); ok {
 		remaining := time.Until(deadline)
@@ -937,126 +948,255 @@ func (m *Manager) awaitEventResponse(ctx context.Context, handle *processHandle,
 			timeout = remaining
 		}
 	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
+	deadline := time.Now().Add(timeout)
+	seenLocalRequestIDs := make(map[string]struct{})
 
-	select {
-	case line := <-readCh:
-		return m.parseEventResponse(line, handle.spec.PluginID, requestID)
-	case readErr := <-readErrCh:
-		if errors.Is(readErr, io.EOF) {
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", nil)
+			m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+			return Delivery{}, runtimeErr
+		}
+
+		readCh := make(chan []byte, 1)
+		readErrCh := make(chan error, 1)
+		go func() {
+			line, err := handle.stdout.ReadBytes('\n')
+			if err != nil {
+				readErrCh <- err
+				return
+			}
+			readCh <- line
+		}()
+
+		timer := time.NewTimer(remaining)
+		select {
+		case line := <-readCh:
+			timer.Stop()
+			delivery, done, err := m.processEventFrame(ctx, handle, requestID, seenLocalRequestIDs, line)
+			if err != nil {
+				if done {
+					return delivery, err
+				}
+				return Delivery{}, err
+			}
+			if done {
+				return delivery, nil
+			}
+		case readErr := <-readErrCh:
+			timer.Stop()
+			if errors.Is(readErr, io.EOF) {
+				waitErr, _ := handle.exitResult()
+				if waitErr == nil {
+					return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", nil)
+				}
+				return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", waitErr)
+			}
+			return Delivery{}, errorf(codePluginProtocolViolation, "read plugin event response", readErr)
+		case <-handle.done:
+			timer.Stop()
 			waitErr, _ := handle.exitResult()
 			if waitErr == nil {
 				return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", nil)
 			}
 			return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", waitErr)
+		case <-timer.C:
+			runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", nil)
+			m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+			return Delivery{}, runtimeErr
+		case <-ctx.Done():
+			timer.Stop()
+			runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", ctx.Err())
+			m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+			return Delivery{}, runtimeErr
 		}
-		return Delivery{}, errorf(codePluginProtocolViolation, "read plugin event response", readErr)
-	case <-handle.done:
-		waitErr, _ := handle.exitResult()
-		if waitErr == nil {
-			return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", nil)
-		}
-		return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", waitErr)
-	case <-timer.C:
-		runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", nil)
-		m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
-		return Delivery{}, runtimeErr
-	case <-ctx.Done():
-		runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", ctx.Err())
-		m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
-		return Delivery{}, runtimeErr
 	}
 }
 
-func (m *Manager) parseEventResponse(line []byte, pluginID string, requestID string) (Delivery, error) {
+func (m *Manager) processEventFrame(ctx context.Context, handle *processHandle, eventRequestID string, seenLocalRequestIDs map[string]struct{}, line []byte) (Delivery, bool, error) {
 	var envelope frameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
-		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
 	if envelope.ProtocolVersion != "1" {
-		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
+		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
 	}
-	if envelope.PluginID == "" || envelope.PluginID != pluginID {
-		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
+	if envelope.PluginID == "" || envelope.PluginID != handle.spec.PluginID {
+		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
 	}
-	if envelope.RequestID == "" || envelope.RequestID != requestID {
-		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+	if envelope.RequestID == "" {
+		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+	}
+
+	if envelope.RequestID != eventRequestID {
+		if err := m.handleLocalActionFrame(ctx, handle, envelope, seenLocalRequestIDs, line); err != nil {
+			return Delivery{}, false, err
+		}
+		return Delivery{}, false, nil
 	}
 
 	switch envelope.Type {
 	case "action":
 		var frame actionFrame
 		if err := json.Unmarshal(line, &frame); err != nil {
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
 		}
 
 		switch frame.Action {
 		case "message.send":
 			action, err := parseMessageSendAction(frame.Data)
 			if err != nil {
-				return Delivery{}, err
+				return Delivery{}, false, err
 			}
 			return Delivery{
-				RequestID: requestID,
+				RequestID: eventRequestID,
 				Action:    action,
-			}, nil
+			}, true, nil
 
 		case "message.reply":
 			action, err := parseMessageReplyAction(frame.Data)
 			if err != nil {
-				return Delivery{}, err
+				return Delivery{}, false, err
 			}
 			return Delivery{
-				RequestID: requestID,
+				RequestID: eventRequestID,
 				Action:    action,
-			}, nil
+			}, true, nil
 
 		case "message.send_image":
 			action, err := parseMessageSendImageAction(frame.Data)
 			if err != nil {
-				return Delivery{}, err
+				return Delivery{}, false, err
 			}
 			return Delivery{
-				RequestID: requestID,
+				RequestID: eventRequestID,
 				Action:    action,
-			}, nil
+			}, true, nil
+
+		case "logger.write", "storage.kv":
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
 
 		default:
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
 		}
 	case "result":
 		var frame resultFrame
 		if err := json.Unmarshal(line, &frame); err != nil {
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
 		}
 		if frame.Status != "success" {
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin result frame must use status=success", nil)
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin result frame must use status=success", nil)
 		}
 		if frame.Data == nil {
 			frame.Data = map[string]any{}
 		}
 		return Delivery{
-			RequestID: requestID,
+			RequestID: eventRequestID,
 			Result:    frame.Data,
-		}, nil
+		}, true, nil
 	case "error":
 		var frame errorFrame
 		if err := json.Unmarshal(line, &frame); err != nil {
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
 		}
 		if frame.Code == "" || frame.Message == "" {
-			return Delivery{}, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
 		}
 		delivery := Delivery{
-			RequestID:    requestID,
+			RequestID:    eventRequestID,
 			ErrorCode:    frame.Code,
 			ErrorMessage: frame.Message,
 		}
-		return delivery, errorf(frame.Code, frame.Message, nil)
+		return delivery, true, errorf(frame.Code, frame.Message, nil)
 	default:
-		return Delivery{}, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during event delivery", nil)
+		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during event delivery", nil)
 	}
+}
+
+func (m *Manager) handleLocalActionFrame(ctx context.Context, handle *processHandle, envelope frameEnvelope, seenLocalRequestIDs map[string]struct{}, line []byte) error {
+	if envelope.Type != "action" {
+		return errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during local action handling", nil)
+	}
+	if _, exists := seenLocalRequestIDs[envelope.RequestID]; exists {
+		return errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
+	}
+
+	var frame actionFrame
+	if err := json.Unmarshal(line, &frame); err != nil {
+		return errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
+	}
+
+	var action *Action
+	var err error
+	switch frame.Action {
+	case "logger.write":
+		action, err = parseLoggerWriteAction(frame.Data)
+	case "storage.kv":
+		action, err = parseStorageKVAction(frame.Data)
+	case "message.send", "message.reply", "message.send_image":
+		return errorf(codePluginProtocolViolation, "terminal message actions must use the current event request_id", nil)
+	default:
+		return errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
+	}
+	if err != nil {
+		return err
+	}
+
+	seenLocalRequestIDs[envelope.RequestID] = struct{}{}
+	return m.executeLocalAction(ctx, handle, envelope.RequestID, *action)
+}
+
+func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle, requestID string, action Action) error {
+	if m.opts.ExecuteLocalAction == nil {
+		return errorf(codePluginInternalError, "plugin local action executor is not available", nil)
+	}
+
+	result, err := m.opts.ExecuteLocalAction(ctx, handle.spec.PluginID, requestID, action)
+	if err != nil {
+		var runtimeErr *Error
+		if errors.As(err, &runtimeErr) {
+			return m.writeLocalError(handle, requestID, runtimeErr.Code, runtimeErr.Message)
+		}
+		return m.writeLocalError(handle, requestID, codePluginInternalError, "plugin local action failed")
+	}
+
+	if result == nil {
+		result = map[string]any{}
+	}
+	return m.writeLocalResult(handle, requestID, result)
+}
+
+func (m *Manager) writeLocalResult(handle *processHandle, requestID string, data map[string]any) error {
+	frame := map[string]any{
+		"protocol_version": "1",
+		"type":             "result",
+		"timestamp":        m.deps.now().Unix(),
+		"plugin_id":        handle.spec.PluginID,
+		"request_id":       requestID,
+		"status":           "success",
+		"data":             data,
+	}
+	if err := writeJSONLine(handle.stdin, frame); err != nil {
+		return errorf(codePluginInternalError, "write local action result frame", err)
+	}
+	return nil
+}
+
+func (m *Manager) writeLocalError(handle *processHandle, requestID string, code string, message string) error {
+	frame := map[string]any{
+		"protocol_version": "1",
+		"type":             "error",
+		"timestamp":        m.deps.now().Unix(),
+		"plugin_id":        handle.spec.PluginID,
+		"request_id":       requestID,
+		"code":             code,
+		"message":          message,
+	}
+	if err := writeJSONLine(handle.stdin, frame); err != nil {
+		return errorf(codePluginInternalError, "write local action error frame", err)
+	}
+	return nil
 }
 
 func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
@@ -1178,6 +1318,81 @@ func parseMessageSendImageAction(raw json.RawMessage) (*Action, error) {
 			Data: map[string]any{"file": file},
 		}},
 	}, nil
+}
+
+func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionLoggerWriteFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed logger.write data", err)
+	}
+
+	level := strings.TrimSpace(frame.Level)
+	switch level {
+	case "debug", "info", "warn", "error":
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid logger.write level", nil)
+	}
+
+	message := strings.TrimSpace(frame.Message)
+	if message == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required logger.write fields", nil)
+	}
+
+	return &Action{
+		Kind:       "logger.write",
+		LogLevel:   level,
+		LogMessage: message,
+		LogFields:  cloneActionSegmentData(frame.Fields),
+	}, nil
+}
+
+func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionStorageKVFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.kv data", err)
+	}
+
+	switch strings.TrimSpace(frame.Operation) {
+	case "get":
+		if frame.Key == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
+		}
+		key := strings.TrimSpace(*frame.Key)
+		if key == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
+		}
+		return &Action{Kind: "storage.kv", StorageOperation: "get", StorageKey: key}, nil
+	case "set":
+		if frame.Key == nil || frame.Value == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
+		}
+		key := strings.TrimSpace(*frame.Key)
+		if key == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
+		}
+		var value any
+		if err := json.Unmarshal(*frame.Value, &value); err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid storage.kv value", err)
+		}
+		return &Action{Kind: "storage.kv", StorageOperation: "set", StorageKey: key, StorageValue: value}, nil
+	case "delete":
+		if frame.Key == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
+		}
+		key := strings.TrimSpace(*frame.Key)
+		if key == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
+		}
+		return &Action{Kind: "storage.kv", StorageOperation: "delete", StorageKey: key}, nil
+	case "list":
+		if frame.Prefix == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
+		}
+		prefix := *frame.Prefix
+		return &Action{Kind: "storage.kv", StorageOperation: "list", StoragePrefix: prefix}, nil
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.kv operation", nil)
+	}
 }
 
 func validateActionTarget(rawType, rawID, actionKind string) (string, string, error) {
