@@ -36,12 +36,12 @@ func TestDiscoverExamplesPlugins(t *testing.T) {
 		t.Fatalf("Discover failed: %v", err)
 	}
 
-	if summary.ValidCount != 2 {
-		t.Fatalf("unexpected valid count: got %d want 2", summary.ValidCount)
+	if summary.ValidCount != 4 {
+		t.Fatalf("unexpected valid count: got %d want 4", summary.ValidCount)
 	}
 
 	catalog := plugins.NewCatalog(snapshots)
-	for _, pluginID := range []string{"hello-node", "hello-python"} {
+	for _, pluginID := range []string{"echo-python", "hello-node", "hello-python", "notice-logger"} {
 		snapshot, ok := catalog.Get(pluginID)
 		if !ok {
 			t.Fatalf("expected plugin %s to be discovered", pluginID)

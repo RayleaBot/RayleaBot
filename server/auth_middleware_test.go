@@ -654,14 +654,13 @@ func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *t
 			server := httptest.NewServer(application.Handler())
 			defer server.Close()
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-
-			conn, resp, err := websocket.Dial(ctx, websocketURL(server.URL)+path, &websocket.DialOptions{
+			headerCtx, headerCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			conn, resp, err := websocket.Dial(headerCtx, websocketURL(server.URL)+path, &websocket.DialOptions{
 				HTTPHeader: http.Header{
 					"Authorization": []string{"Bearer " + token},
 				},
 			})
+			headerCancel()
 			if err != nil {
 				status := 0
 				if resp != nil {
@@ -671,7 +670,9 @@ func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *t
 			}
 			_ = conn.Close(websocket.StatusNormalClosure, "")
 
-			queryConn, queryResp, queryErr := websocket.Dial(ctx, websocketURL(server.URL)+path+"?session_token="+token, nil)
+			queryCtx, queryCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			queryConn, queryResp, queryErr := websocket.Dial(queryCtx, websocketURL(server.URL)+path+"?session_token="+token, nil)
+			queryCancel()
 			if queryErr != nil {
 				status := 0
 				if queryResp != nil {

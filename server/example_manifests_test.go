@@ -7,13 +7,16 @@ import (
 	"rayleabot/server/internal/schema"
 )
 
-func TestExamplePluginManifestsMatchContract(t *testing.T) {
+func TestBundledPluginManifestsMatchContract(t *testing.T) {
 	t.Parallel()
 
 	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
 	manifestPaths := []string{
+		filepath.Join("..", "examples", "plugins", "echo-python", "info.json"),
 		filepath.Join("..", "examples", "plugins", "hello-python", "info.json"),
 		filepath.Join("..", "examples", "plugins", "hello-node", "info.json"),
+		filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
+		filepath.Join("..", "plugins", "builtin", "help", "info.json"),
 	}
 
 	for _, manifestPath := range manifestPaths {
