@@ -23,6 +23,18 @@ type Config struct {
 	Web           WebConfig       `json:"web" yaml:"web"`
 	Backup        BackupConfig    `json:"backup" yaml:"backup"`
 	Retention     RetentionConfig `json:"retention" yaml:"retention"`
+	Command       *CommandConfig   `json:"command,omitempty" yaml:"command,omitempty"`
+	Cooldown      *CooldownConfig  `json:"cooldown,omitempty" yaml:"cooldown,omitempty"`
+}
+
+type CommandConfig struct {
+	Prefixes []string `json:"prefixes" yaml:"prefixes"`
+}
+
+type CooldownConfig struct {
+	UserCommandRateLimit  string `json:"user_command_rate_limit" yaml:"user_command_rate_limit"`
+	GroupCommandRateLimit string `json:"group_command_rate_limit" yaml:"group_command_rate_limit"`
+	CooldownReply         bool   `json:"cooldown_reply" yaml:"cooldown_reply"`
 }
 
 type ServerConfig struct {
