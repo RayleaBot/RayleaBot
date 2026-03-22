@@ -49,10 +49,24 @@
   - command-directed delivery
   - scheduler `scheduler.trigger`
   - zero-gap reload
+- live chat command policy：
+  - blacklist pre-check
+  - command permission enforcement
+  - cooldown enforcement
+  - optional cooldown reply
+- temporal grants：
+  - `expires_at` persistence
+  - effective-grant filtering
+  - enable / reload / reconcile / crash restart expiry enforcement
 - management log persistence：
   - persisted summary storage
   - `/api/logs` historical queries
   - `/ws/logs` persisted replay + live stream
+- config runtime snapshot / hot reload：
+  - `command.prefixes`
+  - `cooldown.*`
+  - `auth.super_admins`
+  - `auth.default_level`
 - CLI 子命令：
   - `reset-admin`
   - `backup`
@@ -63,8 +77,6 @@
 
 ## 当前边界
 
-- 聊天侧 permission / blacklist / cooldown 仍主要是基座能力，尚未进入 live command path
-- temporal grants 仍未实现
 - 三种 action 之外的更广插件动作族仍未进入正式链路
 
 ## 默认命令

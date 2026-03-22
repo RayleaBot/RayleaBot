@@ -27,10 +27,12 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
+  - 当前包含 config snapshot/update、plugin lifecycle、plugin grants 与 tasks / logs / system surfaces
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
+  - command `permission` 省略时回落到 `auth.default_level`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`action=message.send`、`action=message.reply`、`action=message.send_image`、`result`、`error`、`ping`、`pong`、`shutdown`
@@ -83,6 +85,14 @@
 以下 HTTP 路由仍未进入正式 OpenAPI 冻结范围：
 
 - `POST /api/webhooks/{plugin_id}/{route}`
+
+当前已进入 OpenAPI 冻结范围的 plugin grants surface：
+
+- `GET /api/plugins/{plugin_id}/grants`
+- `POST /api/plugins/{plugin_id}/grants`
+- `DELETE /api/plugins/{plugin_id}/grants/{capability}`
+
+其中 grant request / response / list item 支持可选 `expires_at`，用于表达当前生效授权的时效窗口。
 
 ## 通用规则
 

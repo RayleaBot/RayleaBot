@@ -17,9 +17,9 @@
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、ready gating、重连、心跳、消息/notice 归一化、三种出站 action 已接入主链路；更广动作族与多 adapter 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery 已接入；temporal grants 与更广动作族仍未实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger 已落地；聊天侧 permission 仍主要是基座能力 |
-| Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；更广管理面扩展仍未开始 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement 已接入；更广动作族仍未实现 |
+| Phase 6 | Config / Storage / Security | ✅ | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger、聊天侧 command policy 与 temporal grants 已落地 |
+| Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；config snapshot 与 grants surface 已补齐 command/cooldown 和 `expires_at`；更广管理面扩展仍未开始 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 与 Chromium 调度尚未开始；`.deps/manifest.json` 仅为 baseline 占位 |
@@ -63,8 +63,7 @@
 
 说明：
 
-- 前 7 份契约已进入 fixture-ready。
-- `cli-commands.yaml` 已 formalize 6 条 CLI 子命令，但尚未进入 fixture-ready。
+- 8 份 formal contract 均已进入 fixture-ready。
 - 当前正式 contract 以 `contracts/` 为准，不再从规划正文、README 或实现代码反向推断接口。
 
 ---
@@ -141,6 +140,7 @@
 | zero-gap reload | ✅ | reload 已走 start-before-stop 的 dispatcher swap 语义 |
 | builtin discovery / lifecycle | ✅ | `plugins/builtin` 已纳入默认 discovery roots，默认 `desired_state=enabled`，支持 enable / disable / reload，拒绝卸载 |
 | 三种 action bridge | ✅ | `message.send`、`message.reply`、`message.send_image` 均已支持 |
+| temporal grants runtime enforcement | ✅ | `expires_at` 已进入 grants 管理面、存储层与 runtime 启停 / reload / reconcile / crash restart 判定 |
 | crash-backoff / dead_letter | ✅ | runtime crash 后的 `crashed` / `backoff` / `dead_letter` 状态流转已接入 app 生命周期 |
 | SDK 与示例插件 | ✅ | Python / Node.js SDK、示例插件与 builtin help 资源已落库，bundled manifests 已通过 contract 校验 |
 
@@ -148,12 +148,11 @@
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| temporal grants | ❌ | 权限时效窗口仍未实现 |
 | 更广插件动作族 | ❌ | 三种 action 之外的动作仍未进入正式链路 |
 
 ---
 
-## 八、Phase 6 — Config / Storage / Security 🟡
+## 八、Phase 6 — Config / Storage / Security ✅
 
 ### 已落地
 
@@ -168,13 +167,9 @@
 | Task 历史持久化 | ✅ | tasks repository、hydration、异步持久化已接入 app |
 | Config hot reload | ✅ | `PUT /api/config` 已支持字段级即时生效与 `restart_required` |
 | CLI 子命令框架 | ✅ | `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 均已有实现 |
-
-### 已实现但仍是基座能力
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
 | Scheduler persistence / recovery | ✅ | repository、hydration、tick loop 与 plugin runtime trigger 已进入 app |
-| 聊天侧 Permission / 黑名单 / 冷却限流 | 🟡 | `internal/permission`、`0010_blacklists.sql` 已存在，但 live command path 尚未调用 checker |
+| 聊天侧 Permission / 黑名单 / 冷却限流 | ✅ | blacklist、命令权限、cooldown 与可选 cooldown reply 已进入 live command path |
+| Temporal grants | ✅ | `plugin_grants.expires_at`、生效授权过滤、enable / reload / reconcile / restart 过期判定已接入 |
 
 ---
 
@@ -187,12 +182,12 @@
 | Health endpoints | ✅ | `GET /healthz` 与 `GET /readyz` |
 | Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login`、`session logout`、`launcher-token` 已落地 |
 | System management | ✅ | `GET /api/system/status`、`POST /api/system/shutdown` |
-| Config management | ✅ | `GET /api/config`、`PUT /api/config` |
+| Config management | ✅ | `GET /api/config`、`PUT /api/config` 已包含 `command` / `cooldown`，并支持对应热更新 |
 | Logs query | ✅ | `GET /api/logs` 与 `/ws/logs` 已提供跨重启的持久化 summary 查询与历史回放 |
 | Tasks management | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` |
 | Plugin install | ✅ | `local_directory`、`local_zip`、`remote_url` 安装路径已进入真实路由 |
 | Plugin lifecycle | ✅ | `enable` / `disable` / `reload` / `DELETE` 已接入真实路由 |
-| Plugin grants 管理 | ✅ | `GET/POST/DELETE /api/plugins/{plugin_id}/grants...` 已落地 |
+| Plugin grants 管理 | ✅ | `GET/POST/DELETE /api/plugins/{plugin_id}/grants...` 已落地，并支持可选 `expires_at` |
 | 4 条管理 WebSocket | ✅ | `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 已落地 |
 | HTTP 鉴权中间件 | ✅ | `RequireAuth`、公开/受保护路由分离、WebSocket `session_token` 兼容已落地 |
 
@@ -251,29 +246,22 @@
 - bundled plugin manifests 当前已与 `contracts/plugin-info.schema.json` 对齐。
 - 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`。
 - `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。
-- 当前主要风险已转向聊天侧 permission / blacklist / cooldown 与 temporal grants 的收尾。
+- 聊天侧 command policy 与 temporal grants 当前已受 app / plugins / storage / http tests 覆盖。
+- 当前主要风险已转向更广插件动作族的 formalize / implementation，以及 Web UI、Launcher、Render 尚未启动带来的外层交付断层。
 
 ---
 
 ## 十四、下一步行动建议
 
-### 1. 收尾聊天侧 command policy 主链路
+当前主链 runtime、dispatch、scheduler、聊天侧 command policy 与 temporal grants 已进入稳定闭环，下一步建议转向以下事项：
 
-当前主链 runtime、dispatch、scheduler 和日志持久化已经稳定，下一步优先把聊天侧治理规则接到 live command path：
+### 1. 扩展正式 plugin action surface
 
-1. `internal/permission` checker 接入命令定向投递前置判定
-2. `0010_blacklists.sql` 对应的 blacklist 查询接入消息入口
-3. cooldown 配置接入 command execution path，并补回复策略
+1. 在 `plugin-protocol.schema.json` 中定义 `message.send`、`message.reply`、`message.send_image` 之外的下一批正式 `action`
+2. 在 `plugin-protocol.schema.json`、fixtures、examples 与 CI 中正式冻结更多 `action`
+3. 为 adapter 与 runtime 补齐 companion tests，确保动作扩展不引入新的 contract drift
 
-### 2. 完成 temporal grants
-
-当前 grants storage、scope drift 检查与 enable 前权限门禁已具备基础，剩余工作是把“授权有效期”收敛成正式行为：
-
-1. grant 过期时间的持久化与查询
-2. enable / reconcile / runtime restart 路径的过期判定
-3. 管理面与 fixtures 的 companion 更新
-
-### 3. 在 server 主链路稳定后再进入产品外层
+### 2. 在稳定管理面上启动 Web UI
 
 管理 API、WebSocket、任务流与配置管理已经具备进入前端开发的前提，但前提是 server 状态语义不再发生大规模调整。
 
@@ -285,4 +273,6 @@
 4. logs
 5. config
 
-Launcher 放在 Web UI 之后更稳妥，因为它依赖的 `launcher-token`、`system/status`、`system/shutdown` 已基本稳定，但整体启动体验仍受 server 主链路收敛程度影响。
+### 3. 在 Web UI 之后推进 Launcher 与 Render
+
+Launcher 放在 Web UI 之后更稳妥，因为它依赖的 `launcher-token`、`system/status`、`system/shutdown` 已基本稳定，但整体启动体验仍受 server 主链路收敛程度影响。Render 继续排在 Launcher 之后，避免在产品外层尚未成型时过早扩张运行时资源管理面。
