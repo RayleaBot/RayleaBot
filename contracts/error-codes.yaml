@@ -239,7 +239,7 @@ codes:
     domain: plugin
     message_key: errors.plugin.permission_pending
     message: 插件尚未完成权限授权
-    description: The plugin requested required capabilities that have not been granted yet, so enablement cannot proceed.
+    description: The plugin requested required capabilities that are missing, expired, or need to be granted again after scope drift, so enablement cannot proceed.
     http_status: 409
     retryable: true
     applies_to: [http, websocket, task]

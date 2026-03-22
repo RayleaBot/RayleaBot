@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Grant creation accepts a permanent capability grant.
+request:
+  method: POST
+  path: /api/plugins/weather/grants
+  body:
+    capability: http.request
+response:
+  status: 200
+  body:
+    plugin_id: weather
+    capability: http.request
+    granted_at: "2026-03-22T10:00:00Z"
+expect:
+  valid: true

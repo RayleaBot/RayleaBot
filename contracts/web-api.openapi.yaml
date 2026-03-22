@@ -26,10 +26,14 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
   - fixtures/web-api/ok.plugins-install-remote-url.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
+  - fixtures/web-api/ok.plugins-grants-list-response.yaml
+  - fixtures/web-api/ok.plugins-grant-response.yaml
+  - fixtures/web-api/ok.plugins-grant-with-expiry-response.yaml
   - fixtures/web-api/edge.task-detail-running-install.yaml
   - fixtures/web-api/edge.task-detail-failed-install.yaml
   - fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
+  - fixtures/web-api/edge.plugins-enable-permission-pending-expired-grant.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
   - fixtures/web-api/edge.logs-empty-response.yaml
   - fixtures/web-api/edge.setup-admin-already-initialized.yaml
@@ -39,6 +43,7 @@ x-fixtures:
   - fixtures/web-api/invalid.auth-missing-token.yaml
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
+  - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
@@ -204,7 +209,7 @@ paths:
               $ref: '#/components/schemas/ConfigDocument'
       responses:
         '200':
-          description: Config written successfully. Restart is required before changes take effect.
+          description: Config written successfully. restart_required indicates whether a restart is still needed.
           content:
             application/json:
               schema:
@@ -471,6 +476,80 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/grants:
+    get:
+      summary: List the plugin's currently effective grants.
+      operationId: listPluginGrants
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Current effective grants after expiry filtering.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginGrantListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      summary: Grant one declared capability to a plugin.
+      operationId: grantPluginCapability
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginGrantRequest'
+      responses:
+        '200':
+          description: Capability grant persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginGrantSummary'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/grants/{capability}:
+    delete:
+      summary: Revoke one capability grant from a plugin.
+      operationId: revokePluginCapabilityGrant
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+        - name: capability
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z]+\.[a-z_]+$'
+      responses:
+        '204':
+          description: Capability grant revoked.
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -906,6 +985,47 @@ components:
       properties:
         plugin:
           $ref: '#/components/schemas/PluginSummary'
+
+    PluginGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [capability]
+      properties:
+        capability:
+          type: string
+          pattern: '^[a-z]+\.[a-z_]+$'
+        expires_at:
+          type: string
+          format: date-time
+          description: Optional absolute UTC RFC3339 expiry timestamp. When omitted, the grant remains valid until revoked.
+
+    PluginGrantSummary:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, capability, granted_at]
+      properties:
+        plugin_id:
+          type: string
+        capability:
+          type: string
+          pattern: '^[a-z]+\.[a-z_]+$'
+        granted_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PluginGrantListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginGrantSummary'
 
     PluginInstallRequest:
       type: object

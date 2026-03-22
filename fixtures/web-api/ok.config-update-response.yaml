@@ -68,6 +68,13 @@ request:
       audit_logs_retention_days: 90
       event_records_retention_days: 7
       download_cache_retention_days: 15
+    command:
+      prefixes:
+        - /
+    cooldown:
+      user_command_rate_limit: 10/60s
+      group_command_rate_limit: 30/60s
+      cooldown_reply: true
 response:
   status: 200
   body:
@@ -135,6 +142,13 @@ response:
         audit_logs_retention_days: 90
         event_records_retention_days: 7
         download_cache_retention_days: 15
+      command:
+        prefixes:
+          - /
+      cooldown:
+        user_command_rate_limit: 10/60s
+        group_command_rate_limit: 30/60s
+        cooldown_reply: true
     redacted_fields:
       - onebot.access_token
     restart_required: true

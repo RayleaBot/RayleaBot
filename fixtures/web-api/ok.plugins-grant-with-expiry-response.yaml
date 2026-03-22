@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Grant creation accepts a future expires_at timestamp.
+request:
+  method: POST
+  path: /api/plugins/weather/grants
+  body:
+    capability: logger.write
+    expires_at: "2026-03-23T10:05:00Z"
+response:
+  status: 200
+  body:
+    plugin_id: weather
+    capability: logger.write
+    granted_at: "2026-03-22T10:05:00Z"
+    expires_at: "2026-03-23T10:05:00Z"
+expect:
+  valid: true

@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Grants list returns the plugin's currently effective capability grants.
+request:
+  method: GET
+  path: /api/plugins/weather/grants
+response:
+  status: 200
+  body:
+    items:
+      - plugin_id: weather
+        capability: http.request
+        granted_at: "2026-03-22T10:00:00Z"
+      - plugin_id: weather
+        capability: logger.write
+        granted_at: "2026-03-22T10:05:00Z"
+        expires_at: "2026-03-23T10:05:00Z"
+expect:
+  valid: true

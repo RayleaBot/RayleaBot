@@ -238,8 +238,7 @@
           "permission": {
             "type": "string",
             "enum": ["super_admin", "group_admin", "everyone"],
-            "default": "everyone",
-            "description": "Minimum chat-side permission level required to invoke this command."
+            "description": "Minimum chat-side permission level required to invoke this command. When omitted, the platform falls back to auth.default_level."
           }
         }
       }

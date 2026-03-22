@@ -233,6 +233,9 @@ jobs:
               '/api/plugins/{plugin_id}',
               '/api/plugins/{plugin_id}/enable',
               '/api/plugins/{plugin_id}/disable',
+              '/api/plugins/{plugin_id}/reload',
+              '/api/plugins/{plugin_id}/grants',
+              '/api/plugins/{plugin_id}/grants/{capability}',
               '/api/plugins/install',
           }
           actual_paths = set(web_api.get('paths', {}).keys())
