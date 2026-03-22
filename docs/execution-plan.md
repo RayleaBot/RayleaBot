@@ -16,7 +16,7 @@
 | Phase 1 | 契约文件补全 | ✅ | 7 份正式契约均已 fixture-ready |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest 的 golden fixtures 已落库 |
 | Phase 3 | Server 内核骨架 | ✅ | 最小 server 壳、配置校验、日志、`/healthz`、`/readyz`、examples/plugins 与任务状态骨架已落地 |
-| Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket adapter、状态机、intake、广义事件归一化（消息段 + 通知事件）、三种出站 action、内部 API 调用（get_login_info 等）、identity cache 已落地；更广 media action family 与多 adapter 抽象仍未实现 |
+| Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket adapter、状态机、intake、广义事件归一化、三种出站 action、内部 API 调用、identity cache 已落地；更广 media action family 与多 adapter 抽象仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | 🟡 | runtime manager、init/shutdown/ping-pong、三种 action bridge、supervisor crash-backoff/dead_letter、用户主动 reload、多插件并发调度 / fan-out、command parser / routing、零停机热重载、官方 Python / Node.js SDK、内置 help 插件已落地；temporal grants 仍未实现 |
 | Phase 6 | Config / Storage / Security | 🟡 | 配置解析与校验、auth 全链路持久化、SQLite（WAL + migration）、plugin desired_state/packages 持久化、grants storage + scope 持久化 + 升级 re-grant、CLI 6 条子命令、secret store、config hot reload、scheduler persistence、聊天侧 Permission / 黑名单 / 冷却限流持久化基座已落地 |
 | Phase 7 | Web API & Tasks | 🟡 | 全部管理路由、4 条管理 WebSocket、plugin install/enable/disable/reload/uninstall、per-plugin grants 管理端点、统一鉴权、通用 task executor、task 历史持久化与跨重启恢复、配置热更新与字段级即时生效已落地；日志持久化查询仍未实现 |
@@ -113,7 +113,7 @@
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | `media / richer API action` | ❌ | 文件发送、媒体发送与更广动作族仍未实现 |
-| ��� adapter / 多 bot 抽象 | ❌ | 仍为单协议、单实例、单 adapter 的最小壳 |
+| 多 adapter / 多 bot 抽象 | ❌ | 仍为单协议、单实例、单 adapter 的最小壳 |
 
 ---
 
@@ -135,12 +135,11 @@
 | `ping` / `pong` | ✅ | 已进入 formal contract、fixtures 与 runtime 实现，含超时停止与协议违规检测 |
 | supervisor / crash-backoff / dead_letter | ✅ | `crashed` / `backoff` / `dead_letter` 状态流转、指数退避重启与最大重试次数后进入 `dead_letter`；配置消费 `crash_backoff_initial_seconds` / `crash_backoff_max_seconds` |
 | 用户主动 reload | ✅ | `POST /api/plugins/{plugin_id}/reload` 停止当前 runtime 后重新启动，desired_state 保持 enabled 不变 |
-
 | 多插件调度 / fan-out | ✅ | `internal/dispatch` EventBus fan-out 分发引擎已落地：per-plugin 异步队列（bounded channel）、subscription 过滤、并发上限与丢弃策略 |
 | Command Parser / routing | ✅ | `internal/command` 命令前缀解析器已落地：longest-prefix-first 匹配、command/args 提取、directed delivery 定向投递 |
 | 不停机热重载 | ✅ | `dispatch.ReloadPlugin` start-before-stop 零间隙热重载已落地：新进程 init_ack 成功后原子切换注册，旧进程随后停止 |
 | 官方 SDK 便利层 | ✅ | `sdk/python/rayleabot` 与 `sdk/nodejs/@rayleabot/sdk` 已落地：JSONL 协议、on_event/on_command 注册、action 便利方法 |
-| 官方内置插件与更正式示例插件体系 | ✅ | `plugins/builtin/help`、`examples/plugins/echo-python`、`examples/plugins/notice-logger` 已落地 |
+| 官方内置插件与示例插件体系 | ✅ | `plugins/builtin/help`、`examples/plugins/echo-python`、`examples/plugins/notice-logger` 已落地 |
 
 ### 仍未完成
 
@@ -288,68 +287,54 @@
 
 ## 十四、下一步行动建议
 
-server 端的管理面、存储层、CLI 工具链与调度器的基础能力缺口均已补齐（task 历史持久化、config hot reload、secret store、scheduler persistence）。以下路线聚焦当前仍未完成的工作，按"深化平台事件与插件能力 → 产品化外层"排列。
+server 端核心管理面、存储层、CLI 工具链、调度器、事件模型与插件生态的基础能力均已落地。adapter → bridge → runtime 全链路已扩展至广义事件归一化、多插件 fan-out、command routing、聊天侧权限/黑名单/冷却限流、官方 SDK 与内置插件体系。以下路线聚焦当前仍未完成的工作，按"收尾 server 侧缺口 → 产品化外层"排列。
 
-### 1. 事件模型与插件生态扩展 ✅
+### 1. Server 侧收尾
 
-adapter → bridge → runtime 全链路已扩展至广义事件模型与多插件生态。
-
-1. **广义事件归一化** ✅
-   - `onebot11.message`（消息段模型：text/image/at/at_all/face/reply）与 `onebot11.notice`（`notice.member_increase` / `notice.member_decrease`）已落地。
-   - CQ code 解析（含转义处理）与 JSON 消息数组解析均已实现。
-   - Actor enrichment（nickname/card/role）与 target enrichment（group name）从 sender 对象自动回填。
-
-2. **更广 OneBot 出站 action 与 adapter API 调用** ✅
-   - `get_login_info`、`get_group_member_info`、`get_group_info`、`get_stranger_info` 的 echo-based API 调用已落地。
-   - TTL identity cache 已落地，支持连接重置时清理。
-   - 三种冻结出站 action 保持不变。
-
-3. **多插件并发调度与 fan-out** ✅
-   - `internal/dispatch` EventBus fan-out 分发引擎已落地。
-   - Per-plugin bounded async queue、subscription 过滤、queue overflow drop 策略已实现。
-   - 基于 `runtimeDeliverer` 接口的可测试架构。
-
-4. **Command Parser / routing** ✅
-   - `internal/command` longest-prefix-first 命令解析器已落地。
-   - Directed delivery：声明命令的插件优先收到事件，无匹配时 fall back 到全局 fan-out。
-   - 配置驱动：`command.prefixes` 从 `config.user.schema.json` 消费。
-
-5. **聊天侧 Permission / 黑名单 / 冷却限流** ✅
-   - `internal/permission` 四步检查链：super_admin bypass → blacklist → command permission level → cooldown。
-   - `0010_blacklists.sql` 迁移与 `SQLiteBlacklistRepository` CRUD 已落地。
-   - `CooldownTracker` 内存滑动窗口限流已落地。
-   - 四级权限判定（owner → admin → member → everyone）已实现。
-
-6. **官方 SDK、内置插件体系与 richer examples** ✅
-   - `sdk/python/rayleabot` Python SDK（RayleaBotPlugin、on_event/on_command、protocol helpers）已落地。
-   - `sdk/nodejs/@rayleabot/sdk` Node.js SDK（createPlugin、onEvent/onCommand、protocol helpers）已落地。
-   - `plugins/builtin/help` 内置帮助插件已落地。
-   - `examples/plugins/echo-python` 与 `examples/plugins/notice-logger` 扩展示例已落地。
-
-7. **不停机热重载** ✅
-   - `dispatch.ReloadPlugin` start-before-stop 零间隙热重载已落地。
-   - 新进程 `init_ack` 成功后原子切换 dispatcher 注册，旧进程随后停止。
-
-### 2. 产品化外层
-
-在核心平台更稳定后推进。
-
-1. **Web UI**（Phase 8）
-   - 在管理 API、任务面、config/logs 查询面与 session lifecycle 稳定后，进入真实页面与交互流。
-   - 建议起步路径：auth shell → dashboard（system status + adapter status）→ plugin list/detail → task list → logs viewer → config editor。
-
-2. **Launcher**（Phase 9）
-   - `launcher-token`、`system/status`、`system/shutdown` 的 contract + fixtures 均已就位。
-   - 建议起步路径：环境检查（`.deps/` 完整性）→ server 启停 → 打开 Web UI → 最小托盘行为。
-
-3. **Render Service**（Phase 10）
-   - render queue、browser scheduling、cache、模板输入校验与 render contract 仍未进入实现。
-   - 依赖 `.deps/manifest.json` 的来源与哈希字段补全、Chromium 资源准备策略。
-
-4. **日志持久化查询**
+1. **日志持久化查询**
    - `GET /api/logs` 当前只查询 bounded in-memory summary stream。
-   - 持久化日志存储与历史检索可在 Web UI logs viewer 需求明确后一并推进。
+   - 持久化日志存储与历史检索可在 Web UI logs viewer 需求明确后一并推进，也可独立先行落地 SQLite 或文件级日志归档。
 
-5. **CLI / 本地运维体验持续完善**
-   - 6 条子命令（reset-admin / doctor / cleanup / migrate / backup / restore）均已实现。
-   - 停服窗口检测、诊断输出格式和与 Web/Launcher 的共享后端路径仍需后续推进。
+2. **temporal grants**
+   - per-plugin grants 的 storage、scope validation、lifecycle 集成与管理端点均已落地，仅 temporal grants（有效期限制）仍未实现。
+   - 优先级较低，可在 v0.1 后续迭代中补齐。
+
+3. **更广 adapter 出站 action 与多 adapter 抽象**
+   - 当前仅冻结 `message.send`、`message.reply`、`message.send_image` 三种出站 action。
+   - 文件发送、媒体发送等更广动作族需先在 `contracts/plugin-protocol.schema.json` 中 formalize 新 action 种类，再落地 adapter 与 bridge 实现。
+   - 多 adapter / 多 bot 抽象属于架构层扩展，建议在 v0.1 核心闭环稳定后评估。
+
+4. **CLI 契约落地与 fixture 覆盖**
+   - `cli-commands.yaml` 6 条子命令的实现代码已存在，但 contract 中仍标记为 TODO。
+   - 需补齐 CLI 契约的正式冻结、CLI 专用 fixture 与 golden case，以及 CLI 与 HTTP task 模型的共享执行路径验证。
+
+### 2. Web UI（Phase 8）
+
+管理 API、任务面、config/logs 查询面与 session lifecycle 均已稳定，具备进入真实前端开发的条件。
+
+建议起步路径：
+1. auth shell — 登录页、session 管理、受保护路由守卫
+2. dashboard — system status + adapter status 概览
+3. plugin list/detail — 插件列表、详情、enable/disable/reload/uninstall 操作
+4. task list — 任务列表、详情、取消操作
+5. logs viewer — 日志流实时查看（WebSocket `/ws/logs`）
+6. config editor — 配置查看与编辑（`GET/PUT /api/config`）
+
+### 3. Launcher（Phase 9）
+
+`launcher-token`、`system/status`、`system/shutdown` 的 contract + fixtures 均已就位。
+
+建议起步路径：
+1. 环境检查 — `.deps/` 完整性、运行时资源存在性
+2. server 启停 — 子进程管理与健康检查
+3. 打开 Web UI — 默认浏览器跳转
+4. 最小托盘行为 — 系统托盘图标与基础菜单
+
+### 4. Render Service（Phase 10）
+
+render queue、browser scheduling、cache、模板输入校验与 render contract 仍未进入实现。依赖 `.deps/manifest.json` 的来源与哈希字段补全、Chromium 资源准备策略确定。
+
+### 5. 基线收尾
+
+- `.deps/manifest.json` 的来源 URL 与 SHA256 哈希字段仍为占位，需在 Render Service 或 Launcher 环境检查推进前补全。
+- CLI / 本地运维体验：停服窗口检测、诊断输出格式和与 Web/Launcher 的共享后端路径仍需后续推进。
