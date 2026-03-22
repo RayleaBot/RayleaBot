@@ -84,6 +84,62 @@ class RayleaBotPlugin:
             "file": file,
         })
 
+    def logger_write(self, request_id, level, message, fields=None, timeout_seconds=30):
+        """Write a management log entry through the platform-local logger.write action."""
+        data = {
+            "level": level,
+            "message": message,
+        }
+        if fields is not None:
+            data["fields"] = fields
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "logger.write",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def storage_get(self, request_id, key, timeout_seconds=30):
+        """Read one plugin-scoped KV value."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.kv",
+            {"operation": "get", "key": key},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def storage_set(self, request_id, key, value, timeout_seconds=30):
+        """Write one plugin-scoped KV value."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.kv",
+            {"operation": "set", "key": key, "value": value},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def storage_delete(self, request_id, key, timeout_seconds=30):
+        """Delete one plugin-scoped KV value."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.kv",
+            {"operation": "delete", "key": key},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def storage_list(self, request_id, prefix="", timeout_seconds=30):
+        """List plugin-scoped KV keys under a prefix."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.kv",
+            {"operation": "list", "prefix": prefix},
+            timeout_seconds=timeout_seconds,
+        )
+
     def run(self):
         """Main event loop: handles init, events, ping, and shutdown."""
         while True:

@@ -9,5 +9,14 @@
   "entry": "main.py",
   "license": "MIT",
   "description": "Logs group member join and leave events",
-  "author": "raylea"
+  "author": "raylea",
+  "capabilities": [
+    "event.subscribe",
+    "logger.write",
+    "storage.kv"
+  ],
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
 }

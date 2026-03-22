@@ -1,4 +1,11 @@
-import { readFrame, writeFrame, sendInitAck, sendPong, sendResult, sendAction } from './protocol.js';
+import {
+  readFrames,
+  requestLocalAction,
+  sendAction,
+  sendInitAck,
+  sendPong,
+  sendResult,
+} from './protocol.js';
 
 export function createPlugin() {
   const eventHandlers = [];
@@ -61,8 +68,32 @@ export function createPlugin() {
       sendAction(pluginId, requestId, 'message.send_image', { target_type: targetType, target_id: targetId, file });
     },
 
+    async loggerWrite(requestId, level, message, fields = undefined, options = {}) {
+      const data = { level, message };
+      if (fields !== undefined) {
+        data.fields = fields;
+      }
+      return await requestLocalAction(pluginId, requestId, 'logger.write', data, options);
+    },
+
+    async storageGet(requestId, key, options = {}) {
+      return await requestLocalAction(pluginId, requestId, 'storage.kv', { operation: 'get', key }, options);
+    },
+
+    async storageSet(requestId, key, value, options = {}) {
+      return await requestLocalAction(pluginId, requestId, 'storage.kv', { operation: 'set', key, value }, options);
+    },
+
+    async storageDelete(requestId, key, options = {}) {
+      return await requestLocalAction(pluginId, requestId, 'storage.kv', { operation: 'delete', key }, options);
+    },
+
+    async storageList(requestId, prefix = '', options = {}) {
+      return await requestLocalAction(pluginId, requestId, 'storage.kv', { operation: 'list', prefix }, options);
+    },
+
     async run() {
-      for await (const frame of readFrame()) {
+      for await (const frame of readFrames()) {
         const { type, plugin_id, request_id } = frame;
 
         if (type === 'init') {
@@ -70,7 +101,7 @@ export function createPlugin() {
           botId = frame.bot?.id ?? '';
           sendInitAck(pluginId, request_id, subscriptions);
         } else if (type === 'event') {
-          handleEvent(frame, plugin_id, request_id);
+          await handleEvent(frame, plugin_id, request_id);
         } else if (type === 'ping') {
           sendPong(pluginId, request_id);
         } else if (type === 'shutdown') {
@@ -80,18 +111,18 @@ export function createPlugin() {
     },
   };
 
-  function handleEvent(frame, pid, requestId) {
+  async function handleEvent(frame, pid, requestId) {
     const event = frame.event ?? {};
     const command = event.payload?.command;
 
     if (command && commandHandlers.has(command)) {
-      commandHandlers.get(command)(event, requestId);
+      await commandHandlers.get(command)(event, requestId);
       return;
     }
 
     for (const { type, handler } of eventHandlers) {
       if (type === null || type === event.event_type) {
-        handler(event, requestId);
+        await handler(event, requestId);
         return;
       }
     }
