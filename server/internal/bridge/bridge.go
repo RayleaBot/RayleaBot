@@ -37,6 +37,7 @@ type Snapshot struct {
 	IgnoredCount   uint64
 	RejectedCount  uint64
 	LastEventType  string
+	LastEventKind  string
 	LastOutcome    Outcome
 	LastErrorCode  string
 	LastErrorText  string
@@ -167,23 +168,40 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 		return OutcomeRejected
 	}
 
-	delivery, err := b.runtime.DeliverEvent(ctx, runtime.Event{
+	runtimeEvent := runtime.Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
 		SourceAdapter:  event.SourceAdapter,
 		EventType:      event.EventType,
 		Timestamp:      event.Timestamp,
 		Actor: &runtime.EventActor{
-			ID: event.SenderID,
+			ID:       event.SenderID,
+			Nickname: event.ActorNickname,
+			Role:     event.ActorRole,
 		},
 		Target: &runtime.EventTarget{
 			Type: event.ConversationType,
 			ID:   event.ConversationID,
+			Name: event.TargetName,
 		},
-		Message: &runtime.EventMessage{
+		PayloadFields: event.PayloadFields,
+		MessageID:     event.MessageID,
+	}
+	if event.PlainText != "" {
+		var segments []runtime.EventSegment
+		for _, seg := range event.Segments {
+			segments = append(segments, runtime.EventSegment{
+				Type: seg.Type,
+				Data: seg.Data,
+			})
+		}
+		runtimeEvent.Message = &runtime.EventMessage{
 			PlainText: event.PlainText,
-		},
-	})
+			Segments:  segments,
+		}
+	}
+
+	delivery, err := b.runtime.DeliverEvent(ctx, runtimeEvent)
 	if err != nil {
 		var runtimeErr *runtime.Error
 		if errors.As(err, &runtimeErr) {
@@ -276,16 +294,36 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 }
 
 func isSupportedEvent(event adapter.NormalizedEvent) bool {
-	return event.Kind == adapter.EventKindMessageText &&
-		event.EventID != "" &&
-		event.SourceProtocol == "onebot11" &&
-		event.SourceAdapter == "adapter.onebot11" &&
-		isSupportedEventType(event) &&
-		event.Timestamp > 0 &&
-		event.ConversationType != "" &&
-		event.ConversationID != "" &&
-		event.SenderID != "" &&
-		event.PlainText != ""
+	if event.EventID == "" || event.SourceProtocol != "onebot11" || event.SourceAdapter != "adapter.onebot11" {
+		return false
+	}
+	if event.Timestamp <= 0 || event.ConversationType == "" || event.ConversationID == "" || event.SenderID == "" {
+		return false
+	}
+	if !isSupportedEventKind(event.Kind) {
+		return false
+	}
+	if !isSupportedEventType(event) {
+		return false
+	}
+	// Message events require non-empty PlainText; notice events do not.
+	if isMessageEventKind(event.Kind) && event.PlainText == "" {
+		return false
+	}
+	return true
+}
+
+func isSupportedEventKind(kind string) bool {
+	switch kind {
+	case adapter.EventKindMessageText, adapter.EventKindMessage, adapter.EventKindNotice:
+		return true
+	default:
+		return false
+	}
+}
+
+func isMessageEventKind(kind string) bool {
+	return kind == adapter.EventKindMessageText || kind == adapter.EventKindMessage
 }
 
 func isSupportedEventType(event adapter.NormalizedEvent) bool {
@@ -294,6 +332,8 @@ func isSupportedEventType(event adapter.NormalizedEvent) bool {
 		return event.ConversationType == "group"
 	case "message.private":
 		return event.ConversationType == "private"
+	case "notice.member_increase", "notice.member_decrease":
+		return event.ConversationType == "group"
 	default:
 		return false
 	}
@@ -339,6 +379,7 @@ func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Ti
 
 	b.snapshot.IgnoredCount++
 	b.snapshot.LastEventType = event.EventType
+	b.snapshot.LastEventKind = event.Kind
 	b.snapshot.LastOutcome = OutcomeIgnored
 	b.snapshot.LastEventAt = &observedAt
 }
@@ -350,6 +391,7 @@ func (b *Bridge) recordRejected(event adapter.NormalizedEvent, observedAt time.T
 	b.snapshot.AcceptedCount++
 	b.snapshot.RejectedCount++
 	b.snapshot.LastEventType = event.EventType
+	b.snapshot.LastEventKind = event.Kind
 	b.snapshot.LastOutcome = OutcomeRejected
 	b.snapshot.LastErrorCode = code
 	b.snapshot.LastErrorText = message
@@ -363,6 +405,7 @@ func (b *Bridge) recordError(event adapter.NormalizedEvent, observedAt time.Time
 	b.snapshot.AcceptedCount++
 	b.snapshot.ErrorCount++
 	b.snapshot.LastEventType = event.EventType
+	b.snapshot.LastEventKind = event.Kind
 	b.snapshot.LastOutcome = OutcomeError
 	b.snapshot.LastErrorCode = code
 	b.snapshot.LastErrorText = message
@@ -378,6 +421,7 @@ func (b *Bridge) recordDelivered(event adapter.NormalizedEvent, observedAt time.
 	b.snapshot.DeliveredCount++
 	b.snapshot.ResultCount++
 	b.snapshot.LastEventType = event.EventType
+	b.snapshot.LastEventKind = event.Kind
 	b.snapshot.LastOutcome = OutcomeDelivered
 	b.snapshot.LastErrorCode = ""
 	b.snapshot.LastErrorText = ""
@@ -386,6 +430,10 @@ func (b *Bridge) recordDelivered(event adapter.NormalizedEvent, observedAt time.
 }
 
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
+	lastKind := b.snapshot.LastEventKind
+	if lastKind == "" {
+		lastKind = adapter.EventKindMessageText
+	}
 	frame := ObservabilityFrame{
 		Channel:   eventsChannel,
 		Type:      eventsTypeReceived,
@@ -393,7 +441,7 @@ func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) 
 		Data: ObservabilityData{
 			ObservabilityScope:  observabilityScopeBridge,
 			Summary:             summaryBridgeRuntime,
-			LastSupportedKind:   adapter.EventKindMessageText,
+			LastSupportedKind:   lastKind,
 			LastDeliveryOutcome: outcome,
 			DeliveredCount:      b.snapshot.DeliveredCount,
 			ResultCount:         b.snapshot.ResultCount,
