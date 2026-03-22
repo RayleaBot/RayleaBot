@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000206
+    plugin_id: notice-logger
+    request_id: local_invalid_0002
+    action: storage.kv
+    data:
+      operation: get
+expect:
+  valid: false
+  reason: storage.kv get, set, and delete require a non-empty key.

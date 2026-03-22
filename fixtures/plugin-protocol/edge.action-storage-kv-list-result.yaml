@@ -1,0 +1,27 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000209
+    plugin_id: notice-logger
+    request_id: local_0007
+    action: storage.kv
+    data:
+      operation: list
+      prefix: "notices:"
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000210
+    plugin_id: notice-logger
+    request_id: local_0007
+    status: success
+    data:
+      prefix: "notices:"
+      keys:
+        - "notices:last_join"
+        - "notices:last_leave"
+expect:
+  valid: true
+  notes:
+    - list results expose only keys, not stored values.

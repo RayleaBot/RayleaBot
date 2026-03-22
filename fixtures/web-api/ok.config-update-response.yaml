@@ -20,6 +20,9 @@ request:
     database:
       engine: sqlite
       path: data/rayleabot.db
+    storage:
+      kv_value_max_bytes: 65536
+      kv_total_limit_mb: 16
     logging:
       level: debug
       retention_days: 7
@@ -94,6 +97,9 @@ response:
       database:
         engine: sqlite
         path: data/rayleabot.db
+      storage:
+        kv_value_max_bytes: 65536
+        kv_total_limit_mb: 16
       logging:
         level: debug
         retention_days: 7

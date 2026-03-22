@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000205
+    plugin_id: notice-logger
+    request_id: local_invalid_0001
+    action: logger.write
+    data:
+      level: info
+expect:
+  valid: false
+  reason: logger.write requires both level and message.

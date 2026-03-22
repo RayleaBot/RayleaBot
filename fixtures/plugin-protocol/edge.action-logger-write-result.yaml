@@ -1,0 +1,25 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000207
+    plugin_id: notice-logger
+    request_id: local_0006
+    action: logger.write
+    data:
+      level: warn
+      message: member notice contained masked token
+      fields:
+        redacted_field: token=__REDACTED__
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000208
+    plugin_id: notice-logger
+    request_id: local_0006
+    status: success
+    data: {}
+expect:
+  valid: true
+  notes:
+    - Local platform actions also complete through result/error frames keyed by the same request_id.

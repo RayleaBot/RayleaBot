@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000201
+    plugin_id: notice-logger
+    request_id: local_0002
+    action: storage.kv
+    data:
+      operation: get
+      key: "notices:last_join"
+expect:
+  valid: true
+  notes:
+    - storage.kv.get returns a result payload with key, exists, and optional value fields.

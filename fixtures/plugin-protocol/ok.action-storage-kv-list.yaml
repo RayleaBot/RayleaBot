@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000204
+    plugin_id: notice-logger
+    request_id: local_0005
+    action: storage.kv
+    data:
+      operation: list
+      prefix: "notices:"
+expect:
+  valid: true
+  notes:
+    - list returns keys only and keeps prefix matching platform-defined.

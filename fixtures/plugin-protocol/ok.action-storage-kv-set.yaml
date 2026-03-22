@@ -1,0 +1,20 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000202
+    plugin_id: notice-logger
+    request_id: local_0003
+    action: storage.kv
+    data:
+      operation: set
+      key: "notices:last_join"
+      value:
+        actor_id: "3001"
+        group_id: "2001"
+        count: 3
+expect:
+  valid: true
+  notes:
+    - storage.kv values are JSON-serializable and remain plugin-scoped.

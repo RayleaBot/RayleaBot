@@ -262,7 +262,7 @@ codes:
     domain: permission
     message_key: errors.permission.scope_violation
     message: 插件访问了未授权作用域
-    description: The plugin attempted to access a capability scope that was not granted.
+    description: The plugin attempted to use a capability that was not granted, or tried to access a granted capability outside its authorized scope boundary.
     http_status: 403
     retryable: false
     applies_to: [http, websocket, plugin_protocol]
