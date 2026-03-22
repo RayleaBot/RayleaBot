@@ -1,0 +1,21 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000102
+    plugin_id: weather
+    request_id: act_reply_0001
+    action: message.reply
+    data:
+      reply_to_event_id: onebot11-message-12345
+      message:
+        segments:
+          - type: text
+            data:
+              text: 上海今日晴，气温 15-22°C
+expect:
+  valid: true
+  notes:
+    - message.reply can resolve a recent upstream event by reply_to_event_id.
+    - The reply body uses the same shared outbound message.segments model as message.send.

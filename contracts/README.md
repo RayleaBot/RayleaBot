@@ -35,7 +35,10 @@
   - command `permission` 省略时回落到 `auth.default_level`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
-  - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`action=message.send`、`action=message.reply`、`action=message.send_image`、`result`、`error`、`ping`、`pong`、`shutdown`
+  - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
+  - `message.send`、`message.reply` 已同时支持 legacy text payload 和 richer `message.segments` payload
+  - `message.send_image` 保留为 legacy compatibility path
+  - 正式 outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`
 - `release-manifest.schema.json`
   - `release_manifest.json` 与 `build_info.json` 的正式字段结构
 - `cli-commands.yaml`

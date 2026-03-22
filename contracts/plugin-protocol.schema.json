@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, three outbound action kinds (message.send, message.reply, and message.send_image), event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
+  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, rich message.send/message.reply payloads with a shared outbound segment model, legacy message.send_image compatibility, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -334,6 +334,329 @@
       ],
       "unevaluatedProperties": false
     },
+    "outbound_message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segments"
+      ],
+      "properties": {
+        "segments": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/outbound_message_non_reply_segment"
+              }
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/outbound_message_segment_reply"
+                }
+              ],
+              "items": {
+                "$ref": "#/$defs/outbound_message_non_reply_segment"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "outbound_message_segment": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/outbound_message_segment_text"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_image"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at_all"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_face"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_reply"
+        }
+      ]
+    },
+    "outbound_message_non_reply_segment": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/outbound_message_segment_text"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_image"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at_all"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_face"
+        }
+      ]
+    },
+    "outbound_message_segment_text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "text"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ],
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "outbound_message_segment_image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "image"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "file"
+              ]
+            },
+            {
+              "required": [
+                "url"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "outbound_message_segment_at": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "at"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "user_id"
+          ],
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "outbound_message_segment_at_all": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "at_all"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "maxProperties": 0
+        }
+      }
+    },
+    "outbound_message_segment_face": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "face"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "face_id"
+          ],
+          "properties": {
+            "face_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "outbound_message_segment_reply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "reply"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "message_id"
+          ],
+          "properties": {
+            "message_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "action_message_send_legacy_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_type",
+        "target_id",
+        "text"
+      ],
+      "properties": {
+        "target_type": {
+          "type": "string",
+          "enum": [
+            "group",
+            "private"
+          ]
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_message_send_rich_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_type",
+        "target_id",
+        "message"
+      ],
+      "properties": {
+        "target_type": {
+          "type": "string",
+          "enum": [
+            "group",
+            "private"
+          ]
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "$ref": "#/$defs/outbound_message"
+        }
+      }
+    },
+    "action_message_reply_legacy_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reply_to_message_id",
+        "text"
+      ],
+      "properties": {
+        "reply_to_message_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The message_id of the message to quote-reply to, as a string."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_message_reply_rich_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reply_to_event_id",
+        "message"
+      ],
+      "properties": {
+        "reply_to_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallback_to_send_if_missing": {
+          "type": "boolean"
+        },
+        "message": {
+          "$ref": "#/$defs/outbound_message"
+        }
+      }
+    },
     "action": {
       "oneOf": [
         {
@@ -368,30 +691,14 @@
               "const": "message.send"
             },
             "data": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "target_type",
-                "target_id",
-                "text"
-              ],
-              "properties": {
-                "target_type": {
-                  "type": "string",
-                  "enum": [
-                    "group",
-                    "private"
-                  ]
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/action_message_send_legacy_data"
                 },
-                "target_id": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "text": {
-                  "type": "string",
-                  "minLength": 1
+                {
+                  "$ref": "#/$defs/action_message_send_rich_data"
                 }
-              }
+              ]
             }
           }
         }
@@ -419,23 +726,14 @@
               "const": "message.reply"
             },
             "data": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "reply_to_message_id",
-                "text"
-              ],
-              "properties": {
-                "reply_to_message_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "The message_id of the message to quote-reply to, as a string."
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/action_message_reply_legacy_data"
                 },
-                "text": {
-                  "type": "string",
-                  "minLength": 1
+                {
+                  "$ref": "#/$defs/action_message_reply_rich_data"
                 }
-              }
+              ]
             }
           }
         }
@@ -485,7 +783,7 @@
                 "file": {
                   "type": "string",
                   "minLength": 1,
-                  "description": "Image reference as file:// local path or base64:// encoded data."
+                  "description": "Legacy compatibility path for image references as file:// local path or base64:// encoded data."
                 }
               }
             }
@@ -694,7 +992,7 @@
         "action",
         "data"
       ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-message-send.yaml"
+      "example_ref": "fixtures/plugin-protocol/ok.action-message-send-segments.yaml"
     },
     {
       "type": "action",
@@ -710,7 +1008,7 @@
         "action",
         "data"
       ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-message-reply.yaml"
+      "example_ref": "fixtures/plugin-protocol/ok.action-message-reply-to-event.yaml"
     },
     {
       "type": "action",
@@ -804,17 +1102,24 @@
     "fixtures/plugin-protocol/ok.event-result.yaml",
     "fixtures/plugin-protocol/ok.event-error.yaml",
     "fixtures/plugin-protocol/ok.action-message-send.yaml",
+    "fixtures/plugin-protocol/ok.action-message-send-segments.yaml",
+    "fixtures/plugin-protocol/ok.action-message-send-mixed-segments.yaml",
     "fixtures/plugin-protocol/ok.action-message-reply.yaml",
+    "fixtures/plugin-protocol/ok.action-message-reply-to-event.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-image.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
     "fixtures/plugin-protocol/edge.action-message-send-failure.yaml",
+    "fixtures/plugin-protocol/edge.action-message-reply-fallback-to-send.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml",
+    "fixtures/plugin-protocol/invalid.action-message-send-unsupported-segment.yaml",
+    "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",
+    "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
     "fixtures/plugin-protocol/ok.event-message-with-segments.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
-  "$comment": "Frozen outbound action kinds: message.send, message.reply, and message.send_image. Ping/pong frozen as minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
+  "$comment": "Frozen outbound action kinds: message.send and message.reply now accept both legacy text payloads and rich message.segments payloads. message.send_image remains a legacy compatibility path. Ping/pong frozen as minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
 }

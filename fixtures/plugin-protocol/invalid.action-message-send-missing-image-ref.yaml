@@ -1,0 +1,19 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000105
+    plugin_id: weather
+    request_id: act_invalid_0002
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+      message:
+        segments:
+          - type: image
+            data: {}
+expect:
+  valid: false
+  reason: image segments require at least one concrete reference such as file or url.

@@ -1,0 +1,22 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000103
+    plugin_id: weather
+    request_id: act_reply_0002
+    action: message.reply
+    data:
+      reply_to_event_id: onebot11-message-12345
+      fallback_to_send_if_missing: true
+      message:
+        segments:
+          - type: text
+            data:
+              text: 帮助菜单暂时不可引用，先发普通消息。
+expect:
+  valid: true
+  notes:
+    - fallback_to_send_if_missing only applies to the rich reply_to_event_id path.
+    - Runtime may retry once as message.send when the adapter reports adapter.reply_target_missing.

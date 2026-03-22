@@ -1,0 +1,20 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000104
+    plugin_id: weather
+    request_id: act_invalid_0001
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+      message:
+        segments:
+          - type: markdown
+            data:
+              text: "# unsupported"
+expect:
+  valid: false
+  reason: only text, image, at, at_all, face, and reply are frozen outbound segment kinds.

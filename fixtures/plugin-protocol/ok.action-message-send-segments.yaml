@@ -1,0 +1,22 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000100
+    plugin_id: weather
+    request_id: act_seg_0001
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+      message:
+        segments:
+          - type: text
+            data:
+              text: 当前天气晴，气温 24°C。
+expect:
+  valid: true
+  notes:
+    - message.send rich payload uses message.segments instead of a top-level text field.
+    - text-only delivery remains valid through the richer shared segment model.

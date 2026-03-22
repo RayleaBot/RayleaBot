@@ -150,7 +150,35 @@ jobs:
               raise SystemExit('plugin-info.schema.json storage_roots must only allow plugin_data')
 
           proto_defs = plugin_protocol.get('$defs', {})
-          expected_proto_defs = {'common', 'init', 'init_progress', 'init_ack', 'event', 'action', 'action_message_send', 'action_message_reply', 'action_message_send_image', 'result', 'error', 'ping', 'pong', 'shutdown'}
+          expected_proto_defs = {
+              'common',
+              'init',
+              'init_progress',
+              'init_ack',
+              'event',
+              'outbound_message',
+              'outbound_message_segment',
+              'outbound_message_non_reply_segment',
+              'outbound_message_segment_text',
+              'outbound_message_segment_image',
+              'outbound_message_segment_at',
+              'outbound_message_segment_at_all',
+              'outbound_message_segment_face',
+              'outbound_message_segment_reply',
+              'action_message_send_legacy_data',
+              'action_message_send_rich_data',
+              'action_message_reply_legacy_data',
+              'action_message_reply_rich_data',
+              'action',
+              'action_message_send',
+              'action_message_reply',
+              'action_message_send_image',
+              'result',
+              'error',
+              'ping',
+              'pong',
+              'shutdown',
+          }
           if set(proto_defs.keys()) != expected_proto_defs:
               raise SystemExit(f'plugin-protocol.schema.json $defs must exactly match {sorted(expected_proto_defs)}; got {sorted(proto_defs.keys())}')
           message_catalog = plugin_protocol.get('x-message-catalog', [])
@@ -165,14 +193,58 @@ jobs:
           expected_action_refs = {'action_message_send', 'action_message_reply', 'action_message_send_image'}
           if action_refs != expected_action_refs:
               raise SystemExit(f'plugin-protocol.schema.json action oneOf must reference {sorted(expected_action_refs)}; got {sorted(action_refs)}')
+          outbound_segment_refs = {item.get('$ref', '').split('/')[-1] for item in plugin_protocol['$defs']['outbound_message_segment'].get('oneOf', [])}
+          expected_outbound_segment_refs = {
+              'outbound_message_segment_text',
+              'outbound_message_segment_image',
+              'outbound_message_segment_at',
+              'outbound_message_segment_at_all',
+              'outbound_message_segment_face',
+              'outbound_message_segment_reply',
+          }
+          if outbound_segment_refs != expected_outbound_segment_refs:
+              raise SystemExit(f'plugin-protocol.schema.json outbound_message_segment oneOf must reference {sorted(expected_outbound_segment_refs)}; got {sorted(outbound_segment_refs)}')
+          non_reply_refs = {item.get('$ref', '').split('/')[-1] for item in plugin_protocol['$defs']['outbound_message_non_reply_segment'].get('oneOf', [])}
+          expected_non_reply_refs = {
+              'outbound_message_segment_text',
+              'outbound_message_segment_image',
+              'outbound_message_segment_at',
+              'outbound_message_segment_at_all',
+              'outbound_message_segment_face',
+          }
+          if non_reply_refs != expected_non_reply_refs:
+              raise SystemExit(f'plugin-protocol.schema.json outbound_message_non_reply_segment oneOf must reference {sorted(expected_non_reply_refs)}; got {sorted(non_reply_refs)}')
+          message_segments = plugin_protocol['$defs']['outbound_message']['properties']['segments']
+          if len(message_segments.get('oneOf', [])) != 2:
+              raise SystemExit('plugin-protocol.schema.json outbound_message.segments must distinguish plain body arrays from reply-prefixed arrays')
           send_def = plugin_protocol['$defs']['action_message_send']['allOf'][1]
           if send_def['properties']['action'].get('const') != 'message.send':
               raise SystemExit('plugin-protocol.schema.json action_message_send must freeze action const to message.send')
           send_data = send_def['properties']['data']
-          if send_data.get('required') != ['target_type', 'target_id', 'text']:
-              raise SystemExit('plugin-protocol.schema.json action_message_send.data must require target_type, target_id, and text')
-          if set(send_data['properties']['target_type'].get('enum', [])) != {'group', 'private'}:
-              raise SystemExit('plugin-protocol.schema.json action_message_send.data.target_type must only allow group and private')
+          send_data_refs = {item.get('$ref', '').split('/')[-1] for item in send_data.get('oneOf', [])}
+          if send_data_refs != {'action_message_send_legacy_data', 'action_message_send_rich_data'}:
+              raise SystemExit('plugin-protocol.schema.json action_message_send.data must support both legacy and rich payloads')
+          send_legacy = plugin_protocol['$defs']['action_message_send_legacy_data']
+          if send_legacy.get('required') != ['target_type', 'target_id', 'text']:
+              raise SystemExit('plugin-protocol.schema.json action_message_send_legacy_data must require target_type, target_id, and text')
+          if set(send_legacy['properties']['target_type'].get('enum', [])) != {'group', 'private'}:
+              raise SystemExit('plugin-protocol.schema.json action_message_send_legacy_data.target_type must only allow group and private')
+          send_rich = plugin_protocol['$defs']['action_message_send_rich_data']
+          if send_rich.get('required') != ['target_type', 'target_id', 'message']:
+              raise SystemExit('plugin-protocol.schema.json action_message_send_rich_data must require target_type, target_id, and message')
+          if send_rich['properties']['message'].get('$ref') != '#/$defs/outbound_message':
+              raise SystemExit('plugin-protocol.schema.json action_message_send_rich_data.message must reference outbound_message')
+          reply_def = plugin_protocol['$defs']['action_message_reply']['allOf'][1]
+          if reply_def['properties']['action'].get('const') != 'message.reply':
+              raise SystemExit('plugin-protocol.schema.json action_message_reply must freeze action const to message.reply')
+          reply_data_refs = {item.get('$ref', '').split('/')[-1] for item in reply_def['properties']['data'].get('oneOf', [])}
+          if reply_data_refs != {'action_message_reply_legacy_data', 'action_message_reply_rich_data'}:
+              raise SystemExit('plugin-protocol.schema.json action_message_reply.data must support both legacy and rich payloads')
+          reply_rich = plugin_protocol['$defs']['action_message_reply_rich_data']
+          if reply_rich.get('required') != ['reply_to_event_id', 'message']:
+              raise SystemExit('plugin-protocol.schema.json action_message_reply_rich_data must require reply_to_event_id and message')
+          if reply_rich['properties']['message'].get('$ref') != '#/$defs/outbound_message':
+              raise SystemExit('plugin-protocol.schema.json action_message_reply_rich_data.message must reference outbound_message')
           send_image_def = plugin_protocol['$defs']['action_message_send_image']['allOf'][1]
           if send_image_def['properties']['action'].get('const') != 'message.send_image':
               raise SystemExit('plugin-protocol.schema.json action_message_send_image must freeze action const to message.send_image')

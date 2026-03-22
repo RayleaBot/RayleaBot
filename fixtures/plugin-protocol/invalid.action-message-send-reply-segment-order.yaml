@@ -1,0 +1,23 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000106
+    plugin_id: weather
+    request_id: act_invalid_0003
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+      message:
+        segments:
+          - type: text
+            data:
+              text: 先写文本
+          - type: reply
+            data:
+              message_id: "98765"
+expect:
+  valid: false
+  reason: reply segments must appear at the start of an outbound message segment array.

@@ -1,0 +1,28 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000101
+    plugin_id: weather
+    request_id: act_seg_0002
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+      message:
+        segments:
+          - type: at
+            data:
+              user_id: "123"
+          - type: text
+            data:
+              text: " 你查询的天气如下："
+          - type: image
+            data:
+              file: file://cache/render/weather-001.png
+expect:
+  valid: true
+  notes:
+    - Rich message.send supports mixed segment arrays.
+    - Adapter should map text, at, and image segments to OneBot11 message array entries.
