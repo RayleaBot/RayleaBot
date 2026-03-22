@@ -58,3 +58,28 @@ func TestAllowAgainAfterWindowExpires(t *testing.T) {
 		t.Fatal("call after window expiry should be allowed")
 	}
 }
+
+func TestParseRateLimit(t *testing.T) {
+	t.Parallel()
+
+	limit, err := ParseRateLimit("10/60s")
+	if err != nil {
+		t.Fatalf("ParseRateLimit returned error: %v", err)
+	}
+	if limit.Count != 10 {
+		t.Fatalf("count = %d, want 10", limit.Count)
+	}
+	if limit.Window != time.Minute {
+		t.Fatalf("window = %s, want %s", limit.Window, time.Minute)
+	}
+}
+
+func TestParseRateLimitRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{"", "10", "0/60s", "10/0s", "bad/60s", "10/bad"} {
+		if _, err := ParseRateLimit(raw); err == nil {
+			t.Fatalf("expected %q to be rejected", raw)
+		}
+	}
+}

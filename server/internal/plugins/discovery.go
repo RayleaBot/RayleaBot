@@ -420,9 +420,6 @@ func manifestCommands(document map[string]any) []Command {
 			Usage:       stringField(item, "usage"),
 			Permission:  stringField(item, "permission"),
 		}
-		if command.Permission == "" {
-			command.Permission = "everyone"
-		}
 		commands = append(commands, command)
 	}
 	return commands

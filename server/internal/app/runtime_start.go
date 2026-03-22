@@ -26,8 +26,13 @@ func (a *App) handleAdapterEvent(ctx context.Context, event adapter.NormalizedEv
 		a.pluginLifecycle.HandleAdapterEvent(ctx, event)
 	}
 
+	enriched, allowed := a.applyChatPolicy(ctx, event)
+	if !allowed {
+		return
+	}
+
 	if a.Bridge != nil {
-		a.Bridge.HandleAdapterEvent(ctx, a.enrichCommandEvent(event))
+		a.Bridge.HandleAdapterEvent(ctx, enriched)
 	}
 }
 

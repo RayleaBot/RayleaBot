@@ -26,6 +26,7 @@ import (
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/logging"
+	"rayleabot/server/internal/permission"
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
 	"rayleabot/server/internal/scheduler"
@@ -62,10 +63,13 @@ type App struct {
 	Bridge            *bridge.Bridge
 	Dispatcher        *dispatch.Dispatcher
 	Runtimes          *runtimeRegistry
+	outboundSender    outboundActionSender
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
 	pluginRepository  plugins.DesiredStateRepository
 	grantRepository   plugins.GrantRepository
+	blacklistRepo     permission.BlacklistRepository
+	permissionChecker *permission.Checker
 	pluginLifecycle   *pluginLifecycleController
 	commandParser     *command.Parser
 	repoRoot          string
@@ -177,6 +181,7 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create plugin repository: %w", err)
 	}
+	blacklistRepo := permission.NewSQLiteBlacklistRepository(storageStore.Read, storageStore.Write)
 	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
 	if err != nil {
 		_ = storageStore.Close()
@@ -256,10 +261,13 @@ func New(options Options) (*App, error) {
 		Bridge:            eventBridge,
 		Dispatcher:        eventDispatcher,
 		Runtimes:          runtimeRegistry,
+		outboundSender:    adapterShell,
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,
 		pluginRepository:  pluginRepository,
 		grantRepository:   pluginRepository,
+		blacklistRepo:     blacklistRepo,
+		permissionChecker: newPermissionChecker(cfg, blacklistRepo),
 		commandParser:     newCommandParser(cfg),
 		repoRoot:          discoverySpec.repoRoot,
 		startedAt:         time.Now().UTC(),

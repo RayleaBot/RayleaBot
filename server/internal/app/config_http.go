@@ -109,6 +109,8 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 
 	// Update in-memory config to reflect the saved state.
 	a.Config = newCfg
+	a.commandParser = newCommandParser(newCfg)
+	a.permissionChecker = newPermissionChecker(newCfg, a.blacklistRepo)
 
 	return restartRequired
 }
@@ -147,6 +149,14 @@ func configDocumentFromTyped(cfg internalconfig.Config) map[string]any {
 			"max_sessions":              cfg.Auth.MaxSessions,
 			"login_fail_limit":          cfg.Auth.LoginFailLimit,
 			"login_fail_window_seconds": cfg.Auth.LoginFailWindowSecs,
+		},
+		"command": map[string]any{
+			"prefixes": sanitizeCommandPrefixes(commandPrefixes(cfg)),
+		},
+		"cooldown": map[string]any{
+			"user_command_rate_limit":  cooldownUserLimit(cfg),
+			"group_command_rate_limit": cooldownGroupLimit(cfg),
+			"cooldown_reply":           cooldownReplyEnabled(cfg),
 		},
 		"runtime": map[string]any{
 			"scheduler_timezone":                    cfg.Runtime.SchedulerTimezone,
@@ -190,6 +200,27 @@ func configDocumentFromTyped(cfg internalconfig.Config) map[string]any {
 	}
 
 	return document
+}
+
+func commandPrefixes(cfg internalconfig.Config) []string {
+	if cfg.Command == nil || len(cfg.Command.Prefixes) == 0 {
+		return []string{"/"}
+	}
+	return append([]string(nil), cfg.Command.Prefixes...)
+}
+
+func cooldownUserLimit(cfg internalconfig.Config) string {
+	if cfg.Cooldown == nil || cfg.Cooldown.UserCommandRateLimit == "" {
+		return defaultUserCommandRateLimit
+	}
+	return cfg.Cooldown.UserCommandRateLimit
+}
+
+func cooldownGroupLimit(cfg internalconfig.Config) string {
+	if cfg.Cooldown == nil || cfg.Cooldown.GroupCommandRateLimit == "" {
+		return defaultGroupCommandRateLimit
+	}
+	return cfg.Cooldown.GroupCommandRateLimit
 }
 
 func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) {

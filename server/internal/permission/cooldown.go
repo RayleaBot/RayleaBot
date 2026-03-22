@@ -1,6 +1,9 @@
 package permission
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +31,29 @@ func NewCooldownTracker(userLimit, groupLimit RateLimit) *CooldownTracker {
 		groupLimit: groupLimit,
 		windows:    make(map[string]*slidingWindow),
 	}
+}
+
+func ParseRateLimit(raw string) (RateLimit, error) {
+	raw = strings.TrimSpace(raw)
+	countText, windowText, ok := strings.Cut(raw, "/")
+	if !ok {
+		return RateLimit{}, fmt.Errorf("invalid rate limit format %q", raw)
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(countText))
+	if err != nil || count <= 0 {
+		return RateLimit{}, fmt.Errorf("invalid rate limit count %q", countText)
+	}
+
+	window, err := time.ParseDuration(strings.TrimSpace(windowText))
+	if err != nil || window <= 0 {
+		return RateLimit{}, fmt.Errorf("invalid rate limit window %q", windowText)
+	}
+
+	return RateLimit{
+		Count:  count,
+		Window: window,
+	}, nil
 }
 
 func (t *CooldownTracker) Allow(key string) bool {
