@@ -200,6 +200,49 @@
     "require_install_scripts": {
       "type": "boolean",
       "description": "Explicit high-risk install-path declaration for packages that require npm lifecycle scripts or local build steps."
+    },
+    "commands": {
+      "type": "array",
+      "description": "Declared command list for command parser directed delivery and help generation.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "Command name matched after stripping the configured command prefix."
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9_-]+$"
+            },
+            "uniqueItems": true,
+            "description": "Alternative command names that route to the same handler."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short command description for help output."
+          },
+          "usage": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Usage pattern for help output (e.g., '/weather <city> [--days=N]')."
+          },
+          "permission": {
+            "type": "string",
+            "enum": ["super_admin", "group_admin", "everyone"],
+            "default": "everyone",
+            "description": "Minimum chat-side permission level required to invoke this command."
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -265,7 +308,8 @@
   "x-fixtures": [
     "fixtures/plugin-info/ok.minimal-python.json",
     "fixtures/plugin-info/invalid.unsupported-binary-runtime.json",
-    "fixtures/plugin-info/edge.permission-regrant-and-migration.json"
+    "fixtures/plugin-info/edge.permission-regrant-and-migration.json",
+    "fixtures/plugin-info/ok.plugin-with-commands.json"
   ],
-  "$comment": "Phase 2 intentionally excludes default_config, commands, concurrency, role, icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support. Those remain README TODOs until they become fixture-ready."
+  "$comment": "Phase 2 intentionally excludes default_config, concurrency, role, icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support. Those remain README TODOs until they become fixture-ready."
 }
