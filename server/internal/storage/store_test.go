@@ -36,9 +36,10 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "tasks")
 	assertTableExists(t, store.Read, "secret_store")
 	assertTableExists(t, store.Read, "scheduler_jobs")
+	assertTableExists(t, store.Read, "blacklist_entries")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 9 {
+	if len(tables) != 11 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
 }
@@ -57,8 +58,8 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 9 {
-		t.Fatalf("unexpected migration count: got %d want 9", count)
+	if count != 10 {
+		t.Fatalf("unexpected migration count: got %d want 10", count)
 	}
 }
 
@@ -115,8 +116,8 @@ func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if migrationCount != 9 {
-		t.Fatalf("unexpected migration count after upgrade: got %d want 9", migrationCount)
+	if migrationCount != 10 {
+		t.Fatalf("unexpected migration count after upgrade: got %d want 10", migrationCount)
 	}
 
 	var bootstrapCount int
