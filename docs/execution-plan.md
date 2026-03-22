@@ -13,13 +13,13 @@
 | 阶段 | 名称 | 状态 | 当前落地摘要 |
 |------|------|------|--------------|
 | Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、repo-local skills、CI skeleton 已落库；`.deps/manifest.json` 仍是资源占位清单 |
-| Phase 1 | 契约文件补全 | ✅ | 7 份核心 formal contracts 已 fixture-ready，`cli-commands.yaml` 也已 formalize |
-| Phase 2 | Fixtures / Golden Cases | 🟡 | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest fixtures 已落库；CLI fixtures 仍未补齐 |
+| Phase 1 | 契约文件补全 | ✅ | 8 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
+| Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、ready gating、重连、心跳、消息/notice 归一化、三种出站 action 已接入主链路；更广动作族与多 adapter 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 单 runtime manager、bridge、reload/install/uninstall 基础链路可用；多插件 fan-out、命令路由、zero-gap reload 仍停留在库级实现 |
-| Phase 6 | Config / Storage / Security | 🟡 | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence 已落地；scheduler/聊天侧 permission 仍主要是基座能力 |
-| Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化与配置热更新已可用；日志历史持久化查询仍未实现 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery 已接入；temporal grants 与更广动作族仍未实现 |
+| Phase 6 | Config / Storage / Security | 🟡 | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger 已落地；聊天侧 permission 仍主要是基座能力 |
+| Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；更广管理面扩展仍未开始 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 与 Chromium 调度尚未开始；`.deps/manifest.json` 仅为 baseline 占位 |
@@ -27,7 +27,6 @@
 ### 判定口径
 
 - “已完成”只用于当前仓库里同时存在主链路实现、测试和可回指证据的能力。
-- 已写出独立包实现、但尚未接入 `app` 主运行链路的能力，一律按“进行中”处理。
 - formal contract 已存在，不等于对应产品能力已经落地。
 - 资源入库、示例入库，不等于 discovery、调度、生命周期已经自动接线。
 
@@ -81,7 +80,7 @@
 | `fixtures/plugin-protocol` | ✅ | init / progress / ack / ping / pong / action / result / error 样例已落库 |
 | `fixtures/release-manifest` | ✅ | release manifest 的正反与边界样例已落库 |
 | Golden 命名与结构 | ✅ | `ok` / `invalid` / `edge` 命名与目录约束已落库 |
-| CLI fixtures / golden cases | ❌ | `cli-commands.yaml` 仍未配套 CLI 专用 fixtures 与回归样例 |
+| CLI fixtures / golden cases | ✅ | 6 条正式 CLI 命令均已配套 `ok` / `invalid` / `edge` fixtures，并进入 CI 最小覆盖校验 |
 
 ---
 
@@ -96,7 +95,7 @@
 | `GET /readyz` | ✅ | readiness 与保守 adapter 状态映射已实现 |
 | SQLite foundation | ✅ | WAL、migration runner、读写句柄分离、自动建库已落地 |
 | Auth / Task / Plugin 基础装配 | ✅ | auth、tasks、plugin catalog、storage、secret store 已随 app 启动装配 |
-| plugin discovery | ✅ | 当前扫描 `examples/plugins` 与 `plugins/installed` |
+| plugin discovery | ✅ | 当前扫描 `plugins/builtin`、`examples/plugins` 与 `plugins/installed` |
 
 ---
 
@@ -132,28 +131,23 @@
 |--------|------|------|
 | runtime spec creation | ✅ | 已可从有效 discovered plugin 构建 runtime spec |
 | subprocess spawn | ✅ | 最小子进程拉起已落地 |
-| `init -> init_ack` | ✅ | 最小启动握手已打通 |
+| `init -> init_ack` | ✅ | 最小启动握手已打通，并保留 `init_ack.subscriptions` |
 | `shutdown(stop)` | ✅ | 最小优雅停止路径已实现 |
 | `ping` / `pong` | ✅ | keepalive 已进入 formal contract、fixtures 与 runtime 实现 |
-| adapter -> runtime bridge | ✅ | bridge 已对接当前运行中的 runtime |
+| 多 runtime 主链路 | ✅ | `app` 已切换到每插件一个 `runtime.Manager` 的编排方式 |
+| dispatcher fan-out / directed delivery | ✅ | adapter 事件已通过 dispatcher 进入订阅 fan-out 与命令定向投递 |
+| Command Parser / routing | ✅ | `internal/command` 已接入主链路，消息事件会附带 `command` / `args` payload |
+| scheduler trigger | ✅ | scheduler job 已按 `plugin_id` 直投 `scheduler.trigger` 到目标插件 |
+| zero-gap reload | ✅ | reload 已走 start-before-stop 的 dispatcher swap 语义 |
+| builtin discovery / lifecycle | ✅ | `plugins/builtin` 已纳入默认 discovery roots，默认 `desired_state=enabled`，支持 enable / disable / reload，拒绝卸载 |
 | 三种 action bridge | ✅ | `message.send`、`message.reply`、`message.send_image` 均已支持 |
 | crash-backoff / dead_letter | ✅ | runtime crash 后的 `crashed` / `backoff` / `dead_letter` 状态流转已接入 app 生命周期 |
-| 用户主动 reload | ✅ | `POST /api/plugins/{plugin_id}/reload` 已可用 |
 | SDK 与示例插件 | ✅ | Python / Node.js SDK、示例插件与 builtin help 资源已落库，bundled manifests 已通过 contract 校验 |
-
-### 已实现但未接入主链路
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 多插件调度 / fan-out | 🟡 | `internal/dispatch` 已支持 per-plugin queue、fan-out、directed delivery，但 `app` 未实例化 dispatcher |
-| Command Parser / routing | 🟡 | `internal/command` 已实现 longest-prefix-first 解析，但主链路未消费该解析结果 |
-| 不停机热重载 | 🟡 | `internal/dispatch.ReloadPlugin` 已支持 start-before-stop，当前管理面 reload 仍是 stop-then-start |
 
 ### 仍未完成
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 多插件并发 runtime 主链路 | ❌ | `app` 当前只有单个 `runtime.Manager`，仍只会选择首个可启动插件 |
 | temporal grants | ❌ | 权限时效窗口仍未实现 |
 | 更广插件动作族 | ❌ | 三种 action 之外的动作仍未进入正式链路 |
 
@@ -179,7 +173,7 @@
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| Scheduler persistence / recovery | 🟡 | repository、hydration、tick loop 已进入 app，但 trigger 尚未接到 plugin runtime |
+| Scheduler persistence / recovery | ✅ | repository、hydration、tick loop 与 plugin runtime trigger 已进入 app |
 | 聊天侧 Permission / 黑名单 / 冷却限流 | 🟡 | `internal/permission`、`0010_blacklists.sql` 已存在，但 live command path 尚未调用 checker |
 
 ---
@@ -194,19 +188,13 @@
 | Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login`、`session logout`、`launcher-token` 已落地 |
 | System management | ✅ | `GET /api/system/status`、`POST /api/system/shutdown` |
 | Config management | ✅ | `GET /api/config`、`PUT /api/config` |
-| Logs query | ✅ | `GET /api/logs` 已提供 bounded in-memory summaries |
+| Logs query | ✅ | `GET /api/logs` 与 `/ws/logs` 已提供跨重启的持久化 summary 查询与历史回放 |
 | Tasks management | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` |
 | Plugin install | ✅ | `local_directory`、`local_zip`、`remote_url` 安装路径已进入真实路由 |
 | Plugin lifecycle | ✅ | `enable` / `disable` / `reload` / `DELETE` 已接入真实路由 |
 | Plugin grants 管理 | ✅ | `GET/POST/DELETE /api/plugins/{plugin_id}/grants...` 已落地 |
 | 4 条管理 WebSocket | ✅ | `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 已落地 |
 | HTTP 鉴权中间件 | ✅ | `RequireAuth`、公开/受保护路由分离、WebSocket `session_token` 兼容已落地 |
-
-### 仍未完成
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 日志历史检索 / 持久化查询 | ❌ | `/api/logs` 与 `/ws/logs` 仍只提供 bounded in-memory summaries |
 
 ---
 
@@ -252,51 +240,38 @@
 
 | 工作流 / Job | 触发 | 覆盖 |
 |--------|------|------|
-| `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI contract 与 TaskType enum 交叉校验 |
+| `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI fixtures 结构/覆盖校验、CLI contract 与 TaskType enum 交叉校验 |
 | `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` baseline 校验 |
 | `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
 
 ### 当前验证结论
 
 - `go test ./...` 当前通过。
+- `go build ./cmd/raylea-server` 当前通过。
 - bundled plugin manifests 当前已与 `contracts/plugin-info.schema.json` 对齐。
 - 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`。
-- 当前主要风险已从“没有实现”转向“库级能力与 app 主链路之间仍有接线断层”。
+- `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。
+- 当前主要风险已转向聊天侧 permission / blacklist / cooldown 与 temporal grants 的收尾。
 
 ---
 
 ## 十四、下一步行动建议
 
-### 1. 先收敛 Phase 5 的真实边界
+### 1. 收尾聊天侧 command policy 主链路
 
-当前最优先的不是继续横向铺新功能，而是先定清楚 v0.1 的运行时边界：
+当前主链 runtime、dispatch、scheduler 和日志持久化已经稳定，下一步优先把聊天侧治理规则接到 live command path：
 
-1. **收敛为单 runtime 最小稳定闭环**
-   - 把当前单 runtime、单 bridge、单主链路作为 v0.1 明确边界。
-   - 对 `dispatch`、`command`、zero-gap reload 保持库级预研状态，不在本轮强行接线。
+1. `internal/permission` checker 接入命令定向投递前置判定
+2. `0010_blacklists.sql` 对应的 blacklist 查询接入消息入口
+3. cooldown 配置接入 command execution path，并补回复策略
 
-2. **或者继续推进多插件主链路**
-   - 将 `internal/dispatch`、`internal/command`、scheduler trigger 正式接入 `app`。
-   - 把多插件 fan-out、命令路由、reload 语义从“库级能力”提升为“产品行为”。
+### 2. 完成 temporal grants
 
-这一步不先定，后续文档、测试和实现仍会继续出现“代码已写、但不算真正落地”的口径漂移。
+当前 grants storage、scope drift 检查与 enable 前权限门禁已具备基础，剩余工作是把“授权有效期”收敛成正式行为：
 
-### 2. 收尾当前仍影响可用性的 server 缺口
-
-建议优先顺序：
-
-1. **日志持久化与历史检索**
-   - `GET /api/logs` 与 `/ws/logs` 当前仍只依赖 bounded in-memory summaries。
-
-2. **CLI fixtures / golden cases**
-   - `cli-commands.yaml` 已 formalize，但 CLI 仍缺少 fixture-ready 配套。
-
-3. **temporal grants**
-   - grants storage 与 scope validation 已有，时效型授权仍未实现。
-
-4. **builtin plugin 接线策略**
-   - 要么把 `plugins/builtin/` 纳入 discovery 与生命周期；
-   - 要么明确其仍仅为随仓库入库资源，不写成已上线能力。
+1. grant 过期时间的持久化与查询
+2. enable / reconcile / runtime restart 路径的过期判定
+3. 管理面与 fixtures 的 companion 更新
 
 ### 3. 在 server 主链路稳定后再进入产品外层
 
