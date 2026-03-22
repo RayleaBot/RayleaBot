@@ -56,19 +56,30 @@ type Event struct {
 	Actor          *EventActor
 	Target         *EventTarget
 	Message        *EventMessage
+	PayloadFields  map[string]any
+	MessageID      string
 }
 
 type EventActor struct {
-	ID string
+	ID       string
+	Nickname string
+	Role     string
 }
 
 type EventTarget struct {
 	Type string
 	ID   string
+	Name string
 }
 
 type EventMessage struct {
 	PlainText string
+	Segments  []EventSegment
+}
+
+type EventSegment struct {
+	Type string
+	Data map[string]any
 }
 
 type Action struct {
@@ -172,19 +183,37 @@ type protocolEventFrame struct {
 	Actor          *protocolActorFrame   `json:"actor,omitempty"`
 	Target         *protocolTargetFrame  `json:"target,omitempty"`
 	Message        *protocolMessageFrame `json:"message,omitempty"`
+	Payload        *protocolPayloadFrame `json:"payload,omitempty"`
 }
 
 type protocolActorFrame struct {
-	ID string `json:"id"`
+	ID       string `json:"id"`
+	Nickname string `json:"nickname,omitempty"`
+	Role     string `json:"role,omitempty"`
 }
 
 type protocolTargetFrame struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
 }
 
 type protocolMessageFrame struct {
-	PlainText string `json:"plain_text,omitempty"`
+	PlainText string                 `json:"plain_text,omitempty"`
+	Segments  []protocolSegmentFrame `json:"segments,omitempty"`
+}
+
+type protocolSegmentFrame struct {
+	Type string         `json:"type"`
+	Data map[string]any `json:"data,omitempty"`
+}
+
+type protocolPayloadFrame struct {
+	MessageID  string   `json:"message_id,omitempty"`
+	Command    string   `json:"command,omitempty"`
+	Args       []string `json:"args,omitempty"`
+	SubType    string   `json:"sub_type,omitempty"`
+	OperatorID string   `json:"operator_id,omitempty"`
 }
 
 type actionFrame struct {
@@ -674,16 +703,57 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	}
 
 	if event.Actor != nil && event.Actor.ID != "" {
-		frame.Event.Actor = &protocolActorFrame{ID: event.Actor.ID}
+		frame.Event.Actor = &protocolActorFrame{
+			ID:       event.Actor.ID,
+			Nickname: event.Actor.Nickname,
+			Role:     event.Actor.Role,
+		}
 	}
 	if event.Target != nil && event.Target.Type != "" && event.Target.ID != "" {
 		frame.Event.Target = &protocolTargetFrame{
 			Type: event.Target.Type,
 			ID:   event.Target.ID,
+			Name: event.Target.Name,
 		}
 	}
 	if event.Message != nil && event.Message.PlainText != "" {
-		frame.Event.Message = &protocolMessageFrame{PlainText: event.Message.PlainText}
+		msgFrame := &protocolMessageFrame{PlainText: event.Message.PlainText}
+		for _, seg := range event.Message.Segments {
+			msgFrame.Segments = append(msgFrame.Segments, protocolSegmentFrame{
+				Type: seg.Type,
+				Data: seg.Data,
+			})
+		}
+		frame.Event.Message = msgFrame
+	}
+
+	// Build payload frame from event fields.
+	var payload protocolPayloadFrame
+	hasPayload := false
+	if event.MessageID != "" {
+		payload.MessageID = event.MessageID
+		hasPayload = true
+	}
+	if event.PayloadFields != nil {
+		if v, ok := event.PayloadFields["sub_type"].(string); ok && v != "" {
+			payload.SubType = v
+			hasPayload = true
+		}
+		if v, ok := event.PayloadFields["operator_id"].(string); ok && v != "" {
+			payload.OperatorID = v
+			hasPayload = true
+		}
+		if v, ok := event.PayloadFields["command"].(string); ok && v != "" {
+			payload.Command = v
+			hasPayload = true
+		}
+		if v, ok := event.PayloadFields["args"].([]string); ok && len(v) > 0 {
+			payload.Args = v
+			hasPayload = true
+		}
+	}
+	if hasPayload {
+		frame.Event.Payload = &payload
 	}
 
 	if err := writeJSONLine(handle.stdin, frame); err != nil {
