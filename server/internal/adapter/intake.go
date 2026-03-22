@@ -27,7 +27,11 @@ type FrameSummary struct {
 	HeartbeatInterval time.Duration
 }
 
-const EventKindMessageText = "onebot11.message_text"
+const (
+	EventKindMessageText = "onebot11.message_text"
+	EventKindMessage     = "onebot11.message"
+	EventKindNotice      = "onebot11.notice"
+)
 
 type NormalizedEvent struct {
 	Kind             string
@@ -41,25 +45,44 @@ type NormalizedEvent struct {
 	ConversationID   string
 	SenderID         string
 	PlainText        string
+	Segments         []MessageSegment
+	MessageID        string
+	ActorNickname    string
+	ActorRole        string
+	TargetName       string
+	PayloadFields    map[string]any
+}
+
+type senderObject struct {
+	UserID   int64  `json:"user_id"`
+	Nickname string `json:"nickname"`
+	Card     string `json:"card"`
+	Role     string `json:"role"`
+	Sex      string `json:"sex"`
+	Age      int    `json:"age"`
 }
 
 type oneBotFrame struct {
-	PostType      string         `json:"post_type"`
-	MetaEventType string         `json:"meta_event_type"`
-	SubType       string         `json:"sub_type"`
-	Interval      int            `json:"interval"`
-	MessageType   string         `json:"message_type"`
-	MessageID     int64          `json:"message_id"`
-	Time          int64          `json:"time"`
-	SelfID        int64          `json:"self_id"`
-	UserID        int64          `json:"user_id"`
-	GroupID       int64          `json:"group_id"`
-	RawMessage    string         `json:"raw_message"`
-	Status        string         `json:"status"`
-	RetCode       int            `json:"retcode"`
-	Wording       string         `json:"wording"`
-	Data          map[string]any `json:"data"`
-	Echo          any            `json:"echo"`
+	PostType      string          `json:"post_type"`
+	MetaEventType string          `json:"meta_event_type"`
+	SubType       string          `json:"sub_type"`
+	NoticeType    string          `json:"notice_type"`
+	Interval      int             `json:"interval"`
+	MessageType   string          `json:"message_type"`
+	MessageID     int64           `json:"message_id"`
+	Time          int64           `json:"time"`
+	SelfID        int64           `json:"self_id"`
+	UserID        int64           `json:"user_id"`
+	GroupID       int64           `json:"group_id"`
+	OperatorID    int64           `json:"operator_id"`
+	RawMessage    string          `json:"raw_message"`
+	Message       json.RawMessage `json:"message"`
+	Sender        *senderObject   `json:"sender"`
+	Status        string          `json:"status"`
+	RetCode       int             `json:"retcode"`
+	Wording       string          `json:"wording"`
+	Data          map[string]any  `json:"data"`
+	Echo          any             `json:"echo"`
 }
 
 type classifiedFrame struct {
@@ -182,12 +205,18 @@ func isLifecycleDisable(frame oneBotFrame) bool {
 }
 
 func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
-	if frame.PostType != "message" {
+	switch frame.PostType {
+	case "message":
+		return normalizeMessageEvent(frame, observedAt)
+	case "notice":
+		return normalizeNoticeEvent(frame, observedAt)
+	default:
 		return NormalizedEvent{}, false
 	}
+}
 
-	plainText := strings.TrimSpace(frame.RawMessage)
-	if plainText == "" || frame.SelfID <= 0 || frame.UserID <= 0 {
+func normalizeMessageEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	if frame.SelfID <= 0 || frame.UserID <= 0 {
 		return NormalizedEvent{}, false
 	}
 
@@ -220,8 +249,33 @@ func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (Normalize
 		eventID = fmt.Sprintf("onebot11-message-%d", frame.MessageID)
 	}
 
+	// Parse message segments from either JSON array or CQ string.
+	segments := parseFrameMessage(frame)
+	plainText := strings.TrimSpace(segmentsToPlainText(segments))
+	if plainText == "" {
+		plainText = strings.TrimSpace(frame.RawMessage)
+	}
+	if plainText == "" {
+		return NormalizedEvent{}, false
+	}
+
+	// Extract sender info.
+	var actorNickname, actorRole string
+	if frame.Sender != nil {
+		actorNickname = frame.Sender.Card
+		if actorNickname == "" {
+			actorNickname = frame.Sender.Nickname
+		}
+		actorRole = frame.Sender.Role
+	}
+
+	var messageID string
+	if frame.MessageID > 0 {
+		messageID = fmt.Sprintf("%d", frame.MessageID)
+	}
+
 	return NormalizedEvent{
-		Kind:             EventKindMessageText,
+		Kind:             EventKindMessage,
 		EventID:          eventID,
 		BotID:            fmt.Sprintf("%d", frame.SelfID),
 		SourceProtocol:   "onebot11",
@@ -232,5 +286,73 @@ func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (Normalize
 		ConversationID:   conversationID,
 		SenderID:         fmt.Sprintf("%d", frame.UserID),
 		PlainText:        plainText,
+		Segments:         segments,
+		MessageID:        messageID,
+		ActorNickname:    actorNickname,
+		ActorRole:        actorRole,
 	}, true
+}
+
+func normalizeNoticeEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	if frame.SelfID <= 0 || frame.UserID <= 0 || frame.GroupID <= 0 {
+		return NormalizedEvent{}, false
+	}
+
+	var eventType string
+	switch frame.NoticeType {
+	case "group_increase":
+		eventType = "notice.member_increase"
+	case "group_decrease":
+		eventType = "notice.member_decrease"
+	default:
+		return NormalizedEvent{}, false
+	}
+
+	timestamp := frame.Time
+	if timestamp <= 0 {
+		timestamp = observedAt.Unix()
+	}
+
+	eventID := fmt.Sprintf("onebot11-notice-%d-%d", timestamp, frame.UserID)
+
+	payloadFields := map[string]any{}
+	if frame.SubType != "" {
+		payloadFields["sub_type"] = frame.SubType
+	}
+	if frame.OperatorID > 0 {
+		payloadFields["operator_id"] = fmt.Sprintf("%d", frame.OperatorID)
+	}
+
+	return NormalizedEvent{
+		Kind:             EventKindNotice,
+		EventID:          eventID,
+		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        eventType,
+		Timestamp:        timestamp,
+		ConversationType: "group",
+		ConversationID:   fmt.Sprintf("%d", frame.GroupID),
+		SenderID:         fmt.Sprintf("%d", frame.UserID),
+		PayloadFields:    payloadFields,
+	}, true
+}
+
+// parseFrameMessage extracts segments from the OneBot frame Message field,
+// falling back to CQ code parsing from RawMessage.
+func parseFrameMessage(frame oneBotFrame) []MessageSegment {
+	if len(frame.Message) > 0 {
+		// Try JSON array format first.
+		trimmed := strings.TrimSpace(string(frame.Message))
+		if len(trimmed) > 0 && trimmed[0] == '[' {
+			if segments, err := parseMessageArray(frame.Message); err == nil && len(segments) > 0 {
+				return segments
+			}
+		}
+	}
+	// Fall back to CQ string from raw_message.
+	if frame.RawMessage != "" {
+		return parseCQString(frame.RawMessage)
+	}
+	return nil
 }

@@ -232,8 +232,8 @@ func TestNormalizeSupportedEventFromTextMessage(t *testing.T) {
 	if !ok {
 		t.Fatal("expected supported text message event")
 	}
-	if event.Kind != EventKindMessageText {
-		t.Fatalf("unexpected kind: got %q want %q", event.Kind, EventKindMessageText)
+	if event.Kind != EventKindMessage {
+		t.Fatalf("unexpected kind: got %q want %q", event.Kind, EventKindMessage)
 	}
 	if event.BotID != "10001" {
 		t.Fatalf("unexpected bot id: got %q want %q", event.BotID, "10001")
