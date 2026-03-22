@@ -1,0 +1,22 @@
+{
+  "id": "echo-python",
+  "name": "Echo",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "dev_source",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Echo plugin demonstrating command parsing and message segments",
+  "author": "raylea",
+  "commands": [
+    {
+      "name": "echo",
+      "aliases": ["复读"],
+      "description": "回复收到的消息内容",
+      "usage": "/echo <内容>",
+      "permission": "everyone"
+    }
+  ]
+}

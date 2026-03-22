@@ -1,0 +1,13 @@
+{
+  "id": "notice-logger",
+  "name": "Notice Logger",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "dev_source",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Logs group member join and leave events",
+  "author": "raylea"
+}
