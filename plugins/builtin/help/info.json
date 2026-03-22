@@ -1,0 +1,22 @@
+{
+  "id": "raylea.help",
+  "name": "Help",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Built-in help command that lists registered commands",
+  "author": "raylea",
+  "commands": [
+    {
+      "name": "help",
+      "aliases": ["帮助"],
+      "description": "显示所有可用命令",
+      "usage": "/help [命令名]",
+      "permission": "everyone"
+    }
+  ]
+}
