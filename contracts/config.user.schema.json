@@ -430,6 +430,46 @@
         }
       }
     },
+    "command": {
+      "type": "object",
+      "description": "Command prefix and parsing settings for chat-side command routing.",
+      "additionalProperties": false,
+      "required": ["prefixes"],
+      "properties": {
+        "prefixes": {
+          "type": "array",
+          "default": ["/"],
+          "description": "Command prefix strings checked against incoming message text. Longest prefix match wins.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "cooldown": {
+      "type": "object",
+      "description": "Chat-side command cooldown and rate limiting settings.",
+      "additionalProperties": false,
+      "required": ["user_command_rate_limit", "group_command_rate_limit", "cooldown_reply"],
+      "properties": {
+        "user_command_rate_limit": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "10/60s",
+          "description": "Per-user command rate limit."
+        },
+        "group_command_rate_limit": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "30/60s",
+          "description": "Per-group command rate limit."
+        },
+        "cooldown_reply": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to send a rate-limited reply when a user hits the cooldown."
+        }
+      }
+    },
     "retention": {
       "type": "object",
       "description": "Retention windows for short-lived operational data.",
@@ -471,7 +511,8 @@
   "x-fixtures": [
     "fixtures/config/ok.minimal.json",
     "fixtures/config/invalid.onebot-url.json",
-    "fixtures/config/edge.public-via-reverse-proxy.json"
+    "fixtures/config/edge.public-via-reverse-proxy.json",
+    "fixtures/config/ok.with-command-and-cooldown.json"
   ],
   "$comment": "Phase 1 canonical structure replaces the broader Phase 0 placeholder groups. TODO(doc.sync.phase1): align planning prose that still mentions older top-level group names."
 }
