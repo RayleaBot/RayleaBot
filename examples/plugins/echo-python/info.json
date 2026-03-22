@@ -13,7 +13,7 @@
   "commands": [
     {
       "name": "echo",
-      "aliases": ["复读"],
+      "aliases": ["repeat"],
       "description": "回复收到的消息内容",
       "usage": "/echo <内容>",
       "permission": "everyone"

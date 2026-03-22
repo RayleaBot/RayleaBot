@@ -13,7 +13,7 @@ plugin = RayleaBotPlugin()
 plugin.subscribe("message.group", "message.private")
 
 
-@plugin.on_command("echo", aliases=["复读"])
+@plugin.on_command("echo", aliases=["repeat"])
 def handle_echo(event, request_id):
     target = event.get("target", {})
     payload = event.get("payload", {})

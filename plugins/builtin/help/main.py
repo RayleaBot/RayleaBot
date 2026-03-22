@@ -14,7 +14,7 @@ plugin = RayleaBotPlugin()
 plugin.subscribe("message.group", "message.private")
 
 
-@plugin.on_command("help", aliases=["帮助"])
+@plugin.on_command("help", aliases=["commands"])
 def handle_help(event, request_id):
     target = event.get("target", {})
     text = "可用命令:\n/help - 显示所有可用命令\n\n使用 /help <命令名> 查看详细说明。"

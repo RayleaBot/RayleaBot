@@ -13,7 +13,7 @@
   "commands": [
     {
       "name": "help",
-      "aliases": ["帮助"],
+      "aliases": ["commands"],
       "description": "显示所有可用命令",
       "usage": "/help [命令名]",
       "permission": "everyone"
