@@ -17,8 +17,8 @@
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、ready gating、重连、心跳、消息/notice 归一化、rich `message.send` / `message.reply` 与 legacy `message.send_image` 已接入主链路；更广动作族与多 adapter 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions 已接入；更广动作族仍未实现 |
-| Phase 6 | Config / Storage / Security | ✅ | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger、聊天侧 command policy 与 temporal grants 已落地 |
+| Phase 5 | Plugin Protocol Bridge | 🟡 | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` local action RPC 已接入；更广动作族仍未实现 |
+| Phase 6 | Config / Storage / Security | ✅ | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger、聊天侧 command policy、temporal grants、plugin-scoped KV persistence 与日志 action 已落地 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；config snapshot 与 grants surface 已补齐 command/cooldown 和 `expires_at`；更广管理面扩展仍未开始 |
 | Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 基线已锁定，真实 Launcher 行为尚未开始 |
@@ -140,9 +140,10 @@
 | zero-gap reload | ✅ | reload 已走 start-before-stop 的 dispatcher swap 语义 |
 | builtin discovery / lifecycle | ✅ | `plugins/builtin` 已纳入默认 discovery roots，默认 `desired_state=enabled`，支持 enable / disable / reload，拒绝卸载 |
 | rich message action bridge | ✅ | `message.send`、`message.reply` 已按 shared `message.segments` 进入 runtime / dispatch / adapter 主链，`message.send_image` 保留兼容路径 |
+| local action RPC | ✅ | runtime 事件处理中已支持 `logger.write`、`storage.kv` 的 request/response 循环，terminal `message.*` 继续保持既有语义 |
 | temporal grants runtime enforcement | ✅ | `expires_at` 已进入 grants 管理面、存储层与 runtime 启停 / reload / reconcile / crash restart 判定 |
 | crash-backoff / dead_letter | ✅ | runtime crash 后的 `crashed` / `backoff` / `dead_letter` 状态流转已接入 app 生命周期 |
-| SDK 与示例插件 | ✅ | Python / Node.js SDK、示例插件与 builtin help 资源已落库，bundled manifests 已通过 contract 校验 |
+| SDK 与示例插件 | ✅ | Python / Node.js SDK 已补 `logger.write` / `storage.kv` helper，`notice-logger` 已演示本地 action 调用，bundled manifests 已通过 contract 校验 |
 
 ### 仍未完成
 
@@ -170,6 +171,8 @@
 | Scheduler persistence / recovery | ✅ | repository、hydration、tick loop 与 plugin runtime trigger 已进入 app |
 | 聊天侧 Permission / 黑名单 / 冷却限流 | ✅ | blacklist、命令权限、cooldown 与可选 cooldown reply 已进入 live command path |
 | Temporal grants | ✅ | `plugin_grants.expires_at`、生效授权过滤、enable / reload / reconcile / restart 过期判定已接入 |
+| `logger.write` formalize | ✅ | 已进入 plugin protocol、runtime local action executor、SDK、fixtures、示例与 tests |
+| `storage.kv` formalize | ✅ | 已进入 plugin protocol、SQLite migration / repository、config limits、SDK、fixtures、示例与 tests |
 
 ---
 
@@ -182,7 +185,7 @@
 | Health endpoints | ✅ | `GET /healthz` 与 `GET /readyz` |
 | Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login`、`session logout`、`launcher-token` 已落地 |
 | System management | ✅ | `GET /api/system/status`、`POST /api/system/shutdown` |
-| Config management | ✅ | `GET /api/config`、`PUT /api/config` 已包含 `command` / `cooldown`，并支持对应热更新 |
+| Config management | ✅ | `GET /api/config`、`PUT /api/config` 已包含 `command` / `cooldown` / `storage`，并支持对应热更新 |
 | Logs query | ✅ | `GET /api/logs` 与 `/ws/logs` 已提供跨重启的持久化 summary 查询与历史回放 |
 | Tasks management | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` |
 | Plugin install | ✅ | `local_directory`、`local_zip`、`remote_url` 安装路径已进入真实路由 |
@@ -248,27 +251,28 @@
 - `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。
 - 聊天侧 command policy 与 temporal grants 当前已受 app / plugins / storage / http tests 覆盖。
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
-- 当前主要风险已转向 `logger.write`、`storage.kv` 与更广动作族的 formalize / implementation，以及 Web UI、Launcher、Render 尚未启动带来的外层交付断层。
+- `logger.write` / `storage.kv` 当前已受 contract fixtures、runtime local action loop、app executor、SQLite repository、SDK 编译与示例 smoke 覆盖。
+- 当前主要风险已转向 `storage.file`、`http.request`、更广动作族，以及 Web UI、Launcher、Render 尚未启动带来的外层交付断层。
 
 ---
 
 ## 十四、下一步行动建议
 
-当前 rich message actions、runtime、dispatch、scheduler、聊天侧 command policy 与 temporal grants 已进入稳定闭环，下一步建议转向以下事项：
+当前 rich message actions、`logger.write`、`storage.kv`、runtime、dispatch、scheduler、聊天侧 command policy 与 temporal grants 已进入稳定闭环，下一步建议转向以下事项：
 
-### 1. 正式化 `logger.write`
+### 1. 正式化 `storage.file`
 
-1. 在 `plugin-protocol.schema.json` 中冻结 `logger.write` action 与 payload
-2. 让 runtime / dispatch / adapter 统一接入现有 console / logging 脱敏链路
-3. 补齐 fixtures、SDK helper、examples 与 server tests，确保日志 action 不绕过现有脱敏与持久化边界
+1. 在 contract 中冻结最小 `storage.file` action surface
+2. 将 scope 严格收敛到现有 `plugin_data` root
+3. 基于现有 SQLite / 本地存储基座补齐 metadata、fixtures、tests 与 companion docs
 
-### 2. 正式化 `storage.kv`
+### 2. 正式化 `http.request`
 
-1. 在 contract 中冻结最小 `storage.kv` action surface 与错误语义
-2. 基于现有 SQLite 基座接入 plugin-scoped KV persistence
-3. 补齐 migration、fixtures、tests 与 companion docs，保持 plugin scope 与 storage boundary 一致
+1. 在 contract 中冻结最小 `http.request` action surface 与错误语义
+2. 将 host 约束严格绑定到现有 `http_hosts` scope
+3. 接入统一 redaction、错误路径、fixtures、SDK helper 与 companion docs
 
-### 3. 在状态语义稳定后启动 Web UI
+### 3. 在 action surface 与状态语义稳定后启动 Web UI
 
 当前管理 API、WebSocket、任务流、日志与配置管理已经具备进入前端开发的前提，建议按以下顺序推进：
 

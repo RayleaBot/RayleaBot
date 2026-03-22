@@ -38,6 +38,7 @@
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `message.send`、`message.reply` 已同时支持 legacy text payload 和 richer `message.segments` payload
   - `message.send_image` 保留为 legacy compatibility path
+  - `logger.write` 与 `storage.kv` 已进入正式 local action RPC surface
   - 正式 outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`
 - `release-manifest.schema.json`
   - `release_manifest.json` 与 `build_info.json` 的正式字段结构
@@ -65,7 +66,10 @@
 - 批量消息
 - 复杂流式回传
 - 更宽的平台到插件方向 `error` 语义
-- `message.send`、`message.reply`、`message.send_image` 之外的其他 `action`
+- `storage.file`
+- `http.request`
+- `render.image`
+- `message.send`、`message.reply`、`message.send_image`、`logger.write`、`storage.kv` 之外的其他 `action`
 
 ### Release Metadata
 

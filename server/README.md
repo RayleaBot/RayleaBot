@@ -45,6 +45,7 @@
   - `event` / `result` / `error`
   - `ping` / `pong`
   - `shutdown`
+  - local action RPC for `logger.write` and `storage.kv`
   - crash / backoff / dead_letter
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
@@ -52,6 +53,9 @@
   - command-directed delivery
   - scheduler `scheduler.trigger`
   - zero-gap reload
+- plugin local actions：
+  - `logger.write` through management log redaction / persistence
+  - plugin-scoped `storage.kv` persistence with SQLite-backed limits
 - live chat command policy：
   - blacklist pre-check
   - command permission enforcement
@@ -70,6 +74,9 @@
   - `cooldown.*`
   - `auth.super_admins`
   - `auth.default_level`
+  - `storage.kv_*`
+  - `logging.retention_days`
+  - `logging.rate_limit_per_plugin`
 - CLI 子命令：
   - `reset-admin`
   - `backup`
@@ -80,7 +87,7 @@
 
 ## 当前边界
 
-- richer 消息动作之外的更广插件动作族仍未进入正式链路
+- `storage.file`、`http.request`、`render.image` 与更广插件动作族仍未进入正式链路
 
 ## 默认命令
 
