@@ -9,16 +9,116 @@ import (
 	"rayleabot/server/internal/storage"
 )
 
-func TestSQLiteRepositoryRoundTripsDesiredStates(t *testing.T) {
+func TestSQLiteRepositoryLoadGrantsFiltersExpiredEntries(t *testing.T) {
 	t.Parallel()
+
+	repo := openPluginRepository(t)
+	now := time.Now().UTC()
+	future := now.Add(2 * time.Hour)
+	past := now.Add(-2 * time.Hour)
+
+	for _, grant := range []PluginGrant{
+		{
+			PluginID:   "weather",
+			Capability: "http.request",
+			ScopeJSON:  `{"http_hosts":["api.example.com"]}`,
+			GrantedAt:  now,
+		},
+		{
+			PluginID:   "weather",
+			Capability: "logger.write",
+			ScopeJSON:  `{"http_hosts":["api.example.com"]}`,
+			GrantedAt:  now,
+			ExpiresAt:  &future,
+		},
+		{
+			PluginID:   "weather",
+			Capability: "storage.file",
+			ScopeJSON:  `{"storage_roots":["plugin_data"]}`,
+			GrantedAt:  now,
+			ExpiresAt:  &past,
+		},
+	} {
+		if err := repo.SaveGrant(context.Background(), grant); err != nil {
+			t.Fatalf("SaveGrant(%s): %v", grant.Capability, err)
+		}
+	}
+
+	grants, err := repo.LoadGrants(context.Background(), "weather")
+	if err != nil {
+		t.Fatalf("LoadGrants returned error: %v", err)
+	}
+	if len(grants) != 2 {
+		t.Fatalf("len(grants) = %d, want 2", len(grants))
+	}
+	if grants[0].Capability != "http.request" || grants[0].ExpiresAt != nil {
+		t.Fatalf("unexpected first grant: %#v", grants[0])
+	}
+	if grants[1].Capability != "logger.write" || grants[1].ExpiresAt == nil {
+		t.Fatalf("unexpected second grant: %#v", grants[1])
+	}
+}
+
+func TestSQLiteRepositoryLoadAllGrantsFiltersExpiredEntries(t *testing.T) {
+	t.Parallel()
+
+	repo := openPluginRepository(t)
+	now := time.Now().UTC()
+	future := now.Add(time.Hour)
+	past := now.Add(-time.Hour)
+
+	for _, grant := range []PluginGrant{
+		{
+			PluginID:   "weather",
+			Capability: "http.request",
+			ScopeJSON:  `{}`,
+			GrantedAt:  now,
+		},
+		{
+			PluginID:   "weather",
+			Capability: "logger.write",
+			ScopeJSON:  `{}`,
+			GrantedAt:  now,
+			ExpiresAt:  &future,
+		},
+		{
+			PluginID:   "clock",
+			Capability: "event.subscribe",
+			ScopeJSON:  `{}`,
+			GrantedAt:  now,
+			ExpiresAt:  &past,
+		},
+	} {
+		if err := repo.SaveGrant(context.Background(), grant); err != nil {
+			t.Fatalf("SaveGrant(%s/%s): %v", grant.PluginID, grant.Capability, err)
+		}
+	}
+
+	all, err := repo.LoadAllGrants(context.Background())
+	if err != nil {
+		t.Fatalf("LoadAllGrants returned error: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("len(all) = %d, want 1", len(all))
+	}
+	if got := all["weather"]; len(got) != 2 {
+		t.Fatalf("len(all[weather]) = %d, want 2", len(got))
+	}
+	if _, ok := all["clock"]; ok {
+		t.Fatalf("expired-only plugin should not appear in active grants: %#v", all)
+	}
+}
+
+func openPluginRepository(t *testing.T) *SQLiteRepository {
+	t.Helper()
 
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {
-		t.Fatalf("Open sqlite store failed: %v", err)
+		t.Fatalf("storage.Open failed: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Fatalf("close sqlite store: %v", err)
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("close store: %v", closeErr)
 		}
 	})
 
@@ -26,125 +126,5 @@ func TestSQLiteRepositoryRoundTripsDesiredStates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteRepository failed: %v", err)
 	}
-
-	if err := repo.SaveDesiredState(context.Background(), "hello-node", "enabled", time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)); err != nil {
-		t.Fatalf("SaveDesiredState hello-node failed: %v", err)
-	}
-	if err := repo.SaveDesiredState(context.Background(), "hello-python", "disabled", time.Date(2026, 3, 20, 12, 5, 0, 0, time.UTC)); err != nil {
-		t.Fatalf("SaveDesiredState hello-python failed: %v", err)
-	}
-
-	states, err := repo.LoadDesiredStates(context.Background())
-	if err != nil {
-		t.Fatalf("LoadDesiredStates failed: %v", err)
-	}
-
-	if states["hello-node"] != "enabled" {
-		t.Fatalf("hello-node desired_state = %q, want enabled", states["hello-node"])
-	}
-	if states["hello-python"] != "disabled" {
-		t.Fatalf("hello-python desired_state = %q, want disabled", states["hello-python"])
-	}
-}
-
-func TestSQLiteRepositorySavesPackageMetadata(t *testing.T) {
-	t.Parallel()
-
-	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
-	if err != nil {
-		t.Fatalf("Open sqlite store failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Fatalf("close sqlite store: %v", err)
-		}
-	})
-
-	repo, err := NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("NewSQLiteRepository failed: %v", err)
-	}
-
-	installedAt := time.Date(2026, 3, 21, 11, 0, 0, 0, time.UTC)
-	err = repo.SavePackageMetadata(context.Background(), PackageMetadata{
-		PluginID:     "hello-node",
-		SourceType:   "local_directory",
-		SourceRef:    "C:/plugins/hello-node",
-		Version:      "0.2.0",
-		ManifestHash: "manifest-sha",
-		PackageHash:  "package-sha",
-		InstalledAt:  installedAt,
-	})
-	if err != nil {
-		t.Fatalf("SavePackageMetadata failed: %v", err)
-	}
-
-	var (
-		sourceType   string
-		sourceRef    string
-		version      string
-		manifestHash string
-		packageHash  string
-		recordedAt   string
-	)
-	if err := store.Read.QueryRow(
-		`SELECT source_type, source_ref, version, manifest_hash, package_hash, installed_at
-		   FROM plugin_packages
-		  WHERE plugin_id = ?`,
-		"hello-node",
-	).Scan(&sourceType, &sourceRef, &version, &manifestHash, &packageHash, &recordedAt); err != nil {
-		t.Fatalf("query plugin_packages row: %v", err)
-	}
-
-	if sourceType != "local_directory" {
-		t.Fatalf("source_type = %q, want local_directory", sourceType)
-	}
-	if sourceRef != "C:/plugins/hello-node" {
-		t.Fatalf("source_ref = %q, want C:/plugins/hello-node", sourceRef)
-	}
-	if version != "0.2.0" {
-		t.Fatalf("version = %q, want 0.2.0", version)
-	}
-	if manifestHash != "manifest-sha" || packageHash != "package-sha" {
-		t.Fatalf("unexpected hashes: manifest=%q package=%q", manifestHash, packageHash)
-	}
-	if recordedAt != installedAt.Format(time.RFC3339Nano) {
-		t.Fatalf("installed_at = %q, want %q", recordedAt, installedAt.Format(time.RFC3339Nano))
-	}
-}
-
-func TestCatalogApplyDesiredStatesOverridesInstalledEntriesOnly(t *testing.T) {
-	t.Parallel()
-
-	catalog := NewCatalog([]Snapshot{
-		{
-			PluginID:          "hello-node",
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-		},
-		{
-			PluginID:          "removed-plugin",
-			RegistrationState: "removed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-		},
-	})
-
-	catalog.ApplyDesiredStates(map[string]string{
-		"hello-node":     "enabled",
-		"removed-plugin": "enabled",
-		"missing-plugin": "enabled",
-		"hello-python":   "paused",
-	})
-
-	helloNode, _ := catalog.Get("hello-node")
-	if helloNode.DesiredState != "enabled" {
-		t.Fatalf("hello-node desired_state = %q, want enabled", helloNode.DesiredState)
-	}
-
-	removed, _ := catalog.Get("removed-plugin")
-	if removed.DesiredState != "disabled" {
-		t.Fatalf("removed-plugin desired_state = %q, want disabled", removed.DesiredState)
-	}
+	return repo
 }

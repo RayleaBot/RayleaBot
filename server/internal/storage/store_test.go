@@ -38,6 +38,8 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "scheduler_jobs")
 	assertTableExists(t, store.Read, "blacklist_entries")
 	assertTableExists(t, store.Read, "management_logs")
+	assertColumnExists(t, store.Read, "plugin_grants", "expires_at")
+	assertIndexExists(t, store.Read, "idx_plugin_grants_expires_at")
 
 	tables := readTables(t, store.Read)
 	if len(tables) != 12 {
@@ -59,8 +61,8 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 11 {
-		t.Fatalf("unexpected migration count: got %d want 11", count)
+	if count != 12 {
+		t.Fatalf("unexpected migration count: got %d want 12", count)
 	}
 }
 
@@ -117,8 +119,8 @@ func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if migrationCount != 11 {
-		t.Fatalf("unexpected migration count after upgrade: got %d want 11", migrationCount)
+	if migrationCount != 12 {
+		t.Fatalf("unexpected migration count after upgrade: got %d want 12", migrationCount)
 	}
 
 	var bootstrapCount int
@@ -276,6 +278,46 @@ func assertTableExists(t *testing.T, db *sql.DB, name string) {
 	}
 	if exists != 1 {
 		t.Fatalf("expected table %s to exist", name)
+	}
+}
+
+func assertColumnExists(t *testing.T, db *sql.DB, tableName, columnName string) {
+	t.Helper()
+
+	rows, err := db.Query(`PRAGMA table_info(` + tableName + `)`)
+	if err != nil {
+		t.Fatalf("query table info for %s: %v", tableName, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull int
+		var defaultValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			t.Fatalf("scan table info row: %v", err)
+		}
+		if name == columnName {
+			return
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate table info rows: %v", err)
+	}
+	t.Fatalf("expected column %s.%s to exist", tableName, columnName)
+}
+
+func assertIndexExists(t *testing.T, db *sql.DB, indexName string) {
+	t.Helper()
+
+	var exists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?`, indexName).Scan(&exists); err != nil {
+		t.Fatalf("query sqlite_master for index %s: %v", indexName, err)
+	}
+	if exists != 1 {
+		t.Fatalf("expected index %s to exist", indexName)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -212,13 +213,15 @@ func newUninstallHandler(catalog *Catalog, coordinator UninstallCoordinator) htt
 }
 
 type grantRequest struct {
-	Capability string `json:"capability"`
+	Capability string  `json:"capability"`
+	ExpiresAt  *string `json:"expires_at,omitempty"`
 }
 
 type grantResponse struct {
-	PluginID   string `json:"plugin_id"`
-	Capability string `json:"capability"`
-	GrantedAt  string `json:"granted_at"`
+	PluginID   string  `json:"plugin_id"`
+	Capability string  `json:"capability"`
+	GrantedAt  string  `json:"granted_at"`
+	ExpiresAt  *string `json:"expires_at,omitempty"`
 }
 
 type grantsListResponse struct {
@@ -246,11 +249,16 @@ func newListGrantsHandler(catalog *Catalog, repo GrantRepository) http.HandlerFu
 		}
 		items := make([]grantResponse, 0, len(grants))
 		for _, g := range grants {
-			items = append(items, grantResponse{
+			response := grantResponse{
 				PluginID:   g.PluginID,
 				Capability: g.Capability,
 				GrantedAt:  g.GrantedAt.UTC().Format(time.RFC3339),
-			})
+			}
+			if g.ExpiresAt != nil {
+				expiresAt := g.ExpiresAt.UTC().Format(time.RFC3339)
+				response.ExpiresAt = &expiresAt
+			}
+			items = append(items, response)
 		}
 		writeJSON(w, http.StatusOK, grantsListResponse{Items: items})
 	}
@@ -283,21 +291,32 @@ func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "capability 未在插件 manifest 中声明", "errors.platform.invalid_request", map[string]any{"capability": req.Capability, "plugin_id": pluginID})
 			return
 		}
+		expiresAt, err := parseGrantRequestExpiry(req.ExpiresAt)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
 		grant := PluginGrant{
 			PluginID:   pluginID,
 			Capability: req.Capability,
 			ScopeJSON:  BuildScopeJSON(snapshot),
 			GrantedAt:  time.Now().UTC(),
+			ExpiresAt:  expiresAt,
 		}
 		if err := repo.SaveGrant(r.Context(), grant); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-		writeJSON(w, http.StatusOK, grantResponse{
+		response := grantResponse{
 			PluginID:   grant.PluginID,
 			Capability: grant.Capability,
 			GrantedAt:  grant.GrantedAt.Format(time.RFC3339),
-		})
+		}
+		if grant.ExpiresAt != nil {
+			value := grant.ExpiresAt.UTC().Format(time.RFC3339)
+			response.ExpiresAt = &value
+		}
+		writeJSON(w, http.StatusOK, response)
 	}
 }
 
@@ -319,6 +338,27 @@ func newRevokeGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerF
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func parseGrantRequestExpiry(value *string) (*time.Time, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	raw := strings.TrimSpace(*value)
+	if raw == "" || !strings.HasSuffix(raw, "Z") {
+		return nil, errors.New("expires_at must be a UTC RFC3339 timestamp")
+	}
+
+	parsed, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return nil, err
+	}
+	parsed = parsed.UTC()
+	if !parsed.After(time.Now().UTC()) {
+		return nil, errors.New("expires_at must be in the future")
+	}
+	return &parsed, nil
 }
 
 func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo GrantRepository) {

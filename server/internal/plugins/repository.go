@@ -36,6 +36,7 @@ type PluginGrant struct {
 	Capability string
 	ScopeJSON  string // JSON-encoded scope boundaries (http_hosts, storage_roots, etc.)
 	GrantedAt  time.Time
+	ExpiresAt  *time.Time
 }
 
 type GrantRepository interface {
@@ -152,37 +153,50 @@ func (r *SQLiteRepository) DeletePackageMetadata(ctx context.Context, pluginID s
 }
 
 func (r *SQLiteRepository) LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error) {
-	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability, scope_json, granted_at FROM plugin_grants WHERE plugin_id = ? ORDER BY capability`, pluginID)
+	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability, scope_json, granted_at, expires_at FROM plugin_grants WHERE plugin_id = ? ORDER BY capability`, pluginID)
 	if err != nil {
 		return nil, fmt.Errorf("query grants for %s: %w", pluginID, err)
 	}
 	defer rows.Close()
 
+	now := time.Now().UTC()
 	var grants []PluginGrant
 	for rows.Next() {
 		var g PluginGrant
 		var grantedAt string
-		if err := rows.Scan(&g.PluginID, &g.Capability, &g.ScopeJSON, &grantedAt); err != nil {
+		var expiresAt sql.NullString
+		if err := rows.Scan(&g.PluginID, &g.Capability, &g.ScopeJSON, &grantedAt, &expiresAt); err != nil {
 			return nil, fmt.Errorf("scan grant row: %w", err)
 		}
 		g.GrantedAt, _ = time.Parse(time.RFC3339Nano, grantedAt)
+		if parsed, ok := parseGrantExpiry(expiresAt); ok {
+			g.ExpiresAt = parsed
+			if !parsed.After(now) {
+				continue
+			}
+		}
 		grants = append(grants, g)
 	}
 	return grants, rows.Err()
 }
 
 func (r *SQLiteRepository) LoadAllGrants(ctx context.Context) (map[string][]string, error) {
-	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability FROM plugin_grants ORDER BY plugin_id, capability`)
+	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, capability, expires_at FROM plugin_grants ORDER BY plugin_id, capability`)
 	if err != nil {
 		return nil, fmt.Errorf("query all grants: %w", err)
 	}
 	defer rows.Close()
 
+	now := time.Now().UTC()
 	grants := make(map[string][]string)
 	for rows.Next() {
 		var pluginID, capability string
-		if err := rows.Scan(&pluginID, &capability); err != nil {
+		var expiresAt sql.NullString
+		if err := rows.Scan(&pluginID, &capability, &expiresAt); err != nil {
 			return nil, fmt.Errorf("scan grant row: %w", err)
+		}
+		if parsed, ok := parseGrantExpiry(expiresAt); ok && !parsed.After(now) {
+			continue
 		}
 		grants[pluginID] = append(grants[pluginID], capability)
 	}
@@ -192,15 +206,17 @@ func (r *SQLiteRepository) LoadAllGrants(ctx context.Context) (map[string][]stri
 func (r *SQLiteRepository) SaveGrant(ctx context.Context, grant PluginGrant) error {
 	if _, err := r.write.ExecContext(
 		ctx,
-		`INSERT INTO plugin_grants (plugin_id, capability, scope_json, granted_at)
-		VALUES (?, ?, ?, ?)
+		`INSERT INTO plugin_grants (plugin_id, capability, scope_json, granted_at, expires_at)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(plugin_id, capability) DO UPDATE SET
 			scope_json = excluded.scope_json,
-			granted_at = excluded.granted_at`,
+			granted_at = excluded.granted_at,
+			expires_at = excluded.expires_at`,
 		grant.PluginID,
 		grant.Capability,
 		grant.ScopeJSON,
 		grant.GrantedAt.UTC().Format(time.RFC3339Nano),
+		formatGrantExpiry(grant.ExpiresAt),
 	); err != nil {
 		return fmt.Errorf("upsert grant for %s/%s: %w", grant.PluginID, grant.Capability, err)
 	}
@@ -219,4 +235,23 @@ func (r *SQLiteRepository) DeleteAllGrants(ctx context.Context, pluginID string)
 		return fmt.Errorf("delete all grants for %s: %w", pluginID, err)
 	}
 	return nil
+}
+
+func formatGrantExpiry(expiresAt *time.Time) any {
+	if expiresAt == nil {
+		return nil
+	}
+	return expiresAt.UTC().Format(time.RFC3339Nano)
+}
+
+func parseGrantExpiry(value sql.NullString) (*time.Time, bool) {
+	if !value.Valid || value.String == "" {
+		return nil, false
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, value.String)
+	if err != nil {
+		return nil, false
+	}
+	parsed = parsed.UTC()
+	return &parsed, true
 }

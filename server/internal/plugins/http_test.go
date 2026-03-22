@@ -544,12 +544,21 @@ type stubGrantRepository struct {
 }
 
 func (r *stubGrantRepository) LoadGrants(_ context.Context, pluginID string) ([]PluginGrant, error) {
-	return r.grants[pluginID], nil
+	now := time.Now().UTC()
+	var active []PluginGrant
+	for _, grant := range r.grants[pluginID] {
+		if grant.ExpiresAt != nil && !grant.ExpiresAt.After(now) {
+			continue
+		}
+		active = append(active, grant)
+	}
+	return active, nil
 }
 
 func (r *stubGrantRepository) LoadAllGrants(_ context.Context) (map[string][]string, error) {
 	result := make(map[string][]string)
-	for pid, gs := range r.grants {
+	for pid := range r.grants {
+		gs, _ := r.LoadGrants(context.Background(), pid)
 		for _, g := range gs {
 			result[pid] = append(result[pid], g.Capability)
 		}
@@ -561,7 +570,15 @@ func (r *stubGrantRepository) SaveGrant(_ context.Context, grant PluginGrant) er
 	if r.grants == nil {
 		r.grants = make(map[string][]PluginGrant)
 	}
-	r.grants[grant.PluginID] = append(r.grants[grant.PluginID], grant)
+	items := r.grants[grant.PluginID]
+	for i, existing := range items {
+		if existing.Capability == grant.Capability {
+			items[i] = grant
+			r.grants[grant.PluginID] = items
+			return nil
+		}
+	}
+	r.grants[grant.PluginID] = append(items, grant)
 	return nil
 }
 
@@ -620,6 +637,9 @@ func TestGrantHandler_ValidCapability(t *testing.T) {
 	}
 	if resp.Capability != "http.request" {
 		t.Fatalf("capability = %q, want http.request", resp.Capability)
+	}
+	if resp.ExpiresAt != nil {
+		t.Fatalf("expires_at = %v, want nil for permanent grant", *resp.ExpiresAt)
 	}
 }
 
@@ -722,5 +742,130 @@ func TestGrantHandler_PluginNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+func TestGrantHandler_AcceptsFutureExpiry(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:             "weather",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DesiredState:         "disabled",
+		RuntimeState:         "stopped",
+		DeclaredCapabilities: []string{"logger.write"},
+		OptionalPermissions:  []string{"logger.write"},
+	}}, repo)
+
+	expiresAt := time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339)
+	body, _ := json.Marshal(grantRequest{Capability: "logger.write", ExpiresAt: &expiresAt})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp grantResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.ExpiresAt == nil || *resp.ExpiresAt != expiresAt {
+		t.Fatalf("expires_at = %#v, want %q", resp.ExpiresAt, expiresAt)
+	}
+}
+
+func TestGrantHandler_RejectsInvalidExpiry(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:             "weather",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DesiredState:         "disabled",
+		RuntimeState:         "stopped",
+		DeclaredCapabilities: []string{"http.request"},
+		RequiredPermissions:  []string{"http.request"},
+	}}, repo)
+
+	expiresAt := "2026-03-22T10:00:00+08:00"
+	body, _ := json.Marshal(grantRequest{Capability: "http.request", ExpiresAt: &expiresAt})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
+	}
+
+	env := decodeErrorEnvelope(t, rec.Body.Bytes())
+	if env.Error.Code != codeInvalidRequest {
+		t.Fatalf("error.code = %q, want %q", env.Error.Code, codeInvalidRequest)
+	}
+}
+
+func TestListGrantsHandler_OmitsExpiredGrant(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	future := now.Add(time.Hour)
+	past := now.Add(-time.Hour)
+	repo := &stubGrantRepository{
+		grants: map[string][]PluginGrant{
+			"weather": {
+				{
+					PluginID:   "weather",
+					Capability: "http.request",
+					GrantedAt:  now,
+				},
+				{
+					PluginID:   "weather",
+					Capability: "logger.write",
+					GrantedAt:  now,
+					ExpiresAt:  &future,
+				},
+				{
+					PluginID:   "weather",
+					Capability: "storage.file",
+					GrantedAt:  now,
+					ExpiresAt:  &past,
+				},
+			},
+		},
+	}
+	router := grantsRouter([]Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "disabled",
+		RuntimeState:      "stopped",
+	}}, repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather/grants", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp grantsListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Items) != 2 {
+		t.Fatalf("len(items) = %d, want 2", len(resp.Items))
+	}
+	if resp.Items[1].ExpiresAt == nil {
+		t.Fatalf("expires_at = nil, want populated expiry")
 	}
 }

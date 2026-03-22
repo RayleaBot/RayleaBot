@@ -27,6 +27,27 @@ func newPluginLifecycleController(app *App) *pluginLifecycleController {
 	return &pluginLifecycleController{app: app}
 }
 
+func (c *pluginLifecycleController) validateActivation(ctx context.Context, snapshot plugins.Snapshot) ([]string, error) {
+	granted := c.grantedCapabilities(ctx, snapshot.PluginID)
+	if missing := missingCapabilities(snapshot.RequiredPermissions, granted); len(missing) > 0 {
+		return granted, &plugins.PermissionPendingError{
+			PluginID:            snapshot.PluginID,
+			MissingCapabilities: missing,
+		}
+	}
+
+	if c.app != nil && c.app.grantRepository != nil {
+		if changed := scopeChangedSinceGrant(ctx, c.app.grantRepository, snapshot); changed {
+			return granted, &plugins.PermissionPendingError{
+				PluginID:     snapshot.PluginID,
+				ScopeChanged: true,
+			}
+		}
+	}
+
+	return granted, nil
+}
+
 func (c *pluginLifecycleController) Enable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 	if c == nil || c.app == nil || c.app.Plugins == nil {
 		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
@@ -40,21 +61,8 @@ func (c *pluginLifecycleController) Enable(ctx context.Context, pluginID string)
 		return plugins.Snapshot{}, plugins.ErrStateConflict
 	}
 
-	granted := c.grantedCapabilities(ctx, pluginID)
-	if missing := missingCapabilities(snapshot.RequiredPermissions, granted); len(missing) > 0 {
-		return plugins.Snapshot{}, &plugins.PermissionPendingError{
-			PluginID:            pluginID,
-			MissingCapabilities: missing,
-		}
-	}
-
-	if c.app.grantRepository != nil {
-		if changed := scopeChangedSinceGrant(ctx, c.app.grantRepository, snapshot); changed {
-			return plugins.Snapshot{}, &plugins.PermissionPendingError{
-				PluginID:     pluginID,
-				ScopeChanged: true,
-			}
-		}
+	if _, err := c.validateActivation(ctx, snapshot); err != nil {
+		return plugins.Snapshot{}, err
 	}
 
 	if err := c.app.persistPluginDesiredState(ctx, pluginID, "enabled"); err != nil {
@@ -87,6 +95,11 @@ func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string)
 	}
 	if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
 		return plugins.Snapshot{}, plugins.ErrStateConflict
+	}
+
+	if _, err := c.validateActivation(ctx, snapshot); err != nil {
+		c.disablePluginForPermissionLoss(ctx, pluginID)
+		return plugins.Snapshot{}, err
 	}
 
 	updated, err := c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))
@@ -226,7 +239,8 @@ func (c *pluginLifecycleController) reconcileRuntime(ctx context.Context, botID 
 		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
 			continue
 		}
-		if missing := missingCapabilities(snapshot.RequiredPermissions, c.grantedCapabilities(ctx, snapshot.PluginID)); len(missing) > 0 {
+		if _, err := c.validateActivation(ctx, snapshot); err != nil {
+			c.disablePluginForPermissionLoss(ctx, snapshot.PluginID)
 			continue
 		}
 		if err := c.ensurePluginRunning(ctx, snapshot.PluginID, botID); err != nil {
@@ -283,6 +297,10 @@ func (c *pluginLifecycleController) reloadPluginAsync(pluginID, botID string) {
 		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 		return
 	}
+	if _, err := c.validateActivation(ctx, snapshot); err != nil {
+		c.disablePluginForPermissionLoss(ctx, pluginID)
+		return
+	}
 
 	current, ok := c.app.Runtimes.Get(pluginID)
 	if !ok || current == nil {
@@ -336,17 +354,9 @@ func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, 
 		return nil
 	}
 
-	granted := c.grantedCapabilities(ctx, pluginID)
-	if missing := missingCapabilities(snapshot.RequiredPermissions, granted); len(missing) > 0 {
-		if err := c.app.persistPluginDesiredState(ctx, pluginID, "disabled"); err != nil {
-			c.logLifecycleWarn("persist disabled desired_state after permission rejection", pluginID, err)
-		}
-		if updated, err := c.app.Plugins.SetDesiredState(pluginID, "disabled"); err == nil {
-			snapshot = updated
-		}
-		_, _ = c.app.Plugins.SetRuntimeState(snapshot.PluginID, string(runtime.StateStopped))
-		c.app.Dispatcher.Deregister(pluginID)
-		c.app.Runtimes.Delete(pluginID)
+	granted, err := c.validateActivation(ctx, snapshot)
+	if err != nil {
+		c.disablePluginForPermissionLoss(ctx, pluginID)
 		return nil
 	}
 
@@ -574,6 +584,20 @@ func (c *pluginLifecycleController) logLifecycleWarn(message, pluginID string, e
 		"plugin_id", pluginID,
 		"err", err.Error(),
 	)
+}
+
+func (c *pluginLifecycleController) disablePluginForPermissionLoss(ctx context.Context, pluginID string) {
+	if c == nil || c.app == nil {
+		return
+	}
+
+	if err := c.app.persistPluginDesiredState(ctx, pluginID, "disabled"); err != nil {
+		c.logLifecycleWarn("persist disabled desired_state after permission rejection", pluginID, err)
+	}
+	if _, err := c.app.Plugins.SetDesiredState(pluginID, "disabled"); err != nil && !errors.Is(err, plugins.ErrPluginNotFound) {
+		c.logLifecycleWarn("set disabled desired_state after permission rejection", pluginID, err)
+	}
+	c.stopPlugin(ctx, pluginID, true)
 }
 
 func (a *App) persistPluginDesiredState(ctx context.Context, pluginID, desiredState string) error {
