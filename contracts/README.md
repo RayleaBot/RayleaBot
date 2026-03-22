@@ -2,9 +2,11 @@
 
 `contracts/` 是 RayleaBot v0.1 对外接口、schema、错误码和发行元数据的唯一正式来源。
 
-## Fixture-Ready 范围
+## 当前状态
 
-当前进入 fixture-ready 的正式契约共有 7 个文件：
+### Fixture-ready 正式契约
+
+当前已有 7 份 fixture-ready formal contracts：
 
 - `config.user.schema.json`
 - `error-codes.yaml`
@@ -14,53 +16,39 @@
 - `plugin-protocol.schema.json`
 - `release-manifest.schema.json`
 
-这些文件都必须带 `x-fixtures` 或等价示例引用，并接受 PR 级 CI 的存在性、可解析性和最低契约覆盖校验。
+这些文件都带有 `x-fixtures` 或等价引用，并接受 CI 的解析、存在性与最小覆盖校验。
 
-此外，以下契约文件为正式骨架（尚无 fixture 覆盖，所有命令标记为 TODO）：
+### 已 formalize、未 fixture-ready 的契约
 
 - `cli-commands.yaml`
+
+`cli-commands.yaml` 已明确 6 条 CLI 子命令的命令模型、在线/离线可用性、task 关联、可取消性和退出码，并标注当前实现状态；CLI fixtures 与 golden cases 仍未补齐。
 
 ## 文件职责
 
-- `cli-commands.yaml`
-  - 负责 v0.1 CLI 子命令的正式执行模型：命令名、在线/离线可用性、task 模型关联、可取消性与退出码。
-  - 设计来源为 `docs/RayleaBot机器人项目规划.md` § 3.12。
-  - 当前所有命令均标记为 TODO，尚无实现。
 - `config.user.schema.json`
-  - 负责 `config/user.yaml` 的正式机器可校验结构。
-  - 冻结 v0.1 首版闭环配置，不预留宽泛占位。
+  - `config/user.yaml` 的正式机器可校验结构
 - `error-codes.yaml`
-  - 负责统一错误码命名、默认消息资源键、HTTP 语义和适用范围。
+  - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
-  - 负责当前已冻结的最小管理 HTTP 接口，包括最小 bootstrap/admin credential-source 与 management session issuance surfaces。
+  - 当前已冻结的管理 HTTP 接口
 - `websocket-events.yaml`
-  - 负责 Phase 1 最小管理通道的 shared envelope、事件名和 payload 约束。
+  - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
-  - 负责插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和数据迁移判断边界。
-  - 依赖 Phase 1 已冻结的配置、错误码和管理面语义。
+  - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
 - `plugin-protocol.schema.json`
-  - 负责插件 Runtime 最小 JSONL 协议。
-  - 本轮冻结 `init`、`init_progress`、`init_ack`、`event`、`action=message.send`、`action=message.reply`、`action=message.send_image`、`result`、`error`、`shutdown`。
-  - 依赖 Phase 1 已冻结的错误码、任务状态和运行时边界。
+  - 插件 Runtime JSONL 协议
+  - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`action=message.send`、`action=message.reply`、`action=message.send_image`、`result`、`error`、`ping`、`pong`、`shutdown`
 - `release-manifest.schema.json`
-  - 负责 `release_manifest.json` 与 `build_info.json` 的正式字段结构。
-  - 只表达发行物整体元数据，不重复展开 `.deps/manifest.json` 中的受控运行时资源清单。
-
-## Phase 1 与 Phase 2 的关系
-
-- Phase 1 冻结了平台配置、错误码、管理面 HTTP API 和管理面 WebSocket 事件。
-- Phase 2 在此基础上补齐：
-  - 插件包边界：`plugin-info.schema.json`
-  - 插件 Runtime 协议边界：`plugin-protocol.schema.json`
-  - 发行物边界：`release-manifest.schema.json`
-- 进入后续 server 最小空壳时，应该只消费这 7 份正式 contract，而不是从 README 或规划正文重新猜字段。
+  - `release_manifest.json` 与 `build_info.json` 的正式字段结构
+- `cli-commands.yaml`
+  - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 的正式命令模型
 
 ## 当前仍保留为 TODO 的边界
 
 ### Plugin Manifest
 
 - `default_config`
-- `commands`
 - `concurrency`
 - `role`
 - `icon`
@@ -76,8 +64,8 @@
 - 调试流
 - 批量消息
 - 复杂流式回传
-- 平台到插件方向的扩展 `error` 语义
-- `message.send`、`message.reply` 和 `message.send_image` 之外的其他 `action` 种类
+- 更宽的平台到插件方向 `error` 语义
+- `message.send`、`message.reply`、`message.send_image` 之外的其他 `action`
 
 ### Release Metadata
 
@@ -91,33 +79,20 @@
 - 发布流水线策略
 - `SHA256SUMS.txt` 文件内容结构
 
-### CLI Commands
+### CLI
 
-- 全部 6 条子命令（`reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup`）的实现
-- CLI 与 HTTP task 模型的共享执行路径（`backup.create`、`restore.apply`、`db.migrate`）
-- CLI 专用 fixture 与 golden case
+- CLI 专用 fixtures 与 golden cases
+- CLI 与 HTTP task 模型的共享执行路径验证
 
 ## 当前未进入 OpenAPI 的 TODO
 
-以下 HTTP 路由仍属于规划内能力，但不在正式 OpenAPI 冻结范围内：
+以下 HTTP 路由仍未进入正式 OpenAPI 冻结范围：
 
-- `POST /api/plugins/{plugin_id}/reload`
-- `DELETE /api/plugins/{plugin_id}`
 - `POST /api/webhooks/{plugin_id}/{route}`
-
-这些接口在进入 fixture-ready 前，不得以 skeleton 形式提前回写到 `contracts/web-api.openapi.yaml`。
-
-## 文档同步 TODO
-
-- `platform.config_error` 已收口为 `platform.invalid_config`。
-- 旧示例中的 `task.updated` 已收口为 `tasks.updated`。
-- Phase 0 中较宽的配置顶层分组已收口为 10 个正式对象。
-- Phase 2 中的 `plugin-info` / `plugin-protocol` / `release-manifest` 已进入 fixture-ready，相关规划正文的“建议字段”表需要同步为“正式 contract 以 contracts 为准”。
 
 ## 通用规则
 
-- 规划文档解释设计意图，`contracts/` 裁决最终接口。
-- 若 Markdown 与 `contracts/` 冲突，必须以 `contracts/` 为准，并在同一变更中修正文档说明。
-- 任一涉及 HTTP API、WebSocket、plugin manifest、plugin protocol、release metadata、config schema、error codes 的改动，必须先更新这里，再更新实现代码、测试和示例。
-- `contracts/` 不接受“实现里已经这样做了，所以 contract 先不改”的倒置流程。
-- `fixtures/` 与 `examples/` 只能从这里派生，不能反向覆盖这里。
+- 规划文档解释设计意图，`contracts/` 裁决最终接口
+- 若 Markdown 与 `contracts/` 冲突，必须以 `contracts/` 为准，并在同一变更中修正文档说明
+- 任一涉及 HTTP API、WebSocket、plugin manifest、plugin protocol、release metadata、config schema、error codes 的改动，必须先更新这里，再更新实现代码、测试和示例
+- `fixtures/` 与 `examples/` 只能从这里派生，不能反向覆盖这里
