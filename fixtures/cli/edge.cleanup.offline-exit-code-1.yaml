@@ -1,0 +1,8 @@
+contract: contracts/cli-commands.yaml#commands.cleanup
+input:
+  command: cleanup
+  mode: offline
+expect:
+  valid: true
+  exit_code: 1
+  task_model: false

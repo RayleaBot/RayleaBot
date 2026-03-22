@@ -28,6 +28,10 @@
   - 对应 `contracts/release-manifest.schema.json`
   - 统一采用 `input + expect` 结构
   - 主要服务产物元数据校验，以及后续 doctor、launcher、release 共享结构验证
+- `cli/`
+  - 对应 `contracts/cli-commands.yaml`
+  - 统一采用 `input + expect` 结构
+  - 主要服务 CLI 命令可用模式、退出码、task model 与 fixture-ready 覆盖校验
 
 ## 命名规则
 

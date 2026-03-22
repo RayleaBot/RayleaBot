@@ -1,0 +1,8 @@
+contract: contracts/cli-commands.yaml#commands.reset-admin
+input:
+  command: reset-admin
+  mode: offline
+expect:
+  valid: true
+  exit_code: 0
+  task_model: false

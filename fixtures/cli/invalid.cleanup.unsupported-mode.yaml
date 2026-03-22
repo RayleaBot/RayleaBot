@@ -1,0 +1,7 @@
+contract: contracts/cli-commands.yaml#commands.cleanup
+input:
+  command: cleanup
+  mode: unsupported
+expect:
+  valid: false
+  reason: unsupported_mode

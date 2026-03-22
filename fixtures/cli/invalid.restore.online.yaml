@@ -1,0 +1,7 @@
+contract: contracts/cli-commands.yaml#commands.restore
+input:
+  command: restore
+  mode: online
+expect:
+  valid: false
+  reason: mode_unavailable

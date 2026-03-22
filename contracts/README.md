@@ -6,7 +6,7 @@
 
 ### Fixture-ready 正式契约
 
-当前已有 7 份 fixture-ready formal contracts：
+当前已有 8 份 fixture-ready formal contracts：
 
 - `config.user.schema.json`
 - `error-codes.yaml`
@@ -15,14 +15,9 @@
 - `plugin-info.schema.json`
 - `plugin-protocol.schema.json`
 - `release-manifest.schema.json`
-
-这些文件都带有 `x-fixtures` 或等价引用，并接受 CI 的解析、存在性与最小覆盖校验。
-
-### 已 formalize、未 fixture-ready 的契约
-
 - `cli-commands.yaml`
 
-`cli-commands.yaml` 已明确 6 条 CLI 子命令的命令模型、在线/离线可用性、task 关联、可取消性和退出码，并标注当前实现状态；CLI fixtures 与 golden cases 仍未补齐。
+这些文件都带有 `x-fixtures` 或等价引用，并接受 CI 的解析、存在性与最小覆盖校验。
 
 ## 文件职责
 
@@ -81,7 +76,6 @@
 
 ### CLI
 
-- CLI 专用 fixtures 与 golden cases
 - CLI 与 HTTP task 模型的共享执行路径验证
 
 ## 当前未进入 OpenAPI 的 TODO

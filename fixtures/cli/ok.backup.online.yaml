@@ -1,0 +1,9 @@
+contract: contracts/cli-commands.yaml#commands.backup
+input:
+  command: backup
+  mode: online
+expect:
+  valid: true
+  exit_code: 0
+  task_model: true
+  task_type: backup.create

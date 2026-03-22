@@ -60,6 +60,7 @@ jobs:
               fixtures / 'plugin-info',
               fixtures / 'plugin-protocol',
               fixtures / 'release-manifest',
+              fixtures / 'cli',
           ]
           required_example_files = [
               examples / 'plugins' / 'hello-python' / 'info.json',
@@ -358,10 +359,61 @@ jobs:
           actual_cli_commands = set(cli_commands.get('commands', {}).keys())
           if actual_cli_commands != expected_cli_commands:
               raise SystemExit(f'cli-commands.yaml commands must exactly match {sorted(expected_cli_commands)}; got {sorted(actual_cli_commands)}')
+          cli_fixture_refs = cli_commands.get('x-fixtures', [])
+          if not cli_fixture_refs:
+              raise SystemExit('cli-commands.yaml must declare top-level x-fixtures')
+          aggregated_cli_refs = set()
           for cmd_name, cmd in cli_commands.get('commands', {}).items():
               avail = cmd.get('availability', {})
               if 'online' not in avail or 'offline' not in avail:
                   raise SystemExit(f'cli-commands.yaml command {cmd_name} must declare online and offline availability')
+              cmd_refs = cmd.get('x-fixtures', [])
+              if len(cmd_refs) < 3:
+                  raise SystemExit(f'cli-commands.yaml command {cmd_name} must declare at least 3 fixture refs')
+              categories = {Path(ref).name.split('.')[0] for ref in cmd_refs}
+              if categories != {'ok', 'invalid', 'edge'}:
+                  raise SystemExit(f'cli-commands.yaml command {cmd_name} must provide ok/invalid/edge fixtures; got {sorted(categories)}')
+              aggregated_cli_refs.update(cmd_refs)
+              for ref in cmd_refs:
+                  ref_path = root / ref
+                  if not ref_path.is_file():
+                      raise SystemExit(f'missing CLI fixture: {ref}')
+                  document = load_any(ref_path)
+                  if not isinstance(document, dict):
+                      raise SystemExit(f'CLI fixture must be an object: {ref}')
+                  if document.get('contract') != f'contracts/cli-commands.yaml#commands.{cmd_name}':
+                      raise SystemExit(f'CLI fixture contract ref mismatch for {ref}')
+                  fixture_input = document.get('input', {})
+                  fixture_expect = document.get('expect', {})
+                  if fixture_input.get('command') != cmd_name:
+                      raise SystemExit(f'CLI fixture input.command mismatch for {ref}')
+                  if 'mode' not in fixture_input:
+                      raise SystemExit(f'CLI fixture input.mode missing for {ref}')
+                  if 'valid' not in fixture_expect:
+                      raise SystemExit(f'CLI fixture expect.valid missing for {ref}')
+                  prefix = Path(ref).name.split('.')[0]
+                  mode = fixture_input.get('mode')
+                  if prefix in {'ok', 'edge'}:
+                      if fixture_expect.get('valid') is not True:
+                          raise SystemExit(f'CLI fixture {ref} must set expect.valid=true')
+                      if mode not in {'online', 'offline'}:
+                          raise SystemExit(f'CLI fixture {ref} must use online/offline mode for valid cases')
+                      if not avail.get(mode):
+                          raise SystemExit(f'CLI fixture {ref} uses unavailable mode {mode!r} for command {cmd_name}')
+                      exit_code = fixture_expect.get('exit_code')
+                      if str(exit_code) not in {str(code) for code in cmd.get('exit_codes', {}).keys()}:
+                          raise SystemExit(f'CLI fixture {ref} uses exit_code {exit_code!r} not declared by {cmd_name}')
+                      if fixture_expect.get('task_model') != bool(cmd.get('task_model')):
+                          raise SystemExit(f'CLI fixture {ref} task_model mismatch for {cmd_name}')
+                      if cmd.get('task_type') and fixture_expect.get('task_type') != cmd.get('task_type'):
+                          raise SystemExit(f'CLI fixture {ref} task_type mismatch for {cmd_name}')
+                  else:
+                      if fixture_expect.get('valid') is not False:
+                          raise SystemExit(f'CLI fixture {ref} must set expect.valid=false')
+                      if mode in {'online', 'offline'} and avail.get(mode):
+                          raise SystemExit(f'CLI fixture {ref} invalid case still uses an allowed mode for {cmd_name}')
+                      if not fixture_expect.get('reason'):
+                          raise SystemExit(f'CLI fixture {ref} must declare expect.reason for invalid cases')
           task_model_commands = {name for name, cmd in cli_commands['commands'].items() if cmd.get('task_model')}
           for cmd_name in task_model_commands:
               cmd = cli_commands['commands'][cmd_name]
@@ -369,6 +421,8 @@ jobs:
               task_types_enum = web_api['components']['schemas']['TaskType'].get('enum', [])
               if task_type not in task_types_enum:
                   raise SystemExit(f'cli-commands.yaml command {cmd_name} task_type {task_type} not found in web-api TaskType enum')
+          if set(cli_fixture_refs) != aggregated_cli_refs:
+              raise SystemExit('cli-commands.yaml top-level x-fixtures must match the union of per-command fixture refs')
 
           print('contracts validation passed')
           PY

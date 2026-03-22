@@ -4,7 +4,25 @@ description: >
   不承担常规在线管理面职责。命令由主程序提供受控子命令，
   文档中统一记为 raylea <subcommand>。
 
-x-fixtures: []
+x-fixtures:
+  - fixtures/cli/ok.reset-admin.offline.yaml
+  - fixtures/cli/invalid.reset-admin.online.yaml
+  - fixtures/cli/edge.reset-admin.exit-code-1.yaml
+  - fixtures/cli/ok.backup.online.yaml
+  - fixtures/cli/invalid.backup.unsupported-mode.yaml
+  - fixtures/cli/edge.backup.offline-exit-code-1.yaml
+  - fixtures/cli/ok.restore.offline.yaml
+  - fixtures/cli/invalid.restore.online.yaml
+  - fixtures/cli/edge.restore.exit-code-1.yaml
+  - fixtures/cli/ok.doctor.online.yaml
+  - fixtures/cli/invalid.doctor.unsupported-mode.yaml
+  - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
+  - fixtures/cli/ok.migrate.offline.yaml
+  - fixtures/cli/invalid.migrate.online.yaml
+  - fixtures/cli/edge.migrate.exit-code-1.yaml
+  - fixtures/cli/ok.cleanup.online.yaml
+  - fixtures/cli/invalid.cleanup.unsupported-mode.yaml
+  - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
 
 x-design-source: docs/RayleaBot机器人项目规划.md § 3.12
 
@@ -25,6 +43,10 @@ commands:
     task_model: false
     cancellable: false
     implemented: true
+    x-fixtures:
+      - fixtures/cli/ok.reset-admin.offline.yaml
+      - fixtures/cli/invalid.reset-admin.online.yaml
+      - fixtures/cli/edge.reset-admin.exit-code-1.yaml
 
   backup:
     name: backup
@@ -44,6 +66,10 @@ commands:
     task_type: backup.create
     cancellable: true
     implemented: true
+    x-fixtures:
+      - fixtures/cli/ok.backup.online.yaml
+      - fixtures/cli/invalid.backup.unsupported-mode.yaml
+      - fixtures/cli/edge.backup.offline-exit-code-1.yaml
 
   restore:
     name: restore
@@ -61,6 +87,10 @@ commands:
     task_type: restore.apply
     cancellable: false
     implemented: true
+    x-fixtures:
+      - fixtures/cli/ok.restore.offline.yaml
+      - fixtures/cli/invalid.restore.online.yaml
+      - fixtures/cli/edge.restore.exit-code-1.yaml
 
   doctor:
     name: doctor
@@ -79,6 +109,10 @@ commands:
     task_model: false
     cancellable: false
     implemented: true
+    x-fixtures:
+      - fixtures/cli/ok.doctor.online.yaml
+      - fixtures/cli/invalid.doctor.unsupported-mode.yaml
+      - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
 
   migrate:
     name: migrate
@@ -97,6 +131,10 @@ commands:
     task_type: db.migrate
     cancellable: false
     implemented: true
+    x-fixtures:
+      - fixtures/cli/ok.migrate.offline.yaml
+      - fixtures/cli/invalid.migrate.online.yaml
+      - fixtures/cli/edge.migrate.exit-code-1.yaml
 
   cleanup:
     name: cleanup
@@ -114,3 +152,7 @@ commands:
     task_model: false
     cancellable: false
     implemented: true
+    x-fixtures:
+      - fixtures/cli/ok.cleanup.online.yaml
+      - fixtures/cli/invalid.cleanup.unsupported-mode.yaml
+      - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
