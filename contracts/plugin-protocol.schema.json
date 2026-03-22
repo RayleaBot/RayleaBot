@@ -275,6 +275,18 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "message_id": {
+                      "type": "string",
+                      "description": "Protocol-native message identifier, if available."
+                    },
+                    "sub_type": {
+                      "type": "string",
+                      "description": "Event sub-type for notice events (e.g., approve, invite, kick, leave)."
+                    },
+                    "operator_id": {
+                      "type": "string",
+                      "description": "The user who triggered the notice event, if different from the actor."
                     }
                   }
                 },
@@ -286,7 +298,22 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "additionalProperties": true
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Segment kind: text, image, at, at_all, face, reply, or implementation-specific types."
+                          },
+                          "data": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "description": "Segment-specific data fields."
+                          }
+                        },
+                        "additionalProperties": false
                       }
                     },
                     "plain_text": {
@@ -784,7 +811,10 @@
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
     "fixtures/plugin-protocol/edge.action-message-send-failure.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
-    "fixtures/plugin-protocol/invalid.unsupported-action.yaml"
+    "fixtures/plugin-protocol/invalid.unsupported-action.yaml",
+    "fixtures/plugin-protocol/ok.event-message-with-segments.yaml",
+    "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
+    "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
   "$comment": "Frozen outbound action kinds: message.send, message.reply, and message.send_image. Ping/pong frozen as minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and expanded platform-to-plugin error semantics remain out of scope."
 }
