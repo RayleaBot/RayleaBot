@@ -1,14 +1,27 @@
 # Architecture Docs
 
-本目录承载 RayleaBot 的架构设计文档，包括：
+本目录用于收纳 RayleaBot 的架构设计说明，帮助读者从子系统边界理解当前工程，而不是从实现细节反推产品结构。
 
-- 架构图与子系统职责。
-- 状态模型。
-- 统一事件模型。
-- 跨子系统边界与交互约束。
+## 当前系统拓扑
 
-规则：
+RayleaBot 当前以 `server/` 为产品核心，主链路由以下部分组成：
 
-- 本目录用于解释设计意图，不替代 `contracts/`。
-- 不得在本目录私自发明新的对外状态名、错误码或接口字段。
-- 若架构说明与 `contracts/` 冲突，必须以 `contracts/` 为准。
+- 配置加载、schema 校验、SQLite 存储、鉴权、任务与插件目录装配
+- OneBot11 reverse WebSocket adapter 与最小统一事件归一化
+- per-plugin runtime manager、dispatcher fan-out、命令定向投递、scheduler `scheduler.trigger`
+- management HTTP / WebSocket、task history、management log summary 持久化与历史回放
+
+`web/`、`launcher/` 与 Render Service 仍处于工程占位阶段，本目录针对这些部分只描述边界、依赖和进入条件。
+
+## 阅读入口
+
+- `contracts/`：对外接口、协议、schema、错误码的正式来源
+- `docs/engineering/`：工程基线、固定命令、实施顺序
+- `server/README.md`：当前 server 主链路与管理面能力
+- `docs/plugin/`：插件 manifest、runtime 协议与能力边界
+
+## 维护规则
+
+- 本目录用于解释职责分层、状态模型和跨层边界，不裁决对外字段、事件名与错误码。
+- 文档中的运行链路、状态描述与能力范围需要能回指到 `contracts/`、工程基线文件或已落地实现。
+- 若某项能力仍处于占位、TODO 或 contract 未冻结状态，本目录只描述边界，不把它写成可用能力。

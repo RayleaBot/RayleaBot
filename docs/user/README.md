@@ -1,15 +1,20 @@
 # User Docs
 
-本目录承载 RayleaBot 的用户文档，包括：
+本目录用于承载 RayleaBot 的安装、初始化、配置、管理、恢复与排障说明。
 
-- 安装部署。
-- 首次初始化。
-- 配置说明。
-- 日常管理。
-- 恢复与排障。
+## 当前用户可用形态
 
-规则：
+当前仓库里可直接使用的产品表面集中在 server 主链路：
+
+- `config/user.yaml` 与 `contracts/config.user.schema.json` 驱动的配置与启动流程
+- `POST /api/setup/admin`、session 登录、配置读取与更新、任务查询、日志查询、插件安装与生命周期管理
+- `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 管理 WebSocket
+- `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 六个 CLI 子命令
+
+Web UI、Launcher 与 Render Service 仍未形成面向用户的完整体验，本目录中的使用说明应围绕当前 server 管理面、CLI、配置文件和插件运行链路展开。
+
+## 编写边界
 
 - 用户配置正式结构以 `contracts/config.user.schema.json` 为准。
-- 本目录用于说明如何使用，不得反向定义接口字段。
-- 用户侧说明必须与 baseline、contracts 和正式发布形态保持一致。
+- 用户侧说明需要与 `server/README.md`、contracts、baseline 和当前发布形态保持一致。
+- 若某项能力仍处于工程占位、TODO 或仅有 contract 骨架，本目录只描述边界和前置条件。

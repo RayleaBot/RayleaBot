@@ -2,18 +2,24 @@
 
 ## 目的
 
-本文件是 RayleaBot v0.1 的工程基线说明。
-进入正式实现后，AI 与人工协作都必须先读本文件，再读 `contracts/`，最后才允许写代码。
+本文件用于固定 RayleaBot 的工程版本线、默认命令、目录职责和长期有效的实现选型。
+进入正式实现后，AI 与人工协作都应先读本文件，再读 `contracts/`，最后才进入代码与文档修改。
 
 单向优先级：
 
-`docs/RayleaBot机器人项目规划.md > contracts/ > fixtures/ > code`
+`docs/RayleaBot机器人项目规划.md > contracts/ > fixtures/examples > code`
 
 补充说明：
 
 - 对外接口、schema、错误码最终以 `contracts/` 为准。
 - 工程工具链、默认命令、目录职责最终以本文件和对应工程文件为准。
-- 若规划文档与工程基线冲突，先在本文件和对应工程文件中收敛，再更新规划文档说明。
+- 若规划文档与工程基线冲突，先在本文件和对应工程文件中收敛，再同步相关说明。
+
+## 当前工程落点
+
+- `server/` 是当前真实主链路，已经接入配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
+- `web/` 与 `launcher/` 已冻结版本线和默认命令，当前仍保留工程占位。
+- `.deps/manifest.json` 已固定资源清单形状，资源来源、SHA256 与 Chromium 正式版本仍待补齐。
 
 ## v0.1 固定版本线
 
@@ -24,8 +30,8 @@
 | JS package manager | `pnpm 10.32.1` |
 | Web UI | Vue `3.5.30` + Vite `8.0.0` + Element Plus `2.13.5` + Vue Router `5.0.3` + Pinia `3.0.4` |
 | Python runtime | Python `3.12.13` |
-| Database | SQLite via `modernc.org/sqlite` |
-| Launcher | `.NET 10` LTS line，Phase 0 锁定 SDK `10.0.103` |
+| Database | SQLite via `modernc.org/sqlite v1.47.0` |
+| Launcher | `.NET SDK 10.0.103` |
 | Avalonia | `11.3.12` |
 | Render | `chromedp 0.13.2` + 受控 Chromium |
 
@@ -95,29 +101,23 @@
 
 | 路径 | 约束 |
 | --- | --- |
-| `server/go.mod` | 必须锁定 Go `1.25.8` |
-| `server/go.sum` | Phase 0 可为空，占位即可 |
-| `web/package.json` | 必须锁定 `packageManager = pnpm@10.32.1` 与 `engines.node = 24.14.0` |
+| `server/go.mod` | 固定 `module rayleabot/server`、Go `1.25.8` 与 server 依赖版本 |
+| `server/go.sum` | 维护 server 依赖锁定结果 |
+| `web/package.json` | 固定 `packageManager = pnpm@10.32.1` 与 `engines.node = 24.14.0` |
 | `web/pnpm-lock.yaml` | 作为唯一 JS 锁文件 |
-| `launcher/global.json` | 固定 `.NET SDK 10.0.103` 与 `latestPatch` |
+| `launcher/global.json` | 固定 `.NET SDK 10.0.103` 与 `rollForward = latestPatch` |
 | `launcher/Directory.Packages.props` | 集中锁定 Avalonia `11.3.12` |
 | `.deps/manifest.json` | 固定资源名、版本线、来源、SHA256 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
 
-## Phase 0 规范化决议
-
-以下决议用于收敛规划文档中的局部冲突，并在 Phase 0 先形成正式骨架：
+## 已冻结的规范化决议
 
 - `contracts/config.user.schema.json` 中 `server.host` 默认值采用 `127.0.0.1`。
-  - 原因：3.9.2 明确规定默认只监听本机。
-  - 3.10.1.2 中的 `0.0.0.0` 视为参考示例冲突，后续需同步修正文档。
 - OneBot 连接地址正式键名采用 `onebot.ws_url`。
-  - 原因：3.10.1.2 给出了完整参考结构。
-  - 3.1.1 中 `endpoint` 叙述视为历史命名，后续需同步修正文档。
-- `global.json` 必须有具体 SDK 版本，因此 Phase 0 锁定为 `10.0.103`。
-- `server/go.mod` 由于仓库当前没有 Git remote，Phase 0 先使用临时本地 module path：`rayleabot/server`。
+- `launcher/global.json` 锁定 `.NET SDK 10.0.103`。
+- `server/go.mod` 当前采用 `rayleabot/server` 作为 module path。
 
-## contracts/ 作为正式来源
+## `contracts/` 作为正式来源
 
 以下边界的最终裁决不在 Markdown，而在 `contracts/`：
 
@@ -128,18 +128,15 @@
 - 用户配置：`contracts/config.user.schema.json`
 - 错误码：`contracts/error-codes.yaml`
 - 发行元数据：`contracts/release-manifest.schema.json`
+- CLI：`contracts/cli-commands.yaml`
 
-## Phase 0 非业务 TODO
+## 当前仍需保留的基线 TODO
 
-以下 TODO 不属于业务实现，但必须显式保留：
-
-- `TODO(repo.identity)`：仓库配置正式 remote 后，把 `server/go.mod` 的临时 module path 替换为正式模块路径。
+- `TODO(repo.identity)`：仓库配置正式 remote 后，将 `server/go.mod` 的本地 module path 收敛为正式模块路径。
 - `TODO(deps.chromium.version)`：在 `.deps/manifest.json` 中补齐受控 Chromium 的正式版本。
 - `TODO(deps.source_and_sha256)`：在 `.deps/manifest.json` 中补齐 Chromium、Python、Node.js 资源来源与 SHA256。
-- `TODO(go.sqlite.patch)`：在进入 Server 核心骨架阶段前，正式冻结 `modernc.org/sqlite` 的 module patch。
-- `TODO(doc.sync.phase0)`：把规划文档中 `server.host` 与 OneBot 键名的冲突说明同步修正。
 
 规则：
 
-- 上述 TODO 未完成前，不得开始依赖这些值的正式运行时/bootstrap 逻辑。
-- 若后续有人尝试在未更新 baseline 与 contracts 的情况下先写功能代码，应视为违反仓库治理规则。
+- 上述 TODO 进入真实运行链路前，需要先在 baseline、相关工程文件和契约说明中一并收敛。
+- 若后续变更尝试绕开 baseline 与 contracts 直接写功能代码，应视为违反仓库治理规则。
