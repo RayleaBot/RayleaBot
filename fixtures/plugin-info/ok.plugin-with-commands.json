@@ -1,0 +1,41 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "weather",
+    "name": "Weather",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "description": "Weather query plugin with command declarations",
+    "author": "raylea",
+    "capabilities": [
+      "event.subscribe"
+    ],
+    "permissions": {
+      "required": [],
+      "optional": []
+    },
+    "commands": [
+      {
+        "name": "weather",
+        "aliases": ["天气", "tq"],
+        "description": "查询指定城市天气",
+        "usage": "/weather <城市> [--days=N]",
+        "permission": "everyone"
+      },
+      {
+        "name": "weather-admin",
+        "description": "管理天气数据源",
+        "permission": "super_admin"
+      }
+    ]
+  },
+  "expect": {
+    "valid": true
+  }
+}

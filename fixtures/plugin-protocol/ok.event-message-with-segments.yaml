@@ -1,0 +1,52 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000010
+    plugin_id: echo
+    request_id: evt_seg_001
+    event:
+      event_id: onebot11-message-12345
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: message.group
+      timestamp: 1710000010
+      actor:
+        id: "100001"
+        nickname: Alice
+        role: admin
+      target:
+        type: group
+        id: "200001"
+        name: 开发群
+      payload:
+        command: echo
+        args:
+          - hello
+        message_id: "12345"
+      message:
+        segments:
+          - type: reply
+            data:
+              message_id: "12344"
+          - type: at
+            data:
+              user_id: "100002"
+          - type: text
+            data:
+              text: " /echo hello"
+          - type: image
+            data:
+              url: "https://example.com/test.png"
+        plain_text: "@某人 /echo hello[图片]"
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000011
+    plugin_id: echo
+    request_id: evt_seg_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true

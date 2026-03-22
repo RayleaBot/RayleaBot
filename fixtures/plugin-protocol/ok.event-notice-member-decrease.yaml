@@ -1,0 +1,32 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000030
+    plugin_id: logger
+    request_id: evt_notice_002
+    event:
+      event_id: onebot11-notice-1710000030-100004
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: notice.member_decrease
+      timestamp: 1710000030
+      actor:
+        id: "100004"
+      target:
+        type: group
+        id: "200002"
+      payload:
+        sub_type: kick
+        operator_id: "100001"
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000031
+    plugin_id: logger
+    request_id: evt_notice_002
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true
