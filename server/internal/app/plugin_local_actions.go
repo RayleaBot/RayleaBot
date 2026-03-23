@@ -2,14 +2,19 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/permission"
+	"rayleabot/server/internal/pluginfile"
+	"rayleabot/server/internal/pluginhttp"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/runtime"
 )
@@ -18,6 +23,10 @@ const (
 	defaultPluginLogRateLimit   = "200/10s"
 	defaultKVValueMaxBytes      = 65536
 	defaultKVTotalLimitMegabyte = 16
+	defaultFileMaxBytes         = 10 * 1024 * 1024
+	defaultPluginWorkdirMB      = 256
+	defaultHTTPTimeoutSeconds   = 10
+	defaultHTTPMaxRetries       = 2
 )
 
 type pluginLogLimiter struct {
@@ -98,6 +107,10 @@ func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string
 		return a.executeLoggerWrite(ctx, pluginID, requestID, action)
 	case "storage.kv":
 		return a.executeStorageKV(ctx, pluginID, action)
+	case "storage.file":
+		return a.executeStorageFile(ctx, pluginID, action)
+	case "http.request":
+		return a.executeHTTPRequest(ctx, pluginID, action)
 	default:
 		return nil, &runtime.Error{
 			Code:    "plugin.protocol_violation",
@@ -218,6 +231,152 @@ func (a *App) executeStorageKV(ctx context.Context, pluginID string, action runt
 	}
 }
 
+func (a *App) executeStorageFile(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !a.pluginCapabilityGranted(ctx, pluginID, "storage.file") {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: "storage.file capability is not granted",
+		}
+	}
+	if !a.pluginStorageRootGranted(ctx, pluginID, action.StorageRoot) {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: "storage.file root is outside the granted scope",
+		}
+	}
+	if a == nil || a.pluginFiles == nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "storage.file service is not available",
+		}
+	}
+
+	switch action.StorageOperation {
+	case "read":
+		result, err := a.pluginFiles.Read(pluginID, action.StoragePath)
+		if errors.Is(err, pluginfile.ErrInvalidPath) {
+			return nil, &runtime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+		}
+		if err != nil {
+			return nil, &runtime.Error{Code: "plugin.internal_error", Message: "storage.file read failed", Err: err}
+		}
+		payload := map[string]any{
+			"root":   action.StorageRoot,
+			"path":   action.StoragePath,
+			"exists": result.Exists,
+		}
+		if result.Exists {
+			if result.IsText {
+				payload["content_text"] = string(result.Content)
+			} else {
+				payload["content_base64"] = base64.StdEncoding.EncodeToString(result.Content)
+			}
+		}
+		return payload, nil
+	case "write":
+		err := a.pluginFiles.Write(pluginID, action.StoragePath, action.StorageContent, currentFileLimits(a.Config))
+		if errors.Is(err, pluginfile.ErrInvalidPath) {
+			return nil, &runtime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+		}
+		if errors.Is(err, pluginfile.ErrFileTooLarge) || errors.Is(err, pluginfile.ErrQuotaExceeded) {
+			return nil, &runtime.Error{Code: "platform.value_too_large", Message: "storage.file write exceeds configured platform limit"}
+		}
+		if err != nil {
+			return nil, &runtime.Error{Code: "plugin.internal_error", Message: "storage.file write failed", Err: err}
+		}
+		return map[string]any{
+			"root": action.StorageRoot,
+			"path": action.StoragePath,
+		}, nil
+	case "delete":
+		deleted, err := a.pluginFiles.Delete(pluginID, action.StoragePath)
+		if errors.Is(err, pluginfile.ErrInvalidPath) {
+			return nil, &runtime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+		}
+		if err != nil {
+			return nil, &runtime.Error{Code: "plugin.internal_error", Message: "storage.file delete failed", Err: err}
+		}
+		return map[string]any{
+			"root":    action.StorageRoot,
+			"path":    action.StoragePath,
+			"deleted": deleted,
+		}, nil
+	case "list":
+		paths, err := a.pluginFiles.List(pluginID, action.StoragePrefix)
+		if errors.Is(err, pluginfile.ErrInvalidPath) {
+			return nil, &runtime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+		}
+		if err != nil {
+			return nil, &runtime.Error{Code: "plugin.internal_error", Message: "storage.file list failed", Err: err}
+		}
+		return map[string]any{
+			"root":   action.StorageRoot,
+			"prefix": action.StoragePrefix,
+			"paths":  paths,
+		}, nil
+	default:
+		return nil, &runtime.Error{
+			Code:    "plugin.protocol_violation",
+			Message: "received unsupported storage.file operation",
+		}
+	}
+}
+
+func (a *App) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !a.pluginCapabilityGranted(ctx, pluginID, "http.request") {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: "http.request capability is not granted",
+		}
+	}
+
+	scope := a.pluginGrantedScope(ctx, pluginID, "http.request")
+	client := pluginhttp.New(pluginhttp.Config{
+		Timeout:           currentHTTPTimeout(a.Config),
+		MaxRetries:        currentHTTPMaxRetries(a.Config),
+		AllowPrivateHosts: append([]string(nil), a.Config.HTTP.AllowPrivateHosts...),
+	})
+	response, err := client.Do(ctx, pluginhttp.Request{
+		Method:        action.HTTPMethod,
+		URL:           action.HTTPURL,
+		Headers:       cloneHTTPHeaders(action.HTTPHeaders),
+		Body:          append([]byte(nil), action.HTTPBody...),
+		ActionTimeout: currentHTTPActionTimeout(action),
+	}, scope.HTTPHosts)
+	if errors.Is(err, pluginhttp.ErrScopeViolation) {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: "http.request target is outside the granted scope",
+		}
+	}
+	if errors.Is(err, pluginhttp.ErrInvalidRequest) {
+		return nil, &runtime.Error{
+			Code:    "platform.invalid_request",
+			Message: "http.request request is invalid",
+		}
+	}
+	if err != nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "http.request failed",
+			Err:     err,
+		}
+	}
+
+	result := map[string]any{
+		"status_code": response.StatusCode,
+		"headers":     cloneHTTPHeaders(response.Headers),
+	}
+	if len(response.Body) > 0 {
+		if utf8.Valid(response.Body) {
+			result["body_text"] = string(response.Body)
+		} else {
+			result["body_base64"] = base64.StdEncoding.EncodeToString(response.Body)
+		}
+	}
+	return result, nil
+}
+
 func (a *App) pluginCapabilityGranted(ctx context.Context, pluginID, capability string) bool {
 	if a == nil || a.pluginLifecycle == nil {
 		return false
@@ -228,6 +387,73 @@ func (a *App) pluginCapabilityGranted(ctx context.Context, pluginID, capability 
 		}
 	}
 	return false
+}
+
+type grantedScope struct {
+	HTTPHosts    []string `json:"http_hosts"`
+	StorageRoots []string `json:"storage_roots"`
+}
+
+func (a *App) pluginStorageRootGranted(ctx context.Context, pluginID, root string) bool {
+	if strings.TrimSpace(root) == "" {
+		return false
+	}
+	for _, grantedRoot := range a.pluginGrantedScope(ctx, pluginID, "storage.file").StorageRoots {
+		if strings.TrimSpace(grantedRoot) == root {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) pluginGrantedScope(ctx context.Context, pluginID, capability string) grantedScope {
+	autoGranted := false
+	if a != nil {
+		for _, granted := range a.Config.Auth.AutoGrantCapabilities {
+			if strings.TrimSpace(granted) == capability {
+				autoGranted = true
+				break
+			}
+		}
+	}
+
+	if a != nil && a.grantRepository != nil {
+		grants, err := a.grantRepository.LoadGrants(ctx, pluginID)
+		if err == nil {
+			for _, grant := range grants {
+				if strings.TrimSpace(grant.Capability) != capability {
+					continue
+				}
+				scope := parseGrantedScope(grant.ScopeJSON)
+				if len(scope.HTTPHosts) > 0 || len(scope.StorageRoots) > 0 {
+					return scope
+				}
+			}
+		}
+	}
+
+	if autoGranted && a != nil && a.Plugins != nil {
+		if snapshot, ok := a.Plugins.Get(pluginID); ok {
+			return grantedScope{
+				HTTPHosts:    append([]string(nil), snapshot.ScopeHTTPHosts...),
+				StorageRoots: append([]string(nil), snapshot.ScopeStorageRoots...),
+			}
+		}
+	}
+
+	return grantedScope{}
+}
+
+func parseGrantedScope(raw string) grantedScope {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return grantedScope{}
+	}
+	var scope grantedScope
+	if err := json.Unmarshal([]byte(raw), &scope); err != nil {
+		return grantedScope{}
+	}
+	return scope
 }
 
 func currentKVLimits(cfg config.Config) pluginkv.Limits {
@@ -243,6 +469,57 @@ func currentKVLimits(cfg config.Config) pluginkv.Limits {
 		ValueMaxBytes: valueLimit,
 		TotalMaxBytes: totalLimitMB * 1024 * 1024,
 	}
+}
+
+func currentFileLimits(cfg config.Config) pluginfile.Limits {
+	fileLimit := cfg.Storage.FileMaxBytes
+	if fileLimit <= 0 {
+		fileLimit = defaultFileMaxBytes
+	}
+	totalLimitMB := cfg.Storage.PluginWorkDirMB
+	if totalLimitMB <= 0 {
+		totalLimitMB = defaultPluginWorkdirMB
+	}
+	return pluginfile.Limits{
+		FileMaxBytes:  fileLimit,
+		TotalMaxBytes: totalLimitMB * 1024 * 1024,
+	}
+}
+
+func currentHTTPTimeout(cfg config.Config) time.Duration {
+	seconds := cfg.HTTP.TimeoutSeconds
+	if seconds <= 0 {
+		seconds = defaultHTTPTimeoutSeconds
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func currentHTTPMaxRetries(cfg config.Config) int {
+	if cfg.HTTP.MaxRetries < 0 {
+		return defaultHTTPMaxRetries
+	}
+	if cfg.HTTP.MaxRetries == 0 {
+		return 0
+	}
+	return cfg.HTTP.MaxRetries
+}
+
+func currentHTTPActionTimeout(action runtime.Action) time.Duration {
+	if action.HTTPTimeoutSeconds <= 0 {
+		return 0
+	}
+	return time.Duration(action.HTTPTimeoutSeconds) * time.Second
+}
+
+func cloneHTTPHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return map[string]string{}
+	}
+	cloned := make(map[string]string, len(headers))
+	for key, value := range headers {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func (a *App) redactString(value string) string {

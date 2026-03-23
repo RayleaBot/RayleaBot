@@ -27,6 +27,7 @@ import (
 	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/permission"
+	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
@@ -69,6 +70,7 @@ type App struct {
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
 	pluginRepository  plugins.DesiredStateRepository
+	pluginFiles       *pluginfile.Service
 	pluginKV          pluginkv.Repository
 	grantRepository   plugins.GrantRepository
 	blacklistRepo     permission.BlacklistRepository
@@ -202,6 +204,7 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create plugin kv repository: %w", err)
 	}
+	pluginFileService := pluginfile.NewService(filepath.Join(filepath.Dir(databasePath), "plugins"))
 	blacklistRepo := permission.NewSQLiteBlacklistRepository(storageStore.Read, storageStore.Write)
 	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
 	if err != nil {
@@ -286,6 +289,7 @@ func New(options Options) (*App, error) {
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,
 		pluginRepository:  pluginRepository,
+		pluginFiles:       pluginFileService,
 		pluginKV:          pluginKVRepository,
 		grantRepository:   pluginRepository,
 		blacklistRepo:     blacklistRepo,

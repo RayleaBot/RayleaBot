@@ -3,12 +3,16 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
 	"rayleabot/server/internal/config"
+	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
@@ -154,6 +158,191 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	if deleted, _ := deleteResult["deleted"].(bool); !deleted {
 		t.Fatalf("expected delete deleted=true, got %#v", deleteResult)
 	}
+}
+
+func TestExecuteStorageFileRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	application := &App{
+		Config: config.Config{
+			Storage: config.StorageConfig{
+				FileMaxBytes:    1024,
+				PluginWorkDirMB: 1,
+			},
+		},
+		Logger:      slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		pluginFiles: pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		grantRepository: &stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "storage.file",
+					ScopeJSON:  `{"storage_roots":["plugin_data"]}`,
+				}},
+			},
+		},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_1", runtime.Action{
+		Kind:             "storage.file",
+		StorageOperation: "write",
+		StorageRoot:      "plugin_data",
+		StoragePath:      "cache/example.txt",
+		StorageContent:   []byte("hello file"),
+	}); err != nil {
+		t.Fatalf("storage.file write failed: %v", err)
+	}
+
+	readResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_2", runtime.Action{
+		Kind:             "storage.file",
+		StorageOperation: "read",
+		StorageRoot:      "plugin_data",
+		StoragePath:      "cache/example.txt",
+	})
+	if err != nil {
+		t.Fatalf("storage.file read failed: %v", err)
+	}
+	if got := readResult["content_text"]; got != "hello file" {
+		t.Fatalf("unexpected text content: %#v", got)
+	}
+
+	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_3", runtime.Action{
+		Kind:             "storage.file",
+		StorageOperation: "write",
+		StorageRoot:      "plugin_data",
+		StoragePath:      "cache/blob.bin",
+		StorageContent:   []byte{0xff, 0x00, 0x01},
+	}); err != nil {
+		t.Fatalf("storage.file binary write failed: %v", err)
+	}
+
+	binaryResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_4", runtime.Action{
+		Kind:             "storage.file",
+		StorageOperation: "read",
+		StorageRoot:      "plugin_data",
+		StoragePath:      "cache/blob.bin",
+	})
+	if err != nil {
+		t.Fatalf("storage.file binary read failed: %v", err)
+	}
+	if got := binaryResult["content_base64"]; got != base64.StdEncoding.EncodeToString([]byte{0xff, 0x00, 0x01}) {
+		t.Fatalf("unexpected base64 content: %#v", got)
+	}
+}
+
+func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
+	t.Parallel()
+
+	application := &App{
+		Config:      config.Config{},
+		Logger:      slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		pluginFiles: pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		grantRepository: &stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "storage.file",
+					ScopeJSON:  `{"storage_roots":[]}`,
+				}},
+			},
+		},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_5", runtime.Action{
+		Kind:             "storage.file",
+		StorageOperation: "read",
+		StorageRoot:      "plugin_data",
+		StoragePath:      "cache/example.txt",
+	})
+	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+}
+
+func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/data" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("hello http"))
+	}))
+	defer server.Close()
+
+	application := &App{
+		Config: config.Config{
+			HTTP: config.HTTPConfig{
+				TimeoutSeconds:    5,
+				MaxRetries:        0,
+				AllowPrivateHosts: []string{"127.0.0.1"},
+			},
+		},
+		Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		grantRepository: &stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "http.request",
+					ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
+				}},
+			},
+		},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	result, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_1", runtime.Action{
+		Kind:       "http.request",
+		HTTPMethod: "GET",
+		HTTPURL:    server.URL + "/v1/data",
+	})
+	if err != nil {
+		t.Fatalf("http.request failed: %v", err)
+	}
+	if got := result["status_code"]; got != http.StatusOK {
+		t.Fatalf("unexpected status_code: %#v", got)
+	}
+	if got := result["body_text"]; got != "hello http" {
+		t.Fatalf("unexpected body_text: %#v", got)
+	}
+}
+
+func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	application := &App{
+		Config: config.Config{
+			HTTP: config.HTTPConfig{
+				TimeoutSeconds: 5,
+				MaxRetries:     0,
+			},
+		},
+		Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		grantRepository: &stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "http.request",
+					ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
+				}},
+			},
+		},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_2", runtime.Action{
+		Kind:       "http.request",
+		HTTPMethod: "GET",
+		HTTPURL:    server.URL + "/v1/data",
+	})
+	assertRuntimeErrorCode(t, err, "permission.scope_violation")
 }
 
 func assertRuntimeErrorCode(t *testing.T, err error, want string) {

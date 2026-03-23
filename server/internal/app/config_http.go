@@ -142,8 +142,15 @@ func configDocumentFromTyped(cfg internalconfig.Config) map[string]any {
 			"path":   cfg.Database.Path,
 		},
 		"storage": map[string]any{
-			"kv_value_max_bytes": cfg.Storage.KVValueMaxBytes,
-			"kv_total_limit_mb":  cfg.Storage.KVTotalLimitMB,
+			"kv_value_max_bytes":           cfg.Storage.KVValueMaxBytes,
+			"kv_total_limit_mb":            cfg.Storage.KVTotalLimitMB,
+			"file_max_bytes":               cfg.Storage.FileMaxBytes,
+			"plugin_workdir_soft_limit_mb": cfg.Storage.PluginWorkDirMB,
+		},
+		"http": map[string]any{
+			"timeout_seconds":     cfg.HTTP.TimeoutSeconds,
+			"max_retries":         cfg.HTTP.MaxRetries,
+			"allow_private_hosts": append([]string{}, cfg.HTTP.AllowPrivateHosts...),
 		},
 		"logging": map[string]any{
 			"level":                 cfg.Logging.Level,

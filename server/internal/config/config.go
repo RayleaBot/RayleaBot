@@ -17,6 +17,7 @@ type Config struct {
 	OneBot        OneBotConfig    `json:"onebot" yaml:"onebot"`
 	Database      DatabaseConfig  `json:"database" yaml:"database"`
 	Storage       StorageConfig   `json:"storage" yaml:"storage"`
+	HTTP          HTTPConfig      `json:"http" yaml:"http"`
 	Logging       LoggingConfig   `json:"logging" yaml:"logging"`
 	Auth          AuthConfig      `json:"auth" yaml:"auth"`
 	Runtime       RuntimeConfig   `json:"runtime" yaml:"runtime"`
@@ -61,6 +62,14 @@ type DatabaseConfig struct {
 type StorageConfig struct {
 	KVValueMaxBytes int `json:"kv_value_max_bytes" yaml:"kv_value_max_bytes"`
 	KVTotalLimitMB  int `json:"kv_total_limit_mb" yaml:"kv_total_limit_mb"`
+	FileMaxBytes    int `json:"file_max_bytes" yaml:"file_max_bytes"`
+	PluginWorkDirMB int `json:"plugin_workdir_soft_limit_mb" yaml:"plugin_workdir_soft_limit_mb"`
+}
+
+type HTTPConfig struct {
+	TimeoutSeconds    int      `json:"timeout_seconds" yaml:"timeout_seconds"`
+	MaxRetries        int      `json:"max_retries" yaml:"max_retries"`
+	AllowPrivateHosts []string `json:"allow_private_hosts" yaml:"allow_private_hosts"`
 }
 
 type LoggingConfig struct {

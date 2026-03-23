@@ -221,6 +221,17 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 				GroupCommandRateLimit: "5/1h",
 				CooldownReply:         false,
 			},
+			Storage: config.StorageConfig{
+				KVValueMaxBytes: 1024,
+				KVTotalLimitMB:  8,
+				FileMaxBytes:    2048,
+				PluginWorkDirMB: 32,
+			},
+			HTTP: config.HTTPConfig{
+				TimeoutSeconds:    10,
+				MaxRetries:        0,
+				AllowPrivateHosts: []string{},
+			},
 			Logging: config.LoggingConfig{Level: "info"},
 		},
 		blacklistRepo:     repo,
@@ -241,6 +252,17 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			GroupCommandRateLimit: "2/1h",
 			CooldownReply:         true,
 		},
+		Storage: config.StorageConfig{
+			KVValueMaxBytes: 4096,
+			KVTotalLimitMB:  16,
+			FileMaxBytes:    8192,
+			PluginWorkDirMB: 64,
+		},
+		HTTP: config.HTTPConfig{
+			TimeoutSeconds:    15,
+			MaxRetries:        2,
+			AllowPrivateHosts: []string{"127.0.0.1"},
+		},
 		Logging: config.LoggingConfig{Level: "info"},
 	})
 	if restartRequired {
@@ -257,6 +279,15 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	}
 	if verdict := app.permissionChecker.Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
+	}
+	if app.Config.Storage.FileMaxBytes != 8192 || app.Config.Storage.PluginWorkDirMB != 64 {
+		t.Fatalf("storage config was not hot reloaded: %+v", app.Config.Storage)
+	}
+	if app.Config.HTTP.TimeoutSeconds != 15 || app.Config.HTTP.MaxRetries != 2 {
+		t.Fatalf("http config was not hot reloaded: %+v", app.Config.HTTP)
+	}
+	if len(app.Config.HTTP.AllowPrivateHosts) != 1 || app.Config.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
+		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", app.Config.HTTP.AllowPrivateHosts)
 	}
 }
 

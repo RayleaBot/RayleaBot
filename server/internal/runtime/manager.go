@@ -3,6 +3,7 @@ package runtime
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,9 +103,17 @@ type Action struct {
 	LogMessage              string
 	LogFields               map[string]any
 	StorageOperation        string
+	StorageRoot             string
+	StoragePath             string
 	StorageKey              string
 	StoragePrefix           string
 	StorageValue            any
+	StorageContent          []byte
+	HTTPMethod              string
+	HTTPURL                 string
+	HTTPHeaders             map[string]string
+	HTTPTimeoutSeconds      int
+	HTTPBody                []byte
 }
 
 type Delivery struct {
@@ -281,6 +290,24 @@ type protocolActionStorageKVFrame struct {
 	Key       *string          `json:"key,omitempty"`
 	Prefix    *string          `json:"prefix,omitempty"`
 	Value     *json.RawMessage `json:"value,omitempty"`
+}
+
+type protocolActionStorageFileFrame struct {
+	Operation     string  `json:"operation"`
+	Root          string  `json:"root"`
+	Path          *string `json:"path,omitempty"`
+	Prefix        *string `json:"prefix,omitempty"`
+	ContentText   *string `json:"content_text,omitempty"`
+	ContentBase64 *string `json:"content_base64,omitempty"`
+}
+
+type protocolActionHTTPRequestFrame struct {
+	Method         string            `json:"method"`
+	URL            string            `json:"url"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	TimeoutSeconds *int              `json:"timeout_seconds,omitempty"`
+	BodyText       *string           `json:"body_text,omitempty"`
+	BodyBase64     *string           `json:"body_base64,omitempty"`
 }
 
 type frameEnvelope struct {
@@ -1074,7 +1101,7 @@ func (m *Manager) processEventFrame(ctx context.Context, handle *processHandle, 
 				Action:    action,
 			}, true, nil
 
-		case "logger.write", "storage.kv":
+		case "logger.write", "storage.kv", "storage.file", "http.request":
 			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
 
 		default:
@@ -1134,6 +1161,10 @@ func (m *Manager) handleLocalActionFrame(ctx context.Context, handle *processHan
 		action, err = parseLoggerWriteAction(frame.Data)
 	case "storage.kv":
 		action, err = parseStorageKVAction(frame.Data)
+	case "storage.file":
+		action, err = parseStorageFileAction(frame.Data)
+	case "http.request":
+		action, err = parseHTTPRequestAction(frame.Data)
 	case "message.send", "message.reply", "message.send_image":
 		return errorf(codePluginProtocolViolation, "terminal message actions must use the current event request_id", nil)
 	default:
@@ -1393,6 +1424,127 @@ func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
 	default:
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.kv operation", nil)
 	}
+}
+
+func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionStorageFileFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.file data", err)
+	}
+
+	if strings.TrimSpace(frame.Root) != "plugin_data" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.file root", nil)
+	}
+
+	switch strings.TrimSpace(frame.Operation) {
+	case "read":
+		if frame.Path == nil || *frame.Path == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
+		}
+		return &Action{Kind: "storage.file", StorageOperation: "read", StorageRoot: "plugin_data", StoragePath: *frame.Path}, nil
+	case "write":
+		if frame.Path == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
+		}
+		content, err := decodeExclusiveTextOrBase64(frame.ContentText, frame.ContentBase64, true)
+		if err != nil {
+			return nil, err
+		}
+		return &Action{
+			Kind:             "storage.file",
+			StorageOperation: "write",
+			StorageRoot:      "plugin_data",
+			StoragePath:      *frame.Path,
+			StorageContent:   content,
+		}, nil
+	case "delete":
+		if frame.Path == nil || *frame.Path == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
+		}
+		return &Action{Kind: "storage.file", StorageOperation: "delete", StorageRoot: "plugin_data", StoragePath: *frame.Path}, nil
+	case "list":
+		if frame.Prefix == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
+		}
+		return &Action{Kind: "storage.file", StorageOperation: "list", StorageRoot: "plugin_data", StoragePrefix: *frame.Prefix}, nil
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.file operation", nil)
+	}
+}
+
+func parseHTTPRequestAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionHTTPRequestFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed http.request data", err)
+	}
+
+	method := strings.ToUpper(strings.TrimSpace(frame.Method))
+	switch method {
+	case "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE":
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported http.request method", nil)
+	}
+
+	targetURL := strings.TrimSpace(frame.URL)
+	if targetURL == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required http.request fields", nil)
+	}
+
+	body, err := decodeExclusiveTextOrBase64(frame.BodyText, frame.BodyBase64, false)
+	if err != nil {
+		return nil, err
+	}
+	if (method == "GET" || method == "HEAD") && len(body) > 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported http.request body for method", nil)
+	}
+
+	timeoutSeconds := 0
+	if frame.TimeoutSeconds != nil {
+		timeoutSeconds = *frame.TimeoutSeconds
+		if timeoutSeconds <= 0 {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid http.request timeout_seconds", nil)
+		}
+	}
+
+	return &Action{
+		Kind:               "http.request",
+		HTTPMethod:         method,
+		HTTPURL:            targetURL,
+		HTTPHeaders:        cloneHTTPActionHeaders(frame.Headers),
+		HTTPTimeoutSeconds: timeoutSeconds,
+		HTTPBody:           body,
+	}, nil
+}
+
+func decodeExclusiveTextOrBase64(text *string, encoded *string, required bool) ([]byte, error) {
+	if text != nil && encoded != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame mixes text and base64 content fields", nil)
+	}
+	if text != nil {
+		return []byte(*text), nil
+	}
+	if encoded != nil {
+		content, err := base64.StdEncoding.DecodeString(*encoded)
+		if err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid base64 content", err)
+		}
+		return content, nil
+	}
+	if !required {
+		return nil, nil
+	}
+	return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required text or base64 content fields", nil)
+}
+
+func cloneHTTPActionHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return map[string]string{}
+	}
+	cloned := make(map[string]string, len(headers))
+	for key, value := range headers {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func validateActionTarget(rawType, rawID, actionKind string) (string, string, error) {

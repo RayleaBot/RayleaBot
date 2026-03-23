@@ -491,6 +491,37 @@ func TestManagerDeliverEventRejectsUnsupportedAction(t *testing.T) {
 	}
 }
 
+func TestParseStorageFileActionWriteText(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseStorageFileAction(json.RawMessage(`{
+		"operation": "write",
+		"root": "plugin_data",
+		"path": "cache/example.txt",
+		"content_text": "hello file"
+	}`))
+	if err != nil {
+		t.Fatalf("parseStorageFileAction: %v", err)
+	}
+	if action.Kind != "storage.file" || action.StorageOperation != "write" || action.StoragePath != "cache/example.txt" {
+		t.Fatalf("unexpected storage.file action: %#v", action)
+	}
+	if string(action.StorageContent) != "hello file" {
+		t.Fatalf("unexpected storage content: %#v", action.StorageContent)
+	}
+}
+
+func TestParseHTTPRequestActionRejectsGetWithBody(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseHTTPRequestAction(json.RawMessage(`{
+		"method": "GET",
+		"url": "https://api.example.test/v1/data",
+		"body_text": "denied"
+	}`))
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+}
+
 func TestManagerDeliverEventFailsWhenRuntimeIsNotRunning(t *testing.T) {
 	t.Parallel()
 
