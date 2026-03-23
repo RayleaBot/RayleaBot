@@ -37,6 +37,60 @@ public sealed class LauncherCoordinatorTests
     }
 
     [TestMethod]
+    public async Task InitializeAsync_DoesNotProbeHealthWhenServerIsStoppedAndBootstrapIsAvailable()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = false;
+        fixture.EnvironmentInspector.Inspection = new EnvironmentInspection(
+        [
+            new EnvironmentCheckResult(
+                "config.bootstrap_available",
+                "Config file",
+                CheckSeverity.Warning,
+                "User config will be generated on first start.",
+                @"Missing user config file: C:\RayleaBot\config\user.yaml",
+                @"Start the service to bootstrap the first config from C:\RayleaBot\config\default.yaml."),
+        ],
+        false,
+        true);
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+
+        Assert.AreEqual(LauncherServiceState.Stopped, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(0, fixture.ManagementClient.HealthCalls);
+        Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
+        StringAssert.Contains(coordinator.Snapshot.ServiceDetail, "first config");
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_DoesNotReportConnectionFailureWhenProcessIsStopped()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = false;
+        fixture.EnvironmentInspector.Inspection = new EnvironmentInspection(
+        [
+            new EnvironmentCheckResult(
+                "server.executable",
+                "Server executable",
+                CheckSeverity.Ok,
+                "Executable ready.",
+                @"C:\RayleaBot\raylea-server.exe",
+                string.Empty),
+        ],
+        false,
+        false);
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+
+        Assert.AreEqual(LauncherServiceState.Stopped, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(1, fixture.ManagementClient.HealthCalls);
+        Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
+        StringAssert.Contains(coordinator.Snapshot.ServiceDetail, "not running");
+    }
+
+    [TestMethod]
     public async Task RefreshAsync_ReauthenticatesAfterUnauthorizedSystemStatus()
     {
         var fixture = new LauncherFixture();
@@ -150,15 +204,17 @@ internal sealed class FakeEndpointResolver : IServerEndpointResolver
 
 internal sealed class FakeEnvironmentInspector : IEnvironmentInspector
 {
-    internal IReadOnlyList<EnvironmentCheckResult> Results { get; set; } =
+    internal EnvironmentInspection Inspection { get; set; } = new(
     [
-        new EnvironmentCheckResult("Server executable", CheckSeverity.Ok, "ok"),
-        new EnvironmentCheckResult("Config file", CheckSeverity.Ok, "ok"),
-    ];
+        new EnvironmentCheckResult("server.executable", "Server executable", CheckSeverity.Ok, "Executable ready.", "ok", string.Empty),
+        new EnvironmentCheckResult("config.file", "Config file", CheckSeverity.Ok, "Config ready.", "ok", string.Empty),
+    ],
+    false,
+    false);
 
-    public Task<IReadOnlyList<EnvironmentCheckResult>> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
+    public Task<EnvironmentInspection> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
     {
-        return Task.FromResult(Results);
+        return Task.FromResult(Inspection);
     }
 }
 
@@ -176,9 +232,11 @@ internal sealed class FakeManagementClient : ILauncherManagementClient
     internal int IssueLauncherTokenCalls { get; private set; }
     internal int AdmitLauncherTokenCalls { get; private set; }
     internal int SystemStatusCalls { get; private set; }
+    internal int HealthCalls { get; private set; }
 
     public Task<bool> IsHealthyAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
     {
+        HealthCalls++;
         if (HealthResponses.Count > 0)
         {
             return Task.FromResult(HealthResponses.Dequeue());

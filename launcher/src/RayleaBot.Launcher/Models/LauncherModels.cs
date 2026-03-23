@@ -19,14 +19,35 @@ internal enum CheckSeverity
     Error,
 }
 
-internal sealed record LauncherSettings(string ServerExecutablePath, string ConfigPath, string Workdir);
+internal sealed record LauncherSettings(
+    string ServerExecutablePath,
+    string ConfigPath,
+    string Workdir,
+    bool CloseToTrayEnabled = true,
+    bool CloseTipAcknowledged = false);
 
 internal sealed record ServerEndpoint(string Host, int Port)
 {
     internal Uri BaseUri => new($"http://{Host}:{Port}/", UriKind.Absolute);
 }
 
-internal sealed record EnvironmentCheckResult(string Title, CheckSeverity Severity, string Detail);
+internal sealed record EnvironmentCheckResult(
+    string Code,
+    string Title,
+    CheckSeverity Severity,
+    string Summary,
+    string Detail,
+    string Remediation);
+
+internal sealed record EnvironmentInspection(
+    IReadOnlyList<EnvironmentCheckResult> Checks,
+    bool HasBlockingIssues,
+    bool CanBootstrapUserConfig)
+{
+    internal EnvironmentCheckResult? PrimaryIssue =>
+        Checks.FirstOrDefault(item => item.Severity == CheckSeverity.Error) ??
+        Checks.FirstOrDefault(item => item.Severity == CheckSeverity.Warning);
+}
 
 internal sealed record ReadinessSnapshot(string Status, string Reason);
 

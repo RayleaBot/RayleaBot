@@ -13,13 +13,26 @@ internal sealed class MainWindowViewModel : ObservableObject
     private string serverExecutablePath = string.Empty;
     private string configPath = string.Empty;
     private string workdir = string.Empty;
-    private string statusSummary = "Initializing Launcher...";
+    private string statusSummary = "Initializing launcher...";
+    private string heroTitle = "Inspecting local environment";
     private string sessionSummary = "No launcher session.";
     private string serviceDetail = string.Empty;
     private string lastError = string.Empty;
     private string diagnosticsSummary = string.Empty;
     private string operationSummary = string.Empty;
     private string webEndpoint = "http://127.0.0.1:8080/";
+    private string primaryIssueTitle = string.Empty;
+    private string primaryIssueSummary = string.Empty;
+    private string primaryIssueRemediation = string.Empty;
+    private bool hasPrimaryIssue;
+    private bool hasLastError;
+    private bool canStart = true;
+    private bool canStop;
+    private bool canOpenWebUi;
+    private bool canRetry = true;
+    private bool closeToTrayEnabled = true;
+    private bool closeTipAcknowledged;
+    private IBrush heroAccentBrush = Brush.Parse("#0E7490");
 
     internal MainWindowViewModel(LauncherCoordinator coordinator)
     {
@@ -55,6 +68,12 @@ internal sealed class MainWindowViewModel : ObservableObject
     {
         get => statusSummary;
         private set => SetProperty(ref statusSummary, value);
+    }
+
+    internal string HeroTitle
+    {
+        get => heroTitle;
+        private set => SetProperty(ref heroTitle, value);
     }
 
     internal string SessionSummary
@@ -93,6 +112,78 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref webEndpoint, value);
     }
 
+    internal string PrimaryIssueTitle
+    {
+        get => primaryIssueTitle;
+        private set => SetProperty(ref primaryIssueTitle, value);
+    }
+
+    internal string PrimaryIssueSummary
+    {
+        get => primaryIssueSummary;
+        private set => SetProperty(ref primaryIssueSummary, value);
+    }
+
+    internal string PrimaryIssueRemediation
+    {
+        get => primaryIssueRemediation;
+        private set => SetProperty(ref primaryIssueRemediation, value);
+    }
+
+    internal bool HasPrimaryIssue
+    {
+        get => hasPrimaryIssue;
+        private set => SetProperty(ref hasPrimaryIssue, value);
+    }
+
+    internal bool HasLastError
+    {
+        get => hasLastError;
+        private set => SetProperty(ref hasLastError, value);
+    }
+
+    internal bool CanStart
+    {
+        get => canStart;
+        private set => SetProperty(ref canStart, value);
+    }
+
+    internal bool CanStop
+    {
+        get => canStop;
+        private set => SetProperty(ref canStop, value);
+    }
+
+    internal bool CanOpenWebUi
+    {
+        get => canOpenWebUi;
+        private set => SetProperty(ref canOpenWebUi, value);
+    }
+
+    internal bool CanRetry
+    {
+        get => canRetry;
+        private set => SetProperty(ref canRetry, value);
+    }
+
+    internal bool CloseToTrayEnabled
+    {
+        get => closeToTrayEnabled;
+        private set => SetProperty(ref closeToTrayEnabled, value);
+    }
+
+    internal bool CloseTipAcknowledged
+    {
+        get => closeTipAcknowledged;
+        private set => SetProperty(ref closeTipAcknowledged, value);
+    }
+
+    internal IBrush HeroAccentBrush
+    {
+        get => heroAccentBrush;
+        private set => SetProperty(ref heroAccentBrush, value);
+    }
+
     internal async Task InitializeAsync()
     {
         await ExecuteAsync("Launcher initialized.", () => coordinator.InitializeAsync());
@@ -110,8 +201,19 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal async Task SaveSettingsAsync()
     {
-        var settings = new LauncherSettings(ServerExecutablePath.Trim(), ConfigPath.Trim(), Workdir.Trim());
+        var settings = BuildSettings();
         await ExecuteAsync("Launcher settings saved.", () => coordinator.SaveSettingsAsync(settings));
+    }
+
+    internal async Task AcknowledgeCloseTipAsync()
+    {
+        if (CloseTipAcknowledged)
+        {
+            return;
+        }
+
+        CloseTipAcknowledged = true;
+        await ExecuteAsync(null, () => coordinator.SaveSettingsAsync(BuildSettings()));
     }
 
     internal async Task StartAsync()
@@ -169,12 +271,61 @@ internal sealed class MainWindowViewModel : ObservableObject
         ServerExecutablePath = snapshot.Settings.ServerExecutablePath;
         ConfigPath = snapshot.Settings.ConfigPath;
         Workdir = snapshot.Settings.Workdir;
-        StatusSummary = $"Service state: {snapshot.ServiceState}";
+        CloseToTrayEnabled = snapshot.Settings.CloseToTrayEnabled;
+        CloseTipAcknowledged = snapshot.Settings.CloseTipAcknowledged;
+        StatusSummary = snapshot.ServiceState switch
+        {
+            LauncherServiceState.Stopped => "Stopped",
+            LauncherServiceState.Starting => "Starting",
+            LauncherServiceState.HealthOnly => "Health only",
+            LauncherServiceState.Ready => "Ready",
+            LauncherServiceState.Degraded => "Degraded",
+            LauncherServiceState.SetupRequired => "Setup required",
+            LauncherServiceState.ShuttingDown => "Shutting down",
+            LauncherServiceState.Failed => "Failed",
+            _ => snapshot.ServiceState.ToString(),
+        };
+        HeroTitle = snapshot.ServiceState switch
+        {
+            LauncherServiceState.Stopped when snapshot.EnvironmentChecks.Any(item => item.Code == "config.bootstrap_available") => "First-start config is ready to bootstrap",
+            LauncherServiceState.Stopped => "Service is not running",
+            LauncherServiceState.Starting => "Starting RayleaBot",
+            LauncherServiceState.HealthOnly => "Service is alive, management is limited",
+            LauncherServiceState.Ready => "Service is ready",
+            LauncherServiceState.Degraded => "Service is running with degraded dependencies",
+            LauncherServiceState.SetupRequired => "Initial setup is still required",
+            LauncherServiceState.ShuttingDown => "Graceful shutdown in progress",
+            LauncherServiceState.Failed => "Service startup or runtime failed",
+            _ => "Launcher status",
+        };
         SessionSummary = snapshot.SessionSummary;
         ServiceDetail = snapshot.ServiceDetail;
         LastError = snapshot.LastError;
+        HasLastError = !string.IsNullOrWhiteSpace(snapshot.LastError);
         DiagnosticsSummary = coordinator.BuildDiagnosticsSummary();
         WebEndpoint = snapshot.Endpoint.BaseUri.ToString();
+        HeroAccentBrush = snapshot.ServiceState switch
+        {
+            LauncherServiceState.Ready => Brush.Parse("#16A34A"),
+            LauncherServiceState.Degraded or LauncherServiceState.SetupRequired or LauncherServiceState.HealthOnly => Brush.Parse("#D97706"),
+            LauncherServiceState.Failed => Brush.Parse("#DC2626"),
+            LauncherServiceState.Starting or LauncherServiceState.ShuttingDown => Brush.Parse("#0EA5E9"),
+            _ => Brush.Parse("#475569"),
+        };
+
+        var primaryIssue = snapshot.EnvironmentChecks
+            .FirstOrDefault(item => item.Severity == CheckSeverity.Error) ??
+            snapshot.EnvironmentChecks.FirstOrDefault(item => item.Severity == CheckSeverity.Warning);
+        HasPrimaryIssue = primaryIssue is not null;
+        PrimaryIssueTitle = primaryIssue?.Title ?? string.Empty;
+        PrimaryIssueSummary = primaryIssue?.Detail ?? string.Empty;
+        PrimaryIssueRemediation = primaryIssue?.Remediation ?? string.Empty;
+
+        var hasBlockingIssue = snapshot.EnvironmentChecks.Any(item => item.Severity == CheckSeverity.Error);
+        CanStart = !snapshot.ProcessRunning && !hasBlockingIssue;
+        CanStop = snapshot.ProcessRunning || snapshot.ServiceState is LauncherServiceState.Starting or LauncherServiceState.ShuttingDown;
+        CanOpenWebUi = snapshot.ServiceState is LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.SetupRequired or LauncherServiceState.ShuttingDown;
+        CanRetry = true;
 
         EnvironmentChecks.Clear();
         foreach (var item in snapshot.EnvironmentChecks)
@@ -188,20 +339,32 @@ internal sealed class MainWindowViewModel : ObservableObject
             RecentStderr.Add(line);
         }
     }
+
+    private LauncherSettings BuildSettings()
+    {
+        return new LauncherSettings(
+            ServerExecutablePath.Trim(),
+            ConfigPath.Trim(),
+            Workdir.Trim(),
+            CloseToTrayEnabled,
+            CloseTipAcknowledged);
+    }
 }
 
 internal sealed class EnvironmentCheckViewModel
 {
     internal EnvironmentCheckViewModel(EnvironmentCheckResult check)
     {
-        Title = $"{check.Title} [{check.Severity}]";
-        Summary = check.Severity switch
+        Title = check.Title;
+        Summary = check.Summary;
+        Detail = check.Detail;
+        Remediation = check.Remediation;
+        SeverityLabel = check.Severity switch
         {
             CheckSeverity.Ok => "Ready",
-            CheckSeverity.Warning => "Attention needed",
-            _ => "Blocking issue",
+            CheckSeverity.Warning => "Needs attention",
+            _ => "Blocking",
         };
-        Detail = check.Detail;
         AccentBrush = check.Severity switch
         {
             CheckSeverity.Ok => Brush.Parse("#12B76A"),
@@ -215,6 +378,10 @@ internal sealed class EnvironmentCheckViewModel
     internal string Summary { get; }
 
     internal string Detail { get; }
+
+    internal string Remediation { get; }
+
+    internal string SeverityLabel { get; }
 
     internal IBrush AccentBrush { get; }
 }

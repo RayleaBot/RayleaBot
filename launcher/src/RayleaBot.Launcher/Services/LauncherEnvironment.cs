@@ -145,7 +145,7 @@ internal sealed class ConfigServerEndpointResolver : IServerEndpointResolver
 
 internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
 {
-    public Task<IReadOnlyList<EnvironmentCheckResult>> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
+    public Task<EnvironmentInspection> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
     {
         var results = new List<EnvironmentCheckResult>
         {
@@ -154,33 +154,55 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
             CheckWorkdir(settings.Workdir),
             CheckLongPaths(),
             CheckDepsManifest(settings.Workdir),
+            CheckChromiumResources(settings.Workdir),
+            CheckTemplateResources(settings.Workdir),
         };
 
-        return Task.FromResult<IReadOnlyList<EnvironmentCheckResult>>(results);
+        var canBootstrapUserConfig = results.Any(item => item.Code == "config.bootstrap_available");
+        var hasBlockingIssues = results.Any(item => item.Severity == CheckSeverity.Error);
+        return Task.FromResult(new EnvironmentInspection(results, hasBlockingIssues, canBootstrapUserConfig));
     }
 
     private static EnvironmentCheckResult CheckExecutable(string path)
     {
         return File.Exists(path)
-            ? new EnvironmentCheckResult("Server executable", CheckSeverity.Ok, path)
-            : new EnvironmentCheckResult("Server executable", CheckSeverity.Error, $"Missing server executable: {path}");
+            ? new EnvironmentCheckResult("server.executable", "Server executable", CheckSeverity.Ok, "Executable ready.", path, string.Empty)
+            : new EnvironmentCheckResult("server.executable_missing", "Server executable", CheckSeverity.Error, "Server executable is missing.", $"Missing server executable: {path}", "Update the launcher settings to point at a valid raylea-server executable.");
     }
 
     private static EnvironmentCheckResult CheckConfig(string path)
     {
+        var defaultPath = LauncherConfigBootstrap.GetDefaultTemplatePath(path);
         if (!File.Exists(path))
         {
-            return new EnvironmentCheckResult("Config file", CheckSeverity.Error, $"Missing config file: {path}");
+            if (File.Exists(defaultPath))
+            {
+                return new EnvironmentCheckResult(
+                    "config.bootstrap_available",
+                    "Config file",
+                    CheckSeverity.Warning,
+                    "User config will be generated on first start.",
+                    $"Missing user config file: {path}",
+                    $"Start the service to bootstrap the first config from {defaultPath}.");
+            }
+
+            return new EnvironmentCheckResult(
+                "config.missing",
+                "Config file",
+                CheckSeverity.Error,
+                "Config baseline is incomplete.",
+                $"Missing config file: {path}",
+                $"Provide {defaultPath} so the launcher and server can bootstrap the first user config.");
         }
 
         try
         {
             using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            return new EnvironmentCheckResult("Config file", CheckSeverity.Ok, path);
+            return new EnvironmentCheckResult("config.file", "Config file", CheckSeverity.Ok, "Config ready.", path, string.Empty);
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("Config file", CheckSeverity.Error, $"Config is not readable: {ex.Message}");
+            return new EnvironmentCheckResult("config.unreadable", "Config file", CheckSeverity.Error, "Config file is not readable.", $"Config is not readable: {ex.Message}", "Fix file permissions or point the launcher at a readable config file.");
         }
     }
 
@@ -192,11 +214,11 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
             var probe = Path.Combine(path, ".launcher-write-test");
             File.WriteAllText(probe, "ok");
             File.Delete(probe);
-            return new EnvironmentCheckResult("Workdir", CheckSeverity.Ok, path);
+            return new EnvironmentCheckResult("workdir.ready", "Workdir", CheckSeverity.Ok, "Workdir is writable.", path, string.Empty);
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("Workdir", CheckSeverity.Error, $"Workdir is not writable: {ex.Message}");
+            return new EnvironmentCheckResult("workdir.unwritable", "Workdir", CheckSeverity.Error, "Workdir is not writable.", $"Workdir is not writable: {ex.Message}", "Choose a writable work directory before starting the service.");
         }
     }
 
@@ -204,7 +226,7 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
     {
         if (!OperatingSystem.IsWindows())
         {
-            return new EnvironmentCheckResult("LongPathsEnabled", CheckSeverity.Warning, "Long path registry check is only available on Windows.");
+            return new EnvironmentCheckResult("os.long_paths_unavailable", "LongPathsEnabled", CheckSeverity.Warning, "Long path registry check is unavailable.", "Long path registry check is only available on Windows.", "No action required on this platform.");
         }
 
         try
@@ -217,12 +239,12 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
             };
 
             return enabled
-                ? new EnvironmentCheckResult("LongPathsEnabled", CheckSeverity.Ok, "Registry flag is enabled.")
-                : new EnvironmentCheckResult("LongPathsEnabled", CheckSeverity.Warning, "Registry flag is disabled.");
+                ? new EnvironmentCheckResult("os.long_paths_enabled", "LongPathsEnabled", CheckSeverity.Ok, "Long path support is enabled.", "Registry flag is enabled.", string.Empty)
+                : new EnvironmentCheckResult("os.long_paths_disabled", "LongPathsEnabled", CheckSeverity.Warning, "Long path support is disabled.", "Registry flag is disabled.", "Enable LongPathsEnabled to reduce path-length failures during runtime bootstrap.");
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("LongPathsEnabled", CheckSeverity.Warning, $"Registry check failed: {ex.Message}");
+            return new EnvironmentCheckResult("os.long_paths_unknown", "LongPathsEnabled", CheckSeverity.Warning, "Long path status could not be determined.", $"Registry check failed: {ex.Message}", "Verify LongPathsEnabled manually if bootstrap or render assets hit path limits.");
         }
     }
 
@@ -231,7 +253,7 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
         var manifestPath = Path.Combine(workdir, ".deps", "manifest.json");
         if (!File.Exists(manifestPath))
         {
-            return new EnvironmentCheckResult(".deps manifest", CheckSeverity.Warning, $"Missing manifest: {manifestPath}");
+            return new EnvironmentCheckResult("deps.manifest_missing", ".deps manifest", CheckSeverity.Warning, "Dependency manifest is missing.", $"Missing manifest: {manifestPath}", "Restore the packaged .deps resources before using render or managed runtimes.");
         }
 
         try
@@ -242,12 +264,87 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
                 .Any(item => item.TryGetProperty("platform", out var platform) && string.Equals(platform.GetString(), "windows-x64", StringComparison.Ordinal));
 
             return hasWindowsResource
-                ? new EnvironmentCheckResult(".deps manifest", CheckSeverity.Ok, manifestPath)
-                : new EnvironmentCheckResult(".deps manifest", CheckSeverity.Warning, "Manifest does not contain windows-x64 resources.");
+                ? new EnvironmentCheckResult("deps.manifest", ".deps manifest", CheckSeverity.Ok, "Dependency manifest is available.", manifestPath, string.Empty)
+                : new EnvironmentCheckResult("deps.manifest_platform_missing", ".deps manifest", CheckSeverity.Warning, "Dependency manifest is missing windows-x64 resources.", "Manifest does not contain windows-x64 resources.", "Rebuild or restore the packaged .deps manifest for the current platform.");
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult(".deps manifest", CheckSeverity.Warning, $"Manifest parse failed: {ex.Message}");
+            return new EnvironmentCheckResult("deps.manifest_invalid", ".deps manifest", CheckSeverity.Warning, "Dependency manifest could not be parsed.", $"Manifest parse failed: {ex.Message}", "Fix the manifest file before relying on packaged runtime assets.");
         }
+    }
+
+    private static EnvironmentCheckResult CheckChromiumResources(string workdir)
+    {
+        var manifestPath = Path.Combine(workdir, ".deps", "manifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            return new EnvironmentCheckResult("deps.chromium_unknown", "Chromium resources", CheckSeverity.Warning, "Chromium availability is unknown.", "Chromium cannot be checked because the .deps manifest is missing.", "Restore packaged Chromium resources before enabling render.image.");
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(manifestPath));
+            var hasChromium = document.RootElement.GetProperty("resources")
+                .EnumerateArray()
+                .Any(item =>
+                    item.TryGetProperty("platform", out var platform) &&
+                    string.Equals(platform.GetString(), "windows-x64", StringComparison.Ordinal) &&
+                    item.TryGetProperty("kind", out var kind) &&
+                    string.Equals(kind.GetString(), "chromium", StringComparison.Ordinal));
+
+            return hasChromium
+                ? new EnvironmentCheckResult("deps.chromium", "Chromium resources", CheckSeverity.Ok, "Chromium resource entry is present.", "windows-x64 Chromium resource is declared in the dependency manifest.", string.Empty)
+                : new EnvironmentCheckResult("deps.chromium_missing", "Chromium resources", CheckSeverity.Warning, "Chromium resource entry is missing.", "The dependency manifest does not declare a windows-x64 Chromium resource.", "Restore Chromium resources before enabling render.image in packaged builds.");
+        }
+        catch (Exception ex)
+        {
+            return new EnvironmentCheckResult("deps.chromium_invalid", "Chromium resources", CheckSeverity.Warning, "Chromium resource status could not be determined.", $"Manifest parse failed: {ex.Message}", "Fix the dependency manifest before validating Chromium resources.");
+        }
+    }
+
+    private static EnvironmentCheckResult CheckTemplateResources(string workdir)
+    {
+        var templatesPath = Path.Combine(workdir, "templates");
+        if (!Directory.Exists(templatesPath))
+        {
+            return new EnvironmentCheckResult("render.templates_missing", "Template resources", CheckSeverity.Warning, "Template resources are missing.", $"Missing templates directory: {templatesPath}", "Add packaged templates before enabling render.image preview flows.");
+        }
+
+        var fileCount = Directory.EnumerateFiles(templatesPath, "*", SearchOption.AllDirectories).Take(1).Count();
+        return fileCount > 0
+            ? new EnvironmentCheckResult("render.templates", "Template resources", CheckSeverity.Ok, "Template resources are available.", templatesPath, string.Empty)
+            : new EnvironmentCheckResult("render.templates_empty", "Template resources", CheckSeverity.Warning, "Template resources are empty.", $"Templates directory has no files: {templatesPath}", "Populate packaged templates before enabling render.image preview flows.");
+    }
+}
+
+internal static class LauncherConfigBootstrap
+{
+    internal static string GetDefaultTemplatePath(string userConfigPath)
+    {
+        var configDirectory = Path.GetDirectoryName(userConfigPath);
+        if (string.IsNullOrWhiteSpace(configDirectory))
+        {
+            configDirectory = AppContext.BaseDirectory;
+        }
+
+        return Path.Combine(configDirectory, "default.yaml");
+    }
+
+    internal static bool EnsureUserConfigExists(string userConfigPath)
+    {
+        if (File.Exists(userConfigPath))
+        {
+            return false;
+        }
+
+        var defaultTemplatePath = GetDefaultTemplatePath(userConfigPath);
+        if (!File.Exists(defaultTemplatePath))
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(userConfigPath)!);
+        File.Copy(defaultTemplatePath, userConfigPath, overwrite: false);
+        return true;
     }
 }

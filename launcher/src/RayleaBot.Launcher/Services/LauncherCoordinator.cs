@@ -86,16 +86,32 @@ internal sealed class LauncherCoordinator(
         try
         {
             EnsureSettingsLoaded();
+            var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
+            var inspection = await environmentInspector.InspectAsync(currentSettings!, cancellationToken).ConfigureAwait(false);
+            if (inspection.HasBlockingIssues && !inspection.CanBootstrapUserConfig)
+            {
+                UpdateSnapshot(BuildLocalStateSnapshot(
+                    endpoint,
+                    inspection,
+                    LauncherServiceState.Stopped,
+                    processController.IsRunning,
+                    "No launcher session.",
+                    inspection.PrimaryIssue?.Summary ?? "Launcher preflight found a blocking issue."));
+                return;
+            }
+
+            var bootstrappedConfig = false;
             try
             {
+                bootstrappedConfig = LauncherConfigBootstrap.EnsureUserConfigExists(currentSettings!.ConfigPath);
                 await processController.StartAsync(currentSettings!, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 UpdateSnapshot(
                     BuildSnapshot(
-                        endpointResolver.Resolve(currentSettings!.ConfigPath),
-                        await environmentInspector.InspectAsync(currentSettings!, cancellationToken).ConfigureAwait(false),
+                        endpoint,
+                        inspection.Checks,
                         LauncherServiceState.Failed,
                         processController.IsRunning,
                         false,
@@ -112,11 +128,12 @@ internal sealed class LauncherCoordinator(
                     ServiceState = LauncherServiceState.Starting,
                     ProcessRunning = true,
                     ShutdownRequested = false,
-                    ServiceDetail = "Waiting for /healthz to report ok.",
+                    ServiceDetail = bootstrappedConfig
+                        ? "Created the first user config from default.yaml and waiting for /healthz to report ok."
+                        : "Waiting for /healthz to report ok.",
                     LastError = string.Empty,
                 });
 
-            var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(runtimeOptions.StartupTimeout);
 
@@ -294,7 +311,22 @@ internal sealed class LauncherCoordinator(
 
         var settings = currentSettings!;
         var endpoint = endpointResolver.Resolve(settings.ConfigPath);
-        var checks = await environmentInspector.InspectAsync(settings, cancellationToken).ConfigureAwait(false);
+        var inspection = await environmentInspector.InspectAsync(settings, cancellationToken).ConfigureAwait(false);
+        var checks = inspection.Checks;
+
+        if (inspection.HasBlockingIssues || inspection.CanBootstrapUserConfig)
+        {
+            UpdateSnapshot(BuildLocalStateSnapshot(
+                endpoint,
+                inspection,
+                LauncherServiceState.Stopped,
+                processController.IsRunning,
+                "No launcher session.",
+                inspection.CanBootstrapUserConfig
+                    ? "Service is not running. The first user config will be generated from default.yaml when you start the service."
+                    : inspection.PrimaryIssue?.Summary ?? "Service is not running."));
+            return;
+        }
 
         try
         {
@@ -308,7 +340,7 @@ internal sealed class LauncherCoordinator(
                     false,
                     snapshot.ShutdownRequested && processController.IsRunning,
                     "No launcher session.",
-                    processController.IsRunning ? "Health probe failed while the child process is running." : "Server is not responding.",
+                    processController.IsRunning ? "Health probe failed while the child process is running." : "Service is not running.",
                     processController.IsRunning ? "Health probe failed." : string.Empty));
                 return;
             }
@@ -323,8 +355,8 @@ internal sealed class LauncherCoordinator(
                 false,
                 snapshot.ShutdownRequested,
                 "No launcher session.",
-                "Health probe failed.",
-                ex.Message));
+                processController.IsRunning ? "Health probe failed." : "Service is not running.",
+                processController.IsRunning ? ex.Message : string.Empty));
             return;
         }
 
@@ -468,6 +500,46 @@ internal sealed class LauncherCoordinator(
     {
         snapshot = next;
         SnapshotChanged?.Invoke(this, snapshot);
+    }
+
+    private LauncherSnapshot BuildLocalStateSnapshot(
+        ServerEndpoint endpoint,
+        EnvironmentInspection inspection,
+        LauncherServiceState serviceState,
+        bool processRunning,
+        string sessionSummary,
+        string serviceDetail)
+    {
+        var primaryIssue = inspection.PrimaryIssue;
+        return BuildSnapshot(
+            endpoint,
+            inspection.Checks,
+            serviceState,
+            processRunning,
+            false,
+            false,
+            sessionSummary,
+            BuildLocalServiceDetail(serviceDetail, primaryIssue),
+            string.Empty);
+    }
+
+    private static string BuildLocalServiceDetail(string fallbackDetail, EnvironmentCheckResult? primaryIssue)
+    {
+        if (primaryIssue is null)
+        {
+            return fallbackDetail;
+        }
+
+        var detail = string.IsNullOrWhiteSpace(primaryIssue.Detail)
+            ? primaryIssue.Summary
+            : $"{primaryIssue.Summary} {primaryIssue.Detail}";
+
+        if (string.IsNullOrWhiteSpace(primaryIssue.Remediation))
+        {
+            return detail;
+        }
+
+        return $"{detail} {primaryIssue.Remediation}";
     }
 
     private static LauncherServiceState MapServiceState(string readinessStatus, string systemStatus)

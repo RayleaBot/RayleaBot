@@ -16,7 +16,7 @@ internal interface IServerEndpointResolver
 
 internal interface IEnvironmentInspector
 {
-    Task<IReadOnlyList<EnvironmentCheckResult>> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken);
+    Task<EnvironmentInspection> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken);
 }
 
 internal interface ILauncherManagementClient
