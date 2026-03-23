@@ -137,6 +137,30 @@ export interface PluginDetailResponse {
   plugin: PluginSummary
 }
 
+export type PluginInstallSourceType = 'local_zip' | 'local_directory' | 'remote_url'
+
+export interface PluginInstallRequest {
+  source_type: PluginInstallSourceType
+  source: string
+  allow_install_scripts?: boolean
+}
+
+export interface PluginGrantRequest {
+  capability: string
+  expires_at?: string
+}
+
+export interface PluginGrantSummary {
+  plugin_id: string
+  capability: string
+  granted_at: string
+  expires_at?: string | null
+}
+
+export interface PluginGrantListResponse {
+  items: PluginGrantSummary[]
+}
+
 export interface ConfigDocument {
   schema_version: '1'
   server: {

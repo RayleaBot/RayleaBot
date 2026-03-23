@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 
+import RetryPanel from '@/components/RetryPanel.vue'
 import { cloneConfig, configSections, getValueByPath, setValueByPath } from '@/lib/config-form'
 import { fromMultilineList, toMultilineList } from '@/lib/format'
 import { useConfigStore } from '@/stores/config'
@@ -17,8 +18,16 @@ watch(document, (value) => {
   draft.value = value ? cloneConfig(value) : null
 }, { immediate: true })
 
+async function loadConfig() {
+  try {
+    await configStore.fetchConfig()
+  } catch {
+    // store error state drives the page
+  }
+}
+
 onMounted(() => {
-  void configStore.fetchConfig()
+  void loadConfig()
 })
 
 function readField(path: string, type: 'text' | 'number' | 'boolean' | 'select' | 'list') {
@@ -74,7 +83,15 @@ async function save() {
       </el-button>
     </section>
 
-    <el-alert v-if="error" title="配置读取或保存失败" type="error" :description="error" show-icon />
+    <RetryPanel
+      v-if="error && !draft"
+      title="配置读取失败"
+      :description="error"
+      :loading="loading || saving"
+      @retry="loadConfig()"
+    />
+
+    <el-alert v-else-if="error" title="配置读取或保存失败" type="error" :description="error" show-icon />
 
     <el-alert
       v-if="restartRequired !== null"

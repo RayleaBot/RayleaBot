@@ -2,7 +2,16 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { apiRequest } from '@/lib/http'
-import type { PluginDetailResponse, PluginListResponse, PluginSummary } from '@/types/api'
+import type {
+  PluginDetailResponse,
+  PluginGrantListResponse,
+  PluginGrantRequest,
+  PluginGrantSummary,
+  PluginInstallRequest,
+  PluginListResponse,
+  PluginSummary,
+  TaskAcceptedResponse,
+} from '@/types/api'
 
 export interface ConsoleFrame {
   plugin_id: string
@@ -14,10 +23,14 @@ export interface ConsoleFrame {
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
   const current = ref<PluginSummary | null>(null)
+  const grants = ref<Record<string, PluginGrantSummary[]>>({})
   const consoleFrames = ref<Record<string, ConsoleFrame[]>>({})
   const loading = ref(false)
+  const detailLoading = ref(false)
   const error = ref<string | null>(null)
   const actionPending = ref<Record<string, string | null>>({})
+  const grantsLoading = ref<Record<string, boolean>>({})
+  const installPending = ref(false)
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.id.localeCompare(right.id)))
 
@@ -36,10 +49,15 @@ export const usePluginsStore = defineStore('plugins', () => {
   }
 
   async function fetchDetail(pluginId: string) {
-    const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
-    current.value = response.plugin
-    upsert(response.plugin)
-    return response.plugin
+    detailLoading.value = true
+    try {
+      const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
+      current.value = response.plugin
+      upsert(response.plugin)
+      return response.plugin
+    } finally {
+      detailLoading.value = false
+    }
   }
 
   function upsert(plugin: PluginSummary) {
@@ -62,6 +80,13 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
+  function setGrantsLoading(pluginId: string, loadingValue: boolean) {
+    grantsLoading.value = {
+      ...grantsLoading.value,
+      [pluginId]: loadingValue,
+    }
+  }
+
   async function executeAction(pluginId: string, action: 'enable' | 'disable' | 'reload') {
     setPending(pluginId, action)
     try {
@@ -72,6 +97,76 @@ export const usePluginsStore = defineStore('plugins', () => {
       return response.plugin
     } finally {
       setPending(pluginId, null)
+    }
+  }
+
+  async function installPlugin(payload: PluginInstallRequest) {
+    installPending.value = true
+    try {
+      return await apiRequest<TaskAcceptedResponse>('/api/plugins/install', {
+        method: 'POST',
+        body: payload,
+      })
+    } finally {
+      installPending.value = false
+    }
+  }
+
+  async function uninstallPlugin(pluginId: string) {
+    setPending(pluginId, 'uninstall')
+    try {
+      return await apiRequest<TaskAcceptedResponse>(`/api/plugins/${pluginId}`, {
+        method: 'DELETE',
+      })
+    } finally {
+      setPending(pluginId, null)
+    }
+  }
+
+  async function fetchGrants(pluginId: string) {
+    setGrantsLoading(pluginId, true)
+    try {
+      const response = await apiRequest<PluginGrantListResponse>(`/api/plugins/${pluginId}/grants`)
+      grants.value = {
+        ...grants.value,
+        [pluginId]: response.items,
+      }
+      return response.items
+    } finally {
+      setGrantsLoading(pluginId, false)
+    }
+  }
+
+  async function grantCapability(pluginId: string, payload: PluginGrantRequest) {
+    setGrantsLoading(pluginId, true)
+    try {
+      const response = await apiRequest<PluginGrantSummary>(`/api/plugins/${pluginId}/grants`, {
+        method: 'POST',
+        body: payload,
+      })
+      const nextItems = [...(grants.value[pluginId] ?? []).filter((item) => item.capability !== response.capability), response]
+      grants.value = {
+        ...grants.value,
+        [pluginId]: nextItems.sort((left, right) => left.capability.localeCompare(right.capability)),
+      }
+      return response
+    } finally {
+      setGrantsLoading(pluginId, false)
+    }
+  }
+
+  async function revokeGrant(pluginId: string, capability: string) {
+    setGrantsLoading(pluginId, true)
+    try {
+      await apiRequest<void>(`/api/plugins/${pluginId}/grants/${encodeURIComponent(capability)}`, {
+        method: 'DELETE',
+      })
+      grants.value = {
+        ...grants.value,
+        [pluginId]: (grants.value[pluginId] ?? []).filter((item) => item.capability !== capability),
+      }
+    } finally {
+      setGrantsLoading(pluginId, false)
     }
   }
 
@@ -87,18 +182,40 @@ export const usePluginsStore = defineStore('plugins', () => {
     return consoleFrames.value[pluginId] ?? []
   }
 
+  function getGrants(pluginId: string) {
+    return grants.value[pluginId] ?? []
+  }
+
+  function clearConsole(pluginId: string) {
+    consoleFrames.value = {
+      ...consoleFrames.value,
+      [pluginId]: [],
+    }
+  }
+
   return {
     actionPending,
     current,
+    detailLoading,
     error,
+    grants,
+    grantsLoading,
     items,
+    installPending,
     loading,
     sortedItems,
     appendConsole,
+    clearConsole,
     executeAction,
     fetchDetail,
+    fetchGrants,
     fetchList,
     getConsole,
+    getGrants,
+    grantCapability,
+    installPlugin,
+    revokeGrant,
+    uninstallPlugin,
     upsert,
   }
 })

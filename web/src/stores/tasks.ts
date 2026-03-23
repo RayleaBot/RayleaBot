@@ -8,6 +8,8 @@ export const useTasksStore = defineStore('tasks', () => {
   const items = ref<TaskSummary[]>([])
   const currentTask = ref<TaskSummary | null>(null)
   const loading = ref(false)
+  const detailLoading = ref(false)
+  const cancelPending = ref(false)
   const error = ref<string | null>(null)
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.task_id.localeCompare(right.task_id)))
@@ -39,17 +41,26 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   async function fetchDetail(taskId: string) {
-    const response = await apiRequest<TaskDetailResponse>(`/api/tasks/${taskId}`)
-    currentTask.value = response.task
-    upsert(response.task)
-    return response.task
+    detailLoading.value = true
+    try {
+      const response = await apiRequest<TaskDetailResponse>(`/api/tasks/${taskId}`)
+      currentTask.value = response.task
+      upsert(response.task)
+      return response.task
+    } finally {
+      detailLoading.value = false
+    }
   }
 
   async function cancelTask(taskId: string) {
-    const response = await apiRequest<TaskAcceptedResponse>(`/api/tasks/${taskId}/cancel`, {
-      method: 'POST',
-    })
-    return response
+    cancelPending.value = true
+    try {
+      return await apiRequest<TaskAcceptedResponse>(`/api/tasks/${taskId}/cancel`, {
+        method: 'POST',
+      })
+    } finally {
+      cancelPending.value = false
+    }
   }
 
   function upsert(task: TaskSummary) {
@@ -65,8 +76,15 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
+  function clearCurrentTask() {
+    currentTask.value = null
+  }
+
   return {
+    cancelPending,
+    clearCurrentTask,
     currentTask,
+    detailLoading,
     error,
     items,
     loading,

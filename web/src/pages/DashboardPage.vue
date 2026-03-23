@@ -2,14 +2,23 @@
 import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
+import RetryPanel from '@/components/RetryPanel.vue'
 import { formatDurationSeconds } from '@/lib/format'
 import { useSystemStore } from '@/stores/system'
 
 const systemStore = useSystemStore()
 const { error, health, loading, readiness, recentEvents, system } = storeToRefs(systemStore)
 
+async function refreshState() {
+  try {
+    await systemStore.refresh()
+  } catch {
+    // store error state drives the page
+  }
+}
+
 onMounted(() => {
-  void systemStore.refresh()
+  void refreshState()
 })
 </script>
 
@@ -22,12 +31,20 @@ onMounted(() => {
         <p>聚合 health、ready、system status 与 `/ws/events` 的管理摘要。</p>
       </div>
 
-      <el-button :loading="loading" @click="systemStore.refresh()">
+      <el-button :loading="loading" @click="refreshState()">
         刷新状态
       </el-button>
     </section>
 
-    <el-alert v-if="error" title="状态读取失败" type="error" :description="error" show-icon />
+    <RetryPanel
+      v-if="error && !system"
+      title="状态读取失败"
+      :description="error"
+      :loading="loading"
+      @retry="refreshState()"
+    />
+
+    <el-alert v-else-if="error" title="状态读取失败" type="error" :description="error" show-icon />
 
     <div class="stats-grid">
       <el-card class="stat-card">

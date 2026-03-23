@@ -131,6 +131,17 @@ export const useSocketStore = defineStore('sockets', () => {
     socketsInitialized = false
   }
 
+  function reconnectAll() {
+    ensureManagementSockets()
+    eventsSocket.refresh()
+    tasksSocket.refresh()
+    logsSocket.refresh()
+    if (consolePluginId) {
+      consoleSocket.start()
+      consoleSocket.refresh()
+    }
+  }
+
   function setConsolePlugin(pluginId: string | null) {
     consolePluginId = pluginId
     if (pluginId) {
@@ -142,10 +153,21 @@ export const useSocketStore = defineStore('sockets', () => {
     consoleSocket.stop()
   }
 
+  function reconnectConsole() {
+    if (!consolePluginId) {
+      return
+    }
+
+    consoleSocket.start()
+    consoleSocket.refresh()
+  }
+
   return {
     snapshots,
     disconnectAll,
     ensureManagementSockets,
+    reconnectAll,
+    reconnectConsole,
     setConsolePlugin,
   }
 })
