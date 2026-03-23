@@ -13,4 +13,4 @@ frames:
       timestamp: 1710000002
 expect:
   valid: false
-  reason: request_id is mandatory for every Phase 2 protocol message.
+  reason: request_id is mandatory for every protocol message.

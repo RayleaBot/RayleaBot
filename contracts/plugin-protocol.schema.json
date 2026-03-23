@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, rich message.send/message.reply payloads with a shared outbound segment model, legacy message.send_image compatibility, local logger.write/storage.kv/storage.file/http.request action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
+  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, message.send/message.reply payloads with a shared outbound segment model, local logger.write/storage.kv/storage.file/http.request action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -567,33 +567,7 @@
         }
       }
     },
-    "action_message_send_legacy_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "target_type",
-        "target_id",
-        "text"
-      ],
-      "properties": {
-        "target_type": {
-          "type": "string",
-          "enum": [
-            "group",
-            "private"
-          ]
-        },
-        "target_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "text": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "action_message_send_rich_data": {
+    "action_message_send_data": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -618,26 +592,7 @@
         }
       }
     },
-    "action_message_reply_legacy_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "reply_to_message_id",
-        "text"
-      ],
-      "properties": {
-        "reply_to_message_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The message_id of the message to quote-reply to, as a string."
-        },
-        "text": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "action_message_reply_rich_data": {
+    "action_message_reply_data": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -664,9 +619,6 @@
         },
         {
           "$ref": "#/$defs/action_message_reply"
-        },
-        {
-          "$ref": "#/$defs/action_message_send_image"
         },
         {
           "$ref": "#/$defs/action_logger_write"
@@ -703,14 +655,7 @@
               "const": "message.send"
             },
             "data": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/action_message_send_legacy_data"
-                },
-                {
-                  "$ref": "#/$defs/action_message_send_rich_data"
-                }
-              ]
+              "$ref": "#/$defs/action_message_send_data"
             }
           }
         }
@@ -738,66 +683,7 @@
               "const": "message.reply"
             },
             "data": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/action_message_reply_legacy_data"
-                },
-                {
-                  "$ref": "#/$defs/action_message_reply_rich_data"
-                }
-              ]
-            }
-          }
-        }
-      ],
-      "unevaluatedProperties": false
-    },
-    "action_message_send_image": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/common"
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "action",
-            "data"
-          ],
-          "properties": {
-            "type": {
-              "const": "action"
-            },
-            "action": {
-              "type": "string",
-              "const": "message.send_image"
-            },
-            "data": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "target_type",
-                "target_id",
-                "file"
-              ],
-              "properties": {
-                "target_type": {
-                  "type": "string",
-                  "enum": [
-                    "group",
-                    "private"
-                  ]
-                },
-                "target_id": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "file": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "Legacy compatibility path for image references as file:// local path or base64:// encoded data."
-                }
-              }
+              "$ref": "#/$defs/action_message_reply_data"
             }
           }
         }
@@ -1492,22 +1378,6 @@
     },
     {
       "type": "action",
-      "action_kind": "message.send_image",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-message-send-image.yaml"
-    },
-    {
-      "type": "action",
       "action_kind": "logger.write",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request_distinct_from_event",
@@ -1645,12 +1515,9 @@
     "fixtures/plugin-protocol/ok.init-init-ack.yaml",
     "fixtures/plugin-protocol/ok.event-result.yaml",
     "fixtures/plugin-protocol/ok.event-error.yaml",
-    "fixtures/plugin-protocol/ok.action-message-send.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-segments.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-mixed-segments.yaml",
-    "fixtures/plugin-protocol/ok.action-message-reply.yaml",
     "fixtures/plugin-protocol/ok.action-message-reply-to-event.yaml",
-    "fixtures/plugin-protocol/ok.action-message-send-image.yaml",
     "fixtures/plugin-protocol/ok.action-logger-write.yaml",
     "fixtures/plugin-protocol/ok.action-storage-kv-get.yaml",
     "fixtures/plugin-protocol/ok.action-storage-kv-set.yaml",
@@ -1687,5 +1554,5 @@
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
-  "$comment": "Frozen plugin action kinds now include terminal message.send/message.reply, legacy message.send_image, and local-action RPC logger.write/storage.kv/storage.file/http.request. message.* keep legacy terminal semantics; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. Ping/pong remain the minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and wider action families remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply and local-action RPC logger.write/storage.kv/storage.file/http.request. message.* use the shared outbound segment model; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. Ping/pong remain the minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and wider action families remain out of scope."
 }

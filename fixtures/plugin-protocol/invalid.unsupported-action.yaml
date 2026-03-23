@@ -13,4 +13,4 @@ frames:
       user_id: "789"
 expect:
   valid: false
-  reason: only message.send, message.reply, message.send_image, logger.write, and storage.kv are frozen action kinds; other action kinds remain out of scope.
+  reason: only message.send, message.reply, logger.write, storage.kv, storage.file, and http.request are frozen action kinds; other action kinds remain out of scope.

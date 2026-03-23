@@ -142,7 +142,7 @@ jobs:
           if set(info_props['runtime'].get('enum', [])) != {'python', 'nodejs'}:
               raise SystemExit('plugin-info.schema.json runtime must only allow python and nodejs')
           if 'default_config' in info_props:
-              raise SystemExit('plugin-info.schema.json must not introduce default_config in Phase 2')
+              raise SystemExit('plugin-info.schema.json must not introduce default_config')
           scope_props = info_props['permissions']['properties']['scopes']['properties']
           for scope in ['http_hosts', 'storage_roots', 'webhooks']:
               if scope not in scope_props:
@@ -166,10 +166,8 @@ jobs:
               'outbound_message_segment_at_all',
               'outbound_message_segment_face',
               'outbound_message_segment_reply',
-              'action_message_send_legacy_data',
-              'action_message_send_rich_data',
-              'action_message_reply_legacy_data',
-              'action_message_reply_rich_data',
+              'action_message_send_data',
+              'action_message_reply_data',
               'action_logger_write_data',
               'action_storage_kv_get_data',
               'action_storage_kv_set_data',
@@ -186,7 +184,6 @@ jobs:
               'action',
               'action_message_send',
               'action_message_reply',
-              'action_message_send_image',
               'action_logger_write',
               'action_storage_kv',
               'action_storage_file',
@@ -211,7 +208,6 @@ jobs:
           expected_action_refs = {
               'action_message_send',
               'action_message_reply',
-              'action_message_send_image',
               'action_logger_write',
               'action_storage_kv',
               'action_storage_file',
@@ -247,36 +243,23 @@ jobs:
           if send_def['properties']['action'].get('const') != 'message.send':
               raise SystemExit('plugin-protocol.schema.json action_message_send must freeze action const to message.send')
           send_data = send_def['properties']['data']
-          send_data_refs = {item.get('$ref', '').split('/')[-1] for item in send_data.get('oneOf', [])}
-          if send_data_refs != {'action_message_send_legacy_data', 'action_message_send_rich_data'}:
-              raise SystemExit('plugin-protocol.schema.json action_message_send.data must support both legacy and rich payloads')
-          send_legacy = plugin_protocol['$defs']['action_message_send_legacy_data']
-          if send_legacy.get('required') != ['target_type', 'target_id', 'text']:
-              raise SystemExit('plugin-protocol.schema.json action_message_send_legacy_data must require target_type, target_id, and text')
-          if set(send_legacy['properties']['target_type'].get('enum', [])) != {'group', 'private'}:
-              raise SystemExit('plugin-protocol.schema.json action_message_send_legacy_data.target_type must only allow group and private')
-          send_rich = plugin_protocol['$defs']['action_message_send_rich_data']
-          if send_rich.get('required') != ['target_type', 'target_id', 'message']:
-              raise SystemExit('plugin-protocol.schema.json action_message_send_rich_data must require target_type, target_id, and message')
-          if send_rich['properties']['message'].get('$ref') != '#/$defs/outbound_message':
-              raise SystemExit('plugin-protocol.schema.json action_message_send_rich_data.message must reference outbound_message')
+          if send_data.get('$ref') != '#/$defs/action_message_send_data':
+              raise SystemExit('plugin-protocol.schema.json action_message_send.data must reference action_message_send_data')
+          send_data_shape = plugin_protocol['$defs']['action_message_send_data']
+          if send_data_shape.get('required') != ['target_type', 'target_id', 'message']:
+              raise SystemExit('plugin-protocol.schema.json action_message_send_data must require target_type, target_id, and message')
+          if send_data_shape['properties']['message'].get('$ref') != '#/$defs/outbound_message':
+              raise SystemExit('plugin-protocol.schema.json action_message_send_data.message must reference outbound_message')
           reply_def = plugin_protocol['$defs']['action_message_reply']['allOf'][1]
           if reply_def['properties']['action'].get('const') != 'message.reply':
               raise SystemExit('plugin-protocol.schema.json action_message_reply must freeze action const to message.reply')
-          reply_data_refs = {item.get('$ref', '').split('/')[-1] for item in reply_def['properties']['data'].get('oneOf', [])}
-          if reply_data_refs != {'action_message_reply_legacy_data', 'action_message_reply_rich_data'}:
-              raise SystemExit('plugin-protocol.schema.json action_message_reply.data must support both legacy and rich payloads')
-          reply_rich = plugin_protocol['$defs']['action_message_reply_rich_data']
-          if reply_rich.get('required') != ['reply_to_event_id', 'message']:
-              raise SystemExit('plugin-protocol.schema.json action_message_reply_rich_data must require reply_to_event_id and message')
-          if reply_rich['properties']['message'].get('$ref') != '#/$defs/outbound_message':
-              raise SystemExit('plugin-protocol.schema.json action_message_reply_rich_data.message must reference outbound_message')
-          send_image_def = plugin_protocol['$defs']['action_message_send_image']['allOf'][1]
-          if send_image_def['properties']['action'].get('const') != 'message.send_image':
-              raise SystemExit('plugin-protocol.schema.json action_message_send_image must freeze action const to message.send_image')
-          send_image_data = send_image_def['properties']['data']
-          if send_image_data.get('required') != ['target_type', 'target_id', 'file']:
-              raise SystemExit('plugin-protocol.schema.json action_message_send_image.data must require target_type, target_id, and file')
+          if reply_def['properties']['data'].get('$ref') != '#/$defs/action_message_reply_data':
+              raise SystemExit('plugin-protocol.schema.json action_message_reply.data must reference action_message_reply_data')
+          reply_data_shape = plugin_protocol['$defs']['action_message_reply_data']
+          if reply_data_shape.get('required') != ['reply_to_event_id', 'message']:
+              raise SystemExit('plugin-protocol.schema.json action_message_reply_data must require reply_to_event_id and message')
+          if reply_data_shape['properties']['message'].get('$ref') != '#/$defs/outbound_message':
+              raise SystemExit('plugin-protocol.schema.json action_message_reply_data.message must reference outbound_message')
           if plugin_protocol['$defs']['shutdown']['allOf'][1]['properties']['reason']['enum'] != ['stop', 'restart', 'reload']:
               raise SystemExit('plugin-protocol.schema.json shutdown.reason must be stop/restart/reload')
 
@@ -441,7 +424,7 @@ jobs:
           )
           for legacy in ['platform.config_error', '"task.updated"', '"authors"', '"default_config"']:
               if legacy in contracts_snapshot:
-                  raise SystemExit(f'legacy or out-of-scope Phase 2 content leaked into formal contracts: {legacy}')
+                  raise SystemExit(f'out-of-scope content leaked into formal contracts: {legacy}')
 
           refs = []
           for document in [plugin_info, plugin_protocol, config_schema, release_schema, error_codes, web_api, websocket_events]:
