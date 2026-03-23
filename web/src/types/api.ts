@@ -166,7 +166,7 @@ export interface PluginGrantListResponse {
 }
 
 export interface ConfigDocument {
-  schema_version: '1'
+  schema_version: '2'
   server: {
     host: string
     port: number
@@ -174,44 +174,38 @@ export interface ConfigDocument {
   onebot: {
     ws_url: string
     access_token: string
-    connect_timeout_seconds: number
-    reconnect_initial_seconds: number
-    reconnect_multiplier: number
-    reconnect_max_seconds: number
-    reconnect_jitter_ratio: number
   }
   database: {
     engine: 'sqlite'
     path: string
   }
-  storage: {
-    kv_value_max_bytes: number
-    kv_total_limit_mb: number
-    file_max_bytes: number
-    plugin_workdir_soft_limit_mb: number
+  command: {
+    prefixes: string[]
   }
-  http: {
-    timeout_seconds: number
-    max_retries: number
-    allow_private_hosts: string[]
-  }
-  logging: {
-    level: LogLevel
-    retention_days: number
-    rate_limit_per_plugin: string
-  }
-  auth: {
+  admin: {
     super_admins: string[]
-    default_level: 'super_admin' | 'group_admin' | 'everyone'
-    auto_grant_capabilities: string[]
     session_ttl_days: number
     sliding_renewal: boolean
     max_sessions: number
     login_fail_limit: number
     login_fail_window_seconds: number
   }
+  permission: {
+    default_level: 'super_admin' | 'group_admin' | 'everyone'
+    auto_grant_capabilities: string[]
+  }
+  render: {
+    worker_count: number
+    browser_args: string[]
+    browser_path: string
+    timeout_seconds: number
+    queue_wait_timeout_seconds: number
+    queue_max_length: number
+  }
+  scheduler: {
+    timezone: string
+  }
   runtime: {
-    scheduler_timezone: string
     plugin_init_timeout_seconds: number
     plugin_init_max_total_seconds: number
     plugin_event_timeout_seconds: number
@@ -229,13 +223,45 @@ export interface ConfigDocument {
     shutdown_grace_seconds: number
     ipc_message_max_bytes: number
   }
-  render: {
-    worker_count: number
-    browser_args: string[]
-    browser_path: string
+  storage: {
+    kv_value_max_bytes: number
+    kv_total_limit_mb: number
+    file_max_bytes: number
+    plugin_workdir_soft_limit_mb: number
+  }
+  data: {
+    audit_logs_retention_days: number
+    event_records_retention_days: number
+    download_cache_retention_days: number
+  }
+  log: {
+    level: LogLevel
+    retention_days: number
+    rate_limit_per_plugin: string
+  }
+  message: {
+    rate_limit_per_plugin: string
+    rate_limit_per_target: string
+    circuit_breaker_seconds: number
+  }
+  user: {
+    command_rate_limit: string
+    cooldown_reply: boolean
+  }
+  group: {
+    command_rate_limit: string
+  }
+  adapter: {
+    connect_timeout_seconds: number
+    reconnect_initial_seconds: number
+    reconnect_multiplier: number
+    reconnect_max_seconds: number
+    reconnect_jitter_ratio: number
+  }
+  http: {
     timeout_seconds: number
-    queue_wait_timeout_seconds: number
-    queue_max_length: number
+    max_retries: number
+    allow_private_hosts: string[]
   }
   web: {
     exposure_mode: 'localhost_only' | 'lan_enabled' | 'public_via_reverse_proxy'
@@ -243,19 +269,6 @@ export interface ConfigDocument {
   }
   backup: {
     default_consistency: 'offline' | 'online'
-  }
-  retention: {
-    audit_logs_retention_days: number
-    event_records_retention_days: number
-    download_cache_retention_days: number
-  }
-  command: {
-    prefixes: string[]
-  }
-  cooldown: {
-    user_command_rate_limit: string
-    group_command_rate_limit: string
-    cooldown_reply: boolean
   }
 }
 
