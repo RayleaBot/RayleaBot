@@ -5,66 +5,32 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"gopkg.in/yaml.v3"
 )
 
 func LoadDocument(configPath, schemaPath string) (map[string]any, error) {
-	configBytes, err := os.ReadFile(configPath)
+	document, _, err := loadCanonicalDocument(configPath, schemaPath)
 	if err != nil {
-		return nil, fmt.Errorf("read config %s: %w", configPath, err)
+		return nil, err
 	}
-
-	var raw map[string]any
-	if err := yaml.Unmarshal(configBytes, &raw); err != nil {
-		return nil, fmt.Errorf("parse yaml %s: %w", configPath, err)
-	}
-
-	document, err := normalizeDocument(raw)
-	if err != nil {
-		return nil, fmt.Errorf("normalize config document %s: %w", configPath, err)
-	}
-	if err := validateDocument(schemaPath, document); err != nil {
-		return nil, fmt.Errorf("config validation failed for %s against %s: %w", configPath, schemaPath, err)
-	}
-
-	typed, ok := document.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("normalized config %s is not an object", configPath)
-	}
-
-	return CloneDocument(typed), nil
+	return CloneDocument(document), nil
 }
 
 func SaveDocument(configPath, schemaPath string, document map[string]any) (Config, Summary, error) {
-	var cfg Config
-
-	normalized, err := normalizeDocument(document)
+	canonical, err := canonicalizeDocument(document)
 	if err != nil {
-		return cfg, Summary{}, fmt.Errorf("normalize config document %s: %w", configPath, err)
+		return Config{}, Summary{}, fmt.Errorf("normalize config document %s: %w", configPath, err)
 	}
-	if err := validateDocument(schemaPath, normalized); err != nil {
-		return cfg, Summary{}, fmt.Errorf("config validation failed for %s against %s: %w", configPath, schemaPath, err)
+	if err := validateDocument(schemaPath, canonical); err != nil {
+		return Config{}, Summary{}, fmt.Errorf("config validation failed for %s against %s: %w", configPath, schemaPath, err)
 	}
-
-	jsonBytes, err := json.Marshal(normalized)
+	cfg, err := decodeTypedConfig(canonical)
 	if err != nil {
-		return cfg, Summary{}, fmt.Errorf("marshal normalized config %s: %w", configPath, err)
+		return Config{}, Summary{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
 	}
-	if err := json.Unmarshal(jsonBytes, &cfg); err != nil {
-		return cfg, Summary{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
+	if err := writeCanonicalDocument(configPath, canonical); err != nil {
+		return Config{}, Summary{}, err
 	}
-
-	yamlBytes, err := yaml.Marshal(cfg)
-	if err != nil {
-		return cfg, Summary{}, fmt.Errorf("marshal config yaml %s: %w", configPath, err)
-	}
-
-	if err := writeAtomic(configPath, yamlBytes, 0o644); err != nil {
-		return cfg, Summary{}, err
-	}
-
-	return cfg, buildSummary(configPath, schemaPath, cfg), nil
+	return cfg, buildSummary(configPath, schemaPath, cfg, canonical), nil
 }
 
 func writeAtomic(path string, contents []byte, mode os.FileMode) error {

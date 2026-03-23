@@ -97,8 +97,8 @@ func TestConfigPutWritesValidatedDocumentAndPreservesRedactedSecret(t *testing.T
 	if got := document["server"].(map[string]any)["port"]; got != float64(8081) {
 		t.Fatalf("unexpected persisted server.port: got %#v want 8081", got)
 	}
-	if got := document["logging"].(map[string]any)["level"]; got != "debug" {
-		t.Fatalf("unexpected persisted logging.level: got %#v want debug", got)
+	if got := document["log"].(map[string]any)["level"]; got != "debug" {
+		t.Fatalf("unexpected persisted log.level: got %#v want debug", got)
 	}
 	if got := document["onebot"].(map[string]any)["access_token"]; got != "fixture-only-secret" {
 		t.Fatalf("unexpected persisted access_token: got %#v want preserved secret", got)
@@ -108,7 +108,7 @@ func TestConfigPutWritesValidatedDocumentAndPreservesRedactedSecret(t *testing.T
 		t.Fatalf("expected live config server.port to reflect saved value 8081, got %d", application.Config.Server.Port)
 	}
 	if application.Config.Logging.Level != "debug" {
-		t.Fatalf("expected live config logging.level to be hot-reloaded to debug, got %q", application.Config.Logging.Level)
+		t.Fatalf("expected live config log.level to be hot-reloaded to debug, got %q", application.Config.Logging.Level)
 	}
 }
 
