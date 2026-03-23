@@ -11,13 +11,27 @@
 - `fixtures/` 与 `examples/`：契约样例、golden cases、示例插件与示例配置
 - `.github/workflows/`：contracts、baseline 与 server smoke 校验
 
-`web/` 与 `launcher/` 目前保留工程基线和默认命令，真实产品实现尚未进入开发主线。
+`web/` 已进入真实开发主线，当前覆盖 `setup/login/session`、系统状态页、`plugins/tasks/logs/config` 页面、Pinia stores、统一 fetch / WebSocket client，以及 fixture-backed Vitest / Playwright 测试。
+
+`launcher/` 仍保留工程基线，真实产品实现尚未开始。
 
 ## 调试与验证重点
 
 - 默认命令与版本线以 `docs/engineering/baseline.md` 为准。
-- 当前主验证入口是 `go test ./...` 与 `go build ./cmd/raylea-server`。
+- 当前主验证入口包括：
+  - `go test ./...`
+  - `go build ./cmd/raylea-server`
+  - `pnpm build`
+  - `pnpm test`
+  - `pnpm test:e2e`
 - 涉及接口、schema、错误码、事件、插件协议或 release metadata 的变更，先同步 `contracts/`，再更新实现、fixtures、示例与文档。
+
+## Web 开发入口
+
+- 在 `web/` 下执行 `pnpm install --frozen-lockfile` 安装前端依赖。
+- `pnpm dev` 启动 Vite 8 开发服务器；默认通过代理消费现有 server management surface。
+- `pnpm test` 运行 Vitest 单测，覆盖 route guard、session store、WebSocket manager 与关键页面交互。
+- `pnpm test:e2e` 运行 Playwright；当前通过测试专用 mock backend 消费 `fixtures/web-api` 与 `fixtures/websocket`，不依赖 live Go server。
 
 ## 协作规则
 

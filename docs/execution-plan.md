@@ -20,7 +20,7 @@
 | Phase 5 | Plugin Protocol Bridge | 🟡 | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `storage.file` / `http.request` local action RPC 已接入；更广动作族仍未实现 |
 | Phase 6 | Config / Storage / Security | ✅ | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger、聊天侧 command policy、temporal grants、plugin-scoped KV persistence、plugin_data 文件区与 scoped HTTP client 已落地 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；config snapshot 与 grants surface 已补齐 command/cooldown、storage/http 和 `expires_at`；更广管理面扩展仍未开始 |
-| Phase 8 | Web UI | ❌ | `web/package.json` 与 baseline 已有，真实页面与前端交互尚未开始 |
+| Phase 8 | Web UI | ✅ | Web 管理面已接入 `setup/login/session`、系统状态、4 条管理 WebSocket 连接壳，以及 `plugins/tasks/logs/config` 主流程与最小 E2E |
 | Phase 9 | Launcher | ❌ | .NET / Avalonia 基线已锁定，真实 Launcher 行为尚未开始 |
 | Phase 10 | Render Service | ❌ | render service 与 Chromium 调度尚未开始；`.deps/manifest.json` 仅为 baseline 占位 |
 
@@ -198,15 +198,16 @@
 
 ---
 
-## 十、Phase 8 — Web UI ❌
+## 十、Phase 8 — Web UI ✅
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
-| `web/package.json` 与 baseline | ✅ | Node / pnpm 基线已锁定，scripts 已占位 |
-| auth/session shell | ❌ | 登录、session 生命周期与受保护管理面前端壳尚未开始 |
-| 真实页面与布局 | ❌ | 路由、页面结构、状态管理与基础布局尚未开始 |
-| HTTP / WebSocket 消费 | ❌ | 插件、任务、日志、events、console 等管理面接口消费尚未开始 |
-| 运维交互流 | ❌ | 插件管理、任务查看、日志查看、配置编辑等前端流程尚未实现 |
+| `web/package.json` 与 baseline | ✅ | Vite 8 + Vue 3 + Element Plus + Vue Router + Pinia + TypeScript 工程已落地 |
+| auth/session shell | ✅ | `setup/login/session`、路由守卫、`sessionStorage` token 与未授权回退已落地 |
+| 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志页、配置页已落地 |
+| HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |
+| 运维交互流 | ✅ | 插件 lifecycle、任务详情/取消、日志查询/追加、配置保存与 `restart_required` 提示已接入 |
+| 最小前端测试 | ✅ | Vitest 单测与 fixture-backed Playwright E2E 已落地 |
 
 ---
 
@@ -248,33 +249,34 @@
 
 - `go test ./...` 当前通过。
 - `go build ./cmd/raylea-server` 当前通过。
+- `pnpm build`、`pnpm test`、`pnpm test:e2e` 已在 `web/` 本地通过。
 - bundled plugin manifests 当前已与 `contracts/plugin-info.schema.json` 对齐。
 - 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`。
 - `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。
 - 聊天侧 command policy 与 temporal grants 当前已受 app / plugins / storage / http tests 覆盖。
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `storage.file` / `http.request` 当前已受 contract fixtures、runtime parser、app executor、pluginfile / pluginhttp 单测、SDK 编译与示例 smoke 覆盖。
-- 当前主要风险已转向更广动作族，以及 Web UI、Launcher、Render 尚未启动带来的外层交付断层。
+- 当前主要风险已转向 Web 管理面剩余能力补齐、Launcher 尚未启动，以及 Render 仍未开始带来的外层交付断层。
 
 ---
 
 ## 十四、下一步行动建议
 
-当前 rich message actions、`logger.write`、`storage.kv`、`storage.file`、`http.request`、runtime、dispatch、scheduler、聊天侧 command policy 与 temporal grants 已进入稳定闭环，下一步建议转向以下事项：
+当前 Web UI 基座、主管理流程与最小 E2E 已进入稳定闭环，下一步建议转向以下事项：
 
-### 1. 启动 Web UI 基座
+### 1. 补齐 Web 管理面剩余已冻结能力
 
-1. 完成 `setup/login/session` 主流程
-2. 建立系统状态页与 4 条管理 WebSocket 的连接壳
-3. 补齐最小前端路由、鉴权守卫与会话续期
+1. 接入 `plugin install / uninstall / grants / console` 的完整管理流
+2. 接入 `system/shutdown` 交互与确认流程
+3. 细化错误恢复、初始加载失败与 WebSocket 重连反馈
 
-### 2. 接入 Web UI 的主管理流程与最小 E2E
+### 2. 扩大 Web UI 回归面
 
-1. 接入 `plugins` 列表、详情与 lifecycle 操作
-2. 接入 `tasks`、`logs`、`config` 页面与对应回放 / 轮询 / 推送逻辑
-3. 为 auth、plugins、tasks、logs、config 补最小 E2E
+1. 补齐响应式布局、移动端可读性与可访问性交互细节
+2. 为异常路径补更多 Vitest / Playwright 回归
+3. 补齐配置编辑、日志筛选、插件状态流转的边界场景覆盖
 
-### 3. 在 Web UI 状态语义稳定后启动 Launcher 最小闭环
+### 3. 在 Web 状态语义稳定后启动 Launcher 最小闭环
 
 1. 基于 `launcher-token`、`system/status`、`system/shutdown` 完成最小启停闭环
 2. 接入环境检查、打开 Web UI 与基础诊断入口
