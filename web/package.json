@@ -2,15 +2,36 @@
   "name": "rayleabot-web",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "packageManager": "pnpm@10.32.1",
   "engines": {
     "node": "24.14.0",
     "pnpm": "10.32.1"
   },
   "scripts": {
-    "dev": "node -e \"console.log('TODO(web): scaffold Vite app after contracts and fixtures land')\"",
-    "build": "node -e \"console.log('TODO(web): scaffold production build after contracts and fixtures land')\"",
-    "test": "node -e \"console.log('TODO(web): add Vitest after web scaffold lands')\"",
-    "test:e2e": "node -e \"console.log('TODO(web): add Playwright after web scaffold lands')\""
+    "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
+    "build": "vue-tsc --noEmit && vite build",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "element-plus": "2.13.5",
+    "pinia": "3.0.4",
+    "vue": "3.5.30",
+    "vue-router": "5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.54.2",
+    "@types/node": "24.5.2",
+    "@vitejs/plugin-vue": "6.0.5",
+    "@vue/test-utils": "2.4.6",
+    "jsdom": "26.1.0",
+    "sass": "1.93.2",
+    "typescript": "5.9.2",
+    "vite": "8.0.0",
+    "vitest": "3.2.4",
+    "vue-tsc": "3.0.5",
+    "ws": "8.18.3",
+    "yaml": "2.8.1"
   }
 }
