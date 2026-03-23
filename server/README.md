@@ -36,8 +36,7 @@
   - ready frame gating
   - reconnect / heartbeat timeout
   - message / notice 最小归一化
-  - richer `message.send` / `message.reply`
-  - legacy compatibility `message.send_image`
+  - `message.send` / `message.reply`
   - shared outbound `message.segments` 映射到 OneBot11 消息段数组
   - `reply_to_event_id` 最近事件窗口解析与 `adapter.reply_target_missing` fallback
 - runtime manager：

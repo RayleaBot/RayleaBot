@@ -11,8 +11,8 @@
 ## 当前适用范围
 
 - Python / Node.js SDK 只覆盖当前正式协议与已落地 action。
-- Python SDK 当前提供 legacy `send_message` / `send_reply` / `send_image`，以及 richer `send_message_segments` / `reply_to_event` helper，并补充 `logger_write`、`storage_get`、`storage_set`、`storage_delete`、`storage_list`、`storage_file_read`、`storage_file_write`、`storage_file_delete`、`storage_file_list`、`http_request`。
-- Node.js SDK 当前提供 legacy `sendMessage` / `sendReply` / `sendImage`，以及 richer `sendMessageSegments` / `replyToEvent` helper，并补充 `loggerWrite`、`storageGet`、`storageSet`、`storageDelete`、`storageList`、`storageFileRead`、`storageFileWrite`、`storageFileDelete`、`storageFileList`、`httpRequest`。
+- Python SDK 当前提供 `send_message`、`send_reply`，并补充 `logger_write`、`storage_get`、`storage_set`、`storage_delete`、`storage_list`、`storage_file_read`、`storage_file_write`、`storage_file_delete`、`storage_file_list`、`http_request`。
+- Node.js SDK 当前提供 `sendMessage`、`sendReply`，并补充 `loggerWrite`、`storageGet`、`storageSet`、`storageDelete`、`storageList`、`storageFileRead`、`storageFileWrite`、`storageFileDelete`、`storageFileList`、`httpRequest`。
 - 两套 SDK 的本地 action helper 默认使用 30 秒超时，并在当前事件处理期间等待同 `request_id` 的 `result` / `error` 响应。
 - 更宽的调试流、复杂流式回传、批量消息和额外 action 仍未进入正式协议范围。
 - SDK 说明需要与 `contracts/plugin-protocol.schema.json`、`docs/plugin/` 和 `examples/plugins/` 保持一致。
@@ -20,7 +20,7 @@
 ## Node.js Rich Reply 示例
 
 ```js
-plugin.replyToEvent(requestId, event.event_id, [
+plugin.sendReply(requestId, event.event_id, [
   { type: 'text', data: { text: '已收到，开始处理。' } },
 ], { fallbackToSendIfMissing: true });
 ```

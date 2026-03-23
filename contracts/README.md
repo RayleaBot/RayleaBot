@@ -36,8 +36,7 @@
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
-  - `message.send`、`message.reply` 已同时支持 legacy text payload 和 richer `message.segments` payload
-  - `message.send_image` 保留为 legacy compatibility path
+  - `message.send`、`message.reply` 使用 shared `message.segments` payload
   - `logger.write`、`storage.kv`、`storage.file` 与 `http.request` 已进入正式 local action RPC surface
   - 正式 outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`
 - `release-manifest.schema.json`
@@ -67,7 +66,7 @@
 - 复杂流式回传
 - 更宽的平台到插件方向 `error` 语义
 - `render.image`
-- `message.send`、`message.reply`、`message.send_image`、`logger.write`、`storage.kv`、`storage.file`、`http.request` 之外的其他 `action`
+- `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request` 之外的其他 `action`
 
 ### Release Metadata
 
