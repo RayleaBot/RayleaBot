@@ -477,6 +477,8 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 		{http.MethodGet, "/api/setup/status"},
 		{http.MethodPost, "/api/setup/admin"},
 		{http.MethodPost, "/api/session/login"},
+		{http.MethodPost, "/api/session/launcher-token"},
+		{http.MethodPost, "/api/session/launcher-admission"},
 	}
 
 	client := server.Client()
@@ -521,7 +523,6 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 		path   string
 	}{
 		{http.MethodDelete, "/api/session"},
-		{http.MethodPost, "/api/session/launcher-token"},
 		{http.MethodGet, "/api/config"},
 		{http.MethodPut, "/api/config"},
 		{http.MethodGet, "/api/system/status"},

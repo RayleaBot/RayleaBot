@@ -318,12 +318,13 @@ func New(options Options) (*App, error) {
 	router.Post("/api/setup/admin", application.handleSetupAdmin())
 	router.Get("/api/setup/status", application.handleSetupStatus())
 	router.Post("/api/session/login", application.handleSessionLogin())
+	router.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
+	router.Post("/api/session/launcher-admission", application.handleLauncherAdmission())
 
 	// Protected routes — require a valid session token.
 	router.Group(func(r chi.Router) {
 		r.Use(RequireAuth(application.Auth))
 		r.Delete("/api/session", application.handleSessionLogout())
-		r.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
 		r.Get("/api/config", application.handleConfigGet())
 		r.Put("/api/config", application.handleConfigPut())
 		r.Get("/api/logs", application.handleLogsList())

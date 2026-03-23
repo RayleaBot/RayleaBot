@@ -22,6 +22,10 @@ type authRequest struct {
 	Secret     string `json:"secret"`
 }
 
+type launcherAdmissionRequest struct {
+	LauncherToken string `json:"launcher_token"`
+}
+
 type authResponse struct {
 	SessionToken string `json:"session_token"`
 }
@@ -63,6 +67,42 @@ func (a *App) handleSessionLogin() http.HandlerFunc {
 			writeAuthJSON(w, http.StatusOK, authResponse{SessionToken: token})
 			return
 		case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrSessionLimitReached):
+			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			return
+		default:
+			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			return
+		}
+	}
+}
+
+func (a *App) handleLauncherAdmission() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !isLoopbackRequest(r) {
+			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			return
+		}
+		if a.Auth == nil || !a.Auth.IsBootstrapped() {
+			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			return
+		}
+
+		var request launcherAdmissionRequest
+		if err := decodeStrictJSON(r, &request); err != nil || request.LauncherToken == "" {
+			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			return
+		}
+		if !a.launcherTokens.Consume(request.LauncherToken) {
+			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			return
+		}
+
+		token, _, err := a.Auth.Issue("launcher")
+		switch {
+		case err == nil:
+			writeAuthJSON(w, http.StatusOK, authResponse{SessionToken: token})
+			return
+		case errors.Is(err, auth.ErrSessionLimitReached):
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		default:

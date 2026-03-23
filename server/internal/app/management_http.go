@@ -50,6 +50,15 @@ func (a *App) handleSessionLogout() http.HandlerFunc {
 
 func (a *App) handleLauncherTokenIssue() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !isLoopbackRequest(r) {
+			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			return
+		}
+		if a.Auth == nil || !a.Auth.IsBootstrapped() {
+			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			return
+		}
+
 		token, err := a.launcherTokens.Issue()
 		if err != nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
