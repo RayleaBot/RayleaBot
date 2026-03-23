@@ -26,6 +26,8 @@ const fixtures = {
   setupAdminDenied: await readFixture('fixtures/web-api/edge.setup-admin-already-initialized.yaml'),
   setupStatus: await readFixture('fixtures/web-api/ok.setup-status.yaml'),
   sessionLogin: await readFixture('fixtures/web-api/ok.session-login.yaml'),
+  sessionLauncherToken: await readFixture('fixtures/web-api/ok.session-launcher-token.yaml'),
+  sessionLauncherAdmission: await readFixture('fixtures/web-api/ok.session-launcher-admission.yaml'),
   sessionDenied: await readFixture('fixtures/web-api/invalid.session-login-bad-credentials.yaml'),
   configGet: await readFixture('fixtures/web-api/ok.config-get-response.yaml'),
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
@@ -89,6 +91,7 @@ function baseState() {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
       'raylea.help': [],
     },
+    launcherTokens: new Set(['launcher_token_fixture_0001']),
     systemStatus: structuredClone(fixtures.systemStatus.response.body),
     failures: {
       failPluginsListOnce: false,
@@ -326,6 +329,39 @@ const server = http.createServer(async (request, response) => {
 
     state.token = fixtures.sessionLogin.response.body.session_token
     json(response, fixtures.sessionLogin.response.status, fixtures.sessionLogin.response.body)
+    return
+  }
+
+  if (pathname === '/api/session/launcher-token' && request.method === 'POST') {
+    if (!state.initialized) {
+      json(response, 403, errorEnvelope('permission.denied', '当前用户无权执行该操作', 'req_launcher_token_denied'))
+      return
+    }
+
+    state.launcherTokens.add(fixtures.sessionLauncherToken.response.body.launcher_token)
+    json(response, fixtures.sessionLauncherToken.response.status, fixtures.sessionLauncherToken.response.body)
+    return
+  }
+
+  if (pathname === '/api/session/launcher-admission' && request.method === 'POST') {
+    if (!state.initialized) {
+      json(response, 403, errorEnvelope('permission.denied', '当前用户无权执行该操作', 'req_launcher_admission_forbidden'))
+      return
+    }
+
+    const payload = await parseBody(request)
+    if (!payload.launcher_token) {
+      json(response, 400, errorEnvelope('platform.invalid_request', '缺少 launcher_token', 'req_launcher_admission_invalid'))
+      return
+    }
+    if (!state.launcherTokens.has(payload.launcher_token)) {
+      json(response, 401, errorEnvelope('permission.denied', '当前用户无权执行该操作', 'req_launcher_admission_denied'))
+      return
+    }
+
+    state.launcherTokens.delete(payload.launcher_token)
+    state.token = fixtures.sessionLauncherAdmission.response.body.session_token
+    json(response, fixtures.sessionLauncherAdmission.response.status, fixtures.sessionLauncherAdmission.response.body)
     return
   }
 

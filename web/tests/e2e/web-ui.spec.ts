@@ -44,6 +44,33 @@ test('setup flow reaches protected shell and shows websocket statuses', async ({
   await expect(page.locator('.connection-pill').filter({ hasText: 'logs' })).toContainText('authenticated')
 })
 
+test('launcher token query admits a session and clears the URL token', async ({ page, request }) => {
+  await resetBackend(request, true)
+
+  await page.goto('/?token=launcher_token_fixture_0001')
+
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  await expect(page).not.toHaveURL(/token=/)
+})
+
+test('invalid launcher token falls back to login and clears the URL token', async ({ page, request }) => {
+  await resetBackend(request, true)
+
+  await page.goto('/?token=invalid_launcher_token')
+
+  await expect(page.getByRole('heading', { name: '登录管理面', level: 1 })).toBeVisible()
+  await expect(page).not.toHaveURL(/token=/)
+})
+
+test('setup-required flow ignores launcher token query', async ({ page, request }) => {
+  await resetBackend(request, false)
+
+  await page.goto('/?token=launcher_token_fixture_0001')
+
+  await expect(page.getByRole('heading', { name: '初始化管理账号', level: 1 })).toBeVisible()
+  await expect(page).not.toHaveURL(/token=/)
+})
+
 test('plugin management flow covers install, grants and console recovery', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)

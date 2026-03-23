@@ -13,6 +13,7 @@ function jsonResponse(body: unknown) {
 describe('session store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    window.sessionStorage.clear()
   })
 
   it('bootstraps setup status', async () => {
@@ -32,5 +33,15 @@ describe('session store', () => {
 
     expect(store.token).toBe('fixture-token')
     expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('fixture-token')
+  })
+
+  it('persists token on launcher admission', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ session_token: 'launcher-session-token' })))
+    const store = useSessionStore()
+
+    await store.admitLauncherToken('launcher_token_fixture_0001')
+
+    expect(store.token).toBe('launcher-session-token')
+    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('launcher-session-token')
   })
 })
