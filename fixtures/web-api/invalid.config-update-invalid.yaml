@@ -5,45 +5,40 @@ request:
   method: PUT
   path: /api/config
   body:
-    schema_version: "1"
+    schema_version: "2"
     server:
       host: 127.0.0.1
       port: 8080
     onebot:
       ws_url: http://127.0.0.1:6700
       access_token: __REDACTED__
-      connect_timeout_seconds: 15
-      reconnect_initial_seconds: 2
-      reconnect_multiplier: 2
-      reconnect_max_seconds: 120
-      reconnect_jitter_ratio: 0.2
     database:
       engine: sqlite
       path: data/rayleabot.db
-    storage:
-      kv_value_max_bytes: 65536
-      kv_total_limit_mb: 16
-      file_max_bytes: 10485760
-      plugin_workdir_soft_limit_mb: 256
-    http:
-      timeout_seconds: 10
-      max_retries: 2
-      allow_private_hosts: []
-    logging:
-      level: info
-      retention_days: 7
-      rate_limit_per_plugin: 200/10s
-    auth:
+    command:
+      prefixes:
+        - /
+    admin:
       super_admins: []
-      default_level: everyone
-      auto_grant_capabilities: []
       session_ttl_days: 7
       sliding_renewal: true
       max_sessions: 3
       login_fail_limit: 5
       login_fail_window_seconds: 300
+    permission:
+      default_level: everyone
+      auto_grant_capabilities: []
+    render:
+      worker_count: 1
+      browser_args:
+        - --disable-gpu
+      browser_path: ""
+      timeout_seconds: 30
+      queue_wait_timeout_seconds: 15
+      queue_max_length: 32
+    scheduler:
+      timezone: ""
     runtime:
-      scheduler_timezone: ""
       plugin_init_timeout_seconds: 30
       plugin_init_max_total_seconds: 300
       plugin_event_timeout_seconds: 60
@@ -60,23 +55,43 @@ request:
       crash_backoff_max_seconds: 60
       shutdown_grace_seconds: 10
       ipc_message_max_bytes: 8388608
-    render:
-      worker_count: 1
-      browser_args:
-        - --disable-gpu
-      browser_path: ""
-      timeout_seconds: 30
-      queue_wait_timeout_seconds: 15
-      queue_max_length: 32
+    storage:
+      kv_value_max_bytes: 65536
+      kv_total_limit_mb: 16
+      file_max_bytes: 10485760
+      plugin_workdir_soft_limit_mb: 256
+    data:
+      audit_logs_retention_days: 90
+      event_records_retention_days: 7
+      download_cache_retention_days: 15
+    log:
+      level: info
+      retention_days: 7
+      rate_limit_per_plugin: 200/10s
+    message:
+      rate_limit_per_plugin: 20/10s
+      rate_limit_per_target: 5/5s
+      circuit_breaker_seconds: 30
+    user:
+      command_rate_limit: 10/60s
+      cooldown_reply: true
+    group:
+      command_rate_limit: 30/60s
+    adapter:
+      connect_timeout_seconds: 15
+      reconnect_initial_seconds: 2
+      reconnect_multiplier: 2
+      reconnect_max_seconds: 120
+      reconnect_jitter_ratio: 0.2
+    http:
+      timeout_seconds: 10
+      max_retries: 2
+      allow_private_hosts: []
     web:
       exposure_mode: localhost_only
       setup_local_only: true
     backup:
       default_consistency: offline
-    retention:
-      audit_logs_retention_days: 90
-      event_records_retention_days: 7
-      download_cache_retention_days: 15
 response:
   status: 400
   body:

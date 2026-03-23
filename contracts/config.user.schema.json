@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/config.user.schema.json",
   "title": "RayleaBot User Config",
-  "description": "Fixture-ready schema for config/user.yaml. This file is the only formal source for the v0.1 platform configuration shape.",
+  "description": "Fixture-ready schema for config/user.yaml. This file is the only formal source for the planning-aligned platform configuration shape.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,214 +10,98 @@
     "server",
     "onebot",
     "database",
-    "storage",
-    "http",
-    "logging",
-    "auth",
-    "runtime",
+    "command",
+    "admin",
+    "permission",
     "render",
+    "scheduler",
+    "runtime",
+    "storage",
+    "data",
+    "log",
+    "message",
+    "user",
+    "group",
+    "adapter",
+    "http",
     "web",
-    "backup",
-    "retention"
+    "backup"
   ],
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1",
-      "description": "Configuration schema version for future migrations."
+      "const": "2",
+      "description": "Configuration schema version for bootstrap and migration."
     },
     "server": {
       "type": "object",
-      "description": "Core service listener settings. v0.1 defaults to local-only listening.",
       "additionalProperties": false,
       "required": ["host", "port"],
       "properties": {
         "host": {
           "type": "string",
-          "default": "127.0.0.1",
-          "description": "HTTP service bind host. The default is fixed to 127.0.0.1."
+          "default": "127.0.0.1"
         },
         "port": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
-          "default": 8080,
-          "description": "HTTP service bind port."
+          "default": 8080
         }
       }
     },
     "onebot": {
       "type": "object",
-      "description": "OneBot11 reverse WebSocket connection settings. v0.1 only supports reverse WebSocket.",
       "additionalProperties": false,
-      "required": [
-        "ws_url",
-        "access_token",
-        "connect_timeout_seconds",
-        "reconnect_initial_seconds",
-        "reconnect_multiplier",
-        "reconnect_max_seconds",
-        "reconnect_jitter_ratio"
-      ],
+      "required": ["ws_url", "access_token"],
       "properties": {
         "ws_url": {
           "type": "string",
           "format": "uri",
-          "pattern": "^(ws|wss)://.+$",
-          "description": "Formal OneBot connection key for the upstream reverse WebSocket endpoint."
+          "pattern": "^(ws|wss)://.+$"
         },
         "access_token": {
           "type": "string",
-          "default": "",
-          "description": "Optional access token attached to the reverse WebSocket handshake."
-        },
-        "connect_timeout_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 15,
-          "description": "Single reverse WebSocket handshake and first-packet timeout."
-        },
-        "reconnect_initial_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 2,
-          "description": "Initial reconnect backoff delay."
-        },
-        "reconnect_multiplier": {
-          "type": "number",
-          "minimum": 1,
-          "default": 2,
-          "description": "Reconnect exponential backoff multiplier."
-        },
-        "reconnect_max_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 120,
-          "description": "Maximum reconnect backoff delay."
-        },
-        "reconnect_jitter_ratio": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "default": 0.2,
-          "description": "Jitter ratio applied to reconnect backoff."
+          "default": ""
         }
       }
     },
     "database": {
       "type": "object",
-      "description": "Primary state database settings. v0.1 only supports SQLite.",
       "additionalProperties": false,
       "required": ["engine", "path"],
       "properties": {
         "engine": {
           "type": "string",
           "const": "sqlite",
-          "default": "sqlite",
-          "description": "Database engine. v0.1 is fixed to SQLite."
+          "default": "sqlite"
         },
         "path": {
           "type": "string",
-          "minLength": 1,
-          "description": "SQLite database file path. The underlying data directory must be on a local filesystem; network filesystems are not supported."
+          "minLength": 1
         }
       }
     },
-    "storage": {
+    "command": {
       "type": "object",
-      "description": "Plugin-scoped KV and file storage limits enforced by the platform-local storage.kv and storage.file actions.",
       "additionalProperties": false,
-      "required": ["kv_value_max_bytes", "kv_total_limit_mb", "file_max_bytes", "plugin_workdir_soft_limit_mb"],
+      "required": ["prefixes"],
       "properties": {
-        "kv_value_max_bytes": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 65536,
-          "description": "Maximum JSON-encoded storage.kv single-value size in bytes."
-        },
-        "kv_total_limit_mb": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 16,
-          "description": "Maximum total plugin-scoped KV storage footprint in megabytes."
-        },
-        "file_max_bytes": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 10485760,
-          "description": "Maximum storage.file single-file size in bytes."
-        },
-        "plugin_workdir_soft_limit_mb": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 256,
-          "description": "Maximum total plugin_data filesystem footprint in megabytes."
-        }
-      }
-    },
-    "http": {
-      "type": "object",
-      "description": "Outbound HTTP limits enforced by the platform-local http.request action.",
-      "additionalProperties": false,
-      "required": ["timeout_seconds", "max_retries", "allow_private_hosts"],
-      "properties": {
-        "timeout_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 10,
-          "description": "Maximum end-to-end timeout budget for one http.request action."
-        },
-        "max_retries": {
-          "type": "integer",
-          "minimum": 0,
-          "default": 2,
-          "description": "Retry budget for idempotent http.request calls that fail before a usable response."
-        },
-        "allow_private_hosts": {
+        "prefixes": {
           "type": "array",
-          "default": [],
-          "description": "Exact hostnames that may resolve to private or reserved addresses, and the only hosts that may use plain HTTP.",
+          "default": ["/"],
           "items": {
             "type": "string",
-            "pattern": "^[A-Za-z0-9.-]+$"
-          },
-          "uniqueItems": true
+            "minLength": 1
+          }
         }
       }
     },
-    "logging": {
+    "admin": {
       "type": "object",
-      "description": "Structured logging settings for core and plugin logs.",
-      "additionalProperties": false,
-      "required": ["level", "retention_days", "rate_limit_per_plugin"],
-      "properties": {
-        "level": {
-          "type": "string",
-          "enum": ["debug", "info", "warn", "error"],
-          "default": "info",
-          "description": "Structured log level."
-        },
-        "retention_days": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 7,
-          "description": "Rotated log retention window in days."
-        },
-        "rate_limit_per_plugin": {
-          "$ref": "#/$defs/rateLimit",
-          "default": "200/10s",
-          "description": "Plugin log throughput budget in <count>/<duration> format."
-        }
-      }
-    },
-    "auth": {
-      "type": "object",
-      "description": "Authentication, authorization, session, and login throttling settings for the management surface.",
       "additionalProperties": false,
       "required": [
         "super_admins",
-        "default_level",
-        "auto_grant_capabilities",
         "session_ttl_days",
         "sliding_renewal",
         "max_sessions",
@@ -228,23 +112,6 @@
         "super_admins": {
           "type": "array",
           "default": [],
-          "description": "QQ number list for chat-side super administrators.",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
-        },
-        "default_level": {
-          "type": "string",
-          "enum": ["super_admin", "group_admin", "everyone"],
-          "default": "everyone",
-          "description": "Default command permission level when a plugin command does not declare one."
-        },
-        "auto_grant_capabilities": {
-          "type": "array",
-          "default": [],
-          "description": "Capabilities that may be auto-granted.",
           "items": {
             "type": "string",
             "minLength": 1
@@ -254,40 +121,111 @@
         "session_ttl_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 7,
-          "description": "Default management session TTL in days."
+          "default": 7
         },
         "sliding_renewal": {
           "type": "boolean",
-          "default": true,
-          "description": "Whether active management sessions extend their TTL within the absolute session limit."
+          "default": true
         },
         "max_sessions": {
           "type": "integer",
           "minimum": 1,
-          "default": 3,
-          "description": "Maximum concurrent management sessions."
+          "default": 3
         },
         "login_fail_limit": {
           "type": "integer",
           "minimum": 1,
-          "default": 5,
-          "description": "Maximum failed login attempts before temporary lockout."
+          "default": 5
         },
         "login_fail_window_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 300,
-          "description": "Window for counting failed login attempts, in seconds."
+          "default": 300
+        }
+      }
+    },
+    "permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_level", "auto_grant_capabilities"],
+      "properties": {
+        "default_level": {
+          "type": "string",
+          "enum": ["super_admin", "group_admin", "everyone"],
+          "default": "everyone"
+        },
+        "auto_grant_capabilities": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_count",
+        "browser_args",
+        "browser_path",
+        "timeout_seconds",
+        "queue_wait_timeout_seconds",
+        "queue_max_length"
+      ],
+      "properties": {
+        "worker_count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "browser_args": {
+          "type": "array",
+          "default": ["--disable-gpu"],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "browser_path": {
+          "type": "string",
+          "default": ""
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "queue_wait_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 15
+        },
+        "queue_max_length": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 32
+        }
+      }
+    },
+    "scheduler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timezone"],
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "default": ""
         }
       }
     },
     "runtime": {
       "type": "object",
-      "description": "Plugin runtime limits, scheduler timezone, dependency installation, and IPC safeguards.",
       "additionalProperties": false,
       "required": [
-        "scheduler_timezone",
         "plugin_init_timeout_seconds",
         "plugin_init_max_total_seconds",
         "plugin_event_timeout_seconds",
@@ -306,237 +244,116 @@
         "ipc_message_max_bytes"
       ],
       "properties": {
-        "scheduler_timezone": {
-          "type": "string",
-          "default": "",
-          "description": "Scheduler timezone. Empty string means use the service environment timezone."
-        },
         "plugin_init_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 30,
-          "description": "Silent init timeout before a plugin must send init_ack or init_progress."
+          "default": 30
         },
         "plugin_init_max_total_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 300,
-          "description": "Maximum total plugin init duration."
+          "default": 300
         },
         "plugin_event_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 60,
-          "description": "Maximum event handling time before the runtime records a timeout."
+          "default": 60
         },
         "max_pending_events_per_plugin": {
           "type": "integer",
           "minimum": 1,
-          "default": 16,
-          "description": "Per-plugin normal event queue upper bound."
+          "default": 16
         },
         "max_pending_control_events_per_plugin": {
           "type": "integer",
           "minimum": 1,
-          "default": 4,
-          "description": "Per-plugin control event reserve queue upper bound."
+          "default": 4
         },
         "nodejs_max_old_space_size_mb": {
           "type": "integer",
           "minimum": 1,
-          "default": 256,
-          "description": "Per-plugin Node.js V8 old space limit in megabytes."
+          "default": 256
         },
         "dependency_install_timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 900,
-          "description": "Absolute timeout for pip and npm installation tasks."
+          "default": 900
         },
         "max_concurrent_dependency_installs": {
           "type": "integer",
           "minimum": 1,
-          "default": 1,
-          "description": "Global concurrency cap for dependency installation tasks."
+          "default": 1
         },
         "ipc_pending_actions_max": {
           "type": "integer",
           "minimum": 1,
-          "default": 256,
-          "description": "Maximum pending plugin action requests before backpressure escalates."
+          "default": 256
         },
         "ipc_action_burst_limit": {
           "$ref": "#/$defs/rateLimit",
-          "default": "100/1s",
-          "description": "Per-plugin IPC action burst budget in <count>/<duration> format."
+          "default": "100/1s"
         },
         "stderr_rate_limit_bytes_per_second": {
           "type": "integer",
           "minimum": 1,
-          "default": 262144,
-          "description": "Per-plugin stderr throughput cap in bytes per second."
+          "default": 262144
         },
         "max_concurrent_tasks_per_plugin": {
           "type": "integer",
           "minimum": 1,
-          "default": 4,
-          "description": "Maximum concurrent tasks per plugin instance."
+          "default": 4
         },
         "crash_backoff_initial_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 2,
-          "description": "Initial plugin crash backoff delay."
+          "default": 2
         },
         "crash_backoff_max_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 60,
-          "description": "Maximum plugin crash backoff delay."
+          "default": 60
         },
         "shutdown_grace_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 10,
-          "description": "Graceful plugin shutdown window before forced termination."
+          "default": 10
         },
         "ipc_message_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "default": 8388608,
-          "description": "Maximum JSONL protocol message size in bytes."
+          "default": 8388608
         }
       }
     },
-    "render": {
+    "storage": {
       "type": "object",
-      "description": "Platform render service settings.",
       "additionalProperties": false,
-      "required": [
-        "worker_count",
-        "browser_args",
-        "browser_path",
-        "timeout_seconds",
-        "queue_wait_timeout_seconds",
-        "queue_max_length"
-      ],
+      "required": ["kv_value_max_bytes", "kv_total_limit_mb", "file_max_bytes", "plugin_workdir_soft_limit_mb"],
       "properties": {
-        "worker_count": {
+        "kv_value_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "default": 1,
-          "description": "Render worker concurrency."
+          "default": 65536
         },
-        "browser_args": {
-          "type": "array",
-          "default": ["--disable-gpu"],
-          "description": "Additional Chromium launch arguments.",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "browser_path": {
-          "type": "string",
-          "default": "",
-          "description": "Optional system Chromium path for environments that do not use the managed browser."
-        },
-        "timeout_seconds": {
+        "kv_total_limit_mb": {
           "type": "integer",
           "minimum": 1,
-          "default": 30,
-          "description": "Render execution timeout."
+          "default": 16
         },
-        "queue_wait_timeout_seconds": {
+        "file_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "default": 15,
-          "description": "Maximum time a render job may wait in queue before timing out."
+          "default": 10485760
         },
-        "queue_max_length": {
+        "plugin_workdir_soft_limit_mb": {
           "type": "integer",
           "minimum": 1,
-          "default": 32,
-          "description": "Maximum number of queued render jobs."
+          "default": 256
         }
       }
     },
-    "web": {
+    "data": {
       "type": "object",
-      "description": "Management surface exposure settings. This object only covers reachability policy, not authentication or session rules.",
-      "additionalProperties": false,
-      "required": ["exposure_mode", "setup_local_only"],
-      "properties": {
-        "exposure_mode": {
-          "type": "string",
-          "enum": ["localhost_only", "lan_enabled", "public_via_reverse_proxy"],
-          "default": "localhost_only",
-          "description": "Management surface exposure mode."
-        },
-        "setup_local_only": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether the setup_required initialization flow is only reachable from the local machine."
-        }
-      }
-    },
-    "backup": {
-      "type": "object",
-      "description": "Backup export defaults.",
-      "additionalProperties": false,
-      "required": ["default_consistency"],
-      "properties": {
-        "default_consistency": {
-          "type": "string",
-          "enum": ["offline", "online"],
-          "default": "offline",
-          "description": "Default backup consistency mode."
-        }
-      }
-    },
-    "command": {
-      "type": "object",
-      "description": "Command prefix and parsing settings for chat-side command routing.",
-      "additionalProperties": false,
-      "required": ["prefixes"],
-      "properties": {
-        "prefixes": {
-          "type": "array",
-          "default": ["/"],
-          "description": "Command prefix strings checked against incoming message text. Longest prefix match wins.",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      }
-    },
-    "cooldown": {
-      "type": "object",
-      "description": "Chat-side command cooldown and rate limiting settings.",
-      "additionalProperties": false,
-      "required": ["user_command_rate_limit", "group_command_rate_limit", "cooldown_reply"],
-      "properties": {
-        "user_command_rate_limit": {
-          "$ref": "#/$defs/rateLimit",
-          "default": "10/60s",
-          "description": "Per-user command rate limit."
-        },
-        "group_command_rate_limit": {
-          "$ref": "#/$defs/rateLimit",
-          "default": "30/60s",
-          "description": "Per-group command rate limit."
-        },
-        "cooldown_reply": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether to send a rate-limited reply when a user hits the cooldown."
-        }
-      }
-    },
-    "retention": {
-      "type": "object",
-      "description": "Retention windows for short-lived operational data.",
       "additionalProperties": false,
       "required": [
         "audit_logs_retention_days",
@@ -547,20 +364,177 @@
         "audit_logs_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 90,
-          "description": "Audit log retention in days."
+          "default": 90
         },
         "event_records_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 7,
-          "description": "Event record retention in days."
+          "default": 7
         },
         "download_cache_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "default": 15,
-          "description": "Download cache retention in days."
+          "default": 15
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "retention_days", "rate_limit_per_plugin"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
+        "rate_limit_per_plugin": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "200/10s"
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rate_limit_per_plugin", "rate_limit_per_target", "circuit_breaker_seconds"],
+      "properties": {
+        "rate_limit_per_plugin": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "20/10s"
+        },
+        "rate_limit_per_target": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "5/5s"
+        },
+        "circuit_breaker_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command_rate_limit", "cooldown_reply"],
+      "properties": {
+        "command_rate_limit": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "10/60s"
+        },
+        "cooldown_reply": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command_rate_limit"],
+      "properties": {
+        "command_rate_limit": {
+          "$ref": "#/$defs/rateLimit",
+          "default": "30/60s"
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "reconnect_initial_seconds",
+        "reconnect_multiplier",
+        "reconnect_max_seconds",
+        "reconnect_jitter_ratio"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 15
+        },
+        "reconnect_initial_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
+        "reconnect_multiplier": {
+          "type": "number",
+          "minimum": 1,
+          "default": 2
+        },
+        "reconnect_max_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 120
+        },
+        "reconnect_jitter_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.2
+        }
+      }
+    },
+    "http": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds", "max_retries", "allow_private_hosts"],
+      "properties": {
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2
+        },
+        "allow_private_hosts": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9.-]+$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exposure_mode", "setup_local_only"],
+      "properties": {
+        "exposure_mode": {
+          "type": "string",
+          "enum": ["localhost_only", "lan_enabled", "public_via_reverse_proxy"],
+          "default": "localhost_only"
+        },
+        "setup_local_only": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_consistency"],
+      "properties": {
+        "default_consistency": {
+          "type": "string",
+          "enum": ["offline", "online"],
+          "default": "offline"
         }
       }
     }
@@ -568,8 +542,7 @@
   "$defs": {
     "rateLimit": {
       "type": "string",
-      "pattern": "^[1-9][0-9]*/[1-9][0-9]*(s|m|h)$",
-      "description": "String rate limit in <count>/<duration> format."
+      "pattern": "^[1-9][0-9]*/[1-9][0-9]*(s|m|h)$"
     }
   },
   "x-fixtures": [
@@ -578,5 +551,5 @@
     "fixtures/config/edge.public-via-reverse-proxy.json",
     "fixtures/config/ok.with-command-and-cooldown.json"
   ],
-  "$comment": "This contract fixes the canonical top-level configuration groups for the current platform baseline."
+  "$comment": "The canonical config document follows the planning-aligned section names. Legacy auth/logging/retention/cooldown/runtime.scheduler_timezone/onebot reconnect fields remain migration inputs only."
 }
