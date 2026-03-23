@@ -10,7 +10,7 @@
 - `POST /api/setup/admin`、session 登录、配置读取与更新、任务查询、日志查询、插件安装与生命周期管理
 - `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 管理 WebSocket
 - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 六个 CLI 子命令
-- `web/` 管理面已提供 `setup/login/session`、系统状态、插件列表与详情、任务查看与取消、日志查看、配置编辑
+- `web/` 管理面已提供 `setup/login/session`、系统状态、插件安装与卸载、grants 管理、插件 console、任务查看与取消、日志查看、配置编辑与服务关闭入口
 
 Launcher 与 Render Service 仍未形成面向用户的完整体验；当前用户侧说明可围绕 server 管理面、CLI、配置文件和已落地的 Web 管理面展开。
 

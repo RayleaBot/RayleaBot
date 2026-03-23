@@ -11,7 +11,7 @@
 - `fixtures/` 与 `examples/`：契约样例、golden cases、示例插件与示例配置
 - `.github/workflows/`：contracts、baseline 与 server smoke 校验
 
-`web/` 已进入真实开发主线，当前覆盖 `setup/login/session`、系统状态页、`plugins/tasks/logs/config` 页面、Pinia stores、统一 fetch / WebSocket client，以及 fixture-backed Vitest / Playwright 测试。
+`web/` 已进入真实开发主线，当前覆盖 `setup/login/session`、系统状态页、`plugins/tasks/logs/config` 页面、plugin install / uninstall / grants / console、`system/shutdown` 交互、响应式布局、无障碍细节、Pinia stores、统一 fetch / WebSocket client，以及 fixture-backed Vitest / Playwright 测试。
 
 `launcher/` 仍保留工程基线，真实产品实现尚未开始。
 
@@ -30,8 +30,8 @@
 
 - 在 `web/` 下执行 `pnpm install --frozen-lockfile` 安装前端依赖。
 - `pnpm dev` 启动 Vite 8 开发服务器；默认通过代理消费现有 server management surface。
-- `pnpm test` 运行 Vitest 单测，覆盖 route guard、session store、WebSocket manager 与关键页面交互。
-- `pnpm test:e2e` 运行 Playwright；当前通过测试专用 mock backend 消费 `fixtures/web-api` 与 `fixtures/websocket`，不依赖 live Go server。
+- `pnpm test` 运行 Vitest 单测，覆盖 route guard、session store、WebSocket manager、plugin detail / grants、task query 自动展开、shutdown state 等关键交互。
+- `pnpm test:e2e` 运行 Playwright；当前通过测试专用 mock backend 消费 `fixtures/web-api` 与 `fixtures/websocket`，覆盖 install / grants / shutdown / session 失效 / 移动端导航等正式场景，不依赖 live Go server。
 
 ## 协作规则
 
