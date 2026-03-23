@@ -22,7 +22,7 @@ def handle_echo(event, request_id):
     if not text.strip():
         text = "(空消息)"
 
-    plugin.send_message_segments(
+    plugin.send_message(
         request_id,
         target.get("type", "group"),
         target.get("id", ""),

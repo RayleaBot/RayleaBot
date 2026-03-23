@@ -36,23 +36,8 @@ class RayleaBotPlugin:
         self._subscriptions = list(event_types)
         return self
 
-    def send_message(self, request_id, target_type, target_id, text):
+    def send_message(self, request_id, target_type, target_id, segments):
         """Send a message to a target."""
-        protocol.send_action(self._plugin_id, request_id, "message.send", {
-            "target_type": target_type,
-            "target_id": target_id,
-            "text": text,
-        })
-
-    def send_reply(self, request_id, reply_to_message_id, text):
-        """Reply to a specific message."""
-        protocol.send_action(self._plugin_id, request_id, "message.reply", {
-            "reply_to_message_id": reply_to_message_id,
-            "text": text,
-        })
-
-    def send_message_segments(self, request_id, target_type, target_id, segments):
-        """Send a rich message to a target using shared message.segments."""
         protocol.send_action(self._plugin_id, request_id, "message.send", {
             "target_type": target_type,
             "target_id": target_id,
@@ -61,7 +46,7 @@ class RayleaBotPlugin:
             },
         })
 
-    def reply_to_event(self, request_id, reply_to_event_id, segments, fallback_to_send_if_missing=False):
+    def send_reply(self, request_id, reply_to_event_id, segments, fallback_to_send_if_missing=False):
         """Reply to a recent upstream event using reply_to_event_id."""
         data = {
             "reply_to_event_id": reply_to_event_id,
@@ -72,17 +57,6 @@ class RayleaBotPlugin:
         if fallback_to_send_if_missing:
             data["fallback_to_send_if_missing"] = True
         protocol.send_action(self._plugin_id, request_id, "message.reply", data)
-
-    sendMessageSegments = send_message_segments
-    replyToEvent = reply_to_event
-
-    def send_image(self, request_id, target_type, target_id, file):
-        """Send an image to a target."""
-        protocol.send_action(self._plugin_id, request_id, "message.send_image", {
-            "target_type": target_type,
-            "target_id": target_id,
-            "file": file,
-        })
 
     def logger_write(self, request_id, level, message, fields=None, timeout_seconds=30):
         """Write a management log entry through the platform-local logger.write action."""

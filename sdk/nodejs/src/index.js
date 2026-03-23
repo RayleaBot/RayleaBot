@@ -37,15 +37,7 @@ export function createPlugin() {
       return plugin;
     },
 
-    sendMessage(requestId, targetType, targetId, text) {
-      sendAction(pluginId, requestId, 'message.send', { target_type: targetType, target_id: targetId, text });
-    },
-
-    sendReply(requestId, replyToMessageId, text) {
-      sendAction(pluginId, requestId, 'message.reply', { reply_to_message_id: replyToMessageId, text });
-    },
-
-    sendMessageSegments(requestId, targetType, targetId, segments) {
+    sendMessage(requestId, targetType, targetId, segments) {
       sendAction(pluginId, requestId, 'message.send', {
         target_type: targetType,
         target_id: targetId,
@@ -53,7 +45,7 @@ export function createPlugin() {
       });
     },
 
-    replyToEvent(requestId, replyToEventId, segments, options = {}) {
+    sendReply(requestId, replyToEventId, segments, options = {}) {
       const data = {
         reply_to_event_id: replyToEventId,
         message: { segments },
@@ -62,10 +54,6 @@ export function createPlugin() {
         data.fallback_to_send_if_missing = true;
       }
       sendAction(pluginId, requestId, 'message.reply', data);
-    },
-
-    sendImage(requestId, targetType, targetId, file) {
-      sendAction(pluginId, requestId, 'message.send_image', { target_type: targetType, target_id: targetId, file });
     },
 
     async loggerWrite(requestId, level, message, fields = undefined, options = {}) {

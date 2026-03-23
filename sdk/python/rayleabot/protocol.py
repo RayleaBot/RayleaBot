@@ -112,7 +112,7 @@ def send_result(plugin_id, request_id, data=None):
 
 
 def send_action(plugin_id, request_id, action, data):
-    """Send an outbound action (message.send, message.reply, message.send_image)."""
+    """Send an outbound action."""
     write_frame({
         "protocol_version": "1",
         "type": "action",

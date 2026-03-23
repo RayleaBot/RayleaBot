@@ -51,6 +51,6 @@ rl.on("line", (line) => {
   }
 
   // This example intentionally keeps the protocol surface narrow.
-  // shutdown, error handling, and other message types are left for the
-  // real runtime implementation phases.
+  // shutdown, error handling, and other message types stay outside this
+  // minimal sample.
 });
