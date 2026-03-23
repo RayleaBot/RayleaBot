@@ -1,0 +1,96 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { ManagedSocket } from '@/lib/ws'
+
+class FakeWebSocket {
+  static instances: FakeWebSocket[] = []
+
+  static OPEN = 1
+
+  readyState = FakeWebSocket.OPEN
+  url: string
+  listeners = new Map<string, Array<(event?: MessageEvent) => void>>()
+
+  constructor(url: string) {
+    this.url = url
+    FakeWebSocket.instances.push(this)
+  }
+
+  addEventListener(type: string, listener: (event?: MessageEvent) => void) {
+    const existing = this.listeners.get(type) ?? []
+    this.listeners.set(type, [...existing, listener])
+  }
+
+  close() {
+    this.emit('close')
+  }
+
+  emit(type: string, data?: unknown) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      if (type === 'message') {
+        listener({ data: JSON.stringify(data) } as MessageEvent)
+      } else {
+        listener()
+      }
+    }
+  }
+}
+
+describe('ManagedSocket', () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = []
+    vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket)
+  })
+
+  it('moves to authenticated after the first frame', () => {
+    const onFrame = vi.fn()
+    const socket = new ManagedSocket({
+      name: 'events',
+      path: () => '/ws/events',
+      runtime: {
+        getToken: () => 'fixture-token',
+        onSessionExpired: vi.fn(),
+      },
+      onFrame,
+    })
+
+    socket.start()
+    const instance = FakeWebSocket.instances[0]
+    instance.emit('open')
+    instance.emit('message', {
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-03-17T09:33:00Z',
+      data: {
+        summary: 'ready',
+        service_status: 'running',
+      },
+    })
+
+    expect(socket.getStatus()).toBe('authenticated')
+    expect(onFrame).toHaveBeenCalledTimes(1)
+  })
+
+  it('triggers session expiration on session_expired frame', () => {
+    const onSessionExpired = vi.fn()
+    const socket = new ManagedSocket({
+      name: 'events',
+      path: () => '/ws/events',
+      runtime: {
+        getToken: () => 'fixture-token',
+        onSessionExpired,
+      },
+    })
+
+    socket.start()
+    const instance = FakeWebSocket.instances[0]
+    instance.emit('open')
+    instance.emit('message', {
+      type: 'session_expired',
+      data: {},
+    })
+
+    expect(onSessionExpired).toHaveBeenCalledTimes(1)
+    expect(socket.getStatus()).toBe('disconnected')
+  })
+})
