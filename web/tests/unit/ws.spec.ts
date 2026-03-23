@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ManagedSocket } from '@/lib/ws'
 
@@ -40,6 +40,11 @@ describe('ManagedSocket', () => {
   beforeEach(() => {
     FakeWebSocket.instances = []
     vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket)
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('moves to authenticated after the first frame', () => {
@@ -92,5 +97,29 @@ describe('ManagedSocket', () => {
 
     expect(onSessionExpired).toHaveBeenCalledTimes(1)
     expect(socket.getStatus()).toBe('disconnected')
+  })
+
+  it('records the last error and reconnects after close', () => {
+    const socket = new ManagedSocket({
+      name: 'events',
+      path: () => '/ws/events',
+      runtime: {
+        getToken: () => 'fixture-token',
+        onSessionExpired: vi.fn(),
+      },
+    })
+
+    socket.start()
+    const firstInstance = FakeWebSocket.instances[0]
+    firstInstance.emit('open')
+    firstInstance.emit('error')
+    firstInstance.emit('close')
+
+    expect(socket.getStatus()).toBe('reconnecting')
+    expect(socket.getLastError()).toBe('events socket error')
+
+    vi.advanceTimersByTime(500)
+
+    expect(FakeWebSocket.instances.length).toBe(2)
   })
 })

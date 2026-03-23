@@ -31,11 +31,23 @@ const fixtures = {
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
   tasksList: await readFixture('fixtures/web-api/ok.tasks-list-response.yaml'),
   taskDetail: await readFixture('fixtures/web-api/ok.task-detail-response.yaml'),
+  taskDetailSucceededInstall: await readFixture('fixtures/web-api/ok.task-detail-succeeded-install.yaml'),
+  taskDetailFailedInstallScriptBlocked: await readFixture('fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml'),
   taskCancel: await readFixture('fixtures/web-api/ok.task-cancel-accepted.yaml'),
   systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
+  systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
   pluginEnable: await readFixture('fixtures/web-api/ok.plugins-enable-response.yaml'),
   pluginDisable: await readFixture('fixtures/web-api/edge.plugins-disable-response.yaml'),
   pluginReload: await readFixture('fixtures/web-api/ok.plugins-reload-response.yaml'),
+  pluginInstallAccepted: await readFixture('fixtures/web-api/ok.plugins-install-accepted.yaml'),
+  pluginInstallAcceptedWithScripts: await readFixture('fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml'),
+  pluginInstallRemoteUrl: await readFixture('fixtures/web-api/ok.plugins-install-remote-url.yaml'),
+  pluginUninstallAccepted: await readFixture('fixtures/web-api/ok.plugins-uninstall-accepted.yaml'),
+  pluginGrantsList: await readFixture('fixtures/web-api/ok.plugins-grants-list-response.yaml'),
+  pluginGrant: await readFixture('fixtures/web-api/ok.plugins-grant-response.yaml'),
+  pluginGrantWithExpiry: await readFixture('fixtures/web-api/ok.plugins-grant-with-expiry-response.yaml'),
+  invalidGrantExpiry: await readFixture('fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml'),
+  invalidUninstallNotFound: await readFixture('fixtures/web-api/invalid.plugins-uninstall-not-found.yaml'),
   wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.json'),
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
@@ -73,6 +85,18 @@ function baseState() {
     tasks: structuredClone(fixtures.tasksList.response.body.items),
     logs: structuredClone(fixtures.logsList.response.body.items),
     config: structuredClone(fixtures.configGet.response.body.config),
+    grants: {
+      weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
+      'raylea.help': [],
+    },
+    systemStatus: structuredClone(fixtures.systemStatus.response.body),
+    failures: {
+      failPluginsListOnce: false,
+      failPluginDetailOnce: false,
+      failLogsOnce: false,
+      failSystemStatusOnce: false,
+      failUninstallOnce: false,
+    },
   }
 }
 
@@ -152,6 +176,19 @@ function resetState(payload = {}) {
   state = baseState()
   state.initialized = Boolean(payload.initialized)
   state.token = null
+  state.failures = {
+    ...state.failures,
+    ...(payload.failures ?? {}),
+  }
+}
+
+function takeFailureFlag(name) {
+  if (!state.failures[name]) {
+    return false
+  }
+
+  state.failures[name] = false
+  return true
 }
 
 function sessionExpiredFrame(channel = 'events') {
@@ -170,6 +207,27 @@ function pluginListBody() {
 function pluginDetailBody(pluginId) {
   return {
     plugin: state.plugins[pluginId],
+  }
+}
+
+function taskSummary(taskId, taskType, summary) {
+  return {
+    task_id: taskId,
+    task_type: taskType,
+    status: 'pending',
+    summary,
+  }
+}
+
+function errorEnvelope(code, message, requestId, details) {
+  return {
+    error: {
+      code,
+      message,
+      message_key: `errors.${code}`,
+      request_id: requestId,
+      ...(details ? { details } : {}),
+    },
   }
 }
 
@@ -198,6 +256,22 @@ const server = http.createServer(async (request, response) => {
       }
     }
     json(response, 200, { ok: true })
+    return
+  }
+
+  if (pathname === '/__test/socket-close' && request.method === 'POST') {
+    const payload = await parseBody(request)
+    const channel = payload.channel
+    if (!channel || !sockets[channel]) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'invalid socket channel', 'req_socket_close_invalid'))
+      return
+    }
+
+    for (const socket of sockets[channel]) {
+      socket.close()
+    }
+
+    json(response, 200, { ok: true, channel })
     return
   }
 
@@ -270,7 +344,22 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, fixtures.systemStatus.response.status, fixtures.systemStatus.response.body)
+    if (takeFailureFlag('failSystemStatusOnce')) {
+      json(response, 500, errorEnvelope('plugin.internal_error', 'system status failed', 'req_system_status_failed'))
+      return
+    }
+
+    json(response, fixtures.systemStatus.response.status, state.systemStatus)
+    return
+  }
+
+  if (pathname === '/api/system/shutdown' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    state.systemStatus.status = 'shutting_down'
+    json(response, fixtures.systemShutdown.response.status, fixtures.systemShutdown.response.body)
     return
   }
 
@@ -303,6 +392,11 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === '/api/logs' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
+      return
+    }
+
+    if (takeFailureFlag('failLogsOnce')) {
+      json(response, 500, errorEnvelope('plugin.internal_error', 'log list failed', 'req_logs_failed'))
       return
     }
 
@@ -361,7 +455,16 @@ const server = http.createServer(async (request, response) => {
     }
 
     const taskId = pathname.split('/')[3]
-    const task = state.tasks.find((item) => item.task_id === taskId) ?? fixtures.taskDetail.response.body.task
+    let task = state.tasks.find((item) => item.task_id === taskId)
+    if (!task) {
+      if (taskId === fixtures.taskDetailSucceededInstall.response.body.task.task_id) {
+        task = structuredClone(fixtures.taskDetailSucceededInstall.response.body.task)
+      } else if (taskId === fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id) {
+        task = structuredClone(fixtures.taskDetailFailedInstallScriptBlocked.response.body.task)
+      } else {
+        task = fixtures.taskDetail.response.body.task
+      }
+    }
     json(response, 200, { task })
     return
   }
@@ -371,7 +474,37 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
+    if (takeFailureFlag('failPluginsListOnce')) {
+      json(response, 500, errorEnvelope('plugin.internal_error', 'plugin list failed', 'req_plugins_failed'))
+      return
+    }
+
     json(response, 200, pluginListBody())
+    return
+  }
+
+  if (pathname === '/api/plugins/install' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const payload = await parseBody(request)
+    let taskId = fixtures.pluginInstallAccepted.response.body.task_id
+
+    if (payload.source_type === 'remote_url') {
+      taskId = fixtures.pluginInstallRemoteUrl.response.body.task_id
+    } else if (payload.source.includes('script-blocked') && payload.allow_install_scripts !== true) {
+      taskId = fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id
+    } else if (payload.allow_install_scripts === true) {
+      taskId = fixtures.pluginInstallAcceptedWithScripts.response.body.task_id
+    }
+
+    state.tasks = [
+      taskSummary(taskId, 'plugin.install', `install ${payload.source}`),
+      ...state.tasks.filter((item) => item.task_id !== taskId),
+    ]
+
+    json(response, 202, { task_id: taskId })
     return
   }
 
@@ -432,12 +565,101 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/grants') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const pluginId = pathname.split('/')[3]
+    json(response, 200, {
+      items: state.grants[pluginId] ?? [],
+    })
+    return
+  }
+
+  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/grants') && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const pluginId = pathname.split('/')[3]
+    const payload = await parseBody(request)
+    if (payload.expires_at) {
+      const parsed = Date.parse(payload.expires_at)
+      if (!Number.isFinite(parsed) || parsed <= Date.now()) {
+        json(response, fixtures.invalidGrantExpiry.response.status, {
+          error: {
+            ...fixtures.invalidGrantExpiry.response.body.error,
+            message: 'expires_at must be a future UTC RFC3339 timestamp',
+            request_id: 'req_grant_invalid_expiry',
+          },
+        })
+        return
+      }
+    }
+
+    const grantedAt = payload.expires_at
+      ? fixtures.pluginGrantWithExpiry.response.body.granted_at
+      : fixtures.pluginGrant.response.body.granted_at
+
+    const nextGrant = {
+      plugin_id: pluginId,
+      capability: payload.capability,
+      granted_at: grantedAt,
+      ...(payload.expires_at ? { expires_at: payload.expires_at } : {}),
+    }
+
+    state.grants[pluginId] = [
+      ...(state.grants[pluginId] ?? []).filter((item) => item.capability !== payload.capability),
+      nextGrant,
+    ].sort((left, right) => left.capability.localeCompare(right.capability))
+
+    json(response, 200, nextGrant)
+    return
+  }
+
+  if (pathname.includes('/grants/') && request.method === 'DELETE') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const pluginId = pathname.split('/')[3]
+    const capability = decodeURIComponent(pathname.split('/')[5])
+    state.grants[pluginId] = (state.grants[pluginId] ?? []).filter((item) => item.capability !== capability)
+    noContent(response)
+    return
+  }
+
+  if (pathname.startsWith('/api/plugins/') && request.method === 'DELETE') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const pluginId = pathname.split('/')[3]
+    if (takeFailureFlag('failUninstallOnce') || !state.plugins[pluginId]) {
+      json(response, fixtures.invalidUninstallNotFound.response.status, fixtures.invalidUninstallNotFound.response.body)
+      return
+    }
+
+    const taskId = fixtures.pluginUninstallAccepted.response.body.task_id
+    state.tasks = [
+      taskSummary(taskId, 'plugin.uninstall', `uninstall ${pluginId}`),
+      ...state.tasks.filter((item) => item.task_id !== taskId),
+    ]
+    json(response, fixtures.pluginUninstallAccepted.response.status, fixtures.pluginUninstallAccepted.response.body)
+    return
+  }
+
   if (pathname.startsWith('/api/plugins/') && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
     }
 
     const pluginId = pathname.split('/')[3]
+    if (takeFailureFlag('failPluginDetailOnce')) {
+      json(response, 500, errorEnvelope('plugin.internal_error', 'plugin detail failed', 'req_plugin_detail_failed'))
+      return
+    }
     json(response, 200, pluginDetailBody(pluginId))
     return
   }
