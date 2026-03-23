@@ -1,0 +1,102 @@
+<script setup lang="ts">
+import { onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
+
+import { formatDurationSeconds } from '@/lib/format'
+import { useSystemStore } from '@/stores/system'
+
+const systemStore = useSystemStore()
+const { error, health, loading, readiness, recentEvents, system } = storeToRefs(systemStore)
+
+onMounted(() => {
+  void systemStore.refresh()
+})
+</script>
+
+<template>
+  <div class="page-grid">
+    <section class="hero-panel">
+      <div>
+        <div class="page-eyebrow">Status</div>
+        <h1>系统状态</h1>
+        <p>聚合 health、ready、system status 与 `/ws/events` 的管理摘要。</p>
+      </div>
+
+      <el-button :loading="loading" @click="systemStore.refresh()">
+        刷新状态
+      </el-button>
+    </section>
+
+    <el-alert v-if="error" title="状态读取失败" type="error" :description="error" show-icon />
+
+    <div class="stats-grid">
+      <el-card class="stat-card">
+        <span class="stat-label">Health</span>
+        <strong>{{ health?.status ?? '—' }}</strong>
+      </el-card>
+      <el-card class="stat-card">
+        <span class="stat-label">Ready</span>
+        <strong>{{ readiness?.status ?? '—' }}</strong>
+      </el-card>
+      <el-card class="stat-card">
+        <span class="stat-label">System</span>
+        <strong>{{ system?.status ?? '—' }}</strong>
+      </el-card>
+      <el-card class="stat-card">
+        <span class="stat-label">Adapter</span>
+        <strong>{{ system?.adapter_state ?? '—' }}</strong>
+      </el-card>
+      <el-card class="stat-card">
+        <span class="stat-label">Active Plugins</span>
+        <strong>{{ system?.active_plugins ?? 0 }}</strong>
+      </el-card>
+      <el-card class="stat-card">
+        <span class="stat-label">Uptime</span>
+        <strong>{{ formatDurationSeconds(system?.uptime_seconds) }}</strong>
+      </el-card>
+    </div>
+
+    <div class="content-grid">
+      <el-card>
+        <template #header>
+          <div class="card-header">
+            <span>Readiness Checks</span>
+          </div>
+        </template>
+
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="Reason">
+            {{ readiness?.reason ?? '—' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="Reason Codes">
+            {{ readiness?.reason_codes?.join(', ') || '—' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="Checks">
+            <div class="mono-list">
+              <div v-for="(value, key) in readiness?.checks" :key="key">
+                {{ key }} = {{ value }}
+              </div>
+            </div>
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <el-card>
+        <template #header>
+          <div class="card-header">
+            <span>Recent Events</span>
+          </div>
+        </template>
+
+        <el-empty v-if="recentEvents.length === 0" description="暂无 events 摘要" />
+
+        <div v-else class="event-feed">
+          <div v-for="event in recentEvents" :key="`${event.timestamp}-${event.summary}`" class="event-item">
+            <strong>{{ event.summary }}</strong>
+            <span>{{ event.timestamp }}</span>
+          </div>
+        </div>
+      </el-card>
+    </div>
+  </div>
+</template>
