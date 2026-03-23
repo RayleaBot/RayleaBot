@@ -18,7 +18,7 @@
 ## 当前工程落点
 
 - `server/` 是当前真实主链路，已经接入配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
-- `web/` 与 `launcher/` 已冻结版本线和默认命令，当前仍保留工程占位。
+- `web/` 已进入真实管理面实现，`launcher/` 已进入最小桌面闭环实现。
 - `.deps/manifest.json` 已固定资源清单形状，资源来源、SHA256 与 Chromium 正式版本仍待补齐。
 
 ## v0.1 固定版本线

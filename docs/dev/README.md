@@ -13,7 +13,7 @@
 
 `web/` 已进入真实开发主线，当前覆盖 `setup/login/session`、系统状态页、`plugins/tasks/logs/config` 页面、plugin install / uninstall / grants / console、`system/shutdown` 交互、响应式布局、无障碍细节、Pinia stores、统一 fetch / WebSocket client，以及 fixture-backed Vitest / Playwright 测试。
 
-`launcher/` 仍保留工程基线，真实产品实现尚未开始。
+`launcher/` 已进入最小真实实现阶段，当前覆盖 loopback bootstrap auth、环境检查、server 启停、健康轮询、打开 Web UI、stderr 诊断摘要与 Windows 测试/发布命令。
 
 ## 调试与验证重点
 
@@ -32,6 +32,12 @@
 - `pnpm dev` 启动 Vite 8 开发服务器；默认通过代理消费现有 server management surface。
 - `pnpm test` 运行 Vitest 单测，覆盖 route guard、session store、WebSocket manager、plugin detail / grants、task query 自动展开、shutdown state 等关键交互。
 - `pnpm test:e2e` 运行 Playwright；当前通过测试专用 mock backend 消费 `fixtures/web-api` 与 `fixtures/websocket`，覆盖 install / grants / shutdown / session 失效 / 移动端导航等正式场景，不依赖 live Go server。
+
+## Launcher 开发入口
+
+- 在仓库根目录执行 `dotnet test ./launcher` 运行 Launcher 状态机与失败路径测试。
+- 在仓库根目录执行 `dotnet publish ./launcher -c Release` 构建最小 Launcher 发布产物。
+- 当前 Launcher 只复用既有 server management surface：`healthz`、`readyz`、`setup/status`、`session/launcher-token`、`session/launcher-admission`、`system/status`、`system/shutdown`。
 
 ## 协作规则
 

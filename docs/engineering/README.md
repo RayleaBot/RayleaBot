@@ -5,7 +5,7 @@
 ## 当前工程状态
 
 - `server/` 已进入真实主链路开发阶段，当前覆盖配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化
-- `web/` 与 `launcher/` 已锁定工具链和默认命令，当前仍是工程占位
+- `web/` 已形成真实管理面主流程，`launcher/` 已形成最小桌面闭环并进入 Windows CI
 - `.deps/manifest.json` 已形成资源清单骨架，来源与 SHA256 仍待补齐
 
 ## 文档分工

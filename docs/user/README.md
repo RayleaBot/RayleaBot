@@ -11,11 +11,12 @@
 - `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 管理 WebSocket
 - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 六个 CLI 子命令
 - `web/` 管理面已提供 `setup/login/session`、系统状态、插件安装与卸载、grants 管理、插件 console、任务查看与取消、日志查看、配置编辑与服务关闭入口
+- `launcher/` 已提供最小 Windows 桌面壳，可执行环境检查、拉起 / 停止 `raylea-server`、轮询健康与系统状态、打开 Web 管理面并通过 loopback token 自动入会话
 
-Launcher 与 Render Service 仍未形成面向用户的完整体验；当前用户侧说明可围绕 server 管理面、CLI、配置文件和已落地的 Web 管理面展开。
+Render Service 仍未形成面向用户的完整体验；当前用户侧说明可围绕 server 管理面、CLI、Web 管理面和最小 Launcher 闭环展开。
 
 ## 编写边界
 
 - 用户配置正式结构以 `contracts/config.user.schema.json` 为准。
 - 用户侧说明需要与 `server/README.md`、contracts、baseline 和当前发布形态保持一致。
-- 若某项能力仍处于工程占位、TODO 或仅有 contract 骨架，本目录只描述边界和前置条件。
+- 若某项能力仅停留在 contract、fixture 或工程骨架，本目录只描述边界和前置条件。

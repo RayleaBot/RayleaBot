@@ -15,6 +15,7 @@
   - `POST /api/session/login`
   - `DELETE /api/session`
   - `POST /api/session/launcher-token`
+  - `POST /api/session/launcher-admission`
 - management HTTP / WebSocket：
   - `GET /api/config`
   - `PUT /api/config`
@@ -70,6 +71,10 @@
   - persisted summary storage
   - `/api/logs` historical queries
   - `/ws/logs` persisted replay + live stream
+- launcher bootstrap companion：
+  - loopback-only launcher token issuance
+  - launcher admission to normal management sessions
+  - Web `?token=` automatic admission flow
 - config runtime snapshot / hot reload：
   - `command.prefixes`
   - `cooldown.*`

@@ -21,7 +21,7 @@
 | Phase 6 | Config / Storage / Security | ✅ | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger、聊天侧 command policy、temporal grants、plugin-scoped KV persistence、plugin_data 文件区与 scoped HTTP client 已落地 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；config snapshot 与 grants surface 已补齐 command/cooldown、storage/http 和 `expires_at`；更广管理面扩展仍未开始 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | ❌ | .NET / Avalonia 基线已锁定，真实 Launcher 行为尚未开始 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、最小 Avalonia 窗口、环境检查、server 启停 / 健康轮询 / 打开 Web UI、Windows CI 已落地；发布/安装/版本检查仍后置 |
 | Phase 10 | Render Service | ❌ | render service 与 Chromium 调度尚未开始；`.deps/manifest.json` 仅为 baseline 占位 |
 
 ### 判定口径
@@ -185,7 +185,7 @@
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | Health endpoints | ✅ | `GET /healthz` 与 `GET /readyz` |
-| Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login`、`session logout`、`launcher-token` 已落地 |
+| Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login`、`session logout`、loopback-only `launcher-token` 与 `launcher-admission` 已落地 |
 | System management | ✅ | `GET /api/system/status`、`POST /api/system/shutdown` |
 | Config management | ✅ | `GET /api/config`、`PUT /api/config` 已包含 `command` / `cooldown` / `storage` / `http`，并支持对应热更新 |
 | Logs query | ✅ | `GET /api/logs` 与 `/ws/logs` 已提供跨重启的持久化 summary 查询与历史回放 |
@@ -211,14 +211,16 @@
 
 ---
 
-## 十一、Phase 9 — Launcher ❌
+## 十一、Phase 9 — Launcher 🟡
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
 | .NET / Avalonia 基线 | ✅ | 版本与包基线已锁定 |
-| 环境检查 / 本机诊断壳 | ❌ | 资源存在性检查与诊断入口尚未开始 |
-| 真实 Launcher 行为 | ❌ | 启停、打开 Web UI、最小托盘/窗口行为尚未开始 |
-| 与 server 管理面联动 | ❌ | 尚未接入 `launcher-token`、`system/status`、`system/shutdown` 等最小联动面 |
+| Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通 |
+| 环境检查 / 本机诊断壳 | ✅ | server 可执行文件、配置文件、workdir、`LongPathsEnabled`、`.deps/manifest.json` 检查与诊断摘要已落地 |
+| 真实 Launcher 行为 | ✅ | 最小 Avalonia 单窗口、Start / Stop / Open Web UI / Retry Health/Auth、stderr ring buffer 与 `logs/launcher.log` 已落地 |
+| 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与 launcher session 重建 |
+| Launcher 测试与 CI | ✅ | `dotnet test ./launcher`、`dotnet publish ./launcher -c Release` 与 Windows `ci-launcher` job 已落地 |
 | 发布与安装体验 | ❌ | 安装、升级、版本检查与分发体验尚未开始 |
 
 ---
@@ -244,19 +246,21 @@
 | `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI fixtures 结构/覆盖校验、CLI contract 与 TaskType enum 交叉校验 |
 | `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` baseline 校验 |
 | `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
+| `lint.yml` / `ci-launcher` | push main / PR | `dotnet test ./launcher` 与 `dotnet publish ./launcher -c Release` |
 
 ### 当前验证结论
 
 - `go test ./...` 当前通过。
 - `go build ./cmd/raylea-server` 当前通过。
 - `pnpm build`、`pnpm test`、`pnpm test:e2e` 已在 `web/` 本地通过。
+- `dotnet test ./launcher` 与 `dotnet publish ./launcher -c Release` 已在本地通过。
 - bundled plugin manifests 当前已与 `contracts/plugin-info.schema.json` 对齐。
 - 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`。
 - `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。
 - 聊天侧 command policy 与 temporal grants 当前已受 app / plugins / storage / http tests 覆盖。
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `storage.file` / `http.request` 当前已受 contract fixtures、runtime parser、app executor、pluginfile / pluginhttp 单测、SDK 编译与示例 smoke 覆盖。
-- 当前主要风险已转向 Launcher 尚未启动，以及 Render 仍未开始带来的外层交付断层。
+- 当前主要风险已转向 Launcher 发布/安装体验尚未启动，以及 Render 仍未开始带来的外层交付断层。
 
 ---
 
@@ -264,19 +268,19 @@
 
 当前 Web 管理面已进入覆盖正式管理 surface 的稳定闭环，下一步建议转向以下事项：
 
-### 1. 启动 Launcher 最小闭环
+### 1. 完成 Launcher 发布与安装体验
 
-1. 基于 `launcher-token`、`healthz`、`readyz`、`system/status`、`system/shutdown` 完成最小启停闭环
-2. 接入环境检查、打开 Web UI 与基础诊断入口
-3. 保持 Launcher 只复用既有 server management surface，不复制 Web 状态逻辑
+1. 固定 Launcher 发布目录布局、server 默认路径发现与 publish 产物 smoke
+2. 接入版本检查与更新提示，不提前引入自动更新器
+3. 保持 Launcher 只消费既有 server management surface，不复制 Web 业务逻辑
 
-### 2. 扩大 Launcher 回归面
+### 2. 扩大 Launcher 诊断与修复能力
 
-1. 覆盖 server 未就绪、session 失效、shutdown 协调、环境异常等桌面侧失败路径
-2. 补齐 `dotnet publish`、最小 smoke 与桌面自动化回归
-3. 明确 Launcher 与 Web 管理面的职责边界，避免第二套业务状态源
+1. 对齐 `doctor` 的更多环境检查、日志导出与诊断摘要打包
+2. 补齐 server 未就绪、session 失效、shutdown 协调、路径缺失等桌面侧恢复入口
+3. 扩大桌面 smoke 与失败路径回归，稳住 Launcher 与 Web 的职责边界
 
-### 3. 在 Launcher 稳定后进入 Render Service
+### 3. 在 Launcher 发布面稳定后进入 Render Service
 
 1. 先冻结 `render.image` contract、错误码和 fixture
 2. 接入受控 Chromium 调度、任务队列与最小缓存

@@ -27,7 +27,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 config snapshot/update、plugin lifecycle、plugin grants 与 tasks / logs / system surfaces
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、plugin lifecycle、plugin grants 与 tasks / logs / system surfaces
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
@@ -97,6 +97,13 @@
 - `DELETE /api/plugins/{plugin_id}/grants/{capability}`
 
 其中 grant request / response / list item 支持可选 `expires_at`，用于表达当前生效授权的时效窗口。
+
+当前已进入 OpenAPI 冻结范围的 launcher bootstrap surface：
+
+- `POST /api/session/launcher-token`
+- `POST /api/session/launcher-admission`
+
+其中 `launcher-token` 用于本机回环的一次性短时 bootstrap，`launcher-admission` 负责把一次性 token 换成正常管理 session。
 
 ## 通用规则
 
