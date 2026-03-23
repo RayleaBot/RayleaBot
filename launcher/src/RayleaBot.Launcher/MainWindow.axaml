@@ -1,0 +1,103 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RayleaBot.Launcher.MainWindow"
+        Title="RayleaBot Launcher"
+        Width="1080"
+        Height="860"
+        MinWidth="900"
+        MinHeight="720">
+  <ScrollViewer>
+    <StackPanel Margin="20" Spacing="18">
+      <Border Padding="16" CornerRadius="12" Background="#101828">
+        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+          <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+            <TextBlock Text="RayleaBot Launcher" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding StatusSummary}" FontSize="18" />
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right" Spacing="4">
+            <TextBlock Text="Endpoint" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding WebEndpoint}" />
+          </StackPanel>
+          <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding SessionSummary}" />
+          <TextBlock Grid.Row="2"
+                     Grid.ColumnSpan="2"
+                     Text="{Binding LastError}"
+                     Foreground="#FDB022"
+                     TextWrapping="Wrap" />
+        </Grid>
+      </Border>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+        <Border Grid.Column="0" Padding="16" CornerRadius="12" BorderBrush="#344054" BorderThickness="1">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Launcher Settings" FontSize="20" FontWeight="SemiBold" />
+            <StackPanel Spacing="6">
+              <TextBlock Text="Server executable path" />
+              <TextBox Text="{Binding ServerExecutablePath, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Config path" />
+              <TextBox Text="{Binding ConfigPath, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Workdir" />
+              <TextBox Text="{Binding Workdir, Mode=TwoWay}" />
+            </StackPanel>
+            <Button HorizontalAlignment="Left" Click="SaveSettingsClicked">Save Settings</Button>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Padding="16" CornerRadius="12" BorderBrush="#344054" BorderThickness="1">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Service Controls" FontSize="20" FontWeight="SemiBold" />
+            <WrapPanel Orientation="Horizontal" ItemHeight="36" ItemWidth="160">
+              <Button Margin="0,0,8,8" Click="StartClicked">Start</Button>
+              <Button Margin="0,0,8,8" Click="StopClicked">Stop</Button>
+              <Button Margin="0,0,8,8" Click="OpenWebClicked">Open Web UI</Button>
+              <Button Margin="0,0,8,8" Click="RetryClicked">Retry Health/Auth</Button>
+              <Button Margin="0,0,8,8" Click="OpenLogsClicked">Open Logs Directory</Button>
+              <Button Margin="0,0,8,8" Click="CopyDiagnosticsClicked">Copy Diagnostics</Button>
+            </WrapPanel>
+            <TextBlock Text="{Binding OperationSummary}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ServiceDetail}" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+        <Border Grid.Column="0" Padding="16" CornerRadius="12" BorderBrush="#344054" BorderThickness="1">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Environment Checks" FontSize="20" FontWeight="SemiBold" />
+            <ItemsControl ItemsSource="{Binding EnvironmentChecks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,8" Padding="10" CornerRadius="10" Background="#101828">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Summary}" />
+                      <TextBlock Text="{Binding Detail}" Foreground="{Binding AccentBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Padding="16" CornerRadius="12" BorderBrush="#344054" BorderThickness="1">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Recent stderr" FontSize="20" FontWeight="SemiBold" />
+            <ItemsControl ItemsSource="{Binding RecentStderr}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding DiagnosticsSummary}" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</Window>
