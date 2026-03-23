@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000301
+    plugin_id: scope-cache
+    request_id: local_file_0001
+    action: storage.file
+    data:
+      operation: read
+      root: plugin_data
+      path: cache/example.txt
+expect:
+  valid: true
+  notes:
+    - storage.file.read targets one path under the plugin_data root.

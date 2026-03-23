@@ -65,6 +65,7 @@ jobs:
           required_example_files = [
               examples / 'plugins' / 'hello-python' / 'info.json',
               examples / 'plugins' / 'hello-node' / 'info.json',
+              examples / 'plugins' / 'example-permission-scope' / 'info.json',
           ]
           for path in required_fixture_dirs:
               if not path.is_dir():
@@ -174,12 +175,22 @@ jobs:
               'action_storage_kv_set_data',
               'action_storage_kv_delete_data',
               'action_storage_kv_list_data',
+              'action_storage_file_read_data',
+              'action_storage_file_write_text_data',
+              'action_storage_file_write_base64_data',
+              'action_storage_file_delete_data',
+              'action_storage_file_list_data',
+              'action_http_request_no_body_data',
+              'action_http_request_text_body_data',
+              'action_http_request_base64_body_data',
               'action',
               'action_message_send',
               'action_message_reply',
               'action_message_send_image',
               'action_logger_write',
               'action_storage_kv',
+              'action_storage_file',
+              'action_http_request',
               'result',
               'error',
               'ping',
@@ -203,6 +214,8 @@ jobs:
               'action_message_send_image',
               'action_logger_write',
               'action_storage_kv',
+              'action_storage_file',
+              'action_http_request',
           }
           if action_refs != expected_action_refs:
               raise SystemExit(f'plugin-protocol.schema.json action oneOf must reference {sorted(expected_action_refs)}; got {sorted(action_refs)}')
@@ -268,7 +281,7 @@ jobs:
               raise SystemExit('plugin-protocol.schema.json shutdown.reason must be stop/restart/reload')
 
           props = config_schema.get('properties', {})
-          for top in ['schema_version', 'server', 'onebot', 'database', 'storage', 'logging', 'auth', 'runtime', 'render', 'web', 'backup', 'retention', 'command', 'cooldown']:
+          for top in ['schema_version', 'server', 'onebot', 'database', 'storage', 'http', 'logging', 'auth', 'runtime', 'render', 'web', 'backup', 'retention', 'command', 'cooldown']:
               if top not in props:
                   raise SystemExit(f'config.user.schema.json missing top-level property: {top}')
           if props['server']['properties']['host'].get('default') != '127.0.0.1':

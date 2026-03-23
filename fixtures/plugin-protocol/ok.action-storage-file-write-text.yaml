@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000302
+    plugin_id: scope-cache
+    request_id: local_file_0002
+    action: storage.file
+    data:
+      operation: write
+      root: plugin_data
+      path: cache/example.txt
+      content_text: hello file
+expect:
+  valid: true
+  notes:
+    - storage.file.write may send UTF-8 text content without base64 wrapping.

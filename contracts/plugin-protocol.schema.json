@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, rich message.send/message.reply payloads with a shared outbound segment model, legacy message.send_image compatibility, local logger.write/storage.kv action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
+  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, rich message.send/message.reply payloads with a shared outbound segment model, legacy message.send_image compatibility, local logger.write/storage.kv/storage.file/http.request action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -673,6 +673,12 @@
         },
         {
           "$ref": "#/$defs/action_storage_kv"
+        },
+        {
+          "$ref": "#/$defs/action_storage_file"
+        },
+        {
+          "$ref": "#/$defs/action_http_request"
         }
       ]
     },
@@ -894,6 +900,227 @@
         }
       }
     },
+    "action_storage_file_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "root",
+        "path"
+      ],
+      "properties": {
+        "operation": {
+          "const": "read"
+        },
+        "root": {
+          "const": "plugin_data"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_storage_file_write_text_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "root",
+        "path",
+        "content_text"
+      ],
+      "properties": {
+        "operation": {
+          "const": "write"
+        },
+        "root": {
+          "const": "plugin_data"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_text": {
+          "type": "string"
+        }
+      }
+    },
+    "action_storage_file_write_base64_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "root",
+        "path",
+        "content_base64"
+      ],
+      "properties": {
+        "operation": {
+          "const": "write"
+        },
+        "root": {
+          "const": "plugin_data"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_base64": {
+          "type": "string"
+        }
+      }
+    },
+    "action_storage_file_delete_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "root",
+        "path"
+      ],
+      "properties": {
+        "operation": {
+          "const": "delete"
+        },
+        "root": {
+          "const": "plugin_data"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_storage_file_list_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "root",
+        "prefix"
+      ],
+      "properties": {
+        "operation": {
+          "const": "list"
+        },
+        "root": {
+          "const": "plugin_data"
+        },
+        "prefix": {
+          "type": "string"
+        }
+      }
+    },
+    "action_http_request_no_body_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "HEAD",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "action_http_request_text_body_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url",
+        "body_text"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "body_text": {
+          "type": "string"
+        }
+      }
+    },
+    "action_http_request_base64_body_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url",
+        "body_base64"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "body_base64": {
+          "type": "string"
+        }
+      }
+    },
     "action_logger_write": {
       "allOf": [
         {
@@ -955,6 +1182,88 @@
                 },
                 {
                   "$ref": "#/$defs/action_storage_kv_list_data"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_storage_file": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "storage.file"
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/action_storage_file_read_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_write_text_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_write_base64_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_delete_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_list_data"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_http_request": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "http.request"
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/action_http_request_no_body_data"
+                },
+                {
+                  "$ref": "#/$defs/action_http_request_text_body_data"
+                },
+                {
+                  "$ref": "#/$defs/action_http_request_base64_body_data"
                 }
               ]
             }
@@ -1230,6 +1539,38 @@
       "example_ref": "fixtures/plugin-protocol/ok.action-storage-kv-get.yaml"
     },
     {
+      "type": "action",
+      "action_kind": "storage.file",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-storage-file-read.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "http.request",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-http-request.yaml"
+    },
+    {
       "type": "result",
       "direction": "bidirectional",
       "request_id_policy": "required_same_as_request",
@@ -1315,15 +1656,28 @@
     "fixtures/plugin-protocol/ok.action-storage-kv-set.yaml",
     "fixtures/plugin-protocol/ok.action-storage-kv-delete.yaml",
     "fixtures/plugin-protocol/ok.action-storage-kv-list.yaml",
+    "fixtures/plugin-protocol/ok.action-storage-file-read.yaml",
+    "fixtures/plugin-protocol/ok.action-storage-file-write-text.yaml",
+    "fixtures/plugin-protocol/ok.action-storage-file-write-base64.yaml",
+    "fixtures/plugin-protocol/ok.action-storage-file-delete.yaml",
+    "fixtures/plugin-protocol/ok.action-storage-file-list.yaml",
+    "fixtures/plugin-protocol/ok.action-http-request.yaml",
+    "fixtures/plugin-protocol/ok.action-http-request-base64.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
     "fixtures/plugin-protocol/edge.action-message-send-failure.yaml",
     "fixtures/plugin-protocol/edge.action-message-reply-fallback-to-send.yaml",
+    "fixtures/plugin-protocol/edge.action-storage-file-read-result.yaml",
+    "fixtures/plugin-protocol/edge.action-http-request-result.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml",
     "fixtures/plugin-protocol/invalid.action-logger-write-missing-message.yaml",
     "fixtures/plugin-protocol/invalid.action-storage-kv-missing-key.yaml",
+    "fixtures/plugin-protocol/invalid.action-storage-file-path-escape.yaml",
+    "fixtures/plugin-protocol/invalid.action-storage-file-mixed-content.yaml",
+    "fixtures/plugin-protocol/invalid.action-http-request-get-with-body.yaml",
+    "fixtures/plugin-protocol/invalid.action-http-request-invalid-method.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-unsupported-segment.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
@@ -1333,5 +1687,5 @@
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
-  "$comment": "Frozen plugin action kinds now include terminal message.send/message.reply, legacy message.send_image, and local-action RPC logger.write/storage.kv. message.* keep legacy terminal semantics; logger.write and storage.kv use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. Ping/pong remain the minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and wider action families remain out of scope."
+  "$comment": "Frozen plugin action kinds now include terminal message.send/message.reply, legacy message.send_image, and local-action RPC logger.write/storage.kv/storage.file/http.request. message.* keep legacy terminal semantics; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. Ping/pong remain the minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and wider action families remain out of scope."
 }

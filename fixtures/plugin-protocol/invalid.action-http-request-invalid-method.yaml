@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000315
+    plugin_id: scope-cache
+    request_id: local_http_invalid_0002
+    action: http.request
+    data:
+      method: OPTIONS
+      url: https://api.example.test/v1/data
+expect:
+  valid: false
+  reason: http.request only freezes GET, HEAD, POST, PUT, PATCH, and DELETE.

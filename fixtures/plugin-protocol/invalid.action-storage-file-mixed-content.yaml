@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000309
+    plugin_id: scope-cache
+    request_id: local_file_invalid_0002
+    action: storage.file
+    data:
+      operation: write
+      root: plugin_data
+      path: cache/example.txt
+      content_text: hello
+      content_base64: aGVsbG8=
+expect:
+  valid: false
+  reason: storage.file write must choose exactly one of content_text or content_base64.

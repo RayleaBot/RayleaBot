@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000308
+    plugin_id: scope-cache
+    request_id: local_file_invalid_0001
+    action: storage.file
+    data:
+      operation: read
+      root: plugin_data
+      path: ../escape.txt
+expect:
+  valid: true
+  notes:
+    - Schema accepts relative path strings; runtime enforcement rejects traversal at execution time.

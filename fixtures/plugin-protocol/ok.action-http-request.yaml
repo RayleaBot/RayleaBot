@@ -1,0 +1,19 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000310
+    plugin_id: scope-cache
+    request_id: local_http_0001
+    action: http.request
+    data:
+      method: GET
+      url: https://api.example.test/v1/data
+      headers:
+        Accept: application/json
+      timeout_seconds: 5
+expect:
+  valid: true
+  notes:
+    - http.request without a request body may use any supported method.

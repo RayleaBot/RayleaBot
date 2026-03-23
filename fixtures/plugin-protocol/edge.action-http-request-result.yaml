@@ -1,0 +1,27 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000312
+    plugin_id: scope-cache
+    request_id: local_http_0003
+    action: http.request
+    data:
+      method: GET
+      url: https://api.example.test/v1/blob
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000313
+    plugin_id: scope-cache
+    request_id: local_http_0003
+    status: success
+    data:
+      status_code: 200
+      headers:
+        Content-Type: application/octet-stream
+      body_base64: /wAB
+expect:
+  valid: true
+  notes:
+    - http.request responses return body_base64 when the body is not valid UTF-8 text.

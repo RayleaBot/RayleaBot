@@ -1,0 +1,28 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000306
+    plugin_id: scope-cache
+    request_id: local_file_0006
+    action: storage.file
+    data:
+      operation: read
+      root: plugin_data
+      path: cache/blob.bin
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000307
+    plugin_id: scope-cache
+    request_id: local_file_0006
+    status: success
+    data:
+      root: plugin_data
+      path: cache/blob.bin
+      exists: true
+      content_base64: /wAB
+expect:
+  valid: true
+  notes:
+    - storage.file.read returns content_base64 for non-UTF-8 file content.

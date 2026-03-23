@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000314
+    plugin_id: scope-cache
+    request_id: local_http_invalid_0001
+    action: http.request
+    data:
+      method: GET
+      url: https://api.example.test/v1/data
+      body_text: denied
+expect:
+  valid: false
+  reason: GET and HEAD must not carry request bodies in the formal http.request surface.

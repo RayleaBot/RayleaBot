@@ -11,6 +11,7 @@
     "onebot",
     "database",
     "storage",
+    "http",
     "logging",
     "auth",
     "runtime",
@@ -124,9 +125,9 @@
     },
     "storage": {
       "type": "object",
-      "description": "Plugin-scoped KV storage limits enforced by the platform-local storage.kv action.",
+      "description": "Plugin-scoped KV and file storage limits enforced by the platform-local storage.kv and storage.file actions.",
       "additionalProperties": false,
-      "required": ["kv_value_max_bytes", "kv_total_limit_mb"],
+      "required": ["kv_value_max_bytes", "kv_total_limit_mb", "file_max_bytes", "plugin_workdir_soft_limit_mb"],
       "properties": {
         "kv_value_max_bytes": {
           "type": "integer",
@@ -139,6 +140,48 @@
           "minimum": 1,
           "default": 16,
           "description": "Maximum total plugin-scoped KV storage footprint in megabytes."
+        },
+        "file_max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10485760,
+          "description": "Maximum storage.file single-file size in bytes."
+        },
+        "plugin_workdir_soft_limit_mb": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 256,
+          "description": "Maximum total plugin_data filesystem footprint in megabytes."
+        }
+      }
+    },
+    "http": {
+      "type": "object",
+      "description": "Outbound HTTP limits enforced by the platform-local http.request action.",
+      "additionalProperties": false,
+      "required": ["timeout_seconds", "max_retries", "allow_private_hosts"],
+      "properties": {
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10,
+          "description": "Maximum end-to-end timeout budget for one http.request action."
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2,
+          "description": "Retry budget for idempotent http.request calls that fail before a usable response."
+        },
+        "allow_private_hosts": {
+          "type": "array",
+          "default": [],
+          "description": "Exact hostnames that may resolve to private or reserved addresses, and the only hosts that may use plain HTTP.",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9.-]+$"
+          },
+          "uniqueItems": true
         }
       }
     },
