@@ -197,3 +197,28 @@ Examples:
 - `fix(adapter): handle OneBot api_response echo matching`
 - `docs(docs): sync execution plan with current progress`
 - `ci(contracts): validate plugin action fixtures`
+
+## Skill discovery and reuse
+
+- Before planning or coding, always check whether there are existing skills relevant to the task.
+- Skill discovery must cover all skill locations visible in the current environment, including:
+  - repo-local skills
+  - user/global skills
+  - admin/system skills
+  - any other supported skill locations exposed by the current Codex runtime
+- Reuse an existing skill when it already matches the task or a substantial part of the task.
+- Do not recreate a workflow in the prompt if an existing skill already covers it.
+
+- At the start of a substantial task, briefly state:
+  - which skills were selected, if any
+  - why they were selected
+  - or that no suitable skill was found
+
+- If multiple skills are relevant, prefer the narrowest combination that fits the task.
+- If a task spans planning, contract review, implementation, and validation, check for skills for each stage instead of assuming one skill should cover the whole workflow.
+
+- Skills are workflow helpers, not sources of truth.
+- `contracts/`, planning docs, and `AGENTS.md` remain authoritative over any skill instructions.
+- If a skill conflicts with repository rules or formal contracts, follow the repository rules and contracts.
+
+- If no suitable skill exists for a recurring workflow, note that gap and consider adding a new repo-local skill after the task is completed and validated.
