@@ -21,7 +21,7 @@
 | Phase 6 | Config / Storage / Security | ✅ | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger、聊天侧 command policy、temporal grants、plugin-scoped KV persistence、plugin_data 文件区与 scoped HTTP client 已落地 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；config snapshot 与 grants surface 已补齐 command/cooldown、storage/http 和 `expires_at`；更广管理面扩展仍未开始 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、最小 Avalonia 窗口、环境检查、server 启停 / 健康轮询 / 打开 Web UI、Windows CI 已落地；发布/安装/版本检查仍后置 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、最小 Avalonia 窗口、环境检查、server 启停 / 健康轮询 / 打开 Web UI、Windows CI 已落地；Launcher 设计质量、启动前状态建模与误导性报错修复仍待收敛，发布/安装/版本检查继续后置 |
 | Phase 10 | Render Service | ❌ | render service 与 Chromium 调度尚未开始；`.deps/manifest.json` 仅为 baseline 占位 |
 
 ### 判定口径
@@ -221,7 +221,19 @@
 | 真实 Launcher 行为 | ✅ | 最小 Avalonia 单窗口、Start / Stop / Open Web UI / Retry Health/Auth、stderr ring buffer 与 `logs/launcher.log` 已落地 |
 | 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与 launcher session 重建 |
 | Launcher 测试与 CI | ✅ | `dotnet test ./launcher`、`dotnet publish ./launcher -c Release` 与 Windows `ci-launcher` job 已落地 |
-| 发布与安装体验 | ❌ | 安装、升级、版本检查与分发体验尚未开始 |
+| Launcher 设计系统与布局重构 | ❌ | 当前仍是开发态堆砌式表单/卡片布局，信息架构、视觉层级、主次操作和状态反馈尚未达到可交付质量 |
+| 启动前状态建模与误导性报错修复 | ❌ | 当前未启动、缺配置、端口不可达与真实服务失败仍会混入同一类连接错误展示 |
+| 桌面交互反馈、禁用态与诊断引导 | ❌ | 按钮 gating、忙碌态、空态、危险操作确认、结果反馈与诊断引导仍需系统化收敛 |
+| 发布与安装体验 | ❌ | 安装、升级、分发体验与发布目录布局尚未开始 |
+| 版本检查 | ❌ | 独立版本检查与更新提示尚未开始 |
+
+### 当前主要问题
+
+- 当前 Launcher 仍是最小技术闭环，功能链路已通，但桌面端信息架构、视觉层次、操作分组、状态反馈和可读性仍停留在开发态。
+- 当前默认设置逻辑 `LauncherDefaults.CreateDefaultSettings(...)` 会把配置路径推导到仓库根下的 `config/user.yaml`；在干净开发仓库中该文件通常不存在，因此首屏会先暴露配置缺失。
+- 当前初始化链路 `LauncherCoordinator.InitializeAsync -> RefreshCoreAsync` 会在首屏初始化时立即探测 `/healthz`；即使配置缺失、服务未启动、进程未拉起，也会把底层 socket refusal 暴露成顶层错误。
+- 当前 `MainWindowViewModel` 直接把 `snapshot.LastError` 放进首屏主摘要区域，原始异常文案会压过“缺配置”“服务未启动”“等待启动”这类更有行动价值的状态。
+- 当前 `MainWindow.axaml` 仍是直接堆砌式表单/卡片，缺少统一主题、状态层级、主次按钮体系、结果反馈层和渐进披露，不符合 Launcher 作为 v0.1 第一接触面的要求。
 
 ---
 
@@ -260,28 +272,44 @@
 - 聊天侧 command policy 与 temporal grants 当前已受 app / plugins / storage / http tests 覆盖。
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `storage.file` / `http.request` 当前已受 contract fixtures、runtime parser、app executor、pluginfile / pluginhttp 单测、SDK 编译与示例 smoke 覆盖。
-- 当前主要风险已转向 Launcher 发布/安装体验尚未启动，以及 Render 仍未开始带来的外层交付断层。
+- 当前主要风险集中在 Launcher 桌面体验明显低于可交付水平，且首屏误导性连接报错会破坏首次使用认知；发布/安装体验尚未启动和 Render 仍未开始继续构成外层交付断层。
 
 ---
 
 ## 十四、下一步行动建议
 
-当前 Web 管理面已进入覆盖正式管理 surface 的稳定闭环，下一步建议转向以下事项：
+当前 Web 管理面已进入覆盖正式管理 surface 的稳定闭环，下一步建议先收敛 Launcher 的桌面质量与启动可靠性，再继续发布/安装和 Render 后续工作。
 
-### 1. 完成 Launcher 发布与安装体验
+### 1. Launcher 设计、布局与 UI/UX 重构
 
-1. 固定 Launcher 发布目录布局、server 默认路径发现与 publish 产物 smoke
-2. 接入版本检查与更新提示，不提前引入自动更新器
-3. 保持 Launcher 只消费既有 server management surface，不复制 Web 业务逻辑
+1. 目标方向固定为专业控制台风格，建立统一主题色、状态色、卡片层级、间距、字体层级、图标和按钮优先级。
+2. 重新设计首屏信息架构，按“服务总览 / 当前状态 / 关键动作 / 环境问题 / 诊断摘要”分层组织，而不是继续并列堆砌设置区、控制区、环境检查区和诊断区。
+3. 首屏只保留最重要的状态与动作，把完整 stderr 与完整诊断摘要收敛到次级区域、抽屉或按需展开面板。
+4. 统一状态 badge、CTA、禁用态、忙碌态、完成态、错误态和危险操作确认，保证桌面端操作反馈一致。
+5. 保持 Launcher 只承担本地进程管理、环境检查、极简诊断与打开 Web UI，不扩成第二套 Web 管理面，不承载完整插件管理、完整日志浏览或在线配置编辑。
 
-### 2. 扩大 Launcher 诊断与修复能力
+### 2. Launcher 启动可靠性、状态建模与诊断引导修复
 
-1. 对齐 `doctor` 的更多环境检查、日志导出与诊断摘要打包
-2. 补齐 server 未就绪、session 失效、shutdown 协调、路径缺失等桌面侧恢复入口
-3. 扩大桌面 smoke 与失败路径回归，稳住 Launcher 与 Web 的职责边界
+1. 将“服务未启动”“等待启动”“配置缺失”“端口不可达”“setup required”“ready”“degraded”“shutting_down”“failed”表达为用户可理解的桌面状态语义，不再让异常消息直接充当状态。
+2. 启动器初始态优先展示本地可判定事实：配置是否存在、可执行文件是否存在、工作目录是否可写、服务是否尚未启动；未启动场景不再把 socket refusal 作为主错误展示。
+3. 配置缺失场景的主提示固定为配置问题，并提供诊断 + 引导入口，例如打开路径、重试、查看说明；当前阶段不扩成配置创建向导，也不自动生成本地配置。
+4. 将原始网络异常与 HTTP 错误降级到诊断层，只在用户需要时查看；对 `Open Web UI`、`Retry Health/Auth`、`Start`、`Stop` 做状态 gating，避免在不成立的场景下暴露无意义动作。
+5. 扩大 Launcher 状态映射、缺配置、未启动、启动中、健康失败、`setup_required`、session 失效与 shutdown 协调等桌面回归面，稳住 Launcher 与 Web 的职责边界。
 
-### 3. 在 Launcher 发布面稳定后进入 Render Service
+### 3. 在桌面质量稳定后继续 Launcher 发布与安装体验
 
-1. 先冻结 `render.image` contract、错误码和 fixture
-2. 接入受控 Chromium 调度、任务队列与最小缓存
-3. 保持在线模板编辑与更广渲染管理面后置
+1. 固定 Launcher 发布目录布局、server 默认路径发现与 publish 产物 smoke。
+2. 补齐最小化到托盘、关闭行为、版本检查与安装/升级文档，不提前引入自动更新器。
+3. 保持 Launcher 只消费既有 server management surface，不复制 Web 业务逻辑。
+
+### 4. Launcher 交付面稳定后进入 Render Service
+
+1. 先冻结 `render.image` contract、错误码和 fixture。
+2. 接入受控 Chromium 调度、任务队列与最小缓存。
+3. 保持在线模板编辑与更广渲染管理面后置。
+
+### 后续实施验收口径
+
+- Launcher 设计与 UI/UX 重构的验收应满足：首屏形成清晰的主次视觉层级，主状态、关键动作、环境问题和诊断摘要分区明确；主要操作具备一致的按钮层级、禁用态、加载态和结果反馈；环境检查与诊断信息不再挤占主操作区。
+- Launcher 启动可靠性修复的验收应满足：未启动服务时首屏不再以“无法连接”作为主错误；缺配置时首屏主提示为配置问题并带明确引导动作；原始 socket / HTTP 异常只在诊断层显示；`Start / Stop / Open Web UI / Retry` 的可用性与当前状态一致。
+- 后续实现回归至少覆盖：Launcher 状态映射单测、缺配置 / 未启动 / 启动中 / 健康失败 / `setup_required` / `ready` / session 失效等失败路径测试；如引入视觉重构，再增加桌面截图基线或等价 UI smoke 以防布局回退。
