@@ -20,7 +20,6 @@ const (
 type outboundActionSender interface {
 	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
 	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
-	SendImage(context.Context, adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error)
 }
 
 func newPermissionChecker(cfg config.Config, repo permission.BlacklistRepository) *permission.Checker {
@@ -209,7 +208,10 @@ func (a *App) sendCooldownReply(event adapter.NormalizedEvent) {
 				TargetType:       "group",
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
-				Text:             cooldownReplyText,
+				Segments: []adapter.OutboundMessageSegment{{
+					Type: "text",
+					Data: map[string]any{"text": cooldownReplyText},
+				}},
 			})
 			break
 		}
@@ -219,7 +221,10 @@ func (a *App) sendCooldownReply(event adapter.NormalizedEvent) {
 			_, err = a.outboundSender.SendMessage(ctx, adapter.OutboundMessageSend{
 				TargetType: strings.TrimSpace(event.ConversationType),
 				TargetID:   targetID,
-				Text:       cooldownReplyText,
+				Segments: []adapter.OutboundMessageSegment{{
+					Type: "text",
+					Data: map[string]any{"text": cooldownReplyText},
+				}},
 			})
 		}
 	default:

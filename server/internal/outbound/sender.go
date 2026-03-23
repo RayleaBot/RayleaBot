@@ -18,7 +18,6 @@ const (
 type ActionSender interface {
 	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
 	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
-	SendImage(context.Context, adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error)
 }
 
 type ReplyTarget struct {
@@ -44,17 +43,10 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 		return sender.SendMessage(ctx, adapter.OutboundMessageSend{
 			TargetType: action.TargetType,
 			TargetID:   action.TargetID,
-			Text:       action.Text,
 			Segments:   toAdapterSegments(action.MessageSegments),
 		})
 	case "message.reply":
 		return sendReplyAction(ctx, sender, resolver, origin, action)
-	case "message.send_image":
-		return sender.SendImage(ctx, adapter.OutboundMessageSendImage{
-			TargetType: action.TargetType,
-			TargetID:   action.TargetID,
-			File:       action.File,
-		})
 	default:
 		return adapter.SendMessageResult{}, &adapter.Error{
 			Code:    codePluginProtocolViolation,
@@ -63,8 +55,8 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 	}
 }
 
-func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin runtime.Event, action runtime.Action) (adapter.SendMessageResult, error) {
-	replyTarget, ok := resolveReplyTarget(action, origin, resolver)
+func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ runtime.Event, action runtime.Action) (adapter.SendMessageResult, error) {
+	replyTarget, ok := resolveReplyTarget(action, resolver)
 	if !ok {
 		return adapter.SendMessageResult{}, &adapter.Error{
 			Code:    codeAdapterReplyTargetMissing,
@@ -76,7 +68,6 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		TargetType:       replyTarget.TargetType,
 		TargetID:         replyTarget.TargetID,
 		ReplyToMessageID: replyTarget.MessageID,
-		Text:             action.Text,
 		Segments:         toAdapterSegments(action.MessageSegments),
 	}
 	result, err := sender.SendReply(ctx, replyRequest)
@@ -92,38 +83,20 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	return sender.SendMessage(ctx, adapter.OutboundMessageSend{
 		TargetType: replyTarget.TargetType,
 		TargetID:   replyTarget.TargetID,
-		Text:       action.Text,
 		Segments:   stripReplySegments(toAdapterSegments(action.MessageSegments)),
 	})
 }
 
-func resolveReplyTarget(action runtime.Action, origin runtime.Event, resolver ReplyTargetResolver) (ReplyTarget, bool) {
-	if replyToEventID := strings.TrimSpace(action.ReplyToEventID); replyToEventID != "" {
-		if resolver == nil {
-			return ReplyTarget{}, false
-		}
-		target, ok := resolver.ResolveReplyTarget(replyToEventID)
-		if !ok {
-			return ReplyTarget{}, false
-		}
-		return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
-	}
-
-	if origin.Target == nil {
+func resolveReplyTarget(action runtime.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
+	replyToEventID := strings.TrimSpace(action.ReplyToEventID)
+	if replyToEventID == "" || resolver == nil {
 		return ReplyTarget{}, false
 	}
-
-	messageID := strings.TrimSpace(action.ReplyToMessageID)
-	targetType := strings.TrimSpace(origin.Target.Type)
-	targetID := strings.TrimSpace(origin.Target.ID)
-	if messageID == "" || targetType == "" || targetID == "" {
+	target, ok := resolver.ResolveReplyTarget(replyToEventID)
+	if !ok {
 		return ReplyTarget{}, false
 	}
-	return ReplyTarget{
-		MessageID:  messageID,
-		TargetType: targetType,
-		TargetID:   targetID,
-	}, true
+	return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
 }
 
 func toAdapterSegments(segments []runtime.ActionSegment) []adapter.OutboundMessageSegment {

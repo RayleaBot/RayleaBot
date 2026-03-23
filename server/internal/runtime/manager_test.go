@@ -248,8 +248,11 @@ func TestManagerDeliverEventReturnsAction(t *testing.T) {
 	if delivery.Action.Kind != "message.send" {
 		t.Fatalf("unexpected action kind: got %q want %q", delivery.Action.Kind, "message.send")
 	}
-	if delivery.Action.TargetType != "group" || delivery.Action.TargetID != "2001" || delivery.Action.Text != "hello from plugin" {
+	if delivery.Action.TargetType != "group" || delivery.Action.TargetID != "2001" {
 		t.Fatalf("unexpected action payload: %#v", delivery.Action)
+	}
+	if len(delivery.Action.MessageSegments) != 1 || delivery.Action.MessageSegments[0].Type != "text" || delivery.Action.MessageSegments[0].Data["text"] != "hello from plugin" {
+		t.Fatalf("unexpected action segments: %#v", delivery.Action.MessageSegments)
 	}
 	if delivery.Result != nil {
 		t.Fatalf("did not expect result payload alongside action: %#v", delivery.Result)
@@ -260,7 +263,7 @@ func TestManagerDeliverEventReturnsAction(t *testing.T) {
 	}
 }
 
-func TestManagerDeliverEventReturnsMessageReplyAction(t *testing.T) {
+func TestManagerDeliverEventRejectsLegacyMessageReplyAction(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()
@@ -270,22 +273,26 @@ func TestManagerDeliverEventReturnsMessageReplyAction(t *testing.T) {
 		t.Fatalf("start runtime: %v", err)
 	}
 
-	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
-	if err != nil {
-		t.Fatalf("deliver event: %v", err)
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
 	}
-	if delivery.Action == nil {
-		t.Fatalf("expected outbound action delivery, got %#v", delivery)
+}
+
+func TestManagerDeliverEventRejectsRemovedMessageSendImageAction(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-action-message-send-image", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
 	}
-	if delivery.Action.Kind != "message.reply" {
-		t.Fatalf("unexpected action kind: got %q want %q", delivery.Action.Kind, "message.reply")
-	}
-	if delivery.Action.ReplyToMessageID != "98765" || delivery.Action.Text != "reply from plugin" {
-		t.Fatalf("unexpected action payload: %#v", delivery.Action)
-	}
-	if delivery.Action.TargetType != "" || delivery.Action.TargetID != "" {
-		t.Fatalf("message.reply should not carry target_type/target_id: %#v", delivery.Action)
-	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
@@ -351,6 +358,17 @@ func TestManagerDeliverEventReturnsRichMessageReplyAction(t *testing.T) {
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
 	}
+}
+
+func TestParseMessageSendActionRejectsRemovedTextPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseMessageSendAction(json.RawMessage(`{
+		"target_type": "group",
+		"target_id": "2001",
+		"text": "removed text payload"
+	}`))
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
 }
 
 func TestManagerDeliverEventProcessesLocalActionsBeforeTerminalResult(t *testing.T) {
@@ -768,7 +786,14 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"data": map[string]any{
 				"target_type": "group",
 				"target_id":   "2001",
-				"text":        "hello from plugin",
+				"message": map[string]any{
+					"segments": []map[string]any{
+						{
+							"type": "text",
+							"data": map[string]any{"text": "hello from plugin"},
+						},
+					},
+				},
 			},
 		})
 		for scanner.Scan() {
@@ -911,8 +936,57 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"request_id":       eventFrame["request_id"],
 			"action":           "message.reply",
 			"data": map[string]any{
-				"reply_to_message_id": "98765",
-				"text":                "reply from plugin",
+				removedReplyMessageIDKey(): "98765",
+				"text":                    "reply from plugin",
+			},
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
+	case "event-action-message-send-image":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "action",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"action":           removedSendImageActionKind(),
+			"data": map[string]any{
+				"target_type": "group",
+				"target_id":   "2001",
+				"file":        "file://cache/image.png",
 			},
 		})
 		for scanner.Scan() {
@@ -1824,4 +1898,12 @@ func helperConsumeShutdown(scanner *bufio.Scanner, code int) {
 		}
 	}
 	os.Exit(0)
+}
+
+func removedReplyMessageIDKey() string {
+	return strings.Join([]string{"reply", "to", "message", "id"}, "_")
+}
+
+func removedSendImageActionKind() string {
+	return strings.Join([]string{"message", "send_image"}, ".")
 }

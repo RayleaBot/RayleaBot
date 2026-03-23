@@ -47,7 +47,6 @@ func errorf(code, message string, err error) *Error {
 type OutboundMessageSend struct {
 	TargetType string
 	TargetID   string
-	Text       string
 	Segments   []OutboundMessageSegment
 }
 
@@ -55,14 +54,7 @@ type OutboundMessageReply struct {
 	TargetType       string
 	TargetID         string
 	ReplyToMessageID string
-	Text             string
 	Segments         []OutboundMessageSegment
-}
-
-type OutboundMessageSendImage struct {
-	TargetType string
-	TargetID   string
-	File       string
 }
 
 type OutboundMessageSegment struct {
@@ -106,29 +98,11 @@ func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (Se
 		return SendMessageResult{}, err
 	}
 
-	segments, err := s.normalizeOutboundSegments("message.send", action.Text, action.Segments, "")
+	segments, err := s.normalizeOutboundSegments("message.send", action.Segments, "")
 	if err != nil {
 		return SendMessageResult{}, err
 	}
-
 	return s.sendSegments(ctx, targetType, targetID, segments, false)
-}
-
-func (s *Shell) SendImage(ctx context.Context, action OutboundMessageSendImage) (SendMessageResult, error) {
-	targetType, targetID, err := validateOutboundTarget(action.TargetType, action.TargetID, "message.send_image")
-	if err != nil {
-		return SendMessageResult{}, err
-	}
-
-	file := strings.TrimSpace(action.File)
-	if file == "" {
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.send_image action is missing required fields", nil)
-	}
-
-	return s.sendSegments(ctx, targetType, targetID, []oneBotMessageSegment{{
-		Type: "image",
-		Data: map[string]any{"file": file},
-	}}, false)
 }
 
 func (s *Shell) SendReply(ctx context.Context, action OutboundMessageReply) (SendMessageResult, error) {
@@ -142,7 +116,7 @@ func (s *Shell) SendReply(ctx context.Context, action OutboundMessageReply) (Sen
 		return SendMessageResult{}, errorf(errorCodeSendFailed, "message.reply action is missing required fields", nil)
 	}
 
-	segments, err := s.normalizeOutboundSegments("message.reply", action.Text, action.Segments, replyToID)
+	segments, err := s.normalizeOutboundSegments("message.reply", action.Segments, replyToID)
 	if err != nil {
 		return SendMessageResult{}, err
 	}
@@ -164,7 +138,7 @@ func validateOutboundTarget(rawType, rawID, actionKind string) (string, string, 
 	}
 }
 
-func (s *Shell) normalizeOutboundSegments(actionKind, legacyText string, declared []OutboundMessageSegment, replyToMessageID string) ([]oneBotMessageSegment, error) {
+func (s *Shell) normalizeOutboundSegments(actionKind string, declared []OutboundMessageSegment, replyToMessageID string) ([]oneBotMessageSegment, error) {
 	segments := make([]OutboundMessageSegment, 0, len(declared)+1)
 	for _, segment := range declared {
 		segments = append(segments, OutboundMessageSegment{
@@ -173,14 +147,7 @@ func (s *Shell) normalizeOutboundSegments(actionKind, legacyText string, declare
 		})
 	}
 	if len(segments) == 0 {
-		text := strings.TrimSpace(legacyText)
-		if text == "" {
-			return nil, errorf(errorCodeSendFailed, actionKind+" action is missing required fields", nil)
-		}
-		segments = append(segments, OutboundMessageSegment{
-			Type: "text",
-			Data: map[string]any{"text": text},
-		})
+		return nil, errorf(errorCodeSendFailed, actionKind+" action is missing required fields", nil)
 	}
 	if replyToMessageID != "" {
 		reply := OutboundMessageSegment{

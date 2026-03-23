@@ -55,10 +55,6 @@ func (f *fakeSender) SendReply(_ context.Context, _ adapter.OutboundMessageReply
 	return adapter.SendMessageResult{}, nil
 }
 
-func (f *fakeSender) SendImage(_ context.Context, _ adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error) {
-	return adapter.SendMessageResult{}, nil
-}
-
 func testEvent() runtime.Event {
 	return runtime.Event{
 		EventID:        "test-evt-1",
@@ -239,7 +235,10 @@ func TestDispatchActionExecution(t *testing.T) {
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			Text:       "reply text",
+			MessageSegments: []runtime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "reply text"},
+			}},
 		},
 	}}
 	d.Register("action-plugin", rt, nil, nil)
@@ -253,6 +252,11 @@ func TestDispatchActionExecution(t *testing.T) {
 
 	if count != 1 {
 		t.Fatalf("expected 1 sent message, got %d", count)
+	}
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	if len(sender.messages[0].Segments) != 1 || sender.messages[0].Segments[0].Type != "text" {
+		t.Fatalf("unexpected sent message payload: %#v", sender.messages[0])
 	}
 }
 

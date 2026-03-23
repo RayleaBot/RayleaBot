@@ -313,18 +313,26 @@ type recordingOutboundSender struct {
 
 func (s *recordingOutboundSender) SendMessage(_ context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
 	s.messageCount++
-	s.lastMessageText = action.Text
+	s.lastMessageText = firstTextSegment(action.Segments)
 	return adapter.SendMessageResult{MessageID: "msg-1"}, nil
 }
 
 func (s *recordingOutboundSender) SendReply(_ context.Context, action adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
 	s.replyCount++
-	s.lastReplyText = action.Text
+	s.lastReplyText = firstTextSegment(action.Segments)
 	return adapter.SendMessageResult{MessageID: "msg-2"}, nil
 }
 
-func (s *recordingOutboundSender) SendImage(context.Context, adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error) {
-	return adapter.SendMessageResult{}, nil
+func firstTextSegment(segments []adapter.OutboundMessageSegment) string {
+	for _, segment := range segments {
+		if segment.Type != "text" {
+			continue
+		}
+		if text, ok := segment.Data["text"].(string); ok {
+			return text
+		}
+	}
+	return ""
 }
 
 type stubBlacklistRepo struct {

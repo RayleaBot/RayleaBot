@@ -27,7 +27,10 @@ func TestBridgeDeliversSupportedEventToRunningRuntime(t *testing.T) {
 					Kind:       "message.send",
 					TargetType: "group",
 					TargetID:   "2001",
-					Text:       "hello bridge",
+					MessageSegments: []runtime.ActionSegment{{
+						Type: "text",
+						Data: map[string]any{"text": "hello bridge"},
+					}},
 				},
 			}, nil
 		},
@@ -49,8 +52,11 @@ func TestBridgeDeliversSupportedEventToRunningRuntime(t *testing.T) {
 	if len(fakeSender.actions) != 1 {
 		t.Fatalf("expected one outbound action, got %d", len(fakeSender.actions))
 	}
-	if fakeSender.actions[0].TargetType != "group" || fakeSender.actions[0].TargetID != "2001" || fakeSender.actions[0].Text != "hello bridge" {
+	if fakeSender.actions[0].TargetType != "group" || fakeSender.actions[0].TargetID != "2001" {
 		t.Fatalf("unexpected outbound action payload: %#v", fakeSender.actions[0])
+	}
+	if len(fakeSender.actions[0].Segments) != 1 || fakeSender.actions[0].Segments[0].Type != "text" || fakeSender.actions[0].Segments[0].Data["text"] != "hello bridge" {
+		t.Fatalf("unexpected outbound action segments: %#v", fakeSender.actions[0])
 	}
 	if delivered.Message == nil || delivered.Message.PlainText != "hello bridge" {
 		t.Fatalf("unexpected delivered message: %#v", delivered.Message)
@@ -193,7 +199,10 @@ func TestBridgeReturnsAdapterErrorForOutboundActionFailure(t *testing.T) {
 					Kind:       "message.send",
 					TargetType: "group",
 					TargetID:   "2001",
-					Text:       "hello bridge",
+					MessageSegments: []runtime.ActionSegment{{
+						Type: "text",
+						Data: map[string]any{"text": "hello bridge"},
+					}},
 				},
 			}, nil
 		},
@@ -223,14 +232,28 @@ func TestBridgeDeliversMessageReplyAction(t *testing.T) {
 			return runtime.Delivery{
 				RequestID: "req_evt_reply",
 				Action: &runtime.Action{
-					Kind:             "message.reply",
-					ReplyToMessageID: "98765",
-					Text:             "今日天气：晴",
+					Kind:           "message.reply",
+					ReplyToEventID: "onebot11-message-12345",
+					MessageSegments: []runtime.ActionSegment{{
+						Type: "text",
+						Data: map[string]any{"text": "今日天气：晴"},
+					}},
 				},
 			}, nil
 		},
 	}
-	eventBridge := testBridge(fakeRuntime, fakeSender)
+	eventBridge := New(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		fakeRuntime,
+		fakeSender,
+		stubReplyTargetResolver{
+			"onebot11-message-12345": {
+				MessageID:  "98765",
+				TargetType: "group",
+				TargetID:   "2001",
+			},
+		},
+	)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeDelivered {
@@ -239,8 +262,11 @@ func TestBridgeDeliversMessageReplyAction(t *testing.T) {
 	if len(fakeSender.replyActions) != 1 {
 		t.Fatalf("expected one reply action, got %d", len(fakeSender.replyActions))
 	}
-	if fakeSender.replyActions[0].ReplyToMessageID != "98765" || fakeSender.replyActions[0].Text != "今日天气：晴" {
+	if fakeSender.replyActions[0].ReplyToMessageID != "98765" {
 		t.Fatalf("unexpected reply action payload: %#v", fakeSender.replyActions[0])
+	}
+	if len(fakeSender.replyActions[0].Segments) != 1 || fakeSender.replyActions[0].Segments[0].Type != "text" || fakeSender.replyActions[0].Segments[0].Data["text"] != "今日天气：晴" {
+		t.Fatalf("unexpected reply action segments: %#v", fakeSender.replyActions[0])
 	}
 	if len(fakeSender.actions) != 0 {
 		t.Fatalf("message.reply should not call SendMessage, got %d calls", len(fakeSender.actions))
@@ -258,7 +284,6 @@ func TestBridgeRejectsUnsupportedOutboundActionKind(t *testing.T) {
 				RequestID: "req_evt_5",
 				Action: &runtime.Action{
 					Kind: "message.broadcast",
-					Text: "out of scope",
 				},
 			}, nil
 		},
@@ -354,7 +379,6 @@ func (f *fakeRuntimeClient) DeliverEvent(ctx context.Context, event runtime.Even
 type fakeActionSender struct {
 	actions      []adapter.OutboundMessageSend
 	replyActions []adapter.OutboundMessageReply
-	imageActions []adapter.OutboundMessageSendImage
 	sendResult   adapter.SendMessageResult
 	sendErr      error
 	replyErr     error
@@ -373,14 +397,6 @@ func (f *fakeActionSender) SendReply(ctx context.Context, action adapter.Outboun
 	if f.replyErr != nil {
 		return adapter.SendMessageResult{}, f.replyErr
 	}
-	if f.sendErr != nil {
-		return adapter.SendMessageResult{}, f.sendErr
-	}
-	return f.sendResult, nil
-}
-
-func (f *fakeActionSender) SendImage(ctx context.Context, action adapter.OutboundMessageSendImage) (adapter.SendMessageResult, error) {
-	f.imageActions = append(f.imageActions, action)
 	if f.sendErr != nil {
 		return adapter.SendMessageResult{}, f.sendErr
 	}

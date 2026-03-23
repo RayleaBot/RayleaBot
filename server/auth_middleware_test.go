@@ -617,7 +617,7 @@ func TestWebSocketEventsSupportsAuthorizationHeader(t *testing.T) {
 }
 
 // TestWebSocketEventsSupportsSessionTokenQueryParam verifies that /ws/events
-// accepts a valid token via the session_token query parameter (backward compat).
+// accepts a valid token via the session_token query parameter.
 // Validates: Requirements 5.2
 func TestWebSocketEventsSupportsSessionTokenQueryParam(t *testing.T) {
 	t.Parallel()

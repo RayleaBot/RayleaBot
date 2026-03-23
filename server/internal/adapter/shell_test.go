@@ -835,7 +835,10 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 	result, err := shell.SendMessage(context.Background(), OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "2001",
-		Text:       "hello outbound",
+		Segments: []OutboundMessageSegment{{
+			Type: "text",
+			Data: map[string]any{"text": "hello outbound"},
+		}},
 	})
 	if err != nil {
 		t.Fatalf("SendMessage failed: %v", err)
@@ -957,7 +960,10 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	_, err := shell.SendMessage(context.Background(), OutboundMessageSend{
 		TargetType: "private",
 		TargetID:   "3001",
-		Text:       "hello outbound",
+		Segments: []OutboundMessageSegment{{
+			Type: "text",
+			Data: map[string]any{"text": "hello outbound"},
+		}},
 	})
 	if err == nil {
 		t.Fatal("expected SendMessage to fail")
@@ -977,7 +983,7 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	}
 }
 
-func TestShellSendReplyWritesCQReplyRequestAndReturnsMessageID(t *testing.T) {
+func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T) {
 	t.Parallel()
 
 	requests := make(chan map[string]any, 1)
@@ -1038,7 +1044,10 @@ func TestShellSendReplyWritesCQReplyRequestAndReturnsMessageID(t *testing.T) {
 		TargetType:       "group",
 		TargetID:         "2001",
 		ReplyToMessageID: "98765",
-		Text:             "reply text",
+		Segments: []OutboundMessageSegment{{
+			Type: "text",
+			Data: map[string]any{"text": "reply text"},
+		}},
 	})
 	if err != nil {
 		t.Fatalf("SendReply failed: %v", err)
@@ -1255,7 +1264,10 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 		TargetType:       "group",
 		TargetID:         "2001",
 		ReplyToMessageID: "98765",
-		Text:             "reply text",
+		Segments: []OutboundMessageSegment{{
+			Type: "text",
+			Data: map[string]any{"text": "reply text"},
+		}},
 	})
 	if err == nil {
 		t.Fatal("expected SendReply to fail")
