@@ -69,7 +69,7 @@ jobs:
 
           go_mod = (root / 'server' / 'go.mod').read_text(encoding='utf-8')
           if 'module rayleabot/server' not in go_mod:
-              raise SystemExit('server/go.mod must use the temporary Phase 0 module path: rayleabot/server')
+              raise SystemExit('server/go.mod must use module path rayleabot/server')
           if 'go 1.25.8' not in go_mod:
               raise SystemExit('server/go.mod must pin Go 1.25.8')
           if 'toolchain go1.25.8' not in go_mod:
@@ -122,7 +122,7 @@ jobs:
           }
           for label, text in docs_to_check.items():
               if command_snippet not in text:
-                  raise SystemExit(f'{label} must mention the Phase 3 server build command: {command_snippet}')
+                  raise SystemExit(f'{label} must mention the server build command: {command_snippet}')
 
           manifest = json.loads((root / '.deps' / 'manifest.json').read_text(encoding='utf-8'))
           if manifest.get('manifest_version') != 1:
