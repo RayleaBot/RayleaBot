@@ -51,6 +51,10 @@ export interface LauncherTokenResponse {
   launcher_token: string
 }
 
+export interface LauncherAdmissionRequest {
+  launcher_token: string
+}
+
 export interface LivenessStatusResponse {
   status: 'ok'
 }

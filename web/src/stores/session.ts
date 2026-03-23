@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { apiRequest } from '@/lib/http'
-import type { SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
+import type { LauncherAdmissionRequest, SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
 
 const sessionStorageKey = 'rayleabot.session_token'
 
@@ -89,6 +89,22 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  async function admitLauncherToken(launcherToken: string) {
+    loginPending.value = true
+    try {
+      const response = await apiRequest<SessionLoginResponse>('/api/session/launcher-admission', {
+        method: 'POST',
+        auth: false,
+        body: { launcher_token: launcherToken } satisfies LauncherAdmissionRequest,
+      })
+      setupInitialized.value = true
+      setToken(response.session_token)
+      return response
+    } finally {
+      loginPending.value = false
+    }
+  }
+
   async function logout() {
     if (token.value) {
       try {
@@ -124,5 +140,6 @@ export const useSessionStore = defineStore('session', () => {
     logout,
     setToken,
     setupAdmin,
+    admitLauncherToken,
   }
 })
