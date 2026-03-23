@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/release-manifest.schema.json",
   "title": "RayleaBot Release Manifest",
-  "description": "Phase 2 fixture-ready schema for release_manifest.json and build_info.json. This contract only freezes release-level metadata and the link to the controlled dependency manifest via deps_manifest_sha256.",
+  "description": "Fixture-ready schema for release_manifest.json and build_info.json. This contract freezes release-level metadata and the link to the controlled dependency manifest via deps_manifest_sha256.",
   "oneOf": [
     {
       "$ref": "#/$defs/releaseManifest"
@@ -171,5 +171,5 @@
     "fixtures/release-manifest/invalid.artifact-missing-sha256.json",
     "fixtures/release-manifest/edge.multi-artifact-official-matrix.json"
   ],
-  "$comment": "Phase 2 keeps release manifest metadata narrow. Explicit manifest_version, project_name, target_platform, target_arch, bundled_runtimes, compatible_core_range, signatures, incremental updates, and checksum-file structure remain README TODOs. The actual managed runtime inventory stays in .deps/manifest.json."
+  "$comment": "The release manifest stays focused on artifact metadata and the controlled dependency manifest link. The managed runtime inventory remains in .deps/manifest.json."
 }

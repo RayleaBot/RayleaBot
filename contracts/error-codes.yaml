@@ -1,6 +1,6 @@
 version: 1
 description: >
-  Phase 1 fixture-ready error catalog. This file is the only formal source for
+  Fixture-ready error catalog. This file is the only formal source for
   v0.1 HTTP, task, WebSocket, and plugin-protocol error codes.
 x-fixtures:
   - fixtures/errors/ok.core-catalog.yaml

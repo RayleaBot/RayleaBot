@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/config.user.schema.json",
   "title": "RayleaBot User Config",
-  "description": "Phase 1 fixture-ready schema for config/user.yaml. This file is the only formal source for v0.1 platform configuration shape.",
+  "description": "Fixture-ready schema for config/user.yaml. This file is the only formal source for the v0.1 platform configuration shape.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -35,7 +35,7 @@
         "host": {
           "type": "string",
           "default": "127.0.0.1",
-          "description": "HTTP service bind host. Phase 0 canonical resolution fixes the default to 127.0.0.1."
+          "description": "HTTP service bind host. The default is fixed to 127.0.0.1."
         },
         "port": {
           "type": "integer",
@@ -244,7 +244,7 @@
         "auto_grant_capabilities": {
           "type": "array",
           "default": [],
-          "description": "Capabilities that may be auto-granted. TODO(contract.phase1): freeze the exact v0.1 default safe set without widening this schema.",
+          "description": "Capabilities that may be auto-granted.",
           "items": {
             "type": "string",
             "minLength": 1
@@ -578,5 +578,5 @@
     "fixtures/config/edge.public-via-reverse-proxy.json",
     "fixtures/config/ok.with-command-and-cooldown.json"
   ],
-  "$comment": "Phase 1 canonical structure replaces the broader Phase 0 placeholder groups. TODO(doc.sync.phase1): align planning prose that still mentions older top-level group names."
+  "$comment": "This contract fixes the canonical top-level configuration groups for the current platform baseline."
 }

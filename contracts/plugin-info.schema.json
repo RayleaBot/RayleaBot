@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-info.schema.json",
   "title": "RayleaBot Plugin Manifest",
-  "description": "Phase 2 fixture-ready schema for plugin info.json. This file is the only formal source for install-time validation, compatibility gating, permission declaration, and migration boundary metadata.",
+  "description": "Fixture-ready schema for plugin info.json. This file is the only formal source for install-time validation, compatibility gating, permission declaration, and migration boundary metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -84,7 +84,7 @@
     "runtime_version": {
       "type": "string",
       "minLength": 1,
-      "description": "Runtime minimum-version expression. The contract keeps this as a narrow string field and does not freeze range syntax in Phase 2."
+      "description": "Runtime minimum-version expression. This contract keeps the field as a narrow string."
     },
     "min_core_version": {
       "$ref": "#/$defs/semver",
@@ -310,5 +310,5 @@
     "fixtures/plugin-info/edge.permission-regrant-and-migration.json",
     "fixtures/plugin-info/ok.plugin-with-commands.json"
   ],
-  "$comment": "Phase 2 intentionally excludes default_config, concurrency, role, icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support. Those remain README TODOs until they become fixture-ready."
+  "$comment": "The manifest stays focused on install-time validation, permission declaration, and migration boundaries. default_config, concurrency, role, icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support remain outside this frozen surface."
 }

@@ -1,6 +1,6 @@
 version: 1
 description: >
-  Phase 1 fixture-ready WebSocket contract. This file freezes the shared
+  Fixture-ready WebSocket contract. This file freezes the shared
   envelope and the smallest set of server-push event types needed by the
   management surface.
 x-fixtures:

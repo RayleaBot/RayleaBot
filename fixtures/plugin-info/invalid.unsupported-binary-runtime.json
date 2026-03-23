@@ -14,6 +14,6 @@
   },
   "expect": {
     "valid": false,
-    "reason": "Phase 2 freezes only python and nodejs managed runtimes."
+    "reason": "Only python and nodejs managed runtimes are supported."
   }
 }
