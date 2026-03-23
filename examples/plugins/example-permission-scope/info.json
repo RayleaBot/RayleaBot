@@ -1,0 +1,42 @@
+{
+  "id": "example-permission-scope",
+  "name": "Example Permission Scope",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Python example plugin demonstrating scoped http.request and storage.file usage.",
+  "author": "raylea",
+  "capabilities": [
+    "event.subscribe",
+    "logger.write"
+  ],
+  "permissions": {
+    "required": [
+      "http.request",
+      "storage.file"
+    ],
+    "optional": [],
+    "scopes": {
+      "http_hosts": [
+        "example.com"
+      ],
+      "storage_roots": [
+        "plugin_data"
+      ]
+    }
+  },
+  "commands": [
+    {
+      "name": "scope_fetch",
+      "aliases": [
+        "scope_cache"
+      ],
+      "description": "Fetch https://example.com/ and cache it into plugin_data.",
+      "usage": "/scope_fetch"
+    }
+  ]
+}

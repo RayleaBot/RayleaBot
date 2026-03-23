@@ -13,6 +13,7 @@ func TestBundledPluginManifestsMatchContract(t *testing.T) {
 	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
 	manifestPaths := []string{
 		filepath.Join("..", "examples", "plugins", "echo-python", "info.json"),
+		filepath.Join("..", "examples", "plugins", "example-permission-scope", "info.json"),
 		filepath.Join("..", "examples", "plugins", "hello-python", "info.json"),
 		filepath.Join("..", "examples", "plugins", "hello-node", "info.json"),
 		filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),

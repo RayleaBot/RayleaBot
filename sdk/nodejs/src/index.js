@@ -92,6 +92,58 @@ export function createPlugin() {
       return await requestLocalAction(pluginId, requestId, 'storage.kv', { operation: 'list', prefix }, options);
     },
 
+    async storageFileRead(requestId, path, options = {}) {
+      const root = options.root ?? 'plugin_data';
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'storage.file', { operation: 'read', root, path }, { timeoutMs });
+    },
+
+    async storageFileWrite(requestId, path, { root = 'plugin_data', contentText, contentBase64, timeoutMs = 30000 } = {}) {
+      if ((contentText === undefined) === (contentBase64 === undefined)) {
+        throw new Error('storageFileWrite requires exactly one of contentText or contentBase64');
+      }
+      const data = { operation: 'write', root, path };
+      if (contentText !== undefined) {
+        data.content_text = contentText;
+      } else {
+        data.content_base64 = contentBase64;
+      }
+      return await requestLocalAction(pluginId, requestId, 'storage.file', data, { timeoutMs });
+    },
+
+    async storageFileDelete(requestId, path, options = {}) {
+      const root = options.root ?? 'plugin_data';
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'storage.file', { operation: 'delete', root, path }, { timeoutMs });
+    },
+
+    async storageFileList(requestId, prefix = '', options = {}) {
+      const root = options.root ?? 'plugin_data';
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'storage.file', { operation: 'list', root, prefix }, { timeoutMs });
+    },
+
+    async httpRequest(requestId, method, url, options = {}) {
+      const data = { method, url };
+      const { headers, timeoutMs = 30000, timeoutSeconds, bodyText, bodyBase64 } = options;
+      if (bodyText !== undefined && bodyBase64 !== undefined) {
+        throw new Error('httpRequest requires at most one of bodyText or bodyBase64');
+      }
+      if (headers !== undefined) {
+        data.headers = headers;
+      }
+      if (timeoutSeconds !== undefined) {
+        data.timeout_seconds = timeoutSeconds;
+      }
+      if (bodyText !== undefined) {
+        data.body_text = bodyText;
+      }
+      if (bodyBase64 !== undefined) {
+        data.body_base64 = bodyBase64;
+      }
+      return await requestLocalAction(pluginId, requestId, 'http.request', data, { timeoutMs });
+    },
+
     async run() {
       for await (const frame of readFrames()) {
         const { type, plugin_id, request_id } = frame;

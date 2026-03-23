@@ -140,6 +140,83 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
+    def storage_file_read(self, request_id, path, root="plugin_data", timeout_seconds=30):
+        """Read one plugin_data file path through storage.file."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.file",
+            {"operation": "read", "root": root, "path": path},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def storage_file_write(self, request_id, path, content_text=None, content_base64=None, root="plugin_data", timeout_seconds=30):
+        """Write one plugin_data file path through storage.file."""
+        if (content_text is None) == (content_base64 is None):
+            raise ValueError("storage_file_write requires exactly one of content_text or content_base64")
+        data = {"operation": "write", "root": root, "path": path}
+        if content_text is not None:
+            data["content_text"] = content_text
+        else:
+            data["content_base64"] = content_base64
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.file",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def storage_file_delete(self, request_id, path, root="plugin_data", timeout_seconds=30):
+        """Delete one plugin_data file path through storage.file."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.file",
+            {"operation": "delete", "root": root, "path": path},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def storage_file_list(self, request_id, prefix="", root="plugin_data", timeout_seconds=30):
+        """List plugin_data file paths under one prefix."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "storage.file",
+            {"operation": "list", "root": root, "prefix": prefix},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def http_request(self, request_id, method, url, headers=None, timeout_seconds=30, body_text=None, body_base64=None):
+        """Issue one scoped http.request through the platform-local HTTP client."""
+        if body_text is not None and body_base64 is not None:
+            raise ValueError("http_request requires at most one of body_text or body_base64")
+        data = {
+            "method": method,
+            "url": url,
+        }
+        if headers:
+            data["headers"] = headers
+        if timeout_seconds is not None:
+            data["timeout_seconds"] = timeout_seconds
+        if body_text is not None:
+            data["body_text"] = body_text
+        if body_base64 is not None:
+            data["body_base64"] = body_base64
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "http.request",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    storageFileRead = storage_file_read
+    storageFileWrite = storage_file_write
+    storageFileDelete = storage_file_delete
+    storageFileList = storage_file_list
+    httpRequest = http_request
+
     def run(self):
         """Main event loop: handles init, events, ping, and shutdown."""
         while True:
