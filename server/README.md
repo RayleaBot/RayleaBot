@@ -45,7 +45,7 @@
   - `event` / `result` / `error`
   - `ping` / `pong`
   - `shutdown`
-  - local action RPC for `logger.write` and `storage.kv`
+  - local action RPC for `logger.write`、`storage.kv`、`storage.file`、`http.request`
   - crash / backoff / dead_letter
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
@@ -56,6 +56,8 @@
 - plugin local actions：
   - `logger.write` through management log redaction / persistence
   - plugin-scoped `storage.kv` persistence with SQLite-backed limits
+  - `storage.file` scoped to `plugin_data` with path traversal / symlink rejection and per-plugin workdir limits
+  - `http.request` scoped by `http_hosts` with DNS preflight, SSRF guards, controlled private-host exceptions, timeout, and retry policy
 - live chat command policy：
   - blacklist pre-check
   - command permission enforcement
@@ -75,6 +77,8 @@
   - `auth.super_admins`
   - `auth.default_level`
   - `storage.kv_*`
+  - `storage.file_*`
+  - `http.*`
   - `logging.retention_days`
   - `logging.rate_limit_per_plugin`
 - CLI 子命令：
@@ -87,7 +91,7 @@
 
 ## 当前边界
 
-- `storage.file`、`http.request`、`render.image` 与更广插件动作族仍未进入正式链路
+- `render.image` 与更广插件动作族仍未进入正式链路
 
 ## 默认命令
 

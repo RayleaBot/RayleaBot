@@ -11,8 +11,8 @@
 ## 当前适用范围
 
 - Python / Node.js SDK 只覆盖当前正式协议与已落地 action。
-- Python SDK 当前提供 legacy `send_message` / `send_reply` / `send_image`，以及 richer `send_message_segments` / `reply_to_event` helper，并补充 `logger_write`、`storage_get`、`storage_set`、`storage_delete`、`storage_list`。
-- Node.js SDK 当前提供 legacy `sendMessage` / `sendReply` / `sendImage`，以及 richer `sendMessageSegments` / `replyToEvent` helper，并补充 `loggerWrite`、`storageGet`、`storageSet`、`storageDelete`、`storageList`。
+- Python SDK 当前提供 legacy `send_message` / `send_reply` / `send_image`，以及 richer `send_message_segments` / `reply_to_event` helper，并补充 `logger_write`、`storage_get`、`storage_set`、`storage_delete`、`storage_list`、`storage_file_read`、`storage_file_write`、`storage_file_delete`、`storage_file_list`、`http_request`。
+- Node.js SDK 当前提供 legacy `sendMessage` / `sendReply` / `sendImage`，以及 richer `sendMessageSegments` / `replyToEvent` helper，并补充 `loggerWrite`、`storageGet`、`storageSet`、`storageDelete`、`storageList`、`storageFileRead`、`storageFileWrite`、`storageFileDelete`、`storageFileList`、`httpRequest`。
 - 两套 SDK 的本地 action helper 默认使用 30 秒超时，并在当前事件处理期间等待同 `request_id` 的 `result` / `error` 响应。
 - 更宽的调试流、复杂流式回传、批量消息和额外 action 仍未进入正式协议范围。
 - SDK 说明需要与 `contracts/plugin-protocol.schema.json`、`docs/plugin/` 和 `examples/plugins/` 保持一致。
@@ -28,12 +28,13 @@ plugin.replyToEvent(requestId, event.event_id, [
 ## Python Local Action 示例
 
 ```python
-plugin.logger_write(request_id, "info", "notice received", {"event_type": event.get("event_type")})
-state = plugin.storage_get(request_id, "notice:last_join")
-plugin.storage_set(request_id, "notice:last_join", {
-    "previous": state.get("value"),
-    "actor_id": event.get("actor", {}).get("id"),
-})
+response = plugin.http_request(request_id, "GET", "https://example.com/")
+content = response.get("body_text")
+if content is not None:
+    plugin.storage_file_write(request_id, "cache/example.html", content_text=content)
+else:
+    plugin.storage_file_write(request_id, "cache/example.bin", content_base64=response["body_base64"])
+plugin.logger_write(request_id, "info", "content cached", {"status_code": response.get("status_code")})
 ```
 
 ## 维护规则

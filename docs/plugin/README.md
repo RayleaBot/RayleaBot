@@ -12,17 +12,19 @@ RayleaBot 当前已经接入以下插件主链路：
 - per-plugin runtime manager、`init -> init_ack` 启动握手、`ping/pong` 保活、`shutdown` 优雅停止
 - dispatcher 订阅 fan-out、命令定向投递与 scheduler `scheduler.trigger`
 - rich `message.send` / `message.reply` 与 shared `message.segments` 出站模型
-- local action RPC：`logger.write` 与 `storage.kv`
-- plugin-scoped KV persistence 与 management log integration
+- local action RPC：`logger.write`、`storage.kv`、`storage.file`、`http.request`
+- plugin-scoped KV persistence、plugin_data 文件区与 management log integration
 
 ## 当前正式边界
 
 - 插件 manifest 与 runtime JSONL 协议以 `contracts/plugin-info.schema.json` 和 `contracts/plugin-protocol.schema.json` 为准。
-- 当前正式 `action` 集合包含 richer `message.send`、richer `message.reply`、legacy compatibility `message.send_image`、`logger.write` 与 `storage.kv`。
+- 当前正式 `action` 集合包含 richer `message.send`、richer `message.reply`、legacy compatibility `message.send_image`、`logger.write`、`storage.kv`、`storage.file` 与 `http.request`。
 - 当前正式 outbound segment 种类为 `text`、`image`、`at`、`at_all`、`face`、`reply`。
 - grants storage、scope 校验、temporal grants 与 enable / reload / reconcile / restart 前权限门禁已接入正式行为。
 - 聊天侧 blacklist、命令权限、cooldown 与可选 cooldown reply 已进入 live command path。
 - `storage.kv` 当前正式支持 `get` / `set` / `delete` / `list(prefix)`，并按插件隔离命名空间。
+- `storage.file` 当前正式支持 `read` / `write` / `delete` / `list(prefix)`，范围固定在 `plugin_data` root，并拒绝绝对路径、逃逸路径与 symlink 穿透。
+- `http.request` 当前正式支持 `GET` / `HEAD` / `POST` / `PUT` / `PATCH` / `DELETE`，目标 host 必须同时满足 `http_hosts` scope、DNS 解析校验与受控私网例外规则。
 - `logger.write` 当前进入 management log surface，并复用现有脱敏、持久化与查询链路。
 
 ## 维护规则
