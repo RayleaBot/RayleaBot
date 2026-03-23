@@ -41,6 +41,8 @@ plugins/**/node_modules/
 # .NET build outputs.
 /launcher/bin/
 /launcher/obj/
+/launcher/**/bin/
+/launcher/**/obj/
 
 # Environment files and local editor cruft.
 .env
