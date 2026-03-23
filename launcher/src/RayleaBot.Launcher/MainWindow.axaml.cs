@@ -105,6 +105,11 @@ internal sealed partial class MainWindow : Window
         await ViewModel.OpenLogsDirectoryAsync();
     }
 
+    private async void OpenReleasePageClicked(object? sender, RoutedEventArgs e)
+    {
+        await ViewModel.OpenReleasePageAsync();
+    }
+
     private async void CopyDiagnosticsClicked(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)

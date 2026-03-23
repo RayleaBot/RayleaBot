@@ -11,6 +11,7 @@ public sealed class LauncherCoordinatorTests
     public async Task InitializeAsync_BootstrapsLauncherSessionAndReportsReady()
     {
         var fixture = new LauncherFixture();
+        fixture.ReleaseFeedClient.Snapshot = ReleaseCheckSnapshot.UpToDate("0.1.0", "https://example.invalid/releases/v0.1.0");
         var coordinator = fixture.CreateCoordinator();
 
         await coordinator.InitializeAsync();
@@ -20,6 +21,7 @@ public sealed class LauncherCoordinatorTests
         Assert.AreEqual(1, fixture.ManagementClient.IssueLauncherTokenCalls);
         Assert.AreEqual(1, fixture.ManagementClient.AdmitLauncherTokenCalls);
         Assert.AreEqual(1, fixture.ManagementClient.SystemStatusCalls);
+        Assert.AreEqual("up_to_date", coordinator.Snapshot.ReleaseCheck.Status);
     }
 
     [TestMethod]
@@ -154,6 +156,22 @@ public sealed class LauncherCoordinatorTests
         Assert.HasCount(1, setupFixture.ExternalOpener.OpenedUris);
         Assert.IsFalse(setupFixture.ExternalOpener.OpenedUris.Single().Query.Contains("token=", StringComparison.Ordinal));
     }
+
+    [TestMethod]
+    public async Task OpenReleasePageAsync_UsesReleaseFeedUrlWhenAvailable()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ReleaseFeedClient.Snapshot = ReleaseCheckSnapshot.NewUpdateAvailable(
+            "0.1.0",
+            "0.1.1",
+            "https://example.invalid/releases/v0.1.1");
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+        await coordinator.OpenReleasePageAsync();
+
+        Assert.AreEqual("https://example.invalid/releases/v0.1.1", fixture.ExternalOpener.OpenedUris.Last().ToString());
+    }
 }
 
 internal sealed class LauncherFixture
@@ -164,6 +182,7 @@ internal sealed class LauncherFixture
     internal FakeManagementClient ManagementClient { get; } = new();
     internal FakeProcessController ProcessController { get; } = new();
     internal FakeExternalOpener ExternalOpener { get; } = new();
+    internal FakeReleaseFeedClient ReleaseFeedClient { get; } = new();
 
     internal LauncherCoordinator CreateCoordinator(LauncherCoordinatorOptions? options = null)
     {
@@ -174,6 +193,7 @@ internal sealed class LauncherFixture
             ManagementClient,
             ProcessController,
             ExternalOpener,
+            ReleaseFeedClient,
             options);
     }
 }
@@ -340,5 +360,15 @@ internal sealed class FakeExternalOpener : IExternalOpener
     {
         OpenedDirectories.Add(directoryPath);
         return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeReleaseFeedClient : IReleaseFeedClient
+{
+    internal ReleaseCheckSnapshot Snapshot { get; set; } = ReleaseCheckSnapshot.Unavailable("release feed not configured");
+
+    public Task<ReleaseCheckSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult(Snapshot);
     }
 }

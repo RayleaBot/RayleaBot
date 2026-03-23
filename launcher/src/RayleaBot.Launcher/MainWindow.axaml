@@ -103,6 +103,11 @@
               <TextBlock Text="Operation" FontWeight="SemiBold" Foreground="#9FB4CF" />
               <TextBlock Text="{Binding OperationSummary}" TextWrapping="Wrap" />
             </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Text="Version" FontWeight="SemiBold" Foreground="#9FB4CF" />
+              <TextBlock Text="{Binding VersionSummary}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding VersionDetail}" TextWrapping="Wrap" Foreground="#9FB4CF" />
+            </StackPanel>
           </StackPanel>
 
           <Border Grid.Row="1"
@@ -211,6 +216,7 @@
                 <Button Classes="secondary" Margin="0,0,10,10" Click="OpenWebClicked" IsEnabled="{Binding CanOpenWebUi}">Open Web UI</Button>
                 <Button Classes="secondary" Margin="0,0,10,10" Click="RetryClicked" IsEnabled="{Binding CanRetry}">Retry health/auth</Button>
                 <Button Classes="secondary" Margin="0,0,10,10" Click="OpenLogsClicked">Open logs directory</Button>
+                <Button Classes="secondary" Margin="0,0,10,10" Click="OpenReleasePageClicked" IsEnabled="{Binding CanOpenReleasePage}">Open release page</Button>
                 <Button Classes="secondary" Margin="0,0,10,10" Click="CopyDiagnosticsClicked">Copy diagnostics</Button>
               </WrapPanel>
             </StackPanel>

@@ -21,6 +21,8 @@ internal sealed class MainWindowViewModel : ObservableObject
     private string diagnosticsSummary = string.Empty;
     private string operationSummary = string.Empty;
     private string webEndpoint = "http://127.0.0.1:8080/";
+    private string versionSummary = "Version check is unavailable.";
+    private string versionDetail = string.Empty;
     private string primaryIssueTitle = string.Empty;
     private string primaryIssueSummary = string.Empty;
     private string primaryIssueRemediation = string.Empty;
@@ -30,6 +32,7 @@ internal sealed class MainWindowViewModel : ObservableObject
     private bool canStop;
     private bool canOpenWebUi;
     private bool canRetry = true;
+    private bool canOpenReleasePage;
     private bool closeToTrayEnabled = true;
     private bool closeTipAcknowledged;
     private IBrush heroAccentBrush = Brush.Parse("#0E7490");
@@ -112,6 +115,18 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref webEndpoint, value);
     }
 
+    internal string VersionSummary
+    {
+        get => versionSummary;
+        private set => SetProperty(ref versionSummary, value);
+    }
+
+    internal string VersionDetail
+    {
+        get => versionDetail;
+        private set => SetProperty(ref versionDetail, value);
+    }
+
     internal string PrimaryIssueTitle
     {
         get => primaryIssueTitle;
@@ -164,6 +179,12 @@ internal sealed class MainWindowViewModel : ObservableObject
     {
         get => canRetry;
         private set => SetProperty(ref canRetry, value);
+    }
+
+    internal bool CanOpenReleasePage
+    {
+        get => canOpenReleasePage;
+        private set => SetProperty(ref canOpenReleasePage, value);
     }
 
     internal bool CloseToTrayEnabled
@@ -236,6 +257,11 @@ internal sealed class MainWindowViewModel : ObservableObject
         await ExecuteAsync("Launcher log directory opened.", () => coordinator.OpenLogsDirectoryAsync());
     }
 
+    internal async Task OpenReleasePageAsync()
+    {
+        await ExecuteAsync("Release page opened in the default browser.", () => coordinator.OpenReleasePageAsync());
+    }
+
     internal void SetOperationSummary(string message)
     {
         Dispatcher.UIThread.Post(() => OperationSummary = message);
@@ -304,6 +330,8 @@ internal sealed class MainWindowViewModel : ObservableObject
         HasLastError = !string.IsNullOrWhiteSpace(snapshot.LastError);
         DiagnosticsSummary = coordinator.BuildDiagnosticsSummary();
         WebEndpoint = snapshot.Endpoint.BaseUri.ToString();
+        VersionSummary = snapshot.ReleaseCheck.Summary;
+        VersionDetail = snapshot.ReleaseCheck.Detail;
         HeroAccentBrush = snapshot.ServiceState switch
         {
             LauncherServiceState.Ready => Brush.Parse("#16A34A"),
@@ -326,6 +354,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         CanStop = snapshot.ProcessRunning || snapshot.ServiceState is LauncherServiceState.Starting or LauncherServiceState.ShuttingDown;
         CanOpenWebUi = snapshot.ServiceState is LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.SetupRequired or LauncherServiceState.ShuttingDown;
         CanRetry = true;
+        CanOpenReleasePage = !string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.ReleasePageUrl);
 
         EnvironmentChecks.Clear();
         foreach (var item in snapshot.EnvironmentChecks)

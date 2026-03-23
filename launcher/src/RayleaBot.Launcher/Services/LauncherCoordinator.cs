@@ -11,10 +11,12 @@ internal sealed class LauncherCoordinator(
     ILauncherManagementClient managementClient,
     IServerProcessController processController,
     IExternalOpener externalOpener,
+    IReleaseFeedClient? releaseFeedClient = null,
     LauncherCoordinatorOptions? options = null)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly LauncherCoordinatorOptions runtimeOptions = options ?? LauncherCoordinatorOptions.Default;
+    private readonly IReleaseFeedClient? launcherReleaseFeed = releaseFeedClient;
     private string? sessionToken;
     private LauncherSettings? currentSettings;
     private LauncherSnapshot snapshot = LauncherSnapshot.CreateDefault(new LauncherSettings(string.Empty, string.Empty, string.Empty), new ServerEndpoint("127.0.0.1", 8080));
@@ -90,13 +92,13 @@ internal sealed class LauncherCoordinator(
             var inspection = await environmentInspector.InspectAsync(currentSettings!, cancellationToken).ConfigureAwait(false);
             if (inspection.HasBlockingIssues && !inspection.CanBootstrapUserConfig)
             {
-                UpdateSnapshot(BuildLocalStateSnapshot(
+                await PublishSnapshotAsync(BuildLocalStateSnapshot(
                     endpoint,
                     inspection,
                     LauncherServiceState.Stopped,
                     processController.IsRunning,
                     "No launcher session.",
-                    inspection.PrimaryIssue?.Summary ?? "Launcher preflight found a blocking issue."));
+                    inspection.PrimaryIssue?.Summary ?? "Launcher preflight found a blocking issue."), cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -108,7 +110,7 @@ internal sealed class LauncherCoordinator(
             }
             catch (Exception ex)
             {
-                UpdateSnapshot(
+                await PublishSnapshotAsync(
                     BuildSnapshot(
                         endpoint,
                         inspection.Checks,
@@ -118,11 +120,11 @@ internal sealed class LauncherCoordinator(
                         false,
                         "No launcher session.",
                         "Server process failed to start.",
-                        ex.Message));
+                        ex.Message), cancellationToken).ConfigureAwait(false);
                 return;
             }
 
-            UpdateSnapshot(
+            await PublishSnapshotAsync(
                 snapshot with
                 {
                     ServiceState = LauncherServiceState.Starting,
@@ -132,7 +134,7 @@ internal sealed class LauncherCoordinator(
                         ? "Created the first user config from default.yaml and waiting for /healthz to report ok."
                         : "Waiting for /healthz to report ok.",
                     LastError = string.Empty,
-                });
+                }, cancellationToken).ConfigureAwait(false);
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(runtimeOptions.StartupTimeout);
@@ -155,7 +157,7 @@ internal sealed class LauncherCoordinator(
             }
 
             await processController.ForceKillAsync(cancellationToken).ConfigureAwait(false);
-            UpdateSnapshot(
+            await PublishSnapshotAsync(
                 BuildSnapshot(
                     endpoint,
                     snapshot.EnvironmentChecks,
@@ -165,7 +167,7 @@ internal sealed class LauncherCoordinator(
                     false,
                     "No launcher session.",
                     "Health probe did not succeed within the startup timeout.",
-                    "Server start timed out."));
+                    "Server start timed out."), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -180,14 +182,14 @@ internal sealed class LauncherCoordinator(
         {
             EnsureSettingsLoaded();
             var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
-            UpdateSnapshot(
+            await PublishSnapshotAsync(
                 snapshot with
                 {
                     ServiceState = LauncherServiceState.ShuttingDown,
                     ShutdownRequested = true,
                     ServiceDetail = "Requesting graceful shutdown.",
                     LastError = string.Empty,
-                });
+                }, cancellationToken).ConfigureAwait(false);
 
             var gracefulShutdownCompleted = false;
             try
@@ -262,7 +264,27 @@ internal sealed class LauncherCoordinator(
             }
 
             await externalOpener.OpenUriAsync(uriBuilder.Uri, cancellationToken).ConfigureAwait(false);
-            UpdateSnapshot(snapshot with { ServiceDetail = $"Opened {uriBuilder.Uri}", LastError = string.Empty });
+            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"Opened {uriBuilder.Uri}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    internal async Task OpenReleasePageAsync(CancellationToken cancellationToken = default)
+    {
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.ReleasePageUrl))
+            {
+                await PublishSnapshotAsync(snapshot with { ServiceDetail = "Release page is unavailable for this build.", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await externalOpener.OpenUriAsync(new Uri(snapshot.ReleaseCheck.ReleasePageUrl, UriKind.Absolute), cancellationToken).ConfigureAwait(false);
+            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"Opened {snapshot.ReleaseCheck.ReleasePageUrl}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -316,7 +338,7 @@ internal sealed class LauncherCoordinator(
 
         if (inspection.HasBlockingIssues || inspection.CanBootstrapUserConfig)
         {
-            UpdateSnapshot(BuildLocalStateSnapshot(
+            await PublishSnapshotAsync(BuildLocalStateSnapshot(
                 endpoint,
                 inspection,
                 LauncherServiceState.Stopped,
@@ -324,7 +346,7 @@ internal sealed class LauncherCoordinator(
                 "No launcher session.",
                 inspection.CanBootstrapUserConfig
                     ? "Service is not running. The first user config will be generated from default.yaml when you start the service."
-                    : inspection.PrimaryIssue?.Summary ?? "Service is not running."));
+                    : inspection.PrimaryIssue?.Summary ?? "Service is not running."), cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -332,7 +354,7 @@ internal sealed class LauncherCoordinator(
         {
             if (!await managementClient.IsHealthyAsync(endpoint, cancellationToken).ConfigureAwait(false))
             {
-                UpdateSnapshot(BuildSnapshot(
+                await PublishSnapshotAsync(BuildSnapshot(
                     endpoint,
                     checks,
                     processController.IsRunning ? LauncherServiceState.Failed : LauncherServiceState.Stopped,
@@ -341,13 +363,13 @@ internal sealed class LauncherCoordinator(
                     snapshot.ShutdownRequested && processController.IsRunning,
                     "No launcher session.",
                     processController.IsRunning ? "Health probe failed while the child process is running." : "Service is not running.",
-                    processController.IsRunning ? "Health probe failed." : string.Empty));
+                    processController.IsRunning ? "Health probe failed." : string.Empty), cancellationToken).ConfigureAwait(false);
                 return;
             }
         }
         catch (Exception ex)
         {
-            UpdateSnapshot(BuildSnapshot(
+            await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
                 processController.IsRunning ? LauncherServiceState.Failed : LauncherServiceState.Stopped,
@@ -356,7 +378,7 @@ internal sealed class LauncherCoordinator(
                 snapshot.ShutdownRequested,
                 "No launcher session.",
                 processController.IsRunning ? "Health probe failed." : "Service is not running.",
-                processController.IsRunning ? ex.Message : string.Empty));
+                processController.IsRunning ? ex.Message : string.Empty), cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -367,7 +389,7 @@ internal sealed class LauncherCoordinator(
         }
         catch (Exception ex)
         {
-            UpdateSnapshot(BuildSnapshot(
+            await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
                 LauncherServiceState.HealthOnly,
@@ -376,7 +398,7 @@ internal sealed class LauncherCoordinator(
                 snapshot.ShutdownRequested,
                 "No launcher session.",
                 "Health probe succeeded but readiness is unavailable.",
-                ex.Message));
+                ex.Message), cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -384,7 +406,7 @@ internal sealed class LauncherCoordinator(
         if (!initialized)
         {
             sessionToken = null;
-            UpdateSnapshot(BuildSnapshot(
+            await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
                 LauncherServiceState.SetupRequired,
@@ -393,7 +415,7 @@ internal sealed class LauncherCoordinator(
                 snapshot.ShutdownRequested,
                 "No launcher session.",
                 string.IsNullOrWhiteSpace(readiness.Reason) ? "Bootstrap is still required." : readiness.Reason,
-                string.Empty));
+                string.Empty), cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -401,7 +423,7 @@ internal sealed class LauncherCoordinator(
         {
             var token = await EnsureSessionAsync(endpoint, cancellationToken).ConfigureAwait(false);
             var systemStatus = await managementClient.GetSystemStatusAsync(endpoint, token, cancellationToken).ConfigureAwait(false);
-            UpdateSnapshot(BuildSnapshot(
+            await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
                 MapServiceState(readiness.Status, systemStatus.Status),
@@ -410,7 +432,7 @@ internal sealed class LauncherCoordinator(
                 systemStatus.Status == "shutting_down",
                 $"Authenticated launcher session. Adapter={systemStatus.AdapterState}, plugins={systemStatus.ActivePlugins}, uptime={systemStatus.UptimeSeconds}s.",
                 string.IsNullOrWhiteSpace(readiness.Reason) ? $"System status: {systemStatus.Status}" : readiness.Reason,
-                string.Empty));
+                string.Empty), cancellationToken).ConfigureAwait(false);
         }
         catch (LauncherHttpStatusException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -419,7 +441,7 @@ internal sealed class LauncherCoordinator(
             {
                 var token = await EnsureSessionAsync(endpoint, cancellationToken).ConfigureAwait(false);
                 var systemStatus = await managementClient.GetSystemStatusAsync(endpoint, token, cancellationToken).ConfigureAwait(false);
-                UpdateSnapshot(BuildSnapshot(
+                await PublishSnapshotAsync(BuildSnapshot(
                     endpoint,
                     checks,
                     MapServiceState(readiness.Status, systemStatus.Status),
@@ -428,11 +450,11 @@ internal sealed class LauncherCoordinator(
                     systemStatus.Status == "shutting_down",
                     $"Authenticated launcher session. Adapter={systemStatus.AdapterState}, plugins={systemStatus.ActivePlugins}, uptime={systemStatus.UptimeSeconds}s.",
                     string.IsNullOrWhiteSpace(readiness.Reason) ? $"System status: {systemStatus.Status}" : readiness.Reason,
-                    string.Empty));
+                    string.Empty), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception inner)
             {
-                UpdateSnapshot(BuildSnapshot(
+                await PublishSnapshotAsync(BuildSnapshot(
                     endpoint,
                     checks,
                     LauncherServiceState.HealthOnly,
@@ -441,12 +463,12 @@ internal sealed class LauncherCoordinator(
                     snapshot.ShutdownRequested,
                     "Launcher session bootstrap failed.",
                     "Management session is unavailable. Health endpoints remain reachable.",
-                    inner.Message));
+                    inner.Message), cancellationToken).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
         {
-            UpdateSnapshot(BuildSnapshot(
+            await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
                 LauncherServiceState.HealthOnly,
@@ -455,7 +477,7 @@ internal sealed class LauncherCoordinator(
                 snapshot.ShutdownRequested,
                 "Launcher session bootstrap failed.",
                 "Management session is unavailable. Health endpoints remain reachable.",
-                ex.Message));
+                ex.Message), cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -493,7 +515,26 @@ internal sealed class LauncherCoordinator(
             shutdownRequested,
             sessionSummary,
             serviceDetail,
-            lastError);
+            lastError,
+            snapshot.ReleaseCheck);
+    }
+
+    private async Task PublishSnapshotAsync(LauncherSnapshot next, CancellationToken cancellationToken)
+    {
+        var releaseCheck = snapshot.ReleaseCheck;
+        if (launcherReleaseFeed is not null)
+        {
+            try
+            {
+                releaseCheck = await launcherReleaseFeed.GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                releaseCheck = ReleaseCheckSnapshot.Error(releaseCheck.CurrentVersion, ex.Message, releaseCheck.ReleasePageUrl);
+            }
+        }
+
+        UpdateSnapshot(next with { ReleaseCheck = releaseCheck });
     }
 
     private void UpdateSnapshot(LauncherSnapshot next)

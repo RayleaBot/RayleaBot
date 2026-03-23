@@ -53,6 +53,28 @@ internal sealed record ReadinessSnapshot(string Status, string Reason);
 
 internal sealed record SystemStatusSnapshot(string Status, string AdapterState, int ActivePlugins, long UptimeSeconds);
 
+internal sealed record ReleaseCheckSnapshot(
+    string Status,
+    string CurrentVersion,
+    string LatestVersion,
+    string Summary,
+    string Detail,
+    string ReleasePageUrl,
+    bool UpdateAvailable)
+{
+    internal static ReleaseCheckSnapshot Unavailable(string detail) =>
+        new("unavailable", string.Empty, string.Empty, "Version check is unavailable.", detail, string.Empty, false);
+
+    internal static ReleaseCheckSnapshot UpToDate(string currentVersion, string releasePageUrl) =>
+        new("up_to_date", currentVersion, currentVersion, $"Current version {currentVersion} is up to date.", string.Empty, releasePageUrl, false);
+
+    internal static ReleaseCheckSnapshot NewUpdateAvailable(string currentVersion, string latestVersion, string releasePageUrl) =>
+        new("update_available", currentVersion, latestVersion, $"Update available: {currentVersion} -> {latestVersion}.", "Open the release page to review the published package metadata and notes.", releasePageUrl, true);
+
+    internal static ReleaseCheckSnapshot Error(string currentVersion, string detail, string releasePageUrl) =>
+        new("error", currentVersion, string.Empty, "Version check could not reach the release feed.", detail, releasePageUrl, false);
+}
+
 internal sealed record LauncherSnapshot(
     LauncherSettings Settings,
     ServerEndpoint Endpoint,
@@ -64,7 +86,8 @@ internal sealed record LauncherSnapshot(
     bool ShutdownRequested,
     string SessionSummary,
     string ServiceDetail,
-    string LastError)
+    string LastError,
+    ReleaseCheckSnapshot ReleaseCheck)
 {
     internal static LauncherSnapshot CreateDefault(LauncherSettings settings, ServerEndpoint endpoint)
     {
@@ -79,6 +102,7 @@ internal sealed record LauncherSnapshot(
             false,
             "No launcher session.",
             "Service is not running.",
-            string.Empty);
+            string.Empty,
+            ReleaseCheckSnapshot.Unavailable("Package build metadata is not available yet."));
     }
 }

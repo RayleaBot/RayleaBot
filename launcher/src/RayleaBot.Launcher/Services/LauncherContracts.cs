@@ -56,6 +56,11 @@ internal interface IExternalOpener
     Task OpenDirectoryAsync(string directoryPath, CancellationToken cancellationToken);
 }
 
+internal interface IReleaseFeedClient
+{
+    Task<ReleaseCheckSnapshot> GetSnapshotAsync(CancellationToken cancellationToken);
+}
+
 internal sealed record LauncherCoordinatorOptions(TimeSpan StartupTimeout, TimeSpan PollInterval, TimeSpan ShutdownTimeout)
 {
     internal static LauncherCoordinatorOptions Default { get; } = new(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
