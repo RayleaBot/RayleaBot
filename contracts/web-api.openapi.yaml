@@ -13,6 +13,7 @@ x-fixtures:
   - fixtures/web-api/ok.session-login.yaml
   - fixtures/web-api/ok.session-logout.yaml
   - fixtures/web-api/ok.session-launcher-token.yaml
+  - fixtures/web-api/ok.session-launcher-admission.yaml
   - fixtures/web-api/ok.config-get-response.yaml
   - fixtures/web-api/ok.config-update-response.yaml
   - fixtures/web-api/ok.system-status.yaml
@@ -42,6 +43,7 @@ x-fixtures:
   - fixtures/web-api/invalid.session-login-bad-credentials.yaml
   - fixtures/web-api/invalid.auth-missing-token.yaml
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
+  - fixtures/web-api/invalid.session-launcher-admission-invalid-token.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
   - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
@@ -163,18 +165,42 @@ paths:
 
   /api/session/launcher-token:
     post:
-      summary: Issue a single-use short-lived token for Launcher admission.
+      summary: Issue a single-use short-lived token for local Launcher bootstrap.
       operationId: issueLauncherToken
-      security:
-        - BearerAuth: []
       responses:
         '200':
-          description: Single-use launcher token issued.
+          description: Single-use launcher token issued for a local loopback Launcher bootstrap.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LauncherTokenResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/session/launcher-admission:
+    post:
+      summary: Consume a single-use launcher token and issue a normal management session token.
+      operationId: admitLauncherSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LauncherAdmissionRequest'
+      responses:
+        '200':
+          description: Launcher token consumed and management session issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionLoginResponse'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        '403':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -700,7 +726,7 @@ components:
         session_token:
           type: string
           minLength: 1
-          description: Opaque management session token for later auth=session_token admission.
+          description: Opaque management session token for later BearerAuth or auth=session_token admission.
 
     SetupStatusResponse:
       type: object
@@ -720,6 +746,16 @@ components:
           type: string
           minLength: 1
           description: Single-use short-lived token for Launcher admission. Valid for one use only.
+
+    LauncherAdmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [launcher_token]
+      properties:
+        launcher_token:
+          type: string
+          minLength: 1
+          description: Single-use short-lived launcher token obtained from /api/session/launcher-token.
 
     ConfigDocument:
       $ref: './config.user.schema.json'

@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Launcher token issuance returns a single-use short-lived token.
+description: Loopback Launcher bootstrap returns a single-use short-lived token.
 request:
   method: POST
   path: /api/session/launcher-token
@@ -11,4 +11,4 @@ response:
 expect:
   valid: true
   notes:
-    - launcher_token is single-use and short-lived; it must not be reused after first admission.
+    - launcher_token is single-use and short-lived; it must not be reused after launcher admission.

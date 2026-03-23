@@ -303,6 +303,7 @@ jobs:
               '/api/session/login',
               '/api/session',
               '/api/session/launcher-token',
+              '/api/session/launcher-admission',
               '/api/config',
               '/api/system/status',
               '/api/system/shutdown',
