@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -9,6 +11,7 @@ namespace RayleaBot.Launcher;
 internal sealed partial class MainWindow : Window
 {
     private readonly DispatcherTimer refreshTimer;
+    private readonly LauncherCopy copy = LauncherCopy.Default;
     private TrayIcon? trayIcon;
     private bool explicitExitRequested;
 
@@ -24,6 +27,7 @@ internal sealed partial class MainWindow : Window
         Opened += OnOpened;
         Closing += OnClosing;
         Closed += OnClosed;
+        PropertyChanged += OnWindowPropertyChanged;
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
@@ -35,6 +39,7 @@ internal sealed partial class MainWindow : Window
 
     private async void OnOpened(object? sender, EventArgs e)
     {
+        ViewModel.SetWindowStateGlyph(WindowState == WindowState.Maximized);
         EnsureTrayIcon();
         await ViewModel.InitializeAsync();
         refreshTimer.Start();
@@ -68,6 +73,14 @@ internal sealed partial class MainWindow : Window
     {
         refreshTimer.Stop();
         trayIcon?.Dispose();
+    }
+
+    private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == WindowStateProperty)
+        {
+            ViewModel.SetWindowStateGlyph(WindowState == WindowState.Maximized);
+        }
     }
 
     private async void RefreshTimerTick(object? sender, EventArgs e)
@@ -115,8 +128,66 @@ internal sealed partial class MainWindow : Window
         if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
             await clipboard.SetTextAsync(ViewModel.DiagnosticsSummary);
-            ViewModel.SetOperationSummary("Diagnostics copied to clipboard.");
+            ViewModel.SetOperationSummary(copy.ActionDiagnosticsCopied);
         }
+    }
+
+    private async void CopyServerExecutableClicked(object? sender, RoutedEventArgs e)
+    {
+        await CopyValueAsync(copy.ServerExecutableLabel, ViewModel.ServerExecutablePath);
+    }
+
+    private async void CopyConfigPathClicked(object? sender, RoutedEventArgs e)
+    {
+        await CopyValueAsync(copy.ConfigPathLabel, ViewModel.ConfigPath);
+    }
+
+    private async void CopyWorkdirClicked(object? sender, RoutedEventArgs e)
+    {
+        await CopyValueAsync(copy.WorkdirLabel, ViewModel.Workdir);
+    }
+
+    private void OpenServerExecutableDirectoryClicked(object? sender, RoutedEventArgs e)
+    {
+        OpenDirectoryForPath(ViewModel.ServerExecutablePath, parentDirectory: true);
+    }
+
+    private void OpenConfigDirectoryClicked(object? sender, RoutedEventArgs e)
+    {
+        OpenDirectoryForPath(ViewModel.ConfigPath, parentDirectory: true);
+    }
+
+    private void OpenWorkdirClicked(object? sender, RoutedEventArgs e)
+    {
+        OpenDirectoryForPath(ViewModel.Workdir, parentDirectory: false);
+    }
+
+    private void TitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            BeginMoveDrag(e);
+        }
+    }
+
+    private void TitleBarDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        ToggleWindowState();
+    }
+
+    private void MinimizeClicked(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void ToggleMaximizeClicked(object? sender, RoutedEventArgs e)
+    {
+        ToggleWindowState();
+    }
+
+    private void CloseClicked(object? sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     private void EnsureTrayIcon()
@@ -126,13 +197,13 @@ internal sealed partial class MainWindow : Window
             return;
         }
 
-        var openItem = new NativeMenuItem("Open launcher");
+        var openItem = new NativeMenuItem(copy.TrayOpenLauncherLabel);
         openItem.Click += (_, _) => RestoreFromTray();
 
-        var openWebItem = new NativeMenuItem("Open Web UI");
+        var openWebItem = new NativeMenuItem(copy.TrayOpenWebLabel);
         openWebItem.Click += async (_, _) => await ViewModel.OpenWebUiAsync();
 
-        var exitItem = new NativeMenuItem("Exit");
+        var exitItem = new NativeMenuItem(copy.TrayExitLabel);
         exitItem.Click += (_, _) =>
         {
             explicitExitRequested = true;
@@ -154,7 +225,7 @@ internal sealed partial class MainWindow : Window
 
         trayIcon = new TrayIcon
         {
-            ToolTipText = "RayleaBot Launcher",
+            ToolTipText = copy.TrayTooltip,
             Icon = LauncherIcons.CreateTrayIcon(),
             Menu = menu,
             IsVisible = true,
@@ -167,13 +238,53 @@ internal sealed partial class MainWindow : Window
         Show();
         WindowState = WindowState.Normal;
         Activate();
-        ViewModel.SetOperationSummary("Launcher restored from the system tray.");
+        ViewModel.SetOperationSummary(copy.ActionRestoredFromTray);
     }
 
     private void HideToTray()
     {
         Hide();
-        ViewModel.SetOperationSummary("Launcher is still running in the system tray.");
+        ViewModel.SetOperationSummary(copy.ActionHiddenToTray);
+    }
+
+    private void ToggleWindowState()
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    private async Task CopyValueAsync(string label, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        await clipboard.SetTextAsync(value);
+        ViewModel.SetOperationSummary(copy.FormatPathCopied(label));
+    }
+
+    private void OpenDirectoryForPath(string value, bool parentDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var directory = parentDirectory ? Path.GetDirectoryName(value) : value;
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(directory);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = directory,
+            UseShellExecute = true,
+        });
+        ViewModel.SetOperationSummary($"{copy.OpenDirectoryLabel}：{directory}");
     }
 }
 
@@ -183,14 +294,16 @@ internal sealed class CloseToTrayDialog : Window
 
     private CloseToTrayDialog()
     {
-        Width = 460;
-        Height = 220;
+        var copy = LauncherCopy.Default;
+        Width = 500;
+        Height = 250;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Title = "Keep RayleaBot Launcher running?";
-        Background = Avalonia.Media.Brush.Parse("#0F172A");
-        Foreground = Avalonia.Media.Brush.Parse("#E5EEF8");
-        Content = BuildContent();
+        Title = copy.CloseDialogTitle;
+        Background = Avalonia.Media.Brush.Parse("#0D1730");
+        Foreground = Avalonia.Media.Brush.Parse("#F4F8FF");
+        SystemDecorations = SystemDecorations.BorderOnly;
+        Content = BuildContent(copy);
         Closed += (_, _) =>
         {
             if (!resultSource.Task.IsCompleted)
@@ -207,12 +320,12 @@ internal sealed class CloseToTrayDialog : Window
         return await dialog.resultSource.Task.ConfigureAwait(true);
     }
 
-    private Control BuildContent()
+    private Control BuildContent(LauncherCopy copy)
     {
         var hideButton = new Button
         {
-            Content = "Hide to tray",
-            MinWidth = 120,
+            Content = copy.HideToTrayLabel,
+            MinWidth = 132,
         };
         hideButton.Click += (_, _) =>
         {
@@ -222,8 +335,8 @@ internal sealed class CloseToTrayDialog : Window
 
         var exitButton = new Button
         {
-            Content = "Exit completely",
-            MinWidth = 120,
+            Content = copy.ExitCompletelyLabel,
+            MinWidth = 132,
         };
         exitButton.Click += (_, _) =>
         {
@@ -231,33 +344,46 @@ internal sealed class CloseToTrayDialog : Window
             Close();
         };
 
-        return new StackPanel
+        return new Border
         {
-            Margin = new Thickness(24),
-            Spacing = 16,
-            Children =
+            CornerRadius = new CornerRadius(24),
+            BorderBrush = Avalonia.Media.Brush.Parse("#3A628B"),
+            BorderThickness = new Thickness(1),
+            Background = Avalonia.Media.Brush.Parse("#C4152842"),
+            Margin = new Thickness(18),
+            Padding = new Thickness(24),
+            Child = new StackPanel
             {
-                new TextBlock
+                Spacing = 16,
+                Children =
                 {
-                    Text = "Closing the window keeps RayleaBot Launcher available in the system tray so you can reopen it without restarting the service shell.",
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    FontSize = 16,
-                },
-                new TextBlock
-                {
-                    Text = "Use Exit completely to close the launcher process. The tray menu always includes a full exit action later.",
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    Foreground = Avalonia.Media.Brush.Parse("#9FB4CF"),
-                },
-                new StackPanel
-                {
-                    Orientation = Avalonia.Layout.Orientation.Horizontal,
-                    Spacing = 12,
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                    Children =
+                    new TextBlock
                     {
-                        hideButton,
-                        exitButton,
+                        Text = copy.CloseDialogTitle,
+                        FontSize = 20,
+                        FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                    },
+                    new TextBlock
+                    {
+                        Text = copy.CloseDialogBody,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    },
+                    new TextBlock
+                    {
+                        Text = copy.CloseDialogFootnote,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                        Foreground = Avalonia.Media.Brush.Parse("#B8CAE4"),
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Avalonia.Layout.Orientation.Horizontal,
+                        Spacing = 12,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                        Children =
+                        {
+                            hideButton,
+                            exitButton,
+                        },
                     },
                 },
             },

@@ -166,8 +166,8 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
     private static EnvironmentCheckResult CheckExecutable(string path)
     {
         return File.Exists(path)
-            ? new EnvironmentCheckResult("server.executable", "Server executable", CheckSeverity.Ok, "Executable ready.", path, string.Empty)
-            : new EnvironmentCheckResult("server.executable_missing", "Server executable", CheckSeverity.Error, "Server executable is missing.", $"Missing server executable: {path}", "Update the launcher settings to point at a valid raylea-server executable.");
+            ? new EnvironmentCheckResult("server.executable", "服务端可执行文件", CheckSeverity.Ok, "已找到可执行文件。", path, string.Empty)
+            : new EnvironmentCheckResult("server.executable_missing", "服务端可执行文件", CheckSeverity.Error, "未找到服务端可执行文件。", $"缺少服务端可执行文件：{path}", "请将启动器设置更新为有效的 raylea-server 可执行文件路径。");
     }
 
     private static EnvironmentCheckResult CheckConfig(string path)
@@ -179,30 +179,30 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
             {
                 return new EnvironmentCheckResult(
                     "config.bootstrap_available",
-                    "Config file",
+                    "用户配置",
                     CheckSeverity.Warning,
-                    "User config will be generated on first start.",
-                    $"Missing user config file: {path}",
-                    $"Start the service to bootstrap the first config from {defaultPath}.");
+                    "首次启动时会自动生成用户配置。",
+                    $"缺少用户配置文件：{path}",
+                    $"启动服务后会基于 {defaultPath} 生成首份用户配置。");
             }
 
             return new EnvironmentCheckResult(
                 "config.missing",
-                "Config file",
+                "配置基线",
                 CheckSeverity.Error,
-                "Config baseline is incomplete.",
-                $"Missing config file: {path}",
-                $"Provide {defaultPath} so the launcher and server can bootstrap the first user config.");
+                "配置基线不完整。",
+                $"缺少配置文件：{path}",
+                $"请提供 {defaultPath}，以便启动器和服务端自动生成首份用户配置。");
         }
 
         try
         {
             using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            return new EnvironmentCheckResult("config.file", "Config file", CheckSeverity.Ok, "Config ready.", path, string.Empty);
+            return new EnvironmentCheckResult("config.file", "用户配置", CheckSeverity.Ok, "配置文件可读。", path, string.Empty);
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("config.unreadable", "Config file", CheckSeverity.Error, "Config file is not readable.", $"Config is not readable: {ex.Message}", "Fix file permissions or point the launcher at a readable config file.");
+            return new EnvironmentCheckResult("config.unreadable", "用户配置", CheckSeverity.Error, "配置文件不可读。", $"配置读取失败：{ex.Message}", "请修复文件权限，或将启动器指向可读取的配置文件。");
         }
     }
 
@@ -214,11 +214,11 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
             var probe = Path.Combine(path, ".launcher-write-test");
             File.WriteAllText(probe, "ok");
             File.Delete(probe);
-            return new EnvironmentCheckResult("workdir.ready", "Workdir", CheckSeverity.Ok, "Workdir is writable.", path, string.Empty);
+            return new EnvironmentCheckResult("workdir.ready", "工作目录", CheckSeverity.Ok, "工作目录可写。", path, string.Empty);
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("workdir.unwritable", "Workdir", CheckSeverity.Error, "Workdir is not writable.", $"Workdir is not writable: {ex.Message}", "Choose a writable work directory before starting the service.");
+            return new EnvironmentCheckResult("workdir.unwritable", "工作目录", CheckSeverity.Error, "工作目录不可写。", $"工作目录写入失败：{ex.Message}", "请先选择可写的工作目录，再启动服务。");
         }
     }
 
@@ -226,7 +226,7 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
     {
         if (!OperatingSystem.IsWindows())
         {
-            return new EnvironmentCheckResult("os.long_paths_unavailable", "LongPathsEnabled", CheckSeverity.Warning, "Long path registry check is unavailable.", "Long path registry check is only available on Windows.", "No action required on this platform.");
+            return new EnvironmentCheckResult("os.long_paths_unavailable", "长路径支持", CheckSeverity.Warning, "当前平台无法检查长路径注册表。", "长路径注册表检查仅在 Windows 上可用。", "当前平台无需额外处理。");
         }
 
         try
@@ -239,12 +239,12 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
             };
 
             return enabled
-                ? new EnvironmentCheckResult("os.long_paths_enabled", "LongPathsEnabled", CheckSeverity.Ok, "Long path support is enabled.", "Registry flag is enabled.", string.Empty)
-                : new EnvironmentCheckResult("os.long_paths_disabled", "LongPathsEnabled", CheckSeverity.Warning, "Long path support is disabled.", "Registry flag is disabled.", "Enable LongPathsEnabled to reduce path-length failures during runtime bootstrap.");
+                ? new EnvironmentCheckResult("os.long_paths_enabled", "长路径支持", CheckSeverity.Ok, "已启用长路径支持。", "注册表开关已开启。", string.Empty)
+                : new EnvironmentCheckResult("os.long_paths_disabled", "长路径支持", CheckSeverity.Warning, "长路径支持未启用。", "注册表开关当前关闭。", "建议启用 LongPathsEnabled，以减少运行时引导和资源展开时的路径长度失败。");
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("os.long_paths_unknown", "LongPathsEnabled", CheckSeverity.Warning, "Long path status could not be determined.", $"Registry check failed: {ex.Message}", "Verify LongPathsEnabled manually if bootstrap or render assets hit path limits.");
+            return new EnvironmentCheckResult("os.long_paths_unknown", "长路径支持", CheckSeverity.Warning, "无法确定长路径支持状态。", $"注册表检查失败：{ex.Message}", "若引导或渲染资源遇到路径限制，请手动确认 LongPathsEnabled。");
         }
     }
 
@@ -253,7 +253,7 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
         var manifestPath = Path.Combine(workdir, ".deps", "manifest.json");
         if (!File.Exists(manifestPath))
         {
-            return new EnvironmentCheckResult("deps.manifest_missing", ".deps manifest", CheckSeverity.Warning, "Dependency manifest is missing.", $"Missing manifest: {manifestPath}", "Restore the packaged .deps resources before using render or managed runtimes.");
+            return new EnvironmentCheckResult("deps.manifest_missing", ".deps 清单", CheckSeverity.Warning, "依赖清单缺失。", $"缺少清单文件：{manifestPath}", "请先恢复打包后的 .deps 资源，再使用渲染或托管运行时能力。");
         }
 
         try
@@ -264,12 +264,12 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
                 .Any(item => item.TryGetProperty("platform", out var platform) && string.Equals(platform.GetString(), "windows-x64", StringComparison.Ordinal));
 
             return hasWindowsResource
-                ? new EnvironmentCheckResult("deps.manifest", ".deps manifest", CheckSeverity.Ok, "Dependency manifest is available.", manifestPath, string.Empty)
-                : new EnvironmentCheckResult("deps.manifest_platform_missing", ".deps manifest", CheckSeverity.Warning, "Dependency manifest is missing windows-x64 resources.", "Manifest does not contain windows-x64 resources.", "Rebuild or restore the packaged .deps manifest for the current platform.");
+                ? new EnvironmentCheckResult("deps.manifest", ".deps 清单", CheckSeverity.Ok, "依赖清单可用。", manifestPath, string.Empty)
+                : new EnvironmentCheckResult("deps.manifest_platform_missing", ".deps 清单", CheckSeverity.Warning, "依赖清单缺少 windows-x64 资源。", "清单中没有当前平台所需的 windows-x64 资源。", "请为当前平台重新生成或恢复打包后的 .deps 清单。");
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("deps.manifest_invalid", ".deps manifest", CheckSeverity.Warning, "Dependency manifest could not be parsed.", $"Manifest parse failed: {ex.Message}", "Fix the manifest file before relying on packaged runtime assets.");
+            return new EnvironmentCheckResult("deps.manifest_invalid", ".deps 清单", CheckSeverity.Warning, "依赖清单无法解析。", $"清单解析失败：{ex.Message}", "请先修复清单文件，再依赖打包运行时资源。");
         }
     }
 
@@ -278,7 +278,7 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
         var manifestPath = Path.Combine(workdir, ".deps", "manifest.json");
         if (!File.Exists(manifestPath))
         {
-            return new EnvironmentCheckResult("deps.chromium_unknown", "Chromium resources", CheckSeverity.Warning, "Chromium availability is unknown.", "Chromium cannot be checked because the .deps manifest is missing.", "Restore packaged Chromium resources before enabling render.image.");
+            return new EnvironmentCheckResult("deps.chromium_unknown", "Chromium 资源", CheckSeverity.Warning, "无法确认 Chromium 资源状态。", "由于 .deps 清单缺失，当前无法检查 Chromium 资源。", "启用 render.image 之前，请先恢复打包的 Chromium 资源。");
         }
 
         try
@@ -293,12 +293,12 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
                     string.Equals(kind.GetString(), "chromium", StringComparison.Ordinal));
 
             return hasChromium
-                ? new EnvironmentCheckResult("deps.chromium", "Chromium resources", CheckSeverity.Ok, "Chromium resource entry is present.", "windows-x64 Chromium resource is declared in the dependency manifest.", string.Empty)
-                : new EnvironmentCheckResult("deps.chromium_missing", "Chromium resources", CheckSeverity.Warning, "Chromium resource entry is missing.", "The dependency manifest does not declare a windows-x64 Chromium resource.", "Restore Chromium resources before enabling render.image in packaged builds.");
+                ? new EnvironmentCheckResult("deps.chromium", "Chromium 资源", CheckSeverity.Ok, "已声明 Chromium 资源。", "依赖清单中已包含 windows-x64 Chromium 资源。", string.Empty)
+                : new EnvironmentCheckResult("deps.chromium_missing", "Chromium 资源", CheckSeverity.Warning, "缺少 Chromium 资源声明。", "依赖清单中没有 windows-x64 Chromium 资源。", "启用打包版 render.image 之前，请先恢复 Chromium 资源。");
         }
         catch (Exception ex)
         {
-            return new EnvironmentCheckResult("deps.chromium_invalid", "Chromium resources", CheckSeverity.Warning, "Chromium resource status could not be determined.", $"Manifest parse failed: {ex.Message}", "Fix the dependency manifest before validating Chromium resources.");
+            return new EnvironmentCheckResult("deps.chromium_invalid", "Chromium 资源", CheckSeverity.Warning, "无法判断 Chromium 资源状态。", $"清单解析失败：{ex.Message}", "请先修复依赖清单，再验证 Chromium 资源。");
         }
     }
 
@@ -307,13 +307,13 @@ internal sealed class LauncherEnvironmentInspector : IEnvironmentInspector
         var templatesPath = Path.Combine(workdir, "templates");
         if (!Directory.Exists(templatesPath))
         {
-            return new EnvironmentCheckResult("render.templates_missing", "Template resources", CheckSeverity.Warning, "Template resources are missing.", $"Missing templates directory: {templatesPath}", "Add packaged templates before enabling render.image preview flows.");
+            return new EnvironmentCheckResult("render.templates_missing", "模板资源", CheckSeverity.Warning, "模板资源缺失。", $"缺少模板目录：{templatesPath}", "启用 render.image 预览链路之前，请先补齐打包模板资源。");
         }
 
         var fileCount = Directory.EnumerateFiles(templatesPath, "*", SearchOption.AllDirectories).Take(1).Count();
         return fileCount > 0
-            ? new EnvironmentCheckResult("render.templates", "Template resources", CheckSeverity.Ok, "Template resources are available.", templatesPath, string.Empty)
-            : new EnvironmentCheckResult("render.templates_empty", "Template resources", CheckSeverity.Warning, "Template resources are empty.", $"Templates directory has no files: {templatesPath}", "Populate packaged templates before enabling render.image preview flows.");
+            ? new EnvironmentCheckResult("render.templates", "模板资源", CheckSeverity.Ok, "模板资源可用。", templatesPath, string.Empty)
+            : new EnvironmentCheckResult("render.templates_empty", "模板资源", CheckSeverity.Warning, "模板资源为空。", $"模板目录中没有文件：{templatesPath}", "启用 render.image 预览链路之前，请先补齐打包模板资源。");
     }
 }
 

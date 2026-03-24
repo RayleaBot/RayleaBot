@@ -205,7 +205,7 @@ internal sealed class ServerProcessController : IServerProcessController
 
         if (!process.Start())
         {
-            throw new InvalidOperationException("Failed to start raylea-server.");
+            throw new InvalidOperationException("启动 raylea-server 失败。");
         }
 
         process.BeginOutputReadLine();

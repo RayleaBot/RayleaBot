@@ -89,7 +89,7 @@ public sealed class LauncherCoordinatorTests
         Assert.AreEqual(LauncherServiceState.Stopped, coordinator.Snapshot.ServiceState);
         Assert.AreEqual(1, fixture.ManagementClient.HealthCalls);
         Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
-        StringAssert.Contains(coordinator.Snapshot.ServiceDetail, "not running");
+        StringAssert.Contains(coordinator.Snapshot.ServiceDetail, "服务尚未启动");
     }
 
     [TestMethod]

@@ -14,6 +14,7 @@ internal sealed class LauncherCoordinator(
     IReleaseFeedClient? releaseFeedClient = null,
     LauncherCoordinatorOptions? options = null)
 {
+    private static readonly LauncherCopy Copy = LauncherCopy.Default;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly LauncherCoordinatorOptions runtimeOptions = options ?? LauncherCoordinatorOptions.Default;
     private readonly IReleaseFeedClient? launcherReleaseFeed = releaseFeedClient;
@@ -97,8 +98,8 @@ internal sealed class LauncherCoordinator(
                     inspection,
                     LauncherServiceState.Stopped,
                     processController.IsRunning,
-                    "No launcher session.",
-                    inspection.PrimaryIssue?.Summary ?? "Launcher preflight found a blocking issue."), cancellationToken).ConfigureAwait(false);
+                    Copy.NoLauncherSession,
+                    inspection.PrimaryIssue?.Summary ?? "启动器预检发现阻塞项。"), cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -118,8 +119,8 @@ internal sealed class LauncherCoordinator(
                         processController.IsRunning,
                         false,
                         false,
-                        "No launcher session.",
-                        "Server process failed to start.",
+                        Copy.NoLauncherSession,
+                        "服务端进程启动失败。",
                         ex.Message), cancellationToken).ConfigureAwait(false);
                 return;
             }
@@ -131,8 +132,8 @@ internal sealed class LauncherCoordinator(
                     ProcessRunning = true,
                     ShutdownRequested = false,
                     ServiceDetail = bootstrappedConfig
-                        ? "Created the first user config from default.yaml and waiting for /healthz to report ok."
-                        : "Waiting for /healthz to report ok.",
+                        ? "已基于 default.yaml 生成首份用户配置，正在等待 /healthz 返回正常。"
+                        : "正在等待 /healthz 返回正常。",
                     LastError = string.Empty,
                 }, cancellationToken).ConfigureAwait(false);
 
@@ -165,9 +166,9 @@ internal sealed class LauncherCoordinator(
                     processController.IsRunning,
                     false,
                     false,
-                    "No launcher session.",
-                    "Health probe did not succeed within the startup timeout.",
-                    "Server start timed out."), cancellationToken).ConfigureAwait(false);
+                    Copy.NoLauncherSession,
+                    "启动超时内未通过健康检查。",
+                    "服务启动已超时。"), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -187,7 +188,7 @@ internal sealed class LauncherCoordinator(
                 {
                     ServiceState = LauncherServiceState.ShuttingDown,
                     ShutdownRequested = true,
-                    ServiceDetail = "Requesting graceful shutdown.",
+                    ServiceDetail = "正在请求优雅停机。",
                     LastError = string.Empty,
                 }, cancellationToken).ConfigureAwait(false);
 
@@ -264,7 +265,7 @@ internal sealed class LauncherCoordinator(
             }
 
             await externalOpener.OpenUriAsync(uriBuilder.Uri, cancellationToken).ConfigureAwait(false);
-            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"Opened {uriBuilder.Uri}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
+            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"已打开 {uriBuilder.Uri}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -279,12 +280,12 @@ internal sealed class LauncherCoordinator(
         {
             if (string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.ReleasePageUrl))
             {
-                await PublishSnapshotAsync(snapshot with { ServiceDetail = "Release page is unavailable for this build.", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
+                await PublishSnapshotAsync(snapshot with { ServiceDetail = Copy.VersionPageUnavailable, LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
             await externalOpener.OpenUriAsync(new Uri(snapshot.ReleaseCheck.ReleasePageUrl, UriKind.Absolute), cancellationToken).ConfigureAwait(false);
-            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"Opened {snapshot.ReleaseCheck.ReleasePageUrl}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
+            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"已打开 {snapshot.ReleaseCheck.ReleasePageUrl}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -300,21 +301,21 @@ internal sealed class LauncherCoordinator(
     internal string BuildDiagnosticsSummary()
     {
         var builder = new StringBuilder();
-        builder.AppendLine($"service_state: {snapshot.ServiceState}");
-        builder.AppendLine($"endpoint: {snapshot.Endpoint.BaseUri}");
-        builder.AppendLine($"session: {snapshot.SessionSummary}");
+        builder.AppendLine($"服务状态：{Copy.FormatStatusSummary(snapshot.ServiceState)}");
+        builder.AppendLine($"服务入口：{snapshot.Endpoint.BaseUri}");
+        builder.AppendLine($"会话状态：{snapshot.SessionSummary}");
         if (!string.IsNullOrWhiteSpace(snapshot.LastError))
         {
-            builder.AppendLine($"last_error: {snapshot.LastError}");
+            builder.AppendLine($"最近错误：{snapshot.LastError}");
         }
 
-        builder.AppendLine("environment_checks:");
+        builder.AppendLine("环境检查：");
         foreach (var item in snapshot.EnvironmentChecks)
         {
-            builder.AppendLine($"- {item.Title}: {item.Severity} ({item.Detail})");
+            builder.AppendLine($"- {item.Title}：{Copy.FormatSeverityLabel(item.Severity)}（{item.Detail}）");
         }
 
-        builder.AppendLine("recent_stderr:");
+        builder.AppendLine("最近错误输出：");
         foreach (var line in snapshot.RecentStderr)
         {
             builder.AppendLine($"- {line}");
@@ -343,10 +344,10 @@ internal sealed class LauncherCoordinator(
                 inspection,
                 LauncherServiceState.Stopped,
                 processController.IsRunning,
-                "No launcher session.",
+                Copy.NoLauncherSession,
                 inspection.CanBootstrapUserConfig
-                    ? "Service is not running. The first user config will be generated from default.yaml when you start the service."
-                    : inspection.PrimaryIssue?.Summary ?? "Service is not running."), cancellationToken).ConfigureAwait(false);
+                    ? "服务尚未启动。启动服务后会基于 default.yaml 生成首份用户配置。"
+                    : inspection.PrimaryIssue?.Summary ?? "服务尚未启动。"), cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -361,9 +362,9 @@ internal sealed class LauncherCoordinator(
                     processController.IsRunning,
                     false,
                     snapshot.ShutdownRequested && processController.IsRunning,
-                    "No launcher session.",
-                    processController.IsRunning ? "Health probe failed while the child process is running." : "Service is not running.",
-                    processController.IsRunning ? "Health probe failed." : string.Empty), cancellationToken).ConfigureAwait(false);
+                    Copy.NoLauncherSession,
+                    processController.IsRunning ? "子进程仍在运行，但健康检查失败。" : "服务尚未启动。",
+                    processController.IsRunning ? "健康检查失败。" : string.Empty), cancellationToken).ConfigureAwait(false);
                 return;
             }
         }
@@ -376,8 +377,8 @@ internal sealed class LauncherCoordinator(
                 processController.IsRunning,
                 false,
                 snapshot.ShutdownRequested,
-                "No launcher session.",
-                processController.IsRunning ? "Health probe failed." : "Service is not running.",
+                Copy.NoLauncherSession,
+                processController.IsRunning ? "健康检查失败。" : "服务尚未启动。",
                 processController.IsRunning ? ex.Message : string.Empty), cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -396,8 +397,8 @@ internal sealed class LauncherCoordinator(
                 processController.IsRunning,
                 false,
                 snapshot.ShutdownRequested,
-                "No launcher session.",
-                "Health probe succeeded but readiness is unavailable.",
+                Copy.NoLauncherSession,
+                "健康检查正常，但就绪状态暂不可用。",
                 ex.Message), cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -413,8 +414,8 @@ internal sealed class LauncherCoordinator(
                 processController.IsRunning,
                 false,
                 snapshot.ShutdownRequested,
-                "No launcher session.",
-                string.IsNullOrWhiteSpace(readiness.Reason) ? "Bootstrap is still required." : readiness.Reason,
+                Copy.NoLauncherSession,
+                string.IsNullOrWhiteSpace(readiness.Reason) ? "仍需完成初始化。" : readiness.Reason,
                 string.Empty), cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -426,13 +427,13 @@ internal sealed class LauncherCoordinator(
             await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
-                MapServiceState(readiness.Status, systemStatus.Status),
-                processController.IsRunning,
-                true,
-                systemStatus.Status == "shutting_down",
-                $"Authenticated launcher session. Adapter={systemStatus.AdapterState}, plugins={systemStatus.ActivePlugins}, uptime={systemStatus.UptimeSeconds}s.",
-                string.IsNullOrWhiteSpace(readiness.Reason) ? $"System status: {systemStatus.Status}" : readiness.Reason,
-                string.Empty), cancellationToken).ConfigureAwait(false);
+                    MapServiceState(readiness.Status, systemStatus.Status),
+                    processController.IsRunning,
+                    true,
+                    systemStatus.Status == "shutting_down",
+                    $"启动器会话已认证。适配器={systemStatus.AdapterState}，活动插件={systemStatus.ActivePlugins}，运行时长={systemStatus.UptimeSeconds} 秒。",
+                    string.IsNullOrWhiteSpace(readiness.Reason) ? $"系统状态：{systemStatus.Status}" : readiness.Reason,
+                    string.Empty), cancellationToken).ConfigureAwait(false);
         }
         catch (LauncherHttpStatusException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -448,8 +449,8 @@ internal sealed class LauncherCoordinator(
                     processController.IsRunning,
                     true,
                     systemStatus.Status == "shutting_down",
-                    $"Authenticated launcher session. Adapter={systemStatus.AdapterState}, plugins={systemStatus.ActivePlugins}, uptime={systemStatus.UptimeSeconds}s.",
-                    string.IsNullOrWhiteSpace(readiness.Reason) ? $"System status: {systemStatus.Status}" : readiness.Reason,
+                    $"启动器会话已认证。适配器={systemStatus.AdapterState}，活动插件={systemStatus.ActivePlugins}，运行时长={systemStatus.UptimeSeconds} 秒。",
+                    string.IsNullOrWhiteSpace(readiness.Reason) ? $"系统状态：{systemStatus.Status}" : readiness.Reason,
                     string.Empty), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception inner)
@@ -461,8 +462,8 @@ internal sealed class LauncherCoordinator(
                     processController.IsRunning,
                     true,
                     snapshot.ShutdownRequested,
-                    "Launcher session bootstrap failed.",
-                    "Management session is unavailable. Health endpoints remain reachable.",
+                    "启动器会话引导失败。",
+                    "管理会话不可用，但健康检查端点仍可访问。",
                     inner.Message), cancellationToken).ConfigureAwait(false);
             }
         }
@@ -475,8 +476,8 @@ internal sealed class LauncherCoordinator(
                 processController.IsRunning,
                 true,
                 snapshot.ShutdownRequested,
-                "Launcher session bootstrap failed.",
-                "Management session is unavailable. Health endpoints remain reachable.",
+                "启动器会话引导失败。",
+                "管理会话不可用，但健康检查端点仍可访问。",
                 ex.Message), cancellationToken).ConfigureAwait(false);
         }
     }
@@ -604,7 +605,7 @@ internal sealed class LauncherCoordinator(
     {
         if (currentSettings is null)
         {
-            throw new InvalidOperationException("Launcher settings have not been loaded yet.");
+            throw new InvalidOperationException("尚未加载启动器设置。");
         }
     }
 }

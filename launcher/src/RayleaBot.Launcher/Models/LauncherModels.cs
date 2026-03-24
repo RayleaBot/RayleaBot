@@ -1,3 +1,5 @@
+using RayleaBot.Launcher;
+
 namespace RayleaBot.Launcher.Models;
 
 internal enum LauncherServiceState
@@ -10,6 +12,15 @@ internal enum LauncherServiceState
     SetupRequired,
     ShuttingDown,
     Failed,
+}
+
+internal enum LauncherSection
+{
+    Overview,
+    ServiceControls,
+    Environment,
+    Settings,
+    Diagnostics,
 }
 
 internal enum CheckSeverity
@@ -63,16 +74,16 @@ internal sealed record ReleaseCheckSnapshot(
     bool UpdateAvailable)
 {
     internal static ReleaseCheckSnapshot Unavailable(string detail) =>
-        new("unavailable", string.Empty, string.Empty, "Version check is unavailable.", detail, string.Empty, false);
+        new("unavailable", string.Empty, string.Empty, LauncherCopy.Default.VersionUnavailableSummary, detail, string.Empty, false);
 
     internal static ReleaseCheckSnapshot UpToDate(string currentVersion, string releasePageUrl) =>
-        new("up_to_date", currentVersion, currentVersion, $"Current version {currentVersion} is up to date.", string.Empty, releasePageUrl, false);
+        new("up_to_date", currentVersion, currentVersion, LauncherCopy.Default.FormatReleaseUpToDate(currentVersion), string.Empty, releasePageUrl, false);
 
     internal static ReleaseCheckSnapshot NewUpdateAvailable(string currentVersion, string latestVersion, string releasePageUrl) =>
-        new("update_available", currentVersion, latestVersion, $"Update available: {currentVersion} -> {latestVersion}.", "Open the release page to review the published package metadata and notes.", releasePageUrl, true);
+        new("update_available", currentVersion, latestVersion, LauncherCopy.Default.FormatReleaseUpdateAvailable(currentVersion, latestVersion), "打开发布页即可查看已发布包的元数据和版本说明。", releasePageUrl, true);
 
     internal static ReleaseCheckSnapshot Error(string currentVersion, string detail, string releasePageUrl) =>
-        new("error", currentVersion, string.Empty, "Version check could not reach the release feed.", detail, releasePageUrl, false);
+        new("error", currentVersion, string.Empty, LauncherCopy.Default.FormatReleaseFeedError(), detail, releasePageUrl, false);
 }
 
 internal sealed record LauncherSnapshot(
@@ -100,9 +111,9 @@ internal sealed record LauncherSnapshot(
             false,
             false,
             false,
-            "No launcher session.",
-            "Service is not running.",
+            LauncherCopy.Default.NoLauncherSession,
+            "服务尚未启动。",
             string.Empty,
-            ReleaseCheckSnapshot.Unavailable("Package build metadata is not available yet."));
+            ReleaseCheckSnapshot.Unavailable(LauncherCopy.Default.VersionUnavailableDetail));
     }
 }

@@ -38,7 +38,7 @@ internal sealed class LauncherReleaseFeedClient(HttpClient? httpClient = null) :
         var buildInfoPath = Path.Combine(AppContext.BaseDirectory, "build_info.json");
         if (!File.Exists(buildInfoPath))
         {
-            return ReleaseCheckSnapshot.Unavailable("build_info.json is not present next to the launcher executable.");
+            return ReleaseCheckSnapshot.Unavailable("启动器可执行文件旁缺少 build_info.json。");
         }
 
         using var document = JsonDocument.Parse(await File.ReadAllTextAsync(buildInfoPath, cancellationToken).ConfigureAwait(false));
@@ -48,13 +48,13 @@ internal sealed class LauncherReleaseFeedClient(HttpClient? httpClient = null) :
 
         if (string.IsNullOrWhiteSpace(currentVersion))
         {
-            return ReleaseCheckSnapshot.Unavailable("build_info.json does not declare a package version.");
+            return ReleaseCheckSnapshot.Unavailable("build_info.json 未声明当前包版本。");
         }
 
         var repositoryUrl = TryResolveRepositoryUrl(releaseNotesRef);
         if (string.IsNullOrWhiteSpace(repositoryUrl))
         {
-            return ReleaseCheckSnapshot.Unavailable("Package metadata does not expose a GitHub release page.");
+            return ReleaseCheckSnapshot.Unavailable("当前包元数据未暴露可用的 GitHub 发布页。");
         }
 
         try
@@ -103,7 +103,7 @@ internal sealed class LauncherReleaseFeedClient(HttpClient? httpClient = null) :
 
             if (!TryCompareSemver(latestTag, currentVersion, out var isNewer))
             {
-                return ReleaseCheckSnapshot.Unavailable("The release feed returned a version that could not be compared to the packaged build.");
+                return ReleaseCheckSnapshot.Unavailable("发布源返回的版本号无法与当前打包版本比较。");
             }
 
             return isNewer

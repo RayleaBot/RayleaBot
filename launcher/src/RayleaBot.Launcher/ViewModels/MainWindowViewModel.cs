@@ -10,22 +10,29 @@ namespace RayleaBot.Launcher;
 internal sealed class MainWindowViewModel : ObservableObject
 {
     private readonly LauncherCoordinator coordinator;
+    private readonly bool marshalToUiThread;
+    private readonly ObservableCollection<LauncherNavigationItemViewModel> navigationItems;
+    private readonly LauncherCopy copy = LauncherCopy.Default;
     private string serverExecutablePath = string.Empty;
     private string configPath = string.Empty;
     private string workdir = string.Empty;
-    private string statusSummary = "Initializing launcher...";
-    private string heroTitle = "Inspecting local environment";
-    private string sessionSummary = "No launcher session.";
+    private string statusSummary = "初始化中";
+    private string heroTitle = "正在检查本地环境";
+    private string sessionSummary = LauncherCopy.Default.NoLauncherSession;
     private string serviceDetail = string.Empty;
     private string lastError = string.Empty;
     private string diagnosticsSummary = string.Empty;
     private string operationSummary = string.Empty;
     private string webEndpoint = "http://127.0.0.1:8080/";
-    private string versionSummary = "Version check is unavailable.";
-    private string versionDetail = string.Empty;
+    private string versionSummary = LauncherCopy.Default.VersionUnavailableSummary;
+    private string versionDetail = LauncherCopy.Default.VersionUnavailableDetail;
     private string primaryIssueTitle = string.Empty;
     private string primaryIssueSummary = string.Empty;
+    private string primaryIssueDetail = string.Empty;
     private string primaryIssueRemediation = string.Empty;
+    private string windowStateGlyph = "□";
+    private LauncherSection activeSection = LauncherSection.Overview;
+    private LauncherNavigationItemViewModel? selectedNavigationItem;
     private bool hasPrimaryIssue;
     private bool hasLastError;
     private bool canStart = true;
@@ -35,19 +42,96 @@ internal sealed class MainWindowViewModel : ObservableObject
     private bool canOpenReleasePage;
     private bool closeToTrayEnabled = true;
     private bool closeTipAcknowledged;
-    private IBrush heroAccentBrush = Brush.Parse("#0E7490");
+    private IBrush heroAccentBrush = Brush.Parse("#39BDF8");
 
-    internal MainWindowViewModel(LauncherCoordinator coordinator)
+    internal MainWindowViewModel(LauncherCoordinator coordinator, bool marshalToUiThread = true)
     {
         this.coordinator = coordinator;
+        this.marshalToUiThread = marshalToUiThread;
         EnvironmentChecks = new ObservableCollection<EnvironmentCheckViewModel>();
         RecentStderr = new ObservableCollection<string>();
+        navigationItems =
+        [
+            new LauncherNavigationItemViewModel(LauncherSection.Overview, copy.OverviewTitle, copy.OverviewSummary),
+            new LauncherNavigationItemViewModel(LauncherSection.ServiceControls, copy.ServiceControlsTitle, copy.ServiceControlsSummary),
+            new LauncherNavigationItemViewModel(LauncherSection.Environment, copy.EnvironmentTitle, copy.EnvironmentSummary),
+            new LauncherNavigationItemViewModel(LauncherSection.Settings, copy.SettingsTitle, copy.SettingsSummary),
+            new LauncherNavigationItemViewModel(LauncherSection.Diagnostics, copy.DiagnosticsTitle, copy.DiagnosticsSummary),
+        ];
+        NavigationItems = new ReadOnlyObservableCollection<LauncherNavigationItemViewModel>(navigationItems);
+        ActivateSection(LauncherSection.Overview);
         coordinator.SnapshotChanged += CoordinatorSnapshotChanged;
     }
+
+    internal LauncherCopy Copy => copy;
+
+    internal ReadOnlyObservableCollection<LauncherNavigationItemViewModel> NavigationItems { get; }
 
     internal ObservableCollection<EnvironmentCheckViewModel> EnvironmentChecks { get; }
 
     internal ObservableCollection<string> RecentStderr { get; }
+
+    internal LauncherNavigationItemViewModel? SelectedNavigationItem
+    {
+        get => selectedNavigationItem;
+        set
+        {
+            if (SetProperty(ref selectedNavigationItem, value) && value is not null)
+            {
+                ActivateSection(value.Section, updateSelection: false);
+            }
+        }
+    }
+
+    internal LauncherSection ActiveSection
+    {
+        get => activeSection;
+        private set => SetProperty(ref activeSection, value);
+    }
+
+    internal bool IsOverviewSectionActive => ActiveSection == LauncherSection.Overview;
+
+    internal bool IsServiceControlsSectionActive => ActiveSection == LauncherSection.ServiceControls;
+
+    internal bool IsEnvironmentSectionActive => ActiveSection == LauncherSection.Environment;
+
+    internal bool IsSettingsSectionActive => ActiveSection == LauncherSection.Settings;
+
+    internal bool IsDiagnosticsSectionActive => ActiveSection == LauncherSection.Diagnostics;
+
+    internal IEnumerable<EnvironmentCheckViewModel> BlockingEnvironmentChecks => EnvironmentChecks.Where(item => item.Severity == CheckSeverity.Error);
+
+    internal IEnumerable<EnvironmentCheckViewModel> WarningEnvironmentChecks => EnvironmentChecks.Where(item => item.Severity == CheckSeverity.Warning);
+
+    internal IEnumerable<EnvironmentCheckViewModel> ReadyEnvironmentChecks => EnvironmentChecks.Where(item => item.Severity == CheckSeverity.Ok);
+
+    internal bool HasBlockingEnvironmentChecks => BlockingEnvironmentChecks.Any();
+
+    internal bool HasWarningEnvironmentChecks => WarningEnvironmentChecks.Any();
+
+    internal bool HasReadyEnvironmentChecks => ReadyEnvironmentChecks.Any();
+
+    internal bool HasNoBlockingEnvironmentChecks => !HasBlockingEnvironmentChecks;
+
+    internal bool HasNoWarningEnvironmentChecks => !HasWarningEnvironmentChecks;
+
+    internal bool HasNoReadyEnvironmentChecks => !HasReadyEnvironmentChecks;
+
+    internal int BlockingEnvironmentCheckCount => BlockingEnvironmentChecks.Count();
+
+    internal int WarningEnvironmentCheckCount => WarningEnvironmentChecks.Count();
+
+    internal int ReadyEnvironmentCheckCount => ReadyEnvironmentChecks.Count();
+
+    internal bool HasRecentStderr => RecentStderr.Count > 0;
+
+    internal bool HasNoRecentStderr => !HasRecentStderr;
+
+    internal string WindowStateGlyph
+    {
+        get => windowStateGlyph;
+        private set => SetProperty(ref windowStateGlyph, value);
+    }
 
     internal string ServerExecutablePath
     {
@@ -139,6 +223,12 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref primaryIssueSummary, value);
     }
 
+    internal string PrimaryIssueDetail
+    {
+        get => primaryIssueDetail;
+        private set => SetProperty(ref primaryIssueDetail, value);
+    }
+
     internal string PrimaryIssueRemediation
     {
         get => primaryIssueRemediation;
@@ -207,7 +297,7 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal async Task InitializeAsync()
     {
-        await ExecuteAsync("Launcher initialized.", () => coordinator.InitializeAsync());
+        await ExecuteAsync(copy.ActionLauncherInitialized, () => coordinator.InitializeAsync());
     }
 
     internal async Task RefreshAsync()
@@ -217,13 +307,13 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal async Task RetryAsync()
     {
-        await ExecuteAsync("Health/auth retry completed.", () => coordinator.RetryAsync());
+        await ExecuteAsync(copy.ActionHealthRetryFinished, () => coordinator.RetryAsync());
     }
 
     internal async Task SaveSettingsAsync()
     {
         var settings = BuildSettings();
-        await ExecuteAsync("Launcher settings saved.", () => coordinator.SaveSettingsAsync(settings));
+        await ExecuteAsync(copy.ActionSettingsSaved, () => coordinator.SaveSettingsAsync(settings));
     }
 
     internal async Task AcknowledgeCloseTipAsync()
@@ -239,32 +329,42 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal async Task StartAsync()
     {
-        await ExecuteAsync("Start request completed.", () => coordinator.StartAsync());
+        await ExecuteAsync(copy.ActionStartFinished, () => coordinator.StartAsync());
     }
 
     internal async Task StopAsync()
     {
-        await ExecuteAsync("Stop request completed.", () => coordinator.StopAsync());
+        await ExecuteAsync(copy.ActionStopFinished, () => coordinator.StopAsync());
     }
 
     internal async Task OpenWebUiAsync()
     {
-        await ExecuteAsync("Web UI opened in the default browser.", () => coordinator.OpenWebUiAsync());
+        await ExecuteAsync(copy.ActionWebOpened, () => coordinator.OpenWebUiAsync());
     }
 
     internal async Task OpenLogsDirectoryAsync()
     {
-        await ExecuteAsync("Launcher log directory opened.", () => coordinator.OpenLogsDirectoryAsync());
+        await ExecuteAsync(copy.ActionLogsOpened, () => coordinator.OpenLogsDirectoryAsync());
     }
 
     internal async Task OpenReleasePageAsync()
     {
-        await ExecuteAsync("Release page opened in the default browser.", () => coordinator.OpenReleasePageAsync());
+        await ExecuteAsync(copy.ActionReleasePageOpened, () => coordinator.OpenReleasePageAsync());
+    }
+
+    internal void SetActiveSection(LauncherSection section)
+    {
+        ActivateSection(section);
     }
 
     internal void SetOperationSummary(string message)
     {
         Dispatcher.UIThread.Post(() => OperationSummary = message);
+    }
+
+    internal void SetWindowStateGlyph(bool maximized)
+    {
+        WindowStateGlyph = maximized ? "❐" : "□";
     }
 
     private async Task ExecuteAsync(string? successMessage, Func<Task> action)
@@ -289,6 +389,12 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     private void CoordinatorSnapshotChanged(object? sender, LauncherSnapshot snapshot)
     {
+        if (!marshalToUiThread)
+        {
+            ApplySnapshot(snapshot);
+            return;
+        }
+
         Dispatcher.UIThread.Post(() => ApplySnapshot(snapshot));
     }
 
@@ -299,46 +405,25 @@ internal sealed class MainWindowViewModel : ObservableObject
         Workdir = snapshot.Settings.Workdir;
         CloseToTrayEnabled = snapshot.Settings.CloseToTrayEnabled;
         CloseTipAcknowledged = snapshot.Settings.CloseTipAcknowledged;
-        StatusSummary = snapshot.ServiceState switch
-        {
-            LauncherServiceState.Stopped => "Stopped",
-            LauncherServiceState.Starting => "Starting",
-            LauncherServiceState.HealthOnly => "Health only",
-            LauncherServiceState.Ready => "Ready",
-            LauncherServiceState.Degraded => "Degraded",
-            LauncherServiceState.SetupRequired => "Setup required",
-            LauncherServiceState.ShuttingDown => "Shutting down",
-            LauncherServiceState.Failed => "Failed",
-            _ => snapshot.ServiceState.ToString(),
-        };
-        HeroTitle = snapshot.ServiceState switch
-        {
-            LauncherServiceState.Stopped when snapshot.EnvironmentChecks.Any(item => item.Code == "config.bootstrap_available") => "First-start config is ready to bootstrap",
-            LauncherServiceState.Stopped => "Service is not running",
-            LauncherServiceState.Starting => "Starting RayleaBot",
-            LauncherServiceState.HealthOnly => "Service is alive, management is limited",
-            LauncherServiceState.Ready => "Service is ready",
-            LauncherServiceState.Degraded => "Service is running with degraded dependencies",
-            LauncherServiceState.SetupRequired => "Initial setup is still required",
-            LauncherServiceState.ShuttingDown => "Graceful shutdown in progress",
-            LauncherServiceState.Failed => "Service startup or runtime failed",
-            _ => "Launcher status",
-        };
+        StatusSummary = copy.FormatStatusSummary(snapshot.ServiceState);
+        HeroTitle = copy.FormatHeroTitle(snapshot.ServiceState, snapshot.EnvironmentChecks);
         SessionSummary = snapshot.SessionSummary;
         ServiceDetail = snapshot.ServiceDetail;
         LastError = snapshot.LastError;
         HasLastError = !string.IsNullOrWhiteSpace(snapshot.LastError);
         DiagnosticsSummary = coordinator.BuildDiagnosticsSummary();
         WebEndpoint = snapshot.Endpoint.BaseUri.ToString();
-        VersionSummary = snapshot.ReleaseCheck.Summary;
+        VersionSummary = string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.Summary)
+            ? copy.VersionUnavailableSummary
+            : snapshot.ReleaseCheck.Summary;
         VersionDetail = snapshot.ReleaseCheck.Detail;
         HeroAccentBrush = snapshot.ServiceState switch
         {
-            LauncherServiceState.Ready => Brush.Parse("#16A34A"),
-            LauncherServiceState.Degraded or LauncherServiceState.SetupRequired or LauncherServiceState.HealthOnly => Brush.Parse("#D97706"),
-            LauncherServiceState.Failed => Brush.Parse("#DC2626"),
-            LauncherServiceState.Starting or LauncherServiceState.ShuttingDown => Brush.Parse("#0EA5E9"),
-            _ => Brush.Parse("#475569"),
+            LauncherServiceState.Ready => Brush.Parse("#3BE38D"),
+            LauncherServiceState.Degraded or LauncherServiceState.SetupRequired or LauncherServiceState.HealthOnly => Brush.Parse("#FFB84D"),
+            LauncherServiceState.Failed => Brush.Parse("#FF6B7D"),
+            LauncherServiceState.Starting or LauncherServiceState.ShuttingDown => Brush.Parse("#66D0FF"),
+            _ => Brush.Parse("#8DA6C8"),
         };
 
         var primaryIssue = snapshot.EnvironmentChecks
@@ -346,7 +431,8 @@ internal sealed class MainWindowViewModel : ObservableObject
             snapshot.EnvironmentChecks.FirstOrDefault(item => item.Severity == CheckSeverity.Warning);
         HasPrimaryIssue = primaryIssue is not null;
         PrimaryIssueTitle = primaryIssue?.Title ?? string.Empty;
-        PrimaryIssueSummary = primaryIssue?.Detail ?? string.Empty;
+        PrimaryIssueSummary = primaryIssue?.Summary ?? string.Empty;
+        PrimaryIssueDetail = primaryIssue?.Detail ?? string.Empty;
         PrimaryIssueRemediation = primaryIssue?.Remediation ?? string.Empty;
 
         var hasBlockingIssue = snapshot.EnvironmentChecks.Any(item => item.Severity == CheckSeverity.Error);
@@ -359,7 +445,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         EnvironmentChecks.Clear();
         foreach (var item in snapshot.EnvironmentChecks)
         {
-            EnvironmentChecks.Add(new EnvironmentCheckViewModel(item));
+            EnvironmentChecks.Add(new EnvironmentCheckViewModel(item, copy));
         }
 
         RecentStderr.Clear();
@@ -367,6 +453,50 @@ internal sealed class MainWindowViewModel : ObservableObject
         {
             RecentStderr.Add(line);
         }
+
+        OnPropertyChanged(nameof(BlockingEnvironmentChecks));
+        OnPropertyChanged(nameof(WarningEnvironmentChecks));
+        OnPropertyChanged(nameof(ReadyEnvironmentChecks));
+        OnPropertyChanged(nameof(HasBlockingEnvironmentChecks));
+        OnPropertyChanged(nameof(HasWarningEnvironmentChecks));
+        OnPropertyChanged(nameof(HasReadyEnvironmentChecks));
+        OnPropertyChanged(nameof(HasNoBlockingEnvironmentChecks));
+        OnPropertyChanged(nameof(HasNoWarningEnvironmentChecks));
+        OnPropertyChanged(nameof(HasNoReadyEnvironmentChecks));
+        OnPropertyChanged(nameof(BlockingEnvironmentCheckCount));
+        OnPropertyChanged(nameof(WarningEnvironmentCheckCount));
+        OnPropertyChanged(nameof(ReadyEnvironmentCheckCount));
+        OnPropertyChanged(nameof(HasRecentStderr));
+        OnPropertyChanged(nameof(HasNoRecentStderr));
+    }
+
+    private void ActivateSection(LauncherSection section, bool updateSelection = true)
+    {
+        if (ActiveSection == section && (!updateSelection || SelectedNavigationItem?.Section == section))
+        {
+            return;
+        }
+
+        ActiveSection = section;
+        foreach (var item in navigationItems)
+        {
+            item.SetActive(item.Section == section);
+            if (updateSelection && item.Section == section)
+            {
+                selectedNavigationItem = item;
+            }
+        }
+
+        if (updateSelection)
+        {
+            OnPropertyChanged(nameof(SelectedNavigationItem));
+        }
+
+        OnPropertyChanged(nameof(IsOverviewSectionActive));
+        OnPropertyChanged(nameof(IsServiceControlsSectionActive));
+        OnPropertyChanged(nameof(IsEnvironmentSectionActive));
+        OnPropertyChanged(nameof(IsSettingsSectionActive));
+        OnPropertyChanged(nameof(IsDiagnosticsSectionActive));
     }
 
     private LauncherSettings BuildSettings()
@@ -380,27 +510,86 @@ internal sealed class MainWindowViewModel : ObservableObject
     }
 }
 
+internal sealed class LauncherNavigationItemViewModel : ObservableObject
+{
+    private bool isActive;
+    private IBrush backgroundBrush = Brush.Parse("#12213D");
+    private IBrush borderBrush = Brush.Parse("#22385C");
+    private IBrush titleBrush = Brush.Parse("#EAF3FF");
+    private IBrush summaryBrush = Brush.Parse("#9EB3D1");
+
+    internal LauncherNavigationItemViewModel(LauncherSection section, string title, string summary)
+    {
+        Section = section;
+        Title = title;
+        Summary = summary;
+    }
+
+    internal LauncherSection Section { get; }
+
+    internal string Title { get; }
+
+    internal string Summary { get; }
+
+    internal bool IsActive
+    {
+        get => isActive;
+        private set => SetProperty(ref isActive, value);
+    }
+
+    internal IBrush BackgroundBrush
+    {
+        get => backgroundBrush;
+        private set => SetProperty(ref backgroundBrush, value);
+    }
+
+    internal IBrush BorderBrush
+    {
+        get => borderBrush;
+        private set => SetProperty(ref borderBrush, value);
+    }
+
+    internal IBrush TitleBrush
+    {
+        get => titleBrush;
+        private set => SetProperty(ref titleBrush, value);
+    }
+
+    internal IBrush SummaryBrush
+    {
+        get => summaryBrush;
+        private set => SetProperty(ref summaryBrush, value);
+    }
+
+    internal void SetActive(bool active)
+    {
+        IsActive = active;
+        BackgroundBrush = active ? Brush.Parse("#183455") : Brush.Parse("#10203A");
+        BorderBrush = active ? Brush.Parse("#3BAFE8") : Brush.Parse("#22385C");
+        TitleBrush = Brush.Parse("#F7FBFF");
+        SummaryBrush = active ? Brush.Parse("#BFE8FF") : Brush.Parse("#9EB3D1");
+    }
+}
+
 internal sealed class EnvironmentCheckViewModel
 {
-    internal EnvironmentCheckViewModel(EnvironmentCheckResult check)
+    internal EnvironmentCheckViewModel(EnvironmentCheckResult check, LauncherCopy copy)
     {
+        Severity = check.Severity;
         Title = check.Title;
         Summary = check.Summary;
         Detail = check.Detail;
         Remediation = check.Remediation;
-        SeverityLabel = check.Severity switch
-        {
-            CheckSeverity.Ok => "Ready",
-            CheckSeverity.Warning => "Needs attention",
-            _ => "Blocking",
-        };
+        SeverityLabel = copy.FormatSeverityLabel(check.Severity);
         AccentBrush = check.Severity switch
         {
-            CheckSeverity.Ok => Brush.Parse("#12B76A"),
-            CheckSeverity.Warning => Brush.Parse("#FDB022"),
-            _ => Brush.Parse("#F04438"),
+            CheckSeverity.Ok => Brush.Parse("#3BE38D"),
+            CheckSeverity.Warning => Brush.Parse("#FFB84D"),
+            _ => Brush.Parse("#FF6B7D"),
         };
     }
+
+    internal CheckSeverity Severity { get; }
 
     internal string Title { get; }
 
