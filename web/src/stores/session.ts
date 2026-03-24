@@ -59,6 +59,10 @@ export const useSessionStore = defineStore('session', () => {
     writeStoredToken(nextToken)
   }
 
+  function matchesCurrentToken(tokenSnapshot?: string | null) {
+    return tokenSnapshot === undefined || tokenSnapshot === token.value
+  }
+
   async function login(payload: SessionLoginRequest) {
     loginPending.value = true
     try {
@@ -121,16 +125,21 @@ export const useSessionStore = defineStore('session', () => {
     clearSession()
   }
 
-  function clearSession() {
+  function clearSession(tokenSnapshot?: string | null) {
+    if (!matchesCurrentToken(tokenSnapshot)) {
+      return false
+    }
+
     setToken(null)
+    return true
   }
 
   function setLauncherAdmissionHint(message: string | null) {
     launcherAdmissionHint.value = message
   }
 
-  function handleSessionExpired() {
-    clearSession()
+  function handleSessionExpired(tokenSnapshot?: string | null) {
+    clearSession(tokenSnapshot)
   }
 
   return {

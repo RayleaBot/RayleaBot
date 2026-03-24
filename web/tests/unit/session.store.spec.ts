@@ -69,4 +69,14 @@ describe('session store', () => {
     expect(store.token).toBe('launcher-session-token')
     expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('launcher-session-token')
   })
+
+  it('ignores session expiration for an older token', () => {
+    const store = useSessionStore()
+
+    store.setToken('fresh-token')
+    store.handleSessionExpired('stale-token')
+
+    expect(store.token).toBe('fresh-token')
+    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('fresh-token')
+  })
 })

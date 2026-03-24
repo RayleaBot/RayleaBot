@@ -124,6 +124,19 @@ test('status page can start backup tasks and export diagnostics', async ({ page,
   expect(await download.suggestedFilename()).toContain('rayleabot-diagnostics')
 })
 
+test('login keeps the protected shell after reload', async ({ page, request }) => {
+  await resetBackend(request, true)
+
+  await login(page)
+  await expect(page).not.toHaveURL(/\/login$/)
+  await expect(page.locator('.connection-pill').filter({ hasText: 'events' })).toContainText('authenticated')
+
+  await page.reload()
+
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  await expect(page).not.toHaveURL(/\/login$/)
+})
+
 test('error recovery covers retry, invalid grant expiry and uninstall failure', async ({ page, request }) => {
   await resetBackend(request, true, {
     failPluginsListOnce: true,

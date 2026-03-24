@@ -99,6 +99,30 @@ describe('ManagedSocket', () => {
     expect(socket.getStatus()).toBe('disconnected')
   })
 
+  it('reports the socket token snapshot on session expiration', () => {
+    let currentToken = 'stale-token'
+    const onSessionExpired = vi.fn()
+    const socket = new ManagedSocket({
+      name: 'events',
+      path: () => '/ws/events',
+      runtime: {
+        getToken: () => currentToken,
+        onSessionExpired,
+      },
+    })
+
+    socket.start()
+    const instance = FakeWebSocket.instances[0]
+    instance.emit('open')
+    currentToken = 'fresh-token'
+    instance.emit('message', {
+      type: 'session_expired',
+      data: {},
+    })
+
+    expect(onSessionExpired).toHaveBeenCalledWith('stale-token')
+  })
+
   it('records the last error and reconnects after close', () => {
     const socket = new ManagedSocket({
       name: 'events',

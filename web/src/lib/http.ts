@@ -18,7 +18,7 @@ export class ApiError extends Error {
 
 interface RuntimeConfig {
   getToken: () => string | null
-  onUnauthorized: () => void
+  onUnauthorized: (tokenSnapshot: string | null) => void
 }
 
 const runtime: RuntimeConfig = {
@@ -46,18 +46,20 @@ export interface ApiDownloadResult {
   filename: string | null
 }
 
-function withRuntimeHeaders(headers: HeadersInit | undefined, auth: boolean, hasBody: boolean) {
+function withRuntimeHeaders(
+  headers: HeadersInit | undefined,
+  auth: boolean,
+  hasBody: boolean,
+  tokenSnapshot: string | null,
+) {
   const requestHeaders = new Headers(headers)
 
   if (hasBody) {
     requestHeaders.set('Content-Type', 'application/json')
   }
 
-  if (auth) {
-    const token = runtime.getToken()
-    if (token) {
-      requestHeaders.set('Authorization', `Bearer ${token}`)
-    }
+  if (auth && tokenSnapshot) {
+    requestHeaders.set('Authorization', `Bearer ${tokenSnapshot}`)
   }
 
   return requestHeaders
@@ -83,7 +85,8 @@ function parseDownloadFilename(contentDisposition: string | null) {
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { auth = true, headers, body, ...rest } = options
-  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined)
+  const tokenSnapshot = auth ? runtime.getToken() : null
+  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, tokenSnapshot)
 
   const response = await fetch(path, {
     ...rest,
@@ -105,7 +108,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       : undefined
 
     if (response.status === 401 && auth) {
-      runtime.onUnauthorized()
+      runtime.onUnauthorized(tokenSnapshot)
     }
 
     throw new ApiError(
@@ -122,7 +125,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
 export async function apiDownload(path: string, options: ApiRequestOptions = {}): Promise<ApiDownloadResult> {
   const { auth = true, headers, body, ...rest } = options
-  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined)
+  const tokenSnapshot = auth ? runtime.getToken() : null
+  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, tokenSnapshot)
 
   const response = await fetch(path, {
     ...rest,
@@ -139,7 +143,7 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
       : undefined
 
     if (response.status === 401 && auth) {
-      runtime.onUnauthorized()
+      runtime.onUnauthorized(tokenSnapshot)
     }
 
     throw new ApiError(

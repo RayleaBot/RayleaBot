@@ -13,7 +13,7 @@ function buildSocketUrl(path: string, token: string) {
 
 export interface SocketRuntime {
   getToken: () => string | null
-  onSessionExpired: () => void
+  onSessionExpired: (tokenSnapshot: string | null) => void
 }
 
 export interface ManagedSocketOptions<TFrameData> {
@@ -37,6 +37,7 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
   private started = false
   private lastError: string | undefined
   private pathSnapshot: string | null = null
+  private tokenSnapshot: string | null = null
   private status: ConnectionStatus = 'disconnected'
 
   constructor(options: ManagedSocketOptions<TFrameData>) {
@@ -84,11 +85,13 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
     const path = this.getPath()
 
     if (!this.started || !token || !path) {
+      this.tokenSnapshot = null
       this.setStatus('disconnected')
       return
     }
 
     this.pathSnapshot = path
+    this.tokenSnapshot = token
     this.setStatus(this.reconnectAttempts > 0 ? 'reconnecting' : 'connecting')
 
     const socket = new WebSocket(buildSocketUrl(path, token))
@@ -104,7 +107,7 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
 
       if ('type' in frame && frame.type === 'session_expired') {
         this.setStatus('auth_failed', 'session expired')
-        this.runtime.onSessionExpired()
+        this.runtime.onSessionExpired(this.tokenSnapshot)
         this.stop()
         return
       }
