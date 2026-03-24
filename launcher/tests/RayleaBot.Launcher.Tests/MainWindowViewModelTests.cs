@@ -35,4 +35,18 @@ public sealed class MainWindowViewModelTests
         Assert.IsFalse(viewModel.IsOverviewSectionActive);
         Assert.IsFalse(viewModel.IsSettingsSectionActive);
     }
+
+    [TestMethod]
+    public async Task InitializeAsync_UsesInitializationActionLabelWhenSetupIsRequired()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.SetupInitialized = false;
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+
+        Assert.IsTrue(viewModel.IsSetupRequired);
+        Assert.IsFalse(viewModel.IsNotSetupRequired);
+        Assert.AreEqual("前往初始化", viewModel.OpenWebUiActionLabel);
+    }
 }

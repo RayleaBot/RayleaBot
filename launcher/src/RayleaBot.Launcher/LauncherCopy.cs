@@ -7,10 +7,10 @@ internal sealed class LauncherCopy
     internal static LauncherCopy Default { get; } = new();
 
     internal string WindowTitle => "RayleaBot 启动器";
-    internal string AppSubtitle => "本地启动与恢复";
-    internal string TitleBarHint => "启动、检查与恢复";
-    internal string SidebarTitle => "功能导航";
-    internal string SidebarSummary => "切换页面查看状态、操作和诊断。";
+    internal string AppSubtitle => "启动、检查与恢复";
+    internal string TitleBarHint => "本地启动器";
+    internal string SidebarTitle => "导航";
+    internal string SidebarSummary => "查看状态、操作、检查和诊断。";
 
     internal string OverviewTitle => "总览";
     internal string OverviewSummary => "状态与下一步";
@@ -32,16 +32,16 @@ internal sealed class LauncherCopy
     internal string PrimaryIssueLabel => "主要问题";
     internal string SecondaryIssueLabel => "补充说明";
     internal string MainActionsTitle => "常用操作";
-    internal string MainActionsSummary => "先处理当前问题，再执行操作。";
-    internal string NoPrimaryIssueTitle => "当前没有需要立即处理的问题";
-    internal string NoPrimaryIssueSummary => "可以直接启动服务、打开管理界面或继续检查环境。";
-    internal string NoPrimaryIssueDetail => "更详细的信息保留在环境检查和诊断页。";
+    internal string MainActionsSummary => "根据当前状态执行操作。";
+    internal string NoPrimaryIssueTitle => "当前没有阻塞问题";
+    internal string NoPrimaryIssueSummary => "可以继续启动服务、打开管理界面或查看检查结果。";
+    internal string NoPrimaryIssueDetail => "更多信息可在环境检查和诊断中查看。";
 
-    internal string OverviewIntro => "先看状态，再决定下一步。";
-    internal string ControlsIntro => "按钮会随当前状态自动启用或禁用。";
-    internal string SettingsIntro => "这里只保存启动器本地路径。平台配置仍以 default.yaml 与 user.yaml 为准。";
-    internal string EnvironmentIntro => "先处理阻塞项，再处理提示项。";
-    internal string DiagnosticsIntro => "需要排查时再看这里。";
+    internal string OverviewIntro => "查看当前状态和下一步动作。";
+    internal string ControlsIntro => "根据当前状态执行启动、停止和常用操作。";
+    internal string SettingsIntro => "这里只保存启动器本地路径与偏好。";
+    internal string EnvironmentIntro => "先处理阻塞项，再处理需注意项。";
+    internal string DiagnosticsIntro => "查看错误输出和诊断摘要。";
 
     internal string ServerExecutableLabel => "服务端可执行文件";
     internal string ConfigPathLabel => "用户配置路径";
@@ -53,14 +53,15 @@ internal sealed class LauncherCopy
     internal string CopyDiagnosticsLabel => "复制诊断";
     internal string OpenLogsDirectoryLabel => "打开日志目录";
     internal string OpenWebUiLabel => "打开管理界面";
+    internal string OpenInitializationLabel => "前往初始化";
     internal string RetryHealthAuthLabel => "重试健康检查/鉴权";
     internal string OpenReleasePageLabel => "打开发布页";
     internal string StartServiceLabel => "启动服务";
     internal string StopServiceLabel => "停止服务";
     internal string CloseToTrayEnabledLabel => "关闭窗口时隐藏到托盘";
     internal string NoLauncherSession => "无启动器会话。";
-    internal string TrayQuickPanelTitle => "托盘快捷面板";
-    internal string TrayQuickPanelSummary => "可在这里恢复窗口、执行常用操作或直接退出。";
+    internal string TrayQuickPanelTitle => "托盘快捷操作";
+    internal string TrayQuickPanelSummary => "恢复窗口或执行常用操作。";
     internal string RestoreLauncherLabel => "恢复窗口";
     internal string TrayPanelActionLabel => "快捷操作";
     internal string TrayPanelCloseLabel => "关闭浮层";
@@ -86,7 +87,7 @@ internal sealed class LauncherCopy
     internal string ExitCompletelyLabel => "完全退出";
 
     internal string VersionUnavailableSummary => "暂时无法检查版本";
-    internal string VersionUnavailableDetail => "当前开发运行未附带版本包信息。";
+    internal string VersionUnavailableDetail => "当前运行没有附带版本包信息。";
     internal string VersionPageUnavailable => "当前运行没有可打开的发布页。";
 
     internal string ActionLauncherInitialized => "启动器已初始化。";

@@ -43,6 +43,7 @@ internal sealed class MainWindowViewModel : ObservableObject
     private bool closeToTrayEnabled = true;
     private bool closeTipAcknowledged;
     private IBrush heroAccentBrush = Brush.Parse("#39BDF8");
+    private LauncherServiceState currentServiceState;
 
     internal MainWindowViewModel(LauncherCoordinator coordinator, bool marshalToUiThread = true)
     {
@@ -98,6 +99,12 @@ internal sealed class MainWindowViewModel : ObservableObject
     internal bool IsSettingsSectionActive => ActiveSection == LauncherSection.Settings;
 
     internal bool IsDiagnosticsSectionActive => ActiveSection == LauncherSection.Diagnostics;
+
+    internal bool IsSetupRequired => currentServiceState == LauncherServiceState.SetupRequired;
+
+    internal bool IsNotSetupRequired => !IsSetupRequired;
+
+    internal string OpenWebUiActionLabel => IsSetupRequired ? copy.OpenInitializationLabel : copy.OpenWebUiLabel;
 
     internal IEnumerable<EnvironmentCheckViewModel> BlockingEnvironmentChecks => EnvironmentChecks.Where(item => item.Severity == CheckSeverity.Error);
 
@@ -397,6 +404,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         CloseToTrayEnabled = snapshot.Settings.CloseToTrayEnabled;
         CloseTipAcknowledged = snapshot.Settings.CloseTipAcknowledged;
         StatusSummary = copy.FormatStatusSummary(snapshot.ServiceState);
+        currentServiceState = snapshot.ServiceState;
         HeroTitle = copy.FormatHeroTitle(snapshot.ServiceState, snapshot.EnvironmentChecks);
         SessionSummary = snapshot.SessionSummary;
         ServiceDetail = snapshot.ServiceDetail;
@@ -467,6 +475,9 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(HasRecentStderr));
         OnPropertyChanged(nameof(HasNoRecentStderr));
         OnPropertyChanged(nameof(HasNoPrimaryIssue));
+        OnPropertyChanged(nameof(IsSetupRequired));
+        OnPropertyChanged(nameof(IsNotSetupRequired));
+        OnPropertyChanged(nameof(OpenWebUiActionLabel));
     }
 
     private void ActivateSection(LauncherSection section, bool updateSelection = true)
