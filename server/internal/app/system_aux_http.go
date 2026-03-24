@@ -101,8 +101,9 @@ func (a *App) createBackupArchive(ctx context.Context, progress tasks.ProgressRe
 
 	databasePath, err := resolveDatabasePath(a.Summary.ConfigPath, a.Config.Database.Path)
 	if err == nil {
-		if err := addFileToZip(writer, databasePath, "data/state.db"); err == nil {
-			items = append(items, backupItem{Label: "database", Path: "data/state.db"})
+		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(databasePath)))
+		if err := addFileToZip(writer, databasePath, archivePath); err == nil {
+			items = append(items, backupItem{Label: "database", Path: archivePath})
 		}
 	}
 
