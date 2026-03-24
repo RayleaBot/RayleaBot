@@ -27,6 +27,7 @@ import (
 	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/permission"
+	"rayleabot/server/internal/pluginconfig"
 	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
@@ -53,6 +54,7 @@ type App struct {
 	Logger            *slog.Logger
 	LogLevel          *logging.LevelController
 	Tasks             *tasks.Registry
+	taskExecutor      *tasks.Executor
 	Plugins           *plugins.Catalog
 	Auth              *auth.Manager
 	Storage           *storage.Store
@@ -70,12 +72,15 @@ type App struct {
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
 	pluginRepository  plugins.DesiredStateRepository
+	pluginConfig      pluginconfig.Repository
 	pluginFiles       *pluginfile.Service
 	pluginKV          pluginkv.Repository
 	grantRepository   plugins.GrantRepository
 	blacklistRepo     permission.BlacklistRepository
 	permissionChecker *permission.Checker
 	pluginLifecycle   *pluginLifecycleController
+	webhooks          *pluginWebhookRegistry
+	renderer          *renderService
 	commandParser     *command.Parser
 	pluginLogLimiter  *pluginLogLimiter
 	redactText        func(string) string
@@ -103,6 +108,7 @@ func New(options Options) (*App, error) {
 	}
 
 	taskRegistry := tasks.NewRegistry()
+	taskExecutor := tasks.NewExecutor(taskRegistry, 5*time.Minute)
 	discoverySpec, err := resolvePluginDiscovery(options)
 	if err != nil {
 		return nil, err
@@ -204,7 +210,14 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create plugin kv repository: %w", err)
 	}
+	webhookRegistry := newPluginWebhookRegistry()
+	pluginConfigRepository, err := pluginconfig.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create plugin config repository: %w", err)
+	}
 	pluginFileService := pluginfile.NewService(filepath.Join(filepath.Dir(databasePath), "plugins"))
+	renderService := newRenderService(filepath.Join(filepath.Dir(databasePath), "render"))
 	blacklistRepo := permission.NewSQLiteBlacklistRepository(storageStore.Read, storageStore.Write)
 	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
 	if err != nil {
@@ -233,6 +246,14 @@ func New(options Options) (*App, error) {
 	if err != nil {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("load persisted plugin desired_state: %w", err)
+	}
+	if packageLoader, ok := any(pluginRepository).(plugins.PackageMetadataLoader); ok {
+		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
+		if err != nil {
+			_ = storageStore.Close()
+			return nil, fmt.Errorf("load plugin package metadata: %w", err)
+		}
+		pluginCatalog.Replace(plugins.ApplyPackageMetadata(pluginCatalog.List(), packageMetadata))
 	}
 	pluginCatalog.ApplyDesiredStates(desiredStates)
 	cleanupOrphanedInstallDirs(logger, discoverySpec.roots)
@@ -272,6 +293,7 @@ func New(options Options) (*App, error) {
 		Logger:            logger,
 		LogLevel:          logLevel,
 		Tasks:             taskRegistry,
+		taskExecutor:      taskExecutor,
 		Plugins:           pluginCatalog,
 		Auth:              authManager,
 		Storage:           storageStore,
@@ -289,11 +311,14 @@ func New(options Options) (*App, error) {
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,
 		pluginRepository:  pluginRepository,
+		pluginConfig:      pluginConfigRepository,
 		pluginFiles:       pluginFileService,
 		pluginKV:          pluginKVRepository,
 		grantRepository:   pluginRepository,
 		blacklistRepo:     blacklistRepo,
 		permissionChecker: newPermissionChecker(cfg, blacklistRepo),
+		webhooks:          webhookRegistry,
+		renderer:          renderService,
 		commandParser:     newCommandParser(cfg),
 		pluginLogLimiter:  newPluginLogLimiter(cfg),
 		redactText:        managementRedactor.Redact,
@@ -320,6 +345,7 @@ func New(options Options) (*App, error) {
 	router.Post("/api/session/login", application.handleSessionLogin())
 	router.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
 	router.Post("/api/session/launcher-admission", application.handleLauncherAdmission())
+	router.Post("/api/webhooks/{plugin_id}/{route}", application.handlePluginWebhook())
 
 	// Protected routes — require a valid session token.
 	router.Group(func(r chi.Router) {
@@ -330,6 +356,8 @@ func New(options Options) (*App, error) {
 		r.Get("/api/logs", application.handleLogsList())
 		r.Get("/api/system/status", application.handleSystemStatus())
 		r.Post("/api/system/shutdown", application.handleSystemShutdown())
+		r.Post("/api/system/backup", application.handleSystemBackup())
+		r.Get("/api/system/diagnostics/export", application.handleSystemDiagnosticsExport())
 		r.Get("/api/tasks", application.handleTaskList())
 		r.Get("/api/tasks/{task_id}", application.handleTaskDetail())
 		r.Post("/api/tasks/{task_id}/cancel", application.handleTaskCancel())
@@ -395,6 +423,12 @@ func (a *App) Close() error {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
 		}
 		a.PluginInstaller = nil
+	}
+	if a != nil && a.taskExecutor != nil {
+		if err := a.taskExecutor.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close task executor: %w", err))
+		}
+		a.taskExecutor = nil
 	}
 	if a != nil && a.PluginUninstaller != nil {
 		if closer, ok := a.PluginUninstaller.(interface{ Close() error }); ok {

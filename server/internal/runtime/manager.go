@@ -60,6 +60,7 @@ type Event struct {
 	Message        *EventMessage
 	PayloadFields  map[string]any
 	MessageID      string
+	RawPayload     any
 }
 
 type EventActor struct {
@@ -99,6 +100,8 @@ type Action struct {
 	LogLevel                string
 	LogMessage              string
 	LogFields               map[string]any
+	ConfigKeys              []string
+	ConfigValues            map[string]any
 	StorageOperation        string
 	StorageRoot             string
 	StoragePath             string
@@ -111,6 +114,22 @@ type Action struct {
 	HTTPHeaders             map[string]string
 	HTTPTimeoutSeconds      int
 	HTTPBody                []byte
+	SchedulerTaskID         string
+	SchedulerCron           string
+	SchedulerEventType      string
+	SchedulerPayload        map[string]any
+	WebhookRoute            string
+	WebhookMethods          []string
+	WebhookAuthStrategy     string
+	WebhookHeader           string
+	WebhookSecretRef        string
+	WebhookSignaturePrefix  string
+	WebhookSourceIPs        []string
+	RenderTemplate          string
+	RenderTheme             string
+	RenderOutput            string
+	RenderFallbackText      string
+	RenderData              map[string]any
 }
 
 type Delivery struct {
@@ -209,6 +228,7 @@ type protocolEventFrame struct {
 	Target         *protocolTargetFrame  `json:"target,omitempty"`
 	Message        *protocolMessageFrame `json:"message,omitempty"`
 	Payload        *protocolPayloadFrame `json:"payload,omitempty"`
+	RawPayload     any                   `json:"raw_payload,omitempty"`
 }
 
 type protocolActorFrame struct {
@@ -280,6 +300,14 @@ type protocolActionStorageKVFrame struct {
 	Value     *json.RawMessage `json:"value,omitempty"`
 }
 
+type protocolActionConfigReadFrame struct {
+	Keys []string `json:"keys"`
+}
+
+type protocolActionConfigWriteFrame struct {
+	Values map[string]json.RawMessage `json:"values"`
+}
+
 type protocolActionStorageFileFrame struct {
 	Operation     string  `json:"operation"`
 	Root          string  `json:"root"`
@@ -296,6 +324,31 @@ type protocolActionHTTPRequestFrame struct {
 	TimeoutSeconds *int              `json:"timeout_seconds,omitempty"`
 	BodyText       *string           `json:"body_text,omitempty"`
 	BodyBase64     *string           `json:"body_base64,omitempty"`
+}
+
+type protocolActionSchedulerCreateFrame struct {
+	TaskID    string          `json:"task_id"`
+	Cron      string          `json:"cron"`
+	EventType string          `json:"event_type"`
+	Payload   json.RawMessage `json:"payload,omitempty"`
+}
+
+type protocolActionEventExposeWebhookFrame struct {
+	Route           string   `json:"route"`
+	Methods         []string `json:"methods"`
+	AuthStrategy    string   `json:"auth_strategy"`
+	Header          string   `json:"header"`
+	SecretRef       string   `json:"secret_ref"`
+	SignaturePrefix string   `json:"signature_prefix,omitempty"`
+	SourceIPs       []string `json:"source_ips,omitempty"`
+}
+
+type protocolActionRenderImageFrame struct {
+	Template     string          `json:"template"`
+	Theme        string          `json:"theme,omitempty"`
+	Output       string          `json:"output,omitempty"`
+	FallbackText string          `json:"fallback_text,omitempty"`
+	Data         json.RawMessage `json:"data"`
 }
 
 type frameEnvelope struct {
@@ -821,6 +874,9 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	if hasPayload {
 		frame.Event.Payload = &payload
 	}
+	if event.RawPayload != nil {
+		frame.Event.RawPayload = event.RawPayload
+	}
 
 	if err := writeJSONLine(handle.stdin, frame); err != nil {
 		return Delivery{}, errorf(codePluginInternalError, "write event frame", err)
@@ -1079,7 +1135,7 @@ func (m *Manager) processEventFrame(ctx context.Context, handle *processHandle, 
 				Action:    action,
 			}, true, nil
 
-		case "logger.write", "storage.kv", "storage.file", "http.request":
+		case "logger.write", "storage.kv", "config.read", "config.write", "storage.file", "http.request", "scheduler.create", "event.expose_webhook", "render.image":
 			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
 
 		default:
@@ -1139,10 +1195,20 @@ func (m *Manager) handleLocalActionFrame(ctx context.Context, handle *processHan
 		action, err = parseLoggerWriteAction(frame.Data)
 	case "storage.kv":
 		action, err = parseStorageKVAction(frame.Data)
+	case "config.read":
+		action, err = parseConfigReadAction(frame.Data)
+	case "config.write":
+		action, err = parseConfigWriteAction(frame.Data)
 	case "storage.file":
 		action, err = parseStorageFileAction(frame.Data)
 	case "http.request":
 		action, err = parseHTTPRequestAction(frame.Data)
+	case "scheduler.create":
+		action, err = parseSchedulerCreateAction(frame.Data)
+	case "event.expose_webhook":
+		action, err = parseEventExposeWebhookAction(frame.Data)
+	case "render.image":
+		action, err = parseRenderImageAction(frame.Data)
 	case "message.send", "message.reply":
 		return errorf(codePluginProtocolViolation, "terminal message actions must use the current event request_id", nil)
 	default:
@@ -1334,6 +1400,64 @@ func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
 	}
 }
 
+func parseConfigReadAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionConfigReadFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.read data", err)
+	}
+
+	keys := make([]string, 0, len(frame.Keys))
+	seen := make(map[string]struct{}, len(frame.Keys))
+	for _, key := range frame.Keys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		keys = append(keys, key)
+	}
+	if len(keys) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required config.read fields", nil)
+	}
+	return &Action{
+		Kind:       "config.read",
+		ConfigKeys: keys,
+	}, nil
+}
+
+func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionConfigWriteFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.write data", err)
+	}
+	if len(frame.Values) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required config.write fields", nil)
+	}
+
+	values := make(map[string]any, len(frame.Values))
+	for key, rawValue := range frame.Values {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		var value any
+		if err := json.Unmarshal(rawValue, &value); err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid config.write value", err)
+		}
+		values[key] = value
+	}
+	if len(values) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required config.write fields", nil)
+	}
+	return &Action{
+		Kind:         "config.write",
+		ConfigValues: values,
+	}, nil
+}
+
 func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
 	var frame protocolActionStorageFileFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
@@ -1421,6 +1545,140 @@ func parseHTTPRequestAction(raw json.RawMessage) (*Action, error) {
 		HTTPHeaders:        cloneHTTPActionHeaders(frame.Headers),
 		HTTPTimeoutSeconds: timeoutSeconds,
 		HTTPBody:           body,
+	}, nil
+}
+
+func parseSchedulerCreateAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionSchedulerCreateFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed scheduler.create data", err)
+	}
+
+	taskID := strings.TrimSpace(frame.TaskID)
+	cronExpr := strings.TrimSpace(frame.Cron)
+	eventType := strings.TrimSpace(frame.EventType)
+	if taskID == "" || cronExpr == "" || eventType != "scheduler.trigger" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required scheduler.create fields", nil)
+	}
+
+	payload := map[string]any{}
+	if len(frame.Payload) > 0 {
+		if err := json.Unmarshal(frame.Payload, &payload); err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid scheduler.create payload", err)
+		}
+	}
+
+	return &Action{
+		Kind:               "scheduler.create",
+		SchedulerTaskID:    taskID,
+		SchedulerCron:      cronExpr,
+		SchedulerEventType: eventType,
+		SchedulerPayload:   payload,
+	}, nil
+}
+
+func parseEventExposeWebhookAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionEventExposeWebhookFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed event.expose_webhook data", err)
+	}
+
+	route := strings.TrimSpace(frame.Route)
+	authStrategy := strings.TrimSpace(frame.AuthStrategy)
+	header := strings.TrimSpace(frame.Header)
+	secretRef := strings.TrimSpace(frame.SecretRef)
+	if route == "" || authStrategy == "" || header == "" || secretRef == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook fields", nil)
+	}
+	if len(frame.Methods) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook fields", nil)
+	}
+
+	methods := make([]string, 0, len(frame.Methods))
+	seenMethods := make(map[string]struct{}, len(frame.Methods))
+	for _, method := range frame.Methods {
+		method = strings.ToUpper(strings.TrimSpace(method))
+		if method != "POST" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported event.expose_webhook method", nil)
+		}
+		if _, ok := seenMethods[method]; ok {
+			continue
+		}
+		seenMethods[method] = struct{}{}
+		methods = append(methods, method)
+	}
+	if len(methods) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook fields", nil)
+	}
+
+	switch authStrategy {
+	case "fixed_token", "hmac_sha256":
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported event.expose_webhook auth_strategy", nil)
+	}
+	signaturePrefix := strings.TrimSpace(frame.SignaturePrefix)
+	if authStrategy == "hmac_sha256" && signaturePrefix == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook signature_prefix", nil)
+	}
+
+	sourceIPs := make([]string, 0, len(frame.SourceIPs))
+	seenSources := make(map[string]struct{}, len(frame.SourceIPs))
+	for _, value := range frame.SourceIPs {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seenSources[value]; ok {
+			continue
+		}
+		seenSources[value] = struct{}{}
+		sourceIPs = append(sourceIPs, value)
+	}
+
+	return &Action{
+		Kind:                   "event.expose_webhook",
+		WebhookRoute:           route,
+		WebhookMethods:         methods,
+		WebhookAuthStrategy:    authStrategy,
+		WebhookHeader:          header,
+		WebhookSecretRef:       secretRef,
+		WebhookSignaturePrefix: signaturePrefix,
+		WebhookSourceIPs:       sourceIPs,
+	}, nil
+}
+
+func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionRenderImageFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed render.image data", err)
+	}
+
+	templateName := strings.TrimSpace(frame.Template)
+	if templateName == "" || len(frame.Data) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required render.image fields", nil)
+	}
+
+	renderData := map[string]any{}
+	if err := json.Unmarshal(frame.Data, &renderData); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image data", err)
+	}
+
+	output := strings.TrimSpace(frame.Output)
+	switch output {
+	case "", "png":
+		output = "png"
+	case "jpeg":
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported render.image output", nil)
+	}
+
+	return &Action{
+		Kind:               "render.image",
+		RenderTemplate:     templateName,
+		RenderTheme:        strings.TrimSpace(frame.Theme),
+		RenderOutput:       output,
+		RenderFallbackText: strings.TrimSpace(frame.FallbackText),
+		RenderData:         renderData,
 	}, nil
 }
 

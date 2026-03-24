@@ -308,6 +308,48 @@ func TestEngine_Unregister(t *testing.T) {
 	}
 }
 
+func TestEngine_UpsertTask(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	engine, err := New(Options{
+		Repository: repo,
+		Logger:     testLogger(),
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+
+	ctx := context.Background()
+	first, err := engine.UpsertTask(ctx, "weather", "daily_report", "0 8 * * *", json.RawMessage(`{"topic":"daily_report"}`))
+	if err != nil {
+		t.Fatalf("first UpsertTask: %v", err)
+	}
+	second, err := engine.UpsertTask(ctx, "weather", "daily_report", "30 9 * * *", json.RawMessage(`{"topic":"daily_report_v2"}`))
+	if err != nil {
+		t.Fatalf("second UpsertTask: %v", err)
+	}
+	if second.JobID != "daily_report" {
+		t.Fatalf("JobID = %q, want daily_report", second.JobID)
+	}
+	if second.CreatedAt != first.CreatedAt {
+		t.Fatalf("CreatedAt changed across upsert: %v vs %v", second.CreatedAt, first.CreatedAt)
+	}
+
+	jobs := engine.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("len(jobs) = %d, want 1", len(jobs))
+	}
+	if jobs[0].CronExpr != "30 9 * * *" {
+		t.Fatalf("CronExpr = %q, want 30 9 * * *", jobs[0].CronExpr)
+	}
+}
+
 func TestEngine_TickFiresDueJob(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)

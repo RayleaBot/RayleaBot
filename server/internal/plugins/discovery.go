@@ -224,11 +224,13 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	snapshot := Snapshot{
 		PluginID:          pluginID,
 		Name:              stringField(manifest, "name"),
+		Role:              manifestRole(manifest, sourceRoot),
 		Version:           stringField(manifest, "version"),
 		Type:              stringField(manifest, "type"),
 		Runtime:           stringField(manifest, "runtime"),
 		Entry:             stringField(manifest, "entry"),
 		Description:       stringField(manifest, "description"),
+		DefaultConfig:     manifestObjectField(manifest, "default_config"),
 		ManifestPath:      displayPath(repoRoot, infoPath),
 		SourceRoot:        sourceRoot,
 		SourceRoots:       []string{sourceRoot},
@@ -244,6 +246,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	snapshot.RequireInstallScripts = manifestBoolField(manifest, "require_install_scripts")
 	snapshot.ScopeHTTPHosts = manifestScopeList(manifest, "http_hosts")
 	snapshot.ScopeStorageRoots = manifestScopeList(manifest, "storage_roots")
+	snapshot.ScopeWebhooks = manifestWebhookScopes(manifest)
 	snapshot.Commands = manifestCommands(manifest)
 
 	if err := validator.Validate(document); err != nil {
@@ -397,6 +400,42 @@ func manifestScopeList(document map[string]any, key string) []string {
 	return stringListField(scopes, key)
 }
 
+func manifestWebhookScopes(document map[string]any) []WebhookScope {
+	permissions, ok := document["permissions"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	scopes, ok := permissions["scopes"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	values, ok := scopes["webhooks"].([]any)
+	if !ok {
+		return nil
+	}
+
+	items := make([]WebhookScope, 0, len(values))
+	for _, value := range values {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		scope := WebhookScope{
+			Route:           stringField(item, "route"),
+			AuthStrategy:    stringField(item, "auth_strategy"),
+			Header:          stringField(item, "header"),
+			SecretRef:       stringField(item, "secret_ref"),
+			SignaturePrefix: stringField(item, "signature_prefix"),
+			SourceIPs:       stringListField(item, "source_ips"),
+		}
+		if scope.Route == "" || scope.AuthStrategy == "" || scope.Header == "" || scope.SecretRef == "" {
+			continue
+		}
+		items = append(items, scope)
+	}
+	return items
+}
+
 func manifestCommands(document map[string]any) []Command {
 	values, ok := document["commands"].([]any)
 	if !ok {
@@ -423,6 +462,32 @@ func manifestCommands(document map[string]any) []Command {
 		commands = append(commands, command)
 	}
 	return commands
+}
+
+func manifestRole(document map[string]any, sourceRoot string) string {
+	role := stringField(document, "role")
+	if role != "" {
+		return role
+	}
+
+	switch sourceRoot {
+	case "plugins/builtin":
+		return "builtin"
+	case "examples/plugins":
+		return "example"
+	case "plugins/dev":
+		return "dev"
+	default:
+		return "user"
+	}
+}
+
+func manifestObjectField(document map[string]any, key string) map[string]any {
+	value, ok := document[key].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return cloneMap(value)
 }
 
 func defaultDesiredStateForSourceRoot(sourceRoot string) string {

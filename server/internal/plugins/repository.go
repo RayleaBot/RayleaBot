@@ -31,6 +31,10 @@ type PackageRepository interface {
 	DeletePackageMetadata(context.Context, string) error
 }
 
+type PackageMetadataLoader interface {
+	LoadAllPackageMetadata(context.Context) (map[string]PackageMetadata, error)
+}
+
 type PluginGrant struct {
 	PluginID   string
 	Capability string
@@ -150,6 +154,38 @@ func (r *SQLiteRepository) DeletePackageMetadata(ctx context.Context, pluginID s
 		return fmt.Errorf("delete plugin package metadata for %s: %w", pluginID, err)
 	}
 	return nil
+}
+
+func (r *SQLiteRepository) LoadAllPackageMetadata(ctx context.Context) (map[string]PackageMetadata, error) {
+	rows, err := r.read.QueryContext(ctx, `SELECT plugin_id, source_type, source_ref, version, manifest_hash, package_hash, installed_at FROM plugin_packages`)
+	if err != nil {
+		return nil, fmt.Errorf("query plugin package metadata: %w", err)
+	}
+	defer rows.Close()
+
+	metadata := make(map[string]PackageMetadata)
+	for rows.Next() {
+		var item PackageMetadata
+		var installedAt string
+		if err := rows.Scan(
+			&item.PluginID,
+			&item.SourceType,
+			&item.SourceRef,
+			&item.Version,
+			&item.ManifestHash,
+			&item.PackageHash,
+			&installedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan plugin package metadata row: %w", err)
+		}
+		item.InstalledAt, _ = time.Parse(time.RFC3339Nano, installedAt)
+		metadata[item.PluginID] = item
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate plugin package metadata rows: %w", err)
+	}
+
+	return metadata, nil
 }
 
 func (r *SQLiteRepository) LoadGrants(ctx context.Context, pluginID string) ([]PluginGrant, error) {

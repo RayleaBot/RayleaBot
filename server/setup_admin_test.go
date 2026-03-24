@@ -121,8 +121,9 @@ type webAPIFixtureDocument struct {
 		Body   map[string]any `yaml:"body"`
 	} `yaml:"request"`
 	Response struct {
-		Status int            `yaml:"status"`
-		Body   map[string]any `yaml:"body"`
+		Status  int               `yaml:"status"`
+		Headers map[string]string `yaml:"headers"`
+		Body    map[string]any    `yaml:"body"`
 	} `yaml:"response"`
 }
 

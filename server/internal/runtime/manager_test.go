@@ -540,6 +540,102 @@ func TestParseHTTPRequestActionRejectsGetWithBody(t *testing.T) {
 	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
 }
 
+func TestParseConfigReadAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseConfigReadAction(json.RawMessage(`{
+		"keys": ["default_city", "unit"]
+	}`))
+	if err != nil {
+		t.Fatalf("parseConfigReadAction: %v", err)
+	}
+	if action.Kind != "config.read" || len(action.ConfigKeys) != 2 {
+		t.Fatalf("unexpected config.read action: %#v", action)
+	}
+}
+
+func TestParseConfigWriteAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseConfigWriteAction(json.RawMessage(`{
+		"values": {
+			"default_city": "北京",
+			"unit": "celsius"
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("parseConfigWriteAction: %v", err)
+	}
+	if action.Kind != "config.write" || action.ConfigValues["default_city"] != "北京" {
+		t.Fatalf("unexpected config.write action: %#v", action)
+	}
+}
+
+func TestParseSchedulerCreateAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseSchedulerCreateAction(json.RawMessage(`{
+		"task_id": "daily_report",
+		"cron": "0 8 * * *",
+		"event_type": "scheduler.trigger",
+		"payload": {
+			"topic": "daily_report"
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("parseSchedulerCreateAction: %v", err)
+	}
+	if action.Kind != "scheduler.create" || action.SchedulerTaskID != "daily_report" || action.SchedulerCron != "0 8 * * *" {
+		t.Fatalf("unexpected scheduler.create action: %#v", action)
+	}
+}
+
+func TestParseEventExposeWebhookAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseEventExposeWebhookAction(json.RawMessage(`{
+		"route": "github",
+		"methods": ["POST"],
+		"auth_strategy": "hmac_sha256",
+		"header": "X-Hub-Signature-256",
+		"signature_prefix": "sha256=",
+		"secret_ref": "webhook.github.secret",
+		"source_ips": ["192.0.2.0/24"]
+	}`))
+	if err != nil {
+		t.Fatalf("parseEventExposeWebhookAction: %v", err)
+	}
+	if action.Kind != "event.expose_webhook" || action.WebhookRoute != "github" || action.WebhookAuthStrategy != "hmac_sha256" {
+		t.Fatalf("unexpected event.expose_webhook action: %#v", action)
+	}
+	if len(action.WebhookMethods) != 1 || action.WebhookMethods[0] != "POST" {
+		t.Fatalf("unexpected webhook methods: %#v", action.WebhookMethods)
+	}
+}
+
+func TestParseRenderImageAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseRenderImageAction(json.RawMessage(`{
+		"template": "help.menu",
+		"theme": "default",
+		"output": "png",
+		"fallback_text": "帮助菜单暂时不可用。",
+		"data": {
+			"title": "帮助菜单"
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("parseRenderImageAction: %v", err)
+	}
+	if action.Kind != "render.image" || action.RenderTemplate != "help.menu" || action.RenderOutput != "png" {
+		t.Fatalf("unexpected render.image action: %#v", action)
+	}
+	if action.RenderData["title"] != "帮助菜单" {
+		t.Fatalf("unexpected render.image data: %#v", action.RenderData)
+	}
+}
+
 func TestManagerDeliverEventFailsWhenRuntimeIsNotRunning(t *testing.T) {
 	t.Parallel()
 

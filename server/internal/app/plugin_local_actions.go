@@ -16,6 +16,7 @@ import (
 	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginhttp"
 	"rayleabot/server/internal/pluginkv"
+	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
 )
 
@@ -107,16 +108,73 @@ func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string
 		return a.executeLoggerWrite(ctx, pluginID, requestID, action)
 	case "storage.kv":
 		return a.executeStorageKV(ctx, pluginID, action)
+	case "config.read":
+		return a.executeConfigRead(ctx, pluginID, action)
+	case "config.write":
+		return a.executeConfigWrite(ctx, pluginID, action)
 	case "storage.file":
 		return a.executeStorageFile(ctx, pluginID, action)
 	case "http.request":
 		return a.executeHTTPRequest(ctx, pluginID, action)
+	case "scheduler.create":
+		return a.executeSchedulerCreate(ctx, pluginID, action)
+	case "event.expose_webhook":
+		return a.executeExposeWebhook(ctx, pluginID, action)
+	case "render.image":
+		return a.executeRenderImage(ctx, pluginID, action)
 	default:
 		return nil, &runtime.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "received unsupported local action kind",
 		}
 	}
+}
+
+func (a *App) executeConfigRead(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !a.pluginCapabilityGranted(ctx, pluginID, "config.read") {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: "config.read capability is not granted",
+		}
+	}
+	if a == nil || a.pluginConfig == nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "config.read repository is not available",
+		}
+	}
+
+	values, err := a.pluginConfig.Read(ctx, pluginID, action.ConfigKeys)
+	if err != nil {
+		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "config.read failed", Err: err}
+	}
+	return map[string]any{
+		"values": values,
+	}, nil
+}
+
+func (a *App) executeConfigWrite(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !a.pluginCapabilityGranted(ctx, pluginID, "config.write") {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: "config.write capability is not granted",
+		}
+	}
+	if a == nil || a.pluginConfig == nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "config.write repository is not available",
+		}
+	}
+
+	changedKeys, err := a.pluginConfig.Write(ctx, pluginID, action.ConfigValues)
+	if err != nil {
+		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
+	}
+	a.dispatchPluginConfigChanged(ctx, pluginID)
+	return map[string]any{
+		"changed_keys": changedKeys,
+	}, nil
 }
 
 func (a *App) executeLoggerWrite(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
@@ -377,6 +435,38 @@ func (a *App) executeHTTPRequest(ctx context.Context, pluginID string, action ru
 	return result, nil
 }
 
+func (a *App) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !a.pluginCapabilityGranted(ctx, pluginID, "scheduler.create") {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: "scheduler.create capability is not granted",
+		}
+	}
+	if a == nil || a.Scheduler == nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "scheduler engine is not available",
+		}
+	}
+
+	payloadBytes, err := json.Marshal(action.SchedulerPayload)
+	if err != nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "scheduler.create payload is invalid",
+			Err:     err,
+		}
+	}
+	job, err := a.Scheduler.UpsertTask(ctx, pluginID, action.SchedulerTaskID, action.SchedulerCron, payloadBytes)
+	if err != nil {
+		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
+	}
+	return map[string]any{
+		"task_id":  job.JobID,
+		"next_run": job.NextRun.UTC().Format(time.RFC3339),
+	}, nil
+}
+
 func (a *App) pluginCapabilityGranted(ctx context.Context, pluginID, capability string) bool {
 	if a == nil || a.pluginLifecycle == nil {
 		return false
@@ -392,6 +482,7 @@ func (a *App) pluginCapabilityGranted(ctx context.Context, pluginID, capability 
 type grantedScope struct {
 	HTTPHosts    []string `json:"http_hosts"`
 	StorageRoots []string `json:"storage_roots"`
+	Webhooks     []plugins.WebhookScope `json:"webhooks"`
 }
 
 func (a *App) pluginStorageRootGranted(ctx context.Context, pluginID, root string) bool {
@@ -425,7 +516,7 @@ func (a *App) pluginGrantedScope(ctx context.Context, pluginID, capability strin
 					continue
 				}
 				scope := parseGrantedScope(grant.ScopeJSON)
-				if len(scope.HTTPHosts) > 0 || len(scope.StorageRoots) > 0 {
+				if len(scope.HTTPHosts) > 0 || len(scope.StorageRoots) > 0 || len(scope.Webhooks) > 0 {
 					return scope
 				}
 			}
@@ -437,6 +528,7 @@ func (a *App) pluginGrantedScope(ctx context.Context, pluginID, capability strin
 			return grantedScope{
 				HTTPHosts:    append([]string(nil), snapshot.ScopeHTTPHosts...),
 				StorageRoots: append([]string(nil), snapshot.ScopeStorageRoots...),
+				Webhooks:     append([]plugins.WebhookScope(nil), snapshot.ScopeWebhooks...),
 			}
 		}
 	}

@@ -267,6 +267,13 @@ func (s *UninstallService) refreshCatalog() error {
 	}
 
 	reloaded := NewCatalog(snapshots)
+	if packageLoader, ok := s.repository.(PackageMetadataLoader); ok {
+		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
+		if err != nil {
+			return err
+		}
+		reloaded.Replace(ApplyPackageMetadata(reloaded.List(), packageMetadata))
+	}
 	if s.repository != nil {
 		states, err := s.repository.LoadDesiredStates(context.Background())
 		if err != nil {

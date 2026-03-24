@@ -36,12 +36,22 @@ func TestDiscoverExamplesPlugins(t *testing.T) {
 		t.Fatalf("Discover failed: %v", err)
 	}
 
-	if summary.ValidCount != 5 {
-		t.Fatalf("unexpected valid count: got %d want 5", summary.ValidCount)
+	if summary.ValidCount != 9 {
+		t.Fatalf("unexpected valid count: got %d want 9", summary.ValidCount)
 	}
 
 	catalog := plugins.NewCatalog(snapshots)
-	for _, pluginID := range []string{"echo-python", "example-permission-scope", "hello-node", "hello-python", "notice-logger"} {
+	for _, pluginID := range []string{
+		"echo-python",
+		"example-config-panel",
+		"example-permission-scope",
+		"example-render-card",
+		"example-scheduler",
+		"example-webhook",
+		"hello-node",
+		"hello-python",
+		"notice-logger",
+	} {
 		snapshot, ok := catalog.Get(pluginID)
 		if !ok {
 			t.Fatalf("expected plugin %s to be discovered", pluginID)
@@ -61,6 +71,17 @@ func TestDiscoverExamplesPlugins(t *testing.T) {
 		if snapshot.DisplayState != "discovered" {
 			t.Fatalf("unexpected display_state for %s: %s", pluginID, snapshot.DisplayState)
 		}
+	}
+
+	exampleSnapshot, ok := catalog.Get("example-permission-scope")
+	if !ok {
+		t.Fatal("expected example-permission-scope to be discovered")
+	}
+	if exampleSnapshot.Role != "example" {
+		t.Fatalf("unexpected role: got %q want example", exampleSnapshot.Role)
+	}
+	if got := exampleSnapshot.DefaultConfig["cache_file"]; got != "example-homepage.txt" {
+		t.Fatalf("unexpected default_config.cache_file: got %#v want example-homepage.txt", got)
 	}
 }
 
@@ -270,10 +291,130 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 	if snapshot.DesiredState != "enabled" {
 		t.Fatalf("unexpected desired_state: got %q want enabled", snapshot.DesiredState)
 	}
+	if snapshot.Role != "builtin" {
+		t.Fatalf("unexpected role: got %q want builtin", snapshot.Role)
+	}
 	if len(snapshot.Commands) != 1 {
 		t.Fatalf("unexpected builtin command count: got %d want 1", len(snapshot.Commands))
 	}
 	if snapshot.Commands[0].Name != "help" {
 		t.Fatalf("unexpected builtin command name: got %q want help", snapshot.Commands[0].Name)
+	}
+}
+
+func TestDiscoverManifestDefaultConfigAndRole(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.plugin-with-commands.json"))
+	input, ok := fixture.Input.(map[string]any)
+	if !ok {
+		t.Fatalf("fixture input should be an object, got %T", fixture.Input)
+	}
+	commands, ok := input["commands"].([]any)
+	if !ok || len(commands) == 0 {
+		t.Fatalf("fixture commands should be present, got %#v", input["commands"])
+	}
+	firstCommand, ok := commands[0].(map[string]any)
+	if !ok {
+		t.Fatalf("first command should be an object, got %#v", commands[0])
+	}
+	firstCommand["aliases"] = []any{"weather_cn", "tq"}
+	pluginDir := filepath.Join(rootDir, "plugins", "weather")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if snapshot.Role != "user" {
+		t.Fatalf("unexpected role: got %q want user", snapshot.Role)
+	}
+	if got := snapshot.DefaultConfig["default_city"]; got != "北京" {
+		t.Fatalf("unexpected default_config.default_city: got %#v want 北京", got)
+	}
+	if got := snapshot.DefaultConfig["unit"]; got != "celsius" {
+		t.Fatalf("unexpected default_config.unit: got %#v want celsius", got)
+	}
+}
+
+func TestDiscoverManifestWebhookScopes(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.minimal-python.json"))
+	input, ok := fixture.Input.(map[string]any)
+	if !ok {
+		t.Fatalf("fixture input should be an object, got %T", fixture.Input)
+	}
+	input["capabilities"] = []any{"event.subscribe", "event.expose_webhook"}
+	input["permissions"] = map[string]any{
+		"required": []any{"event.expose_webhook"},
+		"optional": []any{},
+		"scopes": map[string]any{
+			"webhooks": []any{
+				map[string]any{
+					"route":         "github",
+					"auth_strategy": "hmac_sha256",
+					"header":        "X-Hub-Signature-256",
+					"secret_ref":    "webhook.github.secret",
+					"source_ips":    []any{"192.0.2.0/24"},
+				},
+			},
+		},
+	}
+
+	pluginDir := filepath.Join(rootDir, "plugins", "repo-watcher")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, _, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if len(snapshots) != 1 {
+		t.Fatalf("unexpected snapshot count: got %d want 1", len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if len(snapshot.ScopeWebhooks) != 1 {
+		t.Fatalf("unexpected webhook scope count: %#v", snapshot.ScopeWebhooks)
+	}
+	scope := snapshot.ScopeWebhooks[0]
+	if scope.Route != "github" || scope.AuthStrategy != "hmac_sha256" || scope.SecretRef != "webhook.github.secret" {
+		t.Fatalf("unexpected webhook scope: %#v", scope)
+	}
+	if len(scope.SourceIPs) != 1 || scope.SourceIPs[0] != "192.0.2.0/24" {
+		t.Fatalf("unexpected webhook scope source IPs: %#v", scope.SourceIPs)
 	}
 }
