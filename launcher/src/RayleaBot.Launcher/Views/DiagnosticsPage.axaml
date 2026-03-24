@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:RayleaBot.Launcher"
+             x:Class="RayleaBot.Launcher.Views.DiagnosticsPage"
+             x:DataType="vm:MainWindowViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="20" Margin="0,0,0,20">
+      <Border Classes="app-card">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="caption" Text="{CompiledBinding Copy.DiagnosticsPageHeading}" />
+          <TextBlock Classes="page-title" Text="{CompiledBinding Copy.DiagnosticsTitle}" />
+          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.DiagnosticsPageSummary}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="app-card">
+        <WrapPanel>
+          <Button Theme="{StaticResource SecondaryActionButton}"
+                  Content="{CompiledBinding OpenLogsActionDisplayLabel}"
+                  Click="OpenLogsClicked"
+                  Margin="0,0,12,12" />
+          <Button Theme="{StaticResource SecondaryActionButton}"
+                  Content="{CompiledBinding Copy.CopyDiagnosticsLabel}"
+                  Click="CopyDiagnosticsClicked"
+                  Margin="0,0,12,12" />
+        </WrapPanel>
+      </Border>
+
+      <Border Classes="app-card">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.RecentLogsTitle}" />
+          <ItemsControl ItemsSource="{CompiledBinding RecentStderr}" IsVisible="{CompiledBinding HasRecentStderr}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Classes="log-row" Margin="0,0,0,10">
+                  <TextBlock Text="{Binding}" FontFamily="Cascadia Mono,Consolas,monospace" TextWrapping="Wrap" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.RecentLogsEmpty}" IsVisible="{CompiledBinding HasNoRecentStderr}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="app-card">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.CopyDiagnosticsLabel}" />
+          <TextBox Classes="settings-input"
+                   Text="{CompiledBinding DiagnosticsSummary}"
+                   IsReadOnly="True"
+                   AcceptsReturn="True"
+                   TextWrapping="Wrap"
+                   MinHeight="260" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

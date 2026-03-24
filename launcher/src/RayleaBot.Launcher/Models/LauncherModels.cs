@@ -17,11 +17,17 @@ internal enum LauncherServiceState
 
 internal enum LauncherSection
 {
-    Overview,
-    ServiceControls,
+    Status,
     Environment,
-    Settings,
     Diagnostics,
+    Settings,
+}
+
+internal enum LauncherPrimaryAction
+{
+    None,
+    OpenWebUi,
+    StartService,
 }
 
 internal enum CheckSeverity
@@ -92,6 +98,7 @@ internal sealed record LauncherSnapshot(
     ServerEndpoint Endpoint,
     IReadOnlyList<EnvironmentCheckResult> EnvironmentChecks,
     IReadOnlyList<string> RecentStderr,
+    int? ProcessId,
     LauncherServiceState ServiceState,
     bool SetupInitialized,
     bool ProcessRunning,
@@ -108,6 +115,7 @@ internal sealed record LauncherSnapshot(
             endpoint,
             [],
             [],
+            null,
             LauncherServiceState.Stopped,
             false,
             false,

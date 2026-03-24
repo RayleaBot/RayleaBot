@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
 using Avalonia.Threading;
+using FluentAvalonia.UI.Controls;
 using RayleaBot.Launcher.Infrastructure;
 using RayleaBot.Launcher.Models;
 using RayleaBot.Launcher.Services;
@@ -11,14 +12,14 @@ internal sealed class MainWindowViewModel : ObservableObject
 {
     private readonly LauncherCoordinator coordinator;
     private readonly bool marshalToUiThread;
-    private readonly ObservableCollection<LauncherNavigationItemViewModel> navigationItems;
+    private readonly List<LauncherNavigationItemViewModel> navigationItems;
     private readonly LauncherCopy copy = LauncherCopy.Default;
+    private LauncherSettings? appliedSettings;
     private string serverExecutablePath = string.Empty;
     private string configPath = string.Empty;
     private string workdir = string.Empty;
     private string statusSummary = "未启动";
     private string heroTitle = "服务未启动";
-    private string sessionSummary = string.Empty;
     private string serviceDetail = string.Empty;
     private string lastError = string.Empty;
     private string diagnosticsSummary = string.Empty;
@@ -26,15 +27,19 @@ internal sealed class MainWindowViewModel : ObservableObject
     private string webEndpoint = "http://127.0.0.1:8080/";
     private string versionSummary = LauncherCopy.Default.VersionUnavailableSummary;
     private string versionDetail = LauncherCopy.Default.VersionUnavailableDetail;
-    private string primaryIssueTitle = string.Empty;
-    private string primaryIssueSummary = string.Empty;
-    private string primaryIssueDetail = string.Empty;
-    private string primaryIssueRemediation = string.Empty;
+    private string processIdSummary = string.Empty;
+    private string homeAlertTitle = string.Empty;
+    private string homeAlertMessage = string.Empty;
+    private string pendingActionMessage = string.Empty;
+    private string environmentPackagingSummary = string.Empty;
+    private string environmentPackagingDetail = string.Empty;
     private bool isWindowMaximized;
-    private LauncherSection activeSection = LauncherSection.Overview;
+    private LauncherSection activeSection = LauncherSection.Status;
     private LauncherNavigationItemViewModel? selectedNavigationItem;
-    private bool hasPrimaryIssue;
     private bool hasLastError;
+    private bool hasHomeAlert;
+    private bool hasProcessId;
+    private bool hasEnvironmentPackagingNotice;
     private bool canStart = true;
     private bool canStop;
     private bool canOpenWebUi;
@@ -42,35 +47,53 @@ internal sealed class MainWindowViewModel : ObservableObject
     private bool canOpenReleasePage;
     private bool closeToTrayEnabled = true;
     private bool closeTipAcknowledged;
-    private IBrush heroAccentBrush = Brush.Parse("#39BDF8");
+    private bool isSettingsEditing;
+    private bool isActionInProgress;
+    private IBrush heroAccentBrush = Brush.Parse("#38BDF8");
     private LauncherServiceState currentServiceState;
+    private LauncherPrimaryAction primaryAction;
+    private LauncherUiAction pendingAction = LauncherUiAction.None;
+    private InfoBarSeverity homeAlertSeverity = InfoBarSeverity.Informational;
 
     internal MainWindowViewModel(LauncherCoordinator coordinator, bool marshalToUiThread = true)
     {
         this.coordinator = coordinator;
         this.marshalToUiThread = marshalToUiThread;
+
         EnvironmentChecks = new ObservableCollection<EnvironmentCheckViewModel>();
         RecentStderr = new ObservableCollection<string>();
         navigationItems =
         [
-            new LauncherNavigationItemViewModel(LauncherSection.Overview, copy.OverviewTitle, string.Empty),
-            new LauncherNavigationItemViewModel(LauncherSection.ServiceControls, copy.ServiceControlsTitle, string.Empty),
-            new LauncherNavigationItemViewModel(LauncherSection.Environment, copy.EnvironmentTitle, string.Empty),
-            new LauncherNavigationItemViewModel(LauncherSection.Settings, copy.SettingsTitle, string.Empty),
-            new LauncherNavigationItemViewModel(LauncherSection.Diagnostics, copy.DiagnosticsTitle, string.Empty),
+            new LauncherNavigationItemViewModel(LauncherSection.Status, copy.StatusTitle, string.Empty, isFooterItem: false),
+            new LauncherNavigationItemViewModel(LauncherSection.Environment, copy.EnvironmentTitle, string.Empty, isFooterItem: false),
+            new LauncherNavigationItemViewModel(LauncherSection.Diagnostics, copy.DiagnosticsTitle, string.Empty, isFooterItem: false),
+            new LauncherNavigationItemViewModel(LauncherSection.Settings, copy.SettingsTitle, string.Empty, isFooterItem: true),
         ];
-        NavigationItems = new ReadOnlyObservableCollection<LauncherNavigationItemViewModel>(navigationItems);
-        ActivateSection(LauncherSection.Overview);
+
+        NavigationItems = navigationItems.AsReadOnly();
+        MainNavigationItems = navigationItems.Where(item => !item.IsFooterItem).ToArray();
+        FooterNavigationItems = navigationItems.Where(item => item.IsFooterItem).ToArray();
+        ActivateSection(LauncherSection.Status);
         coordinator.SnapshotChanged += CoordinatorSnapshotChanged;
     }
 
     internal LauncherCopy Copy => copy;
 
-    internal ReadOnlyObservableCollection<LauncherNavigationItemViewModel> NavigationItems { get; }
+    internal IReadOnlyList<LauncherNavigationItemViewModel> NavigationItems { get; }
+
+    internal IReadOnlyList<LauncherNavigationItemViewModel> MainNavigationItems { get; }
+
+    internal IReadOnlyList<LauncherNavigationItemViewModel> FooterNavigationItems { get; }
 
     internal ObservableCollection<EnvironmentCheckViewModel> EnvironmentChecks { get; }
 
     internal ObservableCollection<string> RecentStderr { get; }
+
+    internal IEnumerable<string> HomeRecentStderr => RecentStderr.Take(10);
+
+    internal bool HasHomeRecentStderr => HomeRecentStderr.Any();
+
+    internal bool HasNoHomeRecentStderr => !HasHomeRecentStderr;
 
     internal LauncherNavigationItemViewModel? SelectedNavigationItem
     {
@@ -90,19 +113,13 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref activeSection, value);
     }
 
-    internal bool IsOverviewSectionActive => ActiveSection == LauncherSection.Overview;
-
-    internal bool IsServiceControlsSectionActive => ActiveSection == LauncherSection.ServiceControls;
+    internal bool IsStatusSectionActive => ActiveSection == LauncherSection.Status;
 
     internal bool IsEnvironmentSectionActive => ActiveSection == LauncherSection.Environment;
 
-    internal bool IsSettingsSectionActive => ActiveSection == LauncherSection.Settings;
-
     internal bool IsDiagnosticsSectionActive => ActiveSection == LauncherSection.Diagnostics;
 
-    internal bool IsSetupRequired => false;
-
-    internal bool IsNotSetupRequired => true;
+    internal bool IsSettingsSectionActive => ActiveSection == LauncherSection.Settings;
 
     internal string OpenWebUiActionLabel => copy.OpenWebUiLabel;
 
@@ -176,12 +193,6 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref heroTitle, value);
     }
 
-    internal string SessionSummary
-    {
-        get => sessionSummary;
-        private set => SetProperty(ref sessionSummary, value);
-    }
-
     internal string ServiceDetail
     {
         get => serviceDetail;
@@ -224,37 +235,31 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref versionDetail, value);
     }
 
-    internal string PrimaryIssueTitle
+    internal string ProcessIdSummary
     {
-        get => primaryIssueTitle;
-        private set => SetProperty(ref primaryIssueTitle, value);
+        get => processIdSummary;
+        private set => SetProperty(ref processIdSummary, value);
     }
 
-    internal string PrimaryIssueSummary
+    internal string PendingActionMessage
     {
-        get => primaryIssueSummary;
-        private set => SetProperty(ref primaryIssueSummary, value);
+        get => pendingActionMessage;
+        private set => SetProperty(ref pendingActionMessage, value);
     }
 
-    internal string PrimaryIssueDetail
+    internal bool IsActionInProgress
     {
-        get => primaryIssueDetail;
-        private set => SetProperty(ref primaryIssueDetail, value);
+        get => isActionInProgress;
+        private set => SetProperty(ref isActionInProgress, value);
     }
 
-    internal string PrimaryIssueRemediation
+    internal bool HasProcessId
     {
-        get => primaryIssueRemediation;
-        private set => SetProperty(ref primaryIssueRemediation, value);
+        get => hasProcessId;
+        private set => SetProperty(ref hasProcessId, value);
     }
 
-    internal bool HasPrimaryIssue
-    {
-        get => hasPrimaryIssue;
-        private set => SetProperty(ref hasPrimaryIssue, value);
-    }
-
-    internal bool HasNoPrimaryIssue => !HasPrimaryIssue;
+    internal bool HasNoProcessId => !HasProcessId;
 
     internal bool HasLastError
     {
@@ -262,40 +267,82 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref hasLastError, value);
     }
 
+    internal bool HasHomeAlert
+    {
+        get => hasHomeAlert;
+        private set => SetProperty(ref hasHomeAlert, value);
+    }
+
+    internal string HomeAlertTitle
+    {
+        get => homeAlertTitle;
+        private set => SetProperty(ref homeAlertTitle, value);
+    }
+
+    internal string HomeAlertMessage
+    {
+        get => homeAlertMessage;
+        private set => SetProperty(ref homeAlertMessage, value);
+    }
+
+    internal InfoBarSeverity HomeAlertSeverity
+    {
+        get => homeAlertSeverity;
+        private set => SetProperty(ref homeAlertSeverity, value);
+    }
+
+    internal bool HasEnvironmentPackagingNotice
+    {
+        get => hasEnvironmentPackagingNotice;
+        private set => SetProperty(ref hasEnvironmentPackagingNotice, value);
+    }
+
+    internal string EnvironmentPackagingSummary
+    {
+        get => environmentPackagingSummary;
+        private set => SetProperty(ref environmentPackagingSummary, value);
+    }
+
+    internal string EnvironmentPackagingDetail
+    {
+        get => environmentPackagingDetail;
+        private set => SetProperty(ref environmentPackagingDetail, value);
+    }
+
     internal bool CanStart
     {
-        get => canStart;
+        get => canStart && !IsActionInProgress;
         private set => SetProperty(ref canStart, value);
     }
 
     internal bool CanStop
     {
-        get => canStop;
+        get => canStop && !IsActionInProgress;
         private set => SetProperty(ref canStop, value);
     }
 
     internal bool CanOpenWebUi
     {
-        get => canOpenWebUi;
+        get => canOpenWebUi && !IsActionInProgress;
         private set => SetProperty(ref canOpenWebUi, value);
     }
 
     internal bool CanRetry
     {
-        get => canRetry;
+        get => canRetry && !IsActionInProgress;
         private set => SetProperty(ref canRetry, value);
     }
 
     internal bool CanOpenReleasePage
     {
-        get => canOpenReleasePage;
+        get => canOpenReleasePage && !IsActionInProgress;
         private set => SetProperty(ref canOpenReleasePage, value);
     }
 
     internal bool CloseToTrayEnabled
     {
         get => closeToTrayEnabled;
-        private set => SetProperty(ref closeToTrayEnabled, value);
+        set => SetProperty(ref closeToTrayEnabled, value);
     }
 
     internal bool CloseTipAcknowledged
@@ -304,63 +351,136 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref closeTipAcknowledged, value);
     }
 
+    internal bool IsSettingsEditing
+    {
+        get => isSettingsEditing;
+        private set => SetProperty(ref isSettingsEditing, value);
+    }
+
+    internal bool AreSettingsReadOnly => !IsSettingsEditing;
+
+    internal bool CanSaveSettings => IsSettingsEditing && !IsActionInProgress;
+
     internal IBrush HeroAccentBrush
     {
         get => heroAccentBrush;
         private set => SetProperty(ref heroAccentBrush, value);
     }
 
+    internal LauncherPrimaryAction PrimaryAction
+    {
+        get => primaryAction;
+        private set => SetProperty(ref primaryAction, value);
+    }
+
+    internal string PrimaryActionLabel =>
+        PrimaryAction switch
+        {
+            LauncherPrimaryAction.OpenWebUi => copy.OpenWebUiLabel,
+            LauncherPrimaryAction.StartService => copy.StartServiceLabel,
+            _ => string.Empty,
+        };
+
+    internal string PrimaryActionDisplayLabel =>
+        pendingAction is LauncherUiAction.OpenWebUi or LauncherUiAction.StartService
+            ? copy.FormatPendingPrimaryActionLabel(PrimaryAction)
+            : PrimaryActionLabel;
+
+    internal string StopActionDisplayLabel =>
+        pendingAction == LauncherUiAction.StopService ? copy.StopServicePendingLabel : copy.StopServiceLabel;
+
+    internal string RetryActionDisplayLabel =>
+        pendingAction == LauncherUiAction.Retry ? copy.RetryPendingLabel : copy.RetryHealthAuthLabel;
+
+    internal string OpenLogsActionDisplayLabel =>
+        pendingAction == LauncherUiAction.OpenLogs ? copy.OpenLogsPendingLabel : copy.OpenLogsDirectoryLabel;
+
+    internal string OpenReleasePageActionDisplayLabel =>
+        pendingAction == LauncherUiAction.OpenReleasePage ? copy.OpenReleasePagePendingLabel : copy.OpenReleasePageLabel;
+
+    internal string SaveSettingsActionDisplayLabel =>
+        pendingAction == LauncherUiAction.SaveSettings ? copy.SaveSettingsPendingLabel : copy.SaveSettingsLabel;
+
+    internal bool CanRunPrimaryAction =>
+        PrimaryAction switch
+        {
+            LauncherPrimaryAction.OpenWebUi => CanOpenWebUi,
+            LauncherPrimaryAction.StartService => CanStart,
+            _ => false,
+        };
+
     internal async Task InitializeAsync()
     {
-        await ExecuteAsync(copy.ActionLauncherInitialized, () => coordinator.InitializeAsync());
+        await ExecuteAsync(LauncherUiAction.Initialize, copy.ActionLauncherInitializing, copy.ActionLauncherInitialized, () => coordinator.InitializeAsync()).ConfigureAwait(false);
     }
 
     internal async Task RefreshAsync()
     {
-        await ExecuteAsync(null, () => coordinator.RefreshAsync());
+        await ExecuteAsync(LauncherUiAction.Refresh, null, null, () => coordinator.RefreshAsync()).ConfigureAwait(false);
     }
 
     internal async Task RetryAsync()
     {
-        await ExecuteAsync(copy.ActionHealthRetryFinished, () => coordinator.RetryAsync());
+        await ExecuteAsync(LauncherUiAction.Retry, copy.ActionHealthRetryPending, copy.ActionHealthRetryFinished, () => coordinator.RetryAsync()).ConfigureAwait(false);
     }
 
     internal async Task SaveSettingsAsync()
     {
         var settings = BuildSettings();
-        await ExecuteAsync(copy.ActionSettingsSaved, () => coordinator.SaveSettingsAsync(settings));
+        var saved = await ExecuteAsync(LauncherUiAction.SaveSettings, copy.ActionSettingsSaving, copy.ActionSettingsSaved, () => coordinator.SaveSettingsAsync(settings)).ConfigureAwait(false);
+        if (saved)
+        {
+            appliedSettings = settings;
+            SetSettingsEditing(false);
+        }
     }
 
     internal async Task StartAsync()
     {
-        await ExecuteAsync(copy.ActionStartFinished, () => coordinator.StartAsync());
+        await ExecuteAsync(LauncherUiAction.StartService, copy.ActionStartPending, copy.ActionStartFinished, () => coordinator.StartAsync()).ConfigureAwait(false);
     }
 
     internal async Task StopAsync()
     {
-        await ExecuteAsync(copy.ActionStopFinished, () => coordinator.StopAsync());
+        await ExecuteAsync(LauncherUiAction.StopService, copy.ActionStopPending, copy.ActionStopFinished, () => coordinator.StopAsync()).ConfigureAwait(false);
     }
 
     internal async Task OpenWebUiAsync()
     {
-        await ExecuteAsync(
-            copy.ActionWebOpened,
-            () => coordinator.OpenWebUiAsync());
+        await ExecuteAsync(LauncherUiAction.OpenWebUi, copy.ActionWebOpening, copy.ActionWebOpened, () => coordinator.OpenWebUiAsync()).ConfigureAwait(false);
     }
 
     internal async Task OpenLogsDirectoryAsync()
     {
-        await ExecuteAsync(copy.ActionLogsOpened, () => coordinator.OpenLogsDirectoryAsync());
+        await ExecuteAsync(LauncherUiAction.OpenLogs, copy.ActionLogsOpening, copy.ActionLogsOpened, () => coordinator.OpenLogsDirectoryAsync()).ConfigureAwait(false);
     }
 
     internal async Task OpenReleasePageAsync()
     {
-        await ExecuteAsync(copy.ActionReleasePageOpened, () => coordinator.OpenReleasePageAsync());
+        await ExecuteAsync(LauncherUiAction.OpenReleasePage, copy.ActionReleasePageOpening, copy.ActionReleasePageOpened, () => coordinator.OpenReleasePageAsync()).ConfigureAwait(false);
+    }
+
+    internal async Task RunPrimaryActionAsync()
+    {
+        switch (PrimaryAction)
+        {
+            case LauncherPrimaryAction.OpenWebUi:
+                await OpenWebUiAsync().ConfigureAwait(false);
+                break;
+            case LauncherPrimaryAction.StartService:
+                await StartAsync().ConfigureAwait(false);
+                break;
+        }
     }
 
     internal void SetActiveSection(LauncherSection section)
     {
         ActivateSection(section);
+    }
+
+    internal void NavigateToEnvironment()
+    {
+        ActivateSection(LauncherSection.Environment);
     }
 
     internal string ExternalStopConfirmTitle => copy.ExternalStopConfirmTitle;
@@ -375,6 +495,12 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal void SetOperationSummary(string message)
     {
+        if (!marshalToUiThread || Dispatcher.UIThread.CheckAccess())
+        {
+            OperationSummary = message;
+            return;
+        }
+
         Dispatcher.UIThread.Post(() => OperationSummary = message);
     }
 
@@ -384,23 +510,85 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsWindowNormal));
     }
 
-    private async Task ExecuteAsync(string? successMessage, Func<Task> action)
+    internal void BeginSettingsEditing()
     {
+        if (IsSettingsEditing)
+        {
+            return;
+        }
+
+        SetSettingsEditing(true);
+        SetOperationSummary(copy.ActionSettingsEditStarted);
+    }
+
+    internal void CancelSettingsEditing()
+    {
+        if (!IsSettingsEditing)
+        {
+            return;
+        }
+
+        if (appliedSettings is not null)
+        {
+            ServerExecutablePath = appliedSettings.ServerExecutablePath;
+            ConfigPath = appliedSettings.ConfigPath;
+            Workdir = appliedSettings.Workdir;
+            CloseToTrayEnabled = appliedSettings.CloseToTrayEnabled;
+            CloseTipAcknowledged = appliedSettings.CloseTipAcknowledged;
+        }
+
+        SetSettingsEditing(false);
+        SetOperationSummary(copy.ActionSettingsEditCanceled);
+    }
+
+    private void SetSettingsEditing(bool value)
+    {
+        IsSettingsEditing = value;
+        OnPropertyChanged(nameof(AreSettingsReadOnly));
+        OnPropertyChanged(nameof(CanSaveSettings));
+    }
+
+    private async Task<bool> ExecuteAsync(LauncherUiAction actionKind, string? pendingMessage, string? successMessage, Func<Task> action)
+    {
+        BeginAction(actionKind, pendingMessage);
         try
         {
-            await action().ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(pendingMessage))
+            {
+                await Task.Yield();
+            }
+
+            await action();
             if (!string.IsNullOrWhiteSpace(successMessage))
             {
                 SetOperationSummary(successMessage);
             }
+
+            return true;
         }
         catch (Exception ex)
         {
-            Dispatcher.UIThread.Post(() =>
+            if (!marshalToUiThread || Dispatcher.UIThread.CheckAccess())
             {
                 LastError = ex.Message;
+                HasLastError = !string.IsNullOrWhiteSpace(ex.Message);
                 OperationSummary = ex.Message;
-            });
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    LastError = ex.Message;
+                    HasLastError = !string.IsNullOrWhiteSpace(ex.Message);
+                    OperationSummary = ex.Message;
+                });
+            }
+
+            return false;
+        }
+        finally
+        {
+            ClearActionState();
         }
     }
 
@@ -417,15 +605,19 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     private void ApplySnapshot(LauncherSnapshot snapshot)
     {
-        ServerExecutablePath = snapshot.Settings.ServerExecutablePath;
-        ConfigPath = snapshot.Settings.ConfigPath;
-        Workdir = snapshot.Settings.Workdir;
+        appliedSettings = snapshot.Settings;
+        if (!IsSettingsEditing)
+        {
+            ServerExecutablePath = snapshot.Settings.ServerExecutablePath;
+            ConfigPath = snapshot.Settings.ConfigPath;
+            Workdir = snapshot.Settings.Workdir;
+        }
+
         CloseToTrayEnabled = snapshot.Settings.CloseToTrayEnabled;
         CloseTipAcknowledged = snapshot.Settings.CloseTipAcknowledged;
         StatusSummary = copy.FormatStatusSummary(snapshot.ServiceState);
         currentServiceState = snapshot.ServiceState;
         HeroTitle = copy.FormatHeroTitle(snapshot.ServiceState, snapshot.EnvironmentChecks);
-        SessionSummary = snapshot.SessionSummary;
         ServiceDetail = snapshot.ServiceDetail;
         LastError = snapshot.LastError;
         HasLastError = !string.IsNullOrWhiteSpace(snapshot.LastError);
@@ -435,31 +627,36 @@ internal sealed class MainWindowViewModel : ObservableObject
             ? copy.VersionUnavailableSummary
             : snapshot.ReleaseCheck.Summary;
         VersionDetail = snapshot.ReleaseCheck.Detail;
+        ProcessIdSummary = snapshot.ProcessId is int processId ? copy.FormatProcessId(processId) : string.Empty;
+        HasProcessId = snapshot.ProcessId is not null;
         HeroAccentBrush = snapshot.ServiceState switch
         {
-            LauncherServiceState.Ready => Brush.Parse("#3BE38D"),
-            LauncherServiceState.ExternalService => Brush.Parse("#68C3FF"),
-            LauncherServiceState.Degraded or LauncherServiceState.HealthOnly => Brush.Parse("#FFB84D"),
-            LauncherServiceState.Failed => Brush.Parse("#FF6B7D"),
-            LauncherServiceState.Starting or LauncherServiceState.ShuttingDown => Brush.Parse("#66D0FF"),
-            _ => Brush.Parse("#8DA6C8"),
+            LauncherServiceState.Ready => Brush.Parse("#22C55E"),
+            LauncherServiceState.ExternalService => Brush.Parse("#38BDF8"),
+            LauncherServiceState.Degraded or LauncherServiceState.HealthOnly => Brush.Parse("#F59E0B"),
+            LauncherServiceState.Failed => Brush.Parse("#EF4444"),
+            LauncherServiceState.Starting or LauncherServiceState.ShuttingDown => Brush.Parse("#38BDF8"),
+            _ => Brush.Parse("#94A3B8"),
         };
 
-        var primaryIssue = snapshot.EnvironmentChecks
+        var topIssue = snapshot.EnvironmentChecks
             .FirstOrDefault(item => item.Severity == CheckSeverity.Error) ??
             snapshot.EnvironmentChecks.FirstOrDefault(item => item.Severity == CheckSeverity.Warning);
-        HasPrimaryIssue = primaryIssue is not null;
-        PrimaryIssueTitle = primaryIssue?.Title ?? string.Empty;
-        PrimaryIssueSummary = primaryIssue?.Summary ?? string.Empty;
-        PrimaryIssueDetail = primaryIssue?.Detail ?? string.Empty;
-        PrimaryIssueRemediation = primaryIssue?.Remediation ?? string.Empty;
-        if (primaryIssue is null)
+        HasHomeAlert = topIssue is not null;
+        HomeAlertTitle = topIssue?.Title ?? copy.NoHomeAlertTitle;
+        HomeAlertMessage = topIssue?.Summary ?? string.Empty;
+        HomeAlertSeverity = topIssue?.Severity switch
         {
-            PrimaryIssueTitle = copy.NoPrimaryIssueTitle;
-            PrimaryIssueSummary = copy.NoPrimaryIssueSummary;
-            PrimaryIssueDetail = copy.NoPrimaryIssueDetail;
-            PrimaryIssueRemediation = string.Empty;
-        }
+            CheckSeverity.Error => InfoBarSeverity.Error,
+            CheckSeverity.Warning => InfoBarSeverity.Warning,
+            _ => InfoBarSeverity.Informational,
+        };
+
+        HasEnvironmentPackagingNotice =
+            snapshot.ReleaseCheck.Status is "unavailable" or "error" ||
+            snapshot.ReleaseCheck.Detail.Contains("build_info", StringComparison.OrdinalIgnoreCase);
+        EnvironmentPackagingSummary = VersionSummary;
+        EnvironmentPackagingDetail = VersionDetail;
 
         var hasBlockingIssue = snapshot.EnvironmentChecks.Any(item => item.Severity == CheckSeverity.Error);
         CanStart = !snapshot.ProcessRunning &&
@@ -470,11 +667,12 @@ internal sealed class MainWindowViewModel : ObservableObject
         CanOpenWebUi = snapshot.ServiceState is LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.ShuttingDown or LauncherServiceState.ExternalService;
         CanRetry = true;
         CanOpenReleasePage = !string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.ReleasePageUrl);
+        PrimaryAction = ResolvePrimaryAction(snapshot.ServiceState, canStart, canOpenWebUi);
 
         EnvironmentChecks.Clear();
         foreach (var item in snapshot.EnvironmentChecks)
         {
-            EnvironmentChecks.Add(new EnvironmentCheckViewModel(item, copy));
+            EnvironmentChecks.Add(new EnvironmentCheckViewModel(item, copy, snapshot.Settings));
         }
 
         RecentStderr.Clear();
@@ -497,12 +695,21 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(ReadyEnvironmentCheckCount));
         OnPropertyChanged(nameof(HasRecentStderr));
         OnPropertyChanged(nameof(HasNoRecentStderr));
-        OnPropertyChanged(nameof(HasNoPrimaryIssue));
-        OnPropertyChanged(nameof(IsSetupRequired));
-        OnPropertyChanged(nameof(IsNotSetupRequired));
+        OnPropertyChanged(nameof(HasHomeRecentStderr));
+        OnPropertyChanged(nameof(HasNoHomeRecentStderr));
+        OnPropertyChanged(nameof(HomeRecentStderr));
+        OnPropertyChanged(nameof(HasNoProcessId));
         OnPropertyChanged(nameof(IsExternalServiceDetected));
         OnPropertyChanged(nameof(RequiresExternalStopConfirmation));
         OnPropertyChanged(nameof(OpenWebUiActionLabel));
+        OnPropertyChanged(nameof(PrimaryActionLabel));
+        OnPropertyChanged(nameof(PrimaryActionDisplayLabel));
+        OnPropertyChanged(nameof(StopActionDisplayLabel));
+        OnPropertyChanged(nameof(RetryActionDisplayLabel));
+        OnPropertyChanged(nameof(OpenLogsActionDisplayLabel));
+        OnPropertyChanged(nameof(OpenReleasePageActionDisplayLabel));
+        OnPropertyChanged(nameof(SaveSettingsActionDisplayLabel));
+        OnPropertyChanged(nameof(CanRunPrimaryAction));
     }
 
     private void ActivateSection(LauncherSection section, bool updateSelection = true)
@@ -513,25 +720,16 @@ internal sealed class MainWindowViewModel : ObservableObject
         }
 
         ActiveSection = section;
-        foreach (var item in navigationItems)
-        {
-            item.SetActive(item.Section == section);
-            if (updateSelection && item.Section == section)
-            {
-                selectedNavigationItem = item;
-            }
-        }
-
         if (updateSelection)
         {
+            selectedNavigationItem = navigationItems.First(item => item.Section == section);
             OnPropertyChanged(nameof(SelectedNavigationItem));
         }
 
-        OnPropertyChanged(nameof(IsOverviewSectionActive));
-        OnPropertyChanged(nameof(IsServiceControlsSectionActive));
+        OnPropertyChanged(nameof(IsStatusSectionActive));
         OnPropertyChanged(nameof(IsEnvironmentSectionActive));
-        OnPropertyChanged(nameof(IsSettingsSectionActive));
         OnPropertyChanged(nameof(IsDiagnosticsSectionActive));
+        OnPropertyChanged(nameof(IsSettingsSectionActive));
     }
 
     private LauncherSettings BuildSettings()
@@ -543,21 +741,84 @@ internal sealed class MainWindowViewModel : ObservableObject
             CloseToTrayEnabled,
             false);
     }
+
+    private static LauncherPrimaryAction ResolvePrimaryAction(LauncherServiceState serviceState, bool canStart, bool canOpenWebUi)
+    {
+        if (canOpenWebUi &&
+            serviceState is LauncherServiceState.ExternalService or LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.ShuttingDown)
+        {
+            return LauncherPrimaryAction.OpenWebUi;
+        }
+
+        if (canStart)
+        {
+            return LauncherPrimaryAction.StartService;
+        }
+
+        return LauncherPrimaryAction.None;
+    }
+
+    private void BeginAction(LauncherUiAction actionKind, string? pendingMessage)
+    {
+        pendingAction = actionKind;
+        IsActionInProgress = actionKind != LauncherUiAction.None;
+        PendingActionMessage = pendingMessage ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(pendingMessage))
+        {
+            SetOperationSummary(pendingMessage);
+        }
+
+        NotifyActionStateChanged();
+    }
+
+    private void ClearActionState()
+    {
+        pendingAction = LauncherUiAction.None;
+        IsActionInProgress = false;
+        PendingActionMessage = string.Empty;
+        NotifyActionStateChanged();
+    }
+
+    private void NotifyActionStateChanged()
+    {
+        OnPropertyChanged(nameof(CanStart));
+        OnPropertyChanged(nameof(CanStop));
+        OnPropertyChanged(nameof(CanOpenWebUi));
+        OnPropertyChanged(nameof(CanRetry));
+        OnPropertyChanged(nameof(CanOpenReleasePage));
+        OnPropertyChanged(nameof(CanSaveSettings));
+        OnPropertyChanged(nameof(CanRunPrimaryAction));
+        OnPropertyChanged(nameof(PrimaryActionDisplayLabel));
+        OnPropertyChanged(nameof(StopActionDisplayLabel));
+        OnPropertyChanged(nameof(RetryActionDisplayLabel));
+        OnPropertyChanged(nameof(OpenLogsActionDisplayLabel));
+        OnPropertyChanged(nameof(OpenReleasePageActionDisplayLabel));
+        OnPropertyChanged(nameof(SaveSettingsActionDisplayLabel));
+    }
 }
 
-internal sealed class LauncherNavigationItemViewModel : ObservableObject
+internal enum LauncherUiAction
 {
-    private bool isActive;
-    private IBrush backgroundBrush = Brush.Parse("#112134");
-    private IBrush borderBrush = Brush.Parse("#243C54");
-    private IBrush titleBrush = Brush.Parse("#EAF3FF");
-    private IBrush summaryBrush = Brush.Parse("#A9BDD6");
+    None,
+    Initialize,
+    Refresh,
+    Retry,
+    StartService,
+    StopService,
+    OpenWebUi,
+    OpenLogs,
+    SaveSettings,
+    OpenReleasePage,
+}
 
-    internal LauncherNavigationItemViewModel(LauncherSection section, string title, string summary)
+internal sealed class LauncherNavigationItemViewModel
+{
+    internal LauncherNavigationItemViewModel(LauncherSection section, string title, string summary, bool isFooterItem)
     {
         Section = section;
         Title = title;
         Summary = summary;
+        IsFooterItem = isFooterItem;
     }
 
     internal LauncherSection Section { get; }
@@ -566,50 +827,14 @@ internal sealed class LauncherNavigationItemViewModel : ObservableObject
 
     internal string Summary { get; }
 
-    internal bool IsActive
-    {
-        get => isActive;
-        private set => SetProperty(ref isActive, value);
-    }
-
-    internal IBrush BackgroundBrush
-    {
-        get => backgroundBrush;
-        private set => SetProperty(ref backgroundBrush, value);
-    }
-
-    internal IBrush BorderBrush
-    {
-        get => borderBrush;
-        private set => SetProperty(ref borderBrush, value);
-    }
-
-    internal IBrush TitleBrush
-    {
-        get => titleBrush;
-        private set => SetProperty(ref titleBrush, value);
-    }
-
-    internal IBrush SummaryBrush
-    {
-        get => summaryBrush;
-        private set => SetProperty(ref summaryBrush, value);
-    }
-
-    internal void SetActive(bool active)
-    {
-        IsActive = active;
-        BackgroundBrush = active ? Brush.Parse("#1C3C5F") : Brush.Parse("#112134");
-        BorderBrush = active ? Brush.Parse("#69C0FF") : Brush.Parse("#243C54");
-        TitleBrush = Brush.Parse("#F7FBFF");
-        SummaryBrush = active ? Brush.Parse("#EDF7FF") : Brush.Parse("#A9BDD6");
-    }
+    internal bool IsFooterItem { get; }
 }
 
 internal sealed class EnvironmentCheckViewModel
 {
-    internal EnvironmentCheckViewModel(EnvironmentCheckResult check, LauncherCopy copy)
+    internal EnvironmentCheckViewModel(EnvironmentCheckResult check, LauncherCopy copy, LauncherSettings settings)
     {
+        Code = check.Code;
         Severity = check.Severity;
         Title = check.Title;
         Summary = check.Summary;
@@ -618,11 +843,14 @@ internal sealed class EnvironmentCheckViewModel
         SeverityLabel = copy.FormatSeverityLabel(check.Severity);
         AccentBrush = check.Severity switch
         {
-            CheckSeverity.Ok => Brush.Parse("#3BE38D"),
-            CheckSeverity.Warning => Brush.Parse("#FFB84D"),
-            _ => Brush.Parse("#FF6B7D"),
+            CheckSeverity.Ok => Brush.Parse("#22C55E"),
+            CheckSeverity.Warning => Brush.Parse("#F59E0B"),
+            _ => Brush.Parse("#EF4444"),
         };
+        LocationPath = ResolveLocationPath(check.Code, settings);
     }
+
+    internal string Code { get; }
 
     internal CheckSeverity Severity { get; }
 
@@ -637,4 +865,22 @@ internal sealed class EnvironmentCheckViewModel
     internal string SeverityLabel { get; }
 
     internal IBrush AccentBrush { get; }
+
+    internal string? LocationPath { get; }
+
+    internal bool HasLocationPath => !string.IsNullOrWhiteSpace(LocationPath);
+
+    private static string? ResolveLocationPath(string code, LauncherSettings settings)
+    {
+        return code switch
+        {
+            "server.executable" or "server.executable_missing" => Path.GetDirectoryName(settings.ServerExecutablePath),
+            "config.file" or "config.unreadable" or "config.bootstrap_available" or "config.missing" => Path.GetDirectoryName(settings.ConfigPath),
+            "workdir.ready" or "workdir.unwritable" => settings.Workdir,
+            "deps.manifest" or "deps.manifest_missing" or "deps.manifest_platform_missing" or "deps.manifest_invalid" => Path.Combine(settings.Workdir, ".deps"),
+            "deps.chromium" or "deps.chromium_missing" or "deps.chromium_invalid" or "deps.chromium_unknown" => Path.Combine(settings.Workdir, ".deps"),
+            "render.templates" or "render.templates_missing" or "render.templates_empty" => Path.Combine(settings.Workdir, "templates"),
+            _ => null,
+        };
+    }
 }

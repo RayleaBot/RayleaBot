@@ -298,10 +298,18 @@ internal sealed class FakeEnvironmentInspector : IEnvironmentInspector
     ],
     false,
     false);
+    internal TaskCompletionSource? InspectGate { get; set; }
 
-    public Task<EnvironmentInspection> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
+    public async Task<EnvironmentInspection> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
     {
-        return Task.FromResult(Inspection);
+        if (InspectGate is not null)
+        {
+            var gate = InspectGate;
+            InspectGate = null;
+            await gate.Task;
+        }
+
+        return Inspection;
     }
 }
 
@@ -390,10 +398,15 @@ internal sealed class FakeManagementClient : ILauncherManagementClient
 internal sealed class FakeProcessController : IServerProcessController
 {
     internal bool IsRunningValue { get; set; }
+    internal int? ProcessIdValue { get; set; } = 4242;
+    internal TaskCompletionSource? StartGate { get; set; }
+    internal TaskCompletionSource StartEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     internal int StartCalls { get; private set; }
     internal int ForceKillCalls { get; private set; }
 
     public bool IsRunning => IsRunningValue;
+
+    public int? ProcessId => IsRunningValue ? ProcessIdValue : null;
 
     public string LogDirectory => "C:\\RayleaBot\\logs";
 
@@ -406,7 +419,8 @@ internal sealed class FakeProcessController : IServerProcessController
     {
         StartCalls++;
         IsRunningValue = true;
-        return Task.CompletedTask;
+        StartEntered.TrySetResult();
+        return StartGate?.Task ?? Task.CompletedTask;
     }
 
     public Task ForceKillAsync(CancellationToken cancellationToken)

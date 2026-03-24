@@ -509,6 +509,7 @@ internal sealed class LauncherCoordinator(
             endpoint,
             checks,
             processController.GetRecentStderr(),
+            processRunning ? processController.ProcessId : null,
             serviceState,
             setupInitialized,
             processRunning,
