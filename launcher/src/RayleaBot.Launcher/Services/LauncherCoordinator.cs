@@ -247,25 +247,32 @@ internal sealed class LauncherCoordinator(
         {
             EnsureSettingsLoaded();
             var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
-            var initialized = false;
+            var uriBuilder = new UriBuilder(endpoint.BaseUri);
             try
             {
-                initialized = await managementClient.GetSetupInitializedAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                if (await managementClient.GetSetupInitializedAsync(endpoint, cancellationToken).ConfigureAwait(false))
+                {
+                    var launcherToken = await managementClient.IssueLauncherTokenAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                    uriBuilder.Query = $"token={Uri.EscapeDataString(launcherToken)}";
+                }
+                else
+                {
+                    uriBuilder.Query = string.Empty;
+                }
             }
             catch
             {
-                initialized = false;
-            }
-
-            var uriBuilder = new UriBuilder(endpoint.BaseUri);
-            if (initialized)
-            {
-                var launcherToken = await managementClient.IssueLauncherTokenAsync(endpoint, cancellationToken).ConfigureAwait(false);
-                uriBuilder.Query = $"token={Uri.EscapeDataString(launcherToken)}";
+                uriBuilder.Query = string.Empty;
             }
 
             await externalOpener.OpenUriAsync(uriBuilder.Uri, cancellationToken).ConfigureAwait(false);
-            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"已打开 {uriBuilder.Uri}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
+            await PublishSnapshotAsync(
+                snapshot with
+                {
+                    ServiceDetail = Copy.ActionWebOpened,
+                    LastError = string.Empty,
+                },
+                cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -303,7 +310,6 @@ internal sealed class LauncherCoordinator(
         var builder = new StringBuilder();
         builder.AppendLine($"服务状态：{Copy.FormatStatusSummary(snapshot.ServiceState)}");
         builder.AppendLine($"服务入口：{snapshot.Endpoint.BaseUri}");
-        builder.AppendLine($"会话状态：{snapshot.SessionSummary}");
         if (!string.IsNullOrWhiteSpace(snapshot.LastError))
         {
             builder.AppendLine($"最近错误：{snapshot.LastError}");
@@ -383,83 +389,23 @@ internal sealed class LauncherCoordinator(
             return;
         }
 
-        var initialized = await managementClient.GetSetupInitializedAsync(endpoint, cancellationToken).ConfigureAwait(false);
-        if (!initialized)
-        {
-            sessionToken = null;
-            await PublishSnapshotAsync(BuildSnapshot(
-                endpoint,
-                checks,
-                LauncherServiceState.SetupRequired,
-                processController.IsRunning,
-                false,
-                snapshot.ShutdownRequested,
-                Copy.NoLauncherSession,
-                "需要先在管理界面完成初始化。",
-                string.Empty), cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        try
-        {
-            var token = await EnsureSessionAsync(endpoint, cancellationToken).ConfigureAwait(false);
-            var systemStatus = await managementClient.GetSystemStatusAsync(endpoint, token, cancellationToken).ConfigureAwait(false);
-            await PublishSnapshotAsync(BuildSnapshot(
-                endpoint,
-                checks,
-                MapServiceState(systemStatus.Status),
-                processController.IsRunning,
-                true,
-                systemStatus.Status == "shutting_down",
-                "已连接启动器会话。",
-                BuildOperationalServiceDetail(systemStatus.Status, systemStatus.ActivePlugins, systemStatus.UptimeSeconds),
-                string.Empty), cancellationToken).ConfigureAwait(false);
-        }
-        catch (LauncherHttpStatusException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            sessionToken = null;
-            try
-            {
-                var token = await EnsureSessionAsync(endpoint, cancellationToken).ConfigureAwait(false);
-                var systemStatus = await managementClient.GetSystemStatusAsync(endpoint, token, cancellationToken).ConfigureAwait(false);
-                await PublishSnapshotAsync(BuildSnapshot(
-                    endpoint,
-                    checks,
-                    MapServiceState(systemStatus.Status),
-                    processController.IsRunning,
-                    true,
-                    systemStatus.Status == "shutting_down",
-                    "已重新建立启动器会话。",
-                    BuildOperationalServiceDetail(systemStatus.Status, systemStatus.ActivePlugins, systemStatus.UptimeSeconds),
-                    string.Empty), cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception inner)
-            {
-                await PublishSnapshotAsync(BuildSnapshot(
-                    endpoint,
-                    checks,
-                    LauncherServiceState.HealthOnly,
-                    processController.IsRunning,
-                    true,
-                    snapshot.ShutdownRequested,
-                    "启动器会话引导失败。",
-                    "管理会话不可用，但健康检查端点仍可访问。",
-                    inner.Message), cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (Exception ex)
-        {
-            await PublishSnapshotAsync(BuildSnapshot(
-                endpoint,
-                checks,
-                LauncherServiceState.HealthOnly,
-                processController.IsRunning,
-                true,
-                snapshot.ShutdownRequested,
-                "启动器会话引导失败。",
-                "管理会话不可用，但健康检查端点仍可访问。",
-                ex.Message), cancellationToken).ConfigureAwait(false);
-        }
+        sessionToken = null;
+        var state = snapshot.ShutdownRequested && processController.IsRunning
+            ? LauncherServiceState.ShuttingDown
+            : LauncherServiceState.Ready;
+        var detail = state == LauncherServiceState.ShuttingDown
+            ? "服务正在停止，请稍候。"
+            : "服务正在运行。";
+        await PublishSnapshotAsync(BuildSnapshot(
+            endpoint,
+            checks,
+            state,
+            processController.IsRunning,
+            false,
+            snapshot.ShutdownRequested,
+            string.Empty,
+            detail,
+            string.Empty), cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<string> EnsureSessionAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
@@ -562,36 +508,6 @@ internal sealed class LauncherCoordinator(
         }
 
         return $"{detail} {primaryIssue.Remediation}";
-    }
-
-    private static string BuildOperationalServiceDetail(string systemStatus, int activePlugins, long uptimeSeconds)
-    {
-        var pluginSummary = activePlugins > 0
-            ? $"已载入 {activePlugins} 个插件。"
-            : "当前没有活动插件。";
-
-        return systemStatus switch
-        {
-            "running" => $"服务已经可用。{pluginSummary} 运行时长 {uptimeSeconds} 秒。",
-            "shutting_down" => "服务正在停止，请稍候。",
-            "failed" => "服务运行异常，请查看诊断页。",
-            _ => "服务已经启动，管理状态正在同步。",
-        };
-    }
-
-    private static LauncherServiceState MapServiceState(string systemStatus)
-    {
-        if (string.Equals(systemStatus, "shutting_down", StringComparison.Ordinal))
-        {
-            return LauncherServiceState.ShuttingDown;
-        }
-
-        return systemStatus switch
-        {
-            "running" => LauncherServiceState.Ready,
-            "failed" => LauncherServiceState.Failed,
-            _ => LauncherServiceState.HealthOnly,
-        };
     }
 
     private void EnsureSettingsLoaded()

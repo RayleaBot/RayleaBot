@@ -8,7 +8,7 @@ namespace RayleaBot.Launcher.Tests;
 public sealed class LauncherCoordinatorTests
 {
     [TestMethod]
-    public async Task InitializeAsync_BootstrapsLauncherSessionAndReportsReady()
+    public async Task InitializeAsync_ReportsReadyWithoutLauncherSessionBootstrap()
     {
         var fixture = new LauncherFixture();
         fixture.ReleaseFeedClient.Snapshot = ReleaseCheckSnapshot.UpToDate("0.1.0", "https://example.invalid/releases/v0.1.0");
@@ -17,15 +17,14 @@ public sealed class LauncherCoordinatorTests
         await coordinator.InitializeAsync();
 
         Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
-        Assert.IsTrue(coordinator.Snapshot.SetupInitialized);
-        Assert.AreEqual(1, fixture.ManagementClient.IssueLauncherTokenCalls);
-        Assert.AreEqual(1, fixture.ManagementClient.AdmitLauncherTokenCalls);
-        Assert.AreEqual(1, fixture.ManagementClient.SystemStatusCalls);
+        Assert.AreEqual(0, fixture.ManagementClient.IssueLauncherTokenCalls);
+        Assert.AreEqual(0, fixture.ManagementClient.AdmitLauncherTokenCalls);
+        Assert.AreEqual(0, fixture.ManagementClient.SystemStatusCalls);
         Assert.AreEqual("up_to_date", coordinator.Snapshot.ReleaseCheck.Status);
     }
 
     [TestMethod]
-    public async Task InitializeAsync_LeavesSetupRequiredWithoutSessionBootstrap()
+    public async Task InitializeAsync_KeepsLauncherReadyWhenSetupIsStillRequired()
     {
         var fixture = new LauncherFixture();
         fixture.ManagementClient.SetupInitialized = false;
@@ -33,9 +32,10 @@ public sealed class LauncherCoordinatorTests
 
         await coordinator.InitializeAsync();
 
-        Assert.AreEqual(LauncherServiceState.SetupRequired, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
         Assert.AreEqual(0, fixture.ManagementClient.IssueLauncherTokenCalls);
         Assert.AreEqual(0, fixture.ManagementClient.AdmitLauncherTokenCalls);
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("初始化", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -93,19 +93,19 @@ public sealed class LauncherCoordinatorTests
     }
 
     [TestMethod]
-    public async Task RefreshAsync_ReauthenticatesAfterUnauthorizedSystemStatus()
+    public async Task RefreshAsync_DoesNotSurfaceLauncherSessionFailures()
     {
         var fixture = new LauncherFixture();
-        fixture.ManagementClient.SystemStatusResponses.Enqueue(new LauncherHttpStatusException(HttpStatusCode.Unauthorized, "expired"));
-        fixture.ManagementClient.SystemStatusResponses.Enqueue(new SystemStatusSnapshot("running", "connected", 2, 42));
+        fixture.ManagementClient.IssueLauncherTokenException = new LauncherHttpStatusException(HttpStatusCode.Unauthorized, "expired");
         var coordinator = fixture.CreateCoordinator();
         await coordinator.InitializeAsync();
 
         await coordinator.RefreshAsync();
 
         Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
-        Assert.AreEqual(2, fixture.ManagementClient.IssueLauncherTokenCalls);
-        Assert.AreEqual(2, fixture.ManagementClient.AdmitLauncherTokenCalls);
+        Assert.AreEqual(0, fixture.ManagementClient.SystemStatusCalls);
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("会话", StringComparison.Ordinal));
+        Assert.IsFalse(coordinator.Snapshot.LastError.Contains("expired", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -154,7 +154,7 @@ public sealed class LauncherCoordinatorTests
     }
 
     [TestMethod]
-    public async Task OpenWebUiAsync_UsesTokenOnlyForInitializedServers()
+    public async Task OpenWebUiAsync_AlwaysUsesRootAndAddsTokenOnlyWhenAvailable()
     {
         var initializedFixture = new LauncherFixture();
         var initializedCoordinator = initializedFixture.CreateCoordinator();
@@ -162,6 +162,7 @@ public sealed class LauncherCoordinatorTests
         await initializedCoordinator.OpenWebUiAsync();
 
         StringAssert.Contains(initializedFixture.ExternalOpener.OpenedUris.Single().ToString(), "?token=");
+        Assert.AreEqual("/", initializedFixture.ExternalOpener.OpenedUris.Single().AbsolutePath);
 
         var setupFixture = new LauncherFixture();
         setupFixture.ManagementClient.SetupInitialized = false;
@@ -171,6 +172,7 @@ public sealed class LauncherCoordinatorTests
 
         Assert.HasCount(1, setupFixture.ExternalOpener.OpenedUris);
         Assert.IsFalse(setupFixture.ExternalOpener.OpenedUris.Single().Query.Contains("token=", StringComparison.Ordinal));
+        Assert.AreEqual("/", setupFixture.ExternalOpener.OpenedUris.Single().AbsolutePath);
     }
 
     [TestMethod]
@@ -265,6 +267,7 @@ internal sealed class FakeManagementClient : ILauncherManagementClient
     internal string SessionToken { get; set; } = "session_fixture_token";
     internal SystemStatusSnapshot DefaultSystemStatus { get; set; } = new("running", "connected", 1, 60);
     internal Exception? ShutdownException { get; set; }
+    internal Exception? IssueLauncherTokenException { get; set; }
     internal int IssueLauncherTokenCalls { get; private set; }
     internal int AdmitLauncherTokenCalls { get; private set; }
     internal int SystemStatusCalls { get; private set; }
@@ -294,6 +297,10 @@ internal sealed class FakeManagementClient : ILauncherManagementClient
     public Task<string> IssueLauncherTokenAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
     {
         IssueLauncherTokenCalls++;
+        if (IssueLauncherTokenException is not null)
+        {
+            throw IssueLauncherTokenException;
+        }
         return Task.FromResult(LauncherToken);
     }
 

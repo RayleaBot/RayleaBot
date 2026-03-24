@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using RayleaBot.Launcher.Models;
 
 namespace RayleaBot.Launcher;
 
@@ -118,6 +119,21 @@ internal sealed partial class MainWindow : Window
     private async void OpenReleasePageClicked(object? sender, RoutedEventArgs e)
     {
         await ViewModel.OpenReleasePageAsync();
+    }
+
+    private void NavigationItemClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: LauncherSection section })
+        {
+            ViewModel.SetActiveSection(section);
+            return;
+        }
+
+        if (sender is Button { Tag: string sectionText } &&
+            Enum.TryParse<LauncherSection>(sectionText, out var parsedSection))
+        {
+            ViewModel.SetActiveSection(parsedSection);
+        }
     }
 
     private async void CopyDiagnosticsClicked(object? sender, RoutedEventArgs e)

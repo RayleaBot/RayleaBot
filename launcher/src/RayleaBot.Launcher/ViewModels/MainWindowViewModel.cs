@@ -16,9 +16,9 @@ internal sealed class MainWindowViewModel : ObservableObject
     private string serverExecutablePath = string.Empty;
     private string configPath = string.Empty;
     private string workdir = string.Empty;
-    private string statusSummary = "初始化中";
-    private string heroTitle = "正在检查本地环境";
-    private string sessionSummary = LauncherCopy.Default.NoLauncherSession;
+    private string statusSummary = "未启动";
+    private string heroTitle = "服务未启动";
+    private string sessionSummary = string.Empty;
     private string serviceDetail = string.Empty;
     private string lastError = string.Empty;
     private string diagnosticsSummary = string.Empty;
@@ -100,11 +100,11 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal bool IsDiagnosticsSectionActive => ActiveSection == LauncherSection.Diagnostics;
 
-    internal bool IsSetupRequired => currentServiceState == LauncherServiceState.SetupRequired;
+    internal bool IsSetupRequired => false;
 
-    internal bool IsNotSetupRequired => !IsSetupRequired;
+    internal bool IsNotSetupRequired => true;
 
-    internal string OpenWebUiActionLabel => IsSetupRequired ? copy.OpenInitializationLabel : copy.OpenWebUiLabel;
+    internal string OpenWebUiActionLabel => copy.OpenWebUiLabel;
 
     internal IEnumerable<EnvironmentCheckViewModel> BlockingEnvironmentChecks => EnvironmentChecks.Where(item => item.Severity == CheckSeverity.Error);
 
@@ -337,7 +337,9 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal async Task OpenWebUiAsync()
     {
-        await ExecuteAsync(copy.ActionWebOpened, () => coordinator.OpenWebUiAsync());
+        await ExecuteAsync(
+            copy.ActionWebOpened,
+            () => coordinator.OpenWebUiAsync());
     }
 
     internal async Task OpenLogsDirectoryAsync()
@@ -419,7 +421,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         HeroAccentBrush = snapshot.ServiceState switch
         {
             LauncherServiceState.Ready => Brush.Parse("#3BE38D"),
-            LauncherServiceState.Degraded or LauncherServiceState.SetupRequired or LauncherServiceState.HealthOnly => Brush.Parse("#FFB84D"),
+            LauncherServiceState.Degraded or LauncherServiceState.HealthOnly => Brush.Parse("#FFB84D"),
             LauncherServiceState.Failed => Brush.Parse("#FF6B7D"),
             LauncherServiceState.Starting or LauncherServiceState.ShuttingDown => Brush.Parse("#66D0FF"),
             _ => Brush.Parse("#8DA6C8"),
@@ -444,7 +446,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         var hasBlockingIssue = snapshot.EnvironmentChecks.Any(item => item.Severity == CheckSeverity.Error);
         CanStart = !snapshot.ProcessRunning && !hasBlockingIssue;
         CanStop = snapshot.ProcessRunning || snapshot.ServiceState is LauncherServiceState.Starting or LauncherServiceState.ShuttingDown;
-        CanOpenWebUi = snapshot.ServiceState is LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.SetupRequired or LauncherServiceState.ShuttingDown;
+        CanOpenWebUi = snapshot.ServiceState is LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.ShuttingDown;
         CanRetry = true;
         CanOpenReleasePage = !string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.ReleasePageUrl);
 
@@ -574,10 +576,10 @@ internal sealed class LauncherNavigationItemViewModel : ObservableObject
     internal void SetActive(bool active)
     {
         IsActive = active;
-        BackgroundBrush = active ? Brush.Parse("#183455") : Brush.Parse("#10203A");
-        BorderBrush = active ? Brush.Parse("#3BAFE8") : Brush.Parse("#22385C");
+        BackgroundBrush = active ? Brush.Parse("#173655") : Brush.Parse("#0D1A2D");
+        BorderBrush = active ? Brush.Parse("#3DB7F8") : Brush.Parse("#1A3046");
         TitleBrush = Brush.Parse("#F7FBFF");
-        SummaryBrush = active ? Brush.Parse("#BFE8FF") : Brush.Parse("#9EB3D1");
+        SummaryBrush = active ? Brush.Parse("#DDEEFF") : Brush.Parse("#B5C8DC");
     }
 }
 

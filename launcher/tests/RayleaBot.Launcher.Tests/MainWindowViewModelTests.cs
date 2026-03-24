@@ -15,8 +15,8 @@ public sealed class MainWindowViewModelTests
 
         Assert.AreEqual(LauncherSection.Overview, viewModel.ActiveSection);
         Assert.IsTrue(viewModel.IsOverviewSectionActive);
-        Assert.AreEqual("可用", viewModel.StatusSummary);
-        Assert.AreEqual("服务已经可用", viewModel.HeroTitle);
+        Assert.AreEqual("运行中", viewModel.StatusSummary);
+        Assert.AreEqual("服务正在运行", viewModel.HeroTitle);
         CollectionAssert.AreEqual(
             new[] { "总览", "服务控制", "环境检查", "设置", "诊断" },
             viewModel.NavigationItems.Select(item => item.Title).ToArray());
@@ -37,7 +37,7 @@ public sealed class MainWindowViewModelTests
     }
 
     [TestMethod]
-    public async Task InitializeAsync_UsesInitializationActionLabelWhenSetupIsRequired()
+    public async Task InitializeAsync_UsesOpenWebLabelEvenWhenSetupIsStillRequired()
     {
         var fixture = new LauncherFixture();
         fixture.ManagementClient.SetupInitialized = false;
@@ -45,8 +45,7 @@ public sealed class MainWindowViewModelTests
 
         await viewModel.InitializeAsync();
 
-        Assert.IsTrue(viewModel.IsSetupRequired);
-        Assert.IsFalse(viewModel.IsNotSetupRequired);
-        Assert.AreEqual("前往初始化", viewModel.OpenWebUiActionLabel);
+        Assert.AreEqual("打开管理界面", viewModel.OpenWebUiActionLabel);
+        Assert.AreEqual("运行中", viewModel.StatusSummary);
     }
 }

@@ -7,10 +7,10 @@ internal sealed class LauncherCopy
     internal static LauncherCopy Default { get; } = new();
 
     internal string WindowTitle => "RayleaBot 启动器";
-    internal string AppSubtitle => "启动、检查与恢复";
-    internal string TitleBarHint => "本地启动器";
+    internal string AppSubtitle => "本地服务";
+    internal string TitleBarHint => "启动、检查与打开管理界面";
     internal string SidebarTitle => "导航";
-    internal string SidebarSummary => "查看状态、操作、检查和诊断。";
+    internal string SidebarSummary => "查看状态、操作与诊断。";
 
     internal string OverviewTitle => "总览";
     internal string OverviewSummary => "状态与下一步";
@@ -19,29 +19,28 @@ internal sealed class LauncherCopy
     internal string EnvironmentTitle => "环境检查";
     internal string EnvironmentSummary => "阻塞项与提示项";
     internal string SettingsTitle => "设置";
-    internal string SettingsSummary => "本地路径与偏好";
+    internal string SettingsSummary => "本地启动路径与偏好";
     internal string DiagnosticsTitle => "诊断";
-    internal string DiagnosticsSummary => "日志与诊断摘要";
+    internal string DiagnosticsSummary => "错误输出与诊断";
 
     internal string HeroEyebrow => "当前状态";
     internal string StatusLabel => "当前状态";
     internal string EndpointLabel => "服务入口";
-    internal string SessionLabel => "会话状态";
     internal string OperationLabel => "最近操作";
     internal string VersionLabel => "版本检查";
     internal string PrimaryIssueLabel => "主要问题";
-    internal string SecondaryIssueLabel => "补充说明";
+    internal string SecondaryIssueLabel => "最近操作";
     internal string MainActionsTitle => "常用操作";
     internal string MainActionsSummary => "根据当前状态执行操作。";
     internal string NoPrimaryIssueTitle => "当前没有阻塞问题";
-    internal string NoPrimaryIssueSummary => "可以继续启动服务、打开管理界面或查看检查结果。";
-    internal string NoPrimaryIssueDetail => "更多信息可在环境检查和诊断中查看。";
+    internal string NoPrimaryIssueSummary => "当前没有阻塞项。";
+    internal string NoPrimaryIssueDetail => "可以继续操作，或查看环境检查了解更多信息。";
 
-    internal string OverviewIntro => "查看当前状态和下一步动作。";
-    internal string ControlsIntro => "根据当前状态执行启动、停止和常用操作。";
+    internal string OverviewIntro => "查看当前服务状态并继续下一步操作。";
+    internal string ControlsIntro => "启动、停止服务或打开管理界面。";
     internal string SettingsIntro => "这里只保存启动器本地路径与偏好。";
-    internal string EnvironmentIntro => "先处理阻塞项，再处理需注意项。";
-    internal string DiagnosticsIntro => "查看错误输出和诊断摘要。";
+    internal string EnvironmentIntro => "集中查看阻塞项、提示项和正常结果。";
+    internal string DiagnosticsIntro => "查看最近错误输出与诊断摘要。";
 
     internal string ServerExecutableLabel => "服务端可执行文件";
     internal string ConfigPathLabel => "用户配置路径";
@@ -53,13 +52,13 @@ internal sealed class LauncherCopy
     internal string CopyDiagnosticsLabel => "复制诊断";
     internal string OpenLogsDirectoryLabel => "打开日志目录";
     internal string OpenWebUiLabel => "打开管理界面";
-    internal string OpenInitializationLabel => "前往初始化";
+    internal string OpenInitializationLabel => "打开管理界面";
     internal string RetryHealthAuthLabel => "重试健康检查/鉴权";
     internal string OpenReleasePageLabel => "打开发布页";
     internal string StartServiceLabel => "启动服务";
     internal string StopServiceLabel => "停止服务";
     internal string CloseToTrayEnabledLabel => "关闭窗口时隐藏到托盘";
-    internal string NoLauncherSession => "无启动器会话。";
+    internal string NoLauncherSession => string.Empty;
     internal string TrayQuickPanelTitle => "托盘快捷操作";
     internal string TrayQuickPanelSummary => "恢复窗口或执行常用操作。";
     internal string RestoreLauncherLabel => "恢复窗口";
@@ -87,15 +86,16 @@ internal sealed class LauncherCopy
     internal string ExitCompletelyLabel => "完全退出";
 
     internal string VersionUnavailableSummary => "暂时无法检查版本";
-    internal string VersionUnavailableDetail => "当前运行没有附带版本包信息。";
+    internal string VersionUnavailableDetail => "当前开发运行没有版本包信息。";
     internal string VersionPageUnavailable => "当前运行没有可打开的发布页。";
 
-    internal string ActionLauncherInitialized => "启动器已初始化。";
-    internal string ActionHealthRetryFinished => "健康检查与鉴权已刷新。";
+    internal string ActionLauncherInitialized => "已完成本地检查。";
+    internal string ActionHealthRetryFinished => "已重新检查服务状态。";
     internal string ActionSettingsSaved => "启动器设置已保存。";
     internal string ActionStartFinished => "启动请求已完成。";
     internal string ActionStopFinished => "停止请求已完成。";
     internal string ActionWebOpened => "已在默认浏览器中打开管理界面。";
+    internal string ActionInitializationOpened => "已在默认浏览器中打开管理界面。";
     internal string ActionLogsOpened => "已打开日志目录。";
     internal string ActionReleasePageOpened => "已在默认浏览器中打开发布页。";
     internal string ActionDiagnosticsCopied => "诊断摘要已复制到剪贴板。";
@@ -107,10 +107,10 @@ internal sealed class LauncherCopy
         {
             LauncherServiceState.Stopped => "未启动",
             LauncherServiceState.Starting => "启动中",
-            LauncherServiceState.HealthOnly => "可用",
-            LauncherServiceState.Ready => "可用",
-            LauncherServiceState.Degraded => "可用",
-            LauncherServiceState.SetupRequired => "需初始化",
+            LauncherServiceState.HealthOnly => "运行中",
+            LauncherServiceState.Ready => "运行中",
+            LauncherServiceState.Degraded => "运行中",
+            LauncherServiceState.SetupRequired => "运行中",
             LauncherServiceState.ShuttingDown => "停止中",
             LauncherServiceState.Failed => "启动失败",
             _ => "未知状态",
@@ -128,10 +128,10 @@ internal sealed class LauncherCopy
         {
             LauncherServiceState.Stopped => "服务未启动",
             LauncherServiceState.Starting => "正在启动服务",
-            LauncherServiceState.HealthOnly => "服务已经可用",
-            LauncherServiceState.Ready => "服务已经可用",
-            LauncherServiceState.Degraded => "服务已经可用",
-            LauncherServiceState.SetupRequired => "先完成初始化",
+            LauncherServiceState.HealthOnly => "服务正在运行",
+            LauncherServiceState.Ready => "服务正在运行",
+            LauncherServiceState.Degraded => "服务正在运行",
+            LauncherServiceState.SetupRequired => "服务正在运行",
             LauncherServiceState.ShuttingDown => "正在停止服务",
             LauncherServiceState.Failed => "服务启动失败",
             _ => "启动器状态",
@@ -152,7 +152,7 @@ internal sealed class LauncherCopy
     internal string FormatReleaseUpdateAvailable(string currentVersion, string latestVersion) =>
         $"发现新版本：{currentVersion} -> {latestVersion}。";
 
-    internal string FormatReleaseFeedError() => "版本源暂时不可达。";
+    internal string FormatReleaseFeedError() => "暂时无法连接版本源。";
 
     internal string FormatDirectoryOpenFailed(string path) => $"无法打开目录：{path}";
 
