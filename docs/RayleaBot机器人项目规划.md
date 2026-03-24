@@ -2634,6 +2634,7 @@ Web 安全策略补充：
 - v0.1 允许少量并发管理会话，但应受控，例如默认不超过 3 个；超过上限时，平台应拒绝新会话或回收最旧会话，而不是无限叠加。
 - Launcher 附带的一次性 Token 只作为本机自动登录增强能力，不等价于长期管理 Session；完成校验后仍应换发标准管理会话。
 - Launcher 自动登录失败、令牌过期或 admission 校验未通过时，Web UI 不应白屏、死循环跳转或只返回裸 `401`。应直接回到普通登录页或初始化页，并给出简短可读提示。
+- 登录页与初始化页在提交失败时必须给出明确、可见的人类可读错误提示，不得只依赖控制台报错、toast 或无反馈静默失败。
 
 #### 3.9.4 Launcher（3.13）与 Web API 分工
 
@@ -3449,6 +3450,7 @@ Launcher 与 Server 通信机制：
 
 - Launcher 通过 `Process.Start` 启动 `raylea-server.exe`，并持有该进程句柄用于管理。
 - 服务运行状态检测：Launcher 启动服务后轮询 `GET /healthz` 检测服务是否存活，轮询间隔建议 `1-2 秒`。
+- 若本机管理入口已存在健康服务，但并非 Launcher 当前持有的子进程，Launcher 应显示“检测到现有服务”，允许用户直接打开管理界面或在明确确认后停止该服务；不得把这种场景误报为 Launcher 已接管的运行中实例。
 - 服务启动失败信息获取：Launcher 同时监听子进程 stderr 输出和启动超时；若 `/healthz` 在合理窗口内（如 30 秒）持续不可达，则判定为启动失败，并从 stderr 或日志文件尾部提取错误摘要展示给用户。
 - 打开 Web UI：Launcher 统一打开 `http://127.0.0.1:{port}/`；若服务已完成初始化，可先向服务端 `POST /api/session/launcher-token` 获取一次性 Token，并以 `?token={one_time_token}` 作为最佳努力自动登录参数附加到该入口。
 - 停止服务：Launcher 应优先调用本机 `POST /api/system/shutdown` 触发进程内优雅停机；若在合理窗口内无响应，再回退到操作系统层的终止 API 强制回收。Windows 平台不得把“发送 `SIGTERM`”视为可靠主路径。
