@@ -37,6 +37,7 @@ plugins/**/node_modules/
 /server/coverage.out
 /server/.coverprofile
 /server/.gocache
+.tmp/gocache
 
 # .NET build outputs.
 /launcher/bin/
