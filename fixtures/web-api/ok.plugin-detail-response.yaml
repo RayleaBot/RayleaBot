@@ -1,0 +1,29 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin detail returns the same trust/source metadata as the list surface.
+request:
+  method: GET
+  path: /api/plugins/weather
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      name: Weather
+      role: user
+      registration_state: installed
+      desired_state: enabled
+      runtime_state: running
+      display_state: running
+      source:
+        root: plugins/installed
+        package_source_type: local_zip
+        package_source_ref: C:/plugins/weather.zip
+        verified: false
+      trust:
+        level: unverified
+        label: 未验证来源
+      command_conflicts:
+        - weather
+expect:
+  valid: true

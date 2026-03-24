@@ -16,7 +16,7 @@ internal interface IServerEndpointResolver
 
 internal interface IEnvironmentInspector
 {
-    Task<IReadOnlyList<EnvironmentCheckResult>> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken);
+    Task<EnvironmentInspection> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken);
 }
 
 internal interface ILauncherManagementClient
@@ -49,11 +49,23 @@ internal interface IServerProcessController
     Task ForceKillAsync(CancellationToken cancellationToken);
 }
 
+internal interface IEndpointProcessController
+{
+    Task<bool> IsEndpointListeningAsync(ServerEndpoint endpoint, CancellationToken cancellationToken);
+
+    Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken);
+}
+
 internal interface IExternalOpener
 {
     Task OpenUriAsync(Uri uri, CancellationToken cancellationToken);
 
     Task OpenDirectoryAsync(string directoryPath, CancellationToken cancellationToken);
+}
+
+internal interface IReleaseFeedClient
+{
+    Task<ReleaseCheckSnapshot> GetSnapshotAsync(CancellationToken cancellationToken);
 }
 
 internal sealed record LauncherCoordinatorOptions(TimeSpan StartupTimeout, TimeSpan PollInterval, TimeSpan ShutdownTimeout)

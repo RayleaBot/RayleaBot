@@ -83,6 +83,34 @@ async function submitInstall() {
 
     <el-table class="desktop-table" :data="sortedItems" stripe @row-click="(row) => openDetail(row.id)">
       <el-table-column prop="id" label="Plugin ID" min-width="180" />
+      <el-table-column prop="name" label="Name" min-width="180" />
+      <el-table-column prop="role" label="Role" width="120" />
+      <el-table-column label="Trust" min-width="160">
+        <template #default="{ row }">
+          <div class="mono-list">
+            <strong>{{ row.trust?.label ?? '—' }}</strong>
+            <small>{{ row.source?.verified ? 'verified' : 'unverified' }}</small>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="Source" min-width="240">
+        <template #default="{ row }">
+          <div class="mono-list">
+            <div>{{ row.source?.root ?? '—' }}</div>
+            <small>{{ row.source?.package_source_ref ?? row.source?.package_source_type ?? '—' }}</small>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="Command Conflicts" min-width="180">
+        <template #default="{ row }">
+          <div v-if="row.command_conflicts?.length" class="table-actions">
+            <el-tag v-for="command in row.command_conflicts" :key="command" size="small" type="warning">
+              {{ command }}
+            </el-tag>
+          </div>
+          <span v-else>—</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="registration_state" label="Registration" width="140" />
       <el-table-column prop="desired_state" label="Desired" width="140" />
       <el-table-column prop="runtime_state" label="Runtime" width="140" />
@@ -107,13 +135,22 @@ async function submitInstall() {
     <div class="mobile-card-list">
       <el-card v-for="row in sortedItems" :key="row.id" class="mobile-data-card">
         <div class="mobile-data-header">
-          <strong>{{ row.id }}</strong>
+          <strong>{{ row.name }}</strong>
           <el-tag size="small">{{ row.runtime_state }}</el-tag>
         </div>
         <div class="mobile-data-grid">
+          <div><span>Plugin ID</span><strong>{{ row.id }}</strong></div>
+          <div><span>Role</span><strong>{{ row.role }}</strong></div>
           <div><span>Registration</span><strong>{{ row.registration_state }}</strong></div>
           <div><span>Desired</span><strong>{{ row.desired_state }}</strong></div>
           <div><span>Display</span><strong>{{ row.display_state ?? '—' }}</strong></div>
+          <div><span>Trust</span><strong>{{ row.trust?.label ?? '—' }}</strong></div>
+        </div>
+        <p class="mobile-data-copy">{{ row.source?.root ?? '—' }}</p>
+        <div v-if="row.command_conflicts?.length" class="table-actions">
+          <el-tag v-for="command in row.command_conflicts" :key="command" size="small" type="warning">
+            {{ command }}
+          </el-tag>
         </div>
         <div class="table-actions">
           <el-button size="small" plain @click="openDetail(row.id)">详情</el-button>

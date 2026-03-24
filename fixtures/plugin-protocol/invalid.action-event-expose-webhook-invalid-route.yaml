@@ -1,0 +1,19 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000424
+    plugin_id: repo-watcher
+    request_id: local_webhook_invalid_0001
+    action: event.expose_webhook
+    data:
+      route: ../github
+      methods:
+        - POST
+      auth_strategy: fixed_token
+      header: X-Webhook-Token
+      secret_ref: webhook.github.secret
+expect:
+  valid: false
+  reason: event.expose_webhook route must be a controlled short segment without path traversal.

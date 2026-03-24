@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000425
+    plugin_id: help-menu
+    request_id: local_render_invalid_0001
+    action: render.image
+    data:
+      data:
+        title: 帮助菜单
+expect:
+  valid: false
+  reason: render.image requires at least template and data.

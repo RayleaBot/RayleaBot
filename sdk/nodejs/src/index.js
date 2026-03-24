@@ -132,6 +132,84 @@ export function createPlugin() {
       return await requestLocalAction(pluginId, requestId, 'http.request', data, { timeoutMs });
     },
 
+    async configRead(requestId, keys, options = {}) {
+      if (!Array.isArray(keys) || keys.length === 0) {
+        throw new Error('configRead requires at least one key');
+      }
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'config.read', { keys }, { timeoutMs });
+    },
+
+    async configWrite(requestId, values, options = {}) {
+      if (!values || typeof values !== 'object' || Object.keys(values).length === 0) {
+        throw new Error('configWrite requires at least one key/value pair');
+      }
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'config.write', { values }, { timeoutMs });
+    },
+
+    async schedulerCreate(requestId, taskId, cron, options = {}) {
+      const { payload, timeoutMs = 30000 } = options;
+      const data = {
+        task_id: taskId,
+        cron,
+        event_type: 'scheduler.trigger',
+      };
+      if (payload !== undefined) {
+        data.payload = payload;
+      }
+      return await requestLocalAction(pluginId, requestId, 'scheduler.create', data, { timeoutMs });
+    },
+
+    async exposeWebhook(requestId, route, options = {}) {
+      const {
+        methods = ['POST'],
+        authStrategy = 'fixed_token',
+        header = 'X-Webhook-Token',
+        secretRef,
+        signaturePrefix,
+        sourceIps,
+        timeoutMs = 30000,
+      } = options;
+      if (!secretRef) {
+        throw new Error('exposeWebhook requires secretRef');
+      }
+      const data = {
+        route,
+        methods,
+        auth_strategy: authStrategy,
+        header,
+        secret_ref: secretRef,
+      };
+      if (signaturePrefix !== undefined) {
+        data.signature_prefix = signaturePrefix;
+      }
+      if (sourceIps !== undefined) {
+        data.source_ips = sourceIps;
+      }
+      return await requestLocalAction(pluginId, requestId, 'event.expose_webhook', data, { timeoutMs });
+    },
+
+    async renderImage(requestId, template, data, options = {}) {
+      const {
+        theme,
+        output,
+        fallbackText,
+        timeoutMs = 30000,
+      } = options;
+      const payload = { template, data };
+      if (theme !== undefined) {
+        payload.theme = theme;
+      }
+      if (output !== undefined) {
+        payload.output = output;
+      }
+      if (fallbackText !== undefined) {
+        payload.fallback_text = fallbackText;
+      }
+      return await requestLocalAction(pluginId, requestId, 'render.image', payload, { timeoutMs });
+    },
+
     async run() {
       for await (const frame of readFrames()) {
         const { type, plugin_id, request_id } = frame;

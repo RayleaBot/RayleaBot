@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 import RetryPanel from '@/components/RetryPanel.vue'
 import { formatDurationSeconds } from '@/lib/format'
 import { useSystemStore } from '@/stores/system'
 
+const router = useRouter()
 const systemStore = useSystemStore()
-const { error, health, loading, readiness, recentEvents, system } = storeToRefs(systemStore)
+const { backupPending, diagnosticsPending, error, health, loading, readiness, recentEvents, system } = storeToRefs(systemStore)
 
 async function refreshState() {
   try {
@@ -20,6 +23,25 @@ async function refreshState() {
 onMounted(() => {
   void refreshState()
 })
+
+async function createBackup() {
+  try {
+    const response = await systemStore.createBackup()
+    ElMessage.success('在线备份任务已接受')
+    await router.push({ name: 'tasks', query: { task_id: response.task_id } })
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'backup failed')
+  }
+}
+
+async function exportDiagnostics() {
+  try {
+    await systemStore.exportDiagnostics()
+    ElMessage.success('诊断包导出已开始')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'diagnostics export failed')
+  }
+}
 </script>
 
 <template>
@@ -31,9 +53,17 @@ onMounted(() => {
         <p>聚合 health、ready、system status 与 `/ws/events` 的管理摘要。</p>
       </div>
 
-      <el-button :loading="loading" @click="refreshState()">
-        刷新状态
-      </el-button>
+      <div class="table-actions">
+        <el-button :loading="loading" @click="refreshState()">
+          刷新状态
+        </el-button>
+        <el-button type="primary" plain :loading="backupPending" @click="createBackup">
+          创建在线备份
+        </el-button>
+        <el-button type="primary" plain :loading="diagnosticsPending" @click="exportDiagnostics">
+          导出诊断包
+        </el-button>
+      </div>
     </section>
 
     <RetryPanel

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, message.send/message.reply payloads with a shared outbound segment model, local logger.write/storage.kv/storage.file/http.request action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
+  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, message.send/message.reply payloads with a shared outbound segment model, local config/logger/storage/http/scheduler/webhook/render action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -627,10 +627,25 @@
           "$ref": "#/$defs/action_storage_kv"
         },
         {
+          "$ref": "#/$defs/action_config_read"
+        },
+        {
+          "$ref": "#/$defs/action_config_write"
+        },
+        {
           "$ref": "#/$defs/action_storage_file"
         },
         {
           "$ref": "#/$defs/action_http_request"
+        },
+        {
+          "$ref": "#/$defs/action_scheduler_create"
+        },
+        {
+          "$ref": "#/$defs/action_event_expose_webhook"
+        },
+        {
+          "$ref": "#/$defs/action_render_image"
         }
       ]
     },
@@ -1285,6 +1300,293 @@
         }
       ],
       "unevaluatedProperties": false
+    },
+    "action_config_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keys"
+      ],
+      "properties": {
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "action_config_write_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "values"
+      ],
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": true,
+          "minProperties": 1
+        }
+      }
+    },
+    "action_scheduler_create_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "cron",
+        "event_type"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cron": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "type": "string",
+          "const": "scheduler.trigger"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "action_event_expose_webhook_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route",
+        "methods",
+        "auth_strategy",
+        "header",
+        "secret_ref"
+      ],
+      "properties": {
+        "route": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,31})$"
+        },
+        "methods": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "POST"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "auth_strategy": {
+          "type": "string",
+          "enum": [
+            "fixed_token",
+            "hmac_sha256"
+          ]
+        },
+        "header": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signature_prefix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "secret_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ips": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "action_render_image_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "template",
+        "data"
+      ],
+      "properties": {
+        "template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "theme": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output": {
+          "type": "string",
+          "enum": [
+            "png",
+            "jpeg"
+          ]
+        },
+        "fallback_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "action_config_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "config.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_config_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_config_write": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "config.write"
+            },
+            "data": {
+              "$ref": "#/$defs/action_config_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_scheduler_create": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "scheduler.create"
+            },
+            "data": {
+              "$ref": "#/$defs/action_scheduler_create_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_event_expose_webhook": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "event.expose_webhook"
+            },
+            "data": {
+              "$ref": "#/$defs/action_event_expose_webhook_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_render_image": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "const": "render.image"
+            },
+            "data": {
+              "$ref": "#/$defs/action_render_image_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     }
   },
   "x-message-catalog": [
@@ -1410,6 +1712,38 @@
     },
     {
       "type": "action",
+      "action_kind": "config.read",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-config-read.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "config.write",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-config-write.yaml"
+    },
+    {
+      "type": "action",
       "action_kind": "storage.file",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request_distinct_from_event",
@@ -1439,6 +1773,54 @@
         "data"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.action-http-request.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "scheduler.create",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-scheduler-create.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "event.expose_webhook",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-event-expose-webhook.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "render.image",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-render-image.yaml"
     },
     {
       "type": "result",
@@ -1523,6 +1905,8 @@
     "fixtures/plugin-protocol/ok.action-storage-kv-set.yaml",
     "fixtures/plugin-protocol/ok.action-storage-kv-delete.yaml",
     "fixtures/plugin-protocol/ok.action-storage-kv-list.yaml",
+    "fixtures/plugin-protocol/ok.action-config-read.yaml",
+    "fixtures/plugin-protocol/ok.action-config-write.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-read.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-write-text.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-write-base64.yaml",
@@ -1530,6 +1914,9 @@
     "fixtures/plugin-protocol/ok.action-storage-file-list.yaml",
     "fixtures/plugin-protocol/ok.action-http-request.yaml",
     "fixtures/plugin-protocol/ok.action-http-request-base64.yaml",
+    "fixtures/plugin-protocol/ok.action-scheduler-create.yaml",
+    "fixtures/plugin-protocol/ok.action-event-expose-webhook.yaml",
+    "fixtures/plugin-protocol/ok.action-render-image.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
@@ -1537,14 +1924,24 @@
     "fixtures/plugin-protocol/edge.action-message-reply-fallback-to-send.yaml",
     "fixtures/plugin-protocol/edge.action-storage-file-read-result.yaml",
     "fixtures/plugin-protocol/edge.action-http-request-result.yaml",
+    "fixtures/plugin-protocol/edge.action-config-read-result.yaml",
+    "fixtures/plugin-protocol/edge.action-config-write-result.yaml",
+    "fixtures/plugin-protocol/edge.action-scheduler-create-result.yaml",
+    "fixtures/plugin-protocol/edge.action-event-expose-webhook-result.yaml",
+    "fixtures/plugin-protocol/edge.action-render-image-result.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml",
     "fixtures/plugin-protocol/invalid.action-logger-write-missing-message.yaml",
     "fixtures/plugin-protocol/invalid.action-storage-kv-missing-key.yaml",
+    "fixtures/plugin-protocol/invalid.action-config-read-empty-keys.yaml",
+    "fixtures/plugin-protocol/invalid.action-config-write-empty-values.yaml",
     "fixtures/plugin-protocol/invalid.action-storage-file-path-escape.yaml",
     "fixtures/plugin-protocol/invalid.action-storage-file-mixed-content.yaml",
     "fixtures/plugin-protocol/invalid.action-http-request-get-with-body.yaml",
     "fixtures/plugin-protocol/invalid.action-http-request-invalid-method.yaml",
+    "fixtures/plugin-protocol/invalid.action-scheduler-create-missing-cron.yaml",
+    "fixtures/plugin-protocol/invalid.action-event-expose-webhook-invalid-route.yaml",
+    "fixtures/plugin-protocol/invalid.action-render-image-missing-template.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-unsupported-segment.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
@@ -1554,5 +1951,5 @@
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply and local-action RPC logger.write/storage.kv/storage.file/http.request. message.* use the shared outbound segment model; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. Ping/pong remain the minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and wider action families remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply and local-action RPC logger.write/storage.kv/config.read/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image. message.* use the shared outbound segment model; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and wider action families remain out of scope."
 }

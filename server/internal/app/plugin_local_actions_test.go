@@ -8,14 +8,19 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"rayleabot/server/internal/config"
+	"rayleabot/server/internal/dispatch"
+	"rayleabot/server/internal/pluginconfig"
 	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/runtime"
+	"rayleabot/server/internal/scheduler"
 	"rayleabot/server/internal/storage"
 )
 
@@ -160,6 +165,268 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	}
 }
 
+func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	defer store.Close()
+
+	repo, err := pluginconfig.NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("NewSQLiteRepository: %v", err)
+	}
+
+	application := &App{
+		Config: config.Config{
+			Auth: config.AuthConfig{
+				AutoGrantCapabilities: []string{"config.read", "config.write"},
+			},
+		},
+		Logger:           slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		pluginConfig:     repo,
+		grantRepository:  &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{
+		"default_city": "北京",
+		"unit":         "celsius",
+	}); err != nil {
+		t.Fatalf("SeedDefaults: %v", err)
+	}
+
+	readResult, err := application.executeLocalAction(context.Background(), "weather", "req_config_1", runtime.Action{
+		Kind:       "config.read",
+		ConfigKeys: []string{"default_city", "unit", "missing"},
+	})
+	if err != nil {
+		t.Fatalf("config.read failed: %v", err)
+	}
+	values, _ := readResult["values"].(map[string]any)
+	if values["default_city"] != "北京" || values["unit"] != "celsius" {
+		t.Fatalf("unexpected config.read values: %#v", values)
+	}
+	if _, ok := values["missing"]; ok {
+		t.Fatalf("missing key should not be returned: %#v", values)
+	}
+
+	writeResult, err := application.executeLocalAction(context.Background(), "weather", "req_config_2", runtime.Action{
+		Kind: "config.write",
+		ConfigValues: map[string]any{
+			"default_city": "上海",
+			"unit":         "fahrenheit",
+		},
+	})
+	if err != nil {
+		t.Fatalf("config.write failed: %v", err)
+	}
+	changedKeys, _ := writeResult["changed_keys"].([]string)
+	if len(changedKeys) != 2 || changedKeys[0] != "default_city" || changedKeys[1] != "unit" {
+		t.Fatalf("unexpected changed_keys: %#v", writeResult["changed_keys"])
+	}
+
+	readResult, err = application.executeLocalAction(context.Background(), "weather", "req_config_3", runtime.Action{
+		Kind:       "config.read",
+		ConfigKeys: []string{"default_city", "unit"},
+	})
+	if err != nil {
+		t.Fatalf("config.read second call failed: %v", err)
+	}
+	values, _ = readResult["values"].(map[string]any)
+	if values["default_city"] != "上海" || values["unit"] != "fahrenheit" {
+		t.Fatalf("unexpected updated config values: %#v", values)
+	}
+}
+
+func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
+	t.Parallel()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	defer store.Close()
+
+	repo, err := pluginconfig.NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("NewSQLiteRepository: %v", err)
+	}
+
+	application := &App{
+		Config: config.Config{
+			Auth: config.AuthConfig{
+				AutoGrantCapabilities: []string{"config.write"},
+			},
+		},
+		Logger:          slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		pluginConfig:    repo,
+		Dispatcher:      dispatch.New(slog.Default(), nil, nil, 16),
+		grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
+	application.Dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil)
+
+	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", runtime.Action{
+		Kind: "config.write",
+		ConfigValues: map[string]any{
+			"default_city": "上海",
+		},
+	}); err != nil {
+		t.Fatalf("config.write failed: %v", err)
+	}
+
+	select {
+	case event := <-fakeRuntime.events:
+		if event.EventType != "config.changed" {
+			t.Fatalf("unexpected config.changed event: %#v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected config.changed event")
+	}
+}
+
+func TestExecuteSchedulerCreateUpsert(t *testing.T) {
+	t.Parallel()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	defer store.Close()
+
+	repo, err := scheduler.NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("NewSQLiteRepository: %v", err)
+	}
+	engine, err := scheduler.New(scheduler.Options{
+		Repository: repo,
+		Logger:     slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	})
+	if err != nil {
+		t.Fatalf("scheduler.New: %v", err)
+	}
+
+	application := &App{
+		Config: config.Config{
+			Auth: config.AuthConfig{
+				AutoGrantCapabilities: []string{"scheduler.create"},
+			},
+		},
+		Logger:          slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		Scheduler:       engine,
+		grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	first, err := application.executeLocalAction(context.Background(), "weather", "req_sched_1", runtime.Action{
+		Kind:               "scheduler.create",
+		SchedulerTaskID:    "daily_report",
+		SchedulerCron:      "0 8 * * *",
+		SchedulerEventType: "scheduler.trigger",
+		SchedulerPayload: map[string]any{
+			"topic": "daily_report",
+		},
+	})
+	if err != nil {
+		t.Fatalf("first scheduler.create failed: %v", err)
+	}
+	if first["task_id"] != "daily_report" {
+		t.Fatalf("unexpected task_id: %#v", first["task_id"])
+	}
+	if _, ok := first["next_run"].(string); !ok {
+		t.Fatalf("expected next_run string, got %#v", first["next_run"])
+	}
+
+	second, err := application.executeLocalAction(context.Background(), "weather", "req_sched_2", runtime.Action{
+		Kind:               "scheduler.create",
+		SchedulerTaskID:    "daily_report",
+		SchedulerCron:      "30 9 * * *",
+		SchedulerEventType: "scheduler.trigger",
+		SchedulerPayload: map[string]any{
+			"topic": "daily_report_v2",
+		},
+	})
+	if err != nil {
+		t.Fatalf("second scheduler.create failed: %v", err)
+	}
+	if second["task_id"] != "daily_report" {
+		t.Fatalf("unexpected second task_id: %#v", second["task_id"])
+	}
+
+	jobs := engine.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("len(jobs) = %d, want 1", len(jobs))
+	}
+	if jobs[0].JobID != "daily_report" || jobs[0].CronExpr != "30 9 * * *" {
+		t.Fatalf("unexpected upserted job: %#v", jobs[0])
+	}
+}
+
+func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
+	t.Parallel()
+
+	application := &App{
+		Config: config.Config{
+			Server: config.ServerConfig{
+				Host: "127.0.0.1",
+				Port: 8080,
+			},
+			Auth: config.AuthConfig{
+				AutoGrantCapabilities: []string{"event.expose_webhook"},
+			},
+		},
+		Logger:          slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		webhooks:        newPluginWebhookRegistry(),
+		grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	application.grantRepository = &stubLifecycleGrantRepository{
+		grants: map[string][]plugins.PluginGrant{
+			"repo-watcher": {{
+				PluginID:   "repo-watcher",
+				Capability: "event.expose_webhook",
+				ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret","source_ips":["192.0.2.0/24"]}]}`,
+			}},
+		},
+	}
+
+	result, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_1", runtime.Action{
+		Kind:                   "event.expose_webhook",
+		WebhookRoute:           "github",
+		WebhookMethods:         []string{"POST"},
+		WebhookAuthStrategy:    "hmac_sha256",
+		WebhookHeader:          "X-Hub-Signature-256",
+		WebhookSecretRef:       "webhook.github.secret",
+		WebhookSignaturePrefix: "sha256=",
+	})
+	if err != nil {
+		t.Fatalf("event.expose_webhook failed: %v", err)
+	}
+	if result["route"] != "github" {
+		t.Fatalf("unexpected route result: %#v", result)
+	}
+	urlValue, _ := result["url"].(string)
+	if urlValue != "http://127.0.0.1:8080/api/webhooks/repo-watcher/github" {
+		t.Fatalf("unexpected webhook url: %#v", urlValue)
+	}
+
+	registration, ok := application.webhooks.Get("repo-watcher", "github")
+	if !ok {
+		t.Fatal("expected webhook registration to be stored")
+	}
+	if registration.AuthStrategy != "hmac_sha256" || registration.SecretRef != "webhook.github.secret" {
+		t.Fatalf("unexpected webhook registration: %#v", registration)
+	}
+	if len(registration.SourceIPs) != 1 || registration.SourceIPs[0] != "192.0.2.0/24" {
+		t.Fatalf("unexpected webhook source IPs: %#v", registration.SourceIPs)
+	}
+}
+
 func TestExecuteStorageFileRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -257,6 +524,54 @@ func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
 		StoragePath:      "cache/example.txt",
 	})
 	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+}
+
+func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
+	t.Parallel()
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	application := &App{
+		Config: config.Config{
+			Auth: config.AuthConfig{
+				AutoGrantCapabilities: []string{"render.image"},
+			},
+		},
+		Logger:          slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		renderer:        newRenderService(renderRoot),
+		grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+	}
+	application.pluginLifecycle = newPluginLifecycleController(application)
+
+	result, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_1", runtime.Action{
+		Kind:               "render.image",
+		RenderTemplate:     "help.menu",
+		RenderTheme:        "default",
+		RenderOutput:       "png",
+		RenderFallbackText: "帮助菜单暂时不可用。",
+		RenderData: map[string]any{
+			"title": "帮助菜单",
+		},
+	})
+	if err != nil {
+		t.Fatalf("render.image failed: %v", err)
+	}
+	if result["mime"] != "image/png" {
+		t.Fatalf("unexpected render mime: %#v", result["mime"])
+	}
+	imagePath, ok := result["image_path"].(string)
+	if !ok || imagePath == "" {
+		t.Fatalf("unexpected render image path: %#v", result["image_path"])
+	}
+	parsed, err := url.Parse(imagePath)
+	if err != nil || parsed.Scheme != "file" {
+		t.Fatalf("unexpected file url %q: %v", imagePath, err)
+	}
+	if _, err := filepath.Abs(filepath.FromSlash(parsed.Path)); err != nil {
+		t.Fatalf("unexpected render file path: %v", err)
+	}
+	if cacheKey, ok := result["cache_key"].(string); !ok || cacheKey == "" {
+		t.Fatalf("unexpected cache key: %#v", result["cache_key"])
+	}
 }
 
 func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {

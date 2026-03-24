@@ -10,6 +10,10 @@
   "license": "MIT",
   "description": "Python example plugin demonstrating scoped http.request and storage.file usage.",
   "author": "raylea",
+  "role": "example",
+  "default_config": {
+    "cache_file": "example-homepage.txt"
+  },
   "capabilities": [
     "event.subscribe",
     "logger.write"

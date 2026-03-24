@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Online backup submits an asynchronous backup.create task.
+request:
+  method: POST
+  path: /api/system/backup
+response:
+  status: 202
+  body:
+    task_id: task_backup_create_0001
+expect:
+  valid: true

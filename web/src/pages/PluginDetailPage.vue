@@ -147,10 +147,23 @@ onUnmounted(() => {
 
         <el-skeleton :loading="detailLoading" animated>
           <el-descriptions :column="1" border>
+            <el-descriptions-item label="Name">{{ current?.name ?? '—' }}</el-descriptions-item>
+            <el-descriptions-item label="Role">{{ current?.role ?? '—' }}</el-descriptions-item>
             <el-descriptions-item label="Registration">{{ current?.registration_state ?? '—' }}</el-descriptions-item>
             <el-descriptions-item label="Desired">{{ current?.desired_state ?? '—' }}</el-descriptions-item>
             <el-descriptions-item label="Runtime">{{ current?.runtime_state ?? '—' }}</el-descriptions-item>
             <el-descriptions-item label="Display">{{ current?.display_state ?? '—' }}</el-descriptions-item>
+            <el-descriptions-item label="Trust">{{ current?.trust?.label ?? '—' }}</el-descriptions-item>
+            <el-descriptions-item label="Source Root">{{ current?.source?.root ?? '—' }}</el-descriptions-item>
+            <el-descriptions-item label="Source Ref">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? '—' }}</el-descriptions-item>
+            <el-descriptions-item label="命令冲突">
+              <div v-if="current?.command_conflicts?.length" class="table-actions">
+                <el-tag v-for="command in current.command_conflicts" :key="command" size="small" type="warning">
+                  {{ command }}
+                </el-tag>
+              </div>
+              <span v-else>—</span>
+            </el-descriptions-item>
           </el-descriptions>
         </el-skeleton>
       </el-card>

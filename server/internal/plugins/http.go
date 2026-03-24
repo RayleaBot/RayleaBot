@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -33,11 +34,28 @@ type errorBody struct {
 }
 
 type pluginSummaryResponse struct {
-	ID                string `json:"id"`
-	RegistrationState string `json:"registration_state"`
-	DesiredState      string `json:"desired_state"`
-	RuntimeState      string `json:"runtime_state"`
-	DisplayState      string `json:"display_state,omitempty"`
+	ID                string               `json:"id"`
+	Name              string               `json:"name"`
+	Role              string               `json:"role"`
+	RegistrationState string               `json:"registration_state"`
+	DesiredState      string               `json:"desired_state"`
+	RuntimeState      string               `json:"runtime_state"`
+	DisplayState      string               `json:"display_state,omitempty"`
+	Source            pluginSourceResponse `json:"source"`
+	Trust             pluginTrustResponse  `json:"trust"`
+	CommandConflicts  []string             `json:"command_conflicts"`
+}
+
+type pluginSourceResponse struct {
+	Root              string `json:"root"`
+	PackageSourceType string `json:"package_source_type,omitempty"`
+	PackageSourceRef  string `json:"package_source_ref,omitempty"`
+	Verified          bool   `json:"verified"`
+}
+
+type pluginTrustResponse struct {
+	Level string `json:"level"`
+	Label string `json:"label"`
 }
 
 type pluginListResponse struct {
@@ -111,7 +129,7 @@ func newEnableHandler(catalog *Catalog, repo DesiredStateRepository, controller 
 		if controller != nil {
 			snapshot, err := controller.Enable(r.Context(), pluginID)
 			if err == nil {
-				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
 				return
 			}
 			writeDesiredStateError(w, r, pluginID, err)
@@ -129,7 +147,7 @@ func newEnableHandler(catalog *Catalog, repo DesiredStateRepository, controller 
 		}
 		snapshot, err := catalog.SetDesiredState(pluginID, "enabled")
 		if err == nil {
-			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
@@ -142,7 +160,7 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository, controller
 		if controller != nil {
 			snapshot, err := controller.Disable(r.Context(), pluginID)
 			if err == nil {
-				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
 				return
 			}
 			writeDesiredStateError(w, r, pluginID, err)
@@ -160,7 +178,7 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository, controller
 		}
 		snapshot, err := catalog.SetDesiredState(pluginID, "disabled")
 		if err == nil {
-			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
@@ -176,7 +194,7 @@ func newReloadHandler(catalog *Catalog, controller DesiredStateController) http.
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
 		if err == nil {
-			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
@@ -422,9 +440,10 @@ func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID str
 func newListHandler(catalog *Catalog) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		snapshots := catalog.List()
+		conflicts := detectCommandConflicts(snapshots)
 		items := make([]pluginSummaryResponse, 0, len(snapshots))
 		for _, snapshot := range snapshots {
-			items = append(items, toPluginSummary(snapshot))
+			items = append(items, toPluginSummary(snapshot, conflicts[snapshot.PluginID]))
 		}
 
 		writeJSON(w, http.StatusOK, pluginListResponse{Items: items})
@@ -477,18 +496,144 @@ func newDetailHandler(catalog *Catalog) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: toPluginSummary(snapshot)})
+		writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
 	}
 }
 
-func toPluginSummary(snapshot Snapshot) pluginSummaryResponse {
+func buildPluginSummary(catalog *Catalog, snapshot Snapshot) pluginSummaryResponse {
+	if catalog == nil {
+		return toPluginSummary(snapshot, nil)
+	}
+	conflicts := detectCommandConflicts(catalog.List())
+	return toPluginSummary(snapshot, conflicts[snapshot.PluginID])
+}
+
+func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryResponse {
+	role := effectivePluginRole(snapshot)
 	return pluginSummaryResponse{
 		ID:                snapshot.PluginID,
+		Name:              pluginDisplayName(snapshot),
+		Role:              role,
 		RegistrationState: snapshot.RegistrationState,
 		DesiredState:      snapshot.DesiredState,
 		RuntimeState:      snapshot.RuntimeState,
 		DisplayState:      snapshot.DisplayState,
+		Source:            buildPluginSource(snapshot),
+		Trust:             buildPluginTrust(role, snapshot),
+		CommandConflicts:  normalizeConflictList(conflicts),
 	}
+}
+
+func normalizeConflictList(conflicts []string) []string {
+	if len(conflicts) == 0 {
+		return []string{}
+	}
+	return append([]string(nil), conflicts...)
+}
+
+func pluginDisplayName(snapshot Snapshot) string {
+	if strings.TrimSpace(snapshot.Name) != "" {
+		return snapshot.Name
+	}
+	return snapshot.PluginID
+}
+
+func effectivePluginRole(snapshot Snapshot) string {
+	if strings.TrimSpace(snapshot.Role) != "" {
+		return snapshot.Role
+	}
+	switch snapshot.SourceRoot {
+	case "plugins/builtin":
+		return "builtin"
+	case "examples/plugins":
+		return "example"
+	case "plugins/dev":
+		return "dev"
+	default:
+		return "user"
+	}
+}
+
+func buildPluginSource(snapshot Snapshot) pluginSourceResponse {
+	root := snapshot.SourceRoot
+	if root == "" && len(snapshot.SourceRoots) > 0 {
+		root = snapshot.SourceRoots[0]
+	}
+	return pluginSourceResponse{
+		Root:              root,
+		PackageSourceType: snapshot.PackageSourceType,
+		PackageSourceRef:  snapshot.PackageSourceRef,
+		Verified:          isVerifiedPluginSource(snapshot),
+	}
+}
+
+func isVerifiedPluginSource(snapshot Snapshot) bool {
+	switch snapshot.SourceRoot {
+	case "plugins/builtin", "examples/plugins", "plugins/dev":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildPluginTrust(role string, snapshot Snapshot) pluginTrustResponse {
+	switch role {
+	case "builtin":
+		return pluginTrustResponse{Level: "official", Label: "官方"}
+	case "dev":
+		return pluginTrustResponse{Level: "development", Label: "开发中"}
+	case "example":
+		return pluginTrustResponse{Level: "third_party", Label: "示例"}
+	default:
+		if snapshot.PackageSourceType == "local_zip" || snapshot.PackageSourceType == "remote_url" {
+			return pluginTrustResponse{Level: "unverified", Label: "未验证来源"}
+		}
+		return pluginTrustResponse{Level: "third_party", Label: "第三方"}
+	}
+}
+
+func detectCommandConflicts(snapshots []Snapshot) map[string][]string {
+	owners := make(map[string]map[string]struct{})
+	for _, snapshot := range snapshots {
+		if !snapshot.Valid || snapshot.RegistrationState != "installed" {
+			continue
+		}
+		seen := make(map[string]struct{})
+		for _, command := range snapshot.Commands {
+			addConflictToken(seen, command.Name)
+			for _, alias := range command.Aliases {
+				addConflictToken(seen, alias)
+			}
+		}
+		for token := range seen {
+			if owners[token] == nil {
+				owners[token] = make(map[string]struct{})
+			}
+			owners[token][snapshot.PluginID] = struct{}{}
+		}
+	}
+
+	conflicts := make(map[string][]string)
+	for token, pluginIDs := range owners {
+		if len(pluginIDs) < 2 {
+			continue
+		}
+		for pluginID := range pluginIDs {
+			conflicts[pluginID] = append(conflicts[pluginID], token)
+		}
+	}
+	for pluginID := range conflicts {
+		sort.Strings(conflicts[pluginID])
+	}
+	return conflicts
+}
+
+func addConflictToken(tokens map[string]struct{}, raw string) {
+	token := strings.ToLower(strings.TrimSpace(raw))
+	if token == "" {
+		return
+	}
+	tokens[token] = struct{}{}
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string, details map[string]any) {
@@ -521,9 +666,9 @@ func isCapabilityDeclared(snapshot Snapshot, capability string) bool {
 }
 
 // BuildScopeJSON constructs a JSON string from the plugin manifest's scope
-// boundaries (http_hosts, storage_roots) for persistence alongside the grant.
+// boundaries for persistence alongside the grant.
 func BuildScopeJSON(snapshot Snapshot) string {
-	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 {
+	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 && len(snapshot.ScopeWebhooks) == 0 {
 		return ""
 	}
 	scope := map[string]any{}
@@ -532,6 +677,9 @@ func BuildScopeJSON(snapshot Snapshot) string {
 	}
 	if len(snapshot.ScopeStorageRoots) > 0 {
 		scope["storage_roots"] = snapshot.ScopeStorageRoots
+	}
+	if len(snapshot.ScopeWebhooks) > 0 {
+		scope["webhooks"] = snapshot.ScopeWebhooks
 	}
 	data, err := json.Marshal(scope)
 	if err != nil {

@@ -37,6 +37,34 @@ func TestIssueAndValidateAcceptsValidToken(t *testing.T) {
 	}
 }
 
+func TestIssueAndValidateAcceptsValidTokenWithSubSecondClock(t *testing.T) {
+	t.Parallel()
+
+	now := fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 123456789, time.UTC))
+	manager := newTestManager(t, Config{
+		SessionTTLDays: 1,
+		SlidingRenewal: false,
+		MaxSessions:    2,
+	}, now)
+
+	token, issued, err := manager.Issue("admin")
+	if err != nil {
+		t.Fatalf("Issue failed: %v", err)
+	}
+
+	claims, err := manager.Validate(token)
+	if err != nil {
+		t.Fatalf("Validate failed with sub-second clock: %v", err)
+	}
+
+	if claims.SessionID != issued.SessionID {
+		t.Fatalf("unexpected session id: got %q want %q", claims.SessionID, issued.SessionID)
+	}
+	if claims.IssuedAt.Nanosecond() != 0 {
+		t.Fatalf("expected issued time to be normalized to seconds, got %s", claims.IssuedAt)
+	}
+}
+
 func TestValidateRejectsInvalidTokens(t *testing.T) {
 	t.Parallel()
 
@@ -129,22 +157,37 @@ func TestValidateRenewsExpiryWhenSlidingRenewalEnabled(t *testing.T) {
 	}
 }
 
-func TestIssueRejectsWhenMaxSessionsReached(t *testing.T) {
+func TestIssueRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 	t.Parallel()
 
+	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
 	manager := newTestManager(t, Config{
 		SessionTTLDays: 1,
 		SlidingRenewal: false,
 		MaxSessions:    1,
-	}, fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)))
+	}, func() time.Time {
+		return current
+	})
 
-	if _, _, err := manager.Issue("admin-a"); err != nil {
+	firstToken, _, err := manager.Issue("admin-a")
+	if err != nil {
 		t.Fatalf("first Issue failed: %v", err)
 	}
 
-	_, _, err := manager.Issue("admin-b")
-	if !errors.Is(err, ErrSessionLimitReached) {
-		t.Fatalf("expected ErrSessionLimitReached, got %v", err)
+	current = current.Add(time.Second)
+
+	secondToken, claims, err := manager.Issue("admin-b")
+	if err != nil {
+		t.Fatalf("second Issue failed: %v", err)
+	}
+	if claims.Subject != "admin-b" {
+		t.Fatalf("unexpected subject after recycle: got %q want %q", claims.Subject, "admin-b")
+	}
+	if _, err := manager.Validate(secondToken); err != nil {
+		t.Fatalf("expected recycled session token to validate, got %v", err)
+	}
+	if _, err := manager.Validate(firstToken); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("expected oldest token to be invalid after recycle, got %v", err)
 	}
 }
 

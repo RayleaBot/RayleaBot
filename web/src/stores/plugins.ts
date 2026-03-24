@@ -13,6 +13,8 @@ import type {
   TaskAcceptedResponse,
 } from '@/types/api'
 
+type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'registration_state' | 'desired_state' | 'runtime_state'>
+
 export interface ConsoleFrame {
   plugin_id: string
   stream: 'stdout' | 'stderr' | 'system'
@@ -60,16 +62,30 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  function upsert(plugin: PluginSummary) {
+  function upsert(plugin: PluginUpsert) {
     const index = items.value.findIndex((item) => item.id === plugin.id)
+    const previous = index === -1 ? current.value?.id === plugin.id ? current.value : null : items.value[index]
+    const nextPlugin: PluginSummary = {
+      id: plugin.id,
+      name: plugin.name ?? previous?.name ?? plugin.id,
+      role: plugin.role ?? previous?.role ?? 'user',
+      registration_state: plugin.registration_state,
+      desired_state: plugin.desired_state,
+      runtime_state: plugin.runtime_state,
+      display_state: plugin.display_state ?? previous?.display_state,
+      source: plugin.source ?? previous?.source,
+      trust: plugin.trust ?? previous?.trust,
+      command_conflicts: plugin.command_conflicts ?? previous?.command_conflicts,
+    }
+
     if (index === -1) {
-      items.value = [...items.value, plugin]
+      items.value = [...items.value, nextPlugin]
     } else {
-      items.value = items.value.map((item, itemIndex) => (itemIndex === index ? plugin : item))
+      items.value = items.value.map((item, itemIndex) => (itemIndex === index ? nextPlugin : item))
     }
 
     if (current.value?.id === plugin.id) {
-      current.value = plugin
+      current.value = nextPlugin
     }
   }
 

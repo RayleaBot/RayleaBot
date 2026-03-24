@@ -1,0 +1,31 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000419
+    plugin_id: help-menu
+    request_id: local_render_result_0001
+    action: render.image
+    data:
+      template: help.menu
+      theme: default
+      output: png
+      fallback_text: 帮助菜单暂时不可用，请稍后重试。
+      data:
+        title: 帮助菜单
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000420
+    plugin_id: help-menu
+    request_id: local_render_result_0001
+    status: success
+    data:
+      image_path: file://data/render/help-menu-001.png
+      mime: image/png
+      cache_key: help.menu:default:3e1cb1d0
+      fallback_sent: false
+expect:
+  valid: true
+  notes:
+    - render.image results expose the render artifact location and cache key without implicitly sending a message.

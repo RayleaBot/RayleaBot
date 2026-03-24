@@ -17,39 +17,47 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 
 	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{
 		{
-			PluginID:          "alpha",
+			PluginID:          "builtin-help",
 			Valid:             true,
 			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			DisplayState:      "discovered",
-			Name:              "Alpha",
-			Version:           "0.1.0",
-			Runtime:           "python",
-			Description:       "should not leak into public response",
-			ManifestPath:      "examples/plugins/alpha/info.json",
-		},
-		{
-			PluginID:          "broken",
-			Valid:             false,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			DisplayState:      "invalid_manifest",
-			ValidationSummary: "invalid runtime",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			DisplayState:      "running",
+			Name:              "Builtin Help",
+			SourceRoot:        "plugins/builtin",
+			Commands: []plugins.Command{
+				{Name: "help"},
+			},
 		},
 		{
 			PluginID:          "weather",
-			Valid:             false,
+			Valid:             true,
 			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			DisplayState:      "conflict",
-			ConflictPaths: []string{
-				"examples/plugins/weather/info.json",
-				"plugins/installed/weather/info.json",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			DisplayState:      "running",
+			Name:              "Weather",
+			Role:              "user",
+			SourceRoot:        "plugins/installed",
+			PackageSourceType: "local_zip",
+			PackageSourceRef:  "C:/plugins/weather.zip",
+			Commands: []plugins.Command{
+				{Name: "weather"},
 			},
-			SourceRoots: []string{"examples/plugins", "plugins/installed"},
+		},
+		{
+			PluginID:          "weather-admin",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			DisplayState:      "running",
+			Name:              "Weather Admin",
+			Role:              "dev",
+			SourceRoot:        "plugins/dev",
+			Commands: []plugins.Command{
+				{Name: "weather"},
+			},
 		},
 	}))
 
@@ -74,6 +82,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 		t.Fatalf("unexpected item count: got %d want 3", len(items))
 	}
 
+	byID := make(map[string]map[string]any, len(items))
 	for _, item := range items {
 		itemMap, ok := item.(map[string]any)
 		if !ok {
@@ -81,16 +90,73 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 		}
 		allowed := map[string]bool{
 			"id":                 true,
+			"name":               true,
+			"role":               true,
 			"registration_state": true,
 			"desired_state":      true,
 			"runtime_state":      true,
 			"display_state":      true,
+			"source":             true,
+			"trust":              true,
+			"command_conflicts":  true,
 		}
 		for key := range itemMap {
 			if !allowed[key] {
 				t.Fatalf("unexpected public field %q in list response", key)
 			}
 		}
+		byID[itemMap["id"].(string)] = itemMap
+	}
+
+	builtin := byID["builtin-help"]
+	if builtin["role"] != "builtin" {
+		t.Fatalf("builtin-help role = %v, want builtin", builtin["role"])
+	}
+	if conflicts := builtin["command_conflicts"].([]any); len(conflicts) != 0 {
+		t.Fatalf("builtin-help command_conflicts = %#v, want []", conflicts)
+	}
+
+	weather := byID["weather"]
+	if weather["name"] != "Weather" {
+		t.Fatalf("weather name = %v, want Weather", weather["name"])
+	}
+	if weather["role"] != "user" {
+		t.Fatalf("weather role = %v, want user", weather["role"])
+	}
+	source := weather["source"].(map[string]any)
+	if source["root"] != "plugins/installed" {
+		t.Fatalf("weather source.root = %v, want plugins/installed", source["root"])
+	}
+	if source["package_source_type"] != "local_zip" {
+		t.Fatalf("weather package_source_type = %v, want local_zip", source["package_source_type"])
+	}
+	if source["package_source_ref"] != "C:/plugins/weather.zip" {
+		t.Fatalf("weather package_source_ref = %v, want C:/plugins/weather.zip", source["package_source_ref"])
+	}
+	if source["verified"] != false {
+		t.Fatalf("weather verified = %v, want false", source["verified"])
+	}
+	trust := weather["trust"].(map[string]any)
+	if trust["level"] != "unverified" {
+		t.Fatalf("weather trust.level = %v, want unverified", trust["level"])
+	}
+	if trust["label"] != "未验证来源" {
+		t.Fatalf("weather trust.label = %v, want 未验证来源", trust["label"])
+	}
+	if conflicts := weather["command_conflicts"].([]any); len(conflicts) != 1 || conflicts[0] != "weather" {
+		t.Fatalf("weather command_conflicts = %#v, want [weather]", conflicts)
+	}
+
+	devPlugin := byID["weather-admin"]
+	if devPlugin["role"] != "dev" {
+		t.Fatalf("weather-admin role = %v, want dev", devPlugin["role"])
+	}
+	devTrust := devPlugin["trust"].(map[string]any)
+	if devTrust["level"] != "development" {
+		t.Fatalf("weather-admin trust.level = %v, want development", devTrust["level"])
+	}
+	if devTrust["label"] != "开发中" {
+		t.Fatalf("weather-admin trust.label = %v, want 开发中", devTrust["label"])
 	}
 }
 
@@ -100,11 +166,14 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{
 		{
 			PluginID:          "hello-python",
+			Name:              "Hello Python",
+			Role:              "example",
 			Valid:             true,
 			RegistrationState: "installed",
 			DesiredState:      "disabled",
 			RuntimeState:      "stopped",
 			DisplayState:      "discovered",
+			SourceRoot:        "examples/plugins",
 		},
 	}))
 
@@ -124,10 +193,21 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 	want := map[string]any{
 		"plugin": map[string]any{
 			"id":                 "hello-python",
+			"name":               "Hello Python",
+			"role":               "example",
 			"registration_state": "installed",
 			"desired_state":      "disabled",
 			"runtime_state":      "stopped",
 			"display_state":      "discovered",
+			"source": map[string]any{
+				"root":     "examples/plugins",
+				"verified": true,
+			},
+			"trust": map[string]any{
+				"level": "third_party",
+				"label": "示例",
+			},
+			"command_conflicts": []any{},
 		},
 	}
 	if !reflect.DeepEqual(body, want) {

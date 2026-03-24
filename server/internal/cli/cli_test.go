@@ -26,7 +26,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	}
 
 	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
-	writeFile(t, filepath.Join(dataDir, "state.db"), "fake-sqlite-data")
+	writeFile(t, filepath.Join(dataDir, "rayleabot.db"), "fake-sqlite-data")
 	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-python"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -64,8 +64,8 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	if !names["config/user.yaml"] {
 		t.Error("missing config/user.yaml in archive")
 	}
-	if !names["data/state.db"] {
-		t.Error("missing data/state.db in archive")
+	if !names["data/rayleabot.db"] {
+		t.Error("missing data/rayleabot.db in archive")
 	}
 
 	// Validate manifest structure.
@@ -106,7 +106,7 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
-	writeFile(t, filepath.Join(dataDir, "state.db"), "fake-sqlite-data")
+	writeFile(t, filepath.Join(dataDir, "rayleabot.db"), "fake-sqlite-data")
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runBackup(Command{
@@ -145,7 +145,7 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	if _, err := os.Stat(restoredConfig); err != nil {
 		t.Errorf("restored config not found: %v", err)
 	}
-	restoredDB := filepath.Join(destDir, "data", "state.db")
+	restoredDB := filepath.Join(destDir, "data", "rayleabot.db")
 	if _, err := os.Stat(restoredDB); err != nil {
 		t.Errorf("restored database not found: %v", err)
 	}

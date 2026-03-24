@@ -58,10 +58,11 @@ func runBackup(cmd Command) int {
 	// 2. SQLite database
 	dbPath, err := resolveDatabasePath(cmd.ConfigPath)
 	if err == nil {
-		if err := addFileToZip(w, dbPath, "data/state.db"); err != nil {
+		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(dbPath)))
+		if err := addFileToZip(w, dbPath, archivePath); err != nil {
 			cmd.Logger.Warn("skip database file", "path", dbPath, "err", err.Error())
 		} else {
-			items = append(items, backupItem{Label: "database", Path: "data/state.db"})
+			items = append(items, backupItem{Label: "database", Path: archivePath})
 			cmd.Logger.Info("backed up database", "path", dbPath)
 		}
 	}

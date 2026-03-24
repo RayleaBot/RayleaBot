@@ -2,35 +2,96 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/url"
-	"os"
-
-	"gopkg.in/yaml.v3"
 
 	"rayleabot/server/internal/schema"
 )
 
 type Config struct {
-	SchemaVersion string          `json:"schema_version" yaml:"schema_version"`
-	Server        ServerConfig    `json:"server" yaml:"server"`
-	OneBot        OneBotConfig    `json:"onebot" yaml:"onebot"`
-	Database      DatabaseConfig  `json:"database" yaml:"database"`
-	Storage       StorageConfig   `json:"storage" yaml:"storage"`
-	HTTP          HTTPConfig      `json:"http" yaml:"http"`
-	Logging       LoggingConfig   `json:"logging" yaml:"logging"`
-	Auth          AuthConfig      `json:"auth" yaml:"auth"`
-	Runtime       RuntimeConfig   `json:"runtime" yaml:"runtime"`
-	Render        RenderConfig    `json:"render" yaml:"render"`
-	Web           WebConfig       `json:"web" yaml:"web"`
-	Backup        BackupConfig    `json:"backup" yaml:"backup"`
-	Retention     RetentionConfig `json:"retention" yaml:"retention"`
-	Command       *CommandConfig  `json:"command,omitempty" yaml:"command,omitempty"`
-	Cooldown      *CooldownConfig `json:"cooldown,omitempty" yaml:"cooldown,omitempty"`
+	SchemaVersion string           `json:"schema_version" yaml:"schema_version"`
+	Server        ServerConfig     `json:"server" yaml:"server"`
+	OneBot        OneBotConfig     `json:"onebot" yaml:"onebot"`
+	Database      DatabaseConfig   `json:"database" yaml:"database"`
+	Command       *CommandConfig   `json:"command" yaml:"command"`
+	Admin         AdminConfig      `json:"admin" yaml:"admin"`
+	Permission    PermissionConfig `json:"permission" yaml:"permission"`
+	Render        RenderConfig     `json:"render" yaml:"render"`
+	Scheduler     SchedulerConfig  `json:"scheduler" yaml:"scheduler"`
+	Runtime       RuntimeConfig    `json:"runtime" yaml:"runtime"`
+	Storage       StorageConfig    `json:"storage" yaml:"storage"`
+	Data          DataConfig       `json:"data" yaml:"data"`
+	Log           LogConfig        `json:"log" yaml:"log"`
+	Message       MessageConfig    `json:"message" yaml:"message"`
+	User          UserConfig       `json:"user" yaml:"user"`
+	Group         GroupConfig      `json:"group" yaml:"group"`
+	Adapter       AdapterConfig    `json:"adapter" yaml:"adapter"`
+	HTTP          HTTPConfig       `json:"http" yaml:"http"`
+	Web           WebConfig        `json:"web" yaml:"web"`
+	Backup        BackupConfig     `json:"backup" yaml:"backup"`
+
+	// Legacy compatibility fields retained as internal mirrors while the
+	// runtime and tests finish moving to the planning-aligned config shape.
+	Logging   LoggingConfig   `json:"logging,omitempty" yaml:"logging,omitempty"`
+	Auth      AuthConfig      `json:"auth,omitempty" yaml:"auth,omitempty"`
+	Retention RetentionConfig `json:"retention,omitempty" yaml:"retention,omitempty"`
+	Cooldown  *CooldownConfig `json:"cooldown,omitempty" yaml:"cooldown,omitempty"`
 }
 
 type CommandConfig struct {
 	Prefixes []string `json:"prefixes" yaml:"prefixes"`
+}
+
+type AdminConfig struct {
+	SuperAdmins         []string `json:"super_admins" yaml:"super_admins"`
+	SessionTTLDays      int      `json:"session_ttl_days" yaml:"session_ttl_days"`
+	SlidingRenewal      bool     `json:"sliding_renewal" yaml:"sliding_renewal"`
+	MaxSessions         int      `json:"max_sessions" yaml:"max_sessions"`
+	LoginFailLimit      int      `json:"login_fail_limit" yaml:"login_fail_limit"`
+	LoginFailWindowSecs int      `json:"login_fail_window_seconds" yaml:"login_fail_window_seconds"`
+}
+
+type PermissionConfig struct {
+	DefaultLevel          string   `json:"default_level" yaml:"default_level"`
+	AutoGrantCapabilities []string `json:"auto_grant_capabilities" yaml:"auto_grant_capabilities"`
+}
+
+type SchedulerConfig struct {
+	Timezone string `json:"timezone" yaml:"timezone"`
+}
+
+type DataConfig struct {
+	AuditLogsRetentionDays     int `json:"audit_logs_retention_days" yaml:"audit_logs_retention_days"`
+	EventRecordsRetentionDays  int `json:"event_records_retention_days" yaml:"event_records_retention_days"`
+	DownloadCacheRetentionDays int `json:"download_cache_retention_days" yaml:"download_cache_retention_days"`
+}
+
+type LogConfig struct {
+	Level              string `json:"level" yaml:"level"`
+	RetentionDays      int    `json:"retention_days" yaml:"retention_days"`
+	RateLimitPerPlugin string `json:"rate_limit_per_plugin" yaml:"rate_limit_per_plugin"`
+}
+
+type MessageConfig struct {
+	RateLimitPerPlugin   string `json:"rate_limit_per_plugin" yaml:"rate_limit_per_plugin"`
+	RateLimitPerTarget   string `json:"rate_limit_per_target" yaml:"rate_limit_per_target"`
+	CircuitBreakerSeconds int   `json:"circuit_breaker_seconds" yaml:"circuit_breaker_seconds"`
+}
+
+type UserConfig struct {
+	CommandRateLimit string `json:"command_rate_limit" yaml:"command_rate_limit"`
+	CooldownReply    bool   `json:"cooldown_reply" yaml:"cooldown_reply"`
+}
+
+type GroupConfig struct {
+	CommandRateLimit string `json:"command_rate_limit" yaml:"command_rate_limit"`
+}
+
+type AdapterConfig struct {
+	ConnectTimeoutSeconds   int     `json:"connect_timeout_seconds" yaml:"connect_timeout_seconds"`
+	ReconnectInitialSeconds int     `json:"reconnect_initial_seconds" yaml:"reconnect_initial_seconds"`
+	ReconnectMultiplier     float64 `json:"reconnect_multiplier" yaml:"reconnect_multiplier"`
+	ReconnectMaxSeconds     int     `json:"reconnect_max_seconds" yaml:"reconnect_max_seconds"`
+	ReconnectJitterRatio    float64 `json:"reconnect_jitter_ratio" yaml:"reconnect_jitter_ratio"`
 }
 
 type CooldownConfig struct {
@@ -47,11 +108,11 @@ type ServerConfig struct {
 type OneBotConfig struct {
 	WSURL                   string  `json:"ws_url" yaml:"ws_url"`
 	AccessToken             string  `json:"access_token" yaml:"access_token"`
-	ConnectTimeoutSeconds   int     `json:"connect_timeout_seconds" yaml:"connect_timeout_seconds"`
-	ReconnectInitialSeconds int     `json:"reconnect_initial_seconds" yaml:"reconnect_initial_seconds"`
-	ReconnectMultiplier     float64 `json:"reconnect_multiplier" yaml:"reconnect_multiplier"`
-	ReconnectMaxSeconds     int     `json:"reconnect_max_seconds" yaml:"reconnect_max_seconds"`
-	ReconnectJitterRatio    float64 `json:"reconnect_jitter_ratio" yaml:"reconnect_jitter_ratio"`
+	ConnectTimeoutSeconds   int     `json:"connect_timeout_seconds,omitempty" yaml:"connect_timeout_seconds,omitempty"`
+	ReconnectInitialSeconds int     `json:"reconnect_initial_seconds,omitempty" yaml:"reconnect_initial_seconds,omitempty"`
+	ReconnectMultiplier     float64 `json:"reconnect_multiplier,omitempty" yaml:"reconnect_multiplier,omitempty"`
+	ReconnectMaxSeconds     int     `json:"reconnect_max_seconds,omitempty" yaml:"reconnect_max_seconds,omitempty"`
+	ReconnectJitterRatio    float64 `json:"reconnect_jitter_ratio,omitempty" yaml:"reconnect_jitter_ratio,omitempty"`
 }
 
 type DatabaseConfig struct {
@@ -72,11 +133,7 @@ type HTTPConfig struct {
 	AllowPrivateHosts []string `json:"allow_private_hosts" yaml:"allow_private_hosts"`
 }
 
-type LoggingConfig struct {
-	Level              string `json:"level" yaml:"level"`
-	RetentionDays      int    `json:"retention_days" yaml:"retention_days"`
-	RateLimitPerPlugin string `json:"rate_limit_per_plugin" yaml:"rate_limit_per_plugin"`
-}
+type LoggingConfig = LogConfig
 
 type AuthConfig struct {
 	SuperAdmins           []string `json:"super_admins" yaml:"super_admins"`
@@ -90,7 +147,7 @@ type AuthConfig struct {
 }
 
 type RuntimeConfig struct {
-	SchedulerTimezone            string `json:"scheduler_timezone" yaml:"scheduler_timezone"`
+	SchedulerTimezone            string `json:"scheduler_timezone,omitempty" yaml:"scheduler_timezone,omitempty"`
 	PluginInitTimeoutSeconds     int    `json:"plugin_init_timeout_seconds" yaml:"plugin_init_timeout_seconds"`
 	PluginInitMaxTotalSeconds    int    `json:"plugin_init_max_total_seconds" yaml:"plugin_init_max_total_seconds"`
 	PluginEventTimeoutSeconds    int    `json:"plugin_event_timeout_seconds" yaml:"plugin_event_timeout_seconds"`
@@ -127,11 +184,7 @@ type BackupConfig struct {
 	DefaultConsistency string `json:"default_consistency" yaml:"default_consistency"`
 }
 
-type RetentionConfig struct {
-	AuditLogsRetentionDays     int `json:"audit_logs_retention_days" yaml:"audit_logs_retention_days"`
-	EventRecordsRetentionDays  int `json:"event_records_retention_days" yaml:"event_records_retention_days"`
-	DownloadCacheRetentionDays int `json:"download_cache_retention_days" yaml:"download_cache_retention_days"`
-}
+type RetentionConfig = DataConfig
 
 type Summary struct {
 	ConfigPath       string
@@ -150,35 +203,12 @@ type Summary struct {
 func Load(configPath, schemaPath string) (Config, Summary, error) {
 	var cfg Config
 
-	configBytes, err := os.ReadFile(configPath)
+	document, cfg, err := loadCanonicalDocument(configPath, schemaPath)
 	if err != nil {
-		return cfg, Summary{}, fmt.Errorf("read config %s: %w", configPath, err)
+		return cfg, Summary{}, err
 	}
 
-	var raw map[string]any
-	if err := yaml.Unmarshal(configBytes, &raw); err != nil {
-		return cfg, Summary{}, fmt.Errorf("parse yaml %s: %w", configPath, err)
-	}
-
-	document, err := normalizeDocument(raw)
-	if err != nil {
-		return cfg, Summary{}, fmt.Errorf("normalize config document %s: %w", configPath, err)
-	}
-
-	if err := validateDocument(schemaPath, document); err != nil {
-		return cfg, Summary{}, fmt.Errorf("config validation failed for %s against %s: %w", configPath, schemaPath, err)
-	}
-
-	jsonBytes, err := json.Marshal(document)
-	if err != nil {
-		return cfg, Summary{}, fmt.Errorf("marshal normalized config %s: %w", configPath, err)
-	}
-
-	if err := json.Unmarshal(jsonBytes, &cfg); err != nil {
-		return cfg, Summary{}, fmt.Errorf("decode typed config %s: %w", configPath, err)
-	}
-
-	return cfg, buildSummary(configPath, schemaPath, cfg), nil
+	return cfg, buildSummary(configPath, schemaPath, cfg, document), nil
 }
 
 func normalizeDocument(raw map[string]any) (any, error) {
@@ -208,7 +238,7 @@ func validateDocument(schemaPath string, document any) error {
 	return nil
 }
 
-func buildSummary(configPath, schemaPath string, cfg Config) Summary {
+func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) Summary {
 	return Summary{
 		ConfigPath:       configPath,
 		SchemaPath:       schemaPath,
@@ -217,10 +247,99 @@ func buildSummary(configPath, schemaPath string, cfg Config) Summary {
 		DatabaseEngine:   cfg.Database.Engine,
 		DatabasePath:     cfg.Database.Path,
 		WebExposureMode:  cfg.Web.ExposureMode,
-		LoggingLevel:     cfg.Logging.Level,
-		SuperAdminCount:  len(cfg.Auth.SuperAdmins),
+		LoggingLevel:     configLogLevel(cfg),
+		SuperAdminCount:  len(configSuperAdmins(cfg)),
 		OneBotConfigured: cfg.OneBot.WSURL != "",
 		OneBotEndpoint:   sanitizeOneBotEndpoint(cfg.OneBot.WSURL),
+	}
+}
+
+func (cfg *Config) hydrateCompatibility() {
+	if cfg == nil {
+		return
+	}
+
+	if cfg.Command == nil {
+		cfg.Command = &CommandConfig{Prefixes: []string{"/"}}
+	}
+
+	if len(cfg.Admin.SuperAdmins) == 0 && len(cfg.Auth.SuperAdmins) > 0 {
+		cfg.Admin.SuperAdmins = append([]string(nil), cfg.Auth.SuperAdmins...)
+	}
+	if len(cfg.Permission.AutoGrantCapabilities) == 0 && len(cfg.Auth.AutoGrantCapabilities) > 0 {
+		cfg.Permission.AutoGrantCapabilities = append([]string(nil), cfg.Auth.AutoGrantCapabilities...)
+	}
+	if cfg.Permission.DefaultLevel == "" && cfg.Auth.DefaultLevel != "" {
+		cfg.Permission.DefaultLevel = cfg.Auth.DefaultLevel
+	}
+	if cfg.Admin.SessionTTLDays == 0 && cfg.Auth.SessionTTLDays > 0 {
+		cfg.Admin.SessionTTLDays = cfg.Auth.SessionTTLDays
+		cfg.Admin.SlidingRenewal = cfg.Auth.SlidingRenewal
+		cfg.Admin.MaxSessions = cfg.Auth.MaxSessions
+		cfg.Admin.LoginFailLimit = cfg.Auth.LoginFailLimit
+		cfg.Admin.LoginFailWindowSecs = cfg.Auth.LoginFailWindowSecs
+	}
+
+	if cfg.Log.Level == "" && cfg.Logging.Level != "" {
+		cfg.Log = cfg.Logging
+	}
+	if cfg.Data.AuditLogsRetentionDays == 0 && cfg.Retention.AuditLogsRetentionDays > 0 {
+		cfg.Data = cfg.Retention
+	}
+	if cfg.Scheduler.Timezone == "" && cfg.Runtime.SchedulerTimezone != "" {
+		cfg.Scheduler.Timezone = cfg.Runtime.SchedulerTimezone
+	}
+	if cfg.User.CommandRateLimit == "" && cfg.Cooldown != nil {
+		cfg.User.CommandRateLimit = cfg.Cooldown.UserCommandRateLimit
+		cfg.User.CooldownReply = cfg.Cooldown.CooldownReply
+		cfg.Group.CommandRateLimit = cfg.Cooldown.GroupCommandRateLimit
+	}
+	if cfg.Adapter.ConnectTimeoutSeconds == 0 && cfg.OneBot.ConnectTimeoutSeconds > 0 {
+		cfg.Adapter.ConnectTimeoutSeconds = cfg.OneBot.ConnectTimeoutSeconds
+		cfg.Adapter.ReconnectInitialSeconds = cfg.OneBot.ReconnectInitialSeconds
+		cfg.Adapter.ReconnectMultiplier = cfg.OneBot.ReconnectMultiplier
+		cfg.Adapter.ReconnectMaxSeconds = cfg.OneBot.ReconnectMaxSeconds
+		cfg.Adapter.ReconnectJitterRatio = cfg.OneBot.ReconnectJitterRatio
+	}
+
+	if len(cfg.Auth.SuperAdmins) == 0 && len(cfg.Admin.SuperAdmins) > 0 {
+		cfg.Auth.SuperAdmins = append([]string(nil), cfg.Admin.SuperAdmins...)
+	}
+	if cfg.Auth.DefaultLevel == "" && cfg.Permission.DefaultLevel != "" {
+		cfg.Auth.DefaultLevel = cfg.Permission.DefaultLevel
+	}
+	if len(cfg.Auth.AutoGrantCapabilities) == 0 && len(cfg.Permission.AutoGrantCapabilities) > 0 {
+		cfg.Auth.AutoGrantCapabilities = append([]string(nil), cfg.Permission.AutoGrantCapabilities...)
+	}
+	if cfg.Auth.SessionTTLDays == 0 && cfg.Admin.SessionTTLDays > 0 {
+		cfg.Auth.SessionTTLDays = cfg.Admin.SessionTTLDays
+		cfg.Auth.SlidingRenewal = cfg.Admin.SlidingRenewal
+		cfg.Auth.MaxSessions = cfg.Admin.MaxSessions
+		cfg.Auth.LoginFailLimit = cfg.Admin.LoginFailLimit
+		cfg.Auth.LoginFailWindowSecs = cfg.Admin.LoginFailWindowSecs
+	}
+	if cfg.Logging.Level == "" && cfg.Log.Level != "" {
+		cfg.Logging = cfg.Log
+	}
+	if cfg.Retention.AuditLogsRetentionDays == 0 && cfg.Data.AuditLogsRetentionDays > 0 {
+		cfg.Retention = cfg.Data
+	}
+	if cfg.Runtime.SchedulerTimezone == "" && cfg.Scheduler.Timezone != "" {
+		cfg.Runtime.SchedulerTimezone = cfg.Scheduler.Timezone
+	}
+	if cfg.Cooldown == nil && (cfg.User.CommandRateLimit != "" || cfg.Group.CommandRateLimit != "") {
+		cfg.Cooldown = &CooldownConfig{
+			UserCommandRateLimit:  cfg.User.CommandRateLimit,
+			GroupCommandRateLimit: cfg.Group.CommandRateLimit,
+			CooldownReply:         cfg.User.CooldownReply,
+		}
+	}
+	if cfg.OneBot.ConnectTimeoutSeconds == 0 && cfg.Adapter.ConnectTimeoutSeconds > 0 {
+		cfg.OneBot.ConnectTimeoutSeconds = cfg.Adapter.ConnectTimeoutSeconds
+		cfg.OneBot.ReconnectInitialSeconds = cfg.Adapter.ReconnectInitialSeconds
+		cfg.OneBot.ReconnectMultiplier = cfg.Adapter.ReconnectMultiplier
+		cfg.OneBot.ReconnectMaxSeconds = cfg.Adapter.ReconnectMaxSeconds
+		cfg.OneBot.ReconnectJitterRatio = cfg.Adapter.ReconnectJitterRatio
 	}
 }
 

@@ -1,0 +1,30 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000417
+    plugin_id: repo-watcher
+    request_id: local_webhook_result_0001
+    action: event.expose_webhook
+    data:
+      route: github
+      methods:
+        - POST
+      auth_strategy: hmac_sha256
+      header: X-Hub-Signature-256
+      signature_prefix: sha256=
+      secret_ref: webhook.github.secret
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000418
+    plugin_id: repo-watcher
+    request_id: local_webhook_result_0001
+    status: success
+    data:
+      route: github
+      url: /api/webhooks/repo-watcher/github
+expect:
+  valid: true
+  notes:
+    - event.expose_webhook returns the registered short route and final gateway URL.

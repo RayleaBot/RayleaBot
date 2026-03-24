@@ -4,7 +4,7 @@
 >
 > 本文档在 `docs/engineering/implementation-order.md` 的 10 个顶层阶段之外，额外增加一个 `Pre-Phase / Foundation`，用于记录治理、基线与 CI 骨架。`Phase 1` 到 `Phase 10` 与 `implementation-order` 保持一一对应。
 >
-> 状态图例：✅ 已完成 · 🟡 进行中 · ❌ 未开始
+> 状态图例：✅ 已完成 · 🟡 进行中 / 部分落地 · ❌ 未开始 · 🔷 超前完成 · ⚠️ 口径漂移
 
 ---
 
@@ -17,16 +17,19 @@
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、ready gating、重连、心跳、消息/notice 归一化、`message.send` / `message.reply` 已接入主链路；更广动作族与多 adapter 仍未实现 |
-| Phase 5 | Plugin Protocol Bridge | 🟡 | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `storage.file` / `http.request` local action RPC 已接入；更广动作族仍未实现 |
-| Phase 6 | Config / Storage / Security | ✅ | 配置、SQLite migration、auth persistence、plugin desired_state、grants、secret store、task persistence、scheduler persistence/trigger、聊天侧 command policy、temporal grants、plugin-scoped KV persistence、plugin_data 文件区与 scoped HTTP client 已落地 |
-| Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants 管理、task 历史持久化、配置热更新、日志历史持久化查询已可用；config snapshot 与 grants surface 已补齐 command/cooldown、storage/http 和 `expires_at`；更广管理面扩展仍未开始 |
-| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、最小 Avalonia 窗口、环境检查、server 启停 / 健康轮询 / 打开 Web UI、Windows CI 已落地；Launcher 设计质量、启动前状态建模与误导性报错修复仍待收敛，发布/安装/版本检查继续后置 |
-| Phase 10 | Render Service | ❌ | render service 与 Chromium 调度尚未开始；`.deps/manifest.json` 仅为 baseline 占位 |
+| Phase 5 | Plugin Protocol Bridge | ✅ | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` local action RPC 与 gated `event.raw_payload` 已接入；完整 Chromium Render Service 继续后置到 Phase 10 |
+| Phase 6 | Config / Storage / Security | 🟡 | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；共享 degraded / remediation 结构仍未完全统一到全部入口 |
+| Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress 与插件来源/信任/命令冲突 metadata 已可用；插件安装来源和 lifecycle 路由形状与规划正文仍有口径待收口 |
+| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置 bootstrap、左侧五区导航、自定义标题栏、中文化液态玻璃桌面壳、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、版本检查、Windows CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，不再承载初始化 / 登录流程判断；凭据丢失恢复入口与正式安装体验仍待收口 |
+| Phase 10 | Render Service | 🟡 | `render.image` 最小占位渲染、产物输出与资源检查已接线；受控 Chromium 队列、模板版本 / 缓存、preview 与正式 Render Service 调度仍未完成 |
 
 ### 判定口径
 
 - “已完成”只用于当前仓库里同时存在主链路实现、测试和可回指证据的能力。
+- “部分落地”用于已有主干，但仍未覆盖规划正文全部要求的能力。
+- “超前完成”只用于超出 v0.1 但在规划文档后续阶段已明确存在、因此无需回退的能力；当前高置信复核结果里，主差异仍以“部分落地 / 未完成 / 口径漂移”为主。
+- “口径漂移”用于规划正文、formal contract 与当前实现存在边界不一致，且暂不能直接视为后续规划前置落地的能力。
 - formal contract 已存在，不等于对应产品能力已经落地。
 - 资源入库、示例入库，不等于 discovery、调度、生命周期已经自动接线。
 
@@ -122,7 +125,7 @@
 
 ---
 
-## 七、Phase 5 — Plugin Protocol Bridge 🟡
+## 七、Phase 5 — Plugin Protocol Bridge ✅
 
 ### 已落地
 
@@ -141,19 +144,22 @@
 | builtin discovery / lifecycle | ✅ | `plugins/builtin` 已纳入默认 discovery roots，默认 `desired_state=enabled`，支持 enable / disable / reload，拒绝卸载 |
 | rich message action bridge | ✅ | `message.send`、`message.reply` 已按 shared `message.segments` 进入 runtime / dispatch / adapter 主链 |
 | local action RPC | ✅ | runtime 事件处理中已支持 `logger.write`、`storage.kv`、`storage.file`、`http.request` 的 request/response 循环，terminal `message.*` 继续保持既有语义 |
+| planning-aligned local actions | ✅ | `config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入 formal contract、runtime parser、app executor 与 tests |
+| gated `event.raw_payload` | ✅ | 仅在 manifest 声明且授予 `event.raw_payload` 后，`webhook.received` 事件才附带高敏原始载荷 |
 | temporal grants runtime enforcement | ✅ | `expires_at` 已进入 grants 管理面、存储层与 runtime 启停 / reload / reconcile / crash restart 判定 |
 | crash-backoff / dead_letter | ✅ | runtime crash 后的 `crashed` / `backoff` / `dead_letter` 状态流转已接入 app 生命周期 |
-| SDK 与示例插件 | ✅ | Python / Node.js SDK 已补 `logger.write` / `storage.kv` / `storage.file` / `http.request` helper，`notice-logger` 与 `example-permission-scope` 已演示本地 action 调用，bundled manifests 已通过 contract 校验 |
+| SDK 与示例插件 | ✅ | Python / Node.js SDK 已补 `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` helper，`notice-logger`、`example-permission-scope`、`example-config-panel`、`example-render-card`、`example-scheduler`、`example-webhook` 已演示对应能力 |
 
-### 仍未完成
+### 剩余边界
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 更广插件动作族 | ❌ | 三种 action 之外的动作仍未进入正式链路 |
+| 完整 Render Service | 🟡 | `render.image` 已有最小占位产物输出，但 Chromium 调度、模板版本化、缓存、preview 与正式渲染队列仍在 Phase 10 |
+| 更广 future action families | ❌ | v0.1 之外的更广动作族仍未 formalize / 实现 |
 
 ---
 
-## 八、Phase 6 — Config / Storage / Security ✅
+## 八、Phase 6 — Config / Storage / Security 🟡
 
 ### 已落地
 
@@ -173,8 +179,18 @@
 | Temporal grants | ✅ | `plugin_grants.expires_at`、生效授权过滤、enable / reload / reconcile / restart 过期判定已接入 |
 | `logger.write` formalize | ✅ | 已进入 plugin protocol、runtime local action executor、SDK、fixtures、示例与 tests |
 | `storage.kv` formalize | ✅ | 已进入 plugin protocol、SQLite migration / repository、config limits、SDK、fixtures、示例与 tests |
+| canonical config realign | ✅ | `contracts/config.user.schema.json`、typed config 与 `/api/config` 已对齐规划正文命名；旧口径作为迁移输入保留 |
+| `config/default.yaml` 默认基线 | ✅ | repo-tracked 默认模板与运行时 baseline 已落库 |
+| 首份 `user.yaml` 自动生成 | ✅ | server 与 Launcher 在 `config/user.yaml` 缺失时会基于 `default.yaml` bootstrap 首份用户配置 |
+| `default.yaml` + `user.yaml` 覆盖语义 | ✅ | 运行时固定按 `default.yaml` -> `user.yaml` 覆盖生成有效配置，并在保存时输出 canonical 新形状 |
 | `storage.file` formalize | ✅ | 已进入 plugin protocol、plugin_data 文件区服务、config limits、SDK、fixtures、示例与 tests |
 | `http.request` formalize | ✅ | 已进入 plugin protocol、scoped HTTP client、config allowlist / timeout / retry、SDK、fixtures、示例与 tests |
+
+### 规划对齐缺口
+
+| 子任务 | 状态 | 说明 |
+|--------|------|------|
+| Web / Launcher / `doctor` / 诊断包共享降级口径 | 🟡 | `/readyz` 的 `reason_codes` / `checks`、Launcher remediation 与诊断导出已存在，但统一 `code / severity / summary / remediation` 结构尚未完全推广到全部入口 |
 
 ---
 
@@ -193,12 +209,24 @@
 | Plugin install | ✅ | `local_directory`、`local_zip`、`remote_url` 安装路径已进入真实路由 |
 | Plugin lifecycle | ✅ | `enable` / `disable` / `reload` / `DELETE` 已接入真实路由 |
 | Plugin grants 管理 | ✅ | `GET/POST/DELETE /api/plugins/{plugin_id}/grants...` 已落地，并支持可选 `expires_at` |
+| System backup / diagnostics | ✅ | `POST /api/system/backup` 与 `GET /api/system/diagnostics/export` 已进入 formal API、任务流与 tests |
+| Webhook ingress | ✅ | `POST /api/webhooks/{plugin_id}/{route}` 已进入 formal contract 与主链路 |
+| Plugin metadata surface | ✅ | 插件 list/detail 已暴露 `name`、`role`、`source`、`trust` 与 `command_conflicts`，足以支撑 Web 管理面展示 |
 | 4 条管理 WebSocket | ✅ | `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 已落地 |
 | HTTP 鉴权中间件 | ✅ | `RequireAuth`、公开/受保护路由分离、WebSocket `session_token` 兼容已落地 |
+
+### 规划对齐与口径收口
+
+| 子任务 | 状态 | 说明 |
+|--------|------|------|
+| 插件安装来源边界 | ✅ | 规划正文 3.9.6 已更新，与当前 OpenAPI、fixtures 与 Web 统一支持 `remote_url` 作为 v0.1 正式能力 |
+| 插件 lifecycle 路由形状 | ✅ | 规划正文已更新，消除原 `PATCH` 语义，与当前 formal contract 的 `enable` / `disable` / `reload` 独立路由对齐 |
 
 ---
 
 ## 十、Phase 8 — Web UI ✅
+
+### 已落地
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
@@ -207,6 +235,7 @@
 | 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志页、配置页，以及移动端导航抽屉和卡片化布局已落地 |
 | HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |
 | 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
+| 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、Launcher 自动登录失败短提示已接入 |
 | 前端质量与回归 | ✅ | Vitest 单测、fixture-backed Playwright E2E、异常路径、响应式与可访问性交互回归已落地 |
 
 ---
@@ -216,36 +245,40 @@
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
 | .NET / Avalonia 基线 | ✅ | 版本与包基线已锁定 |
-| Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通 |
+| Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通，并已收口为打开 Web 时的 best-effort 增强能力 |
 | 环境检查 / 本机诊断壳 | ✅ | server 可执行文件、配置文件、workdir、`LongPathsEnabled`、`.deps/manifest.json` 检查与诊断摘要已落地 |
-| 真实 Launcher 行为 | ✅ | 最小 Avalonia 单窗口、Start / Stop / Open Web UI / Retry Health/Auth、stderr ring buffer 与 `logs/launcher.log` 已落地 |
-| 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与 launcher session 重建 |
+| 真实 Launcher 行为 | ✅ | 单窗口桌面壳、启动 / 停止 / 打开管理界面 / 重试健康检查、错误输出 ring buffer 与 `logs/launcher.log` 已落地 |
+| 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与打开 Web 时的本机自动登录增强 |
 | Launcher 测试与 CI | ✅ | `dotnet test ./launcher`、`dotnet publish ./launcher -c Release` 与 Windows `ci-launcher` job 已落地 |
-| Launcher 设计系统与布局重构 | ❌ | 当前仍是开发态堆砌式表单/卡片布局，信息架构、视觉层级、主次操作和状态反馈尚未达到可交付质量 |
-| 启动前状态建模与误导性报错修复 | ❌ | 当前未启动、缺配置、端口不可达与真实服务失败仍会混入同一类连接错误展示 |
-| 桌面交互反馈、禁用态与诊断引导 | ❌ | 按钮 gating、忙碌态、空态、危险操作确认、结果反馈与诊断引导仍需系统化收敛 |
-| 发布与安装体验 | ❌ | 安装、升级、分发体验与发布目录布局尚未开始 |
-| 版本检查 | ❌ | 独立版本检查与更新提示尚未开始 |
+| 首启配置 bootstrap | ✅ | Launcher preflight 与 server 启动链已对齐 `default.yaml` -> `user.yaml` bootstrap 语义 |
+| 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
+| Launcher 设计系统与布局重构 | ✅ | 左侧 5 区导航、自定义标题栏、第二轮液态玻璃风格、总览 / 服务控制 / 环境检查 / 设置 / 诊断分屏、自绘环境卡片与更紧凑的信息架构已落地 |
+| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按 launcher-local 语义建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态不再污染启动完成语义与主状态文案；健康端口已存在但不是当前 Launcher 子进程时，主界面会显式标为“检测到现有服务” |
+| 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、主要问题 / remediation、路径复制与打开目录快捷动作、暗色对比度、文案去技术化与诊断分层已系统化接入 |
+| 托盘最小化与关闭语义 | ✅ | 每次点击关闭按钮都会弹出显式确认；托盘点击弹出自定义快捷浮层，完全退出走浮层操作而非原生菜单 |
+| 关闭确认与托盘引导 | ✅ | 关闭交互已固定为“隐藏到托盘 / 完全退出”双选项，不再使用一次确认后永久跳过的记忆行为 |
+| Chromium / 模板资源完整性检查 | ✅ | Launcher preflight 已覆盖 Chromium 与模板资源完整性，并给出 remediation |
+| 发布目录布局与正式发行包 | 🟡 | packaging tooling 与 release workflow 已产出 `windows-x64-full` / `linux-x64-server`，但正式安装体验仍需继续打磨 |
+| 发布元数据与交付 gate | ✅ | `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt`、`windows_full_smoke` / `linux_server_smoke` 与 release workflow 已接入 |
+| 版本检查 | ✅ | Launcher 已通过 GitHub Releases + `release_manifest.json` 做独立版本检查与发布页跳转 |
 
 ### 当前主要问题
 
-- 当前 Launcher 仍是最小技术闭环，功能链路已通，但桌面端信息架构、视觉层次、操作分组、状态反馈和可读性仍停留在开发态。
-- 当前默认设置逻辑 `LauncherDefaults.CreateDefaultSettings(...)` 会把配置路径推导到仓库根下的 `config/user.yaml`；在干净开发仓库中该文件通常不存在，因此首屏会先暴露配置缺失。
-- 当前初始化链路 `LauncherCoordinator.InitializeAsync -> RefreshCoreAsync` 会在首屏初始化时立即探测 `/healthz`；即使配置缺失、服务未启动、进程未拉起，也会把底层 socket refusal 暴露成顶层错误。
-- 当前 `MainWindowViewModel` 直接把 `snapshot.LastError` 放进首屏主摘要区域，原始异常文案会压过“缺配置”“服务未启动”“等待启动”这类更有行动价值的状态。
-- 当前 `MainWindow.axaml` 仍是直接堆砌式表单/卡片，缺少统一主题、状态层级、主次按钮体系、结果反馈层和渐进披露，不符合 Launcher 作为 v0.1 第一接触面的要求。
+- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、第二轮液态玻璃视觉层、托盘快捷浮层、版本检查和交付 metadata 已进入可验证主链；初始化、登录和自动登录失败提示已回收到 Web 侧处理，Web 登录/初始化页也已补齐可见错误反馈。
+- 当前仍未收口的 Launcher 欠账主要集中在凭据丢失后的本地恢复入口，以及正式安装体验与长期自托管打磨。
 
 ---
 
-## 十二、Phase 10 — Render Service ❌
+## 十二、Phase 10 — Render Service 🟡
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
-| render contract / API surface | ❌ | render service 仍未进入公开实现阶段 |
+| render contract / API surface | ✅ | `render.image` 已进入 formal contract、fixtures、SDK、examples 与主运行链 |
+| 最小 render artifact 输出 | ✅ | server 已能生成占位渲染产物并把 `image_path` / `mime` / `cache_key` 返回给插件 |
 | 渲染队列与 Chromium 调度 | ❌ | 队列、并发控制、超时、重试与浏览器调度尚未实现 |
-| 模板校验 / 缓存 / 结果管理 | ❌ | 模板输入校验、缓存、失败回收与产物管理尚未实现 |
+| 模板校验 / 缓存 / 结果管理 | 🟡 | 最小 artifact path 已存在，但模板版本化、缓存、失败回收与产物管理仍未实现 |
 | `.deps/manifest.json` baseline | 🟡 | 仅存在资源清单占位 |
-| 受控运行时资源接线 | ❌ | Chromium / 运行时资源解析、下载校验与 render service 的真实接线尚未实现 |
+| 受控运行时资源接线 | 🟡 | Launcher preflight 已覆盖 Chromium / 模板资源检查，真正的 render worker 资源接线仍未完成 |
 
 ---
 
@@ -258,7 +291,18 @@
 | `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI fixtures 结构/覆盖校验、CLI contract 与 TaskType enum 交叉校验 |
 | `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` baseline 校验 |
 | `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
+| `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
+| `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、linux packaging smoke 与 metadata verify |
 | `lint.yml` / `ci-launcher` | push main / PR | `dotnet test ./launcher` 与 `dotnet publish ./launcher -c Release` |
+| `nightly.yml` | schedule / manual | server tests、web tests / E2E、release helper tests、launcher tests / publish |
+| `release.yml` | tag push | `windows-x64-full` / `linux-x64-server` 打包、smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
+
+### 规划对齐缺口
+
+| 交付门禁 | 状态 | 说明 |
+|--------|------|------|
+| 发布后升级 / 回滚 drills | ❌ | 规划要求交付后持续验证升级、回滚和恢复路径，当前 workflow 仍以 build/smoke 为主 |
+| 长期自托管 smoke | ❌ | 规划要求更长时间窗的安装、运行、诊断闭环回归，当前 CI 仍未覆盖 |
 
 ### 当前验证结论
 
@@ -267,49 +311,41 @@
 - `pnpm build`、`pnpm test`、`pnpm test:e2e` 已在 `web/` 本地通过。
 - `dotnet test ./launcher` 与 `dotnet publish ./launcher -c Release` 已在本地通过。
 - bundled plugin manifests 当前已与 `contracts/plugin-info.schema.json` 对齐。
-- 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`。
+- 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`、`example-config-panel`、`example-render-card`、`example-scheduler`、`example-webhook`。
 - `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。
 - 聊天侧 command policy 与 temporal grants 当前已受 app / plugins / storage / http tests 覆盖。
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
-- `logger.write` / `storage.kv` / `storage.file` / `http.request` 当前已受 contract fixtures、runtime parser、app executor、pluginfile / pluginhttp 单测、SDK 编译与示例 smoke 覆盖。
-- 当前主要风险集中在 Launcher 桌面体验明显低于可交付水平，且首屏误导性连接报错会破坏首次使用认知；发布/安装体验尚未启动和 Render 仍未开始继续构成外层交付断层。
+- `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
+- 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
+- `ci-web`、`smoke-pr`、`nightly`、`release` 已进入仓库工作流，release metadata / checksum 校验与交付矩阵 smoke 已有门禁。
+- 当前主要风险集中在四个层面：共享 degraded / remediation 结构尚未完全统一到 `/readyz`、Launcher、`doctor` 与诊断包；规划与 formal surface 仍存在 install source narrative 与 plugin lifecycle route shape 漂移；Launcher 仍缺凭据丢失恢复入口与更完整的安装体验；Render Service 仍停留在最小占位产物输出，Chromium 队列与模板 / 缓存体系尚未完成。
 
 ---
 
 ## 十四、下一步行动建议
 
-当前 Web 管理面已进入覆盖正式管理 surface 的稳定闭环，下一步建议先收敛 Launcher 的桌面质量与启动可靠性，再继续发布/安装和 Render 后续工作。
+当前执行计划中的 1-4 号主线已完成，下一步从“补主链能力”切换为“收口剩余漂移与交付稳定性”。
 
-### 1. Launcher 设计、布局与 UI/UX 重构
+### 1. 已收口的规划 / contract 漂移
 
-1. 目标方向固定为专业控制台风格，建立统一主题色、状态色、卡片层级、间距、字体层级、图标和按钮优先级。
-2. 重新设计首屏信息架构，按“服务总览 / 当前状态 / 关键动作 / 环境问题 / 诊断摘要”分层组织，而不是继续并列堆砌设置区、控制区、环境检查区和诊断区。
-3. 首屏只保留最重要的状态与动作，把完整 stderr 与完整诊断摘要收敛到次级区域、抽屉或按需展开面板。
-4. 统一状态 badge、CTA、禁用态、忙碌态、完成态、错误态和危险操作确认，保证桌面端操作反馈一致。
-5. 保持 Launcher 只承担本地进程管理、环境检查、极简诊断与打开 Web UI，不扩成第二套 Web 管理面，不承载完整插件管理、完整日志浏览或在线配置编辑。
+1. ✅ 统一插件 lifecycle 口径：已在规划正文中对齐 formal contract，明确采用 `enable` / `disable` / `reload` 独立路由语义。
+2. ✅ 收口插件安装来源叙事：已在规划正文中明确 `remote_url` 属于 v0.1 正式支持能力。
+3. 把“超前完成”能力与当前阶段能力的分层说明继续同步进规划相关文档，避免再次出现执行计划与规划脱节。
 
-### 2. Launcher 启动可靠性、状态建模与诊断引导修复
+### 2. 扩大发布后回归与长期自托管验证
 
-1. 将“服务未启动”“等待启动”“配置缺失”“端口不可达”“setup required”“ready”“degraded”“shutting_down”“failed”表达为用户可理解的桌面状态语义，不再让异常消息直接充当状态。
-2. 启动器初始态优先展示本地可判定事实：配置是否存在、可执行文件是否存在、工作目录是否可写、服务是否尚未启动；未启动场景不再把 socket refusal 作为主错误展示。
-3. 配置缺失场景的主提示固定为配置问题，并提供诊断 + 引导入口，例如打开路径、重试、查看说明；当前阶段不扩成配置创建向导，也不自动生成本地配置。
-4. 将原始网络异常与 HTTP 错误降级到诊断层，只在用户需要时查看；对 `Open Web UI`、`Retry Health/Auth`、`Start`、`Stop` 做状态 gating，避免在不成立的场景下暴露无意义动作。
-5. 扩大 Launcher 状态映射、缺配置、未启动、启动中、健康失败、`setup_required`、session 失效与 shutdown 协调等桌面回归面，稳住 Launcher 与 Web 的职责边界。
+1. 增加 upgrade / rollback drills，验证 release metadata、数据库 / 配置 schema 与 launcher build info 的回滚判断链。
+2. 增加 diagnostic bundle drills，验证 Web / Launcher / CLI 产出的诊断信息在支持场景下可交叉使用。
+3. 增加更长时间窗的自托管 smoke，覆盖正式安装、启动、发布后升级和恢复流程。
 
-### 3. 在桌面质量稳定后继续 Launcher 发布与安装体验
+### 3. v0.1 交付面稳定后进入 v0.2+ 运行时完善项
 
-1. 固定 Launcher 发布目录布局、server 默认路径发现与 publish 产物 smoke。
-2. 补齐最小化到托盘、关闭行为、版本检查与安装/升级文档，不提前引入自动更新器。
-3. 保持 Launcher 只消费既有 server management surface，不复制 Web 业务逻辑。
-
-### 4. Launcher 交付面稳定后进入 Render Service
-
-1. 先冻结 `render.image` contract、错误码和 fixture。
-2. 接入受控 Chromium 调度、任务队列与最小缓存。
-3. 保持在线模板编辑与更广渲染管理面后置。
+1. 完成真正的 Render Service：受控 Chromium、模板版本、缓存、preview 与任务编排。
+2. 在 v0.1 交付边界稳定后，再推进更广运行时与平台能力，而不是继续在 v0.1 范围内补洞。
+3. 保持 Web、Launcher、CLI 继续复用同一套状态语义与 release metadata，不再新增平行口径。
 
 ### 后续实施验收口径
 
-- Launcher 设计与 UI/UX 重构的验收应满足：首屏形成清晰的主次视觉层级，主状态、关键动作、环境问题和诊断摘要分区明确；主要操作具备一致的按钮层级、禁用态、加载态和结果反馈；环境检查与诊断信息不再挤占主操作区。
-- Launcher 启动可靠性修复的验收应满足：未启动服务时首屏不再以“无法连接”作为主错误；缺配置时首屏主提示为配置问题并带明确引导动作；原始 socket / HTTP 异常只在诊断层显示；`Start / Stop / Open Web UI / Retry` 的可用性与当前状态一致。
-- 后续实现回归至少覆盖：Launcher 状态映射单测、缺配置 / 未启动 / 启动中 / 健康失败 / `setup_required` / `ready` / session 失效等失败路径测试；如引入视觉重构，再增加桌面截图基线或等价 UI smoke 以防布局回退。
+- 规划 / contract 漂移收口的验收应满足：当前 install source narrative 与 plugin lifecycle route shape 已完成收口并在各文档中得到单一、一致解释；超前完成能力还需继续在规划中分层说明。
+- 发布后回归扩面的验收应满足：upgrade / rollback、diagnostic bundle、正式安装与长期自托管 smoke 进入稳定门禁，且不会与既有 `release_manifest.json` / `build_info.json` / `SHA256SUMS.txt` 语义冲突。
+- v0.2+ 运行时完善项的验收应满足：Render Service 从占位产物输出升级到真正的 Chromium 渲染链路，并继续保持 contract-first、四件套同步更新与单一状态语义。

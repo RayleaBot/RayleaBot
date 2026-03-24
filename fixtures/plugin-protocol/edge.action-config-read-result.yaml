@@ -1,0 +1,27 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000411
+    plugin_id: weather
+    request_id: local_config_result_0001
+    action: config.read
+    data:
+      keys:
+        - api_key_name
+        - default_city
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000412
+    plugin_id: weather
+    request_id: local_config_result_0001
+    status: success
+    data:
+      values:
+        api_key_name: weather_api
+        default_city: 北京
+expect:
+  valid: true
+  notes:
+    - config.read results return a values map keyed by the requested plugin-local config names.

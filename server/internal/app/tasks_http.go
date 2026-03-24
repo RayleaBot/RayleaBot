@@ -120,6 +120,10 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 			writeAuthJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
 			return
 		}
+		if a.taskExecutor != nil && a.taskExecutor.Cancel(taskID) {
+			writeAuthJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
+			return
+		}
 
 		if snapshot.Status != tasks.StatusPending {
 			writeAppError(w, r, http.StatusConflict, codeTaskNotCancellable, "当前任务不可取消", "errors.platform.task_not_cancellable", map[string]any{

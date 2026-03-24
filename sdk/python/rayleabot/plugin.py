@@ -185,11 +185,109 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
+    def config_read(self, request_id, keys, timeout_seconds=30):
+        """Read plugin-scoped config keys through config.read."""
+        if not keys:
+            raise ValueError("config_read requires at least one key")
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "config.read",
+            {"keys": list(keys)},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def config_write(self, request_id, values, timeout_seconds=30):
+        """Write plugin-scoped config values through config.write."""
+        if not values:
+            raise ValueError("config_write requires at least one key/value pair")
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "config.write",
+            {"values": values},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def scheduler_create(self, request_id, task_id, cron, payload=None, timeout_seconds=30):
+        """Create or update one scheduler.trigger task through scheduler.create."""
+        data = {
+            "task_id": task_id,
+            "cron": cron,
+            "event_type": "scheduler.trigger",
+        }
+        if payload is not None:
+            data["payload"] = payload
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "scheduler.create",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def expose_webhook(
+        self,
+        request_id,
+        route,
+        secret_ref,
+        methods=None,
+        auth_strategy="fixed_token",
+        header="X-Webhook-Token",
+        signature_prefix=None,
+        source_ips=None,
+        timeout_seconds=30,
+    ):
+        """Register a controlled webhook route through event.expose_webhook."""
+        data = {
+            "route": route,
+            "methods": list(methods or ["POST"]),
+            "auth_strategy": auth_strategy,
+            "header": header,
+            "secret_ref": secret_ref,
+        }
+        if signature_prefix is not None:
+            data["signature_prefix"] = signature_prefix
+        if source_ips:
+            data["source_ips"] = list(source_ips)
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "event.expose_webhook",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def render_image(self, request_id, template, data, theme=None, output=None, fallback_text=None, timeout_seconds=30):
+        """Render one image artifact through render.image."""
+        payload = {
+            "template": template,
+            "data": data,
+        }
+        if theme is not None:
+            payload["theme"] = theme
+        if output is not None:
+            payload["output"] = output
+        if fallback_text is not None:
+            payload["fallback_text"] = fallback_text
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "render.image",
+            payload,
+            timeout_seconds=timeout_seconds,
+        )
+
     storageFileRead = storage_file_read
     storageFileWrite = storage_file_write
     storageFileDelete = storage_file_delete
     storageFileList = storage_file_list
     httpRequest = http_request
+    configRead = config_read
+    configWrite = config_write
+    schedulerCreate = scheduler_create
+    exposeWebhook = expose_webhook
+    renderImage = render_image
 
     def run(self):
         """Main event loop: handles init, events, ping, and shutdown."""

@@ -1,11 +1,17 @@
 package server
 
 import (
+	"archive/zip"
+	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"rayleabot/server/internal/auth"
 )
 
 func TestSetupStatusReportsBootstrapState(t *testing.T) {
@@ -211,6 +217,78 @@ func TestLauncherAdmissionConsumesTokenAndReturnsSession(t *testing.T) {
 	}
 }
 
+func TestLauncherAdmissionRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t)
+	application.Auth = newLimitedAuthManager(t, 1)
+	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	tokenFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-token.yaml"))
+	admissionFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-admission.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	setupReq, err := http.NewRequest(setupFixture.Request.Method, server.URL+setupFixture.Request.Path, strings.NewReader(`{"identifier":"admin","secret":"fixture-only-secret"}`))
+	if err != nil {
+		t.Fatalf("create setup request: %v", err)
+	}
+	setupReq.Header.Set("Content-Type", "application/json")
+	setupResp, err := server.Client().Do(setupReq)
+	if err != nil {
+		t.Fatalf("perform setup request: %v", err)
+	}
+	defer setupResp.Body.Close()
+	if setupResp.StatusCode != setupFixture.Response.Status {
+		t.Fatalf("unexpected setup status: got %d want %d", setupResp.StatusCode, setupFixture.Response.Status)
+	}
+	bootstrapToken, ok := decodeBody(t, readAll(t, setupResp))["session_token"].(string)
+	if !ok || bootstrapToken == "" {
+		t.Fatalf("expected bootstrap token before launcher admission")
+	}
+
+	issueReq, err := http.NewRequest(http.MethodPost, server.URL+tokenFixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create launcher-token request: %v", err)
+	}
+	issueResp, err := server.Client().Do(issueReq)
+	if err != nil {
+		t.Fatalf("perform launcher-token request: %v", err)
+	}
+	defer issueResp.Body.Close()
+	if issueResp.StatusCode != tokenFixture.Response.Status {
+		t.Fatalf("unexpected launcher-token status: got %d want %d", issueResp.StatusCode, tokenFixture.Response.Status)
+	}
+	launcherToken, ok := decodeBody(t, readAll(t, issueResp))["launcher_token"].(string)
+	if !ok || launcherToken == "" {
+		t.Fatalf("expected non-empty launcher_token")
+	}
+
+	admissionReq, err := http.NewRequest(admissionFixture.Request.Method, server.URL+admissionFixture.Request.Path, strings.NewReader(`{"launcher_token":"`+launcherToken+`"}`))
+	if err != nil {
+		t.Fatalf("create launcher-admission request: %v", err)
+	}
+	admissionReq.Header.Set("Content-Type", "application/json")
+	admissionResp, err := server.Client().Do(admissionReq)
+	if err != nil {
+		t.Fatalf("perform launcher-admission request: %v", err)
+	}
+	defer admissionResp.Body.Close()
+	if admissionResp.StatusCode != admissionFixture.Response.Status {
+		t.Fatalf("unexpected launcher-admission status: got %d want %d", admissionResp.StatusCode, admissionFixture.Response.Status)
+	}
+	sessionToken, ok := decodeBody(t, readAll(t, admissionResp))["session_token"].(string)
+	if !ok || sessionToken == "" {
+		t.Fatalf("expected non-empty session_token from launcher admission")
+	}
+
+	if _, err := application.Auth.Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
+		t.Fatalf("expected oldest bootstrap session to be recycled, got %v", err)
+	}
+	if _, err := application.Auth.Validate(sessionToken); err != nil {
+		t.Fatalf("expected launcher-admitted session to validate, got %v", err)
+	}
+}
+
 func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	t.Parallel()
 
@@ -278,5 +356,120 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	statusAfterBody := decodeBody(t, readAll(t, statusAfterResp))
 	if statusAfterBody["status"] != "shutting_down" {
 		t.Fatalf("unexpected post-shutdown status: %#v", statusAfterBody["status"])
+	}
+}
+
+func TestSystemBackupAcceptsTaskAndCreatesArchive(t *testing.T) {
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-backup-accepted.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create system backup request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform system backup request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected system backup status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	taskID, ok := body["task_id"].(string)
+	if !ok || taskID == "" {
+		t.Fatalf("unexpected system backup body: %#v", body)
+	}
+
+	snapshot := waitForTaskStatus(t, application.Tasks, taskID, "succeeded")
+	if snapshot.TaskType != "backup.create" {
+		t.Fatalf("unexpected backup task type: got %q want %q", snapshot.TaskType, "backup.create")
+	}
+	if snapshot.Result == nil {
+		t.Fatalf("expected backup task result, got %#v", snapshot)
+	}
+
+	archivePath, ok := snapshot.Result.Details["archive_path"].(string)
+	if !ok || archivePath == "" {
+		t.Fatalf("expected backup archive path in result details, got %#v", snapshot.Result.Details)
+	}
+	t.Cleanup(func() {
+		_ = os.Remove(archivePath)
+	})
+
+	info, err := os.Stat(archivePath)
+	if err != nil {
+		t.Fatalf("stat backup archive: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Fatalf("expected non-empty backup archive: %s", archivePath)
+	}
+
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("open backup archive: %v", err)
+	}
+	defer reader.Close()
+
+	entries := map[string]bool{}
+	for _, file := range reader.File {
+		entries[file.Name] = true
+	}
+	if !entries["backup-manifest.json"] {
+		t.Fatalf("backup archive missing backup-manifest.json: %#v", entries)
+	}
+}
+
+func TestSystemDiagnosticsExportReturnsZipBundle(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-diagnostics-export.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create diagnostics export request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform diagnostics export request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected diagnostics export status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+	if got := response.Header.Get("Content-Type"); got != fixture.Response.Headers["Content-Type"] {
+		t.Fatalf("unexpected diagnostics content-type: got %q want %q", got, fixture.Response.Headers["Content-Type"])
+	}
+	if got := response.Header.Get("Content-Disposition"); got != fixture.Response.Headers["Content-Disposition"] {
+		t.Fatalf("unexpected diagnostics content-disposition: got %q want %q", got, fixture.Response.Headers["Content-Disposition"])
+	}
+
+	payload := readAll(t, response)
+	reader, err := zip.NewReader(bytes.NewReader(payload), int64(len(payload)))
+	if err != nil {
+		t.Fatalf("open diagnostics archive: %v", err)
+	}
+
+	entries := map[string]bool{}
+	for _, file := range reader.File {
+		entries[file.Name] = true
+	}
+
+	for _, required := range []string{"system-status.json", "readiness.json", "plugins.json", "config-summary.json", "recent-logs.json"} {
+		if !entries[required] {
+			t.Fatalf("diagnostics archive missing %s: %#v", required, entries)
+		}
 	}
 }

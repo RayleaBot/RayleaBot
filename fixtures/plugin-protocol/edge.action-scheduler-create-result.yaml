@@ -1,0 +1,28 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000415
+    plugin_id: daily-report
+    request_id: local_sched_result_0001
+    action: scheduler.create
+    data:
+      task_id: daily_morning_report
+      cron: "0 8 * * *"
+      event_type: scheduler.trigger
+      payload:
+        report_type: daily
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000416
+    plugin_id: daily-report
+    request_id: local_sched_result_0001
+    status: success
+    data:
+      task_id: daily_morning_report
+      next_run: "2026-03-25T08:00:00+08:00"
+expect:
+  valid: true
+  notes:
+    - scheduler.create returns the resolved next_run for the upserted task.

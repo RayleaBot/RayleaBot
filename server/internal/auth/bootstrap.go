@@ -26,6 +26,7 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 	}
 
 	now := m.now().UTC()
+	canonicalNow := canonicalSessionTimestamp(now)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -38,7 +39,7 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 		Identifier:    identifier,
 		SecretDigest:  digestSecret(secret),
 		SigningKey:    append([]byte(nil), m.signingKey...),
-		InitializedAt: now,
+		InitializedAt: canonicalNow,
 	}
 	token, claims, err := m.newTokenClaimsLocked(identifier, now)
 	if err != nil {
@@ -46,6 +47,7 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 	}
 
 	removed := m.pruneExpiredLocked(now)
+	removed = append(removed, m.recycleOldestSessionsLocked()...)
 	if err := m.deleteSessionsLocked(context.Background(), removed...); err != nil {
 		return "", Claims{}, err
 	}
@@ -118,8 +120,8 @@ func (m *Manager) newTokenClaimsLocked(subject string, now time.Time) (string, C
 	claims := Claims{
 		SessionID: sessionID,
 		Subject:   subject,
-		IssuedAt:  now,
-		ExpiresAt: now.Add(m.ttl()),
+		IssuedAt:  canonicalSessionTimestamp(now),
+		ExpiresAt: canonicalSessionTimestamp(now.Add(m.ttl())),
 	}
 
 	token, err := m.sign(claims)

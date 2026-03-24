@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: Login is conservatively rejected when the configured max_sessions boundary is already reached.
+description: Login recycles the oldest active management session when the configured max_sessions boundary is already reached.
 request:
   method: POST
   path: /api/session/login
@@ -8,12 +8,8 @@ request:
     identifier: admin
     secret: fixture-only-secret
 response:
-  status: 403
+  status: 200
   body:
-    error:
-      code: permission.denied
-      message: 当前用户无权执行该操作
-      message_key: errors.permission.denied
-      request_id: req_session_login_denied_0002
+    session_token: fixture_session_token_placeholder
 expect:
   valid: true

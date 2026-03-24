@@ -8,22 +8,23 @@ namespace RayleaBot.Launcher.Tests;
 public sealed class LauncherCoordinatorTests
 {
     [TestMethod]
-    public async Task InitializeAsync_BootstrapsLauncherSessionAndReportsReady()
+    public async Task InitializeAsync_ReportsReadyWithoutLauncherSessionBootstrap()
     {
         var fixture = new LauncherFixture();
+        fixture.ReleaseFeedClient.Snapshot = ReleaseCheckSnapshot.UpToDate("0.1.0", "https://example.invalid/releases/v0.1.0");
         var coordinator = fixture.CreateCoordinator();
 
         await coordinator.InitializeAsync();
 
-        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
-        Assert.IsTrue(coordinator.Snapshot.SetupInitialized);
-        Assert.AreEqual(1, fixture.ManagementClient.IssueLauncherTokenCalls);
-        Assert.AreEqual(1, fixture.ManagementClient.AdmitLauncherTokenCalls);
-        Assert.AreEqual(1, fixture.ManagementClient.SystemStatusCalls);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(0, fixture.ManagementClient.IssueLauncherTokenCalls);
+        Assert.AreEqual(0, fixture.ManagementClient.AdmitLauncherTokenCalls);
+        Assert.AreEqual(0, fixture.ManagementClient.SystemStatusCalls);
+        Assert.AreEqual("up_to_date", coordinator.Snapshot.ReleaseCheck.Status);
     }
 
     [TestMethod]
-    public async Task InitializeAsync_LeavesSetupRequiredWithoutSessionBootstrap()
+    public async Task InitializeAsync_KeepsLauncherReadyWhenSetupIsStillRequired()
     {
         var fixture = new LauncherFixture();
         fixture.ManagementClient.SetupInitialized = false;
@@ -31,25 +32,113 @@ public sealed class LauncherCoordinatorTests
 
         await coordinator.InitializeAsync();
 
-        Assert.AreEqual(LauncherServiceState.SetupRequired, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
         Assert.AreEqual(0, fixture.ManagementClient.IssueLauncherTokenCalls);
         Assert.AreEqual(0, fixture.ManagementClient.AdmitLauncherTokenCalls);
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("初始化", StringComparison.Ordinal));
     }
 
     [TestMethod]
-    public async Task RefreshAsync_ReauthenticatesAfterUnauthorizedSystemStatus()
+    public async Task InitializeAsync_DoesNotProbeHealthWhenServerIsStoppedAndBootstrapIsAvailable()
     {
         var fixture = new LauncherFixture();
-        fixture.ManagementClient.SystemStatusResponses.Enqueue(new LauncherHttpStatusException(HttpStatusCode.Unauthorized, "expired"));
-        fixture.ManagementClient.SystemStatusResponses.Enqueue(new SystemStatusSnapshot("running", "connected", 2, 42));
+        fixture.ManagementClient.HealthDefault = false;
+        fixture.EnvironmentInspector.Inspection = new EnvironmentInspection(
+        [
+            new EnvironmentCheckResult(
+                "config.bootstrap_available",
+                "Config file",
+                CheckSeverity.Warning,
+                "User config will be generated on first start.",
+                @"Missing user config file: C:\RayleaBot\config\user.yaml",
+                @"Start the service to bootstrap the first config from C:\RayleaBot\config\default.yaml."),
+        ],
+        false,
+        true);
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+
+        Assert.AreEqual(LauncherServiceState.Stopped, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(0, fixture.ManagementClient.HealthCalls);
+        Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
+        StringAssert.Contains(coordinator.Snapshot.ServiceDetail, "first config");
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_DoesNotReportConnectionFailureWhenProcessIsStopped()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = false;
+        fixture.EnvironmentInspector.Inspection = new EnvironmentInspection(
+        [
+            new EnvironmentCheckResult(
+                "server.executable",
+                "Server executable",
+                CheckSeverity.Ok,
+                "Executable ready.",
+                @"C:\RayleaBot\raylea-server.exe",
+                string.Empty),
+        ],
+        false,
+        false);
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+
+        Assert.AreEqual(LauncherServiceState.Stopped, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(1, fixture.ManagementClient.HealthCalls);
+        Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
+        StringAssert.Contains(coordinator.Snapshot.ServiceDetail, "服务尚未启动");
+    }
+
+    [TestMethod]
+    public async Task RefreshAsync_DoesNotSurfaceLauncherSessionFailures()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.IssueLauncherTokenException = new LauncherHttpStatusException(HttpStatusCode.Unauthorized, "expired");
         var coordinator = fixture.CreateCoordinator();
         await coordinator.InitializeAsync();
 
         await coordinator.RefreshAsync();
 
-        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
-        Assert.AreEqual(2, fixture.ManagementClient.IssueLauncherTokenCalls);
-        Assert.AreEqual(2, fixture.ManagementClient.AdmitLauncherTokenCalls);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(0, fixture.ManagementClient.SystemStatusCalls);
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("会话", StringComparison.Ordinal));
+        Assert.IsFalse(coordinator.Snapshot.LastError.Contains("expired", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_DoesNotPromoteAdapterReconnectReasonToPrimaryStatus()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.Readiness = new ReadinessSnapshot("degraded", "OneBot reverse WebSocket is reconnecting");
+        fixture.ManagementClient.DefaultSystemStatus = new SystemStatusSnapshot("running", "reconnecting", 1, 60);
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("OneBot", StringComparison.Ordinal));
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("reconnecting", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task StopAsync_StopsDetectedExternalServiceWhenGracefulShutdownDoesNotDrain()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = true;
+        fixture.ManagementClient.SetupInitialized = false;
+        fixture.EndpointProcessController.StopResult = true;
+        fixture.EndpointProcessController.OnStop = () => fixture.ManagementClient.HealthDefault = false;
+        var coordinator = fixture.CreateCoordinator(new LauncherCoordinatorOptions(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(5), TimeSpan.FromMilliseconds(20)));
+        await coordinator.InitializeAsync();
+
+        await coordinator.StopAsync();
+
+        Assert.AreEqual(1, fixture.EndpointProcessController.StopCalls);
+        Assert.AreEqual(LauncherServiceState.Stopped, coordinator.Snapshot.ServiceState);
     }
 
     [TestMethod]
@@ -68,6 +157,36 @@ public sealed class LauncherCoordinatorTests
     }
 
     [TestMethod]
+    public async Task StartAsync_DoesNotStartAnotherProcessWhenEndpointIsAlreadyHealthy()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = true;
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+        await coordinator.StartAsync();
+
+        Assert.AreEqual(0, fixture.ProcessController.StartCalls);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
+    }
+
+    [TestMethod]
+    public async Task StartAsync_DoesNotStartWhenEndpointPortIsAlreadyOccupied()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = false;
+        fixture.EndpointProcessController.IsEndpointListeningResult = true;
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+        await coordinator.StartAsync();
+
+        Assert.AreEqual(0, fixture.ProcessController.StartCalls);
+        Assert.AreEqual(LauncherServiceState.Failed, coordinator.Snapshot.ServiceState);
+        StringAssert.Contains(coordinator.Snapshot.LastError, "端口");
+    }
+
+    [TestMethod]
     public async Task StopAsync_FallsBackToForceKillWhenShutdownCannotDrain()
     {
         var fixture = new LauncherFixture();
@@ -82,7 +201,7 @@ public sealed class LauncherCoordinatorTests
     }
 
     [TestMethod]
-    public async Task OpenWebUiAsync_UsesTokenOnlyForInitializedServers()
+    public async Task OpenWebUiAsync_AlwaysUsesRootAndAddsTokenOnlyWhenAvailable()
     {
         var initializedFixture = new LauncherFixture();
         var initializedCoordinator = initializedFixture.CreateCoordinator();
@@ -90,6 +209,7 @@ public sealed class LauncherCoordinatorTests
         await initializedCoordinator.OpenWebUiAsync();
 
         StringAssert.Contains(initializedFixture.ExternalOpener.OpenedUris.Single().ToString(), "?token=");
+        Assert.AreEqual("/", initializedFixture.ExternalOpener.OpenedUris.Single().AbsolutePath);
 
         var setupFixture = new LauncherFixture();
         setupFixture.ManagementClient.SetupInitialized = false;
@@ -99,6 +219,23 @@ public sealed class LauncherCoordinatorTests
 
         Assert.HasCount(1, setupFixture.ExternalOpener.OpenedUris);
         Assert.IsFalse(setupFixture.ExternalOpener.OpenedUris.Single().Query.Contains("token=", StringComparison.Ordinal));
+        Assert.AreEqual("/", setupFixture.ExternalOpener.OpenedUris.Single().AbsolutePath);
+    }
+
+    [TestMethod]
+    public async Task OpenReleasePageAsync_UsesReleaseFeedUrlWhenAvailable()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ReleaseFeedClient.Snapshot = ReleaseCheckSnapshot.NewUpdateAvailable(
+            "0.1.0",
+            "0.1.1",
+            "https://example.invalid/releases/v0.1.1");
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+        await coordinator.OpenReleasePageAsync();
+
+        Assert.AreEqual("https://example.invalid/releases/v0.1.1", fixture.ExternalOpener.OpenedUris.Last().ToString());
     }
 }
 
@@ -109,7 +246,9 @@ internal sealed class LauncherFixture
     internal FakeEnvironmentInspector EnvironmentInspector { get; } = new();
     internal FakeManagementClient ManagementClient { get; } = new();
     internal FakeProcessController ProcessController { get; } = new();
+    internal FakeEndpointProcessController EndpointProcessController { get; } = new();
     internal FakeExternalOpener ExternalOpener { get; } = new();
+    internal FakeReleaseFeedClient ReleaseFeedClient { get; } = new();
 
     internal LauncherCoordinator CreateCoordinator(LauncherCoordinatorOptions? options = null)
     {
@@ -119,7 +258,9 @@ internal sealed class LauncherFixture
             EnvironmentInspector,
             ManagementClient,
             ProcessController,
+            EndpointProcessController,
             ExternalOpener,
+            ReleaseFeedClient,
             options);
     }
 }
@@ -150,15 +291,17 @@ internal sealed class FakeEndpointResolver : IServerEndpointResolver
 
 internal sealed class FakeEnvironmentInspector : IEnvironmentInspector
 {
-    internal IReadOnlyList<EnvironmentCheckResult> Results { get; set; } =
+    internal EnvironmentInspection Inspection { get; set; } = new(
     [
-        new EnvironmentCheckResult("Server executable", CheckSeverity.Ok, "ok"),
-        new EnvironmentCheckResult("Config file", CheckSeverity.Ok, "ok"),
-    ];
+        new EnvironmentCheckResult("server.executable", "Server executable", CheckSeverity.Ok, "Executable ready.", "ok", string.Empty),
+        new EnvironmentCheckResult("config.file", "Config file", CheckSeverity.Ok, "Config ready.", "ok", string.Empty),
+    ],
+    false,
+    false);
 
-    public Task<IReadOnlyList<EnvironmentCheckResult>> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
+    public Task<EnvironmentInspection> InspectAsync(LauncherSettings settings, CancellationToken cancellationToken)
     {
-        return Task.FromResult(Results);
+        return Task.FromResult(Inspection);
     }
 }
 
@@ -173,12 +316,15 @@ internal sealed class FakeManagementClient : ILauncherManagementClient
     internal string SessionToken { get; set; } = "session_fixture_token";
     internal SystemStatusSnapshot DefaultSystemStatus { get; set; } = new("running", "connected", 1, 60);
     internal Exception? ShutdownException { get; set; }
+    internal Exception? IssueLauncherTokenException { get; set; }
     internal int IssueLauncherTokenCalls { get; private set; }
     internal int AdmitLauncherTokenCalls { get; private set; }
     internal int SystemStatusCalls { get; private set; }
+    internal int HealthCalls { get; private set; }
 
     public Task<bool> IsHealthyAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
     {
+        HealthCalls++;
         if (HealthResponses.Count > 0)
         {
             return Task.FromResult(HealthResponses.Dequeue());
@@ -200,6 +346,10 @@ internal sealed class FakeManagementClient : ILauncherManagementClient
     public Task<string> IssueLauncherTokenAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
     {
         IssueLauncherTokenCalls++;
+        if (IssueLauncherTokenException is not null)
+        {
+            throw IssueLauncherTokenException;
+        }
         return Task.FromResult(LauncherToken);
     }
 
@@ -282,5 +432,35 @@ internal sealed class FakeExternalOpener : IExternalOpener
     {
         OpenedDirectories.Add(directoryPath);
         return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeEndpointProcessController : IEndpointProcessController
+{
+    internal bool StopResult { get; set; }
+    internal bool IsEndpointListeningResult { get; set; }
+    internal int StopCalls { get; private set; }
+    internal Action? OnStop { get; set; }
+
+    public Task<bool> IsEndpointListeningAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(IsEndpointListeningResult);
+    }
+
+    public Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        StopCalls++;
+        OnStop?.Invoke();
+        return Task.FromResult(StopResult);
+    }
+}
+
+internal sealed class FakeReleaseFeedClient : IReleaseFeedClient
+{
+    internal ReleaseCheckSnapshot Snapshot { get; set; } = ReleaseCheckSnapshot.Unavailable("release feed not configured");
+
+    public Task<ReleaseCheckSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult(Snapshot);
     }
 }

@@ -1,11 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { apiRequest } from '@/lib/http'
+import { apiDownload, apiRequest } from '@/lib/http'
 import type {
   EventsPayload,
   LivenessStatusResponse,
   ReadinessStatusResponse,
+  TaskAcceptedResponse,
   SystemShutdownResponse,
   SystemStatusResponse,
 } from '@/types/api'
@@ -17,6 +18,8 @@ export const useSystemStore = defineStore('system', () => {
   const loading = ref(false)
   const shutdownPending = ref(false)
   const shutdownRequested = ref(false)
+  const backupPending = ref(false)
+  const diagnosticsPending = ref(false)
   const error = ref<string | null>(null)
   const recentEvents = ref<Array<{ timestamp: string; summary: string; payload: EventsPayload }>>([])
 
@@ -74,7 +77,40 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
+  async function createBackup() {
+    backupPending.value = true
+    error.value = null
+    try {
+      return await apiRequest<TaskAcceptedResponse>('/api/system/backup', {
+        method: 'POST',
+      })
+    } finally {
+      backupPending.value = false
+    }
+  }
+
+  async function exportDiagnostics() {
+    diagnosticsPending.value = true
+    error.value = null
+    try {
+      const { blob, filename } = await apiDownload('/api/system/diagnostics/export')
+      const objectURL = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = objectURL
+      anchor.download = filename ?? 'rayleabot-diagnostics.zip'
+      anchor.style.display = 'none'
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      window.URL.revokeObjectURL(objectURL)
+    } finally {
+      diagnosticsPending.value = false
+    }
+  }
+
   return {
+    backupPending,
+    diagnosticsPending,
     error,
     health,
     isHealthy,
@@ -85,6 +121,8 @@ export const useSystemStore = defineStore('system', () => {
     shutdownRequested,
     system,
     applyEvent,
+    createBackup,
+    exportDiagnostics,
     refresh,
     requestShutdown,
   }

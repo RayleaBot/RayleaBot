@@ -29,17 +29,30 @@ type Command struct {
 	Permission  string
 }
 
+type WebhookScope struct {
+	Route           string   `json:"route"`
+	AuthStrategy    string   `json:"auth_strategy"`
+	Header          string   `json:"header"`
+	SecretRef       string   `json:"secret_ref"`
+	SignaturePrefix string   `json:"signature_prefix,omitempty"`
+	SourceIPs       []string `json:"source_ips,omitempty"`
+}
+
 type Snapshot struct {
 	PluginID              string
 	Name                  string
+	Role                  string
 	Version               string
 	Runtime               string
 	Entry                 string
 	Type                  string
 	Description           string
+	DefaultConfig         map[string]any
 	ManifestPath          string
 	SourceRoot            string
 	SourceRoots           []string
+	PackageSourceType     string
+	PackageSourceRef      string
 	Valid                 bool
 	ValidationSummary     string
 	RegistrationState     string
@@ -55,6 +68,7 @@ type Snapshot struct {
 	RequireInstallScripts bool
 	ScopeHTTPHosts        []string
 	ScopeStorageRoots     []string
+	ScopeWebhooks         []WebhookScope
 	Commands              []Command
 }
 
@@ -200,6 +214,7 @@ func (c *Catalog) Replace(entries []Snapshot) {
 
 func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned := snapshot
+	cloned.DefaultConfig = cloneMap(snapshot.DefaultConfig)
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
 	cloned.RequiredPermissions = append([]string(nil), snapshot.RequiredPermissions...)
@@ -209,6 +224,14 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.NodeDependencies = append([]string(nil), snapshot.NodeDependencies...)
 	cloned.ScopeHTTPHosts = append([]string(nil), snapshot.ScopeHTTPHosts...)
 	cloned.ScopeStorageRoots = append([]string(nil), snapshot.ScopeStorageRoots...)
+	if len(snapshot.ScopeWebhooks) > 0 {
+		cloned.ScopeWebhooks = make([]WebhookScope, 0, len(snapshot.ScopeWebhooks))
+		for _, scope := range snapshot.ScopeWebhooks {
+			copied := scope
+			copied.SourceIPs = append([]string(nil), scope.SourceIPs...)
+			cloned.ScopeWebhooks = append(cloned.ScopeWebhooks, copied)
+		}
+	}
 	if len(snapshot.Commands) > 0 {
 		cloned.Commands = make([]Command, 0, len(snapshot.Commands))
 		for _, cmd := range snapshot.Commands {
@@ -218,6 +241,39 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		}
 	}
 	return cloned
+}
+
+func cloneMap(values map[string]any) map[string]any {
+	if len(values) == 0 {
+		return nil
+	}
+	cloned := make(map[string]any, len(values))
+	for key, value := range values {
+		cloned[key] = cloneValue(value)
+	}
+	return cloned
+}
+
+func cloneSlice(values []any) []any {
+	if len(values) == 0 {
+		return nil
+	}
+	cloned := make([]any, len(values))
+	for i, value := range values {
+		cloned[i] = cloneValue(value)
+	}
+	return cloned
+}
+
+func cloneValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneMap(typed)
+	case []any:
+		return cloneSlice(typed)
+	default:
+		return typed
+	}
 }
 
 func defaultDisplayState(snapshot Snapshot) string {

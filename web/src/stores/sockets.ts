@@ -29,7 +29,7 @@ export const useSocketStore = defineStore('sockets', () => {
 
   const runtime = {
     getToken: () => sessionStore.token,
-    onSessionExpired: () => sessionStore.handleSessionExpired(),
+    onSessionExpired: (tokenSnapshot: string | null) => sessionStore.handleSessionExpired(tokenSnapshot),
   }
 
   const pluginsStore = usePluginsStore()

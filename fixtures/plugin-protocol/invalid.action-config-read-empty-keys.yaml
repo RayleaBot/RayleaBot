@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000421
+    plugin_id: weather
+    request_id: local_config_invalid_0001
+    action: config.read
+    data:
+      keys: []
+expect:
+  valid: false
+  reason: config.read requires at least one requested key.

@@ -1,0 +1,44 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Plugin list may expose command conflicts without changing runtime state semantics.
+request:
+  method: GET
+  path: /api/plugins
+response:
+  status: 200
+  body:
+    items:
+      - id: weather
+        name: Weather
+        role: user
+        registration_state: installed
+        desired_state: enabled
+        runtime_state: running
+        display_state: running
+        source:
+          root: plugins/installed
+          package_source_type: local_directory
+          package_source_ref: C:/plugins/weather
+          verified: false
+        trust:
+          level: third_party
+          label: 第三方
+        command_conflicts:
+          - weather
+      - id: weather-admin
+        name: Weather Admin
+        role: dev
+        registration_state: installed
+        desired_state: enabled
+        runtime_state: running
+        display_state: running
+        source:
+          root: plugins/dev
+          verified: true
+        trust:
+          level: development
+          label: 开发中
+        command_conflicts:
+          - weather
+expect:
+  valid: true

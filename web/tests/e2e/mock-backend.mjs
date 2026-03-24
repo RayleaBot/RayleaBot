@@ -38,12 +38,16 @@ const fixtures = {
   taskCancel: await readFixture('fixtures/web-api/ok.task-cancel-accepted.yaml'),
   systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
   systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
+  systemBackupAccepted: await readFixture('fixtures/web-api/ok.system-backup-accepted.yaml'),
+  systemDiagnosticsExport: await readFixture('fixtures/web-api/ok.system-diagnostics-export.yaml'),
   pluginEnable: await readFixture('fixtures/web-api/ok.plugins-enable-response.yaml'),
   pluginDisable: await readFixture('fixtures/web-api/edge.plugins-disable-response.yaml'),
   pluginReload: await readFixture('fixtures/web-api/ok.plugins-reload-response.yaml'),
   pluginInstallAccepted: await readFixture('fixtures/web-api/ok.plugins-install-accepted.yaml'),
   pluginInstallAcceptedWithScripts: await readFixture('fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml'),
   pluginInstallRemoteUrl: await readFixture('fixtures/web-api/ok.plugins-install-remote-url.yaml'),
+  pluginList: await readFixture('fixtures/web-api/ok.plugins-list-response.yaml'),
+  pluginDetail: await readFixture('fixtures/web-api/ok.plugin-detail-response.yaml'),
   pluginUninstallAccepted: await readFixture('fixtures/web-api/ok.plugins-uninstall-accepted.yaml'),
   pluginGrantsList: await readFixture('fixtures/web-api/ok.plugins-grants-list-response.yaml'),
   pluginGrant: await readFixture('fixtures/web-api/ok.plugins-grant-response.yaml'),
@@ -65,31 +69,18 @@ const sockets = {
 }
 
 function baseState() {
+  const pluginItems = structuredClone(fixtures.pluginList.response.body.items)
+  const pluginMap = Object.fromEntries(pluginItems.map((item) => [item.id, item]))
   return {
     initialized: false,
     token: null,
-    plugins: {
-      weather: {
-        id: 'weather',
-        registration_state: 'installed',
-        desired_state: 'disabled',
-        runtime_state: 'stopped',
-        display_state: 'disabled',
-      },
-      'raylea.help': {
-        id: 'raylea.help',
-        registration_state: 'installed',
-        desired_state: 'enabled',
-        runtime_state: 'running',
-        display_state: 'running',
-      },
-    },
+    plugins: pluginMap,
     tasks: structuredClone(fixtures.tasksList.response.body.items),
     logs: structuredClone(fixtures.logsList.response.body.items),
     config: structuredClone(fixtures.configGet.response.body.config),
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
-      'raylea.help': [],
+      'builtin-help': [],
     },
     launcherTokens: new Set(['launcher_token_fixture_0001']),
     systemStatus: structuredClone(fixtures.systemStatus.response.body),
@@ -399,6 +390,34 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/api/system/backup' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const taskId = fixtures.systemBackupAccepted.response.body.task_id
+    state.tasks = [
+      taskSummary(taskId, 'backup.create', 'create online backup'),
+      ...state.tasks.filter((item) => item.task_id !== taskId),
+    ]
+
+    json(response, fixtures.systemBackupAccepted.response.status, fixtures.systemBackupAccepted.response.body)
+    return
+  }
+
+  if (pathname === '/api/system/diagnostics/export' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    response.writeHead(fixtures.systemDiagnosticsExport.response.status, {
+      'Content-Type': fixtures.systemDiagnosticsExport.response.headers['Content-Type'],
+      'Content-Disposition': fixtures.systemDiagnosticsExport.response.headers['Content-Disposition'],
+    })
+    response.end(Buffer.from('PK\x03\x04fixture-diagnostics'))
+    return
+  }
+
   if (pathname === '/api/config' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -596,7 +615,10 @@ const server = http.createServer(async (request, response) => {
     }
 
     const pluginId = pathname.split('/')[3]
-    state.plugins[pluginId] = structuredClone(fixtures.pluginReload.response.body.plugin)
+    state.plugins[pluginId] = {
+      ...state.plugins[pluginId],
+      ...structuredClone(fixtures.pluginReload.response.body.plugin),
+    }
     json(response, 200, pluginDetailBody(pluginId))
     return
   }

@@ -3,10 +3,12 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import { toLoginErrorMessage } from '@/lib/auth-feedback'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const submitError = ref<string | null>(null)
 
 const form = reactive({
   identifier: 'admin',
@@ -15,10 +17,18 @@ const form = reactive({
 const formRef = ref()
 
 async function submit() {
-  await formRef.value?.validate()
-  await sessionStore.login(form)
-  ElMessage.success('登录成功')
-  await router.push({ name: 'status' })
+  submitError.value = null
+
+  try {
+    await formRef.value?.validate()
+    await sessionStore.login(form)
+    ElMessage.success('已登录')
+    await router.push({ name: 'status' })
+  } catch (error) {
+    const message = toLoginErrorMessage(error)
+    submitError.value = message
+    ElMessage.error(message)
+  }
 }
 </script>
 
@@ -26,26 +36,44 @@ async function submit() {
   <div class="auth-page">
     <el-card class="auth-card">
       <div class="auth-copy">
-        <div class="page-eyebrow">Session</div>
-        <h1>登录管理面</h1>
-        <p>当前只消费既有 session token surface，不引入额外刷新协议。</p>
+        <div class="page-eyebrow">管理界面</div>
+        <h1>登录</h1>
+        <p>输入管理员账号和密钥后进入管理界面。</p>
       </div>
 
       <el-alert
         v-if="sessionStore.bootstrapError"
-        title="setup 状态读取失败，仍可尝试登录"
+        title="暂时无法进入管理界面"
         type="warning"
         :description="sessionStore.bootstrapError"
         show-icon
         class="section-gap"
       />
 
+      <el-alert
+        v-if="sessionStore.launcherAdmissionHint"
+        title="请手动登录"
+        type="warning"
+        :description="sessionStore.launcherAdmissionHint"
+        show-icon
+        class="section-gap"
+      />
+
+      <el-alert
+        v-if="submitError"
+        title="登录未完成"
+        type="error"
+        :description="submitError"
+        show-icon
+        class="section-gap"
+      />
+
       <el-form ref="formRef" :model="form" label-position="top">
-        <el-form-item label="Identifier" prop="identifier" :rules="[{ required: true, message: '请输入 identifier' }]">
+        <el-form-item label="管理员账号" prop="identifier" :rules="[{ required: true, message: '请输入管理员账号' }]">
           <el-input v-model="form.identifier" autocomplete="username" />
         </el-form-item>
 
-        <el-form-item label="Secret" prop="secret" :rules="[{ required: true, message: '请输入 secret' }]">
+        <el-form-item label="管理员密钥" prop="secret" :rules="[{ required: true, message: '请输入管理员密钥' }]">
           <el-input v-model="form.secret" type="password" show-password autocomplete="current-password" />
         </el-form-item>
 

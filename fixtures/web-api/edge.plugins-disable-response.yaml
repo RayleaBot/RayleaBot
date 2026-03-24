@@ -9,9 +9,20 @@ response:
   body:
     plugin:
       id: weather
+      name: Weather
+      role: user
       registration_state: installed
       desired_state: disabled
       runtime_state: stopping
       display_state: disabling
+      source:
+        root: plugins/installed
+        package_source_type: local_zip
+        package_source_ref: C:/plugins/weather.zip
+        verified: false
+      trust:
+        level: unverified
+        label: 未验证来源
+      command_conflicts: []
 expect:
   valid: true

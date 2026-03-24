@@ -11,7 +11,9 @@ internal static class LauncherCompositionRoot
         var environmentInspector = new LauncherEnvironmentInspector();
         var managementClient = new LauncherManagementClient();
         var processController = new ServerProcessController();
+        var endpointProcessController = new EndpointProcessController();
         var externalOpener = new ShellExternalOpener();
+        var releaseFeedClient = new LauncherReleaseFeedClient();
 
         return new LauncherCoordinator(
             settingsStore,
@@ -19,6 +21,8 @@ internal static class LauncherCompositionRoot
             environmentInspector,
             managementClient,
             processController,
-            externalOpener);
+            endpointProcessController,
+            externalOpener,
+            releaseFeedClient);
     }
 }

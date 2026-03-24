@@ -620,6 +620,13 @@ func (s *InstallService) refreshCatalog() error {
 	}
 
 	reloaded := NewCatalog(snapshots)
+	if packageLoader, ok := s.repository.(PackageMetadataLoader); ok {
+		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
+		if err != nil {
+			return installError(codePluginInstallFailed, "读取插件安装元数据失败", "读取插件安装元数据失败")
+		}
+		reloaded.Replace(ApplyPackageMetadata(reloaded.List(), packageMetadata))
+	}
 	if s.repository != nil {
 		states, err := s.repository.LoadDesiredStates(context.Background())
 		if err != nil {

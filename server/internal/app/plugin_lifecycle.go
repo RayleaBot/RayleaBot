@@ -359,6 +359,9 @@ func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, 
 		c.disablePluginForPermissionLoss(ctx, pluginID)
 		return nil
 	}
+	if err := c.seedPluginDefaultConfig(ctx, snapshot); err != nil {
+		return err
+	}
 
 	spec, payload, err := c.buildStartInputsWithCapabilities(pluginID, botID, granted)
 	if err != nil {
@@ -464,6 +467,9 @@ func (c *pluginLifecycleController) stopPlugin(ctx context.Context, pluginID str
 
 	if remove {
 		c.app.Runtimes.Delete(pluginID)
+	}
+	if c.app.webhooks != nil {
+		c.app.webhooks.DeletePlugin(pluginID)
 	}
 	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 }
@@ -679,4 +685,12 @@ func scopeChangedSinceGrant(ctx context.Context, repo plugins.GrantRepository, s
 		}
 	}
 	return false
+}
+
+func (c *pluginLifecycleController) seedPluginDefaultConfig(ctx context.Context, snapshot plugins.Snapshot) error {
+	if c == nil || c.app == nil || c.app.pluginConfig == nil || len(snapshot.DefaultConfig) == 0 {
+		return nil
+	}
+	_, err := c.app.pluginConfig.SeedDefaults(ctx, snapshot.PluginID, snapshot.DefaultConfig)
+	return err
 }

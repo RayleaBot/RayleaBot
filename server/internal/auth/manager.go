@@ -210,7 +210,7 @@ func (m *Manager) Validate(token string) (Claims, error) {
 	}
 
 	if m.cfg.SlidingRenewal {
-		stored.ExpiresAt = now.Add(m.ttl())
+		stored.ExpiresAt = canonicalSessionTimestamp(now.Add(m.ttl()))
 		if err := m.saveSessionLocked(context.Background(), stored); err != nil {
 			return Claims{}, err
 		}
@@ -224,6 +224,10 @@ func (m *Manager) ttl() time.Duration {
 	return time.Duration(m.cfg.SessionTTLDays) * 24 * time.Hour
 }
 
+func canonicalSessionTimestamp(timestamp time.Time) time.Time {
+	return timestamp.UTC().Truncate(time.Second)
+}
+
 func (m *Manager) pruneExpiredLocked(now time.Time) []string {
 	var removed []string
 	for sessionID, claims := range m.sessions {
@@ -235,6 +239,44 @@ func (m *Manager) pruneExpiredLocked(now time.Time) []string {
 	return removed
 }
 
+func (m *Manager) recycleOldestSessionsLocked() []string {
+	if m.cfg.MaxSessions <= 0 {
+		return nil
+	}
+
+	var removed []string
+	for len(m.sessions) >= m.cfg.MaxSessions {
+		sessionID, ok := m.oldestSessionIDLocked()
+		if !ok {
+			break
+		}
+
+		delete(m.sessions, sessionID)
+		removed = append(removed, sessionID)
+	}
+
+	return removed
+}
+
+func (m *Manager) oldestSessionIDLocked() (string, bool) {
+	var oldest Claims
+	found := false
+	for _, claims := range m.sessions {
+		if !found ||
+			claims.IssuedAt.Before(oldest.IssuedAt) ||
+			(claims.IssuedAt.Equal(oldest.IssuedAt) && claims.SessionID < oldest.SessionID) {
+			oldest = claims
+			found = true
+		}
+	}
+
+	if !found {
+		return "", false
+	}
+
+	return oldest.SessionID, true
+}
+
 func (m *Manager) issueLocked(subject string, now time.Time) (string, Claims, error) {
 	token, claims, err := m.newTokenClaimsLocked(subject, now)
 	if err != nil {
@@ -242,6 +284,7 @@ func (m *Manager) issueLocked(subject string, now time.Time) (string, Claims, er
 	}
 
 	removed := m.pruneExpiredLocked(now)
+	removed = append(removed, m.recycleOldestSessionsLocked()...)
 	if err := m.deleteSessionsLocked(context.Background(), removed...); err != nil {
 		return "", Claims{}, err
 	}
@@ -311,8 +354,8 @@ func (m *Manager) verify(token string) (Claims, error) {
 	return Claims{
 		SessionID: payload.SessionID,
 		Subject:   payload.Subject,
-		IssuedAt:  time.Unix(payload.IssuedAt, 0).UTC(),
-		ExpiresAt: time.Unix(payload.ExpiresAt, 0).UTC(),
+		IssuedAt:  canonicalSessionTimestamp(time.Unix(payload.IssuedAt, 0)),
+		ExpiresAt: canonicalSessionTimestamp(time.Unix(payload.ExpiresAt, 0)),
 	}, nil
 }
 
@@ -347,6 +390,8 @@ func (m *Manager) hydrate(ctx context.Context) error {
 	now := m.now().UTC()
 	var expired []string
 	for _, claims := range sessions {
+		claims.IssuedAt = canonicalSessionTimestamp(claims.IssuedAt)
+		claims.ExpiresAt = canonicalSessionTimestamp(claims.ExpiresAt)
 		if now.Before(claims.ExpiresAt) {
 			m.sessions[claims.SessionID] = claims
 			continue

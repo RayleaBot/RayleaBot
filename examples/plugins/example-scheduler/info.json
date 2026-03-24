@@ -1,0 +1,31 @@
+{
+  "id": "example-scheduler",
+  "name": "Example Scheduler",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Python example plugin demonstrating scheduler.create.",
+  "author": "raylea",
+  "role": "example",
+  "capabilities": [
+    "event.subscribe",
+    "scheduler.create"
+  ],
+  "permissions": {
+    "required": [
+      "scheduler.create"
+    ],
+    "optional": []
+  },
+  "commands": [
+    {
+      "name": "schedule_daily",
+      "description": "Create a daily scheduler.trigger task.",
+      "usage": "/schedule_daily"
+    }
+  ]
+}

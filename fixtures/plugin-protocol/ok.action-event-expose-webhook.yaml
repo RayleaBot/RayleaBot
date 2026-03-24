@@ -1,0 +1,21 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000404
+    plugin_id: repo-watcher
+    request_id: local_webhook_0001
+    action: event.expose_webhook
+    data:
+      route: github
+      methods:
+        - POST
+      auth_strategy: hmac_sha256
+      header: X-Hub-Signature-256
+      signature_prefix: sha256=
+      secret_ref: webhook.github.secret
+expect:
+  valid: true
+  notes:
+    - webhook exposure is controlled by route, auth strategy, and a platform-managed secret reference.

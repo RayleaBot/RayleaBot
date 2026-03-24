@@ -18,6 +18,8 @@ x-fixtures:
   - fixtures/web-api/ok.config-update-response.yaml
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
+  - fixtures/web-api/ok.system-backup-accepted.yaml
+  - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.logs-list-response.yaml
   - fixtures/web-api/ok.tasks-list-response.yaml
   - fixtures/web-api/ok.task-detail-response.yaml
@@ -26,14 +28,18 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
   - fixtures/web-api/ok.plugins-install-remote-url.yaml
+  - fixtures/web-api/ok.plugins-list-response.yaml
+  - fixtures/web-api/ok.plugin-detail-response.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/ok.plugins-grants-list-response.yaml
   - fixtures/web-api/ok.plugins-grant-response.yaml
   - fixtures/web-api/ok.plugins-grant-with-expiry-response.yaml
+  - fixtures/web-api/ok.webhook-accepted.yaml
   - fixtures/web-api/edge.task-detail-running-install.yaml
   - fixtures/web-api/edge.task-detail-failed-install.yaml
   - fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml
   - fixtures/web-api/edge.plugins-disable-response.yaml
+  - fixtures/web-api/edge.plugins-command-conflict-response.yaml
   - fixtures/web-api/edge.plugins-enable-permission-pending-expired-grant.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
   - fixtures/web-api/edge.logs-empty-response.yaml
@@ -128,6 +134,9 @@ paths:
   /api/session/login:
     post:
       summary: Exchange management credentials for a session token.
+      description: >
+        When the configured max_sessions limit is already reached, the service
+        may recycle the oldest active management session before issuing a new one.
       operationId: loginSession
       requestBody:
         required: true
@@ -182,6 +191,9 @@ paths:
   /api/session/launcher-admission:
     post:
       summary: Consume a single-use launcher token and issue a normal management session token.
+      description: >
+        When the configured max_sessions limit is already reached, the service
+        may recycle the oldest active management session before issuing a new one.
       operationId: admitLauncherSession
       requestBody:
         required: true
@@ -278,6 +290,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemShutdownResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/backup:
+    post:
+      summary: Start an asynchronous online backup task.
+      operationId: createBackup
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Backup task accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/diagnostics/export:
+    get:
+      summary: Export a bounded diagnostics bundle for support and recovery triage.
+      operationId: exportDiagnostics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Diagnostics ZIP archive.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
         '401':
           $ref: '#/components/responses/Error'
         default:
@@ -650,6 +699,48 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/webhooks/{plugin_id}/{route}:
+    post:
+      summary: Receive a controlled plugin webhook and enqueue a webhook.received event for the target plugin.
+      operationId: postPluginWebhook
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+        - name: route
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z0-9](?:[a-z0-9_-]{0,31})$'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+          text/plain:
+            schema:
+              type: string
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '202':
+          description: Webhook request accepted for controlled dispatch.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -988,13 +1079,47 @@ components:
       type: string
       enum: [starting, running, stopping, crashed, backoff, dead_letter, stopped]
 
+    PluginRole:
+      type: string
+      enum: [builtin, user, example, dev]
+
+    PluginTrustSummary:
+      type: object
+      additionalProperties: false
+      required: [level, label]
+      properties:
+        level:
+          type: string
+          enum: [official, third_party, unverified, development]
+        label:
+          type: string
+
+    PluginSourceSummary:
+      type: object
+      additionalProperties: false
+      required: [root, verified]
+      properties:
+        root:
+          type: string
+        package_source_type:
+          type: string
+          enum: [local_zip, local_directory, remote_url]
+        package_source_ref:
+          type: string
+        verified:
+          type: boolean
+
     PluginSummary:
       type: object
       additionalProperties: false
-      required: [id, registration_state, desired_state, runtime_state]
+      required: [id, name, role, registration_state, desired_state, runtime_state]
       properties:
         id:
           type: string
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/PluginRole'
         registration_state:
           $ref: '#/components/schemas/PluginRegistrationState'
         desired_state:
@@ -1003,6 +1128,14 @@ components:
           $ref: '#/components/schemas/PluginRuntimeState'
         display_state:
           type: string
+        source:
+          $ref: '#/components/schemas/PluginSourceSummary'
+        trust:
+          $ref: '#/components/schemas/PluginTrustSummary'
+        command_conflicts:
+          type: array
+          items:
+            type: string
 
     PluginListResponse:
       type: object
@@ -1084,3 +1217,11 @@ components:
             declares require_install_scripts=true. When omitted or false, the
             install task keeps the default safety policy and may later fail with
             platform.install_script_blocked.
+
+    WebhookAcceptedResponse:
+      type: object
+      additionalProperties: false
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean

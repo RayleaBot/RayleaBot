@@ -138,8 +138,7 @@
         "version",
         "git_commit",
         "artifact_id",
-        "built_at",
-        "release_manifest_sha256"
+        "built_at"
       ],
       "properties": {
         "version": {
@@ -159,8 +158,14 @@
           "type": "string",
           "format": "date-time"
         },
+        "release_notes_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional release page reference copied from release_manifest.json so packaged builds can open the authoritative release page without querying the Web API."
+        },
         "release_manifest_sha256": {
-          "$ref": "#/$defs/sha256"
+          "$ref": "#/$defs/sha256",
+          "description": "Optional digest of the published release_manifest.json. Release packaging keeps this field optional so the package archive checksum remains a stable checksum of the final uploaded bytes."
         }
       }
     }

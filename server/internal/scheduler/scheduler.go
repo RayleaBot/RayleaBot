@@ -170,6 +170,60 @@ func (e *Engine) Register(ctx context.Context, pluginID, cronExpr string, payloa
 	return job, nil
 }
 
+// UpsertTask creates or updates a plugin-owned scheduled job keyed by task_id.
+// For plugin-created jobs the task_id is the persisted job_id, making the
+// operation idempotent across repeated scheduler.create calls.
+func (e *Engine) UpsertTask(ctx context.Context, pluginID, taskID, cronExpr string, payload json.RawMessage) (Job, error) {
+	now := e.now().UTC()
+
+	nextRun, err := nextCronTime(cronExpr, now, e.location)
+	if err != nil {
+		return Job{}, fmt.Errorf("parse cron expression %q: %w", cronExpr, err)
+	}
+	if payload == nil {
+		payload = json.RawMessage("{}")
+	}
+
+	job := Job{
+		JobID:     taskID,
+		PluginID:  pluginID,
+		CronExpr:  cronExpr,
+		Payload:   payload,
+		Enabled:   true,
+		NextRun:   nextRun,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	e.mu.Lock()
+	if existing, ok := e.jobs[taskID]; ok {
+		job.CreatedAt = existing.CreatedAt
+		if existing.LastRun != nil {
+			lastRun := *existing.LastRun
+			job.LastRun = &lastRun
+		}
+	}
+	e.mu.Unlock()
+
+	if err := e.repo.SaveJob(ctx, job); err != nil {
+		return Job{}, fmt.Errorf("upsert scheduled task %s: %w", taskID, err)
+	}
+
+	e.mu.Lock()
+	e.jobs[job.JobID] = job
+	e.mu.Unlock()
+
+	e.logger.Info("scheduler task upserted",
+		"component", "scheduler",
+		"job_id", job.JobID,
+		"plugin_id", pluginID,
+		"cron_expr", cronExpr,
+		"next_run", nextRun.Format(time.RFC3339),
+	)
+
+	return job, nil
+}
+
 // Unregister removes a scheduled job.
 func (e *Engine) Unregister(ctx context.Context, jobID string) error {
 	e.mu.Lock()

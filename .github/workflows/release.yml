@@ -1,0 +1,217 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.14.0'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: launcher/global.json
+
+      - name: Build server
+        run: |
+          New-Item -ItemType Directory -Force dist\server | Out-Null
+          Push-Location server
+          go build -o ..\dist\server\raylea-server.exe .\cmd\raylea-server
+          Pop-Location
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        working-directory: web
+        run: pnpm build
+
+      - name: Publish launcher
+        run: dotnet publish .\launcher\src\RayleaBot.Launcher\RayleaBot.Launcher.csproj -c Release -o .\dist\launcher
+
+      - name: Package windows-x64-full
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          GIT_COMMIT="$(git rev-parse --short HEAD)"
+          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          python scripts/release/release_tool.py package \
+            --artifact-id windows-x64-full \
+            --version "$VERSION" \
+            --git-commit "$GIT_COMMIT" \
+            --release-notes-ref "$RELEASE_NOTES_REF" \
+            --server-bin dist/server/raylea-server.exe \
+            --launcher-bin dist/launcher/RayleaBot.Launcher.exe \
+            --web-dist web/dist \
+            --builtin-dir plugins/builtin \
+            --deps-dir .deps \
+            --default-config config/default.yaml \
+            --output-dir dist/release
+          python scripts/release/smoke_release.py \
+            --artifact-id windows-x64-full \
+            --archive dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip
+
+      - name: Upload windows release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-full
+          path: |
+            dist/release/RayleaBot-v*-windows-x64-full.zip
+            dist/release/RayleaBot-v*-windows-x64-full.zip.artifact.json
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.14.0'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build server
+        run: |
+          mkdir -p dist/server
+          (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        working-directory: web
+        run: pnpm build
+
+      - name: Package linux-x64-server
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          GIT_COMMIT="$(git rev-parse --short HEAD)"
+          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          python scripts/release/release_tool.py package \
+            --artifact-id linux-x64-server \
+            --version "$VERSION" \
+            --git-commit "$GIT_COMMIT" \
+            --release-notes-ref "$RELEASE_NOTES_REF" \
+            --server-bin dist/server/raylea-server \
+            --web-dist web/dist \
+            --builtin-dir plugins/builtin \
+            --deps-dir .deps \
+            --default-config config/default.yaml \
+            --systemd-file packaging/systemd/rayleabot.service \
+            --output-dir dist/release
+          python scripts/release/smoke_release.py \
+            --artifact-id linux-x64-server \
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
+
+      - name: Upload linux release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-server
+          path: |
+            dist/release/RayleaBot-v*-linux-x64-server.tar.gz
+            dist/release/RayleaBot-v*-linux-x64-server.tar.gz.artifact.json
+
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+      - build-windows
+      - build-linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/downloads
+
+      - name: Generate release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          GIT_COMMIT="$(git rev-parse --short HEAD)"
+          CONFIG_SCHEMA_VERSION="$(python -c "import json; print(json.load(open('contracts/config.user.schema.json', encoding='utf-8'))['properties']['schema_version']['const'])")"
+          DB_SCHEMA_VERSION="$(python -c "from pathlib import Path; print(len(list(Path('server/internal/storage/migrations').glob('*.sql'))))")"
+          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          python scripts/release/release_tool.py metadata \
+            --version "$VERSION" \
+            --git-commit "$GIT_COMMIT" \
+            --config-schema-version "$CONFIG_SCHEMA_VERSION" \
+            --db-schema-version "$DB_SCHEMA_VERSION" \
+            --plugin-protocol-version "1" \
+            --release-notes-ref "$RELEASE_NOTES_REF" \
+            --deps-manifest .deps/manifest.json \
+            --sidecar dist/downloads/windows-x64-full/RayleaBot-v${VERSION}-windows-x64-full.zip.artifact.json \
+            --sidecar dist/downloads/linux-x64-server/RayleaBot-v${VERSION}-linux-x64-server.tar.gz.artifact.json \
+            --output-dir dist/release
+          python scripts/release/release_tool.py verify \
+            --manifest dist/release/release_manifest.json \
+            --checksums dist/release/SHA256SUMS.txt \
+            --artifact-dir dist/downloads/windows-x64-full
+          python scripts/release/release_tool.py verify \
+            --manifest dist/release/release_manifest.json \
+            --checksums dist/release/SHA256SUMS.txt \
+            --artifact-dir dist/downloads/linux-x64-server
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/downloads/windows-x64-full/*.zip
+            dist/downloads/linux-x64-server/*.tar.gz
+            dist/release/release_manifest.json
+            dist/release/SHA256SUMS.txt

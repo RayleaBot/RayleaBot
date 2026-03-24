@@ -1,0 +1,37 @@
+{
+  "id": "example-config-panel",
+  "name": "Example Config Panel",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Python example plugin demonstrating config.read and config.write.",
+  "author": "raylea",
+  "role": "example",
+  "capabilities": [
+    "event.subscribe",
+    "config.read",
+    "config.write"
+  ],
+  "permissions": {
+    "required": [
+      "config.read",
+      "config.write"
+    ],
+    "optional": []
+  },
+  "default_config": {
+    "default_city": "北京",
+    "unit": "celsius"
+  },
+  "commands": [
+    {
+      "name": "config_panel",
+      "description": "Read and update plugin-local config values.",
+      "usage": "/config_panel [city]"
+    }
+  ]
+}

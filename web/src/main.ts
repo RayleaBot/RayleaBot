@@ -4,6 +4,7 @@ import ElementPlus from 'element-plus'
 import { createApp } from 'vue'
 
 import App from '@/App.vue'
+import { toLauncherAdmissionHint } from '@/lib/auth-feedback'
 import { configureApiRuntime } from '@/lib/http'
 import { createAppRouter } from '@/router'
 import { useSessionStore } from '@/stores/session'
@@ -31,18 +32,48 @@ async function consumeLauncherTokenQuery(
     try {
       await sessionStore.admitLauncherToken(launcherToken)
     } catch {
+      sessionStore.setLauncherAdmissionHint(toLauncherAdmissionHint())
       sessionStore.clearSession()
     }
+  }
+}
+
+async function syncRouteWithSession(
+  router: ReturnType<typeof createAppRouter>,
+  sessionStore: ReturnType<typeof useSessionStore>,
+  socketStore: ReturnType<typeof useSocketStore>,
+) {
+  if (!sessionStore.isBootstrapped) {
+    return
+  }
+
+  if (sessionStore.isAuthenticated) {
+    socketStore.ensureManagementSockets()
+    const current = router.currentRoute.value
+    if (current.name === 'login' || current.name === 'setup') {
+      await router.push({ name: 'status' })
+    }
+    return
+  }
+
+  socketStore.disconnectAll()
+
+  const current = router.currentRoute.value
+  if (sessionStore.requiresSetup && current.name !== 'setup') {
+    await router.push({ name: 'setup' })
+    return
+  }
+
+  if (!sessionStore.requiresSetup && current.meta.requiresAuth) {
+    await router.push({ name: 'login' })
   }
 }
 
 async function bootstrap() {
   const app = createApp(App)
   const pinia = createPinia()
-  const router = createAppRouter()
 
   app.use(pinia)
-  app.use(router)
   app.use(ElementPlus)
 
   const sessionStore = useSessionStore(pinia)
@@ -50,50 +81,23 @@ async function bootstrap() {
 
   configureApiRuntime({
     getToken: () => sessionStore.token,
-    onUnauthorized: () => sessionStore.handleSessionExpired(),
+    onUnauthorized: (tokenSnapshot) => sessionStore.handleSessionExpired(tokenSnapshot),
   })
 
   await sessionStore.bootstrap().catch(() => undefined)
+  await consumeLauncherTokenQuery(sessionStore, initialLauncherToken)
 
-  watch(
-    () => [sessionStore.isBootstrapped, sessionStore.isAuthenticated] as const,
-    async ([bootstrapped, authenticated]) => {
-      if (!bootstrapped) {
-        return
-      }
-
-      if (authenticated) {
-        socketStore.ensureManagementSockets()
-        const current = router.currentRoute.value
-        if (current.name === 'login' || current.name === 'setup') {
-          await router.push({ name: 'status' })
-        }
-        return
-      }
-
-      socketStore.disconnectAll()
-
-      const current = router.currentRoute.value
-      if (sessionStore.requiresSetup && current.name !== 'setup') {
-        await router.push({ name: 'setup' })
-        return
-      }
-
-      if (!sessionStore.requiresSetup && current.meta.requiresAuth) {
-        await router.push({ name: 'login' })
-      }
-    },
-    { immediate: true },
-  )
+  const router = createAppRouter()
+  app.use(router)
 
   await router.isReady()
-  await consumeLauncherTokenQuery(sessionStore, initialLauncherToken)
-  const readyRoute = router.currentRoute.value
-  if (sessionStore.isAuthenticated && (readyRoute.name === 'login' || readyRoute.name === 'setup')) {
-    await router.push({ name: 'status' })
-  } else if (sessionStore.requiresSetup && readyRoute.name !== 'setup') {
-    await router.push({ name: 'setup' })
-  }
+  await syncRouteWithSession(router, sessionStore, socketStore)
+
+  watch(
+    () => [sessionStore.isBootstrapped, sessionStore.isAuthenticated, sessionStore.requiresSetup] as const,
+    () => syncRouteWithSession(router, sessionStore, socketStore),
+  )
+
   app.mount('#app')
 }
 

@@ -218,8 +218,7 @@ func runMigrate(cmd Command) int {
 
 func resolveDatabasePath(configPath string) (string, error) {
 	configDir := filepath.Dir(configPath)
-	// Default database path relative to config directory.
-	dbPath := filepath.Join(configDir, "..", "data", "state.db")
+	dbPath := filepath.Join(configDir, "..", "data", "rayleabot.db")
 	absPath, err := filepath.Abs(dbPath)
 	if err != nil {
 		return "", fmt.Errorf("resolve database path: %w", err)

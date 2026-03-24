@@ -1,0 +1,45 @@
+{
+  "id": "example-webhook",
+  "name": "Example Webhook",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Python example plugin demonstrating event.expose_webhook and gated raw payload delivery.",
+  "author": "raylea",
+  "role": "example",
+  "capabilities": [
+    "event.subscribe",
+    "event.expose_webhook",
+    "event.raw_payload",
+    "logger.write"
+  ],
+  "permissions": {
+    "required": [
+      "event.expose_webhook"
+    ],
+    "optional": [
+      "event.raw_payload"
+    ],
+    "scopes": {
+      "webhooks": [
+        {
+          "route": "github",
+          "auth_strategy": "hmac_sha256",
+          "header": "X-Hub-Signature-256",
+          "secret_ref": "webhook.github.secret"
+        }
+      ]
+    }
+  },
+  "commands": [
+    {
+      "name": "webhook_register",
+      "description": "Register the example GitHub webhook route.",
+      "usage": "/webhook_register"
+    }
+  ]
+}

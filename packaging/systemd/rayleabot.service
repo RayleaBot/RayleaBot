@@ -1,0 +1,14 @@
+[Unit]
+Description=RayleaBot server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/rayleabot
+ExecStart=/opt/rayleabot/raylea-server -config /opt/rayleabot/config/user.yaml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

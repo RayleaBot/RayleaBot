@@ -10,11 +10,15 @@ internal sealed class LauncherCoordinator(
     IEnvironmentInspector environmentInspector,
     ILauncherManagementClient managementClient,
     IServerProcessController processController,
+    IEndpointProcessController endpointProcessController,
     IExternalOpener externalOpener,
+    IReleaseFeedClient? releaseFeedClient = null,
     LauncherCoordinatorOptions? options = null)
 {
+    private static readonly LauncherCopy Copy = LauncherCopy.Default;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly LauncherCoordinatorOptions runtimeOptions = options ?? LauncherCoordinatorOptions.Default;
+    private readonly IReleaseFeedClient? launcherReleaseFeed = releaseFeedClient;
     private string? sessionToken;
     private LauncherSettings? currentSettings;
     private LauncherSnapshot snapshot = LauncherSnapshot.CreateDefault(new LauncherSettings(string.Empty, string.Empty, string.Empty), new ServerEndpoint("127.0.0.1", 8080));
@@ -86,37 +90,97 @@ internal sealed class LauncherCoordinator(
         try
         {
             EnsureSettingsLoaded();
+            var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
+            var inspection = await environmentInspector.InspectAsync(currentSettings!, cancellationToken).ConfigureAwait(false);
+            if (inspection.HasBlockingIssues && !inspection.CanBootstrapUserConfig)
+            {
+                await PublishSnapshotAsync(BuildLocalStateSnapshot(
+                    endpoint,
+                    inspection,
+                    LauncherServiceState.Stopped,
+                    processController.IsRunning,
+                    Copy.NoLauncherSession,
+                    inspection.PrimaryIssue?.Summary ?? "启动器预检发现阻塞项。"), cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var endpointHealthy = false;
             try
             {
-                await processController.StartAsync(currentSettings!, cancellationToken).ConfigureAwait(false);
+                endpointHealthy = await managementClient.IsHealthyAsync(endpoint, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch
             {
-                UpdateSnapshot(
+                endpointHealthy = false;
+            }
+
+            if (endpointHealthy)
+            {
+                await RefreshCoreAsync(forceReauthentication: true, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var endpointListening = false;
+            try
+            {
+                endpointListening = await endpointProcessController.IsEndpointListeningAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                endpointListening = false;
+            }
+
+            if (endpointListening && !processController.IsRunning)
+            {
+                await PublishSnapshotAsync(
                     BuildSnapshot(
-                        endpointResolver.Resolve(currentSettings!.ConfigPath),
-                        await environmentInspector.InspectAsync(currentSettings!, cancellationToken).ConfigureAwait(false),
+                        endpoint,
+                        inspection.Checks,
                         LauncherServiceState.Failed,
                         processController.IsRunning,
                         false,
                         false,
-                        "No launcher session.",
-                        "Server process failed to start.",
-                        ex.Message));
+                        Copy.NoLauncherSession,
+                        "目标端口已被现有进程占用，启动器不会重复拉起服务。",
+                        $"端口 {endpoint.Port} 已被占用。"),
+                    cancellationToken).ConfigureAwait(false);
                 return;
             }
 
-            UpdateSnapshot(
+            var bootstrappedConfig = false;
+            try
+            {
+                bootstrappedConfig = LauncherConfigBootstrap.EnsureUserConfigExists(currentSettings!.ConfigPath);
+                await processController.StartAsync(currentSettings!, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await PublishSnapshotAsync(
+                    BuildSnapshot(
+                        endpoint,
+                        inspection.Checks,
+                        LauncherServiceState.Failed,
+                        processController.IsRunning,
+                        false,
+                        false,
+                        Copy.NoLauncherSession,
+                        "服务端进程启动失败。",
+                        ex.Message), cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await PublishSnapshotAsync(
                 snapshot with
                 {
                     ServiceState = LauncherServiceState.Starting,
                     ProcessRunning = true,
                     ShutdownRequested = false,
-                    ServiceDetail = "Waiting for /healthz to report ok.",
+                    ServiceDetail = bootstrappedConfig
+                        ? "已基于 default.yaml 生成首份用户配置，正在等待 /healthz 返回正常。"
+                        : "正在等待 /healthz 返回正常。",
                     LastError = string.Empty,
-                });
+                }, cancellationToken).ConfigureAwait(false);
 
-            var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(runtimeOptions.StartupTimeout);
 
@@ -138,7 +202,7 @@ internal sealed class LauncherCoordinator(
             }
 
             await processController.ForceKillAsync(cancellationToken).ConfigureAwait(false);
-            UpdateSnapshot(
+            await PublishSnapshotAsync(
                 BuildSnapshot(
                     endpoint,
                     snapshot.EnvironmentChecks,
@@ -146,9 +210,9 @@ internal sealed class LauncherCoordinator(
                     processController.IsRunning,
                     false,
                     false,
-                    "No launcher session.",
-                    "Health probe did not succeed within the startup timeout.",
-                    "Server start timed out."));
+                    Copy.NoLauncherSession,
+                    "启动超时内未通过健康检查。",
+                    "服务启动已超时。"), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -163,16 +227,17 @@ internal sealed class LauncherCoordinator(
         {
             EnsureSettingsLoaded();
             var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
-            UpdateSnapshot(
+            await PublishSnapshotAsync(
                 snapshot with
                 {
                     ServiceState = LauncherServiceState.ShuttingDown,
                     ShutdownRequested = true,
-                    ServiceDetail = "Requesting graceful shutdown.",
+                    ServiceDetail = processController.IsRunning ? "正在停止服务。" : "正在停止现有服务。",
                     LastError = string.Empty,
-                });
+                }, cancellationToken).ConfigureAwait(false);
 
             var gracefulShutdownCompleted = false;
+            var shouldTryExternalStop = false;
             try
             {
                 if (await managementClient.IsHealthyAsync(endpoint, cancellationToken).ConfigureAwait(false))
@@ -196,19 +261,42 @@ internal sealed class LauncherCoordinator(
 
                         await Task.Delay(runtimeOptions.PollInterval, timeoutCts.Token).ConfigureAwait(false);
                     }
+
+                    shouldTryExternalStop = !gracefulShutdownCompleted && !processController.IsRunning;
                 }
             }
             catch (LauncherHttpStatusException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
             {
                 sessionToken = null;
+                shouldTryExternalStop = !processController.IsRunning;
             }
             catch
             {
+                shouldTryExternalStop = !processController.IsRunning;
             }
 
             if (!gracefulShutdownCompleted && processController.IsRunning)
             {
                 await processController.ForceKillAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else if (!gracefulShutdownCompleted && shouldTryExternalStop)
+            {
+                var externalStopTriggered = await endpointProcessController.TryStopEndpointProcessAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                if (externalStopTriggered)
+                {
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeoutCts.CancelAfter(runtimeOptions.ShutdownTimeout);
+                    while (!timeoutCts.IsCancellationRequested)
+                    {
+                        if (!await managementClient.IsHealthyAsync(endpoint, timeoutCts.Token).ConfigureAwait(false))
+                        {
+                            gracefulShutdownCompleted = true;
+                            break;
+                        }
+
+                        await Task.Delay(runtimeOptions.PollInterval, timeoutCts.Token).ConfigureAwait(false);
+                    }
+                }
             }
 
             sessionToken = null;
@@ -227,25 +315,52 @@ internal sealed class LauncherCoordinator(
         {
             EnsureSettingsLoaded();
             var endpoint = endpointResolver.Resolve(currentSettings!.ConfigPath);
-            var initialized = false;
+            var uriBuilder = new UriBuilder(endpoint.BaseUri);
             try
             {
-                initialized = await managementClient.GetSetupInitializedAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                if (await managementClient.GetSetupInitializedAsync(endpoint, cancellationToken).ConfigureAwait(false))
+                {
+                    var launcherToken = await managementClient.IssueLauncherTokenAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                    uriBuilder.Query = $"token={Uri.EscapeDataString(launcherToken)}";
+                }
+                else
+                {
+                    uriBuilder.Query = string.Empty;
+                }
             }
             catch
             {
-                initialized = false;
-            }
-
-            var uriBuilder = new UriBuilder(endpoint.BaseUri);
-            if (initialized)
-            {
-                var launcherToken = await managementClient.IssueLauncherTokenAsync(endpoint, cancellationToken).ConfigureAwait(false);
-                uriBuilder.Query = $"token={Uri.EscapeDataString(launcherToken)}";
+                uriBuilder.Query = string.Empty;
             }
 
             await externalOpener.OpenUriAsync(uriBuilder.Uri, cancellationToken).ConfigureAwait(false);
-            UpdateSnapshot(snapshot with { ServiceDetail = $"Opened {uriBuilder.Uri}", LastError = string.Empty });
+            await PublishSnapshotAsync(
+                snapshot with
+                {
+                    ServiceDetail = Copy.ActionWebOpened,
+                    LastError = string.Empty,
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    internal async Task OpenReleasePageAsync(CancellationToken cancellationToken = default)
+    {
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.ReleasePageUrl))
+            {
+                await PublishSnapshotAsync(snapshot with { ServiceDetail = Copy.VersionPageUnavailable, LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await externalOpener.OpenUriAsync(new Uri(snapshot.ReleaseCheck.ReleasePageUrl, UriKind.Absolute), cancellationToken).ConfigureAwait(false);
+            await PublishSnapshotAsync(snapshot with { ServiceDetail = $"已打开 {snapshot.ReleaseCheck.ReleasePageUrl}", LastError = string.Empty }, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -261,21 +376,20 @@ internal sealed class LauncherCoordinator(
     internal string BuildDiagnosticsSummary()
     {
         var builder = new StringBuilder();
-        builder.AppendLine($"service_state: {snapshot.ServiceState}");
-        builder.AppendLine($"endpoint: {snapshot.Endpoint.BaseUri}");
-        builder.AppendLine($"session: {snapshot.SessionSummary}");
+        builder.AppendLine($"服务状态：{Copy.FormatStatusSummary(snapshot.ServiceState)}");
+        builder.AppendLine($"服务入口：{snapshot.Endpoint.BaseUri}");
         if (!string.IsNullOrWhiteSpace(snapshot.LastError))
         {
-            builder.AppendLine($"last_error: {snapshot.LastError}");
+            builder.AppendLine($"最近错误：{snapshot.LastError}");
         }
 
-        builder.AppendLine("environment_checks:");
+        builder.AppendLine("环境检查：");
         foreach (var item in snapshot.EnvironmentChecks)
         {
-            builder.AppendLine($"- {item.Title}: {item.Severity} ({item.Detail})");
+            builder.AppendLine($"- {item.Title}：{Copy.FormatSeverityLabel(item.Severity)}（{item.Detail}）");
         }
 
-        builder.AppendLine("recent_stderr:");
+        builder.AppendLine("最近错误输出：");
         foreach (var line in snapshot.RecentStderr)
         {
             builder.AppendLine($"- {line}");
@@ -294,137 +408,77 @@ internal sealed class LauncherCoordinator(
 
         var settings = currentSettings!;
         var endpoint = endpointResolver.Resolve(settings.ConfigPath);
-        var checks = await environmentInspector.InspectAsync(settings, cancellationToken).ConfigureAwait(false);
+        var inspection = await environmentInspector.InspectAsync(settings, cancellationToken).ConfigureAwait(false);
+        var checks = inspection.Checks;
+
+        if (inspection.HasBlockingIssues || inspection.CanBootstrapUserConfig)
+        {
+            await PublishSnapshotAsync(BuildLocalStateSnapshot(
+                endpoint,
+                inspection,
+                LauncherServiceState.Stopped,
+                processController.IsRunning,
+                Copy.NoLauncherSession,
+                inspection.CanBootstrapUserConfig
+                    ? "服务尚未启动。启动服务后会基于 default.yaml 生成首份用户配置。"
+                    : inspection.PrimaryIssue?.Summary ?? "服务尚未启动。"), cancellationToken).ConfigureAwait(false);
+            return;
+        }
 
         try
         {
             if (!await managementClient.IsHealthyAsync(endpoint, cancellationToken).ConfigureAwait(false))
             {
-                UpdateSnapshot(BuildSnapshot(
+                await PublishSnapshotAsync(BuildSnapshot(
                     endpoint,
                     checks,
                     processController.IsRunning ? LauncherServiceState.Failed : LauncherServiceState.Stopped,
                     processController.IsRunning,
                     false,
                     snapshot.ShutdownRequested && processController.IsRunning,
-                    "No launcher session.",
-                    processController.IsRunning ? "Health probe failed while the child process is running." : "Server is not responding.",
-                    processController.IsRunning ? "Health probe failed." : string.Empty));
+                    Copy.NoLauncherSession,
+                    processController.IsRunning ? "子进程仍在运行，但健康检查失败。" : "服务尚未启动。",
+                    processController.IsRunning ? "健康检查失败。" : string.Empty), cancellationToken).ConfigureAwait(false);
                 return;
             }
         }
         catch (Exception ex)
         {
-            UpdateSnapshot(BuildSnapshot(
+            await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
                 processController.IsRunning ? LauncherServiceState.Failed : LauncherServiceState.Stopped,
                 processController.IsRunning,
                 false,
                 snapshot.ShutdownRequested,
-                "No launcher session.",
-                "Health probe failed.",
-                ex.Message));
+                Copy.NoLauncherSession,
+                processController.IsRunning ? "健康检查失败。" : "服务尚未启动。",
+                processController.IsRunning ? ex.Message : string.Empty), cancellationToken).ConfigureAwait(false);
             return;
         }
 
-        ReadinessSnapshot readiness;
-        try
+        sessionToken = null;
+        var state = snapshot.ShutdownRequested && processController.IsRunning
+            ? LauncherServiceState.ShuttingDown
+            : processController.IsRunning
+                ? LauncherServiceState.Ready
+                : LauncherServiceState.ExternalService;
+        var detail = state switch
         {
-            readiness = await managementClient.GetReadinessAsync(endpoint, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            UpdateSnapshot(BuildSnapshot(
-                endpoint,
-                checks,
-                LauncherServiceState.HealthOnly,
-                processController.IsRunning,
-                false,
-                snapshot.ShutdownRequested,
-                "No launcher session.",
-                "Health probe succeeded but readiness is unavailable.",
-                ex.Message));
-            return;
-        }
-
-        var initialized = await managementClient.GetSetupInitializedAsync(endpoint, cancellationToken).ConfigureAwait(false);
-        if (!initialized)
-        {
-            sessionToken = null;
-            UpdateSnapshot(BuildSnapshot(
-                endpoint,
-                checks,
-                LauncherServiceState.SetupRequired,
-                processController.IsRunning,
-                false,
-                snapshot.ShutdownRequested,
-                "No launcher session.",
-                string.IsNullOrWhiteSpace(readiness.Reason) ? "Bootstrap is still required." : readiness.Reason,
-                string.Empty));
-            return;
-        }
-
-        try
-        {
-            var token = await EnsureSessionAsync(endpoint, cancellationToken).ConfigureAwait(false);
-            var systemStatus = await managementClient.GetSystemStatusAsync(endpoint, token, cancellationToken).ConfigureAwait(false);
-            UpdateSnapshot(BuildSnapshot(
-                endpoint,
-                checks,
-                MapServiceState(readiness.Status, systemStatus.Status),
-                processController.IsRunning,
-                true,
-                systemStatus.Status == "shutting_down",
-                $"Authenticated launcher session. Adapter={systemStatus.AdapterState}, plugins={systemStatus.ActivePlugins}, uptime={systemStatus.UptimeSeconds}s.",
-                string.IsNullOrWhiteSpace(readiness.Reason) ? $"System status: {systemStatus.Status}" : readiness.Reason,
-                string.Empty));
-        }
-        catch (LauncherHttpStatusException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            sessionToken = null;
-            try
-            {
-                var token = await EnsureSessionAsync(endpoint, cancellationToken).ConfigureAwait(false);
-                var systemStatus = await managementClient.GetSystemStatusAsync(endpoint, token, cancellationToken).ConfigureAwait(false);
-                UpdateSnapshot(BuildSnapshot(
-                    endpoint,
-                    checks,
-                    MapServiceState(readiness.Status, systemStatus.Status),
-                    processController.IsRunning,
-                    true,
-                    systemStatus.Status == "shutting_down",
-                    $"Authenticated launcher session. Adapter={systemStatus.AdapterState}, plugins={systemStatus.ActivePlugins}, uptime={systemStatus.UptimeSeconds}s.",
-                    string.IsNullOrWhiteSpace(readiness.Reason) ? $"System status: {systemStatus.Status}" : readiness.Reason,
-                    string.Empty));
-            }
-            catch (Exception inner)
-            {
-                UpdateSnapshot(BuildSnapshot(
-                    endpoint,
-                    checks,
-                    LauncherServiceState.HealthOnly,
-                    processController.IsRunning,
-                    true,
-                    snapshot.ShutdownRequested,
-                    "Launcher session bootstrap failed.",
-                    "Management session is unavailable. Health endpoints remain reachable.",
-                    inner.Message));
-            }
-        }
-        catch (Exception ex)
-        {
-            UpdateSnapshot(BuildSnapshot(
-                endpoint,
-                checks,
-                LauncherServiceState.HealthOnly,
-                processController.IsRunning,
-                true,
-                snapshot.ShutdownRequested,
-                "Launcher session bootstrap failed.",
-                "Management session is unavailable. Health endpoints remain reachable.",
-                ex.Message));
-        }
+            LauncherServiceState.ShuttingDown => "服务正在停止，请稍候。",
+            LauncherServiceState.ExternalService => Copy.DetectedServiceDetail,
+            _ => "服务正在运行。",
+        };
+        await PublishSnapshotAsync(BuildSnapshot(
+            endpoint,
+            checks,
+            state,
+            processController.IsRunning,
+            false,
+            snapshot.ShutdownRequested,
+            string.Empty,
+            detail,
+            string.Empty), cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<string> EnsureSessionAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
@@ -461,7 +515,26 @@ internal sealed class LauncherCoordinator(
             shutdownRequested,
             sessionSummary,
             serviceDetail,
-            lastError);
+            lastError,
+            snapshot.ReleaseCheck);
+    }
+
+    private async Task PublishSnapshotAsync(LauncherSnapshot next, CancellationToken cancellationToken)
+    {
+        var releaseCheck = snapshot.ReleaseCheck;
+        if (launcherReleaseFeed is not null)
+        {
+            try
+            {
+                releaseCheck = await launcherReleaseFeed.GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                releaseCheck = ReleaseCheckSnapshot.Error(releaseCheck.CurrentVersion, ex.Message, releaseCheck.ReleasePageUrl);
+            }
+        }
+
+        UpdateSnapshot(next with { ReleaseCheck = releaseCheck });
     }
 
     private void UpdateSnapshot(LauncherSnapshot next)
@@ -470,28 +543,51 @@ internal sealed class LauncherCoordinator(
         SnapshotChanged?.Invoke(this, snapshot);
     }
 
-    private static LauncherServiceState MapServiceState(string readinessStatus, string systemStatus)
+    private LauncherSnapshot BuildLocalStateSnapshot(
+        ServerEndpoint endpoint,
+        EnvironmentInspection inspection,
+        LauncherServiceState serviceState,
+        bool processRunning,
+        string sessionSummary,
+        string serviceDetail)
     {
-        if (string.Equals(systemStatus, "shutting_down", StringComparison.Ordinal))
+        var primaryIssue = inspection.PrimaryIssue;
+        return BuildSnapshot(
+            endpoint,
+            inspection.Checks,
+            serviceState,
+            processRunning,
+            false,
+            false,
+            sessionSummary,
+            BuildLocalServiceDetail(serviceDetail, primaryIssue),
+            string.Empty);
+    }
+
+    private static string BuildLocalServiceDetail(string fallbackDetail, EnvironmentCheckResult? primaryIssue)
+    {
+        if (primaryIssue is null)
         {
-            return LauncherServiceState.ShuttingDown;
+            return fallbackDetail;
         }
 
-        return readinessStatus switch
+        var detail = string.IsNullOrWhiteSpace(primaryIssue.Detail)
+            ? primaryIssue.Summary
+            : $"{primaryIssue.Summary} {primaryIssue.Detail}";
+
+        if (string.IsNullOrWhiteSpace(primaryIssue.Remediation))
         {
-            "ready" => LauncherServiceState.Ready,
-            "degraded" => LauncherServiceState.Degraded,
-            "setup_required" => LauncherServiceState.SetupRequired,
-            "failed" => LauncherServiceState.Failed,
-            _ => LauncherServiceState.HealthOnly,
-        };
+            return detail;
+        }
+
+        return $"{detail} {primaryIssue.Remediation}";
     }
 
     private void EnsureSettingsLoaded()
     {
         if (currentSettings is null)
         {
-            throw new InvalidOperationException("Launcher settings have not been loaded yet.");
+            throw new InvalidOperationException("尚未加载启动器设置。");
         }
     }
 }

@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { toBootstrapStatusMessage } from '@/lib/auth-feedback'
 import { apiRequest } from '@/lib/http'
 import type { LauncherAdmissionRequest, SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
 
@@ -25,6 +26,7 @@ export const useSessionStore = defineStore('session', () => {
   const bootstrapPending = ref(false)
   const loginPending = ref(false)
   const bootstrapError = ref<string | null>(null)
+  const launcherAdmissionHint = ref<string | null>(null)
 
   const isAuthenticated = computed(() => Boolean(token.value))
   const requiresSetup = computed(() => setupInitialized.value === false)
@@ -45,7 +47,7 @@ export const useSessionStore = defineStore('session', () => {
       const response = await apiRequest<SetupStatusResponse>('/api/setup/status', { auth: false })
       setupInitialized.value = response.initialized
     } catch (error) {
-      bootstrapError.value = error instanceof Error ? error.message : 'setup bootstrap failed'
+      bootstrapError.value = toBootstrapStatusMessage(error)
       throw error
     } finally {
       bootstrapPending.value = false
@@ -57,6 +59,10 @@ export const useSessionStore = defineStore('session', () => {
     writeStoredToken(nextToken)
   }
 
+  function matchesCurrentToken(tokenSnapshot?: string | null) {
+    return tokenSnapshot === undefined || tokenSnapshot === token.value
+  }
+
   async function login(payload: SessionLoginRequest) {
     loginPending.value = true
     try {
@@ -66,6 +72,7 @@ export const useSessionStore = defineStore('session', () => {
         body: payload,
       })
       setupInitialized.value = true
+      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -82,6 +89,7 @@ export const useSessionStore = defineStore('session', () => {
         body: payload,
       })
       setupInitialized.value = true
+      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -98,6 +106,7 @@ export const useSessionStore = defineStore('session', () => {
         body: { launcher_token: launcherToken } satisfies LauncherAdmissionRequest,
       })
       setupInitialized.value = true
+      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -116,12 +125,21 @@ export const useSessionStore = defineStore('session', () => {
     clearSession()
   }
 
-  function clearSession() {
+  function clearSession(tokenSnapshot?: string | null) {
+    if (!matchesCurrentToken(tokenSnapshot)) {
+      return false
+    }
+
     setToken(null)
+    return true
   }
 
-  function handleSessionExpired() {
-    clearSession()
+  function setLauncherAdmissionHint(message: string | null) {
+    launcherAdmissionHint.value = message
+  }
+
+  function handleSessionExpired(tokenSnapshot?: string | null) {
+    clearSession(tokenSnapshot)
   }
 
   return {
@@ -129,6 +147,7 @@ export const useSessionStore = defineStore('session', () => {
     bootstrapPending,
     isAuthenticated,
     isBootstrapped,
+    launcherAdmissionHint,
     loginPending,
     requiresSetup,
     setupInitialized,
@@ -138,6 +157,7 @@ export const useSessionStore = defineStore('session', () => {
     handleSessionExpired,
     login,
     logout,
+    setLauncherAdmissionHint,
     setToken,
     setupAdmin,
     admitLauncherToken,

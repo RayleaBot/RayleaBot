@@ -27,6 +27,7 @@ import (
 	"rayleabot/server/internal/httpapi"
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/permission"
+	"rayleabot/server/internal/pluginconfig"
 	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
@@ -53,6 +54,7 @@ type App struct {
 	Logger            *slog.Logger
 	LogLevel          *logging.LevelController
 	Tasks             *tasks.Registry
+	taskExecutor      *tasks.Executor
 	Plugins           *plugins.Catalog
 	Auth              *auth.Manager
 	Storage           *storage.Store
@@ -70,12 +72,15 @@ type App struct {
 	PluginInstaller   plugins.InstallCoordinator
 	PluginUninstaller plugins.UninstallCoordinator
 	pluginRepository  plugins.DesiredStateRepository
+	pluginConfig      pluginconfig.Repository
 	pluginFiles       *pluginfile.Service
 	pluginKV          pluginkv.Repository
 	grantRepository   plugins.GrantRepository
 	blacklistRepo     permission.BlacklistRepository
 	permissionChecker *permission.Checker
 	pluginLifecycle   *pluginLifecycleController
+	webhooks          *pluginWebhookRegistry
+	renderer          *renderService
 	commandParser     *command.Parser
 	pluginLogLimiter  *pluginLogLimiter
 	redactText        func(string) string
@@ -103,6 +108,7 @@ func New(options Options) (*App, error) {
 	}
 
 	taskRegistry := tasks.NewRegistry()
+	taskExecutor := tasks.NewExecutor(taskRegistry, 5*time.Minute)
 	discoverySpec, err := resolvePluginDiscovery(options)
 	if err != nil {
 		return nil, err
@@ -146,6 +152,9 @@ func New(options Options) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := migrateLegacyDataRoot(logger, options.ConfigPath, cfg.Database.Path); err != nil {
+		return nil, err
+	}
 	storageStore, err := storage.Open(databasePath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite store: %w", err)
@@ -160,8 +169,35 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create secret store: %w", err)
 	}
+	sessionSigningKey, signingKeyCreated, err := ensureSessionSigningKey(context.Background(), secretStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("prepare session signing key: %w", err)
+	}
+	if signingKeyCreated {
+		persistedSessions, err := authRepository.LoadSessions(context.Background())
+		if err != nil {
+			_ = storageStore.Close()
+			return nil, fmt.Errorf("load persisted sessions for signing key rotation: %w", err)
+		}
+		if len(persistedSessions) > 0 {
+			sessionIDs := make([]string, 0, len(persistedSessions))
+			for _, session := range persistedSessions {
+				if session.SessionID != "" {
+					sessionIDs = append(sessionIDs, session.SessionID)
+				}
+			}
+			if len(sessionIDs) > 0 {
+				if err := authRepository.DeleteSessions(context.Background(), sessionIDs); err != nil {
+					_ = storageStore.Close()
+					return nil, fmt.Errorf("invalidate persisted sessions after signing key rotation: %w", err)
+				}
+			}
+		}
+	}
 	authOptions := append([]auth.Option{
 		auth.WithRepository(authRepository),
+		auth.WithSigningKey(sessionSigningKey),
 	}, options.AuthOptions...)
 	authManager, err := auth.NewManager(auth.Config{
 		SessionTTLDays: cfg.Auth.SessionTTLDays,
@@ -204,7 +240,14 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create plugin kv repository: %w", err)
 	}
+	webhookRegistry := newPluginWebhookRegistry()
+	pluginConfigRepository, err := pluginconfig.NewSQLiteRepository(storageStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create plugin config repository: %w", err)
+	}
 	pluginFileService := pluginfile.NewService(filepath.Join(filepath.Dir(databasePath), "plugins"))
+	renderService := newRenderService(filepath.Join(filepath.Dir(databasePath), "render"))
 	blacklistRepo := permission.NewSQLiteBlacklistRepository(storageStore.Read, storageStore.Write)
 	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
 	if err != nil {
@@ -233,6 +276,14 @@ func New(options Options) (*App, error) {
 	if err != nil {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("load persisted plugin desired_state: %w", err)
+	}
+	if packageLoader, ok := any(pluginRepository).(plugins.PackageMetadataLoader); ok {
+		packageMetadata, err := packageLoader.LoadAllPackageMetadata(context.Background())
+		if err != nil {
+			_ = storageStore.Close()
+			return nil, fmt.Errorf("load plugin package metadata: %w", err)
+		}
+		pluginCatalog.Replace(plugins.ApplyPackageMetadata(pluginCatalog.List(), packageMetadata))
 	}
 	pluginCatalog.ApplyDesiredStates(desiredStates)
 	cleanupOrphanedInstallDirs(logger, discoverySpec.roots)
@@ -272,6 +323,7 @@ func New(options Options) (*App, error) {
 		Logger:            logger,
 		LogLevel:          logLevel,
 		Tasks:             taskRegistry,
+		taskExecutor:      taskExecutor,
 		Plugins:           pluginCatalog,
 		Auth:              authManager,
 		Storage:           storageStore,
@@ -289,11 +341,14 @@ func New(options Options) (*App, error) {
 		PluginInstaller:   pluginInstallService,
 		PluginUninstaller: pluginUninstallService,
 		pluginRepository:  pluginRepository,
+		pluginConfig:      pluginConfigRepository,
 		pluginFiles:       pluginFileService,
 		pluginKV:          pluginKVRepository,
 		grantRepository:   pluginRepository,
 		blacklistRepo:     blacklistRepo,
 		permissionChecker: newPermissionChecker(cfg, blacklistRepo),
+		webhooks:          webhookRegistry,
+		renderer:          renderService,
 		commandParser:     newCommandParser(cfg),
 		pluginLogLimiter:  newPluginLogLimiter(cfg),
 		redactText:        managementRedactor.Redact,
@@ -320,6 +375,7 @@ func New(options Options) (*App, error) {
 	router.Post("/api/session/login", application.handleSessionLogin())
 	router.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
 	router.Post("/api/session/launcher-admission", application.handleLauncherAdmission())
+	router.Post("/api/webhooks/{plugin_id}/{route}", application.handlePluginWebhook())
 
 	// Protected routes — require a valid session token.
 	router.Group(func(r chi.Router) {
@@ -330,6 +386,8 @@ func New(options Options) (*App, error) {
 		r.Get("/api/logs", application.handleLogsList())
 		r.Get("/api/system/status", application.handleSystemStatus())
 		r.Post("/api/system/shutdown", application.handleSystemShutdown())
+		r.Post("/api/system/backup", application.handleSystemBackup())
+		r.Get("/api/system/diagnostics/export", application.handleSystemDiagnosticsExport())
 		r.Get("/api/tasks", application.handleTaskList())
 		r.Get("/api/tasks/{task_id}", application.handleTaskDetail())
 		r.Post("/api/tasks/{task_id}/cancel", application.handleTaskCancel())
@@ -339,6 +397,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
 		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService, application.pluginLifecycle, pluginUninstallService, pluginRepository)
 	})
+	router.NotFound(newManagementUIHandler(application.repoRoot))
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	server := &http.Server{
@@ -395,6 +454,12 @@ func (a *App) Close() error {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
 		}
 		a.PluginInstaller = nil
+	}
+	if a != nil && a.taskExecutor != nil {
+		if err := a.taskExecutor.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close task executor: %w", err))
+		}
+		a.taskExecutor = nil
 	}
 	if a != nil && a.PluginUninstaller != nil {
 		if closer, ok := a.PluginUninstaller.(interface{ Close() error }); ok {
@@ -510,13 +575,126 @@ func resolveDatabasePath(configPath, databasePath string) (string, error) {
 		return filepath.Clean(databasePath), nil
 	}
 
-	baseDir := filepath.Dir(configPath)
-	resolved, err := filepath.Abs(filepath.Join(baseDir, databasePath))
+	repoRoot, err := resolveRuntimeRoot(configPath)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.Abs(filepath.Join(repoRoot, databasePath))
 	if err != nil {
 		return "", fmt.Errorf("resolve database path %s: %w", databasePath, err)
 	}
 
 	return resolved, nil
+}
+
+func resolveRuntimeRoot(configPath string) (string, error) {
+	absoluteConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve runtime root from %s: %w", configPath, err)
+	}
+
+	return filepath.Dir(filepath.Dir(absoluteConfigPath)), nil
+}
+
+func resolveLegacyDatabasePath(configPath, databasePath string) (string, error) {
+	if filepath.IsAbs(databasePath) {
+		return filepath.Clean(databasePath), nil
+	}
+
+	configDir := filepath.Dir(configPath)
+	resolved, err := filepath.Abs(filepath.Join(configDir, databasePath))
+	if err != nil {
+		return "", fmt.Errorf("resolve legacy database path %s: %w", databasePath, err)
+	}
+
+	return resolved, nil
+}
+
+func migrateLegacyDataRoot(logger *slog.Logger, configPath, databasePath string) error {
+	if filepath.IsAbs(databasePath) {
+		return nil
+	}
+
+	canonicalDatabasePath, err := resolveDatabasePath(configPath, databasePath)
+	if err != nil {
+		return err
+	}
+	legacyDatabasePath, err := resolveLegacyDatabasePath(configPath, databasePath)
+	if err != nil {
+		return err
+	}
+	if canonicalDatabasePath == legacyDatabasePath {
+		return nil
+	}
+
+	canonicalDataRoot := filepath.Dir(canonicalDatabasePath)
+	legacyDataRoot := filepath.Dir(legacyDatabasePath)
+	if canonicalDataRoot == legacyDataRoot {
+		return nil
+	}
+
+	managedEntries := []string{
+		filepath.Base(canonicalDatabasePath),
+		filepath.Base(canonicalDatabasePath) + "-wal",
+		filepath.Base(canonicalDatabasePath) + "-shm",
+		"plugins",
+		"render",
+	}
+
+	if err := os.MkdirAll(canonicalDataRoot, 0o755); err != nil {
+		return fmt.Errorf("create canonical data directory %s: %w", canonicalDataRoot, err)
+	}
+
+	for _, entryName := range managedEntries {
+		legacyEntryPath := filepath.Join(legacyDataRoot, entryName)
+		info, statErr := os.Stat(legacyEntryPath)
+		if errors.Is(statErr, os.ErrNotExist) {
+			continue
+		}
+		if statErr != nil {
+			return fmt.Errorf("inspect legacy data entry %s: %w", legacyEntryPath, statErr)
+		}
+
+		canonicalEntryPath := filepath.Join(canonicalDataRoot, entryName)
+		if _, err := os.Stat(canonicalEntryPath); err == nil {
+			if logger != nil {
+				logger.Warn(
+					"legacy data entry left in place because canonical target already exists",
+					"component", "app",
+					"legacy_path", legacyEntryPath,
+					"canonical_path", canonicalEntryPath,
+				)
+			}
+			continue
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("inspect canonical data entry %s: %w", canonicalEntryPath, err)
+		}
+
+		if err := os.Rename(legacyEntryPath, canonicalEntryPath); err != nil {
+			return fmt.Errorf("migrate legacy data entry %s to %s: %w", legacyEntryPath, canonicalEntryPath, err)
+		}
+
+		if logger != nil {
+			logger.Info(
+				"migrated legacy data entry to canonical data root",
+				"component", "app",
+				"legacy_path", legacyEntryPath,
+				"canonical_path", canonicalEntryPath,
+				"is_dir", info.IsDir(),
+			)
+		}
+	}
+
+	removeEmptyDir(legacyDataRoot)
+	return nil
+}
+
+func removeEmptyDir(path string) {
+	entries, err := os.ReadDir(path)
+	if err != nil || len(entries) > 0 {
+		return
+	}
+	_ = os.Remove(path)
 }
 
 func (a *App) closeStorage() error {
