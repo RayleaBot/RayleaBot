@@ -51,6 +51,8 @@ internal interface IServerProcessController
 
 internal interface IEndpointProcessController
 {
+    Task<bool> IsEndpointListeningAsync(ServerEndpoint endpoint, CancellationToken cancellationToken);
+
     Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken);
 }
 

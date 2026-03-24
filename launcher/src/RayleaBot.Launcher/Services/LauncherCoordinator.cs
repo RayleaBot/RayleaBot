@@ -104,6 +104,49 @@ internal sealed class LauncherCoordinator(
                 return;
             }
 
+            var endpointHealthy = false;
+            try
+            {
+                endpointHealthy = await managementClient.IsHealthyAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                endpointHealthy = false;
+            }
+
+            if (endpointHealthy)
+            {
+                await RefreshCoreAsync(forceReauthentication: true, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var endpointListening = false;
+            try
+            {
+                endpointListening = await endpointProcessController.IsEndpointListeningAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                endpointListening = false;
+            }
+
+            if (endpointListening && !processController.IsRunning)
+            {
+                await PublishSnapshotAsync(
+                    BuildSnapshot(
+                        endpoint,
+                        inspection.Checks,
+                        LauncherServiceState.Failed,
+                        processController.IsRunning,
+                        false,
+                        false,
+                        Copy.NoLauncherSession,
+                        "目标端口已被现有进程占用，启动器不会重复拉起服务。",
+                        $"端口 {endpoint.Port} 已被占用。"),
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             var bootstrappedConfig = false;
             try
             {

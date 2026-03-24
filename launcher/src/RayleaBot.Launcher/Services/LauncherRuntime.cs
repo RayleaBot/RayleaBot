@@ -238,6 +238,11 @@ internal sealed class ServerProcessController : IServerProcessController
 
 internal sealed class EndpointProcessController : IEndpointProcessController
 {
+    public async Task<bool> IsEndpointListeningAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        return await TryResolveOwningProcessIdAsync(endpoint, cancellationToken).ConfigureAwait(false) is not null;
+    }
+
     public async Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
     {
         var processId = await TryResolveOwningProcessIdAsync(endpoint, cancellationToken).ConfigureAwait(false);

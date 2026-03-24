@@ -157,6 +157,36 @@ public sealed class LauncherCoordinatorTests
     }
 
     [TestMethod]
+    public async Task StartAsync_DoesNotStartAnotherProcessWhenEndpointIsAlreadyHealthy()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = true;
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+        await coordinator.StartAsync();
+
+        Assert.AreEqual(0, fixture.ProcessController.StartCalls);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
+    }
+
+    [TestMethod]
+    public async Task StartAsync_DoesNotStartWhenEndpointPortIsAlreadyOccupied()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = false;
+        fixture.EndpointProcessController.IsEndpointListeningResult = true;
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+        await coordinator.StartAsync();
+
+        Assert.AreEqual(0, fixture.ProcessController.StartCalls);
+        Assert.AreEqual(LauncherServiceState.Failed, coordinator.Snapshot.ServiceState);
+        StringAssert.Contains(coordinator.Snapshot.LastError, "端口");
+    }
+
+    [TestMethod]
     public async Task StopAsync_FallsBackToForceKillWhenShutdownCannotDrain()
     {
         var fixture = new LauncherFixture();
@@ -408,8 +438,14 @@ internal sealed class FakeExternalOpener : IExternalOpener
 internal sealed class FakeEndpointProcessController : IEndpointProcessController
 {
     internal bool StopResult { get; set; }
+    internal bool IsEndpointListeningResult { get; set; }
     internal int StopCalls { get; private set; }
     internal Action? OnStop { get; set; }
+
+    public Task<bool> IsEndpointListeningAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(IsEndpointListeningResult);
+    }
 
     public Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
     {
