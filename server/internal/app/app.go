@@ -367,6 +367,7 @@ func New(options Options) (*App, error) {
 		r.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
 		plugins.RegisterRoutes(r, pluginCatalog, taskRegistry, pluginRepository, pluginInstallService, application.pluginLifecycle, pluginUninstallService, pluginRepository)
 	})
+	router.NotFound(newManagementUIHandler(application.repoRoot))
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	server := &http.Server{
