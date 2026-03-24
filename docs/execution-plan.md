@@ -21,7 +21,7 @@
 | Phase 6 | Config / Storage / Security | 🟡 | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；共享 degraded / remediation 结构仍未完全统一到全部入口 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress 与插件来源/信任/命令冲突 metadata 已可用；插件安装来源和 lifecycle 路由形状与规划正文仍有口径待收口 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher token 失效友好提示、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、最小 Avalonia 窗口、首启配置 bootstrap、环境检查、server 启停 / 健康轮询 / 打开 Web UI、托盘关闭语义、版本检查、Windows CI 与 release feed 联动已落地；凭据丢失恢复入口与正式安装体验仍待收口 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置 bootstrap、左侧五区导航、自定义标题栏、中文化液态玻璃桌面壳、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、版本检查、Windows CI 与 release feed 联动已落地；凭据丢失恢复入口与正式安装体验仍待收口 |
 | Phase 10 | Render Service | 🟡 | `render.image` 最小占位渲染、产物输出与资源检查已接线；受控 Chromium 队列、模板版本 / 缓存、preview 与正式 Render Service 调度仍未完成 |
 
 ### 判定口径
@@ -247,14 +247,14 @@
 | .NET / Avalonia 基线 | ✅ | 版本与包基线已锁定 |
 | Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通 |
 | 环境检查 / 本机诊断壳 | ✅ | server 可执行文件、配置文件、workdir、`LongPathsEnabled`、`.deps/manifest.json` 检查与诊断摘要已落地 |
-| 真实 Launcher 行为 | ✅ | 最小 Avalonia 单窗口、Start / Stop / Open Web UI / Retry Health/Auth、stderr ring buffer 与 `logs/launcher.log` 已落地 |
+| 真实 Launcher 行为 | ✅ | 单窗口桌面壳、启动 / 停止 / 打开管理界面 / 重试健康检查、错误输出 ring buffer 与 `logs/launcher.log` 已落地 |
 | 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与 launcher session 重建 |
 | Launcher 测试与 CI | ✅ | `dotnet test ./launcher`、`dotnet publish ./launcher -c Release` 与 Windows `ci-launcher` job 已落地 |
 | 首启配置 bootstrap | ✅ | Launcher preflight 与 server 启动链已对齐 `default.yaml` -> `user.yaml` bootstrap 语义 |
 | 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
-| Launcher 设计系统与布局重构 | ✅ | 当前窗口已切到专业控制台风格 hero / card / diagnostics 分层，主次信息和操作流已重构 |
+| Launcher 设计系统与布局重构 | ✅ | 左侧 5 区导航、自定义标题栏、液态玻璃风格、总览 / 服务控制 / 环境检查 / 设置 / 诊断分屏与更高信息密度桌面壳已落地 |
 | 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态、health、readiness、管理 session 已分层建模，缺配置 / 未启动不再直接冒充连接失败主状态 |
-| 桌面交互反馈、禁用态与诊断引导 | ✅ | 按钮 gating、primary issue、remediation、diagnostic summary 与操作反馈已系统化接入 |
+| 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、主要问题 / remediation、路径复制与打开目录快捷动作、暗色对比度与诊断分层已系统化接入 |
 | 托盘最小化与关闭语义 | ✅ | 关闭按钮默认隐藏到托盘，仅托盘菜单“Exit”完全退出 |
 | 首次关闭提示 | ✅ | 首次关闭时已弹出一次性 hide-to-tray 提示 |
 | Chromium / 模板资源完整性检查 | ✅ | Launcher preflight 已覆盖 Chromium 与模板资源完整性，并给出 remediation |
@@ -264,7 +264,7 @@
 
 ### 当前主要问题
 
-- Launcher 的主流程、首启配置、托盘语义、版本检查和交付 metadata 已进入可验证主链。
+- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、中文化视觉层、托盘语义、版本检查和交付 metadata 已进入可验证主链。
 - 当前仍未收口的 Launcher 欠账主要集中在凭据丢失后的本地恢复入口，以及正式安装体验与长期自托管打磨。
 
 ---
