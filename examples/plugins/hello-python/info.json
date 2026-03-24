@@ -10,6 +10,7 @@
   "license": "MIT",
   "description": "Contract-aligned Python example plugin for the minimum init and event/result flow.",
   "author": "raylea",
+  "role": "example",
   "capabilities": [
     "event.subscribe",
     "logger.write"
