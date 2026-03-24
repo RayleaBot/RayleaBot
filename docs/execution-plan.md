@@ -215,12 +215,12 @@
 | 4 条管理 WebSocket | ✅ | `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 已落地 |
 | HTTP 鉴权中间件 | ✅ | `RequireAuth`、公开/受保护路由分离、WebSocket `session_token` 兼容已落地 |
 
-### 规划对齐缺口与口径漂移
+### 规划对齐与口径收口
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 插件安装来源边界 | ⚠️ | 规划正文 3.9.6 明确 `POST /api/plugins/install` 在 v0.1 仅支持本地 zip 包或本地目录来源；当前 OpenAPI、fixtures 与 Web 已支持 `remote_url`，需后续统一规划正文与 formal contract 口径 |
-| 插件 lifecycle 路由形状 | ⚠️ | 规划正文写 `PATCH /api/plugins/{id}` 承载启用、禁用、重启；当前 formal contract 已拆成 `enable` / `disable` / `reload` 独立路由，需统一规划与 contract 说明 |
+| 插件安装来源边界 | ✅ | 规划正文 3.9.6 已更新，与当前 OpenAPI、fixtures 与 Web 统一支持 `remote_url` 作为 v0.1 正式能力 |
+| 插件 lifecycle 路由形状 | ✅ | 规划正文已更新，消除原 `PATCH` 语义，与当前 formal contract 的 `enable` / `disable` / `reload` 独立路由对齐 |
 
 ---
 
@@ -326,11 +326,11 @@
 
 当前执行计划中的 1-4 号主线已完成，下一步从“补主链能力”切换为“收口剩余漂移与交付稳定性”。
 
-### 1. 收口仍保留的规划 / contract 漂移
+### 1. 已收口的规划 / contract 漂移
 
-1. 统一插件 lifecycle 口径：明确保留 split routes，或在规划 / contract 中回到单 `PATCH` 语义，避免两套叙事并存。
-2. 收口插件安装来源叙事：明确 `remote_url` 是 v0.1 正式能力、后续能力，还是保留为超前完成说明。
-3. 把“超前完成”能力与当前阶段能力的分层说明同步进规划相关文档，避免再次出现执行计划与规划脱节。
+1. ✅ 统一插件 lifecycle 口径：已在规划正文中对齐 formal contract，明确采用 `enable` / `disable` / `reload` 独立路由语义。
+2. ✅ 收口插件安装来源叙事：已在规划正文中明确 `remote_url` 属于 v0.1 正式支持能力。
+3. 把“超前完成”能力与当前阶段能力的分层说明继续同步进规划相关文档，避免再次出现执行计划与规划脱节。
 
 ### 2. 扩大发布后回归与长期自托管验证
 
@@ -346,6 +346,6 @@
 
 ### 后续实施验收口径
 
-- 规划 / contract 漂移收口的验收应满足：install source narrative、plugin lifecycle route shape 与超前完成能力都能在规划、contract 与执行计划中得到单一、一致解释。
+- 规划 / contract 漂移收口的验收应满足：当前 install source narrative 与 plugin lifecycle route shape 已完成收口并在各文档中得到单一、一致解释；超前完成能力还需继续在规划中分层说明。
 - 发布后回归扩面的验收应满足：upgrade / rollback、diagnostic bundle、正式安装与长期自托管 smoke 进入稳定门禁，且不会与既有 `release_manifest.json` / `build_info.json` / `SHA256SUMS.txt` 语义冲突。
 - v0.2+ 运行时完善项的验收应满足：Render Service 从占位产物输出升级到真正的 Chromium 渲染链路，并继续保持 contract-first、四件套同步更新与单一状态语义。

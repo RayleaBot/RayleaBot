@@ -2714,8 +2714,9 @@ v0.1 至少应明确以下五类权限主体：
 | `POST /api/system/shutdown` | 触发服务内部优雅停机流程；默认仅允许本机回环地址上的受控管理入口调用 |
 | `GET /api/system/status` | 获取系统状态、版本、运行时间、协议连接状态 |
 | `GET /api/plugins` | 获取插件列表和状态 |
-| `POST /api/plugins/install` | 异步安装插件，v0.1 仅支持本地 zip 包或本地目录来源，立即返回 `202 Accepted` 与 `task_id` |
-| `PATCH /api/plugins/{id}` | 启用、禁用、重启插件 |
+| `POST /api/plugins/install` | 异步安装插件，v0.1 支持本地 zip 包、本地目录和 remote_url 来源，立即返回 `202 Accepted` 与 `task_id` |
+| `POST /api/plugins/{id}/enable` | 启用插件 |
+| `POST /api/plugins/{id}/disable` | 禁用插件 |
 | `POST /api/plugins/{id}/reload` | 触发插件热重载 |
 | `DELETE /api/plugins/{id}` | 卸载插件 |
 | `GET /api/config` | 读取当前可公开配置 |
