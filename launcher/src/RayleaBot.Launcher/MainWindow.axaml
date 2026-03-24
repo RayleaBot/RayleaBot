@@ -12,45 +12,45 @@
         Background="Transparent"
         Foreground="#F5F9FF">
   <Window.Styles>
-    <Style Selector="Border.shell"><Setter Property="CornerRadius" Value="26" /><Setter Property="Padding" Value="0" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F4091530" Offset="0" /><GradientStop Color="#E1071125" Offset="0.58" /><GradientStop Color="#D706101D" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="BoxShadow" Value="0 18 42 0 #36000000" /></Style>
-    <Style Selector="Border.glass-panel"><Setter Property="CornerRadius" Value="20" /><Setter Property="Padding" Value="16" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#D3132741" Offset="0" /><GradientStop Color="#C40E2137" Offset="0.55" /><GradientStop Color="#BC0A1628" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#1D334A" /><Setter Property="BorderThickness" Value="1" /><Setter Property="BoxShadow" Value="0 4 14 0 #12000000" /></Style>
-    <Style Selector="Border.subtle-panel"><Setter Property="CornerRadius" Value="16" /><Setter Property="Padding" Value="14" /><Setter Property="Background" Value="#6B101F34" /><Setter Property="BorderBrush" Value="#1B3147" /><Setter Property="BorderThickness" Value="1" /></Style>
-    <Style Selector="Border.hero-glass"><Setter Property="CornerRadius" Value="22" /><Setter Property="Padding" Value="20" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#CE152B46" Offset="0" /><GradientStop Color="#C2102037" Offset="0.56" /><GradientStop Color="#B80B1629" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#223A54" /><Setter Property="BorderThickness" Value="1" /></Style>
-    <Style Selector="Border.sidebar-item"><Setter Property="CornerRadius" Value="16" /><Setter Property="Padding" Value="12,11" /><Setter Property="Background" Value="#60101F34" /><Setter Property="BorderBrush" Value="#1B3147" /><Setter Property="BorderThickness" Value="1" /><Setter Property="ClipToBounds" Value="True" /></Style>
+    <Style Selector="Border.shell"><Setter Property="CornerRadius" Value="26" /><Setter Property="Padding" Value="10" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F20A1530" Offset="0" /><GradientStop Color="#E2081225" Offset="0.58" /><GradientStop Color="#DA070F1C" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#00000000" /><Setter Property="BorderThickness" Value="0" /><Setter Property="BoxShadow" Value="0 20 48 0 #3A000000" /></Style>
+    <Style Selector="Border.glass-panel"><Setter Property="CornerRadius" Value="20" /><Setter Property="Padding" Value="16" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#D4142640" Offset="0" /><GradientStop Color="#C10F1F33" Offset="0.55" /><GradientStop Color="#B90A1426" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#1E3247" /><Setter Property="BorderThickness" Value="1" /><Setter Property="BoxShadow" Value="0 6 18 0 #10000000" /></Style>
+    <Style Selector="Border.subtle-panel"><Setter Property="CornerRadius" Value="16" /><Setter Property="Padding" Value="14" /><Setter Property="Background" Value="#73111E31" /><Setter Property="BorderBrush" Value="#21364A" /><Setter Property="BorderThickness" Value="1" /></Style>
+    <Style Selector="Border.hero-glass"><Setter Property="CornerRadius" Value="22" /><Setter Property="Padding" Value="20" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#D0182F4A" Offset="0" /><GradientStop Color="#C0122238" Offset="0.56" /><GradientStop Color="#B80C1729" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#263E56" /><Setter Property="BorderThickness" Value="1" /></Style>
+    <Style Selector="Border.sidebar-item"><Setter Property="CornerRadius" Value="16" /><Setter Property="Padding" Value="12,11" /><Setter Property="Background" Value="#530E1A2C" /><Setter Property="BorderBrush" Value="#1D3044" /><Setter Property="BorderThickness" Value="1" /><Setter Property="ClipToBounds" Value="True" /></Style>
     <Style Selector="Border.metric-chip"><Setter Property="CornerRadius" Value="999" /><Setter Property="Padding" Value="10,5" /><Setter Property="Background" Value="#72172D46" /><Setter Property="BorderBrush" Value="#44698F" /><Setter Property="BorderThickness" Value="1" /></Style>
-    <Style Selector="Border.titlebar-actions"><Setter Property="CornerRadius" Value="14" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
-    <Style Selector="Border.environment-item"><Setter Property="CornerRadius" Value="14" /><Setter Property="Padding" Value="12,10" /><Setter Property="Background" Value="#74112136" /><Setter Property="BorderThickness" Value="1" /></Style>
-    <Style Selector="Border.diagnostics-surface"><Setter Property="CornerRadius" Value="20" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="#97101F34" /><Setter Property="BorderBrush" Value="#4370A3" /><Setter Property="BorderThickness" Value="1" /></Style>
+    <Style Selector="Border.titlebar-actions"><Setter Property="CornerRadius" Value="14" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="#7A112338" /><Setter Property="BorderBrush" Value="#2B4561" /><Setter Property="BorderThickness" Value="1" /></Style>
+    <Style Selector="Border.environment-item"><Setter Property="CornerRadius" Value="12" /><Setter Property="Padding" Value="10,9" /><Setter Property="Background" Value="#65101F32" /><Setter Property="BorderThickness" Value="1" /></Style>
+    <Style Selector="Border.diagnostics-surface"><Setter Property="CornerRadius" Value="18" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="#9810192A" /><Setter Property="BorderBrush" Value="#355A80" /><Setter Property="BorderThickness" Value="1" /></Style>
     <Style Selector="TextBlock.page-heading"><Setter Property="FontSize" Value="34" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="#FAFDFF" /></Style>
     <Style Selector="TextBlock.panel-heading"><Setter Property="FontSize" Value="24" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="#F7FBFF" /></Style>
     <Style Selector="TextBlock.section-caption"><Setter Property="FontSize" Value="12" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="#8FE8FF" /></Style>
     <Style Selector="TextBlock.secondary"><Setter Property="Foreground" Value="#E2EEFB" /><Setter Property="FontSize" Value="14" /></Style>
     <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="#C8D8EB" /><Setter Property="FontSize" Value="13" /></Style>
     <Style Selector="TextBox"><Setter Property="Foreground" Value="#F7FBFF" /><Setter Property="Background" Value="#AA122238" /><Setter Property="BorderBrush" Value="#4874A7" /><Setter Property="BorderThickness" Value="1" /><Setter Property="SelectionBrush" Value="#6BDFFF" /><Setter Property="CornerRadius" Value="16" /><Setter Property="Padding" Value="14,11" /></Style>
-    <Style Selector="Button.primary"><Setter Property="Foreground" Value="#061523" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#99F3FF" Offset="0" /><GradientStop Color="#42C9EF" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#C2F8FF" /><Setter Property="BorderThickness" Value="1" /><Setter Property="MinHeight" Value="48" /><Setter Property="CornerRadius" Value="18" /><Setter Property="Padding" Value="18,10" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+    <Style Selector="Button.primary"><Setter Property="Foreground" Value="#04131F" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#A7F6FF" Offset="0" /><GradientStop Color="#51CDEF" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#D4FBFF" /><Setter Property="BorderThickness" Value="1" /><Setter Property="MinHeight" Value="48" /><Setter Property="CornerRadius" Value="18" /><Setter Property="Padding" Value="18,10" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
     <Style Selector="Button.primary:pointerover"><Setter Property="Foreground" Value="#04111B" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#C0FAFF" Offset="0" /><GradientStop Color="#60DAFF" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="BorderBrush" Value="#E0FDFF" /></Style>
     <Style Selector="Button.primary:pressed"><Setter Property="Foreground" Value="#03101A" /><Setter Property="Background" Value="#46BFE3" /><Setter Property="BorderBrush" Value="#96EEFF" /></Style>
-    <Style Selector="Button.primary:disabled"><Setter Property="Foreground" Value="#EAF7FF" /><Setter Property="Background" Value="#2C5F7C" /><Setter Property="BorderBrush" Value="#5D8EAF" /><Setter Property="Opacity" Value="1" /></Style>
-    <Style Selector="Button.secondary"><Setter Property="Foreground" Value="#FAFDFF" /><Setter Property="Background" Value="#8B142843" /><Setter Property="BorderBrush" Value="#6394C6" /><Setter Property="BorderThickness" Value="1" /><Setter Property="MinHeight" Value="48" /><Setter Property="CornerRadius" Value="18" /><Setter Property="Padding" Value="18,10" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+    <Style Selector="Button.primary:disabled"><Setter Property="Foreground" Value="#EEF8FF" /><Setter Property="Background" Value="#577692" /><Setter Property="BorderBrush" Value="#95B9D4" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="Button.secondary"><Setter Property="Foreground" Value="#FDFEFF" /><Setter Property="Background" Value="#88162A43" /><Setter Property="BorderBrush" Value="#6D9FD2" /><Setter Property="BorderThickness" Value="1" /><Setter Property="MinHeight" Value="48" /><Setter Property="CornerRadius" Value="18" /><Setter Property="Padding" Value="18,10" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
     <Style Selector="Button.secondary:pointerover"><Setter Property="Foreground" Value="#FFFFFF" /><Setter Property="Background" Value="#A51E3960" /><Setter Property="BorderBrush" Value="#9ED3FF" /></Style>
     <Style Selector="Button.secondary:pressed"><Setter Property="Foreground" Value="#FFFFFF" /><Setter Property="Background" Value="#7E23425F" /><Setter Property="BorderBrush" Value="#7CB5E6" /></Style>
-    <Style Selector="Button.secondary:disabled"><Setter Property="Foreground" Value="#E6F2FF" /><Setter Property="Background" Value="#23374F" /><Setter Property="BorderBrush" Value="#54799F" /><Setter Property="Opacity" Value="1" /></Style>
-    <Style Selector="Button.ghost"><Setter Property="Foreground" Value="#F5FAFF" /><Setter Property="Background" Value="#6014273F" /><Setter Property="BorderBrush" Value="#49719A" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="16" /><Setter Property="Padding" Value="14,9" /><Setter Property="MinHeight" Value="42" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+    <Style Selector="Button.secondary:disabled"><Setter Property="Foreground" Value="#EDF7FF" /><Setter Property="Background" Value="#415871" /><Setter Property="BorderBrush" Value="#89AED0" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="Button.ghost"><Setter Property="Foreground" Value="#F7FBFF" /><Setter Property="Background" Value="#6014273F" /><Setter Property="BorderBrush" Value="#507CA8" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="16" /><Setter Property="Padding" Value="14,9" /><Setter Property="MinHeight" Value="42" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
     <Style Selector="Button.ghost:pointerover"><Setter Property="Foreground" Value="#FFFFFF" /><Setter Property="Background" Value="#7F1C3250" /><Setter Property="BorderBrush" Value="#86BDEF" /></Style>
     <Style Selector="Button.ghost:pressed"><Setter Property="Foreground" Value="#F9FCFF" /><Setter Property="Background" Value="#5614263E" /><Setter Property="BorderBrush" Value="#688FB8" /></Style>
-    <Style Selector="Button.ghost:disabled"><Setter Property="Foreground" Value="#E2EDF9" /><Setter Property="Background" Value="#203246" /><Setter Property="BorderBrush" Value="#4B6F92" /><Setter Property="Opacity" Value="1" /></Style>
-    <Style Selector="Button.window-button"><Setter Property="Width" Value="36" /><Setter Property="Height" Value="30" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="#132840" /><Setter Property="Foreground" Value="#F7FBFF" /><Setter Property="BorderBrush" Value="#2E5378" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="10" /><Setter Property="FontSize" Value="12" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
-    <Style Selector="Button.window-button:pointerover"><Setter Property="Background" Value="#1B3550" /><Setter Property="BorderBrush" Value="#6DB8FF" /><Setter Property="Foreground" Value="#FFFFFF" /></Style>
-    <Style Selector="Button.window-button:pressed"><Setter Property="Background" Value="#10253A" /><Setter Property="BorderBrush" Value="#5894C8" /><Setter Property="Foreground" Value="#FFFFFF" /></Style>
+    <Style Selector="Button.ghost:disabled"><Setter Property="Foreground" Value="#ECF6FF" /><Setter Property="Background" Value="#3B5067" /><Setter Property="BorderBrush" Value="#7B9EC1" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="Button.window-button"><Setter Property="Width" Value="38" /><Setter Property="Height" Value="30" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="#F7FBFF" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="CornerRadius" Value="10" /><Setter Property="FontSize" Value="12" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+    <Style Selector="Button.window-button:pointerover"><Setter Property="Background" Value="#203750" /><Setter Property="Foreground" Value="#FFFFFF" /></Style>
+    <Style Selector="Button.window-button:pressed"><Setter Property="Background" Value="#182A3F" /><Setter Property="Foreground" Value="#FFFFFF" /></Style>
     <Style Selector="Button.window-close"><Setter Property="Foreground" Value="#FFF7F8" /></Style>
     <Style Selector="Button.window-close:pointerover"><Setter Property="Background" Value="#4E2733" /><Setter Property="BorderBrush" Value="#D0717D" /><Setter Property="Foreground" Value="#FFFFFF" /></Style>
     <Style Selector="Button.window-close:pressed"><Setter Property="Background" Value="#5D2332" /><Setter Property="BorderBrush" Value="#D7848E" /><Setter Property="Foreground" Value="#FFFFFF" /></Style>
-    <Style Selector="Button.nav-button"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,0,8" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="HorizontalAlignment" Value="Stretch" /><Setter Property="Focusable" Value="False" /></Style>
+    <Style Selector="Button.nav-button"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,0,6" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="HorizontalAlignment" Value="Stretch" /><Setter Property="Focusable" Value="False" /></Style>
     <Style Selector="Button.nav-button:pointerover"><Setter Property="Background" Value="Transparent" /></Style>
     <Style Selector="Button.nav-button:pressed"><Setter Property="Background" Value="Transparent" /></Style>
   </Window.Styles>
   <Border Classes="shell" Margin="0">
-    <Grid Margin="8">
+    <Grid Margin="0">
       <Grid IsHitTestVisible="False">
         <Border Width="420" Height="420" CornerRadius="210" Background="#1F5A98" Opacity="0.17" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-140,-170,0,0" />
         <Border Width="520" Height="520" CornerRadius="260" Background="#0DA7E9" Opacity="0.08" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-190,-150,0" />
@@ -67,28 +67,32 @@
             <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="{Binding OperationSummary}" Foreground="#E7F1FC" TextTrimming="CharacterEllipsis" MaxWidth="460" />
             <Button Grid.Column="3" Classes="secondary" Click="OpenWebClicked" Content="{Binding OpenWebUiActionLabel}" IsEnabled="{Binding CanOpenWebUi}" MinWidth="176" VerticalAlignment="Center" />
             <Border Grid.Column="4" Classes="titlebar-actions" HorizontalAlignment="Right">
-              <StackPanel Orientation="Horizontal" Spacing="2">
-                <Button Classes="window-button" Click="MinimizeClicked">—</Button>
-                <Button Classes="window-button" Click="ToggleMaximizeClicked" Content="{Binding WindowStateGlyph}" />
-                <Button Classes="window-button window-close" Click="CloseClicked">×</Button>
-              </StackPanel>
+              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="0">
+                <Button Grid.Column="0" Classes="window-button" Click="MinimizeClicked">—</Button>
+                <Border Grid.Column="1" Width="1" Margin="0,6" Background="#27405C" HorizontalAlignment="Left" />
+                <Button Grid.Column="2" Classes="window-button" Click="ToggleMaximizeClicked" Content="{Binding WindowStateGlyph}" />
+                <Border Grid.Column="3" Width="1" Margin="0,6" Background="#27405C" HorizontalAlignment="Left" />
+                <Button Grid.Column="4" Classes="window-button window-close" Click="CloseClicked">×</Button>
+              </Grid>
             </Border>
           </Grid>
         </Border>
-        <Grid Grid.Row="1" ColumnDefinitions="220,*" ColumnSpacing="16">
-          <Border Grid.Column="0" Classes="glass-panel" Padding="18">
-            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="18">
-              <StackPanel Spacing="6"><TextBlock Text="{Binding Copy.SidebarTitle}" FontSize="17" FontWeight="SemiBold" Foreground="#F7FBFF" /><TextBlock Text="{Binding Copy.SidebarSummary}" Classes="secondary" TextWrapping="Wrap" /></StackPanel>
+        <Grid Grid.Row="1" ColumnDefinitions="184,*" ColumnSpacing="16">
+          <Border Grid.Column="0" Classes="glass-panel" Padding="16">
+            <Grid RowDefinitions="Auto,*" RowSpacing="18">
+              <StackPanel Spacing="4"><TextBlock Text="{Binding Copy.SidebarTitle}" FontSize="17" FontWeight="SemiBold" Foreground="#F7FBFF" /><TextBlock Text="{Binding Copy.SidebarSummary}" Classes="secondary" TextWrapping="Wrap" /></StackPanel>
               <ItemsControl Grid.Row="1" ItemsSource="{Binding NavigationItems}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <Button Classes="nav-button" Tag="{Binding Section}" Click="NavigationItemClicked">
                       <Border Classes="sidebar-item" Background="{Binding BackgroundBrush}" BorderBrush="{Binding BorderBrush}">
-                        <Grid ColumnDefinitions="3,*" ColumnSpacing="10">
-                          <Border Width="3" CornerRadius="2" Background="{Binding BorderBrush}" Margin="0,2,0,2" />
-                          <StackPanel Grid.Column="1" Spacing="4">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                          <Border Width="24" Height="24" CornerRadius="12" Background="#12263D" BorderBrush="{Binding BorderBrush}" BorderThickness="1" VerticalAlignment="Top" Margin="0,2,0,0">
+                            <Border Width="8" Height="8" CornerRadius="4" Background="{Binding BorderBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                          </Border>
+                          <StackPanel Grid.Column="1" Spacing="3">
                             <TextBlock Text="{Binding Title}" Foreground="{Binding TitleBrush}" FontSize="15" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding Summary}" Foreground="{Binding SummaryBrush}" TextWrapping="Wrap" FontSize="11" />
+                            <TextBlock Text="{Binding Summary}" Foreground="{Binding SummaryBrush}" TextWrapping="Wrap" FontSize="11" MaxLines="1" TextTrimming="CharacterEllipsis" />
                           </StackPanel>
                         </Grid>
                       </Border>
@@ -96,7 +100,6 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Border Grid.Row="2" Classes="subtle-panel" Padding="16"><StackPanel Spacing="8"><TextBlock Text="{Binding Copy.VersionLabel}" FontWeight="SemiBold" Foreground="#F7FBFF" /><TextBlock Text="{Binding VersionSummary}" TextWrapping="Wrap" /><TextBlock Text="{Binding VersionDetail}" Classes="secondary" TextWrapping="Wrap" /></StackPanel></Border>
             </Grid>
           </Border>
           <Grid Grid.Column="1">

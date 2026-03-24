@@ -98,6 +98,21 @@ internal sealed partial class MainWindow : Window
 
     private async void StopClicked(object? sender, RoutedEventArgs e)
     {
+        if (ViewModel.RequiresExternalStopConfirmation)
+        {
+            var shouldContinue = await ExternalServiceStopDialog.ShowAsync(
+                this,
+                ViewModel.ExternalStopConfirmTitle,
+                ViewModel.ExternalStopConfirmBody,
+                ViewModel.ExternalStopConfirmFootnote,
+                ViewModel.ExternalStopConfirmAction,
+                ViewModel.ExternalStopCancelAction);
+            if (!shouldContinue)
+            {
+                return;
+            }
+        }
+
         await ViewModel.StopAsync();
     }
 
@@ -411,6 +426,114 @@ internal sealed class CloseToTrayDialog : Window
                         {
                             hideButton,
                             exitButton,
+                        },
+                    },
+                },
+            },
+        };
+    }
+}
+
+internal sealed class ExternalServiceStopDialog : Window
+{
+    private readonly TaskCompletionSource<bool> resultSource = new();
+
+    private ExternalServiceStopDialog(string title, string body, string footnote, string confirmLabel, string cancelLabel)
+    {
+        Width = 520;
+        Height = 260;
+        CanResize = false;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Title = title;
+        Background = Avalonia.Media.Brush.Parse("#0C1629");
+        Foreground = Avalonia.Media.Brush.Parse("#F5F9FF");
+        SystemDecorations = SystemDecorations.BorderOnly;
+        Content = BuildContent(title, body, footnote, confirmLabel, cancelLabel);
+        Closed += (_, _) =>
+        {
+            if (!resultSource.Task.IsCompleted)
+            {
+                resultSource.TrySetResult(false);
+            }
+        };
+    }
+
+    internal static async Task<bool> ShowAsync(
+        Window owner,
+        string title,
+        string body,
+        string footnote,
+        string confirmLabel,
+        string cancelLabel)
+    {
+        var dialog = new ExternalServiceStopDialog(title, body, footnote, confirmLabel, cancelLabel);
+        await dialog.ShowDialog(owner);
+        return await dialog.resultSource.Task.ConfigureAwait(true);
+    }
+
+    private Control BuildContent(string title, string body, string footnote, string confirmLabel, string cancelLabel)
+    {
+        var confirmButton = new Button
+        {
+            Content = confirmLabel,
+            MinWidth = 138,
+        };
+        confirmButton.Click += (_, _) =>
+        {
+            resultSource.TrySetResult(true);
+            Close();
+        };
+
+        var cancelButton = new Button
+        {
+            Content = cancelLabel,
+            MinWidth = 118,
+        };
+        cancelButton.Click += (_, _) =>
+        {
+            resultSource.TrySetResult(false);
+            Close();
+        };
+
+        return new Border
+        {
+            CornerRadius = new CornerRadius(24),
+            BorderBrush = Avalonia.Media.Brush.Parse("#335C84"),
+            BorderThickness = new Thickness(1),
+            Background = Avalonia.Media.Brush.Parse("#C2142740"),
+            Margin = new Thickness(18),
+            Padding = new Thickness(24),
+            Child = new StackPanel
+            {
+                Spacing = 16,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = title,
+                        FontSize = 20,
+                        FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                    },
+                    new TextBlock
+                    {
+                        Text = body,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    },
+                    new TextBlock
+                    {
+                        Text = footnote,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                        Foreground = Avalonia.Media.Brush.Parse("#B7CAE1"),
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Avalonia.Layout.Orientation.Horizontal,
+                        Spacing = 12,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                        Children =
+                        {
+                            cancelButton,
+                            confirmButton,
                         },
                     },
                 },

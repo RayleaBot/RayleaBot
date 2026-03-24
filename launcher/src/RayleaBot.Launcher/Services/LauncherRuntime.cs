@@ -236,6 +236,103 @@ internal sealed class ServerProcessController : IServerProcessController
     }
 }
 
+internal sealed class EndpointProcessController : IEndpointProcessController
+{
+    public async Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        var processId = await TryResolveOwningProcessIdAsync(endpoint, cancellationToken).ConfigureAwait(false);
+        if (processId is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById(processId.Value);
+            if (process.HasExited)
+            {
+                return true;
+            }
+
+            process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<int?> TryResolveOwningProcessIdAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "netstat",
+                Arguments = "-ano -p tcp",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            },
+        };
+
+        if (!process.Start())
+        {
+            return null;
+        }
+
+        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        if (process.ExitCode != 0)
+        {
+            return null;
+        }
+
+        foreach (var rawLine in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = rawLine.Trim();
+            if (!line.StartsWith("TCP", StringComparison.OrdinalIgnoreCase) ||
+                !line.Contains("LISTENING", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var columns = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (columns.Length < 5)
+            {
+                continue;
+            }
+
+            if (!TryParsePort(columns[1], out var localPort) || localPort != endpoint.Port)
+            {
+                continue;
+            }
+
+            if (int.TryParse(columns[^1], out var processId))
+            {
+                return processId;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryParsePort(string value, out int port)
+    {
+        port = 0;
+        var lastColon = value.LastIndexOf(':');
+        if (lastColon < 0 || lastColon == value.Length - 1)
+        {
+            return false;
+        }
+
+        return int.TryParse(value[(lastColon + 1)..], out port);
+    }
+}
+
 internal sealed class ShellExternalOpener : IExternalOpener
 {
     public Task OpenUriAsync(Uri uri, CancellationToken cancellationToken)

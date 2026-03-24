@@ -10,6 +10,7 @@ internal sealed class LauncherCoordinator(
     IEnvironmentInspector environmentInspector,
     ILauncherManagementClient managementClient,
     IServerProcessController processController,
+    IEndpointProcessController endpointProcessController,
     IExternalOpener externalOpener,
     IReleaseFeedClient? releaseFeedClient = null,
     LauncherCoordinatorOptions? options = null)
@@ -188,11 +189,12 @@ internal sealed class LauncherCoordinator(
                 {
                     ServiceState = LauncherServiceState.ShuttingDown,
                     ShutdownRequested = true,
-                    ServiceDetail = "正在请求优雅停机。",
+                    ServiceDetail = processController.IsRunning ? "正在停止服务。" : "正在停止现有服务。",
                     LastError = string.Empty,
                 }, cancellationToken).ConfigureAwait(false);
 
             var gracefulShutdownCompleted = false;
+            var shouldTryExternalStop = false;
             try
             {
                 if (await managementClient.IsHealthyAsync(endpoint, cancellationToken).ConfigureAwait(false))
@@ -216,19 +218,42 @@ internal sealed class LauncherCoordinator(
 
                         await Task.Delay(runtimeOptions.PollInterval, timeoutCts.Token).ConfigureAwait(false);
                     }
+
+                    shouldTryExternalStop = !gracefulShutdownCompleted && !processController.IsRunning;
                 }
             }
             catch (LauncherHttpStatusException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
             {
                 sessionToken = null;
+                shouldTryExternalStop = !processController.IsRunning;
             }
             catch
             {
+                shouldTryExternalStop = !processController.IsRunning;
             }
 
             if (!gracefulShutdownCompleted && processController.IsRunning)
             {
                 await processController.ForceKillAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else if (!gracefulShutdownCompleted && shouldTryExternalStop)
+            {
+                var externalStopTriggered = await endpointProcessController.TryStopEndpointProcessAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                if (externalStopTriggered)
+                {
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeoutCts.CancelAfter(runtimeOptions.ShutdownTimeout);
+                    while (!timeoutCts.IsCancellationRequested)
+                    {
+                        if (!await managementClient.IsHealthyAsync(endpoint, timeoutCts.Token).ConfigureAwait(false))
+                        {
+                            gracefulShutdownCompleted = true;
+                            break;
+                        }
+
+                        await Task.Delay(runtimeOptions.PollInterval, timeoutCts.Token).ConfigureAwait(false);
+                    }
+                }
             }
 
             sessionToken = null;
@@ -392,10 +417,15 @@ internal sealed class LauncherCoordinator(
         sessionToken = null;
         var state = snapshot.ShutdownRequested && processController.IsRunning
             ? LauncherServiceState.ShuttingDown
-            : LauncherServiceState.Ready;
-        var detail = state == LauncherServiceState.ShuttingDown
-            ? "服务正在停止，请稍候。"
-            : "服务正在运行。";
+            : processController.IsRunning
+                ? LauncherServiceState.Ready
+                : LauncherServiceState.ExternalService;
+        var detail = state switch
+        {
+            LauncherServiceState.ShuttingDown => "服务正在停止，请稍候。",
+            LauncherServiceState.ExternalService => Copy.DetectedServiceDetail,
+            _ => "服务正在运行。",
+        };
         await PublishSnapshotAsync(BuildSnapshot(
             endpoint,
             checks,

@@ -6,6 +6,7 @@ internal enum LauncherServiceState
 {
     Stopped,
     Starting,
+    ExternalService,
     HealthOnly,
     Ready,
     Degraded,

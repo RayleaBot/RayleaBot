@@ -106,6 +106,10 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal string OpenWebUiActionLabel => copy.OpenWebUiLabel;
 
+    internal bool IsExternalServiceDetected => currentServiceState == LauncherServiceState.ExternalService;
+
+    internal bool RequiresExternalStopConfirmation => IsExternalServiceDetected;
+
     internal IEnumerable<EnvironmentCheckViewModel> BlockingEnvironmentChecks => EnvironmentChecks.Where(item => item.Severity == CheckSeverity.Error);
 
     internal IEnumerable<EnvironmentCheckViewModel> WarningEnvironmentChecks => EnvironmentChecks.Where(item => item.Severity == CheckSeverity.Warning);
@@ -357,6 +361,16 @@ internal sealed class MainWindowViewModel : ObservableObject
         ActivateSection(section);
     }
 
+    internal string ExternalStopConfirmTitle => copy.ExternalStopConfirmTitle;
+
+    internal string ExternalStopConfirmBody => copy.ExternalStopConfirmBody;
+
+    internal string ExternalStopConfirmFootnote => copy.ExternalStopConfirmFootnote;
+
+    internal string ExternalStopConfirmAction => copy.ExternalStopConfirmAction;
+
+    internal string ExternalStopCancelAction => copy.ExternalStopCancelAction;
+
     internal void SetOperationSummary(string message)
     {
         Dispatcher.UIThread.Post(() => OperationSummary = message);
@@ -421,6 +435,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         HeroAccentBrush = snapshot.ServiceState switch
         {
             LauncherServiceState.Ready => Brush.Parse("#3BE38D"),
+            LauncherServiceState.ExternalService => Brush.Parse("#68C3FF"),
             LauncherServiceState.Degraded or LauncherServiceState.HealthOnly => Brush.Parse("#FFB84D"),
             LauncherServiceState.Failed => Brush.Parse("#FF6B7D"),
             LauncherServiceState.Starting or LauncherServiceState.ShuttingDown => Brush.Parse("#66D0FF"),
@@ -444,9 +459,12 @@ internal sealed class MainWindowViewModel : ObservableObject
         }
 
         var hasBlockingIssue = snapshot.EnvironmentChecks.Any(item => item.Severity == CheckSeverity.Error);
-        CanStart = !snapshot.ProcessRunning && !hasBlockingIssue;
-        CanStop = snapshot.ProcessRunning || snapshot.ServiceState is LauncherServiceState.Starting or LauncherServiceState.ShuttingDown;
-        CanOpenWebUi = snapshot.ServiceState is LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.ShuttingDown;
+        CanStart = !snapshot.ProcessRunning &&
+                   snapshot.ServiceState is not LauncherServiceState.ExternalService &&
+                   !hasBlockingIssue;
+        CanStop = snapshot.ProcessRunning ||
+                  snapshot.ServiceState is LauncherServiceState.Starting or LauncherServiceState.ShuttingDown or LauncherServiceState.ExternalService;
+        CanOpenWebUi = snapshot.ServiceState is LauncherServiceState.HealthOnly or LauncherServiceState.Ready or LauncherServiceState.Degraded or LauncherServiceState.ShuttingDown or LauncherServiceState.ExternalService;
         CanRetry = true;
         CanOpenReleasePage = !string.IsNullOrWhiteSpace(snapshot.ReleaseCheck.ReleasePageUrl);
 
@@ -479,6 +497,8 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoPrimaryIssue));
         OnPropertyChanged(nameof(IsSetupRequired));
         OnPropertyChanged(nameof(IsNotSetupRequired));
+        OnPropertyChanged(nameof(IsExternalServiceDetected));
+        OnPropertyChanged(nameof(RequiresExternalStopConfirmation));
         OnPropertyChanged(nameof(OpenWebUiActionLabel));
     }
 
@@ -525,8 +545,8 @@ internal sealed class MainWindowViewModel : ObservableObject
 internal sealed class LauncherNavigationItemViewModel : ObservableObject
 {
     private bool isActive;
-    private IBrush backgroundBrush = Brush.Parse("#12213D");
-    private IBrush borderBrush = Brush.Parse("#22385C");
+    private IBrush backgroundBrush = Brush.Parse("#0F1C30");
+    private IBrush borderBrush = Brush.Parse("#203549");
     private IBrush titleBrush = Brush.Parse("#EAF3FF");
     private IBrush summaryBrush = Brush.Parse("#9EB3D1");
 
@@ -576,10 +596,10 @@ internal sealed class LauncherNavigationItemViewModel : ObservableObject
     internal void SetActive(bool active)
     {
         IsActive = active;
-        BackgroundBrush = active ? Brush.Parse("#173655") : Brush.Parse("#0D1A2D");
-        BorderBrush = active ? Brush.Parse("#3DB7F8") : Brush.Parse("#1A3046");
+        BackgroundBrush = active ? Brush.Parse("#18304A") : Brush.Parse("#0F1C30");
+        BorderBrush = active ? Brush.Parse("#4DBFFF") : Brush.Parse("#203549");
         TitleBrush = Brush.Parse("#F7FBFF");
-        SummaryBrush = active ? Brush.Parse("#DDEEFF") : Brush.Parse("#B5C8DC");
+        SummaryBrush = active ? Brush.Parse("#E6F4FF") : Brush.Parse("#AFC1D6");
     }
 }
 

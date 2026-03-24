@@ -16,7 +16,7 @@ public sealed class LauncherCoordinatorTests
 
         await coordinator.InitializeAsync();
 
-        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
         Assert.AreEqual(0, fixture.ManagementClient.IssueLauncherTokenCalls);
         Assert.AreEqual(0, fixture.ManagementClient.AdmitLauncherTokenCalls);
         Assert.AreEqual(0, fixture.ManagementClient.SystemStatusCalls);
@@ -32,7 +32,7 @@ public sealed class LauncherCoordinatorTests
 
         await coordinator.InitializeAsync();
 
-        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
         Assert.AreEqual(0, fixture.ManagementClient.IssueLauncherTokenCalls);
         Assert.AreEqual(0, fixture.ManagementClient.AdmitLauncherTokenCalls);
         Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("初始化", StringComparison.Ordinal));
@@ -102,7 +102,7 @@ public sealed class LauncherCoordinatorTests
 
         await coordinator.RefreshAsync();
 
-        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
         Assert.AreEqual(0, fixture.ManagementClient.SystemStatusCalls);
         Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("会话", StringComparison.Ordinal));
         Assert.IsFalse(coordinator.Snapshot.LastError.Contains("expired", StringComparison.Ordinal));
@@ -118,10 +118,27 @@ public sealed class LauncherCoordinatorTests
 
         await coordinator.InitializeAsync();
 
-        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(LauncherServiceState.ExternalService, coordinator.Snapshot.ServiceState);
         Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
         Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("OneBot", StringComparison.Ordinal));
         Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("reconnecting", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task StopAsync_StopsDetectedExternalServiceWhenGracefulShutdownDoesNotDrain()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = true;
+        fixture.ManagementClient.SetupInitialized = false;
+        fixture.EndpointProcessController.StopResult = true;
+        fixture.EndpointProcessController.OnStop = () => fixture.ManagementClient.HealthDefault = false;
+        var coordinator = fixture.CreateCoordinator(new LauncherCoordinatorOptions(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(5), TimeSpan.FromMilliseconds(20)));
+        await coordinator.InitializeAsync();
+
+        await coordinator.StopAsync();
+
+        Assert.AreEqual(1, fixture.EndpointProcessController.StopCalls);
+        Assert.AreEqual(LauncherServiceState.Stopped, coordinator.Snapshot.ServiceState);
     }
 
     [TestMethod]
@@ -199,6 +216,7 @@ internal sealed class LauncherFixture
     internal FakeEnvironmentInspector EnvironmentInspector { get; } = new();
     internal FakeManagementClient ManagementClient { get; } = new();
     internal FakeProcessController ProcessController { get; } = new();
+    internal FakeEndpointProcessController EndpointProcessController { get; } = new();
     internal FakeExternalOpener ExternalOpener { get; } = new();
     internal FakeReleaseFeedClient ReleaseFeedClient { get; } = new();
 
@@ -210,6 +228,7 @@ internal sealed class LauncherFixture
             EnvironmentInspector,
             ManagementClient,
             ProcessController,
+            EndpointProcessController,
             ExternalOpener,
             ReleaseFeedClient,
             options);
@@ -383,6 +402,20 @@ internal sealed class FakeExternalOpener : IExternalOpener
     {
         OpenedDirectories.Add(directoryPath);
         return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeEndpointProcessController : IEndpointProcessController
+{
+    internal bool StopResult { get; set; }
+    internal int StopCalls { get; private set; }
+    internal Action? OnStop { get; set; }
+
+    public Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        StopCalls++;
+        OnStop?.Invoke();
+        return Task.FromResult(StopResult);
     }
 }
 

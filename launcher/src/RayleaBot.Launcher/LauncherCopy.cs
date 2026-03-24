@@ -7,17 +7,17 @@ internal sealed class LauncherCopy
     internal static LauncherCopy Default { get; } = new();
 
     internal string WindowTitle => "RayleaBot 启动器";
-    internal string AppSubtitle => "本地服务";
+    internal string AppSubtitle => "本地启动与管理入口";
     internal string TitleBarHint => "启动、检查与打开管理界面";
-    internal string SidebarTitle => "导航";
-    internal string SidebarSummary => "查看状态、操作与诊断。";
+    internal string SidebarTitle => "功能区";
+    internal string SidebarSummary => "状态、操作、检查与诊断";
 
     internal string OverviewTitle => "总览";
     internal string OverviewSummary => "状态与下一步";
     internal string ServiceControlsTitle => "服务控制";
-    internal string ServiceControlsSummary => "启动、停止与常用操作";
+    internal string ServiceControlsSummary => "启动、停止与打开管理界面";
     internal string EnvironmentTitle => "环境检查";
-    internal string EnvironmentSummary => "阻塞项与提示项";
+    internal string EnvironmentSummary => "阻塞项、提示项与可用项";
     internal string SettingsTitle => "设置";
     internal string SettingsSummary => "本地启动路径与偏好";
     internal string DiagnosticsTitle => "诊断";
@@ -36,10 +36,10 @@ internal sealed class LauncherCopy
     internal string NoPrimaryIssueSummary => "当前没有阻塞项。";
     internal string NoPrimaryIssueDetail => "可以继续操作，或查看环境检查了解更多信息。";
 
-    internal string OverviewIntro => "查看当前服务状态并继续下一步操作。";
+    internal string OverviewIntro => "查看当前状态、主要问题和可执行操作。";
     internal string ControlsIntro => "启动、停止服务或打开管理界面。";
     internal string SettingsIntro => "这里只保存启动器本地路径与偏好。";
-    internal string EnvironmentIntro => "集中查看阻塞项、提示项和正常结果。";
+    internal string EnvironmentIntro => "按优先级查看阻塞项、提示项和正常结果。";
     internal string DiagnosticsIntro => "查看最近错误输出与诊断摘要。";
 
     internal string ServerExecutableLabel => "服务端可执行文件";
@@ -101,12 +101,20 @@ internal sealed class LauncherCopy
     internal string ActionDiagnosticsCopied => "诊断摘要已复制到剪贴板。";
     internal string ActionRestoredFromTray => "启动器已从系统托盘恢复。";
     internal string ActionHiddenToTray => "启动器仍在系统托盘中运行。";
+    internal string DetectedServiceSummary => "检测到现有服务";
+    internal string DetectedServiceDetail => "端口上已有服务正在运行。可以直接打开管理界面，或先停止它再由启动器重新启动。";
+    internal string ExternalStopConfirmTitle => "停止现有服务";
+    internal string ExternalStopConfirmBody => "当前端口上的服务不是由启动器拉起。继续后会尝试停止这个现有服务。";
+    internal string ExternalStopConfirmFootnote => "如果这是另一个独立运行中的实例，请先确认停止它不会影响当前工作。";
+    internal string ExternalStopConfirmAction => "继续停止";
+    internal string ExternalStopCancelAction => "取消";
 
     internal string FormatStatusSummary(LauncherServiceState state) =>
         state switch
         {
             LauncherServiceState.Stopped => "未启动",
             LauncherServiceState.Starting => "启动中",
+            LauncherServiceState.ExternalService => "检测到现有服务",
             LauncherServiceState.HealthOnly => "运行中",
             LauncherServiceState.Ready => "运行中",
             LauncherServiceState.Degraded => "运行中",
@@ -128,6 +136,7 @@ internal sealed class LauncherCopy
         {
             LauncherServiceState.Stopped => "服务未启动",
             LauncherServiceState.Starting => "正在启动服务",
+            LauncherServiceState.ExternalService => "检测到现有服务",
             LauncherServiceState.HealthOnly => "服务正在运行",
             LauncherServiceState.Ready => "服务正在运行",
             LauncherServiceState.Degraded => "服务正在运行",

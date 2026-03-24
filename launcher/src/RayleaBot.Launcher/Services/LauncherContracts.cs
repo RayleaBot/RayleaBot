@@ -49,6 +49,11 @@ internal interface IServerProcessController
     Task ForceKillAsync(CancellationToken cancellationToken);
 }
 
+internal interface IEndpointProcessController
+{
+    Task<bool> TryStopEndpointProcessAsync(ServerEndpoint endpoint, CancellationToken cancellationToken);
+}
+
 internal interface IExternalOpener
 {
     Task OpenUriAsync(Uri uri, CancellationToken cancellationToken);
