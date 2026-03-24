@@ -25,6 +25,7 @@ export const useSessionStore = defineStore('session', () => {
   const bootstrapPending = ref(false)
   const loginPending = ref(false)
   const bootstrapError = ref<string | null>(null)
+  const launcherAdmissionHint = ref<string | null>(null)
 
   const isAuthenticated = computed(() => Boolean(token.value))
   const requiresSetup = computed(() => setupInitialized.value === false)
@@ -66,6 +67,7 @@ export const useSessionStore = defineStore('session', () => {
         body: payload,
       })
       setupInitialized.value = true
+      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -82,6 +84,7 @@ export const useSessionStore = defineStore('session', () => {
         body: payload,
       })
       setupInitialized.value = true
+      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -98,6 +101,7 @@ export const useSessionStore = defineStore('session', () => {
         body: { launcher_token: launcherToken } satisfies LauncherAdmissionRequest,
       })
       setupInitialized.value = true
+      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -120,6 +124,10 @@ export const useSessionStore = defineStore('session', () => {
     setToken(null)
   }
 
+  function setLauncherAdmissionHint(message: string | null) {
+    launcherAdmissionHint.value = message
+  }
+
   function handleSessionExpired() {
     clearSession()
   }
@@ -129,6 +137,7 @@ export const useSessionStore = defineStore('session', () => {
     bootstrapPending,
     isAuthenticated,
     isBootstrapped,
+    launcherAdmissionHint,
     loginPending,
     requiresSetup,
     setupInitialized,
@@ -138,6 +147,7 @@ export const useSessionStore = defineStore('session', () => {
     handleSessionExpired,
     login,
     logout,
+    setLauncherAdmissionHint,
     setToken,
     setupAdmin,
     admitLauncherToken,

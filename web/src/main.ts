@@ -31,6 +31,7 @@ async function consumeLauncherTokenQuery(
     try {
       await sessionStore.admitLauncherToken(launcherToken)
     } catch {
+      sessionStore.setLauncherAdmissionHint('Launcher 登录令牌无效或已过期，请重新从启动器打开 Web UI。')
       sessionStore.clearSession()
     }
   }

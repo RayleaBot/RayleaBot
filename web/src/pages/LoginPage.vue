@@ -40,6 +40,15 @@ async function submit() {
         class="section-gap"
       />
 
+      <el-alert
+        v-if="sessionStore.launcherAdmissionHint"
+        title="启动器自动登录未完成"
+        type="warning"
+        :description="sessionStore.launcherAdmissionHint"
+        show-icon
+        class="section-gap"
+      />
+
       <el-form ref="formRef" :model="form" label-position="top">
         <el-form-item label="Identifier" prop="identifier" :rules="[{ required: true, message: '请输入 identifier' }]">
           <el-input v-model="form.identifier" autocomplete="username" />

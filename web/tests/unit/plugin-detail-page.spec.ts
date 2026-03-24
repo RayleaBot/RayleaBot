@@ -26,10 +26,23 @@ describe('PluginDetailPage', () => {
 
     pluginsStore.current = {
       id: 'weather',
+      name: 'Weather',
+      role: 'user',
       registration_state: 'installed',
       desired_state: 'enabled',
       runtime_state: 'running',
       display_state: 'running',
+      source: {
+        root: 'plugins/installed',
+        package_source_type: 'local_zip',
+        package_source_ref: 'C:/plugins/weather.zip',
+        verified: false,
+      },
+      trust: {
+        level: 'unverified',
+        label: '未验证来源',
+      },
+      command_conflicts: ['weather'],
     }
     pluginsStore.grants = {
       weather: [
@@ -65,6 +78,10 @@ describe('PluginDetailPage', () => {
 
     expect(wrapper.text()).toContain('http.request')
     expect(wrapper.text()).toContain('Traceback (most recent call last): ...')
+    expect(wrapper.text()).toContain('Weather')
+    expect(wrapper.text()).toContain('未验证来源')
+    expect(wrapper.text()).toContain('plugins/installed')
+    expect(wrapper.text()).toContain('weather')
 
     const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重连'))
     expect(reconnectButton).toBeTruthy()

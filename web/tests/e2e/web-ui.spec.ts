@@ -59,6 +59,7 @@ test('invalid launcher token falls back to login and clears the URL token', asyn
   await page.goto('/?token=invalid_launcher_token')
 
   await expect(page.getByRole('heading', { name: '登录管理面', level: 1 })).toBeVisible()
+  await expect(page.getByText('Launcher 登录令牌无效或已过期')).toBeVisible()
   await expect(page).not.toHaveURL(/token=/)
 })
 
@@ -87,6 +88,9 @@ test('plugin management flow covers install, grants and console recovery', async
 
   await page.goto('/plugins/weather')
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
+  await expect(page.getByText('未验证来源')).toBeVisible()
+  await expect(page.getByText('plugins/installed')).toBeVisible()
+  await expect(page.getByText('命令冲突')).toBeVisible()
 
   await page.getByRole('button', { name: '新增授权' }).click()
   await page.getByLabel('Capability').fill('storage.file')
@@ -103,6 +107,21 @@ test('plugin management flow covers install, grants and console recovery', async
   await closeSocket(request, 'plugin_console')
   await page.getByRole('button', { name: '重连' }).click()
   await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
+})
+
+test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.getByRole('button', { name: '创建在线备份' }).click()
+  await expect(page.getByRole('heading', { name: '后台任务' })).toBeVisible()
+  await expect(page.getByText('task_backup_create_0001').first()).toBeVisible()
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.goto('/')
+  await page.getByRole('button', { name: '导出诊断包' }).click()
+  const download = await downloadPromise
+  expect(await download.suggestedFilename()).toContain('rayleabot-diagnostics')
 })
 
 test('error recovery covers retry, invalid grant expiry and uninstall failure', async ({ page, request }) => {
