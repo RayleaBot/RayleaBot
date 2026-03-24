@@ -3,19 +3,25 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"gopkg.in/yaml.v3"
 
 	"rayleabot/server/internal/app"
 	"rayleabot/server/internal/auth"
 	"rayleabot/server/internal/bridge"
 	"rayleabot/server/internal/runtime"
+	"rayleabot/server/internal/secrets"
+	"rayleabot/server/internal/storage"
 )
+
+const sessionSigningKeySecret = "platform.auth.session_signing_key"
 
 func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 	t.Parallel()
@@ -108,6 +114,95 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 	defer cancel()
 	if _, _, err := conn.Read(readCtx); err != nil {
 		t.Fatalf("expected persisted login token websocket to receive frame, got %v", err)
+	}
+}
+
+func TestProductionAppPersistsSessionSigningKeyInSecretStore(t *testing.T) {
+	t.Parallel()
+
+	dbPath := filepath.Join(t.TempDir(), "state.db")
+	configPath := writePersistentYAMLConfig(t, dbPath)
+	application := newPersistentTestApp(t, configPath, time.Now, "secret-a")
+	defer closePersistentTestApp(t, application)
+
+	store, err := storage.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	defer func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("close sqlite store: %v", closeErr)
+		}
+	}()
+
+	secretStore, err := secrets.NewSQLiteStore(store)
+	if err != nil {
+		t.Fatalf("create sqlite secret store: %v", err)
+	}
+
+	signingKey, err := secretStore.Get(context.Background(), sessionSigningKeySecret)
+	if err != nil {
+		t.Fatalf("expected persisted session signing key, got %v", err)
+	}
+	if len(signingKey) == 0 {
+		t.Fatalf("expected non-empty persisted session signing key")
+	}
+}
+
+func TestDeletingPersistedSessionSigningKeyInvalidatesOlderTokens(t *testing.T) {
+	t.Parallel()
+
+	current := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
+	dbPath := filepath.Join(t.TempDir(), "state.db")
+	configPath := writePersistentYAMLConfig(t, dbPath)
+
+	appA := newPersistentTestApp(t, configPath, func() time.Time {
+		return current
+	}, "secret-b")
+	loginToken := issueLoginToken(t, appA)
+	closePersistentTestApp(t, appA)
+
+	store, err := storage.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	defer func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("close sqlite store: %v", closeErr)
+		}
+	}()
+
+	secretStore, err := secrets.NewSQLiteStore(store)
+	if err != nil {
+		t.Fatalf("create sqlite secret store: %v", err)
+	}
+	if err := secretStore.Delete(context.Background(), sessionSigningKeySecret); err != nil {
+		t.Fatalf("delete persisted session signing key: %v", err)
+	}
+
+	appB := newPersistentTestApp(t, configPath, func() time.Time {
+		return current
+	}, "secret-c")
+	defer closePersistentTestApp(t, appB)
+
+	server := httptest.NewServer(appB.Handler())
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/events?session_token="+loginToken, nil)
+	if conn != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}
+	if err == nil {
+		t.Fatalf("expected websocket dial to fail after deleting persisted signing key")
+	}
+	if response == nil || response.StatusCode != http.StatusUnauthorized {
+		if response == nil {
+			t.Fatalf("expected unauthorized response, got nil")
+		}
+		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
 	}
 }
 

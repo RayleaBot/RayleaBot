@@ -134,6 +134,9 @@ paths:
   /api/session/login:
     post:
       summary: Exchange management credentials for a session token.
+      description: >
+        When the configured max_sessions limit is already reached, the service
+        may recycle the oldest active management session before issuing a new one.
       operationId: loginSession
       requestBody:
         required: true
@@ -188,6 +191,9 @@ paths:
   /api/session/launcher-admission:
     post:
       summary: Consume a single-use launcher token and issue a normal management session token.
+      description: >
+        When the configured max_sessions limit is already reached, the service
+        may recycle the oldest active management session before issuing a new one.
       operationId: admitLauncherSession
       requestBody:
         required: true

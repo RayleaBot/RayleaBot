@@ -3,12 +3,15 @@ package server
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"rayleabot/server/internal/auth"
 )
 
 func TestSetupStatusReportsBootstrapState(t *testing.T) {
@@ -211,6 +214,78 @@ func TestLauncherAdmissionConsumesTokenAndReturnsSession(t *testing.T) {
 	defer reuseResp.Body.Close()
 	if reuseResp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unexpected second launcher-admission status: got %d want 401", reuseResp.StatusCode)
+	}
+}
+
+func TestLauncherAdmissionRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t)
+	application.Auth = newLimitedAuthManager(t, 1)
+	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	tokenFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-token.yaml"))
+	admissionFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-admission.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	setupReq, err := http.NewRequest(setupFixture.Request.Method, server.URL+setupFixture.Request.Path, strings.NewReader(`{"identifier":"admin","secret":"fixture-only-secret"}`))
+	if err != nil {
+		t.Fatalf("create setup request: %v", err)
+	}
+	setupReq.Header.Set("Content-Type", "application/json")
+	setupResp, err := server.Client().Do(setupReq)
+	if err != nil {
+		t.Fatalf("perform setup request: %v", err)
+	}
+	defer setupResp.Body.Close()
+	if setupResp.StatusCode != setupFixture.Response.Status {
+		t.Fatalf("unexpected setup status: got %d want %d", setupResp.StatusCode, setupFixture.Response.Status)
+	}
+	bootstrapToken, ok := decodeBody(t, readAll(t, setupResp))["session_token"].(string)
+	if !ok || bootstrapToken == "" {
+		t.Fatalf("expected bootstrap token before launcher admission")
+	}
+
+	issueReq, err := http.NewRequest(http.MethodPost, server.URL+tokenFixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create launcher-token request: %v", err)
+	}
+	issueResp, err := server.Client().Do(issueReq)
+	if err != nil {
+		t.Fatalf("perform launcher-token request: %v", err)
+	}
+	defer issueResp.Body.Close()
+	if issueResp.StatusCode != tokenFixture.Response.Status {
+		t.Fatalf("unexpected launcher-token status: got %d want %d", issueResp.StatusCode, tokenFixture.Response.Status)
+	}
+	launcherToken, ok := decodeBody(t, readAll(t, issueResp))["launcher_token"].(string)
+	if !ok || launcherToken == "" {
+		t.Fatalf("expected non-empty launcher_token")
+	}
+
+	admissionReq, err := http.NewRequest(admissionFixture.Request.Method, server.URL+admissionFixture.Request.Path, strings.NewReader(`{"launcher_token":"`+launcherToken+`"}`))
+	if err != nil {
+		t.Fatalf("create launcher-admission request: %v", err)
+	}
+	admissionReq.Header.Set("Content-Type", "application/json")
+	admissionResp, err := server.Client().Do(admissionReq)
+	if err != nil {
+		t.Fatalf("perform launcher-admission request: %v", err)
+	}
+	defer admissionResp.Body.Close()
+	if admissionResp.StatusCode != admissionFixture.Response.Status {
+		t.Fatalf("unexpected launcher-admission status: got %d want %d", admissionResp.StatusCode, admissionFixture.Response.Status)
+	}
+	sessionToken, ok := decodeBody(t, readAll(t, admissionResp))["session_token"].(string)
+	if !ok || sessionToken == "" {
+		t.Fatalf("expected non-empty session_token from launcher admission")
+	}
+
+	if _, err := application.Auth.Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
+		t.Fatalf("expected oldest bootstrap session to be recycled, got %v", err)
+	}
+	if _, err := application.Auth.Validate(sessionToken); err != nil {
+		t.Fatalf("expected launcher-admitted session to validate, got %v", err)
 	}
 }
 

@@ -169,8 +169,35 @@ func New(options Options) (*App, error) {
 		_ = storageStore.Close()
 		return nil, fmt.Errorf("create secret store: %w", err)
 	}
+	sessionSigningKey, signingKeyCreated, err := ensureSessionSigningKey(context.Background(), secretStore)
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("prepare session signing key: %w", err)
+	}
+	if signingKeyCreated {
+		persistedSessions, err := authRepository.LoadSessions(context.Background())
+		if err != nil {
+			_ = storageStore.Close()
+			return nil, fmt.Errorf("load persisted sessions for signing key rotation: %w", err)
+		}
+		if len(persistedSessions) > 0 {
+			sessionIDs := make([]string, 0, len(persistedSessions))
+			for _, session := range persistedSessions {
+				if session.SessionID != "" {
+					sessionIDs = append(sessionIDs, session.SessionID)
+				}
+			}
+			if len(sessionIDs) > 0 {
+				if err := authRepository.DeleteSessions(context.Background(), sessionIDs); err != nil {
+					_ = storageStore.Close()
+					return nil, fmt.Errorf("invalidate persisted sessions after signing key rotation: %w", err)
+				}
+			}
+		}
+	}
 	authOptions := append([]auth.Option{
 		auth.WithRepository(authRepository),
+		auth.WithSigningKey(sessionSigningKey),
 	}, options.AuthOptions...)
 	authManager, err := auth.NewManager(auth.Config{
 		SessionTTLDays: cfg.Auth.SessionTTLDays,

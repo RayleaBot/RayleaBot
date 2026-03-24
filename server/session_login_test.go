@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -78,7 +79,7 @@ func TestSessionLoginRejectsBadCredentials(t *testing.T) {
 	}
 }
 
-func TestSessionLoginRejectsWhenMaxSessionsReached(t *testing.T) {
+func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
@@ -91,6 +92,10 @@ func TestSessionLoginRejectsWhenMaxSessionsReached(t *testing.T) {
 	if setup.Code != setupFixture.Response.Status {
 		t.Fatalf("unexpected bootstrap status: got %d want %d", setup.Code, setupFixture.Response.Status)
 	}
+	bootstrapToken, ok := decodeBody(t, setup.Body.Bytes())["session_token"].(string)
+	if !ok || bootstrapToken == "" {
+		t.Fatalf("expected bootstrap session token, got %#v", decodeBody(t, setup.Body.Bytes())["session_token"])
+	}
 
 	recorder := performJSONRequest(t, application, loginFixture.Request.Method, loginFixture.Request.Path, loginFixture.Request.Body)
 	if recorder.Code != loginFixture.Response.Status {
@@ -98,7 +103,26 @@ func TestSessionLoginRejectsWhenMaxSessionsReached(t *testing.T) {
 	}
 
 	body := decodeBody(t, recorder.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, loginFixture.Response.Body, "permission.denied")
+	token, ok := body["session_token"].(string)
+	if !ok || token == "" {
+		t.Fatalf("expected opaque session_token, got %#v", body["session_token"])
+	}
+	if len(body) != 1 {
+		t.Fatalf("unexpected success body shape: %#v", body)
+	}
+
+	expected := cloneMap(loginFixture.Response.Body)
+	expected["session_token"] = token
+	if !reflect.DeepEqual(body, expected) {
+		t.Fatalf("unexpected success body: got %#v want %#v", body, expected)
+	}
+
+	if _, err := application.Auth.Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
+		t.Fatalf("expected bootstrap token to be recycled, got %v", err)
+	}
+	if _, err := application.Auth.Validate(token); err != nil {
+		t.Fatalf("expected recycled login token to validate, got %v", err)
+	}
 
 	raw := recorder.Body.String()
 	if strings.Contains(raw, loginFixture.Request.Body["identifier"].(string)) || strings.Contains(raw, loginFixture.Request.Body["secret"].(string)) {
