@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000422
+    plugin_id: weather
+    request_id: local_config_invalid_0002
+    action: config.write
+    data:
+      values: {}
+expect:
+  valid: false
+  reason: config.write requires at least one plugin-local config value.

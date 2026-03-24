@@ -1,0 +1,13 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Diagnostics export streams a ZIP bundle.
+request:
+  method: GET
+  path: /api/system/diagnostics/export
+response:
+  status: 200
+  headers:
+    Content-Type: application/zip
+    Content-Disposition: attachment; filename="rayleabot-diagnostics.zip"
+expect:
+  valid: true

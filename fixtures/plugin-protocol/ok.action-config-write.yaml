@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000402
+    plugin_id: weather
+    request_id: local_config_0002
+    action: config.write
+    data:
+      values:
+        default_city: 北京
+        unit: celsius
+expect:
+  valid: true
+  notes:
+    - config.write updates only the caller plugin namespace and keeps an audit trail server-side.

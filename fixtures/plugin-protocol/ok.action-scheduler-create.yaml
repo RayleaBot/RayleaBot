@@ -1,0 +1,19 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000403
+    plugin_id: daily-report
+    request_id: local_sched_0001
+    action: scheduler.create
+    data:
+      task_id: daily_morning_report
+      cron: "0 8 * * *"
+      event_type: scheduler.trigger
+      payload:
+        report_type: daily
+expect:
+  valid: true
+  notes:
+    - scheduler.create uses plugin-provided task_id as the idempotent upsert key.

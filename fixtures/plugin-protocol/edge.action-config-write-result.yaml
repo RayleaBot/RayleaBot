@@ -1,0 +1,27 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000413
+    plugin_id: weather
+    request_id: local_config_result_0002
+    action: config.write
+    data:
+      values:
+        default_city: 上海
+        unit: celsius
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000414
+    plugin_id: weather
+    request_id: local_config_result_0002
+    status: success
+    data:
+      changed_keys:
+        - default_city
+        - unit
+expect:
+  valid: true
+  notes:
+    - config.write results enumerate the keys whose persisted values changed.

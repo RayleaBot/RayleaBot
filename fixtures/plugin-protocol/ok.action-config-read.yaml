@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000401
+    plugin_id: weather
+    request_id: local_config_0001
+    action: config.read
+    data:
+      keys:
+        - api_key_name
+        - default_city
+        - unit
+expect:
+  valid: true
+  notes:
+    - config.read is scoped to the caller plugin namespace and reads only non-sensitive values.

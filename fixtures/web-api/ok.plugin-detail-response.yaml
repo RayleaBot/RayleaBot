@@ -1,9 +1,9 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Enable is synchronous and only updates desired_state.
+description: Plugin detail returns the same trust/source metadata as the list surface.
 request:
-  method: POST
-  path: /api/plugins/weather/enable
+  method: GET
+  path: /api/plugins/weather
 response:
   status: 200
   body:
@@ -13,8 +13,8 @@ response:
       role: user
       registration_state: installed
       desired_state: enabled
-      runtime_state: starting
-      display_state: enabling
+      runtime_state: running
+      display_state: running
       source:
         root: plugins/installed
         package_source_type: local_zip
@@ -23,9 +23,7 @@ response:
       trust:
         level: unverified
         label: 未验证来源
-      command_conflicts: []
+      command_conflicts:
+        - weather
 expect:
   valid: true
-  notes:
-    - No task_id is returned.
-    - runtime_state is allowed to lag behind desired_state.

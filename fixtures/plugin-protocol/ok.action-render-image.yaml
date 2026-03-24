@@ -1,0 +1,24 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000405
+    plugin_id: help-menu
+    request_id: local_render_0001
+    action: render.image
+    data:
+      template: help.menu
+      theme: default
+      output: png
+      fallback_text: 帮助菜单暂时不可用，请稍后重试。
+      data:
+        title: 帮助菜单
+        items:
+          - name: weather
+            description: 查询天气
+            usage: /weather <城市>
+expect:
+  valid: true
+  notes:
+    - render.image is a render-only action and does not implicitly send the result as a message.

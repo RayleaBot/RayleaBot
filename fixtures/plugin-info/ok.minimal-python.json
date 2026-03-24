@@ -13,6 +13,7 @@
     "license": "MIT",
     "description": "Minimal weather plugin",
     "author": "raylea",
+    "role": "user",
     "capabilities": [
       "event.subscribe",
       "logger.write"

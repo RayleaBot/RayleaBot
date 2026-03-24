@@ -13,12 +13,17 @@
     "license": "MIT",
     "description": "Weather query plugin with command declarations",
     "author": "raylea",
+    "role": "user",
     "capabilities": [
       "event.subscribe"
     ],
     "permissions": {
       "required": [],
       "optional": []
+    },
+    "default_config": {
+      "default_city": "北京",
+      "unit": "celsius"
     },
     "commands": [
       {

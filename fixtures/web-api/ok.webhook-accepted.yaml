@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Controlled webhook ingress accepts a POST for a granted plugin route.
+request:
+  method: POST
+  path: /api/webhooks/repo-watcher/github
+  headers:
+    X-Hub-Signature-256: sha256=deadbeef
+  body:
+    action: opened
+response:
+  status: 202
+  body:
+    accepted: true
+expect:
+  valid: true

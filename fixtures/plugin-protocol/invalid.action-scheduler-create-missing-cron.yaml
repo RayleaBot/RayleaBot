@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000423
+    plugin_id: daily-report
+    request_id: local_sched_invalid_0001
+    action: scheduler.create
+    data:
+      task_id: daily_morning_report
+      event_type: scheduler.trigger
+expect:
+  valid: false
+  reason: scheduler.create requires task_id, cron, and scheduler.trigger as the event_type.

@@ -130,7 +130,7 @@ jobs:
               if field not in plugin_info.get('required', []):
                   raise SystemExit(f'plugin-info.schema.json missing required field: {field}')
           info_props = plugin_info.get('properties', {})
-          for field in ['description', 'author', 'sdk_min_version', 'runtime_version', 'min_core_version', 'data_schema_version', 'capabilities', 'permissions', 'dependencies', 'require_install_scripts', 'platforms']:
+          for field in ['description', 'author', 'sdk_min_version', 'runtime_version', 'min_core_version', 'data_schema_version', 'role', 'default_config', 'capabilities', 'permissions', 'dependencies', 'require_install_scripts', 'platforms']:
               if field not in info_props:
                   raise SystemExit(f'plugin-info.schema.json missing property: {field}')
           if 'authors' in info_props:
@@ -141,8 +141,12 @@ jobs:
               raise SystemExit('plugin-info.schema.json type must only allow managed_runtime and dev_source')
           if set(info_props['runtime'].get('enum', [])) != {'python', 'nodejs'}:
               raise SystemExit('plugin-info.schema.json runtime must only allow python and nodejs')
-          if 'default_config' in info_props:
-              raise SystemExit('plugin-info.schema.json must not introduce default_config')
+          role_enum = set(info_props['role'].get('enum', []))
+          if role_enum != {'builtin', 'user', 'example', 'dev'}:
+              raise SystemExit(f'plugin-info.schema.json role must exactly allow builtin/user/example/dev; got {sorted(role_enum)}')
+          default_config = info_props['default_config']
+          if default_config.get('type') != 'object' or default_config.get('additionalProperties') is not True:
+              raise SystemExit('plugin-info.schema.json default_config must be a free-form object')
           scope_props = info_props['permissions']['properties']['scopes']['properties']
           for scope in ['http_hosts', 'storage_roots', 'webhooks']:
               if scope not in scope_props:
@@ -173,6 +177,8 @@ jobs:
               'action_storage_kv_set_data',
               'action_storage_kv_delete_data',
               'action_storage_kv_list_data',
+              'action_config_read_data',
+              'action_config_write_data',
               'action_storage_file_read_data',
               'action_storage_file_write_text_data',
               'action_storage_file_write_base64_data',
@@ -181,13 +187,21 @@ jobs:
               'action_http_request_no_body_data',
               'action_http_request_text_body_data',
               'action_http_request_base64_body_data',
+              'action_scheduler_create_data',
+              'action_event_expose_webhook_data',
+              'action_render_image_data',
               'action',
               'action_message_send',
               'action_message_reply',
               'action_logger_write',
               'action_storage_kv',
+              'action_config_read',
+              'action_config_write',
               'action_storage_file',
               'action_http_request',
+              'action_scheduler_create',
+              'action_event_expose_webhook',
+              'action_render_image',
               'result',
               'error',
               'ping',
@@ -210,8 +224,13 @@ jobs:
               'action_message_reply',
               'action_logger_write',
               'action_storage_kv',
+              'action_config_read',
+              'action_config_write',
               'action_storage_file',
               'action_http_request',
+              'action_scheduler_create',
+              'action_event_expose_webhook',
+              'action_render_image',
           }
           if action_refs != expected_action_refs:
               raise SystemExit(f'plugin-protocol.schema.json action oneOf must reference {sorted(expected_action_refs)}; got {sorted(action_refs)}')
@@ -307,6 +326,8 @@ jobs:
               '/api/config',
               '/api/system/status',
               '/api/system/shutdown',
+              '/api/system/backup',
+              '/api/system/diagnostics/export',
               '/api/logs',
               '/api/tasks',
               '/api/tasks/{task_id}',
@@ -319,10 +340,24 @@ jobs:
               '/api/plugins/{plugin_id}/grants',
               '/api/plugins/{plugin_id}/grants/{capability}',
               '/api/plugins/install',
+              '/api/webhooks/{plugin_id}/{route}',
           }
           actual_paths = set(web_api.get('paths', {}).keys())
           if actual_paths != required_paths:
               raise SystemExit(f'web-api.openapi.yaml paths must exactly match the current frozen set: {sorted(required_paths)}; got {sorted(actual_paths)}')
+          plugin_summary = web_api['components']['schemas']['PluginSummary']
+          plugin_props = plugin_summary.get('properties', {})
+          for field in ['name', 'role', 'source', 'trust', 'command_conflicts']:
+              if field not in plugin_props:
+                  raise SystemExit(f'web-api.openapi.yaml PluginSummary missing property: {field}')
+          source_props = plugin_props['source']['properties']
+          for field in ['root', 'package_source_type', 'package_source_ref', 'verified']:
+              if field not in source_props:
+                  raise SystemExit(f'web-api.openapi.yaml PluginSummary.source missing property: {field}')
+          trust_props = plugin_props['trust']['properties']
+          for field in ['level', 'label']:
+              if field not in trust_props:
+                  raise SystemExit(f'web-api.openapi.yaml PluginSummary.trust missing property: {field}')
           if web_api['paths']['/api/plugins/{plugin_id}/enable']['post']['responses'].get('202'):
               raise SystemExit('enable must be synchronous and must not return 202')
           if web_api['paths']['/api/plugins/{plugin_id}/disable']['post']['responses'].get('202'):
@@ -423,7 +458,7 @@ jobs:
               },
               ensure_ascii=False,
           )
-          for legacy in ['platform.config_error', '"task.updated"', '"authors"', '"default_config"']:
+          for legacy in ['platform.config_error', '"task.updated"', '"authors"']:
               if legacy in contracts_snapshot:
                   raise SystemExit(f'out-of-scope content leaked into formal contracts: {legacy}')
 
