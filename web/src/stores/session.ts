@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { toBootstrapStatusMessage } from '@/lib/auth-feedback'
 import { apiRequest } from '@/lib/http'
 import type { LauncherAdmissionRequest, SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
 
@@ -46,7 +47,7 @@ export const useSessionStore = defineStore('session', () => {
       const response = await apiRequest<SetupStatusResponse>('/api/setup/status', { auth: false })
       setupInitialized.value = response.initialized
     } catch (error) {
-      bootstrapError.value = error instanceof Error ? error.message : '暂时无法确认当前状态'
+      bootstrapError.value = toBootstrapStatusMessage(error)
       throw error
     } finally {
       bootstrapPending.value = false

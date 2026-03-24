@@ -3,10 +3,12 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import { toLoginErrorMessage } from '@/lib/auth-feedback'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const submitError = ref<string | null>(null)
 
 const form = reactive({
   identifier: 'admin',
@@ -15,10 +17,18 @@ const form = reactive({
 const formRef = ref()
 
 async function submit() {
-  await formRef.value?.validate()
-  await sessionStore.login(form)
-  ElMessage.success('已登录')
-  await router.push({ name: 'status' })
+  submitError.value = null
+
+  try {
+    await formRef.value?.validate()
+    await sessionStore.login(form)
+    ElMessage.success('已登录')
+    await router.push({ name: 'status' })
+  } catch (error) {
+    const message = toLoginErrorMessage(error)
+    submitError.value = message
+    ElMessage.error(message)
+  }
 }
 </script>
 
@@ -33,7 +43,7 @@ async function submit() {
 
       <el-alert
         v-if="sessionStore.bootstrapError"
-        title="暂时无法确认当前状态"
+        title="暂时无法进入管理界面"
         type="warning"
         :description="sessionStore.bootstrapError"
         show-icon
@@ -45,6 +55,15 @@ async function submit() {
         title="请手动登录"
         type="warning"
         :description="sessionStore.launcherAdmissionHint"
+        show-icon
+        class="section-gap"
+      />
+
+      <el-alert
+        v-if="submitError"
+        title="登录未完成"
+        type="error"
+        :description="submitError"
         show-icon
         class="section-gap"
       />

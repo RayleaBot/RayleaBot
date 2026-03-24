@@ -4,6 +4,7 @@ import ElementPlus from 'element-plus'
 import { createApp } from 'vue'
 
 import App from '@/App.vue'
+import { toLauncherAdmissionHint } from '@/lib/auth-feedback'
 import { configureApiRuntime } from '@/lib/http'
 import { createAppRouter } from '@/router'
 import { useSessionStore } from '@/stores/session'
@@ -31,7 +32,7 @@ async function consumeLauncherTokenQuery(
     try {
       await sessionStore.admitLauncherToken(launcherToken)
     } catch {
-      sessionStore.setLauncherAdmissionHint('自动登录未完成，请手动登录。')
+      sessionStore.setLauncherAdmissionHint(toLauncherAdmissionHint())
       sessionStore.clearSession()
     }
   }
