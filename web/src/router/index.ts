@@ -24,7 +24,7 @@ export const routes: RouteRecordRaw[] = [
     path: '/setup',
     name: 'setup',
     component: SetupPage,
-    meta: { public: true, title: '初始化管理账号' },
+    meta: { public: true, title: '创建管理员账号' },
   },
   {
     path: '/login',

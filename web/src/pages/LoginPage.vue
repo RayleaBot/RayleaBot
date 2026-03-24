@@ -17,7 +17,7 @@ const formRef = ref()
 async function submit() {
   await formRef.value?.validate()
   await sessionStore.login(form)
-  ElMessage.success('登录成功')
+  ElMessage.success('已登录')
   await router.push({ name: 'status' })
 }
 </script>
@@ -26,14 +26,14 @@ async function submit() {
   <div class="auth-page">
     <el-card class="auth-card">
       <div class="auth-copy">
-        <div class="page-eyebrow">Session</div>
-        <h1>登录管理面</h1>
-        <p>当前只消费既有 session token surface，不引入额外刷新协议。</p>
+        <div class="page-eyebrow">管理界面</div>
+        <h1>登录</h1>
+        <p>输入管理员账号和密钥后进入管理界面。</p>
       </div>
 
       <el-alert
         v-if="sessionStore.bootstrapError"
-        title="setup 状态读取失败，仍可尝试登录"
+        title="暂时无法确认当前状态"
         type="warning"
         :description="sessionStore.bootstrapError"
         show-icon
@@ -42,7 +42,7 @@ async function submit() {
 
       <el-alert
         v-if="sessionStore.launcherAdmissionHint"
-        title="启动器自动登录未完成"
+        title="请手动登录"
         type="warning"
         :description="sessionStore.launcherAdmissionHint"
         show-icon
@@ -50,11 +50,11 @@ async function submit() {
       />
 
       <el-form ref="formRef" :model="form" label-position="top">
-        <el-form-item label="Identifier" prop="identifier" :rules="[{ required: true, message: '请输入 identifier' }]">
+        <el-form-item label="管理员账号" prop="identifier" :rules="[{ required: true, message: '请输入管理员账号' }]">
           <el-input v-model="form.identifier" autocomplete="username" />
         </el-form-item>
 
-        <el-form-item label="Secret" prop="secret" :rules="[{ required: true, message: '请输入 secret' }]">
+        <el-form-item label="管理员密钥" prop="secret" :rules="[{ required: true, message: '请输入管理员密钥' }]">
           <el-input v-model="form.secret" type="password" show-password autocomplete="current-password" />
         </el-form-item>
 

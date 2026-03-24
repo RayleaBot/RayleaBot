@@ -46,7 +46,7 @@ export const useSessionStore = defineStore('session', () => {
       const response = await apiRequest<SetupStatusResponse>('/api/setup/status', { auth: false })
       setupInitialized.value = response.initialized
     } catch (error) {
-      bootstrapError.value = error instanceof Error ? error.message : 'setup bootstrap failed'
+      bootstrapError.value = error instanceof Error ? error.message : '暂时无法确认当前状态'
       throw error
     } finally {
       bootstrapPending.value = false

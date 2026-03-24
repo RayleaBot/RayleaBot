@@ -20,8 +20,8 @@
 | Phase 5 | Plugin Protocol Bridge | ✅ | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` local action RPC 与 gated `event.raw_payload` 已接入；完整 Chromium Render Service 继续后置到 Phase 10 |
 | Phase 6 | Config / Storage / Security | 🟡 | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；共享 degraded / remediation 结构仍未完全统一到全部入口 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress 与插件来源/信任/命令冲突 metadata 已可用；插件安装来源和 lifecycle 路由形状与规划正文仍有口径待收口 |
-| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher token 失效友好提示、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置 bootstrap、左侧五区导航、自定义标题栏、中文化液态玻璃桌面壳、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、版本检查、Windows CI 与 release feed 联动已落地；凭据丢失恢复入口与正式安装体验仍待收口 |
+| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置 bootstrap、左侧五区导航、自定义标题栏、中文化液态玻璃桌面壳、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、版本检查、Windows CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，不再承载初始化 / 登录流程判断；凭据丢失恢复入口与正式安装体验仍待收口 |
 | Phase 10 | Render Service | 🟡 | `render.image` 最小占位渲染、产物输出与资源检查已接线；受控 Chromium 队列、模板版本 / 缓存、preview 与正式 Render Service 调度仍未完成 |
 
 ### 判定口径
@@ -235,7 +235,7 @@
 | 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志页、配置页，以及移动端导航抽屉和卡片化布局已落地 |
 | HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |
 | 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
-| 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、Launcher token admission 失效友好提示已接入 |
+| 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、Launcher 自动登录失败短提示已接入 |
 | 前端质量与回归 | ✅ | Vitest 单测、fixture-backed Playwright E2E、异常路径、响应式与可访问性交互回归已落地 |
 
 ---
@@ -245,15 +245,15 @@
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
 | .NET / Avalonia 基线 | ✅ | 版本与包基线已锁定 |
-| Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通 |
+| Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通，并已收口为打开 Web 时的 best-effort 增强能力 |
 | 环境检查 / 本机诊断壳 | ✅ | server 可执行文件、配置文件、workdir、`LongPathsEnabled`、`.deps/manifest.json` 检查与诊断摘要已落地 |
 | 真实 Launcher 行为 | ✅ | 单窗口桌面壳、启动 / 停止 / 打开管理界面 / 重试健康检查、错误输出 ring buffer 与 `logs/launcher.log` 已落地 |
-| 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与 launcher session 重建 |
+| 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与打开 Web 时的本机自动登录增强 |
 | Launcher 测试与 CI | ✅ | `dotnet test ./launcher`、`dotnet publish ./launcher -c Release` 与 Windows `ci-launcher` job 已落地 |
 | 首启配置 bootstrap | ✅ | Launcher preflight 与 server 启动链已对齐 `default.yaml` -> `user.yaml` bootstrap 语义 |
 | 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
 | Launcher 设计系统与布局重构 | ✅ | 左侧 5 区导航、自定义标题栏、第二轮液态玻璃风格、总览 / 服务控制 / 环境检查 / 设置 / 诊断分屏、自绘环境卡片与更紧凑的信息架构已落地 |
-| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态、health、初始化、管理 session 已分层建模；adapter / OneBot 连接状态不再污染启动完成语义与主状态文案 |
+| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按 launcher-local 语义建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态不再污染启动完成语义与主状态文案 |
 | 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、主要问题 / remediation、路径复制与打开目录快捷动作、暗色对比度、文案去技术化与诊断分层已系统化接入 |
 | 托盘最小化与关闭语义 | ✅ | 每次点击关闭按钮都会弹出显式确认；托盘点击弹出自定义快捷浮层，完全退出走浮层操作而非原生菜单 |
 | 关闭确认与托盘引导 | ✅ | 关闭交互已固定为“隐藏到托盘 / 完全退出”双选项，不再使用一次确认后永久跳过的记忆行为 |
@@ -264,7 +264,7 @@
 
 ### 当前主要问题
 
-- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、第二轮液态玻璃视觉层、托盘快捷浮层、版本检查和交付 metadata 已进入可验证主链。
+- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、第二轮液态玻璃视觉层、托盘快捷浮层、版本检查和交付 metadata 已进入可验证主链；初始化、登录和自动登录失败提示已回收到 Web 侧处理。
 - 当前仍未收口的 Launcher 欠账主要集中在凭据丢失后的本地恢复入口，以及正式安装体验与长期自托管打磨。
 
 ---

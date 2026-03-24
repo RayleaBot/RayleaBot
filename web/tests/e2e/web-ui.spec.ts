@@ -23,7 +23,7 @@ async function closeSocket(
 
 async function login(page: import('@playwright/test').Page) {
   await page.goto('/login')
-  await page.getByLabel('Secret').fill('fixture-only-secret')
+  await page.getByLabel('管理员密钥').fill('fixture-only-secret')
   await page.getByRole('button', { name: '登录' }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 }
@@ -32,10 +32,10 @@ test('setup flow reaches protected shell and shows websocket statuses', async ({
   await resetBackend(request, false)
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '初始化管理账号', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '创建管理员账号', level: 1 })).toBeVisible()
 
-  await page.getByLabel('Secret').fill('fixture-only-secret')
-  await page.getByRole('button', { name: '初始化并登录' }).click()
+  await page.getByLabel('管理员密钥').fill('fixture-only-secret')
+  await page.getByRole('button', { name: '创建并进入管理界面' }).click()
 
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
   await expect(page.getByText('Management Surface')).toBeVisible()
@@ -58,8 +58,8 @@ test('invalid launcher token falls back to login and clears the URL token', asyn
 
   await page.goto('/?token=invalid_launcher_token')
 
-  await expect(page.getByRole('heading', { name: '登录管理面', level: 1 })).toBeVisible()
-  await expect(page.getByText('Launcher 登录令牌无效或已过期')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录', level: 1 })).toBeVisible()
+  await expect(page.getByText('自动登录未完成，请手动登录。')).toBeVisible()
   await expect(page).not.toHaveURL(/token=/)
 })
 
@@ -68,7 +68,7 @@ test('setup-required flow ignores launcher token query', async ({ page, request 
 
   await page.goto('/?token=launcher_token_fixture_0001')
 
-  await expect(page.getByRole('heading', { name: '初始化管理账号', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '创建管理员账号', level: 1 })).toBeVisible()
   await expect(page).not.toHaveURL(/token=/)
 })
 
@@ -180,5 +180,5 @@ test('session expiration redirects back to login', async ({ page, request }) => 
   await login(page)
   await request.post(`${backendUrl}/__test/session-expire`)
 
-  await expect(page.getByRole('heading', { name: '登录管理面' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
 })

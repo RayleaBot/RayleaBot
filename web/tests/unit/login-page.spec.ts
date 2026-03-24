@@ -12,7 +12,7 @@ describe('LoginPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('shows a launcher admission expiry hint when present', async () => {
+  it('shows a short launcher admission fallback hint when present', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/login', component: LoginPage }],
@@ -21,7 +21,7 @@ describe('LoginPage', () => {
     await router.isReady()
 
     const sessionStore = useSessionStore()
-    ;(sessionStore as any).launcherAdmissionHint = 'Launcher 登录令牌无效或已过期，请重新从启动器打开 Web UI。'
+    ;(sessionStore as any).launcherAdmissionHint = '自动登录未完成，请手动登录。'
 
     const wrapper = mount(LoginPage, {
       global: {
@@ -31,6 +31,7 @@ describe('LoginPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Launcher 登录令牌无效或已过期')
+    expect(wrapper.text()).toContain('自动登录未完成，请手动登录。')
+    expect(wrapper.text()).not.toContain('session token surface')
   })
 })
