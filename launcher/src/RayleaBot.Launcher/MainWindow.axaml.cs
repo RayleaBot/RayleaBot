@@ -41,7 +41,7 @@ internal sealed partial class MainWindow : Window
 
     private async void OnOpened(object? sender, EventArgs e)
     {
-        ViewModel.SetWindowStateGlyph(WindowState == WindowState.Maximized);
+        ViewModel.SetWindowState(WindowState == WindowState.Maximized);
         EnsureTrayIcon();
         await ViewModel.InitializeAsync();
         refreshTimer.Start();
@@ -77,7 +77,7 @@ internal sealed partial class MainWindow : Window
     {
         if (e.Property == WindowStateProperty)
         {
-            ViewModel.SetWindowStateGlyph(WindowState == WindowState.Maximized);
+            ViewModel.SetWindowState(WindowState == WindowState.Maximized);
         }
     }
 

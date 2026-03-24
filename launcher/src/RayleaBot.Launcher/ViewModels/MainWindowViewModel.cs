@@ -30,7 +30,7 @@ internal sealed class MainWindowViewModel : ObservableObject
     private string primaryIssueSummary = string.Empty;
     private string primaryIssueDetail = string.Empty;
     private string primaryIssueRemediation = string.Empty;
-    private string windowStateGlyph = "□";
+    private bool isWindowMaximized;
     private LauncherSection activeSection = LauncherSection.Overview;
     private LauncherNavigationItemViewModel? selectedNavigationItem;
     private bool hasPrimaryIssue;
@@ -53,11 +53,11 @@ internal sealed class MainWindowViewModel : ObservableObject
         RecentStderr = new ObservableCollection<string>();
         navigationItems =
         [
-            new LauncherNavigationItemViewModel(LauncherSection.Overview, copy.OverviewTitle, copy.OverviewSummary),
-            new LauncherNavigationItemViewModel(LauncherSection.ServiceControls, copy.ServiceControlsTitle, copy.ServiceControlsSummary),
-            new LauncherNavigationItemViewModel(LauncherSection.Environment, copy.EnvironmentTitle, copy.EnvironmentSummary),
-            new LauncherNavigationItemViewModel(LauncherSection.Settings, copy.SettingsTitle, copy.SettingsSummary),
-            new LauncherNavigationItemViewModel(LauncherSection.Diagnostics, copy.DiagnosticsTitle, copy.DiagnosticsSummary),
+            new LauncherNavigationItemViewModel(LauncherSection.Overview, copy.OverviewTitle, string.Empty),
+            new LauncherNavigationItemViewModel(LauncherSection.ServiceControls, copy.ServiceControlsTitle, string.Empty),
+            new LauncherNavigationItemViewModel(LauncherSection.Environment, copy.EnvironmentTitle, string.Empty),
+            new LauncherNavigationItemViewModel(LauncherSection.Settings, copy.SettingsTitle, string.Empty),
+            new LauncherNavigationItemViewModel(LauncherSection.Diagnostics, copy.DiagnosticsTitle, string.Empty),
         ];
         NavigationItems = new ReadOnlyObservableCollection<LauncherNavigationItemViewModel>(navigationItems);
         ActivateSection(LauncherSection.Overview);
@@ -138,11 +138,13 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal bool HasNoRecentStderr => !HasRecentStderr;
 
-    internal string WindowStateGlyph
+    internal bool IsWindowMaximized
     {
-        get => windowStateGlyph;
-        private set => SetProperty(ref windowStateGlyph, value);
+        get => isWindowMaximized;
+        private set => SetProperty(ref isWindowMaximized, value);
     }
+
+    internal bool IsWindowNormal => !IsWindowMaximized;
 
     internal string ServerExecutablePath
     {
@@ -376,9 +378,10 @@ internal sealed class MainWindowViewModel : ObservableObject
         Dispatcher.UIThread.Post(() => OperationSummary = message);
     }
 
-    internal void SetWindowStateGlyph(bool maximized)
+    internal void SetWindowState(bool maximized)
     {
-        WindowStateGlyph = maximized ? "❐" : "□";
+        IsWindowMaximized = maximized;
+        OnPropertyChanged(nameof(IsWindowNormal));
     }
 
     private async Task ExecuteAsync(string? successMessage, Func<Task> action)
@@ -545,10 +548,10 @@ internal sealed class MainWindowViewModel : ObservableObject
 internal sealed class LauncherNavigationItemViewModel : ObservableObject
 {
     private bool isActive;
-    private IBrush backgroundBrush = Brush.Parse("#0F1C30");
-    private IBrush borderBrush = Brush.Parse("#203549");
+    private IBrush backgroundBrush = Brush.Parse("#112134");
+    private IBrush borderBrush = Brush.Parse("#243C54");
     private IBrush titleBrush = Brush.Parse("#EAF3FF");
-    private IBrush summaryBrush = Brush.Parse("#9EB3D1");
+    private IBrush summaryBrush = Brush.Parse("#A9BDD6");
 
     internal LauncherNavigationItemViewModel(LauncherSection section, string title, string summary)
     {
@@ -596,10 +599,10 @@ internal sealed class LauncherNavigationItemViewModel : ObservableObject
     internal void SetActive(bool active)
     {
         IsActive = active;
-        BackgroundBrush = active ? Brush.Parse("#18304A") : Brush.Parse("#0F1C30");
-        BorderBrush = active ? Brush.Parse("#4DBFFF") : Brush.Parse("#203549");
+        BackgroundBrush = active ? Brush.Parse("#1C3C5F") : Brush.Parse("#112134");
+        BorderBrush = active ? Brush.Parse("#69C0FF") : Brush.Parse("#243C54");
         TitleBrush = Brush.Parse("#F7FBFF");
-        SummaryBrush = active ? Brush.Parse("#E6F4FF") : Brush.Parse("#AFC1D6");
+        SummaryBrush = active ? Brush.Parse("#EDF7FF") : Brush.Parse("#A9BDD6");
     }
 }
 

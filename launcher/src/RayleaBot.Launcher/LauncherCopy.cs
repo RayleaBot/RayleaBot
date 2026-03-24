@@ -9,19 +9,19 @@ internal sealed class LauncherCopy
     internal string WindowTitle => "RayleaBot 启动器";
     internal string AppSubtitle => "本地启动与管理入口";
     internal string TitleBarHint => "启动、检查与打开管理界面";
-    internal string SidebarTitle => "功能区";
-    internal string SidebarSummary => "状态、操作、检查与诊断";
+    internal string SidebarTitle => "功能导航";
+    internal string SidebarSummary => "概览、控制、检查、设置与诊断";
 
     internal string OverviewTitle => "总览";
     internal string OverviewSummary => "状态与下一步";
     internal string ServiceControlsTitle => "服务控制";
-    internal string ServiceControlsSummary => "启动、停止与打开管理界面";
+    internal string ServiceControlsSummary => "启动、停止与管理界面";
     internal string EnvironmentTitle => "环境检查";
-    internal string EnvironmentSummary => "阻塞项、提示项与可用项";
+    internal string EnvironmentSummary => "阻塞项与提示";
     internal string SettingsTitle => "设置";
-    internal string SettingsSummary => "本地启动路径与偏好";
+    internal string SettingsSummary => "路径与偏好";
     internal string DiagnosticsTitle => "诊断";
-    internal string DiagnosticsSummary => "错误输出与诊断";
+    internal string DiagnosticsSummary => "错误与摘要";
 
     internal string HeroEyebrow => "当前状态";
     internal string StatusLabel => "当前状态";
@@ -30,7 +30,7 @@ internal sealed class LauncherCopy
     internal string VersionLabel => "版本检查";
     internal string PrimaryIssueLabel => "主要问题";
     internal string SecondaryIssueLabel => "最近操作";
-    internal string MainActionsTitle => "常用操作";
+    internal string MainActionsTitle => "主操作";
     internal string MainActionsSummary => "根据当前状态执行操作。";
     internal string NoPrimaryIssueTitle => "当前没有阻塞问题";
     internal string NoPrimaryIssueSummary => "当前没有阻塞项。";

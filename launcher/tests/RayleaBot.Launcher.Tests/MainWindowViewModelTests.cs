@@ -23,6 +23,19 @@ public sealed class MainWindowViewModelTests
     }
 
     [TestMethod]
+    public async Task InitializeAsync_UsesTitleOnlyNavigationItems()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+
+        CollectionAssert.AreEqual(
+            new[] { string.Empty, string.Empty, string.Empty, string.Empty, string.Empty },
+            viewModel.NavigationItems.Select(item => item.Summary).ToArray());
+    }
+
+    [TestMethod]
     public void SetActiveSection_SwitchesSectionFlags()
     {
         var fixture = new LauncherFixture();
@@ -74,5 +87,22 @@ public sealed class MainWindowViewModelTests
         Assert.AreEqual(string.Empty, viewModel.SessionSummary);
         Assert.IsFalse(viewModel.ServiceDetail.Contains("初始化", StringComparison.Ordinal));
         Assert.IsFalse(viewModel.ServiceDetail.Contains("会话", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void SetWindowState_TracksMaximizedStateWithoutGlyphStrings()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        Assert.IsFalse(viewModel.IsWindowMaximized);
+
+        viewModel.SetWindowState(true);
+
+        Assert.IsTrue(viewModel.IsWindowMaximized);
+
+        viewModel.SetWindowState(false);
+
+        Assert.IsFalse(viewModel.IsWindowMaximized);
     }
 }
