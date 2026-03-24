@@ -252,11 +252,11 @@
 | Launcher 测试与 CI | ✅ | `dotnet test ./launcher`、`dotnet publish ./launcher -c Release` 与 Windows `ci-launcher` job 已落地 |
 | 首启配置 bootstrap | ✅ | Launcher preflight 与 server 启动链已对齐 `default.yaml` -> `user.yaml` bootstrap 语义 |
 | 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
-| Launcher 设计系统与布局重构 | ✅ | 左侧 5 区导航、自定义标题栏、液态玻璃风格、总览 / 服务控制 / 环境检查 / 设置 / 诊断分屏与更高信息密度桌面壳已落地 |
-| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态、health、readiness、管理 session 已分层建模，缺配置 / 未启动不再直接冒充连接失败主状态 |
-| 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、主要问题 / remediation、路径复制与打开目录快捷动作、暗色对比度与诊断分层已系统化接入 |
-| 托盘最小化与关闭语义 | ✅ | 关闭按钮默认隐藏到托盘，仅托盘菜单“Exit”完全退出 |
-| 首次关闭提示 | ✅ | 首次关闭时已弹出一次性 hide-to-tray 提示 |
+| Launcher 设计系统与布局重构 | ✅ | 左侧 5 区导航、自定义标题栏、第二轮液态玻璃风格、总览 / 服务控制 / 环境检查 / 设置 / 诊断分屏、自绘环境卡片与更紧凑的信息架构已落地 |
+| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态、health、初始化、管理 session 已分层建模；adapter / OneBot 连接状态不再污染启动完成语义与主状态文案 |
+| 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、主要问题 / remediation、路径复制与打开目录快捷动作、暗色对比度、文案去技术化与诊断分层已系统化接入 |
+| 托盘最小化与关闭语义 | ✅ | 每次点击关闭按钮都会弹出显式确认；托盘点击弹出自定义快捷浮层，完全退出走浮层操作而非原生菜单 |
+| 关闭确认与托盘引导 | ✅ | 关闭交互已固定为“隐藏到托盘 / 完全退出”双选项，不再使用一次确认后永久跳过的记忆行为 |
 | Chromium / 模板资源完整性检查 | ✅ | Launcher preflight 已覆盖 Chromium 与模板资源完整性，并给出 remediation |
 | 发布目录布局与正式发行包 | 🟡 | packaging tooling 与 release workflow 已产出 `windows-x64-full` / `linux-x64-server`，但正式安装体验仍需继续打磨 |
 | 发布元数据与交付 gate | ✅ | `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt`、`windows_full_smoke` / `linux_server_smoke` 与 release workflow 已接入 |
@@ -264,7 +264,7 @@
 
 ### 当前主要问题
 
-- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、中文化视觉层、托盘语义、版本检查和交付 metadata 已进入可验证主链。
+- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、第二轮液态玻璃视觉层、托盘快捷浮层、版本检查和交付 metadata 已进入可验证主链。
 - 当前仍未收口的 Launcher 欠账主要集中在凭据丢失后的本地恢复入口，以及正式安装体验与长期自托管打磨。
 
 ---
