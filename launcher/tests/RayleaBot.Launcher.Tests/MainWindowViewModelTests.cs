@@ -15,8 +15,8 @@ public sealed class MainWindowViewModelTests
 
         Assert.AreEqual(LauncherSection.Overview, viewModel.ActiveSection);
         Assert.IsTrue(viewModel.IsOverviewSectionActive);
-        Assert.AreEqual("已就绪", viewModel.StatusSummary);
-        Assert.AreEqual("服务已就绪", viewModel.HeroTitle);
+        Assert.AreEqual("可用", viewModel.StatusSummary);
+        Assert.AreEqual("服务已经可用", viewModel.HeroTitle);
         CollectionAssert.AreEqual(
             new[] { "总览", "服务控制", "环境检查", "设置", "诊断" },
             viewModel.NavigationItems.Select(item => item.Title).ToArray());

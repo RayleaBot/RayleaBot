@@ -383,26 +383,6 @@ internal sealed class LauncherCoordinator(
             return;
         }
 
-        ReadinessSnapshot readiness;
-        try
-        {
-            readiness = await managementClient.GetReadinessAsync(endpoint, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            await PublishSnapshotAsync(BuildSnapshot(
-                endpoint,
-                checks,
-                LauncherServiceState.HealthOnly,
-                processController.IsRunning,
-                false,
-                snapshot.ShutdownRequested,
-                Copy.NoLauncherSession,
-                "健康检查正常，但就绪状态暂不可用。",
-                ex.Message), cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
         var initialized = await managementClient.GetSetupInitializedAsync(endpoint, cancellationToken).ConfigureAwait(false);
         if (!initialized)
         {
@@ -415,7 +395,7 @@ internal sealed class LauncherCoordinator(
                 false,
                 snapshot.ShutdownRequested,
                 Copy.NoLauncherSession,
-                string.IsNullOrWhiteSpace(readiness.Reason) ? "仍需完成初始化。" : readiness.Reason,
+                "需要先在管理界面完成初始化。",
                 string.Empty), cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -427,13 +407,13 @@ internal sealed class LauncherCoordinator(
             await PublishSnapshotAsync(BuildSnapshot(
                 endpoint,
                 checks,
-                    MapServiceState(readiness.Status, systemStatus.Status),
-                    processController.IsRunning,
-                    true,
-                    systemStatus.Status == "shutting_down",
-                    $"启动器会话已认证。适配器={systemStatus.AdapterState}，活动插件={systemStatus.ActivePlugins}，运行时长={systemStatus.UptimeSeconds} 秒。",
-                    string.IsNullOrWhiteSpace(readiness.Reason) ? $"系统状态：{systemStatus.Status}" : readiness.Reason,
-                    string.Empty), cancellationToken).ConfigureAwait(false);
+                MapServiceState(systemStatus.Status),
+                processController.IsRunning,
+                true,
+                systemStatus.Status == "shutting_down",
+                "已连接启动器会话。",
+                BuildOperationalServiceDetail(systemStatus.Status, systemStatus.ActivePlugins, systemStatus.UptimeSeconds),
+                string.Empty), cancellationToken).ConfigureAwait(false);
         }
         catch (LauncherHttpStatusException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -445,12 +425,12 @@ internal sealed class LauncherCoordinator(
                 await PublishSnapshotAsync(BuildSnapshot(
                     endpoint,
                     checks,
-                    MapServiceState(readiness.Status, systemStatus.Status),
+                    MapServiceState(systemStatus.Status),
                     processController.IsRunning,
                     true,
                     systemStatus.Status == "shutting_down",
-                    $"启动器会话已认证。适配器={systemStatus.AdapterState}，活动插件={systemStatus.ActivePlugins}，运行时长={systemStatus.UptimeSeconds} 秒。",
-                    string.IsNullOrWhiteSpace(readiness.Reason) ? $"系统状态：{systemStatus.Status}" : readiness.Reason,
+                    "已重新建立启动器会话。",
+                    BuildOperationalServiceDetail(systemStatus.Status, systemStatus.ActivePlugins, systemStatus.UptimeSeconds),
                     string.Empty), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception inner)
@@ -584,18 +564,31 @@ internal sealed class LauncherCoordinator(
         return $"{detail} {primaryIssue.Remediation}";
     }
 
-    private static LauncherServiceState MapServiceState(string readinessStatus, string systemStatus)
+    private static string BuildOperationalServiceDetail(string systemStatus, int activePlugins, long uptimeSeconds)
+    {
+        var pluginSummary = activePlugins > 0
+            ? $"已载入 {activePlugins} 个插件。"
+            : "当前没有活动插件。";
+
+        return systemStatus switch
+        {
+            "running" => $"服务已经可用。{pluginSummary} 运行时长 {uptimeSeconds} 秒。",
+            "shutting_down" => "服务正在停止，请稍候。",
+            "failed" => "服务运行异常，请查看诊断页。",
+            _ => "服务已经启动，管理状态正在同步。",
+        };
+    }
+
+    private static LauncherServiceState MapServiceState(string systemStatus)
     {
         if (string.Equals(systemStatus, "shutting_down", StringComparison.Ordinal))
         {
             return LauncherServiceState.ShuttingDown;
         }
 
-        return readinessStatus switch
+        return systemStatus switch
         {
-            "ready" => LauncherServiceState.Ready,
-            "degraded" => LauncherServiceState.Degraded,
-            "setup_required" => LauncherServiceState.SetupRequired,
+            "running" => LauncherServiceState.Ready,
             "failed" => LauncherServiceState.Failed,
             _ => LauncherServiceState.HealthOnly,
         };

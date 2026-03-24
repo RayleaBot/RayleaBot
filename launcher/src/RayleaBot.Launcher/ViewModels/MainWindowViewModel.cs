@@ -241,6 +241,8 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref hasPrimaryIssue, value);
     }
 
+    internal bool HasNoPrimaryIssue => !HasPrimaryIssue;
+
     internal bool HasLastError
     {
         get => hasLastError;
@@ -314,17 +316,6 @@ internal sealed class MainWindowViewModel : ObservableObject
     {
         var settings = BuildSettings();
         await ExecuteAsync(copy.ActionSettingsSaved, () => coordinator.SaveSettingsAsync(settings));
-    }
-
-    internal async Task AcknowledgeCloseTipAsync()
-    {
-        if (CloseTipAcknowledged)
-        {
-            return;
-        }
-
-        CloseTipAcknowledged = true;
-        await ExecuteAsync(null, () => coordinator.SaveSettingsAsync(BuildSettings()));
     }
 
     internal async Task StartAsync()
@@ -434,6 +425,13 @@ internal sealed class MainWindowViewModel : ObservableObject
         PrimaryIssueSummary = primaryIssue?.Summary ?? string.Empty;
         PrimaryIssueDetail = primaryIssue?.Detail ?? string.Empty;
         PrimaryIssueRemediation = primaryIssue?.Remediation ?? string.Empty;
+        if (primaryIssue is null)
+        {
+            PrimaryIssueTitle = copy.NoPrimaryIssueTitle;
+            PrimaryIssueSummary = copy.NoPrimaryIssueSummary;
+            PrimaryIssueDetail = copy.NoPrimaryIssueDetail;
+            PrimaryIssueRemediation = string.Empty;
+        }
 
         var hasBlockingIssue = snapshot.EnvironmentChecks.Any(item => item.Severity == CheckSeverity.Error);
         CanStart = !snapshot.ProcessRunning && !hasBlockingIssue;
@@ -468,6 +466,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(ReadyEnvironmentCheckCount));
         OnPropertyChanged(nameof(HasRecentStderr));
         OnPropertyChanged(nameof(HasNoRecentStderr));
+        OnPropertyChanged(nameof(HasNoPrimaryIssue));
     }
 
     private void ActivateSection(LauncherSection section, bool updateSelection = true)
@@ -506,7 +505,7 @@ internal sealed class MainWindowViewModel : ObservableObject
             ConfigPath.Trim(),
             Workdir.Trim(),
             CloseToTrayEnabled,
-            CloseTipAcknowledged);
+            false);
     }
 }
 

@@ -13,6 +13,7 @@ internal sealed partial class MainWindow : Window
     private readonly DispatcherTimer refreshTimer;
     private readonly LauncherCopy copy = LauncherCopy.Default;
     private TrayIcon? trayIcon;
+    private LauncherTrayPanelWindow? trayPanel;
     private bool explicitExitRequested;
 
     internal MainWindow(MainWindowViewModel viewModel)
@@ -47,23 +48,18 @@ internal sealed partial class MainWindow : Window
 
     private async void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        if (explicitExitRequested || !ViewModel.CloseToTrayEnabled)
+        if (!LauncherWindowPolicies.ShouldPromptBeforeClose(explicitExitRequested))
         {
             return;
         }
 
         e.Cancel = true;
-        if (!ViewModel.CloseTipAcknowledged)
+        var hideToTray = await CloseToTrayDialog.ShowAsync(this);
+        if (!hideToTray)
         {
-            var hideToTray = await CloseToTrayDialog.ShowAsync(this);
-            if (!hideToTray)
-            {
-                explicitExitRequested = true;
-                Close();
-                return;
-            }
-
-            await ViewModel.AcknowledgeCloseTipAsync();
+            explicitExitRequested = true;
+            Close();
+            return;
         }
 
         HideToTray();
@@ -72,6 +68,7 @@ internal sealed partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         refreshTimer.Stop();
+        trayPanel?.Close();
         trayIcon?.Dispose();
     }
 
@@ -197,44 +194,58 @@ internal sealed partial class MainWindow : Window
             return;
         }
 
-        var openItem = new NativeMenuItem(copy.TrayOpenLauncherLabel);
-        openItem.Click += (_, _) => RestoreFromTray();
-
-        var openWebItem = new NativeMenuItem(copy.TrayOpenWebLabel);
-        openWebItem.Click += async (_, _) => await ViewModel.OpenWebUiAsync();
-
-        var exitItem = new NativeMenuItem(copy.TrayExitLabel);
-        exitItem.Click += (_, _) =>
-        {
-            explicitExitRequested = true;
-            Show();
-            Activate();
-            Close();
-        };
-
-        var menu = new NativeMenu
-        {
-            Items =
-            {
-                openItem,
-                openWebItem,
-                new NativeMenuItemSeparator(),
-                exitItem,
-            },
-        };
-
         trayIcon = new TrayIcon
         {
             ToolTipText = copy.TrayTooltip,
             Icon = LauncherIcons.CreateTrayIcon(),
-            Menu = menu,
             IsVisible = true,
         };
-        trayIcon.Clicked += (_, _) => RestoreFromTray();
+        trayIcon.Clicked += TrayIconClicked;
+    }
+
+    private void TrayIconClicked(object? sender, EventArgs e)
+    {
+        if (trayPanel is not null)
+        {
+            trayPanel.Close();
+            trayPanel = null;
+            return;
+        }
+
+        trayPanel = new LauncherTrayPanelWindow(ViewModel);
+        trayPanel.ActionRequested += TrayPanelActionRequested;
+        trayPanel.Closed += (_, _) => trayPanel = null;
+        trayPanel.ShowNear(this);
+    }
+
+    private async void TrayPanelActionRequested(object? sender, LauncherTrayAction action)
+    {
+        switch (action)
+        {
+            case LauncherTrayAction.Restore:
+                RestoreFromTray();
+                break;
+            case LauncherTrayAction.OpenWeb:
+                await ViewModel.OpenWebUiAsync();
+                break;
+            case LauncherTrayAction.Start:
+                await ViewModel.StartAsync();
+                break;
+            case LauncherTrayAction.Stop:
+                await ViewModel.StopAsync();
+                break;
+            case LauncherTrayAction.Exit:
+                explicitExitRequested = true;
+                Show();
+                Activate();
+                Close();
+                break;
+        }
     }
 
     private void RestoreFromTray()
     {
+        trayPanel?.Close();
         Show();
         WindowState = WindowState.Normal;
         Activate();
@@ -243,6 +254,7 @@ internal sealed partial class MainWindow : Window
 
     private void HideToTray()
     {
+        trayPanel?.Close();
         Hide();
         ViewModel.SetOperationSummary(copy.ActionHiddenToTray);
     }

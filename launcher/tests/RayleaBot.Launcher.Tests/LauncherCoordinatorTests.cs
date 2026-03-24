@@ -109,6 +109,22 @@ public sealed class LauncherCoordinatorTests
     }
 
     [TestMethod]
+    public async Task InitializeAsync_DoesNotPromoteAdapterReconnectReasonToPrimaryStatus()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.Readiness = new ReadinessSnapshot("degraded", "OneBot reverse WebSocket is reconnecting");
+        fixture.ManagementClient.DefaultSystemStatus = new SystemStatusSnapshot("running", "reconnecting", 1, 60);
+        var coordinator = fixture.CreateCoordinator();
+
+        await coordinator.InitializeAsync();
+
+        Assert.AreEqual(LauncherServiceState.Ready, coordinator.Snapshot.ServiceState);
+        Assert.AreEqual(string.Empty, coordinator.Snapshot.LastError);
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("OneBot", StringComparison.Ordinal));
+        Assert.IsFalse(coordinator.Snapshot.ServiceDetail.Contains("reconnecting", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task StartAsync_ForceKillsWhenHealthNeverTurnsHealthy()
     {
         var fixture = new LauncherFixture();
