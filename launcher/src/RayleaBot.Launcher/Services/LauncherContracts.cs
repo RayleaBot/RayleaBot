@@ -40,6 +40,8 @@ internal interface IServerProcessController
 {
     bool IsRunning { get; }
 
+    int? ProcessId { get; }
+
     string LogDirectory { get; }
 
     IReadOnlyList<string> GetRecentStderr();

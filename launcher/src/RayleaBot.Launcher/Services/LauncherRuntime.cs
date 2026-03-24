@@ -147,6 +147,8 @@ internal sealed class ServerProcessController : IServerProcessController
 
     public bool IsRunning => process is { HasExited: false };
 
+    public int? ProcessId => process is { HasExited: false } runningProcess ? runningProcess.Id : null;
+
     public string LogDirectory { get; private set; } = Path.Combine(AppContext.BaseDirectory, "logs");
 
     public IReadOnlyList<string> GetRecentStderr()

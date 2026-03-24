@@ -1,0 +1,131 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:RayleaBot.Launcher"
+             x:Class="RayleaBot.Launcher.Views.StatusPage"
+             x:DataType="vm:MainWindowViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="20" Margin="0,0,0,20">
+      <Border Classes="app-card">
+        <StackPanel Spacing="16">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="caption" Text="{CompiledBinding Copy.StatusPageHeading}" />
+            <TextBlock Classes="page-title" Text="{CompiledBinding HeroTitle}" TextWrapping="Wrap" />
+            <TextBlock Classes="secondary" Text="{CompiledBinding ServiceDetail}" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <ui:InfoBar IsVisible="{CompiledBinding HasHomeAlert}"
+                      IsOpen="{CompiledBinding HasHomeAlert}"
+                      IsClosable="False"
+                      Severity="{CompiledBinding HomeAlertSeverity}"
+                      Title="{CompiledBinding HomeAlertTitle}"
+                      Message="{CompiledBinding HomeAlertMessage}">
+            <ui:InfoBar.ActionButton>
+              <Button Content="{CompiledBinding Copy.MainAlertActionLabel}"
+                      Theme="{StaticResource SubtleActionButton}"
+                      Click="HomeAlertActionClicked" />
+            </ui:InfoBar.ActionButton>
+          </ui:InfoBar>
+
+          <Grid ColumnDefinitions="1.7*,1.1*" ColumnSpacing="20">
+            <Border Classes="sub-card">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="section-title" Text="{CompiledBinding Copy.ServiceInfoTitle}" />
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
+                  <TextBlock Classes="meta-label" Text="{CompiledBinding Copy.StatusLabel}" />
+                  <TextBlock Grid.Column="1" Classes="meta-value" Text="{CompiledBinding StatusSummary}" />
+
+                  <TextBlock Grid.Row="1" Classes="meta-label" Text="{CompiledBinding Copy.EndpointLabel}" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Classes="meta-value" Text="{CompiledBinding WebEndpoint}" TextTrimming="CharacterEllipsis" />
+
+                  <TextBlock Grid.Row="2" Classes="meta-label" Text="{CompiledBinding Copy.VersionLabel}" />
+                  <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                    <TextBlock Classes="meta-value" Text="{CompiledBinding VersionSummary}" TextWrapping="Wrap" />
+                    <TextBlock Classes="secondary" Text="{CompiledBinding VersionDetail}" TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="3" Classes="meta-label" Text="{CompiledBinding Copy.ProcessIdLabel}" IsVisible="{CompiledBinding HasProcessId}" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Classes="meta-value" Text="{CompiledBinding ProcessIdSummary}" IsVisible="{CompiledBinding HasProcessId}" />
+
+                  <TextBlock Grid.Row="4" Classes="meta-label" Text="{CompiledBinding Copy.WorkdirLabel}" />
+                  <TextBlock Grid.Row="4" Grid.Column="1" Classes="meta-value" Text="{CompiledBinding Workdir}" TextWrapping="Wrap" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Classes="sub-card">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="section-title" Text="{CompiledBinding Copy.EnvironmentSummaryTitle}" />
+                <WrapPanel>
+                  <Border Classes="badge" Margin="0,0,8,8">
+                    <TextBlock Text="{CompiledBinding BlockingEnvironmentCheckCount, StringFormat=阻塞项 {0}}" Foreground="{StaticResource Brush.Error}" FontWeight="SemiBold" />
+                  </Border>
+                  <Border Classes="badge" Margin="0,0,8,8">
+                    <TextBlock Text="{CompiledBinding WarningEnvironmentCheckCount, StringFormat=需注意 {0}}" Foreground="{StaticResource Brush.Warning}" FontWeight="SemiBold" />
+                  </Border>
+                  <Border Classes="badge" Margin="0,0,8,8">
+                    <TextBlock Text="{CompiledBinding ReadyEnvironmentCheckCount, StringFormat=正常 {0}}" Foreground="{StaticResource Brush.Success}" FontWeight="SemiBold" />
+                  </Border>
+                </WrapPanel>
+                <TextBlock Classes="secondary" Text="{CompiledBinding OperationSummary}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="app-card">
+        <StackPanel Spacing="14">
+          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.PrimaryActionTitle}" />
+          <WrapPanel>
+            <Button Theme="{StaticResource PrimaryActionButton}"
+                    Content="{CompiledBinding PrimaryActionDisplayLabel}"
+                    IsEnabled="{CompiledBinding CanRunPrimaryAction}"
+                    Click="PrimaryActionClicked"
+                    Margin="0,0,12,12" />
+            <Button Theme="{StaticResource DangerActionButton}"
+                    Content="{CompiledBinding StopActionDisplayLabel}"
+                    IsEnabled="{CompiledBinding CanStop}"
+                    Click="StopClicked"
+                    Margin="0,0,12,12" />
+            <Button Theme="{StaticResource SecondaryActionButton}"
+                    Content="{CompiledBinding RetryActionDisplayLabel}"
+                    IsEnabled="{CompiledBinding CanRetry}"
+                    Click="RetryClicked"
+                    Margin="0,0,12,12" />
+            <Button Theme="{StaticResource SecondaryActionButton}"
+                    Content="{CompiledBinding OpenLogsActionDisplayLabel}"
+                    Click="OpenLogsClicked"
+                    Margin="0,0,12,12" />
+            <Button Theme="{StaticResource SecondaryActionButton}"
+                    Content="{CompiledBinding Copy.CopyDiagnosticsLabel}"
+                    Click="CopyDiagnosticsClicked"
+                    Margin="0,0,12,12" />
+          </WrapPanel>
+          <Border Classes="info-strip" IsVisible="{CompiledBinding IsActionInProgress}">
+            <StackPanel Spacing="10">
+              <ProgressBar Classes="action-progress" IsIndeterminate="True" />
+              <TextBlock Classes="secondary" Text="{CompiledBinding PendingActionMessage}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="app-card">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.RecentLogsTitle}" />
+          <ItemsControl ItemsSource="{CompiledBinding HomeRecentStderr}" IsVisible="{CompiledBinding HasHomeRecentStderr}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Classes="log-row" Margin="0,0,0,10">
+                  <TextBlock Text="{Binding}" FontFamily="Cascadia Mono,Consolas,monospace" TextWrapping="Wrap" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.RecentLogsEmpty}" IsVisible="{CompiledBinding HasNoHomeRecentStderr}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

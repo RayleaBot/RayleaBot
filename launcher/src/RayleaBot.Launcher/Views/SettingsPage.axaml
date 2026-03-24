@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:RayleaBot.Launcher"
+             x:Class="RayleaBot.Launcher.Views.SettingsPage"
+             x:DataType="vm:MainWindowViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="20" Margin="0,0,0,20">
+      <Border Classes="app-card">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="caption" Text="{CompiledBinding Copy.SettingsPageHeading}" />
+          <TextBlock Classes="page-title" Text="{CompiledBinding Copy.SettingsTitle}" />
+          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.SettingsPageSummary}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <ui:SettingsExpander Header="{Binding Copy.SettingsPathGroupTitle}"
+                           Description="{Binding Copy.SettingsPathGroupDescription}"
+                           IsExpanded="True">
+        <Border Classes="app-card">
+          <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="180,*,Auto,Auto,Auto" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+              <TextBlock Classes="meta-label" Text="{CompiledBinding Copy.ServerExecutableLabel}" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1"
+                       Classes="settings-input"
+                       Text="{CompiledBinding ServerExecutablePath, Mode=TwoWay}"
+                       IsReadOnly="{CompiledBinding AreSettingsReadOnly}" />
+              <Button Grid.Column="2"
+                      Theme="{StaticResource SecondaryActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.BrowseExecutableLabel}"
+                      IsEnabled="{CompiledBinding IsSettingsEditing}"
+                      Click="BrowseExecutableClicked" />
+              <Button Grid.Column="3"
+                      Theme="{StaticResource SubtleActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.CopyPathLabel}"
+                      Click="CopyServerExecutableClicked" />
+              <Button Grid.Column="4"
+                      Theme="{StaticResource SubtleActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.OpenParentDirectoryLabel}"
+                      Click="OpenServerExecutableDirectoryClicked" />
+
+              <TextBlock Grid.Row="1" Classes="meta-label" Text="{CompiledBinding Copy.ConfigPathLabel}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="1"
+                       Grid.Column="1"
+                       Classes="settings-input"
+                       Text="{CompiledBinding ConfigPath, Mode=TwoWay}"
+                       IsReadOnly="{CompiledBinding AreSettingsReadOnly}" />
+              <Button Grid.Row="1"
+                      Grid.Column="2"
+                      Theme="{StaticResource SecondaryActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.BrowseConfigLabel}"
+                      IsEnabled="{CompiledBinding IsSettingsEditing}"
+                      Click="BrowseConfigClicked" />
+              <Button Grid.Row="1"
+                      Grid.Column="3"
+                      Theme="{StaticResource SubtleActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.CopyPathLabel}"
+                      Click="CopyConfigPathClicked" />
+              <Button Grid.Row="1"
+                      Grid.Column="4"
+                      Theme="{StaticResource SubtleActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.OpenParentDirectoryLabel}"
+                      Click="OpenConfigDirectoryClicked" />
+
+              <TextBlock Grid.Row="2" Classes="meta-label" Text="{CompiledBinding Copy.WorkdirLabel}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="2"
+                       Grid.Column="1"
+                       Classes="settings-input"
+                       Text="{CompiledBinding Workdir, Mode=TwoWay}"
+                       IsReadOnly="{CompiledBinding AreSettingsReadOnly}" />
+              <Button Grid.Row="2"
+                      Grid.Column="2"
+                      Theme="{StaticResource SecondaryActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.BrowseWorkdirLabel}"
+                      IsEnabled="{CompiledBinding IsSettingsEditing}"
+                      Click="BrowseWorkdirClicked" />
+              <Button Grid.Row="2"
+                      Grid.Column="3"
+                      Theme="{StaticResource SubtleActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.CopyPathLabel}"
+                      Click="CopyWorkdirClicked" />
+              <Button Grid.Row="2"
+                      Grid.Column="4"
+                      Theme="{StaticResource SubtleActionButton}"
+                      Classes="path-row-button"
+                      Content="{CompiledBinding Copy.OpenDirectoryLabel}"
+                      Click="OpenWorkdirClicked" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </ui:SettingsExpander>
+
+      <ui:SettingsExpander Header="{Binding Copy.SettingsBehaviorGroupTitle}"
+                           Description="{Binding Copy.SettingsBehaviorGroupDescription}"
+                           IsExpanded="True">
+        <Border Classes="app-card">
+          <CheckBox Content="{CompiledBinding Copy.CloseToTrayEnabledLabel}"
+                    IsChecked="{CompiledBinding CloseToTrayEnabled, Mode=TwoWay}" />
+        </Border>
+      </ui:SettingsExpander>
+
+      <Border Classes="app-card">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.SettingsEditingHint}" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <WrapPanel Grid.Column="1">
+            <Button Theme="{StaticResource SecondaryActionButton}"
+                    Content="{CompiledBinding Copy.EditSettingsLabel}"
+                    Click="EditSettingsClicked"
+                    IsVisible="{CompiledBinding AreSettingsReadOnly}"
+                    Margin="0,0,12,12" />
+            <Button Theme="{StaticResource SubtleActionButton}"
+                    Content="{CompiledBinding Copy.CancelEditingLabel}"
+                    Click="CancelEditingClicked"
+                    IsVisible="{CompiledBinding IsSettingsEditing}"
+                    Margin="0,0,12,12" />
+            <Button Theme="{StaticResource PrimaryActionButton}"
+                    Content="{CompiledBinding SaveSettingsActionDisplayLabel}"
+                    IsEnabled="{CompiledBinding CanSaveSettings}"
+                    Click="SaveSettingsClicked"
+                    Margin="0,0,12,12" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
