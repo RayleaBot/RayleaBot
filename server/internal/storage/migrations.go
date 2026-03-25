@@ -17,10 +17,11 @@ import (
 var migrationNamePattern = regexp.MustCompile(`^([0-9]{4})_([a-z0-9_]+)\.sql$`)
 
 type migration struct {
-	ID       string
-	Name     string
-	Checksum string
-	SQL      string
+	ID                string
+	Name              string
+	Checksum          string
+	AcceptedChecksums map[string]struct{}
+	SQL               string
 }
 
 func applyMigrations(ctx context.Context, db *sql.DB, migrationFS fs.FS) error {
@@ -40,7 +41,7 @@ func applyMigrations(ctx context.Context, db *sql.DB, migrationFS fs.FS) error {
 
 	for _, item := range migrations {
 		if checksum, ok := applied[item.ID]; ok {
-			if checksum != item.Checksum {
+			if !item.acceptsChecksum(checksum) {
 				return fmt.Errorf("migration %s checksum changed", item.ID)
 			}
 			continue
@@ -52,6 +53,15 @@ func applyMigrations(ctx context.Context, db *sql.DB, migrationFS fs.FS) error {
 	}
 
 	return nil
+}
+
+func (m migration) acceptsChecksum(checksum string) bool {
+	if checksum == m.Checksum {
+		return true
+	}
+
+	_, ok := m.AcceptedChecksums[checksum]
+	return ok
 }
 
 func ensureMigrationTable(ctx context.Context, db *sql.DB) error {
@@ -158,12 +168,13 @@ func loadMigrations(migrationFS fs.FS) ([]migration, error) {
 			return nil, fmt.Errorf("migration %s is empty", entry.Name())
 		}
 
-		checksum := sha256.Sum256(script)
+		checksum, acceptedChecksums := buildMigrationChecksums(script)
 		items = append(items, migration{
-			ID:       id,
-			Name:     entry.Name(),
-			Checksum: hex.EncodeToString(checksum[:]),
-			SQL:      string(script),
+			ID:                id,
+			Name:              entry.Name(),
+			Checksum:          checksum,
+			AcceptedChecksums: acceptedChecksums,
+			SQL:               string(script),
 		})
 	}
 
@@ -175,4 +186,30 @@ func loadMigrations(migrationFS fs.FS) ([]migration, error) {
 	})
 
 	return items, nil
+}
+
+func buildMigrationChecksums(script []byte) (string, map[string]struct{}) {
+	accepted := make(map[string]struct{}, 3)
+	add := func(content []byte) string {
+		sum := sha256.Sum256(content)
+		checksum := hex.EncodeToString(sum[:])
+		accepted[checksum] = struct{}{}
+		return checksum
+	}
+
+	normalizedLF := normalizeMigrationLineEndings(script, "\n")
+	canonical := add([]byte(normalizedLF))
+	add(script)
+	add([]byte(normalizeMigrationLineEndings(script, "\r\n")))
+	return canonical, accepted
+}
+
+func normalizeMigrationLineEndings(script []byte, newline string) string {
+	normalized := strings.ReplaceAll(string(script), "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	if newline == "\n" {
+		return normalized
+	}
+
+	return strings.ReplaceAll(normalized, "\n", newline)
 }

@@ -82,6 +82,60 @@ func TestLoadMigrationsRejectsDuplicateIDs(t *testing.T) {
 	}
 }
 
+func TestOpenAcceptsEquivalentMigrationWithDifferentLineEndings(t *testing.T) {
+	t.Parallel()
+
+	databasePath := filepath.Join(t.TempDir(), "state.db")
+	lfMigrations := fstest.MapFS{
+		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\n\tid INTEGER PRIMARY KEY\n);\n")},
+	}
+	crlfMigrations := fstest.MapFS{
+		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\r\n\tid INTEGER PRIMARY KEY\r\n);\r\n")},
+	}
+
+	store := mustOpenStoreWithMigrations(t, databasePath, lfMigrations)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close LF store: %v", err)
+	}
+
+	reopened, err := Open(databasePath, WithMigrationsFS(crlfMigrations))
+	if err != nil {
+		t.Fatalf("Open with CRLF-equivalent migration failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := reopened.Close(); err != nil {
+			t.Fatalf("close CRLF store: %v", err)
+		}
+	})
+}
+
+func TestOpenAcceptsEquivalentMigrationWhenStoredChecksumWasCRLF(t *testing.T) {
+	t.Parallel()
+
+	databasePath := filepath.Join(t.TempDir(), "state.db")
+	lfMigrations := fstest.MapFS{
+		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\n\tid INTEGER PRIMARY KEY\n);\n")},
+	}
+	crlfMigrations := fstest.MapFS{
+		"0001_test.sql": {Data: []byte("CREATE TABLE test_items (\r\n\tid INTEGER PRIMARY KEY\r\n);\r\n")},
+	}
+
+	store := mustOpenStoreWithMigrations(t, databasePath, crlfMigrations)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close CRLF store: %v", err)
+	}
+
+	reopened, err := Open(databasePath, WithMigrationsFS(lfMigrations))
+	if err != nil {
+		t.Fatalf("Open with LF-equivalent migration failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := reopened.Close(); err != nil {
+			t.Fatalf("close LF store: %v", err)
+		}
+	})
+}
+
 func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	t.Parallel()
 
