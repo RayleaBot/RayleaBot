@@ -5,12 +5,12 @@
              x:DataType="vm:CloseConfirmDialogViewModel">
   <Border Classes="dialog-surface"
           MaxWidth="{StaticResource Size.DialogWidth}">
-    <StackPanel Spacing="12">
+    <StackPanel Spacing="10">
       <TextBlock Text="{CompiledBinding Copy.CloseDialogBody}"
                  TextWrapping="Wrap" />
 
       <Border Classes="summary-strip">
-        <StackPanel Spacing="4">
+        <StackPanel Spacing="3">
           <TextBlock Classes="caption" Text="{CompiledBinding CurrentDefaultCaption}" />
           <TextBlock FontWeight="SemiBold"
                      Text="{CompiledBinding CurrentDefaultSummary}"

@@ -44,7 +44,7 @@
         </Grid>
       </Border>
 
-      <Border Classes="app-card">
+      <Border Classes="section-card">
         <Expander IsExpanded="True">
           <Expander.Header>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -57,13 +57,13 @@
             </Grid>
           </Expander.Header>
 
-          <StackPanel Margin="0,10,0,0" Spacing="10">
+          <StackPanel Margin="0,8,0,0" Spacing="8">
             <ItemsControl ItemsSource="{CompiledBinding BlockingEnvironmentChecks}"
                           IsVisible="{CompiledBinding HasBlockingEnvironmentChecks}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
                   <Border Classes="check-item" Margin="0,0,0,6">
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="6">
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <StackPanel Spacing="4">
                           <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Title}" />
@@ -79,14 +79,14 @@
                         </Border>
                       </Grid>
 
-                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasDetail}">
+                      <StackPanel Spacing="2" IsVisible="{CompiledBinding HasDetail}">
                         <TextBlock Classes="caption" Text="证据" />
                         <TextBlock Classes="secondary"
                                    Text="{CompiledBinding Detail}"
                                    TextWrapping="Wrap" />
                       </StackPanel>
 
-                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasRemediation}">
+                      <StackPanel Spacing="2" IsVisible="{CompiledBinding HasRemediation}">
                         <TextBlock Classes="caption" Text="处理建议" />
                         <TextBlock Classes="secondary"
                                    Text="{CompiledBinding Remediation}"
@@ -127,7 +127,7 @@
         </Expander>
       </Border>
 
-      <Border Classes="app-card">
+      <Border Classes="section-card">
         <Expander IsExpanded="True">
           <Expander.Header>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -140,13 +140,13 @@
             </Grid>
           </Expander.Header>
 
-          <StackPanel Margin="0,10,0,0" Spacing="10">
+          <StackPanel Margin="0,8,0,0" Spacing="8">
             <ItemsControl ItemsSource="{CompiledBinding WarningEnvironmentChecks}"
                           IsVisible="{CompiledBinding HasWarningEnvironmentChecks}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
                   <Border Classes="check-item" Margin="0,0,0,6">
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="6">
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <StackPanel Spacing="4">
                           <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Title}" />
@@ -162,14 +162,14 @@
                         </Border>
                       </Grid>
 
-                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasDetail}">
+                      <StackPanel Spacing="2" IsVisible="{CompiledBinding HasDetail}">
                         <TextBlock Classes="caption" Text="证据" />
                         <TextBlock Classes="secondary"
                                    Text="{CompiledBinding Detail}"
                                    TextWrapping="Wrap" />
                       </StackPanel>
 
-                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasRemediation}">
+                      <StackPanel Spacing="2" IsVisible="{CompiledBinding HasRemediation}">
                         <TextBlock Classes="caption" Text="处理建议" />
                         <TextBlock Classes="secondary"
                                    Text="{CompiledBinding Remediation}"
@@ -210,7 +210,7 @@
         </Expander>
       </Border>
 
-      <Border Classes="app-card">
+      <Border Classes="section-card">
         <Expander IsExpanded="False">
           <Expander.Header>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -223,13 +223,13 @@
             </Grid>
           </Expander.Header>
 
-          <StackPanel Margin="0,10,0,0" Spacing="10">
+          <StackPanel Margin="0,8,0,0" Spacing="8">
             <ItemsControl ItemsSource="{CompiledBinding ReadyEnvironmentChecks}"
                           IsVisible="{CompiledBinding HasReadyEnvironmentChecks}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
                   <Border Classes="check-item" Margin="0,0,0,6">
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="6">
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <StackPanel Spacing="4">
                           <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Title}" />
@@ -245,7 +245,7 @@
                         </Border>
                       </Grid>
 
-                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasDetail}">
+                      <StackPanel Spacing="2" IsVisible="{CompiledBinding HasDetail}">
                         <TextBlock Classes="caption" Text="证据" />
                         <TextBlock Classes="secondary"
                                    Text="{CompiledBinding Detail}"

@@ -44,7 +44,7 @@ internal sealed class LauncherTrayMenu : IDisposable
             new LauncherTrayMenuEntry(copy.OpenWebUiLabel, LauncherTrayAction.OpenWeb, viewModel.CanOpenWebUi),
             new LauncherTrayMenuEntry(serviceActionLabel, serviceAction, canRunServiceAction),
             new LauncherTrayMenuEntry(string.Empty, null, false, IsSeparator: true),
-            new LauncherTrayMenuEntry(copy.OpenLogsDirectoryLabel, LauncherTrayAction.OpenLogs, true),
+            new LauncherTrayMenuEntry(copy.TrayOpenLogsLabel, LauncherTrayAction.OpenLogs, true),
             new LauncherTrayMenuEntry(string.Empty, null, false, IsSeparator: true),
             new LauncherTrayMenuEntry(copy.ExitAppLabel, LauncherTrayAction.Exit, true),
         ];

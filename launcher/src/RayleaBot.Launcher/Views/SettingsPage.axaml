@@ -16,8 +16,8 @@
       </Border>
 
       <Border Classes="toolbar-card">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-          <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <StackPanel Spacing="3">
             <TextBlock FontWeight="SemiBold" Text="{CompiledBinding SettingsStateTitle}" />
             <TextBlock Classes="secondary"
                        Text="{CompiledBinding SettingsStateSummary}"
@@ -28,35 +28,35 @@
             <Button Theme="{StaticResource SecondaryActionButton}"
                     Content="{CompiledBinding Copy.EditSettingsLabel}"
                     Click="EditSettingsClicked"
-                    IsVisible="{CompiledBinding AreSettingsReadOnly}"
-                    Margin="0,0,8,8" />
+                    IsVisible="{CompiledBinding ShowEditSettingsButton}"
+                    Margin="0,0,6,6" />
             <Button Theme="{StaticResource ToolbarActionButton}"
                     Content="{CompiledBinding Copy.CancelEditingLabel}"
                     Click="CancelEditingClicked"
-                    IsVisible="{CompiledBinding IsSettingsEditing}"
-                    Margin="0,0,8,8" />
+                    IsVisible="{CompiledBinding ShowCancelSettingsButton}"
+                    Margin="0,0,6,6" />
             <Button Theme="{StaticResource PrimaryActionButton}"
                     Content="{CompiledBinding SaveSettingsActionDisplayLabel}"
                     IsEnabled="{CompiledBinding CanSaveSettings}"
                     Click="SaveSettingsClicked"
-                    Margin="0,0,8,8" />
+                    Margin="0,0,6,6" />
           </WrapPanel>
         </Grid>
       </Border>
 
       <Border Classes="app-card">
-        <StackPanel Spacing="16">
-          <StackPanel Spacing="4">
+        <StackPanel Spacing="12">
+          <StackPanel Spacing="3">
             <TextBlock Classes="section-title" Text="{CompiledBinding Copy.SettingsPathGroupTitle}" />
             <TextBlock Classes="secondary"
                        Text="{CompiledBinding Copy.SettingsPathGroupDescription}"
                        TextWrapping="Wrap" />
           </StackPanel>
 
-          <Grid ColumnDefinitions="156,*,Auto"
+          <Grid ColumnDefinitions="144,*,Auto"
                 ColumnSpacing="14"
                 RowDefinitions="Auto,Auto,Auto"
-                RowSpacing="12">
+                RowSpacing="10">
             <TextBlock Classes="meta-label"
                        Text="{CompiledBinding Copy.ServerExecutableLabel}"
                        VerticalAlignment="Top" />
@@ -70,17 +70,17 @@
                       Content="{CompiledBinding Copy.BrowseExecutableLabel}"
                       IsEnabled="{CompiledBinding IsSettingsEditing}"
                       Click="BrowseExecutableClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
               <Button Theme="{StaticResource ToolbarActionButton}"
                       Classes="path-row-button"
                       Content="{CompiledBinding Copy.CopyPathLabel}"
                       Click="CopyServerExecutableClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
               <Button Theme="{StaticResource ToolbarActionButton}"
                       Classes="path-row-button"
                       Content="{CompiledBinding Copy.OpenParentDirectoryLabel}"
                       Click="OpenServerExecutableDirectoryClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
             </WrapPanel>
 
             <TextBlock Grid.Row="1"
@@ -98,17 +98,17 @@
                       Content="{CompiledBinding Copy.BrowseConfigLabel}"
                       IsEnabled="{CompiledBinding IsSettingsEditing}"
                       Click="BrowseConfigClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
               <Button Theme="{StaticResource ToolbarActionButton}"
                       Classes="path-row-button"
                       Content="{CompiledBinding Copy.CopyPathLabel}"
                       Click="CopyConfigPathClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
               <Button Theme="{StaticResource ToolbarActionButton}"
                       Classes="path-row-button"
                       Content="{CompiledBinding Copy.OpenParentDirectoryLabel}"
                       Click="OpenConfigDirectoryClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
             </WrapPanel>
 
             <TextBlock Grid.Row="2"
@@ -126,34 +126,34 @@
                       Content="{CompiledBinding Copy.BrowseWorkdirLabel}"
                       IsEnabled="{CompiledBinding IsSettingsEditing}"
                       Click="BrowseWorkdirClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
               <Button Theme="{StaticResource ToolbarActionButton}"
                       Classes="path-row-button"
                       Content="{CompiledBinding Copy.CopyPathLabel}"
                       Click="CopyWorkdirClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
               <Button Theme="{StaticResource ToolbarActionButton}"
                       Classes="path-row-button"
                       Content="{CompiledBinding Copy.OpenDirectoryLabel}"
                       Click="OpenWorkdirClicked"
-                      Margin="0,0,8,8" />
+                      Margin="0,0,6,6" />
             </WrapPanel>
           </Grid>
         </StackPanel>
       </Border>
 
-      <Border Classes="app-card">
-        <StackPanel Spacing="12">
+      <Border Classes="section-card">
+        <StackPanel Spacing="10">
           <TextBlock Classes="section-title" Text="{CompiledBinding Copy.SettingsBehaviorGroupTitle}" />
           <TextBlock Classes="secondary"
                      Text="{CompiledBinding Copy.SettingsBehaviorGroupDescription}"
                      TextWrapping="Wrap" />
-          <StackPanel Spacing="10">
+          <StackPanel Spacing="6">
             <RadioButton Classes="behavior-option"
                          GroupName="CloseBehavior"
                          IsChecked="{CompiledBinding IsCloseBehaviorAskEveryTime, Mode=TwoWay}"
-                         IsEnabled="{CompiledBinding IsSettingsEditing}">
-              <StackPanel Spacing="2">
+                         IsEnabled="{CompiledBinding CanEditCloseBehavior}">
+              <StackPanel Spacing="1">
                 <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.AskEveryTimeBehaviorTitle}" />
                 <TextBlock Classes="secondary"
                            Text="{CompiledBinding Copy.AskEveryTimeBehaviorDescription}"
@@ -164,8 +164,8 @@
             <RadioButton Classes="behavior-option"
                          GroupName="CloseBehavior"
                          IsChecked="{CompiledBinding IsCloseBehaviorHideToTray, Mode=TwoWay}"
-                         IsEnabled="{CompiledBinding IsSettingsEditing}">
-              <StackPanel Spacing="2">
+                         IsEnabled="{CompiledBinding CanEditCloseBehavior}">
+              <StackPanel Spacing="1">
                 <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.HideToTrayBehaviorTitle}" />
                 <TextBlock Classes="secondary"
                            Text="{CompiledBinding Copy.HideToTrayBehaviorDescription}"
@@ -176,8 +176,8 @@
             <RadioButton Classes="behavior-option"
                          GroupName="CloseBehavior"
                          IsChecked="{CompiledBinding IsCloseBehaviorExitApplication, Mode=TwoWay}"
-                         IsEnabled="{CompiledBinding IsSettingsEditing}">
-              <StackPanel Spacing="2">
+                         IsEnabled="{CompiledBinding CanEditCloseBehavior}">
+              <StackPanel Spacing="1">
                 <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.ExitApplicationBehaviorTitle}" />
                 <TextBlock Classes="secondary"
                            Text="{CompiledBinding Copy.ExitApplicationBehaviorDescription}"

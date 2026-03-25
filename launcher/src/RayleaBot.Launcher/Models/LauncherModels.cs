@@ -48,7 +48,7 @@ internal sealed record LauncherSettings(
     string ServerExecutablePath,
     string ConfigPath,
     string Workdir,
-    LauncherCloseBehavior CloseBehavior = LauncherCloseBehavior.HideToTray);
+    LauncherCloseBehavior CloseBehavior = LauncherCloseBehavior.AskEveryTime);
 
 internal sealed record ServerEndpoint(string Host, int Port)
 {

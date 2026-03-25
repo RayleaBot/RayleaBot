@@ -213,6 +213,8 @@ public sealed class MainWindowViewModelTests
 
         Assert.IsFalse(viewModel.IsSettingsEditing);
         Assert.IsTrue(viewModel.AreSettingsReadOnly);
+        Assert.AreEqual("当前为只读模式", viewModel.SettingsStateTitle);
+        Assert.AreEqual("路径保持只读，需要修改时再进入编辑。", viewModel.SettingsStateSummary);
 
         viewModel.BeginSettingsEditing();
 
@@ -220,6 +222,8 @@ public sealed class MainWindowViewModelTests
         Assert.IsFalse(viewModel.AreSettingsReadOnly);
         Assert.IsFalse(viewModel.IsSettingsDirty);
         Assert.IsFalse(viewModel.CanSaveSettings);
+        Assert.AreEqual("正在编辑本地路径", viewModel.SettingsStateTitle);
+        Assert.AreEqual("修改完成后保存，才会写回本地配置。", viewModel.SettingsStateSummary);
 
         viewModel.CancelSettingsEditing();
 
@@ -266,7 +270,7 @@ public sealed class MainWindowViewModelTests
 
         viewModel.CancelSettingsEditing();
 
-        Assert.IsTrue(viewModel.IsCloseBehaviorHideToTray);
+        Assert.IsTrue(viewModel.IsCloseBehaviorAskEveryTime);
         Assert.IsFalse(viewModel.IsSettingsDirty);
         Assert.IsFalse(viewModel.CanSaveSettings);
     }
@@ -325,6 +329,48 @@ public sealed class MainWindowViewModelTests
         Assert.AreEqual("http://127.0.0.1:8080/", viewModel.DiagnosticsServiceEndpointValue);
         StringAssert.Contains(viewModel.DiagnosticsEnvironmentSummaryValue, "正常 2");
         Assert.AreEqual("stderr line", viewModel.DiagnosticsRecentErrorValue);
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_UsesAskEveryTimeAsDefaultCloseBehavior()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+
+        Assert.IsTrue(viewModel.IsCloseBehaviorAskEveryTime);
+    }
+
+    [TestMethod]
+    public async Task CloseBehaviorChanges_EnableSaveWithoutEnteringPathEditMode()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+        viewModel.CloseBehavior = LauncherCloseBehavior.HideToTray;
+
+        Assert.IsTrue(viewModel.IsSettingsDirty);
+        Assert.IsTrue(viewModel.CanSaveSettings);
+        Assert.AreEqual("有未保存修改", viewModel.SettingsStateTitle);
+        Assert.AreEqual("保存后会写回启动器本地配置。", viewModel.SettingsStateSummary);
+    }
+
+    [TestMethod]
+    public async Task RefreshAsync_DoesNotOverwriteUnsavedCloseBehaviorDraft()
+    {
+        var fixture = new LauncherFixture();
+        var coordinator = fixture.CreateCoordinator(new LauncherCoordinatorOptions(TimeSpan.FromMilliseconds(40), TimeSpan.FromMilliseconds(5), TimeSpan.FromMilliseconds(20)));
+        var viewModel = new MainWindowViewModel(coordinator, marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+        viewModel.CloseBehavior = LauncherCloseBehavior.ExitApplication;
+
+        await viewModel.RefreshAsync();
+
+        Assert.IsTrue(viewModel.IsCloseBehaviorExitApplication);
+        Assert.IsTrue(viewModel.IsSettingsDirty);
     }
 
     [TestMethod]

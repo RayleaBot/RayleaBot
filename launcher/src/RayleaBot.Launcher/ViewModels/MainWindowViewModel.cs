@@ -45,7 +45,7 @@ internal sealed class MainWindowViewModel : ObservableObject
     private bool canOpenWebUi;
     private bool canRetry = true;
     private bool canOpenReleasePage;
-    private LauncherCloseBehavior closeBehavior = LauncherCloseBehavior.HideToTray;
+    private LauncherCloseBehavior closeBehavior = LauncherCloseBehavior.AskEveryTime;
     private bool isSettingsEditing;
     private bool isActionInProgress;
     private IBrush heroAccentBrush = Brush.Parse("#38BDF8");
@@ -389,7 +389,13 @@ internal sealed class MainWindowViewModel : ObservableObject
             CloseBehavior != appliedSettings.CloseBehavior
         );
 
-    internal bool CanSaveSettings => IsSettingsEditing && IsSettingsDirty && !IsActionInProgress;
+    internal bool CanEditCloseBehavior => !IsActionInProgress;
+
+    internal bool CanSaveSettings => IsSettingsDirty && !IsActionInProgress;
+
+    internal bool ShowEditSettingsButton => AreSettingsReadOnly && !IsSettingsDirty;
+
+    internal bool ShowCancelSettingsButton => IsSettingsEditing || IsSettingsDirty;
 
     internal bool IsCloseBehaviorAskEveryTime
     {
@@ -428,14 +434,18 @@ internal sealed class MainWindowViewModel : ObservableObject
     }
 
     internal string SettingsStateTitle =>
-        IsSettingsEditing
-            ? IsSettingsDirty ? copy.SettingsDirtyStateTitle : copy.SettingsEditingStateTitle
-            : copy.SettingsReadOnlyStateTitle;
+        IsSettingsDirty
+            ? copy.SettingsDirtyStateTitle
+            : IsSettingsEditing
+                ? copy.SettingsEditingStateTitle
+                : copy.SettingsReadOnlyStateTitle;
 
     internal string SettingsStateSummary =>
-        IsSettingsEditing
-            ? IsSettingsDirty ? copy.SettingsDirtyStateSummary : copy.SettingsEditingStateSummary
-            : copy.SettingsReadOnlyStateSummary;
+        IsSettingsDirty
+            ? copy.SettingsDirtyStateSummary
+            : IsSettingsEditing
+                ? copy.SettingsEditingStateSummary
+                : copy.SettingsReadOnlyStateSummary;
 
     internal string CloseBehaviorSummary => copy.FormatCloseBehaviorSummary(CloseBehavior);
 
@@ -667,7 +677,7 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal void CancelSettingsEditing()
     {
-        if (!IsSettingsEditing)
+        if (!IsSettingsEditing && !IsSettingsDirty)
         {
             return;
         }
@@ -732,8 +742,10 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     private void ApplySnapshot(LauncherSnapshot snapshot)
     {
+        var hadAppliedSettings = appliedSettings is not null;
         appliedSettings = snapshot.Settings;
-        if (!IsSettingsEditing)
+        var shouldKeepDraft = hadAppliedSettings && IsSettingsDirty;
+        if (!IsSettingsEditing && !shouldKeepDraft)
         {
             ServerExecutablePath = snapshot.Settings.ServerExecutablePath;
             ConfigPath = snapshot.Settings.ConfigPath;
@@ -932,6 +944,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(CanOpenWebUi));
         OnPropertyChanged(nameof(CanRetry));
         OnPropertyChanged(nameof(CanOpenReleasePage));
+        OnPropertyChanged(nameof(CanEditCloseBehavior));
         OnPropertyChanged(nameof(CanSaveSettings));
         OnPropertyChanged(nameof(CanRunPrimaryAction));
         OnPropertyChanged(nameof(PrimaryActionDisplayLabel));
@@ -947,6 +960,8 @@ internal sealed class MainWindowViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(AreSettingsReadOnly));
         OnPropertyChanged(nameof(IsSettingsDirty));
+        OnPropertyChanged(nameof(ShowEditSettingsButton));
+        OnPropertyChanged(nameof(ShowCancelSettingsButton));
         OnPropertyChanged(nameof(CanSaveSettings));
         OnPropertyChanged(nameof(SettingsStateTitle));
         OnPropertyChanged(nameof(SettingsStateSummary));

@@ -17,13 +17,13 @@ internal sealed class LauncherCopy
     internal string SettingsTitle => "设置";
 
     internal string StatusPageHeading => "服务状态";
-    internal string StatusPageSummary => "查看当前状态、主操作和需要立刻处理的问题。";
+    internal string StatusPageSummary => "查看当前状态、主操作和需要处理的问题。";
     internal string EnvironmentPageHeading => "环境检查";
-    internal string EnvironmentPageSummary => "优先处理阻塞项和警告项，正常结果默认收起。";
+    internal string EnvironmentPageSummary => "优先处理阻塞项和警告项。";
     internal string DiagnosticsPageHeading => "日志与诊断";
-    internal string DiagnosticsPageSummary => "查看最近错误输出和结构化诊断摘要。";
+    internal string DiagnosticsPageSummary => "查看最近错误和结构化诊断摘要。";
     internal string SettingsPageHeading => "本地设置";
-    internal string SettingsPageSummary => "这里只管理启动器本地路径与偏好。";
+    internal string SettingsPageSummary => "管理本地路径和关闭策略。";
 
     internal string StatusEyebrow => "当前状态";
     internal string StatusLabel => "当前状态";
@@ -37,9 +37,9 @@ internal sealed class LauncherCopy
     internal string ServiceInfoTitle => "服务信息";
     internal string EnvironmentSummaryTitle => "环境摘要";
     internal string RecentLogsTitle => "最近错误输出";
-    internal string RecentLogsEmpty => "当前没有新的错误输出。";
+    internal string RecentLogsEmpty => "当前没有新的错误。";
     internal string DiagnosticsSummaryTitle => "诊断摘要";
-    internal string DiagnosticsRawTitle => "原始诊断文本";
+    internal string DiagnosticsRawTitle => "原始诊断";
     internal string DiagnosticsServiceStatusTitle => "服务状态";
     internal string DiagnosticsServiceEndpointTitle => "服务入口";
     internal string DiagnosticsEnvironmentTitle => "环境检查";
@@ -57,18 +57,18 @@ internal sealed class LauncherCopy
     internal string ServerExecutableLabel => "服务端可执行文件";
     internal string ConfigPathLabel => "用户配置文件";
     internal string SettingsPathGroupTitle => "路径";
-    internal string SettingsPathGroupDescription => "默认只读，进入编辑态后才能修改。";
+    internal string SettingsPathGroupDescription => "默认只读，进入编辑后才允许修改。";
     internal string SettingsBehaviorGroupTitle => "关闭行为";
-    internal string SettingsBehaviorGroupDescription => "定义点击窗口关闭按钮时的默认处理方式。";
+    internal string SettingsBehaviorGroupDescription => "定义关闭按钮的默认处理方式。";
     internal string EditSettingsLabel => "编辑路径";
     internal string CancelEditingLabel => "取消编辑";
     internal string SaveSettingsLabel => "保存设置";
     internal string SettingsReadOnlyStateTitle => "当前为只读模式";
-    internal string SettingsReadOnlyStateSummary => "点击“编辑路径”后再修改本地路径设置。";
+    internal string SettingsReadOnlyStateSummary => "路径保持只读，需要修改时再进入编辑。";
     internal string SettingsEditingStateTitle => "正在编辑本地路径";
-    internal string SettingsEditingStateSummary => "修改完成后保存，才会写回启动器设置。";
+    internal string SettingsEditingStateSummary => "修改完成后保存，才会写回本地配置。";
     internal string SettingsDirtyStateTitle => "有未保存修改";
-    internal string SettingsDirtyStateSummary => "保存设置后会写回启动器本地配置。";
+    internal string SettingsDirtyStateSummary => "保存后会写回启动器本地配置。";
     internal string BrowseExecutableLabel => "浏览文件";
     internal string BrowseConfigLabel => "浏览文件";
     internal string BrowseWorkdirLabel => "浏览目录";
@@ -78,11 +78,11 @@ internal sealed class LauncherCopy
     internal string CopyEvidenceLabel => "复制证据";
     internal string OpenLocationLabel => "打开位置";
     internal string AskEveryTimeBehaviorTitle => "每次询问";
-    internal string AskEveryTimeBehaviorDescription => "关闭窗口时显示确认对话框，再决定隐藏到托盘或完全退出。";
+    internal string AskEveryTimeBehaviorDescription => "关闭时询问，再决定隐藏到托盘或退出。";
     internal string HideToTrayBehaviorTitle => "隐藏到托盘";
-    internal string HideToTrayBehaviorDescription => "关闭窗口时保留后台运行，后续可从系统托盘恢复。";
+    internal string HideToTrayBehaviorDescription => "关闭时保留后台运行，可从托盘恢复。";
     internal string ExitApplicationBehaviorTitle => "完全退出";
-    internal string ExitApplicationBehaviorDescription => "关闭窗口时直接退出启动器和当前托盘入口。";
+    internal string ExitApplicationBehaviorDescription => "关闭时直接退出启动器和托盘入口。";
     internal string SettingsEditingHint => "保存后会写回启动器本地设置。";
 
     internal string CopyDiagnosticsLabel => "复制诊断";
@@ -102,14 +102,15 @@ internal sealed class LauncherCopy
 
     internal string RestoreLauncherLabel => "恢复窗口";
     internal string TrayTitleLabel => "RayleaBot 启动器";
+    internal string TrayOpenLogsLabel => "日志目录";
     internal string TrayPrimaryGroupLabel => "主操作";
     internal string TraySecondaryGroupLabel => "次操作";
     internal string TrayDangerGroupLabel => "危险操作";
     internal string TrayTooltip => "RayleaBot 启动器";
 
     internal string CloseDialogTitle => "关闭窗口";
-    internal string CloseDialogBody => "请选择当前关闭窗口时的处理方式。";
-    internal string CloseDialogFootnote => "隐藏到托盘后，启动器仍可从系统托盘恢复并继续执行常用操作。";
+    internal string CloseDialogBody => "关闭窗口时，选择保留到托盘或直接退出。";
+    internal string CloseDialogFootnote => "隐藏到托盘后，服务与常用操作仍可从系统托盘继续访问。";
     internal string CloseDialogRememberChoiceLabel => "将本次选择设为默认行为";
     internal string CloseDialogCurrentDefaultPrefix => "当前默认";
     internal string HideToTrayLabel => "隐藏到托盘";
@@ -146,8 +147,8 @@ internal sealed class LauncherCopy
     internal string DetectedServiceSummary => "检测到现有服务";
     internal string DetectedServiceDetail => "端口上已有服务正在运行。可以直接打开管理界面，或先停止它再由启动器重新启动。";
     internal string ExternalStopConfirmTitle => "停止现有服务";
-    internal string ExternalStopConfirmBody => "当前端口上的服务不是由启动器拉起。继续后会尝试停止这个现有服务。";
-    internal string ExternalStopConfirmFootnote => "如果这是另一个独立运行中的实例，请先确认停止它不会影响当前工作。";
+    internal string ExternalStopConfirmBody => "当前端口上的服务不是由启动器拉起。继续后会尝试停止它。";
+    internal string ExternalStopConfirmFootnote => "如果这是独立运行的实例，请先确认停止它不会影响当前工作。";
     internal string ExternalStopConfirmAction => "继续停止";
     internal string ExternalStopCancelAction => "取消";
 

@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Style Selector="StackPanel.page-root">
     <Setter Property="Spacing" Value="{StaticResource Spacing.Section}" />
-    <Setter Property="Margin" Value="0,0,0,16" />
+    <Setter Property="Margin" Value="0,0,0,12" />
   </Style>
 
   <Style Selector="Border.page-header">
@@ -18,7 +18,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="Padding" Value="10,8" />
   </Style>
 
   <Style Selector="Border.hero-header">
@@ -26,7 +26,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderStrong}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Large}" />
-    <Setter Property="Padding" Value="18,16" />
+    <Setter Property="Padding" Value="14,12" />
   </Style>
 
   <Style Selector="Border.toolbar-card">
@@ -37,12 +37,20 @@
     <Setter Property="Padding" Value="{StaticResource Thickness.CompactCardPadding}" />
   </Style>
 
+  <Style Selector="Border.section-card">
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+
   <Style Selector="Border.issue-banner">
     <Setter Property="Background" Value="{StaticResource Brush.WarningSurface}" />
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Warning}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="Padding" Value="10,8" />
   </Style>
 
   <Style Selector="Border.metric-tile">
@@ -50,7 +58,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="12" />
+    <Setter Property="Padding" Value="10" />
   </Style>
 
   <Style Selector="Border.check-item">
@@ -58,7 +66,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="14" />
+    <Setter Property="Padding" Value="12" />
   </Style>
 
   <Style Selector="Border.info-strip">
@@ -66,7 +74,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="12" />
+    <Setter Property="Padding" Value="10" />
   </Style>
 
   <Style Selector="Border.log-panel">
@@ -74,7 +82,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="12" />
+    <Setter Property="Padding" Value="10" />
   </Style>
 
   <Style Selector="Border.empty-state">
@@ -82,7 +90,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="12" />
+    <Setter Property="Padding" Value="10,8" />
   </Style>
 
   <Style Selector="Border.summary-strip">
@@ -90,7 +98,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="10,9" />
+    <Setter Property="Padding" Value="9,7" />
   </Style>
 
   <Style Selector="Border.dialog-surface">
@@ -98,7 +106,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
-    <Setter Property="Padding" Value="14" />
+    <Setter Property="Padding" Value="12" />
   </Style>
 
   <Style Selector="StackPanel.path-row">

@@ -222,27 +222,35 @@ internal sealed partial class MainWindow : Window
 
     private async Task<bool> ShowExternalStopDialogAsync()
     {
-        var dialog = new ContentDialog
+        var dialogSurface = new Border();
+        dialogSurface.Classes.Add("dialog-surface");
+        dialogSurface.Child = new StackPanel
         {
-            Title = ViewModel.ExternalStopConfirmTitle,
-            Content = new StackPanel
+            Spacing = 10,
+            Children =
             {
-                Spacing = 12,
-                Children =
+                new TextBlock
                 {
-                    new TextBlock
-                    {
-                        Text = ViewModel.ExternalStopConfirmBody,
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    },
-                    new TextBlock
+                    Text = ViewModel.ExternalStopConfirmBody,
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                },
+                new Border
+                {
+                    Classes = { "summary-strip" },
+                    Child = new TextBlock
                     {
                         Text = ViewModel.ExternalStopConfirmFootnote,
                         TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                        Foreground = Avalonia.Media.Brush.Parse("#94A3B8"),
+                        Foreground = Avalonia.Media.Brush.Parse("#A9B4C4"),
                     },
                 },
             },
+        };
+
+        var dialog = new ContentDialog
+        {
+            Title = ViewModel.ExternalStopConfirmTitle,
+            Content = dialogSurface,
             PrimaryButtonText = ViewModel.ExternalStopConfirmAction,
             CloseButtonText = ViewModel.ExternalStopCancelAction,
             DefaultButton = ContentDialogButton.Close,

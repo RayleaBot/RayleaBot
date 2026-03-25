@@ -32,11 +32,11 @@
 
     <ui:NavigationView.PaneHeader>
       <Border Background="{StaticResource Brush.NavigationPane}"
-              Padding="0,8,0,8">
-        <StackPanel Spacing="4">
+              Padding="0,4,0,4">
+        <StackPanel Spacing="2">
           <TextBlock Text="{CompiledBinding Copy.ShellHeaderTitle}"
                      FontFamily="{StaticResource FontFamily.Display}"
-                     FontSize="16"
+                     FontSize="15"
                      FontWeight="SemiBold" />
           <TextBlock Classes="secondary"
                      Text="{CompiledBinding Copy.ShellHeaderSummary}"
