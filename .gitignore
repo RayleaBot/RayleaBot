@@ -1,5 +1,6 @@
 # Runtime-managed directories from the project plan.
 /data/
+/artifacts/
 /cache/
 /.cache/
 /server/.cache/
