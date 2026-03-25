@@ -286,6 +286,7 @@
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}" />
     <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
     <Style Selector="^:pointerover">
       <Setter Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
       <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderStrong}" />

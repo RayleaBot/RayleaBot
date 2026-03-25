@@ -142,49 +142,58 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="section-card">
-        <StackPanel Spacing="10">
-          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.SettingsBehaviorGroupTitle}" />
-          <TextBlock Classes="secondary"
-                     Text="{CompiledBinding Copy.SettingsBehaviorGroupDescription}"
-                     TextWrapping="Wrap" />
-          <StackPanel Spacing="6">
-            <RadioButton Classes="behavior-option"
-                         GroupName="CloseBehavior"
-                         IsChecked="{CompiledBinding IsCloseBehaviorAskEveryTime, Mode=TwoWay}"
-                         IsEnabled="{CompiledBinding CanEditCloseBehavior}">
-              <StackPanel Spacing="1">
-                <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.AskEveryTimeBehaviorTitle}" />
-                <TextBlock Classes="secondary"
-                           Text="{CompiledBinding Copy.AskEveryTimeBehaviorDescription}"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </RadioButton>
-
-            <RadioButton Classes="behavior-option"
-                         GroupName="CloseBehavior"
-                         IsChecked="{CompiledBinding IsCloseBehaviorHideToTray, Mode=TwoWay}"
-                         IsEnabled="{CompiledBinding CanEditCloseBehavior}">
-              <StackPanel Spacing="1">
-                <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.HideToTrayBehaviorTitle}" />
-                <TextBlock Classes="secondary"
-                           Text="{CompiledBinding Copy.HideToTrayBehaviorDescription}"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </RadioButton>
-
-            <RadioButton Classes="behavior-option"
-                         GroupName="CloseBehavior"
-                         IsChecked="{CompiledBinding IsCloseBehaviorExitApplication, Mode=TwoWay}"
-                         IsEnabled="{CompiledBinding CanEditCloseBehavior}">
-              <StackPanel Spacing="1">
-                <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.ExitApplicationBehaviorTitle}" />
-                <TextBlock Classes="secondary"
-                           Text="{CompiledBinding Copy.ExitApplicationBehaviorDescription}"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </RadioButton>
+      <Border Classes="app-card">
+        <StackPanel Spacing="16">
+          <StackPanel Spacing="3">
+            <TextBlock Classes="section-title" Text="{CompiledBinding Copy.SettingsBehaviorGroupTitle}" />
+            <TextBlock Classes="secondary"
+                       Text="{CompiledBinding Copy.SettingsBehaviorGroupDescription}"
+                       TextWrapping="Wrap" />
           </StackPanel>
+
+          <Border Classes="sub-card" Padding="16,14">
+            <StackPanel Spacing="16">
+              <RadioButton GroupName="CloseBehavior"
+                           IsChecked="{CompiledBinding IsCloseBehaviorAskEveryTime, Mode=TwoWay}"
+                           IsEnabled="{CompiledBinding CanEditCloseBehavior}"
+                           VerticalContentAlignment="Center">
+                <StackPanel Spacing="2" Margin="4,0,0,0">
+                  <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.AskEveryTimeBehaviorTitle}" />
+                  <TextBlock Classes="secondary"
+                             Text="{CompiledBinding Copy.AskEveryTimeBehaviorDescription}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </RadioButton>
+
+              <Border Height="1" Background="{StaticResource Brush.BorderSubtle}" />
+
+              <RadioButton GroupName="CloseBehavior"
+                           IsChecked="{CompiledBinding IsCloseBehaviorHideToTray, Mode=TwoWay}"
+                           IsEnabled="{CompiledBinding CanEditCloseBehavior}"
+                           VerticalContentAlignment="Center">
+                <StackPanel Spacing="2" Margin="4,0,0,0">
+                  <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.HideToTrayBehaviorTitle}" />
+                  <TextBlock Classes="secondary"
+                             Text="{CompiledBinding Copy.HideToTrayBehaviorDescription}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </RadioButton>
+
+              <Border Height="1" Background="{StaticResource Brush.BorderSubtle}" />
+
+              <RadioButton GroupName="CloseBehavior"
+                           IsChecked="{CompiledBinding IsCloseBehaviorExitApplication, Mode=TwoWay}"
+                           IsEnabled="{CompiledBinding CanEditCloseBehavior}"
+                           VerticalContentAlignment="Center">
+                <StackPanel Spacing="2" Margin="4,0,0,0">
+                  <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.ExitApplicationBehaviorTitle}" />
+                  <TextBlock Classes="secondary"
+                             Text="{CompiledBinding Copy.ExitApplicationBehaviorDescription}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </RadioButton>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </Border>
     </StackPanel>
