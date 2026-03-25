@@ -28,7 +28,7 @@ onMounted(() => {
       <div>
         <div class="page-eyebrow">Logs</div>
         <h1>管理日志</h1>
-        <p>先回放 `/api/logs`，再接 `/ws/logs` 追加。</p>
+        <p>查看历史日志与最新记录。</p>
       </div>
 
       <el-button :loading="loading" @click="loadLogs()">

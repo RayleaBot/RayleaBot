@@ -79,7 +79,7 @@ onMounted(() => {
       <div>
         <div class="page-eyebrow">Tasks</div>
         <h1>后台任务</h1>
-        <p>列表先读 HTTP，再吃 `/ws/tasks` 增量更新。</p>
+        <p>查看后台任务列表与最新状态。</p>
       </div>
 
       <el-button :loading="loading" @click="loadTasks()">

@@ -46,7 +46,7 @@ async function confirmShutdown() {
   try {
     await systemStore.requestShutdown()
     shutdownDialogVisible.value = false
-    ElMessage.success('停机请求已发送，服务将进入 graceful shutdown')
+    ElMessage.success('停机请求已发送')
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : 'shutdown failed')
   }
@@ -61,7 +61,7 @@ async function confirmShutdown() {
       <div class="brand-block">
         <div class="brand-eyebrow">RayleaBot</div>
         <h1>Management Surface</h1>
-        <p>当前基于既有 HTTP / WebSocket contract 运行。</p>
+        <p>在这里管理服务、插件、任务和配置。</p>
       </div>
 
       <nav class="shell-nav" aria-label="Primary">
@@ -118,7 +118,7 @@ async function confirmShutdown() {
           v-if="shutdownRequested"
           title="服务正在停止"
           type="warning"
-          description="平台已接受 shutdown 请求，后续 WebSocket 断开或管理接口不可用属于预期行为。"
+          description="服务正在停止，管理界面连接中断属于预期行为。"
           show-icon
           class="section-gap"
         />
@@ -132,7 +132,7 @@ async function confirmShutdown() {
     <div class="brand-block">
       <div class="brand-eyebrow">RayleaBot</div>
       <h1>Management Surface</h1>
-      <p>当前基于既有 HTTP / WebSocket contract 运行。</p>
+      <p>在这里管理服务、插件、任务和配置。</p>
     </div>
 
     <nav class="shell-nav drawer-nav" aria-label="Primary">
@@ -150,7 +150,7 @@ async function confirmShutdown() {
   </el-drawer>
 
   <el-dialog v-model="shutdownDialogVisible" title="确认关闭服务" width="420px">
-    <p>服务会先进入 graceful shutdown，再逐步停止管理接口与 WebSocket 连接。</p>
+    <p>关闭服务后，管理界面连接会中断。</p>
 
     <template #footer>
       <div class="table-actions">
