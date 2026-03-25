@@ -16,6 +16,12 @@ internal sealed class JsonLauncherSettingsStore : ILauncherSettingsStore
         settingsPath = Path.Combine(settingsDir, "launcher.json");
     }
 
+    internal JsonLauncherSettingsStore(string settingsPath, LauncherSettings defaults)
+    {
+        this.settingsPath = settingsPath;
+        this.defaults = defaults;
+    }
+
     public async Task<LauncherSettings> LoadAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(settingsPath))
@@ -24,16 +30,72 @@ internal sealed class JsonLauncherSettingsStore : ILauncherSettingsStore
         }
 
         await using var stream = File.OpenRead(settingsPath);
-        var settings = await JsonSerializer.DeserializeAsync<LauncherSettings>(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return settings ?? defaults;
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return DeserializeSettings(document.RootElement);
     }
 
     public async Task SaveAsync(LauncherSettings settings, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
         await using var stream = File.Create(settingsPath);
-        await JsonSerializer.SerializeAsync(stream, settings, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var payload = new SerializedLauncherSettings(
+            settings.ServerExecutablePath,
+            settings.ConfigPath,
+            settings.Workdir,
+            settings.CloseBehavior.ToString());
+        await JsonSerializer.SerializeAsync(stream, payload, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
+
+    private LauncherSettings DeserializeSettings(JsonElement root)
+    {
+        return new LauncherSettings(
+            ReadString(root, nameof(LauncherSettings.ServerExecutablePath), defaults.ServerExecutablePath),
+            ReadString(root, nameof(LauncherSettings.ConfigPath), defaults.ConfigPath),
+            ReadString(root, nameof(LauncherSettings.Workdir), defaults.Workdir),
+            ReadCloseBehavior(root));
+    }
+
+    private LauncherCloseBehavior ReadCloseBehavior(JsonElement root)
+    {
+        if (root.TryGetProperty(nameof(SerializedLauncherSettings.CloseBehavior), out var closeBehaviorNode))
+        {
+            if (closeBehaviorNode.ValueKind == JsonValueKind.String &&
+                Enum.TryParse<LauncherCloseBehavior>(closeBehaviorNode.GetString(), ignoreCase: true, out var parsed))
+            {
+                return parsed;
+            }
+
+            if (closeBehaviorNode.ValueKind == JsonValueKind.Number &&
+                closeBehaviorNode.TryGetInt32(out var numericValue) &&
+                Enum.IsDefined(typeof(LauncherCloseBehavior), numericValue))
+            {
+                return (LauncherCloseBehavior)numericValue;
+            }
+        }
+
+        if (root.TryGetProperty("CloseToTrayEnabled", out var legacyCloseToTrayNode) &&
+            legacyCloseToTrayNode.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            return legacyCloseToTrayNode.GetBoolean()
+                ? LauncherCloseBehavior.HideToTray
+                : LauncherCloseBehavior.AskEveryTime;
+        }
+
+        return defaults.CloseBehavior;
+    }
+
+    private static string ReadString(JsonElement root, string propertyName, string fallback)
+    {
+        return root.TryGetProperty(propertyName, out var node) && node.ValueKind == JsonValueKind.String
+            ? node.GetString() ?? fallback
+            : fallback;
+    }
+
+    private sealed record SerializedLauncherSettings(
+        string ServerExecutablePath,
+        string ConfigPath,
+        string Workdir,
+        string CloseBehavior);
 }
 
 internal static class LauncherDefaults

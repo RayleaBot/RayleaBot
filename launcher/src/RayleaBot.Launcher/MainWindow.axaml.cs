@@ -4,6 +4,8 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
+using RayleaBot.Launcher.Models;
+using RayleaBot.Launcher.Views;
 
 namespace RayleaBot.Launcher;
 
@@ -12,7 +14,7 @@ internal sealed partial class MainWindow : Window
     private readonly DispatcherTimer refreshTimer;
     private readonly LauncherCopy copy = LauncherCopy.Default;
     private TrayIcon? trayIcon;
-    private LauncherTrayPanelWindow? trayPanel;
+    private LauncherTrayMenu? trayMenu;
     private bool explicitExitRequested;
 
     internal MainWindow(MainWindowViewModel viewModel)
@@ -28,6 +30,7 @@ internal sealed partial class MainWindow : Window
         Closing += OnClosing;
         Closed += OnClosed;
         PropertyChanged += OnWindowPropertyChanged;
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
@@ -42,19 +45,39 @@ internal sealed partial class MainWindow : Window
         ViewModel.SetWindowState(WindowState == WindowState.Maximized);
         EnsureTrayIcon();
         await ViewModel.InitializeAsync();
+        SyncTrayPresentation();
         refreshTimer.Start();
     }
 
     private async void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        if (!LauncherWindowPolicies.ShouldPromptBeforeClose(explicitExitRequested))
+        var closeAction = LauncherWindowPolicies.ResolveCloseAction(explicitExitRequested, ViewModel.CloseBehavior);
+        switch (closeAction)
+        {
+            case LauncherWindowCloseAction.ExitApplication:
+                return;
+            case LauncherWindowCloseAction.HideToTray:
+                e.Cancel = true;
+                HideToTray();
+                return;
+        }
+
+        e.Cancel = true;
+        var result = await ShowCloseDialogAsync();
+        if (result.Action == LauncherCloseDialogAction.Cancel)
         {
             return;
         }
 
-        e.Cancel = true;
-        var hideToTray = await ShowCloseDialogAsync();
-        if (!hideToTray)
+        if (result.RememberChoice)
+        {
+            var rememberedBehavior = result.Action == LauncherCloseDialogAction.HideToTray
+                ? LauncherCloseBehavior.HideToTray
+                : LauncherCloseBehavior.ExitApplication;
+            await ViewModel.PersistCloseBehaviorAsync(rememberedBehavior);
+        }
+
+        if (result.Action == LauncherCloseDialogAction.ExitApplication)
         {
             explicitExitRequested = true;
             Close();
@@ -67,7 +90,8 @@ internal sealed partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         refreshTimer.Stop();
-        trayPanel?.Close();
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        trayMenu?.Dispose();
         trayIcon?.Dispose();
     }
 
@@ -97,25 +121,22 @@ internal sealed partial class MainWindow : Window
             Icon = LauncherIcons.CreateTrayIcon(),
             IsVisible = true,
         };
+        trayMenu = new LauncherTrayMenu(ViewModel, OnTrayMenuActionRequested);
+        trayIcon.Menu = trayMenu.Menu;
         trayIcon.Clicked += TrayIconClicked;
     }
 
     private void TrayIconClicked(object? sender, EventArgs e)
     {
-        if (trayPanel is not null)
+        if (trayMenu is not null && !trayMenu.ShouldHandleTrayClick())
         {
-            trayPanel.Close();
-            trayPanel = null;
             return;
         }
 
-        trayPanel = new LauncherTrayPanelWindow(ViewModel);
-        trayPanel.ActionRequested += TrayPanelActionRequested;
-        trayPanel.Closed += (_, _) => trayPanel = null;
-        trayPanel.ShowNear(this);
+        RestoreFromTray();
     }
 
-    private async void TrayPanelActionRequested(object? sender, LauncherTrayAction action)
+    private async void OnTrayMenuActionRequested(LauncherTrayAction action)
     {
         switch (action)
         {
@@ -124,6 +145,9 @@ internal sealed partial class MainWindow : Window
                 break;
             case LauncherTrayAction.OpenWeb:
                 await ViewModel.OpenWebUiAsync();
+                break;
+            case LauncherTrayAction.OpenLogs:
+                await ViewModel.OpenLogsDirectoryAsync();
                 break;
             case LauncherTrayAction.Start:
                 await ViewModel.StartAsync();
@@ -151,50 +175,49 @@ internal sealed partial class MainWindow : Window
 
     private void RestoreFromTray()
     {
-        trayPanel?.Close();
-        Show();
-        WindowState = WindowState.Normal;
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
         Activate();
         ViewModel.SetOperationSummary(copy.ActionRestoredFromTray);
     }
 
     private void HideToTray()
     {
-        trayPanel?.Close();
         Hide();
         ViewModel.SetOperationSummary(copy.ActionHiddenToTray);
     }
 
-    private async Task<bool> ShowCloseDialogAsync()
+    private async Task<LauncherCloseDialogResult> ShowCloseDialogAsync()
     {
+        var dialogViewModel = new CloseConfirmDialogViewModel(ViewModel.CloseBehavior, copy);
         var dialog = new ContentDialog
         {
             Title = copy.CloseDialogTitle,
-            Content = new StackPanel
+            Content = new CloseConfirmDialogContent
             {
-                Spacing = 12,
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = copy.CloseDialogBody,
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    },
-                    new TextBlock
-                    {
-                        Text = copy.CloseDialogFootnote,
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                        Foreground = Avalonia.Media.Brush.Parse("#94A3B8"),
-                    },
-                },
+                DataContext = dialogViewModel,
             },
             PrimaryButtonText = copy.HideToTrayLabel,
-            CloseButtonText = copy.ExitCompletelyLabel,
+            SecondaryButtonText = copy.ExitCompletelyLabel,
+            CloseButtonText = copy.CancelDialogLabel,
             DefaultButton = ContentDialogButton.Primary,
         };
 
         var result = await dialog.ShowAsync(this);
-        return result == ContentDialogResult.Primary;
+        return result switch
+        {
+            ContentDialogResult.Primary => new LauncherCloseDialogResult(LauncherCloseDialogAction.HideToTray, dialogViewModel.RememberChoice),
+            ContentDialogResult.Secondary => new LauncherCloseDialogResult(LauncherCloseDialogAction.ExitApplication, dialogViewModel.RememberChoice),
+            _ => new LauncherCloseDialogResult(LauncherCloseDialogAction.Cancel, false),
+        };
     }
 
     private async Task<bool> ShowExternalStopDialogAsync()
@@ -227,5 +250,31 @@ internal sealed partial class MainWindow : Window
 
         var result = await dialog.ShowAsync(this);
         return result == ContentDialogResult.Primary;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(MainWindowViewModel.TrayTooltipText):
+            case nameof(MainWindowViewModel.TrayStatusSummary):
+            case nameof(MainWindowViewModel.TrayServiceAction):
+            case nameof(MainWindowViewModel.TrayServiceActionLabel):
+            case nameof(MainWindowViewModel.CanRunTrayServiceAction):
+            case nameof(MainWindowViewModel.CanOpenWebUi):
+                SyncTrayPresentation();
+                break;
+        }
+    }
+
+    private void SyncTrayPresentation()
+    {
+        if (trayIcon is null)
+        {
+            return;
+        }
+
+        trayIcon.ToolTipText = ViewModel.TrayTooltipText;
+        trayMenu?.RefreshMenu();
     }
 }

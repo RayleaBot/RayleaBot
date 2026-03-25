@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:RayleaBot.Launcher"
+             x:Class="RayleaBot.Launcher.Views.CloseConfirmDialogContent"
+             x:DataType="vm:CloseConfirmDialogViewModel">
+  <Border Classes="dialog-surface"
+          MaxWidth="{StaticResource Size.DialogWidth}">
+    <StackPanel Spacing="12">
+      <TextBlock Text="{CompiledBinding Copy.CloseDialogBody}"
+                 TextWrapping="Wrap" />
+
+      <Border Classes="summary-strip">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="caption" Text="{CompiledBinding CurrentDefaultCaption}" />
+          <TextBlock FontWeight="SemiBold"
+                     Text="{CompiledBinding CurrentDefaultSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <TextBlock Classes="secondary"
+                 Text="{CompiledBinding Copy.CloseDialogFootnote}"
+                 TextWrapping="Wrap" />
+
+      <CheckBox Content="{CompiledBinding Copy.CloseDialogRememberChoiceLabel}"
+                IsChecked="{CompiledBinding RememberChoice, Mode=TwoWay}" />
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -38,6 +38,13 @@ internal sealed class LauncherCopy
     internal string EnvironmentSummaryTitle => "环境摘要";
     internal string RecentLogsTitle => "最近错误输出";
     internal string RecentLogsEmpty => "当前没有新的错误输出。";
+    internal string DiagnosticsSummaryTitle => "诊断摘要";
+    internal string DiagnosticsRawTitle => "原始诊断文本";
+    internal string DiagnosticsServiceStatusTitle => "服务状态";
+    internal string DiagnosticsServiceEndpointTitle => "服务入口";
+    internal string DiagnosticsEnvironmentTitle => "环境检查";
+    internal string DiagnosticsRecentErrorTitle => "最近错误";
+    internal string DiagnosticsNoRecentError => "当前没有新的错误输出。";
     internal string MainAlertActionLabel => "查看环境检查";
 
     internal string BlockingGroupTitle => "阻塞项";
@@ -52,10 +59,16 @@ internal sealed class LauncherCopy
     internal string SettingsPathGroupTitle => "路径";
     internal string SettingsPathGroupDescription => "默认只读，进入编辑态后才能修改。";
     internal string SettingsBehaviorGroupTitle => "关闭行为";
-    internal string SettingsBehaviorGroupDescription => "关闭窗口时隐藏到托盘或完全退出。";
+    internal string SettingsBehaviorGroupDescription => "定义点击窗口关闭按钮时的默认处理方式。";
     internal string EditSettingsLabel => "编辑路径";
     internal string CancelEditingLabel => "取消编辑";
     internal string SaveSettingsLabel => "保存设置";
+    internal string SettingsReadOnlyStateTitle => "当前为只读模式";
+    internal string SettingsReadOnlyStateSummary => "点击“编辑路径”后再修改本地路径设置。";
+    internal string SettingsEditingStateTitle => "正在编辑本地路径";
+    internal string SettingsEditingStateSummary => "修改完成后保存，才会写回启动器设置。";
+    internal string SettingsDirtyStateTitle => "有未保存修改";
+    internal string SettingsDirtyStateSummary => "保存设置后会写回启动器本地配置。";
     internal string BrowseExecutableLabel => "浏览文件";
     internal string BrowseConfigLabel => "浏览文件";
     internal string BrowseWorkdirLabel => "浏览目录";
@@ -64,7 +77,12 @@ internal sealed class LauncherCopy
     internal string CopyPathLabel => "复制路径";
     internal string CopyEvidenceLabel => "复制证据";
     internal string OpenLocationLabel => "打开位置";
-    internal string CloseToTrayEnabledLabel => "关闭窗口时隐藏到托盘";
+    internal string AskEveryTimeBehaviorTitle => "每次询问";
+    internal string AskEveryTimeBehaviorDescription => "关闭窗口时显示确认对话框，再决定隐藏到托盘或完全退出。";
+    internal string HideToTrayBehaviorTitle => "隐藏到托盘";
+    internal string HideToTrayBehaviorDescription => "关闭窗口时保留后台运行，后续可从系统托盘恢复。";
+    internal string ExitApplicationBehaviorTitle => "完全退出";
+    internal string ExitApplicationBehaviorDescription => "关闭窗口时直接退出启动器和当前托盘入口。";
     internal string SettingsEditingHint => "保存后会写回启动器本地设置。";
 
     internal string CopyDiagnosticsLabel => "复制诊断";
@@ -82,17 +100,21 @@ internal sealed class LauncherCopy
     internal string ExitAppLabel => "完全退出";
     internal string NoLauncherSession => string.Empty;
 
-    internal string TrayQuickPanelTitle => "托盘快捷操作";
-    internal string TrayQuickPanelSummary => "恢复主窗口或执行常用操作。";
     internal string RestoreLauncherLabel => "恢复窗口";
-    internal string TrayPanelCloseLabel => "关闭浮层";
+    internal string TrayTitleLabel => "RayleaBot 启动器";
+    internal string TrayPrimaryGroupLabel => "主操作";
+    internal string TraySecondaryGroupLabel => "次操作";
+    internal string TrayDangerGroupLabel => "危险操作";
     internal string TrayTooltip => "RayleaBot 启动器";
 
     internal string CloseDialogTitle => "关闭窗口";
-    internal string CloseDialogBody => "可以隐藏到托盘继续运行，也可以直接完全退出。";
-    internal string CloseDialogFootnote => "隐藏后仍可从托盘恢复窗口或执行常用操作。";
+    internal string CloseDialogBody => "请选择当前关闭窗口时的处理方式。";
+    internal string CloseDialogFootnote => "隐藏到托盘后，启动器仍可从系统托盘恢复并继续执行常用操作。";
+    internal string CloseDialogRememberChoiceLabel => "将本次选择设为默认行为";
+    internal string CloseDialogCurrentDefaultPrefix => "当前默认";
     internal string HideToTrayLabel => "隐藏到托盘";
     internal string ExitCompletelyLabel => "完全退出";
+    internal string CancelDialogLabel => "取消";
 
     internal string VersionUnavailableSummary => "版本信息不可用";
     internal string VersionUnavailableDetail => "当前运行没有可读取的版本包元数据。";
@@ -119,6 +141,7 @@ internal sealed class LauncherCopy
     internal string ActionHiddenToTray => "启动器仍在系统托盘中运行。";
     internal string ActionSettingsEditStarted => "已进入路径编辑状态。";
     internal string ActionSettingsEditCanceled => "已放弃未保存的路径修改。";
+    internal string ActionCloseBehaviorSaved => "关闭行为默认策略已保存。";
 
     internal string DetectedServiceSummary => "检测到现有服务";
     internal string DetectedServiceDetail => "端口上已有服务正在运行。可以直接打开管理界面，或先停止它再由启动器重新启动。";
@@ -189,6 +212,36 @@ internal sealed class LauncherCopy
     internal string FormatPathCopied(string label) => $"已复制{label}。";
 
     internal string FormatProcessId(int processId) => processId.ToString();
+
+    internal string FormatEnvironmentSummary(int blockingCount, int warningCount, int readyCount) =>
+        $"阻塞项 {blockingCount} · 需注意 {warningCount} · 正常 {readyCount}";
+
+    internal string FormatTrayStatusLabel(string statusSummary) => $"状态：{statusSummary}";
+
+    internal string FormatTrayStatusSummary(string statusSummary, bool hasBlockingIssues, bool hasWarnings)
+    {
+        if (hasBlockingIssues)
+        {
+            return $"{statusSummary} · 有阻塞项";
+        }
+
+        if (hasWarnings)
+        {
+            return $"{statusSummary} · 有警告";
+        }
+
+        return statusSummary;
+    }
+
+    internal string FormatTrayTooltip(string trayStatusSummary) => $"{TrayTooltip} · {trayStatusSummary}";
+
+    internal string FormatCloseBehaviorSummary(LauncherCloseBehavior closeBehavior) =>
+        closeBehavior switch
+        {
+            LauncherCloseBehavior.AskEveryTime => AskEveryTimeBehaviorTitle,
+            LauncherCloseBehavior.ExitApplication => ExitApplicationBehaviorTitle,
+            _ => HideToTrayBehaviorTitle,
+        };
 
     internal string FormatPendingPrimaryActionLabel(LauncherPrimaryAction action) =>
         action switch

@@ -45,4 +45,9 @@ internal sealed partial class EnvironmentPage : UserControl
         });
         ViewModel.SetOperationSummary($"{ViewModel.Copy.OpenLocationLabel}：{path}");
     }
+
+    private async void RetryClicked(object? sender, RoutedEventArgs e)
+    {
+        await ViewModel.RetryAsync();
+    }
 }

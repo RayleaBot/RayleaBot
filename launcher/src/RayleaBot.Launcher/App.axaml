@@ -7,5 +7,6 @@
     <sty:FluentAvaloniaTheme />
     <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherTokens.axaml" />
     <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherControls.axaml" />
+    <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherPatterns.axaml" />
   </Application.Styles>
 </Application>

@@ -45,8 +45,7 @@ internal sealed class MainWindowViewModel : ObservableObject
     private bool canOpenWebUi;
     private bool canRetry = true;
     private bool canOpenReleasePage;
-    private bool closeToTrayEnabled = true;
-    private bool closeTipAcknowledged;
+    private LauncherCloseBehavior closeBehavior = LauncherCloseBehavior.HideToTray;
     private bool isSettingsEditing;
     private bool isActionInProgress;
     private IBrush heroAccentBrush = Brush.Parse("#38BDF8");
@@ -64,10 +63,10 @@ internal sealed class MainWindowViewModel : ObservableObject
         RecentStderr = new ObservableCollection<string>();
         navigationItems =
         [
-            new LauncherNavigationItemViewModel(LauncherSection.Status, copy.StatusTitle, string.Empty, isFooterItem: false),
-            new LauncherNavigationItemViewModel(LauncherSection.Environment, copy.EnvironmentTitle, string.Empty, isFooterItem: false),
-            new LauncherNavigationItemViewModel(LauncherSection.Diagnostics, copy.DiagnosticsTitle, string.Empty, isFooterItem: false),
-            new LauncherNavigationItemViewModel(LauncherSection.Settings, copy.SettingsTitle, string.Empty, isFooterItem: true),
+            new LauncherNavigationItemViewModel(LauncherSection.Status, copy.StatusTitle, string.Empty, "\uE80F", isFooterItem: false),
+            new LauncherNavigationItemViewModel(LauncherSection.Environment, copy.EnvironmentTitle, string.Empty, "\uE9CE", isFooterItem: false),
+            new LauncherNavigationItemViewModel(LauncherSection.Diagnostics, copy.DiagnosticsTitle, string.Empty, "\uE9D9", isFooterItem: false),
+            new LauncherNavigationItemViewModel(LauncherSection.Settings, copy.SettingsTitle, string.Empty, "\uE713", isFooterItem: true),
         ];
 
         NavigationItems = navigationItems.AsReadOnly();
@@ -166,19 +165,37 @@ internal sealed class MainWindowViewModel : ObservableObject
     internal string ServerExecutablePath
     {
         get => serverExecutablePath;
-        set => SetProperty(ref serverExecutablePath, value);
+        set
+        {
+            if (SetProperty(ref serverExecutablePath, value))
+            {
+                NotifySettingsDraftChanged();
+            }
+        }
     }
 
     internal string ConfigPath
     {
         get => configPath;
-        set => SetProperty(ref configPath, value);
+        set
+        {
+            if (SetProperty(ref configPath, value))
+            {
+                NotifySettingsDraftChanged();
+            }
+        }
     }
 
     internal string Workdir
     {
         get => workdir;
-        set => SetProperty(ref workdir, value);
+        set
+        {
+            if (SetProperty(ref workdir, value))
+            {
+                NotifySettingsDraftChanged();
+            }
+        }
     }
 
     internal string StatusSummary
@@ -339,16 +356,20 @@ internal sealed class MainWindowViewModel : ObservableObject
         private set => SetProperty(ref canOpenReleasePage, value);
     }
 
-    internal bool CloseToTrayEnabled
+    internal LauncherCloseBehavior CloseBehavior
     {
-        get => closeToTrayEnabled;
-        set => SetProperty(ref closeToTrayEnabled, value);
-    }
-
-    internal bool CloseTipAcknowledged
-    {
-        get => closeTipAcknowledged;
-        private set => SetProperty(ref closeTipAcknowledged, value);
+        get => closeBehavior;
+        set
+        {
+            if (SetProperty(ref closeBehavior, value))
+            {
+                NotifySettingsDraftChanged();
+                OnPropertyChanged(nameof(IsCloseBehaviorAskEveryTime));
+                OnPropertyChanged(nameof(IsCloseBehaviorHideToTray));
+                OnPropertyChanged(nameof(IsCloseBehaviorExitApplication));
+                OnPropertyChanged(nameof(CloseBehaviorSummary));
+            }
+        }
     }
 
     internal bool IsSettingsEditing
@@ -359,7 +380,64 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal bool AreSettingsReadOnly => !IsSettingsEditing;
 
-    internal bool CanSaveSettings => IsSettingsEditing && !IsActionInProgress;
+    internal bool IsSettingsDirty =>
+        appliedSettings is not null &&
+        (
+            !string.Equals(ServerExecutablePath.Trim(), appliedSettings.ServerExecutablePath, StringComparison.Ordinal) ||
+            !string.Equals(ConfigPath.Trim(), appliedSettings.ConfigPath, StringComparison.Ordinal) ||
+            !string.Equals(Workdir.Trim(), appliedSettings.Workdir, StringComparison.Ordinal) ||
+            CloseBehavior != appliedSettings.CloseBehavior
+        );
+
+    internal bool CanSaveSettings => IsSettingsEditing && IsSettingsDirty && !IsActionInProgress;
+
+    internal bool IsCloseBehaviorAskEveryTime
+    {
+        get => CloseBehavior == LauncherCloseBehavior.AskEveryTime;
+        set
+        {
+            if (value)
+            {
+                CloseBehavior = LauncherCloseBehavior.AskEveryTime;
+            }
+        }
+    }
+
+    internal bool IsCloseBehaviorHideToTray
+    {
+        get => CloseBehavior == LauncherCloseBehavior.HideToTray;
+        set
+        {
+            if (value)
+            {
+                CloseBehavior = LauncherCloseBehavior.HideToTray;
+            }
+        }
+    }
+
+    internal bool IsCloseBehaviorExitApplication
+    {
+        get => CloseBehavior == LauncherCloseBehavior.ExitApplication;
+        set
+        {
+            if (value)
+            {
+                CloseBehavior = LauncherCloseBehavior.ExitApplication;
+            }
+        }
+    }
+
+    internal string SettingsStateTitle =>
+        IsSettingsEditing
+            ? IsSettingsDirty ? copy.SettingsDirtyStateTitle : copy.SettingsEditingStateTitle
+            : copy.SettingsReadOnlyStateTitle;
+
+    internal string SettingsStateSummary =>
+        IsSettingsEditing
+            ? IsSettingsDirty ? copy.SettingsDirtyStateSummary : copy.SettingsEditingStateSummary
+            : copy.SettingsReadOnlyStateSummary;
+
+    internal string CloseBehaviorSummary => copy.FormatCloseBehaviorSummary(CloseBehavior);
 
     internal IBrush HeroAccentBrush
     {
@@ -409,6 +487,37 @@ internal sealed class MainWindowViewModel : ObservableObject
             _ => false,
         };
 
+    internal string DiagnosticsServiceStatusValue => StatusSummary;
+
+    internal string DiagnosticsServiceEndpointValue => WebEndpoint;
+
+    internal string DiagnosticsEnvironmentSummaryValue =>
+        copy.FormatEnvironmentSummary(BlockingEnvironmentCheckCount, WarningEnvironmentCheckCount, ReadyEnvironmentCheckCount);
+
+    internal string DiagnosticsRecentErrorValue =>
+        !string.IsNullOrWhiteSpace(LastError)
+            ? LastError
+            : RecentStderr.FirstOrDefault() ?? copy.DiagnosticsNoRecentError;
+
+    internal string TrayStatusSummary => copy.FormatTrayStatusSummary(StatusSummary, HasBlockingEnvironmentChecks, HasWarningEnvironmentChecks);
+
+    internal string TrayTooltipText => copy.FormatTrayTooltip(TrayStatusSummary);
+
+    internal LauncherTrayAction TrayServiceAction =>
+        ShouldUseTrayStopAction()
+            ? LauncherTrayAction.Stop
+            : LauncherTrayAction.Start;
+
+    internal string TrayServiceActionLabel =>
+        TrayServiceAction == LauncherTrayAction.Stop
+            ? copy.StopServiceLabel
+            : copy.StartServiceLabel;
+
+    internal bool CanRunTrayServiceAction =>
+        TrayServiceAction == LauncherTrayAction.Stop
+            ? CanStop
+            : CanStart;
+
     internal async Task InitializeAsync()
     {
         await ExecuteAsync(LauncherUiAction.Initialize, copy.ActionLauncherInitializing, copy.ActionLauncherInitialized, () => coordinator.InitializeAsync()).ConfigureAwait(false);
@@ -416,7 +525,14 @@ internal sealed class MainWindowViewModel : ObservableObject
 
     internal async Task RefreshAsync()
     {
-        await ExecuteAsync(LauncherUiAction.Refresh, null, null, () => coordinator.RefreshAsync()).ConfigureAwait(false);
+        try
+        {
+            await coordinator.RefreshAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            HandleActionError(ex);
+        }
     }
 
     internal async Task RetryAsync()
@@ -432,6 +548,34 @@ internal sealed class MainWindowViewModel : ObservableObject
         {
             appliedSettings = settings;
             SetSettingsEditing(false);
+            NotifySettingsDraftChanged();
+        }
+    }
+
+    internal async Task<bool> PersistCloseBehaviorAsync(LauncherCloseBehavior closeBehavior)
+    {
+        if (appliedSettings is null || appliedSettings.CloseBehavior == closeBehavior)
+        {
+            return true;
+        }
+
+        var previousCloseBehavior = CloseBehavior;
+        CloseBehavior = closeBehavior;
+        var settings = appliedSettings with { CloseBehavior = closeBehavior };
+
+        try
+        {
+            await coordinator.SaveSettingsAsync(settings).ConfigureAwait(false);
+            appliedSettings = settings;
+            SetOperationSummary(copy.ActionCloseBehaviorSaved);
+            NotifySettingsDraftChanged();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            CloseBehavior = previousCloseBehavior;
+            HandleActionError(ex);
+            return false;
         }
     }
 
@@ -533,8 +677,7 @@ internal sealed class MainWindowViewModel : ObservableObject
             ServerExecutablePath = appliedSettings.ServerExecutablePath;
             ConfigPath = appliedSettings.ConfigPath;
             Workdir = appliedSettings.Workdir;
-            CloseToTrayEnabled = appliedSettings.CloseToTrayEnabled;
-            CloseTipAcknowledged = appliedSettings.CloseTipAcknowledged;
+            CloseBehavior = appliedSettings.CloseBehavior;
         }
 
         SetSettingsEditing(false);
@@ -544,8 +687,7 @@ internal sealed class MainWindowViewModel : ObservableObject
     private void SetSettingsEditing(bool value)
     {
         IsSettingsEditing = value;
-        OnPropertyChanged(nameof(AreSettingsReadOnly));
-        OnPropertyChanged(nameof(CanSaveSettings));
+        NotifySettingsDraftChanged();
     }
 
     private async Task<bool> ExecuteAsync(LauncherUiAction actionKind, string? pendingMessage, string? successMessage, Func<Task> action)
@@ -568,22 +710,7 @@ internal sealed class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            if (!marshalToUiThread || Dispatcher.UIThread.CheckAccess())
-            {
-                LastError = ex.Message;
-                HasLastError = !string.IsNullOrWhiteSpace(ex.Message);
-                OperationSummary = ex.Message;
-            }
-            else
-            {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    LastError = ex.Message;
-                    HasLastError = !string.IsNullOrWhiteSpace(ex.Message);
-                    OperationSummary = ex.Message;
-                });
-            }
-
+            HandleActionError(ex);
             return false;
         }
         finally
@@ -611,10 +738,8 @@ internal sealed class MainWindowViewModel : ObservableObject
             ServerExecutablePath = snapshot.Settings.ServerExecutablePath;
             ConfigPath = snapshot.Settings.ConfigPath;
             Workdir = snapshot.Settings.Workdir;
+            CloseBehavior = snapshot.Settings.CloseBehavior;
         }
-
-        CloseToTrayEnabled = snapshot.Settings.CloseToTrayEnabled;
-        CloseTipAcknowledged = snapshot.Settings.CloseTipAcknowledged;
         StatusSummary = copy.FormatStatusSummary(snapshot.ServiceState);
         currentServiceState = snapshot.ServiceState;
         HeroTitle = copy.FormatHeroTitle(snapshot.ServiceState, snapshot.EnvironmentChecks);
@@ -710,6 +835,16 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(OpenReleasePageActionDisplayLabel));
         OnPropertyChanged(nameof(SaveSettingsActionDisplayLabel));
         OnPropertyChanged(nameof(CanRunPrimaryAction));
+        OnPropertyChanged(nameof(TrayStatusSummary));
+        OnPropertyChanged(nameof(TrayTooltipText));
+        OnPropertyChanged(nameof(TrayServiceAction));
+        OnPropertyChanged(nameof(TrayServiceActionLabel));
+        OnPropertyChanged(nameof(CanRunTrayServiceAction));
+        OnPropertyChanged(nameof(DiagnosticsServiceStatusValue));
+        OnPropertyChanged(nameof(DiagnosticsServiceEndpointValue));
+        OnPropertyChanged(nameof(DiagnosticsEnvironmentSummaryValue));
+        OnPropertyChanged(nameof(DiagnosticsRecentErrorValue));
+        NotifySettingsDraftChanged();
     }
 
     private void ActivateSection(LauncherSection section, bool updateSelection = true)
@@ -738,8 +873,19 @@ internal sealed class MainWindowViewModel : ObservableObject
             ServerExecutablePath.Trim(),
             ConfigPath.Trim(),
             Workdir.Trim(),
-            CloseToTrayEnabled,
-            false);
+            CloseBehavior);
+    }
+
+    private bool ShouldUseTrayStopAction()
+    {
+        return currentServiceState is LauncherServiceState.ExternalService
+            or LauncherServiceState.HealthOnly
+            or LauncherServiceState.Ready
+            or LauncherServiceState.Degraded
+            or LauncherServiceState.Starting
+            or LauncherServiceState.ShuttingDown
+            or LauncherServiceState.Failed
+            || CanStop;
     }
 
     private static LauncherPrimaryAction ResolvePrimaryAction(LauncherServiceState serviceState, bool canStart, bool canOpenWebUi)
@@ -794,6 +940,40 @@ internal sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(OpenLogsActionDisplayLabel));
         OnPropertyChanged(nameof(OpenReleasePageActionDisplayLabel));
         OnPropertyChanged(nameof(SaveSettingsActionDisplayLabel));
+        OnPropertyChanged(nameof(CanRunTrayServiceAction));
+    }
+
+    private void NotifySettingsDraftChanged()
+    {
+        OnPropertyChanged(nameof(AreSettingsReadOnly));
+        OnPropertyChanged(nameof(IsSettingsDirty));
+        OnPropertyChanged(nameof(CanSaveSettings));
+        OnPropertyChanged(nameof(SettingsStateTitle));
+        OnPropertyChanged(nameof(SettingsStateSummary));
+        OnPropertyChanged(nameof(IsCloseBehaviorAskEveryTime));
+        OnPropertyChanged(nameof(IsCloseBehaviorHideToTray));
+        OnPropertyChanged(nameof(IsCloseBehaviorExitApplication));
+        OnPropertyChanged(nameof(CloseBehaviorSummary));
+    }
+
+    private void HandleActionError(Exception ex)
+    {
+        if (!marshalToUiThread || Dispatcher.UIThread.CheckAccess())
+        {
+            LastError = ex.Message;
+            HasLastError = !string.IsNullOrWhiteSpace(ex.Message);
+            OperationSummary = ex.Message;
+            OnPropertyChanged(nameof(DiagnosticsRecentErrorValue));
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            LastError = ex.Message;
+            HasLastError = !string.IsNullOrWhiteSpace(ex.Message);
+            OperationSummary = ex.Message;
+            OnPropertyChanged(nameof(DiagnosticsRecentErrorValue));
+        });
     }
 }
 
@@ -813,11 +993,12 @@ internal enum LauncherUiAction
 
 internal sealed class LauncherNavigationItemViewModel
 {
-    internal LauncherNavigationItemViewModel(LauncherSection section, string title, string summary, bool isFooterItem)
+    internal LauncherNavigationItemViewModel(LauncherSection section, string title, string summary, string iconGlyph, bool isFooterItem)
     {
         Section = section;
         Title = title;
         Summary = summary;
+        IconGlyph = iconGlyph;
         IsFooterItem = isFooterItem;
     }
 
@@ -826,6 +1007,8 @@ internal sealed class LauncherNavigationItemViewModel
     internal string Title { get; }
 
     internal string Summary { get; }
+
+    internal string IconGlyph { get; }
 
     internal bool IsFooterItem { get; }
 }
@@ -861,6 +1044,10 @@ internal sealed class EnvironmentCheckViewModel
     internal string Detail { get; }
 
     internal string Remediation { get; }
+
+    internal bool HasDetail => !string.IsNullOrWhiteSpace(Detail);
+
+    internal bool HasRemediation => !string.IsNullOrWhiteSpace(Remediation);
 
     internal string SeverityLabel { get; }
 

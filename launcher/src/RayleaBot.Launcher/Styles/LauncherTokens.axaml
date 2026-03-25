@@ -1,36 +1,44 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
-    <Color x:Key="Color.Background">#0B1220</Color>
-    <Color x:Key="Color.Surface">#111827</Color>
-    <Color x:Key="Color.SurfaceAlt">#162033</Color>
-    <Color x:Key="Color.SurfaceMuted">#0F172A</Color>
-    <Color x:Key="Color.SurfaceHover">#1B2940</Color>
-    <Color x:Key="Color.SurfacePressed">#22314A</Color>
-    <Color x:Key="Color.StrokeSubtle">#24FFFFFF</Color>
-    <Color x:Key="Color.StrokeStrong">#3B82F6</Color>
-    <Color x:Key="Color.TextPrimary">#F8FAFC</Color>
-    <Color x:Key="Color.TextSecondary">#94A3B8</Color>
-    <Color x:Key="Color.TextMuted">#64748B</Color>
-    <Color x:Key="Color.Accent">#38BDF8</Color>
-    <Color x:Key="Color.AccentHover">#63CBF9</Color>
-    <Color x:Key="Color.AccentPressed">#1EA6E4</Color>
-    <Color x:Key="Color.AccentForeground">#07121C</Color>
-    <Color x:Key="Color.Success">#22C55E</Color>
-    <Color x:Key="Color.Warning">#F59E0B</Color>
-    <Color x:Key="Color.Error">#EF4444</Color>
-    <Color x:Key="Color.ErrorSurface">#2B1217</Color>
-    <Color x:Key="Color.ErrorSurfaceHover">#3A161C</Color>
-    <Color x:Key="Color.ErrorSurfacePressed">#471B23</Color>
+    <Color x:Key="Color.Background">#0B1118</Color>
+    <Color x:Key="Color.NavigationPane">#0E1520</Color>
+    <Color x:Key="Color.Surface">#121922</Color>
+    <Color x:Key="Color.SurfaceElevated">#17202B</Color>
+    <Color x:Key="Color.SurfaceRaised">#1C2735</Color>
+    <Color x:Key="Color.SurfaceMuted">#0E141C</Color>
+    <Color x:Key="Color.SurfaceHover">#202B39</Color>
+    <Color x:Key="Color.SurfacePressed">#263445</Color>
+    <Color x:Key="Color.Selection">#18324A</Color>
+    <Color x:Key="Color.SelectionBorder">#78B6FF</Color>
+    <Color x:Key="Color.BorderSubtle">#1FFFFFFF</Color>
+    <Color x:Key="Color.BorderStrong">#33546C8C</Color>
+    <Color x:Key="Color.TextPrimary">#F3F7FB</Color>
+    <Color x:Key="Color.TextSecondary">#A9B4C4</Color>
+    <Color x:Key="Color.TextMuted">#7D8796</Color>
+    <Color x:Key="Color.Accent">#79B8FF</Color>
+    <Color x:Key="Color.AccentHover">#95C7FF</Color>
+    <Color x:Key="Color.AccentPressed">#5EA8FF</Color>
+    <Color x:Key="Color.AccentForeground">#081420</Color>
+    <Color x:Key="Color.Success">#5FBB7A</Color>
+    <Color x:Key="Color.Warning">#D5A154</Color>
+    <Color x:Key="Color.Error">#E17379</Color>
+    <Color x:Key="Color.SuccessSurface">#132018</Color>
+    <Color x:Key="Color.WarningSurface">#241B10</Color>
+    <Color x:Key="Color.ErrorSurface">#2A161A</Color>
 
     <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
+    <SolidColorBrush x:Key="Brush.NavigationPane" Color="{StaticResource Color.NavigationPane}" />
     <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
-    <SolidColorBrush x:Key="Brush.SurfaceAlt" Color="{StaticResource Color.SurfaceAlt}" />
+    <SolidColorBrush x:Key="Brush.SurfaceElevated" Color="{StaticResource Color.SurfaceElevated}" />
+    <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="{StaticResource Color.SurfaceRaised}" />
     <SolidColorBrush x:Key="Brush.SurfaceMuted" Color="{StaticResource Color.SurfaceMuted}" />
     <SolidColorBrush x:Key="Brush.SurfaceHover" Color="{StaticResource Color.SurfaceHover}" />
     <SolidColorBrush x:Key="Brush.SurfacePressed" Color="{StaticResource Color.SurfacePressed}" />
-    <SolidColorBrush x:Key="Brush.StrokeSubtle" Color="{StaticResource Color.StrokeSubtle}" />
-    <SolidColorBrush x:Key="Brush.StrokeStrong" Color="{StaticResource Color.StrokeStrong}" />
+    <SolidColorBrush x:Key="Brush.Selection" Color="{StaticResource Color.Selection}" />
+    <SolidColorBrush x:Key="Brush.SelectionBorder" Color="{StaticResource Color.SelectionBorder}" />
+    <SolidColorBrush x:Key="Brush.BorderSubtle" Color="{StaticResource Color.BorderSubtle}" />
+    <SolidColorBrush x:Key="Brush.BorderStrong" Color="{StaticResource Color.BorderStrong}" />
     <SolidColorBrush x:Key="Brush.TextPrimary" Color="{StaticResource Color.TextPrimary}" />
     <SolidColorBrush x:Key="Brush.TextSecondary" Color="{StaticResource Color.TextSecondary}" />
     <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}" />
@@ -41,19 +49,38 @@
     <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}" />
     <SolidColorBrush x:Key="Brush.Warning" Color="{StaticResource Color.Warning}" />
     <SolidColorBrush x:Key="Brush.Error" Color="{StaticResource Color.Error}" />
+    <SolidColorBrush x:Key="Brush.SuccessSurface" Color="{StaticResource Color.SuccessSurface}" />
+    <SolidColorBrush x:Key="Brush.WarningSurface" Color="{StaticResource Color.WarningSurface}" />
     <SolidColorBrush x:Key="Brush.ErrorSurface" Color="{StaticResource Color.ErrorSurface}" />
-    <SolidColorBrush x:Key="Brush.ErrorSurfaceHover" Color="{StaticResource Color.ErrorSurfaceHover}" />
-    <SolidColorBrush x:Key="Brush.ErrorSurfacePressed" Color="{StaticResource Color.ErrorSurfacePressed}" />
+
+    <FontFamily x:Key="FontFamily.Ui">Segoe UI Variable Text, Segoe UI, Inter</FontFamily>
+    <FontFamily x:Key="FontFamily.Display">Segoe UI Variable Display, Segoe UI Semibold, Inter</FontFamily>
+    <FontFamily x:Key="FontFamily.Mono">Cascadia Mono,Consolas,monospace</FontFamily>
 
     <CornerRadius x:Key="Radius.Small">8</CornerRadius>
-    <CornerRadius x:Key="Radius.Medium">12</CornerRadius>
-    <CornerRadius x:Key="Radius.Large">16</CornerRadius>
+    <CornerRadius x:Key="Radius.Medium">10</CornerRadius>
+    <CornerRadius x:Key="Radius.Large">12</CornerRadius>
+    <CornerRadius x:Key="Radius.Pill">999</CornerRadius>
 
-    <Thickness x:Key="Thickness.CardPadding">20</Thickness>
-    <Thickness x:Key="Thickness.SectionGap">0,0,0,20</Thickness>
+    <Thickness x:Key="Thickness.PagePadding">18</Thickness>
+    <Thickness x:Key="Thickness.CardPadding">16</Thickness>
+    <Thickness x:Key="Thickness.CompactCardPadding">12</Thickness>
+    <Thickness x:Key="Thickness.PageHeaderPadding">14</Thickness>
 
-    <x:Double x:Key="Font.PageTitle">24</x:Double>
-    <x:Double x:Key="Font.SectionTitle">18</x:Double>
+    <x:Double x:Key="Spacing.Page">18</x:Double>
+    <x:Double x:Key="Spacing.Section">14</x:Double>
+    <x:Double x:Key="Spacing.Row">10</x:Double>
+    <x:Double x:Key="Spacing.Inline">8</x:Double>
+
+    <x:Double x:Key="Size.ControlHeight">38</x:Double>
+    <x:Double x:Key="Size.CompactControlHeight">32</x:Double>
+    <x:Double x:Key="Size.NavItemHeight">40</x:Double>
+    <x:Double x:Key="Size.DialogWidth">460</x:Double>
+    <x:Double x:Key="Size.NavPaneOpen">220</x:Double>
+    <x:Double x:Key="Size.NavPaneCompact">52</x:Double>
+
+    <x:Double x:Key="Font.PageTitle">22</x:Double>
+    <x:Double x:Key="Font.SectionTitle">17</x:Double>
     <x:Double x:Key="Font.Body">14</x:Double>
     <x:Double x:Key="Font.Caption">12</x:Double>
   </Styles.Resources>

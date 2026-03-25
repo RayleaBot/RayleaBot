@@ -4,53 +4,100 @@
              x:Class="RayleaBot.Launcher.Views.DiagnosticsPage"
              x:DataType="vm:MainWindowViewModel">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Spacing="20" Margin="0,0,0,20">
-      <Border Classes="app-card">
-        <StackPanel Spacing="6">
+    <StackPanel Classes="page-root">
+      <Border Classes="compact-page-header">
+        <StackPanel Spacing="4">
           <TextBlock Classes="caption" Text="{CompiledBinding Copy.DiagnosticsPageHeading}" />
           <TextBlock Classes="page-title" Text="{CompiledBinding Copy.DiagnosticsTitle}" />
-          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.DiagnosticsPageSummary}" TextWrapping="Wrap" />
+          <TextBlock Classes="secondary"
+                     Text="{CompiledBinding Copy.DiagnosticsPageSummary}"
+                     TextWrapping="Wrap" />
         </StackPanel>
       </Border>
 
-      <Border Classes="app-card">
+      <Border Classes="toolbar-card">
         <WrapPanel>
-          <Button Theme="{StaticResource SecondaryActionButton}"
+          <Button Theme="{StaticResource ToolbarActionButton}"
                   Content="{CompiledBinding OpenLogsActionDisplayLabel}"
                   Click="OpenLogsClicked"
-                  Margin="0,0,12,12" />
-          <Button Theme="{StaticResource SecondaryActionButton}"
+                  Margin="0,0,8,8" />
+          <Button Theme="{StaticResource ToolbarActionButton}"
                   Content="{CompiledBinding Copy.CopyDiagnosticsLabel}"
                   Click="CopyDiagnosticsClicked"
-                  Margin="0,0,12,12" />
+                  Margin="0,0,8,8" />
         </WrapPanel>
       </Border>
 
-      <Border Classes="app-card">
-        <StackPanel Spacing="12">
-          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.RecentLogsTitle}" />
-          <ItemsControl ItemsSource="{CompiledBinding RecentStderr}" IsVisible="{CompiledBinding HasRecentStderr}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Border Classes="log-row" Margin="0,0,0,10">
-                  <TextBlock Text="{Binding}" FontFamily="Cascadia Mono,Consolas,monospace" TextWrapping="Wrap" />
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.RecentLogsEmpty}" IsVisible="{CompiledBinding HasNoRecentStderr}" />
-        </StackPanel>
-      </Border>
+      <Grid ColumnDefinitions="1.05*,0.95*"
+            ColumnSpacing="14">
+        <Border Classes="app-card">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="section-title" Text="{CompiledBinding Copy.RecentLogsTitle}" />
+
+            <ItemsControl ItemsSource="{CompiledBinding RecentStderr}"
+                          IsVisible="{CompiledBinding HasRecentStderr}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="log-panel" Margin="0,0,0,8">
+                    <TextBlock Text="{Binding}"
+                               FontFamily="{StaticResource FontFamily.Mono}"
+                               TextWrapping="Wrap" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Classes="empty-state"
+                    IsVisible="{CompiledBinding HasNoRecentStderr}">
+              <TextBlock Classes="secondary"
+                         Text="{CompiledBinding Copy.RecentLogsEmpty}"
+                         TextWrapping="Wrap" />
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Classes="app-card">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="section-title" Text="{CompiledBinding Copy.DiagnosticsSummaryTitle}" />
+            <Grid ColumnDefinitions="Auto,*"
+                  ColumnSpacing="16"
+                  RowDefinitions="Auto,Auto,Auto,Auto"
+                  RowSpacing="8">
+              <TextBlock Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsServiceStatusTitle}" />
+              <TextBlock Grid.Column="1" Classes="meta-value" Text="{CompiledBinding DiagnosticsServiceStatusValue}" />
+
+              <TextBlock Grid.Row="1" Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsServiceEndpointTitle}" />
+              <TextBlock Grid.Row="1"
+                         Grid.Column="1"
+                         Classes="meta-value"
+                         Text="{CompiledBinding DiagnosticsServiceEndpointValue}"
+                         TextWrapping="Wrap" />
+
+              <TextBlock Grid.Row="2" Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsEnvironmentTitle}" />
+              <TextBlock Grid.Row="2"
+                         Grid.Column="1"
+                         Classes="meta-value"
+                         Text="{CompiledBinding DiagnosticsEnvironmentSummaryValue}"
+                         TextWrapping="Wrap" />
+
+              <TextBlock Grid.Row="3" Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsRecentErrorTitle}" />
+              <TextBlock Grid.Row="3"
+                         Grid.Column="1"
+                         Classes="meta-value"
+                         Text="{CompiledBinding DiagnosticsRecentErrorValue}"
+                         TextWrapping="Wrap" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
 
       <Border Classes="app-card">
         <StackPanel Spacing="12">
-          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.CopyDiagnosticsLabel}" />
-          <TextBox Classes="settings-input"
+          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.DiagnosticsRawTitle}" />
+          <TextBox Classes="log-textbox"
                    Text="{CompiledBinding DiagnosticsSummary}"
                    IsReadOnly="True"
-                   AcceptsReturn="True"
-                   TextWrapping="Wrap"
-                   MinHeight="260" />
+                   MinHeight="200" />
         </StackPanel>
       </Border>
     </StackPanel>

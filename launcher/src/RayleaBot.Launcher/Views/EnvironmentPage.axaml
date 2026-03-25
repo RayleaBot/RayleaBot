@@ -4,165 +4,280 @@
              x:Class="RayleaBot.Launcher.Views.EnvironmentPage"
              x:DataType="vm:MainWindowViewModel">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Spacing="20" Margin="0,0,0,20">
-      <Border Classes="app-card">
-        <StackPanel Spacing="10">
+    <StackPanel Classes="page-root">
+      <Border Classes="compact-page-header">
+        <StackPanel Spacing="4">
           <TextBlock Classes="caption" Text="{CompiledBinding Copy.EnvironmentPageHeading}" />
           <TextBlock Classes="page-title" Text="{CompiledBinding Copy.EnvironmentTitle}" />
-          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.EnvironmentPageSummary}" TextWrapping="Wrap" />
+          <TextBlock Classes="secondary"
+                     Text="{CompiledBinding Copy.EnvironmentPageSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="toolbar-card">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
           <WrapPanel>
-            <Border Classes="badge" Margin="0,0,8,0">
-              <TextBlock Text="{CompiledBinding BlockingEnvironmentCheckCount, StringFormat=阻塞项 {0}}" Foreground="{StaticResource Brush.Error}" FontWeight="SemiBold" />
+            <Border Classes="badge" Margin="0,0,8,8">
+              <TextBlock Text="{CompiledBinding BlockingEnvironmentCheckCount, StringFormat=阻塞项 {0}}"
+                         Foreground="{StaticResource Brush.Error}"
+                         FontWeight="SemiBold" />
             </Border>
-            <Border Classes="badge" Margin="0,0,8,0">
-              <TextBlock Text="{CompiledBinding WarningEnvironmentCheckCount, StringFormat=需注意 {0}}" Foreground="{StaticResource Brush.Warning}" FontWeight="SemiBold" />
+            <Border Classes="badge" Margin="0,0,8,8">
+              <TextBlock Text="{CompiledBinding WarningEnvironmentCheckCount, StringFormat=需注意 {0}}"
+                         Foreground="{StaticResource Brush.Warning}"
+                         FontWeight="SemiBold" />
             </Border>
-            <Border Classes="badge">
-              <TextBlock Text="{CompiledBinding ReadyEnvironmentCheckCount, StringFormat=正常 {0}}" Foreground="{StaticResource Brush.Success}" FontWeight="SemiBold" />
+            <Border Classes="badge" Margin="0,0,8,8">
+              <TextBlock Text="{CompiledBinding ReadyEnvironmentCheckCount, StringFormat=正常 {0}}"
+                         Foreground="{StaticResource Brush.Success}"
+                         FontWeight="SemiBold" />
             </Border>
           </WrapPanel>
-        </StackPanel>
+
+          <Button Grid.Column="1"
+                  Theme="{StaticResource ToolbarActionButton}"
+                  Content="{CompiledBinding RetryActionDisplayLabel}"
+                  IsEnabled="{CompiledBinding CanRetry}"
+                  Click="RetryClicked"
+                  VerticalAlignment="Top" />
+        </Grid>
       </Border>
 
-      <Border Classes="app-card" IsVisible="{CompiledBinding HasEnvironmentPackagingNotice}">
-        <StackPanel Spacing="8">
-          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.PackagingInfoTitle}" />
-          <TextBlock Classes="secondary" Text="{CompiledBinding Copy.PackagingInfoSummary}" TextWrapping="Wrap" />
+      <Border Classes="app-card">
+        <Expander IsExpanded="True">
+          <Expander.Header>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.BlockingGroupTitle}" />
+              <Border Grid.Column="1" Classes="badge">
+                <TextBlock Text="{CompiledBinding BlockingEnvironmentCheckCount}"
+                           Foreground="{StaticResource Brush.Error}"
+                           FontWeight="SemiBold" />
+              </Border>
+            </Grid>
+          </Expander.Header>
+
+          <StackPanel Margin="0,10,0,0" Spacing="10">
+            <ItemsControl ItemsSource="{CompiledBinding BlockingEnvironmentChecks}"
+                          IsVisible="{CompiledBinding HasBlockingEnvironmentChecks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
+                  <Border Classes="check-item" Margin="0,0,0,6">
+                    <StackPanel Spacing="8">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="4">
+                          <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Title}" />
+                          <TextBlock Classes="secondary"
+                                     Text="{CompiledBinding Summary}"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Border Grid.Column="1" Classes="badge" VerticalAlignment="Top">
+                          <TextBlock Text="{CompiledBinding SeverityLabel}"
+                                     Foreground="{CompiledBinding AccentBrush}"
+                                     FontWeight="SemiBold" />
+                        </Border>
+                      </Grid>
+
+                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasDetail}">
+                        <TextBlock Classes="caption" Text="证据" />
+                        <TextBlock Classes="secondary"
+                                   Text="{CompiledBinding Detail}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+
+                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasRemediation}">
+                        <TextBlock Classes="caption" Text="处理建议" />
+                        <TextBlock Classes="secondary"
+                                   Text="{CompiledBinding Remediation}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+
+                      <WrapPanel>
+                        <Button Theme="{StaticResource ToolbarActionButton}"
+                                Classes="inline-button"
+                                Content="复制证据"
+                                Tag="{CompiledBinding Detail}"
+                                Click="CopyEvidenceClicked"
+                                Margin="0,0,8,8" />
+                        <Button Theme="{StaticResource ToolbarActionButton}"
+                                Classes="inline-button"
+                                Content="打开位置"
+                                Tag="{CompiledBinding LocationPath}"
+                                Click="OpenLocationClicked"
+                                Margin="0,0,8,8"
+                                IsVisible="{CompiledBinding HasLocationPath}" />
+                        <Button Theme="{StaticResource ToolbarActionButton}"
+                                Classes="inline-button"
+                                Content="重新检查"
+                                Click="RetryClicked"
+                                Margin="0,0,8,8" />
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Classes="empty-state"
+                    IsVisible="{CompiledBinding HasNoBlockingEnvironmentChecks}">
+              <TextBlock Classes="secondary" Text="{CompiledBinding Copy.EmptyGroupHint}" />
+            </Border>
+          </StackPanel>
+        </Expander>
+      </Border>
+
+      <Border Classes="app-card">
+        <Expander IsExpanded="True">
+          <Expander.Header>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.WarningGroupTitle}" />
+              <Border Grid.Column="1" Classes="badge">
+                <TextBlock Text="{CompiledBinding WarningEnvironmentCheckCount}"
+                           Foreground="{StaticResource Brush.Warning}"
+                           FontWeight="SemiBold" />
+              </Border>
+            </Grid>
+          </Expander.Header>
+
+          <StackPanel Margin="0,10,0,0" Spacing="10">
+            <ItemsControl ItemsSource="{CompiledBinding WarningEnvironmentChecks}"
+                          IsVisible="{CompiledBinding HasWarningEnvironmentChecks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
+                  <Border Classes="check-item" Margin="0,0,0,6">
+                    <StackPanel Spacing="8">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="4">
+                          <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Title}" />
+                          <TextBlock Classes="secondary"
+                                     Text="{CompiledBinding Summary}"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Border Grid.Column="1" Classes="badge" VerticalAlignment="Top">
+                          <TextBlock Text="{CompiledBinding SeverityLabel}"
+                                     Foreground="{CompiledBinding AccentBrush}"
+                                     FontWeight="SemiBold" />
+                        </Border>
+                      </Grid>
+
+                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasDetail}">
+                        <TextBlock Classes="caption" Text="证据" />
+                        <TextBlock Classes="secondary"
+                                   Text="{CompiledBinding Detail}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+
+                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasRemediation}">
+                        <TextBlock Classes="caption" Text="处理建议" />
+                        <TextBlock Classes="secondary"
+                                   Text="{CompiledBinding Remediation}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+
+                      <WrapPanel>
+                        <Button Theme="{StaticResource ToolbarActionButton}"
+                                Classes="inline-button"
+                                Content="复制证据"
+                                Tag="{CompiledBinding Detail}"
+                                Click="CopyEvidenceClicked"
+                                Margin="0,0,8,8" />
+                        <Button Theme="{StaticResource ToolbarActionButton}"
+                                Classes="inline-button"
+                                Content="打开位置"
+                                Tag="{CompiledBinding LocationPath}"
+                                Click="OpenLocationClicked"
+                                Margin="0,0,8,8"
+                                IsVisible="{CompiledBinding HasLocationPath}" />
+                        <Button Theme="{StaticResource ToolbarActionButton}"
+                                Classes="inline-button"
+                                Content="重新检查"
+                                Click="RetryClicked"
+                                Margin="0,0,8,8" />
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Classes="empty-state"
+                    IsVisible="{CompiledBinding HasNoWarningEnvironmentChecks}">
+              <TextBlock Classes="secondary" Text="{CompiledBinding Copy.EmptyGroupHint}" />
+            </Border>
+          </StackPanel>
+        </Expander>
+      </Border>
+
+      <Border Classes="app-card">
+        <Expander IsExpanded="False">
+          <Expander.Header>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.ReadyGroupTitle}" />
+              <Border Grid.Column="1" Classes="badge">
+                <TextBlock Text="{CompiledBinding ReadyEnvironmentCheckCount}"
+                           Foreground="{StaticResource Brush.Success}"
+                           FontWeight="SemiBold" />
+              </Border>
+            </Grid>
+          </Expander.Header>
+
+          <StackPanel Margin="0,10,0,0" Spacing="10">
+            <ItemsControl ItemsSource="{CompiledBinding ReadyEnvironmentChecks}"
+                          IsVisible="{CompiledBinding HasReadyEnvironmentChecks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
+                  <Border Classes="check-item" Margin="0,0,0,6">
+                    <StackPanel Spacing="8">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="4">
+                          <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Title}" />
+                          <TextBlock Classes="secondary"
+                                     Text="{CompiledBinding Summary}"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Border Grid.Column="1" Classes="badge" VerticalAlignment="Top">
+                          <TextBlock Text="{CompiledBinding SeverityLabel}"
+                                     Foreground="{CompiledBinding AccentBrush}"
+                                     FontWeight="SemiBold" />
+                        </Border>
+                      </Grid>
+
+                      <StackPanel Spacing="3" IsVisible="{CompiledBinding HasDetail}">
+                        <TextBlock Classes="caption" Text="证据" />
+                        <TextBlock Classes="secondary"
+                                   Text="{CompiledBinding Detail}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Classes="empty-state"
+                    IsVisible="{CompiledBinding HasNoReadyEnvironmentChecks}">
+              <TextBlock Classes="secondary" Text="{CompiledBinding Copy.EmptyGroupHint}" />
+            </Border>
+          </StackPanel>
+        </Expander>
+      </Border>
+
+      <Border Classes="info-strip"
+              IsVisible="{CompiledBinding HasEnvironmentPackagingNotice}">
+        <StackPanel Spacing="6">
+          <TextBlock FontWeight="SemiBold" Text="{CompiledBinding Copy.PackagingInfoTitle}" />
+          <TextBlock Classes="secondary"
+                     Text="{CompiledBinding Copy.PackagingInfoSummary}"
+                     TextWrapping="Wrap" />
           <TextBlock Text="{CompiledBinding EnvironmentPackagingSummary}" TextWrapping="Wrap" />
-          <TextBlock Classes="secondary" Text="{CompiledBinding EnvironmentPackagingDetail}" TextWrapping="Wrap" />
+          <TextBlock Classes="secondary"
+                     Text="{CompiledBinding EnvironmentPackagingDetail}"
+                     TextWrapping="Wrap" />
         </StackPanel>
       </Border>
-
-      <Expander Classes="check-group"
-                Header="{Binding Copy.BlockingGroupTitle}"
-                IsExpanded="True">
-        <Border Classes="app-card">
-          <StackPanel Spacing="12">
-            <ItemsControl ItemsSource="{CompiledBinding BlockingEnvironmentChecks}" IsVisible="{CompiledBinding HasBlockingEnvironmentChecks}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
-                  <Border Classes="sub-card" Margin="0,0,0,12">
-                    <StackPanel Spacing="10">
-                      <DockPanel>
-                        <TextBlock Classes="section-title" Text="{CompiledBinding Title}" DockPanel.Dock="Left" />
-                        <Border Classes="badge" DockPanel.Dock="Right">
-                          <TextBlock Text="{CompiledBinding SeverityLabel}" Foreground="{CompiledBinding AccentBrush}" FontWeight="SemiBold" />
-                        </Border>
-                      </DockPanel>
-                      <TextBlock Text="{CompiledBinding Summary}" TextWrapping="Wrap" />
-                      <StackPanel Spacing="4">
-                        <TextBlock Classes="caption" Text="证据" />
-                        <TextBlock Classes="secondary" Text="{CompiledBinding Detail}" TextWrapping="Wrap" />
-                      </StackPanel>
-                      <StackPanel Spacing="4">
-                        <TextBlock Classes="caption" Text="处理建议" />
-                        <TextBlock Classes="secondary" Text="{CompiledBinding Remediation}" TextWrapping="Wrap" />
-                      </StackPanel>
-                      <WrapPanel>
-                        <Button Theme="{StaticResource SubtleActionButton}"
-                                Classes="inline-button"
-                                Content="复制证据"
-                                Tag="{CompiledBinding Detail}"
-                                Click="CopyEvidenceClicked"
-                                Margin="0,0,8,8" />
-                        <Button Theme="{StaticResource SecondaryActionButton}"
-                                Classes="inline-button"
-                                Content="打开位置"
-                                Tag="{CompiledBinding LocationPath}"
-                                Click="OpenLocationClicked"
-                                Margin="0,0,8,8"
-                                IsVisible="{CompiledBinding HasLocationPath}" />
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <TextBlock Classes="secondary" Text="{CompiledBinding Copy.EmptyGroupHint}" IsVisible="{CompiledBinding HasNoBlockingEnvironmentChecks}" />
-          </StackPanel>
-        </Border>
-      </Expander>
-
-      <Expander Classes="check-group"
-                Header="{Binding Copy.WarningGroupTitle}"
-                IsExpanded="True">
-        <Border Classes="app-card">
-          <StackPanel Spacing="12">
-            <ItemsControl ItemsSource="{CompiledBinding WarningEnvironmentChecks}" IsVisible="{CompiledBinding HasWarningEnvironmentChecks}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
-                  <Border Classes="sub-card" Margin="0,0,0,12">
-                    <StackPanel Spacing="10">
-                      <DockPanel>
-                        <TextBlock Classes="section-title" Text="{CompiledBinding Title}" DockPanel.Dock="Left" />
-                        <Border Classes="badge" DockPanel.Dock="Right">
-                          <TextBlock Text="{CompiledBinding SeverityLabel}" Foreground="{CompiledBinding AccentBrush}" FontWeight="SemiBold" />
-                        </Border>
-                      </DockPanel>
-                      <TextBlock Text="{CompiledBinding Summary}" TextWrapping="Wrap" />
-                      <StackPanel Spacing="4">
-                        <TextBlock Classes="caption" Text="证据" />
-                        <TextBlock Classes="secondary" Text="{CompiledBinding Detail}" TextWrapping="Wrap" />
-                      </StackPanel>
-                      <StackPanel Spacing="4">
-                        <TextBlock Classes="caption" Text="处理建议" />
-                        <TextBlock Classes="secondary" Text="{CompiledBinding Remediation}" TextWrapping="Wrap" />
-                      </StackPanel>
-                      <WrapPanel>
-                        <Button Theme="{StaticResource SubtleActionButton}"
-                                Classes="inline-button"
-                                Content="复制证据"
-                                Tag="{CompiledBinding Detail}"
-                                Click="CopyEvidenceClicked"
-                                Margin="0,0,8,8" />
-                        <Button Theme="{StaticResource SecondaryActionButton}"
-                                Classes="inline-button"
-                                Content="打开位置"
-                                Tag="{CompiledBinding LocationPath}"
-                                Click="OpenLocationClicked"
-                                Margin="0,0,8,8"
-                                IsVisible="{CompiledBinding HasLocationPath}" />
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <TextBlock Classes="secondary" Text="{CompiledBinding Copy.EmptyGroupHint}" IsVisible="{CompiledBinding HasNoWarningEnvironmentChecks}" />
-          </StackPanel>
-        </Border>
-      </Expander>
-
-      <Expander Classes="check-group"
-                Header="{Binding Copy.ReadyGroupTitle}"
-                IsExpanded="False">
-        <Border Classes="app-card">
-          <StackPanel Spacing="12">
-            <ItemsControl ItemsSource="{CompiledBinding ReadyEnvironmentChecks}" IsVisible="{CompiledBinding HasReadyEnvironmentChecks}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:EnvironmentCheckViewModel">
-                  <Border Classes="sub-card" Margin="0,0,0,12">
-                    <StackPanel Spacing="10">
-                      <DockPanel>
-                        <TextBlock Classes="section-title" Text="{CompiledBinding Title}" DockPanel.Dock="Left" />
-                        <Border Classes="badge" DockPanel.Dock="Right">
-                          <TextBlock Text="{CompiledBinding SeverityLabel}" Foreground="{CompiledBinding AccentBrush}" FontWeight="SemiBold" />
-                        </Border>
-                      </DockPanel>
-                      <TextBlock Text="{CompiledBinding Summary}" TextWrapping="Wrap" />
-                      <StackPanel Spacing="4">
-                        <TextBlock Classes="caption" Text="证据" />
-                        <TextBlock Classes="secondary" Text="{CompiledBinding Detail}" TextWrapping="Wrap" />
-                      </StackPanel>
-                    </StackPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <TextBlock Classes="secondary" Text="{CompiledBinding Copy.EmptyGroupHint}" IsVisible="{CompiledBinding HasNoReadyEnvironmentChecks}" />
-          </StackPanel>
-        </Border>
-      </Expander>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

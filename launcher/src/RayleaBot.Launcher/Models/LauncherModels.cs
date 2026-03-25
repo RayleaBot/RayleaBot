@@ -30,6 +30,13 @@ internal enum LauncherPrimaryAction
     StartService,
 }
 
+internal enum LauncherCloseBehavior
+{
+    AskEveryTime,
+    HideToTray,
+    ExitApplication,
+}
+
 internal enum CheckSeverity
 {
     Ok,
@@ -41,8 +48,7 @@ internal sealed record LauncherSettings(
     string ServerExecutablePath,
     string ConfigPath,
     string Workdir,
-    bool CloseToTrayEnabled = true,
-    bool CloseTipAcknowledged = false);
+    LauncherCloseBehavior CloseBehavior = LauncherCloseBehavior.HideToTray);
 
 internal sealed record ServerEndpoint(string Host, int Port)
 {

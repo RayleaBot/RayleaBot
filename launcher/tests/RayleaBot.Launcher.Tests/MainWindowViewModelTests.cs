@@ -38,6 +38,18 @@ public sealed class MainWindowViewModelTests
     }
 
     [TestMethod]
+    public async Task InitializeAsync_ProvidesNavigationGlyphsForCompactPane()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+
+        Assert.IsTrue(viewModel.NavigationItems.All(item => !string.IsNullOrWhiteSpace(item.IconGlyph)));
+        Assert.AreEqual("\uE713", viewModel.FooterNavigationItems.Single().IconGlyph);
+    }
+
+    [TestMethod]
     public void SetActiveSection_SwitchesSectionFlags()
     {
         var fixture = new LauncherFixture();
@@ -123,6 +135,29 @@ public sealed class MainWindowViewModelTests
     }
 
     [TestMethod]
+    public async Task RefreshAsync_DoesNotSurfaceBusyFeedbackDuringBackgroundPoll()
+    {
+        var fixture = new LauncherFixture();
+        var coordinator = fixture.CreateCoordinator(new LauncherCoordinatorOptions(TimeSpan.FromMilliseconds(40), TimeSpan.FromMilliseconds(5), TimeSpan.FromMilliseconds(20)));
+        var viewModel = new MainWindowViewModel(coordinator, marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+        var inspectGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.EnvironmentInspector.InspectGate = inspectGate;
+
+        var refreshTask = viewModel.RefreshAsync();
+
+        Assert.IsFalse(viewModel.IsActionInProgress);
+        Assert.AreEqual(string.Empty, viewModel.PendingActionMessage);
+
+        inspectGate.SetResult();
+        await refreshTask;
+
+        Assert.IsFalse(viewModel.IsActionInProgress);
+        Assert.AreEqual(string.Empty, viewModel.PendingActionMessage);
+    }
+
+    [TestMethod]
     public async Task InitializeAsync_DoesNotPromoteBuildInfoWarningToHomeAlert()
     {
         var fixture = new LauncherFixture();
@@ -183,11 +218,113 @@ public sealed class MainWindowViewModelTests
 
         Assert.IsTrue(viewModel.IsSettingsEditing);
         Assert.IsFalse(viewModel.AreSettingsReadOnly);
+        Assert.IsFalse(viewModel.IsSettingsDirty);
+        Assert.IsFalse(viewModel.CanSaveSettings);
 
         viewModel.CancelSettingsEditing();
 
         Assert.IsFalse(viewModel.IsSettingsEditing);
         Assert.IsTrue(viewModel.AreSettingsReadOnly);
+        Assert.IsFalse(viewModel.IsSettingsDirty);
+    }
+
+    [TestMethod]
+    public async Task SettingsEditing_BecomesDirtyOnlyAfterDraftChanges_AndResetsOnCancel()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+        var originalWorkdir = viewModel.Workdir;
+
+        viewModel.BeginSettingsEditing();
+        viewModel.Workdir = originalWorkdir + "\\draft";
+
+        Assert.IsTrue(viewModel.IsSettingsDirty);
+        Assert.IsTrue(viewModel.CanSaveSettings);
+
+        viewModel.CancelSettingsEditing();
+
+        Assert.AreEqual(originalWorkdir, viewModel.Workdir);
+        Assert.IsFalse(viewModel.IsSettingsDirty);
+        Assert.IsFalse(viewModel.CanSaveSettings);
+    }
+
+    [TestMethod]
+    public async Task SettingsEditing_BecomesDirtyWhenCloseBehaviorChanges_AndResetsOnCancel()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+        viewModel.BeginSettingsEditing();
+        viewModel.CloseBehavior = LauncherCloseBehavior.ExitApplication;
+
+        Assert.IsTrue(viewModel.IsSettingsDirty);
+        Assert.IsTrue(viewModel.IsCloseBehaviorExitApplication);
+        Assert.IsTrue(viewModel.CanSaveSettings);
+
+        viewModel.CancelSettingsEditing();
+
+        Assert.IsTrue(viewModel.IsCloseBehaviorHideToTray);
+        Assert.IsFalse(viewModel.IsSettingsDirty);
+        Assert.IsFalse(viewModel.CanSaveSettings);
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_ExposesTraySummaryTooltipAndDynamicServiceAction()
+    {
+        var fixture = new LauncherFixture();
+        fixture.ManagementClient.HealthDefault = false;
+        fixture.EnvironmentInspector.Inspection = new EnvironmentInspection(
+        [
+            new EnvironmentCheckResult(
+                "render.templates_missing",
+                "模板资源",
+                CheckSeverity.Warning,
+                "模板资源缺失。",
+                @"缺少模板目录：C:\RayleaBot\templates",
+                "启用 render.image 预览链路之前，请先补齐打包模板资源。"),
+        ],
+        false,
+        false);
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+
+        Assert.AreEqual("未启动 · 有警告", viewModel.TrayStatusSummary);
+        Assert.AreEqual("RayleaBot 启动器 · 未启动 · 有警告", viewModel.TrayTooltipText);
+        Assert.AreEqual(LauncherTrayAction.Start, viewModel.TrayServiceAction);
+        Assert.AreEqual("启动服务", viewModel.TrayServiceActionLabel);
+        Assert.IsTrue(viewModel.CanRunTrayServiceAction);
+    }
+
+    [TestMethod]
+    public async Task PersistCloseBehaviorAsync_SavesUpdatedDefaultBehavior()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+        var saved = await viewModel.PersistCloseBehaviorAsync(LauncherCloseBehavior.ExitApplication);
+
+        Assert.IsTrue(saved);
+        Assert.AreEqual(LauncherCloseBehavior.ExitApplication, fixture.SettingsStore.Settings.CloseBehavior);
+        Assert.AreEqual(LauncherCloseBehavior.ExitApplication, viewModel.CloseBehavior);
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_ExposesStructuredDiagnosticsSummaryFields()
+    {
+        var fixture = new LauncherFixture();
+        var viewModel = new MainWindowViewModel(fixture.CreateCoordinator(), marshalToUiThread: false);
+
+        await viewModel.InitializeAsync();
+
+        Assert.AreEqual("运行中", viewModel.DiagnosticsServiceStatusValue);
+        Assert.AreEqual("http://127.0.0.1:8080/", viewModel.DiagnosticsServiceEndpointValue);
+        StringAssert.Contains(viewModel.DiagnosticsEnvironmentSummaryValue, "正常 2");
+        Assert.AreEqual("stderr line", viewModel.DiagnosticsRecentErrorValue);
     }
 
     [TestMethod]
