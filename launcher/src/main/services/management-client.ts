@@ -18,8 +18,12 @@ function createAuthedHeaders(sessionToken: string) {
 
 export class FetchLauncherManagementClient {
   async isHealthy(endpoint: ServerEndpoint) {
-    const response = await fetch(new URL("healthz", endpoint.baseUrl));
-    return response.ok;
+    try {
+      const response = await fetch(new URL("healthz", endpoint.baseUrl));
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 
   async getSetupInitialized(endpoint: ServerEndpoint) {
