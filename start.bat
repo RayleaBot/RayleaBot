@@ -31,6 +31,5 @@ if not exist "%LAUNCHER_DIR%\dist\main\main\index.js" (
 )
 
 echo [RayleaBot] Starting launcher...
-call pnpm --dir "%LAUNCHER_DIR%" exec electron "%LAUNCHER_ENTRY%"
-
+start "" "%~dp0launcher\dist\package\win-unpacked\RayleaLauncher.exe"
 exit /b 0
