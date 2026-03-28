@@ -40,11 +40,10 @@ plugins/**/node_modules/
 /server/.gocache
 .tmp/gocache
 
-# .NET build outputs.
-/launcher/bin/
-/launcher/obj/
-/launcher/**/bin/
-/launcher/**/obj/
+# Electron launcher outputs.
+/launcher/node_modules/
+/launcher/dist/
+/launcher/*.tsbuildinfo
 
 # Environment files and local editor cruft.
 .env

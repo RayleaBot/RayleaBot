@@ -1,20 +1,29 @@
 @echo off
 setlocal
 
-rem Development-only shortcut for building and starting the launcher.
+rem Development-only shortcut for building and starting the packaged Electron launcher.
 cd /d "%~dp0"
 
-set "PROJECT=launcher\src\RayleaBot.Launcher\RayleaBot.Launcher.csproj"
-set "CONFIG=Debug"
-set "TFM=net10.0"
-set "OUTPUT_DIR=%~dp0launcher\src\RayleaBot.Launcher\bin\%CONFIG%\%TFM%"
-set "LAUNCHER_EXE=%OUTPUT_DIR%\RayleaBot.Launcher.exe"
+set "LAUNCHER_DIR=%~dp0launcher"
+set "LAUNCHER_PACKAGE_DIR=%LAUNCHER_DIR%\dist\package\win-unpacked"
+set "LAUNCHER_EXE=%LAUNCHER_PACKAGE_DIR%\RayleaLauncher.exe"
+
+echo [RayleaBot] Installing launcher dependencies...
+call pnpm --dir "%LAUNCHER_DIR%" install --frozen-lockfile
+if errorlevel 1 (
+    echo [RayleaBot] Launcher dependency install failed.
+    exit /b 1
+)
 
 echo [RayleaBot] Building launcher...
-dotnet build "%PROJECT%" -c %CONFIG% --nologo
+call pnpm --dir "%LAUNCHER_DIR%" build
 if errorlevel 1 (
     echo [RayleaBot] Launcher build failed.
     exit /b 1
+)
+
+if /I "%RAYLEA_START_SKIP_LAUNCH%"=="1" (
+    exit /b 0
 )
 
 if not exist "%LAUNCHER_EXE%" (
@@ -23,6 +32,6 @@ if not exist "%LAUNCHER_EXE%" (
 )
 
 echo [RayleaBot] Starting launcher...
-start "RayleaBot Launcher" /D "%OUTPUT_DIR%" "%LAUNCHER_EXE%"
+start "RayleaBot Launcher" /D "%LAUNCHER_PACKAGE_DIR%" "%LAUNCHER_EXE%"
 
 exit /b 0
