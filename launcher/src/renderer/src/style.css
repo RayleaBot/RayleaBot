@@ -5,6 +5,16 @@
     radial-gradient(circle at top left, rgba(90, 186, 255, 0.28), transparent 32%),
     radial-gradient(circle at bottom right, rgba(92, 255, 214, 0.12), transparent 28%),
     linear-gradient(160deg, #051019 0%, #07131d 42%, #0b1824 100%);
+
+  /* Semantic Colors - Error */
+  --semantic-error-bg: rgba(245, 87, 87, 0.12);
+  --semantic-error-border: rgba(245, 87, 87, 0.4);
+  /* Semantic Colors - Warning */
+  --semantic-warning-bg: rgba(255, 185, 81, 0.12);
+  --semantic-warning-border: rgba(255, 185, 81, 0.4);
+  /* Semantic Colors - Success */
+  --semantic-success-bg: rgba(83, 215, 138, 0.12);
+  --semantic-success-border: rgba(83, 215, 138, 0.4);
 }
 
 * {
@@ -261,7 +271,10 @@ input {
   padding: 16px;
   background: rgba(3, 10, 18, 0.9);
   color: #cde7ff;
-  min-height: 180px;
+  min-height: auto;
+  max-height: 120px;
+  overflow-y: auto;
+  transition: max-height 200ms ease;
 }
 
 .settings-header,
@@ -349,4 +362,40 @@ input {
   .content-grid {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .metric-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-summary.subtle {
+    display: none;
+  }
+}
+
+/* MessageBar glassmorphism override */
+.message-bar {
+  border: 1px solid rgba(166, 217, 255, 0.14);
+  background: rgba(8, 21, 33, 0.74) !important;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 48px rgba(2, 9, 16, 0.35);
+}
+
+.message-bar-root {
+  background: rgba(8, 21, 33, 0.74) !important;
+  border: 1px solid rgba(166, 217, 255, 0.14) !important;
 }

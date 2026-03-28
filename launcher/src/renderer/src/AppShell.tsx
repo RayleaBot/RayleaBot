@@ -4,7 +4,23 @@ import {
   Radio,
   RadioGroup,
   Input,
+  PresenceBadge,
+  Text,
+  Button,
+  Badge,
+  Field,
 } from "@fluentui/react-components";
+import type { PresenceBadgeStatus } from "@fluentui/react-components";
+import { MessageBar } from "@fluentui/react-message-bar";
+import {
+  Play24Filled,
+  Stop24Filled,
+  Globe24Filled,
+  FolderOpen24Filled,
+  CheckmarkCircle24Filled,
+  Warning24Filled,
+  DismissCircle24Filled,
+} from "@fluentui/react-icons";
 import type { InputOnChangeData } from "@fluentui/react-components";
 import type {
   LauncherSettings,
@@ -13,6 +29,26 @@ import type {
 } from "@shared/launcher-models";
 
 type SectionId = "status" | "environment" | "diagnostics" | "settings";
+
+const serviceStateConfig: Record<
+  LauncherServiceState,
+  { status: PresenceBadgeStatus; label: string }
+> = {
+  stopped: { status: "offline", label: "已停止" },
+  starting: { status: "busy", label: "启动中" },
+  external_service: { status: "available", label: "运行中" },
+  ready: { status: "available", label: "运行中" },
+  degraded: { status: "busy", label: "受限运行" },
+  setup_required: { status: "blocked", label: "需要设置" },
+  shutting_down: { status: "busy", label: "停止中" },
+  failed: { status: "blocked", label: "启动失败" },
+};
+
+const severityConfig = {
+  error: { color: "danger" as const, label: "阻塞", icon: <DismissCircle24Filled /> },
+  warning: { color: "warning" as const, label: "警告", icon: <Warning24Filled /> },
+  ok: { color: "success" as const, label: "正常", icon: <CheckmarkCircle24Filled /> },
+};
 
 type AppShellProps = {
   snapshot: LauncherSnapshot;
@@ -157,67 +193,81 @@ export function AppShell({
           <span>服务入口</span>
           <strong>{snapshot.endpoint.baseUrl}</strong>
         </div>
+        <Button
+          appearance="secondary"
+          size="small"
+          disabled={genericDisabled}
+          onClick={onRefresh}
+          style={{ marginTop: "8px" }}
+        >
+          刷新状态
+        </Button>
       </aside>
 
       <main className="shell-main">
         <section className="hero-card">
           <div className="hero-copy">
             <div className="hero-eyebrow">Service Control</div>
-            <h2>{snapshot.serviceDetail}</h2>
-            <p>
-              {snapshot.lastError ||
-                "查看当前状态、主操作和需要处理的问题。"}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <PresenceBadge
+                status={serviceStateConfig[snapshot.serviceState]?.status ?? "unknow"}
+                size="large"
+              />
+              <Text weight="semibold" size={500}>
+                {serviceStateConfig[snapshot.serviceState]?.label ?? "未知状态"}
+              </Text>
+            </div>
+            <p style={{ color: "rgba(220, 235, 255, 0.78)" }}>{snapshot.serviceDetail}</p>
+            {snapshot.lastError && (
+              <MessageBar intent="error" className="message-bar" style={{ marginTop: "12px" }}>
+                {snapshot.lastError}
+              </MessageBar>
+            )}
           </div>
           <div className="hero-actions">
-            <button
-              className="action primary"
-              type="button"
+            <Button
+              appearance="primary"
+              size="large"
               disabled={startDisabled}
               onClick={onStart}
+              icon={<Play24Filled />}
             >
               {snapshot.serviceState === "external_service" ||
               snapshot.serviceState === "ready"
                 ? "重新检查"
                 : "启动服务"}
-            </button>
-            <button
-              className="action"
-              type="button"
+            </Button>
+            <Button
+              appearance="secondary"
+              size="large"
               disabled={stopDisabled}
               onClick={onStop}
+              icon={<Stop24Filled />}
             >
               停止服务
-            </button>
-            <button
-              className="action"
-              type="button"
+            </Button>
+            <Button
+              appearance="outline"
+              size="large"
               disabled={genericDisabled}
               onClick={onOpenWeb}
+              icon={<Globe24Filled />}
             >
               打开管理界面
-            </button>
-            <button
-              className="action ghost"
-              type="button"
-              disabled={genericDisabled}
-              onClick={onRefresh}
-            >
-              刷新状态
-            </button>
+            </Button>
           </div>
         </section>
 
         {primaryIssue && (
-          <section
-            className={`issue-banner ${primaryIssue.severity}`}
+          <MessageBar
+            intent={primaryIssue.severity === "error" ? "error" : "warning"}
+            icon={primaryIssue.severity === "error" ? <DismissCircle24Filled /> : <Warning24Filled />}
+            className="message-bar"
           >
-            <div>
-              <strong>{primaryIssue.title}</strong>
-              <p>{primaryIssue.summary}</p>
-            </div>
-            <p>{primaryIssue.remediation || primaryIssue.detail}</p>
-          </section>
+            <Text weight="semibold">{primaryIssue.title}</Text>
+            <Text>{primaryIssue.summary}</Text>
+            <Text size={200}>{primaryIssue.remediation || primaryIssue.detail}</Text>
+          </MessageBar>
         )}
 
         {activeSection === "status" && (
@@ -247,13 +297,12 @@ export function AppShell({
             <article className="panel">
               <h3>版本与发布</h3>
               <p>{snapshot.releaseCheck.summary}</p>
-              <button
-                className="action ghost"
-                type="button"
+              <Button
+                appearance="secondary"
                 onClick={onOpenReleasePage}
               >
                 打开发布页
-              </button>
+              </Button>
             </article>
 
             <article className="panel full">
@@ -262,13 +311,12 @@ export function AppShell({
                 {snapshot.recentStderr.join("\n") ||
                   "当前没有新的错误。"}
               </pre>
-              <button
-                className="action ghost"
-                type="button"
+              <Button
+                appearance="secondary"
                 onClick={onOpenLogs}
               >
                 打开日志目录
-              </button>
+              </Button>
             </article>
           </section>
         )}
@@ -292,20 +340,30 @@ export function AppShell({
 
             <article className="panel full">
               <h3>环境检查结果</h3>
-              <ul className="check-list">
-                {snapshot.environmentChecks.map((item) => (
-                  <li key={item.code} className={item.severity}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.summary}</p>
-                    </div>
-                    <p>
-                      {item.detail}{" "}
-                      {item.remediation}
-                    </p>
-                  </li>
-                ))}
-              </ul>
+              <div style={{ display: "grid", gap: "12px" }}>
+                {snapshot.environmentChecks.map((item) => {
+                  const c = severityConfig[item.severity] ?? severityConfig.ok;
+                  return (
+                    <MessageBar
+                      key={item.code}
+                      intent={item.severity === "ok" ? "success" : item.severity === "warning" ? "warning" : "error"}
+                      icon={c.icon}
+                      className="message-bar"
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <Text weight="semibold">{item.title}</Text>
+                        <Badge appearance="filled" color={c.color}>{c.label}</Badge>
+                      </div>
+                      <Text>{item.summary}</Text>
+                      {item.remediation && (
+                        <Text size={200} style={{ color: "var(--colorNeutralForeground3)" }}>
+                          解决方法: {item.remediation}
+                        </Text>
+                      )}
+                    </MessageBar>
+                  );
+                })}
+              </div>
             </article>
           </section>
         )}
@@ -322,47 +380,57 @@ export function AppShell({
         {activeSection === "settings" && (
           <section className="content-grid">
             <article className="panel full">
-              <div className="settings-header">
-                <div>
-                  <h3>本地设置</h3>
-                  <p>管理本地路径和关闭策略。</p>
+              <div
+                className="settings-header"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "18px",
+                  padding: editingSettings ? "12px 16px" : "0",
+                  background: editingSettings ? "rgba(13, 32, 48, 0.5)" : "transparent",
+                  borderRadius: "8px",
+                  transition: "all 200ms ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Text weight="semibold" size={500}>本地设置</Text>
+                  {editingSettings && (
+                    <Badge appearance="tint" color="brand">编辑模式</Badge>
+                  )}
                 </div>
                 <div className="settings-actions">
                   {!editingSettings ? (
-                    <button
-                      className="action ghost"
-                      type="button"
+                    <Button
+                      appearance="secondary"
                       disabled={genericDisabled}
                       onClick={onBeginEdit}
                     >
                       编辑路径
-                    </button>
+                    </Button>
                   ) : (
                     <>
-                      <button
-                        className="action ghost"
-                        type="button"
+                      <Button
+                        appearance="secondary"
                         disabled={genericDisabled}
                         onClick={onCancelEdit}
                       >
                         取消编辑
-                      </button>
-                      <button
-                        className="action primary"
-                        type="button"
+                      </Button>
+                      <Button
+                        appearance="primary"
                         disabled={genericDisabled}
                         onClick={onSaveSettings}
                       >
                         保存设置
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
               </div>
 
               <div className="settings-grid">
-                <label className="field">
-                  <span>服务端可执行文件</span>
+                <Field label="服务端可执行文件">
                   <div className="field-inline">
                     <Input
                       value={settingsDraft.serverExecutablePath}
@@ -374,19 +442,18 @@ export function AppShell({
                       }
                       className="field-input"
                     />
-                    <button
-                      className="action ghost"
-                      type="button"
+                    <Button
+                      appearance="secondary"
                       disabled={!editingSettings}
                       onClick={onChooseServer}
+                      icon={<FolderOpen24Filled />}
                     >
                       浏览
-                    </button>
+                    </Button>
                   </div>
-                </label>
+                </Field>
 
-                <label className="field">
-                  <span>用户配置文件</span>
+                <Field label="用户配置文件">
                   <div className="field-inline">
                     <Input
                       value={settingsDraft.configPath}
@@ -396,19 +463,18 @@ export function AppShell({
                       }
                       className="field-input"
                     />
-                    <button
-                      className="action ghost"
-                      type="button"
+                    <Button
+                      appearance="secondary"
                       disabled={!editingSettings}
                       onClick={onChooseConfig}
+                      icon={<FolderOpen24Filled />}
                     >
                       浏览
-                    </button>
+                    </Button>
                   </div>
-                </label>
+                </Field>
 
-                <label className="field">
-                  <span>工作目录</span>
+                <Field label="工作目录">
                   <div className="field-inline">
                     <Input
                       value={settingsDraft.workdir}
@@ -418,51 +484,59 @@ export function AppShell({
                       }
                       className="field-input"
                     />
-                    <button
-                      className="action ghost"
-                      type="button"
+                    <Button
+                      appearance="secondary"
                       disabled={!editingSettings}
                       onClick={onChooseWorkdir}
+                      icon={<FolderOpen24Filled />}
                     >
                       选择目录
-                    </button>
+                    </Button>
                   </div>
-                </label>
+                </Field>
               </div>
 
-              <RadioGroup
-                value={settingsDraft.closeBehavior}
-                onChange={(_: FormEvent<HTMLElement>, data: { value: string }) =>
-                  onUpdateSettings({
-                    closeBehavior: data.value as LauncherSettings["closeBehavior"],
-                  })
-                }
-              >
-                <div className="close-behavior">
-                  <label className="radio-label">
-                    <Radio
-                      value="ask_every_time"
-                      disabled={!editingSettings}
-                    />
-                    每次询问
-                  </label>
-                  <label className="radio-label">
-                    <Radio value="hide_to_tray" disabled={!editingSettings} />
-                    隐藏到托盘
-                  </label>
-                  <label className="radio-label">
-                    <Radio
-                      value="exit_application"
-                      disabled={!editingSettings}
-                    />
-                    完全退出
-                  </label>
-                </div>
-              </RadioGroup>
+              <Field label="关闭行为">
+                <RadioGroup
+                  value={settingsDraft.closeBehavior}
+                  onChange={(_: FormEvent<HTMLElement>, data: { value: string }) => {
+                    if (editingSettings) {
+                      onUpdateSettings({
+                        closeBehavior: data.value as LauncherSettings["closeBehavior"],
+                      });
+                    }
+                  }}
+                >
+                  <div className="close-behavior">
+                    <label className="radio-label">
+                      <Radio
+                        value="ask_every_time"
+                        disabled={!editingSettings}
+                      />
+                      每次询问
+                    </label>
+                    <label className="radio-label">
+                      <Radio value="hide_to_tray" disabled={!editingSettings} />
+                      隐藏到托盘
+                    </label>
+                    <label className="radio-label">
+                      <Radio
+                        value="exit_application"
+                        disabled={!editingSettings}
+                      />
+                      完全退出
+                    </label>
+                  </div>
+                </RadioGroup>
+              </Field>
 
-              <button className="action danger" type="button" onClick={onExit}>
+              <Button
+                appearance="primary"
+                onClick={onExit}
+                style={{ background: "linear-gradient(135deg, #b44d63, #6e2433)", border: "none" }}
+              >
                 完全退出启动器
-              </button>
+              </Button>
             </article>
           </section>
         )}
