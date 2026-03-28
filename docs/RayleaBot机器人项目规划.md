@@ -3534,7 +3534,7 @@ Launcher 与 Server 通信机制：
 - Python 插件运行时：Python `3.12.13`。
 - Node.js 插件运行时：Node.js `24.14.0`（与 Web 构建基线统一）。
 - 数据库：SQLite，通过 Go 驱动 `modernc.org/sqlite` 接入。
-- 桌面启动器：Electron `41.1.0` + Node.js `24.14.0` + `pnpm 10.32.1` + TypeScript `6.0.2` + Vue `3.5.31` + Vite `8.0.3`，正式交付 `windows-x64`、`linux-x64` 与 `macos-arm64` 桌面版本。
+- 桌面启动器：Electron `41.1.0` + Node.js `24.14.0` + `pnpm 10.32.1` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3`，正式交付 `windows-x64`、`linux-x64` 与 `macos-arm64` 桌面版本。
 - 图片渲染：v0.1 采用 `chromedp 0.13.2` + 受控 Chromium 运行时的统一渲染方案。
 
 #### 4.1.1 Go 关键依赖固定选型
@@ -3567,7 +3567,7 @@ Launcher 与 Server 通信机制：
 | Go Web / API 依赖 | `go-chi/chi` `v5.2.5` + `coder/websocket` `v1.8.14` | 明确单一依赖选择，减少 AI 生成代码时的分叉实现 |
 | SQLite 接入 | `modernc.org/sqlite` | 具体 module patch 在建仓时冻结到 `go.mod`；并在基线文档记录其对应的 SQLite upstream version / source id |
 | 渲染 | `chromedp 0.13.2` + 受控 Chromium | 具体 Chromium build、SHA256 和下载来源写入 `.deps/manifest.json` 或等价发布元数据，不只写在 Markdown 中 |
-| Launcher | Electron `41.1.0` + TypeScript `6.0.2` + Vue `3.5.31` + Vite `8.0.3` + `electron-builder 26.8.1` | Electron 桌面壳与 Node `24.14.0` / `pnpm 10.32.1` 基线统一，适配桌面目录包交付与 typed IPC 分层 |
+| Launcher | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `electron-builder 26.8.1` | Electron 桌面壳与 Node `24.14.0` / `pnpm 10.32.1` 基线统一，适配桌面目录包交付与 typed IPC 分层 |
 
 补充约束：
 
@@ -3615,7 +3615,7 @@ Launcher 与 Server 通信机制：
 | `server/go.mod` + `server/go.sum` | Go 依赖与 toolchain 锁定 | 固定 Go 版本线与服务端依赖 patch；不得与文档和 CI 漂移 |
 | `web/package.json` | Web 工程基线 | 必须写明 `packageManager`、`engines.node`、统一脚本入口 |
 | `web/pnpm-lock.yaml` | JS 依赖锁文件 | 作为 Web 与仓库内 JS 工具脚本的唯一锁文件 |
-| `launcher/package.json` | Launcher 工程基线 | 固定 `packageManager`、`engines.node`、Electron/Vite/Vue 版本与统一脚本入口 |
+| `launcher/package.json` | Launcher 工程基线 | 固定 `packageManager`、`engines.node`、Electron/Vite/React/Fluent UI 版本与统一脚本入口 |
 | `launcher/pnpm-lock.yaml` | Launcher JS 锁文件 | 作为 Launcher 工程唯一锁文件 |
 | `contracts/` 目录 | 机器可校验契约根目录 | 必须承载 v0.1 约定的 schema、OpenAPI、错误码和发行 manifest 契约 |
 | `.deps/manifest.json` | 受控运行时资源清单 | 固定 Chromium、托管 Python / Node.js 运行时等资源的版本、来源、SHA256 和适用平台 |

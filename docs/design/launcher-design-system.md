@@ -1,160 +1,255 @@
 # RayleaBot Launcher Design System
 
-本设计系统服务于 `launcher/` 的 Windows 桌面启动器界面，目标是建立克制、清晰、可维护的深色 Fluent 工具风格。
+本设计系统服务于 `launcher/` 的 Electron 桌面启动器界面，基于 Fluent 2 设计语言与 Fluent UI React v9 组件库建立克制、清晰、可维护的深色工具风格。
 
 ## 设计原则
 
 - 启动器是本地服务壳和 Web 入口，不做大屏展示面板。
 - 视觉层级以信息效率优先，避免重复 hero、重边框和深色表面反复嵌套。
 - 主操作必须唯一突出；危险操作明确标识；工具操作统一降级。
-- 组件样式通过 tokens 和通用 patterns 复用，不在页面中散落硬编码颜色与间距。
+- 组件样式优先通过 Fluent UI React v9 tokens 和全局 CSS 变量复用，不在页面中散落硬编码颜色与间距。
+
+## 设计决策
+
+### 为什么用 Fluent UI React v9
+
+- 启动器渲染层已迁移至 React 18，与 Web 管理面共用同一套 Fluent 设计语言。
+- Fluent UI React v9 提供 `FluentProvider` + `webDarkTheme` 暗色主题，直接映射深色桌面场景。
+- 组件涵盖启动器所需的按钮、单选组、输入框、标签、导航，无需第三方 UI 库。
+
+### 全局 CSS 策略
+
+启动器的全局 CSS（`style.css`）定义了背景渐变、布局网格和非 Fluent 元素的样式（如 `.app-shell`、`.shell-sidebar`、`.hero-card`、`.panel`）。Fluent UI React v9 的 CSS-in-JS 机制负责组件级样式，CSS 变量提供主题色板和间距系统的引用点。
+
+## Fluent UI React v9 组件映射
+
+| UI 场景 | Fluent 组件 | 说明 |
+|---|---|---|
+| 主操作按钮 | `<Button appearance="primary">` | 启动服务、打开管理界面 |
+| 危险操作按钮 | `<Button appearance="primary">` + CSS `.action.danger` | 停止服务 |
+| 次级按钮 | `<Button>` | 默认灰阶按钮 |
+| 幽灵按钮 | `<Button appearance="subtle">` | 工具栏操作、编辑路径 |
+| 关闭策略单选 | `<RadioGroup>` + `<Radio>` | 询问/隐藏到托盘/完全退出 |
+| 路径输入框 | `<Input readOnly>` | 只读路径展示 |
+| 可编辑路径输入框 | `<Input>` | 编辑状态下可修改 |
+| 导航按钮 | `<Button appearance="subtle">` | 侧边栏导航项 |
+| 状态徽章 | Fluent `Badge` + CSS | 阻塞项/警告项/正常项计数 |
+| 问题横幅 | 自定义 `.issue-banner` CSS + Fluent 语义色 | 错误/警告等级 banner |
+| 面板容器 | 自定义 `.panel` CSS | 卡片表面 |
+| 日志面板 | 自定义 `.log-surface` CSS | 等宽字体、低反差背景 |
 
 ## Tokens
 
 ### 颜色
 
-| Token | 用途 |
-| --- | --- |
-| `Color.Background` | 窗口主背景 |
-| `Color.NavigationPane` | 左侧导航背景 |
-| `Color.Surface` | 默认内容卡片 |
-| `Color.SurfaceElevated` | 页头、工具栏、二级信息表面 |
-| `Color.SurfaceRaised` | badge、次级按钮背景 |
-| `Color.SurfaceMuted` | 日志面板、空状态、只读文本区 |
-| `Color.BorderSubtle` | 低对比 1px 边框 |
-| `Color.BorderStrong` | 更强但仍克制的边界强调 |
-| `Color.TextPrimary` | 主文字 |
-| `Color.TextSecondary` | 次文字 |
-| `Color.TextMuted` | 标签、辅助信息 |
-| `Color.Accent` | 主操作强调色 |
-| `Color.Success` / `Color.Warning` / `Color.Error` | 语义色 |
-| `Color.SuccessSurface` / `Color.WarningSurface` / `Color.ErrorSurface` | 语义面板底色 |
+Fluent UI React v9 通过 `webDarkTheme` 提供暗色主题 tokens。本启动器在此基础上叠加全局 CSS 变量：
 
-### 尺寸
+```css
+:root {
+  /* 背景系统 */
+  --color-bg-base: #051019;
+  --color-bg-surface: rgba(8, 21, 33, 0.74);
+  --color-bg-elevated: rgba(12, 29, 42, 0.5);
+  --color-bg-muted: rgba(8, 22, 34, 0.64);
+
+  /* 边框 */
+  --color-border-subtle: rgba(166, 217, 255, 0.14);
+  --color-border-strong: rgba(166, 217, 255, 0.18);
+
+  /* 文字 */
+  --color-text-primary: #e6f1ff;
+  --color-text-secondary: rgba(220, 235, 255, 0.78);
+  --color-text-muted: rgba(180, 205, 228, 0.72);
+
+  /* 语义色 */
+  --color-accent: #82d8ff;
+  --color-success: #52d68a;
+  --color-warning: #ffd485;
+  --color-error: #ff7b7b;
+
+  /* 语义面板 */
+  --color-warning-surface: rgba(255, 210, 133, 0.2);
+  --color-error-surface: rgba(255, 131, 131, 0.2);
+}
+```
+
+### 间距
 
 | Token | 值 | 用途 |
-| --- | --- | --- |
-| `Spacing.Page` | `20` | 页面区块节奏 |
-| `Spacing.Section` | `16` | 卡片之间的默认间距 |
-| `Spacing.Row` | `12` | 表单行、定义列表行距 |
-| `Spacing.Inline` | `8` | 行内按钮和 badge 间距 |
-| `Thickness.PagePadding` | `20` | 页面内容外边距 |
-| `Thickness.CardPadding` | `16` | 主卡片内边距 |
-| `Thickness.CompactCardPadding` | `12` | 工具栏、提示条、次级面板内边距 |
-| `Size.ControlHeight` | `38` | 主按钮、标准输入框高度 |
-| `Size.CompactControlHeight` | `32` | 工具按钮高度 |
-| `Radius.Small` / `Medium` / `Large` | `8 / 10 / 12` | 统一圆角 |
-| `Size.NavPaneOpen` / `Compact` | `220 / 52` | 导航展开与收起宽度 |
+|---|---|---|
+| `--spacing-page` | `24px` | 页面区块节奏 |
+| `--spacing-section` | `18px` | 卡片之间的默认间距 |
+| `--spacing-row` | `12px` | 表单行、定义列表行距 |
+| `--spacing-inline` | `8px` | 行内按钮和 badge 间距 |
 
-### 字体
+### 圆角
 
-| Token | 用途 |
-| --- | --- |
-| `FontFamily.Ui` | 常规界面文本 |
-| `FontFamily.Display` | 页面标题和导航主标题 |
-| `FontFamily.Mono` | 日志与诊断文本 |
-| `Font.PageTitle` | 页面标题 |
-| `Font.SectionTitle` | 分区标题 |
-| `Font.Body` | 正文 |
-| `Font.Caption` | 标签、说明、摘要 |
+| Token | 值 | 用途 |
+|---|---|---|
+| `--radius-small` | `16px` | 按钮、输入框 |
+| `--radius-medium` | `18px` | 导航项 |
+| `--radius-large` | `26px` | 面板、侧边栏卡片 |
+| `--radius-xl` | `30px` | Hero 卡片 |
 
-## 组件语义
+## 组件样式规范
 
-### Page Header
+### 按钮
 
-- `page-header` 用于环境检查、日志与诊断、设置页。
-- 内容固定为：caption、title、summary。
-- 不承担主状态展示，不重复展示窗口级产品标题。
+所有按钮统一使用 `<Button>` 组件，样式通过 `className` 指定全局 CSS 类：
 
-### Hero Header
+```css
+.action {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-small);
+  background: rgba(13, 32, 48, 0.72);
+  color: #e6f5ff;
+  padding: 12px 14px;
+  transition: transform 160ms ease, background 160ms ease;
+}
 
-- `hero-header` 仅用于状态页。
-- 内容固定为：标题、状态 badge、一句说明。
-- 高度受控，不承载二级摘要和操作区。
+.action.primary {
+  background: linear-gradient(135deg, #56a6e8, #245d95);
+}
 
-### App Card
+.action.ghost {
+  background: rgba(10, 24, 36, 0.42);
+}
 
-- `app-card` 为页面主要承载容器。
-- `sub-card` 为卡内次级信息块，层级低于 `app-card`。
-- 页面内最多使用两层表面深度，避免“深色底再套一层深色底”。
+.action.danger {
+  background: linear-gradient(135deg, #b44d63, #6e2433);
+}
+```
 
-### Toolbar Card
+### 面板
 
-- `toolbar-card` 承载工具按钮与统计 badge。
-- 用于日志页工具栏、环境页摘要工具区、设置页编辑状态栏。
+```css
+.panel {
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  backdrop-filter: blur(18px);
+  border-radius: var(--radius-large);
+  padding: 22px;
+  box-shadow: 0 18px 48px rgba(2, 9, 16, 0.35);
+}
+```
 
-### Issue Banner
+### 导航项
 
-- `issue-banner` 用于首页的单条问题提示。
-- 采用内联、低高度、单行主信息 + 次说明 + 单个 CTA 的结构。
-- 不替代完整问题列表。
+```css
+.nav-item {
+  border: 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-medium);
+  background: rgba(12, 29, 42, 0.5);
+  color: rgba(233, 243, 255, 0.84);
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease;
+}
 
-### Metric Tile
+.nav-item:hover,
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(35, 95, 143, 0.88), rgba(18, 48, 78, 0.92));
+  color: #f5fbff;
+  transform: translateX(4px);
+}
+```
 
-- `metric-tile` 用于状态页环境摘要等紧凑指标卡。
-- 只展示 1 个标签和 1 个主值，不叠加复杂说明。
+### 问题横幅
 
-### Check Item
+```css
+.issue-banner {
+  border-radius: 24px;
+  padding: 18px 22px;
+  display: grid;
+  gap: 6px;
+}
 
-- `check-item` 用于环境检查页。
-- 建议结构：
-  - 标题
-  - 严重等级 badge
-  - 一句话问题描述
-  - 证据
-  - 处理建议
-  - 操作按钮
+.issue-banner.warning {
+  border-color: rgba(255, 206, 122, 0.3);
+}
 
-### Log Panel
+.issue-banner.error {
+  border-color: rgba(255, 120, 120, 0.3);
+}
+```
 
-- `log-panel` 与 `log-textbox` 用于最近错误和诊断原文。
-- 统一使用等宽字体、低反差背景、适合复制的内边距。
+### 指标卡
 
-### Empty State
+```css
+.metric {
+  border-radius: 18px;
+  background: var(--color-bg-elevated);
+  padding: 18px;
+  display: grid;
+  gap: 6px;
+}
 
-- `empty-state` 用于无错误输出、无检查项等场景。
-- 只提供简短说明，不使用插画或装饰。
+.metric strong {
+  font-size: 2rem;
+}
+```
 
-## 按钮层级
+### 关闭策略单选组
 
-- `PrimaryActionButton`
-  - 当前页面唯一主操作。
-  - 在状态页中优先用于“启动服务”或“打开管理界面”。
-- `DangerActionButton`
-  - 用于停止服务等危险操作。
-  - 强调风险，但不与主按钮竞争页面主视觉。
-- `SecondaryActionButton`
-  - 用于编辑路径、浏览文件等明确但非主路径操作。
-- `ToolbarActionButton`
-  - 用于重试、复制诊断、打开日志目录等工具栏操作。
-- `SubtleActionButton`
-  - 用于低频、低权重辅助动作。
+```css
+.radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 
-## 页面约束
+.close-behavior {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+```
 
-### 状态页
+### Fluent Input 样式覆盖
 
-- 首屏必须同时容纳：hero、问题提示条、服务信息、环境摘要、主操作。
-- 最近错误输出位于主内容区内，不应把整页拉成长滚动面板。
+Fluent UI React v9 的 `<Input>` 组件在 `.field-inline` 容器中使用时需要样式适配：
 
-### 环境检查页
+```css
+.field-inline .field-input input {
+  border-radius: var(--radius-small);
+  border: 1px solid var(--color-border-subtle);
+  background: rgba(5, 16, 26, 0.82);
+  color: inherit;
+  padding: 12px 14px;
+  font: inherit;
+  width: 100%;
+}
 
-- 页面目标是帮助用户优先处理阻塞项和警告项。
-- 正常项默认折叠，安装与打包信息降级为次级信息。
+.field-inline .field-input input:focus {
+  outline: 1px solid rgba(120, 180, 255, 0.5);
+}
 
-### 日志与诊断页
+.field-inline .field-input input:read-only {
+  opacity: 0.7;
+  cursor: default;
+}
+```
 
-- 优先展示工具栏、最近错误、结构化诊断摘要。
-- 原始诊断文本保留，但不作为唯一摘要形式。
+## 响应式策略
 
-### 设置页
+```css
+@media (max-width: 1080px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
 
-- 默认只读。
-- 进入编辑态后才允许修改路径和布尔设置。
-- 保存按钮仅在存在未保存修改时可用。
+  .hero-card {
+    grid-template-columns: 1fr;
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+```
 
 ## 可维护性规则
 
-- 新页面优先组合现有 tokens、`LauncherControls.axaml` 和 `LauncherPatterns.axaml`，而不是复制旧页面样式。
-- 新增状态颜色、间距和控件高度前，优先复用既有 tokens。
-- 页面内如需特殊样式，应先评估是否能抽为通用 pattern，再决定是否局部定义。
+- Fluent UI React v9 组件的样式优先通过 `className` + 全局 CSS 变量覆盖，而不是内联样式或 `makeStyles`。
+- 新增 token 前优先复用既有 CSS 变量。
+- 页面内如需特殊样式，应先评估是否能抽为通用 CSS 类，再决定是否局部定义。
