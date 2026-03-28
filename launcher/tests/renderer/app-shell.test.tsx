@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { mount } from "@vue/test-utils";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import AppShell from "@renderer/AppShell.vue";
+import { AppShell } from "@renderer/AppShell";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 const snapshot: LauncherSnapshot = {
@@ -45,19 +45,39 @@ const snapshot: LauncherSnapshot = {
 
 describe("AppShell", () => {
   test("renders navigation, hero summary, and environment warning", () => {
-    const wrapper = mount(AppShell, {
-      props: {
-        snapshot,
-        activeSection: "status",
-      },
-    });
+    render(
+      <AppShell
+        snapshot={snapshot}
+        activeSection="status"
+        settingsDraft={snapshot.settings}
+        editingSettings={false}
+        diagnosticsSummary=""
+        busyAction={null}
+        controlsDisabled={false}
+        onNavigate={vi.fn()}
+        onRefresh={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onOpenWeb={vi.fn()}
+        onOpenReleasePage={vi.fn()}
+        onOpenLogs={vi.fn()}
+        onBeginEdit={vi.fn()}
+        onCancelEdit={vi.fn()}
+        onSaveSettings={vi.fn()}
+        onUpdateSettings={vi.fn()}
+        onChooseServer={vi.fn()}
+        onChooseConfig={vi.fn()}
+        onChooseWorkdir={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
 
-    expect(wrapper.text()).toContain("RayleaBot 启动器");
-    expect(wrapper.text()).toContain("状态");
-    expect(wrapper.text()).toContain("环境检查");
-    expect(wrapper.text()).toContain("日志与诊断");
-    expect(wrapper.text()).toContain("设置");
-    expect(wrapper.text()).toContain("服务尚未启动。");
-    expect(wrapper.text()).toContain("首次启动时会自动生成用户配置。");
+    expect(screen.getByText("RayleaBot 启动器")).toBeInTheDocument();
+    expect(screen.getByText("状态")).toBeInTheDocument();
+    expect(screen.getByText("环境检查")).toBeInTheDocument();
+    expect(screen.getByText("日志与诊断")).toBeInTheDocument();
+    expect(screen.getByText("设置")).toBeInTheDocument();
+    expect(screen.getByText("服务尚未启动。")).toBeInTheDocument();
+    expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
   });
 });

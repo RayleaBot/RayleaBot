@@ -1,9 +1,9 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
-import vue from "@vitejs/plugin-vue";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [react()],
   resolve: {
     alias: {
       "@main": path.resolve(__dirname, "src/main"),
@@ -15,6 +15,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.test.ts"],
   },
 });

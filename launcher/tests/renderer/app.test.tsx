@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { mount, flushPromises } from "@vue/test-utils";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import App from "@renderer/App.vue";
+import { App } from "@renderer/App";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
@@ -81,11 +81,11 @@ describe("App", () => {
       onSnapshot: vi.fn(() => () => undefined),
     });
 
-    const wrapper = mount(App);
-    await flushPromises();
+    render(<App />);
 
-    expect(wrapper.text()).toContain("C:\\Users\\26789\\Desktop\\RayleaBot");
-    wrapper.unmount();
+    await waitFor(() => {
+      expect(screen.getByText(/C:\\Users\\26789\\Desktop\\RayleaBot/)).toBeInTheDocument();
+    });
   });
 
   test("keeps service actions disabled while initialization is still running", async () => {
@@ -114,13 +114,16 @@ describe("App", () => {
       onSnapshot: vi.fn(() => () => undefined),
     });
 
-    const wrapper = mount(App);
-    await flushPromises();
+    render(<App />);
 
-    expect(wrapper.find("button.action.primary").attributes("disabled")).toBeDefined();
+    // While initializing, the start button should be disabled
+    const startButton = screen.getByRole("button", { name: /启动服务|重新检查/ });
+    expect(startButton).toBeDisabled();
 
+    // After initialize resolves, the button should be enabled
     resolveInitialize?.();
-    await flushPromises();
-    wrapper.unmount();
+    await waitFor(() => {
+      expect(startButton).not.toBeDisabled();
+    });
   });
 });

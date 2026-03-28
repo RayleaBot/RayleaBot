@@ -304,14 +304,37 @@ input {
 }
 
 .close-behavior {
+  display: flex;
   flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 18px;
 }
 
-.close-behavior label {
+.radio-label {
   display: inline-flex;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
+}
+
+/* Fluent TextField inside field-inline */
+.field-inline .field-input {
+  flex: 1;
+}
+.field-inline .field-input input {
+  border-radius: 16px;
+  border: 1px solid rgba(166, 217, 255, 0.14);
+  background: rgba(5, 16, 26, 0.82);
+  color: inherit;
+  padding: 12px 14px;
+  font: inherit;
+  width: 100%;
+}
+.field-inline .field-input input:focus {
+  outline: 1px solid rgba(120, 180, 255, 0.5);
+}
+.field-inline .field-input input:read-only {
+  opacity: 0.7;
+  cursor: default;
 }
 
 @media (max-width: 1080px) {

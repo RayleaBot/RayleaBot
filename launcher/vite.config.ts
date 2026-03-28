@@ -1,11 +1,11 @@
 import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
+import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 export default defineConfig({
   root: "src/renderer",
   base: "./",
-  plugins: [vue()],
+  plugins: [react()],
   resolve: {
     alias: {
       "@renderer": path.resolve(__dirname, "src/renderer/src"),
