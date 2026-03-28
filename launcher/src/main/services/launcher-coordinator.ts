@@ -49,6 +49,7 @@ export interface ReleaseFeedClient {
 interface LauncherCoordinatorOptions {
   startupTimeoutMs?: number;
   pollIntervalMs?: number;
+  shutdownTimeoutMs?: number;
 }
 
 interface LauncherCoordinatorDependencies {
@@ -136,6 +137,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   const options = {
     startupTimeoutMs: deps.options?.startupTimeoutMs ?? 30000,
     pollIntervalMs: deps.options?.pollIntervalMs ?? 500,
+    shutdownTimeoutMs: deps.options?.shutdownTimeoutMs ?? 5000,
   };
 
   let currentSettings: LauncherSettings | null = null;
@@ -233,6 +235,21 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         deps.processController.isRunning ? "服务正在运行。" : "端口上已有服务正在运行。可以直接打开管理界面，或先停止它再由启动器重新启动。",
       ),
     );
+  }
+
+  async function ensureManagedProcessStopped() {
+    if (!deps.processController.isRunning) {
+      return;
+    }
+
+    const stopDeadline = Date.now() + options.shutdownTimeoutMs;
+    while (deps.processController.isRunning && Date.now() < stopDeadline) {
+      await delay(options.pollIntervalMs);
+    }
+
+    if (deps.processController.isRunning) {
+      await deps.processController.forceKill();
+    }
   }
 
   return {
@@ -345,6 +362,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         }
       }
 
+      await ensureManagedProcessStopped();
       sessionToken = "";
       await refreshCore(true);
     },

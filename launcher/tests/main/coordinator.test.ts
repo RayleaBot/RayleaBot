@@ -228,4 +228,42 @@ describe("launcher coordinator", () => {
     expect(processController.startCalls).toBe(0);
     expect(coordinator.snapshot.serviceState).toBe("external_service");
   });
+
+  test("stop waits for the managed process to exit before reporting final state", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    processController.isRunning = true;
+
+    managementClient.health = true;
+    managementClient.shutdown = vi.fn(async () => {
+      managementClient.health = false;
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 10,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+
+    managementClient.health = true;
+    await coordinator.stop();
+
+    expect(processController.forceKillCalls).toBe(1);
+    expect(coordinator.snapshot.serviceState).toBe("stopped");
+  });
 });
