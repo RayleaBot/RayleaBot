@@ -21,6 +21,20 @@ ARTIFACT_MATRIX = {
         "extension": ".zip",
         "launcher_required": True,
     },
+    "linux-x64-full": {
+        "platform": "linux-x64",
+        "support_level": "first_class",
+        "smoke_profile": "linux_full_smoke",
+        "extension": ".tar.gz",
+        "launcher_required": True,
+    },
+    "macos-arm64-full": {
+        "platform": "macos-arm64",
+        "support_level": "first_class",
+        "smoke_profile": "macos_full_smoke",
+        "extension": ".tar.gz",
+        "launcher_required": True,
+    },
     "linux-x64-server": {
         "platform": "linux-x64",
         "support_level": "first_class",
@@ -70,6 +84,19 @@ def copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
+def copy_launcher_bundle(src: Path, dst: Path) -> None:
+    if src.is_dir():
+        if src.suffix == ".app":
+            copy_tree(src, dst / src.name)
+            return
+        copy_tree(src, dst)
+        return
+    if src.is_file():
+        copy_file(src, dst / src.name)
+        return
+    raise ValueError(f"launcher bundle path does not exist: {src}")
+
+
 def stage_release_root(
     artifact_id: str,
     version: str,
@@ -81,7 +108,7 @@ def stage_release_root(
     builtin_dir: Path,
     deps_dir: Path,
     default_config: Path,
-    launcher_bin: Path | None,
+    launcher_bundle: Path | None,
     systemd_file: Path | None,
     release_notes_ref: str | None,
 ) -> tuple[Path, ArtifactSidecar]:
@@ -89,8 +116,8 @@ def stage_release_root(
         raise ValueError(f"unsupported artifact_id: {artifact_id}")
 
     matrix = ARTIFACT_MATRIX[artifact_id]
-    if matrix["launcher_required"] and launcher_bin is None:
-        raise ValueError(f"{artifact_id} requires --launcher-bin")
+    if matrix["launcher_required"] and launcher_bundle is None:
+        raise ValueError(f"{artifact_id} requires --launcher-bundle")
     if artifact_id == "linux-x64-server" and systemd_file is None:
         raise ValueError("linux-x64-server requires --systemd-file")
 
@@ -99,8 +126,8 @@ def stage_release_root(
     ensure_clean_dir(stage_root)
 
     copy_file(server_bin, stage_root / server_bin.name)
-    if artifact_id == "windows-x64-full" and launcher_bin is not None:
-        copy_file(launcher_bin, stage_root / "RayleaLauncher.exe")
+    if matrix["launcher_required"] and launcher_bundle is not None:
+        copy_launcher_bundle(launcher_bundle, stage_root / "launcher")
     if artifact_id == "linux-x64-server" and systemd_file is not None:
         copy_file(systemd_file, stage_root / "systemd" / "rayleabot.service")
 
@@ -271,7 +298,7 @@ def cmd_package(args: argparse.Namespace) -> int:
         builtin_dir=Path(args.builtin_dir),
         deps_dir=Path(args.deps_dir),
         default_config=Path(args.default_config),
-        launcher_bin=Path(args.launcher_bin) if args.launcher_bin else None,
+        launcher_bundle=Path(args.launcher_bundle) if args.launcher_bundle else None,
         systemd_file=Path(args.systemd_file) if args.systemd_file else None,
         release_notes_ref=args.release_notes_ref,
     )
@@ -318,7 +345,7 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--builtin-dir", required=True)
     package.add_argument("--deps-dir", required=True)
     package.add_argument("--default-config", required=True)
-    package.add_argument("--launcher-bin")
+    package.add_argument("--launcher-bundle")
     package.add_argument("--systemd-file")
     package.add_argument("--release-notes-ref")
     package.add_argument("--output-dir", required=True)

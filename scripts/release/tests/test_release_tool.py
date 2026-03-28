@@ -17,7 +17,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             temp = Path(tmp)
             server_bin = temp / "raylea-server.exe"
-            launcher_bin = temp / "RayleaBot.Launcher.exe"
+            launcher_bundle = temp / "win-unpacked"
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
             deps = temp / ".deps"
@@ -25,7 +25,10 @@ class ReleaseToolTests(unittest.TestCase):
             output = temp / "out"
 
             server_bin.write_text("server", encoding="utf-8")
-            launcher_bin.write_text("launcher", encoding="utf-8")
+            (launcher_bundle / "RayleaLauncher.exe").parent.mkdir(parents=True, exist_ok=True)
+            (launcher_bundle / "RayleaLauncher.exe").write_text("launcher", encoding="utf-8")
+            (launcher_bundle / "resources" / "app.asar").parent.mkdir(parents=True, exist_ok=True)
+            (launcher_bundle / "resources" / "app.asar").write_text("asar", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
@@ -46,7 +49,7 @@ class ReleaseToolTests(unittest.TestCase):
                 builtin_dir=builtin,
                 deps_dir=deps,
                 default_config=default_config,
-                launcher_bin=launcher_bin,
+                launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
             )
@@ -55,7 +58,8 @@ class ReleaseToolTests(unittest.TestCase):
             with zipfile.ZipFile(archive_path) as zf:
                 names = set(zf.namelist())
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/build_info.json", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/RayleaLauncher.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/resources/app.asar", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
 
             manifest_path, checksums_path = release_tool.build_release_metadata(
@@ -77,6 +81,99 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("release_manifest.json", checksums_path.read_text(encoding="utf-8"))
 
             release_tool.verify_release_bundle(manifest_path, checksums_path, output)
+
+    def test_package_linux_desktop_bundle_includes_launcher_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp = Path(tmp)
+            server_bin = temp / "raylea-server"
+            launcher_bundle = temp / "linux-unpacked"
+            web_dist = temp / "web-dist"
+            builtin = temp / "builtin"
+            deps = temp / ".deps"
+            default_config = temp / "config" / "default.yaml"
+            output = temp / "out"
+
+            server_bin.write_text("server", encoding="utf-8")
+            (launcher_bundle / "RayleaLauncher").parent.mkdir(parents=True, exist_ok=True)
+            (launcher_bundle / "RayleaLauncher").write_text("launcher", encoding="utf-8")
+            (launcher_bundle / "locales" / "en-US.pak").parent.mkdir(parents=True, exist_ok=True)
+            (launcher_bundle / "locales" / "en-US.pak").write_text("locale", encoding="utf-8")
+            (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
+            (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
+            (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
+            (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
+            (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
+            (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            default_config.parent.mkdir(parents=True, exist_ok=True)
+            default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
+
+            archive_path, _ = release_tool.stage_release_root(
+                artifact_id="linux-x64-full",
+                version="0.1.0",
+                git_commit="abcdef1",
+                built_at="2026-03-24T10:00:00Z",
+                output_dir=output,
+                server_bin=server_bin,
+                web_dist=web_dist,
+                builtin_dir=builtin,
+                deps_dir=deps,
+                default_config=default_config,
+                launcher_bundle=launcher_bundle,
+                systemd_file=None,
+                release_notes_ref=None,
+            )
+
+            with tarfile.open(archive_path, "r:gz") as tf:
+                names = set(tf.getnames())
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/launcher/RayleaLauncher", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/launcher/locales/en-US.pak", names)
+
+    def test_package_macos_desktop_bundle_includes_app_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp = Path(tmp)
+            server_bin = temp / "raylea-server"
+            launcher_bundle = temp / "RayleaLauncher.app"
+            web_dist = temp / "web-dist"
+            builtin = temp / "builtin"
+            deps = temp / ".deps"
+            default_config = temp / "config" / "default.yaml"
+            output = temp / "out"
+
+            server_bin.write_text("server", encoding="utf-8")
+            mac_binary = launcher_bundle / "Contents" / "MacOS" / "RayleaLauncher"
+            mac_binary.parent.mkdir(parents=True, exist_ok=True)
+            mac_binary.write_text("launcher", encoding="utf-8")
+            plist = launcher_bundle / "Contents" / "Info.plist"
+            plist.write_text("<plist/>", encoding="utf-8")
+            (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
+            (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
+            (builtin / "help" / "info.json").parent.mkdir(parents=True, exist_ok=True)
+            (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
+            (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
+            (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            default_config.parent.mkdir(parents=True, exist_ok=True)
+            default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
+
+            archive_path, _ = release_tool.stage_release_root(
+                artifact_id="macos-arm64-full",
+                version="0.1.0",
+                git_commit="abcdef1",
+                built_at="2026-03-24T10:00:00Z",
+                output_dir=output,
+                server_bin=server_bin,
+                web_dist=web_dist,
+                builtin_dir=builtin,
+                deps_dir=deps,
+                default_config=default_config,
+                launcher_bundle=launcher_bundle,
+                systemd_file=None,
+                release_notes_ref=None,
+            )
+
+            with tarfile.open(archive_path, "r:gz") as tf:
+                names = set(tf.getnames())
+            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/launcher/RayleaLauncher.app/Contents/MacOS/RayleaLauncher", names)
+            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/launcher/RayleaLauncher.app/Contents/Info.plist", names)
 
     def test_package_linux_bundle_includes_systemd_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -111,7 +208,7 @@ class ReleaseToolTests(unittest.TestCase):
                 builtin_dir=builtin,
                 deps_dir=deps,
                 default_config=default_config,
-                launcher_bin=None,
+                launcher_bundle=None,
                 systemd_file=systemd_file,
                 release_notes_ref=None,
             )

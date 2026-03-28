@@ -445,7 +445,7 @@ jobs:
           for field in ['artifact_id', 'file_name', 'platform', 'sha256', 'size', 'support_level', 'deps_manifest_sha256', 'smoke_profile']:
               if field not in artifact.get('required', []):
                   raise SystemExit(f'release-manifest.schema.json artifact missing required field: {field}')
-          if set(artifact['properties']['artifact_id'].get('enum', [])) != {'windows-x64-full', 'linux-x64-server'}:
+          if set(artifact['properties']['artifact_id'].get('enum', [])) != {'windows-x64-full', 'linux-x64-full', 'macos-arm64-full', 'linux-x64-server'}:
               raise SystemExit('release-manifest.schema.json artifact_id must exactly match the v0.1 official matrix')
 
           contracts_snapshot = json.dumps(

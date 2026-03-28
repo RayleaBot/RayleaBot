@@ -42,6 +42,8 @@
           "type": "string",
           "enum": [
             "windows-x64-full",
+            "linux-x64-full",
+            "macos-arm64-full",
             "linux-x64-server"
           ]
         },
@@ -53,7 +55,8 @@
           "type": "string",
           "enum": [
             "windows-x64",
-            "linux-x64"
+            "linux-x64",
+            "macos-arm64"
           ]
         },
         "sha256": {
@@ -77,6 +80,8 @@
           "type": "string",
           "enum": [
             "windows_full_smoke",
+            "linux_full_smoke",
+            "macos_full_smoke",
             "linux_server_smoke"
           ]
         }
@@ -151,6 +156,8 @@
           "type": "string",
           "enum": [
             "windows-x64-full",
+            "linux-x64-full",
+            "macos-arm64-full",
             "linux-x64-server"
           ]
         },

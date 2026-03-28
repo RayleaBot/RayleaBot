@@ -18,6 +18,14 @@
       "sha256": "TODO(v0.1-phase0)"
     },
     {
+      "id": "chromium-macos-arm64",
+      "kind": "chromium",
+      "version": "TODO(v0.1-phase0)",
+      "platform": "macos-arm64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
       "id": "python-windows-x64",
       "kind": "python-runtime",
       "version": "3.12.13",
@@ -34,6 +42,14 @@
       "sha256": "TODO(v0.1-phase0)"
     },
     {
+      "id": "python-macos-arm64",
+      "kind": "python-runtime",
+      "version": "3.12.13",
+      "platform": "macos-arm64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
       "id": "nodejs-windows-x64",
       "kind": "nodejs-runtime",
       "version": "24.14.0",
@@ -46,6 +62,14 @@
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "linux-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
+      "id": "nodejs-macos-arm64",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "macos-arm64",
       "source": "TODO(v0.1-phase0)",
       "sha256": "TODO(v0.1-phase0)"
     }

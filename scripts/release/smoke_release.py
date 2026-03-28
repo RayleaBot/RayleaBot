@@ -12,7 +12,29 @@ EXPECTED = {
         "archive_type": "zip",
         "entries": {
             "raylea-server.exe",
-            "RayleaLauncher.exe",
+            "launcher/RayleaLauncher.exe",
+            "build_info.json",
+            "config/default.yaml",
+            "web/index.html",
+            ".deps/manifest.json",
+        },
+    },
+    "linux-x64-full": {
+        "archive_type": "tar.gz",
+        "entries": {
+            "raylea-server",
+            "launcher/RayleaLauncher",
+            "build_info.json",
+            "config/default.yaml",
+            "web/index.html",
+            ".deps/manifest.json",
+        },
+    },
+    "macos-arm64-full": {
+        "archive_type": "tar.gz",
+        "entries": {
+            "raylea-server",
+            "launcher/RayleaLauncher.app/Contents/MacOS/RayleaLauncher",
             "build_info.json",
             "config/default.yaml",
             "web/index.html",
