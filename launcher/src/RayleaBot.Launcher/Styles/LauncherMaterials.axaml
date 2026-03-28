@@ -1,0 +1,254 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    LauncherMaterials.axaml
+    Material layer: shell surfaces, semantic card surfaces.
+    Windows 11 with transparency available → uses real Mica/Acrylic effects.
+    Otherwise → opaque fallback surfaces with identical layout and hierarchy.
+  -->
+
+  <!-- ============================================================
+       CARD MATERIALS
+       Five card types with clear visual hierarchy:
+       Hero → Primary → Secondary → Subtle → Accent
+       ============================================================ -->
+
+  <!-- Hero card: top-level status, main actions — transparent over Mica -->
+  <Style Selector="Border.card-hero">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#3378B5E8" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="16,14" />
+  </Style>
+
+  <Style Selector="Border.card-hero-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#3378B5E8" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="16,14" />
+  </Style>
+
+  <!-- Primary card: main content sections — transparent over Mica -->
+  <Style Selector="Border.card-primary">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="14" />
+  </Style>
+
+  <Style Selector="Border.card-primary-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#E5E5E5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="14" />
+  </Style>
+
+  <!-- Secondary card: sub-sections — transparent over Mica -->
+  <Style Selector="Border.card-secondary">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+
+  <Style Selector="Border.card-secondary-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#F0F0F0" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+
+  <!-- Subtle card: compact toolbars, badges — transparent over Mica -->
+  <Style Selector="Border.card-subtle">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#12FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="Border.card-subtle-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#E5E5E5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <!-- Accent card: highlighted states, selection — transparent over Mica -->
+  <Style Selector="Border.card-accent">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#78B6FF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="Border.card-accent-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#78B5FF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <!-- ============================================================
+       STATE SURFACES
+       Status-colored surfaces for blocking, warning, ready
+       ============================================================ -->
+
+  <!-- State surfaces: keep colored background for status indication, but make semi-transparent -->
+  <Style Selector="Border.state-blocking">
+    <Setter Property="Background" Value="#662A161A" />
+    <Setter Property="BorderBrush" Value="#E17379" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="Border.state-blocking-light">
+    <Setter Property="Background" Value="#CCFFF0F0" />
+    <Setter Property="BorderBrush" Value="#E17379" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="Border.state-warning">
+    <Setter Property="Background" Value="#66241B10" />
+    <Setter Property="BorderBrush" Value="#D5A154" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="Border.state-warning-light">
+    <Setter Property="Background" Value="#CCFFF8F0" />
+    <Setter Property="BorderBrush" Value="#D5A154" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="Border.state-ready">
+    <Setter Property="Background" Value="#66132018" />
+    <Setter Property="BorderBrush" Value="#5FBB7A" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="Border.state-ready-light">
+    <Setter Property="Background" Value="#CCF0FFF4" />
+    <Setter Property="BorderBrush" Value="#5FBB7A" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <!-- ============================================================
+       COMMAND BAR
+       Floating action bar with glass effect for main actions
+       ============================================================ -->
+
+  <Style Selector="Border.command-bar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="12,10" />
+  </Style>
+
+  <Style Selector="Border.command-bar-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#E5E5E5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="12,10" />
+  </Style>
+
+  <!-- ============================================================
+       BADGE / PILL STYLES
+       ============================================================ -->
+
+  <Style Selector="Border.badge-pill">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+
+  <Style Selector="Border.badge-pill-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#E5E5E5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+
+  <!-- ============================================================
+       LOG PANEL MATERIALS
+       ============================================================ -->
+
+  <Style Selector="Border.log-surface">
+    <Setter Property="Background" Value="#660E141C" />
+    <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10" />
+  </Style>
+
+  <Style Selector="Border.log-surface-light">
+    <Setter Property="Background" Value="#CCF5F5F5" />
+    <Setter Property="BorderBrush" Value="#E5E5E5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10" />
+  </Style>
+
+  <!-- ============================================================
+       DIALOG SURFACE
+       Modal dialog with strong elevation
+       ============================================================ -->
+
+  <Style Selector="Border.dialog-surface-material">
+    <Setter Property="Background" Value="#CC1C2735" />
+    <Setter Property="BorderBrush" Value="#2AFFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+
+  <Style Selector="Border.dialog-surface-material-light">
+    <Setter Property="Background" Value="#E5FFFFFF" />
+    <Setter Property="BorderBrush" Value="#E5E5E5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+
+  <!-- ============================================================
+       TITLE BAR MATERIALS
+       ============================================================ -->
+
+  <Style Selector="Border.title-bar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#12FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="12,8" />
+  </Style>
+
+  <Style Selector="Border.title-bar-light">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#F0F0F0" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="12,8" />
+  </Style>
+</Styles>

@@ -2,14 +2,16 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Windowing;
 using RayleaBot.Launcher.Models;
 using RayleaBot.Launcher.Views;
 
 namespace RayleaBot.Launcher;
 
-internal sealed partial class MainWindow : Window
+internal sealed partial class MainWindow : AppWindow
 {
     private readonly DispatcherTimer refreshTimer;
     private readonly LauncherCopy copy = LauncherCopy.Default;
@@ -42,11 +44,21 @@ internal sealed partial class MainWindow : Window
 
     private async void OnOpened(object? sender, EventArgs e)
     {
+        // Enable Mica backdrop on Windows 11
+        EnableMicaBackdrop();
         ViewModel.SetWindowState(WindowState == WindowState.Maximized);
         EnsureTrayIcon();
         await ViewModel.InitializeAsync();
         SyncTrayPresentation();
         refreshTimer.Start();
+    }
+
+    private void EnableMicaBackdrop()
+    {
+        // Request Mica backdrop from the OS, with Blur as fallback on Windows 10
+        TransparencyLevelHint = new[] { WindowTransparencyLevel.Mica, WindowTransparencyLevel.Blur };
+        // True transparent fallback for when transparency is not supported at all
+        TransparencyBackgroundFallback = Brushes.Transparent;
     }
 
     private async void OnClosing(object? sender, WindowClosingEventArgs e)

@@ -5,25 +5,34 @@
              x:DataType="vm:CloseConfirmDialogViewModel">
   <Border Classes="dialog-surface"
           MaxWidth="{StaticResource Size.DialogWidth}">
-    <StackPanel Spacing="10">
+    <StackPanel Spacing="14">
+      <!-- Body text -->
       <TextBlock Text="{CompiledBinding Copy.CloseDialogBody}"
-                 TextWrapping="Wrap" />
+                 TextWrapping="Wrap"
+                 FontSize="14" />
 
-      <Border Classes="summary-strip">
+      <!-- Current behavior summary -->
+      <Border Classes="card-secondary" Padding="12,10">
         <StackPanel Spacing="3">
-          <TextBlock Classes="caption" Text="{CompiledBinding CurrentDefaultCaption}" />
+          <TextBlock Classes="caption"
+                     Text="{CompiledBinding CurrentDefaultCaption}"
+                     FontWeight="SemiBold" />
           <TextBlock FontWeight="SemiBold"
                      Text="{CompiledBinding CurrentDefaultSummary}"
                      TextWrapping="Wrap" />
         </StackPanel>
       </Border>
 
+      <!-- Footnote -->
       <TextBlock Classes="secondary"
                  Text="{CompiledBinding Copy.CloseDialogFootnote}"
-                 TextWrapping="Wrap" />
+                 TextWrapping="Wrap"
+                 FontSize="13" />
 
+      <!-- Remember choice checkbox -->
       <CheckBox Content="{CompiledBinding Copy.CloseDialogRememberChoiceLabel}"
-                IsChecked="{CompiledBinding RememberChoice, Mode=TwoWay}" />
+                IsChecked="{CompiledBinding RememberChoice, Mode=TwoWay}"
+                FontSize="14" />
     </StackPanel>
   </Border>
 </UserControl>

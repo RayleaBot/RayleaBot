@@ -5,41 +5,55 @@
              x:DataType="vm:MainWindowViewModel">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Classes="page-root">
+
+      <!-- ============================================================
+           PAGE HEADER
+           ============================================================ -->
       <Border Classes="compact-page-header">
-        <StackPanel Spacing="4">
-          <TextBlock Classes="caption" Text="{CompiledBinding Copy.DiagnosticsPageHeading}" />
-          <TextBlock Classes="page-title" Text="{CompiledBinding Copy.DiagnosticsTitle}" />
+        <StackPanel Spacing="3">
+          <TextBlock Classes="caption"
+                     Text="{CompiledBinding Copy.DiagnosticsPageHeading}" />
+          <TextBlock Classes="page-title"
+                     Text="{CompiledBinding Copy.DiagnosticsTitle}" />
           <TextBlock Classes="secondary"
                      Text="{CompiledBinding Copy.DiagnosticsPageSummary}"
                      TextWrapping="Wrap" />
         </StackPanel>
       </Border>
 
-      <Border Classes="toolbar-card">
+      <!-- ============================================================
+           ACTION TOOLBAR
+           ============================================================ -->
+      <Border Classes="command-bar-pattern">
         <WrapPanel>
-          <Button Theme="{StaticResource ToolbarActionButton}"
+          <Button Theme="{StaticResource SecondaryActionButton}"
                   Content="{CompiledBinding OpenLogsActionDisplayLabel}"
                   Click="OpenLogsClicked"
-                  Margin="0,0,8,8" />
-          <Button Theme="{StaticResource ToolbarActionButton}"
+                  Margin="0,0,8,0" />
+          <Button Theme="{StaticResource SecondaryActionButton}"
                   Content="{CompiledBinding Copy.CopyDiagnosticsLabel}"
-                  Click="CopyDiagnosticsClicked"
-                  Margin="0,0,8,8" />
+                  Click="CopyDiagnosticsClicked" />
         </WrapPanel>
       </Border>
 
-      <Border Classes="app-card">
-        <StackPanel Spacing="8">
-          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.RecentLogsTitle}" />
+      <!-- ============================================================
+           RECENT LOGS
+           ============================================================ -->
+      <Border Classes="section-card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="section-title"
+                     Text="{CompiledBinding Copy.RecentLogsTitle}" />
 
           <ItemsControl ItemsSource="{CompiledBinding RecentStderr}"
                         IsVisible="{CompiledBinding HasRecentStderr}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border Classes="log-panel" Margin="0,0,0,8">
+                <Border Classes="log-panel" Margin="0,0,0,6">
                   <TextBlock Text="{Binding}"
                              FontFamily="{StaticResource FontFamily.Mono}"
-                             TextWrapping="Wrap" />
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             Foreground="{StaticResource Brush.TextSecondary}" />
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -54,31 +68,44 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="app-card">
+      <!-- ============================================================
+           DIAGNOSTICS SUMMARY — Structured info
+           ============================================================ -->
+      <Border Classes="section-card">
         <StackPanel Spacing="10">
-          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.DiagnosticsSummaryTitle}" />
-          <Grid ColumnDefinitions="Auto,*"
-                ColumnSpacing="16"
-                RowDefinitions="Auto,Auto,Auto,Auto"
-                RowSpacing="6">
-            <TextBlock Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsServiceStatusTitle}" />
-            <TextBlock Grid.Column="1" Classes="meta-value" Text="{CompiledBinding DiagnosticsServiceStatusValue}" />
+          <TextBlock Classes="section-title"
+                     Text="{CompiledBinding Copy.DiagnosticsSummaryTitle}" />
 
-            <TextBlock Grid.Row="1" Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsServiceEndpointTitle}" />
+          <Grid ColumnDefinitions="120,*"
+                ColumnSpacing="16"
+                RowSpacing="8">
+            <TextBlock Classes="meta-label"
+                       Text="服务状态" />
+            <TextBlock Grid.Column="1"
+                       Classes="meta-value"
+                       Text="{CompiledBinding DiagnosticsServiceStatusValue}" />
+
+            <TextBlock Grid.Row="1"
+                       Classes="meta-label"
+                       Text="服务端点" />
             <TextBlock Grid.Row="1"
                        Grid.Column="1"
                        Classes="meta-value"
                        Text="{CompiledBinding DiagnosticsServiceEndpointValue}"
                        TextWrapping="Wrap" />
 
-            <TextBlock Grid.Row="2" Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsEnvironmentTitle}" />
+            <TextBlock Grid.Row="2"
+                       Classes="meta-label"
+                       Text="环境状态" />
             <TextBlock Grid.Row="2"
                        Grid.Column="1"
                        Classes="meta-value"
                        Text="{CompiledBinding DiagnosticsEnvironmentSummaryValue}"
                        TextWrapping="Wrap" />
 
-            <TextBlock Grid.Row="3" Classes="meta-label" Text="{CompiledBinding Copy.DiagnosticsRecentErrorTitle}" />
+            <TextBlock Grid.Row="3"
+                       Classes="meta-label"
+                       Text="最近错误" />
             <TextBlock Grid.Row="3"
                        Grid.Column="1"
                        Classes="meta-value"
@@ -88,15 +115,24 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="app-card">
+      <!-- ============================================================
+           RAW DIAGNOSTICS — Monospace log view
+           ============================================================ -->
+      <Border Classes="section-card">
         <StackPanel Spacing="10">
-          <TextBlock Classes="section-title" Text="{CompiledBinding Copy.DiagnosticsRawTitle}" />
-          <TextBox Classes="log-textbox"
-                   Text="{CompiledBinding DiagnosticsSummary}"
-                   IsReadOnly="True"
-                   MinHeight="140" />
+          <TextBlock Classes="section-title"
+                     Text="{CompiledBinding Copy.DiagnosticsRawTitle}" />
+          <Border Classes="log-panel" Padding="12">
+            <TextBox Classes="log-textbox"
+                     Text="{CompiledBinding DiagnosticsSummary}"
+                     IsReadOnly="True"
+                     MinHeight="160"
+                     FontSize="12"
+                     TextWrapping="Wrap" />
+          </Border>
         </StackPanel>
       </Border>
+
     </StackPanel>
   </ScrollViewer>
 </UserControl>

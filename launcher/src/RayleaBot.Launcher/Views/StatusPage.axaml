@@ -5,32 +5,137 @@
              x:DataType="vm:MainWindowViewModel">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Classes="page-root">
+
+      <!-- ============================================================
+           HERO CARD — Status + Primary Action + Risk Summary
+           ============================================================ -->
       <Border Classes="hero-header">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-          <StackPanel Spacing="4">
-            <TextBlock Classes="caption" Text="{CompiledBinding Copy.StatusPageHeading}" />
-            <TextBlock Classes="page-title" Text="{CompiledBinding HeroTitle}" TextWrapping="Wrap" />
-            <TextBlock Classes="secondary" Text="{CompiledBinding ServiceDetail}" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <StackPanel Spacing="6">
+            <!-- Status label + value -->
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Classes="caption" Text="{CompiledBinding Copy.StatusPageHeading}" />
+              <Border Classes="badge"
+                      Background="{CompiledBinding HeroAccentBrush}"
+                      Padding="10,3">
+                <TextBlock Text="{CompiledBinding StatusSummary}"
+                           Foreground="#081420"
+                           FontWeight="SemiBold"
+                           FontSize="12" />
+              </Border>
+            </StackPanel>
+
+            <!-- Hero title -->
+            <TextBlock Classes="page-title"
+                       Text="{CompiledBinding HeroTitle}"
+                       TextWrapping="Wrap" />
+
+            <!-- Service detail -->
+            <TextBlock Classes="secondary"
+                       Text="{CompiledBinding ServiceDetail}"
+                       TextWrapping="Wrap" />
+
+            <!-- Command bar: primary + secondary actions -->
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8"
+                        Margin="0,4,0,0">
+              <Button Theme="{StaticResource PrimaryActionButton}"
+                      Content="{CompiledBinding PrimaryActionDisplayLabel}"
+                      IsEnabled="{CompiledBinding CanRunPrimaryAction}"
+                      Click="PrimaryActionClicked" />
+
+              <Button Theme="{StaticResource DangerActionButton}"
+                      Content="{CompiledBinding StopActionDisplayLabel}"
+                      IsEnabled="{CompiledBinding CanStop}"
+                      Click="StopClicked" />
+
+              <Button Theme="{StaticResource ToolbarActionButton}"
+                      Content="{CompiledBinding OpenLogsActionDisplayLabel}"
+                      Click="OpenLogsClicked" />
+
+              <Button Theme="{StaticResource ToolbarActionButton}"
+                      Content="{CompiledBinding Copy.CopyDiagnosticsLabel}"
+                      Click="CopyDiagnosticsClicked" />
+            </StackPanel>
+
+            <!-- Progress indicator -->
+            <Border Classes="summary-strip"
+                    IsVisible="{CompiledBinding IsActionInProgress}"
+                    Margin="0,6,0,0">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <ProgressBar Classes="action-progress"
+                             IsIndeterminate="True"
+                             VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Classes="secondary"
+                           VerticalAlignment="Center"
+                           Text="{CompiledBinding PendingActionMessage}"
+                           TextWrapping="Wrap" />
+              </Grid>
+            </Border>
           </StackPanel>
 
+          <!-- Environment summary (right side) -->
           <Border Grid.Column="1"
-                  Classes="badge"
-                  VerticalAlignment="Top">
-            <TextBlock Text="{CompiledBinding StatusSummary}"
-                       Foreground="{CompiledBinding HeroAccentBrush}"
-                       FontWeight="SemiBold" />
+                  Classes="card-secondary"
+                  VerticalAlignment="Top"
+                  Padding="14,10">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="caption"
+                         Text="{CompiledBinding Copy.EnvironmentSummaryTitle}"
+                         FontWeight="SemiBold" />
+
+              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" RowSpacing="8">
+                <Border Classes="metric-tile" Padding="8">
+                  <StackPanel Spacing="2" HorizontalAlignment="Center">
+                    <TextBlock FontSize="20"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Error}"
+                               Text="{CompiledBinding BlockingEnvironmentCheckCount}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Classes="caption" Text="阻塞" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Classes="metric-tile" Padding="8">
+                  <StackPanel Spacing="2" HorizontalAlignment="Center">
+                    <TextBlock FontSize="20"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Warning}"
+                               Text="{CompiledBinding WarningEnvironmentCheckCount}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Classes="caption" Text="需注意" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Classes="metric-tile" Padding="8">
+                  <StackPanel Spacing="2" HorizontalAlignment="Center">
+                    <TextBlock FontSize="20"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Success}"
+                               Text="{CompiledBinding ReadyEnvironmentCheckCount}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Classes="caption" Text="正常" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </StackPanel>
           </Border>
         </Grid>
       </Border>
 
+      <!-- ============================================================
+           RISK BANNER — Blocking/Warning alert
+           ============================================================ -->
       <Border Classes="issue-banner"
               IsVisible="{CompiledBinding HasHomeAlert}">
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
           <Border Width="4"
                   CornerRadius="{StaticResource Radius.Pill}"
-                  Background="{StaticResource Brush.Warning}" />
+                  Background="{StaticResource Brush.Warning}"
+                  Margin="0,2,0,0" />
 
-          <StackPanel Grid.Column="1" Spacing="4">
+          <StackPanel Grid.Column="1" Spacing="3">
             <TextBlock FontWeight="SemiBold"
                        Text="{CompiledBinding HomeAlertTitle}" />
             <TextBlock Classes="secondary"
@@ -46,43 +151,53 @@
         </Grid>
       </Border>
 
-      <Grid ColumnDefinitions="1.4*,1*"
-            ColumnSpacing="14">
+      <!-- ============================================================
+           BOTTOM ROW — Service Info + Recent Logs
+           ============================================================ -->
+      <Grid ColumnDefinitions="1.3*,0.7*" ColumnSpacing="14">
+
+        <!-- Service Info Card -->
         <Border Classes="app-card" VerticalAlignment="Top">
           <StackPanel Spacing="10">
-            <TextBlock Classes="section-title" Text="{CompiledBinding Copy.ServiceInfoTitle}" />
+            <TextBlock Classes="section-title"
+                       Text="{CompiledBinding Copy.ServiceInfoTitle}" />
+
             <Grid ColumnDefinitions="Auto,*"
                   ColumnSpacing="16"
-                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                  RowSpacing="6">
-              <TextBlock Classes="meta-label" Text="{CompiledBinding Copy.StatusLabel}" />
-              <TextBlock Grid.Column="1" Classes="meta-value" Text="{CompiledBinding StatusSummary}" />
-
-              <TextBlock Grid.Row="1" Classes="meta-label" Text="{CompiledBinding Copy.EndpointLabel}" />
-              <TextBlock Grid.Row="1"
-                         Grid.Column="1"
+                  RowSpacing="8">
+              <TextBlock Classes="meta-label"
+                         Text="{CompiledBinding Copy.EndpointLabel}" />
+              <TextBlock Grid.Column="1"
                          Classes="meta-value"
                          Text="{CompiledBinding WebEndpoint}"
                          TextWrapping="Wrap" />
 
-              <TextBlock Grid.Row="2" Classes="meta-label" Text="{CompiledBinding Copy.VersionLabel}" />
-              <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
-                <TextBlock Classes="meta-value" Text="{CompiledBinding VersionSummary}" TextWrapping="Wrap" />
-                <TextBlock Classes="secondary" Text="{CompiledBinding VersionDetail}" TextWrapping="Wrap" />
+              <TextBlock Grid.Row="1"
+                         Classes="meta-label"
+                         Text="{CompiledBinding Copy.VersionLabel}" />
+              <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                <TextBlock Classes="meta-value"
+                           Text="{CompiledBinding VersionSummary}"
+                           TextWrapping="Wrap" />
+                <TextBlock Classes="secondary"
+                           Text="{CompiledBinding VersionDetail}"
+                           TextWrapping="Wrap" />
               </StackPanel>
 
-              <TextBlock Grid.Row="3"
+              <TextBlock Grid.Row="2"
                          Classes="meta-label"
                          Text="{CompiledBinding Copy.ProcessIdLabel}"
                          IsVisible="{CompiledBinding HasProcessId}" />
-              <TextBlock Grid.Row="3"
+              <TextBlock Grid.Row="2"
                          Grid.Column="1"
                          Classes="meta-value"
                          Text="{CompiledBinding ProcessIdSummary}"
                          IsVisible="{CompiledBinding HasProcessId}" />
 
-              <TextBlock Grid.Row="4" Classes="meta-label" Text="{CompiledBinding Copy.WorkdirLabel}" />
-              <TextBlock Grid.Row="4"
+              <TextBlock Grid.Row="3"
+                         Classes="meta-label"
+                         Text="{CompiledBinding Copy.WorkdirLabel}" />
+              <TextBlock Grid.Row="3"
                          Grid.Column="1"
                          Classes="meta-value"
                          Text="{CompiledBinding Workdir}"
@@ -91,109 +206,29 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Column="1" Classes="app-card" VerticalAlignment="Top">
-          <StackPanel Spacing="10">
-            <TextBlock Classes="section-title" Text="{CompiledBinding Copy.EnvironmentSummaryTitle}" />
-            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-              <Border Classes="metric-tile">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="caption" Text="阻塞项" />
-                  <TextBlock FontSize="18"
-                             FontWeight="SemiBold"
-                             Foreground="{StaticResource Brush.Error}"
-                             Text="{CompiledBinding BlockingEnvironmentCheckCount}" />
-                </StackPanel>
-              </Border>
-
-              <Border Grid.Column="1" Classes="metric-tile">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="caption" Text="需注意" />
-                  <TextBlock FontSize="18"
-                             FontWeight="SemiBold"
-                             Foreground="{StaticResource Brush.Warning}"
-                             Text="{CompiledBinding WarningEnvironmentCheckCount}" />
-                </StackPanel>
-              </Border>
-
-              <Border Grid.Column="2" Classes="metric-tile">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="caption" Text="正常" />
-                  <TextBlock FontSize="18"
-                             FontWeight="SemiBold"
-                             Foreground="{StaticResource Brush.Success}"
-                             Text="{CompiledBinding ReadyEnvironmentCheckCount}" />
-                </StackPanel>
-              </Border>
-            </Grid>
-
-          </StackPanel>
-        </Border>
-      </Grid>
-
-      <Grid ColumnDefinitions="1.12*,0.88*"
-            ColumnSpacing="14">
-        <Border Classes="app-card" VerticalAlignment="Top">
-          <StackPanel Spacing="10">
-            <StackPanel Spacing="3">
-              <TextBlock Classes="section-title" Text="{CompiledBinding Copy.PrimaryActionTitle}" />
-              <TextBlock Classes="secondary"
-                         Text="{CompiledBinding OperationSummary}"
-                         TextWrapping="Wrap" />
-            </StackPanel>
-
-            <Button Theme="{StaticResource PrimaryActionButton}"
-                    Content="{CompiledBinding PrimaryActionDisplayLabel}"
-                    IsEnabled="{CompiledBinding CanRunPrimaryAction}"
-                    Click="PrimaryActionClicked"
-                    HorizontalAlignment="Left" />
-
-            <WrapPanel>
-              <Button Theme="{StaticResource DangerActionButton}"
-                      Content="{CompiledBinding StopActionDisplayLabel}"
-                      IsEnabled="{CompiledBinding CanStop}"
-                      Click="StopClicked"
-                      Margin="0,0,8,8" />
-              <Button Theme="{StaticResource ToolbarActionButton}"
-                      Content="{CompiledBinding RetryActionDisplayLabel}"
-                      IsEnabled="{CompiledBinding CanRetry}"
-                      Click="RetryClicked"
-                      Margin="0,0,8,8" />
-              <Button Theme="{StaticResource ToolbarActionButton}"
-                      Content="{CompiledBinding OpenLogsActionDisplayLabel}"
-                      Click="OpenLogsClicked"
-                      Margin="0,0,8,8" />
-              <Button Theme="{StaticResource ToolbarActionButton}"
-                      Content="{CompiledBinding Copy.CopyDiagnosticsLabel}"
-                      Click="CopyDiagnosticsClicked"
-                      Margin="0,0,8,8" />
-            </WrapPanel>
-
-            <Border Classes="summary-strip"
-                    IsVisible="{CompiledBinding IsActionInProgress}">
-              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                <ProgressBar Classes="action-progress" IsIndeterminate="True" />
-                <TextBlock Classes="secondary"
-                           Grid.Column="1"
-                           VerticalAlignment="Center"
-                           Text="{CompiledBinding PendingActionMessage}"
-                           TextWrapping="Wrap" />
-              </Grid>
-            </Border>
-          </StackPanel>
-        </Border>
-
+        <!-- Recent Logs Card -->
         <Border Grid.Column="1" Classes="app-card" VerticalAlignment="Top">
           <StackPanel Spacing="8">
-            <TextBlock Classes="section-title" Text="{CompiledBinding Copy.RecentLogsTitle}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="section-title"
+                         Text="{CompiledBinding Copy.RecentLogsTitle}" />
+              <Button Theme="{StaticResource SubtleActionButton}"
+                      Content="全部"
+                      Click="OpenLogsClicked"
+                      Padding="8,2"
+                      FontSize="12" />
+            </StackPanel>
 
             <ItemsControl ItemsSource="{CompiledBinding HomeRecentStderr}"
                           IsVisible="{CompiledBinding HasHomeRecentStderr}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Border Classes="log-panel" Margin="0,0,0,8">
+                  <Border Classes="log-panel" Margin="0,0,0,6">
                     <TextBlock Text="{Binding}"
                                FontFamily="{StaticResource FontFamily.Mono}"
-                               TextWrapping="Wrap" />
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.TextSecondary}" />
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
@@ -208,6 +243,7 @@
           </StackPanel>
         </Border>
       </Grid>
+
     </StackPanel>
   </ScrollViewer>
 </UserControl>

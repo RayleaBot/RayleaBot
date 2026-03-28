@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+<ui:AppWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:views="using:RayleaBot.Launcher.Views"
@@ -9,49 +9,62 @@
         Width="1360"
         Height="880"
         MinWidth="1140"
-        MinHeight="720">
+        MinHeight="720"
+        Background="Transparent">
   <ui:NavigationView MenuItemsSource="{CompiledBinding MainNavigationItems}"
                      FooterMenuItemsSource="{CompiledBinding FooterNavigationItems}"
                      SelectedItem="{CompiledBinding SelectedNavigationItem, Mode=TwoWay}"
                      IsSettingsVisible="False"
-                     PaneDisplayMode="Left">
+                     PaneDisplayMode="Left"
+                     Background="Transparent">
     <ui:NavigationView.MenuItemTemplate>
       <DataTemplate x:DataType="vm:LauncherNavigationItemViewModel">
         <ui:NavigationViewItem SelectsOnInvoked="True">
-          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <Grid ColumnDefinitions="Auto,*"
+                ColumnSpacing="10"
+                Margin="0,2">
             <TextBlock Classes="nav-icon"
                        Text="{CompiledBinding IconGlyph}"
+                       FontSize="16"
                        VerticalAlignment="Center" />
             <TextBlock Grid.Column="1"
                        Text="{CompiledBinding Title}"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Center"
+                       FontSize="14" />
           </Grid>
         </ui:NavigationViewItem>
       </DataTemplate>
     </ui:NavigationView.MenuItemTemplate>
 
     <ui:NavigationView.PaneHeader>
-      <Border Background="{StaticResource Brush.NavigationPane}"
-              Padding="0,4,0,4">
-        <StackPanel Spacing="2">
-          <TextBlock Text="{CompiledBinding Copy.ShellHeaderTitle}"
-                     FontFamily="{StaticResource FontFamily.Display}"
-                     FontSize="15"
-                     FontWeight="SemiBold" />
+      <Border Padding="14,12,14,10"
+              Background="Transparent">
+        <StackPanel Spacing="3">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="&#xE80F;"
+                       FontFamily="Segoe Fluent Icons"
+                       FontSize="20"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource Brush.Accent}" />
+            <TextBlock Text="{CompiledBinding Copy.ShellHeaderTitle}"
+                       FontFamily="{StaticResource FontFamily.Display}"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+          </StackPanel>
           <TextBlock Classes="secondary"
                      Text="{CompiledBinding Copy.ShellHeaderSummary}"
-                     TextWrapping="Wrap" />
+                     TextWrapping="Wrap"
+                     FontSize="12" />
         </StackPanel>
       </Border>
     </ui:NavigationView.PaneHeader>
 
-    <Border Background="{StaticResource Brush.Background}">
-      <Grid Margin="{StaticResource Thickness.PagePadding}">
-        <views:StatusPage IsVisible="{CompiledBinding IsStatusSectionActive}" />
-        <views:EnvironmentPage IsVisible="{CompiledBinding IsEnvironmentSectionActive}" />
-        <views:DiagnosticsPage IsVisible="{CompiledBinding IsDiagnosticsSectionActive}" />
-        <views:SettingsPage IsVisible="{CompiledBinding IsSettingsSectionActive}" />
-      </Grid>
-    </Border>
+    <Grid Margin="{StaticResource Thickness.PagePadding}">
+      <views:StatusPage IsVisible="{CompiledBinding IsStatusSectionActive}" />
+      <views:EnvironmentPage IsVisible="{CompiledBinding IsEnvironmentSectionActive}" />
+      <views:DiagnosticsPage IsVisible="{CompiledBinding IsDiagnosticsSectionActive}" />
+      <views:SettingsPage IsVisible="{CompiledBinding IsSettingsSectionActive}" />
+    </Grid>
   </ui:NavigationView>
-</Window>
+</ui:AppWindow>

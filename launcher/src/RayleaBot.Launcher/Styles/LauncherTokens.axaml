@@ -1,14 +1,17 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
-    <Color x:Key="Color.Background">#0B1118</Color>
-    <Color x:Key="Color.NavigationPane">#0E1520</Color>
-    <Color x:Key="Color.Surface">#121922</Color>
-    <Color x:Key="Color.SurfaceElevated">#17202B</Color>
-    <Color x:Key="Color.SurfaceRaised">#1C2735</Color>
-    <Color x:Key="Color.SurfaceMuted">#0E141C</Color>
-    <Color x:Key="Color.SurfaceHover">#202B39</Color>
-    <Color x:Key="Color.SurfacePressed">#263445</Color>
+    <!-- ============================================================
+         DARK THEME TOKENS (Primary)
+         ============================================================ -->
+    <Color x:Key="Color.Background">#E50B1118</Color>
+    <Color x:Key="Color.NavigationPane">#E50E1520</Color>
+    <Color x:Key="Color.Surface">#E5121922</Color>
+    <Color x:Key="Color.SurfaceElevated">#E517202B</Color>
+    <Color x:Key="Color.SurfaceRaised">#E51C2735</Color>
+    <Color x:Key="Color.SurfaceMuted">#E50E141C</Color>
+    <Color x:Key="Color.SurfaceHover">#E5202B39</Color>
+    <Color x:Key="Color.SurfacePressed">#E5263445</Color>
     <Color x:Key="Color.Selection">#18324A</Color>
     <Color x:Key="Color.SelectionBorder">#78B6FF</Color>
     <Color x:Key="Color.BorderSubtle">#17FFFFFF</Color>
@@ -27,6 +30,51 @@
     <Color x:Key="Color.WarningSurface">#241B10</Color>
     <Color x:Key="Color.ErrorSurface">#2A161A</Color>
 
+    <!-- ============================================================
+         LIGHT THEME TOKENS
+         ============================================================ -->
+    <Color x:Key="Color.Light.Background">#F0F3F3F3</Color>
+    <Color x:Key="Color.Light.NavigationPane">#F0FAFAFA</Color>
+    <Color x:Key="Color.Light.Surface">#F0FFFFFF</Color>
+    <Color x:Key="Color.Light.SurfaceElevated">#F0FFFFFF</Color>
+    <Color x:Key="Color.Light.SurfaceRaised">#F0F5F5F5</Color>
+    <Color x:Key="Color.Light.SurfaceMuted">#F0EFEFEF</Color>
+    <Color x:Key="Color.Light.SurfaceHover">#F0EBEBEB</Color>
+    <Color x:Key="Color.Light.SurfacePressed">#F0E5E5E5</Color>
+    <Color x:Key="Color.Light.Selection">#EBF4FF</Color>
+    <Color x:Key="Color.Light.SelectionBorder">#78B5FF</Color>
+    <Color x:Key="Color.Light.BorderSubtle">#E5E5E5</Color>
+    <Color x:Key="Color.Light.BorderStrong">#C8DCF0</Color>
+    <Color x:Key="Color.Light.TextPrimary">#1A1A1A</Color>
+    <Color x:Key="Color.Light.TextSecondary">#5A5A5A</Color>
+    <Color x:Key="Color.Light.TextMuted">#8A8A8A</Color>
+    <Color x:Key="Color.Light.Accent">#0078D4</Color>
+    <Color x:Key="Color.Light.AccentHover">#106EBE</Color>
+    <Color x:Key="Color.Light.AccentPressed">#005A9E</Color>
+    <Color x:Key="Color.Light.AccentForeground">#FFFFFF</Color>
+    <Color x:Key="Color.Light.Success">#107C10</Color>
+    <Color x:Key="Color.Light.Warning">#CA5010</Color>
+    <Color x:Key="Color.Light.Error">#D13438</Color>
+    <Color x:Key="Color.Light.SuccessSurface">#DFF6DD</Color>
+    <Color x:Key="Color.Light.WarningSurface">#FFF4CE</Color>
+    <Color x:Key="Color.Light.ErrorSurface">#FDE7E9</Color>
+
+    <!-- ============================================================
+         SEMANTIC SHELL TOKENS (used across both themes)
+         ============================================================ -->
+    <Color x:Key="Color.Shell">#0B1118</Color>
+    <Color x:Key="Color.Pane">#0E1520</Color>
+    <Color x:Key="Color.Hero">#17202B</Color>
+    <Color x:Key="Color.PrimaryCard">#17202B</Color>
+    <Color x:Key="Color.SecondaryCard">#1C2735</Color>
+    <Color x:Key="Color.CommandBar">#1C2735</Color>
+    <Color x:Key="Color.DialogSurface">#1C2735</Color>
+    <Color x:Key="Color.Overlay">#B3000000</Color>
+    <Color x:Key="Color.Shadow">#40000000</Color>
+
+    <!-- ============================================================
+         BRUSHES — DARK THEME (default)
+         ============================================================ -->
     <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
     <SolidColorBrush x:Key="Brush.NavigationPane" Color="{StaticResource Color.NavigationPane}" />
     <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
@@ -53,35 +101,92 @@
     <SolidColorBrush x:Key="Brush.WarningSurface" Color="{StaticResource Color.WarningSurface}" />
     <SolidColorBrush x:Key="Brush.ErrorSurface" Color="{StaticResource Color.ErrorSurface}" />
 
+    <!-- ============================================================
+         GLASS / TRANSLUCENT BRUSHES
+         For use on cards and panels layered over Mica/Acrylic
+         ============================================================ -->
+    <SolidColorBrush x:Key="Brush.GlassCard" Color="#CC17202B" />
+    <SolidColorBrush x:Key="Brush.GlassCardElevated" Color="#CC1C2735" />
+    <SolidColorBrush x:Key="Brush.GlassCardSubtle" Color="#CC1C2735" />
+    <SolidColorBrush x:Key="Brush.GlassCardMuted" Color="#CC0E141C" />
+
+    <!-- ============================================================
+         FONT FAMILIES
+         ============================================================ -->
     <FontFamily x:Key="FontFamily.Ui">Segoe UI Variable Text, Segoe UI, Inter</FontFamily>
     <FontFamily x:Key="FontFamily.Display">Segoe UI Variable Display, Segoe UI Semibold, Inter</FontFamily>
-    <FontFamily x:Key="FontFamily.Mono">Cascadia Mono,Consolas,monospace</FontFamily>
+    <FontFamily x:Key="FontFamily.Mono">Cascadia Mono, Consolas, monospace</FontFamily>
 
+    <!-- ============================================================
+         CORNER RADII
+         ============================================================ -->
+    <CornerRadius x:Key="Radius.Tiny">4</CornerRadius>
     <CornerRadius x:Key="Radius.Small">8</CornerRadius>
     <CornerRadius x:Key="Radius.Medium">10</CornerRadius>
     <CornerRadius x:Key="Radius.Large">12</CornerRadius>
+    <CornerRadius x:Key="Radius.XLarge">16</CornerRadius>
     <CornerRadius x:Key="Radius.Pill">999</CornerRadius>
 
+    <!-- ============================================================
+         SPACING SYSTEM (4pt grid)
+         ============================================================ -->
     <Thickness x:Key="Thickness.PagePadding">16</Thickness>
     <Thickness x:Key="Thickness.CardPadding">14</Thickness>
     <Thickness x:Key="Thickness.CompactCardPadding">10</Thickness>
-    <Thickness x:Key="Thickness.PageHeaderPadding">12</Thickness>
+    <Thickness x:Key="Thickness.PageHeaderPadding">16</Thickness>
+    <Thickness x:Key="Thickness.DialogPadding">16</Thickness>
+    <Thickness x:Key="Thickness.CommandBarPadding">12,10</Thickness>
 
+    <x:Double x:Key="Spacing.XXS">2</x:Double>
+    <x:Double x:Key="Spacing.XS">4</x:Double>
+    <x:Double x:Key="Spacing.SM">8</x:Double>
+    <x:Double x:Key="Spacing.MD">12</x:Double>
+    <x:Double x:Key="Spacing.LG">16</x:Double>
+    <x:Double x:Key="Spacing.XL">24</x:Double>
+    <x:Double x:Key="Spacing.XXL">32</x:Double>
+
+    <!-- Legacy aliases -->
     <x:Double x:Key="Spacing.Page">16</x:Double>
     <x:Double x:Key="Spacing.Section">12</x:Double>
     <x:Double x:Key="Spacing.Row">8</x:Double>
     <x:Double x:Key="Spacing.Inline">8</x:Double>
 
+    <!-- ============================================================
+         CONTROL SIZES
+         ============================================================ -->
     <x:Double x:Key="Size.ControlHeight">36</x:Double>
     <x:Double x:Key="Size.CompactControlHeight">30</x:Double>
     <x:Double x:Key="Size.NavItemHeight">38</x:Double>
     <x:Double x:Key="Size.DialogWidth">460</x:Double>
     <x:Double x:Key="Size.NavPaneOpen">212</x:Double>
     <x:Double x:Key="Size.NavPaneCompact">52</x:Double>
+    <x:Double x:Key="Size.TitleBarHeight">40</x:Double>
+    <x:Double x:Key="Size.WindowControlWidth">46</x:Double>
 
+    <!-- ============================================================
+         TYPOGRAPHY SCALE
+         ============================================================ -->
+    <x:Double x:Key="Font.WindowTitle">13</x:Double>
     <x:Double x:Key="Font.PageTitle">20</x:Double>
     <x:Double x:Key="Font.SectionTitle">16</x:Double>
     <x:Double x:Key="Font.Body">14</x:Double>
     <x:Double x:Key="Font.Caption">12</x:Double>
+    <x:Double x:Key="Font.Label">13</x:Double>
+    <x:Double x:Key="Font.Mono">13</x:Double>
+
+    <!-- ============================================================
+         ELEVATED SHADOWS
+         ============================================================ -->
+    <BoxShadows x:Key="Shadow.Card">0 2 8 0 #40000000</BoxShadows>
+    <BoxShadows x:Key="Shadow.Dialog">0 8 32 0 #30000000</BoxShadows>
+    <BoxShadows x:Key="Shadow.CommandBar">0 2 12 0 #20000000</BoxShadows>
+
+    <!-- ============================================================
+         MOTION TIMING
+         ============================================================ -->
+    <x:Double x:Key="Duration.Instant">0.05</x:Double>
+    <x:Double x:Key="Duration.Fast">0.12</x:Double>
+    <x:Double x:Key="Duration.Normal">0.18</x:Double>
+    <x:Double x:Key="Duration.Slow">0.28</x:Double>
   </Styles.Resources>
 </Styles>

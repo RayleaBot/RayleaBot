@@ -8,5 +8,7 @@
     <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherTokens.axaml" />
     <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherControls.axaml" />
     <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherPatterns.axaml" />
+    <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherMaterials.axaml" />
+    <StyleInclude Source="avares://RayleaBot.Launcher/Styles/LauncherMotion.axaml" />
   </Application.Styles>
 </Application>

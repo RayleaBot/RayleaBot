@@ -1,0 +1,84 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:FluentAvalonia.UI.Controls">
+  <!--
+    LauncherMotion.axaml
+    Unified animation curves and timing for all transitions.
+    Duration: 150-250ms for micro-interactions, 200-350ms for page transitions.
+  -->
+
+  <!-- ============================================================
+       BUTTON TRANSITIONS
+       ============================================================ -->
+
+  <Style Selector="Button:pointerover">
+    <Setter Property="Opacity" Value="0.9" />
+  </Style>
+
+  <Style Selector="Button:pressed">
+    <Setter Property="Opacity" Value="0.85" />
+    <Setter Property="RenderTransform" Value="scale(0.98)" />
+  </Style>
+
+  <Style Selector="Button:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <!-- ============================================================
+       NAVIGATION ITEM TRANSITIONS
+       ============================================================ -->
+
+  <Style Selector="ui|NavigationViewItem:pointerover">
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+
+  <Style Selector="ui|NavigationViewItem:selected">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- ============================================================
+       FOCUS STATES
+       ============================================================ -->
+
+  <Style Selector="Button:focus">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="TextBox:focus">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- ============================================================
+       REVEAL ANIMATION PATTERN
+       Applied to elements that should fade in
+       ============================================================ -->
+
+  <Style Selector="Border.reveal">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+
+  <Style Selector="Border.reveal.visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- ============================================================
+       EXPANDER TRANSITIONS
+       ============================================================ -->
+
+  <Style Selector="Expander">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- ============================================================
+       CHECKBOX / RADIO TRANSITIONS
+       ============================================================ -->
+
+  <Style Selector="CheckBox:pointerover">
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+
+  <Style Selector="RadioButton:pointerover">
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+
+</Styles>
