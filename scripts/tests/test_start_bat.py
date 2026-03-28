@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -13,6 +14,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class StartBatTests(unittest.TestCase):
+    def test_launcher_package_json_allows_required_build_dependencies(self) -> None:
+        package_json = json.loads((REPO_ROOT / "launcher" / "package.json").read_text(encoding="utf-8"))
+        approved = set(package_json.get("pnpm", {}).get("onlyBuiltDependencies", []))
+        self.assertEqual(approved, {"electron", "electron-winstaller"})
+
     def test_start_bat_runs_pnpm_against_launcher_dir_and_can_skip_launch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir)
@@ -59,7 +65,58 @@ class StartBatTests(unittest.TestCase):
                 [line.removeprefix("ARGS=") for line in lines[1::2]],
                 [
                     f'--dir "{expected_launcher_dir}" install --frozen-lockfile',
-                    f'--dir "{expected_launcher_dir}" build',
+                    f'--dir "{expected_launcher_dir}" run build:app',
+                ],
+            )
+
+    def test_start_bat_launches_electron_from_launcher_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            shutil.copy2(REPO_ROOT / "start.bat", workspace / "start.bat")
+
+            launcher_dir = workspace / "launcher"
+            (launcher_dir / "dist" / "main" / "main").mkdir(parents=True)
+            (launcher_dir / "dist" / "main" / "main" / "index.js").write_text("// main bundle\n", encoding="utf-8")
+            (launcher_dir / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+
+            bin_dir = workspace / "bin"
+            bin_dir.mkdir()
+            calls_path = workspace / "pnpm-calls.log"
+            fake_pnpm = textwrap.dedent(
+                f"""\
+                @echo off
+                setlocal
+                >> "{calls_path}" echo CWD=%CD%
+                >> "{calls_path}" echo ARGS=%*
+                exit /b 0
+                """
+            )
+            (bin_dir / "pnpm.cmd").write_text(fake_pnpm, encoding="ascii")
+
+            env = os.environ.copy()
+            env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
+
+            result = subprocess.run(
+                ["cmd", "/c", "start.bat"],
+                cwd=workspace,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+
+            lines = [line for line in calls_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(len(lines), 6)
+
+            expected_launcher_dir = str(launcher_dir)
+            self.assertEqual(
+                [line.removeprefix("ARGS=") for line in lines[1::2]],
+                [
+                    f'--dir "{expected_launcher_dir}" install --frozen-lockfile',
+                    f'--dir "{expected_launcher_dir}" run build:app',
+                    f'--dir "{expected_launcher_dir}" exec electron "."',
                 ],
             )
 

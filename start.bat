@@ -1,12 +1,11 @@
 @echo off
 setlocal
 
-rem Development-only shortcut for building and starting the packaged Electron launcher.
+rem Development-only shortcut for building and starting the local Electron launcher.
 cd /d "%~dp0"
 
 set "LAUNCHER_DIR=%~dp0launcher"
-set "LAUNCHER_PACKAGE_DIR=%LAUNCHER_DIR%\dist\package\win-unpacked"
-set "LAUNCHER_EXE=%LAUNCHER_PACKAGE_DIR%\RayleaLauncher.exe"
+set "LAUNCHER_ENTRY=."
 
 echo [RayleaBot] Installing launcher dependencies...
 call pnpm --dir "%LAUNCHER_DIR%" install --frozen-lockfile
@@ -16,7 +15,7 @@ if errorlevel 1 (
 )
 
 echo [RayleaBot] Building launcher...
-call pnpm --dir "%LAUNCHER_DIR%" build
+call pnpm --dir "%LAUNCHER_DIR%" run build:app
 if errorlevel 1 (
     echo [RayleaBot] Launcher build failed.
     exit /b 1
@@ -26,12 +25,12 @@ if /I "%RAYLEA_START_SKIP_LAUNCH%"=="1" (
     exit /b 0
 )
 
-if not exist "%LAUNCHER_EXE%" (
-    echo [RayleaBot] Launcher executable not found: "%LAUNCHER_EXE%"
+if not exist "%LAUNCHER_DIR%\dist\main\main\index.js" (
+    echo [RayleaBot] Launcher main bundle not found: "%LAUNCHER_DIR%\dist\main\main\index.js"
     exit /b 1
 )
 
 echo [RayleaBot] Starting launcher...
-start "RayleaBot Launcher" /D "%LAUNCHER_PACKAGE_DIR%" "%LAUNCHER_EXE%"
+call pnpm --dir "%LAUNCHER_DIR%" exec electron "%LAUNCHER_ENTRY%"
 
 exit /b 0
