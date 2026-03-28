@@ -87,8 +87,10 @@ jobs:
           launcher_package = json.loads((root / "launcher" / "package.json").read_text(encoding="utf-8"))
           launcher_deps = launcher_package.get("dependencies", {})
           launcher_dev_deps = launcher_package.get("devDependencies", {})
-          if launcher_deps.get("vue") != "3.5.31":
-              raise SystemExit("launcher/package.json must pin vue 3.5.31")
+          if launcher_deps.get("react") != "^18.3.1":
+              raise SystemExit("launcher/package.json must pin react ^18.3.1")
+          if launcher_deps.get("@fluentui/react-components") != "^9.54.0":
+              raise SystemExit("launcher/package.json must pin @fluentui/react-components ^9.54.0")
           if launcher_dev_deps.get("electron") != "41.1.0":
               raise SystemExit("launcher/package.json must pin electron 41.1.0")
           if launcher_dev_deps.get("electron-builder") != "26.8.1":
