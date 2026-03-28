@@ -129,7 +129,8 @@
 
 产出物：
 
-- Windows Launcher 的环境检查、启动/停止、打开 Web UI、版本检查最小闭环。
+- Electron 桌面启动器的环境检查、启动/停止、打开 Web UI、版本检查最小闭环。
+- 正式桌面交付矩阵覆盖 `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`，同时保留 `linux-x64-server`。
 
 暂不做什么：
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is RayleaBot
 
-A self-hosted chatbot framework with a plugin system, targeting personal developers and GitHub open-source collaborators. Polyglot monorepo: Go server, Vue 3 web UI, .NET/Avalonia Windows launcher.
+A self-hosted chatbot framework with a plugin system, targeting personal developers and GitHub open-source collaborators. Polyglot monorepo: Go server, Vue 3 web UI, Electron desktop launcher.
 
 ## Instruction Precedence
 
@@ -34,11 +34,12 @@ pnpm test         # unit tests (vitest, scaffold only)
 pnpm test:e2e     # e2e (playwright, scaffold only)
 ```
 
-### Launcher (.NET 10, Avalonia 11.3.12) — run from `launcher/`
+### Launcher (Electron 41.1.0, Node 24.14.0, pnpm 10.32.1) — run from `launcher/`
 
 ```bash
-dotnet publish ./launcher -c Release
-dotnet test ./launcher
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
 ```
 
 ## Contract-First Workflow

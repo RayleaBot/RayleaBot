@@ -2,7 +2,7 @@
 
 ## 目的
 
-本文件用于固定 RayleaBot 的工程版本线、默认命令、目录职责和长期有效的实现选型。
+本文件固定 RayleaBot 的工程版本线、默认命令、目录职责和长期有效的实现选型。
 进入正式实现后，AI 与人工协作都应先读本文件，再读 `contracts/`，最后才进入代码与文档修改。
 
 单向优先级：
@@ -17,9 +17,10 @@
 
 ## 当前工程落点
 
-- `server/` 是当前真实主链路，已经接入配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
-- `web/` 已进入真实管理面实现，`launcher/` 已进入最小桌面闭环实现。
-- `.deps/manifest.json` 已固定资源清单形状，资源来源、SHA256 与 Chromium 正式版本仍待补齐。
+- `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
+- `web/` 承载管理控制台主链路。
+- `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
+- `.deps/manifest.json` 固定受控 Chromium 与托管 Python / Node.js 运行时资源矩阵。
 
 ## v0.1 固定版本线
 
@@ -29,10 +30,9 @@
 | Web / Node runtime | Node.js `24.14.0` |
 | JS package manager | `pnpm 10.32.1` |
 | Web UI | Vue `3.5.30` + Vite `8.0.0` + Element Plus `2.13.5` + Vue Router `5.0.3` + Pinia `3.0.4` |
+| Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + Vue `3.5.31` + Vite `8.0.3` + `electron-builder 26.8.1` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |
-| Launcher | `.NET SDK 10.0.103` |
-| Avalonia | `11.3.12` |
 | Render | `chromedp 0.13.2` + 受控 Chromium |
 
 ## 固定工程选型
@@ -49,6 +49,9 @@
 | Web HTTP | 原生 `fetch` + 薄封装 |
 | Web 实时通信 | 原生 `WebSocket` + 薄封装 |
 | Web 样式 | Element Plus + Vue SFC `lang="scss"` + CSS Variables |
+| Launcher 主进程 | Electron `main` + typed service layer |
+| Launcher 桌面桥接 | `preload` 暴露受限 IPC API |
+| Launcher 渲染层 | Vue 3 + Vite 单页面桌面壳 |
 | 仓库级 JS 包管理器 | `pnpm` |
 | Node.js 插件依赖安装器 | `npm` |
 | Python 插件依赖安装链路 | 受控 Python + 每插件独立 `.venv/` |
@@ -71,8 +74,9 @@
 
 ### Launcher
 
-- 构建：`dotnet publish ./launcher -c Release`
-- 测试：`dotnet test ./launcher`
+- 安装：`pnpm install --frozen-lockfile`
+- 测试：`pnpm test`
+- 构建：`pnpm build`
 
 ## 目录职责
 
@@ -90,7 +94,7 @@
 | `examples/` | 示例插件、示例配置、示例请求/响应 |
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
-| `launcher/` | Windows Launcher 工程 |
+| `launcher/` | Electron 桌面启动器工程 |
 | `.deps/` | Chromium 与托管运行时资源清单 |
 | `config/` | 默认配置模板与用户配置 |
 | `data/` | SQLite 状态库与运行数据 |
@@ -104,9 +108,9 @@
 | `server/go.mod` | 固定 `module rayleabot/server`、Go `1.25.8` 与 server 依赖版本 |
 | `server/go.sum` | 维护 server 依赖锁定结果 |
 | `web/package.json` | 固定 `packageManager = pnpm@10.32.1` 与 `engines.node = 24.14.0` |
-| `web/pnpm-lock.yaml` | 作为唯一 JS 锁文件 |
-| `launcher/global.json` | 固定 `.NET SDK 10.0.103` 与 `rollForward = latestPatch` |
-| `launcher/Directory.Packages.props` | 集中锁定 Avalonia `11.3.12` |
+| `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
+| `launcher/package.json` | 固定 `packageManager = pnpm@10.32.1`、`engines.node = 24.14.0`、Electron/Vite/Vue/build 脚本与打包配置 |
+| `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
 | `.deps/manifest.json` | 固定资源名、版本线、来源、SHA256 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
 
@@ -114,7 +118,7 @@
 
 - `contracts/config.user.schema.json` 中 `server.host` 默认值采用 `127.0.0.1`。
 - OneBot 连接地址正式键名采用 `onebot.ws_url`。
-- `launcher/global.json` 锁定 `.NET SDK 10.0.103`。
+- `launcher/package.json` 锁定 Electron 启动器的脚本入口、打包形态与 Node / pnpm 基线。
 - `server/go.mod` 当前采用 `rayleabot/server` 作为 module path。
 
 ## `contracts/` 作为正式来源

@@ -21,7 +21,7 @@
 | Phase 6 | Config / Storage / Security | 🟡 | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；共享 degraded / remediation 结构仍未完全统一到全部入口 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress 与插件来源/信任/命令冲突 metadata 已可用；插件安装来源和 lifecycle 路由形状与规划正文仍有口径待收口 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置 bootstrap、左侧五区导航、自定义标题栏、中文化液态玻璃桌面壳、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、左键恢复 / 右键原生托盘菜单、关闭策略枚举、关闭确认联动、版本检查、Windows CI 与 release feed 联动已落地；主窗口密度、轻量分组卡、纵向诊断工具页、紧凑关闭策略设置、托盘短文案与统一弹窗表面已进一步收口；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口与正式安装体验仍待收口 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置 bootstrap、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口与正式安装体验仍待收口 |
 | Phase 10 | Render Service | 🟡 | `render.image` 最小占位渲染、产物输出与资源检查已接线；受控 Chromium 队列、模板版本 / 缓存、preview 与正式 Render Service 调度仍未完成 |
 
 ### 判定口径
@@ -45,7 +45,7 @@
 | `docs/engineering/baseline.md` | ✅ | 工具链版本、默认命令与工程基线已锁定 |
 | `docs/engineering/implementation-order.md` | ✅ | 10 阶段实施顺序已定义 |
 | `contracts/README.md` | ✅ | formal contract 范围与当前 TODO 边界已收敛 |
-| Server / Web / Launcher 基线文件 | ✅ | `server/go.mod`、`web/package.json`、`launcher/global.json`、`launcher/Directory.Packages.props` 已锁定基线 |
+| Server / Web / Launcher 基线文件 | ✅ | `server/go.mod`、`web/package.json`、`launcher/package.json`、`launcher/pnpm-lock.yaml` 已锁定基线 |
 | `.deps/manifest.json` | 🟡 | 资源 ID 与版本线已存在，来源与 SHA256 仍待补齐 |
 | CI skeleton | ✅ | `contracts.yml` 与 `lint.yml` 已落库，并实际校验 contracts、baseline、server smoke |
 
@@ -244,12 +244,12 @@
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
-| .NET / Avalonia 基线 | ✅ | 版本与包基线已锁定 |
+| Electron / pnpm 基线 | ✅ | Node / pnpm / Electron / Vite / Vue 启动器基线已锁定 |
 | Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通，并已收口为打开 Web 时的 best-effort 增强能力 |
 | 环境检查 / 本机诊断壳 | ✅ | server 可执行文件、配置文件、workdir、`LongPathsEnabled`、`.deps/manifest.json` 检查与诊断摘要已落地 |
 | 真实 Launcher 行为 | ✅ | 单窗口桌面壳、启动 / 停止 / 打开管理界面 / 重试健康检查、错误输出 ring buffer 与 `logs/launcher.log` 已落地 |
 | 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与打开 Web 时的本机自动登录增强 |
-| Launcher 测试与 CI | ✅ | `dotnet test ./launcher`、`dotnet publish ./launcher -c Release` 与 Windows `ci-launcher` job 已落地 |
+| Launcher 测试与 CI | ✅ | `pnpm test`、`pnpm build` 与 Windows / Linux / macOS `ci-launcher` job 已落地 |
 | 首启配置 bootstrap | ✅ | Launcher preflight 与 server 启动链已对齐 `default.yaml` -> `user.yaml` bootstrap 语义 |
 | 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
 | Launcher 设计系统与布局重构 | ✅ | 左侧导航、紧凑页头、统一 tokens / card / badge / log panel patterns、状态页单主操作层级、环境问题列表化、纵向诊断工具页、紧凑关闭策略设置、托盘短文案与统一弹窗表面已落地，整体视觉已收敛为更克制的深色 Fluent 工具壳 |
@@ -258,7 +258,7 @@
 | 托盘最小化与关闭语义 | ✅ | 托盘左键直接恢复窗口，右键使用原生菜单承载状态头、动态服务动作、日志目录与完全退出；tooltip 与菜单可用态会随运行状态和环境风险联动 |
 | 关闭确认与托盘引导 | ✅ | 关闭行为已收口为 `AskEveryTime / HideToTray / ExitApplication` 三态策略；设置页、关闭确认弹窗与实际关闭路径共用同一模型，弹窗支持把本次选择设为默认行为 |
 | Chromium / 模板资源完整性检查 | ✅ | Launcher preflight 已覆盖 Chromium 与模板资源完整性，并给出 remediation |
-| 发布目录布局与正式发行包 | 🟡 | packaging tooling 与 release workflow 已产出 `windows-x64-full` / `linux-x64-server`，但正式安装体验仍需继续打磨 |
+| 发布目录布局与正式发行包 | 🟡 | packaging tooling 与 release workflow 已产出 `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server`，但正式安装体验仍需继续打磨 |
 | 发布元数据与交付 gate | ✅ | `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt`、`windows_full_smoke` / `linux_server_smoke` 与 release workflow 已接入 |
 | 版本检查 | ✅ | Launcher 已通过 GitHub Releases + `release_manifest.json` 做独立版本检查与发布页跳转 |
 
@@ -293,9 +293,9 @@
 | `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
 | `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
 | `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、linux packaging smoke 与 metadata verify |
-| `lint.yml` / `ci-launcher` | push main / PR | `dotnet test ./launcher` 与 `dotnet publish ./launcher -c Release` |
+| `lint.yml` / `ci-launcher` | push main / PR | Windows / Linux / macOS 上的 `pnpm test` 与 `pnpm build` |
 | `nightly.yml` | schedule / manual | server tests、web tests / E2E、release helper tests、launcher tests / publish |
-| `release.yml` | tag push | `windows-x64-full` / `linux-x64-server` 打包、smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
+| `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
 
 ### 规划对齐缺口
 
@@ -309,7 +309,7 @@
 - `go test ./...` 当前通过。
 - `go build ./cmd/raylea-server` 当前通过。
 - `pnpm build`、`pnpm test`、`pnpm test:e2e` 已在 `web/` 本地通过。
-- `dotnet test ./launcher` 与 `dotnet publish ./launcher -c Release` 已在本地通过。
+- `pnpm test`、`pnpm typecheck` 与 `pnpm build` 已在 `launcher/` 本地通过。
 - bundled plugin manifests 当前已与 `contracts/plugin-info.schema.json` 对齐。
 - 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`、`example-config-panel`、`example-render-card`、`example-scheduler`、`example-webhook`。
 - `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。

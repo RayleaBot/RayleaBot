@@ -1,19 +1,19 @@
 # Architecture Docs
 
-本目录用于收纳 RayleaBot 的架构设计说明，帮助读者从子系统边界理解当前工程，而不是从实现细节反推产品结构。
+本目录收纳 RayleaBot 的架构设计说明，帮助读者从子系统边界理解当前工程，而不是从实现细节反推产品结构。
 
 ## 当前系统拓扑
 
-RayleaBot 当前以 `server/` 为产品核心，主链路由以下部分组成：
+RayleaBot 以 `server/` 为产品核心，主链路由以下部分组成：
 
 - 配置加载、schema 校验、SQLite 存储、鉴权、任务与插件目录装配
-- OneBot11 reverse WebSocket adapter 与最小统一事件归一化
+- OneBot11 reverse WebSocket adapter 与统一事件归一化
 - per-plugin runtime manager、dispatcher fan-out、命令定向投递、scheduler `scheduler.trigger`
 - management HTTP / WebSocket、task history、management log summary 持久化与历史回放
 - Web 管理面，覆盖 setup/login/session、plugins/tasks/logs/config、plugin install / uninstall / grants / console 与 shutdown
-- Windows Launcher 最小桌面壳，覆盖 loopback launcher bootstrap、环境检查、server 启停、健康轮询与打开 Web UI
+- Electron 桌面启动器，覆盖 loopback launcher bootstrap、环境检查、server 启停、健康轮询、托盘关闭语义与打开 Web UI
 
-Render Service 仍未进入实现阶段，本目录当前对其只描述边界、依赖和进入条件。
+Render Service 仍未进入完整实现阶段，本目录当前只描述其边界、依赖和进入条件。
 
 ## 阅读入口
 
