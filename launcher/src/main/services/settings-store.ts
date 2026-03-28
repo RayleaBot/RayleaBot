@@ -8,16 +8,35 @@ interface SerializedLauncherSettings {
   workdir?: string;
   closeBehavior?: string;
   CloseToTrayEnabled?: boolean;
+  ServerExecutablePath?: string;
+  ConfigPath?: string;
+  Workdir?: string;
+  CloseBehavior?: string;
 }
 
 function normalizeCloseBehavior(value: unknown): LauncherCloseBehavior {
-  if (value === "hide_to_tray" || value === "exit_application" || value === "ask_every_time") {
-    return value;
+  if (value === "hide_to_tray" || value === "HideToTray") {
+    return "hide_to_tray";
+  }
+  if (value === "exit_application" || value === "ExitApplication") {
+    return "exit_application";
+  }
+  if (value === "ask_every_time" || value === "AskEveryTime") {
+    return "ask_every_time";
   }
   if (typeof value === "boolean") {
     return value ? "hide_to_tray" : "ask_every_time";
   }
   return "ask_every_time";
+}
+
+function readString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
 }
 
 async function pathExists(targetPath: string) {
@@ -48,6 +67,36 @@ async function findWorkspaceRoot(startPath: string) {
     }
     current = parent;
   }
+}
+
+function rebaseWorkspacePath(savedPath: string, savedWorkdir: string, currentWorkdir: string) {
+  if (!savedPath || !savedWorkdir) {
+    return "";
+  }
+
+  const relativePath = path.relative(savedWorkdir, savedPath);
+  if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return "";
+  }
+
+  return path.join(currentWorkdir, relativePath);
+}
+
+async function resolveStoredPath(savedPath: string, savedWorkdir: string, defaults: LauncherSettings[keyof LauncherSettings], defaultWorkdir: string) {
+  if (savedPath && (await pathExists(savedPath))) {
+    return savedPath;
+  }
+
+  const rebasedPath = rebaseWorkspacePath(savedPath, savedWorkdir, defaultWorkdir);
+  if (rebasedPath && (await pathExists(rebasedPath))) {
+    return rebasedPath;
+  }
+
+  if (typeof defaults === "string" && defaults && (await pathExists(defaults))) {
+    return defaults;
+  }
+
+  return savedPath || (typeof defaults === "string" ? defaults : "");
 }
 
 function serverExecutableName(platform: NodeJS.Platform) {
@@ -85,16 +134,42 @@ export class JsonLauncherSettingsStore {
   async load() {
     const defaults = await this.defaultsPromise;
     if (!(await pathExists(this.settingsPath))) {
+      await this.save(defaults);
       return defaults;
     }
 
     const payload = JSON.parse(await fs.readFile(this.settingsPath, "utf8")) as SerializedLauncherSettings;
-    return {
-      serverExecutablePath: payload.serverExecutablePath || defaults.serverExecutablePath,
-      configPath: payload.configPath || defaults.configPath,
-      workdir: payload.workdir || defaults.workdir,
-      closeBehavior: normalizeCloseBehavior(payload.closeBehavior ?? payload.CloseToTrayEnabled),
+    const savedWorkdir = readString(payload.workdir, payload.Workdir);
+    const savedServerExecutablePath = readString(payload.serverExecutablePath, payload.ServerExecutablePath);
+    const savedConfigPath = readString(payload.configPath, payload.ConfigPath);
+
+    const serverExecutablePath = await resolveStoredPath(savedServerExecutablePath, savedWorkdir, defaults.serverExecutablePath, defaults.workdir);
+    const configPath = await resolveStoredPath(savedConfigPath, savedWorkdir, defaults.configPath, defaults.workdir);
+    const keepSavedWorkdir =
+      savedWorkdir &&
+      (await pathExists(savedWorkdir)) &&
+      (!savedServerExecutablePath || savedServerExecutablePath === serverExecutablePath) &&
+      (!savedConfigPath || savedConfigPath === configPath);
+
+    const resolvedSettings = {
+      serverExecutablePath,
+      configPath,
+      workdir: keepSavedWorkdir ? savedWorkdir : defaults.workdir,
+      closeBehavior: normalizeCloseBehavior(payload.closeBehavior ?? payload.CloseBehavior ?? payload.CloseToTrayEnabled),
     } satisfies LauncherSettings;
+
+    const normalizedSavedSettings = {
+      serverExecutablePath: savedServerExecutablePath || defaults.serverExecutablePath,
+      configPath: savedConfigPath || defaults.configPath,
+      workdir: savedWorkdir || defaults.workdir,
+      closeBehavior: normalizeCloseBehavior(payload.closeBehavior ?? payload.CloseBehavior ?? payload.CloseToTrayEnabled),
+    } satisfies LauncherSettings;
+
+    if (JSON.stringify(normalizedSavedSettings) !== JSON.stringify(resolvedSettings)) {
+      await this.save(resolvedSettings);
+    }
+
+    return resolvedSettings;
   }
 
   async save(settings: LauncherSettings) {

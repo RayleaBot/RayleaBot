@@ -8,6 +8,7 @@ type SectionId = "status" | "environment" | "diagnostics" | "settings";
 const activeSection = ref<SectionId>("status");
 const busyAction = ref<string | null>(null);
 const editingSettings = ref(false);
+const initializing = ref(true);
 const desktopApi = window.rayleaLauncher;
 const snapshot = ref<LauncherSnapshot>({
   settings: {
@@ -26,7 +27,7 @@ const snapshot = ref<LauncherSnapshot>({
   processId: null,
   serviceState: "stopped",
   shutdownRequested: false,
-  serviceDetail: "正在检查本地运行环境...",
+  serviceDetail: "正在加载启动器设置...",
   lastError: "",
   releaseCheck: {
     status: "unavailable",
@@ -39,6 +40,7 @@ const snapshot = ref<LauncherSnapshot>({
   },
 });
 const settingsDraft = ref<LauncherSettings>({ ...snapshot.value.settings });
+const controlsDisabled = computed(() => initializing.value || busyAction.value === "initialize");
 
 const diagnosticsSummary = computed(() => {
   const checks = snapshot.value.environmentChecks
@@ -57,10 +59,23 @@ function syncDraft(next: LauncherSnapshot) {
   }
 }
 
+function describeError(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
 async function runAction(action: string, task: () => Promise<void>) {
   busyAction.value = action;
   try {
     await task();
+  } catch (error) {
+    snapshot.value = {
+      ...snapshot.value,
+      lastError: describeError(error, "启动器操作失败。"),
+      serviceDetail: action === "start" ? "启动服务失败。" : snapshot.value.serviceDetail,
+    };
   } finally {
     busyAction.value = null;
   }
@@ -68,8 +83,20 @@ async function runAction(action: string, task: () => Promise<void>) {
 
 onMounted(async () => {
   unsubscribe = desktopApi.onSnapshot(syncDraft);
-  syncDraft(await desktopApi.getSnapshot());
-  await desktopApi.initialize();
+  busyAction.value = "initialize";
+  try {
+    await desktopApi.initialize();
+    syncDraft(await desktopApi.getSnapshot());
+  } catch (error) {
+    snapshot.value = {
+      ...snapshot.value,
+      lastError: describeError(error, "启动器初始化失败。"),
+      serviceDetail: "启动器初始化失败。",
+    };
+  } finally {
+    busyAction.value = null;
+    initializing.value = false;
+  }
 });
 
 onBeforeUnmount(() => {
@@ -92,6 +119,7 @@ async function saveSettings() {
     :editing-settings="editingSettings"
     :diagnostics-summary="diagnosticsSummary"
     :busy-action="busyAction"
+    :controls-disabled="controlsDisabled"
     @navigate="activeSection = $event"
     @refresh="runAction('refresh', () => desktopApi.refresh())"
     @start="runAction('start', () => desktopApi.start())"

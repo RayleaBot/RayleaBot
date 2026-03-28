@@ -4,7 +4,7 @@ import type { LauncherSettings, LauncherSnapshot, TrayMenuEntry, TrayMenuState }
 import { launcherCopy } from "../shared/launcher-copy";
 import { createLauncherCoordinator } from "./services/launcher-coordinator";
 import { inspectEnvironmentFromNode } from "./services/environment";
-import { JsonLauncherSettingsStore, createDefaultSettings } from "./services/settings-store";
+import { JsonLauncherSettingsStore } from "./services/settings-store";
 import { resolveServerEndpoint } from "./services/endpoint-resolver";
 import { FetchLauncherManagementClient } from "./services/management-client";
 import { ServerProcessController } from "./services/process-controller";
@@ -261,8 +261,6 @@ async function bootstrap() {
     mainWindow?.webContents.send("launcher:snapshot", snapshot);
   });
 
-  const defaults = await createDefaultSettings(executableBasePath, process.platform);
-  await coordinator.saveSettings(defaults);
   await coordinator.initialize();
 }
 

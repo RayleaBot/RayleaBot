@@ -12,12 +12,14 @@ const props = withDefaults(
     editingSettings?: boolean;
     diagnosticsSummary?: string;
     busyAction?: string | null;
+    controlsDisabled?: boolean;
   }>(),
   {
     settingsDraft: undefined,
     editingSettings: false,
     diagnosticsSummary: "",
     busyAction: null,
+    controlsDisabled: false,
   },
 );
 
@@ -132,12 +134,12 @@ function updateDraft(partial: Partial<LauncherSettings>) {
           <p>{{ snapshot.lastError || "查看当前状态、主操作和需要处理的问题。" }}</p>
         </div>
         <div class="hero-actions">
-          <button class="action primary" type="button" :disabled="busyAction === 'start'" @click="emit('start')">
+          <button class="action primary" type="button" :disabled="controlsDisabled || busyAction === 'start'" @click="emit('start')">
             {{ snapshot.serviceState === 'external_service' || snapshot.serviceState === 'ready' ? '重新检查' : '启动服务' }}
           </button>
-          <button class="action" type="button" :disabled="busyAction === 'stop'" @click="emit('stop')">停止服务</button>
-          <button class="action" type="button" @click="emit('openWeb')">打开管理界面</button>
-          <button class="action ghost" type="button" @click="emit('refresh')">刷新状态</button>
+          <button class="action" type="button" :disabled="controlsDisabled || busyAction === 'stop'" @click="emit('stop')">停止服务</button>
+          <button class="action" type="button" :disabled="controlsDisabled" @click="emit('openWeb')">打开管理界面</button>
+          <button class="action ghost" type="button" :disabled="controlsDisabled" @click="emit('refresh')">刷新状态</button>
         </div>
       </section>
 
@@ -209,10 +211,10 @@ function updateDraft(partial: Partial<LauncherSettings>) {
               <p>管理本地路径和关闭策略。</p>
             </div>
             <div class="settings-actions">
-              <button v-if="!editingSettings" class="action ghost" type="button" @click="emit('beginEdit')">编辑路径</button>
+              <button v-if="!editingSettings" class="action ghost" type="button" :disabled="controlsDisabled" @click="emit('beginEdit')">编辑路径</button>
               <template v-else>
-                <button class="action ghost" type="button" @click="emit('cancelEdit')">取消编辑</button>
-                <button class="action primary" type="button" @click="emit('saveSettings')">保存设置</button>
+                <button class="action ghost" type="button" :disabled="controlsDisabled" @click="emit('cancelEdit')">取消编辑</button>
+                <button class="action primary" type="button" :disabled="controlsDisabled" @click="emit('saveSettings')">保存设置</button>
               </template>
             </div>
           </div>
