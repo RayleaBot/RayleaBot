@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { ServerEndpoint } from "../../shared/launcher-models";
+import { terminateProcessId } from "./process-termination";
 
 const execFileAsync = promisify(execFile);
 
@@ -45,10 +46,5 @@ export async function tryStopEndpointProcess(endpoint: ServerEndpoint) {
   if (!pid) {
     return false;
   }
-  try {
-    process.kill(pid, "SIGTERM");
-    return true;
-  } catch {
-    return false;
-  }
+  return terminateProcessId(pid);
 }

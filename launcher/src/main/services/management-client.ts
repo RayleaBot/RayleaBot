@@ -1,5 +1,9 @@
 import type { ServerEndpoint } from "../../shared/launcher-models";
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
+
+type FetchLike = typeof fetch;
+
 async function readJson(response: Response) {
   return (await response.json()) as Record<string, unknown>;
 }
@@ -16,10 +20,25 @@ function createAuthedHeaders(sessionToken: string) {
   return { Authorization: `Bearer ${sessionToken}` };
 }
 
+function withTimeout(init: RequestInit | undefined, timeoutMs: number): RequestInit {
+  return {
+    ...init,
+    signal: AbortSignal.timeout(timeoutMs),
+  };
+}
+
 export class FetchLauncherManagementClient {
+  private readonly fetchLike: FetchLike;
+  private readonly timeoutMs: number;
+
+  constructor(options: { fetchLike?: FetchLike; timeoutMs?: number } = {}) {
+    this.fetchLike = options.fetchLike ?? fetch;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  }
+
   async isHealthy(endpoint: ServerEndpoint) {
     try {
-      const response = await fetch(new URL("healthz", endpoint.baseUrl));
+      const response = await this.fetchLike(new URL("healthz", endpoint.baseUrl), withTimeout(undefined, this.timeoutMs));
       return response.ok;
     } catch {
       return false;
@@ -27,14 +46,19 @@ export class FetchLauncherManagementClient {
   }
 
   async getSetupInitialized(endpoint: ServerEndpoint) {
-    const response = await ensureSuccess(await fetch(new URL("api/setup/status", endpoint.baseUrl)));
+    const response = await ensureSuccess(
+      await this.fetchLike(new URL("api/setup/status", endpoint.baseUrl), withTimeout(undefined, this.timeoutMs)),
+    );
     const payload = await readJson(response);
     return Boolean(payload.initialized);
   }
 
   async issueLauncherToken(endpoint: ServerEndpoint) {
     const response = await ensureSuccess(
-      await fetch(new URL("api/session/launcher-token", endpoint.baseUrl), { method: "POST" }),
+      await this.fetchLike(
+        new URL("api/session/launcher-token", endpoint.baseUrl),
+        withTimeout({ method: "POST" }, this.timeoutMs),
+      ),
     );
     const payload = await readJson(response);
     return String(payload.launcher_token ?? "");
@@ -42,11 +66,17 @@ export class FetchLauncherManagementClient {
 
   async admitLauncherToken(endpoint: ServerEndpoint, launcherToken: string) {
     const response = await ensureSuccess(
-      await fetch(new URL("api/session/launcher-admission", endpoint.baseUrl), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ launcher_token: launcherToken }),
-      }),
+      await this.fetchLike(
+        new URL("api/session/launcher-admission", endpoint.baseUrl),
+        withTimeout(
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ launcher_token: launcherToken }),
+          },
+          this.timeoutMs,
+        ),
+      ),
     );
     const payload = await readJson(response);
     return String(payload.session_token ?? "");
@@ -54,10 +84,16 @@ export class FetchLauncherManagementClient {
 
   async shutdown(endpoint: ServerEndpoint, sessionToken: string) {
     await ensureSuccess(
-      await fetch(new URL("api/system/shutdown", endpoint.baseUrl), {
-        method: "POST",
-        headers: createAuthedHeaders(sessionToken),
-      }),
+      await this.fetchLike(
+        new URL("api/system/shutdown", endpoint.baseUrl),
+        withTimeout(
+          {
+            method: "POST",
+            headers: createAuthedHeaders(sessionToken),
+          },
+          this.timeoutMs,
+        ),
+      ),
     );
   }
 }

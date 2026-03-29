@@ -1,4 +1,4 @@
-import fs from "node:fs";
+import fs from "node:fs/promises";
 import type { ServerEndpoint } from "../../shared/launcher-models";
 
 function normalizeClientHost(host: string) {
@@ -9,12 +9,16 @@ function normalizeClientHost(host: string) {
   return trimmed;
 }
 
-export function resolveServerEndpoint(configPath: string): ServerEndpoint {
+function formatBaseUrlHost(host: string) {
+  return host.includes(":") ? `[${host}]` : host;
+}
+
+export async function resolveServerEndpoint(configPath: string): Promise<ServerEndpoint> {
   let host = "127.0.0.1";
   let port = 8080;
 
   try {
-    const text = fs.readFileSync(configPath, "utf8");
+    const text = await fs.readFile(configPath, "utf8");
     let insideServer = false;
     for (const rawLine of text.split(/\r?\n/)) {
       const withoutComment = rawLine.split("#", 1)[0]?.trimEnd() ?? "";
@@ -46,6 +50,6 @@ export function resolveServerEndpoint(configPath: string): ServerEndpoint {
   return {
     host,
     port,
-    baseUrl: `http://${host}:${port}/`,
+    baseUrl: `http://${formatBaseUrlHost(host)}:${port}/`,
   };
 }

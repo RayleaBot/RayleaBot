@@ -172,6 +172,32 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.releaseCheck.status).toBe("up_to_date");
   });
 
+  test("initialize supports async endpoint resolution", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+    const asyncEndpointResolver = {
+      resolve: vi.fn(async () => ({ host: "127.0.0.1", port: 8080, baseUrl: "http://127.0.0.1:8080/" })),
+    } as unknown as ServerEndpointResolver;
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver: asyncEndpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    expect(coordinator.snapshot.endpoint.baseUrl).toBe("http://127.0.0.1:8080/");
+  });
+
   test("open web ui adds token only when setup is initialized", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
@@ -202,6 +228,35 @@ describe("launcher coordinator", () => {
     const latestUri = externalOpener.openedUris.at(-1) ?? "";
     expect(latestUri.endsWith("/")).toBe(true);
     expect(latestUri.includes("?token=")).toBe(false);
+  });
+
+  test("open web ui falls back to the plain url when setup status cannot be read", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+
+    managementClient.getSetupInitialized = vi.fn(async () => {
+      throw new Error("setup status unavailable");
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+    await coordinator.openWebUi();
+
+    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
   });
 
   test("start does not launch another process when endpoint is already healthy", async () => {
@@ -265,5 +320,82 @@ describe("launcher coordinator", () => {
 
     expect(processController.forceKillCalls).toBe(1);
     expect(coordinator.snapshot.serviceState).toBe("stopped");
+  });
+
+  test("stop falls back to force kill when launcher session bootstrap fails", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    processController.isRunning = true;
+    processController.forceKill = vi.fn(async () => {
+      processController.forceKillCalls += 1;
+      processController.isRunning = false;
+      managementClient.health = false;
+    });
+    managementClient.issueLauncherToken = vi.fn(async () => {
+      throw new Error("token issue failed");
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 10,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await coordinator.stop();
+
+    expect(processController.forceKillCalls).toBe(1);
+    expect(coordinator.snapshot.serviceState).toBe("stopped");
+  });
+
+  test("start fails early when the managed process exits before health checks recover", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    processController.recentStderr = ["config validation failed"];
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => {
+      processController.isRunning = false;
+      return false;
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 50,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await coordinator.start();
+
+    expect(processController.forceKillCalls).toBe(0);
+    expect(coordinator.snapshot.serviceState).toBe("failed");
+    expect(coordinator.snapshot.lastError).toContain("config validation failed");
   });
 });

@@ -12,12 +12,12 @@ import { isEndpointListening, tryStopEndpointProcess } from "./services/port-pro
 import { externalOpener } from "./services/external-opener";
 import { LauncherReleaseFeedClient } from "./services/release-feed";
 import { buildTrayMenuEntries } from "./services/tray-menu";
+import { createApplicationExitManager } from "./services/app-exit";
 
 const devServerUrl = process.env.RAYLEA_DEV_SERVER_URL;
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let shouldQuit = false;
 let windowMaximized = false;
 
 const executableBasePath = app.isPackaged ? path.dirname(app.getPath("exe")) : path.resolve(__dirname, "..", "..", "..", "..");
@@ -33,6 +33,12 @@ const coordinator = createLauncherCoordinator({
   tryStopEndpointProcess,
   externalOpener,
   releaseFeedClient: new LauncherReleaseFeedClient(executableBasePath),
+});
+const appExitManager = createApplicationExitManager({
+  isManagedProcessRunning: () => processController.isRunning,
+  stopManagedProcess: () => coordinator.stop(),
+  forceKillManagedProcess: () => processController.forceKill(),
+  quitApplication: () => app.quit(),
 });
 
 function trayStateFromSnapshot(snapshot: LauncherSnapshot): TrayMenuState {
@@ -101,8 +107,7 @@ async function handleCloseRequest() {
   }
 
   if (snapshot.settings.closeBehavior === "exit_application") {
-    shouldQuit = true;
-    app.quit();
+    await appExitManager.requestExit();
     return;
   }
 
@@ -132,8 +137,7 @@ async function handleCloseRequest() {
   if (result.response === 0) {
     mainWindow?.hide();
   } else {
-    shouldQuit = true;
-    app.quit();
+    await appExitManager.requestExit();
   }
 }
 
@@ -156,8 +160,7 @@ async function runTrayAction(action: TrayMenuEntry["action"]) {
       await coordinator.openLogsDirectory();
       break;
     case "exit":
-      shouldQuit = true;
-      void app.quit();
+      await appExitManager.requestExit();
       break;
     default:
       break;
@@ -224,7 +227,7 @@ async function createMainWindow() {
   });
 
   mainWindow.on("close", (event) => {
-    if (shouldQuit) {
+    if (appExitManager.shouldAllowQuit()) {
       return;
     }
     event.preventDefault();
@@ -264,10 +267,7 @@ function wireIpc() {
   ipcMain.handle("launcher:choose-server", async () => chooseServerExecutable());
   ipcMain.handle("launcher:choose-config", async () => chooseConfigFile());
   ipcMain.handle("launcher:choose-workdir", async () => chooseWorkdir());
-  ipcMain.handle("launcher:exit", async () => {
-    shouldQuit = true;
-    app.quit();
-  });
+  ipcMain.handle("launcher:exit", async () => appExitManager.requestExit());
 }
 
 async function bootstrap() {
@@ -294,13 +294,17 @@ async function bootstrap() {
 }
 
 app.on("window-all-closed", () => {
-  if (shouldQuit) {
+  if (appExitManager.shouldAllowQuit()) {
     app.quit();
   }
 });
 
-app.on("before-quit", () => {
-  shouldQuit = true;
+app.on("before-quit", (event) => {
+  if (appExitManager.shouldAllowQuit()) {
+    return;
+  }
+  event.preventDefault();
+  void appExitManager.requestExit();
 });
 
 void bootstrap();

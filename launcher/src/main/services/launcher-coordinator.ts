@@ -17,7 +17,7 @@ export interface LauncherSettingsStore {
 }
 
 export interface ServerEndpointResolver {
-  resolve(configPath: string): ServerEndpoint;
+  resolve(configPath: string): ServerEndpoint | Promise<ServerEndpoint>;
 }
 
 export interface LauncherManagementClient {
@@ -196,7 +196,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       sessionToken = "";
     }
     const settings = ensureSettings();
-    const endpoint = deps.endpointResolver.resolve(settings.configPath);
+    const endpoint = await deps.endpointResolver.resolve(settings.configPath);
     const inspection = await deps.inspectEnvironment(settings);
 
     if (inspection.hasBlockingIssues || inspection.canBootstrapUserConfig) {
@@ -263,7 +263,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async initialize() {
       currentSettings = await deps.settingsStore.load();
-      const endpoint = deps.endpointResolver.resolve(currentSettings.configPath);
+      const endpoint = await deps.endpointResolver.resolve(currentSettings.configPath);
       snapshot = defaultSnapshot(currentSettings, endpoint);
       await refreshCore(false);
     },
@@ -281,7 +281,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async start() {
       const settings = ensureSettings();
-      const endpoint = deps.endpointResolver.resolve(settings.configPath);
+      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
       const inspection = await deps.inspectEnvironment(settings);
 
       if (inspection.hasBlockingIssues && !inspection.canBootstrapUserConfig) {
@@ -309,7 +309,13 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         return;
       }
 
-      await deps.processController.start(settings);
+      try {
+        await deps.processController.start(settings);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "服务进程启动失败。";
+        await publish(await buildSnapshot(endpoint, inspection, "failed", "无法启动服务进程。", detail));
+        return;
+      }
       await publish(
         await buildSnapshot(
           endpoint,
@@ -327,6 +333,11 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           await refreshCore(true);
           return;
         }
+        if (!deps.processController.isRunning) {
+          const lastError = deps.processController.getRecentStderr().at(-1) ?? "服务进程在通过健康检查前已退出。";
+          await publish(await buildSnapshot(endpoint, inspection, "failed", "服务进程在启动阶段提前退出。", lastError));
+          return;
+        }
         await delay(options.pollIntervalMs);
       }
 
@@ -335,30 +346,30 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async stop() {
       const settings = ensureSettings();
-      const endpoint = deps.endpointResolver.resolve(settings.configPath);
+      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
       const inspection = await deps.inspectEnvironment(settings);
 
       await publish(await buildSnapshot(endpoint, inspection, "shutting_down", deps.processController.isRunning ? "正在停止服务。" : "正在停止现有服务。"));
 
       if (await deps.managementClient.isHealthy(endpoint)) {
-        if (await deps.managementClient.getSetupInitialized(endpoint)) {
-          if (!sessionToken) {
-            const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
-            sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
-          }
-          try {
-            await deps.managementClient.shutdown(endpoint, sessionToken);
-          } catch {
-            if (deps.processController.isRunning) {
-              await deps.processController.forceKill();
-            } else {
-              await deps.tryStopEndpointProcess(endpoint);
+        try {
+          if (await deps.managementClient.getSetupInitialized(endpoint)) {
+            if (!sessionToken) {
+              const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
+              sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
             }
+            await deps.managementClient.shutdown(endpoint, sessionToken);
+          } else if (deps.processController.isRunning) {
+            await deps.processController.forceKill();
+          } else {
+            await deps.tryStopEndpointProcess(endpoint);
           }
-        } else if (deps.processController.isRunning) {
-          await deps.processController.forceKill();
-        } else {
-          await deps.tryStopEndpointProcess(endpoint);
+        } catch {
+          if (deps.processController.isRunning) {
+            await deps.processController.forceKill();
+          } else {
+            await deps.tryStopEndpointProcess(endpoint);
+          }
         }
       }
 
@@ -368,9 +379,15 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async openWebUi() {
       const settings = ensureSettings();
-      const endpoint = deps.endpointResolver.resolve(settings.configPath);
-      const initialized = await deps.managementClient.getSetupInitialized(endpoint);
+      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
       const url = new URL(endpoint.baseUrl);
+      let initialized = false;
+
+      try {
+        initialized = await deps.managementClient.getSetupInitialized(endpoint);
+      } catch {
+        initialized = false;
+      }
 
       if (initialized) {
         try {
