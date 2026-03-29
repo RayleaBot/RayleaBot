@@ -25,11 +25,9 @@ if /I "%RAYLEA_START_SKIP_LAUNCH%"=="1" (
     exit /b 0
 )
 
-if not exist "%LAUNCHER_DIR%\dist\main\main\index.js" (
-    echo [RayleaBot] Launcher main bundle not found: "%LAUNCHER_DIR%\dist\main\main\index.js"
-    exit /b 1
-)
-
+rem We run via 'electron .' during development to ensure we use the fresh dist/ build
 echo [RayleaBot] Starting launcher...
-start "" "%~dp0launcher\dist\package\win-unpacked\RayleaLauncher.exe"
+pushd "%LAUNCHER_DIR%"
+start "" cmd /c "pnpm exec electron ."
+popd
 exit /b 0
