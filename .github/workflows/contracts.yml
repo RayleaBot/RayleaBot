@@ -124,6 +124,28 @@ jobs:
           websocket_events = load_yaml(contracts / 'websocket-events.yaml')
           error_codes = load_yaml(contracts / 'error-codes.yaml')
 
+          def resolve_component_schema(ref_or_schema, label):
+              schema_obj = ref_or_schema
+              if isinstance(schema_obj, dict) and '$ref' in schema_obj:
+                  ref = schema_obj['$ref']
+                  prefix = '#/components/schemas/'
+                  if not ref.startswith(prefix):
+                      raise SystemExit(f'{label} must use a local components schema ref; got {ref}')
+                  schema_name = ref[len(prefix):]
+                  schema_obj = web_api['components']['schemas'].get(schema_name)
+                  if not isinstance(schema_obj, dict):
+                      raise SystemExit(f'web-api.openapi.yaml missing components schema: {schema_name}')
+              if not isinstance(schema_obj, dict):
+                  raise SystemExit(f'{label} must resolve to an object schema')
+              return schema_obj
+
+          def schema_properties(ref_or_schema, label):
+              schema_obj = resolve_component_schema(ref_or_schema, label)
+              properties = schema_obj.get('properties')
+              if not isinstance(properties, dict):
+                  raise SystemExit(f'{label} must declare properties')
+              return schema_obj, properties
+
           if plugin_info.get('type') != 'object':
               raise SystemExit('plugin-info.schema.json must define an object schema')
           for field in ['id', 'name', 'version', 'manifest_version', 'plugin_protocol_version', 'type', 'runtime', 'entry', 'license']:
@@ -374,16 +396,15 @@ jobs:
           actual_paths = set(web_api.get('paths', {}).keys())
           if actual_paths != required_paths:
               raise SystemExit(f'web-api.openapi.yaml paths must exactly match the current frozen set: {sorted(required_paths)}; got {sorted(actual_paths)}')
-          plugin_summary = web_api['components']['schemas']['PluginSummary']
-          plugin_props = plugin_summary.get('properties', {})
+          plugin_summary, plugin_props = schema_properties(web_api['components']['schemas']['PluginSummary'], 'PluginSummary')
           for field in ['name', 'role', 'source', 'trust', 'command_conflicts']:
               if field not in plugin_props:
                   raise SystemExit(f'web-api.openapi.yaml PluginSummary missing property: {field}')
-          source_props = plugin_props['source']['properties']
+          _, source_props = schema_properties(plugin_props['source'], 'PluginSummary.source')
           for field in ['root', 'package_source_type', 'package_source_ref', 'verified']:
               if field not in source_props:
                   raise SystemExit(f'web-api.openapi.yaml PluginSummary.source missing property: {field}')
-          trust_props = plugin_props['trust']['properties']
+          _, trust_props = schema_properties(plugin_props['trust'], 'PluginSummary.trust')
           for field in ['level', 'label']:
               if field not in trust_props:
                   raise SystemExit(f'web-api.openapi.yaml PluginSummary.trust missing property: {field}')
