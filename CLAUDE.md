@@ -34,6 +34,21 @@
 - 正式接口、错误码、发布元数据：`contracts/`
 - 插件文档与 SDK：`docs/plugin/`
 - 发布脚本与归档流程：`scripts/release/`
+
+## Default Commands
+
+- Server
+  - `go build ./cmd/raylea-server`
+  - `go test ./...`
+- Web
+  - `pnpm install --frozen-lockfile`
+  - `pnpm test`
+  - `pnpm build`
+- Launcher
+  - `pnpm install --frozen-lockfile`
+  - `pnpm test`
+  - `pnpm build`
+
 ## Debugging Methodology
 
 When a build or run command succeeds (exit 0) but the expected output is missing or the app does not start:
