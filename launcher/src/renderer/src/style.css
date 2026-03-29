@@ -147,10 +147,15 @@ body {
   color: rgba(245, 249, 255, 0.85);
   cursor: pointer;
   font-size: 14px;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
 }
 
 .window-control-btn:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.window-control-btn:active {
+  transform: scale(0.92);
 }
 
 .window-control-btn.danger:hover {
@@ -281,13 +286,17 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
   text-align: left;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 100ms ease;
 }
 
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
+}
+
+.nav-item:active {
+  transform: scale(0.97);
 }
 
 .nav-item.active {
@@ -429,7 +438,7 @@ body {
   background: var(--button-bg) !important;
   color: var(--button-text) !important;
   font-size: 0.84rem;
-  transition: background-color 100ms ease, border-color 100ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease, opacity 150ms ease;
 }
 
 .launcher-theme .frost-button.fui-Button:hover:not(:disabled) {
@@ -438,7 +447,8 @@ body {
 }
 
 .launcher-theme .frost-button.fui-Button:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  transform: scale(0.97);
 }
 
 .launcher-theme .frost-button.fui-Button:disabled {
@@ -819,7 +829,7 @@ body {
   border-radius: 10px;
   border: 1px solid rgba(220, 236, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
-  transition: border-color 100ms ease, background-color 100ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 100ms ease;
 }
 
 .preference-option:hover {
@@ -897,6 +907,82 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(221, 238, 255, 0.28);
+}
+
+/* ── Page transitions ── */
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.shell-main > section,
+.shell-main > article,
+.shell-main > .checks-stack {
+  animation: fadeSlideIn 200ms ease both;
+}
+
+.shell-main > :nth-child(2) { animation-delay: 30ms; }
+.shell-main > :nth-child(3) { animation-delay: 60ms; }
+.shell-main > :nth-child(4) { animation-delay: 90ms; }
+.shell-main > :nth-child(5) { animation-delay: 120ms; }
+
+/* ── Interactive polish ── */
+
+.glass-panel {
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.check-item:hover {
+  border-color: var(--panel-border-strong);
+}
+
+.metric-card {
+  transition: transform 120ms ease, border-color 180ms ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.preference-option {
+  transition: border-color 150ms ease, background-color 150ms ease, transform 100ms ease;
+}
+
+.preference-option:active:not(.is-disabled) {
+  transform: scale(0.98);
+}
+
+.status-pill {
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.inline-alert {
+  animation: fadeSlideIn 250ms ease both;
+}
+
+.log-surface {
+  transition: border-color 180ms ease;
+}
+
+.log-surface:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.frost-input.fui-Input {
+  transition: border-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+/* Smooth scroll */
+.shell-main {
+  scroll-behavior: smooth;
 }
 
 /* ── Responsive ── */
