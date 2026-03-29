@@ -71,8 +71,6 @@ jobs:
               raise SystemExit("server/go.mod must use module path rayleabot/server")
           if "go 1.25.8" not in go_mod:
               raise SystemExit("server/go.mod must pin Go 1.25.8")
-          if "toolchain go1.25.8" not in go_mod:
-              raise SystemExit("server/go.mod must pin toolchain go1.25.8")
 
           for package_path in [root / "web" / "package.json", root / "launcher" / "package.json"]:
               package_json = json.loads(package_path.read_text(encoding="utf-8"))

@@ -283,9 +283,34 @@ jobs:
               raise SystemExit('plugin-protocol.schema.json shutdown.reason must be stop/restart/reload')
 
           props = config_schema.get('properties', {})
-          for top in ['schema_version', 'server', 'onebot', 'database', 'storage', 'http', 'logging', 'auth', 'runtime', 'render', 'web', 'backup', 'retention', 'command', 'cooldown']:
+          canonical_config_sections = [
+              'schema_version',
+              'server',
+              'onebot',
+              'database',
+              'command',
+              'admin',
+              'permission',
+              'render',
+              'scheduler',
+              'runtime',
+              'storage',
+              'data',
+              'log',
+              'message',
+              'user',
+              'group',
+              'adapter',
+              'http',
+              'web',
+              'backup',
+          ]
+          for top in canonical_config_sections:
               if top not in props:
                   raise SystemExit(f'config.user.schema.json missing top-level property: {top}')
+          for legacy in ['logging', 'auth', 'retention', 'cooldown']:
+              if legacy in props:
+                  raise SystemExit(f'config.user.schema.json must not expose legacy top-level property: {legacy}')
           if props['server']['properties']['host'].get('default') != '127.0.0.1':
               raise SystemExit('config.user.schema.json server.host default must be 127.0.0.1')
           if 'ws_url' not in props['onebot']['properties']:
@@ -294,9 +319,11 @@ jobs:
               raise SystemExit('config.user.schema.json database.engine must be fixed to sqlite')
           if 'path' not in props['database']['properties']:
               raise SystemExit('config.user.schema.json database.path must exist')
-          auth_props = set(props['auth']['properties'].keys())
+          admin_props = set(props['admin']['properties'].keys())
+          permission_props = set(props['permission']['properties'].keys())
           web_props = set(props['web']['properties'].keys())
-          forbidden_in_auth = {'host', 'port', 'exposure_mode', 'setup_local_only'}
+          forbidden_in_admin = {'host', 'port', 'exposure_mode', 'setup_local_only'}
+          forbidden_in_permission = {'host', 'port', 'exposure_mode', 'setup_local_only'}
           forbidden_in_web = {
               'super_admins',
               'default_level',
@@ -307,8 +334,10 @@ jobs:
               'login_fail_limit',
               'login_fail_window_seconds',
           }
-          if auth_props & forbidden_in_auth:
-              raise SystemExit(f'auth must not contain web exposure fields: {sorted(auth_props & forbidden_in_auth)}')
+          if admin_props & forbidden_in_admin:
+              raise SystemExit(f'admin must not contain web exposure fields: {sorted(admin_props & forbidden_in_admin)}')
+          if permission_props & forbidden_in_permission:
+              raise SystemExit(f'permission must not contain web exposure fields: {sorted(permission_props & forbidden_in_permission)}')
           if web_props & forbidden_in_web:
               raise SystemExit(f'web must not contain auth/session fields: {sorted(web_props & forbidden_in_web)}')
 
