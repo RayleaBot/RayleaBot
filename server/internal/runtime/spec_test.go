@@ -81,9 +81,10 @@ func TestBuildSpecRejectsEntrySymlinkEscapingPluginDir(t *testing.T) {
 
 	repoRoot := runtimeRepoRoot(t)
 	root := filepath.Join(t.TempDir(), "hello-python")
-	writePluginManifestFromFixture(t, root, "hello-python", filepath.Join(repoRoot, "fixtures", "plugin-info", "ok.minimal-python.json"))
+	fixturePath := filepath.Join(repoRoot, "fixtures", "plugin-info", "ok.minimal-python.json")
+	writePluginManifestFromFixture(t, root, "hello-python", fixturePath)
 
-	entryPath := filepath.Join(root, "main.py")
+	entryPath := filepath.Join(root, filepath.FromSlash(loadFixtureInput(t, fixturePath)["entry"].(string)))
 	if err := os.Remove(entryPath); err != nil {
 		t.Fatalf("remove entry %s: %v", entryPath, err)
 	}
@@ -153,7 +154,14 @@ func writePluginManifestFromFixture(t *testing.T, root string, pluginID string, 
 		t.Fatalf("write manifest %s: %v", infoPath, err)
 	}
 
-	entryPath := filepath.Join(root, "main.py")
+	entryValue, ok := manifest["entry"].(string)
+	if !ok || entryValue == "" {
+		t.Fatalf("fixture %s is missing entry", fixturePath)
+	}
+	entryPath := filepath.Join(root, filepath.FromSlash(entryValue))
+	if err := os.MkdirAll(filepath.Dir(entryPath), 0o755); err != nil {
+		t.Fatalf("mkdir entry dir %s: %v", filepath.Dir(entryPath), err)
+	}
 	if err := os.WriteFile(entryPath, []byte("print('placeholder')\n"), 0o644); err != nil {
 		t.Fatalf("write entry %s: %v", entryPath, err)
 	}
