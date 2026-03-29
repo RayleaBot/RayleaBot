@@ -294,7 +294,6 @@
 | `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
 | `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、linux packaging smoke 与 metadata verify |
 | `lint.yml` / `ci-launcher` | push main / PR | Windows / Linux / macOS 上的 `pnpm test` 与 `pnpm build` |
-| `nightly.yml` | schedule / manual | server tests、web tests / E2E、release helper tests、launcher tests / publish |
 | `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
 
 ### 规划对齐缺口
@@ -317,7 +316,7 @@
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
-- `ci-web`、`smoke-pr`、`nightly`、`release` 已进入仓库工作流，release metadata / checksum 校验与交付矩阵 smoke 已有门禁。
+- `ci-web`、`smoke-pr`、`release` 已进入仓库工作流，release metadata / checksum 校验与交付矩阵 smoke 已有门禁。
 - 当前主要风险集中在四个层面：共享 degraded / remediation 结构尚未完全统一到 `/readyz`、Launcher、`doctor` 与诊断包；规划与 formal surface 仍存在 install source narrative 与 plugin lifecycle route shape 漂移；Launcher 仍缺凭据丢失恢复入口与更完整的安装体验；Render Service 仍停留在最小占位产物输出，Chromium 队列与模板 / 缓存体系尚未完成。
 
 ---

@@ -3891,7 +3891,7 @@ dist/
 - CI 的核心职责是门禁和可构建性验证，不在首版引入过度复杂的自动化。
 - `ci` 应显式安装并校验固定技术基线，至少覆盖 Go `1.25.8`、Node.js `24.14.0`、`pnpm 10.32.1`、Python `3.12.13` 与 Electron 启动器工程基线；一旦仓库中的 `go.mod`、`packageManager`、`package.json`、Python 运行时配置与工作流声明不一致，CI 应直接失败。
 - 版本来源应以仓库内的基线文件和工程文件为准，工作流中尽量避免再手写一套独立版本字符串，减少“文档、CI、工程文件”三处漂移。
-- Web UI 的 Playwright 场景在 v0.1 默认进入 `nightly` / `release` 层，而不是所有 PR 的必过门禁；PR 层只保留最小 smoke 闭环，避免前端回归门禁过重。
+- Web UI 的 Playwright 场景在 v0.1 默认进入 `release` 与按需高成本回归层，而不是所有 PR 的必过门禁；PR 层只保留最小 smoke 闭环，避免前端回归门禁过重。
 
 #### 4.7.1 v0.1 CI 门禁矩阵
 
@@ -3905,14 +3905,13 @@ dist/
 | `ci-web` | `pnpm install --frozen-lockfile`、`pnpm build`、Vitest | `ubuntu-x64` | 是 | Web UI 构建与单元测试门禁 |
 | `ci-launcher` | `pnpm test`、`pnpm build` | `windows-x64`、`linux-x64`、`macos-arm64` | 是 | Launcher 在三套正式桌面平台上进入门禁 |
 | `smoke-pr` | 轻量闭环 smoke：初始化、登录、插件列表、任务流、`/healthz` / `/readyz`、最小渲染验证 | `ubuntu-x64` | 是 | PR 级别只跑最小闭环，不跑最重恢复场景 |
-| `nightly` | 重型 E2E：备份 / 恢复 / 迁移、插件安装、重载、重渲染 golden、Electron 启动器联调、Playwright 页面回归 | `ubuntu-x64`、`windows-x64`、`linux-x64`、`macos-arm64` | 否 | 夜间回归层，用于覆盖高成本场景 |
 | `release` | 构建正式产物、校验 `release_manifest.json` / checksum、运行交付矩阵 smoke profile 后发布 | `windows-x64`、`linux-x64`、`macos-arm64` | Tag 门禁 | 不通过则不得发布正式 Release |
 
 执行原则：
 
 - `contracts`、`ci-server`、`ci-web`、`ci-launcher`、`smoke-pr` 必须全部通过，PR 才可合并。
-- 事件 / 插件协议 / 配置 / 错误码 / 迁移相关 Golden Fixtures 必须进入 `contracts` 或 `ci-server` 的 PR 门禁，而不是只在 nightly 才跑。
-- Chromium 重渲染 golden、备份恢复、跨版本迁移等高成本场景优先放入 `nightly` 与 `release`，避免把所有 PR 门禁拖得过重。
+- 事件 / 插件协议 / 配置 / 错误码 / 迁移相关 Golden Fixtures 必须进入 `contracts` 或 `ci-server` 的 PR 门禁，而不是只留给高成本回归场景。
+- Chromium 重渲染 golden、备份恢复、跨版本迁移等高成本场景优先放入 `release` 与按需回归，避免把所有 PR 门禁拖得过重。
 - `macos-arm64` 作为正式桌面交付平台进入 launcher 门禁与 release 门禁。
 
 ### 4.8 可观测性与诊断
@@ -4086,7 +4085,7 @@ v0.1 还应提供两类极简健康接口：
 
 执行原则：
 
-- 上述演练场景应逐步转化为 smoke、nightly 或 release 工作流中的可复用自动化用例，而不是只保留在 Markdown 中。
+- 上述演练场景应逐步转化为 smoke 或 release 工作流中的可复用自动化用例，而不是只保留在 Markdown 中。
 - 故障注入结果必须优先验证“状态是否被正确暴露”和“是否能安全失败”，而不是只验证 happy path 是否能恢复。
 
 ### 4.10 文档体系规划
