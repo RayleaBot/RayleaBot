@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { inspectLauncherEnvironment } from "@main/services/environment";
+import {
+  detectWindowsLongPathsStatus,
+  inspectLauncherEnvironment,
+} from "@main/services/environment";
 
 describe("inspectLauncherEnvironment", () => {
   test("reports bootstrap_available when user config is missing but default template exists", async () => {
@@ -44,5 +47,29 @@ describe("inspectLauncherEnvironment", () => {
     });
 
     expect(inspection.checks.some((item) => item.code === "deps.manifest_platform_missing")).toBe(true);
+  });
+
+  test("detects enabled Windows long path support from registry output", async () => {
+    const status = await detectWindowsLongPathsStatus(async () => ({
+      stdout: [
+        "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+        "    LongPathsEnabled    REG_DWORD    0x1",
+      ].join("\r\n"),
+      stderr: "",
+    }));
+
+    expect(status).toBe("enabled");
+  });
+
+  test("detects disabled Windows long path support from registry output", async () => {
+    const status = await detectWindowsLongPathsStatus(async () => ({
+      stdout: [
+        "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+        "    LongPathsEnabled    REG_DWORD    0x0",
+      ].join("\r\n"),
+      stderr: "",
+    }));
+
+    expect(status).toBe("disabled");
   });
 });

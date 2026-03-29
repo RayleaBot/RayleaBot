@@ -1,7 +1,11 @@
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import type { EnvironmentCheckResult, EnvironmentInspection, LauncherSettings } from "../../shared/launcher-models";
+
+const execFileAsync = promisify(execFile);
 
 export interface EnvironmentProbeInput {
   serverExecutableExists: boolean;
@@ -15,6 +19,12 @@ export interface EnvironmentProbeInput {
   platform: string;
   longPaths: "enabled" | "disabled" | "unsupported" | "unknown";
 }
+
+type LongPathsStatus = EnvironmentProbeInput["longPaths"];
+type ExecFileLike = (
+  file: string,
+  args: string[],
+) => Promise<{ stdout: string; stderr: string }>;
 
 function normalizeHostPlatform(): string {
   const arch = os.arch();
@@ -39,6 +49,47 @@ function parseDepsManifest(probe: EnvironmentProbeInput): Array<{ platform?: str
     return payload.resources ?? [];
   } catch {
     return [];
+  }
+}
+
+export async function detectWindowsLongPathsStatus(
+  runQuery: ExecFileLike = execFileAsync,
+): Promise<LongPathsStatus> {
+  try {
+    const { stdout } = await runQuery("reg.exe", [
+      "query",
+      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "/v",
+      "LongPathsEnabled",
+    ]);
+
+    const longPathsLine = stdout
+      .split(/\r?\n/)
+      .find((line) => line.includes("LongPathsEnabled"));
+
+    if (!longPathsLine) {
+      return "unknown";
+    }
+
+    const rawValues = longPathsLine.match(/0x[0-9a-fA-F]+|\d+/g);
+    if (!rawValues || rawValues.length === 0) {
+      return "unknown";
+    }
+
+    const rawValue = rawValues.at(-1) ?? "";
+    const parsedValue = rawValue.startsWith("0x")
+      ? Number.parseInt(rawValue, 16)
+      : Number.parseInt(rawValue, 10);
+
+    if (parsedValue === 1) {
+      return "enabled";
+    }
+    if (parsedValue === 0) {
+      return "disabled";
+    }
+    return "unknown";
+  } catch {
+    return "unknown";
   }
 }
 
@@ -300,6 +351,6 @@ export async function inspectEnvironmentFromNode(settings: LauncherSettings): Pr
     templatesExist: await pathExists(templatesPath),
     templatesHaveFiles: await directoryHasFiles(templatesPath),
     platform: normalizeHostPlatform(),
-    longPaths: process.platform === "win32" ? "unknown" : "unsupported",
+    longPaths: process.platform === "win32" ? await detectWindowsLongPathsStatus() : "unsupported",
   });
 }
