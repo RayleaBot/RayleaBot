@@ -642,7 +642,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 			m.markStopped(codePluginInternalError, "plugin exited with error during shutdown", waitErr)
 			return errorf(codePluginInternalError, "plugin exited with error during shutdown", waitErr)
 		}
-		if writeErr != nil {
+		if writeErr != nil && !isIgnorableShutdownWriteError(writeErr) {
 			m.markStopped(codePluginInternalError, "write shutdown frame", writeErr)
 			return errorf(codePluginInternalError, "write shutdown frame", writeErr)
 		}
@@ -665,6 +665,16 @@ func (m *Manager) Stop(ctx context.Context) error {
 		m.markStopped(codePluginShutdownTimeout, "plugin shutdown timed out", stopCtx.Err())
 		return errorf(codePluginShutdownTimeout, "plugin shutdown timed out", stopCtx.Err())
 	}
+}
+
+func isIgnorableShutdownWriteError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.ErrClosedPipe) || errors.Is(err, os.ErrClosed) {
+		return true
+	}
+	return strings.Contains(err.Error(), "broken pipe")
 }
 
 // Ping sends a ping frame to the plugin and waits for a pong response.

@@ -16,7 +16,9 @@ import (
 func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t, deterministicAuthOptions()...)
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.yaml"))
 
@@ -68,7 +70,9 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t, deterministicAuthOptions()...)
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.yaml"))
 	application.Logs.Append(logging.Summary{

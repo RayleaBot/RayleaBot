@@ -108,6 +108,22 @@ func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.
 	if escapesDir(manifestDir, entryPath) {
 		return Spec{}, errorf(codePlatformInvalidRequest, "plugin entry must remain inside the plugin directory", nil)
 	}
+	entryInfo, err := os.Lstat(entryPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Spec{}, errorf(codePlatformResourceMissing, "plugin entry file is missing", err)
+		}
+		return Spec{}, errorf(codePlatformResourceMissing, "stat plugin entry file", err)
+	}
+	if entryInfo.Mode()&os.ModeSymlink != 0 {
+		linkTarget, err := os.Readlink(entryPath)
+		if err != nil {
+			return Spec{}, errorf(codePlatformResourceMissing, "resolve plugin entry symlink", err)
+		}
+		if escapesDir(manifestDir, resolveSymlinkTarget(entryPath, linkTarget)) {
+			return Spec{}, errorf(codePlatformInvalidRequest, "plugin entry must remain inside the plugin directory", nil)
+		}
+	}
 
 	resolvedManifestDir, err := filepath.EvalSymlinks(manifestDir)
 	if err != nil {
@@ -128,7 +144,7 @@ func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.
 		return Spec{}, errorf(codePlatformInvalidRequest, "plugin entry must remain inside the plugin directory", nil)
 	}
 
-	entryInfo, err := os.Stat(resolvedEntryPath)
+	entryInfo, err = os.Stat(resolvedEntryPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return Spec{}, errorf(codePlatformResourceMissing, "plugin entry file is missing", err)
@@ -190,4 +206,11 @@ func escapesDir(root, path string) bool {
 		return true
 	}
 	return relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator))
+}
+
+func resolveSymlinkTarget(entryPath, linkTarget string) string {
+	if filepath.IsAbs(linkTarget) {
+		return filepath.Clean(linkTarget)
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(entryPath), linkTarget))
 }

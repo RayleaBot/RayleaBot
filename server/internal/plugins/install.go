@@ -783,7 +783,7 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, file.Mode().Perm()); err != nil {
+			if err := os.MkdirAll(targetPath, normalizedZipEntryMode(file)); err != nil {
 				return "", installError(codePluginInstallFailed, "创建解压目录失败", "创建解压目录失败")
 			}
 			continue
@@ -798,7 +798,7 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 			return "", installError(codePluginInstallFailed, "读取压缩包条目失败", "读取压缩包条目失败")
 		}
 
-		targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.Mode().Perm())
+		targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, normalizedZipEntryMode(file))
 		if err != nil {
 			readerHandle.Close()
 			return "", installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")
@@ -829,6 +829,20 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 		return "", installError(codePluginInstallFailed, "压缩包必须只包含一个插件根目录", "压缩包必须只包含一个插件根目录")
 	}
 	return rootPath, nil
+}
+
+func normalizedZipEntryMode(file *zip.File) os.FileMode {
+	mode := file.Mode().Perm()
+	if file.FileInfo().IsDir() {
+		if mode&0o111 == 0 {
+			return 0o755
+		}
+		return mode
+	}
+	if mode == 0 {
+		return 0o644
+	}
+	return mode
 }
 
 func stringPtr(value string) *string {

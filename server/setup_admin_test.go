@@ -101,14 +101,15 @@ func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 func loadWebAPIFixtureDocument(t *testing.T, path string) webAPIFixtureDocument {
 	t.Helper()
 
-	bytes, err := os.ReadFile(path)
+	normalizedPath := filepath.Clean(filepath.FromSlash(strings.ReplaceAll(path, "\\", "/")))
+	bytes, err := os.ReadFile(normalizedPath)
 	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
+		t.Fatalf("read fixture %s: %v", normalizedPath, err)
 	}
 
 	var fixture webAPIFixtureDocument
 	if err := yaml.Unmarshal(bytes, &fixture); err != nil {
-		t.Fatalf("unmarshal fixture %s: %v", path, err)
+		t.Fatalf("unmarshal fixture %s: %v", normalizedPath, err)
 	}
 
 	return fixture
