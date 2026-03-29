@@ -27,7 +27,5 @@ if /I "%RAYLEA_START_SKIP_LAUNCH%"=="1" (
 
 rem We run via 'electron .' during development to ensure we use the fresh dist/ build
 echo [RayleaBot] Starting launcher...
-pushd "%LAUNCHER_DIR%"
-start "" cmd /c "pnpm exec electron ."
-popd
+start "" "%LAUNCHER_DIR%\node_modules\electron\dist\electron.exe" "%LAUNCHER_DIR%"
 exit /b 0
