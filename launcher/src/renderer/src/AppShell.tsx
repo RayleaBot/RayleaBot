@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { ChangeEvent, FormEvent } from "react";
 import {
   Radio,
   RadioGroup,
@@ -7,21 +6,26 @@ import {
   PresenceBadge,
   Text,
   Button,
-  Badge,
-  Field,
 } from "@fluentui/react-components";
 import type { PresenceBadgeStatus } from "@fluentui/react-components";
-import { MessageBar } from "@fluentui/react-message-bar";
 import {
-  Play24Filled,
-  Stop24Filled,
-  Globe24Filled,
-  FolderOpen24Filled,
-  CheckmarkCircle24Filled,
-  Warning24Filled,
-  DismissCircle24Filled,
+  Play20Filled,
+  Stop20Filled,
+  Globe20Filled,
+  FolderOpen20Filled,
+  CheckmarkCircle20Filled,
+  Warning20Filled,
+  DismissCircle20Filled,
+  Status20Filled,
+  HeartPulse20Filled,
+  DocumentText20Filled,
+  Settings20Filled,
+  ArrowClockwise20Regular,
+  Subtract20Regular,
+  Square20Regular,
+  SquareMultiple20Regular,
+  Dismiss20Regular,
 } from "@fluentui/react-icons";
-import type { InputOnChangeData } from "@fluentui/react-components";
 import type {
   LauncherSettings,
   LauncherSnapshot,
@@ -45,9 +49,9 @@ const serviceStateConfig: Record<
 };
 
 const severityConfig = {
-  error: { color: "danger" as const, label: "阻塞", icon: <DismissCircle24Filled /> },
-  warning: { color: "warning" as const, label: "警告", icon: <Warning24Filled /> },
-  ok: { color: "success" as const, label: "正常", icon: <CheckmarkCircle24Filled /> },
+  error: { color: "danger" as const, label: "阻塞", icon: <DismissCircle20Filled /> },
+  warning: { color: "warning" as const, label: "警告", icon: <Warning20Filled /> },
+  ok: { color: "success" as const, label: "正常", icon: <CheckmarkCircle20Filled /> },
 };
 
 type AppShellProps = {
@@ -58,6 +62,7 @@ type AppShellProps = {
   diagnosticsSummary: string;
   busyAction: string | null;
   controlsDisabled: boolean;
+  isMaximized: boolean;
   onNavigate: (section: SectionId) => void;
   onRefresh: () => void;
   onStart: () => void;
@@ -76,37 +81,32 @@ type AppShellProps = {
 };
 
 const sections = [
-  { id: "status" as SectionId, title: "状态" },
-  { id: "environment" as SectionId, title: "环境检查" },
-  { id: "diagnostics" as SectionId, title: "日志与诊断" },
-  { id: "settings" as SectionId, title: "设置" },
+  { id: "status" as SectionId, title: "运行状态", icon: <Status20Filled /> },
+  { id: "environment" as SectionId, title: "环境检查", icon: <HeartPulse20Filled /> },
+  { id: "diagnostics" as SectionId, title: "日志诊断", icon: <DocumentText20Filled /> },
+  { id: "settings" as SectionId, title: "偏好设置", icon: <Settings20Filled /> },
 ];
 
-const severityRank: Record<string, number> = {
-  error: 0,
-  warning: 1,
-  ok: 2,
-};
+const closeBehaviorOptions: Array<{
+  value: LauncherSettings["closeBehavior"];
+  label: string;
+}> = [
+  { value: "ask_every_time", label: "每次询问" },
+  { value: "hide_to_tray", label: "系统托盘" },
+  { value: "exit_application", label: "完全退出" },
+];
 
 function statusSummary(state: LauncherServiceState): string {
   switch (state) {
-    case "stopped":
-      return "未启动";
-    case "starting":
-      return "启动中";
+    case "stopped": return "已停止";
+    case "starting": return "正在启动";
     case "external_service":
-    case "ready":
-      return "运行中";
-    case "degraded":
-      return "受限运行";
-    case "setup_required":
-      return "需要设置";
-    case "shutting_down":
-      return "停止中";
-    case "failed":
-      return "启动失败";
-    default:
-      return "未知状态";
+    case "ready": return "正在运行";
+    case "degraded": return "受限运行";
+    case "setup_required": return "需要设置";
+    case "shutting_down": return "正在停止";
+    case "failed": return "启动失败";
+    default: return "未知状态";
   }
 }
 
@@ -118,6 +118,7 @@ export function AppShell({
   diagnosticsSummary,
   busyAction,
   controlsDisabled,
+  isMaximized,
   onNavigate,
   onRefresh,
   onStart,
@@ -134,411 +135,368 @@ export function AppShell({
   onChooseWorkdir,
   onExit,
 }: AppShellProps) {
-  const primaryIssue = useMemo(() => {
-    return [...snapshot.environmentChecks].sort(
-      (left, right) =>
-        severityRank[left.severity] - severityRank[right.severity],
-    )[0];
-  }, [snapshot.environmentChecks]);
-
   const groupedChecks = useMemo(() => ({
-    blocking: snapshot.environmentChecks.filter(
-      (item) => item.severity === "error",
-    ),
-    warnings: snapshot.environmentChecks.filter(
-      (item) => item.severity === "warning",
-    ),
-    ready: snapshot.environmentChecks.filter(
-      (item) => item.severity === "ok",
-    ),
+    blocking: snapshot.environmentChecks.filter(i => i.severity === "error"),
+    warnings: snapshot.environmentChecks.filter(i => i.severity === "warning"),
+    ready: snapshot.environmentChecks.filter(i => i.severity === "ok"),
   }), [snapshot.environmentChecks]);
 
-  const trayStatus = useMemo(
-    () => statusSummary(snapshot.serviceState),
-    [snapshot.serviceState],
-  );
-
+  const trayStatus = useMemo(() => statusSummary(snapshot.serviceState), [snapshot.serviceState]);
   const startDisabled =
-    controlsDisabled || busyAction === "start" || busyAction === "stop";
-  const stopDisabled = controlsDisabled || busyAction === "stop";
-  const genericDisabled = controlsDisabled;
+    controlsDisabled ||
+    busyAction === "start" ||
+    busyAction === "restart" ||
+    busyAction === "stop";
+  const stopDisabled = controlsDisabled || busyAction === "restart" || busyAction === "stop";
 
   return (
     <div className="app-shell">
+      <div className="window-drag-handle">
+        <div className="window-title">
+          RAYLEALAUNCHER
+        </div>
+        <div className="window-controls">
+          <button className="window-control-btn" onClick={() => window.rayleaLauncher.minimize()} title="最小化"><Subtract20Regular /></button>
+          <button className="window-control-btn" onClick={() => window.rayleaLauncher.maximize()} title={isMaximized ? "还原" : "最大化"}>{isMaximized ? <SquareMultiple20Regular /> : <Square20Regular />}</button>
+          <button className="window-control-btn danger" onClick={() => window.rayleaLauncher.close()} title="关闭"><Dismiss20Regular /></button>
+        </div>
+      </div>
+
       <aside className="shell-sidebar">
-        <div className="brand-card">
+        <div className="brand-card glass-panel">
           <div className="brand-eyebrow">RayleaBot</div>
-          <h1>RayleaBot 启动器</h1>
-          <p>本地服务壳、环境检查和管理入口。</p>
+          <div className="brand-headline">
+            <h1>RayleaLauncher</h1>
+            {snapshot.releaseCheck.currentVersion && (
+              <span className="glass-chip">
+                v{snapshot.releaseCheck.currentVersion}
+              </span>
+            )}
+          </div>
         </div>
 
-        <nav className="section-nav" aria-label="Primary">
+        <nav className="section-nav">
           {sections.map((section) => (
             <button
               key={section.id}
               className={`nav-item${activeSection === section.id ? " active" : ""}`}
-              type="button"
               onClick={() => onNavigate(section.id)}
             >
-              {section.title}
+              <span className="nav-item__icon">{section.icon}</span>
+              <span className="nav-item__label">{section.title}</span>
             </button>
           ))}
         </nav>
 
-        <div className="sidebar-summary">
-          <span>当前状态</span>
-          <strong>{trayStatus}</strong>
+        <div className="sidebar-footer glass-panel glass-panel--subtle">
+          <div className="sidebar-footer__group">
+            <Text size={100} className="eyebrow-text">LAUNCHER STATUS</Text>
+            <Text weight="bold" className="sidebar-footer__status">{trayStatus.toUpperCase()}</Text>
+          </div>
+          <div className="sidebar-footer__group">
+            <Text size={100} className="eyebrow-text">API ENDPOINT</Text>
+            <Text size={100} className="sidebar-footer__endpoint">{snapshot.endpoint.baseUrl}</Text>
+          </div>
+          <Button
+            appearance="transparent"
+            size="small"
+            onClick={onRefresh}
+            icon={<ArrowClockwise20Regular />}
+            className="frost-button frost-button--ghost frost-button--inline"
+          >
+            刷新状态
+          </Button>
         </div>
-        <div className="sidebar-summary subtle">
-          <span>服务入口</span>
-          <strong>{snapshot.endpoint.baseUrl}</strong>
-        </div>
-        <Button
-          appearance="secondary"
-          size="small"
-          disabled={genericDisabled}
-          onClick={onRefresh}
-          style={{ marginTop: "8px" }}
-        >
-          刷新状态
-        </Button>
       </aside>
 
       <main className="shell-main">
-        <section className="hero-card">
-          <div className="hero-copy">
-            <div className="hero-eyebrow">Service Control</div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-              <PresenceBadge
-                status={serviceStateConfig[snapshot.serviceState]?.status ?? "unknow"}
-                size="large"
-              />
-              <Text weight="semibold" size={500}>
-                {serviceStateConfig[snapshot.serviceState]?.label ?? "未知状态"}
-              </Text>
+        {/* Service Control (只在运行状态显示) */}
+        {activeSection === "status" && (
+          <section className="hero-card glass-panel">
+            <div className="hero-copy">
+              <div className="brand-eyebrow">Service Control</div>
+              <div className="hero-status-row">
+                <PresenceBadge status={serviceStateConfig[snapshot.serviceState]?.status ?? "unknown"} size="large" />
+                <Text weight="bold" size={500} className="hero-status-text">{serviceStateConfig[snapshot.serviceState]?.label ?? "未知"}</Text>
+              </div>
+              <Text size={200} className="hero-detail">{snapshot.serviceDetail}</Text>
+              {snapshot.lastError && (
+                <div className="inline-alert inline-alert--error">
+                  <span className="inline-alert__icon"><DismissCircle20Filled /></span>
+                  <span className="inline-alert__text">{snapshot.lastError}</span>
+                </div>
+              )}
             </div>
-            <p style={{ color: "rgba(220, 235, 255, 0.78)" }}>{snapshot.serviceDetail}</p>
-            {snapshot.lastError && (
-              <MessageBar intent="error" className="message-bar" style={{ marginTop: "12px" }}>
-                {snapshot.lastError}
-              </MessageBar>
-            )}
-          </div>
-          <div className="hero-actions">
-            <Button
-              appearance="primary"
-              size="large"
-              disabled={startDisabled}
-              onClick={onStart}
-              icon={<Play24Filled />}
-            >
-              {snapshot.serviceState === "external_service" ||
-              snapshot.serviceState === "ready"
-                ? "重新检查"
-                : "启动服务"}
-            </Button>
-            <Button
-              appearance="secondary"
-              size="large"
-              disabled={stopDisabled}
-              onClick={onStop}
-              icon={<Stop24Filled />}
-            >
-              停止服务
-            </Button>
-            <Button
-              appearance="outline"
-              size="large"
-              disabled={genericDisabled}
-              onClick={onOpenWeb}
-              icon={<Globe24Filled />}
-            >
-              打开管理界面
-            </Button>
-          </div>
-        </section>
+            <div className="hero-actions">
+              <Button
+                appearance="transparent"
+                className="frost-button frost-button--primary frost-button--block"
+                onClick={onStart}
+                disabled={startDisabled}
+                icon={<Play20Filled />}
+              >
+                {snapshot.serviceState === "ready" ? "重启服务" : "启动 RayleaBot"}
+              </Button>
+              <Button
+                appearance="transparent"
+                className="frost-button frost-button--secondary frost-button--block"
+                onClick={onStop}
+                disabled={stopDisabled}
+                icon={<Stop20Filled />}
+              >
+                停止服务
+              </Button>
+              <Button
+                appearance="transparent"
+                className="frost-button frost-button--secondary frost-button--block"
+                onClick={onOpenWeb}
+                disabled={controlsDisabled}
+                icon={<Globe20Filled />}
+              >
+                管理面板
+              </Button>
+            </div>
+          </section>
+        )}
 
-        {primaryIssue && (
-          <MessageBar
-            intent={primaryIssue.severity === "error" ? "error" : "warning"}
-            icon={primaryIssue.severity === "error" ? <DismissCircle24Filled /> : <Warning24Filled />}
-            className="message-bar"
-          >
-            <Text weight="semibold">{primaryIssue.title}</Text>
-            <Text>{primaryIssue.summary}</Text>
-            <Text size={200}>{primaryIssue.remediation || primaryIssue.detail}</Text>
-          </MessageBar>
+        {/* 统一的环境检查项 (首页与详情页共享样式) */}
+        {(activeSection === "status" || activeSection === "environment") && snapshot.environmentChecks.length > 0 && (
+          <div className="checks-stack">
+            {snapshot.environmentChecks.map(item => (
+              (activeSection === "environment" || item.severity !== "ok") && (
+                <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
+                  <div className="check-item__lead">
+                    <div className="check-item__icon">
+                      {severityConfig[item.severity as keyof typeof severityConfig]?.icon}
+                    </div>
+                    <div className="check-item__copy">
+                      <Text weight="bold" size={300}>{item.title}</Text>
+                      <Text size={200} className="check-item__summary">
+                        {item.code === "os.long_paths_unknown" && item.severity === "warning"
+                          ? "无法确认长路径支持状态。若资源展开遇到限制，请手动检查系统长路径设置。" 
+                          : item.summary}
+                      </Text>
+                    </div>
+                  </div>
+                  <span className={`status-pill status-pill--${item.severity}`}>
+                    {severityConfig[item.severity as keyof typeof severityConfig]?.label}
+                  </span>
+                </div>
+              )
+            ))}
+          </div>
         )}
 
         {activeSection === "status" && (
-          <section className="content-grid">
-            <article className="panel panel-primary">
-              <h3>服务信息</h3>
-              <dl className="kv-grid">
-                <div>
-                  <dt>状态</dt>
-                  <dd>{trayStatus}</dd>
-                </div>
-                <div>
-                  <dt>服务入口</dt>
-                  <dd>{snapshot.endpoint.baseUrl}</dd>
-                </div>
-                <div>
-                  <dt>工作目录</dt>
-                  <dd>{snapshot.settings.workdir}</dd>
-                </div>
-                <div>
-                  <dt>PID</dt>
-                  <dd>{snapshot.processId ?? "—"}</dd>
-                </div>
-              </dl>
+          <>
+            <article className="panel glass-panel">
+              <div className="brand-eyebrow">核心参数</div>
+              <div className="status-list">
+                <div className="status-item"><span className="status-label">进程 ID</span><code className="status-value">{snapshot.processId ?? "—"}</code></div>
+                <div className="status-item"><span className="status-label">本地端点</span><span className="status-value mono">{snapshot.endpoint.baseUrl}</span></div>
+                <div className="status-item"><span className="status-label">工作目录</span><span className="status-value mono">{snapshot.settings.workdir}</span></div>
+              </div>
             </article>
 
-            <article className="panel">
-              <h3>版本与发布</h3>
-              <p>{snapshot.releaseCheck.summary}</p>
+            <article className="panel glass-panel glass-panel--subtle panel-row">
+              <div className="panel-copy">
+                <div className="brand-eyebrow brand-eyebrow--tight">版本监控</div>
+                <Text size={200} className="panel-muted">{snapshot.releaseCheck.summary}</Text>
+              </div>
               <Button
-                appearance="secondary"
+                appearance="transparent"
+                size="small"
+                className="frost-button frost-button--secondary"
                 onClick={onOpenReleasePage}
               >
-                打开发布页
+                检查更新
               </Button>
             </article>
 
-            <article className="panel full">
-              <h3>最近错误输出</h3>
+            <article className="panel glass-panel">
+              <div className="brand-eyebrow">异常输出监控</div>
               <pre className="log-surface">
-                {snapshot.recentStderr.join("\n") ||
-                  "当前没有新的错误。"}
+                {snapshot.recentStderr.join("\n") || "当前无异常日志。"}
               </pre>
               <Button
-                appearance="secondary"
+                appearance="transparent"
+                size="small"
+                className="frost-button frost-button--ghost"
                 onClick={onOpenLogs}
+                icon={<FolderOpen20Filled />}
               >
-                打开日志目录
+                查看完整日志
               </Button>
             </article>
-          </section>
+          </>
         )}
 
         {activeSection === "environment" && (
-          <section className="content-grid">
-            <article className="panel metric-panel">
-              <div className="metric">
-                <span>阻塞项</span>
-                <strong>{groupedChecks.blocking.length}</strong>
-              </div>
-              <div className="metric">
-                <span>需注意</span>
-                <strong>{groupedChecks.warnings.length}</strong>
-              </div>
-              <div className="metric">
-                <span>正常项</span>
-                <strong>{groupedChecks.ready.length}</strong>
-              </div>
-            </article>
-
-            <article className="panel full">
-              <h3>环境检查结果</h3>
-              <div style={{ display: "grid", gap: "12px" }}>
-                {snapshot.environmentChecks.map((item) => {
-                  const c = severityConfig[item.severity] ?? severityConfig.ok;
-                  return (
-                    <MessageBar
-                      key={item.code}
-                      intent={item.severity === "ok" ? "success" : item.severity === "warning" ? "warning" : "error"}
-                      icon={c.icon}
-                      className="message-bar"
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <Text weight="semibold">{item.title}</Text>
-                        <Badge appearance="filled" color={c.color}>{c.label}</Badge>
-                      </div>
-                      <Text>{item.summary}</Text>
-                      {item.remediation && (
-                        <Text size={200} style={{ color: "var(--colorNeutralForeground3)" }}>
-                          解决方法: {item.remediation}
-                        </Text>
-                      )}
-                    </MessageBar>
-                  );
-                })}
-              </div>
-            </article>
-          </section>
+          <article className="panel glass-panel metric-panel">
+            <div className="brand-eyebrow">环境评分</div>
+            <div className="metric-grid">
+              <div className="metric-card metric-card--error"><Text size={100} block className="metric-label">阻塞项</Text><Text size={600} weight="bold">{groupedChecks.blocking.length}</Text></div>
+              <div className="metric-card metric-card--warning"><Text size={100} block className="metric-label">警告项</Text><Text size={600} weight="bold">{groupedChecks.warnings.length}</Text></div>
+              <div className="metric-card metric-card--ok"><Text size={100} block className="metric-label">正常项</Text><Text size={600} weight="bold">{groupedChecks.ready.length}</Text></div>
+            </div>
+          </article>
         )}
 
         {activeSection === "diagnostics" && (
-          <section className="content-grid">
-            <article className="panel full">
-              <h3>诊断摘要</h3>
-              <pre className="log-surface">{diagnosticsSummary}</pre>
-            </article>
-          </section>
+          <article className="panel glass-panel diagnostics-panel">
+            <div className="brand-eyebrow">系统诊断快照</div>
+            <pre className="log-surface diagnostics-surface">
+              {diagnosticsSummary}
+            </pre>
+          </article>
         )}
 
         {activeSection === "settings" && (
-          <section className="content-grid">
-            <article className="panel full">
-              <div
-                className="settings-header"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "18px",
-                  padding: editingSettings ? "12px 16px" : "0",
-                  background: editingSettings ? "rgba(13, 32, 48, 0.5)" : "transparent",
-                  borderRadius: "8px",
-                  transition: "all 200ms ease",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Text weight="semibold" size={500}>本地设置</Text>
-                  {editingSettings && (
-                    <Badge appearance="tint" color="brand">编辑模式</Badge>
-                  )}
-                </div>
-                <div className="settings-actions">
-                  {!editingSettings ? (
-                    <Button
-                      appearance="secondary"
-                      disabled={genericDisabled}
-                      onClick={onBeginEdit}
-                    >
-                      编辑路径
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        appearance="secondary"
-                        disabled={genericDisabled}
-                        onClick={onCancelEdit}
-                      >
-                        取消编辑
-                      </Button>
-                      <Button
-                        appearance="primary"
-                        disabled={genericDisabled}
-                        onClick={onSaveSettings}
-                      >
-                        保存设置
-                      </Button>
-                    </>
-                  )}
-                </div>
+          <article className="panel glass-panel settings-panel">
+            <div className="panel-toolbar">
+              <div className="panel-copy">
+                <div className="brand-eyebrow brand-eyebrow--tight">路径配置</div>
+                {editingSettings && <span className="glass-chip glass-chip--accent">编辑中</span>}
               </div>
+              <div className="settings-actions">
+                {!editingSettings ? (
+                  <Button
+                    appearance="transparent"
+                    size="small"
+                    className="frost-button frost-button--primary"
+                    onClick={onBeginEdit}
+                  >
+                    编辑配置
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      appearance="transparent"
+                      size="small"
+                      className="frost-button frost-button--ghost"
+                      onClick={onCancelEdit}
+                    >
+                      放弃
+                    </Button>
+                    <Button
+                      appearance="transparent"
+                      size="small"
+                      className="frost-button frost-button--primary"
+                      onClick={onSaveSettings}
+                    >
+                      保存
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
 
-              <div className="settings-grid">
-                <Field label="服务端可执行文件">
-                  <div className="field-inline">
+            <div className="settings-shell">
+              <div className="path-stack">
+                <label className="path-field">
+                  <span className="path-field__label">服务端可执行文件路径</span>
+                  <div className="path-control">
                     <Input
                       value={settingsDraft.serverExecutablePath}
                       readOnly={!editingSettings}
-                      onChange={(_: ChangeEvent<HTMLInputElement>, data: InputOnChangeData) =>
-                        onUpdateSettings({
-                          serverExecutablePath: data.value,
-                        })
-                      }
-                      className="field-input"
+                      className="frost-input frost-input--path"
+                      onChange={(_, d) => onUpdateSettings({ serverExecutablePath: d.value })}
                     />
                     <Button
-                      appearance="secondary"
+                      appearance="transparent"
                       disabled={!editingSettings}
+                      size="small"
+                      className="frost-button frost-button--secondary frost-button--compact"
                       onClick={onChooseServer}
-                      icon={<FolderOpen24Filled />}
+                      icon={<FolderOpen20Filled />}
                     >
                       浏览
                     </Button>
                   </div>
-                </Field>
+                </label>
 
-                <Field label="用户配置文件">
-                  <div className="field-inline">
+                <label className="path-field">
+                  <span className="path-field__label">配置文件路径</span>
+                  <div className="path-control">
                     <Input
                       value={settingsDraft.configPath}
                       readOnly={!editingSettings}
-                      onChange={(_: ChangeEvent<HTMLInputElement>, data: InputOnChangeData) =>
-                        onUpdateSettings({ configPath: data.value })
-                      }
-                      className="field-input"
+                      className="frost-input frost-input--path"
+                      onChange={(_, d) => onUpdateSettings({ configPath: d.value })}
                     />
                     <Button
-                      appearance="secondary"
+                      appearance="transparent"
                       disabled={!editingSettings}
+                      size="small"
+                      className="frost-button frost-button--secondary frost-button--compact"
                       onClick={onChooseConfig}
-                      icon={<FolderOpen24Filled />}
+                      icon={<FolderOpen20Filled />}
                     >
                       浏览
                     </Button>
                   </div>
-                </Field>
+                </label>
 
-                <Field label="工作目录">
-                  <div className="field-inline">
+                <label className="path-field">
+                  <span className="path-field__label">工作目录</span>
+                  <div className="path-control">
                     <Input
                       value={settingsDraft.workdir}
                       readOnly={!editingSettings}
-                      onChange={(_: ChangeEvent<HTMLInputElement>, data: InputOnChangeData) =>
-                        onUpdateSettings({ workdir: data.value })
-                      }
-                      className="field-input"
+                      className="frost-input frost-input--path"
+                      onChange={(_, d) => onUpdateSettings({ workdir: d.value })}
                     />
                     <Button
-                      appearance="secondary"
+                      appearance="transparent"
                       disabled={!editingSettings}
+                      size="small"
+                      className="frost-button frost-button--secondary frost-button--compact"
                       onClick={onChooseWorkdir}
-                      icon={<FolderOpen24Filled />}
+                      icon={<FolderOpen20Filled />}
                     >
-                      选择目录
+                      选择
                     </Button>
                   </div>
-                </Field>
+                </label>
               </div>
 
-              <Field label="关闭行为">
+              <section className="preferences-panel glass-panel glass-panel--subtle">
+                <div className="brand-eyebrow brand-eyebrow--tight">退出行为偏好</div>
                 <RadioGroup
                   value={settingsDraft.closeBehavior}
-                  onChange={(_: FormEvent<HTMLElement>, data: { value: string }) => {
-                    if (editingSettings) {
-                      onUpdateSettings({
-                        closeBehavior: data.value as LauncherSettings["closeBehavior"],
-                      });
-                    }
-                  }}
+                  onChange={(_, d) => onUpdateSettings({ closeBehavior: d.value as LauncherSettings["closeBehavior"] })}
                 >
-                  <div className="close-behavior">
-                    <label className="radio-label">
-                      <Radio
-                        value="ask_every_time"
-                        disabled={!editingSettings}
-                      />
-                      每次询问
-                    </label>
-                    <label className="radio-label">
-                      <Radio value="hide_to_tray" disabled={!editingSettings} />
-                      隐藏到托盘
-                    </label>
-                    <label className="radio-label">
-                      <Radio
-                        value="exit_application"
-                        disabled={!editingSettings}
-                      />
-                      完全退出
-                    </label>
+                  <div className="preference-options">
+                    {closeBehaviorOptions.map((option) => (
+                      <div
+                        key={option.value}
+                        className={`preference-option${settingsDraft.closeBehavior === option.value ? " is-selected" : ""}${!editingSettings ? " is-disabled" : ""}`}
+                      >
+                        <Radio
+                          className="preference-radio"
+                          label={option.label}
+                          value={option.value}
+                          disabled={!editingSettings}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </RadioGroup>
-              </Field>
+              </section>
+            </div>
 
+            <div className="settings-exit-row">
               <Button
-                appearance="primary"
+                appearance="transparent"
+                size="small"
+                className="frost-button frost-button--danger"
                 onClick={onExit}
-                style={{ background: "linear-gradient(135deg, #b44d63, #6e2433)", border: "none" }}
+                icon={<Stop20Filled />}
               >
-                完全退出启动器
+                退出 RayleaLauncher
               </Button>
-            </article>
-          </section>
+            </div>
+          </article>
         )}
       </main>
     </div>

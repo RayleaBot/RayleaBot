@@ -1,5 +1,5 @@
 import path from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, nativeTheme } from "electron";
 import type { LauncherSettings, LauncherSnapshot, TrayMenuEntry, TrayMenuState } from "../shared/launcher-models";
 import { launcherCopy } from "../shared/launcher-copy";
 import { createLauncherCoordinator } from "./services/launcher-coordinator";
@@ -18,6 +18,7 @@ const devServerUrl = process.env.RAYLEA_DEV_SERVER_URL;
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let shouldQuit = false;
+let windowMaximized = false;
 
 const executableBasePath = app.isPackaged ? path.dirname(app.getPath("exe")) : path.resolve(__dirname, "..", "..", "..", "..");
 const settingsStore = new JsonLauncherSettingsStore(app.getPath("userData"), executableBasePath, process.platform);
@@ -185,13 +186,17 @@ function refreshTrayMenu(snapshot: LauncherSnapshot) {
 }
 
 async function createMainWindow() {
+  nativeTheme.themeSource = "dark";
+
   mainWindow = new BrowserWindow({
     width: 1380,
     height: 920,
     minWidth: 1120,
     minHeight: 760,
     title: "RayleaBot 启动器",
-    backgroundColor: "#071018",
+    frame: false,
+    roundedCorners: true,
+    backgroundColor: "#00000000",
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -202,7 +207,20 @@ async function createMainWindow() {
   });
 
   mainWindow.on("ready-to-show", () => {
+    if (process.platform === "win32") {
+      mainWindow?.setBackgroundMaterial("acrylic");
+    }
     mainWindow?.show();
+  });
+
+  mainWindow.on("maximize", () => {
+    windowMaximized = true;
+    mainWindow?.webContents.send("launcher:maximized-change", true);
+  });
+
+  mainWindow.on("unmaximize", () => {
+    windowMaximized = false;
+    mainWindow?.webContents.send("launcher:maximized-change", false);
   });
 
   mainWindow.on("close", (event) => {
@@ -221,6 +239,17 @@ async function createMainWindow() {
 }
 
 function wireIpc() {
+  ipcMain.handle("launcher:minimize", () => mainWindow?.minimize());
+  ipcMain.handle("launcher:maximize", () => {
+    if (!mainWindow) return;
+    if (windowMaximized) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  });
+  ipcMain.handle("launcher:close", () => handleCloseRequest());
+  ipcMain.handle("launcher:is-maximized", () => windowMaximized);
   ipcMain.handle("launcher:get-platform", async () => `${process.platform}-${process.arch}`);
   ipcMain.handle("launcher:get-snapshot", async () => coordinator.snapshot);
   ipcMain.handle("launcher:initialize", async () => coordinator.initialize());

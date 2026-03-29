@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "@renderer/App";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
@@ -46,6 +46,13 @@ const loadedSnapshot: LauncherSnapshot = {
   serviceDetail: "服务尚未启动。",
 };
 
+const readySnapshot: LauncherSnapshot = {
+  ...loadedSnapshot,
+  processId: 4242,
+  serviceState: "ready",
+  serviceDetail: "服务正在运行。",
+};
+
 function installDesktopApi(api: LauncherDesktopApi) {
   Object.defineProperty(window, "rayleaLauncher", {
     configurable: true,
@@ -78,7 +85,12 @@ describe("App", () => {
       chooseConfigFile: vi.fn(async () => null),
       chooseWorkdir: vi.fn(async () => null),
       exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
     });
 
     render(<App />);
@@ -111,19 +123,67 @@ describe("App", () => {
       chooseConfigFile: vi.fn(async () => null),
       chooseWorkdir: vi.fn(async () => null),
       exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
     });
 
     render(<App />);
 
     // While initializing, the start button should be disabled
-    const startButton = screen.getByRole("button", { name: /启动服务|重新检查/ });
+    const startButton = screen.getByRole("button", { name: "启动 RayleaBot" });
     expect(startButton).toBeDisabled();
 
     // After initialize resolves, the button should be enabled
     resolveInitialize?.();
     await waitFor(() => {
       expect(startButton).not.toBeDisabled();
+    });
+  });
+
+  test("restarts the managed service when the ready-state primary action is clicked", async () => {
+    let initialized = false;
+    const calls: string[] = [];
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? readySnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => {
+        initialized = true;
+      }),
+      refresh: vi.fn(async () => undefined),
+      retry: vi.fn(async () => undefined),
+      start: vi.fn(async () => {
+        calls.push("start");
+      }),
+      stop: vi.fn(async () => {
+        calls.push("stop");
+      }),
+      openWebUi: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+    });
+
+    render(<App />);
+
+    const restartButton = await screen.findByRole("button", { name: "重启服务" });
+    fireEvent.click(restartButton);
+
+    await waitFor(() => {
+      expect(calls).toEqual(["stop", "start"]);
     });
   });
 });

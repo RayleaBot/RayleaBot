@@ -42,6 +42,7 @@ export function App() {
   const [snapshot, setSnapshot] = useState<LauncherSnapshot>(initialSnapshot);
   // Local draft: only used during settings editing; mirrors what Vue's settingsDraft ref did
   const [editingDraft, setEditingDraft] = useState<LauncherSettings | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   // settingsDraft = active editing draft when editing, else current settings from snapshot
   const settingsDraft = editingDraft ?? snapshot.settings;
@@ -108,6 +109,12 @@ export function App() {
     return unsub;
   }, []);
 
+  useEffect(() => {
+    window.rayleaLauncher.isMaximized().then(setIsMaximized);
+    const unsub = window.rayleaLauncher.onMaximizedChange(setIsMaximized);
+    return unsub;
+  }, []);
+
   const describeError = useCallback((error: unknown, fallback: string) => {
     if (error instanceof Error && error.message) {
       return error.message;
@@ -125,7 +132,11 @@ export function App() {
           ...prev,
           lastError: describeError(error, "启动器操作失败。"),
           serviceDetail:
-            action === "start" ? "启动服务失败。" : prev.serviceDetail,
+            action === "restart"
+              ? "重启服务失败。"
+              : action === "start"
+                ? "启动服务失败。"
+                : prev.serviceDetail,
         }));
       } finally {
         setBusyAction(null);
@@ -164,6 +175,16 @@ export function App() {
     setEditingDraft(null);
   }, []);
 
+  const handlePrimaryServiceAction = useCallback(() => {
+    if (snapshot.serviceState === "ready") {
+      return runAction("restart", async () => {
+        await window.rayleaLauncher.stop();
+        await window.rayleaLauncher.start();
+      });
+    }
+    return runAction("start", () => window.rayleaLauncher.start());
+  }, [runAction, snapshot.serviceState]);
+
   return (
     <AppShell
       snapshot={snapshot}
@@ -173,9 +194,10 @@ export function App() {
       diagnosticsSummary={diagnosticsSummary}
       busyAction={busyAction}
       controlsDisabled={controlsDisabled}
+      isMaximized={isMaximized}
       onNavigate={setActiveSection}
       onRefresh={() => runAction("refresh", () => window.rayleaLauncher.refresh())}
-      onStart={() => runAction("start", () => window.rayleaLauncher.start())}
+      onStart={handlePrimaryServiceAction}
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
       onOpenReleasePage={() =>

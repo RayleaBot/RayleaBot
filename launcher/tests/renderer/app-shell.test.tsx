@@ -72,11 +72,12 @@ describe("AppShell", () => {
       />,
     );
 
-    expect(screen.getByText("RayleaBot 启动器")).toBeInTheDocument();
-    expect(screen.getByText("状态")).toBeInTheDocument();
+    expect(screen.getByText("RayleaBot")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "RayleaLauncher" })).toBeInTheDocument();
+    expect(screen.getByText("运行状态")).toBeInTheDocument();
     expect(screen.getByText("环境检查")).toBeInTheDocument();
-    expect(screen.getByText("日志与诊断")).toBeInTheDocument();
-    expect(screen.getByText("设置")).toBeInTheDocument();
+    expect(screen.getByText("日志诊断")).toBeInTheDocument();
+    expect(screen.getByText("偏好设置")).toBeInTheDocument();
     expect(screen.getByText("服务尚未启动。")).toBeInTheDocument();
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
   });

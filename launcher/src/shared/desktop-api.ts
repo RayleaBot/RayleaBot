@@ -16,5 +16,10 @@ export interface LauncherDesktopApi {
   chooseConfigFile(): Promise<string | null>;
   chooseWorkdir(): Promise<string | null>;
   exitApplication(): Promise<void>;
+  minimize(): Promise<void>;
+  maximize(): Promise<void>;
+  close(): Promise<void>;
+  isMaximized(): Promise<boolean>;
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void): () => void;
+  onMaximizedChange(listener: (maximized: boolean) => void): () => void;
 }
