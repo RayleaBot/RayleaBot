@@ -169,8 +169,8 @@ test('shutdown flow shows the draining banner', async ({ page, request }) => {
   await page.getByRole('button', { name: '关闭服务' }).click({ force: true })
   await page.getByRole('button', { name: '确认关闭' }).click()
 
-  await expect(page.getByText('服务正在停止')).toBeVisible()
-  await expect(page.getByText('平台已接受 shutdown 请求')).toBeVisible()
+  await expect(page.getByText('服务正在停止', { exact: true })).toBeVisible()
+  await expect(page.getByText('停机请求已发送')).toBeVisible()
 })
 
 test('mobile navigation and card layouts remain usable', async ({ page, request }) => {
