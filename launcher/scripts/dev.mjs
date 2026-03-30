@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import waitOn from "wait-on";
+import { createDevWaitOnOptions, normalizeChildExitCode } from "./dev-support.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const children = [];
@@ -33,17 +34,10 @@ run("pnpm", ["exec", "tsc", "-p", "tsconfig.main.json", "--watch", "--preserveWa
 run("pnpm", ["exec", "tsc", "-p", "tsconfig.preload.json", "--watch", "--preserveWatchOutput"]);
 run("pnpm", ["exec", "vite", "--host", "127.0.0.1", "--port", "5174"]);
 
-await waitOn({
-  resources: [
-    path.join(root, "dist", "main", "main", "index.js"),
-    path.join(root, "dist", "preload", "preload", "index.js"),
-    "tcp:127.0.0.1:5174",
-  ],
-  timeout: 120000,
-});
+await waitOn(createDevWaitOnOptions(root));
 
 const electron = run("pnpm", ["exec", "electron", "."], {
   RAYLEA_DEV_SERVER_URL: "http://127.0.0.1:5174",
 });
 
-electron.on("exit", (code) => shutdown(code ?? 0));
+electron.on("exit", (code, signal) => shutdown(normalizeChildExitCode(code, signal)));
