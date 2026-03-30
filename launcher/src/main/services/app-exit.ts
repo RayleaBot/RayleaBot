@@ -10,11 +10,38 @@ interface ApplicationExitManagerDependencies {
   quitApplication(): void;
 }
 
+interface ApplicationExitManagerOptions {
+  stopTimeoutMs?: number;
+}
+
+const DEFAULT_STOP_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(operation: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("coordinated shutdown timed out"));
+    }, timeoutMs);
+
+    operation.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export function createApplicationExitManager(
   deps: ApplicationExitManagerDependencies,
+  options: ApplicationExitManagerOptions = {},
 ): ApplicationExitManager {
   let quitAllowed = false;
   let exitPromise: Promise<void> | null = null;
+  const stopTimeoutMs = options.stopTimeoutMs ?? DEFAULT_STOP_TIMEOUT_MS;
 
   return {
     shouldAllowQuit() {
@@ -29,7 +56,7 @@ export function createApplicationExitManager(
         try {
           if (deps.isManagedProcessRunning()) {
             try {
-              await deps.stopManagedProcess();
+              await withTimeout(deps.stopManagedProcess(), stopTimeoutMs);
             } catch {
               // Fall back to direct process termination when coordinated shutdown fails.
             }

@@ -21,6 +21,18 @@ afterEach(async () => {
 });
 
 describe("resolveServerEndpoint", () => {
+  test("parses inline YAML mappings for the server block", async () => {
+    const tempRoot = await createTempDir("endpoint-inline-map");
+    const configPath = path.join(tempRoot, "user.yaml");
+    await fs.writeFile(configPath, 'server: { host: "::1", port: 18081 }\n', "utf8");
+
+    const endpoint = await resolveServerEndpoint(configPath);
+
+    expect(endpoint.host).toBe("::1");
+    expect(endpoint.port).toBe(18081);
+    expect(endpoint.baseUrl).toBe("http://[::1]:18081/");
+  });
+
   test("wraps IPv6 hosts in brackets when building the base url", async () => {
     const tempRoot = await createTempDir("endpoint-ipv6");
     const configPath = path.join(tempRoot, "user.yaml");
@@ -34,5 +46,24 @@ describe("resolveServerEndpoint", () => {
 
     expect(endpoint.host).toBe("::1");
     expect(endpoint.baseUrl).toBe("http://[::1]:18080/");
+  });
+
+  test("reports invalid YAML before falling back to the default endpoint", async () => {
+    const tempRoot = await createTempDir("endpoint-warning");
+    const configPath = path.join(tempRoot, "user.yaml");
+    await fs.writeFile(configPath, "server: [\n", "utf8");
+
+    const warnings: string[] = [];
+    const endpoint = await resolveServerEndpoint(configPath, {
+      onWarning: ({ message }) => warnings.push(message),
+    });
+
+    expect(endpoint).toEqual({
+      host: "127.0.0.1",
+      port: 8080,
+      baseUrl: "http://127.0.0.1:8080/",
+    });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(configPath);
   });
 });
