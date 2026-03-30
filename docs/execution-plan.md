@@ -21,7 +21,7 @@
 | Phase 6 | Config / Storage / Security | 🟡 | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；共享 degraded / remediation 结构仍未完全统一到全部入口 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress 与插件来源/信任/命令冲突 metadata 已可用；插件安装来源和 lifecycle 路由形状与规划正文仍有口径待收口 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置 bootstrap、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口与正式安装体验仍待收口 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口与正式安装体验仍待收口 |
 | Phase 10 | Render Service | 🟡 | `render.image` 最小占位渲染、产物输出与资源检查已接线；受控 Chromium 队列、模板版本 / 缓存、preview 与正式 Render Service 调度仍未完成 |
 
 ### 判定口径
@@ -181,7 +181,7 @@
 | `storage.kv` formalize | ✅ | 已进入 plugin protocol、SQLite migration / repository、config limits、SDK、fixtures、示例与 tests |
 | canonical config realign | ✅ | `contracts/config.user.schema.json`、typed config 与 `/api/config` 已对齐规划正文命名；旧口径作为迁移输入保留 |
 | `config/default.yaml` 默认基线 | ✅ | repo-tracked 默认模板与运行时 baseline 已落库 |
-| 首份 `user.yaml` 自动生成 | ✅ | server 与 Launcher 在 `config/user.yaml` 缺失时会基于 `default.yaml` bootstrap 首份用户配置 |
+| 首份 `user.yaml` 自动生成 | ✅ | server 在 `config/user.yaml` 缺失时会基于 `default.yaml` 生成首份用户配置；Launcher 负责预检提示与启动链路承接 |
 | `default.yaml` + `user.yaml` 覆盖语义 | ✅ | 运行时固定按 `default.yaml` -> `user.yaml` 覆盖生成有效配置，并在保存时输出 canonical 新形状 |
 | `storage.file` formalize | ✅ | 已进入 plugin protocol、plugin_data 文件区服务、config limits、SDK、fixtures、示例与 tests |
 | `http.request` formalize | ✅ | 已进入 plugin protocol、scoped HTTP client、config allowlist / timeout / retry、SDK、fixtures、示例与 tests |
@@ -250,7 +250,7 @@
 | 真实 Launcher 行为 | ✅ | 单窗口桌面壳、启动 / 停止 / 打开管理界面 / 重试健康检查、错误输出 ring buffer 与 `logs/launcher.log` 已落地 |
 | 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与打开 Web 时的本机自动登录增强 |
 | Launcher 测试与 CI | ✅ | `pnpm test`、`pnpm build` 与 Windows / Linux / macOS `ci-launcher` job 已落地 |
-| 首启配置 bootstrap | ✅ | Launcher preflight 与 server 启动链已对齐 `default.yaml` -> `user.yaml` bootstrap 语义 |
+| 首启配置 bootstrap | ✅ | Launcher preflight 会提示缺失配置并继续拉起服务；首份 `user.yaml` 由 server 按 `default.yaml` 基线生成 |
 | 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
 | Launcher 设计系统与布局重构 | ✅ | 左侧导航、紧凑页头、统一 tokens / card / badge / log panel patterns、状态页单主操作层级、环境问题列表化、纵向诊断工具页、紧凑关闭策略设置、托盘短文案与统一弹窗表面已落地，整体视觉已收敛为更克制的深色 Fluent 工具壳 |
 | 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按 launcher-local 语义建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态不再污染启动完成语义与主状态文案；健康端口已存在但不是当前 Launcher 子进程时，主界面会显式标为“检测到现有服务” |

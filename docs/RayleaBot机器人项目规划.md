@@ -2846,7 +2846,7 @@ v0.1 至少应明确以下五类权限主体：
 - 发行版统一以 `config/user.yaml` 作为用户主配置入口。
 - `config/user.yaml` 的正式机器可校验定义应以 `contracts/config.user.schema.json` 为唯一来源；本章中的配置示例、默认值和热更新说明必须与该 schema 保持一致。
 - 项目提供 `config/default.yaml` 作为默认模板和回退基线。
-- 当 `user.yaml` 不存在时，由程序基于 `default.yaml` 生成首份用户配置。
+- 当 `user.yaml` 不存在时，由 server 在启动链路中基于 `default.yaml` 生成首份用户配置。
 - 配置文件建议包含 `schema_version`，为后续迁移预留基础。
 - `config/user.yaml` 还应暴露渲染相关配置项，如 `render.worker_count`、`render.browser_args`、`render.browser_path`，允许用户在高配宿主机上调优并行渲染能力或指定系统 Chromium 路径。
 
