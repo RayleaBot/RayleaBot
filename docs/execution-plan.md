@@ -67,7 +67,7 @@
 说明：
 
 - 8 份 formal contract 均已进入 fixture-ready。
-- 当前正式 contract 以 `contracts/` 为准，不再从规划正文、README 或实现代码反向推断接口。
+- 当前正式 contract 以 `contracts/` 为准；规划正文、README 与实现代码只作派生说明。
 
 ---
 
@@ -253,7 +253,7 @@
 | 首启配置 bootstrap | ✅ | Launcher preflight 会提示缺失配置并继续拉起服务；首份 `user.yaml` 由 server 按 `default.yaml` 基线生成 |
 | 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
 | Launcher 设计系统与布局重构 | ✅ | 左侧导航、紧凑页头、统一 tokens / card / badge / log panel patterns、状态页单主操作层级、环境问题列表化、纵向诊断工具页、紧凑关闭策略设置、托盘短文案与统一弹窗表面已落地，整体视觉已收敛为更克制的深色 Fluent 工具壳 |
-| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按 launcher-local 语义建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态不再污染启动完成语义与主状态文案；健康端口已存在但不是当前 Launcher 子进程时，主界面会显式标为“检测到现有服务” |
+| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按 launcher-local 语义建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态与启动完成语义分离，主状态文案保持 launcher-local 口径；健康端口已存在但不是当前 Launcher 子进程时，主界面会显式标为“检测到现有服务” |
 | 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、首页问题提示条、路径复制与打开目录快捷动作、暗色对比度、文案去技术化、结构化诊断摘要与设置编辑态提示已系统化接入 |
 | 托盘最小化与关闭语义 | ✅ | 托盘左键直接恢复窗口，右键使用原生菜单承载状态头、动态服务动作、日志目录与完全退出；tooltip 与菜单可用态会随运行状态和环境风险联动 |
 | 关闭确认与托盘引导 | ✅ | 关闭行为已收口为 `AskEveryTime / HideToTray / ExitApplication` 三态策略；设置页、关闭确认弹窗与实际关闭路径共用同一模型，弹窗支持把本次选择设为默认行为 |
@@ -317,34 +317,52 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`release` 已进入仓库工作流，release metadata / checksum 校验与交付矩阵 smoke 已有门禁。
-- 当前主要风险集中在四个层面：共享 degraded / remediation 结构尚未完全统一到 `/readyz`、Launcher、`doctor` 与诊断包；规划与 formal surface 仍存在 install source narrative 与 plugin lifecycle route shape 漂移；Launcher 仍缺凭据丢失恢复入口与更完整的安装体验；Render Service 仍停留在最小占位产物输出，Chromium 队列与模板 / 缓存体系尚未完成。
+- 当前主要风险集中在五个层面：共享 degraded / remediation 结构尚未完全统一到 `/readyz`、Launcher、`doctor` 与诊断包；`contracts/README.md` 与 `server/README.md` 仍保留 `render.image` 未入正式链路的旧口径；Launcher 仍缺凭据丢失恢复入口；Render Service 仍停留在最小占位产物输出，Chromium 队列、模板元数据、缓存与 preview 尚未完成；发布后升级 / 回滚 drills 与长期自托管 smoke 仍未进入稳定门禁。
 
 ---
 
-## 十四、下一步行动建议
+## 十四、下一步行动规划
 
-当前执行计划中的 1-4 号主线已完成，下一步从“补主链能力”切换为“收口剩余漂移与交付稳定性”。
+已归档到完成统计的事项：
 
-### 1. 已收口的规划 / contract 漂移
+1. 插件 lifecycle 路由口径已在 Phase 7 归档为完成，正式语义采用 `enable` / `disable` / `reload` 独立路由。
+2. 插件安装来源 `remote_url` 已在 Phase 7 归档为完成，属于 v0.1 正式支持能力。
 
-1. ✅ 统一插件 lifecycle 口径：已在规划正文中对齐 formal contract，明确采用 `enable` / `disable` / `reload` 独立路由语义。
-2. ✅ 收口插件安装来源叙事：已在规划正文中明确 `remote_url` 属于 v0.1 正式支持能力。
-3. 把“超前完成”能力与当前阶段能力的分层说明继续同步进规划相关文档，避免再次出现执行计划与规划脱节。
+### 本轮执行顺序
 
-### 2. 扩大发布后回归与长期自托管验证
+1. 收口当前文档真相。
+   范围：`contracts/README.md`、`server/README.md`、`docs/execution-plan.md`。
+   具体产出：把 `render.image` 统一表述为“local action RPC 已进入正式链路，完整 Render Service 仍未完成”，清除“`render.image` 未入正式链路”的旧口径，只保留真正未完成的 Render Service 边界。
+   完成标志：仓库内对 `render.image` 只保留一种口径：local action RPC 已 formalize，完整 Render Service 尚未完成。
 
-1. 增加 upgrade / rollback drills，验证 release metadata、数据库 / 配置 schema 与 launcher build info 的回滚判断链。
-2. 增加 diagnostic bundle drills，验证 Web / Launcher / CLI 产出的诊断信息在支持场景下可交叉使用。
-3. 增加更长时间窗的自托管 smoke，覆盖正式安装、启动、发布后升级和恢复流程。
+2. 统一 degraded / remediation 结构。
+   范围：`server/internal/health/health.go`、`server/internal/app/app.go`、`server/internal/app/system_aux_http.go`、`server/internal/cli/*`、`launcher/src/shared/launcher-models.ts`、`launcher/src/main/services/*`，并同步 `contracts/web-api.openapi.yaml`、`fixtures/web-api/*` 与相关测试。
+   具体产出：把 `/readyz`、诊断包、`doctor`、Launcher 全部收口到 `code`、`severity`、`summary`、`remediation` 同一结构；`reason_codes` 作为兼容信息保留，结构化 issue record 作为统一诊断入口。
+   完成标志：同一故障在四个入口暴露相同 `code` 与 remediation，入口之间共享同一份状态语义。
 
-### 3. v0.1 交付面稳定后进入 v0.2+ 运行时完善项
+3. 补齐 Launcher 本地恢复入口。
+   范围：`launcher/src/main/services/launcher-coordinator.ts`、`launcher/src/main/index.ts`、`launcher/src/renderer/src/*`、`server/internal/cli/*`，并同步 Launcher / CLI tests 与用户文档。
+   具体产出：在停服前提下提供 `reset-admin` 触发入口，执行后清空 Launcher 本地会话状态，直接引导回 `setup_required`，形成“停服务 -> 重置管理员 -> 回到初始化入口”的闭环。
+   完成标志：凭据丢失场景无需手工命令即可从 Launcher 进入恢复流程，且旧会话不能继续访问管理面。
 
-1. 完成真正的 Render Service：受控 Chromium、模板版本、缓存、preview 与任务编排。
-2. 在 v0.1 交付边界稳定后，再推进更广运行时与平台能力，而不是继续在 v0.1 范围内补洞。
-3. 保持 Web、Launcher、CLI 继续复用同一套状态语义与 release metadata，不再新增平行口径。
+4. 完成 Render Service 主链。
+   范围：先补 contract / docs，再推进 `server/internal/app/render_service.go`、模板资源、`.deps/manifest.json`、任务流与 Web 调试入口。
+   具体产出：按三个连续切片推进。`10A` 先落受控 Chromium worker、渲染队列、queue wait timeout 与 execution timeout；`10B` 再落模板元数据、输入 schema 校验、cache key、产物回收与错误码；`10C` 最后补 `render.preview` 任务流、调试入口、诊断输出与资源检查接线。
+   完成标志：`render.image` 输出真实渲染产物，`example-render-card` 走真实渲染链路，失败时返回结构化错误并支持 `fallback_text`。
+
+5. 把交付后回归接入稳定门禁。
+   范围：`.github/workflows/release.yml`、`.github/workflows/lint.yml`、`scripts/release/*`、`docs/release/*`、`docs/user/*`。
+   具体产出：新增三类门禁。已发布包 upgrade / rollback drill；diagnostics / backup / restore drill；正式安装后的长时间自托管 smoke。
+   完成标志：release 同时验证“能打包并通过 smoke”“能升级”“能回滚”“能恢复”“能诊断”。
+
+### 本轮边界
+
+- 不在这一轮推进多 adapter / 多 bot 抽象。
+- 不在这一轮扩展更宽 plugin action families。
+- 不在上述工作包完成前继续新增平行状态语义、平行恢复入口或新的管理面口径。
 
 ### 后续实施验收口径
 
-- 规划 / contract 漂移收口的验收应满足：当前 install source narrative 与 plugin lifecycle route shape 已完成收口并在各文档中得到单一、一致解释；超前完成能力还需继续在规划中分层说明。
-- 发布后回归扩面的验收应满足：upgrade / rollback、diagnostic bundle、正式安装与长期自托管 smoke 进入稳定门禁，且不会与既有 `release_manifest.json` / `build_info.json` / `SHA256SUMS.txt` 语义冲突。
-- v0.2+ 运行时完善项的验收应满足：Render Service 从占位产物输出升级到真正的 Chromium 渲染链路，并继续保持 contract-first、四件套同步更新与单一状态语义。
+- 任何涉及 readiness、diagnostics、CLI `doctor`、Launcher 环境检查的变更，都要以同一份 degraded / remediation 数据结构作为对外结果。
+- 任何涉及 Render Service、`render.preview`、错误码、任务类型或资源检查的变更，都要同步更新 formal contracts、fixtures、tests 与示例。
+- 任何进入 release workflow 的新增门禁，都要直接复用默认构建命令和正式 release metadata，不能再维护一套独立的“仅测试用”发布语义。
