@@ -129,6 +129,53 @@ func TestLauncherTokenIssuanceReturnsOpaqueToken(t *testing.T) {
 	}
 }
 
+func TestLauncherTokenIssuanceRejectsForwardedHeaders(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	setupReq, err := http.NewRequest(setupFixture.Request.Method, server.URL+setupFixture.Request.Path, strings.NewReader(`{"identifier":"admin","secret":"fixture-only-secret"}`))
+	if err != nil {
+		t.Fatalf("create setup request: %v", err)
+	}
+	setupReq.Header.Set("Content-Type", "application/json")
+	setupResp, err := server.Client().Do(setupReq)
+	if err != nil {
+		t.Fatalf("perform setup request: %v", err)
+	}
+	defer setupResp.Body.Close()
+	if setupResp.StatusCode != setupFixture.Response.Status {
+		t.Fatalf("unexpected setup status: got %d want %d", setupResp.StatusCode, setupFixture.Response.Status)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/session/launcher-token", nil)
+	if err != nil {
+		t.Fatalf("create launcher-token request: %v", err)
+	}
+	request.Header.Set("X-Forwarded-For", "198.51.100.9")
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform launcher-token request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("unexpected launcher-token status: got %d want %d", response.StatusCode, http.StatusForbidden)
+	}
+
+	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), map[string]any{
+		"error": map[string]any{
+			"code":        "permission.denied",
+			"message":     "当前用户无权执行该操作",
+			"message_key": "errors.permission.denied",
+			"request_id":  "fixture_request_id_placeholder",
+		},
+	}, "permission.denied")
+}
+
 func TestLauncherAdmissionConsumesTokenAndReturnsSession(t *testing.T) {
 	t.Parallel()
 

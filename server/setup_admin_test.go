@@ -2,7 +2,9 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -98,6 +100,56 @@ func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 	}
 }
 
+func TestSetupAdminRejectsNonLoopbackWhenSetupLocalOnlyEnabled(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t)
+	application.Auth = newDeterministicAuthManager(t)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+
+	recorder := performJSONRequestWithRemoteAddr(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "198.51.100.20:3210")
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("unexpected status: got %d want %d", recorder.Code, http.StatusForbidden)
+	}
+
+	body := decodeBody(t, recorder.Body.Bytes())
+	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
+		"error": map[string]any{
+			"code":        "permission.denied",
+			"message":     "当前用户无权执行该操作",
+			"message_key": "errors.permission.denied",
+			"request_id":  "fixture_request_id_placeholder",
+		},
+	}, "permission.denied")
+}
+
+func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t)
+	application.Auth = newDeterministicAuthManagerWithRepository(t, &stubAuthRepository{
+		saveBootstrapFn: func(context.Context, auth.BootstrapState, auth.Claims) error {
+			return errors.New("disk full")
+		},
+	})
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+
+	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("unexpected status: got %d want %d", recorder.Code, http.StatusInternalServerError)
+	}
+
+	body := decodeBody(t, recorder.Body.Bytes())
+	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
+		"error": map[string]any{
+			"code":        "platform.internal_error",
+			"message":     "内部错误",
+			"message_key": "errors.platform.internal_error",
+			"request_id":  "fixture_request_id_placeholder",
+		},
+	}, "platform.internal_error")
+}
+
 func loadWebAPIFixtureDocument(t *testing.T, path string) webAPIFixtureDocument {
 	t.Helper()
 
@@ -129,6 +181,10 @@ type webAPIFixtureDocument struct {
 }
 
 func performJSONRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any) *httptest.ResponseRecorder {
+	return performJSONRequestWithRemoteAddr(t, application, method, path, body, "127.0.0.1:0")
+}
+
+func performJSONRequestWithRemoteAddr(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any, remoteAddr string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var payload []byte
@@ -142,8 +198,19 @@ func performJSONRequest(t *testing.T, application interface{ Handler() http.Hand
 		payload = []byte("{}")
 	}
 
+	return performJSONBytesRequestWithRemoteAddr(t, application, method, path, payload, remoteAddr)
+}
+
+func performJSONBytesRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, payload []byte) *httptest.ResponseRecorder {
+	return performJSONBytesRequestWithRemoteAddr(t, application, method, path, payload, "127.0.0.1:0")
+}
+
+func performJSONBytesRequestWithRemoteAddr(t *testing.T, application interface{ Handler() http.Handler }, method, path string, payload []byte, remoteAddr string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	request := httptest.NewRequest(method, path, bytes.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
+	request.RemoteAddr = remoteAddr
 	recorder := httptest.NewRecorder()
 	application.Handler().ServeHTTP(recorder, request)
 	return recorder

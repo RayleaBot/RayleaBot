@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"runtime/debug"
 )
 
 type requestIDKey struct{}
@@ -22,14 +25,32 @@ type ErrorBody struct {
 	Details    map[string]any `json:"details,omitempty"`
 }
 
-func WithRequestContext(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := newRequestID()
-		ctx := context.WithValue(r.Context(), requestIDKey{}, requestID)
-		r = r.WithContext(ctx)
+func WithRequestContext(logger *slog.Logger) func(http.Handler) http.Handler {
+	if logger == nil {
+		logger = slog.Default()
+	}
 
-		defer func() {
-			if recover() != nil {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestID := newRequestID()
+			ctx := context.WithValue(r.Context(), requestIDKey{}, requestID)
+			r = r.WithContext(ctx)
+
+			defer func() {
+				recovered := recover()
+				if recovered == nil {
+					return
+				}
+
+				logger.Error(
+					"panic recovered",
+					"component", "http",
+					"request_id", requestID,
+					"method", r.Method,
+					"path", r.URL.Path,
+					"panic", fmt.Sprint(recovered),
+					"stack", string(debug.Stack()),
+				)
 				WriteError(
 					w,
 					r,
@@ -39,11 +60,11 @@ func WithRequestContext(next http.Handler) http.Handler {
 					"errors.platform.internal_error",
 					nil,
 				)
-			}
-		}()
+			}()
 
-		next.ServeHTTP(w, r)
-	})
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func RequestIDFromContext(ctx context.Context) string {

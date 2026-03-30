@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -183,9 +182,9 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 			return
 		}
 
-		body, err := io.ReadAll(r.Body)
+		body, err := readRequestBody(w, r, maxWebhookBodyBytes)
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
 		if !a.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), body) {

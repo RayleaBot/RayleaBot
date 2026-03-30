@@ -32,7 +32,7 @@ func (a *App) handleConfigGet() http.HandlerFunc {
 func (a *App) handleConfigPut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request map[string]any
-		if err := decodeStrictJSON(r, &request); err != nil {
+		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}

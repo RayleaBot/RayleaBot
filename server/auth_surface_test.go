@@ -42,6 +42,7 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 
 	for _, tc := range cases {
 		request := httptest.NewRequest(tc.method, tc.path, nil)
+		request.RemoteAddr = "127.0.0.1:0"
 		recorder := httptest.NewRecorder()
 		application.Handler().ServeHTTP(recorder, request)
 

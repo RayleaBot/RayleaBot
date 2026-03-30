@@ -89,6 +89,7 @@ type App struct {
 	server            *http.Server
 	startedAt         time.Time
 	launcherTokens    *launcherTokenStore
+	loginFailures     *loginFailureTracker
 	shuttingDown      atomic.Bool
 	runCancelMu       sync.Mutex
 	runCancel         context.CancelFunc
@@ -355,6 +356,7 @@ func New(options Options) (*App, error) {
 		repoRoot:          discoverySpec.repoRoot,
 		startedAt:         time.Now().UTC(),
 		launcherTokens:    newLauncherTokenStore(time.Now, 5*time.Minute),
+		loginFailures:     newLoginFailureTracker(time.Now),
 	}
 	application.pluginLifecycle = newPluginLifecycleController(application)
 	pluginUninstallService.SetStopPlugin(application.pluginLifecycle.stopAndResetPlugin)
@@ -363,7 +365,7 @@ func New(options Options) (*App, error) {
 	adapterShell.SetReadyHandler(application.handleAdapterReady)
 
 	router := chi.NewRouter()
-	router.Use(httpapi.WithRequestContext)
+	router.Use(httpapi.WithRequestContext(application.Logger))
 
 	// Public routes — no authentication required.
 	router.Get("/healthz", health.NewLivenessHandler())
