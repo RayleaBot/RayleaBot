@@ -45,6 +45,7 @@ x-fixtures:
   - fixtures/web-api/edge.logs-empty-response.yaml
   - fixtures/web-api/edge.setup-admin-already-initialized.yaml
   - fixtures/web-api/edge.session-login-max-sessions.yaml
+  - fixtures/web-api/edge.session-login-rate-limited.yaml
   - fixtures/web-api/invalid.setup-admin-bad-request.yaml
   - fixtures/web-api/invalid.session-login-bad-credentials.yaml
   - fixtures/web-api/invalid.auth-missing-token.yaml
@@ -154,6 +155,8 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '403':
+          $ref: '#/components/responses/Error'
+        '429':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'

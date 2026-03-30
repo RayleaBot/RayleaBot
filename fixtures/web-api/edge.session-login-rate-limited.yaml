@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Excessive failed login attempts from the same source IP are temporarily rate limited.
+request:
+  method: POST
+  path: /api/session/login
+  body:
+    identifier: admin
+    secret: wrong-secret
+response:
+  status: 429
+  body:
+    error:
+      code: platform.rate_limited
+      message: 触发平台级限流
+      message_key: errors.platform.rate_limited
+      request_id: req_session_login_rate_limited_0001
+expect:
+  valid: true
