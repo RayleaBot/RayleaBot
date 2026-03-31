@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 const backendUrl = 'http://127.0.0.1:4010'
+const futureGrantExpiry = '2099-03-30T10:05:00Z'
 
 async function resetBackend(
   request: import('@playwright/test').APIRequestContext,
@@ -94,7 +95,7 @@ test('plugin management flow covers install, grants and console recovery', async
 
   await page.getByRole('button', { name: '新增授权' }).click()
   await page.getByLabel('Capability').fill('storage.file')
-  await page.getByLabel('Expires At (UTC RFC3339)').fill('2026-03-30T10:05:00Z')
+  await page.getByLabel('Expires At (UTC RFC3339)').fill(futureGrantExpiry)
   await page.getByRole('button', { name: '保存授权' }).click()
   await expect(page.getByText('storage.file')).toBeVisible()
 
