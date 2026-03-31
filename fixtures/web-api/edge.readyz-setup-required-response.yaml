@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Readyz reports setup_required until the initial admin credential is bootstrapped.
+request:
+  method: GET
+  path: /readyz
+response:
+  status: 503
+  body:
+    status: setup_required
+    reason: Initial admin setup is required
+    checks:
+      config: ok
+expect:
+  valid: true
