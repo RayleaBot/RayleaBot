@@ -1611,6 +1611,8 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"request_id":       initFrame["request_id"],
 			"reason":           "stop",
 		})
+		// Let the runtime consume the invalid frame before the helper exits.
+		time.Sleep(20 * time.Millisecond)
 		os.Exit(0)
 	case "success":
 		if !scanner.Scan() {
