@@ -45,7 +45,7 @@
   - `event` / `result` / `error`
   - `ping` / `pong`
   - `shutdown`
-  - local action RPC for `logger.write`、`storage.kv`、`storage.file`、`http.request`
+  - local action RPC for `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image`
   - crash / backoff / dead_letter
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
@@ -95,7 +95,8 @@
 
 ## 当前边界
 
-- `render.image` 与更广插件动作族仍未进入正式链路
+- 完整 Render Service（受控 Chromium 队列、模板版本化、缓存、preview）尚未完成；`render.image` local action RPC 已进入正式链路，产出占位渲染产物
+- 更广插件动作族尚未 formalize
 
 ## 默认命令
 

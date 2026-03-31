@@ -37,7 +37,7 @@
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `message.send`、`message.reply` 使用 shared `message.segments` payload
-  - `logger.write`、`storage.kv`、`storage.file` 与 `http.request` 已进入正式 local action RPC surface
+  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface
   - 正式 outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`
 - `release-manifest.schema.json`
   - `release_manifest.json` 与 `build_info.json` 的正式字段结构
@@ -65,8 +65,7 @@
 - 批量消息
 - 复杂流式回传
 - 更宽的平台到插件方向 `error` 语义
-- `render.image`
-- `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request` 之外的其他 `action`
+- `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image` 之外的其他 `action`
 
 ### Release Metadata
 
