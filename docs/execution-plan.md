@@ -18,10 +18,10 @@
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、ready gating、重连、心跳、消息/notice 归一化、`message.send` / `message.reply` 已接入主链路；更广动作族与多 adapter 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | ✅ | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` local action RPC 与 gated `event.raw_payload` 已接入；完整 Chromium Render Service 继续后置到 Phase 10 |
-| Phase 6 | Config / Storage / Security | 🟡 | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；共享 degraded / remediation 结构仍未完全统一到全部入口 |
+| Phase 6 | Config / Storage / Security | ✅ | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；`/readyz`、诊断包、`doctor`、Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 统一诊断结构 |
 | Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress 与插件来源/信任/命令冲突 metadata 已可用；插件安装来源和 lifecycle 路由形状与规划正文仍有口径待收口 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口与正式安装体验仍待收口 |
+| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口已接入，正式安装体验仍待收口 |
 | Phase 10 | Render Service | 🟡 | `render.image` 最小占位渲染、产物输出与资源检查已接线；受控 Chromium 队列、模板版本 / 缓存、preview 与正式 Render Service 调度仍未完成 |
 
 ### 判定口径
@@ -190,7 +190,7 @@
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| Web / Launcher / `doctor` / 诊断包共享降级口径 | 🟡 | `/readyz` 的 `reason_codes` / `checks`、Launcher remediation 与诊断导出已存在，但统一 `code / severity / summary / remediation` 结构尚未完全推广到全部入口 |
+| `/readyz`、诊断包、`doctor`、Launcher 共享诊断结构 | ✅ | `/readyz` 同时输出 `checks` 与 `issues`，`doctor` 输出结构化 `DoctorReport`，诊断包包含 `doctor.json`，Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 结构 |
 
 ---
 
@@ -251,7 +251,7 @@
 | 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与打开 Web 时的本机自动登录增强 |
 | Launcher 测试与 CI | ✅ | `pnpm test`、`pnpm build` 与 Windows / Linux / macOS `ci-launcher` job 已落地 |
 | 首启配置 bootstrap | ✅ | Launcher preflight 会提示缺失配置并继续拉起服务；首份 `user.yaml` 由 server 按 `default.yaml` 基线生成 |
-| 凭据丢失恢复入口 | ❌ | 规划要求停服务后可通过 Launcher 或本地 CLI 触发重置向导；当前 Launcher 仍未提供 `reset-admin` / 恢复入口 |
+| 凭据丢失恢复入口 | ✅ | Launcher 偏好设置页提供"重置管理员凭据"入口，执行时停止服务、调用 `reset-admin` CLI、重启服务并打开 Web 初始化页面；coordinator、IPC、preload、renderer 全链路已接入并受测试覆盖 |
 | Launcher 设计系统与布局重构 | ✅ | 左侧导航、紧凑页头、统一 tokens / card / badge / log panel patterns、状态页单主操作层级、环境问题列表化、纵向诊断工具页、紧凑关闭策略设置、托盘短文案与统一弹窗表面已落地，整体视觉已收敛为更克制的深色 Fluent 工具壳 |
 | 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按 launcher-local 语义建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态与启动完成语义分离，主状态文案保持 launcher-local 口径；健康端口已存在但不是当前 Launcher 子进程时，主界面会显式标为“检测到现有服务” |
 | 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、首页问题提示条、路径复制与打开目录快捷动作、暗色对比度、文案去技术化、结构化诊断摘要与设置编辑态提示已系统化接入 |
@@ -264,8 +264,8 @@
 
 ### 当前主要问题
 
-- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、第二轮液态玻璃视觉层、托盘原生菜单、版本检查和交付 metadata 已进入可验证主链；初始化、登录和自动登录失败提示已回收到 Web 侧处理，Web 登录/初始化页也已补齐可见错误反馈。
-- 当前仍未收口的 Launcher 欠账主要集中在凭据丢失后的本地恢复入口，以及正式安装体验与长期自托管打磨。
+- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、第二轮液态玻璃视觉层、托盘原生菜单、版本检查、交付 metadata 和凭据丢失恢复入口已进入可验证主链；初始化、登录和自动登录失败提示已回收到 Web 侧处理，Web 登录/初始化页也已补齐可见错误反馈。
+- 当前仍未收口的 Launcher 欠账主要集中在正式安装体验与长期自托管打磨。
 
 ---
 
@@ -317,7 +317,7 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`release` 已进入仓库工作流，release metadata / checksum 校验与交付矩阵 smoke 已有门禁。
-- 当前主要风险集中在五个层面：共享 degraded / remediation 结构尚未完全统一到 `/readyz`、Launcher、`doctor` 与诊断包；`contracts/README.md` 与 `server/README.md` 仍保留 `render.image` 未入正式链路的旧口径；Launcher 仍缺凭据丢失恢复入口；Render Service 仍停留在最小占位产物输出，Chromium 队列、模板元数据、缓存与 preview 尚未完成；发布后升级 / 回滚 drills 与长期自托管 smoke 仍未进入稳定门禁。
+- 当前主要风险集中在三个层面：Render Service 仍停留在最小占位产物输出，Chromium 队列、模板元数据、缓存与 preview 尚未完成；正式安装体验仍待打磨；发布后升级 / 回滚 drills 与长期自托管 smoke 仍未进入稳定门禁。
 
 ---
 
@@ -327,33 +327,26 @@
 
 1. 插件 lifecycle 路由口径已在 Phase 7 归档为完成，正式语义采用 `enable` / `disable` / `reload` 独立路由。
 2. 插件安装来源 `remote_url` 已在 Phase 7 归档为完成，属于 v0.1 正式支持能力。
+3. `render.image` 文档口径已统一：local action RPC 已 formalize，完整 Render Service 尚未完成。`contracts/README.md`、`server/README.md` 已同步。
+4. `/readyz`、诊断包、`doctor`、Launcher 已收口到 `code` / `severity` / `summary` / `remediation` 统一诊断结构。`ReadinessStatusResponse` 同时输出 `checks` 与 `issues`，`doctor` 输出结构化 `DoctorReport`，诊断包包含 `doctor.json`。
+5. Launcher 凭据丢失恢复入口已接入：偏好设置页提供"重置管理员凭据"按钮，执行时停止服务、调用 `reset-admin` CLI、重启服务并打开 Web 初始化页面。
 
 ### 本轮执行顺序
 
-1. 收口当前文档真相。
-   范围：`contracts/README.md`、`server/README.md`、`docs/execution-plan.md`。
-   具体产出：把 `render.image` 统一表述为“local action RPC 已进入正式链路，完整 Render Service 仍未完成”，清除“`render.image` 未入正式链路”的旧口径，只保留真正未完成的 Render Service 边界。
-   完成标志：仓库内对 `render.image` 只保留一种口径：local action RPC 已 formalize，完整 Render Service 尚未完成。
+1. ✅ 收口当前文档真相。
+   `contracts/README.md`、`server/README.md` 已统一 `render.image` 口径。
 
-2. 统一 degraded / remediation 结构。
-   范围：`server/internal/health/health.go`、`server/internal/app/app.go`、`server/internal/app/system_aux_http.go`、`server/internal/cli/*`、`launcher/src/shared/launcher-models.ts`、`launcher/src/main/services/*`，并同步 `contracts/web-api.openapi.yaml`、`fixtures/web-api/*` 与相关测试。
-   具体产出：把 `/readyz`、诊断包、`doctor`、Launcher 全部收口到 `code`、`severity`、`summary`、`remediation` 同一结构；`reason_codes` 作为兼容信息保留，结构化 issue record 作为统一诊断入口。
-   完成标志：同一故障在四个入口暴露相同 `code` 与 remediation，入口之间共享同一份状态语义。
+2. ✅ 统一 degraded / remediation 结构。
+   `ReadinessStatusResponse` 同时输出 `checks` 与 `issues`。`doctor` 输出结构化 `DoctorReport`。诊断包包含 `doctor.json`。
 
-3. 补齐 Launcher 本地恢复入口。
-   范围：`launcher/src/main/services/launcher-coordinator.ts`、`launcher/src/main/index.ts`、`launcher/src/renderer/src/*`、`server/internal/cli/*`，并同步 Launcher / CLI tests 与用户文档。
-   具体产出：在停服前提下提供 `reset-admin` 触发入口，执行后清空 Launcher 本地会话状态，直接引导回 `setup_required`，形成“停服务 -> 重置管理员 -> 回到初始化入口”的闭环。
-   完成标志：凭据丢失场景无需手工命令即可从 Launcher 进入恢复流程，且旧会话不能继续访问管理面。
+3. ✅ 补齐 Launcher 本地恢复入口。
+   Launcher 偏好设置页提供重置管理员凭据按钮，coordinator / IPC / preload / renderer 全链路已接入。
 
 4. 完成 Render Service 主链。
    范围：先补 contract / docs，再推进 `server/internal/app/render_service.go`、模板资源、`.deps/manifest.json`、任务流与 Web 调试入口。
-   具体产出：按三个连续切片推进。`10A` 先落受控 Chromium worker、渲染队列、queue wait timeout 与 execution timeout；`10B` 再落模板元数据、输入 schema 校验、cache key、产物回收与错误码；`10C` 最后补 `render.preview` 任务流、调试入口、诊断输出与资源检查接线。
-   完成标志：`render.image` 输出真实渲染产物，`example-render-card` 走真实渲染链路，失败时返回结构化错误并支持 `fallback_text`。
 
 5. 把交付后回归接入稳定门禁。
    范围：`.github/workflows/release.yml`、`.github/workflows/lint.yml`、`scripts/release/*`、`docs/release/*`、`docs/user/*`。
-   具体产出：新增三类门禁。已发布包 upgrade / rollback drill；diagnostics / backup / restore drill；正式安装后的长时间自托管 smoke。
-   完成标志：release 同时验证“能打包并通过 smoke”“能升级”“能回滚”“能恢复”“能诊断”。
 
 ### 本轮边界
 
@@ -365,4 +358,5 @@
 
 - 任何涉及 readiness、diagnostics、CLI `doctor`、Launcher 环境检查的变更，都要以同一份 degraded / remediation 数据结构作为对外结果。
 - 任何涉及 Render Service、`render.preview`、错误码、任务类型或资源检查的变更，都要同步更新 formal contracts、fixtures、tests 与示例。
-- 任何进入 release workflow 的新增门禁，都要直接复用默认构建命令和正式 release metadata，不能再维护一套独立的“仅测试用”发布语义。
+- 任何进入 release workflow 的新增门禁，都要直接复用默认构建命令和正式 release metadata，不能再维护一套独立的"仅测试用"发布语义。
+
