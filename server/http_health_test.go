@@ -158,6 +158,30 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 	}
 }
 
+func TestReadyzReportsSetupRequiredBeforeBootstrap(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t)
+	fixture := loadWebAPIFixture(t, filepath.Join("..", "fixtures", "web-api", "edge.readyz-setup-required-response.yaml"))
+	request := httptest.NewRequest("GET", "/readyz", nil)
+	recorder := httptest.NewRecorder()
+
+	application.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != fixture.Response.Status {
+		t.Fatalf("unexpected setup-required status: got %d want %d", recorder.Code, fixture.Response.Status)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal setup-required body: %v", err)
+	}
+
+	if !reflect.DeepEqual(body, fixture.Response.Body) {
+		t.Fatalf("unexpected setup-required body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
 func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	t.Helper()
 

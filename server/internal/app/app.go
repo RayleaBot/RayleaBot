@@ -770,8 +770,38 @@ func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.
 }
 
 func (a *App) currentReadiness() health.ReadinessReport {
-	if a == nil || a.Adapter == nil {
-		return ReadinessReportFromAdapter(adapter.Snapshot{State: adapter.StateIdle})
+	if a == nil {
+		return health.ReadinessReport{
+			Status: "failed",
+			Reason: "Management application is unavailable",
+		}
+	}
+	if a.Auth == nil {
+		return health.ReadinessReport{
+			Status: "failed",
+			Reason: "Management auth service is unavailable",
+			Checks: map[string]string{
+				"config": "ok",
+			},
+		}
+	}
+	if !a.Auth.IsBootstrapped() {
+		return health.ReadinessReport{
+			Status: "setup_required",
+			Reason: "Initial admin setup is required",
+			Checks: map[string]string{
+				"config": "ok",
+			},
+		}
+	}
+	if a.Adapter == nil {
+		return health.ReadinessReport{
+			Status: "failed",
+			Reason: "OneBot adapter is unavailable",
+			Checks: map[string]string{
+				"config": "ok",
+			},
+		}
 	}
 
 	return ReadinessReportFromAdapter(a.Adapter.Snapshot())
