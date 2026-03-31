@@ -46,6 +46,10 @@ export interface ReleaseFeedClient {
   getSnapshot(): Promise<ReleaseCheckSnapshot>;
 }
 
+export interface LauncherResetAdminRunner {
+  run(settings: LauncherSettings): Promise<void>;
+}
+
 interface LauncherCoordinatorOptions {
   startupTimeoutMs?: number;
   pollIntervalMs?: number;
@@ -62,6 +66,7 @@ interface LauncherCoordinatorDependencies {
   tryStopEndpointProcess(endpoint: ServerEndpoint): Promise<boolean>;
   externalOpener: ExternalOpener;
   releaseFeedClient?: ReleaseFeedClient;
+  resetAdminRunner?: LauncherResetAdminRunner;
   options?: LauncherCoordinatorOptions;
 }
 
@@ -72,6 +77,7 @@ export interface LauncherCoordinator {
   retry(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
+  resetAdmin(): Promise<void>;
   openWebUi(): Promise<void>;
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
@@ -227,6 +233,25 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       return;
     }
 
+    let setupInitialized = true;
+    try {
+      setupInitialized = await deps.managementClient.getSetupInitialized(endpoint);
+    } catch {
+      setupInitialized = true;
+    }
+
+    if (!setupInitialized) {
+      await publish(
+        await buildSnapshot(
+          endpoint,
+          inspection,
+          "setup_required",
+          "服务正在运行，需要完成管理员初始化。",
+        ),
+      );
+      return;
+    }
+
     await publish(
       await buildSnapshot(
         endpoint,
@@ -376,6 +401,46 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       await ensureManagedProcessStopped();
       sessionToken = "";
       await refreshCore(true);
+    },
+    async resetAdmin() {
+      if (!deps.resetAdminRunner) {
+        throw new Error("管理员重置功能不可用。");
+      }
+      const settings = ensureSettings();
+      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
+      const inspection = await deps.inspectEnvironment(settings);
+
+      // Stop the service first if running.
+      if (deps.processController.isRunning || (await deps.managementClient.isHealthy(endpoint).catch(() => false))) {
+        await publish(await buildSnapshot(endpoint, inspection, "shutting_down", "正在停止服务以执行管理员重置。"));
+        if (deps.processController.isRunning) {
+          await deps.processController.forceKill();
+        } else {
+          await deps.tryStopEndpointProcess(endpoint);
+        }
+        await ensureManagedProcessStopped();
+      }
+
+      // Run the reset-admin CLI.
+      await deps.resetAdminRunner.run(settings);
+      sessionToken = "";
+
+      // Restart the service.
+      try {
+        await deps.processController.start(settings);
+      } catch {
+        await refreshCore(true);
+        return;
+      }
+
+      // After reset-admin, the server enters setup_required on next start.
+      // Open the setup entry directly without waiting for full health recovery.
+      await publish(
+        await buildSnapshot(endpoint, inspection, "setup_required", "管理员凭据已重置，请在浏览器中完成初始化。"),
+      );
+
+      const url = new URL(endpoint.baseUrl);
+      await deps.externalOpener.openUri(url.toString());
     },
     async openWebUi() {
       const settings = ensureSettings();

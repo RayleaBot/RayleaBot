@@ -8,6 +8,7 @@ export interface LauncherDesktopApi {
   retry(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
+  resetAdmin(): Promise<void>;
   openWebUi(): Promise<void>;
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;

@@ -11,6 +11,7 @@ import { ServerProcessController } from "./services/process-controller";
 import { isEndpointListening, tryStopEndpointProcess } from "./services/port-process";
 import { externalOpener } from "./services/external-opener";
 import { LauncherReleaseFeedClient } from "./services/release-feed";
+import { NodeResetAdminRunner } from "./services/reset-admin-runner";
 import { buildTrayMenuEntries } from "./services/tray-menu";
 import { createApplicationExitManager } from "./services/app-exit";
 
@@ -33,6 +34,7 @@ const coordinator = createLauncherCoordinator({
   tryStopEndpointProcess,
   externalOpener,
   releaseFeedClient: new LauncherReleaseFeedClient(executableBasePath),
+  resetAdminRunner: new NodeResetAdminRunner(),
 });
 const appExitManager = createApplicationExitManager({
   isManagedProcessRunning: () => processController.isRunning,
@@ -260,6 +262,7 @@ function wireIpc() {
   ipcMain.handle("launcher:retry", async () => coordinator.retry());
   ipcMain.handle("launcher:start", async () => coordinator.start());
   ipcMain.handle("launcher:stop", async () => coordinator.stop());
+  ipcMain.handle("launcher:reset-admin", async () => coordinator.resetAdmin());
   ipcMain.handle("launcher:open-web", async () => coordinator.openWebUi());
   ipcMain.handle("launcher:open-release-page", async () => coordinator.openReleasePage());
   ipcMain.handle("launcher:open-logs", async () => coordinator.openLogsDirectory());

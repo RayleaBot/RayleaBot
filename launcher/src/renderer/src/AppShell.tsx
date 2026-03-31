@@ -70,6 +70,7 @@ type AppShellProps = {
   onOpenWeb: () => void;
   onOpenReleasePage: () => void;
   onOpenLogs: () => void;
+  onResetAdmin: () => void;
   onBeginEdit: () => void;
   onCancelEdit: () => void;
   onSaveSettings: () => void;
@@ -126,6 +127,7 @@ export function AppShell({
   onOpenWeb,
   onOpenReleasePage,
   onOpenLogs,
+  onResetAdmin,
   onBeginEdit,
   onCancelEdit,
   onSaveSettings,
@@ -486,6 +488,16 @@ export function AppShell({
             </div>
 
             <div className="settings-exit-row">
+              <Button
+                appearance="transparent"
+                size="small"
+                className="frost-button frost-button--danger"
+                onClick={onResetAdmin}
+                disabled={controlsDisabled || snapshot.serviceState === "starting" || snapshot.serviceState === "shutting_down"}
+                icon={<Warning20Filled />}
+              >
+                重置管理员凭据
+              </Button>
               <Button
                 appearance="transparent"
                 size="small"

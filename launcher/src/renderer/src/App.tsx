@@ -210,6 +210,11 @@ export function App() {
           window.rayleaLauncher.openLogsDirectory(),
         )
       }
+      onResetAdmin={() =>
+        runAction("reset-admin", () =>
+          window.rayleaLauncher.resetAdmin(),
+        )
+      }
       onBeginEdit={handleBeginEdit}
       onCancelEdit={handleCancelEdit}
       onSaveSettings={handleSaveSettings}

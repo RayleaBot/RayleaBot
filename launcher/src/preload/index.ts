@@ -10,6 +10,7 @@ const api: LauncherDesktopApi = {
   retry: () => ipcRenderer.invoke("launcher:retry"),
   start: () => ipcRenderer.invoke("launcher:start"),
   stop: () => ipcRenderer.invoke("launcher:stop"),
+  resetAdmin: () => ipcRenderer.invoke("launcher:reset-admin"),
   openWebUi: () => ipcRenderer.invoke("launcher:open-web"),
   openReleasePage: () => ipcRenderer.invoke("launcher:open-release-page"),
   openLogsDirectory: () => ipcRenderer.invoke("launcher:open-logs"),
