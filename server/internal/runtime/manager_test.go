@@ -636,6 +636,25 @@ func TestParseRenderImageAction(t *testing.T) {
 	}
 }
 
+func TestClassifyProtocolReadErrorTreatsExitedProcessAsInternalError(t *testing.T) {
+	t.Parallel()
+
+	handle := &processHandle{done: make(chan struct{})}
+	handle.setExit(nil)
+
+	err := classifyProtocolReadError(handle, os.ErrClosed, "plugin exited before init_ack", "read plugin init response")
+	assertRuntimeErrorCode(t, err, codePluginInternalError)
+}
+
+func TestClassifyProtocolReadErrorKeepsProtocolViolationForLiveProcess(t *testing.T) {
+	t.Parallel()
+
+	handle := &processHandle{done: make(chan struct{})}
+
+	err := classifyProtocolReadError(handle, errors.New("short read"), "plugin exited before init_ack", "read plugin init response")
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+}
+
 func TestManagerDeliverEventFailsWhenRuntimeIsNotRunning(t *testing.T) {
 	t.Parallel()
 

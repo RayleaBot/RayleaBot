@@ -677,6 +677,30 @@ func isIgnorableShutdownWriteError(err error) bool {
 	return strings.Contains(err.Error(), "broken pipe")
 }
 
+func classifyProtocolReadError(handle *processHandle, readErr error, exitMessage string, protocolMessage string) *Error {
+	if waitErr, exited := handle.exitResult(); exited {
+		if waitErr == nil {
+			return errorf(codePluginInternalError, exitMessage, nil)
+		}
+		return errorf(codePluginInternalError, exitMessage, waitErr)
+	}
+	if isProcessPipeClosedError(readErr) {
+		return errorf(codePluginInternalError, exitMessage, nil)
+	}
+	return errorf(codePluginProtocolViolation, protocolMessage, readErr)
+}
+
+func isProcessPipeClosedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, os.ErrClosed) {
+		return true
+	}
+	message := err.Error()
+	return strings.Contains(message, "file already closed") || strings.Contains(message, "bad file descriptor")
+}
+
 // Ping sends a ping frame to the plugin and waits for a pong response.
 // Returns an error if the runtime is not running, the plugin does not respond
 // within the event timeout, or the plugin returns a protocol violation.
@@ -747,14 +771,7 @@ func (m *Manager) awaitPong(ctx context.Context, handle *processHandle, requestI
 		}
 		return nil
 	case readErr := <-readErrCh:
-		if errors.Is(readErr, io.EOF) {
-			waitErr, _ := handle.exitResult()
-			if waitErr == nil {
-				return errorf(codePluginInternalError, "plugin exited during ping", nil)
-			}
-			return errorf(codePluginInternalError, "plugin exited during ping", waitErr)
-		}
-		return errorf(codePluginProtocolViolation, "read plugin pong response", readErr)
+		return classifyProtocolReadError(handle, readErr, "plugin exited during ping", "read plugin pong response")
 	case <-handle.done:
 		waitErr, _ := handle.exitResult()
 		if waitErr == nil {
@@ -938,14 +955,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *processHandle, reque
 			)
 			resetTimer(silenceTimer, handle.spec.InitTimeout)
 		case readErr := <-readErrCh:
-			if errors.Is(readErr, io.EOF) {
-				waitErr, _ := handle.exitResult()
-				if waitErr == nil {
-					return nil, errorf(codePluginInternalError, "plugin exited before init_ack", nil)
-				}
-				return nil, errorf(codePluginInternalError, "plugin exited before init_ack", waitErr)
-			}
-			return nil, errorf(codePluginProtocolViolation, "read plugin init response", readErr)
+			return nil, classifyProtocolReadError(handle, readErr, "plugin exited before init_ack", "read plugin init response")
 		case <-handle.done:
 			waitErr, _ := handle.exitResult()
 			if waitErr == nil {
@@ -1067,14 +1077,7 @@ func (m *Manager) awaitEventResponse(ctx context.Context, handle *processHandle,
 			}
 		case readErr := <-readErrCh:
 			timer.Stop()
-			if errors.Is(readErr, io.EOF) {
-				waitErr, _ := handle.exitResult()
-				if waitErr == nil {
-					return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", nil)
-				}
-				return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", waitErr)
-			}
-			return Delivery{}, errorf(codePluginProtocolViolation, "read plugin event response", readErr)
+			return Delivery{}, classifyProtocolReadError(handle, readErr, "plugin exited during event delivery", "read plugin event response")
 		case <-handle.done:
 			timer.Stop()
 			waitErr, _ := handle.exitResult()
