@@ -237,6 +237,8 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     try {
       setupInitialized = await deps.managementClient.getSetupInitialized(endpoint);
     } catch {
+      // isHealthy already passed — a transient getSetupInitialized failure
+      // should not flash a misleading setup_required state to the user.
       setupInitialized = true;
     }
 
@@ -428,8 +430,11 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       // Restart the service.
       try {
         await deps.processController.start(settings);
-      } catch {
-        await refreshCore(true);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "服务进程启动失败。";
+        await publish(
+          await buildSnapshot(endpoint, inspection, "failed", "管理员凭据已重置，但服务重启失败。", detail),
+        );
         return;
       }
 

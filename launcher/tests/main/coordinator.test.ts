@@ -467,4 +467,43 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.serviceState).toBe("setup_required");
     expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
   });
+
+  test("reset admin surfaces start failure with contextual error", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+    const resetAdminRunner = new FakeResetAdminRunner();
+
+    managementClient.health = false;
+
+    processController.start = vi.fn(async () => {
+      throw new Error("spawn ENOENT");
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      resetAdminRunner,
+    });
+
+    await coordinator.initialize();
+
+    managementClient.setupInitialized = false;
+
+    await coordinator.resetAdmin();
+
+    expect(resetAdminRunner.calls).toBe(1);
+    expect(coordinator.snapshot.serviceState).toBe("failed");
+    expect(coordinator.snapshot.lastError).toContain("spawn ENOENT");
+    expect(coordinator.snapshot.serviceDetail).toContain("管理员凭据已重置");
+  });
 });
