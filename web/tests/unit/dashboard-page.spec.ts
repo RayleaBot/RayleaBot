@@ -54,4 +54,49 @@ describe('DashboardPage', () => {
     expect(createBackupSpy).toHaveBeenCalledTimes(1)
     expect(exportDiagnosticsSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('renders readiness issues instead of legacy checks', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: DashboardPage }],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const store = useSystemStore()
+    store.health = { status: 'ok' }
+    store.readiness = {
+      status: 'degraded',
+      reason: 'OneBot authentication failed',
+      reason_codes: ['adapter.auth_failed'],
+      issues: [
+        {
+          code: 'adapter.auth_failed',
+          severity: 'warning',
+          summary: 'OneBot authentication failed',
+          remediation: '请检查 OneBot access_token 配置后重试连接。',
+        },
+      ],
+    }
+    store.system = {
+      status: 'running',
+      adapter_state: 'auth_failed',
+      active_plugins: 2,
+      uptime_seconds: 120,
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('adapter.auth_failed')
+    expect(wrapper.text()).toContain('请检查 OneBot access_token 配置后重试连接。')
+    expect(wrapper.text()).not.toContain('config = ok')
+  })
 })

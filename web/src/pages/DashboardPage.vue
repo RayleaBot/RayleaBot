@@ -118,7 +118,7 @@ async function exportDiagnostics() {
           <el-descriptions-item label="Reason Codes">
             {{ readiness?.reason_codes?.join(', ') || '—' }}
           </el-descriptions-item>
-          <el-descriptions-item label="Checks">
+          <el-descriptions-item label="Checks" v-if="!readiness?.issues?.length">
             <div class="mono-list">
               <div v-for="(value, key) in readiness?.checks" :key="key">
                 {{ key }} = {{ value }}
@@ -126,6 +126,14 @@ async function exportDiagnostics() {
             </div>
           </el-descriptions-item>
         </el-descriptions>
+
+        <div v-if="readiness?.issues?.length" class="issues-list">
+          <div v-for="issue in readiness.issues" :key="issue.code" class="issue-item">
+            <el-tag :type="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'" size="small">{{ issue.code }}</el-tag>
+            <span class="issue-summary">{{ issue.summary }}</span>
+            <span v-if="issue.remediation" class="issue-remediation">{{ issue.remediation }}</span>
+          </div>
+        </div>
       </el-card>
 
       <el-card>

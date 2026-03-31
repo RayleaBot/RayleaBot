@@ -69,80 +69,185 @@ func runResetAdmin(cmd Command) int {
 	return 0
 }
 
-func runDoctor(cmd Command) int {
-	issues := 0
+type DoctorIssue struct {
+	Code        string `json:"code"`
+	Severity    string `json:"severity"`
+	Summary     string `json:"summary"`
+	Remediation string `json:"remediation"`
+}
 
-	// Check config file exists.
+type DoctorReport struct {
+	Issues []DoctorIssue `json:"issues"`
+}
+
+func BuildDoctorReport(cmd Command) DoctorReport {
+	issues := make([]DoctorIssue, 0, 8)
+
+	// Check config file.
 	if _, err := os.Stat(cmd.ConfigPath); err != nil {
-		cmd.Logger.Warn("config file not accessible", "path", cmd.ConfigPath, "err", err.Error())
-		issues++
+		issues = append(issues, DoctorIssue{
+			Code:        "config.not_accessible",
+			Severity:    "error",
+			Summary:     "Config file not accessible: " + cmd.ConfigPath,
+			Remediation: "请确认配置文件路径正确且可读。",
+		})
 	} else {
-		cmd.Logger.Info("config file OK", "path", cmd.ConfigPath)
+		issues = append(issues, DoctorIssue{
+			Code:     "config.ok",
+			Severity: "ok",
+			Summary:  "Config file accessible",
+		})
 	}
 
-	// Check schema file exists.
+	// Check schema file.
 	if _, err := os.Stat(cmd.SchemaPath); err != nil {
-		cmd.Logger.Warn("config schema file not accessible", "path", cmd.SchemaPath, "err", err.Error())
-		issues++
+		issues = append(issues, DoctorIssue{
+			Code:        "schema.not_accessible",
+			Severity:    "error",
+			Summary:     "Config schema file not accessible: " + cmd.SchemaPath,
+			Remediation: "请确认 contracts 目录完整。",
+		})
 	} else {
-		cmd.Logger.Info("config schema file OK", "path", cmd.SchemaPath)
+		issues = append(issues, DoctorIssue{
+			Code:     "schema.ok",
+			Severity: "ok",
+			Summary:  "Config schema file accessible",
+		})
 	}
 
 	// Check database.
 	databasePath, err := resolveDatabasePath(cmd.ConfigPath)
 	if err != nil {
-		cmd.Logger.Warn("could not resolve database path", "err", err.Error())
-		issues++
+		issues = append(issues, DoctorIssue{
+			Code:        "database.path_unresolvable",
+			Severity:    "error",
+			Summary:     "Could not resolve database path",
+			Remediation: "请确认配置文件路径正确。",
+		})
 	} else {
 		db, err := sql.Open("sqlite", databasePath)
 		if err != nil {
-			cmd.Logger.Warn("database open failed", "path", databasePath, "err", err.Error())
-			issues++
+			issues = append(issues, DoctorIssue{
+				Code:        "database.open_failed",
+				Severity:    "error",
+				Summary:     "Database open failed: " + databasePath,
+				Remediation: "请确认数据库文件未损坏且路径可访问。",
+			})
 		} else {
 			defer db.Close()
 			if err := db.Ping(); err != nil {
-				cmd.Logger.Warn("database ping failed", "path", databasePath, "err", err.Error())
-				issues++
+				issues = append(issues, DoctorIssue{
+					Code:        "database.ping_failed",
+					Severity:    "error",
+					Summary:     "Database ping failed: " + databasePath,
+					Remediation: "请确认数据库文件未损坏。",
+				})
 			} else {
-				cmd.Logger.Info("database OK", "path", databasePath)
-			}
-
-			// Check schema_migrations table.
-			var count int
-			if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count); err != nil {
-				cmd.Logger.Warn("schema_migrations not accessible", "err", err.Error())
-				issues++
-			} else {
-				cmd.Logger.Info("schema migrations applied", "count", count)
+				issues = append(issues, DoctorIssue{
+					Code:     "database.ok",
+					Severity: "ok",
+					Summary:  "Database accessible",
+				})
 			}
 		}
 	}
 
 	// Check contracts directory.
 	contractsDir := filepath.Dir(cmd.SchemaPath)
-	entries, err := os.ReadDir(contractsDir)
-	if err != nil {
-		cmd.Logger.Warn("contracts directory not accessible", "path", contractsDir, "err", err.Error())
-		issues++
+	if _, err := os.ReadDir(contractsDir); err != nil {
+		issues = append(issues, DoctorIssue{
+			Code:        "contracts.not_accessible",
+			Severity:    "warning",
+			Summary:     "Contracts directory not accessible: " + contractsDir,
+			Remediation: "请确认 contracts 目录存在且可读。",
+		})
 	} else {
-		cmd.Logger.Info("contracts directory OK", "path", contractsDir, "files", len(entries))
+		issues = append(issues, DoctorIssue{
+			Code:     "contracts.ok",
+			Severity: "ok",
+			Summary:  "Contracts directory accessible",
+		})
 	}
 
 	// Check Python availability.
-	checkExecutable(cmd.Logger, &issues, "python3", "python")
-
-	// Check Node.js availability.
-	checkExecutable(cmd.Logger, &issues, "node")
-
-	// Check npm availability.
-	if isWindows() {
-		checkExecutable(cmd.Logger, &issues, "npm.cmd", "npm")
+	if !executableAvailable("python3", "python") {
+		issues = append(issues, DoctorIssue{
+			Code:        "runtime.python_missing",
+			Severity:    "warning",
+			Summary:     "Python executable not found",
+			Remediation: "请安装 Python 3 以支持 Python 插件运行时。",
+		})
 	} else {
-		checkExecutable(cmd.Logger, &issues, "npm")
+		issues = append(issues, DoctorIssue{
+			Code:     "runtime.python_ok",
+			Severity: "ok",
+			Summary:  "Python executable found",
+		})
 	}
 
-	if issues > 0 {
-		cmd.Logger.Warn("doctor completed with issues", "issue_count", issues)
+	// Check Node.js availability.
+	if !executableAvailable("node") {
+		issues = append(issues, DoctorIssue{
+			Code:        "runtime.node_missing",
+			Severity:    "warning",
+			Summary:     "Node.js executable not found",
+			Remediation: "请安装 Node.js 以支持 Node.js 插件运行时。",
+		})
+	} else {
+		issues = append(issues, DoctorIssue{
+			Code:     "runtime.node_ok",
+			Severity: "ok",
+			Summary:  "Node.js executable found",
+		})
+	}
+
+	// Check npm availability.
+	npmCandidates := []string{"npm"}
+	if isWindows() {
+		npmCandidates = []string{"npm.cmd", "npm"}
+	}
+	if !executableAvailable(npmCandidates...) {
+		issues = append(issues, DoctorIssue{
+			Code:        "runtime.npm_missing",
+			Severity:    "warning",
+			Summary:     "npm executable not found",
+			Remediation: "请安装 npm 以支持 Node.js 插件依赖管理。",
+		})
+	} else {
+		issues = append(issues, DoctorIssue{
+			Code:     "runtime.npm_ok",
+			Severity: "ok",
+			Summary:  "npm executable found",
+		})
+	}
+
+	return DoctorReport{Issues: issues}
+}
+
+func executableAvailable(names ...string) bool {
+	for _, name := range names {
+		if _, err := lookPath(name); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func runDoctor(cmd Command) int {
+	report := BuildDoctorReport(cmd)
+
+	hasProblems := false
+	for _, issue := range report.Issues {
+		if issue.Severity != "ok" {
+			cmd.Logger.Warn(issue.Summary, "code", issue.Code)
+			hasProblems = true
+		} else {
+			cmd.Logger.Info(issue.Summary, "code", issue.Code)
+		}
+	}
+
+	if hasProblems {
+		cmd.Logger.Warn("doctor completed with issues")
 		return 1
 	}
 	cmd.Logger.Info("doctor completed, all checks passed")

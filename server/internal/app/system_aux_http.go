@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"rayleabot/server/internal/logging"
+	"rayleabot/server/internal/cli"
 	"rayleabot/server/internal/tasks"
 )
 
@@ -154,6 +155,13 @@ func (a *App) buildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 	if err := addJSONToZip(writer, "readiness.json", a.currentReadiness()); err != nil {
+		return nil, err
+	}
+	doctorReport := cli.BuildDoctorReport(cli.Command{
+		ConfigPath: a.Summary.ConfigPath,
+		SchemaPath: a.Summary.SchemaPath,
+	})
+	if err := addJSONToZip(writer, "doctor.json", doctorReport); err != nil {
 		return nil, err
 	}
 	if err := addJSONToZip(writer, "plugins.json", map[string]any{"items": a.Plugins.List()}); err != nil {

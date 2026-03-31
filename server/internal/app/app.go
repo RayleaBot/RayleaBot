@@ -774,6 +774,17 @@ func (a *App) currentReadiness() health.ReadinessReport {
 		return health.ReadinessReport{
 			Status: "failed",
 			Reason: "Management application is unavailable",
+			Checks: map[string]string{
+				"config": "unknown", "database": "unknown", "runtime": "unknown", "adapter": "unknown", "render": "unknown",
+			},
+			Issues: []health.DiagnosticIssue{
+				{
+					Code:        "management.unavailable",
+					Severity:    "error",
+					Summary:     "Management application is unavailable",
+					Remediation: "请检查服务进程是否已正确启动。",
+				},
+			},
 		}
 	}
 	if a.Auth == nil {
@@ -781,7 +792,15 @@ func (a *App) currentReadiness() health.ReadinessReport {
 			Status: "failed",
 			Reason: "Management auth service is unavailable",
 			Checks: map[string]string{
-				"config": "ok",
+				"config": "ok", "database": "unknown", "runtime": "unknown", "adapter": "unknown", "render": "unknown",
+			},
+			Issues: []health.DiagnosticIssue{
+				{
+					Code:        "auth.unavailable",
+					Severity:    "error",
+					Summary:     "Management auth service is unavailable",
+					Remediation: "请检查服务日志，确认认证服务已完成初始化。",
+				},
 			},
 		}
 	}
@@ -792,6 +811,14 @@ func (a *App) currentReadiness() health.ReadinessReport {
 			Checks: map[string]string{
 				"config": "ok",
 			},
+			Issues: []health.DiagnosticIssue{
+				{
+					Code:        "setup.required",
+					Severity:    "error",
+					Summary:     "Initial admin setup is required",
+					Remediation: "请先完成管理员初始化，然后再使用管理入口。",
+				},
+			},
 		}
 	}
 	if a.Adapter == nil {
@@ -799,7 +826,15 @@ func (a *App) currentReadiness() health.ReadinessReport {
 			Status: "failed",
 			Reason: "OneBot adapter is unavailable",
 			Checks: map[string]string{
-				"config": "ok",
+				"config": "ok", "database": "ok", "runtime": "ok", "adapter": "unavailable", "render": "ok",
+			},
+			Issues: []health.DiagnosticIssue{
+				{
+					Code:        "adapter.unavailable",
+					Severity:    "error",
+					Summary:     "OneBot adapter is unavailable",
+					Remediation: "请检查 OneBot adapter 配置并重启服务。",
+				},
 			},
 		}
 	}
@@ -810,8 +845,11 @@ func (a *App) currentReadiness() health.ReadinessReport {
 func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessReport {
 	report := health.ReadinessReport{
 		Checks: map[string]string{
-			"config":  "ok",
-			"adapter": string(stateOrIdle(snapshot.State)),
+			"config":   "ok",
+			"database": "ok",
+			"runtime":  "ok",
+			"adapter":  "ok",
+			"render":   "ok",
 		},
 	}
 
@@ -822,21 +860,68 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 		report.Status = "degraded"
 		report.Reason = "OneBot authentication failed"
 		report.ReasonCodes = []string{"adapter.auth_failed"}
+		report.Checks["adapter"] = "auth_failed"
+		report.Issues = []health.DiagnosticIssue{
+			{
+				Code:        "adapter.auth_failed",
+				Severity:    "warning",
+				Summary:     "OneBot authentication failed",
+				Remediation: "请检查 OneBot access_token 配置后重试连接。",
+			},
+		}
 	case adapter.StateConnecting:
 		report.Status = "degraded"
 		report.Reason = "OneBot reverse WebSocket is connecting"
+		report.Checks["adapter"] = "connecting"
+		report.Issues = []health.DiagnosticIssue{
+			{
+				Code:        "adapter.connecting",
+				Severity:    "warning",
+				Summary:     "OneBot reverse WebSocket is connecting",
+				Remediation: "请等待 OneBot 连接建立，或检查目标端点是否可达。",
+			},
+		}
 	case adapter.StateReconnecting:
 		report.Status = "degraded"
 		report.Reason = "OneBot reverse WebSocket is reconnecting"
-		if snapshot.LastErrorCode != "" {
-			report.ReasonCodes = []string{snapshot.LastErrorCode}
+		code := snapshot.LastErrorCode
+		if code == "" {
+			code = "adapter.reconnecting"
+		}
+		report.ReasonCodes = []string{code}
+		report.Checks["adapter"] = "reconnecting"
+		report.Issues = []health.DiagnosticIssue{
+			{
+				Code:        code,
+				Severity:    "warning",
+				Summary:     "OneBot reverse WebSocket is reconnecting",
+				Remediation: "请检查 OneBot 服务可用性，或等待连接自动恢复。",
+			},
 		}
 	case adapter.StateStopped:
 		report.Status = "degraded"
 		report.Reason = "OneBot adapter has stopped"
+		report.Checks["adapter"] = "stopped"
+		report.Issues = []health.DiagnosticIssue{
+			{
+				Code:        "adapter.stopped",
+				Severity:    "warning",
+				Summary:     "OneBot adapter has stopped",
+				Remediation: "请检查 OneBot 连接配置，必要时重启服务。",
+			},
+		}
 	default:
 		report.Status = "degraded"
 		report.Reason = "OneBot adapter has not started connecting yet"
+		report.Checks["adapter"] = "idle"
+		report.Issues = []health.DiagnosticIssue{
+			{
+				Code:        "adapter.idle",
+				Severity:    "warning",
+				Summary:     "OneBot adapter has not started connecting yet",
+				Remediation: "请检查 OneBot 连接配置后重新启动连接。",
+			},
+		}
 	}
 
 	return report

@@ -14,6 +14,14 @@ type ReadinessReport struct {
 	Reason      string            `json:"reason,omitempty"`
 	ReasonCodes []string          `json:"reason_codes,omitempty"`
 	Checks      map[string]string `json:"checks,omitempty"`
+	Issues      []DiagnosticIssue `json:"issues,omitempty"`
+}
+
+type DiagnosticIssue struct {
+	Code        string `json:"code"`
+	Severity    string `json:"severity"`
+	Summary     string `json:"summary"`
+	Remediation string `json:"remediation"`
 }
 
 func NewLivenessHandler() http.HandlerFunc {

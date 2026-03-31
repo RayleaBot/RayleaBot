@@ -976,6 +976,25 @@ components:
               type: string
             render:
               type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiagnosticIssue'
+
+    DiagnosticIssue:
+      type: object
+      additionalProperties: false
+      required: [code, severity, summary]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [ok, warning, error]
+        summary:
+          type: string
+        remediation:
+          type: string
 
     TaskStatus:
       type: string

@@ -17,5 +17,10 @@ response:
       runtime: ok
       adapter: auth_failed
       render: ok
+    issues:
+      - code: adapter.auth_failed
+        severity: warning
+        summary: OneBot authentication failed
+        remediation: 请检查 OneBot access_token 配置后重试连接。
 expect:
   valid: true

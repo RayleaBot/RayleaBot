@@ -65,8 +65,11 @@ func TestReadyzConnectedStateIsReady(t *testing.T) {
 		map[string]any{
 			"status": "ready",
 			"checks": map[string]any{
-				"config":  "ok",
-				"adapter": "connected",
+				"config":   "ok",
+				"database": "ok",
+				"runtime":  "ok",
+				"adapter":  "ok",
+				"render":   "ok",
 			},
 		},
 	)
@@ -89,8 +92,19 @@ func TestReadyzAuthFailedIsDegraded(t *testing.T) {
 				"adapter.auth_failed",
 			},
 			"checks": map[string]any{
-				"config":  "ok",
-				"adapter": "auth_failed",
+				"config":   "ok",
+				"database": "ok",
+				"runtime":  "ok",
+				"adapter":  "auth_failed",
+				"render":   "ok",
+			},
+			"issues": []any{
+				map[string]any{
+					"code":        "adapter.auth_failed",
+					"severity":    "warning",
+					"summary":     "OneBot authentication failed",
+					"remediation": "请检查 OneBot access_token 配置后重试连接。",
+				},
 			},
 		},
 	)
@@ -113,8 +127,19 @@ func TestReadyzReconnectingIsDegraded(t *testing.T) {
 				"adapter.connection_lost",
 			},
 			"checks": map[string]any{
-				"config":  "ok",
-				"adapter": "reconnecting",
+				"config":   "ok",
+				"database": "ok",
+				"runtime":  "ok",
+				"adapter":  "reconnecting",
+				"render":   "ok",
+			},
+			"issues": []any{
+				map[string]any{
+					"code":        "adapter.connection_lost",
+					"severity":    "warning",
+					"summary":     "OneBot reverse WebSocket is reconnecting",
+					"remediation": "请检查 OneBot 服务可用性，或等待连接自动恢复。",
+				},
 			},
 		},
 	)
@@ -129,11 +154,28 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 		checks[key] = value.(string)
 	}
 
+	var issues []health.DiagnosticIssue
+	if rawIssues, ok := fixture.Response.Body["issues"].([]any); ok {
+		for _, raw := range rawIssues {
+			m := raw.(map[string]any)
+			issue := health.DiagnosticIssue{
+				Code:     m["code"].(string),
+				Severity: m["severity"].(string),
+				Summary:  m["summary"].(string),
+			}
+			if rem, ok := m["remediation"].(string); ok {
+				issue.Remediation = rem
+			}
+			issues = append(issues, issue)
+		}
+	}
+
 	report := health.ReadinessReport{
 		Status:      fixture.Response.Body["status"].(string),
 		Reason:      fixture.Response.Body["reason"].(string),
 		ReasonCodes: toStringSlice(fixture.Response.Body["reason_codes"].([]any)),
 		Checks:      checks,
+		Issues:      issues,
 	}
 
 	handler := health.NewReadinessHandler(func() health.ReadinessReport {

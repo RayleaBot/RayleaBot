@@ -3,6 +3,7 @@ package server
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -514,9 +515,41 @@ func TestSystemDiagnosticsExportReturnsZipBundle(t *testing.T) {
 		entries[file.Name] = true
 	}
 
-	for _, required := range []string{"system-status.json", "readiness.json", "plugins.json", "config-summary.json", "recent-logs.json"} {
+	for _, required := range []string{"system-status.json", "readiness.json", "doctor.json", "plugins.json", "config-summary.json", "recent-logs.json"} {
 		if !entries[required] {
 			t.Fatalf("diagnostics archive missing %s: %#v", required, entries)
 		}
+	}
+
+	for _, file := range reader.File {
+		if file.Name != "doctor.json" {
+			continue
+		}
+		rc, err := file.Open()
+		if err != nil {
+			t.Fatalf("open doctor.json: %v", err)
+		}
+		defer rc.Close()
+
+		var body map[string]any
+		if err := json.NewDecoder(rc).Decode(&body); err != nil {
+			t.Fatalf("decode doctor.json: %v", err)
+		}
+
+		issues, ok := body["issues"].([]any)
+		if !ok || len(issues) == 0 {
+			t.Fatalf("doctor.json must contain issues: %#v", body)
+		}
+
+		first, ok := issues[0].(map[string]any)
+		if !ok {
+			t.Fatalf("doctor.json first issue malformed: %#v", issues[0])
+		}
+		for _, key := range []string{"code", "severity", "summary", "remediation"} {
+			if _, ok := first[key]; !ok {
+				t.Fatalf("doctor.json issue missing %s: %#v", key, first)
+			}
+		}
+		break
 	}
 }

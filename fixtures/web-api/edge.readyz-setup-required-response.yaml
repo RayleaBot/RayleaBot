@@ -11,5 +11,10 @@ response:
     reason: Initial admin setup is required
     checks:
       config: ok
+    issues:
+      - code: setup.required
+        severity: error
+        summary: Initial admin setup is required
+        remediation: 请先完成管理员初始化，然后再使用管理入口。
 expect:
   valid: true

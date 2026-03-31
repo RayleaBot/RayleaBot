@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -255,6 +256,41 @@ func TestRestoreRequiresBackupPath(t *testing.T) {
 	})
 	if code != 1 {
 		t.Fatalf("restore should fail with exit code 1 when no path given, got %d", code)
+	}
+}
+
+func TestDoctorReportIncludesStructuredIssues(t *testing.T) {
+	t.Parallel()
+
+	report := BuildDoctorReport(Command{
+		ConfigPath: filepath.Join(t.TempDir(), "config", "user.yaml"),
+		SchemaPath: filepath.Join(t.TempDir(), "contracts", "config.user.schema.json"),
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	if len(report.Issues) == 0 {
+		t.Fatal("doctor report must include at least one issue when config and schema are missing")
+	}
+
+	for _, issue := range report.Issues {
+		if issue.Code == "" || issue.Severity == "" || issue.Summary == "" {
+			t.Fatalf("doctor issue must be fully populated: %#v", issue)
+		}
+	}
+
+	encoded, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal doctor report: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.NewDecoder(bytes.NewReader(encoded)).Decode(&decoded); err != nil {
+		t.Fatalf("decode doctor report: %v", err)
+	}
+
+	issues, ok := decoded["issues"].([]any)
+	if !ok || len(issues) == 0 {
+		t.Fatalf("encoded doctor report must expose issues: %#v", decoded)
 	}
 }
 
