@@ -71,7 +71,7 @@
 
 ---
 
-## 四、Phase 2 — Fixtures / Golden Cases 🟡
+## 四、Phase 2 — Fixtures / Golden Cases ✅
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
@@ -154,12 +154,11 @@
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 完整 Render Service | ✅ | 受控 Chromium 渲染、模板版本化、缓存、preview、artifact route 与统一资源诊断已在 Phase 10 收口 |
 | 更广 future action families | ❌ | v0.1 之外的更广动作族仍未 formalize / 实现 |
 
 ---
 
-## 八、Phase 6 — Config / Storage / Security 🟡
+## 八、Phase 6 — Config / Storage / Security ✅
 
 ### 已落地
 
@@ -185,16 +184,11 @@
 | `default.yaml` + `user.yaml` 覆盖语义 | ✅ | 运行时固定按 `default.yaml` -> `user.yaml` 覆盖生成有效配置，并在保存时输出 canonical 新形状 |
 | `storage.file` formalize | ✅ | 已进入 plugin protocol、plugin_data 文件区服务、config limits、SDK、fixtures、示例与 tests |
 | `http.request` formalize | ✅ | 已进入 plugin protocol、scoped HTTP client、config allowlist / timeout / retry、SDK、fixtures、示例与 tests |
-
-### 规划对齐缺口
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
 | `/readyz`、诊断包、`doctor`、Launcher 共享诊断结构 | ✅ | `/readyz` 同时输出 `checks` 与 `issues`，`doctor` 输出结构化 `DoctorReport`，诊断包包含 `doctor.json`，Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 结构 |
 
 ---
 
-## 九、Phase 7 — Web API & Tasks 🟡
+## 九、Phase 7 — Web API & Tasks ✅
 
 ### 已落地
 
@@ -214,11 +208,6 @@
 | Plugin metadata surface | ✅ | 插件 list/detail 已暴露 `name`、`role`、`source`、`trust` 与 `command_conflicts`，足以支撑 Web 管理面展示 |
 | 4 条管理 WebSocket | ✅ | `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 已落地 |
 | HTTP 鉴权中间件 | ✅ | `RequireAuth`、公开/受保护路由分离、WebSocket `session_token` 兼容已落地 |
-
-### 规划对齐与口径收口
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
 | 插件安装来源边界 | ✅ | 规划正文 3.9.6 已更新，与当前 OpenAPI、fixtures 与 Web 统一支持 `remote_url` 作为 v0.1 正式能力 |
 | 插件 lifecycle 路由形状 | ✅ | 规划正文已更新，消除原 `PATCH` 语义，与当前 formal contract 的 `enable` / `disable` / `reload` 独立路由对齐 |
 
@@ -264,8 +253,8 @@
 
 ### 当前主要问题
 
-- Launcher 的主流程、首启配置、左侧导航桌面壳、自定义标题栏、第二轮液态玻璃视觉层、托盘原生菜单、版本检查、交付 metadata 和凭据丢失恢复入口已进入可验证主链；初始化、登录和自动登录失败提示已回收到 Web 侧处理，Web 登录/初始化页也已补齐可见错误反馈。
-- 当前仍未收口的 Launcher 欠账主要集中在正式安装体验与长期自托管打磨。
+- 当前仍未收口的 Launcher 欠账主要集中在正式安装体验。
+- 长期自托管 smoke 继续在“测试 & CI 现状”的规划对齐缺口中跟踪，不作为 Launcher 分节内的独立完成项。
 
 ---
 
@@ -277,7 +266,7 @@
 | 最小 render artifact 输出 | ✅ | `render.image` 继续返回插件可消费的 `file:// image_path`，同时生成稳定 `artifact_id`、`mime` 与 `cache_key`，供管理面同源读取 |
 | 渲染队列与 Chromium 调度 | ✅ | bounded queue、并发 worker、排队超时、执行超时、Chromium 渲染与错误映射已落地 |
 | 模板校验 / 缓存 / 结果管理 | ✅ | `templates/` 已提供 `help.menu`、`status.panel`、input schema、模板版本、data hash cache key 与 artifact registry |
-| `.deps/manifest.json` baseline | 🟡 | Chromium 资源已固定为官方 Chrome for Testing metadata，Python / Node.js runtime metadata 仍保留占位 |
+| Chromium 资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium 资源的 version / source / SHA256；Python / Node.js runtime metadata 继续在 Foundation 跟踪 |
 | 受控运行时资源接线 | ✅ | startup logs、`/readyz`、CLI `doctor`、Launcher preflight、release packaging 与 artifact route 已共享 Chromium / template 资源检查 |
 
 ---
@@ -300,7 +289,6 @@
 
 | 交付门禁 | 状态 | 说明 |
 |--------|------|------|
-| packaged recovery drill | ✅ | PR 已对 `linux-x64-server` 正式包执行同版本受控恢复闭环；tag release 已覆盖全矩阵正式产物 |
 | 跨版本 upgrade / rollback drills | ❌ | 当前稳定门禁已覆盖同版本 packaged recovery drill；跨版本升级、回滚与恢复摘要演练仍未自动化 |
 | 长期自托管 smoke | ❌ | 规划要求更长时间窗的安装、运行、诊断闭环回归，当前 CI 仍未覆盖 |
 
@@ -322,43 +310,30 @@
 
 ---
 
-## 十四、下一步行动规划
+## 十四、下一轮规划
 
-已归档到完成统计的事项：
+### 主工作包
 
-1. 插件 lifecycle 路由口径已在 Phase 7 归档为完成，正式语义采用 `enable` / `disable` / `reload` 独立路由。
-2. 插件安装来源 `remote_url` 已在 Phase 7 归档为完成，属于 v0.1 正式支持能力。
-3. render 文档口径已统一：`render.image` local action RPC、`render.preview` 管理面任务流与 artifact 读取面已进入正式 contract。`contracts/README.md`、`server/README.md` 已同步。
-4. `/readyz`、诊断包、`doctor`、Launcher 已收口到 `code` / `severity` / `summary` / `remediation` 统一诊断结构。`ReadinessStatusResponse` 同时输出 `checks` 与 `issues`，`doctor` 输出结构化 `DoctorReport`，诊断包包含 `doctor.json`。
-5. Launcher 凭据丢失恢复入口已接入：偏好设置页提供"重置管理员凭据"按钮，执行时停止服务、调用 `reset-admin` CLI、重启服务并打开 Web 初始化页面。
-6. Render Service 主链已接入：formal contracts、fixtures、Chromium 渲染队列、模板资源、artifact route、Dashboard 预览入口、Tasks 结果预览、统一诊断与 release packaging 已对齐。
+1. 收口正式发行包的安装 / 启动入口与目录真相。
+   发行包目录、启动入口、桌面壳入口、用户可见安装说明与 release packaging 需要统一到同一份正式口径，避免仓库目录真相与发行包目录真相混写。
 
-### 本轮执行顺序
+2. 收口首次安装、升级后启动与已有工作区复用路径。
+   正式安装体验需要明确首启工作区生成、已有 `config/` / `data/` / `plugins/installed/` 复用语义，以及升级后启动时的用户可见路径。
 
-1. ✅ 收口当前文档真相。
-   `contracts/README.md`、`server/README.md` 已统一 `render.image` 口径。
+3. 建立与正式安装体验直接相关的最小验证口径。
+   下一轮只补与安装 / 启动体验直接相关的最小验证闭环，覆盖正式发行包入口、首次启动路径与已有工作区复用路径；跨版本 recovery drills 与长期自托管 smoke 继续留在上方规划对齐缺口。
 
-2. ✅ 统一 degraded / remediation 结构。
-   `ReadinessStatusResponse` 同时输出 `checks` 与 `issues`。`doctor` 输出结构化 `DoctorReport`。诊断包包含 `doctor.json`。
+### 下一轮边界
 
-3. ✅ 补齐 Launcher 本地恢复入口。
-   Launcher 偏好设置页提供重置管理员凭据按钮，coordinator / IPC / preload / renderer 全链路已接入。
-
-4. ✅ 完成 Render Service 主链。
-   formal contracts、fixtures、Chromium worker、模板资源、artifact route、任务流、Web 调试入口、资源诊断与 release packaging 已收口。
-
-5. ✅ 把 packaged recovery drill 接入稳定门禁。
-   正式包已纳入 `contracts/` 与 `web/dist/` 自洽布局；`smoke-pr` 覆盖 `linux-x64-server` recovery drill，`release` 覆盖全矩阵同版本受控恢复闭环与恢复后最小启动探活。
-
-### 本轮边界
-
+- 不在这一轮推进跨版本 upgrade / rollback drills 或长期自托管 smoke。
+- 不在这一轮补齐 Python / Node runtime metadata；该项继续在 Foundation 跟踪。
 - 不在这一轮推进多 adapter / 多 bot 抽象。
-- 不在这一轮扩展更宽 plugin action families。
-- 不在上述工作包完成前继续新增平行状态语义、平行恢复入口或新的管理面口径。
+- 不在这一轮扩展更宽 future action families。
+- 不新增平行安装入口、平行状态语义或新的独立交付口径。
 
-### 后续实施验收口径
+### 下一轮验收口径
 
-- 任何涉及 readiness、diagnostics、CLI `doctor`、Launcher 环境检查的变更，都要以同一份 degraded / remediation 数据结构作为对外结果。
-- 任何涉及 Render Service、`render.preview`、错误码、任务类型或资源检查的变更，都要同步更新 formal contracts、fixtures、tests 与示例。
-- 任何进入 release workflow 的新增门禁，都要直接复用默认构建命令和正式 release metadata，不能再维护一套独立的"仅测试用"发布语义。
+- 正式发行包目录、启动入口、用户文档与发布文档必须保持同一份交付真相。
+- 首次安装、升级后启动与已有工作区复用三条路径必须共享同一套工作区、配置与数据目录语义。
+- 与正式安装体验直接相关的新增门禁必须继续复用默认构建命令和现有 release metadata，不引入独立的测试专用发布语义。
 
