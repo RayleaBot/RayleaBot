@@ -149,4 +149,58 @@ describe("launcher settings store", () => {
     expect(resolved.workdir).toBe(altWorkdir);
     expect(resolved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
   });
+
+  test("prefers the current worktree root when saved defaults point at the main checkout", async () => {
+    const mainRoot = await createTempDir("main-workspace");
+    const worktreeRoot = path.join(mainRoot, ".worktrees", "web-cn-redesign");
+    const userDataPath = await createTempDir("worktree-userdata");
+
+    await createWorkspace(mainRoot);
+    await createWorkspace(worktreeRoot);
+    await fs.writeFile(
+      path.join(userDataPath, "launcher.json"),
+      JSON.stringify(
+        {
+          installationRoot: mainRoot,
+          closeBehavior: "ask_every_time",
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const store = new JsonLauncherSettingsStore(userDataPath, path.join(worktreeRoot, "launcher"), "win32");
+    const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
+
+    expect(loaded.installationRoot).toBe(worktreeRoot);
+    expect(loaded.advancedOverrides).toBeUndefined();
+    expect(resolved.serverExecutablePath).toBe(path.join(worktreeRoot, "server", "raylea-server.exe"));
+    expect(resolved.configPath).toBe(path.join(worktreeRoot, "config", "user.yaml"));
+    expect(resolved.workdir).toBe(worktreeRoot);
+  });
+
+  test("preserves a manually pinned installation root across worktree launches", async () => {
+    const mainRoot = await createTempDir("pinned-main-workspace");
+    const worktreeRoot = path.join(mainRoot, ".worktrees", "web-cn-redesign");
+    const userDataPath = await createTempDir("pinned-userdata");
+
+    await createWorkspace(mainRoot);
+    await createWorkspace(worktreeRoot);
+
+    const store = new JsonLauncherSettingsStore(userDataPath, path.join(worktreeRoot, "launcher"), "win32");
+    await store.save({
+      installationRoot: mainRoot,
+      closeBehavior: "ask_every_time",
+    });
+
+    const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
+
+    expect(loaded.installationRoot).toBe(mainRoot);
+    expect(resolved.serverExecutablePath).toBe(path.join(mainRoot, "server", "raylea-server.exe"));
+    expect(resolved.configPath).toBe(path.join(mainRoot, "config", "user.yaml"));
+    expect(resolved.workdir).toBe(mainRoot);
+  });
 });
