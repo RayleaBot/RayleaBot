@@ -122,6 +122,14 @@ export const zhCN = {
     grantSaved: '授权已保存',
     grantRevoked: '授权已撤销',
     actionAccepted: '操作已提交',
+    health: {
+      commandConflicts: '{count} 个命令冲突',
+      unverifiedSource: '未验证来源',
+      enabledButStopped: '已启用未运行',
+      runtimeIssue: '运行异常',
+      retrying: '重试中',
+      removed: '已移除',
+    },
   },
   tasks: {
     title: '任务',
@@ -365,6 +373,16 @@ export const zhCN = {
       user: '用户',
       example: '示例',
       dev: '开发',
+    },
+    pluginDisplayStates: {
+      discovered: '已识别',
+      invalid_manifest: '清单无效',
+      conflict: '存在冲突',
+      disabled: '已停用',
+      running: '运行中',
+      stopped: '已停止',
+      enabled: '已启用',
+      removed: '已移除',
     },
     logLevels: {
       debug: '调试',

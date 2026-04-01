@@ -8,6 +8,7 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import {
   getPluginDesiredStateLabel,
+  getPluginDisplayStateLabel,
   getPluginRegistrationStateLabel,
   getPluginRoleLabel,
   getPluginRuntimeStateLabel,
@@ -16,6 +17,13 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
 import type { PluginInstallRequest } from '@/types/api'
 import { usePluginsStore } from '@/stores/plugins'
+
+type HealthNoticeTone = '' | 'info' | 'warning' | 'danger'
+
+interface PluginHealthNotice {
+  label: string
+  tone: HealthNoticeTone
+}
 
 const router = useRouter()
 const pluginsStore = usePluginsStore()
@@ -29,6 +37,37 @@ const installForm = reactive<PluginInstallRequest>({
   source: '',
 })
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
+
+function getConflictNotice(count: number) {
+  return t('plugins.health.commandConflicts', { count })
+}
+
+function getPluginHealthNotices(row: (typeof sortedItems.value)[number]) {
+  const notices: PluginHealthNotice[] = []
+  const conflicts = row.command_conflicts?.length ?? 0
+
+  if (conflicts > 0) {
+    notices.push({ label: getConflictNotice(conflicts), tone: 'warning' })
+  }
+
+  if (row.source?.verified === false || row.trust?.level === 'unverified') {
+    notices.push({ label: t('plugins.health.unverifiedSource'), tone: 'info' })
+  }
+
+  if (row.registration_state === 'removed') {
+    notices.push({ label: t('plugins.health.removed'), tone: 'danger' })
+  }
+
+  if (row.runtime_state === 'crashed' || row.runtime_state === 'dead_letter') {
+    notices.push({ label: t('plugins.health.runtimeIssue'), tone: 'danger' })
+  } else if (row.runtime_state === 'backoff') {
+    notices.push({ label: t('plugins.health.retrying'), tone: 'warning' })
+  } else if (row.desired_state === 'enabled' && row.runtime_state === 'stopped') {
+    notices.push({ label: t('plugins.health.enabledButStopped'), tone: 'warning' })
+  }
+
+  return notices.slice(0, 3)
+}
 
 async function loadPlugins() {
   try {
@@ -98,50 +137,56 @@ async function submitInstall() {
 
     <VirtualDataViewport
       :items="sortedItems"
-      :item-height="196"
-      :viewport-height="560"
+      :item-height="164"
       :get-item-key="(row) => row.id"
       :empty-label="t('display.empty')"
     >
-      <template #header>
-        <div class="data-panel-header plugin-summary-head">
-          <span>{{ t('plugins.fields.id') }}</span>
-          <span>{{ t('plugins.fields.source') }}</span>
-          <span>{{ t('plugins.fields.runtime') }}</span>
-          <span>{{ t('plugins.fields.actions') }}</span>
-        </div>
-      </template>
-
       <template #default="{ item: row }">
         <article class="plugin-summary-row">
-          <div class="plugin-summary-main">
-            <div class="mono-list">
-              <strong>{{ row.name }}</strong>
-              <small>{{ row.id }}</small>
+          <div class="plugin-summary-identity">
+            <div class="plugin-summary-heading">
+              <div class="mono-list">
+                <strong>{{ row.name }}</strong>
+                <small>{{ row.id }}</small>
+              </div>
             </div>
-            <div class="plugin-state-cluster">
-              <el-tag size="small" type="info">{{ getPluginRoleLabel(row.role) }}</el-tag>
-              <el-tag size="small" type="success">{{ getPluginRegistrationStateLabel(row.registration_state) }}</el-tag>
-              <el-tag size="small" type="warning">{{ getPluginDesiredStateLabel(row.desired_state) }}</el-tag>
-              <el-tag size="small">{{ getPluginRuntimeStateLabel(row.runtime_state) }}</el-tag>
+
+            <div class="plugin-summary-facts">
+              <div class="plugin-summary-fact">
+                <span>{{ t('plugins.fields.source') }}</span>
+                <strong :title="row.source?.root ?? t('display.empty')">{{ row.source?.root ?? t('display.empty') }}</strong>
+              </div>
+
+              <div class="plugin-summary-fact">
+                <span>{{ t('plugins.fields.trust') }}</span>
+                <strong>{{ row.trust?.label ?? t('display.empty') }}</strong>
+              </div>
             </div>
           </div>
 
-          <div class="plugin-summary-meta">
-            <div>
-              <span>{{ t('plugins.fields.trust') }}</span>
-              <strong>{{ row.trust?.label ?? t('display.empty') }}</strong>
-              <small>{{ row.source?.verified ? t('plugins.verified') : t('plugins.unverified') }}</small>
+          <div class="plugin-summary-statuses">
+            <div class="plugin-status-grid">
+              <div class="plugin-status-card">
+                <span>{{ t('plugins.fields.desired') }}</span>
+                <strong>{{ getPluginDesiredStateLabel(row.desired_state) }}</strong>
+              </div>
+
+              <div class="plugin-status-card">
+                <span>{{ t('plugins.fields.runtime') }}</span>
+                <strong>{{ getPluginRuntimeStateLabel(row.runtime_state) }}</strong>
+              </div>
             </div>
-            <div>
-              <span>{{ t('plugins.fields.source') }}</span>
-              <strong>{{ row.source?.root ?? t('display.empty') }}</strong>
-              <small>{{ row.source?.package_source_ref ?? row.source?.package_source_type ?? t('display.empty') }}</small>
-            </div>
-            <div>
-              <span>{{ t('plugins.fields.display') }}</span>
-              <strong>{{ row.display_state ?? t('display.empty') }}</strong>
-              <small>{{ t('plugins.fields.conflicts') }}：{{ row.command_conflicts?.length ?? 0 }}</small>
+
+            <div class="plugin-summary-health">
+              <el-tag
+                v-for="notice in getPluginHealthNotices(row)"
+                :key="notice.label"
+                size="small"
+                effect="plain"
+                :type="notice.tone"
+              >
+                {{ notice.label }}
+              </el-tag>
             </div>
           </div>
 
@@ -215,7 +260,10 @@ async function submitInstall() {
         <el-descriptions-item :label="t('plugins.fields.registration')">{{ getPluginRegistrationStateLabel(summaryPlugin.registration_state) }}</el-descriptions-item>
         <el-descriptions-item :label="t('plugins.fields.desired')">{{ getPluginDesiredStateLabel(summaryPlugin.desired_state) }}</el-descriptions-item>
         <el-descriptions-item :label="t('plugins.fields.runtime')">{{ getPluginRuntimeStateLabel(summaryPlugin.runtime_state) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.display')">{{ summaryPlugin.display_state ?? t('display.empty') }}</el-descriptions-item>
+        <el-descriptions-item :label="t('plugins.fields.display')">
+          {{ getPluginDisplayStateLabel(summaryPlugin.display_state) }}
+          <small v-if="summaryPlugin.display_state"> · {{ summaryPlugin.display_state }}</small>
+        </el-descriptions-item>
         <el-descriptions-item :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</el-descriptions-item>
         <el-descriptions-item :label="t('plugins.fields.sourceRef')">
           {{ summaryPlugin.source?.package_source_ref ?? summaryPlugin.source?.package_source_type ?? t('display.empty') }}

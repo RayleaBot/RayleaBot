@@ -128,6 +128,9 @@ describe('TasksPage', () => {
 
     expect(wrapper.find('.data-viewport').exists()).toBe(true)
     expect(wrapper.find('.task-summary-row').exists()).toBe(true)
+    expect(wrapper.find('.task-summary-top').exists()).toBe(true)
+    expect(wrapper.find('.task-summary-bottom').exists()).toBe(true)
+    expect(wrapper.find('.summary-text-clamp').exists()).toBe(true)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 })

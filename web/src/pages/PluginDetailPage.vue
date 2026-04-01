@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   getConnectionStatusLabel,
+  getPluginDisplayStateLabel,
   getPluginDesiredStateLabel,
   getPluginRegistrationStateLabel,
   getPluginRoleLabel,
@@ -171,7 +172,10 @@ onUnmounted(() => {
               {{ getPluginRuntimeStateLabel(current?.runtime_state) }}
               <small v-if="current?.runtime_state"> · {{ current.runtime_state }}</small>
             </el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.display')">{{ current?.display_state ?? t('display.empty') }}</el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.display')">
+              {{ getPluginDisplayStateLabel(current?.display_state) }}
+              <small v-if="current?.display_state"> · {{ current.display_state }}</small>
+            </el-descriptions-item>
             <el-descriptions-item :label="t('plugins.fields.trust')">{{ current?.trust?.label ?? t('display.empty') }}</el-descriptions-item>
             <el-descriptions-item :label="t('plugins.fields.sourceRoot')">{{ current?.source?.root ?? t('display.empty') }}</el-descriptions-item>
             <el-descriptions-item :label="t('plugins.fields.sourceRef')">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? t('display.empty') }}</el-descriptions-item>

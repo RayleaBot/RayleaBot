@@ -75,35 +75,29 @@ onMounted(() => {
 
     <VirtualDataViewport
       :items="items"
-      :item-height="136"
-      :viewport-height="620"
+      :item-height="130"
       :get-item-key="(row, index) => [row.timestamp, row.source, row.message, index].join('|')"
       :empty-label="t('display.empty')"
     >
-      <template #header>
-        <div class="data-panel-header log-summary-head">
-          <span>{{ t('logs.fields.timestamp') }}</span>
-          <span>{{ t('logs.fields.level') }}</span>
-          <span>{{ t('logs.fields.message') }}</span>
-        </div>
-      </template>
-
       <template #default="{ item: row }">
         <article class="log-summary-row">
-          <div class="log-summary-main">
-            <div class="mono-list">
+          <div class="log-summary-top">
+            <div class="log-summary-primary">
               <strong>{{ formatDateTime(row.timestamp) }}</strong>
               <small>{{ row.request_id ?? t('display.empty') }}</small>
             </div>
-            <el-tag size="small" effect="plain">{{ getLogLevelLabel(row.level) }}</el-tag>
+
+            <div class="log-summary-tags">
+              <el-tag size="small" effect="plain">{{ getLogLevelLabel(row.level) }}</el-tag>
+              <el-tag size="small" effect="plain">{{ row.source }}</el-tag>
+              <el-tag size="small" effect="plain">{{ row.plugin_id ?? t('display.empty') }}</el-tag>
+            </div>
           </div>
 
-          <div class="log-summary-meta">
-            <span>{{ row.source }}</span>
-            <span>{{ row.plugin_id ?? t('display.empty') }}</span>
+          <div class="log-summary-bottom">
+            <p class="summary-text-clamp" :title="row.message">{{ row.message }}</p>
+            <small class="log-summary-request">{{ row.request_id ?? t('display.empty') }}</small>
           </div>
-
-          <p class="log-summary-message">{{ row.message }}</p>
         </article>
       </template>
     </VirtualDataViewport>

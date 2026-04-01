@@ -565,6 +565,7 @@ small {
 }
 
 .data-viewport__scroller {
+  flex: 1 1 auto;
   overflow: auto;
   padding: 14px 18px 18px;
   min-height: 0;
@@ -585,10 +586,6 @@ small {
   padding: 8px 0;
 }
 
-.plugin-summary-head {
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(280px, 0.9fr);
-}
-
 .plugin-summary-row,
 .task-summary-row,
 .log-summary-row {
@@ -602,123 +599,225 @@ small {
 
 .plugin-summary-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(290px, 0.9fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(250px, 0.95fr) minmax(304px, 0.92fr);
   gap: 18px;
+  align-items: center;
+  padding: 14px 18px;
 }
 
-.plugin-summary-main,
-.task-summary-main,
-.task-summary-copy,
-.log-summary-main {
+.task-summary-primary,
+.log-summary-primary {
   display: grid;
   gap: 10px;
 }
 
-.plugin-summary-main strong,
-.task-summary-main strong,
-.log-summary-main strong {
+.plugin-summary-heading strong,
+.task-summary-primary strong,
+.log-summary-primary strong {
   font-size: 1rem;
 }
 
-.plugin-state-cluster,
-.plugin-summary-actions {
+.task-summary-top,
+.log-summary-top {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+.plugin-summary-actions,
+.log-summary-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: flex-start;
 }
 
-.plugin-summary-meta {
+.task-summary-bottom,
+.log-summary-bottom {
   display: grid;
-  gap: 14px;
+  gap: 12px 18px;
 }
 
-.plugin-summary-meta > div,
-.task-summary-status,
-.log-summary-meta {
+.task-summary-status {
   display: grid;
   gap: 6px;
 }
 
-.plugin-summary-meta span,
 .task-summary-status small,
-.log-summary-meta span,
 .config-nav-item small,
 .config-section-heading p {
   color: var(--muted);
 }
 
-.plugin-summary-meta strong,
 .task-summary-status strong {
   font-size: 0.98rem;
 }
 
-.plugin-summary-actions {
-  justify-content: flex-end;
-  align-content: flex-start;
+.plugin-summary-identity,
+.plugin-summary-statuses {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
 }
 
-.task-summary-head {
-  grid-template-columns: minmax(220px, 1fr) minmax(0, 1fr) minmax(160px, 0.7fr) minmax(0, 1.2fr);
+.plugin-summary-heading,
+.plugin-summary-facts {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.plugin-summary-heading small,
+.plugin-summary-fact span,
+.plugin-status-card span,
+.plugin-summary-muted {
+  color: var(--muted);
+}
+
+.plugin-summary-heading small,
+.plugin-summary-fact strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plugin-summary-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plugin-summary-fact,
+.plugin-status-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.plugin-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.plugin-status-card {
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(22, 33, 39, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.plugin-status-card strong,
+.plugin-summary-fact strong {
+  font-size: 0.96rem;
+}
+
+.plugin-summary-health {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.plugin-summary-actions {
+  justify-content: flex-end;
+  align-content: center;
+  max-width: 100%;
+}
+
+.plugin-summary-actions .el-button {
+  min-width: 72px;
+  margin: 0;
 }
 
 .task-summary-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(0, 1fr) minmax(140px, 0.7fr) minmax(0, 1.3fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-rows: auto auto;
+  gap: 14px;
+}
+
+.task-summary-top {
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .task-summary-status {
   justify-items: start;
 }
 
-.task-summary-copy {
-  align-content: space-between;
+.task-summary-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
-.task-summary-copy p,
-.log-summary-message {
-  margin: 0;
-  line-height: 1.55;
-  color: var(--text);
+.task-summary-bottom {
+  grid-template-columns: minmax(260px, auto) minmax(0, 1fr);
+  align-items: start;
 }
 
-.log-summary-head {
-  grid-template-columns: minmax(220px, 0.8fr) minmax(120px, 0.3fr) minmax(0, 1.7fr);
+.task-summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--muted);
+  font-family: "Cascadia Mono", "Consolas", monospace;
 }
 
 .log-summary-row {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(180px, 0.6fr) minmax(0, 1.6fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-rows: auto auto;
+  gap: 14px;
 }
 
-.log-summary-main {
+.log-summary-top {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.log-summary-bottom {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
 }
 
-.log-summary-meta {
-  align-content: start;
+.log-summary-request {
+  color: var(--muted);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.summary-text-clamp {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .logs-filter-toolbar {
+  border-radius: 28px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 246, 0.9));
+  box-shadow: var(--shadow);
+}
+
+.logs-filter-toolbar .el-card__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 14px;
   align-items: end;
+  padding: 18px 20px;
 }
 
 .logs-filter-grid {
   display: grid;
-  gap: 14px 16px;
-  grid-template-columns: 160px repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
+  grid-template-columns: minmax(140px, 0.55fr) repeat(3, minmax(180px, 1fr));
 }
 
 .logs-filter-grid .el-form-item {
   margin-bottom: 0;
+}
+
+.logs-filter-grid .el-form-item__label {
+  margin-bottom: 6px;
 }
 
 .logs-filter-actions {
@@ -844,12 +943,13 @@ small {
     flex-direction: column;
   }
 
-  .plugin-summary-head,
-  .task-summary-head,
-  .log-summary-head,
   .plugin-summary-row,
-  .task-summary-row,
-  .log-summary-row,
+  .plugin-summary-facts,
+  .plugin-status-grid,
+  .task-summary-top,
+  .task-summary-bottom,
+  .log-summary-top,
+  .log-summary-bottom,
   .logs-filter-toolbar,
   .logs-filter-grid,
   .config-layout {
@@ -859,6 +959,10 @@ small {
   .plugin-summary-actions,
   .logs-filter-actions {
     justify-content: flex-start;
+  }
+
+  .logs-filter-toolbar .el-card__body {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -31,7 +31,7 @@ describe('PluginDetailPage', () => {
       registration_state: 'installed',
       desired_state: 'enabled',
       runtime_state: 'running',
-      display_state: 'running',
+      display_state: 'discovered',
       source: {
         root: 'plugins/installed',
         package_source_type: 'local_zip',
@@ -84,6 +84,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
+    expect(wrapper.text()).toContain('已识别')
     expect(wrapper.text()).toContain('weather')
 
     const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新连接'))

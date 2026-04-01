@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getConnectionChannelLabel,
   getConnectionStatusLabel,
+  getPluginDisplayStateLabel,
   getLogLevelLabel,
   getPluginRuntimeStateLabel,
   getSystemStatusLabel,
@@ -22,6 +23,7 @@ describe('display helpers', () => {
     expect(getTaskTypeLabel('render.preview')).toBe('渲染预览')
     expect(getTaskStatusLabel('succeeded')).toBe('已完成')
     expect(getPluginRuntimeStateLabel('running')).toBe('运行中')
+    expect(getPluginDisplayStateLabel('discovered')).toBe('已识别')
     expect(getLogLevelLabel('warn')).toBe('警告')
     expect(getSystemStatusLabel('shutting_down')).toBe('停止中')
   })

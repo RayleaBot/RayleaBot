@@ -111,6 +111,50 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
 })
 
+test('desktop list viewports fill the remaining shell height without overlapping rows', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 1600, height: 1400 })
+
+  await login(page)
+
+  await page.goto('/plugins')
+  const pluginScroller = page.locator('.data-viewport__scroller').first()
+  await expect(pluginScroller).toBeVisible()
+  expect((await pluginScroller.getAttribute('style')) ?? '').not.toContain('560px')
+  expect((await pluginScroller.getAttribute('style')) ?? '').not.toContain('620px')
+
+  const pluginFirst = await page.locator('.plugin-summary-row').nth(0).boundingBox()
+  const pluginSecond = await page.locator('.plugin-summary-row').nth(1).boundingBox()
+  expect(pluginFirst).not.toBeNull()
+  expect(pluginSecond).not.toBeNull()
+  expect(pluginFirst!.y + pluginFirst!.height).toBeLessThanOrEqual(pluginSecond!.y)
+  expect(pluginFirst!.height).toBeLessThan(170)
+  await expect(page.locator('.plugin-summary-row').first()).not.toContainText('discovered')
+
+  await page.getByRole('button', { name: '查看概要' }).nth(1).click()
+  await expect(page.getByRole('dialog')).toContainText('显示状态')
+  await expect(page.getByRole('dialog')).toContainText('运行中')
+  await expect(page.getByRole('dialog')).not.toContainText('discovered')
+  await page.keyboard.press('Escape')
+
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await expect(pluginScroller).toBeVisible()
+  expect((await pluginScroller.getAttribute('style')) ?? '').not.toContain('560px')
+  expect((await pluginScroller.getAttribute('style')) ?? '').not.toContain('620px')
+
+  await page.goto('/tasks')
+  const taskScroller = page.locator('.data-viewport__scroller').first()
+  await expect(taskScroller).toBeVisible()
+  expect((await taskScroller.getAttribute('style')) ?? '').not.toContain('560px')
+  expect((await taskScroller.getAttribute('style')) ?? '').not.toContain('620px')
+
+  await page.goto('/logs')
+  const logScroller = page.locator('.data-viewport__scroller').first()
+  await expect(logScroller).toBeVisible()
+  expect((await logScroller.getAttribute('style')) ?? '').not.toContain('560px')
+  expect((await logScroller.getAttribute('style')) ?? '').not.toContain('620px')
+})
+
 test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)

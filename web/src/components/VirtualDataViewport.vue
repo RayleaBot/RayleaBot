@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 interface Props<TItem> {
   items: TItem[]
@@ -12,24 +12,47 @@ interface Props<TItem> {
 
 const props = withDefaults(defineProps<Props<T>>(), {
   itemHeight: 160,
-  viewportHeight: 560,
   overscan: 3,
   emptyLabel: '暂无数据',
   getItemKey: undefined,
 })
 
 const scrollTop = ref(0)
+const scrollerRef = ref<HTMLElement | null>(null)
+const measuredViewportHeight = ref<number | null>(null)
+let resizeObserver: ResizeObserver | null = null
 
-const viewportStyle = computed(() => ({
-  height: typeof props.viewportHeight === 'number' ? `${props.viewportHeight}px` : props.viewportHeight,
-}))
+const viewportStyle = computed(() => {
+  if (props.viewportHeight === undefined) {
+    return undefined
+  }
+
+  return {
+    height: typeof props.viewportHeight === 'number' ? `${props.viewportHeight}px` : props.viewportHeight,
+  }
+})
+
+const effectiveViewportHeight = computed(() => {
+  if (measuredViewportHeight.value && measuredViewportHeight.value > 0) {
+    return measuredViewportHeight.value
+  }
+
+  if (typeof props.viewportHeight === 'number') {
+    return props.viewportHeight
+  }
+
+  if (typeof props.viewportHeight === 'string') {
+    const parsed = Number.parseInt(props.viewportHeight, 10)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed
+    }
+  }
+
+  return 560
+})
 
 const visibleCount = computed(() => {
-  const viewport = typeof props.viewportHeight === 'number'
-    ? props.viewportHeight
-    : Number.parseInt(props.viewportHeight, 10) || 560
-
-  return Math.max(1, Math.ceil(viewport / props.itemHeight) + props.overscan * 2)
+  return Math.max(1, Math.ceil(effectiveViewportHeight.value / props.itemHeight) + props.overscan * 2)
 })
 
 const startIndex = computed(() => Math.max(0, Math.floor(scrollTop.value / props.itemHeight) - props.overscan))
@@ -43,6 +66,23 @@ function handleScroll(event: Event) {
   scrollTop.value = target?.scrollTop ?? 0
 }
 
+function updateMeasuredViewportHeight(nextHeight?: number) {
+  if (!nextHeight || Number.isNaN(nextHeight)) {
+    return
+  }
+
+  measuredViewportHeight.value = Math.max(1, Math.round(nextHeight))
+}
+
+function measureViewport() {
+  const target = scrollerRef.value
+  if (!target) {
+    return
+  }
+
+  updateMeasuredViewportHeight(target.getBoundingClientRect().height || target.clientHeight)
+}
+
 function resolveKey(item: T, index: number) {
   if (props.getItemKey) {
     return props.getItemKey(item, index)
@@ -50,6 +90,27 @@ function resolveKey(item: T, index: number) {
 
   return index
 }
+
+onMounted(async () => {
+  await nextTick()
+  measureViewport()
+
+  if (typeof window.ResizeObserver !== 'function' || !scrollerRef.value) {
+    return
+  }
+
+  resizeObserver = new window.ResizeObserver((entries) => {
+    const entry = entries[0]
+    updateMeasuredViewportHeight(entry?.contentRect.height)
+  })
+
+  resizeObserver.observe(scrollerRef.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
 </script>
 
 <template>
@@ -62,7 +123,13 @@ function resolveKey(item: T, index: number) {
       {{ emptyLabel }}
     </div>
 
-    <div v-else class="data-viewport__scroller" :style="viewportStyle" @scroll="handleScroll">
+    <div
+      v-else
+      ref="scrollerRef"
+      class="data-viewport__scroller"
+      :style="viewportStyle"
+      @scroll="handleScroll"
+    >
       <div class="data-viewport__canvas" :style="{ height: `${totalHeight}px` }">
         <div class="data-viewport__stack" :style="{ transform: `translateY(${offsetY}px)` }">
           <div

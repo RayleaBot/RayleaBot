@@ -48,6 +48,10 @@ export function getPluginRuntimeStateLabel(status?: PluginRuntimeState) {
   return status ? translated(`display.pluginRuntimeStates.${status}`, status) : t('display.empty')
 }
 
+export function getPluginDisplayStateLabel(status?: string) {
+  return status ? translated(`display.pluginDisplayStates.${status}`, status) : t('display.empty')
+}
+
 export function getPluginRoleLabel(role?: PluginRole) {
   return role ? translated(`display.pluginRoles.${role}`, role) : t('display.empty')
 }

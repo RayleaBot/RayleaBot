@@ -121,42 +121,38 @@ function previewImageUrl(task: TaskSummary | null) {
 
     <VirtualDataViewport
       :items="sortedItems"
-      :item-height="156"
-      :viewport-height="620"
+      :item-height="142"
       :get-item-key="(row) => row.task_id"
       :empty-label="t('display.empty')"
     >
-      <template #header>
-        <div class="data-panel-header task-summary-head">
-          <span>{{ t('tasks.fields.id') }}</span>
-          <span>{{ t('tasks.fields.type') }}</span>
-          <span>{{ t('tasks.fields.status') }}</span>
-          <span>{{ t('tasks.fields.summary') }}</span>
-        </div>
-      </template>
-
       <template #default="{ item: row }">
         <article class="task-summary-row">
-          <div class="mono-list">
-            <strong>{{ row.task_id }}</strong>
-            <small>{{ formatDateTime(row.started_at) }}</small>
+          <div class="task-summary-top">
+            <div class="task-summary-primary">
+              <strong>{{ getTaskTypeLabel(row.task_type) }}</strong>
+              <small>{{ row.task_type }}</small>
+            </div>
+
+            <div class="task-summary-status">
+              <el-tag size="small">{{ getTaskStatusLabel(row.status) }}</el-tag>
+              <strong>{{ row.progress ?? t('display.empty') }}</strong>
+            </div>
+
+            <div class="task-summary-actions">
+              <el-button size="small" plain @click="inspect(row.task_id)">
+                {{ t('tasks.actions.detail') }}
+              </el-button>
+            </div>
           </div>
 
-          <div class="task-summary-main">
-            <strong>{{ getTaskTypeLabel(row.task_type) }}</strong>
-            <small>{{ row.task_type }}</small>
-          </div>
-
-          <div class="task-summary-status">
-            <el-tag size="small">{{ getTaskStatusLabel(row.status) }}</el-tag>
-            <strong>{{ row.progress ?? t('display.empty') }}</strong>
-          </div>
-
-          <div class="task-summary-copy">
-            <p>{{ row.summary }}</p>
-            <el-button size="small" plain @click="inspect(row.task_id)">
-              {{ t('tasks.actions.detail') }}
-            </el-button>
+          <div class="task-summary-bottom">
+            <div class="task-summary-meta">
+              <span>{{ row.task_id }}</span>
+              <span>{{ formatDateTime(row.started_at) }}</span>
+            </div>
+            <p class="summary-text-clamp" :title="row.summary">
+              {{ row.summary }}
+            </p>
           </div>
         </article>
       </template>
