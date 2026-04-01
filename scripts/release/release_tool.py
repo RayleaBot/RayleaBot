@@ -106,6 +106,7 @@ def stage_release_root(
     server_bin: Path,
     web_dist: Path,
     builtin_dir: Path,
+    contracts_dir: Path,
     deps_dir: Path,
     templates_dir: Path,
     default_config: Path,
@@ -132,8 +133,9 @@ def stage_release_root(
     if artifact_id == "linux-x64-server" and systemd_file is not None:
         copy_file(systemd_file, stage_root / "systemd" / "rayleabot.service")
 
-    copy_tree(web_dist, stage_root / "web")
+    copy_tree(web_dist, stage_root / "web" / "dist")
     copy_tree(builtin_dir, stage_root / "plugins" / "builtin")
+    copy_tree(contracts_dir, stage_root / "contracts")
     copy_tree(deps_dir, stage_root / ".deps")
     copy_tree(templates_dir, stage_root / "templates")
     copy_file(default_config, stage_root / "config" / "default.yaml")
@@ -298,6 +300,7 @@ def cmd_package(args: argparse.Namespace) -> int:
         server_bin=Path(args.server_bin),
         web_dist=Path(args.web_dist),
         builtin_dir=Path(args.builtin_dir),
+        contracts_dir=Path(args.contracts_dir),
         deps_dir=Path(args.deps_dir),
         templates_dir=Path(args.templates_dir),
         default_config=Path(args.default_config),
@@ -346,6 +349,7 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--server-bin", required=True)
     package.add_argument("--web-dist", required=True)
     package.add_argument("--builtin-dir", required=True)
+    package.add_argument("--contracts-dir", required=True)
     package.add_argument("--deps-dir", required=True)
     package.add_argument("--templates-dir", required=True)
     package.add_argument("--default-config", required=True)
