@@ -78,11 +78,15 @@ jobs:
             --launcher-bundle launcher/dist/package/win-unpacked \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
+            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
             --output-dir dist/release
           python scripts/release/smoke_release.py \
+            --artifact-id windows-x64-full \
+            --archive dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip
+          python scripts/release/recovery_drill.py \
             --artifact-id windows-x64-full \
             --archive dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip
 
@@ -164,11 +168,15 @@ jobs:
             --launcher-bundle launcher/dist/package/linux-unpacked \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
+            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
             --output-dir dist/release
           python scripts/release/smoke_release.py \
+            --artifact-id linux-x64-full \
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz
+          python scripts/release/recovery_drill.py \
             --artifact-id linux-x64-full \
             --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz
           python scripts/release/release_tool.py package \
@@ -179,12 +187,16 @@ jobs:
             --server-bin dist/server/raylea-server \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
+            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
             --systemd-file packaging/systemd/rayleabot.service \
             --output-dir dist/release
           python scripts/release/smoke_release.py \
+            --artifact-id linux-x64-server \
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
+          python scripts/release/recovery_drill.py \
             --artifact-id linux-x64-server \
             --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
 
@@ -274,11 +286,15 @@ jobs:
             --launcher-bundle launcher/dist/package/mac-arm64/RayleaLauncher.app \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
+            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
             --output-dir dist/release
           python scripts/release/smoke_release.py \
+            --artifact-id macos-arm64-full \
+            --archive dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz
+          python scripts/release/recovery_drill.py \
             --artifact-id macos-arm64-full \
             --archive dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz
 

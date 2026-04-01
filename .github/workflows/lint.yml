@@ -276,6 +276,7 @@ jobs:
             --launcher-bundle launcher/dist/package/linux-unpacked \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
+            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
@@ -291,12 +292,16 @@ jobs:
             --server-bin dist/server/raylea-server \
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
+            --contracts-dir contracts \
             --deps-dir .deps \
             --templates-dir templates \
             --default-config config/default.yaml \
             --systemd-file packaging/systemd/rayleabot.service \
             --output-dir dist/release
           python scripts/release/smoke_release.py \
+            --artifact-id linux-x64-server \
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
+          python scripts/release/recovery_drill.py \
             --artifact-id linux-x64-server \
             --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
 
