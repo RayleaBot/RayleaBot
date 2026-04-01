@@ -7,10 +7,14 @@ import type { LauncherSnapshot } from "@shared/launcher-models";
 
 const blankSnapshot: LauncherSnapshot = {
   settings: {
+    installationRoot: "",
+    closeBehavior: "ask_every_time",
+  },
+  resolvedSettings: {
+    installationRoot: "",
     serverExecutablePath: "",
     configPath: "",
     workdir: "",
-    closeBehavior: "ask_every_time",
   },
   endpoint: {
     host: "127.0.0.1",
@@ -38,10 +42,14 @@ const blankSnapshot: LauncherSnapshot = {
 const loadedSnapshot: LauncherSnapshot = {
   ...blankSnapshot,
   settings: {
+    installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
+    closeBehavior: "ask_every_time",
+  },
+  resolvedSettings: {
+    installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
     serverExecutablePath: "C:\\Users\\26789\\Desktop\\RayleaBot\\server\\raylea-server.exe",
     configPath: "C:\\Users\\26789\\Desktop\\RayleaBot\\config\\user.yaml",
     workdir: "C:\\Users\\26789\\Desktop\\RayleaBot",
-    closeBehavior: "ask_every_time",
   },
   serviceDetail: "服务尚未启动。",
 };
@@ -81,6 +89,7 @@ describe("App", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
+      chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
       chooseWorkdir: vi.fn(async () => null),
@@ -96,7 +105,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/C:\\Users\\26789\\Desktop\\RayleaBot/)).toBeInTheDocument();
+      expect(screen.getAllByText("C:\\Users\\26789\\Desktop\\RayleaBot").length).toBeGreaterThan(0);
     });
   });
 
@@ -119,6 +128,7 @@ describe("App", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
+      chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
       chooseWorkdir: vi.fn(async () => null),
@@ -165,6 +175,7 @@ describe("App", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
+      chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
       chooseWorkdir: vi.fn(async () => null),

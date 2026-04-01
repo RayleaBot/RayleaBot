@@ -23,6 +23,7 @@ class SmokeReleaseTests(unittest.TestCase):
 
             entries = smoke_release.list_entries("windows-x64-full", archive_path)
 
+            self.assertIn("RayleaLauncher.exe", entries)
             self.assertIn("contracts/config.user.schema.json", entries)
             self.assertIn("contracts/plugin-info.schema.json", entries)
             self.assertIn("web/dist/index.html", entries)

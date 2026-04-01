@@ -12,8 +12,9 @@ import recovery_drill
 
 class RecoveryDrillTests(unittest.TestCase):
     def test_required_paths_include_contracts_and_web_dist(self) -> None:
-        required = recovery_drill.REQUIRED_PATHS["linux-x64-server"]
+        required = recovery_drill.REQUIRED_PATHS["windows-x64-full"]
 
+        self.assertIn("RayleaLauncher.exe", required)
         self.assertIn("contracts/config.user.schema.json", required)
         self.assertIn("contracts/plugin-info.schema.json", required)
         self.assertIn("web/dist/index.html", required)

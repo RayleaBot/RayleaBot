@@ -7,7 +7,7 @@ import {
   resolveConfigSchemaPath,
   ServerProcessController,
 } from "@main/services/process-controller";
-import type { LauncherSettings } from "@shared/launcher-models";
+import type { LauncherResolvedSettings } from "@shared/launcher-models";
 
 class FakeStream extends EventEmitter {
   setEncoding() {}
@@ -44,12 +44,12 @@ async function createTempDir(label: string) {
   return tempRoot;
 }
 
-function createSettings(root: string, workdir: string): LauncherSettings {
+function createSettings(root: string, workdir: string): LauncherResolvedSettings {
   return {
+    installationRoot: root,
     serverExecutablePath: path.join(root, "server", "raylea-server.exe"),
     configPath: path.join(root, "config", "user.yaml"),
     workdir,
-    closeBehavior: "ask_every_time",
   };
 }
 

@@ -2,7 +2,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { JsonLauncherSettingsStore } from "@main/services/settings-store";
+import {
+  JsonLauncherSettingsStore,
+  resolveLauncherSettings,
+} from "@main/services/settings-store";
 
 const tempRoots: string[] = [];
 
@@ -34,7 +37,7 @@ afterEach(async () => {
 });
 
 describe("launcher settings store", () => {
-  test("persists defaults only when the settings file is missing", async () => {
+  test("persists installation-root defaults when the settings file is missing", async () => {
     const currentRoot = await createTempDir("default-workspace");
     const userDataPath = await createTempDir("default-userdata");
 
@@ -42,22 +45,23 @@ describe("launcher settings store", () => {
 
     const store = new JsonLauncherSettingsStore(userDataPath, path.join(currentRoot, "launcher"), "win32");
     const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
 
-    expect(loaded.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
-    expect(loaded.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
-    expect(loaded.workdir).toBe(currentRoot);
+    expect(loaded.installationRoot).toBe(currentRoot);
+    expect(loaded.advancedOverrides).toBeUndefined();
+    expect(resolved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
+    expect(resolved.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
+    expect(resolved.workdir).toBe(currentRoot);
 
     const saved = JSON.parse(await fs.readFile(path.join(userDataPath, "launcher.json"), "utf8")) as {
-      serverExecutablePath: string;
-      configPath: string;
-      workdir: string;
+      installationRoot: string;
+      advancedOverrides?: unknown;
     };
-    expect(saved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
-    expect(saved.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
-    expect(saved.workdir).toBe(currentRoot);
+    expect(saved.installationRoot).toBe(currentRoot);
+    expect(saved.advancedOverrides).toBeUndefined();
   });
 
-  test("rebases stale workspace-relative paths onto the current workspace", async () => {
+  test("rebases legacy workspace-relative paths onto the current installation root", async () => {
     const previousRoot = await createTempDir("old-workspace");
     const currentRoot = await createTempDir("current-workspace");
     const userDataPath = await createTempDir("userdata");
@@ -81,23 +85,17 @@ describe("launcher settings store", () => {
 
     const store = new JsonLauncherSettingsStore(userDataPath, path.join(currentRoot, "launcher"), "win32");
     const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
 
-    expect(loaded.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
-    expect(loaded.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
-    expect(loaded.workdir).toBe(currentRoot);
+    expect(loaded.installationRoot).toBe(currentRoot);
     expect(loaded.closeBehavior).toBe("hide_to_tray");
-
-    const saved = JSON.parse(await fs.readFile(path.join(userDataPath, "launcher.json"), "utf8")) as {
-      serverExecutablePath: string;
-      configPath: string;
-      workdir: string;
-    };
-    expect(saved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
-    expect(saved.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
-    expect(saved.workdir).toBe(currentRoot);
+    expect(loaded.advancedOverrides).toBeUndefined();
+    expect(resolved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
+    expect(resolved.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
+    expect(resolved.workdir).toBe(currentRoot);
   });
 
-  test("accepts legacy PascalCase settings keys", async () => {
+  test("accepts legacy PascalCase settings keys and normalizes them to installation-root settings", async () => {
     const currentRoot = await createTempDir("legacy-workspace");
     const userDataPath = await createTempDir("legacy-userdata");
 
@@ -119,10 +117,36 @@ describe("launcher settings store", () => {
 
     const store = new JsonLauncherSettingsStore(userDataPath, path.join(currentRoot, "launcher"), "win32");
     const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
 
-    expect(loaded.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
-    expect(loaded.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
-    expect(loaded.workdir).toBe(currentRoot);
+    expect(loaded.installationRoot).toBe(currentRoot);
     expect(loaded.closeBehavior).toBe("hide_to_tray");
+    expect(resolved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
+    expect(resolved.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
+    expect(resolved.workdir).toBe(currentRoot);
+  });
+
+  test("keeps explicit advanced overrides when they differ from installation-root defaults", async () => {
+    const currentRoot = await createTempDir("override-workspace");
+    const userDataPath = await createTempDir("override-userdata");
+    const altWorkdir = await createTempDir("override-workdir");
+
+    await createWorkspace(currentRoot);
+
+    const store = new JsonLauncherSettingsStore(userDataPath, path.join(currentRoot, "launcher"), "win32");
+    await store.save({
+      installationRoot: currentRoot,
+      closeBehavior: "ask_every_time",
+      advancedOverrides: {
+        workdir: altWorkdir,
+      },
+    });
+
+    const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
+
+    expect(loaded.advancedOverrides?.workdir).toBe(altWorkdir);
+    expect(resolved.workdir).toBe(altWorkdir);
+    expect(resolved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
   });
 });

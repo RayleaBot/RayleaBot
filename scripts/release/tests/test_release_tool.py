@@ -69,8 +69,8 @@ class ReleaseToolTests(unittest.TestCase):
             with zipfile.ZipFile(archive_path) as zf:
                 names = set(zf.namelist())
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/build_info.json", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/RayleaLauncher.exe", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/resources/app.asar", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/resources/app.asar", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
@@ -98,7 +98,7 @@ class ReleaseToolTests(unittest.TestCase):
 
             release_tool.verify_release_bundle(manifest_path, checksums_path, output)
 
-    def test_package_linux_desktop_bundle_includes_launcher_directory(self) -> None:
+    def test_package_linux_desktop_bundle_places_launcher_at_release_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             temp = Path(tmp)
             server_bin = temp / "raylea-server"
@@ -152,8 +152,8 @@ class ReleaseToolTests(unittest.TestCase):
 
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
-            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/launcher/RayleaLauncher", names)
-            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/launcher/locales/en-US.pak", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/RayleaLauncher", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/locales/en-US.pak", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/templates/help.menu/template.json", names)
@@ -213,8 +213,8 @@ class ReleaseToolTests(unittest.TestCase):
 
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
-            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/launcher/RayleaLauncher.app/Contents/MacOS/RayleaLauncher", names)
-            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/launcher/RayleaLauncher.app/Contents/Info.plist", names)
+            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/RayleaLauncher.app/Contents/MacOS/RayleaLauncher", names)
+            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/RayleaLauncher.app/Contents/Info.plist", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/contracts/plugin-info.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/templates/status.panel/template.json", names)

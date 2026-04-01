@@ -16,9 +16,7 @@ import {
 
 class FakeSettingsStore implements LauncherSettingsStore {
   settings: LauncherSettings = {
-    serverExecutablePath: "C:\\RayleaBot\\raylea-server.exe",
-    configPath: "C:\\RayleaBot\\config\\user.yaml",
-    workdir: "C:\\RayleaBot",
+    installationRoot: "C:\\RayleaBot",
     closeBehavior: "ask_every_time",
   };
 

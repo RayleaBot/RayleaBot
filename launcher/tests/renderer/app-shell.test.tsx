@@ -6,10 +6,14 @@ import type { LauncherSnapshot } from "@shared/launcher-models";
 
 const snapshot: LauncherSnapshot = {
   settings: {
+    installationRoot: "C:\\RayleaBot",
+    closeBehavior: "ask_every_time",
+  },
+  resolvedSettings: {
+    installationRoot: "C:\\RayleaBot",
     serverExecutablePath: "C:\\RayleaBot\\raylea-server.exe",
     configPath: "C:\\RayleaBot\\config\\user.yaml",
     workdir: "C:\\RayleaBot",
-    closeBehavior: "ask_every_time",
   },
   endpoint: {
     host: "127.0.0.1",
@@ -50,6 +54,7 @@ describe("AppShell", () => {
         snapshot={snapshot}
         activeSection="status"
         settingsDraft={snapshot.settings}
+        resolvedSettings={snapshot.resolvedSettings}
         editingSettings={false}
         diagnosticsSummary=""
         busyAction={null}
@@ -66,7 +71,10 @@ describe("AppShell", () => {
         onBeginEdit={vi.fn()}
         onCancelEdit={vi.fn()}
         onSaveSettings={vi.fn()}
-        onUpdateSettings={vi.fn()}
+        onUpdateInstallationRoot={vi.fn()}
+        onUpdateCloseBehavior={vi.fn()}
+        onUpdateAdvancedOverride={vi.fn()}
+        onChooseInstallationRoot={vi.fn()}
         onChooseServer={vi.fn()}
         onChooseConfig={vi.fn()}
         onChooseWorkdir={vi.fn()}
