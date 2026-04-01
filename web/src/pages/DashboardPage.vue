@@ -5,7 +5,14 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import RetryPanel from '@/components/RetryPanel.vue'
+import {
+  getAdapterStateLabel,
+  getReadinessStatusLabel,
+  getSystemStatusLabel,
+} from '@/lib/display'
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDurationSeconds } from '@/lib/format'
+import { t } from '@/i18n'
 import { useSystemStore } from '@/stores/system'
 
 const router = useRouter()
@@ -44,19 +51,19 @@ onMounted(() => {
 async function createBackup() {
   try {
     const response = await systemStore.createBackup()
-    ElMessage.success('在线备份任务已接受')
+    ElMessage.success(t('dashboard.backupAccepted'))
     await router.push({ name: 'tasks', query: { task_id: response.task_id } })
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'backup failed')
+    ElMessage.error(getDisplayErrorMessage(error))
   }
 }
 
 async function exportDiagnostics() {
   try {
     await systemStore.exportDiagnostics()
-    ElMessage.success('诊断包导出已开始')
+    ElMessage.success(t('dashboard.diagnosticsAccepted'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'diagnostics export failed')
+    ElMessage.error(getDisplayErrorMessage(error))
   }
 }
 
@@ -65,11 +72,11 @@ async function submitRenderPreview() {
   try {
     const parsed = JSON.parse(previewForm.dataText)
     if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-      throw new Error('render preview data must be a JSON object')
+      throw new Error(t('errors.platform.invalidRequest'))
     }
     data = parsed as Record<string, unknown>
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'render preview payload is invalid')
+    ElMessage.error(getDisplayErrorMessage(error))
     return
   }
 
@@ -81,10 +88,10 @@ async function submitRenderPreview() {
       data,
     })
     previewVisible.value = false
-    ElMessage.success('渲染预览任务已接受')
+    ElMessage.success(t('dashboard.previewAccepted'))
     await router.push({ name: 'tasks', query: { task_id: response.task_id } })
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'render preview failed')
+    ElMessage.error(getDisplayErrorMessage(error))
   }
 }
 </script>
@@ -93,60 +100,53 @@ async function submitRenderPreview() {
   <div class="page-grid">
     <section class="hero-panel">
       <div>
-        <div class="page-eyebrow">Status</div>
-        <h1>系统状态</h1>
-        <p>聚合 health、ready、system status 与 `/ws/events` 的管理摘要。</p>
+        <h1>{{ t('dashboard.title') }}</h1>
       </div>
 
       <div class="table-actions">
         <el-button :loading="loading" @click="refreshState()">
-          刷新状态
-        </el-button>
-        <el-button type="primary" plain :loading="backupPending" @click="createBackup">
-          创建在线备份
-        </el-button>
-        <el-button type="primary" plain :loading="diagnosticsPending" @click="exportDiagnostics">
-          导出诊断包
-        </el-button>
-        <el-button type="primary" plain :loading="previewPending" @click="previewVisible = true">
-          渲染预览
+          {{ t('dashboard.refresh') }}
         </el-button>
       </div>
     </section>
 
     <RetryPanel
       v-if="error && !system"
-      title="状态读取失败"
+      :title="t('routes.status')"
       :description="error"
       :loading="loading"
       @retry="refreshState()"
     />
 
-    <el-alert v-else-if="error" title="状态读取失败" type="error" :description="error" show-icon />
+    <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
     <div class="stats-grid">
       <el-card class="stat-card">
-        <span class="stat-label">Health</span>
-        <strong>{{ health?.status ?? '—' }}</strong>
+        <span class="stat-label">{{ t('dashboard.health') }}</span>
+        <strong>{{ health?.status === 'ok' ? '正常' : t('display.empty') }}</strong>
+        <small>{{ health?.status ?? t('display.empty') }}</small>
       </el-card>
       <el-card class="stat-card">
-        <span class="stat-label">Ready</span>
-        <strong>{{ readiness?.status ?? '—' }}</strong>
+        <span class="stat-label">{{ t('dashboard.readiness') }}</span>
+        <strong>{{ getReadinessStatusLabel(readiness?.status) }}</strong>
+        <small>{{ readiness?.status ?? t('display.empty') }}</small>
       </el-card>
       <el-card class="stat-card">
-        <span class="stat-label">System</span>
-        <strong>{{ system?.status ?? '—' }}</strong>
+        <span class="stat-label">{{ t('dashboard.service') }}</span>
+        <strong>{{ getSystemStatusLabel(system?.status) }}</strong>
+        <small>{{ system?.status ?? t('display.empty') }}</small>
       </el-card>
       <el-card class="stat-card">
-        <span class="stat-label">Adapter</span>
-        <strong>{{ system?.adapter_state ?? '—' }}</strong>
+        <span class="stat-label">{{ t('dashboard.adapter') }}</span>
+        <strong>{{ getAdapterStateLabel(system?.adapter_state) }}</strong>
+        <small>{{ system?.adapter_state ?? t('display.empty') }}</small>
       </el-card>
       <el-card class="stat-card">
-        <span class="stat-label">Active Plugins</span>
+        <span class="stat-label">{{ t('dashboard.activePlugins') }}</span>
         <strong>{{ system?.active_plugins ?? 0 }}</strong>
       </el-card>
       <el-card class="stat-card">
-        <span class="stat-label">Uptime</span>
+        <span class="stat-label">{{ t('dashboard.uptime') }}</span>
         <strong>{{ formatDurationSeconds(system?.uptime_seconds) }}</strong>
       </el-card>
     </div>
@@ -155,18 +155,18 @@ async function submitRenderPreview() {
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>Readiness Checks</span>
+            <span>{{ t('dashboard.readinessSection') }}</span>
           </div>
         </template>
 
         <el-descriptions :column="1" border>
-          <el-descriptions-item label="Reason">
-            {{ readiness?.reason ?? '—' }}
+          <el-descriptions-item label="原因">
+            {{ readiness?.reason ?? t('display.empty') }}
           </el-descriptions-item>
-          <el-descriptions-item label="Reason Codes">
-            {{ readiness?.reason_codes?.join(', ') || '—' }}
+          <el-descriptions-item label="原因代码">
+            {{ readiness?.reason_codes?.join(', ') || t('display.empty') }}
           </el-descriptions-item>
-          <el-descriptions-item label="Checks" v-if="!readiness?.issues?.length">
+          <el-descriptions-item label="检查项" v-if="!readiness?.issues?.length">
             <div class="mono-list">
               <div v-for="(value, key) in readiness?.checks" :key="key">
                 {{ key }} = {{ value }}
@@ -187,11 +187,11 @@ async function submitRenderPreview() {
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>Recent Events</span>
+            <span>{{ t('dashboard.recentEvents') }}</span>
           </div>
         </template>
 
-        <el-empty v-if="recentEvents.length === 0" description="暂无 events 摘要" />
+        <el-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
         <div v-else class="event-feed">
           <div v-for="event in recentEvents" :key="`${event.timestamp}-${event.summary}`" class="event-item">
@@ -202,21 +202,41 @@ async function submitRenderPreview() {
       </el-card>
     </div>
 
-    <el-dialog v-model="previewVisible" title="渲染预览" width="min(720px, 92vw)">
+    <el-card class="tools-panel">
+      <template #header>
+        <div class="card-header">
+          <span>{{ t('dashboard.tools') }}</span>
+        </div>
+      </template>
+
+      <div class="table-actions">
+        <el-button type="primary" plain :loading="backupPending" @click="createBackup">
+          {{ t('dashboard.createBackup') }}
+        </el-button>
+        <el-button type="primary" plain :loading="diagnosticsPending" @click="exportDiagnostics">
+          {{ t('dashboard.exportDiagnostics') }}
+        </el-button>
+        <el-button type="primary" plain :loading="previewPending" @click="previewVisible = true">
+          {{ t('dashboard.renderPreview') }}
+        </el-button>
+      </div>
+    </el-card>
+
+    <el-dialog v-model="previewVisible" :title="t('dashboard.previewTitle')" width="min(720px, 92vw)">
       <el-form label-position="top">
-        <el-form-item label="Template">
+        <el-form-item :label="t('dashboard.previewTemplate')">
           <el-input v-model="previewForm.template" placeholder="help.menu" />
         </el-form-item>
-        <el-form-item label="Theme">
+        <el-form-item :label="t('dashboard.previewTheme')">
           <el-input v-model="previewForm.theme" placeholder="default" />
         </el-form-item>
-        <el-form-item label="Output">
+        <el-form-item :label="t('dashboard.previewOutput')">
           <el-radio-group v-model="previewForm.output">
             <el-radio-button label="png" value="png" />
             <el-radio-button label="jpeg" value="jpeg" />
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="Data JSON">
+        <el-form-item :label="t('dashboard.previewData')">
           <el-input
             v-model="previewForm.dataText"
             type="textarea"
@@ -229,10 +249,10 @@ async function submitRenderPreview() {
       <template #footer>
         <div class="table-actions">
           <el-button @click="previewVisible = false">
-            取消
+            {{ t('dashboard.previewCancel') }}
           </el-button>
           <el-button type="primary" :loading="previewPending" @click="submitRenderPreview">
-            开始预览
+            {{ t('dashboard.previewSubmit') }}
           </el-button>
         </div>
       </template>

@@ -140,7 +140,7 @@ describe('ManagedSocket', () => {
     firstInstance.emit('close')
 
     expect(socket.getStatus()).toBe('reconnecting')
-    expect(socket.getLastError()).toBe('events socket error')
+    expect(socket.getLastError()).toBe('events 连接异常')
 
     vi.advanceTimersByTime(500)
 

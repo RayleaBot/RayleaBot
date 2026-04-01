@@ -12,7 +12,7 @@ describe('DashboardPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('offers backup and diagnostics actions', async () => {
+  it('moves backup and diagnostics into the tools section', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: DashboardPage }],
@@ -42,11 +42,13 @@ describe('DashboardPage', () => {
 
     await flushPromises()
 
-    const backupButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('在线备份'))
+    const backupButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('创建备份'))
     const diagnosticsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('导出诊断包'))
 
     expect(backupButton).toBeTruthy()
     expect(diagnosticsButton).toBeTruthy()
+    expect(wrapper.text()).toContain('系统工具')
+    expect(wrapper.text()).not.toContain('聚合 health、ready、system status')
 
     await backupButton!.trigger('click')
     await diagnosticsButton!.trigger('click')
@@ -55,7 +57,7 @@ describe('DashboardPage', () => {
     expect(exportDiagnosticsSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('submits render preview requests from the status page', async () => {
+  it('submits render preview requests from the tools section', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: DashboardPage }],
@@ -92,7 +94,7 @@ describe('DashboardPage', () => {
 
     const templateInput = wrapper.find('input[placeholder="help.menu"]')
     await templateInput.setValue('help.menu')
-    const submitButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('开始预览'))
+    const submitButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('生成预览'))
     expect(submitButton).toBeTruthy()
     await submitButton!.trigger('click')
 
@@ -139,6 +141,7 @@ describe('DashboardPage', () => {
 
     await flushPromises()
 
+    expect(wrapper.text()).toContain('就绪检查')
     expect(wrapper.text()).toContain('adapter.auth_failed')
     expect(wrapper.text()).toContain('请检查 OneBot access_token 配置后重试连接。')
     expect(wrapper.text()).not.toContain('config = ok')

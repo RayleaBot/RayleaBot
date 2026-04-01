@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import type { ConfigDocument, ConfigSnapshotResponse, ConfigUpdateResponse } from '@/types/api'
 
@@ -21,7 +22,7 @@ export const useConfigStore = defineStore('config', () => {
       redactedFields.value = response.redacted_fields ?? []
       restartRequired.value = null
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'config load failed'
+      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
       loading.value = false
@@ -41,7 +42,7 @@ export const useConfigStore = defineStore('config', () => {
       restartRequired.value = response.restart_required
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'config save failed'
+      error.value = getDisplayErrorMessage(err)
       throw err
     } finally {
       saving.value = false

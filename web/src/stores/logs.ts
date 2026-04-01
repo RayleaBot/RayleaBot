@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import type { LogListResponse, LogSummary } from '@/types/api'
 
@@ -42,7 +43,7 @@ export const useLogsStore = defineStore('logs', () => {
       const response = await apiRequest<LogListResponse>(`/api/logs?${params.toString()}`)
       items.value = mergeLogs(items.value, response.items, filters.value.limit ?? 50)
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'log list failed'
+      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
       loading.value = false

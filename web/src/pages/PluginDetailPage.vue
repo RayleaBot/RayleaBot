@@ -5,7 +5,16 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import RetryPanel from '@/components/RetryPanel.vue'
+import {
+  getConnectionStatusLabel,
+  getPluginDesiredStateLabel,
+  getPluginRegistrationStateLabel,
+  getPluginRoleLabel,
+  getPluginRuntimeStateLabel,
+} from '@/lib/display'
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
+import { t } from '@/i18n'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 
@@ -39,7 +48,7 @@ async function loadDetail() {
     ])
     socketStore.setConsolePlugin(pluginId.value)
   } catch (error) {
-    loadError.value = error instanceof Error ? error.message : 'plugin detail load failed'
+    loadError.value = getDisplayErrorMessage(error, 'errors.common.loadFailed')
   }
 }
 
@@ -47,9 +56,9 @@ async function runAction(action: 'enable' | 'disable' | 'reload') {
   operationError.value = null
   try {
     await pluginsStore.executeAction(pluginId.value, action)
-    ElMessage.success(`${pluginId.value} ${action} accepted`)
+    ElMessage.success(t('plugins.actionAccepted'))
   } catch (error) {
-    operationError.value = error instanceof Error ? error.message : `${action} failed`
+    operationError.value = getDisplayErrorMessage(error)
   }
 }
 
@@ -63,9 +72,9 @@ async function submitGrant() {
     grantDialogVisible.value = false
     grantForm.capability = ''
     grantForm.expires_at = ''
-    ElMessage.success('授权已保存')
+    ElMessage.success(t('plugins.grantSaved'))
   } catch (error) {
-    operationError.value = error instanceof Error ? error.message : 'grant save failed'
+    operationError.value = getDisplayErrorMessage(error)
   }
 }
 
@@ -73,9 +82,9 @@ async function revokeGrant(capability: string) {
   operationError.value = null
   try {
     await pluginsStore.revokeGrant(pluginId.value, capability)
-    ElMessage.success('授权已撤销')
+    ElMessage.success(t('plugins.grantRevoked'))
   } catch (error) {
-    operationError.value = error instanceof Error ? error.message : 'grant revoke failed'
+    operationError.value = getDisplayErrorMessage(error)
   }
 }
 
@@ -84,10 +93,10 @@ async function uninstallPlugin() {
   try {
     const response = await pluginsStore.uninstallPlugin(pluginId.value)
     uninstallDialogVisible.value = false
-    ElMessage.success('卸载任务已接受')
+    ElMessage.success(t('plugins.uninstallAccepted'))
     await router.push({ name: 'tasks', query: { task_id: response.task_id } })
   } catch (error) {
-    operationError.value = error instanceof Error ? error.message : 'uninstall failed'
+    operationError.value = getDisplayErrorMessage(error)
   }
 }
 
@@ -112,57 +121,67 @@ onUnmounted(() => {
   <div class="page-grid">
     <section class="hero-panel">
       <div>
-        <div class="page-eyebrow">Plugin Detail</div>
         <h1>{{ pluginId }}</h1>
-        <p>详情页覆盖 lifecycle、当前生效 grants、console 与卸载任务入口。</p>
       </div>
 
       <div class="table-actions">
-        <el-button type="success" :loading="actionPending[pluginId] === 'enable'" @click="runAction('enable')">Enable</el-button>
-        <el-button type="warning" :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">Reload</el-button>
-        <el-button type="danger" plain :loading="actionPending[pluginId] === 'disable'" @click="runAction('disable')">Disable</el-button>
-        <el-button type="danger" :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true">Uninstall</el-button>
+        <el-button type="success" :loading="actionPending[pluginId] === 'enable'" @click="runAction('enable')">{{ t('plugins.actions.enable') }}</el-button>
+        <el-button type="warning" :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</el-button>
+        <el-button type="danger" plain :loading="actionPending[pluginId] === 'disable'" @click="runAction('disable')">{{ t('plugins.actions.disable') }}</el-button>
+        <el-button type="danger" :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true">{{ t('plugins.actions.uninstall') }}</el-button>
       </div>
     </section>
 
     <RetryPanel
       v-if="loadError && !current"
-      title="插件详情读取失败"
+      :title="t('errors.common.loadFailed')"
       :description="loadError"
       :loading="detailLoading"
       @retry="loadDetail()"
     />
 
-    <el-alert v-else-if="loadError" title="插件详情读取失败" type="error" :description="loadError" show-icon />
+    <el-alert v-else-if="loadError" :title="t('errors.common.loadFailed')" type="error" :description="loadError" show-icon />
 
-    <el-alert v-if="operationError" title="插件操作失败" type="error" :description="operationError" show-icon />
+    <el-alert v-if="operationError" :title="t('errors.common.actionFailed')" type="error" :description="operationError" show-icon />
 
     <div class="content-grid">
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>Current Snapshot</span>
+            <span>{{ t('plugins.sections.current') }}</span>
           </div>
         </template>
 
         <el-skeleton :loading="detailLoading" animated>
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="Name">{{ current?.name ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Role">{{ current?.role ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Registration">{{ current?.registration_state ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Desired">{{ current?.desired_state ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Runtime">{{ current?.runtime_state ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Display">{{ current?.display_state ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Trust">{{ current?.trust?.label ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Source Root">{{ current?.source?.root ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Source Ref">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="命令冲突">
+            <el-descriptions-item :label="t('plugins.fields.name')">{{ current?.name ?? t('display.empty') }}</el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.role')">
+              {{ getPluginRoleLabel(current?.role) }}
+              <small v-if="current?.role"> · {{ current.role }}</small>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.registration')">
+              {{ getPluginRegistrationStateLabel(current?.registration_state) }}
+              <small v-if="current?.registration_state"> · {{ current.registration_state }}</small>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.desired')">
+              {{ getPluginDesiredStateLabel(current?.desired_state) }}
+              <small v-if="current?.desired_state"> · {{ current.desired_state }}</small>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.runtime')">
+              {{ getPluginRuntimeStateLabel(current?.runtime_state) }}
+              <small v-if="current?.runtime_state"> · {{ current.runtime_state }}</small>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.display')">{{ current?.display_state ?? t('display.empty') }}</el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.trust')">{{ current?.trust?.label ?? t('display.empty') }}</el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.sourceRoot')">{{ current?.source?.root ?? t('display.empty') }}</el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.sourceRef')">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? t('display.empty') }}</el-descriptions-item>
+            <el-descriptions-item :label="t('plugins.fields.conflicts')">
               <div v-if="current?.command_conflicts?.length" class="table-actions">
                 <el-tag v-for="command in current.command_conflicts" :key="command" size="small" type="warning">
                   {{ command }}
                 </el-tag>
               </div>
-              <span v-else>—</span>
+              <span v-else>{{ t('display.empty') }}</span>
             </el-descriptions-item>
           </el-descriptions>
         </el-skeleton>
@@ -171,25 +190,25 @@ onUnmounted(() => {
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>Effective Grants</span>
+            <span>{{ t('plugins.sections.grants') }}</span>
             <div class="table-actions">
               <el-tag size="small">{{ currentGrants.length }}</el-tag>
-              <el-button size="small" type="primary" @click="grantDialogVisible = true">新增授权</el-button>
+              <el-button size="small" type="primary" @click="grantDialogVisible = true">{{ t('plugins.actions.addGrant') }}</el-button>
             </div>
           </div>
         </template>
 
         <el-skeleton :loading="grantBusy" animated>
-          <el-empty v-if="currentGrants.length === 0" description="当前没有生效 grants" />
+          <el-empty v-if="currentGrants.length === 0" :description="t('plugins.empty.grants')" />
 
           <div v-else class="grant-list">
             <div v-for="grant in currentGrants" :key="`${grant.capability}-${grant.granted_at}`" class="grant-item">
               <div>
                 <strong>{{ grant.capability }}</strong>
-                <small>授予时间：{{ formatDateTime(grant.granted_at) }}</small>
-                <small>过期时间：{{ formatDateTime(grant.expires_at ?? undefined) }}</small>
+                <small>{{ t('plugins.fields.grantedAt') }}：{{ formatDateTime(grant.granted_at) }}</small>
+                <small>{{ t('plugins.fields.expiresAt') }}：{{ formatDateTime(grant.expires_at ?? undefined) }}</small>
               </div>
-              <el-button size="small" type="danger" plain @click="revokeGrant(grant.capability)">撤销</el-button>
+              <el-button size="small" type="danger" plain @click="revokeGrant(grant.capability)">{{ t('plugins.actions.revokeGrant') }}</el-button>
             </div>
           </div>
         </el-skeleton>
@@ -199,25 +218,25 @@ onUnmounted(() => {
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>Console</span>
+          <span>{{ t('plugins.sections.console') }}</span>
           <div class="table-actions">
-            <el-tag size="small">{{ consoleSnapshot.status }}</el-tag>
-            <el-button size="small" plain @click="socketStore.reconnectConsole()">重连</el-button>
-            <el-button size="small" plain @click="clearConsole">清空输出</el-button>
+            <el-tag size="small">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</el-tag>
+            <el-button size="small" plain @click="socketStore.reconnectConsole()">{{ t('plugins.actions.reconnectConsole') }}</el-button>
+            <el-button size="small" plain @click="clearConsole">{{ t('plugins.actions.clearConsole') }}</el-button>
           </div>
         </div>
       </template>
 
       <el-alert
         v-if="consoleSnapshot.lastError"
-        title="Console 连接异常"
+        :title="t('plugins.consoleUnavailable')"
         type="warning"
         :description="consoleSnapshot.lastError"
         show-icon
         class="section-gap"
       />
 
-      <el-empty v-if="consoleFrames.length === 0" description="等待 console 输出" />
+      <el-empty v-if="consoleFrames.length === 0" :description="t('plugins.empty.console')" />
 
       <div v-else class="console-feed">
         <div v-for="frame in consoleFrames" :key="`${frame.timestamp}-${frame.text}`" class="console-line">
@@ -228,34 +247,34 @@ onUnmounted(() => {
     </el-card>
   </div>
 
-  <el-dialog v-model="grantDialogVisible" title="新增授权" width="440px">
+  <el-dialog v-model="grantDialogVisible" :title="t('plugins.grantDialogTitle')" width="440px">
     <el-form label-position="top">
-      <el-form-item label="Capability">
+      <el-form-item :label="t('plugins.fields.capability')">
         <el-input v-model="grantForm.capability" placeholder="http.request" />
       </el-form-item>
-      <el-form-item label="Expires At (UTC RFC3339)">
+      <el-form-item :label="t('plugins.grantExpiry')">
         <el-input v-model="grantForm.expires_at" placeholder="2026-03-23T10:05:00Z" />
       </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="table-actions">
-        <el-button @click="grantDialogVisible = false">取消</el-button>
+        <el-button @click="grantDialogVisible = false">{{ t('dashboard.previewCancel') }}</el-button>
         <el-button type="primary" :loading="grantBusy" :disabled="!grantForm.capability" @click="submitGrant">
-          保存授权
+          {{ t('plugins.actions.saveGrant') }}
         </el-button>
       </div>
     </template>
   </el-dialog>
 
-  <el-dialog v-model="uninstallDialogVisible" title="确认卸载插件" width="420px">
-    <p>卸载会进入异步任务流。页面会跳转到任务详情继续跟踪执行状态。</p>
+  <el-dialog v-model="uninstallDialogVisible" :title="t('plugins.uninstallConfirmTitle')" width="420px">
+    <p>{{ t('plugins.uninstallConfirmBody') }}</p>
 
     <template #footer>
       <div class="table-actions">
-        <el-button @click="uninstallDialogVisible = false">取消</el-button>
+        <el-button @click="uninstallDialogVisible = false">{{ t('dashboard.previewCancel') }}</el-button>
         <el-button type="danger" :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallPlugin">
-          确认卸载
+          {{ t('plugins.actions.uninstallConfirm') }}
         </el-button>
       </div>
     </template>

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { toSetupErrorMessage } from '@/lib/auth-feedback'
+import { t } from '@/i18n'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
@@ -36,9 +37,9 @@ async function submit() {
   <div class="auth-page">
     <el-card class="auth-card">
       <div class="auth-copy">
-        <div class="page-eyebrow">管理界面</div>
-        <h1>创建管理员账号</h1>
-        <p>首次使用时，请先创建管理员账号。</p>
+        <div class="page-eyebrow">{{ t('auth.surface') }}</div>
+        <h1>{{ t('auth.setupTitle') }}</h1>
+        <p>{{ t('auth.setupBody') }}</p>
       </div>
 
       <el-alert
@@ -51,16 +52,16 @@ async function submit() {
       />
 
       <el-form ref="formRef" :model="form" label-position="top">
-        <el-form-item label="管理员账号" prop="identifier" :rules="[{ required: true, message: '请输入管理员账号' }]">
+        <el-form-item :label="t('auth.identifier')" prop="identifier" :rules="[{ required: true, message: '请输入管理员账号' }]">
           <el-input v-model="form.identifier" autocomplete="username" />
         </el-form-item>
 
-        <el-form-item label="管理员密钥" prop="secret" :rules="[{ required: true, message: '请输入管理员密钥' }]">
+        <el-form-item :label="t('auth.secret')" prop="secret" :rules="[{ required: true, message: '请输入管理员密钥' }]">
           <el-input v-model="form.secret" type="password" show-password autocomplete="new-password" />
         </el-form-item>
 
         <el-button type="primary" class="auth-submit" :loading="sessionStore.loginPending" @click="submit">
-          创建并进入管理界面
+          {{ t('auth.setupSubmit') }}
         </el-button>
       </el-form>
     </el-card>

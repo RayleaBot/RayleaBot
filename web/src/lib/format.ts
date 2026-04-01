@@ -1,9 +1,12 @@
+import { i18n } from '@/i18n'
+import { t } from '@/i18n'
+
 export function formatDateTime(value?: string) {
   if (!value) {
-    return '—'
+    return t('display.empty')
   }
 
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(i18n.global.locale.value, {
     dateStyle: 'short',
     timeStyle: 'medium',
   }).format(new Date(value))
@@ -11,20 +14,20 @@ export function formatDateTime(value?: string) {
 
 export function formatDurationSeconds(seconds?: number) {
   if (!seconds && seconds !== 0) {
-    return '—'
+    return t('display.empty')
   }
 
   if (seconds < 60) {
-    return `${seconds}s`
+    return `${seconds} 秒`
   }
 
   if (seconds < 3600) {
-    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+    return `${Math.floor(seconds / 60)} 分钟 ${seconds % 60} 秒`
   }
 
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
-  return `${hours}h ${minutes}m`
+  return `${hours} 小时 ${minutes} 分钟`
 }
 
 export function toMultilineList(values: string[]) {

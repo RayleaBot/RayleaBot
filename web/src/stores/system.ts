@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiDownload, apiRequest } from '@/lib/http'
 import type {
   EventsPayload,
@@ -11,6 +12,7 @@ import type {
   SystemShutdownResponse,
   SystemStatusResponse,
 } from '@/types/api'
+import { t } from '@/i18n'
 
 export const useSystemStore = defineStore('system', () => {
   const health = ref<LivenessStatusResponse | null>(null)
@@ -41,7 +43,7 @@ export const useSystemStore = defineStore('system', () => {
       readiness.value = nextReadiness
       system.value = nextSystem
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'system refresh failed'
+      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
       loading.value = false
@@ -49,7 +51,7 @@ export const useSystemStore = defineStore('system', () => {
   }
 
   function applyEvent(timestamp: string, payload: EventsPayload) {
-    let summary = 'management event'
+    let summary = '管理事件'
     if ('summary' in payload) {
       summary = payload.summary
     } else if ('plugin_id' in payload) {

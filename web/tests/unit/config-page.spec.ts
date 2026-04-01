@@ -12,7 +12,7 @@ function createFixtureConfig(): ConfigDocument {
     schema_version: '2',
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
-      ws_url: 'ws://127.0.0.1:6700',
+      ws_url: '',
       access_token: '__REDACTED__',
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
@@ -114,14 +114,39 @@ describe('ConfigPage', () => {
     })
 
     await flushPromises()
+    expect(wrapper.text()).toContain('监听地址')
+    expect(wrapper.text()).toContain('服务监听')
     const hostInput = wrapper.find('input')
     await hostInput.setValue('0.0.0.0')
 
-    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存配置'))
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].server.host).toBe('0.0.0.0')
+  })
+
+  it('uses a dual-pane config editor and keeps the OneBot address blank by default', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [ElementPlus],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.config-layout').exists()).toBe(true)
+    expect(wrapper.find('.config-nav-viewport').exists()).toBe(true)
+    expect(wrapper.find('.config-editor-panel').exists()).toBe(true)
+
+    const inputs = wrapper.findAll('input')
+    const onebotInput = inputs.find((candidate) => candidate.element.value === '')
+    expect(onebotInput).toBeTruthy()
   })
 })

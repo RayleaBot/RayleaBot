@@ -16,6 +16,7 @@ declare module 'vue-router' {
     public?: boolean
     requiresAuth?: boolean
     title?: string
+    titleKey?: string
   }
 }
 
@@ -24,25 +25,25 @@ export const routes: RouteRecordRaw[] = [
     path: '/setup',
     name: 'setup',
     component: SetupPage,
-    meta: { public: true, title: '创建管理员账号' },
+    meta: { public: true, titleKey: 'routes.setup' },
   },
   {
     path: '/login',
     name: 'login',
     component: LoginPage,
-    meta: { public: true, title: '登录' },
+    meta: { public: true, titleKey: 'routes.login' },
   },
   {
     path: '/',
     component: AppShell,
     meta: { requiresAuth: true },
     children: [
-      { path: '', name: 'status', component: DashboardPage, meta: { requiresAuth: true, title: '系统状态' } },
-      { path: 'plugins', name: 'plugins', component: PluginsPage, meta: { requiresAuth: true, title: '插件' } },
-      { path: 'plugins/:id', name: 'plugin-detail', component: PluginDetailPage, meta: { requiresAuth: true, title: '插件详情' } },
-      { path: 'tasks', name: 'tasks', component: TasksPage, meta: { requiresAuth: true, title: '任务' } },
-      { path: 'logs', name: 'logs', component: LogsPage, meta: { requiresAuth: true, title: '日志' } },
-      { path: 'config', name: 'config', component: ConfigPage, meta: { requiresAuth: true, title: '配置' } },
+      { path: '', name: 'status', component: DashboardPage, meta: { requiresAuth: true, titleKey: 'routes.status' } },
+      { path: 'plugins', name: 'plugins', component: PluginsPage, meta: { requiresAuth: true, titleKey: 'routes.plugins' } },
+      { path: 'plugins/:id', name: 'plugin-detail', component: PluginDetailPage, meta: { requiresAuth: true, titleKey: 'routes.pluginDetail' } },
+      { path: 'tasks', name: 'tasks', component: TasksPage, meta: { requiresAuth: true, titleKey: 'routes.tasks' } },
+      { path: 'logs', name: 'logs', component: LogsPage, meta: { requiresAuth: true, titleKey: 'routes.logs' } },
+      { path: 'config', name: 'config', component: ConfigPage, meta: { requiresAuth: true, titleKey: 'routes.config' } },
     ],
   },
 ]

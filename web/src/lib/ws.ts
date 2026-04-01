@@ -106,7 +106,7 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
       const frame = JSON.parse(String(event.data)) as WebSocketFrame<TFrameData> | SessionExpiredFrame
 
       if ('type' in frame && frame.type === 'session_expired') {
-        this.setStatus('auth_failed', 'session expired')
+        this.setStatus('auth_failed', '会话已失效')
         this.runtime.onSessionExpired(this.tokenSnapshot)
         this.stop()
         return
@@ -117,7 +117,7 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
     })
 
     socket.addEventListener('error', () => {
-      this.lastError = `${this.name} socket error`
+      this.lastError = `${this.name} 连接异常`
     })
 
     socket.addEventListener('close', () => {

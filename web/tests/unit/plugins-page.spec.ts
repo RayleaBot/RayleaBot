@@ -12,7 +12,7 @@ describe('PluginsPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('calls enable action when the enable button is pressed', async () => {
+  it('calls enable action when the chinese enable button is pressed', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: { template: '<div />' } }],
@@ -38,7 +38,7 @@ describe('PluginsPage', () => {
     })
 
     await flushPromises()
-    const button = wrapper.findAll('button').find((candidate) => candidate.text().includes('Enable'))
+    const button = wrapper.findAll('button').find((candidate) => candidate.text().includes('启用'))
     expect(button).toBeTruthy()
     await button!.trigger('click')
 
@@ -84,9 +84,45 @@ describe('PluginsPage', () => {
 
     await flushPromises()
 
+    expect(wrapper.text()).toContain('插件 ID')
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
+    expect(wrapper.text()).toContain('已安装')
+    expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('weather')
+  })
+
+  it('uses a fixed internal viewport instead of a wide desktop table', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [
+      {
+        id: 'weather',
+        name: 'Weather',
+        role: 'user',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+      },
+    ]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.data-viewport').exists()).toBe(true)
+    expect(wrapper.find('.plugin-summary-row').exists()).toBe(true)
+    expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 })

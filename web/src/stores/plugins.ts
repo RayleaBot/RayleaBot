@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import type {
   PluginDetailResponse,
@@ -43,7 +44,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       const response = await apiRequest<PluginListResponse>('/api/plugins')
       items.value = response.items
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'plugin list failed'
+      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
       loading.value = false

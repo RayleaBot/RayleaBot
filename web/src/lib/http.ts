@@ -5,14 +5,23 @@ export class ApiError extends Error {
   status: number
   requestId?: string
   details?: Record<string, unknown>
+  messageKey?: string
 
-  constructor(message: string, status: number, code = 'platform.unknown', requestId?: string, details?: Record<string, unknown>) {
+  constructor(
+    message: string,
+    status: number,
+    code = 'platform.unknown',
+    requestId?: string,
+    details?: Record<string, unknown>,
+    messageKey?: string,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
     this.requestId = requestId
     this.details = details
+    this.messageKey = messageKey
   }
 }
 
@@ -117,6 +126,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       errorEnvelope?.error.code,
       errorEnvelope?.error.request_id,
       errorEnvelope?.error.details,
+      errorEnvelope?.error.message_key,
     )
   }
 
@@ -152,6 +162,7 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
       errorEnvelope?.error.code,
       errorEnvelope?.error.request_id,
       errorEnvelope?.error.details,
+      errorEnvelope?.error.message_key,
     )
   }
 

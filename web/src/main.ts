@@ -4,6 +4,7 @@ import ElementPlus from 'element-plus'
 import { createApp } from 'vue'
 
 import App from '@/App.vue'
+import { i18n } from '@/i18n'
 import { toLauncherAdmissionHint } from '@/lib/auth-feedback'
 import { configureApiRuntime } from '@/lib/http'
 import { createAppRouter } from '@/router'
@@ -75,6 +76,7 @@ async function bootstrap() {
 
   app.use(pinia)
   app.use(ElementPlus)
+  app.use(i18n)
 
   const sessionStore = useSessionStore(pinia)
   const socketStore = useSocketStore(pinia)

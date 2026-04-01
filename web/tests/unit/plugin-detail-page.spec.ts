@@ -76,6 +76,9 @@ describe('PluginDetailPage', () => {
 
     await flushPromises()
 
+    expect(wrapper.text()).toContain('当前状态')
+    expect(wrapper.text()).toContain('当前授权')
+    expect(wrapper.text()).toContain('实时控制台')
     expect(wrapper.text()).toContain('http.request')
     expect(wrapper.text()).toContain('Traceback (most recent call last): ...')
     expect(wrapper.text()).toContain('Weather')
@@ -83,7 +86,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('weather')
 
-    const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重连'))
+    const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新连接'))
     expect(reconnectButton).toBeTruthy()
     await reconnectButton!.trigger('click')
 

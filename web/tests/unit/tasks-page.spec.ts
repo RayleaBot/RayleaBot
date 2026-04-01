@@ -88,10 +88,46 @@ describe('TasksPage', () => {
 
     await flushPromises()
 
+    expect(wrapper.text()).toContain('任务类型')
+    expect(wrapper.text()).toContain('渲染预览')
     expect(wrapper.text()).toContain('render.preview')
     expect(wrapper.text()).toContain('渲染预览已生成')
-    const image = wrapper.find('img[alt="render preview"]')
+    const image = wrapper.find('img[alt="渲染预览结果"]')
     expect(image.exists()).toBe(true)
     expect(image.attributes('src')).toContain('/api/system/render/artifacts/render_preview_0001.png')
+  })
+
+  it('renders the task list inside a fixed internal viewport', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/tasks', component: TasksPage }],
+    })
+    await router.push('/tasks')
+    await router.isReady()
+
+    const store = useTasksStore()
+    store.items = [
+      {
+        task_id: 'task_backup_create_0001',
+        task_type: 'backup.create',
+        status: 'running',
+        progress: 40,
+        summary: '正在创建备份',
+      },
+    ]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(TasksPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.data-viewport').exists()).toBe(true)
+    expect(wrapper.find('.task-summary-row').exists()).toBe(true)
+    expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 })

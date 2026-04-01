@@ -1,4 +1,5 @@
 import type { ConfigDocument } from '@/types/api'
+import { t } from '@/i18n'
 
 export interface ConfigFieldOption {
   label: string
@@ -16,240 +17,233 @@ export interface ConfigFieldDefinition {
 export interface ConfigSectionDefinition {
   key: keyof ConfigDocument
   title: string
-  description: string
+  description?: string
   fields: ConfigFieldDefinition[]
 }
 
-export const configSections: ConfigSectionDefinition[] = [
-  {
-    key: 'server',
-    title: 'Server',
-    description: 'HTTP 监听地址与端口。',
-    fields: [
-      { path: 'server.host', label: 'Host', type: 'text' },
-      { path: 'server.port', label: 'Port', type: 'number' },
-    ],
-  },
-  {
-    key: 'onebot',
-    title: 'OneBot',
-    description: '反向 WebSocket 连接与鉴权。',
-    fields: [
-      { path: 'onebot.ws_url', label: 'WS URL', type: 'text' },
-      { path: 'onebot.access_token', label: 'Access Token', type: 'text', description: '未改动时保留 __REDACTED__。' },
-    ],
-  },
-  {
-    key: 'database',
-    title: 'Database',
-    description: 'SQLite 主状态库。',
-    fields: [
-      { path: 'database.engine', label: 'Engine', type: 'text' },
-      { path: 'database.path', label: 'Path', type: 'text' },
-    ],
-  },
-  {
-    key: 'command',
-    title: 'Command',
-    description: '聊天侧命令前缀。',
-    fields: [{ path: 'command.prefixes', label: 'Prefixes', type: 'list' }],
-  },
-  {
-    key: 'admin',
-    title: 'Admin',
-    description: '管理会话与登录限流。',
-    fields: [
-      { path: 'admin.super_admins', label: 'Super Admins', type: 'list' },
-      { path: 'admin.session_ttl_days', label: 'Session TTL Days', type: 'number' },
-      { path: 'admin.sliding_renewal', label: 'Sliding Renewal', type: 'boolean' },
-      { path: 'admin.max_sessions', label: 'Max Sessions', type: 'number' },
-      { path: 'admin.login_fail_limit', label: 'Login Fail Limit', type: 'number' },
-      { path: 'admin.login_fail_window_seconds', label: 'Login Fail Window Seconds', type: 'number' },
-    ],
-  },
-  {
-    key: 'permission',
-    title: 'Permission',
-    description: '管理会话、自动授权和聊天侧默认权限。',
-    fields: [
-      {
-        path: 'permission.default_level',
-        label: 'Default Level',
-        type: 'select',
-        options: [
-          { label: 'Everyone', value: 'everyone' },
-          { label: 'Group Admin', value: 'group_admin' },
-          { label: 'Super Admin', value: 'super_admin' },
-        ],
-      },
-      { path: 'permission.auto_grant_capabilities', label: 'Auto Grant Capabilities', type: 'list' },
-    ],
-  },
-  {
-    key: 'render',
-    title: 'Render',
-    description: 'Render service 保留配置。',
-    fields: [
-      { path: 'render.worker_count', label: 'Worker Count', type: 'number' },
-      { path: 'render.browser_args', label: 'Browser Args', type: 'list' },
-      { path: 'render.browser_path', label: 'Browser Path', type: 'text' },
-      { path: 'render.timeout_seconds', label: 'Timeout Seconds', type: 'number' },
-      { path: 'render.queue_wait_timeout_seconds', label: 'Queue Wait Timeout', type: 'number' },
-      { path: 'render.queue_max_length', label: 'Queue Max Length', type: 'number' },
-    ],
-  },
-  {
-    key: 'scheduler',
-    title: 'Scheduler',
-    description: '平台调度器时区。',
-    fields: [{ path: 'scheduler.timezone', label: 'Timezone', type: 'text' }],
-  },
-  {
-    key: 'runtime',
-    title: 'Runtime',
-    description: '插件运行时、队列和 IPC 约束。',
-    fields: [
-      { path: 'runtime.plugin_init_timeout_seconds', label: 'Init Timeout', type: 'number' },
-      { path: 'runtime.plugin_init_max_total_seconds', label: 'Init Max Total', type: 'number' },
-      { path: 'runtime.plugin_event_timeout_seconds', label: 'Event Timeout', type: 'number' },
-      { path: 'runtime.max_pending_events_per_plugin', label: 'Pending Events', type: 'number' },
-      { path: 'runtime.max_pending_control_events_per_plugin', label: 'Pending Control Events', type: 'number' },
-      { path: 'runtime.nodejs_max_old_space_size_mb', label: 'Node.js Old Space MB', type: 'number' },
-      { path: 'runtime.dependency_install_timeout_seconds', label: 'Dependency Install Timeout', type: 'number' },
-      { path: 'runtime.max_concurrent_dependency_installs', label: 'Concurrent Dependency Installs', type: 'number' },
-      { path: 'runtime.ipc_pending_actions_max', label: 'IPC Pending Actions Max', type: 'number' },
-      { path: 'runtime.ipc_action_burst_limit', label: 'IPC Action Burst Limit', type: 'text' },
-      { path: 'runtime.stderr_rate_limit_bytes_per_second', label: 'Stderr Rate Limit', type: 'number' },
-      { path: 'runtime.max_concurrent_tasks_per_plugin', label: 'Concurrent Tasks Per Plugin', type: 'number' },
-      { path: 'runtime.crash_backoff_initial_seconds', label: 'Crash Backoff Initial', type: 'number' },
-      { path: 'runtime.crash_backoff_max_seconds', label: 'Crash Backoff Max', type: 'number' },
-      { path: 'runtime.shutdown_grace_seconds', label: 'Shutdown Grace Seconds', type: 'number' },
-      { path: 'runtime.ipc_message_max_bytes', label: 'IPC Message Max Bytes', type: 'number' },
-    ],
-  },
-  {
-    key: 'storage',
-    title: 'Storage',
-    description: '插件本地 KV 与文件区限制。',
-    fields: [
-      { path: 'storage.kv_value_max_bytes', label: 'KV Value Max Bytes', type: 'number' },
-      { path: 'storage.kv_total_limit_mb', label: 'KV Total Limit MB', type: 'number' },
-      { path: 'storage.file_max_bytes', label: 'File Max Bytes', type: 'number' },
-      { path: 'storage.plugin_workdir_soft_limit_mb', label: 'Plugin Workdir Soft Limit MB', type: 'number' },
-    ],
-  },
-  {
-    key: 'data',
-    title: 'Data',
-    description: '短期运营数据保留窗口。',
-    fields: [
-      { path: 'data.audit_logs_retention_days', label: 'Audit Logs Days', type: 'number' },
-      { path: 'data.event_records_retention_days', label: 'Event Records Days', type: 'number' },
-      { path: 'data.download_cache_retention_days', label: 'Download Cache Days', type: 'number' },
-    ],
-  },
-  {
-    key: 'log',
-    title: 'Log',
-    description: '管理日志等级、保留与插件日志预算。',
-    fields: [
-      {
-        path: 'log.level',
-        label: 'Level',
-        type: 'select',
-        options: [
-          { label: 'Debug', value: 'debug' },
-          { label: 'Info', value: 'info' },
-          { label: 'Warn', value: 'warn' },
-          { label: 'Error', value: 'error' },
-        ],
-      },
-      { path: 'log.retention_days', label: 'Retention Days', type: 'number' },
-      { path: 'log.rate_limit_per_plugin', label: 'Rate Limit', type: 'text' },
-    ],
-  },
-  {
-    key: 'message',
-    title: 'Message',
-    description: '消息发送限流与熔断。',
-    fields: [
-      { path: 'message.rate_limit_per_plugin', label: 'Plugin Rate Limit', type: 'text' },
-      { path: 'message.rate_limit_per_target', label: 'Target Rate Limit', type: 'text' },
-      { path: 'message.circuit_breaker_seconds', label: 'Circuit Breaker Seconds', type: 'number' },
-    ],
-  },
-  {
-    key: 'user',
-    title: 'User',
-    description: '用户级命令冷却反馈。',
-    fields: [
-      { path: 'user.command_rate_limit', label: 'Command Rate Limit', type: 'text' },
-      { path: 'user.cooldown_reply', label: 'Cooldown Reply', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'group',
-    title: 'Group',
-    description: '群级命令冷却反馈。',
-    fields: [{ path: 'group.command_rate_limit', label: 'Command Rate Limit', type: 'text' }],
-  },
-  {
-    key: 'adapter',
-    title: 'Adapter',
-    description: '适配器连接与重连策略。',
-    fields: [
-      { path: 'adapter.connect_timeout_seconds', label: 'Connect Timeout', type: 'number' },
-      { path: 'adapter.reconnect_initial_seconds', label: 'Reconnect Initial', type: 'number' },
-      { path: 'adapter.reconnect_multiplier', label: 'Reconnect Multiplier', type: 'number' },
-      { path: 'adapter.reconnect_max_seconds', label: 'Reconnect Max', type: 'number' },
-      { path: 'adapter.reconnect_jitter_ratio', label: 'Reconnect Jitter', type: 'number' },
-    ],
-  },
-  {
-    key: 'http',
-    title: 'HTTP',
-    description: '插件本地 http.request 限制。',
-    fields: [
-      { path: 'http.timeout_seconds', label: 'Timeout Seconds', type: 'number' },
-      { path: 'http.max_retries', label: 'Max Retries', type: 'number' },
-      { path: 'http.allow_private_hosts', label: 'Allow Private Hosts', type: 'list' },
-    ],
-  },
-  {
-    key: 'web',
-    title: 'Web',
-    description: '管理面暴露模式。',
-    fields: [
-      {
-        path: 'web.exposure_mode',
-        label: 'Exposure Mode',
-        type: 'select',
-        options: [
-          { label: 'Localhost Only', value: 'localhost_only' },
-          { label: 'LAN Enabled', value: 'lan_enabled' },
-          { label: 'Reverse Proxy', value: 'public_via_reverse_proxy' },
-        ],
-      },
-      { path: 'web.setup_local_only', label: 'Setup Local Only', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'backup',
-    title: 'Backup',
-    description: '备份默认一致性。',
-    fields: [
-      {
-        path: 'backup.default_consistency',
-        label: 'Default Consistency',
-        type: 'select',
-        options: [
-          { label: 'Offline', value: 'offline' },
-          { label: 'Online', value: 'online' },
-        ],
-      },
-    ],
-  },
-]
+export function getConfigSections(): ConfigSectionDefinition[] {
+  return [
+    {
+      key: 'server',
+      title: t('config.sections.server'),
+      fields: [
+        { path: 'server.host', label: t('config.fields.serverHost'), type: 'text' },
+        { path: 'server.port', label: t('config.fields.serverPort'), type: 'number' },
+      ],
+    },
+    {
+      key: 'onebot',
+      title: t('config.sections.onebot'),
+      fields: [
+        {
+          path: 'onebot.ws_url',
+          label: t('config.fields.onebotWsUrl'),
+          type: 'text',
+          description: t('config.hints.onebotOptional'),
+        },
+        {
+          path: 'onebot.access_token',
+          label: t('config.fields.onebotAccessToken'),
+          type: 'text',
+          description: t('config.hints.redacted'),
+        },
+      ],
+    },
+    {
+      key: 'database',
+      title: t('config.sections.database'),
+      fields: [
+        { path: 'database.engine', label: t('config.fields.databaseEngine'), type: 'text' },
+        { path: 'database.path', label: t('config.fields.databasePath'), type: 'text' },
+      ],
+    },
+    {
+      key: 'command',
+      title: t('config.sections.command'),
+      fields: [{ path: 'command.prefixes', label: t('config.fields.commandPrefixes'), type: 'list' }],
+    },
+    {
+      key: 'admin',
+      title: t('config.sections.admin'),
+      fields: [
+        { path: 'admin.super_admins', label: t('config.fields.adminSuperAdmins'), type: 'list' },
+        { path: 'admin.session_ttl_days', label: t('config.fields.adminSessionTtlDays'), type: 'number' },
+        { path: 'admin.sliding_renewal', label: t('config.fields.adminSlidingRenewal'), type: 'boolean' },
+        { path: 'admin.max_sessions', label: t('config.fields.adminMaxSessions'), type: 'number' },
+        { path: 'admin.login_fail_limit', label: t('config.fields.adminLoginFailLimit'), type: 'number' },
+        { path: 'admin.login_fail_window_seconds', label: t('config.fields.adminLoginFailWindowSeconds'), type: 'number' },
+      ],
+    },
+    {
+      key: 'permission',
+      title: t('config.sections.permission'),
+      fields: [
+        {
+          path: 'permission.default_level',
+          label: t('config.fields.permissionDefaultLevel'),
+          type: 'select',
+          options: [
+            { label: t('config.options.permissionEveryone'), value: 'everyone' },
+            { label: t('config.options.permissionGroupAdmin'), value: 'group_admin' },
+            { label: t('config.options.permissionSuperAdmin'), value: 'super_admin' },
+          ],
+        },
+        { path: 'permission.auto_grant_capabilities', label: t('config.fields.permissionAutoGrantCapabilities'), type: 'list' },
+      ],
+    },
+    {
+      key: 'render',
+      title: t('config.sections.render'),
+      fields: [
+        { path: 'render.worker_count', label: t('config.fields.renderWorkerCount'), type: 'number' },
+        { path: 'render.browser_args', label: t('config.fields.renderBrowserArgs'), type: 'list' },
+        { path: 'render.browser_path', label: t('config.fields.renderBrowserPath'), type: 'text' },
+        { path: 'render.timeout_seconds', label: t('config.fields.renderTimeoutSeconds'), type: 'number' },
+        { path: 'render.queue_wait_timeout_seconds', label: t('config.fields.renderQueueWaitTimeoutSeconds'), type: 'number' },
+        { path: 'render.queue_max_length', label: t('config.fields.renderQueueMaxLength'), type: 'number' },
+      ],
+    },
+    {
+      key: 'scheduler',
+      title: t('config.sections.scheduler'),
+      fields: [{ path: 'scheduler.timezone', label: t('config.fields.schedulerTimezone'), type: 'text' }],
+    },
+    {
+      key: 'runtime',
+      title: t('config.sections.runtime'),
+      fields: [
+        { path: 'runtime.plugin_init_timeout_seconds', label: t('config.fields.runtimePluginInitTimeoutSeconds'), type: 'number' },
+        { path: 'runtime.plugin_init_max_total_seconds', label: t('config.fields.runtimePluginInitMaxTotalSeconds'), type: 'number' },
+        { path: 'runtime.plugin_event_timeout_seconds', label: t('config.fields.runtimePluginEventTimeoutSeconds'), type: 'number' },
+        { path: 'runtime.max_pending_events_per_plugin', label: t('config.fields.runtimeMaxPendingEventsPerPlugin'), type: 'number' },
+        { path: 'runtime.max_pending_control_events_per_plugin', label: t('config.fields.runtimeMaxPendingControlEventsPerPlugin'), type: 'number' },
+        { path: 'runtime.nodejs_max_old_space_size_mb', label: t('config.fields.runtimeNodejsMaxOldSpaceSizeMb'), type: 'number' },
+        { path: 'runtime.dependency_install_timeout_seconds', label: t('config.fields.runtimeDependencyInstallTimeoutSeconds'), type: 'number' },
+        { path: 'runtime.max_concurrent_dependency_installs', label: t('config.fields.runtimeMaxConcurrentDependencyInstalls'), type: 'number' },
+        { path: 'runtime.ipc_pending_actions_max', label: t('config.fields.runtimeIpcPendingActionsMax'), type: 'number' },
+        { path: 'runtime.ipc_action_burst_limit', label: t('config.fields.runtimeIpcActionBurstLimit'), type: 'text' },
+        { path: 'runtime.stderr_rate_limit_bytes_per_second', label: t('config.fields.runtimeStderrRateLimitBytesPerSecond'), type: 'number' },
+        { path: 'runtime.max_concurrent_tasks_per_plugin', label: t('config.fields.runtimeMaxConcurrentTasksPerPlugin'), type: 'number' },
+        { path: 'runtime.crash_backoff_initial_seconds', label: t('config.fields.runtimeCrashBackoffInitialSeconds'), type: 'number' },
+        { path: 'runtime.crash_backoff_max_seconds', label: t('config.fields.runtimeCrashBackoffMaxSeconds'), type: 'number' },
+        { path: 'runtime.shutdown_grace_seconds', label: t('config.fields.runtimeShutdownGraceSeconds'), type: 'number' },
+        { path: 'runtime.ipc_message_max_bytes', label: t('config.fields.runtimeIpcMessageMaxBytes'), type: 'number' },
+      ],
+    },
+    {
+      key: 'storage',
+      title: t('config.sections.storage'),
+      fields: [
+        { path: 'storage.kv_value_max_bytes', label: t('config.fields.storageKvValueMaxBytes'), type: 'number' },
+        { path: 'storage.kv_total_limit_mb', label: t('config.fields.storageKvTotalLimitMb'), type: 'number' },
+        { path: 'storage.file_max_bytes', label: t('config.fields.storageFileMaxBytes'), type: 'number' },
+        { path: 'storage.plugin_workdir_soft_limit_mb', label: t('config.fields.storagePluginWorkdirSoftLimitMb'), type: 'number' },
+      ],
+    },
+    {
+      key: 'data',
+      title: t('config.sections.data'),
+      fields: [
+        { path: 'data.audit_logs_retention_days', label: t('config.fields.dataAuditLogsRetentionDays'), type: 'number' },
+        { path: 'data.event_records_retention_days', label: t('config.fields.dataEventRecordsRetentionDays'), type: 'number' },
+        { path: 'data.download_cache_retention_days', label: t('config.fields.dataDownloadCacheRetentionDays'), type: 'number' },
+      ],
+    },
+    {
+      key: 'log',
+      title: t('config.sections.log'),
+      fields: [
+        {
+          path: 'log.level',
+          label: t('config.fields.logLevel'),
+          type: 'select',
+          options: [
+            { label: t('config.options.logDebug'), value: 'debug' },
+            { label: t('config.options.logInfo'), value: 'info' },
+            { label: t('config.options.logWarn'), value: 'warn' },
+            { label: t('config.options.logError'), value: 'error' },
+          ],
+        },
+        { path: 'log.retention_days', label: t('config.fields.logRetentionDays'), type: 'number' },
+        { path: 'log.rate_limit_per_plugin', label: t('config.fields.logRateLimitPerPlugin'), type: 'text' },
+      ],
+    },
+    {
+      key: 'message',
+      title: t('config.sections.message'),
+      fields: [
+        { path: 'message.rate_limit_per_plugin', label: t('config.fields.messageRateLimitPerPlugin'), type: 'text' },
+        { path: 'message.rate_limit_per_target', label: t('config.fields.messageRateLimitPerTarget'), type: 'text' },
+        { path: 'message.circuit_breaker_seconds', label: t('config.fields.messageCircuitBreakerSeconds'), type: 'number' },
+      ],
+    },
+    {
+      key: 'user',
+      title: t('config.sections.user'),
+      fields: [
+        { path: 'user.command_rate_limit', label: t('config.fields.userCommandRateLimit'), type: 'text' },
+        { path: 'user.cooldown_reply', label: t('config.fields.userCooldownReply'), type: 'boolean' },
+      ],
+    },
+    {
+      key: 'group',
+      title: t('config.sections.group'),
+      fields: [{ path: 'group.command_rate_limit', label: t('config.fields.groupCommandRateLimit'), type: 'text' }],
+    },
+    {
+      key: 'adapter',
+      title: t('config.sections.adapter'),
+      fields: [
+        { path: 'adapter.connect_timeout_seconds', label: t('config.fields.adapterConnectTimeoutSeconds'), type: 'number' },
+        { path: 'adapter.reconnect_initial_seconds', label: t('config.fields.adapterReconnectInitialSeconds'), type: 'number' },
+        { path: 'adapter.reconnect_multiplier', label: t('config.fields.adapterReconnectMultiplier'), type: 'number' },
+        { path: 'adapter.reconnect_max_seconds', label: t('config.fields.adapterReconnectMaxSeconds'), type: 'number' },
+        { path: 'adapter.reconnect_jitter_ratio', label: t('config.fields.adapterReconnectJitterRatio'), type: 'number' },
+      ],
+    },
+    {
+      key: 'http',
+      title: t('config.sections.http'),
+      fields: [
+        { path: 'http.timeout_seconds', label: t('config.fields.httpTimeoutSeconds'), type: 'number' },
+        { path: 'http.max_retries', label: t('config.fields.httpMaxRetries'), type: 'number' },
+        { path: 'http.allow_private_hosts', label: t('config.fields.httpAllowPrivateHosts'), type: 'list' },
+      ],
+    },
+    {
+      key: 'web',
+      title: t('config.sections.web'),
+      fields: [
+        {
+          path: 'web.exposure_mode',
+          label: t('config.fields.webExposureMode'),
+          type: 'select',
+          options: [
+            { label: t('config.options.webExposureLocalhostOnly'), value: 'localhost_only' },
+            { label: t('config.options.webExposureLanEnabled'), value: 'lan_enabled' },
+            { label: t('config.options.webExposureReverseProxy'), value: 'public_via_reverse_proxy' },
+          ],
+        },
+        { path: 'web.setup_local_only', label: t('config.fields.webSetupLocalOnly'), type: 'boolean' },
+      ],
+    },
+    {
+      key: 'backup',
+      title: t('config.sections.backup'),
+      fields: [
+        {
+          path: 'backup.default_consistency',
+          label: t('config.fields.backupDefaultConsistency'),
+          type: 'select',
+          options: [
+            { label: t('config.options.backupOffline'), value: 'offline' },
+            { label: t('config.options.backupOnline'), value: 'online' },
+          ],
+        },
+      ],
+    },
+  ]
+}
 
 export function cloneConfig(config: ConfigDocument) {
   return JSON.parse(JSON.stringify(config)) as ConfigDocument

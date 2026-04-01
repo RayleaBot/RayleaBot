@@ -5,7 +5,11 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import RetryPanel from '@/components/RetryPanel.vue'
+import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
+import { getTaskStatusLabel, getTaskTypeLabel } from '@/lib/display'
+import { t } from '@/i18n'
 import type { TaskSummary } from '@/types/api'
 import { useTasksStore } from '@/stores/tasks'
 
@@ -29,7 +33,7 @@ async function inspect(taskId: string) {
     detailVisible.value = true
     await router.replace({ name: 'tasks', query: { ...route.query, task_id: taskId } })
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'task detail load failed')
+    ElMessage.error(getDisplayErrorMessage(error))
   }
 }
 
@@ -40,9 +44,9 @@ async function cancelCurrent() {
 
   try {
     await tasksStore.cancelTask(currentTask.value.task_id)
-    ElMessage.success('取消请求已发送')
+    ElMessage.success(t('tasks.cancelAccepted'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'cancel failed')
+    ElMessage.error(getDisplayErrorMessage(error))
   }
 }
 
@@ -79,7 +83,7 @@ function taskDetailEntries(details?: Record<string, unknown>) {
 
 function formatTaskDetailValue(value: unknown) {
   if (value === null || value === undefined || value === '') {
-    return '—'
+    return t('display.empty')
   }
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return String(value)
@@ -94,72 +98,92 @@ function previewImageUrl(task: TaskSummary | null) {
 </script>
 
 <template>
-  <div class="page-grid">
+  <div class="page-grid page-grid--viewport">
     <section class="hero-panel">
       <div>
-        <div class="page-eyebrow">Tasks</div>
-        <h1>后台任务</h1>
-        <p>查看后台任务列表与最新状态。</p>
+        <h1>{{ t('tasks.title') }}</h1>
       </div>
 
       <el-button :loading="loading" @click="loadTasks()">
-        刷新任务
+        {{ t('tasks.refresh') }}
       </el-button>
     </section>
 
     <RetryPanel
       v-if="error && sortedItems.length === 0"
-      title="任务列表读取失败"
+      :title="t('errors.common.loadFailed')"
       :description="error"
       :loading="loading"
       @retry="loadTasks()"
     />
 
-    <el-alert v-else-if="error" title="任务列表读取失败" type="error" :description="error" show-icon />
+    <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <el-table class="desktop-table" :data="sortedItems" stripe @row-click="(row) => inspect(row.task_id)">
-      <el-table-column prop="task_id" label="Task ID" min-width="220" />
-      <el-table-column prop="task_type" label="Type" min-width="150" />
-      <el-table-column prop="status" label="Status" width="130" />
-      <el-table-column prop="progress" label="Progress" width="120" />
-      <el-table-column prop="summary" label="Summary" min-width="260" />
-    </el-table>
-
-    <div class="mobile-card-list">
-      <el-card
-        v-for="row in sortedItems"
-        :key="row.task_id"
-        class="mobile-data-card"
-        @click="inspect(row.task_id)"
-      >
-        <div class="mobile-data-header">
-          <strong>{{ row.task_type }}</strong>
-          <el-tag size="small">{{ row.status }}</el-tag>
+    <VirtualDataViewport
+      :items="sortedItems"
+      :item-height="156"
+      :viewport-height="620"
+      :get-item-key="(row) => row.task_id"
+      :empty-label="t('display.empty')"
+    >
+      <template #header>
+        <div class="data-panel-header task-summary-head">
+          <span>{{ t('tasks.fields.id') }}</span>
+          <span>{{ t('tasks.fields.type') }}</span>
+          <span>{{ t('tasks.fields.status') }}</span>
+          <span>{{ t('tasks.fields.summary') }}</span>
         </div>
-        <div class="mobile-data-grid">
-          <div><span>任务</span><strong>{{ row.task_id }}</strong></div>
-          <div><span>进度</span><strong>{{ row.progress ?? '—' }}</strong></div>
-        </div>
-        <p class="mobile-data-copy">{{ row.summary }}</p>
-      </el-card>
-    </div>
+      </template>
 
-    <el-drawer v-model="detailVisible" title="任务详情" size="clamp(320px, 92vw, 720px)" :modal="false">
+      <template #default="{ item: row }">
+        <article class="task-summary-row">
+          <div class="mono-list">
+            <strong>{{ row.task_id }}</strong>
+            <small>{{ formatDateTime(row.started_at) }}</small>
+          </div>
+
+          <div class="task-summary-main">
+            <strong>{{ getTaskTypeLabel(row.task_type) }}</strong>
+            <small>{{ row.task_type }}</small>
+          </div>
+
+          <div class="task-summary-status">
+            <el-tag size="small">{{ getTaskStatusLabel(row.status) }}</el-tag>
+            <strong>{{ row.progress ?? t('display.empty') }}</strong>
+          </div>
+
+          <div class="task-summary-copy">
+            <p>{{ row.summary }}</p>
+            <el-button size="small" plain @click="inspect(row.task_id)">
+              {{ t('tasks.actions.detail') }}
+            </el-button>
+          </div>
+        </article>
+      </template>
+    </VirtualDataViewport>
+
+    <el-drawer v-model="detailVisible" :title="t('tasks.detailTitle')" size="clamp(320px, 92vw, 720px)" :modal="false">
       <el-skeleton :loading="detailLoading" animated>
         <template v-if="currentTask">
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="Task ID">{{ currentTask.task_id }}</el-descriptions-item>
-            <el-descriptions-item label="Type">{{ currentTask.task_type }}</el-descriptions-item>
-            <el-descriptions-item label="Status">{{ currentTask.status }}</el-descriptions-item>
-            <el-descriptions-item label="Progress">{{ currentTask.progress ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="Summary">{{ currentTask.summary }}</el-descriptions-item>
-            <el-descriptions-item label="Started">{{ formatDateTime(currentTask.started_at) }}</el-descriptions-item>
-            <el-descriptions-item label="Finished">{{ formatDateTime(currentTask.finished_at) }}</el-descriptions-item>
+            <el-descriptions-item :label="t('tasks.fields.id')">{{ currentTask.task_id }}</el-descriptions-item>
+            <el-descriptions-item :label="t('tasks.fields.type')">
+              {{ getTaskTypeLabel(currentTask.task_type) }}
+              <small> · {{ currentTask.task_type }}</small>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('tasks.fields.status')">
+              {{ getTaskStatusLabel(currentTask.status) }}
+              <small> · {{ currentTask.status }}</small>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('tasks.fields.progress')">{{ currentTask.progress ?? t('display.empty') }}</el-descriptions-item>
+            <el-descriptions-item :label="t('tasks.fields.summary')">{{ currentTask.summary }}</el-descriptions-item>
+            <el-descriptions-item :label="t('tasks.fields.started')">{{ formatDateTime(currentTask.started_at) }}</el-descriptions-item>
+            <el-descriptions-item :label="t('tasks.fields.finished')">{{ formatDateTime(currentTask.finished_at) }}</el-descriptions-item>
           </el-descriptions>
 
           <div v-if="currentTask.result" class="drawer-section">
             <div class="card-header">
-              <span>Result</span>
+              <span>{{ t('tasks.fields.result') }}</span>
             </div>
             <p class="mobile-data-copy">{{ currentTask.result.summary }}</p>
             <div v-if="taskDetailEntries(currentTask.result.details).length" class="mono-list">
@@ -170,14 +194,14 @@ function previewImageUrl(task: TaskSummary | null) {
             <img
               v-if="previewImageUrl(currentTask)"
               :src="previewImageUrl(currentTask)"
-              alt="render preview"
+              :alt="t('tasks.previewAlt')"
               class="task-preview-image"
             />
           </div>
 
           <div v-if="currentTask.error" class="drawer-section">
             <div class="card-header">
-              <span>Error</span>
+              <span>{{ t('tasks.fields.error') }}</span>
             </div>
             <el-alert
               :title="currentTask.error.code"
@@ -196,7 +220,7 @@ function previewImageUrl(task: TaskSummary | null) {
 
       <template #footer>
         <el-button type="danger" plain :loading="cancelPending" @click="cancelCurrent">
-          请求取消
+          {{ t('tasks.actions.cancel') }}
         </el-button>
       </template>
     </el-drawer>
