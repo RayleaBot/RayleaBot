@@ -21,7 +21,7 @@
 | Phase 6 | Config / Storage / Security | ✅ | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；`/readyz`、诊断包、`doctor`、Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 统一诊断结构 |
 | Phase 7 | Web API & Tasks | ✅ | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress、插件来源/信任/命令冲突 metadata 与 render preview / artifact 管理面已进入正式主链 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口已接入，正式安装体验仍待收口 |
+| Phase 9 | Launcher | ✅ | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口、正式发行包根目录入口、安装根目录派生设置模型与已有工作区复用语义已对齐 |
 | Phase 10 | Render Service | ✅ | 受控 Chromium 渲染、模板资源、artifact registry、`render.preview` 任务流、管理面预览入口、任务详情图片预览与统一资源诊断已接入主链 |
 
 ### 判定口径
@@ -229,7 +229,7 @@
 
 ---
 
-## 十一、Phase 9 — Launcher 🟡
+## 十一、Phase 9 — Launcher ✅
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
@@ -247,14 +247,10 @@
 | 托盘最小化与关闭语义 | ✅ | 托盘左键直接恢复窗口，右键使用原生菜单承载状态头、动态服务动作、日志目录与完全退出；tooltip 与菜单可用态会随运行状态和环境风险联动 |
 | 关闭确认与托盘引导 | ✅ | 关闭行为已收口为 `AskEveryTime / HideToTray / ExitApplication` 三态策略；设置页、关闭确认弹窗与实际关闭路径共用同一模型，弹窗支持把本次选择设为默认行为 |
 | Chromium / 模板资源完整性检查 | ✅ | Launcher preflight 已覆盖 Chromium 与模板资源完整性，并给出 remediation |
-| 发布目录布局与正式发行包 | 🟡 | packaging tooling 与 release workflow 已产出 `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server`，但正式安装体验仍需继续打磨 |
+| 安装根目录派生设置模型 | ✅ | Launcher 偏好设置已收口为安装目录主模型，服务端路径、配置文件路径与运行目录默认从安装目录派生；高级覆盖仅用于排障与特殊复用场景 |
+| 发布目录布局与正式发行包 | ✅ | full artifact 已统一为根目录 Launcher 入口，`windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 的目录真相、smoke、packaged recovery drill 与用户 / release 文档已对齐 |
 | 发布元数据与交付 gate | ✅ | `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt`、`windows_full_smoke` / `linux_server_smoke` 与 release workflow 已接入 |
 | 版本检查 | ✅ | Launcher 已通过 GitHub Releases + `release_manifest.json` 做独立版本检查与发布页跳转 |
-
-### 当前主要问题
-
-- 当前仍未收口的 Launcher 欠账主要集中在正式安装体验。
-- 长期自托管 smoke 继续在“测试 & CI 现状”的规划对齐缺口中跟踪，不作为 Launcher 分节内的独立完成项。
 
 ---
 
@@ -306,7 +302,7 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`release` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke 与 packaged recovery drill 已有门禁。
-- 当前主要风险集中在两个层面：正式安装体验仍待打磨；跨版本 upgrade / rollback drills 与长期自托管 smoke 仍未进入稳定门禁。
+- 当前主要风险集中在测试与交付门禁层面：跨版本 upgrade / rollback drills 与长期自托管 smoke 仍未进入稳定门禁。
 
 ---
 
@@ -314,26 +310,26 @@
 
 ### 主工作包
 
-1. 收口正式发行包的安装 / 启动入口与目录真相。
-   发行包目录、启动入口、桌面壳入口、用户可见安装说明与 release packaging 需要统一到同一份正式口径，避免仓库目录真相与发行包目录真相混写。
+1. 收口跨版本 upgrade / rollback drills。
+   当前稳定门禁只覆盖同版本 packaged recovery drill；下一轮需要引入跨版本升级、恢复与回退演练，验证“程序版本变化”和“用户数据兼容性”两条边界。
 
-2. 收口首次安装、升级后启动与已有工作区复用路径。
-   正式安装体验需要明确首启工作区生成、已有 `config/` / `data/` / `plugins/installed/` 复用语义，以及升级后启动时的用户可见路径。
+2. 收口恢复后兼容摘要与人工处理提示。
+   恢复、升级或回退后，CLI、Web UI、Launcher 与诊断输出需要共享同一份兼容摘要，明确哪些插件被跳过、哪些数据需要人工处理以及下一步建议。
 
-3. 建立与正式安装体验直接相关的最小验证口径。
-   下一轮只补与安装 / 启动体验直接相关的最小验证闭环，覆盖正式发行包入口、首次启动路径与已有工作区复用路径；跨版本 recovery drills 与长期自托管 smoke 继续留在上方规划对齐缺口。
+3. 建立与跨版本恢复直接相关的最小验证口径。
+   下一轮只补跨版本升级 / 恢复 / 回退闭环所需的最小自动化门禁；长期自托管 smoke 继续留在上方规划对齐缺口。
 
 ### 下一轮边界
 
-- 不在这一轮推进跨版本 upgrade / rollback drills 或长期自托管 smoke。
+- 不在这一轮推进长期自托管 smoke。
 - 不在这一轮补齐 Python / Node runtime metadata；该项继续在 Foundation 跟踪。
 - 不在这一轮推进多 adapter / 多 bot 抽象。
 - 不在这一轮扩展更宽 future action families。
-- 不新增平行安装入口、平行状态语义或新的独立交付口径。
+- 不新增平行安装入口、平行状态语义或新的独立发布 metadata。
 
 ### 下一轮验收口径
 
-- 正式发行包目录、启动入口、用户文档与发布文档必须保持同一份交付真相。
-- 首次安装、升级后启动与已有工作区复用三条路径必须共享同一套工作区、配置与数据目录语义。
-- 与正式安装体验直接相关的新增门禁必须继续复用默认构建命令和现有 release metadata，不引入独立的测试专用发布语义。
+- 跨版本升级、恢复与回退演练必须明确区分“程序版本切换”和“用户数据兼容”两个结果。
+- CLI、Web UI、Launcher 与诊断输出必须共享同一份恢复后兼容摘要，不新增各自独立状态口径。
+- 新增门禁必须继续复用默认构建命令和现有 release metadata，不引入测试专用的第二套发布语义。
 

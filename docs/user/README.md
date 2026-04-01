@@ -12,7 +12,16 @@
 - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 六个 CLI 子命令
 - `web/` 管理面已提供 `setup/login/session`、系统状态、渲染预览、插件安装与卸载、grants 管理、插件 console、任务查看与取消、日志查看、配置编辑与服务关闭入口
 - 正式 artifact matrix 当前覆盖 `windows-x64-full`、`linux-x64-full`、`macos-arm64-full` 与 `linux-x64-server`
-- full artifact 中的 `launcher/` 提供桌面壳，可执行环境检查、拉起 / 停止 `raylea-server`、轮询健康与系统状态、打开 Web 管理面并通过 loopback token 自动入会话
+- full artifact 的桌面入口位于发行包根目录：`RayleaLauncher.exe`、`RayleaLauncher` 或 `RayleaLauncher.app`
+
+## 正式安装与启动
+
+- full artifact 的正式启动入口是发行包根目录的 Launcher；`linux-x64-server` 的正式启动入口是根目录 `raylea-server`。
+- 单个发行包根目录同时也是默认运行根目录。`config/`、`data/`、`cache/`、`logs/` 与 `plugins/installed/` 都以该目录为准。
+- Launcher 的正式配置模型以安装目录为主，服务端路径、配置文件路径与运行目录默认从安装目录派生；高级覆盖只用于排障或特殊复用场景。
+- 首次启动时，如 `config/user.yaml` 缺失，服务会基于 `config/default.yaml` 生成首份用户配置。
+- 复用已有工作区时，Launcher 直接对准现有 RayleaBot 根目录，并继续使用其中已有的 `config/`、`data/`、`cache/`、`logs/` 与 `plugins/installed/`。
+- 升级后启动时，用户目录继续沿用原根目录；正式支持路径是不覆盖 `config/`、`data/` 与 `plugins/installed/`，并在原根目录内继续启动。
 
 Render Service 已提供管理面预览调试入口、任务详情图片预览与同源 artifact 读取面；在线模板编辑与更宽用户侧工作流不在当前说明范围内。
 

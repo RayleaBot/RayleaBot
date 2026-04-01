@@ -9,6 +9,15 @@
 - `fixtures/`、`examples/`、开发脚本与仓库治理文件属于仓库内容，不属于正式发行包交付面。
 - `.deps/manifest.json` 已固定 Chromium 资源的正式版本、来源、SHA256 与平台矩阵；Python / Node.js runtime metadata 仍保留后续补齐空间。
 
+## 正式包目录真相
+
+- `windows-x64-full` 的正式桌面入口是包根目录 `RayleaLauncher.exe`。
+- `linux-x64-full` 的正式桌面入口是包根目录 `RayleaLauncher`。
+- `macos-arm64-full` 的正式桌面入口是包根目录 `RayleaLauncher.app`。
+- `linux-x64-server` 的正式入口是包根目录 `raylea-server`，同时附带 `systemd/rayleabot.service` 示例文件。
+- full artifact 根目录统一包含 `raylea-server`、Launcher、`web/dist`、`contracts/`、`config/default.yaml`、`plugins/builtin/`、`templates/` 与 `.deps/manifest.json`。
+- 发行包根目录同时是默认运行根目录；安装、升级与工作区复用说明都以这一目录结构为准。
+
 ## 文档关注点
 
 - 记录当前可验证的版本内容、迁移影响和已知限制。
@@ -19,6 +28,7 @@
 
 - `lint.yml` 的 `smoke-pr` 会对 `linux-x64-server` 正式包执行 packaged recovery drill，覆盖 `backup` / `restore` / `doctor` 与恢复后最小启动探活。
 - `release.yml` 会对 `windows-x64-full`、`linux-x64-full`、`linux-x64-server`、`macos-arm64-full` 依次执行打包、smoke、packaged recovery drill、release metadata 校验与发布。
+- full artifact 的 smoke 与 packaged recovery drill 统一校验根目录 Launcher 入口，不再依赖 `launcher/` 子目录布局。
 - packaged recovery drill 的验证边界是同版本正式包的受控恢复闭环，不表达跨版本 upgrade / rollback 演练。
 
 ## 维护规则
