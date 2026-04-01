@@ -1,0 +1,29 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Task detail can expose a completed render.preview snapshot with artifact metadata.
+request:
+  method: GET
+  path: /api/tasks/task_render_preview_0001
+response:
+  status: 200
+  body:
+    task:
+      task_id: task_render_preview_0001
+      task_type: render.preview
+      status: succeeded
+      progress: 100
+      summary: 渲染预览已完成
+      started_at: 2026-04-01T10:00:00Z
+      finished_at: 2026-04-01T10:00:02Z
+      result:
+        summary: 渲染预览已生成
+        details:
+          artifact_id: render_preview_0001.png
+          image_url: /api/system/render/artifacts/render_preview_0001.png
+          mime: image/png
+          cache_key: help.menu:v1:default:abc12345
+          template: help.menu
+          theme: default
+          from_cache: false
+expect:
+  valid: true

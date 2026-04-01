@@ -1,0 +1,22 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Management render preview submits an asynchronous render.preview task.
+request:
+  method: POST
+  path: /api/system/render/preview
+  body:
+    template: help.menu
+    theme: default
+    output: png
+    data:
+      title: 帮助菜单
+      items:
+        - name: weather
+          description: 查询天气
+          usage: /weather <城市>
+response:
+  status: 202
+  body:
+    task_id: task_render_preview_0001
+expect:
+  valid: true

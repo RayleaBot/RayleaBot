@@ -34,6 +34,16 @@ codes:
     retryable: true
     applies_to: [http, websocket, plugin_protocol, task]
 
+  platform.render_input_too_large:
+    code: platform.render_input_too_large
+    domain: platform
+    message_key: errors.platform.render_input_too_large
+    message: 渲染输入超过大小限制
+    description: The serialized render request data exceeded the allowed size limit before it could enter the render queue.
+    http_status: 413
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol, task]
+
   platform.invalid_request:
     code: platform.invalid_request
     domain: platform

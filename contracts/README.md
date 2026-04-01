@@ -27,7 +27,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、plugin lifecycle、plugin grants 与 tasks / logs / system surfaces
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、plugin lifecycle、plugin grants、tasks / logs / system surfaces、render preview 与 render artifact 读取面
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
@@ -85,9 +85,7 @@
 
 ## 当前未进入 OpenAPI 的 TODO
 
-以下 HTTP 路由仍未进入正式 OpenAPI 冻结范围：
-
-- `POST /api/webhooks/{plugin_id}/{route}`
+当前没有额外的管理 HTTP 路由保留在正式 OpenAPI 冻结范围之外。
 
 当前已进入 OpenAPI 冻结范围的 plugin grants surface：
 
@@ -103,6 +101,13 @@
 - `POST /api/session/launcher-admission`
 
 其中 `launcher-token` 用于本机回环的一次性短时 bootstrap，`launcher-admission` 负责把一次性 token 换成正常管理 session。
+
+当前已进入 OpenAPI 冻结范围的 render management surface：
+
+- `POST /api/system/render/preview`
+- `GET /api/system/render/artifacts/{artifact_id}`
+
+其中 `render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
 
 ## 通用规则
 

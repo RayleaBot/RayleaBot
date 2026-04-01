@@ -1,0 +1,21 @@
+{
+  "task_id": "task_render_preview_0001",
+  "task_type": "render.preview",
+  "status": "succeeded",
+  "progress": 100,
+  "summary": "渲染预览已生成",
+  "started_at": "2026-04-01T09:00:00Z",
+  "finished_at": "2026-04-01T09:00:01Z",
+  "result": {
+    "summary": "render preview generated",
+    "details": {
+      "artifact_id": "render_preview_0001.png",
+      "image_url": "/api/system/render/artifacts/render_preview_0001.png",
+      "mime": "image/png",
+      "cache_key": "help.menu:1:sha256:demo",
+      "template": "help.menu",
+      "theme": "system",
+      "from_cache": false
+    }
+  }
+}

@@ -19,11 +19,14 @@ x-fixtures:
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.system-backup-accepted.yaml
+  - fixtures/web-api/ok.system-render-preview-accepted.yaml
+  - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.logs-list-response.yaml
   - fixtures/web-api/ok.tasks-list-response.yaml
   - fixtures/web-api/ok.task-detail-response.yaml
   - fixtures/web-api/ok.task-detail-succeeded-install.yaml
+  - fixtures/web-api/ok.task-detail-succeeded-render-preview.yaml
   - fixtures/web-api/ok.task-cancel-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
@@ -53,6 +56,7 @@ x-fixtures:
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
   - fixtures/web-api/invalid.session-launcher-admission-invalid-token.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
+  - fixtures/web-api/invalid.system-render-preview-invalid.yaml
   - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
@@ -313,6 +317,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
         '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/render/preview:
+    post:
+      summary: Start an asynchronous render.preview task for management-side template debugging.
+      operationId: createRenderPreview
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderPreviewRequest'
+      responses:
+        '202':
+          description: Render preview task accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '413':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/render/artifacts/{artifact_id}:
+    get:
+      summary: Stream a previously rendered preview artifact for same-origin management inspection.
+      operationId: getRenderArtifact
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Render artifact image bytes.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -1089,6 +1157,26 @@ components:
       properties:
         task_id:
           type: string
+
+    RenderPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [template, data]
+      properties:
+        template:
+          type: string
+          minLength: 1
+        theme:
+          type: string
+          minLength: 1
+          default: default
+        output:
+          type: string
+          enum: [png, jpeg]
+          default: png
+        data:
+          type: object
+          additionalProperties: true
 
     PluginRegistrationState:
       type: string

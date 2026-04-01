@@ -6,6 +6,12 @@
 - 示例配置。
 - 示例请求 / 响应。
 
+当前已收录的 HTTP 请求 / 响应示例包含：
+
+- `examples/http/render-preview.request.json`
+- `examples/http/render-preview.accepted.json`
+- `examples/http/render-preview.task-detail.json`
+
 规则：
 
 - 示例只能演示已被 `contracts/` 确认的结构。
