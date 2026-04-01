@@ -231,3 +231,6 @@ Examples:
 - If a skill conflicts with repository rules or formal contracts, follow the repository rules and contracts.
 
 - If no suitable skill exists for a recurring workflow, note that gap and consider adding a new repo-local skill after the task is completed and validated.
+
+## Delete Rules
+- Everytimes and everywhere when delete anything,prohibit using powershell.
