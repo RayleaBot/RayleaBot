@@ -378,6 +378,8 @@ jobs:
               '/api/system/status',
               '/api/system/shutdown',
               '/api/system/backup',
+              '/api/system/render/preview',
+              '/api/system/render/artifacts/{artifact_id}',
               '/api/system/diagnostics/export',
               '/api/logs',
               '/api/tasks',
