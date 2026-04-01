@@ -6,6 +6,7 @@ import type {
   EventsPayload,
   LivenessStatusResponse,
   ReadinessStatusResponse,
+  RenderPreviewRequest,
   TaskAcceptedResponse,
   SystemShutdownResponse,
   SystemStatusResponse,
@@ -20,6 +21,7 @@ export const useSystemStore = defineStore('system', () => {
   const shutdownRequested = ref(false)
   const backupPending = ref(false)
   const diagnosticsPending = ref(false)
+  const previewPending = ref(false)
   const error = ref<string | null>(null)
   const recentEvents = ref<Array<{ timestamp: string; summary: string; payload: EventsPayload }>>([])
 
@@ -108,6 +110,19 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
+  async function previewRender(request: RenderPreviewRequest) {
+    previewPending.value = true
+    error.value = null
+    try {
+      return await apiRequest<TaskAcceptedResponse>('/api/system/render/preview', {
+        method: 'POST',
+        body: request,
+      })
+    } finally {
+      previewPending.value = false
+    }
+  }
+
   return {
     backupPending,
     diagnosticsPending,
@@ -123,6 +138,8 @@ export const useSystemStore = defineStore('system', () => {
     applyEvent,
     createBackup,
     exportDiagnostics,
+    previewPending,
+    previewRender,
     refresh,
     requestShutdown,
   }

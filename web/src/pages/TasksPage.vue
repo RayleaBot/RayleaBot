@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import RetryPanel from '@/components/RetryPanel.vue'
 import { formatDateTime } from '@/lib/format'
+import type { TaskSummary } from '@/types/api'
 import { useTasksStore } from '@/stores/tasks'
 
 const route = useRoute()
@@ -71,6 +72,25 @@ watch(
 onMounted(() => {
   void loadTasks()
 })
+
+function taskDetailEntries(details?: Record<string, unknown>) {
+  return Object.entries(details ?? {})
+}
+
+function formatTaskDetailValue(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return '—'
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  return JSON.stringify(value)
+}
+
+function previewImageUrl(task: TaskSummary | null) {
+  const imageUrl = task?.result?.details?.image_url
+  return typeof imageUrl === 'string' && imageUrl ? imageUrl : ''
+}
 </script>
 
 <template>
@@ -126,15 +146,52 @@ onMounted(() => {
 
     <el-drawer v-model="detailVisible" title="任务详情" size="clamp(320px, 92vw, 720px)" :modal="false">
       <el-skeleton :loading="detailLoading" animated>
-      <el-descriptions v-if="currentTask" :column="1" border>
-        <el-descriptions-item label="Task ID">{{ currentTask.task_id }}</el-descriptions-item>
-        <el-descriptions-item label="Type">{{ currentTask.task_type }}</el-descriptions-item>
-        <el-descriptions-item label="Status">{{ currentTask.status }}</el-descriptions-item>
-        <el-descriptions-item label="Progress">{{ currentTask.progress ?? '—' }}</el-descriptions-item>
-        <el-descriptions-item label="Summary">{{ currentTask.summary }}</el-descriptions-item>
-        <el-descriptions-item label="Started">{{ formatDateTime(currentTask.started_at) }}</el-descriptions-item>
-        <el-descriptions-item label="Finished">{{ formatDateTime(currentTask.finished_at) }}</el-descriptions-item>
-      </el-descriptions>
+        <template v-if="currentTask">
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="Task ID">{{ currentTask.task_id }}</el-descriptions-item>
+            <el-descriptions-item label="Type">{{ currentTask.task_type }}</el-descriptions-item>
+            <el-descriptions-item label="Status">{{ currentTask.status }}</el-descriptions-item>
+            <el-descriptions-item label="Progress">{{ currentTask.progress ?? '—' }}</el-descriptions-item>
+            <el-descriptions-item label="Summary">{{ currentTask.summary }}</el-descriptions-item>
+            <el-descriptions-item label="Started">{{ formatDateTime(currentTask.started_at) }}</el-descriptions-item>
+            <el-descriptions-item label="Finished">{{ formatDateTime(currentTask.finished_at) }}</el-descriptions-item>
+          </el-descriptions>
+
+          <div v-if="currentTask.result" class="drawer-section">
+            <div class="card-header">
+              <span>Result</span>
+            </div>
+            <p class="mobile-data-copy">{{ currentTask.result.summary }}</p>
+            <div v-if="taskDetailEntries(currentTask.result.details).length" class="mono-list">
+              <div v-for="[key, value] in taskDetailEntries(currentTask.result.details)" :key="key">
+                {{ key }} = {{ formatTaskDetailValue(value) }}
+              </div>
+            </div>
+            <img
+              v-if="previewImageUrl(currentTask)"
+              :src="previewImageUrl(currentTask)"
+              alt="render preview"
+              class="task-preview-image"
+            />
+          </div>
+
+          <div v-if="currentTask.error" class="drawer-section">
+            <div class="card-header">
+              <span>Error</span>
+            </div>
+            <el-alert
+              :title="currentTask.error.code"
+              type="error"
+              :description="currentTask.error.message"
+              show-icon
+            />
+            <div v-if="taskDetailEntries(currentTask.error.details).length" class="mono-list">
+              <div v-for="[key, value] in taskDetailEntries(currentTask.error.details)" :key="key">
+                {{ key }} = {{ formatTaskDetailValue(value) }}
+              </div>
+            </div>
+          </div>
+        </template>
       </el-skeleton>
 
       <template #footer>
@@ -145,3 +202,18 @@ onMounted(() => {
     </el-drawer>
   </div>
 </template>
+
+<style scoped>
+.drawer-section {
+  margin-top: 20px;
+}
+
+.task-preview-image {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color-page);
+}
+</style>

@@ -9,6 +9,10 @@ import { WebSocketServer } from 'ws'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
+const previewArtifactBytes = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=',
+  'base64',
+)
 
 async function readFixture(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath)
@@ -34,11 +38,13 @@ const fixtures = {
   tasksList: await readFixture('fixtures/web-api/ok.tasks-list-response.yaml'),
   taskDetail: await readFixture('fixtures/web-api/ok.task-detail-response.yaml'),
   taskDetailSucceededInstall: await readFixture('fixtures/web-api/ok.task-detail-succeeded-install.yaml'),
+  taskDetailSucceededRenderPreview: await readFixture('fixtures/web-api/ok.task-detail-succeeded-render-preview.yaml'),
   taskDetailFailedInstallScriptBlocked: await readFixture('fixtures/web-api/edge.task-detail-failed-install-script-blocked.yaml'),
   taskCancel: await readFixture('fixtures/web-api/ok.task-cancel-accepted.yaml'),
   systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
   systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
   systemBackupAccepted: await readFixture('fixtures/web-api/ok.system-backup-accepted.yaml'),
+  systemRenderPreviewAccepted: await readFixture('fixtures/web-api/ok.system-render-preview-accepted.yaml'),
   systemDiagnosticsExport: await readFixture('fixtures/web-api/ok.system-diagnostics-export.yaml'),
   pluginEnable: await readFixture('fixtures/web-api/ok.plugins-enable-response.yaml'),
   pluginDisable: await readFixture('fixtures/web-api/edge.plugins-disable-response.yaml'),
@@ -418,6 +424,35 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/api/system/render/preview' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const payload = await parseBody(request)
+    const taskId = fixtures.systemRenderPreviewAccepted.response.body.task_id
+    state.tasks = [
+      taskSummary(taskId, 'render.preview', `render preview for ${payload.template ?? 'unknown-template'}`),
+      ...state.tasks.filter((item) => item.task_id !== taskId),
+    ]
+
+    json(response, fixtures.systemRenderPreviewAccepted.response.status, fixtures.systemRenderPreviewAccepted.response.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/system/render/artifacts/') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    response.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-store',
+    })
+    response.end(previewArtifactBytes)
+    return
+  }
+
   if (pathname === '/api/config' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -510,15 +545,15 @@ const server = http.createServer(async (request, response) => {
     }
 
     const taskId = pathname.split('/')[3]
-    let task = state.tasks.find((item) => item.task_id === taskId)
-    if (!task) {
-      if (taskId === fixtures.taskDetailSucceededInstall.response.body.task.task_id) {
-        task = structuredClone(fixtures.taskDetailSucceededInstall.response.body.task)
-      } else if (taskId === fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id) {
-        task = structuredClone(fixtures.taskDetailFailedInstallScriptBlocked.response.body.task)
-      } else {
-        task = fixtures.taskDetail.response.body.task
-      }
+    let task
+    if (taskId === fixtures.taskDetailSucceededInstall.response.body.task.task_id) {
+      task = structuredClone(fixtures.taskDetailSucceededInstall.response.body.task)
+    } else if (taskId === fixtures.taskDetailSucceededRenderPreview.response.body.task.task_id) {
+      task = structuredClone(fixtures.taskDetailSucceededRenderPreview.response.body.task)
+    } else if (taskId === fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id) {
+      task = structuredClone(fixtures.taskDetailFailedInstallScriptBlocked.response.body.task)
+    } else {
+      task = state.tasks.find((item) => item.task_id === taskId) ?? fixtures.taskDetail.response.body.task
     }
     json(response, 200, { task })
     return

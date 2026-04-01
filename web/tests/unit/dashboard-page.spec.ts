@@ -55,6 +55,50 @@ describe('DashboardPage', () => {
     expect(exportDiagnosticsSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('submits render preview requests from the status page', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: DashboardPage }],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const store = useSystemStore()
+    store.health = { status: 'ok' }
+    store.readiness = { status: 'ready' }
+    store.system = {
+      status: 'running',
+      adapter_state: 'connected',
+      active_plugins: 2,
+      uptime_seconds: 120,
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    const previewSpy = vi.spyOn(store as never, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_0001' })
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    const previewButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('渲染预览'))
+    expect(previewButton).toBeTruthy()
+
+    await previewButton!.trigger('click')
+    await flushPromises()
+
+    const templateInput = wrapper.find('input[placeholder="help.menu"]')
+    await templateInput.setValue('help.menu')
+    const submitButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('开始预览'))
+    expect(submitButton).toBeTruthy()
+    await submitButton!.trigger('click')
+
+    expect(previewSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('renders readiness issues instead of legacy checks', async () => {
     const router = createRouter({
       history: createMemoryHistory(),

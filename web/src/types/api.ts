@@ -61,11 +61,19 @@ export interface LivenessStatusResponse {
   status: 'ok'
 }
 
+export interface ReadinessIssue {
+  code: string
+  severity: 'ok' | 'warning' | 'error'
+  summary: string
+  remediation?: string
+}
+
 export interface ReadinessStatusResponse {
   status: 'ready' | 'degraded' | 'setup_required' | 'failed'
   reason?: string
   reason_codes?: string[]
   checks?: Partial<Record<'config' | 'database' | 'runtime' | 'adapter' | 'render', string>>
+  issues?: ReadinessIssue[]
 }
 
 export interface SystemStatusResponse {
@@ -125,6 +133,13 @@ export interface TaskDetailResponse {
 
 export interface TaskAcceptedResponse {
   task_id: string
+}
+
+export interface RenderPreviewRequest {
+  template: string
+  theme?: string
+  output?: 'png' | 'jpeg'
+  data: Record<string, unknown>
 }
 
 export interface PluginSummary {

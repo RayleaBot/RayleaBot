@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -10,7 +10,24 @@ import { useSystemStore } from '@/stores/system'
 
 const router = useRouter()
 const systemStore = useSystemStore()
-const { backupPending, diagnosticsPending, error, health, loading, readiness, recentEvents, system } = storeToRefs(systemStore)
+const { backupPending, diagnosticsPending, error, health, loading, previewPending, readiness, recentEvents, system } = storeToRefs(systemStore)
+const previewVisible = ref(false)
+const previewForm = reactive({
+  template: 'help.menu',
+  theme: 'default',
+  output: 'png' as 'png' | 'jpeg',
+  dataText: JSON.stringify({
+    title: '帮助菜单',
+    subtitle: '系统页渲染调试入口',
+    items: [
+      {
+        name: 'weather',
+        description: '查询天气',
+        usage: '/weather <城市>',
+      },
+    ],
+  }, null, 2),
+})
 
 async function refreshState() {
   try {
@@ -42,6 +59,34 @@ async function exportDiagnostics() {
     ElMessage.error(error instanceof Error ? error.message : 'diagnostics export failed')
   }
 }
+
+async function submitRenderPreview() {
+  let data: Record<string, unknown>
+  try {
+    const parsed = JSON.parse(previewForm.dataText)
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+      throw new Error('render preview data must be a JSON object')
+    }
+    data = parsed as Record<string, unknown>
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'render preview payload is invalid')
+    return
+  }
+
+  try {
+    const response = await systemStore.previewRender({
+      template: previewForm.template,
+      theme: previewForm.theme || undefined,
+      output: previewForm.output,
+      data,
+    })
+    previewVisible.value = false
+    ElMessage.success('渲染预览任务已接受')
+    await router.push({ name: 'tasks', query: { task_id: response.task_id } })
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'render preview failed')
+  }
+}
 </script>
 
 <template>
@@ -62,6 +107,9 @@ async function exportDiagnostics() {
         </el-button>
         <el-button type="primary" plain :loading="diagnosticsPending" @click="exportDiagnostics">
           导出诊断包
+        </el-button>
+        <el-button type="primary" plain :loading="previewPending" @click="previewVisible = true">
+          渲染预览
         </el-button>
       </div>
     </section>
@@ -153,5 +201,41 @@ async function exportDiagnostics() {
         </div>
       </el-card>
     </div>
+
+    <el-dialog v-model="previewVisible" title="渲染预览" width="min(720px, 92vw)">
+      <el-form label-position="top">
+        <el-form-item label="Template">
+          <el-input v-model="previewForm.template" placeholder="help.menu" />
+        </el-form-item>
+        <el-form-item label="Theme">
+          <el-input v-model="previewForm.theme" placeholder="default" />
+        </el-form-item>
+        <el-form-item label="Output">
+          <el-radio-group v-model="previewForm.output">
+            <el-radio-button label="png" value="png" />
+            <el-radio-button label="jpeg" value="jpeg" />
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="Data JSON">
+          <el-input
+            v-model="previewForm.dataText"
+            type="textarea"
+            :rows="10"
+            placeholder="{&quot;title&quot;:&quot;帮助菜单&quot;}"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <div class="table-actions">
+          <el-button @click="previewVisible = false">
+            取消
+          </el-button>
+          <el-button type="primary" :loading="previewPending" @click="submitRenderPreview">
+            开始预览
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>

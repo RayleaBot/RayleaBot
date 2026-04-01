@@ -125,6 +125,19 @@ test('status page can start backup tasks and export diagnostics', async ({ page,
   expect(await download.suggestedFilename()).toContain('rayleabot-diagnostics')
 })
 
+test('status page can submit render previews and show the artifact', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.getByRole('button', { name: '渲染预览' }).click()
+  await page.getByPlaceholder('help.menu').fill('help.menu')
+  await page.getByRole('button', { name: '开始预览' }).click()
+
+  await expect(page.getByRole('heading', { name: '后台任务' })).toBeVisible()
+  await expect(page.getByText('task_render_preview_0001').first()).toBeVisible()
+  await expect(page.getByRole('img', { name: 'render preview' })).toBeVisible()
+})
+
 test('login keeps the protected shell after reload', async ({ page, request }) => {
   await resetBackend(request, true)
 
