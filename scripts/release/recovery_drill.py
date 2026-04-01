@@ -30,6 +30,7 @@ SERVER_BINARIES = {
 REQUIRED_PATHS = {
     "windows-x64-full": {
         "raylea-server.exe",
+        "RayleaLauncher.exe",
         "build_info.json",
         "config/default.yaml",
         "contracts/config.user.schema.json",
@@ -41,6 +42,7 @@ REQUIRED_PATHS = {
     },
     "linux-x64-full": {
         "raylea-server",
+        "RayleaLauncher",
         "build_info.json",
         "config/default.yaml",
         "contracts/config.user.schema.json",
@@ -52,6 +54,7 @@ REQUIRED_PATHS = {
     },
     "macos-arm64-full": {
         "raylea-server",
+        "RayleaLauncher.app/Contents/MacOS/RayleaLauncher",
         "build_info.json",
         "config/default.yaml",
         "contracts/config.user.schema.json",

@@ -84,15 +84,20 @@ def copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
-def copy_launcher_bundle(src: Path, dst: Path) -> None:
+def copy_launcher_bundle(src: Path, dst_root: Path) -> None:
     if src.is_dir():
         if src.suffix == ".app":
-            copy_tree(src, dst / src.name)
+            copy_tree(src, dst_root / src.name)
             return
-        copy_tree(src, dst)
+        for child in src.iterdir():
+            target = dst_root / child.name
+            if child.is_dir():
+                copy_tree(child, target)
+            else:
+                copy_file(child, target)
         return
     if src.is_file():
-        copy_file(src, dst / src.name)
+        copy_file(src, dst_root / src.name)
         return
     raise ValueError(f"launcher bundle path does not exist: {src}")
 
@@ -129,7 +134,7 @@ def stage_release_root(
 
     copy_file(server_bin, stage_root / server_bin.name)
     if matrix["launcher_required"] and launcher_bundle is not None:
-        copy_launcher_bundle(launcher_bundle, stage_root / "launcher")
+        copy_launcher_bundle(launcher_bundle, stage_root)
     if artifact_id == "linux-x64-server" and systemd_file is not None:
         copy_file(systemd_file, stage_root / "systemd" / "rayleabot.service")
 
