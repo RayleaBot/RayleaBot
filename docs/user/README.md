@@ -11,9 +11,16 @@
 - `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 管理 WebSocket
 - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 六个 CLI 子命令
 - `web/` 管理面已提供 `setup/login/session`、系统状态、渲染预览、插件安装与卸载、grants 管理、插件 console、任务查看与取消、日志查看、配置编辑与服务关闭入口
-- `launcher/` 已提供最小 Windows 桌面壳，可执行环境检查、拉起 / 停止 `raylea-server`、轮询健康与系统状态、打开 Web 管理面并通过 loopback token 自动入会话
+- 正式 artifact matrix 当前覆盖 `windows-x64-full`、`linux-x64-full`、`macos-arm64-full` 与 `linux-x64-server`
+- full artifact 中的 `launcher/` 提供桌面壳，可执行环境检查、拉起 / 停止 `raylea-server`、轮询健康与系统状态、打开 Web 管理面并通过 loopback token 自动入会话
 
 Render Service 已提供管理面预览调试入口、任务详情图片预览与同源 artifact 读取面；在线模板编辑与更宽用户侧工作流不在当前说明范围内。
+
+## 当前恢复边界
+
+- 受支持的受控恢复路径为：升级前导出备份，停服务后执行 `restore`，再重新启动服务并进入迁移与兼容检查。
+- 升级默认不覆盖 `config/`、`data/` 与 `plugins/installed/`。
+- 回退旧版本时，正式支持路径是使用升级前备份恢复；直接用旧版本二进制读取较新的状态库不在支持范围内。
 
 ## 编写边界
 

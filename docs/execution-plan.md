@@ -292,15 +292,16 @@
 | `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` baseline 校验 |
 | `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
 | `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
-| `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、linux packaging smoke 与 metadata verify |
+| `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、linux packaging smoke、`linux-x64-server` packaged recovery drill 与 metadata verify |
 | `lint.yml` / `ci-launcher` | push main / PR | Windows / Linux / macOS 上的 `pnpm test` 与 `pnpm build` |
-| `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
+| `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、packaged recovery drill、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
 
 ### 规划对齐缺口
 
 | 交付门禁 | 状态 | 说明 |
 |--------|------|------|
-| 发布后升级 / 回滚 drills | ❌ | 规划要求交付后持续验证升级、回滚和恢复路径，当前 workflow 仍以 build/smoke 为主 |
+| packaged recovery drill | ✅ | PR 已对 `linux-x64-server` 正式包执行同版本受控恢复闭环；tag release 已覆盖全矩阵正式产物 |
+| 跨版本 upgrade / rollback drills | ❌ | 当前稳定门禁已覆盖同版本 packaged recovery drill；跨版本升级、回滚与恢复摘要演练仍未自动化 |
 | 长期自托管 smoke | ❌ | 规划要求更长时间窗的安装、运行、诊断闭环回归，当前 CI 仍未覆盖 |
 
 ### 当前验证结论
@@ -316,8 +317,8 @@
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
-- `ci-web`、`smoke-pr`、`release` 已进入仓库工作流，release metadata / checksum 校验与交付矩阵 smoke 已有门禁。
-- 当前主要风险集中在两个层面：正式安装体验仍待打磨；发布后升级 / 回滚 drills 与长期自托管 smoke 仍未进入稳定门禁。
+- `ci-web`、`smoke-pr`、`release` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke 与 packaged recovery drill 已有门禁。
+- 当前主要风险集中在两个层面：正式安装体验仍待打磨；跨版本 upgrade / rollback drills 与长期自托管 smoke 仍未进入稳定门禁。
 
 ---
 
@@ -346,8 +347,8 @@
 4. ✅ 完成 Render Service 主链。
    formal contracts、fixtures、Chromium worker、模板资源、artifact route、任务流、Web 调试入口、资源诊断与 release packaging 已收口。
 
-5. 把交付后回归接入稳定门禁。
-   范围：`.github/workflows/release.yml`、`.github/workflows/lint.yml`、`scripts/release/*`、`docs/release/*`、`docs/user/*`。
+5. ✅ 把 packaged recovery drill 接入稳定门禁。
+   正式包已纳入 `contracts/` 与 `web/dist/` 自洽布局；`smoke-pr` 覆盖 `linux-x64-server` recovery drill，`release` 覆盖全矩阵同版本受控恢复闭环与恢复后最小启动探活。
 
 ### 本轮边界
 
