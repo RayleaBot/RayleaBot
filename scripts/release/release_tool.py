@@ -107,6 +107,7 @@ def stage_release_root(
     web_dist: Path,
     builtin_dir: Path,
     deps_dir: Path,
+    templates_dir: Path,
     default_config: Path,
     launcher_bundle: Path | None,
     systemd_file: Path | None,
@@ -134,6 +135,7 @@ def stage_release_root(
     copy_tree(web_dist, stage_root / "web")
     copy_tree(builtin_dir, stage_root / "plugins" / "builtin")
     copy_tree(deps_dir, stage_root / ".deps")
+    copy_tree(templates_dir, stage_root / "templates")
     copy_file(default_config, stage_root / "config" / "default.yaml")
 
     build_info = {
@@ -297,6 +299,7 @@ def cmd_package(args: argparse.Namespace) -> int:
         web_dist=Path(args.web_dist),
         builtin_dir=Path(args.builtin_dir),
         deps_dir=Path(args.deps_dir),
+        templates_dir=Path(args.templates_dir),
         default_config=Path(args.default_config),
         launcher_bundle=Path(args.launcher_bundle) if args.launcher_bundle else None,
         systemd_file=Path(args.systemd_file) if args.systemd_file else None,
@@ -344,6 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--web-dist", required=True)
     package.add_argument("--builtin-dir", required=True)
     package.add_argument("--deps-dir", required=True)
+    package.add_argument("--templates-dir", required=True)
     package.add_argument("--default-config", required=True)
     package.add_argument("--launcher-bundle")
     package.add_argument("--systemd-file")

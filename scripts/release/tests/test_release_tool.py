@@ -21,6 +21,7 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
             deps = temp / ".deps"
+            templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
             output = temp / "out"
 
@@ -35,6 +36,10 @@ class ReleaseToolTests(unittest.TestCase):
             (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
+            (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
 
@@ -48,6 +53,7 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 builtin_dir=builtin,
                 deps_dir=deps,
+                templates_dir=templates,
                 default_config=default_config,
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
@@ -61,6 +67,8 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/RayleaLauncher.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/resources/app.asar", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.json", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
 
             manifest_path, checksums_path = release_tool.build_release_metadata(
                 version="0.1.0",
@@ -90,6 +98,7 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
             deps = temp / ".deps"
+            templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
             output = temp / "out"
 
@@ -104,6 +113,10 @@ class ReleaseToolTests(unittest.TestCase):
             (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
+            (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
 
@@ -117,6 +130,7 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 builtin_dir=builtin,
                 deps_dir=deps,
+                templates_dir=templates,
                 default_config=default_config,
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
@@ -127,6 +141,7 @@ class ReleaseToolTests(unittest.TestCase):
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/launcher/RayleaLauncher", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/launcher/locales/en-US.pak", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/templates/help.menu/template.json", names)
 
     def test_package_macos_desktop_bundle_includes_app_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -136,6 +151,7 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
             deps = temp / ".deps"
+            templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
             output = temp / "out"
 
@@ -151,6 +167,10 @@ class ReleaseToolTests(unittest.TestCase):
             (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
+            (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
 
@@ -164,6 +184,7 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 builtin_dir=builtin,
                 deps_dir=deps,
+                templates_dir=templates,
                 default_config=default_config,
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
@@ -174,6 +195,7 @@ class ReleaseToolTests(unittest.TestCase):
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/launcher/RayleaLauncher.app/Contents/MacOS/RayleaLauncher", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/launcher/RayleaLauncher.app/Contents/Info.plist", names)
+            self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/templates/status.panel/template.json", names)
 
     def test_package_linux_bundle_includes_systemd_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -182,6 +204,7 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             builtin = temp / "builtin"
             deps = temp / ".deps"
+            templates = temp / "templates"
             default_config = temp / "config" / "default.yaml"
             systemd_file = temp / "rayleabot.service"
             output = temp / "out"
@@ -193,6 +216,10 @@ class ReleaseToolTests(unittest.TestCase):
             (builtin / "help" / "info.json").write_text("{}", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
             (deps / "manifest.json").write_text('{"manifest_version":1,"resources":[]}', encoding="utf-8")
+            (templates / "help.menu" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
+            (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
+            (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
             default_config.parent.mkdir(parents=True, exist_ok=True)
             default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
             systemd_file.write_text("[Service]\nExecStart=/opt/raylea/raylea-server\n", encoding="utf-8")
@@ -207,6 +234,7 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 builtin_dir=builtin,
                 deps_dir=deps,
+                templates_dir=templates,
                 default_config=default_config,
                 launcher_bundle=None,
                 systemd_file=systemd_file,
@@ -216,6 +244,7 @@ class ReleaseToolTests(unittest.TestCase):
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/systemd/rayleabot.service", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-server/templates/help.menu/template.json", names)
 
 
 if __name__ == "__main__":

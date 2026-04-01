@@ -79,6 +79,7 @@ jobs:
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
             --deps-dir .deps \
+            --templates-dir templates \
             --default-config config/default.yaml \
             --output-dir dist/release
           python scripts/release/smoke_release.py \
@@ -164,6 +165,7 @@ jobs:
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
             --deps-dir .deps \
+            --templates-dir templates \
             --default-config config/default.yaml \
             --output-dir dist/release
           python scripts/release/smoke_release.py \
@@ -178,6 +180,7 @@ jobs:
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
             --deps-dir .deps \
+            --templates-dir templates \
             --default-config config/default.yaml \
             --systemd-file packaging/systemd/rayleabot.service \
             --output-dir dist/release
@@ -272,6 +275,7 @@ jobs:
             --web-dist web/dist \
             --builtin-dir plugins/builtin \
             --deps-dir .deps \
+            --templates-dir templates \
             --default-config config/default.yaml \
             --output-dir dist/release
           python scripts/release/smoke_release.py \

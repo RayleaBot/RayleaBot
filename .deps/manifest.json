@@ -4,26 +4,26 @@
     {
       "id": "chromium-windows-x64",
       "kind": "chromium",
-      "version": "TODO(v0.1-phase0)",
+      "version": "147.0.7727.24",
       "platform": "windows-x64",
-      "source": "TODO(v0.1-phase0)",
-      "sha256": "TODO(v0.1-phase0)"
+      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+      "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e"
     },
     {
       "id": "chromium-linux-x64",
       "kind": "chromium",
-      "version": "TODO(v0.1-phase0)",
+      "version": "147.0.7727.24",
       "platform": "linux-x64",
-      "source": "TODO(v0.1-phase0)",
-      "sha256": "TODO(v0.1-phase0)"
+      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/linux64/chrome-linux64.zip",
+      "sha256": "2623af6b98ab1029e9e752450e905e30c4669774aee14acf2a203ef2ea797ee0"
     },
     {
       "id": "chromium-macos-arm64",
       "kind": "chromium",
-      "version": "TODO(v0.1-phase0)",
+      "version": "147.0.7727.24",
       "platform": "macos-arm64",
-      "source": "TODO(v0.1-phase0)",
-      "sha256": "TODO(v0.1-phase0)"
+      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/mac-arm64/chrome-mac-arm64.zip",
+      "sha256": "37da2605bae9b5d349546eb9b6700ee6af27aa9b643ee4c58d7bc22d1209a03f"
     },
     {
       "id": "python-windows-x64",
@@ -75,7 +75,6 @@
     }
   ],
   "notes": [
-    "TODO(v0.1-phase0): fill Chromium version/source/SHA256 before runtime bootstrap or launcher environment check is implemented.",
     "TODO(v0.1-phase0): fill Python and Node.js runtime source/SHA256 before dependency bootstrap logic is implemented."
   ]
 }

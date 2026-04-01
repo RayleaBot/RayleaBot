@@ -49,6 +49,62 @@ describe("inspectLauncherEnvironment", () => {
     expect(inspection.checks.some((item) => item.code === "deps.manifest_platform_missing")).toBe(true);
   });
 
+  test("flags missing chromium resource when current platform only has other runtimes", async () => {
+    const inspection = await inspectLauncherEnvironment({
+      serverExecutableExists: true,
+      userConfigExists: true,
+      defaultConfigExists: true,
+      workdirWritable: true,
+      depsManifestExists: true,
+      depsManifestText: JSON.stringify({
+        resources: [
+          {
+            id: "python-windows-x64",
+            platform: "windows-x64",
+            kind: "python-runtime",
+            version: "3.12.13",
+            source: "https://example.invalid/python.zip",
+            sha256: "deadbeef",
+          },
+        ],
+      }),
+      templatesExist: true,
+      templatesHaveFiles: true,
+      platform: "windows-x64",
+      longPaths: "enabled",
+    });
+
+    expect(inspection.checks.some((item) => item.code === "deps.chromium_missing")).toBe(true);
+  });
+
+  test("flags missing template directory for render resources", async () => {
+    const inspection = await inspectLauncherEnvironment({
+      serverExecutableExists: true,
+      userConfigExists: true,
+      defaultConfigExists: true,
+      workdirWritable: true,
+      depsManifestExists: true,
+      depsManifestText: JSON.stringify({
+        resources: [
+          {
+            id: "chromium-windows-x64",
+            platform: "windows-x64",
+            kind: "chromium",
+            version: "147.0.7727.24",
+            source: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+            sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+          },
+        ],
+      }),
+      templatesExist: false,
+      templatesHaveFiles: false,
+      platform: "windows-x64",
+      longPaths: "enabled",
+    });
+
+    expect(inspection.checks.some((item) => item.code === "render.templates_missing")).toBe(true);
+  });
+
   test("detects enabled Windows long path support from registry output", async () => {
     const status = await detectWindowsLongPathsStatus(async () => ({
       stdout: [
