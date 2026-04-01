@@ -109,6 +109,11 @@ func TestClientRejectsPlainHTTPForPublicHost(t *testing.T) {
 	t.Parallel()
 
 	client := New(Config{
+		Resolver: staticResolver{
+			"api.example.test": {{
+				IP: net.ParseIP("93.184.216.34"),
+			}},
+		},
 		Timeout: 5 * time.Second,
 	})
 
