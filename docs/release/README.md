@@ -5,14 +5,14 @@
 ## 当前发布边界
 
 - `contracts/release-manifest.schema.json` 已定义正式 release metadata 结构，并进入 fixture-ready。
-- 当前仓库的真实交付面仍以 server、contracts、fixtures、examples 与 builtin 资源为主。
-- `.deps/manifest.json` 仍是受控 Chromium 与托管运行时资源清单骨架，来源、SHA256 与 Chromium 正式版本尚待补齐。
+- 当前仓库的真实交付面覆盖 server、web、launcher、contracts、fixtures、examples、builtin 插件、`templates/` 与 `.deps/manifest.json`。
+- `.deps/manifest.json` 已固定 Chromium 资源的正式版本、来源、SHA256 与平台矩阵；Python / Node.js runtime metadata 仍保留后续补齐空间。
 
 ## 文档关注点
 
 - 记录当前可验证的版本内容、迁移影响和已知限制。
-- 说明 release metadata 与资源清单的正式字段来源。
-- 在 Web UI、Launcher、Render Service 进入实现前，本目录不预设完整安装器、升级服务或交付矩阵。
+- 说明 release metadata、资源清单与打包目录布局的正式字段来源。
+- 说明 release workflow、smoke 校验与产物矩阵的当前交付约束。
 
 ## 维护规则
 

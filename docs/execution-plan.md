@@ -19,10 +19,10 @@
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、ready gating、重连、心跳、消息/notice 归一化、`message.send` / `message.reply` 已接入主链路；更广动作族与多 adapter 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | ✅ | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` local action RPC 与 gated `event.raw_payload` 已接入；完整 Chromium Render Service 继续后置到 Phase 10 |
 | Phase 6 | Config / Storage / Security | ✅ | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；`/readyz`、诊断包、`doctor`、Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 统一诊断结构 |
-| Phase 7 | Web API & Tasks | 🟡 | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress 与插件来源/信任/命令冲突 metadata 已可用；插件安装来源和 lifecycle 路由形状与规划正文仍有口径待收口 |
+| Phase 7 | Web API & Tasks | ✅ | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress、插件来源/信任/命令冲突 metadata 与 render preview / artifact 管理面已进入正式主链 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
 | Phase 9 | Launcher | 🟡 | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口已接入，正式安装体验仍待收口 |
-| Phase 10 | Render Service | 🟡 | `render.image` 最小占位渲染、产物输出与资源检查已接线；受控 Chromium 队列、模板版本 / 缓存、preview 与正式 Render Service 调度仍未完成 |
+| Phase 10 | Render Service | ✅ | 受控 Chromium 渲染、模板资源、artifact registry、`render.preview` 任务流、管理面预览入口、任务详情图片预览与统一资源诊断已接入主链 |
 
 ### 判定口径
 
@@ -46,7 +46,7 @@
 | `docs/engineering/implementation-order.md` | ✅ | 10 阶段实施顺序已定义 |
 | `contracts/README.md` | ✅ | formal contract 范围与当前 TODO 边界已收敛 |
 | Server / Web / Launcher 基线文件 | ✅ | `server/go.mod`、`web/package.json`、`launcher/package.json`、`launcher/pnpm-lock.yaml` 已锁定基线 |
-| `.deps/manifest.json` | 🟡 | 资源 ID 与版本线已存在，来源与 SHA256 仍待补齐 |
+| `.deps/manifest.json` | 🟡 | Chromium 资源已固定为官方 Chrome for Testing 的 version / source / SHA256；Python / Node.js runtime metadata 仍待补齐 |
 | CI skeleton | ✅ | `contracts.yml` 与 `lint.yml` 已落库，并实际校验 contracts、baseline、server smoke |
 
 ---
@@ -154,7 +154,7 @@
 
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
-| 完整 Render Service | 🟡 | `render.image` 已有最小占位产物输出，但 Chromium 调度、模板版本化、缓存、preview 与正式渲染队列仍在 Phase 10 |
+| 完整 Render Service | ✅ | 受控 Chromium 渲染、模板版本化、缓存、preview、artifact route 与统一资源诊断已在 Phase 10 收口 |
 | 更广 future action families | ❌ | v0.1 之外的更广动作族仍未 formalize / 实现 |
 
 ---
@@ -269,16 +269,16 @@
 
 ---
 
-## 十二、Phase 10 — Render Service 🟡
+## 十二、Phase 10 — Render Service ✅
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
-| render contract / API surface | ✅ | `render.image` 已进入 formal contract、fixtures、SDK、examples 与主运行链 |
-| 最小 render artifact 输出 | ✅ | server 已能生成占位渲染产物并把 `image_path` / `mime` / `cache_key` 返回给插件 |
-| 渲染队列与 Chromium 调度 | ❌ | 队列、并发控制、超时、重试与浏览器调度尚未实现 |
-| 模板校验 / 缓存 / 结果管理 | 🟡 | 最小 artifact path 已存在，但模板版本化、缓存、失败回收与产物管理仍未实现 |
-| `.deps/manifest.json` baseline | 🟡 | 仅存在资源清单占位 |
-| 受控运行时资源接线 | 🟡 | Launcher preflight 已覆盖 Chromium / 模板资源检查，真正的 render worker 资源接线仍未完成 |
+| render contract / API surface | ✅ | `render.image`、`POST /api/system/render/preview`、`GET /api/system/render/artifacts/{artifact_id}` 与 `render.preview` task detail shape 已进入 formal contract、fixtures、tests 与 Web 主链 |
+| 最小 render artifact 输出 | ✅ | `render.image` 继续返回插件可消费的 `file:// image_path`，同时生成稳定 `artifact_id`、`mime` 与 `cache_key`，供管理面同源读取 |
+| 渲染队列与 Chromium 调度 | ✅ | bounded queue、并发 worker、排队超时、执行超时、Chromium 渲染与错误映射已落地 |
+| 模板校验 / 缓存 / 结果管理 | ✅ | `templates/` 已提供 `help.menu`、`status.panel`、input schema、模板版本、data hash cache key 与 artifact registry |
+| `.deps/manifest.json` baseline | 🟡 | Chromium 资源已固定为官方 Chrome for Testing metadata，Python / Node.js runtime metadata 仍保留占位 |
+| 受控运行时资源接线 | ✅ | startup logs、`/readyz`、CLI `doctor`、Launcher preflight、release packaging 与 artifact route 已共享 Chromium / template 资源检查 |
 
 ---
 
@@ -317,7 +317,7 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`release` 已进入仓库工作流，release metadata / checksum 校验与交付矩阵 smoke 已有门禁。
-- 当前主要风险集中在三个层面：Render Service 仍停留在最小占位产物输出，Chromium 队列、模板元数据、缓存与 preview 尚未完成；正式安装体验仍待打磨；发布后升级 / 回滚 drills 与长期自托管 smoke 仍未进入稳定门禁。
+- 当前主要风险集中在两个层面：正式安装体验仍待打磨；发布后升级 / 回滚 drills 与长期自托管 smoke 仍未进入稳定门禁。
 
 ---
 
@@ -327,9 +327,10 @@
 
 1. 插件 lifecycle 路由口径已在 Phase 7 归档为完成，正式语义采用 `enable` / `disable` / `reload` 独立路由。
 2. 插件安装来源 `remote_url` 已在 Phase 7 归档为完成，属于 v0.1 正式支持能力。
-3. `render.image` 文档口径已统一：local action RPC 已 formalize，完整 Render Service 尚未完成。`contracts/README.md`、`server/README.md` 已同步。
+3. render 文档口径已统一：`render.image` local action RPC、`render.preview` 管理面任务流与 artifact 读取面已进入正式 contract。`contracts/README.md`、`server/README.md` 已同步。
 4. `/readyz`、诊断包、`doctor`、Launcher 已收口到 `code` / `severity` / `summary` / `remediation` 统一诊断结构。`ReadinessStatusResponse` 同时输出 `checks` 与 `issues`，`doctor` 输出结构化 `DoctorReport`，诊断包包含 `doctor.json`。
 5. Launcher 凭据丢失恢复入口已接入：偏好设置页提供"重置管理员凭据"按钮，执行时停止服务、调用 `reset-admin` CLI、重启服务并打开 Web 初始化页面。
+6. Render Service 主链已接入：formal contracts、fixtures、Chromium 渲染队列、模板资源、artifact route、Dashboard 预览入口、Tasks 结果预览、统一诊断与 release packaging 已对齐。
 
 ### 本轮执行顺序
 
@@ -342,8 +343,8 @@
 3. ✅ 补齐 Launcher 本地恢复入口。
    Launcher 偏好设置页提供重置管理员凭据按钮，coordinator / IPC / preload / renderer 全链路已接入。
 
-4. 完成 Render Service 主链。
-   范围：先补 contract / docs，再推进 `server/internal/app/render_service.go`、模板资源、`.deps/manifest.json`、任务流与 Web 调试入口。
+4. ✅ 完成 Render Service 主链。
+   formal contracts、fixtures、Chromium worker、模板资源、artifact route、任务流、Web 调试入口、资源诊断与 release packaging 已收口。
 
 5. 把交付后回归接入稳定门禁。
    范围：`.github/workflows/release.yml`、`.github/workflows/lint.yml`、`scripts/release/*`、`docs/release/*`、`docs/user/*`。

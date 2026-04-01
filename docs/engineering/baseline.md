@@ -33,7 +33,7 @@
 | Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `electron-builder 26.8.1` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |
-| Render | `chromedp 0.13.2` + 受控 Chromium |
+| Render | `chromedp 0.14.2` + 受控 Chromium |
 
 ## 固定工程选型
 
@@ -137,8 +137,7 @@
 ## 当前仍需保留的基线 TODO
 
 - `TODO(repo.identity)`：仓库配置正式 remote 后，将 `server/go.mod` 的本地 module path 收敛为正式模块路径。
-- `TODO(deps.chromium.version)`：在 `.deps/manifest.json` 中补齐受控 Chromium 的正式版本。
-- `TODO(deps.source_and_sha256)`：在 `.deps/manifest.json` 中补齐 Chromium、Python、Node.js 资源来源与 SHA256。
+- `TODO(deps.runtime.source_and_sha256)`：在 `.deps/manifest.json` 中补齐 Python、Node.js 资源来源与 SHA256。
 
 规则：
 

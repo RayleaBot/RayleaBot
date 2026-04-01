@@ -10,10 +10,10 @@
 - `POST /api/setup/admin`、session 登录、配置读取与更新、任务查询、日志查询、插件安装与生命周期管理
 - `/ws/events`、`/ws/tasks`、`/ws/logs`、`/ws/plugins/{id}/console` 管理 WebSocket
 - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 六个 CLI 子命令
-- `web/` 管理面已提供 `setup/login/session`、系统状态、插件安装与卸载、grants 管理、插件 console、任务查看与取消、日志查看、配置编辑与服务关闭入口
+- `web/` 管理面已提供 `setup/login/session`、系统状态、渲染预览、插件安装与卸载、grants 管理、插件 console、任务查看与取消、日志查看、配置编辑与服务关闭入口
 - `launcher/` 已提供最小 Windows 桌面壳，可执行环境检查、拉起 / 停止 `raylea-server`、轮询健康与系统状态、打开 Web 管理面并通过 loopback token 自动入会话
 
-Render Service 仍未形成面向用户的完整体验；当前用户侧说明可围绕 server 管理面、CLI、Web 管理面和最小 Launcher 闭环展开。
+Render Service 已提供管理面预览调试入口、任务详情图片预览与同源 artifact 读取面；在线模板编辑与更宽用户侧工作流不在当前说明范围内。
 
 ## 编写边界
 

@@ -3535,7 +3535,7 @@ Launcher 与 Server 通信机制：
 - Node.js 插件运行时：Node.js `24.14.0`（与 Web 构建基线统一）。
 - 数据库：SQLite，通过 Go 驱动 `modernc.org/sqlite` 接入。
 - 桌面启动器：Electron `41.1.0` + Node.js `24.14.0` + `pnpm 10.32.1` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3`，正式交付 `windows-x64`、`linux-x64` 与 `macos-arm64` 桌面版本。
-- 图片渲染：v0.1 采用 `chromedp 0.13.2` + 受控 Chromium 运行时的统一渲染方案。
+- 图片渲染：v0.1 采用 `chromedp 0.14.2` + 受控 Chromium 运行时的统一渲染方案。
 
 #### 4.1.1 Go 关键依赖固定选型
 
@@ -3546,7 +3546,7 @@ Launcher 与 Server 通信机制：
 | SQLite 驱动 | `modernc.org/sqlite` | 纯 Go 实现，无需 CGO，降低交叉编译和分发复杂度；具体 module patch 在建仓时冻结到 `go.mod` |
 | 日志 | Go `1.25.8` 标准库 `log/slog` | 结构化日志输出，无需引入第三方日志库 |
 | 配置解析 | `gopkg.in/yaml.v3` | 社区标准 YAML 解析库 |
-| 浏览器控制 | `chromedp` `v0.13.2` | CDP 协议封装，用于渲染引擎 |
+| 浏览器控制 | `chromedp` `v0.14.2` | CDP 协议封装，用于渲染引擎 |
 
 说明：
 
@@ -3566,7 +3566,7 @@ Launcher 与 Server 通信机制：
 | Python 插件运行时 | Python `3.12.13` | 相比 `3.14.x` 更利于第三方依赖兼容、Windows 打包与插件分发稳定性 |
 | Go Web / API 依赖 | `go-chi/chi` `v5.2.5` + `coder/websocket` `v1.8.14` | 明确单一依赖选择，减少 AI 生成代码时的分叉实现 |
 | SQLite 接入 | `modernc.org/sqlite` | 具体 module patch 在建仓时冻结到 `go.mod`；并在基线文档记录其对应的 SQLite upstream version / source id |
-| 渲染 | `chromedp 0.13.2` + 受控 Chromium | 具体 Chromium build、SHA256 和下载来源写入 `.deps/manifest.json` 或等价发布元数据，不只写在 Markdown 中 |
+| 渲染 | `chromedp 0.14.2` + 受控 Chromium | 具体 Chromium build、SHA256 和下载来源写入 `.deps/manifest.json` 或等价发布元数据，不只写在 Markdown 中 |
 | Launcher | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `electron-builder 26.8.1` | Electron 桌面壳与 Node `24.14.0` / `pnpm 10.32.1` 基线统一，适配桌面目录包交付与 typed IPC 分层 |
 
 补充约束：

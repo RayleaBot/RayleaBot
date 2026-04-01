@@ -21,6 +21,8 @@
   - `PUT /api/config`
   - `GET /api/system/status`
   - `POST /api/system/shutdown`
+  - `POST /api/system/render/preview`
+  - `GET /api/system/render/artifacts/{artifact_id}`
   - `GET /api/logs`
   - `GET /api/tasks`
   - `GET /api/tasks/{task_id}`
@@ -80,11 +82,19 @@
   - `cooldown.*`
   - `auth.super_admins`
   - `auth.default_level`
+  - `render.timeout_seconds`
+  - `render.queue_wait_timeout_seconds`
+  - `render.queue_max_length`
   - `storage.kv_*`
   - `storage.file_*`
   - `http.*`
   - `logging.retention_days`
   - `logging.rate_limit_per_plugin`
+- Render Service：
+  - 受控 Chromium 渲染与 bounded queue
+  - `templates/` 模板注册、input schema 校验与缓存键生成
+  - `render.preview` 任务流、artifact registry 与同源图片读取面
+  - startup logs、`/readyz`、CLI `doctor` 与 Launcher preflight 的统一资源诊断
 - CLI 子命令：
   - `reset-admin`
   - `backup`
@@ -95,7 +105,6 @@
 
 ## 当前边界
 
-- 完整 Render Service（受控 Chromium 队列、模板版本化、缓存、preview）尚未完成；`render.image` local action RPC 已进入正式链路，产出占位渲染产物
 - 更广插件动作族尚未 formalize
 
 ## 默认命令
