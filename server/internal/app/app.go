@@ -906,6 +906,9 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 	switch stateOrIdle(snapshot.State) {
 	case adapter.StateConnected:
 		report.Status = "ready"
+	case adapter.StateIdle:
+		report.Status = "ready"
+		report.Checks["adapter"] = "idle"
 	case adapter.StateAuthFailed:
 		report.Status = "degraded"
 		report.Reason = "OneBot authentication failed"

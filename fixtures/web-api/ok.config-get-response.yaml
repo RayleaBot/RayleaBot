@@ -13,7 +13,7 @@ response:
         host: 127.0.0.1
         port: 8080
       onebot:
-        ws_url: ws://127.0.0.1:6700
+        ws_url: ""
         access_token: __REDACTED__
       database:
         engine: sqlite

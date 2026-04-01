@@ -199,6 +199,16 @@ func (s *Shell) run(ctx context.Context) {
 		s.mu.Unlock()
 	}()
 
+	if strings.TrimSpace(s.cfg.WSURL) == "" {
+		s.logger.Info(
+			"adapter connection is not configured",
+			"component", "adapter",
+			"adapter_state", StateIdle,
+		)
+		<-ctx.Done()
+		return
+	}
+
 	retryAttempt := 0
 	for {
 		if ctx.Err() != nil {

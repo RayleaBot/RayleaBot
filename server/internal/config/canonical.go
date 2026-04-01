@@ -604,7 +604,7 @@ func defaultDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"ws_url":       "ws://127.0.0.1:6700",
+			"ws_url":       "",
 			"access_token": "",
 		},
 		"database": map[string]any{

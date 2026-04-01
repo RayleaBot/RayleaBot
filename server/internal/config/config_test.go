@@ -26,6 +26,9 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if cfg.Server.Port != 8080 {
 		t.Fatalf("Server.Port = %d, want 8080", cfg.Server.Port)
 	}
+	if cfg.OneBot.WSURL != "" {
+		t.Fatalf("OneBot.WSURL = %q, want empty by default", cfg.OneBot.WSURL)
+	}
 
 	defaultPath := filepath.Join(filepath.Dir(configPath), "default.yaml")
 	if _, err := os.Stat(defaultPath); err != nil {
@@ -51,6 +54,9 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	}
 	if _, ok := document["adapter"]; !ok {
 		t.Fatal("expected planning-aligned adapter section in persisted document")
+	}
+	if got := nestedString(t, document, "onebot", "ws_url"); got != "" {
+		t.Fatalf("onebot.ws_url = %q, want empty", got)
 	}
 }
 
@@ -210,6 +216,32 @@ func TestSaveDocumentPersistsPlanningAlignedShape(t *testing.T) {
 	}
 }
 
+func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	document := newPlanningConfigDocument()
+	document["onebot"].(map[string]any)["ws_url"] = ""
+	delete(document["onebot"].(map[string]any), "access_token")
+
+	cfg, _, err := SaveDocument(configPath, schemaPath, document)
+	if err != nil {
+		t.Fatalf("SaveDocument() error = %v", err)
+	}
+	if cfg.OneBot.WSURL != "" {
+		t.Fatalf("OneBot.WSURL = %q, want empty", cfg.OneBot.WSURL)
+	}
+
+	saved, err := LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("LoadDocument() error = %v", err)
+	}
+	if got := nestedString(t, saved, "onebot", "ws_url"); got != "" {
+		t.Fatalf("saved onebot.ws_url = %q, want empty", got)
+	}
+}
+
 func nestedString(t *testing.T, document map[string]any, path ...string) string {
 	t.Helper()
 
@@ -262,7 +294,7 @@ func newPlanningConfigDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"ws_url":       "ws://127.0.0.1:6700",
+			"ws_url":       "",
 			"access_token": "",
 		},
 		"database": map[string]any{

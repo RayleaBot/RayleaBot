@@ -724,12 +724,25 @@ func wrapRenderError(err error, message string) error {
 }
 
 func hostPlatform() string {
-	switch runtime.GOOS {
+	return manifestPlatform(runtime.GOOS, runtime.GOARCH)
+}
+
+func manifestPlatform(goos, goarch string) string {
+	switch goos {
 	case "windows":
-		return "windows-" + runtime.GOARCH
+		return "windows-" + normalizeManifestArch(goarch)
 	case "darwin":
-		return "macos-" + runtime.GOARCH
+		return "macos-" + normalizeManifestArch(goarch)
 	default:
-		return runtime.GOOS + "-" + runtime.GOARCH
+		return goos + "-" + normalizeManifestArch(goarch)
+	}
+}
+
+func normalizeManifestArch(goarch string) string {
+	switch goarch {
+	case "amd64":
+		return "x64"
+	default:
+		return goarch
 	}
 }

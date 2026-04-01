@@ -75,6 +75,28 @@ func TestReadyzConnectedStateIsReady(t *testing.T) {
 	)
 }
 
+func TestReadyzIdleIsReadyWhenOneBotIsNotConfigured(t *testing.T) {
+	t.Parallel()
+
+	assertReadinessResponse(
+		t,
+		adapter.Snapshot{
+			State: adapter.StateIdle,
+		},
+		http.StatusOK,
+		map[string]any{
+			"status": "ready",
+			"checks": map[string]any{
+				"config":   "ok",
+				"database": "ok",
+				"runtime":  "ok",
+				"adapter":  "idle",
+				"render":   "ok",
+			},
+		},
+	)
+}
+
 func TestReadyzAuthFailedIsDegraded(t *testing.T) {
 	t.Parallel()
 

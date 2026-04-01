@@ -53,12 +53,19 @@
     "onebot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ws_url", "access_token"],
       "properties": {
         "ws_url": {
           "type": "string",
-          "format": "uri",
-          "pattern": "^(ws|wss)://.+$"
+          "default": "",
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "format": "uri",
+              "pattern": "^(ws|wss)://.+$"
+            }
+          ]
         },
         "access_token": {
           "type": "string",

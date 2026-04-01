@@ -816,11 +816,11 @@ Bot Core 是服务进程的主控制层，建议至少包含以下模块：
 
 #### 3.4.4 启动时序与 Ready 条件
 
-- 服务启动顺序应固定为：配置加载 -> 迁移检查 -> 运行时与渲染资源检查 -> 管理员初始化判定 -> 插件注册与调度恢复 -> 本地控制面可用 -> Adapter 建链 -> 服务进入 `running` 或 `degraded`。
+- 服务启动顺序应固定为：配置加载 -> 迁移检查 -> 运行时与渲染资源检查 -> 管理员初始化判定 -> 插件注册与调度恢复 -> 本地控制面可用 -> Adapter 建链 -> 服务进入 `running`、`degraded`、`setup_required` 或 `failed`。
 - 若配置加载、迁移检查、`.deps/` / Chromium / 模板资源检查任一步失败，服务不得进入 `running`，并应把失败摘要暴露给日志、Launcher、CLI 和 Web 管理端。
 - 若系统判定处于 `setup_required`，则在管理员初始化完成前不得加载插件、建立 OneBot11 连接或开始调度任务。
-- 当关键资源可用、初始化状态满足且本地管理控制面已可用时，服务即可完成主进程启动；若 Adapter 成功建立受支持的 OneBot11 链路，则切换为 `running`。
-- 若外部 OneBot11 反向 WebSocket 链路暂时不可用、正在重连或认证尚未完成，但本地控制面与核心资源均已正常，则服务应进入 `degraded` 并持续重连，而不是把整个进程视为硬启动失败。
+- 当关键资源可用、初始化状态满足且本地管理控制面已可用时，服务即可完成主进程启动；若 Adapter 成功建立受支持的 OneBot11 链路，则切换为 `running`；若用户暂未配置 OneBot11 连接，Adapter 保持 `idle`，服务仍满足 Ready 条件。
+- 若用户已配置 OneBot11 反向 WebSocket，且外部链路暂时不可用、正在重连或认证尚未完成，但本地控制面与核心资源均已正常，则服务应进入 `degraded` 并持续重连，而不是把整个进程视为硬启动失败。
 - 非致命问题如个别插件恢复失败、外部协议链路暂不可用，可在记录错误并标记状态后让服务进入 `degraded`，但不得伪装成完全就绪。
 - Ready 条件应以本地管理控制面、关键资源和初始化状态为主；任一本地关键检查失败默认进入 `failed` 或维持在阻塞态，而不是误用 `degraded` 掩盖启动失败。
 
@@ -2877,7 +2877,7 @@ server:
 
 # OneBot11 协议配置
 onebot:
-  ws_url: "ws://127.0.0.1:6700"
+  ws_url: ""
   access_token: ""
 
 # 命令系统
@@ -3930,7 +3930,7 @@ v0.1 至少建议暴露以下可观测信息：
 v0.1 还应提供两类极简健康接口：
 
 - `GET /healthz`：只反映进程是否存活，适合 Launcher、`systemd`、Docker / LXC 或外部守护器执行基础活性探测。
-- `GET /readyz`：反映服务是否满足 3.4.4 定义的 Ready 条件；当处于 `setup_required`、迁移失败或关键本地资源缺失时，应明确返回非就绪状态。若仅外部 OneBot11 链路暂不可用但本地控制面已可管理，则可返回就绪并附带 `degraded` 细节。
+- `GET /readyz`：反映服务是否满足 3.4.4 定义的 Ready 条件；当处于 `setup_required`、迁移失败或关键本地资源缺失时，应明确返回非就绪状态。若 Adapter 处于 `idle` 且用户未配置 OneBot11 连接，则返回就绪；若已配置 OneBot11 链路且外部连接暂不可用，则返回就绪并附带 `degraded` 细节。
 
 说明：
 
@@ -3943,7 +3943,7 @@ v0.1 还应提供两类极简健康接口：
 | --- | --- | --- |
 | `starting`（启动中） | `200 OK` | `503 Service Unavailable` |
 | `running` | `200 OK` | `200 OK`，body 含 `{"status": "ready"}` |
-| `degraded`（OneBot 链路不可用，本地控制面正常） | `200 OK` | `200 OK`，body 含 `{"status": "degraded", "reason": "..."}` |
+| `degraded`（已配置 OneBot 链路不可用，本地控制面正常） | `200 OK` | `200 OK`，body 含 `{"status": "degraded", "reason": "..."}` |
 | `setup_required` | `200 OK` | `503 Service Unavailable`，body 含 `{"status": "setup_required"}` |
 | `failed`（启动失败/迁移失败） | `200 OK` | `503 Service Unavailable`，body 含 `{"status": "failed", "reason": "..."}` |
 | 进程不可达 | 连接拒绝 | 连接拒绝 |
@@ -3952,6 +3952,7 @@ v0.1 还应提供两类极简健康接口：
 
 - `/healthz` 只要进程存活就返回 `200`，不关心业务状态；适用于 `systemd`、Docker 和 Launcher 的活性探测。
 - `/readyz` 区分"就绪可接受流量"和"存活但不可用"：`200` 表示服务可正常接受管理和协议流量，`503` 表示尚未就绪。
+- `adapter=idle` 表示当前未配置 OneBot11 连接，本地控制面和管理 API 仍处于就绪状态。
 - OneBot11 `auth_failed`、持续重连或外部链路暂不可用都属于 `degraded` 的具体原因，而不是单独把本地控制面判为不就绪；推荐在 `reason_codes` 中使用 `adapter.auth_failed`、`adapter.reconnecting` 等稳定代码。
 - `degraded` 返回 `200` 而非 `503`，因为本地控制面和插件管理仍可用；`reason` 字段说明人类可读的退化原因，`reason_codes` 提供稳定枚举给 Web UI、Launcher 和 `doctor` 复用。
 - `/healthz` 与 `/readyz` 的返回体都应为 JSON，对外至少统一包含 `status` 字段；推荐附带 `reason`、`reason_codes` 和 `checks`。其中 `checks` 用于暴露 `config`、`database`、`runtime`、`adapter`、`render` 等子检查结果，避免不同入口各自猜测状态。

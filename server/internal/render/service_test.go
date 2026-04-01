@@ -259,3 +259,14 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 		t.Fatalf("second render failed after release: %v", err)
 	}
 }
+
+func TestManifestPlatformNormalizesWindowsAMD64(t *testing.T) {
+	t.Parallel()
+
+	if got := manifestPlatform("windows", "amd64"); got != "windows-x64" {
+		t.Fatalf("manifestPlatform(windows, amd64) = %q, want windows-x64", got)
+	}
+	if got := manifestPlatform("darwin", "arm64"); got != "macos-arm64" {
+		t.Fatalf("manifestPlatform(darwin, arm64) = %q, want macos-arm64", got)
+	}
+}
