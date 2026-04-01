@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
 import type { LauncherResetAdminRunner } from "./launcher-coordinator";
-import type { LauncherSettings } from "../../shared/launcher-models";
+import type { LauncherResolvedSettings } from "../../shared/launcher-models";
 import { resolveConfigSchemaPath } from "./process-controller";
 
 export class NodeResetAdminRunner implements LauncherResetAdminRunner {
-  async run(settings: LauncherSettings): Promise<void> {
+  async run(settings: LauncherResolvedSettings): Promise<void> {
     const serverPath = settings.serverExecutablePath;
     const configPath = settings.configPath;
     const schemaPath = await resolveConfigSchemaPath(settings);

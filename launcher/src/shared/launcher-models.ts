@@ -12,11 +12,23 @@ export type LauncherServiceState =
 
 export type CheckSeverity = "ok" | "warning" | "error";
 
+export interface LauncherAdvancedOverrides {
+  serverExecutablePath?: string;
+  configPath?: string;
+  workdir?: string;
+}
+
 export interface LauncherSettings {
+  installationRoot: string;
+  closeBehavior: LauncherCloseBehavior;
+  advancedOverrides?: LauncherAdvancedOverrides;
+}
+
+export interface LauncherResolvedSettings {
+  installationRoot: string;
   serverExecutablePath: string;
   configPath: string;
   workdir: string;
-  closeBehavior: LauncherCloseBehavior;
 }
 
 export interface ServerEndpoint {
@@ -52,6 +64,7 @@ export interface ReleaseCheckSnapshot {
 
 export interface LauncherSnapshot {
   settings: LauncherSettings;
+  resolvedSettings: LauncherResolvedSettings;
   endpoint: ServerEndpoint;
   environmentChecks: EnvironmentCheckResult[];
   recentStderr: string[];

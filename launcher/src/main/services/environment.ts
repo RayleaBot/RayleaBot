@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { EnvironmentCheckResult, EnvironmentInspection, LauncherSettings } from "../../shared/launcher-models";
+import type { EnvironmentCheckResult, EnvironmentInspection, LauncherResolvedSettings } from "../../shared/launcher-models";
 
 const execFileAsync = promisify(execFile);
 
@@ -330,7 +330,7 @@ async function isWorkdirWritable(targetPath: string) {
   }
 }
 
-export async function inspectEnvironmentFromNode(settings: LauncherSettings): Promise<EnvironmentInspection> {
+export async function inspectEnvironmentFromNode(settings: LauncherResolvedSettings): Promise<EnvironmentInspection> {
   const workdir = settings.workdir;
   const depsManifestPath = path.join(workdir, ".deps", "manifest.json");
   const templatesPath = path.join(workdir, "templates");

@@ -94,6 +94,13 @@ async function chooseConfigFile() {
   return result.canceled ? null : result.filePaths[0] ?? null;
 }
 
+async function chooseInstallationRoot() {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ["openDirectory", "createDirectory"],
+  });
+  return result.canceled ? null : result.filePaths[0] ?? null;
+}
+
 async function chooseWorkdir() {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ["openDirectory", "createDirectory"],
@@ -267,6 +274,7 @@ function wireIpc() {
   ipcMain.handle("launcher:open-release-page", async () => coordinator.openReleasePage());
   ipcMain.handle("launcher:open-logs", async () => coordinator.openLogsDirectory());
   ipcMain.handle("launcher:save-settings", async (_event, settings: LauncherSettings) => coordinator.saveSettings(settings));
+  ipcMain.handle("launcher:choose-installation-root", async () => chooseInstallationRoot());
   ipcMain.handle("launcher:choose-server", async () => chooseServerExecutable());
   ipcMain.handle("launcher:choose-config", async () => chooseConfigFile());
   ipcMain.handle("launcher:choose-workdir", async () => chooseWorkdir());

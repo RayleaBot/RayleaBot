@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Radio,
   RadioGroup,
@@ -27,6 +27,8 @@ import {
   Dismiss20Regular,
 } from "@fluentui/react-icons";
 import type {
+  LauncherAdvancedOverrides,
+  LauncherResolvedSettings,
   LauncherSettings,
   LauncherSnapshot,
   LauncherServiceState,
@@ -58,6 +60,7 @@ type AppShellProps = {
   snapshot: LauncherSnapshot;
   activeSection: SectionId;
   settingsDraft: LauncherSettings;
+  resolvedSettings: LauncherResolvedSettings;
   editingSettings: boolean;
   diagnosticsSummary: string;
   busyAction: string | null;
@@ -74,7 +77,10 @@ type AppShellProps = {
   onBeginEdit: () => void;
   onCancelEdit: () => void;
   onSaveSettings: () => void;
-  onUpdateSettings: (partial: Partial<LauncherSettings>) => void;
+  onUpdateInstallationRoot: (value: string) => void;
+  onUpdateCloseBehavior: (value: LauncherSettings["closeBehavior"]) => void;
+  onUpdateAdvancedOverride: (key: keyof LauncherAdvancedOverrides, value: string) => void;
+  onChooseInstallationRoot: () => void;
   onChooseServer: () => void;
   onChooseConfig: () => void;
   onChooseWorkdir: () => void;
@@ -115,6 +121,7 @@ export function AppShell({
   snapshot,
   activeSection,
   settingsDraft,
+  resolvedSettings,
   editingSettings,
   diagnosticsSummary,
   busyAction,
@@ -131,17 +138,32 @@ export function AppShell({
   onBeginEdit,
   onCancelEdit,
   onSaveSettings,
-  onUpdateSettings,
+  onUpdateInstallationRoot,
+  onUpdateCloseBehavior,
+  onUpdateAdvancedOverride,
+  onChooseInstallationRoot,
   onChooseServer,
   onChooseConfig,
   onChooseWorkdir,
   onExit,
 }: AppShellProps) {
+  const [showAdvancedOverrides, setShowAdvancedOverrides] = useState(false);
   const groupedChecks = useMemo(() => ({
     blocking: snapshot.environmentChecks.filter(i => i.severity === "error"),
     warnings: snapshot.environmentChecks.filter(i => i.severity === "warning"),
     ready: snapshot.environmentChecks.filter(i => i.severity === "ok"),
   }), [snapshot.environmentChecks]);
+  const hasAdvancedOverrides = Boolean(
+    settingsDraft.advancedOverrides?.serverExecutablePath
+    || settingsDraft.advancedOverrides?.configPath
+    || settingsDraft.advancedOverrides?.workdir,
+  );
+
+  useEffect(() => {
+    if (hasAdvancedOverrides) {
+      setShowAdvancedOverrides(true);
+    }
+  }, [hasAdvancedOverrides]);
 
   const trayStatus = useMemo(() => statusSummary(snapshot.serviceState), [snapshot.serviceState]);
   const startDisabled =
@@ -296,7 +318,8 @@ export function AppShell({
               <div className="status-list">
                 <div className="status-item"><span className="status-label">进程 ID</span><code className="status-value">{snapshot.processId ?? "—"}</code></div>
                 <div className="status-item"><span className="status-label">本地端点</span><span className="status-value mono">{snapshot.endpoint.baseUrl}</span></div>
-                <div className="status-item"><span className="status-label">工作目录</span><span className="status-value mono">{snapshot.settings.workdir}</span></div>
+                <div className="status-item"><span className="status-label">安装目录</span><span className="status-value mono">{snapshot.settings.installationRoot || "—"}</span></div>
+                <div className="status-item"><span className="status-label">运行目录</span><span className="status-value mono">{resolvedSettings.workdir || "—"}</span></div>
               </div>
             </article>
 
@@ -357,7 +380,7 @@ export function AppShell({
           <article className="panel glass-panel settings-panel">
             <div className="panel-toolbar">
               <div className="panel-copy">
-                <div className="brand-eyebrow brand-eyebrow--tight">路径配置</div>
+                <div className="brand-eyebrow brand-eyebrow--tight">安装设置</div>
                 {editingSettings && <span className="glass-chip glass-chip--accent">编辑中</span>}
               </div>
               <div className="settings-actions">
@@ -396,20 +419,20 @@ export function AppShell({
             <div className="settings-shell">
               <div className="path-stack">
                 <label className="path-field">
-                  <span className="path-field__label">服务端可执行文件路径</span>
+                  <span className="path-field__label">安装目录</span>
                   <div className="path-control">
                     <Input
-                      value={settingsDraft.serverExecutablePath}
+                      value={settingsDraft.installationRoot}
                       readOnly={!editingSettings}
                       className="frost-input frost-input--path"
-                      onChange={(_, d) => onUpdateSettings({ serverExecutablePath: d.value })}
+                      onChange={(_, d) => onUpdateInstallationRoot(d.value)}
                     />
                     <Button
                       appearance="transparent"
                       disabled={!editingSettings}
                       size="small"
                       className="frost-button frost-button--secondary frost-button--compact"
-                      onClick={onChooseServer}
+                      onClick={onChooseInstallationRoot}
                       icon={<FolderOpen20Filled />}
                     >
                       浏览
@@ -418,55 +441,126 @@ export function AppShell({
                 </label>
 
                 <label className="path-field">
-                  <span className="path-field__label">配置文件路径</span>
+                  <span className="path-field__label">服务端路径</span>
                   <div className="path-control">
                     <Input
-                      value={settingsDraft.configPath}
-                      readOnly={!editingSettings}
+                      value={resolvedSettings.serverExecutablePath}
+                      readOnly
                       className="frost-input frost-input--path"
-                      onChange={(_, d) => onUpdateSettings({ configPath: d.value })}
                     />
-                    <Button
-                      appearance="transparent"
-                      disabled={!editingSettings}
-                      size="small"
-                      className="frost-button frost-button--secondary frost-button--compact"
-                      onClick={onChooseConfig}
-                      icon={<FolderOpen20Filled />}
-                    >
-                      浏览
-                    </Button>
                   </div>
                 </label>
 
                 <label className="path-field">
-                  <span className="path-field__label">工作目录</span>
+                  <span className="path-field__label">配置文件</span>
                   <div className="path-control">
                     <Input
-                      value={settingsDraft.workdir}
-                      readOnly={!editingSettings}
+                      value={resolvedSettings.configPath}
+                      readOnly
                       className="frost-input frost-input--path"
-                      onChange={(_, d) => onUpdateSettings({ workdir: d.value })}
                     />
-                    <Button
-                      appearance="transparent"
-                      disabled={!editingSettings}
-                      size="small"
-                      className="frost-button frost-button--secondary frost-button--compact"
-                      onClick={onChooseWorkdir}
-                      icon={<FolderOpen20Filled />}
-                    >
-                      选择
-                    </Button>
                   </div>
                 </label>
+
+                <label className="path-field">
+                  <span className="path-field__label">运行目录</span>
+                  <div className="path-control">
+                    <Input
+                      value={resolvedSettings.workdir}
+                      readOnly
+                      className="frost-input frost-input--path"
+                    />
+                  </div>
+                </label>
+
+                <Button
+                  appearance="transparent"
+                  size="small"
+                  className="frost-button frost-button--ghost"
+                  onClick={() => setShowAdvancedOverrides((current) => !current)}
+                >
+                  {showAdvancedOverrides ? "收起高级覆盖" : "高级覆盖"}
+                </Button>
+
+                {showAdvancedOverrides && (
+                  <>
+                    <label className="path-field">
+                      <span className="path-field__label">服务端可执行文件覆盖</span>
+                      <div className="path-control">
+                        <Input
+                          value={settingsDraft.advancedOverrides?.serverExecutablePath ?? ""}
+                          readOnly={!editingSettings}
+                          placeholder={resolvedSettings.serverExecutablePath}
+                          className="frost-input frost-input--path"
+                          onChange={(_, d) => onUpdateAdvancedOverride("serverExecutablePath", d.value)}
+                        />
+                        <Button
+                          appearance="transparent"
+                          disabled={!editingSettings}
+                          size="small"
+                          className="frost-button frost-button--secondary frost-button--compact"
+                          onClick={onChooseServer}
+                          icon={<FolderOpen20Filled />}
+                        >
+                          浏览
+                        </Button>
+                      </div>
+                    </label>
+
+                    <label className="path-field">
+                      <span className="path-field__label">配置文件覆盖</span>
+                      <div className="path-control">
+                        <Input
+                          value={settingsDraft.advancedOverrides?.configPath ?? ""}
+                          readOnly={!editingSettings}
+                          placeholder={resolvedSettings.configPath}
+                          className="frost-input frost-input--path"
+                          onChange={(_, d) => onUpdateAdvancedOverride("configPath", d.value)}
+                        />
+                        <Button
+                          appearance="transparent"
+                          disabled={!editingSettings}
+                          size="small"
+                          className="frost-button frost-button--secondary frost-button--compact"
+                          onClick={onChooseConfig}
+                          icon={<FolderOpen20Filled />}
+                        >
+                          浏览
+                        </Button>
+                      </div>
+                    </label>
+
+                    <label className="path-field">
+                      <span className="path-field__label">运行目录覆盖</span>
+                      <div className="path-control">
+                        <Input
+                          value={settingsDraft.advancedOverrides?.workdir ?? ""}
+                          readOnly={!editingSettings}
+                          placeholder={resolvedSettings.workdir}
+                          className="frost-input frost-input--path"
+                          onChange={(_, d) => onUpdateAdvancedOverride("workdir", d.value)}
+                        />
+                        <Button
+                          appearance="transparent"
+                          disabled={!editingSettings}
+                          size="small"
+                          className="frost-button frost-button--secondary frost-button--compact"
+                          onClick={onChooseWorkdir}
+                          icon={<FolderOpen20Filled />}
+                        >
+                          选择
+                        </Button>
+                      </div>
+                    </label>
+                  </>
+                )}
               </div>
 
               <section className="preferences-panel glass-panel glass-panel--subtle">
                 <div className="brand-eyebrow brand-eyebrow--tight">退出行为偏好</div>
                 <RadioGroup
                   value={settingsDraft.closeBehavior}
-                  onChange={(_, d) => onUpdateSettings({ closeBehavior: d.value as LauncherSettings["closeBehavior"] })}
+                  onChange={(_, d) => onUpdateCloseBehavior(d.value as LauncherSettings["closeBehavior"])}
                 >
                   <div className="preference-options">
                     {closeBehaviorOptions.map((option) => (

@@ -15,6 +15,7 @@ const api: LauncherDesktopApi = {
   openReleasePage: () => ipcRenderer.invoke("launcher:open-release-page"),
   openLogsDirectory: () => ipcRenderer.invoke("launcher:open-logs"),
   saveSettings: (settings: LauncherSettings) => ipcRenderer.invoke("launcher:save-settings", settings),
+  chooseInstallationRoot: () => ipcRenderer.invoke("launcher:choose-installation-root"),
   chooseServerExecutable: () => ipcRenderer.invoke("launcher:choose-server"),
   chooseConfigFile: () => ipcRenderer.invoke("launcher:choose-config"),
   chooseWorkdir: () => ipcRenderer.invoke("launcher:choose-workdir"),

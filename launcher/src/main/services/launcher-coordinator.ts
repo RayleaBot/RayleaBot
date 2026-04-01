@@ -2,12 +2,14 @@ import { createReleaseUnavailable } from "../../shared/launcher-copy";
 import type {
   EnvironmentCheckResult,
   EnvironmentInspection,
+  LauncherResolvedSettings,
   LauncherSettings,
   LauncherSnapshot,
   ReleaseCheckSnapshot,
   ServerEndpoint,
   LauncherServiceState,
 } from "../../shared/launcher-models";
+import { resolveLauncherSettings } from "./settings-store";
 
 export type { EnvironmentCheckResult, EnvironmentInspection, LauncherSettings, ServerEndpoint };
 
@@ -32,7 +34,7 @@ export interface ServerProcessController {
   isRunning: boolean;
   processId: number | null;
   logDirectory: string;
-  start(settings: LauncherSettings): Promise<void>;
+  start(settings: LauncherResolvedSettings): Promise<void>;
   forceKill(): Promise<void>;
   getRecentStderr(): string[];
 }
@@ -47,7 +49,7 @@ export interface ReleaseFeedClient {
 }
 
 export interface LauncherResetAdminRunner {
-  run(settings: LauncherSettings): Promise<void>;
+  run(settings: LauncherResolvedSettings): Promise<void>;
 }
 
 interface LauncherCoordinatorOptions {
@@ -59,7 +61,7 @@ interface LauncherCoordinatorOptions {
 interface LauncherCoordinatorDependencies {
   settingsStore: LauncherSettingsStore;
   endpointResolver: ServerEndpointResolver;
-  inspectEnvironment(settings: LauncherSettings): Promise<EnvironmentInspection>;
+  inspectEnvironment(settings: LauncherResolvedSettings): Promise<EnvironmentInspection>;
   managementClient: LauncherManagementClient;
   processController: ServerProcessController;
   isEndpointListening(endpoint: ServerEndpoint): Promise<boolean>;
@@ -89,9 +91,19 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function defaultSnapshot(settings: LauncherSettings, endpoint: ServerEndpoint): LauncherSnapshot {
+function defaultResolvedSettings(): LauncherResolvedSettings {
+  return {
+    installationRoot: "",
+    serverExecutablePath: "",
+    configPath: "",
+    workdir: "",
+  };
+}
+
+function defaultSnapshot(settings: LauncherSettings, resolvedSettings: LauncherResolvedSettings, endpoint: ServerEndpoint): LauncherSnapshot {
   return {
     settings,
+    resolvedSettings,
     endpoint,
     environmentChecks: [],
     recentStderr: [],
@@ -147,14 +159,14 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   };
 
   let currentSettings: LauncherSettings | null = null;
+  let currentResolvedSettings: LauncherResolvedSettings = defaultResolvedSettings();
   let sessionToken = "";
   let snapshot = defaultSnapshot(
     {
-      serverExecutablePath: "",
-      configPath: "",
-      workdir: "",
+      installationRoot: "",
       closeBehavior: "ask_every_time",
     },
+    defaultResolvedSettings(),
     { host: "127.0.0.1", port: 8080, baseUrl: "http://127.0.0.1:8080/" },
   );
 
@@ -175,6 +187,10 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     return currentSettings;
   }
 
+  function ensureResolvedSettings() {
+    return currentResolvedSettings;
+  }
+
   async function buildSnapshot(
     endpoint: ServerEndpoint,
     inspection: EnvironmentInspection,
@@ -183,8 +199,10 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     lastError = "",
   ) {
     const settings = ensureSettings();
+    const resolvedSettings = ensureResolvedSettings();
     return {
       settings,
+      resolvedSettings,
       endpoint,
       environmentChecks: inspection.checks,
       recentStderr: deps.processController.getRecentStderr(),
@@ -202,8 +220,10 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       sessionToken = "";
     }
     const settings = ensureSettings();
-    const endpoint = await deps.endpointResolver.resolve(settings.configPath);
-    const inspection = await deps.inspectEnvironment(settings);
+    currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+    const resolvedSettings = ensureResolvedSettings();
+    const endpoint = await deps.endpointResolver.resolve(resolvedSettings.configPath);
+    const inspection = await deps.inspectEnvironment(resolvedSettings);
 
     if (inspection.hasBlockingIssues || inspection.canBootstrapUserConfig) {
       await publish(
@@ -290,8 +310,9 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async initialize() {
       currentSettings = await deps.settingsStore.load();
-      const endpoint = await deps.endpointResolver.resolve(currentSettings.configPath);
-      snapshot = defaultSnapshot(currentSettings, endpoint);
+      currentResolvedSettings = await resolveLauncherSettings(currentSettings, process.platform);
+      const endpoint = await deps.endpointResolver.resolve(currentResolvedSettings.configPath);
+      snapshot = defaultSnapshot(currentSettings, currentResolvedSettings, endpoint);
       await refreshCore(false);
     },
     async refresh() {
@@ -302,14 +323,17 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async saveSettings(settings) {
       currentSettings = settings;
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
       sessionToken = "";
       await deps.settingsStore.save(settings);
       await refreshCore(true);
     },
     async start() {
       const settings = ensureSettings();
-      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
-      const inspection = await deps.inspectEnvironment(settings);
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const resolvedSettings = ensureResolvedSettings();
+      const endpoint = await deps.endpointResolver.resolve(resolvedSettings.configPath);
+      const inspection = await deps.inspectEnvironment(resolvedSettings);
 
       if (inspection.hasBlockingIssues && !inspection.canBootstrapUserConfig) {
         await publish(
@@ -337,7 +361,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       }
 
       try {
-        await deps.processController.start(settings);
+        await deps.processController.start(resolvedSettings);
       } catch (error) {
         const detail = error instanceof Error ? error.message : "服务进程启动失败。";
         await publish(await buildSnapshot(endpoint, inspection, "failed", "无法启动服务进程。", detail));
@@ -373,8 +397,10 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async stop() {
       const settings = ensureSettings();
-      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
-      const inspection = await deps.inspectEnvironment(settings);
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const resolvedSettings = ensureResolvedSettings();
+      const endpoint = await deps.endpointResolver.resolve(resolvedSettings.configPath);
+      const inspection = await deps.inspectEnvironment(resolvedSettings);
 
       await publish(await buildSnapshot(endpoint, inspection, "shutting_down", deps.processController.isRunning ? "正在停止服务。" : "正在停止现有服务。"));
 
@@ -409,8 +435,10 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         throw new Error("管理员重置功能不可用。");
       }
       const settings = ensureSettings();
-      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
-      const inspection = await deps.inspectEnvironment(settings);
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const resolvedSettings = ensureResolvedSettings();
+      const endpoint = await deps.endpointResolver.resolve(resolvedSettings.configPath);
+      const inspection = await deps.inspectEnvironment(resolvedSettings);
 
       // Stop the service first if running.
       if (deps.processController.isRunning || (await deps.managementClient.isHealthy(endpoint).catch(() => false))) {
@@ -424,12 +452,12 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       }
 
       // Run the reset-admin CLI.
-      await deps.resetAdminRunner.run(settings);
+      await deps.resetAdminRunner.run(resolvedSettings);
       sessionToken = "";
 
       // Restart the service.
       try {
-        await deps.processController.start(settings);
+        await deps.processController.start(resolvedSettings);
       } catch (error) {
         const detail = error instanceof Error ? error.message : "服务进程启动失败。";
         await publish(
@@ -449,7 +477,8 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async openWebUi() {
       const settings = ensureSettings();
-      const endpoint = await deps.endpointResolver.resolve(settings.configPath);
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
       const url = new URL(endpoint.baseUrl);
       let initialized = false;
 

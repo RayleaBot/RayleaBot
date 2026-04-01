@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { LauncherSettings } from "../../shared/launcher-models";
+import type { LauncherResolvedSettings } from "../../shared/launcher-models";
 import { terminateProcessId } from "./process-termination";
 
 const MAX_STDERR_LINES = 40;
@@ -42,8 +42,15 @@ async function findSchemaRoot(startPath: string) {
   }
 }
 
-export async function resolveConfigSchemaPath(settings: Pick<LauncherSettings, "serverExecutablePath" | "configPath" | "workdir">) {
-  const seeds = [path.dirname(settings.serverExecutablePath), path.dirname(settings.configPath), settings.workdir];
+export async function resolveConfigSchemaPath(
+  settings: Pick<LauncherResolvedSettings, "installationRoot" | "serverExecutablePath" | "configPath" | "workdir">,
+) {
+  const seeds = [
+    settings.installationRoot,
+    path.dirname(settings.serverExecutablePath),
+    path.dirname(settings.configPath),
+    settings.workdir,
+  ];
 
   for (const seed of seeds) {
     if (!seed) {
@@ -87,7 +94,7 @@ export class ServerProcessController {
     return [...this.stderrLines];
   }
 
-  async start(settings: LauncherSettings) {
+  async start(settings: LauncherResolvedSettings) {
     if (this.isRunning) {
       return;
     }

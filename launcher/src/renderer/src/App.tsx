@@ -1,15 +1,23 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import type { LauncherSettings, LauncherSnapshot } from "@shared/launcher-models";
+import type {
+  LauncherAdvancedOverrides,
+  LauncherSettings,
+  LauncherSnapshot,
+} from "@shared/launcher-models";
 import { AppShell } from "./AppShell";
 
 type SectionId = "status" | "environment" | "diagnostics" | "settings";
 
 const initialSnapshot: LauncherSnapshot = {
   settings: {
+    installationRoot: "",
+    closeBehavior: "ask_every_time",
+  },
+  resolvedSettings: {
+    installationRoot: "",
     serverExecutablePath: "",
     configPath: "",
     workdir: "",
-    closeBehavior: "ask_every_time",
   },
   endpoint: {
     host: "127.0.0.1",
@@ -66,6 +74,10 @@ export function App() {
     return [
       `服务状态：${snapshot.serviceDetail}`,
       `服务入口：${snapshot.endpoint.baseUrl}`,
+      `安装目录：${snapshot.settings.installationRoot || "未设置"}`,
+      `服务端：${snapshot.resolvedSettings.serverExecutablePath || "未设置"}`,
+      `配置文件：${snapshot.resolvedSettings.configPath || "未设置"}`,
+      `运行目录：${snapshot.resolvedSettings.workdir || "未设置"}`,
       "环境检查：",
       checks || "- 当前没有检查项。",
       "最近错误输出：",
@@ -146,14 +158,52 @@ export function App() {
   );
 
   const handleUpdateSettings = useCallback(
-    (partial: Partial<LauncherSettings>) => {
+    (update: (current: LauncherSettings) => LauncherSettings) => {
       if (!editingSettings) return;
-      setEditingDraft((prev) => ({
-        ...(prev ?? snapshot.settings),
-        ...partial,
-      }));
+      setEditingDraft((prev) => update(prev ?? snapshot.settings));
     },
     [editingSettings, snapshot.settings],
+  );
+
+  const handleUpdateInstallationRoot = useCallback(
+    (installationRoot: string) => {
+      handleUpdateSettings((current) => ({
+        ...current,
+        installationRoot,
+      }));
+    },
+    [handleUpdateSettings],
+  );
+
+  const handleUpdateCloseBehavior = useCallback(
+    (closeBehavior: LauncherSettings["closeBehavior"]) => {
+      handleUpdateSettings((current) => ({
+        ...current,
+        closeBehavior,
+      }));
+    },
+    [handleUpdateSettings],
+  );
+
+  const handleUpdateAdvancedOverride = useCallback(
+    (key: keyof LauncherAdvancedOverrides, value: string) => {
+      handleUpdateSettings((current) => {
+        const nextOverrides = {
+          ...(current.advancedOverrides ?? {}),
+          [key]: value,
+        } satisfies LauncherAdvancedOverrides;
+        const hasOverrides = Boolean(
+          nextOverrides.serverExecutablePath
+          || nextOverrides.configPath
+          || nextOverrides.workdir,
+        );
+        return {
+          ...current,
+          advancedOverrides: hasOverrides ? nextOverrides : undefined,
+        };
+      });
+    },
+    [handleUpdateSettings],
   );
 
   const handleSaveSettings = useCallback(async () => {
@@ -166,7 +216,12 @@ export function App() {
   }, [runAction, editingDraft]);
 
   const handleBeginEdit = useCallback(() => {
-    setEditingDraft({ ...snapshot.settings });
+    setEditingDraft({
+      ...snapshot.settings,
+      advancedOverrides: snapshot.settings.advancedOverrides
+        ? { ...snapshot.settings.advancedOverrides }
+        : undefined,
+    });
     setEditingSettings(true);
   }, [snapshot.settings]);
 
@@ -190,6 +245,7 @@ export function App() {
       snapshot={snapshot}
       activeSection={activeSection}
       settingsDraft={settingsDraft}
+      resolvedSettings={snapshot.resolvedSettings}
       editingSettings={editingSettings}
       diagnosticsSummary={diagnosticsSummary}
       busyAction={busyAction}
@@ -218,17 +274,24 @@ export function App() {
       onBeginEdit={handleBeginEdit}
       onCancelEdit={handleCancelEdit}
       onSaveSettings={handleSaveSettings}
-      onUpdateSettings={handleUpdateSettings}
+      onUpdateInstallationRoot={handleUpdateInstallationRoot}
+      onUpdateCloseBehavior={handleUpdateCloseBehavior}
+      onUpdateAdvancedOverride={handleUpdateAdvancedOverride}
+      onChooseInstallationRoot={() => {
+        window.rayleaLauncher
+          .chooseInstallationRoot()
+          .then((value: string | null) => {
+            if (value) {
+              handleUpdateInstallationRoot(value);
+            }
+          });
+      }}
       onChooseServer={() => {
         window.rayleaLauncher
           .chooseServerExecutable()
           .then((value: string | null) => {
             if (value) {
-              const next = {
-                ...(editingDraft ?? snapshot.settings),
-                serverExecutablePath: value,
-              };
-              setEditingDraft(next);
+              handleUpdateAdvancedOverride("serverExecutablePath", value);
             }
           });
       }}
@@ -237,11 +300,7 @@ export function App() {
           .chooseConfigFile()
           .then((value: string | null) => {
             if (value) {
-              const next = {
-                ...(editingDraft ?? snapshot.settings),
-                configPath: value,
-              };
-              setEditingDraft(next);
+              handleUpdateAdvancedOverride("configPath", value);
             }
           });
       }}
@@ -250,11 +309,7 @@ export function App() {
           .chooseWorkdir()
           .then((value: string | null) => {
             if (value) {
-              const next = {
-                ...(editingDraft ?? snapshot.settings),
-                workdir: value,
-              };
-              setEditingDraft(next);
+              handleUpdateAdvancedOverride("workdir", value);
             }
           });
       }}

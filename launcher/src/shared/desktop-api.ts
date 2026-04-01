@@ -13,6 +13,7 @@ export interface LauncherDesktopApi {
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
+  chooseInstallationRoot(): Promise<string | null>;
   chooseServerExecutable(): Promise<string | null>;
   chooseConfigFile(): Promise<string | null>;
   chooseWorkdir(): Promise<string | null>;
