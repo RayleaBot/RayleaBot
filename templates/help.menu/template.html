@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body class="theme-{{ .Theme }}">
+    <main class="surface">
+      <header class="hero">
+        <p class="eyebrow">RayleaBot</p>
+        <h1>{{ .title }}</h1>
+        {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
+      </header>
+      <section class="grid">
+        {{ range .items }}
+        <article class="card">
+          <div class="meta">{{ .name }}</div>
+          <p class="description">{{ .description }}</p>
+          {{ if .usage }}<code>{{ .usage }}</code>{{ end }}
+        </article>
+        {{ end }}
+      </section>
+    </main>
+  </body>
+</html>

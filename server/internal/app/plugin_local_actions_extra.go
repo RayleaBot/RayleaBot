@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"rayleabot/server/internal/dispatch"
+	"rayleabot/server/internal/render"
 	"rayleabot/server/internal/runtime"
 )
 
@@ -23,7 +24,12 @@ func (a *App) executeRenderImage(ctx context.Context, pluginID string, action ru
 		}
 	}
 
-	result, err := a.renderer.Render(action.RenderTemplate, action.RenderTheme, action.RenderOutput, action.RenderData)
+	result, err := a.renderer.Render(ctx, render.Request{
+		Template: action.RenderTemplate,
+		Theme:    action.RenderTheme,
+		Output:   action.RenderOutput,
+		Data:     action.RenderData,
+	})
 	if err != nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
@@ -33,10 +39,11 @@ func (a *App) executeRenderImage(ctx context.Context, pluginID string, action ru
 	}
 
 	return map[string]any{
+		"artifact_id":   result.ArtifactID,
 		"image_path":    result.ImagePath,
 		"mime":          result.MIME,
 		"cache_key":     result.CacheKey,
-		"fallback_sent": result.FallbackSent,
+		"fallback_sent": false,
 	}, nil
 }
 

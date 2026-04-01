@@ -2,8 +2,11 @@ package app
 
 import (
 	"net/http"
+	"slices"
+	"time"
 
 	internalconfig "rayleabot/server/internal/config"
+	"rayleabot/server/internal/render"
 )
 
 const redactedConfigValue = "__REDACTED__"
@@ -80,6 +83,15 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 	if newCfg.Logging.RateLimitPerPlugin != oldCfg.Logging.RateLimitPerPlugin && a.pluginLogLimiter != nil {
 		a.pluginLogLimiter.SetLimit(parsePluginLogRateLimit(newCfg))
 	}
+	if a.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
+		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||
+		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength) {
+		a.renderer.UpdateRuntimeConfig(render.RuntimeConfig{
+			QueueMaxLength:   newCfg.Render.QueueMaxLength,
+			QueueWaitTimeout: time.Duration(newCfg.Render.QueueWaitTimeoutSeconds) * time.Second,
+			RenderTimeout:    time.Duration(newCfg.Render.TimeoutSeconds) * time.Second,
+		})
+	}
 
 	// Fields that require a restart when changed.
 	if newCfg.Server.Host != oldCfg.Server.Host ||
@@ -109,7 +121,8 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 		restartRequired = true
 	}
 	if newCfg.Render.WorkerCount != oldCfg.Render.WorkerCount ||
-		newCfg.Render.BrowserPath != oldCfg.Render.BrowserPath {
+		newCfg.Render.BrowserPath != oldCfg.Render.BrowserPath ||
+		!slices.Equal(newCfg.Render.BrowserArgs, oldCfg.Render.BrowserArgs) {
 		restartRequired = true
 	}
 

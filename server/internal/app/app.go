@@ -31,6 +31,7 @@ import (
 	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
+	"rayleabot/server/internal/render"
 	"rayleabot/server/internal/runtime"
 	"rayleabot/server/internal/scheduler"
 	"rayleabot/server/internal/schema"
@@ -46,6 +47,7 @@ type Options struct {
 	PluginRepoRoot   string
 	PluginSchemaPath string
 	PluginRoots      []plugins.ScanRoot
+	RenderRunner     render.Runner
 }
 
 type App struct {
@@ -80,7 +82,7 @@ type App struct {
 	permissionChecker *permission.Checker
 	pluginLifecycle   *pluginLifecycleController
 	webhooks          *pluginWebhookRegistry
-	renderer          *renderService
+	renderer          *render.Service
 	commandParser     *command.Parser
 	pluginLogLimiter  *pluginLogLimiter
 	redactText        func(string) string
@@ -248,7 +250,22 @@ func New(options Options) (*App, error) {
 		return nil, fmt.Errorf("create plugin config repository: %w", err)
 	}
 	pluginFileService := pluginfile.NewService(filepath.Join(filepath.Dir(databasePath), "plugins"))
-	renderService := newRenderService(filepath.Join(filepath.Dir(databasePath), "render"))
+	renderService, err := render.NewService(render.Options{
+		RepoRoot:           discoverySpec.repoRoot,
+		OutputRoot:         filepath.Join(filepath.Dir(databasePath), "render"),
+		Runner:             options.RenderRunner,
+		WorkerCount:        cfg.Render.WorkerCount,
+		BrowserArgs:        cfg.Render.BrowserArgs,
+		BrowserPath:        cfg.Render.BrowserPath,
+		QueueMaxLength:     cfg.Render.QueueMaxLength,
+		QueueWaitTimeout:   time.Duration(cfg.Render.QueueWaitTimeoutSeconds) * time.Second,
+		RenderTimeout:      time.Duration(cfg.Render.TimeoutSeconds) * time.Second,
+		MaxRenderDataBytes: int(maxManagementJSONBodyBytes),
+	})
+	if err != nil {
+		_ = storageStore.Close()
+		return nil, fmt.Errorf("create render service: %w", err)
+	}
 	blacklistRepo := permission.NewSQLiteBlacklistRepository(storageStore.Read, storageStore.Write)
 	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
 	if err != nil {
@@ -390,6 +407,8 @@ func New(options Options) (*App, error) {
 		r.Post("/api/system/shutdown", application.handleSystemShutdown())
 		r.Post("/api/system/backup", application.handleSystemBackup())
 		r.Get("/api/system/diagnostics/export", application.handleSystemDiagnosticsExport())
+		r.Post("/api/system/render/preview", application.handleSystemRenderPreview())
+		r.Get("/api/system/render/artifacts/{artifact_id}", application.handleSystemRenderArtifact())
 		r.Get("/api/tasks", application.handleTaskList())
 		r.Get("/api/tasks/{task_id}", application.handleTaskDetail())
 		r.Post("/api/tasks/{task_id}/cancel", application.handleTaskCancel())
@@ -427,6 +446,16 @@ func New(options Options) (*App, error) {
 		"component", "app",
 		"listen_addr", listenAddr,
 	)
+	for _, issue := range renderService.Diagnostics() {
+		logger.Warn(
+			"render resource issue detected",
+			"component", "render",
+			"code", issue.Code,
+			"severity", issue.Severity,
+			"summary", issue.Summary,
+			"remediation", issue.Remediation,
+		)
+	}
 
 	application.router = router
 	application.server = server
@@ -470,6 +499,12 @@ func (a *App) Close() error {
 			}
 		}
 		a.PluginUninstaller = nil
+	}
+	if a != nil && a.renderer != nil {
+		if err := a.renderer.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close render service: %w", err))
+		}
+		a.renderer = nil
 	}
 	if err := a.closeStorage(); err != nil {
 		errs = append(errs, err)
@@ -839,7 +874,22 @@ func (a *App) currentReadiness() health.ReadinessReport {
 		}
 	}
 
-	return ReadinessReportFromAdapter(a.Adapter.Snapshot())
+	report := ReadinessReportFromAdapter(a.Adapter.Snapshot())
+	if a.renderer == nil {
+		return report
+	}
+	renderIssues := a.renderer.Diagnostics()
+	if len(renderIssues) == 0 {
+		return report
+	}
+	report.Checks["render"] = "resource_missing"
+	report.Issues = append(report.Issues, renderIssues...)
+	if report.Status == "ready" {
+		report.Status = "degraded"
+		report.Reason = "Render resources are incomplete"
+		report.ReasonCodes = []string{"platform.resource_missing"}
+	}
+	return report
 }
 
 func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessReport {

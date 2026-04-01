@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body class="theme-{{ .Theme }}">
+    <main class="panel">
+      <section class="headline">
+        <p class="caption">Runtime Status</p>
+        <h1>{{ .title }}</h1>
+        <div class="status-pill">{{ .status }}</div>
+        {{ if .summary }}<p class="summary">{{ .summary }}</p>{{ end }}
+      </section>
+      {{ if .metrics }}
+      <section class="metrics">
+        {{ range .metrics }}
+        <article class="metric">
+          <span>{{ .label }}</span>
+          <strong>{{ .value }}</strong>
+        </article>
+        {{ end }}
+      </section>
+      {{ end }}
+    </main>
+  </body>
+</html>
