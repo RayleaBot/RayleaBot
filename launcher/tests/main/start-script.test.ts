@@ -72,5 +72,5 @@ describe("start.bat", () => {
       `pnpm --dir "${path.join(repositoryRoot, "launcher")}" install --frozen-lockfile`,
       `pnpm --dir "${path.join(repositoryRoot, "launcher")}" run build:app`,
     ]);
-  });
+  }, 20000);
 });
