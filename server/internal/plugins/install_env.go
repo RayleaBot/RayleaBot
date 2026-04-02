@@ -10,8 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	runtimepkg "runtime"
 	"sort"
+
+	"rayleabot/server/internal/deps"
 )
 
 func hashFileSHA256(path string) (string, error) {
@@ -82,26 +83,41 @@ func hashDirectorySHA256(root string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func preparePythonEnvironment(ctx context.Context, pluginDir string, dependencies []string) error {
+type runtimeResolver interface {
+	ResolveEntrypoint(context.Context, string, string) (string, error)
+}
+
+var newRuntimeResolver = func(repoRoot string) runtimeResolver {
+	return deps.NewManager(repoRoot)
+}
+
+var runManagedCommand = executeManagedCommand
+
+func preparePythonEnvironment(ctx context.Context, repoRoot string, pluginDir string, dependencies []string) error {
 	if len(dependencies) == 0 {
 		return nil
 	}
 
-	venvDir := filepath.Join(pluginDir, ".venv")
-	if err := runCommand(ctx, pluginDir, pythonExecutableCandidates(), "-m", "venv", venvDir); err != nil {
+	resolver := newRuntimeResolver(repoRoot)
+	pythonExecutable, err := resolver.ResolveEntrypoint(ctx, "python-runtime", "python")
+	if err != nil {
 		return err
 	}
 
-	pythonExecutable := filepath.Join(venvDir, "bin", "python")
-	if runtimepkg.GOOS == "windows" {
-		pythonExecutable = filepath.Join(venvDir, "Scripts", "python.exe")
+	venvDir := filepath.Join(pluginDir, ".venv")
+	if err := runManagedCommand(ctx, pluginDir, nil, pythonExecutable, "-m", "venv", venvDir); err != nil {
+		return err
 	}
 
+	venvPython, err := virtualenvPythonExecutable(venvDir)
+	if err != nil {
+		return err
+	}
 	args := append([]string{"-m", "pip", "install"}, dependencies...)
-	return runCommand(ctx, pluginDir, []string{pythonExecutable}, args...)
+	return runManagedCommand(ctx, pluginDir, nil, venvPython, args...)
 }
 
-func prepareNodeEnvironment(ctx context.Context, pluginDir string, dependencies []string, allowInstallScripts bool) error {
+func prepareNodeEnvironment(ctx context.Context, repoRoot string, pluginDir string, dependencies []string, allowInstallScripts bool) error {
 	packageJSONPath := filepath.Join(pluginDir, "package.json")
 	_, err := os.Stat(packageJSONPath)
 	hasPackageJSON := err == nil
@@ -110,63 +126,78 @@ func prepareNodeEnvironment(ctx context.Context, pluginDir string, dependencies 
 		return nil
 	}
 
-	args := []string{"install", "--no-package-lock", "--omit=dev"}
+	resolver := newRuntimeResolver(repoRoot)
+	npmExecutable, err := resolver.ResolveEntrypoint(ctx, "nodejs-runtime", "npm")
+	if err != nil {
+		return err
+	}
+
+	userConfigPath := filepath.Join(pluginDir, ".npmrc.managed")
+	if err := os.WriteFile(userConfigPath, nil, 0o644); err != nil {
+		return err
+	}
+
+	args := buildNodeInstallArgs(pluginDir, dependencies, allowInstallScripts, hasPackageJSON)
+	env := []string{"NPM_CONFIG_USERCONFIG=" + userConfigPath}
+	return runManagedCommand(ctx, pluginDir, env, npmExecutable, args...)
+}
+
+func buildNodeInstallArgs(pluginDir string, dependencies []string, allowInstallScripts bool, hasPackageJSON bool) []string {
+	args := []string{}
+	hasPackageLock := false
+	if hasPackageJSON {
+		for _, name := range []string{"package-lock.json", "npm-shrinkwrap.json"} {
+			if _, err := os.Stat(filepath.Join(pluginDir, name)); err == nil {
+				hasPackageLock = true
+				break
+			}
+		}
+	}
+	if hasPackageLock {
+		args = append(args, "ci")
+	} else {
+		args = append(args, "install")
+	}
 	if !allowInstallScripts {
 		args = append(args, "--ignore-scripts")
 	}
 	if !hasPackageJSON {
 		args = append(args, dependencies...)
 	}
-
-	return runCommand(ctx, pluginDir, []string{npmExecutable()}, args...)
+	return args
 }
 
-func runCommand(ctx context.Context, dir string, names []string, args ...string) error {
-	var lastErr error
-	for _, name := range names {
-		cmd := exec.CommandContext(ctx, name, args...)
-		cmd.Dir = dir
-		output, err := cmd.CombinedOutput()
-		if err == nil {
-			return nil
+func virtualenvPythonExecutable(venvDir string) (string, error) {
+	candidates := []string{
+		filepath.Join(venvDir, "bin", "python"),
+		filepath.Join(venvDir, "bin", "python3"),
+		filepath.Join(venvDir, "Scripts", "python.exe"),
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate, nil
 		}
-		lastErr = err
-		if len(output) != 0 {
-			lastErr = fmt.Errorf("%w: %s", err, string(output))
-		}
-		if isExecutableNotFound(err) {
-			continue
-		}
-		return lastErr
 	}
-
-	if lastErr == nil {
-		lastErr = fmt.Errorf("no executable candidates provided")
-	}
-	return lastErr
+	return "", fmt.Errorf("virtualenv python executable is missing under %s", venvDir)
 }
 
-func pythonExecutableCandidates() []string {
-	if runtimepkg.GOOS == "windows" {
-		return []string{"python"}
+func executeManagedCommand(ctx context.Context, dir string, env []string, command string, args ...string) error {
+	cmd := exec.CommandContext(ctx, command, args...)
+	cmd.Dir = dir
+	cmd.Env = append([]string(nil), os.Environ()...)
+	if len(env) > 0 {
+		cmd.Env = append(cmd.Env, env...)
 	}
-	return []string{"python3", "python"}
-}
-
-func npmExecutable() string {
-	if runtimepkg.GOOS == "windows" {
-		return "npm.cmd"
-	}
-	return "npm"
-}
-
-func isExecutableNotFound(err error) bool {
+	output, err := cmd.CombinedOutput()
 	if err == nil {
-		return false
+		return nil
+	}
+	if len(output) != 0 {
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	var execErr *exec.Error
 	if errors.As(err, &execErr) {
-		return execErr.Err == exec.ErrNotFound
+		return execErr.Err
 	}
-	return false
+	return err
 }

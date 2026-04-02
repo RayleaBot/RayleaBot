@@ -11,11 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"rayleabot/server/internal/deps"
 	"rayleabot/server/internal/health"
 )
 
@@ -180,10 +180,17 @@ func NewService(options Options) (*Service, error) {
 		maxRenderDataBytes = defaultRenderDataLimit
 	}
 
+	browserPath := strings.TrimSpace(options.BrowserPath)
+	if browserPath == "" {
+		if managedBrowser, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser"); err == nil {
+			browserPath = managedBrowser
+		}
+	}
+
 	runner := options.Runner
 	if runner == nil {
 		runner = NewChromiumRunner(ChromiumOptions{
-			BrowserPath: options.BrowserPath,
+			BrowserPath: browserPath,
 			BrowserArgs: options.BrowserArgs,
 		})
 	}
@@ -192,7 +199,7 @@ func NewService(options Options) (*Service, error) {
 		repoRoot:           repoRoot,
 		templatesRoot:      templatesRoot,
 		outputRoot:         outputRoot,
-		browserPath:        strings.TrimSpace(options.BrowserPath),
+		browserPath:        browserPath,
 		runner:             runner,
 		workerSem:          make(chan struct{}, workerCount),
 		workerCount:        workerCount,
@@ -425,8 +432,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		}
 	}
 
-	manifestPath := filepath.Join(s.repoRoot, ".deps", "manifest.json")
-	manifestBytes, err := os.ReadFile(manifestPath)
+	manifest, err := deps.LoadManifest(s.repoRoot)
 	if err != nil {
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
@@ -437,38 +443,34 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		return issues
 	}
 
-	type manifestResource struct {
-		Kind     string `json:"kind"`
-		Platform string `json:"platform"`
-	}
-	type depsManifest struct {
-		Resources []manifestResource `json:"resources"`
-	}
-
-	var manifest depsManifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+	currentPlatform := deps.CurrentPlatform()
+	resource := manifest.FindResource(currentPlatform, "chromium")
+	if resource == nil {
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     "Chromium 资源清单格式无效",
-			Remediation: "请重新生成 .deps/manifest.json。",
+			Summary:     fmt.Sprintf("当前平台 %s 缺少 Chromium 资源声明", currentPlatform),
+			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源元数据。",
 		})
 		return issues
 	}
-
-	currentPlatform := hostPlatform()
-	for _, resource := range manifest.Resources {
-		if resource.Kind == "chromium" && resource.Platform == currentPlatform {
-			return issues
-		}
+	if !deps.ResourceMetadataComplete(resource) {
+		issues = append(issues, health.DiagnosticIssue{
+			Code:        "platform.resource_missing",
+			Severity:    "warning",
+			Summary:     fmt.Sprintf("当前平台 %s 的 Chromium 资源元数据不完整", currentPlatform),
+			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源的 archive_format、entrypoints、source 与 sha256。",
+		})
+		return issues
 	}
-
-	issues = append(issues, health.DiagnosticIssue{
-		Code:        "platform.resource_missing",
-		Severity:    "warning",
-		Summary:     fmt.Sprintf("当前平台 %s 缺少 Chromium 资源声明", currentPlatform),
-		Remediation: "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源元数据。",
-	})
+	if _, err := deps.NewManager(s.repoRoot).ResolvePreparedEntrypoint("chromium", "browser"); err != nil && strings.TrimSpace(s.browserPath) == "" {
+		issues = append(issues, health.DiagnosticIssue{
+			Code:        "platform.resource_missing",
+			Severity:    "warning",
+			Summary:     "Chromium 资源尚未准备完成",
+			Remediation: "请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。",
+		})
+	}
 	return issues
 }
 
@@ -720,29 +722,5 @@ func wrapRenderError(err error, message string) error {
 		Code:    "platform.internal_error",
 		Message: message,
 		Err:     err,
-	}
-}
-
-func hostPlatform() string {
-	return manifestPlatform(runtime.GOOS, runtime.GOARCH)
-}
-
-func manifestPlatform(goos, goarch string) string {
-	switch goos {
-	case "windows":
-		return "windows-" + normalizeManifestArch(goarch)
-	case "darwin":
-		return "macos-" + normalizeManifestArch(goarch)
-	default:
-		return goos + "-" + normalizeManifestArch(goarch)
-	}
-}
-
-func normalizeManifestArch(goarch string) string {
-	switch goarch {
-	case "amd64":
-		return "x64"
-	default:
-		return goarch
 	}
 }

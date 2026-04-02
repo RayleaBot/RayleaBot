@@ -902,7 +902,7 @@ func (a *App) currentReadiness() health.ReadinessReport {
 	if a.renderer == nil {
 		return report
 	}
-	renderIssues := a.renderer.Diagnostics()
+	renderIssues := recoveryIssuesToHealth(a.platformDiagnostics())
 	if len(renderIssues) == 0 {
 		return report
 	}

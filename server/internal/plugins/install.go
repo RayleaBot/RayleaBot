@@ -163,10 +163,14 @@ func newInstallService(
 		deps.hashDir = hashDirectorySHA256
 	}
 	if deps.preparePython == nil {
-		deps.preparePython = preparePythonEnvironment
+		deps.preparePython = func(ctx context.Context, pluginDir string, dependencies []string) error {
+			return preparePythonEnvironment(ctx, repoRoot, pluginDir, dependencies)
+		}
 	}
 	if deps.prepareNode == nil {
-		deps.prepareNode = prepareNodeEnvironment
+		deps.prepareNode = func(ctx context.Context, pluginDir string, dependencies []string, allowInstallScripts bool) error {
+			return prepareNodeEnvironment(ctx, repoRoot, pluginDir, dependencies, allowInstallScripts)
+		}
 	}
 	if deps.downloadFile == nil {
 		deps.downloadFile = downloadHTTPSFile

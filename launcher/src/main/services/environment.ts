@@ -26,10 +26,14 @@ type ExecFileLike = (
   args: string[],
 ) => Promise<{ stdout: string; stderr: string }>;
 type DepsManifestResource = {
+  id?: string;
   platform?: string;
   kind?: string;
+  version?: string;
   source?: string;
   sha256?: string;
+  archive_format?: string;
+  entrypoints?: Record<string, string[]>;
 };
 
 function normalizeHostPlatform(): string {
@@ -51,7 +55,10 @@ function parseDepsManifest(probe: EnvironmentProbeInput): { invalid: boolean; re
     return { invalid: false, resources: [] };
   }
   try {
-    const payload = JSON.parse(probe.depsManifestText) as { resources?: DepsManifestResource[] };
+    const payload = JSON.parse(probe.depsManifestText) as { manifest_version?: number; resources?: DepsManifestResource[] };
+    if (payload.manifest_version !== 2) {
+      return { invalid: true, resources: [] };
+    }
     return { invalid: false, resources: payload.resources ?? [] };
   } catch {
     return { invalid: true, resources: [] };
@@ -60,6 +67,9 @@ function parseDepsManifest(probe: EnvironmentProbeInput): { invalid: boolean; re
 
 function resourceHasCompleteMetadata(resource?: DepsManifestResource) {
   if (!resource) {
+    return false;
+  }
+  if (!["zip", "tar.gz", "tar.xz"].includes(resource.archive_format?.trim() ?? "")) {
     return false;
   }
 
@@ -73,11 +83,44 @@ function resourceHasCompleteMetadata(resource?: DepsManifestResource) {
     return false;
   }
 
-  return /^[0-9a-f]{64}$/.test(sha256);
+  if (!/^[0-9a-f]{64}$/.test(sha256)) {
+    return false;
+  }
+
+  return resourceHasRequiredEntrypoints(resource);
 }
 
 function findPlatformResource(resources: DepsManifestResource[], platform: string, kind: string) {
   return resources.find((item) => item.platform === platform && item.kind === kind);
+}
+
+function resourceHasRequiredEntrypoints(resource: DepsManifestResource) {
+  const entrypoints = resource.entrypoints ?? {};
+  const requiredKeys = requiredEntrypointKeys(resource.kind);
+  if (requiredKeys.length === 0) {
+    return false;
+  }
+
+  return requiredKeys.every((key) => {
+    const candidates = entrypoints[key];
+    return Array.isArray(candidates) && candidates.some((candidate) => {
+      const value = candidate.trim();
+      return value.length > 0 && !value.startsWith("..") && !path.isAbsolute(value);
+    });
+  });
+}
+
+function requiredEntrypointKeys(kind?: string) {
+  switch (kind) {
+    case "chromium":
+      return ["browser"];
+    case "python-runtime":
+      return ["python", "pip"];
+    case "nodejs-runtime":
+      return ["node", "npm"];
+    default:
+      return [];
+  }
 }
 
 export async function detectWindowsLongPathsStatus(

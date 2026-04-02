@@ -13,10 +13,32 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
+        manifest_version: 2,
         resources: [
-          { platform: "windows-x64", kind: "chromium" },
-          { platform: "windows-x64", kind: "nodejs-runtime" },
-          { platform: "windows-x64", kind: "python-runtime" },
+          {
+            platform: "windows-x64",
+            kind: "chromium",
+            source: "https://example.invalid/chromium.zip",
+            sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+            archive_format: "zip",
+            entrypoints: { browser: ["chrome-win64/chrome.exe"] },
+          },
+          {
+            platform: "windows-x64",
+            kind: "nodejs-runtime",
+            source: "https://example.invalid/node.zip",
+            sha256: "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+            archive_format: "zip",
+            entrypoints: { node: ["node/node.exe"], npm: ["node/npm.cmd"] },
+          },
+          {
+            platform: "windows-x64",
+            kind: "python-runtime",
+            source: "https://example.invalid/python.tar.gz",
+            sha256: "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+            archive_format: "tar.gz",
+            entrypoints: { python: ["python/install/python.exe"], pip: ["python/install/Scripts/pip.exe"] },
+          },
         ],
       }),
       templatesExist: true,
@@ -38,7 +60,8 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
-        resources: [{ platform: "windows-x64", kind: "chromium" }],
+        manifest_version: 2,
+        resources: [{ platform: "windows-x64", kind: "chromium", archive_format: "zip", source: "https://example.invalid/chromium.zip", sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e", entrypoints: { browser: ["chrome-win64/chrome.exe"] } }],
       }),
       templatesExist: true,
       templatesHaveFiles: true,
@@ -57,6 +80,7 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
+        manifest_version: 2,
         resources: [
           {
             id: "python-windows-x64",
@@ -65,6 +89,8 @@ describe("inspectLauncherEnvironment", () => {
             version: "3.12.13",
             source: "https://example.invalid/python.zip",
             sha256: "deadbeef",
+            archive_format: "zip",
+            entrypoints: { python: ["python/install/python.exe"], pip: ["python/install/Scripts/pip.exe"] },
           },
         ],
       }),
@@ -85,6 +111,7 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
+        manifest_version: 2,
         resources: [
           {
             id: "chromium-windows-x64",
@@ -93,6 +120,8 @@ describe("inspectLauncherEnvironment", () => {
             version: "147.0.7727.24",
             source: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+            archive_format: "zip",
+            entrypoints: { browser: ["chrome-win64/chrome.exe"] },
           },
           {
             id: "python-windows-x64",
@@ -101,6 +130,8 @@ describe("inspectLauncherEnvironment", () => {
             version: "3.12.13",
             source: "TODO(v0.1-phase0)",
             sha256: "TODO(v0.1-phase0)",
+            archive_format: "tar.gz",
+            entrypoints: { python: ["python/install/python.exe"], pip: ["python/install/Scripts/pip.exe"] },
           },
           {
             id: "nodejs-windows-x64",
@@ -109,6 +140,8 @@ describe("inspectLauncherEnvironment", () => {
             version: "24.14.0",
             source: "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
             sha256: "deadbeef",
+            archive_format: "zip",
+            entrypoints: { node: ["node-v24.14.0-win-x64/node.exe"], npm: ["node-v24.14.0-win-x64/npm.cmd"] },
           },
         ],
       }),
@@ -130,6 +163,7 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
+        manifest_version: 2,
         resources: [
           {
             id: "chromium-windows-x64",
@@ -138,6 +172,8 @@ describe("inspectLauncherEnvironment", () => {
             version: "147.0.7727.24",
             source: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+            archive_format: "zip",
+            entrypoints: { browser: ["chrome-win64/chrome.exe"] },
           },
         ],
       }),

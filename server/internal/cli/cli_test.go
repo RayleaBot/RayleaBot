@@ -406,7 +406,7 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, manifestPath, `{
-  "manifest_version": 1,
+  "manifest_version": 2,
   "resources": [
     {
       "id": "chromium-windows-x64",
@@ -414,7 +414,11 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
       "version": "147.0.7727.24",
       "platform": "windows-x64",
       "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
-      "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e"
+      "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+      "archive_format": "zip",
+      "entrypoints": {
+        "browser": ["chrome-win64/chrome.exe"]
+      }
     },
     {
       "id": "python-windows-x64",
@@ -422,7 +426,12 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
       "version": "3.12.13",
       "platform": "windows-x64",
       "source": "TODO(v0.1-phase0)",
-      "sha256": "TODO(v0.1-phase0)"
+      "sha256": "TODO(v0.1-phase0)",
+      "archive_format": "tar.gz",
+      "entrypoints": {
+        "python": ["python/install/python.exe"],
+        "pip": ["python/install/Scripts/pip.exe"]
+      }
     },
     {
       "id": "nodejs-windows-x64",
@@ -430,7 +439,12 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
       "version": "24.14.0",
       "platform": "windows-x64",
       "source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
-      "sha256": "deadbeef"
+      "sha256": "deadbeef",
+      "archive_format": "zip",
+      "entrypoints": {
+        "node": ["node-v24.14.0-win-x64/node.exe"],
+        "npm": ["node-v24.14.0-win-x64/npm.cmd"]
+      }
     }
   ]
 }

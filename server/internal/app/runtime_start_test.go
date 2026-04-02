@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"testing"
 
 	"rayleabot/server/internal/adapter"
@@ -16,6 +17,7 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	writeManagedRuntimeFixtures(t, repoRoot)
 	createPluginEntry(t, repoRoot, "examples/plugins/hello-node", "index.js")
 	createPluginEntry(t, repoRoot, "examples/plugins/zzz-plugin", "main.py")
 
@@ -26,20 +28,20 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 			ManifestPath: "examples/plugins/aaa-invalid/info.json",
 		},
 		{
-			PluginID:     "hello-node",
-			Valid:        true,
-			Runtime:      "nodejs",
-			Entry:        "index.js",
-			ManifestPath: "examples/plugins/hello-node/info.json",
+			PluginID:          "hello-node",
+			Valid:             true,
+			Runtime:           "nodejs",
+			Entry:             "index.js",
+			ManifestPath:      "examples/plugins/hello-node/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 		},
 		{
-			PluginID:     "zzz-plugin",
-			Valid:        true,
-			Runtime:      "python",
-			Entry:        "main.py",
-			ManifestPath: "examples/plugins/zzz-plugin/info.json",
+			PluginID:          "zzz-plugin",
+			Valid:             true,
+			Runtime:           "python",
+			Entry:             "main.py",
+			ManifestPath:      "examples/plugins/zzz-plugin/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "disabled",
 		},
@@ -84,11 +86,11 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 	}
 	catalog := plugins.NewCatalog([]plugins.Snapshot{
 		{
-			PluginID:     "hello-node",
-			Valid:        true,
-			Runtime:      "nodejs",
-			Entry:        "index.js",
-			ManifestPath: "examples/plugins/hello-node/info.json",
+			PluginID:          "hello-node",
+			Valid:             true,
+			Runtime:           "nodejs",
+			Entry:             "index.js",
+			ManifestPath:      "examples/plugins/hello-node/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 		},
@@ -117,6 +119,7 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	writeManagedRuntimeFixtures(t, repoRoot)
 	createPluginEntry(t, repoRoot, "examples/plugins/hello-node", "index.js")
 
 	manager := &fakeRuntimeStarter{
@@ -124,11 +127,11 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 	}
 	catalog := plugins.NewCatalog([]plugins.Snapshot{
 		{
-			PluginID:     "hello-node",
-			Valid:        true,
-			Runtime:      "nodejs",
-			Entry:        "index.js",
-			ManifestPath: "examples/plugins/hello-node/info.json",
+			PluginID:          "hello-node",
+			Valid:             true,
+			Runtime:           "nodejs",
+			Entry:             "index.js",
+			ManifestPath:      "examples/plugins/hello-node/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 		},
@@ -154,6 +157,7 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	writeManagedRuntimeFixtures(t, repoRoot)
 	createPluginEntry(t, repoRoot, "examples/plugins/hello-node", "index.js")
 
 	manager := &fakeRuntimeStarter{
@@ -229,5 +233,83 @@ func createPluginEntry(t *testing.T, repoRoot string, relativeDir string, entryN
 	}
 	if err := os.WriteFile(filepath.Join(pluginDir, entryName), []byte("placeholder"), 0o644); err != nil {
 		t.Fatalf("write entry: %v", err)
+	}
+}
+
+func writeManagedRuntimeFixtures(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	platform := testManifestPlatform()
+	manifestPath := filepath.Join(repoRoot, ".deps", "manifest.json")
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		t.Fatalf("mkdir deps root: %v", err)
+	}
+	manifest := `{
+  "manifest_version": 2,
+  "resources": [
+    {
+      "id": "python-test",
+      "kind": "python-runtime",
+      "version": "3.12.13",
+      "platform": "` + platform + `",
+      "source": "https://example.invalid/python.tar.gz",
+      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "archive_format": "tar.gz",
+      "entrypoints": {
+        "python": ["python/install/bin/python3"],
+        "pip": ["python/install/bin/pip3"]
+      }
+    },
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + platform + `",
+      "source": "https://example.invalid/node.tar.xz",
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write deps manifest: %v", err)
+	}
+	writeManagedRuntimeEntry(t, filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "python3"))
+	writeManagedRuntimeEntry(t, filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "pip3"))
+	writeManagedRuntimeEntry(t, filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "node"))
+	writeManagedRuntimeEntry(t, filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "npm"))
+}
+
+func writeManagedRuntimeEntry(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir managed runtime dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("runtime"), 0o755); err != nil {
+		t.Fatalf("write managed runtime entry: %v", err)
+	}
+}
+
+func testManifestPlatform() string {
+	switch goruntime.GOOS {
+	case "windows":
+		if goruntime.GOARCH == "amd64" {
+			return "windows-x64"
+		}
+		return "windows-" + goruntime.GOARCH
+	case "darwin":
+		if goruntime.GOARCH == "amd64" {
+			return "macos-x64"
+		}
+		return "macos-" + goruntime.GOARCH
+	default:
+		if goruntime.GOARCH == "amd64" {
+			return goruntime.GOOS + "-x64"
+		}
+		return goruntime.GOOS + "-" + goruntime.GOARCH
 	}
 }

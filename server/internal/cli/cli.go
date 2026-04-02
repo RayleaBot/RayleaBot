@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 
 	_ "modernc.org/sqlite"
 
@@ -206,57 +205,23 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		}
 		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "python-runtime", "Python 运行时", "deps.python_runtime_metadata", "deps.python_runtime_metadata_incomplete"))
 		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "nodejs-runtime", "Node.js 运行时", "deps.nodejs_runtime_metadata", "deps.nodejs_runtime_metadata_incomplete"))
-	}
-
-	// Check Python availability.
-	if !executableAvailable("python3", "python") {
 		issues = append(issues, DoctorIssue{
-			Code:        "runtime.python_missing",
-			Severity:    "warning",
-			Summary:     "Python executable not found",
-			Remediation: "请安装 Python 3 以支持 Python 插件运行时。",
+			Code:        "runtime.python_managed_ready",
+			Severity:    managedRuntimeSeverity(manifest, currentPlatform, "python-runtime"),
+			Summary:     managedRuntimeSummary(manifest, currentPlatform, "python-runtime", "受控 Python 运行时可按需准备。", "受控 Python 运行时当前不可准备。"),
+			Remediation: managedRuntimeRemediation(manifest, currentPlatform, "python-runtime", "请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 archive_format、entrypoints、source 与 sha256。"),
 		})
-	} else {
 		issues = append(issues, DoctorIssue{
-			Code:     "runtime.python_ok",
-			Severity: "ok",
-			Summary:  "Python executable found",
+			Code:        "runtime.node_managed_ready",
+			Severity:    managedRuntimeSeverity(manifest, currentPlatform, "nodejs-runtime"),
+			Summary:     managedRuntimeSummary(manifest, currentPlatform, "nodejs-runtime", "受控 Node.js 运行时可按需准备。", "受控 Node.js 运行时当前不可准备。"),
+			Remediation: managedRuntimeRemediation(manifest, currentPlatform, "nodejs-runtime", "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。"),
 		})
-	}
-
-	// Check Node.js availability.
-	if !executableAvailable("node") {
 		issues = append(issues, DoctorIssue{
-			Code:        "runtime.node_missing",
-			Severity:    "warning",
-			Summary:     "Node.js executable not found",
-			Remediation: "请安装 Node.js 以支持 Node.js 插件运行时。",
-		})
-	} else {
-		issues = append(issues, DoctorIssue{
-			Code:     "runtime.node_ok",
-			Severity: "ok",
-			Summary:  "Node.js executable found",
-		})
-	}
-
-	// Check npm availability.
-	npmCandidates := []string{"npm"}
-	if isWindows() {
-		npmCandidates = []string{"npm.cmd", "npm"}
-	}
-	if !executableAvailable(npmCandidates...) {
-		issues = append(issues, DoctorIssue{
-			Code:        "runtime.npm_missing",
-			Severity:    "warning",
-			Summary:     "npm executable not found",
-			Remediation: "请安装 npm 以支持 Node.js 插件依赖管理。",
-		})
-	} else {
-		issues = append(issues, DoctorIssue{
-			Code:     "runtime.npm_ok",
-			Severity: "ok",
-			Summary:  "npm executable found",
+			Code:        "runtime.npm_managed_ready",
+			Severity:    managedRuntimeSeverity(manifest, currentPlatform, "nodejs-runtime"),
+			Summary:     managedRuntimeSummary(manifest, currentPlatform, "nodejs-runtime", "受控 npm 可按需准备。", "受控 npm 当前不可准备。"),
+			Remediation: managedRuntimeRemediation(manifest, currentPlatform, "nodejs-runtime", "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。"),
 		})
 	}
 
@@ -266,15 +231,6 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		report.RecoverySummary = summary
 	}
 	return report
-}
-
-func executableAvailable(names ...string) bool {
-	for _, name := range names {
-		if _, err := lookPath(name); err == nil {
-			return true
-		}
-	}
-	return false
 }
 
 func runDoctor(cmd Command) int {
@@ -375,22 +331,6 @@ func resolveDatabasePath(configPath string) (string, error) {
 	return absPath, nil
 }
 
-func checkExecutable(logger *slog.Logger, issues *int, names ...string) {
-	for _, name := range names {
-		path, err := lookPath(name)
-		if err == nil {
-			logger.Info("executable found", "name", name, "path", path)
-			return
-		}
-	}
-	logger.Warn("executable not found", "candidates", strings.Join(names, ", "))
-	*issues++
-}
-
-func isWindows() bool {
-	return os.PathSeparator == '\\'
-}
-
 func runtimeMetadataIssue(
 	manifest *depsManifest,
 	platform string,
@@ -413,4 +353,25 @@ func runtimeMetadataIssue(
 		Summary:     label + "元数据不完整。",
 		Remediation: "请在 .deps/manifest.json 中补齐当前平台 " + label + " 的 source 与 sha256。",
 	}
+}
+
+func managedRuntimeSeverity(manifest *depsManifest, platform string, kind string) string {
+	if manifestResourceMetadataComplete(manifest.findResource(platform, kind)) {
+		return "ok"
+	}
+	return "warning"
+}
+
+func managedRuntimeSummary(manifest *depsManifest, platform string, kind string, okSummary string, warningSummary string) string {
+	if manifestResourceMetadataComplete(manifest.findResource(platform, kind)) {
+		return okSummary
+	}
+	return warningSummary
+}
+
+func managedRuntimeRemediation(manifest *depsManifest, platform string, kind string, remediation string) string {
+	if manifestResourceMetadataComplete(manifest.findResource(platform, kind)) {
+		return ""
+	}
+	return remediation
 }

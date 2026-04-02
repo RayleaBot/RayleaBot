@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"testing"
 
 	"rayleabot/server/internal/config"
@@ -14,7 +15,16 @@ import (
 func TestBuildSpecFromDiscoveredExamples(t *testing.T) {
 	t.Parallel()
 
-	repoRoot := runtimeRepoRoot(t)
+	fixtureRepoRoot := runtimeRepoRoot(t)
+	repoRoot := t.TempDir()
+	writeRuntimeManifestFile(t, repoRoot)
+	copyRuntimeDir(t, filepath.Join(fixtureRepoRoot, "examples", "plugins", "hello-python"), filepath.Join(repoRoot, "examples", "plugins", "hello-python"))
+	copyRuntimeDir(t, filepath.Join(fixtureRepoRoot, "examples", "plugins", "hello-node"), filepath.Join(repoRoot, "examples", "plugins", "hello-node"))
+	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "python3"))
+	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "pip3"))
+	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "node"))
+	writePreparedManagedRuntime(t, filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "npm"))
+
 	catalog := discoverRuntimeTestCatalog(t, filepath.Join(repoRoot, "examples", "plugins"))
 
 	for _, pluginID := range []string{"hello-python", "hello-node"} {
@@ -107,6 +117,109 @@ func TestBuildSpecRejectsEntrySymlinkEscapingPluginDir(t *testing.T) {
 
 	_, err := BuildSpec(snapshot, repoRoot, minimalRuntimeConfig())
 	assertBuildSpecErrorCode(t, err, codePlatformInvalidRequest)
+}
+
+func TestBuildSpecPrefersPluginVirtualenvForPython(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	pluginRoot := filepath.Join(repoRoot, "plugins", "installed", "hello-python")
+	writeRuntimeManifestFile(t, repoRoot)
+	writeRuntimePlugin(t, pluginRoot, "hello-python", "python", "main.py")
+	venvPython := filepath.Join(pluginRoot, ".venv", "bin", "python")
+	if err := os.MkdirAll(filepath.Dir(venvPython), 0o755); err != nil {
+		t.Fatalf("mkdir venv: %v", err)
+	}
+	if err := os.WriteFile(venvPython, []byte("python"), 0o755); err != nil {
+		t.Fatalf("write venv python: %v", err)
+	}
+
+	spec, err := BuildSpec(plugins.Snapshot{
+		PluginID:     "hello-python",
+		Valid:        true,
+		Runtime:      "python",
+		Entry:        "main.py",
+		ManifestPath: filepath.Join("plugins", "installed", "hello-python", "info.json"),
+	}, repoRoot, minimalRuntimeConfig())
+	if err != nil {
+		t.Fatalf("BuildSpec failed: %v", err)
+	}
+	if spec.Command != venvPython {
+		t.Fatalf("BuildSpec should prefer plugin .venv python, got %q want %q", spec.Command, venvPython)
+	}
+}
+
+func TestBuildSpecFallsBackToManagedRuntimeStore(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	pluginRoot := filepath.Join(repoRoot, "plugins", "installed", "hello-python")
+	writeRuntimeManifestFile(t, repoRoot)
+	writeRuntimePlugin(t, pluginRoot, "hello-python", "python", "main.py")
+	managedPython := filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "python3")
+	managedPip := filepath.Join(repoRoot, ".deps", "store", "python-test", "3.12.13", "python", "install", "bin", "pip3")
+	if err := os.MkdirAll(filepath.Dir(managedPython), 0o755); err != nil {
+		t.Fatalf("mkdir managed python: %v", err)
+	}
+	if err := os.WriteFile(managedPython, []byte("python"), 0o755); err != nil {
+		t.Fatalf("write managed python: %v", err)
+	}
+	if err := os.WriteFile(managedPip, []byte("pip"), 0o755); err != nil {
+		t.Fatalf("write managed pip: %v", err)
+	}
+
+	spec, err := BuildSpec(plugins.Snapshot{
+		PluginID:     "hello-python",
+		Valid:        true,
+		Runtime:      "python",
+		Entry:        "main.py",
+		ManifestPath: filepath.Join("plugins", "installed", "hello-python", "info.json"),
+	}, repoRoot, minimalRuntimeConfig())
+	if err != nil {
+		t.Fatalf("BuildSpec failed: %v", err)
+	}
+	if spec.Command != managedPython {
+		t.Fatalf("BuildSpec should fall back to managed python, got %q want %q", spec.Command, managedPython)
+	}
+}
+
+func TestBuildSpecUsesManagedNodeAndInjectsNodeOptions(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	pluginRoot := filepath.Join(repoRoot, "plugins", "installed", "hello-node")
+	writeRuntimeManifestFile(t, repoRoot)
+	writeRuntimePlugin(t, pluginRoot, "hello-node", "nodejs", "index.js")
+	managedNode := filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "node")
+	managedNpm := filepath.Join(repoRoot, ".deps", "store", "node-test", "24.14.0", "node", "bin", "npm")
+	if err := os.MkdirAll(filepath.Dir(managedNode), 0o755); err != nil {
+		t.Fatalf("mkdir managed node: %v", err)
+	}
+	if err := os.WriteFile(managedNode, []byte("node"), 0o755); err != nil {
+		t.Fatalf("write managed node: %v", err)
+	}
+	if err := os.WriteFile(managedNpm, []byte("npm"), 0o755); err != nil {
+		t.Fatalf("write managed npm: %v", err)
+	}
+
+	cfg := minimalRuntimeConfig()
+	cfg.NodeMaxOldSpaceSizeMB = 384
+	spec, err := BuildSpec(plugins.Snapshot{
+		PluginID:     "hello-node",
+		Valid:        true,
+		Runtime:      "nodejs",
+		Entry:        "index.js",
+		ManifestPath: filepath.Join("plugins", "installed", "hello-node", "info.json"),
+	}, repoRoot, cfg)
+	if err != nil {
+		t.Fatalf("BuildSpec failed: %v", err)
+	}
+	if spec.Command != managedNode {
+		t.Fatalf("BuildSpec should use managed node, got %q want %q", spec.Command, managedNode)
+	}
+	if len(spec.Env) != 1 || spec.Env[0] != "NODE_OPTIONS=--max-old-space-size=384" {
+		t.Fatalf("BuildSpec should inject managed NODE_OPTIONS, got %#v", spec.Env)
+	}
 }
 
 func discoverRuntimeTestCatalog(t *testing.T, root string) *plugins.Catalog {
@@ -205,6 +318,129 @@ func runtimeRepoRoot(t *testing.T) string {
 	}
 
 	return repoRoot
+}
+
+func writeRuntimeManifestFile(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	manifestPath := filepath.Join(repoRoot, ".deps", "manifest.json")
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		t.Fatalf("mkdir deps root: %v", err)
+	}
+	content := `{
+  "manifest_version": 2,
+  "resources": [
+    {
+      "id": "python-test",
+      "kind": "python-runtime",
+      "version": "3.12.13",
+      "platform": "` + depsPlatformForTests() + `",
+      "source": "https://example.invalid/python.tar.gz",
+      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "archive_format": "tar.gz",
+      "entrypoints": {
+        "python": ["python/install/bin/python3"],
+        "pip": ["python/install/bin/pip3"]
+      }
+    },
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + depsPlatformForTests() + `",
+      "source": "https://example.invalid/node.tar.xz",
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	if err := os.WriteFile(manifestPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write deps manifest: %v", err)
+	}
+}
+
+func writeRuntimePlugin(t *testing.T, pluginRoot, pluginID, runtimeName, entry string) {
+	t.Helper()
+
+	if err := os.MkdirAll(pluginRoot, 0o755); err != nil {
+		t.Fatalf("mkdir plugin root: %v", err)
+	}
+	infoPath := filepath.Join(pluginRoot, "info.json")
+	if err := os.WriteFile(infoPath, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write info.json: %v", err)
+	}
+	entryPath := filepath.Join(pluginRoot, filepath.FromSlash(entry))
+	if err := os.MkdirAll(filepath.Dir(entryPath), 0o755); err != nil {
+		t.Fatalf("mkdir entry dir: %v", err)
+	}
+	content := "print('placeholder')\n"
+	if runtimeName == "nodejs" {
+		content = "console.log('placeholder')\n"
+	}
+	if err := os.WriteFile(entryPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write entry: %v", err)
+	}
+}
+
+func copyRuntimeDir(t *testing.T, sourceRoot string, targetRoot string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(sourceRoot)
+	if err != nil {
+		t.Fatalf("read source dir %s: %v", sourceRoot, err)
+	}
+	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
+		t.Fatalf("mkdir target dir %s: %v", targetRoot, err)
+	}
+	for _, entry := range entries {
+		sourcePath := filepath.Join(sourceRoot, entry.Name())
+		targetPath := filepath.Join(targetRoot, entry.Name())
+		if entry.IsDir() {
+			copyRuntimeDir(t, sourcePath, targetPath)
+			continue
+		}
+		payload, err := os.ReadFile(sourcePath)
+		if err != nil {
+			t.Fatalf("read source file %s: %v", sourcePath, err)
+		}
+		if err := os.WriteFile(targetPath, payload, 0o644); err != nil {
+			t.Fatalf("write target file %s: %v", targetPath, err)
+		}
+	}
+}
+
+func writePreparedManagedRuntime(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir prepared runtime dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("runtime"), 0o755); err != nil {
+		t.Fatalf("write prepared runtime: %v", err)
+	}
+}
+
+func depsPlatformForTests() string {
+	switch goruntime.GOOS {
+	case "windows":
+		if goruntime.GOARCH == "amd64" {
+			return "windows-x64"
+		}
+		return "windows-" + goruntime.GOARCH
+	case "darwin":
+		if goruntime.GOARCH == "amd64" {
+			return "macos-x64"
+		}
+		return "macos-" + goruntime.GOARCH
+	default:
+		if goruntime.GOARCH == "amd64" {
+			return goruntime.GOOS + "-x64"
+		}
+		return goruntime.GOOS + "-" + goruntime.GOARCH
+	}
 }
 
 func assertBuildSpecErrorCode(t *testing.T, err error, want string) {

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"rayleabot/server/internal/deps"
 )
 
 var testPNGBytes, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=")
@@ -263,10 +265,10 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 func TestManifestPlatformNormalizesWindowsAMD64(t *testing.T) {
 	t.Parallel()
 
-	if got := manifestPlatform("windows", "amd64"); got != "windows-x64" {
+	if got := deps.ManifestPlatform("windows", "amd64"); got != "windows-x64" {
 		t.Fatalf("manifestPlatform(windows, amd64) = %q, want windows-x64", got)
 	}
-	if got := manifestPlatform("darwin", "arm64"); got != "macos-arm64" {
+	if got := deps.ManifestPlatform("darwin", "arm64"); got != "macos-arm64" {
 		t.Fatalf("manifestPlatform(darwin, arm64) = %q, want macos-arm64", got)
 	}
 }

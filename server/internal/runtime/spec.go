@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"rayleabot/server/internal/config"
+	"rayleabot/server/internal/deps"
 	"rayleabot/server/internal/plugins"
 )
 
@@ -79,6 +81,10 @@ type Spec struct {
 }
 
 func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
+	return BuildSpecWithContext(context.Background(), snapshot, repoRoot, runtimeConfig)
+}
+
+func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
 	if snapshot.PluginID == "" {
 		return Spec{}, errorf(codePlatformInvalidRequest, "plugin_id is required for runtime startup", nil)
 	}
@@ -90,11 +96,6 @@ func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.
 	}
 	if snapshot.Runtime == "" || snapshot.Entry == "" || snapshot.ManifestPath == "" {
 		return Spec{}, errorf(codePlatformInvalidRequest, "plugin manifest is missing runtime startup fields", nil)
-	}
-
-	command, ok := runtimeCommand(snapshot.Runtime)
-	if !ok {
-		return Spec{}, errorf(codePlatformInvalidRequest, "plugin runtime is not supported by the minimal runtime manager", nil)
 	}
 
 	manifestPath := resolveManifestPath(repoRoot, snapshot.ManifestPath)
@@ -155,6 +156,14 @@ func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.
 		return Spec{}, errorf(codePlatformInvalidRequest, "plugin entry must be a file", nil)
 	}
 
+	command, env, err := runtimeCommand(ctx, snapshot.Runtime, repoRoot, manifestDir, runtimeConfig)
+	if err != nil {
+		if runtimeErr, ok := err.(*Error); ok {
+			return Spec{}, runtimeErr
+		}
+		return Spec{}, errorf(codePlatformResourceMissing, "resolve managed runtime executable", err)
+	}
+
 	initTimeout := durationFromSeconds(runtimeConfig.PluginInitTimeoutSeconds, 10)
 	initMaxTotal := durationFromSeconds(runtimeConfig.PluginInitMaxTotalSeconds, 300)
 
@@ -163,6 +172,7 @@ func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.
 		Runtime:       snapshot.Runtime,
 		Command:       command,
 		Args:          []string{resolvedEntryPath},
+		Env:           env,
 		WorkDir:       resolvedManifestDir,
 		EntryPath:     resolvedEntryPath,
 		InitTimeout:   initTimeout,
@@ -172,15 +182,50 @@ func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.
 	}, nil
 }
 
-func runtimeCommand(runtimeName string) (string, bool) {
+func runtimeCommand(ctx context.Context, runtimeName string, repoRoot string, manifestDir string, runtimeConfig config.RuntimeConfig) (string, []string, error) {
+	manager := deps.NewManager(repoRoot)
 	switch runtimeName {
 	case "python":
-		return "python", true
+		if venvPython, ok := pythonVirtualenvExecutable(manifestDir); ok {
+			return venvPython, nil, nil
+		}
+		command, err := manager.ResolveEntrypoint(ctx, "python-runtime", "python")
+		if err != nil {
+			return "", nil, errorf(codePlatformResourceMissing, "managed Python runtime is not available", err)
+		}
+		return command, nil, nil
 	case "nodejs":
-		return "node", true
+		command, err := manager.ResolveEntrypoint(ctx, "nodejs-runtime", "node")
+		if err != nil {
+			return "", nil, errorf(codePlatformResourceMissing, "managed Node.js runtime is not available", err)
+		}
+		env := nodeRuntimeEnvironment(runtimeConfig)
+		return command, env, nil
 	default:
-		return "", false
+		return "", nil, errorf(codePlatformInvalidRequest, "plugin runtime is not supported by the minimal runtime manager", nil)
 	}
+}
+
+func pythonVirtualenvExecutable(manifestDir string) (string, bool) {
+	candidates := []string{
+		filepath.Join(manifestDir, ".venv", "bin", "python"),
+		filepath.Join(manifestDir, ".venv", "bin", "python3"),
+		filepath.Join(manifestDir, ".venv", "Scripts", "python.exe"),
+	}
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+func nodeRuntimeEnvironment(runtimeConfig config.RuntimeConfig) []string {
+	if runtimeConfig.NodeMaxOldSpaceSizeMB <= 0 {
+		return nil
+	}
+	return []string{fmt.Sprintf("NODE_OPTIONS=--max-old-space-size=%d", runtimeConfig.NodeMaxOldSpaceSizeMB)}
 }
 
 func durationFromSeconds(seconds int, fallback int) time.Duration {
