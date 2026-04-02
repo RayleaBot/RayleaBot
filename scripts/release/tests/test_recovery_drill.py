@@ -3,9 +3,11 @@ import sys
 import tarfile
 import time
 import unittest
+import urllib.error
 import zipfile
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
@@ -70,6 +72,27 @@ class RecoveryDrillTests(unittest.TestCase):
         self.assertLess(recovery_drill.compare_versions("1.2.3", "2.0.0"), 0)
         self.assertEqual(0, recovery_drill.compare_versions("1.2.3-smoke", "1.2.3"))
         self.assertGreater(recovery_drill.compare_versions("9999.0.0-smoke", "1.2.3"), 0)
+
+    def test_download_previous_archive_skips_when_release_api_is_inaccessible(self) -> None:
+        with TemporaryDirectory() as tmp:
+            download_dir = Path(tmp)
+            error = urllib.error.HTTPError(
+                recovery_drill.release_api_url("RayleaBot/RayleaBot"),
+                404,
+                "Not Found",
+                hdrs=None,
+                fp=None,
+            )
+            with mock.patch("recovery_drill.urllib.request.urlopen", side_effect=error):
+                with self.assertRaises(recovery_drill.DrillBootstrapSkip) as ctx:
+                    recovery_drill.download_previous_archive(
+                        "RayleaBot/RayleaBot",
+                        "0.3.0",
+                        "windows-x64-full",
+                        download_dir,
+                    )
+
+        self.assertIn("release api is not accessible", str(ctx.exception))
 
     def test_read_build_info_from_zip_archive(self) -> None:
         with TemporaryDirectory() as tmp:

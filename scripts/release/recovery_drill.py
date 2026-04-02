@@ -5,6 +5,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -12,6 +13,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -361,6 +363,17 @@ def release_api_url(repository: str) -> str:
     return f"https://api.github.com/repos/{repository}/releases"
 
 
+def github_api_headers() -> dict[str, str]:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "rayleabot-recovery-drill",
+    }
+    token = os.environ.get("GITHUB_TOKEN", "").strip() or os.environ.get("GH_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def find_release_asset(release: dict[str, object], asset_name: str) -> dict[str, object] | None:
     for asset in release.get("assets", []):
         if not isinstance(asset, dict):
@@ -391,12 +404,16 @@ def download_asset(asset: dict[str, object], target: Path) -> Path:
 
 
 def download_previous_archive(repository: str, current_version: str, artifact_id: str, download_dir: Path) -> Path:
-    request = urllib.request.Request(
-        release_api_url(repository),
-        headers={"Accept": "application/vnd.github+json", "User-Agent": "rayleabot-recovery-drill"},
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        releases = json.loads(response.read().decode("utf-8"))
+    request = urllib.request.Request(release_api_url(repository), headers=github_api_headers())
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            releases = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code in {403, 404}:
+            raise DrillBootstrapSkip(
+                f"release api is not accessible for {artifact_id} (HTTP {exc.code})"
+            ) from exc
+        raise
     release = select_previous_release(releases, current_version)
     if release is None:
         raise DrillBootstrapSkip(f"no previous published release found for {artifact_id}")
