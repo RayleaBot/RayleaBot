@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { EnvironmentCheckResult, EnvironmentInspection, LauncherResolvedSettings } from "../../shared/launcher-models";
+import { directoryHasFiles, fileExists, pathExists } from "./fs-utils";
 
 const execFileAsync = promisify(execFile);
 
@@ -596,33 +597,6 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
     hasBlockingIssues: checks.some((item) => item.severity === "error"),
     canBootstrapUserConfig: checks.some((item) => item.code === "config.bootstrap_available"),
   };
-}
-
-async function pathExists(targetPath: string) {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function directoryHasFiles(targetPath: string) {
-  try {
-    const entries = await fs.readdir(targetPath);
-    return entries.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-async function fileExists(targetPath: string) {
-  try {
-    const stat = await fs.stat(targetPath);
-    return stat.isFile();
-  } catch {
-    return false;
-  }
 }
 
 async function preparedEntrypointExists(storeRoot: string, candidates: string[] | undefined) {

@@ -3,6 +3,11 @@ import { readFile } from "node:fs/promises";
 import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, nativeTheme } from "electron";
 import type { LauncherSettings, LauncherSnapshot, TrayMenuEntry, TrayMenuState } from "../shared/launcher-models";
 import { launcherCopy } from "../shared/launcher-copy";
+import {
+  parseLauncherSettingsInput,
+  parseRuntimeBootstrapResources,
+  sanitizeLauncherWebTargetPath,
+} from "../shared/launcher-validation";
 import { createLauncherCoordinator } from "./services/launcher-coordinator";
 import { inspectEnvironmentFromNode } from "./services/environment";
 import { JsonLauncherSettingsStore } from "./services/settings-store";
@@ -277,12 +282,18 @@ function wireIpc() {
   ipcMain.handle("launcher:start", async () => coordinator.start());
   ipcMain.handle("launcher:stop", async () => coordinator.stop());
   ipcMain.handle("launcher:reset-admin", async () => coordinator.resetAdmin());
-  ipcMain.handle("launcher:open-web", async (_event, targetPath?: string) => coordinator.openWebUi(targetPath));
+  ipcMain.handle("launcher:open-web", async (_event, targetPath?: string) =>
+    coordinator.openWebUi(sanitizeLauncherWebTargetPath(targetPath)),
+  );
   ipcMain.handle("launcher:create-recovery-recheck", async () => coordinator.createRecoveryRecheck());
-  ipcMain.handle("launcher:create-runtime-bootstrap", async (_event, resources?: string[]) => coordinator.createRuntimeBootstrap(resources));
+  ipcMain.handle("launcher:create-runtime-bootstrap", async (_event, resources?: string[]) =>
+    coordinator.createRuntimeBootstrap(parseRuntimeBootstrapResources(resources)),
+  );
   ipcMain.handle("launcher:open-release-page", async () => coordinator.openReleasePage());
   ipcMain.handle("launcher:open-logs", async () => coordinator.openLogsDirectory());
-  ipcMain.handle("launcher:save-settings", async (_event, settings: LauncherSettings) => coordinator.saveSettings(settings));
+  ipcMain.handle("launcher:save-settings", async (_event, settings: LauncherSettings) =>
+    coordinator.saveSettings(parseLauncherSettingsInput(settings)),
+  );
   ipcMain.handle("launcher:choose-installation-root", async () => chooseInstallationRoot());
   ipcMain.handle("launcher:choose-server", async () => chooseServerExecutable());
   ipcMain.handle("launcher:choose-config", async () => chooseConfigFile());

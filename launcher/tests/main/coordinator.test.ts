@@ -358,6 +358,33 @@ describe("launcher coordinator", () => {
     expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/plugins/weather-pro");
   });
 
+  test("open web ui rejects absolute external targets", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    await expect(coordinator.openWebUi("https://evil.example/pwn")).rejects.toThrow(
+      "启动器只允许打开管理界面的相对路径。",
+    );
+    expect(externalOpener.openedUris).toHaveLength(0);
+  });
+
   test("submits recovery tasks and opens the tasks page", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();

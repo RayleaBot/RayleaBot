@@ -10,6 +10,7 @@ import type {
   ServerEndpoint,
   LauncherServiceState,
 } from "../../shared/launcher-models";
+import { sanitizeLauncherWebTargetPath } from "../../shared/launcher-validation";
 import { resolveLauncherSettings } from "./settings-store";
 
 export type { EnvironmentCheckResult, EnvironmentInspection, LauncherSettings, ServerEndpoint };
@@ -522,7 +523,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       const settings = ensureSettings();
       currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
       const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
-      const normalizedTarget = targetPath.startsWith("/") ? targetPath.slice(1) : targetPath;
+      const normalizedTarget = sanitizeLauncherWebTargetPath(targetPath);
       const url = normalizedTarget ? new URL(normalizedTarget, endpoint.baseUrl) : new URL(endpoint.baseUrl);
       let initialized = false;
 

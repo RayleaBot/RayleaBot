@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { LauncherResolvedSettings } from "../../shared/launcher-models";
+import { pathExists } from "./fs-utils";
 import { terminateProcessId } from "./process-termination";
 
 const MAX_STDERR_LINES = 40;
@@ -15,15 +16,6 @@ interface ServerProcessControllerDependencies {
   spawnProcess?: typeof spawn;
   fileSystem?: FileSystemLike;
   terminateProcessId?: (pid: number) => Promise<boolean>;
-}
-
-async function pathExists(targetPath: string) {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function findSchemaRoot(startPath: string) {
