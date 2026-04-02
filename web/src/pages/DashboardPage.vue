@@ -52,10 +52,20 @@ const healthStatusType = computed<StatusType>(() => getStatusType(health.value?.
 const readinessStatusType = computed<StatusType>(() => getStatusType(readiness.value?.status))
 const systemStatusType = computed<StatusType>(() => getStatusType(system.value?.status))
 const adapterStatusType = computed<StatusType>(() => getStatusType(system.value?.adapter_state))
+const recoverySummary = computed(() => system.value?.recovery_summary ?? readiness.value?.recovery_summary ?? null)
 
 const topIssue = computed(() => {
   if (!readiness.value?.issues?.length) return null
   return readiness.value.issues.find(i => i.severity === 'error') ?? readiness.value.issues[0]
+})
+
+const recoveryStatusLabel = computed(() => {
+  const status = recoverySummary.value?.status
+  if (status === 'compatible') return '兼容通过'
+  if (status === 'pending') return '待完成检查'
+  if (status === 'degraded') return '需要人工处理'
+  if (status === 'blocked') return '恢复被阻止'
+  return t('display.empty')
 })
 
 const alertBannerType = computed<'warning' | 'error' | null>(() => {
@@ -361,6 +371,59 @@ async function submitRenderPreview() {
           <el-button size="small" text @click="issuesExpanded = !issuesExpanded">
             {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readiness.issues.length - 3 }) }}
           </el-button>
+        </div>
+      </el-card>
+
+      <el-card>
+        <template #header>
+          <div class="card-header">
+            <span>恢复兼容性</span>
+          </div>
+        </template>
+
+        <el-empty v-if="!recoverySummary" :description="t('display.empty')" />
+
+        <div v-else class="events-section">
+          <div class="issue-alert-card" :class="{ 'issue-alert-card--warning': recoverySummary.status !== 'compatible' }">
+            <div class="issue-alert-card__header">
+              <el-tag :type="recoverySummary.status === 'blocked' ? 'danger' : recoverySummary.status === 'compatible' ? 'success' : 'warning'" size="small">
+                {{ recoveryStatusLabel }}
+              </el-tag>
+              <span class="issue-alert-card__summary">
+                {{ recoverySummary.operation }} · {{ recoverySummary.phase }}
+              </span>
+            </div>
+            <div class="issue-alert-card__remediation">
+              core {{ recoverySummary.source_core_version ?? t('display.empty') }} -> {{ recoverySummary.target_core_version ?? t('display.empty') }}
+            </div>
+          </div>
+
+          <div v-for="issue in recoverySummary.issues ?? []" :key="issue.code" class="issue-alert-card" :class="{ 'issue-alert-card--warning': issue.severity === 'warning' }">
+            <div class="issue-alert-card__header">
+              <el-tag :type="issue.severity === 'error' ? 'danger' : 'warning'" size="small">
+                {{ issue.code }}
+              </el-tag>
+              <span class="issue-alert-card__summary">{{ issue.summary }}</span>
+            </div>
+            <div v-if="issue.remediation" class="issue-alert-card__remediation">
+              {{ issue.remediation }}
+            </div>
+          </div>
+
+          <div v-for="plugin in recoverySummary.skipped_plugins ?? []" :key="plugin.plugin_id" class="issue-alert-card issue-alert-card--warning">
+            <div class="issue-alert-card__header">
+              <el-tag type="warning" size="small">
+                {{ plugin.reason_code }}
+              </el-tag>
+              <span class="issue-alert-card__summary">{{ plugin.plugin_id }}</span>
+            </div>
+            <div class="issue-alert-card__remediation">{{ plugin.summary }}</div>
+            <div v-if="plugin.manual_action" class="issue-alert-card__remediation">{{ plugin.manual_action }}</div>
+          </div>
+
+          <div v-if="recoverySummary.manual_actions?.length" style="margin-top: 12px;">
+            <small style="color: var(--muted);">处理建议：{{ recoverySummary.manual_actions.join('；') }}</small>
+          </div>
         </div>
       </el-card>
 

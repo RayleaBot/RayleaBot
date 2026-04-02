@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/backup-manifest.schema.json",
+  "title": "RayleaBot Backup Manifest",
+  "description": "Formal schema for backup-manifest.json. This file freezes the packaged recovery preflight surface used by backup, restore, launcher fallback, and cross-version recovery drills.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "created_at",
+    "core_version",
+    "config_schema_version",
+    "db_schema_version",
+    "consistency",
+    "directories"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "core_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "config_schema_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "db_schema_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consistency": {
+      "type": "string",
+      "enum": ["offline", "online"]
+    },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plugin"
+      },
+      "uniqueItems": true
+    },
+    "directories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/directory"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "directory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "path"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": ["config", "database", "plugins"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plugin_id"],
+      "properties": {
+        "plugin_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+        },
+        "version": {
+          "$ref": "#/$defs/semver"
+        },
+        "min_core_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "data_schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["windows-x64", "linux-x64", "macos-arm64"]
+          },
+          "uniqueItems": true
+        },
+        "source_root": {
+          "type": "string",
+          "enum": ["plugins/installed"]
+        }
+      }
+    }
+  },
+  "x-fixtures": [
+    "fixtures/backup-manifest/ok.minimal.json",
+    "fixtures/backup-manifest/invalid.missing-schema-versions.json",
+    "fixtures/backup-manifest/edge.incompatible-plugin-inventory.json"
+  ]
+}

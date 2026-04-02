@@ -3,6 +3,8 @@ package app
 import (
 	"net/http"
 	"time"
+
+	"rayleabot/server/internal/recovery"
 )
 
 type setupStatusResponse struct {
@@ -14,10 +16,11 @@ type launcherTokenResponse struct {
 }
 
 type systemStatusResponse struct {
-	Status        string `json:"status"`
-	AdapterState  string `json:"adapter_state"`
-	ActivePlugins int    `json:"active_plugins"`
-	UptimeSeconds int64  `json:"uptime_seconds"`
+	Status          string                         `json:"status"`
+	AdapterState    string                         `json:"adapter_state"`
+	ActivePlugins   int                            `json:"active_plugins"`
+	UptimeSeconds   int64                          `json:"uptime_seconds"`
+	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
 }
 
 type systemShutdownResponse struct {
@@ -72,10 +75,11 @@ func (a *App) handleLauncherTokenIssue() http.HandlerFunc {
 func (a *App) handleSystemStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		writeAuthJSON(w, http.StatusOK, systemStatusResponse{
-			Status:        a.systemStatus(),
-			AdapterState:  string(stateOrIdle(a.Adapter.Snapshot().State)),
-			ActivePlugins: a.activePluginCount(),
-			UptimeSeconds: a.uptimeSeconds(),
+			Status:          a.systemStatus(),
+			AdapterState:    string(stateOrIdle(a.Adapter.Snapshot().State)),
+			ActivePlugins:   a.activePluginCount(),
+			UptimeSeconds:   a.uptimeSeconds(),
+			RecoverySummary: a.recoverySummarySnapshot(),
 		})
 	}
 }

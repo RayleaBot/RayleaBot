@@ -13,6 +13,10 @@ import (
 
 const currentSchemaVersion = "2"
 
+func CurrentSchemaVersion() string {
+	return currentSchemaVersion
+}
+
 func loadCanonicalDocument(configPath, schemaPath string) (map[string]any, Config, error) {
 	defaultDoc, err := ensureDefaultTemplate(configPath)
 	if err != nil {

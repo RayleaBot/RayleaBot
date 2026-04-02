@@ -22,14 +22,16 @@
 
 - 记录当前可验证的版本内容、迁移影响和已知限制。
 - 说明 release metadata、资源清单与打包目录布局的正式字段来源。
-- 说明 release workflow、smoke 校验、packaged recovery drill 与产物矩阵的当前交付约束。
+- 说明 release workflow、smoke 校验、跨版本 recovery drill、恢复摘要与产物矩阵的当前交付约束。
 
 ## 当前门禁
 
-- `lint.yml` 的 `smoke-pr` 会对 `linux-x64-server` 正式包执行 packaged recovery drill，覆盖 `backup` / `restore` / `doctor` 与恢复后最小启动探活。
-- `release.yml` 会对 `windows-x64-full`、`linux-x64-full`、`linux-x64-server`、`macos-arm64-full` 依次执行打包、smoke、packaged recovery drill、release metadata 校验与发布。
-- full artifact 的 smoke 与 packaged recovery drill 统一校验根目录 Launcher 入口，不再依赖 `launcher/` 子目录布局。
-- packaged recovery drill 的验证边界是同版本正式包的受控恢复闭环，不表达跨版本 upgrade / rollback 演练。
+- `lint.yml` 的 `smoke-pr` 会对 `linux-x64-full` 与 `linux-x64-server` 正式包执行打包、smoke、跨版本 recovery drill 与 metadata verify。
+- `lint.yml` 的 `ci-launcher` 会在 Windows 与 macOS runner 上补齐对应 full artifact 的打包、smoke 与跨版本 recovery drill。
+- `release.yml` 会对 `windows-x64-full`、`linux-x64-full`、`linux-x64-server`、`macos-arm64-full` 依次执行打包、smoke、跨版本 recovery drill、release metadata 校验与发布。
+- full artifact 的 smoke 与 recovery drill 统一校验根目录 Launcher 入口，不依赖 `launcher/` 子目录布局。
+- 跨版本 recovery drill 使用已发布 release asset、`release_manifest.json` 与发行包内 `build_info.json` 作为版本来源；找不到前一正式版时输出显式 bootstrap skip。
+- `restore` 预检与启动后兼容检查会把共享恢复摘要写入 `logs/recovery-summary.json`；CLI、Web、Launcher 与 diagnostics 都复用同一份摘要。
 
 ## 维护规则
 

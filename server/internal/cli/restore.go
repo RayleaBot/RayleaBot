@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"rayleabot/server/internal/recovery"
 )
 
 func runRestore(cmd Command) int {
@@ -25,7 +27,7 @@ func runRestore(cmd Command) int {
 	defer reader.Close()
 
 	// Validate manifest
-	var manifest backupManifest
+	var manifest recovery.BackupManifest
 	manifestFound := false
 	for _, f := range reader.File {
 		if f.Name == "backup-manifest.json" {
@@ -49,19 +51,29 @@ func runRestore(cmd Command) int {
 		cmd.Logger.Error("backup archive missing backup-manifest.json")
 		return 1
 	}
-	if manifest.Version != "1" {
+	if manifest.Version != recovery.BackupManifestVersion {
 		cmd.Logger.Error("unsupported backup version", "version", manifest.Version)
+		return 1
+	}
+
+	configDir := filepath.Dir(cmd.ConfigPath)
+	repoRoot := filepath.Dir(configDir)
+	summary := recovery.EvaluateRestore(manifest, repoRoot)
+	if err := recovery.SaveSummary(repoRoot, summary); err != nil {
+		cmd.Logger.Error("write recovery summary", "err", err.Error())
+		return 1
+	}
+	if summary.Status == "blocked" {
+		cmd.Logger.Error("restore blocked by recovery compatibility checks", "issues", len(summary.Issues))
 		return 1
 	}
 
 	cmd.Logger.Info("restoring from backup",
 		"path", backupPath,
 		"created_at", manifest.CreatedAt,
-		"items", len(manifest.Items),
+		"directories", len(manifest.Directories),
+		"operation", summary.Operation,
 	)
-
-	configDir := filepath.Dir(cmd.ConfigPath)
-	repoRoot := filepath.Dir(configDir)
 
 	restored := 0
 	for _, f := range reader.File {
@@ -93,6 +105,7 @@ func runRestore(cmd Command) int {
 
 	cmd.Logger.Info("restore completed",
 		"restored_files", restored,
+		"recovery_summary", recovery.SummaryPath(repoRoot),
 	)
 	return 0
 }

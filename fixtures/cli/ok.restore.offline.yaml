@@ -7,3 +7,4 @@ expect:
   exit_code: 0
   task_model: true
   task_type: restore.apply
+  recovery_summary_status: pending

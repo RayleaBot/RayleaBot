@@ -80,6 +80,10 @@ export function App() {
       `运行目录：${snapshot.resolvedSettings.workdir || "未设置"}`,
       "环境检查：",
       checks || "- 当前没有检查项。",
+      "恢复兼容性：",
+      snapshot.recoverySummary
+        ? `${snapshot.recoverySummary.status} / ${snapshot.recoverySummary.operation} / ${snapshot.recoverySummary.phase}`
+        : "当前没有恢复摘要。",
       "最近错误输出：",
       recentErrors,
     ].join("\n");

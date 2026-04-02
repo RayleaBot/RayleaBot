@@ -88,7 +88,10 @@ jobs:
             --archive dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip
           python scripts/release/recovery_drill.py \
             --artifact-id windows-x64-full \
-            --archive dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip
+            --archive dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip \
+            --repository "$GITHUB_REPOSITORY" \
+            --current-version "$VERSION" \
+            --download-dir dist/release/recovery-bootstrap
 
       - name: Upload windows release artifact
         uses: actions/upload-artifact@v4
@@ -178,7 +181,10 @@ jobs:
             --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz
           python scripts/release/recovery_drill.py \
             --artifact-id linux-x64-full \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz \
+            --repository "$GITHUB_REPOSITORY" \
+            --current-version "$VERSION" \
+            --download-dir dist/release/recovery-bootstrap
           python scripts/release/release_tool.py package \
             --artifact-id linux-x64-server \
             --version "$VERSION" \
@@ -198,7 +204,10 @@ jobs:
             --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
           python scripts/release/recovery_drill.py \
             --artifact-id linux-x64-server \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz \
+            --repository "$GITHUB_REPOSITORY" \
+            --current-version "$VERSION" \
+            --download-dir dist/release/recovery-bootstrap
 
       - name: Upload linux full release artifact
         uses: actions/upload-artifact@v4
@@ -296,7 +305,10 @@ jobs:
             --archive dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz
           python scripts/release/recovery_drill.py \
             --artifact-id macos-arm64-full \
-            --archive dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz
+            --archive dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz \
+            --repository "$GITHUB_REPOSITORY" \
+            --current-version "$VERSION" \
+            --download-dir dist/release/recovery-bootstrap
 
       - name: Upload macOS release artifact
         uses: actions/upload-artifact@v4

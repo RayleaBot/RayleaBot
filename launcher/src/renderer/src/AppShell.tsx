@@ -338,6 +338,20 @@ export function AppShell({
               </Button>
             </article>
 
+            <article className="panel glass-panel glass-panel--subtle panel-row">
+              <div className="panel-copy">
+                <div className="brand-eyebrow brand-eyebrow--tight">恢复兼容性</div>
+                <Text size={200} className="panel-muted">
+                  {snapshot.recoverySummary
+                    ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation} · ${snapshot.recoverySummary.phase}`
+                    : "当前没有恢复摘要。"}
+                </Text>
+                {snapshot.recoverySummary?.manual_actions?.[0] && (
+                  <Text size={100} className="panel-muted">{snapshot.recoverySummary.manual_actions[0]}</Text>
+                )}
+              </div>
+            </article>
+
             <article className="panel glass-panel">
               <div className="brand-eyebrow">异常输出监控</div>
               <pre className="log-surface">

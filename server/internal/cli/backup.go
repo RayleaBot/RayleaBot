@@ -8,18 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"rayleabot/server/internal/recovery"
 )
-
-type backupManifest struct {
-	Version   string `json:"version"`
-	CreatedAt string `json:"created_at"`
-	Items     []backupItem `json:"items"`
-}
-
-type backupItem struct {
-	Label string `json:"label"`
-	Path  string `json:"path"`
-}
 
 func runBackup(cmd Command) int {
 	configDir := filepath.Dir(cmd.ConfigPath)
@@ -44,25 +35,27 @@ func runBackup(cmd Command) int {
 	w := zip.NewWriter(outFile)
 	defer w.Close()
 
-	var items []backupItem
+	var directories []recovery.BackupManifestDirectory
 
 	// 1. config/user.yaml
 	configFile := cmd.ConfigPath
 	if err := addFileToZip(w, configFile, "config/user.yaml"); err != nil {
 		cmd.Logger.Warn("skip config file", "path", configFile, "err", err.Error())
 	} else {
-		items = append(items, backupItem{Label: "config", Path: "config/user.yaml"})
+		directories = append(directories, recovery.Directory("config/user.yaml", "config"))
 		cmd.Logger.Info("backed up config", "path", configFile)
 	}
 
 	// 2. SQLite database
+	var databasePath string
 	dbPath, err := resolveDatabasePath(cmd.ConfigPath)
 	if err == nil {
+		databasePath = dbPath
 		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(dbPath)))
 		if err := addFileToZip(w, dbPath, archivePath); err != nil {
 			cmd.Logger.Warn("skip database file", "path", dbPath, "err", err.Error())
 		} else {
-			items = append(items, backupItem{Label: "database", Path: archivePath})
+			directories = append(directories, recovery.Directory(archivePath, "database"))
 			cmd.Logger.Info("backed up database", "path", dbPath)
 		}
 	}
@@ -74,21 +67,20 @@ func runBackup(cmd Command) int {
 		if err != nil {
 			cmd.Logger.Warn("skip plugins directory", "path", installedRoot, "err", err.Error())
 		} else {
-			items = append(items, backupItem{Label: "plugins", Path: "plugins/installed"})
+			directories = append(directories, recovery.Directory("plugins/installed", "plugins"))
 			cmd.Logger.Info("backed up plugins", "files", count)
 		}
 	}
 
 	// 4. Write manifest
-	manifest := backupManifest{
-		Version:   "1",
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-		Items:     items,
+	manifest := recovery.BuildBackupManifest(repoRoot, "offline")
+	if len(directories) == 0 {
+		directories = recovery.ScanRepoPaths(repoRoot, configFile, databasePath)
 	}
-	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
-	mw, err := w.Create("backup-manifest.json")
-	if err == nil {
-		mw.Write(manifestBytes)
+	manifest.Directories = directories
+	if err := addManifestToZip(w, manifest); err != nil {
+		cmd.Logger.Error("write backup manifest", "err", err.Error())
+		return 1
 	}
 
 	if err := w.Close(); err != nil {
@@ -97,8 +89,21 @@ func runBackup(cmd Command) int {
 	}
 	outFile.Close()
 
-	cmd.Logger.Info("backup completed", "path", backupPath, "items", len(items))
+	cmd.Logger.Info("backup completed", "path", backupPath, "directories", len(directories), "plugins", len(manifest.Plugins))
 	return 0
+}
+
+func addManifestToZip(w *zip.Writer, manifest recovery.BackupManifest) error {
+	payload, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	mw, err := w.Create("backup-manifest.json")
+	if err != nil {
+		return err
+	}
+	_, err = mw.Write(payload)
+	return err
 }
 
 func addFileToZip(w *zip.Writer, srcPath, zipPath string) error {

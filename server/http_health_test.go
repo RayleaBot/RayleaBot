@@ -2,12 +2,14 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 	"rayleabot/server/internal/adapter"
@@ -15,6 +17,7 @@ import (
 	"rayleabot/server/internal/app"
 	"rayleabot/server/internal/auth"
 	"rayleabot/server/internal/health"
+	"rayleabot/server/internal/recovery"
 )
 
 type webAPIFixture struct {
@@ -199,6 +202,45 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 		Checks:      checks,
 		Issues:      issues,
 	}
+	if rawSummary, ok := fixture.Response.Body["recovery_summary"].(map[string]any); ok {
+		report.RecoverySummary = &recovery.CompatibilitySummary{
+			Status:                    rawSummary["status"].(string),
+			Phase:                     rawSummary["phase"].(string),
+			Operation:                 rawSummary["operation"].(string),
+			CreatedAt:                 fmt.Sprint(rawSummary["created_at"]),
+			UpdatedAt:                 fmt.Sprint(rawSummary["updated_at"]),
+			SourceCoreVersion:         rawSummary["source_core_version"].(string),
+			TargetCoreVersion:         rawSummary["target_core_version"].(string),
+			SourceConfigSchemaVersion: rawSummary["source_config_schema_version"].(string),
+			TargetConfigSchemaVersion: rawSummary["target_config_schema_version"].(string),
+			SourceDBSchemaVersion:     rawSummary["source_db_schema_version"].(string),
+			TargetDBSchemaVersion:     rawSummary["target_db_schema_version"].(string),
+			ManualActions:             toStringSlice(rawSummary["manual_actions"].([]any)),
+		}
+		if rawIssues, ok := rawSummary["issues"].([]any); ok {
+			for _, raw := range rawIssues {
+				item := raw.(map[string]any)
+				report.RecoverySummary.Issues = append(report.RecoverySummary.Issues, recovery.CompatibilityIssue{
+					Code:        item["code"].(string),
+					Severity:    item["severity"].(string),
+					Summary:     item["summary"].(string),
+					Remediation: item["remediation"].(string),
+				})
+			}
+		}
+		if rawSkipped, ok := rawSummary["skipped_plugins"].([]any); ok {
+			for _, raw := range rawSkipped {
+				item := raw.(map[string]any)
+				report.RecoverySummary.SkippedPlugins = append(report.RecoverySummary.SkippedPlugins, recovery.SkippedPlugin{
+					PluginID:     item["plugin_id"].(string),
+					Version:      item["version"].(string),
+					ReasonCode:   item["reason_code"].(string),
+					Summary:      item["summary"].(string),
+					ManualAction: item["manual_action"].(string),
+				})
+			}
+		}
+	}
 
 	handler := health.NewReadinessHandler(func() health.ReadinessReport {
 		return report
@@ -282,6 +324,7 @@ func loadWebAPIFixture(t *testing.T, path string) webAPIFixture {
 	if err := yaml.Unmarshal(bytes, &fixture); err != nil {
 		t.Fatalf("unmarshal fixture %s: %v", path, err)
 	}
+	fixture.Response.Body = normalizeFixtureMap(fixture.Response.Body)
 
 	return fixture
 }
@@ -293,6 +336,31 @@ func toStringSlice(values []any) []string {
 	}
 
 	return result
+}
+
+func normalizeFixtureMap(values map[string]any) map[string]any {
+	result := make(map[string]any, len(values))
+	for key, value := range values {
+		result[key] = normalizeFixtureValue(value)
+	}
+	return result
+}
+
+func normalizeFixtureValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return normalizeFixtureMap(typed)
+	case []any:
+		items := make([]any, 0, len(typed))
+		for _, item := range typed {
+			items = append(items, normalizeFixtureValue(item))
+		}
+		return items
+	case time.Time:
+		return typed.UTC().Format(time.RFC3339)
+	default:
+		return value
+	}
 }
 
 func assertReadinessResponse(t *testing.T, snapshot adapter.Snapshot, wantStatus int, wantBody map[string]any) {

@@ -31,6 +31,7 @@ import (
 	"rayleabot/server/internal/pluginfile"
 	"rayleabot/server/internal/pluginkv"
 	"rayleabot/server/internal/plugins"
+	"rayleabot/server/internal/recovery"
 	"rayleabot/server/internal/render"
 	"rayleabot/server/internal/runtime"
 	"rayleabot/server/internal/scheduler"
@@ -87,6 +88,7 @@ type App struct {
 	pluginLogLimiter  *pluginLogLimiter
 	redactText        func(string) string
 	repoRoot          string
+	recoverySummary   *recovery.CompatibilitySummary
 	router            http.Handler
 	server            *http.Server
 	startedAt         time.Time
@@ -376,6 +378,7 @@ func New(options Options) (*App, error) {
 		loginFailures:     newLoginFailureTracker(time.Now),
 	}
 	application.pluginLifecycle = newPluginLifecycleController(application)
+	application.refreshRecoverySummary()
 	pluginUninstallService.SetStopPlugin(application.pluginLifecycle.stopAndResetPlugin)
 	runtimeRegistry.SetOnCrash(application.pluginLifecycle.handleCrash)
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
@@ -820,6 +823,7 @@ func (a *App) currentReadiness() health.ReadinessReport {
 					Remediation: "请检查服务进程是否已正确启动。",
 				},
 			},
+			RecoverySummary: nil,
 		}
 	}
 	if a.Auth == nil {
@@ -837,6 +841,7 @@ func (a *App) currentReadiness() health.ReadinessReport {
 					Remediation: "请检查服务日志，确认认证服务已完成初始化。",
 				},
 			},
+			RecoverySummary: a.recoverySummary,
 		}
 	}
 	if !a.Auth.IsBootstrapped() {
@@ -854,6 +859,7 @@ func (a *App) currentReadiness() health.ReadinessReport {
 					Remediation: "请先完成管理员初始化，然后再使用管理入口。",
 				},
 			},
+			RecoverySummary: a.recoverySummary,
 		}
 	}
 	if a.Adapter == nil {
@@ -871,10 +877,28 @@ func (a *App) currentReadiness() health.ReadinessReport {
 					Remediation: "请检查 OneBot adapter 配置并重启服务。",
 				},
 			},
+			RecoverySummary: a.recoverySummary,
 		}
 	}
 
 	report := ReadinessReportFromAdapter(a.Adapter.Snapshot())
+	report.RecoverySummary = a.recoverySummary
+	if a.recoverySummary != nil {
+		switch a.recoverySummary.Status {
+		case "blocked":
+			report.Status = "failed"
+			report.Reason = "Recovery compatibility checks blocked startup"
+			report.ReasonCodes = []string{"recovery.blocked"}
+			report.Checks["runtime"] = "recovery_blocked"
+		case "degraded", "pending":
+			if report.Status == "ready" {
+				report.Status = "degraded"
+				report.Reason = "Recovery compatibility checks require attention"
+				report.ReasonCodes = []string{"recovery.degraded"}
+			}
+		}
+		report.Issues = append(report.Issues, recoveryIssuesToHealth(a.recoverySummary.Issues)...)
+	}
 	if a.renderer == nil {
 		return report
 	}

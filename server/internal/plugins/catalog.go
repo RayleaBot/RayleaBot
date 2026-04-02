@@ -43,6 +43,9 @@ type Snapshot struct {
 	Name                  string
 	Role                  string
 	Version               string
+	MinCoreVersion        string
+	DataSchemaVersion     string
+	Platforms             []string
 	Runtime               string
 	Entry                 string
 	Type                  string
@@ -217,6 +220,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.DefaultConfig = cloneMap(snapshot.DefaultConfig)
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
+	cloned.Platforms = append([]string(nil), snapshot.Platforms...)
 	cloned.RequiredPermissions = append([]string(nil), snapshot.RequiredPermissions...)
 	cloned.OptionalPermissions = append([]string(nil), snapshot.OptionalPermissions...)
 	cloned.DeclaredCapabilities = append([]string(nil), snapshot.DeclaredCapabilities...)

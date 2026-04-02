@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"rayleabot/server/internal/recovery"
 )
 
 func TestBackupCreatesValidArchive(t *testing.T) {
@@ -78,17 +80,23 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 		if err != nil {
 			t.Fatalf("open manifest: %v", err)
 		}
-		var manifest backupManifest
+		var manifest recovery.BackupManifest
 		if err := json.NewDecoder(rc).Decode(&manifest); err != nil {
 			rc.Close()
 			t.Fatalf("decode manifest: %v", err)
 		}
 		rc.Close()
-		if manifest.Version != "1" {
-			t.Errorf("manifest version = %q, want 1", manifest.Version)
+		if manifest.Version != recovery.BackupManifestVersion {
+			t.Errorf("manifest version = %q, want %s", manifest.Version, recovery.BackupManifestVersion)
 		}
-		if len(manifest.Items) == 0 {
-			t.Error("manifest items should not be empty")
+		if manifest.CoreVersion == "" {
+			t.Error("manifest core_version should not be empty")
+		}
+		if manifest.ConfigSchemaVersion == "" || manifest.DBSchemaVersion == "" {
+			t.Fatalf("manifest schema versions should not be empty: %#v", manifest)
+		}
+		if len(manifest.Directories) == 0 {
+			t.Error("manifest directories should not be empty")
 		}
 	}
 }
@@ -150,6 +158,14 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	if _, err := os.Stat(restoredDB); err != nil {
 		t.Errorf("restored database not found: %v", err)
 	}
+
+	summary, err := recovery.LoadSummary(destDir)
+	if err != nil {
+		t.Fatalf("load recovery summary: %v", err)
+	}
+	if summary == nil || summary.Status != "pending" {
+		t.Fatalf("restore should persist pending recovery summary, got %#v", summary)
+	}
 }
 
 func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
@@ -161,7 +177,7 @@ func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := zip.NewWriter(outFile)
-	manifest := backupManifest{Version: "99", CreatedAt: "2025-01-01T00:00:00Z"}
+	manifest := recovery.BackupManifest{Version: "99", CreatedAt: "2025-01-01T00:00:00Z"}
 	data, _ := json.Marshal(manifest)
 	mw, _ := w.Create("backup-manifest.json")
 	mw.Write(data)
@@ -176,6 +192,56 @@ func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
 	})
 	if code != 1 {
 		t.Fatalf("restore should fail with exit code 1 for unsupported version, got %d", code)
+	}
+}
+
+func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
+	t.Parallel()
+
+	destDir := t.TempDir()
+	archivePath := filepath.Join(t.TempDir(), "blocked.zip")
+	outFile, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := zip.NewWriter(outFile)
+	manifest := recovery.BackupManifest{
+		Version:             recovery.BackupManifestVersion,
+		CreatedAt:           "2026-04-02T00:00:00Z",
+		CoreVersion:         "0.2.0",
+		ConfigSchemaVersion: "2",
+		DBSchemaVersion:     "9999",
+		Consistency:         "offline",
+		Directories: []recovery.BackupManifestDirectory{
+			{Label: "config", Path: "config/user.yaml"},
+		},
+	}
+	data, _ := json.Marshal(manifest)
+	mw, _ := w.Create("backup-manifest.json")
+	mw.Write(data)
+	fw, _ := w.Create("config/user.yaml")
+	fw.Write([]byte("server:\n  host: 127.0.0.1\n"))
+	w.Close()
+	outFile.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	code := runRestore(Command{
+		ConfigPath: filepath.Join(destDir, "config", "user.yaml"),
+		Logger:     logger,
+		Args:       []string{archivePath},
+	})
+	if code != 1 {
+		t.Fatalf("restore should fail with exit code 1 for blocked compatibility, got %d", code)
+	}
+	if _, err := os.Stat(filepath.Join(destDir, "config", "user.yaml")); err == nil {
+		t.Fatal("restore should not extract files when compatibility is blocked")
+	}
+	summary, err := recovery.LoadSummary(destDir)
+	if err != nil {
+		t.Fatalf("load recovery summary: %v", err)
+	}
+	if summary == nil || summary.Status != "blocked" {
+		t.Fatalf("restore should persist blocked recovery summary, got %#v", summary)
 	}
 }
 
@@ -214,7 +280,7 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 	}
 	w := zip.NewWriter(outFile)
 
-	manifest := backupManifest{Version: "1", CreatedAt: "2025-01-01T00:00:00Z"}
+	manifest := recovery.BackupManifest{Version: recovery.BackupManifestVersion, CreatedAt: "2025-01-01T00:00:00Z"}
 	data, _ := json.Marshal(manifest)
 	mw, _ := w.Create("backup-manifest.json")
 	mw.Write(data)
@@ -291,6 +357,38 @@ func TestDoctorReportIncludesStructuredIssues(t *testing.T) {
 	issues, ok := decoded["issues"].([]any)
 	if !ok || len(issues) == 0 {
 		t.Fatalf("encoded doctor report must expose issues: %#v", decoded)
+	}
+}
+
+func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, []byte("schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
+		Status:    "degraded",
+		Phase:     "post_startup",
+		Operation: "upgrade",
+		CreatedAt: "2026-04-02T00:00:00Z",
+		UpdatedAt: "2026-04-02T00:01:00Z",
+	}); err != nil {
+		t.Fatalf("save recovery summary: %v", err)
+	}
+
+	report := BuildDoctorReport(Command{
+		ConfigPath: configPath,
+		SchemaPath: filepath.Join(repoRoot, "contracts", "config.user.schema.json"),
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	if report.RecoverySummary == nil || report.RecoverySummary.Status != "degraded" {
+		t.Fatalf("doctor report should expose recovery summary, got %#v", report.RecoverySummary)
 	}
 }
 

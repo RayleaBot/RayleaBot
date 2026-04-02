@@ -10,6 +10,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"rayleabot/server/internal/recovery"
 	"rayleabot/server/internal/storage"
 )
 
@@ -77,7 +78,8 @@ type DoctorIssue struct {
 }
 
 type DoctorReport struct {
-	Issues []DoctorIssue `json:"issues"`
+	Issues          []DoctorIssue                  `json:"issues"`
+	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
 }
 
 func BuildDoctorReport(cmd Command) DoctorReport {
@@ -221,7 +223,13 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		})
 	}
 
-	return DoctorReport{Issues: issues}
+	report := DoctorReport{Issues: issues}
+	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	summary, err := recovery.LoadSummary(repoRoot)
+	if err == nil && summary != nil {
+		report.RecoverySummary = summary
+	}
+	return report
 }
 
 func executableAvailable(names ...string) bool {

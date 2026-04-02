@@ -6,8 +6,9 @@
 
 ### Fixture-ready 正式契约
 
-当前已有 8 份 fixture-ready formal contracts：
+当前已有 9 份 fixture-ready formal contracts：
 
+- `backup-manifest.schema.json`
 - `config.user.schema.json`
 - `error-codes.yaml`
 - `web-api.openapi.yaml`
@@ -23,6 +24,9 @@
 
 - `config.user.schema.json`
   - `config/user.yaml` 的正式机器可校验结构
+- `backup-manifest.schema.json`
+  - `backup-manifest.json` 的正式机器可校验结构
+  - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
@@ -82,6 +86,12 @@
 ### CLI
 
 - CLI 与 HTTP task 模型的共享执行路径验证
+
+### Recovery Summary
+
+- 更宽的跨版本恢复自动修复策略
+- 更细的插件数据迁移动作族
+- 长时自托管恢复演练窗口
 
 ## 当前未进入 OpenAPI 的 TODO
 

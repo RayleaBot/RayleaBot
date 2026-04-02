@@ -6,3 +6,4 @@ expect:
   valid: true
   exit_code: 0
   task_model: false
+  recovery_summary_supported: true

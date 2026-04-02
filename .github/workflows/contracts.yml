@@ -37,6 +37,7 @@ jobs:
 
           required_files = {
               'README.md',
+              'backup-manifest.schema.json',
               'plugin-info.schema.json',
               'plugin-protocol.schema.json',
               'web-api.openapi.yaml',
@@ -54,6 +55,7 @@ jobs:
 
           required_fixture_dirs = [
               fixtures / 'config',
+              fixtures / 'backup-manifest',
               fixtures / 'web-api',
               fixtures / 'websocket',
               fixtures / 'errors',

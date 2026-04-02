@@ -5,9 +5,11 @@ import {
   type EnvironmentInspection,
   type ExternalOpener,
   type LauncherManagementClient,
+  type RecoverySummaryReader,
   type LauncherSettings,
   type LauncherSettingsStore,
   type ReleaseFeedClient,
+  type RecoveryCompatibilitySummary,
   type ServerEndpoint,
   type ServerEndpointResolver,
   type ServerProcessController,
@@ -42,6 +44,8 @@ class FakeManagementClient implements LauncherManagementClient {
   sessionToken = "session_fixture_token";
   issueLauncherTokenCalls = 0;
   admitLauncherTokenCalls = 0;
+  systemStatusCalls = 0;
+  recoverySummary: RecoveryCompatibilitySummary | null = null;
 
   async isHealthy() {
     return this.health;
@@ -61,7 +65,20 @@ class FakeManagementClient implements LauncherManagementClient {
     return this.sessionToken;
   }
 
+  async getSystemStatus() {
+    this.systemStatusCalls += 1;
+    return { recovery_summary: this.recoverySummary };
+  }
+
   async shutdown() {}
+}
+
+class FakeRecoverySummaryReader implements RecoverySummaryReader {
+  summary: RecoveryCompatibilitySummary | null = null;
+
+  async read() {
+    return this.summary;
+  }
 }
 
 class FakeProcessController implements ServerProcessController {
@@ -174,8 +191,8 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.serviceState).toBe("external_service");
-    expect(managementClient.issueLauncherTokenCalls).toBe(0);
-    expect(managementClient.admitLauncherTokenCalls).toBe(0);
+    expect(managementClient.issueLauncherTokenCalls).toBe(1);
+    expect(managementClient.admitLauncherTokenCalls).toBe(1);
     expect(coordinator.snapshot.releaseCheck.status).toBe("up_to_date");
   });
 
@@ -203,6 +220,72 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.endpoint.baseUrl).toBe("http://127.0.0.1:8080/");
+  });
+
+  test("initialize loads recovery summary from management api when service is healthy", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    managementClient.recoverySummary = {
+      status: "degraded",
+      phase: "post_startup",
+      operation: "upgrade",
+      created_at: "2026-04-02T08:00:00Z",
+      updated_at: "2026-04-02T08:01:00Z",
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    expect(coordinator.snapshot.recoverySummary?.status).toBe("degraded");
+    expect(coordinator.snapshot.serviceState).toBe("degraded");
+  });
+
+  test("initialize falls back to local recovery summary when api path is unavailable", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const recoverySummaryReader = new FakeRecoverySummaryReader();
+    recoverySummaryReader.summary = {
+      status: "blocked",
+      phase: "pre_restore",
+      operation: "rollback",
+      created_at: "2026-04-02T08:00:00Z",
+      updated_at: "2026-04-02T08:01:00Z",
+    };
+    managementClient.health = false;
+    managementClient.issueLauncherToken = vi.fn(async () => {
+      throw new Error("service unavailable");
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      recoverySummaryReader,
+    });
+
+    await coordinator.initialize();
+
+    expect(coordinator.snapshot.recoverySummary?.status).toBe("blocked");
   });
 
   test("open web ui adds token only when setup is initialized", async () => {

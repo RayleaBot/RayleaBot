@@ -3,6 +3,8 @@ package health
 import (
 	"encoding/json"
 	"net/http"
+
+	"rayleabot/server/internal/recovery"
 )
 
 type LivenessResponse struct {
@@ -10,11 +12,12 @@ type LivenessResponse struct {
 }
 
 type ReadinessReport struct {
-	Status      string            `json:"status"`
-	Reason      string            `json:"reason,omitempty"`
-	ReasonCodes []string          `json:"reason_codes,omitempty"`
-	Checks      map[string]string `json:"checks,omitempty"`
-	Issues      []DiagnosticIssue `json:"issues,omitempty"`
+	Status          string                         `json:"status"`
+	Reason          string                         `json:"reason,omitempty"`
+	ReasonCodes     []string                       `json:"reason_codes,omitempty"`
+	Checks          map[string]string              `json:"checks,omitempty"`
+	Issues          []DiagnosticIssue              `json:"issues,omitempty"`
+	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
 }
 
 type DiagnosticIssue struct {

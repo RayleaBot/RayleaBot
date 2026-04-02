@@ -3,6 +3,7 @@ import type {
   EnvironmentCheckResult,
   EnvironmentInspection,
   LauncherResolvedSettings,
+  RecoveryCompatibilitySummary,
   LauncherSettings,
   LauncherSnapshot,
   ReleaseCheckSnapshot,
@@ -27,6 +28,7 @@ export interface LauncherManagementClient {
   getSetupInitialized(endpoint: ServerEndpoint): Promise<boolean>;
   issueLauncherToken(endpoint: ServerEndpoint): Promise<string>;
   admitLauncherToken(endpoint: ServerEndpoint, launcherToken: string): Promise<string>;
+  getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<{ recovery_summary?: RecoveryCompatibilitySummary | null }>;
   shutdown(endpoint: ServerEndpoint, sessionToken: string): Promise<void>;
 }
 
@@ -46,6 +48,10 @@ export interface ExternalOpener {
 
 export interface ReleaseFeedClient {
   getSnapshot(): Promise<ReleaseCheckSnapshot>;
+}
+
+export interface RecoverySummaryReader {
+  read(logDirectory: string): Promise<RecoveryCompatibilitySummary | null>;
 }
 
 export interface LauncherResetAdminRunner {
@@ -69,6 +75,7 @@ interface LauncherCoordinatorDependencies {
   externalOpener: ExternalOpener;
   releaseFeedClient?: ReleaseFeedClient;
   resetAdminRunner?: LauncherResetAdminRunner;
+  recoverySummaryReader?: RecoverySummaryReader;
   options?: LauncherCoordinatorOptions;
 }
 
@@ -113,6 +120,7 @@ function defaultSnapshot(settings: LauncherSettings, resolvedSettings: LauncherR
     serviceDetail: "服务尚未启动。",
     lastError: "",
     releaseCheck: createReleaseUnavailable(),
+    recoverySummary: null,
   };
 }
 
@@ -212,7 +220,28 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       serviceDetail,
       lastError,
       releaseCheck: snapshot.releaseCheck,
+      recoverySummary: snapshot.recoverySummary ?? null,
     } satisfies LauncherSnapshot;
+  }
+
+  async function tryLoadRecoverySummary(endpoint: ServerEndpoint): Promise<RecoveryCompatibilitySummary | null> {
+    try {
+      if (!sessionToken) {
+        const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
+        sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
+      }
+      const status = await deps.managementClient.getSystemStatus(endpoint, sessionToken);
+      return status.recovery_summary ?? null;
+    } catch {
+      if (!deps.recoverySummaryReader) {
+        return null;
+      }
+      try {
+        return await deps.recoverySummaryReader.read(deps.processController.logDirectory);
+      } catch {
+        return null;
+      }
+    }
   }
 
   async function refreshCore(forceReauthentication: boolean) {
@@ -241,15 +270,15 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
 
     const healthy = await deps.managementClient.isHealthy(endpoint);
     if (!healthy) {
-      await publish(
-        await buildSnapshot(
-          endpoint,
-          inspection,
-          deps.processController.isRunning ? "failed" : "stopped",
-          deps.processController.isRunning ? "子进程仍在运行，但健康检查失败。" : "服务尚未启动。",
-          deps.processController.isRunning ? "健康检查失败。" : "",
-        ),
+      const next = await buildSnapshot(
+        endpoint,
+        inspection,
+        deps.processController.isRunning ? "failed" : "stopped",
+        deps.processController.isRunning ? "子进程仍在运行，但健康检查失败。" : "服务尚未启动。",
+        deps.processController.isRunning ? "健康检查失败。" : "",
       );
+      next.recoverySummary = await tryLoadRecoverySummary(endpoint);
+      await publish(next);
       return;
     }
 
@@ -274,14 +303,18 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       return;
     }
 
-    await publish(
-      await buildSnapshot(
-        endpoint,
-        inspection,
-        deps.processController.isRunning ? "ready" : "external_service",
-        deps.processController.isRunning ? "服务正在运行。" : "端口上已有服务正在运行。可以直接打开管理界面，或先停止它再由启动器重新启动。",
-      ),
+    const next = await buildSnapshot(
+      endpoint,
+      inspection,
+      deps.processController.isRunning ? "ready" : "external_service",
+      deps.processController.isRunning ? "服务正在运行。" : "端口上已有服务正在运行。可以直接打开管理界面，或先停止它再由启动器重新启动。",
     );
+    next.recoverySummary = await tryLoadRecoverySummary(endpoint);
+    if (next.recoverySummary && next.recoverySummary.status !== "compatible") {
+      next.serviceState = "degraded";
+      next.serviceDetail = "恢复兼容性检查需要关注，请先处理摘要中的问题。";
+    }
+    await publish(next);
   }
 
   async function ensureManagedProcessStopped() {

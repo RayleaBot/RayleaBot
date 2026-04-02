@@ -45,6 +45,14 @@ const snapshot: LauncherSnapshot = {
     releasePageUrl: "https://example.invalid/releases/v0.1.0",
     updateAvailable: false,
   },
+  recoverySummary: {
+    status: "degraded",
+    phase: "post_startup",
+    operation: "upgrade",
+    created_at: "2026-04-02T08:00:00Z",
+    updated_at: "2026-04-02T08:01:00Z",
+    manual_actions: ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],
+  },
 };
 
 describe("AppShell", () => {
@@ -90,5 +98,6 @@ describe("AppShell", () => {
     expect(screen.getByText("偏好设置")).toBeInTheDocument();
     expect(screen.getByText("服务尚未启动。")).toBeInTheDocument();
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
+    expect(screen.getByText(/恢复兼容性/)).toBeInTheDocument();
   });
 });

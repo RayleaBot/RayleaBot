@@ -79,7 +79,10 @@ commands:
       offline: true
     description: >
       在停服窗口下从受支持的恢复包恢复 config/、data/ 与
-      plugins/installed/。恢复后应统一执行迁移与兼容检查。
+      plugins/installed/。restore 会先读取 backup-manifest.json，
+      生成统一 recovery_summary 并在 `logs/recovery-summary.json`
+      中落盘。硬不兼容时恢复在解包前失败；通过预检时继续恢复，
+      并把后续启动期资源 / 插件兼容检查标记为待完成。
     exit_codes:
       0: 恢复成功
       1: 恢复包格式错误或恢复失败
@@ -101,7 +104,9 @@ commands:
     description: >
       检查运行时资源完整性、托管 Python / Node.js 可用性、
       .deps/ 资源清单一致性、SQLite 数据库可打开性与基础
-      schema 完整性。Windows 上额外检查 LongPathsEnabled
+      schema 完整性。存在恢复摘要时，doctor 复用同一份
+      recovery_summary 输出，帮助离线排查恢复后的资源、
+      插件与人工处理项。Windows 上额外检查 LongPathsEnabled
       注册表项。
     exit_codes:
       0: 所有检查通过

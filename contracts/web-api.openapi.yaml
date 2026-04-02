@@ -966,6 +966,8 @@ components:
         uptime_seconds:
           type: integer
           minimum: 0
+        recovery_summary:
+          $ref: '#/components/schemas/RecoveryCompatibilitySummary'
 
     SystemShutdownResponse:
       type: object
@@ -1048,6 +1050,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DiagnosticIssue'
+        recovery_summary:
+          $ref: '#/components/schemas/RecoveryCompatibilitySummary'
 
     DiagnosticIssue:
       type: object
@@ -1063,6 +1067,90 @@ components:
           type: string
         remediation:
           type: string
+
+    RecoveryCompatibilityIssue:
+      type: object
+      additionalProperties: false
+      required: [code, severity, summary]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [warning, error]
+        summary:
+          type: string
+        remediation:
+          type: string
+
+    RecoveryCompatibilitySkippedPlugin:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, reason_code, summary]
+      properties:
+        plugin_id:
+          type: string
+        version:
+          type: string
+        reason_code:
+          type: string
+        summary:
+          type: string
+        manual_action:
+          type: string
+        manifest_path:
+          type: string
+
+    RecoveryCompatibilitySummary:
+      type: object
+      additionalProperties: false
+      required: [status, phase, operation, created_at, updated_at]
+      properties:
+        status:
+          type: string
+          enum: [pending, compatible, degraded, blocked]
+        phase:
+          type: string
+          enum: [pre_restore, post_startup]
+        operation:
+          type: string
+          enum: [restore, upgrade, rollback]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        source_core_version:
+          type: string
+        target_core_version:
+          type: string
+        source_config_schema_version:
+          type: string
+        target_config_schema_version:
+          type: string
+        source_db_schema_version:
+          type: string
+        target_db_schema_version:
+          type: string
+        requires_post_start_checks:
+          type: boolean
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecoveryCompatibilityIssue'
+        skipped_plugins:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecoveryCompatibilitySkippedPlugin'
+        manual_actions:
+          type: array
+          items:
+            type: string
+        next_steps:
+          type: array
+          items:
+            type: string
 
     TaskStatus:
       type: string

@@ -1,4 +1,4 @@
-import type { ServerEndpoint } from "../../shared/launcher-models";
+import type { RecoveryCompatibilitySummary, ServerEndpoint } from "../../shared/launcher-models";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 
@@ -95,5 +95,20 @@ export class FetchLauncherManagementClient {
         ),
       ),
     );
+  }
+
+  async getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<{ recovery_summary?: RecoveryCompatibilitySummary | null }> {
+    const response = await ensureSuccess(
+      await this.fetchLike(
+        new URL("api/system/status", endpoint.baseUrl),
+        withTimeout(
+          {
+            headers: createAuthedHeaders(sessionToken),
+          },
+          this.timeoutMs,
+        ),
+      ),
+    );
+    return (await readJson(response)) as { recovery_summary?: RecoveryCompatibilitySummary | null };
   }
 }

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, nativeTheme } from "electron";
 import type { LauncherSettings, LauncherSnapshot, TrayMenuEntry, TrayMenuState } from "../shared/launcher-models";
 import { launcherCopy } from "../shared/launcher-copy";
@@ -35,6 +36,12 @@ const coordinator = createLauncherCoordinator({
   externalOpener,
   releaseFeedClient: new LauncherReleaseFeedClient(executableBasePath),
   resetAdminRunner: new NodeResetAdminRunner(),
+  recoverySummaryReader: {
+    async read(logDirectory) {
+      const payload = await readFile(path.join(logDirectory, "recovery-summary.json"), "utf8");
+      return JSON.parse(payload);
+    },
+  },
 });
 const appExitManager = createApplicationExitManager({
   isManagedProcessRunning: () => processController.isRunning,

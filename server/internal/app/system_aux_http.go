@@ -14,19 +14,9 @@ import (
 
 	"rayleabot/server/internal/logging"
 	"rayleabot/server/internal/cli"
+	"rayleabot/server/internal/recovery"
 	"rayleabot/server/internal/tasks"
 )
-
-type backupManifest struct {
-	Version   string       `json:"version"`
-	CreatedAt string       `json:"created_at"`
-	Items     []backupItem `json:"items"`
-}
-
-type backupItem struct {
-	Label string `json:"label"`
-	Path  string `json:"path"`
-}
 
 func (a *App) handleSystemBackup() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -93,18 +83,18 @@ func (a *App) createBackupArchive(ctx context.Context, progress tasks.ProgressRe
 	writer := zip.NewWriter(outFile)
 	defer writer.Close()
 
-	var items []backupItem
+	var directories []recovery.BackupManifestDirectory
 
 	progress.Update(30, "写入配置与状态库")
 	if err := addFileToZip(writer, a.Summary.ConfigPath, "config/user.yaml"); err == nil {
-		items = append(items, backupItem{Label: "config", Path: "config/user.yaml"})
+		directories = append(directories, recovery.Directory("config/user.yaml", "config"))
 	}
 
 	databasePath, err := resolveDatabasePath(a.Summary.ConfigPath, a.Config.Database.Path)
 	if err == nil {
 		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(databasePath)))
 		if err := addFileToZip(writer, databasePath, archivePath); err == nil {
-			items = append(items, backupItem{Label: "database", Path: archivePath})
+			directories = append(directories, recovery.Directory(archivePath, "database"))
 		}
 	}
 
@@ -112,16 +102,13 @@ func (a *App) createBackupArchive(ctx context.Context, progress tasks.ProgressRe
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 	if info, err := os.Stat(installedRoot); err == nil && info.IsDir() {
 		if _, err := addDirToZip(writer, installedRoot, "plugins/installed"); err == nil {
-			items = append(items, backupItem{Label: "plugins", Path: "plugins/installed"})
+			directories = append(directories, recovery.Directory("plugins/installed", "plugins"))
 		}
 	}
 
 	progress.Update(85, "写入备份清单")
-	manifest := backupManifest{
-		Version:   "1",
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-		Items:     items,
-	}
+	manifest := recovery.BuildBackupManifest(repoRoot, "online")
+	manifest.Directories = directories
 	if err := addJSONToZip(writer, "backup-manifest.json", manifest); err != nil {
 		return "", &tasks.TaskError{Code: "plugin.internal_error", Message: "写入备份清单失败"}
 	}
@@ -146,10 +133,11 @@ func (a *App) buildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 	writer := zip.NewWriter(buffer)
 
 	status := systemStatusResponse{
-		Status:        a.systemStatus(),
-		AdapterState:  string(stateOrIdle(a.Adapter.Snapshot().State)),
-		ActivePlugins: a.activePluginCount(),
-		UptimeSeconds: a.uptimeSeconds(),
+		Status:          a.systemStatus(),
+		AdapterState:    string(stateOrIdle(a.Adapter.Snapshot().State)),
+		ActivePlugins:   a.activePluginCount(),
+		UptimeSeconds:   a.uptimeSeconds(),
+		RecoverySummary: a.recoverySummarySnapshot(),
 	}
 	if err := addJSONToZip(writer, "system-status.json", status); err != nil {
 		return nil, err
@@ -169,6 +157,11 @@ func (a *App) buildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 	}
 	if err := addJSONToZip(writer, "config-summary.json", a.Summary); err != nil {
 		return nil, err
+	}
+	if a.recoverySummary != nil {
+		if err := addJSONToZip(writer, "recovery-summary.json", a.recoverySummary); err != nil {
+			return nil, err
+		}
 	}
 	if a.LogRepository != nil {
 		logs, err := a.LogRepository.ListSummaries(ctx, logging.Query{Limit: 100})
