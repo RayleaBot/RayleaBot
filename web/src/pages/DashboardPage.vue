@@ -53,10 +53,27 @@ const readinessStatusType = computed<StatusType>(() => getStatusType(readiness.v
 const systemStatusType = computed<StatusType>(() => getStatusType(system.value?.status))
 const adapterStatusType = computed<StatusType>(() => getStatusType(system.value?.adapter_state))
 const recoverySummary = computed(() => system.value?.recovery_summary ?? readiness.value?.recovery_summary ?? null)
+const readinessIssues = computed(() => {
+  const issues = readiness.value?.issues ?? []
+  const seen = new Set<string>()
+  return issues.filter((issue) => {
+    const key = `${issue.code}::${issue.severity}::${issue.summary}::${issue.remediation ?? ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+})
+const visibleReasonCodes = computed(() => {
+  const reasonCodes = readiness.value?.reason_codes ?? []
+  if (!reasonCodes.length) return []
+
+  const issueCodes = new Set(readinessIssues.value.map(issue => issue.code))
+  return reasonCodes.filter((code, index) => reasonCodes.indexOf(code) === index && !issueCodes.has(code))
+})
 
 const topIssue = computed(() => {
-  if (!readiness.value?.issues?.length) return null
-  return readiness.value.issues.find(i => i.severity === 'error') ?? readiness.value.issues[0]
+  if (!readinessIssues.value.length) return null
+  return readinessIssues.value.find(i => i.severity === 'error') ?? readinessIssues.value[0]
 })
 
 const recoveryStatusLabel = computed(() => {
@@ -345,14 +362,14 @@ async function submitRenderPreview() {
 
         <el-empty v-else :description="t('display.empty')" />
 
-        <div v-if="readiness?.reason_codes?.length" style="margin-top: 14px;">
-          <small style="color: var(--muted);">{{ t('dashboard.reasonCodes') }}: {{ readiness.reason_codes.join(', ') }}</small>
+        <div v-if="visibleReasonCodes.length" style="margin-top: 14px;">
+          <small style="color: var(--muted);">{{ t('dashboard.reasonCodes') }}: {{ visibleReasonCodes.join(', ') }}</small>
         </div>
 
-        <div v-if="readiness?.issues?.length" class="issues-list" :class="{ 'issues-list--collapsed': !issuesExpanded && readiness.issues.length > 3 }">
+        <div v-if="readinessIssues.length" class="issues-list" :class="{ 'issues-list--collapsed': !issuesExpanded && readinessIssues.length > 3 }">
           <div
-            v-for="issue in readiness.issues"
-            :key="issue.code"
+            v-for="issue in readinessIssues"
+            :key="`${issue.code}-${issue.summary}`"
             :class="['issue-alert-card', { 'issue-alert-card--warning': issue.severity === 'warning' }]"
           >
             <div class="issue-alert-card__header">
@@ -367,9 +384,9 @@ async function submitRenderPreview() {
           </div>
         </div>
 
-        <div v-if="readiness?.issues && readiness.issues.length > 3" class="issues-toggle">
+        <div v-if="readinessIssues.length > 3" class="issues-toggle">
           <el-button size="small" text @click="issuesExpanded = !issuesExpanded">
-            {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readiness.issues.length - 3 }) }}
+            {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 }) }}
           </el-button>
         </div>
       </el-card>

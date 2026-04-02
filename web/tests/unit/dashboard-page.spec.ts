@@ -147,6 +147,58 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).not.toContain('config = ok')
   })
 
+  it('deduplicates readiness issue codes already represented by issue cards', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: DashboardPage }],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const store = useSystemStore()
+    store.health = { status: 'ok' }
+    store.readiness = {
+      status: 'degraded',
+      reason: 'Render resources are incomplete',
+      reason_codes: ['platform.resource_missing', 'platform.resource_missing'],
+      issues: [
+        {
+          code: 'platform.resource_missing',
+          severity: 'warning',
+          summary: 'Chromium 资源尚未准备完成',
+          remediation: '请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。',
+        },
+        {
+          code: 'platform.resource_missing',
+          severity: 'warning',
+          summary: 'Chromium 资源尚未准备完成',
+          remediation: '请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。',
+        },
+      ],
+    }
+    store.system = {
+      status: 'running',
+      adapter_state: 'idle',
+      active_plugins: 0,
+      uptime_seconds: 50,
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.findAll('.issues-list .issue-alert-card')).toHaveLength(1)
+    expect(wrapper.text()).toContain('platform.resource_missing')
+    expect((wrapper.text().match(/platform\.resource_missing/g) ?? []).length).toBe(1)
+    expect(wrapper.text()).not.toContain('原因代码')
+  })
+
   it('renders recovery summary as a dedicated dashboard block', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
