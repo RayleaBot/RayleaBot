@@ -124,6 +124,75 @@ func TestSQLiteRepository_Upsert(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepository_DoesNotDowngradeTerminalSnapshot(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	startedAt := time.Date(2026, 4, 2, 7, 41, 19, 0, time.UTC)
+	finishedAt := time.Date(2026, 4, 2, 7, 41, 21, 0, time.UTC)
+	taskID := "task_render_preview_0001"
+
+	succeeded := Snapshot{
+		TaskID:     taskID,
+		TaskType:   "render.preview",
+		Status:     StatusSucceeded,
+		Progress:   100,
+		Summary:    "渲染预览已生成",
+		StartedAt:  &startedAt,
+		FinishedAt: &finishedAt,
+		Result: &ResultSummary{
+			Summary: "渲染预览已生成",
+			Details: map[string]any{
+				"artifact_id": "artifact_render_preview_0001",
+				"image_url":   "/api/system/render/artifacts/artifact_render_preview_0001",
+			},
+		},
+	}
+	if err := repo.SaveTask(ctx, succeeded); err != nil {
+		t.Fatalf("save succeeded snapshot: %v", err)
+	}
+
+	staleRunning := Snapshot{
+		TaskID:    taskID,
+		TaskType:  "render.preview",
+		Status:    StatusRunning,
+		Progress:  90,
+		Summary:   "生成渲染产物",
+		StartedAt: &startedAt,
+	}
+	if err := repo.SaveTask(ctx, staleRunning); err != nil {
+		t.Fatalf("save stale running snapshot: %v", err)
+	}
+
+	loaded, err := repo.LoadTasks(ctx)
+	if err != nil {
+		t.Fatalf("load tasks: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("loaded %d tasks, want 1", len(loaded))
+	}
+
+	got := loaded[0]
+	if got.Status != StatusSucceeded {
+		t.Fatalf("Status = %q, want %q", got.Status, StatusSucceeded)
+	}
+	if got.Progress != 100 {
+		t.Fatalf("Progress = %d, want 100", got.Progress)
+	}
+	if got.FinishedAt == nil || !got.FinishedAt.Equal(finishedAt) {
+		t.Fatalf("FinishedAt = %v, want %v", got.FinishedAt, finishedAt)
+	}
+	if got.Result == nil || got.Result.Details["artifact_id"] != "artifact_render_preview_0001" {
+		t.Fatalf("Result = %+v, want persisted render artifact details", got.Result)
+	}
+}
+
 func TestSQLiteRepository_Delete(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
