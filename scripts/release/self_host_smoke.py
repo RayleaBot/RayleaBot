@@ -88,6 +88,16 @@ def assert_recovery_summary_acceptable(summary: dict[str, object] | None) -> Non
     status = str(summary.get("status", ""))
     if status not in NON_BLOCKING_RECOVERY_STATUSES:
         raise SmokeError(f"unexpected recovery summary status during self-host smoke: {summary}")
+    if status == "compatible":
+        if summary.get("manual_actions") or summary.get("next_steps") or summary.get("skipped_plugins"):
+            raise SmokeError(f"compatible recovery summary must not retain manual guidance: {summary}")
+    if status == "degraded":
+        manual_actions = summary.get("manual_actions", [])
+        next_steps = summary.get("next_steps", [])
+        if not isinstance(manual_actions, list) or len(manual_actions) == 0:
+            raise SmokeError(f"degraded recovery summary must include manual_actions: {summary}")
+        if not isinstance(next_steps, list) or len(next_steps) == 0:
+            raise SmokeError(f"degraded recovery summary must include next_steps: {summary}")
 
 
 def request_json(

@@ -82,14 +82,24 @@ class SelfHostSmokeTests(unittest.TestCase):
 
     def test_recovery_summary_accepts_absent_compatible_and_degraded(self) -> None:
         self_host_smoke.assert_recovery_summary_acceptable(None)
-        self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible"})
-        self_host_smoke.assert_recovery_summary_acceptable({"status": "degraded"})
+        self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible", "manual_actions": [], "next_steps": [], "skipped_plugins": []})
+        self_host_smoke.assert_recovery_summary_acceptable({
+            "status": "degraded",
+            "manual_actions": ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],
+            "next_steps": ["查看恢复摘要中的跳过插件列表并完成兼容性处理。"],
+        })
 
     def test_recovery_summary_rejects_pending_and_blocked(self) -> None:
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.assert_recovery_summary_acceptable({"status": "pending"})
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.assert_recovery_summary_acceptable({"status": "blocked"})
+
+    def test_recovery_summary_rejects_guidance_mismatch(self) -> None:
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible", "manual_actions": ["unexpected"]})
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.assert_recovery_summary_acceptable({"status": "degraded", "manual_actions": [], "next_steps": []})
 
     def test_request_json_accepts_allowed_http_error_status(self) -> None:
         payload = b'{"status":"setup_required"}'

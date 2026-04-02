@@ -123,6 +123,47 @@ class RecoveryDrillTests(unittest.TestCase):
         self.assertEqual("1.2.3", build_info["version"])
         self.assertEqual("linux-x64-server", build_info["artifact_id"])
 
+    def test_assert_recovery_summary_requires_guidance_for_degraded_summaries(self) -> None:
+        with self.assertRaises(recovery_drill.DrillError):
+            recovery_drill.assert_recovery_summary(
+                {
+                    "operation": "upgrade",
+                    "phase": "post_startup",
+                    "status": "degraded",
+                    "requires_post_start_checks": False,
+                    "issues": [],
+                    "skipped_plugins": [{"plugin_id": recovery_drill.INCOMPATIBLE_PLUGIN_ID}],
+                    "manual_actions": [],
+                    "next_steps": [],
+                },
+                expected_operation="upgrade",
+                expected_phase="post_startup",
+                expected_statuses={"degraded"},
+                requires_post_start_checks=False,
+                require_skipped_plugin=True,
+                require_guidance=True,
+            )
+
+    def test_assert_recovery_summary_rejects_guidance_for_compatible_summaries(self) -> None:
+        with self.assertRaises(recovery_drill.DrillError):
+            recovery_drill.assert_recovery_summary(
+                {
+                    "operation": "restore",
+                    "phase": "post_startup",
+                    "status": "compatible",
+                    "requires_post_start_checks": False,
+                    "issues": [],
+                    "skipped_plugins": [],
+                    "manual_actions": ["unexpected action"],
+                    "next_steps": ["unexpected step"],
+                },
+                expected_operation="restore",
+                expected_phase="post_startup",
+                expected_statuses={"compatible"},
+                requires_post_start_checks=False,
+                require_guidance=False,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

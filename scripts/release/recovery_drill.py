@@ -100,9 +100,12 @@ def seed_database(root: Path) -> Path:
     return database_path
 
 
-def seed_installed_plugins(root: Path) -> list[Path]:
+def seed_installed_plugins(root: Path, *, include_incompatible: bool = True) -> list[Path]:
     manifests = []
-    for manifest in [SAMPLE_PLUGIN_INFO, INCOMPATIBLE_PLUGIN_INFO]:
+    inventory = [SAMPLE_PLUGIN_INFO]
+    if include_incompatible:
+        inventory.append(INCOMPATIBLE_PLUGIN_INFO)
+    for manifest in inventory:
         plugin_dir = root / "plugins" / "installed" / str(manifest["id"])
         plugin_dir.mkdir(parents=True, exist_ok=True)
         info_path = plugin_dir / "info.json"
@@ -112,11 +115,11 @@ def seed_installed_plugins(root: Path) -> list[Path]:
     return manifests
 
 
-def seed_runtime_workspace(root: Path) -> tuple[Path, Path, list[Path]]:
+def seed_runtime_workspace(root: Path, *, include_incompatible: bool = True) -> tuple[Path, Path, list[Path]]:
     port = choose_free_port()
     config_path = write_user_config(root, port)
     database_path = seed_database(root)
-    plugin_info_paths = seed_installed_plugins(root)
+    plugin_info_paths = seed_installed_plugins(root, include_incompatible=include_incompatible)
     return config_path, database_path, plugin_info_paths
 
 
@@ -448,6 +451,7 @@ def assert_recovery_summary(
     expected_statuses: set[str],
     requires_post_start_checks: bool,
     require_skipped_plugin: bool = False,
+    require_guidance: bool | None = None,
 ) -> None:
     expected_operations = (
         {expected_operation} if isinstance(expected_operation, str) else set(expected_operation)
@@ -465,6 +469,16 @@ def assert_recovery_summary(
         plugin_ids = {str(item.get("plugin_id", "")) for item in skipped_plugins if isinstance(item, dict)}
         if INCOMPATIBLE_PLUGIN_ID not in plugin_ids:
             raise DrillError(f"expected skipped plugin {INCOMPATIBLE_PLUGIN_ID} in recovery summary: {summary}")
+    if require_guidance is True:
+        manual_actions = summary.get("manual_actions", [])
+        next_steps = summary.get("next_steps", [])
+        if not isinstance(manual_actions, list) or len(manual_actions) == 0:
+            raise DrillError(f"expected manual_actions in degraded recovery summary: {summary}")
+        if not isinstance(next_steps, list) or len(next_steps) == 0:
+            raise DrillError(f"expected next_steps in degraded recovery summary: {summary}")
+    if require_guidance is False:
+        if summary.get("manual_actions") or summary.get("next_steps") or summary.get("skipped_plugins"):
+            raise DrillError(f"compatible recovery summary must not retain manual guidance: {summary}")
 
 
 def canonical_summary(summary: dict[str, object]) -> dict[str, object]:
@@ -495,6 +509,7 @@ def observe_recovery_window(
     expected_operation: str | set[str],
     expected_statuses: set[str],
     require_skipped_plugin: bool,
+    require_guidance: bool | None,
     observation_window_seconds: int,
     allow_bootstrap: bool,
 ) -> None:
@@ -533,6 +548,7 @@ def observe_recovery_window(
             expected_statuses=expected_statuses,
             requires_post_start_checks=False,
             require_skipped_plugin=require_skipped_plugin,
+            require_guidance=require_guidance,
         )
         current = canonical_summary(file_summary)
         if baseline is None:
@@ -566,6 +582,7 @@ def run_server_observation(
     expected_operation: str | set[str],
     expected_statuses: set[str],
     require_skipped_plugin: bool,
+    require_guidance: bool | None,
     observation_window_seconds: int,
 ) -> None:
     process = subprocess.Popen(
@@ -583,6 +600,7 @@ def run_server_observation(
             expected_operation=expected_operation,
             expected_statuses=expected_statuses,
             require_skipped_plugin=require_skipped_plugin,
+            require_guidance=require_guidance,
             observation_window_seconds=observation_window_seconds,
             allow_bootstrap=True,
         )
@@ -605,6 +623,7 @@ def run_server_observation(
             expected_operation=expected_operation,
             expected_statuses=expected_statuses,
             require_skipped_plugin=require_skipped_plugin,
+            require_guidance=require_guidance,
             observation_window_seconds=max(30, observation_window_seconds // 2),
             allow_bootstrap=False,
         )
@@ -616,37 +635,54 @@ def run_server_observation(
 def run_recovery_drill(artifact_id: str, archive_path: Path, *, observation_window_seconds: int) -> None:
     with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-") as tmp:
         temp_root = Path(tmp)
-        release_root = unpack_archive(artifact_id, archive_path, temp_root)
-        ensure_required_paths(release_root, artifact_id)
-        ensure_runtime_bootstrap(release_root, artifact_id)
-        config_path, database_path, plugin_info_paths = seed_runtime_workspace(release_root)
-        expected_snapshot = snapshot_runtime_state(release_root)
-        server_bin = relative_executable(release_root, artifact_id)
-        if not server_bin.exists():
-            raise DrillError(f"server executable missing: {server_bin}")
+        for scenario_name, include_incompatible, expected_status, require_guidance in [
+            ("compatible", False, "compatible", False),
+            ("degraded", True, "degraded", True),
+        ]:
+            release_root = unpack_archive(artifact_id, archive_path, temp_root / scenario_name)
+            ensure_required_paths(release_root, artifact_id)
+            ensure_runtime_bootstrap(release_root, artifact_id)
+            config_path, database_path, plugin_info_paths = seed_runtime_workspace(
+                release_root,
+                include_incompatible=include_incompatible,
+            )
+            expected_snapshot = snapshot_runtime_state(release_root)
+            server_bin = relative_executable(release_root, artifact_id)
+            if not server_bin.exists():
+                raise DrillError(f"server executable missing: {server_bin}")
 
-        run_doctor(release_root, server_bin)
-        backup_path = run_backup(release_root, server_bin)
-        overwrite_runtime_state(config_path, database_path, plugin_info_paths)
-        run_restore(release_root, server_bin, backup_path)
-        assert_restored(release_root, expected_snapshot)
-        assert_recovery_summary(
-            read_recovery_summary(release_root),
-            expected_operation="restore",
-            expected_phase="pre_restore",
-            expected_statuses={"pending"},
-            requires_post_start_checks=True,
-        )
-        run_server_observation(
-            release_root,
-            server_bin,
-            extract_configured_port(config_path),
-            expected_operation="restore",
-            expected_statuses={"degraded"},
-            require_skipped_plugin=True,
-            observation_window_seconds=observation_window_seconds,
-        )
-        run_doctor(release_root, server_bin)
+            run_doctor(release_root, server_bin)
+            backup_path = run_backup(release_root, server_bin)
+            overwrite_runtime_state(config_path, database_path, plugin_info_paths)
+            run_restore(release_root, server_bin, backup_path)
+            assert_restored(release_root, expected_snapshot)
+            assert_recovery_summary(
+                read_recovery_summary(release_root),
+                expected_operation="restore",
+                expected_phase="pre_restore",
+                expected_statuses={"pending"},
+                requires_post_start_checks=True,
+            )
+            run_server_observation(
+                release_root,
+                server_bin,
+                extract_configured_port(config_path),
+                expected_operation="restore",
+                expected_statuses={expected_status},
+                require_skipped_plugin=include_incompatible,
+                require_guidance=require_guidance,
+                observation_window_seconds=observation_window_seconds,
+            )
+            assert_recovery_summary(
+                read_recovery_summary(release_root),
+                expected_operation="restore",
+                expected_phase="post_startup",
+                expected_statuses={expected_status},
+                requires_post_start_checks=False,
+                require_skipped_plugin=include_incompatible,
+                require_guidance=require_guidance,
+            )
+            run_doctor(release_root, server_bin)
 
 
 def run_cross_version_recovery_drill(
@@ -667,81 +703,92 @@ def run_cross_version_recovery_drill(
 
     with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-pair-") as tmp:
         temp_root = Path(tmp)
-        previous_root = unpack_archive(artifact_id, previous_archive, temp_root / "previous")
-        current_root = unpack_archive(artifact_id, current_archive, temp_root / "current")
-        rollback_root = unpack_archive(artifact_id, previous_archive, temp_root / "rollback")
-        ensure_required_paths(previous_root, artifact_id)
-        ensure_required_paths(current_root, artifact_id)
-        ensure_required_paths(rollback_root, artifact_id)
-        ensure_runtime_bootstrap(previous_root, artifact_id)
-        ensure_runtime_bootstrap(current_root, artifact_id)
-        ensure_runtime_bootstrap(rollback_root, artifact_id)
+        for scenario_name, include_incompatible, expected_status, require_guidance in [
+            ("compatible", False, "compatible", False),
+            ("degraded", True, "degraded", True),
+        ]:
+            previous_root = unpack_archive(artifact_id, previous_archive, temp_root / f"{scenario_name}-previous")
+            current_root = unpack_archive(artifact_id, current_archive, temp_root / f"{scenario_name}-current")
+            rollback_root = unpack_archive(artifact_id, previous_archive, temp_root / f"{scenario_name}-rollback")
+            ensure_required_paths(previous_root, artifact_id)
+            ensure_required_paths(current_root, artifact_id)
+            ensure_required_paths(rollback_root, artifact_id)
+            ensure_runtime_bootstrap(previous_root, artifact_id)
+            ensure_runtime_bootstrap(current_root, artifact_id)
+            ensure_runtime_bootstrap(rollback_root, artifact_id)
 
-        previous_server = relative_executable(previous_root, artifact_id)
-        current_server = relative_executable(current_root, artifact_id)
-        rollback_server = relative_executable(rollback_root, artifact_id)
+            previous_server = relative_executable(previous_root, artifact_id)
+            current_server = relative_executable(current_root, artifact_id)
+            rollback_server = relative_executable(rollback_root, artifact_id)
 
-        # Upgrade flow: restore a previous backup into the current build.
-        prev_config, _, _ = seed_runtime_workspace(previous_root)
-        previous_backup = run_backup(previous_root, previous_server)
-        run_restore(current_root, current_server, previous_backup)
-        assert_recovery_summary(
-            read_recovery_summary(current_root),
-            expected_operation="upgrade",
-            expected_phase="pre_restore",
-            expected_statuses={"pending"},
-            requires_post_start_checks=True,
-        )
-        run_server_observation(
-            current_root,
-            current_server,
-            extract_configured_port(current_root / "config" / "user.yaml"),
-            expected_operation="upgrade",
-            expected_statuses={"degraded"},
-            require_skipped_plugin=True,
-            observation_window_seconds=observation_window_seconds,
-        )
-        assert_recovery_summary(
-            read_recovery_summary(current_root),
-            expected_operation="upgrade",
-            expected_phase="post_startup",
-            expected_statuses={"degraded"},
-            requires_post_start_checks=False,
-            require_skipped_plugin=True,
-        )
-        run_doctor(current_root, current_server)
+            # Upgrade flow: restore a previous backup into the current build.
+            _, _, _ = seed_runtime_workspace(previous_root, include_incompatible=include_incompatible)
+            previous_backup = run_backup(previous_root, previous_server)
+            run_restore(current_root, current_server, previous_backup)
+            assert_recovery_summary(
+                read_recovery_summary(current_root),
+                expected_operation="upgrade",
+                expected_phase="pre_restore",
+                expected_statuses={"pending"},
+                requires_post_start_checks=True,
+            )
+            run_server_observation(
+                current_root,
+                current_server,
+                extract_configured_port(current_root / "config" / "user.yaml"),
+                expected_operation="upgrade",
+                expected_statuses={expected_status},
+                require_skipped_plugin=include_incompatible,
+                require_guidance=require_guidance,
+                observation_window_seconds=observation_window_seconds,
+            )
+            assert_recovery_summary(
+                read_recovery_summary(current_root),
+                expected_operation="upgrade",
+                expected_phase="post_startup",
+                expected_statuses={expected_status},
+                requires_post_start_checks=False,
+                require_skipped_plugin=include_incompatible,
+                require_guidance=require_guidance,
+            )
+            run_doctor(current_root, current_server)
 
-        # Rollback-style flow: restore the pre-upgrade backup with the older packaged build.
-        rollback_config, rollback_db, rollback_plugin_paths = seed_runtime_workspace(rollback_root)
-        expected_snapshot = snapshot_runtime_state(previous_root)
-        overwrite_runtime_state(rollback_config, rollback_db, rollback_plugin_paths)
-        run_restore(rollback_root, rollback_server, previous_backup)
-        assert_restored(rollback_root, expected_snapshot)
-        assert_recovery_summary(
-            read_recovery_summary(rollback_root),
-            expected_operation={"restore", "rollback"},
-            expected_phase="pre_restore",
-            expected_statuses={"pending"},
-            requires_post_start_checks=True,
-        )
-        run_server_observation(
-            rollback_root,
-            rollback_server,
-            extract_configured_port(rollback_root / "config" / "user.yaml"),
-            expected_operation={"restore", "rollback"},
-            expected_statuses={"degraded"},
-            require_skipped_plugin=True,
-            observation_window_seconds=observation_window_seconds,
-        )
-        assert_recovery_summary(
-            read_recovery_summary(rollback_root),
-            expected_operation={"restore", "rollback"},
-            expected_phase="post_startup",
-            expected_statuses={"degraded"},
-            requires_post_start_checks=False,
-            require_skipped_plugin=True,
-        )
-        run_doctor(rollback_root, rollback_server)
+            # Rollback-style flow: restore the pre-upgrade backup with the older packaged build.
+            rollback_config, rollback_db, rollback_plugin_paths = seed_runtime_workspace(
+                rollback_root,
+                include_incompatible=include_incompatible,
+            )
+            expected_snapshot = snapshot_runtime_state(previous_root)
+            overwrite_runtime_state(rollback_config, rollback_db, rollback_plugin_paths)
+            run_restore(rollback_root, rollback_server, previous_backup)
+            assert_restored(rollback_root, expected_snapshot)
+            assert_recovery_summary(
+                read_recovery_summary(rollback_root),
+                expected_operation={"restore", "rollback"},
+                expected_phase="pre_restore",
+                expected_statuses={"pending"},
+                requires_post_start_checks=True,
+            )
+            run_server_observation(
+                rollback_root,
+                rollback_server,
+                extract_configured_port(rollback_root / "config" / "user.yaml"),
+                expected_operation={"restore", "rollback"},
+                expected_statuses={expected_status},
+                require_skipped_plugin=include_incompatible,
+                require_guidance=require_guidance,
+                observation_window_seconds=observation_window_seconds,
+            )
+            assert_recovery_summary(
+                read_recovery_summary(rollback_root),
+                expected_operation={"restore", "rollback"},
+                expected_phase="post_startup",
+                expected_statuses={expected_status},
+                requires_post_start_checks=False,
+                require_skipped_plugin=include_incompatible,
+                require_guidance=require_guidance,
+            )
+            run_doctor(rollback_root, rollback_server)
 
 
 def build_parser() -> argparse.ArgumentParser:
