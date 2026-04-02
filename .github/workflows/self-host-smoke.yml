@@ -1,0 +1,192 @@
+name: self-host-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: Artifact to package and probe
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - windows-x64-full
+          - linux-x64-full
+          - linux-x64-server
+          - macos-arm64-full
+      window_seconds:
+        description: Long self-host smoke window in seconds
+        required: true
+        default: "600"
+        type: string
+      probe_interval_seconds:
+        description: Probe interval in seconds
+        required: true
+        default: "30"
+        type: string
+
+env:
+  SMOKE_VERSION: 9999.0.0-self-host
+
+jobs:
+  package-and-probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_id: windows-x64-full
+            runner: windows-latest
+            archive: dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip
+            server_bin: dist/server/raylea-server.exe
+            launcher_required: true
+            launcher_bundle: launcher/dist/package/win-unpacked
+            systemd_file: ""
+          - artifact_id: linux-x64-full
+            runner: ubuntu-latest
+            archive: dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz
+            server_bin: dist/server/raylea-server
+            launcher_required: true
+            launcher_bundle: launcher/dist/package/linux-unpacked
+            systemd_file: ""
+          - artifact_id: linux-x64-server
+            runner: ubuntu-latest
+            archive: dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
+            server_bin: dist/server/raylea-server
+            launcher_required: false
+            launcher_bundle: ""
+            systemd_file: packaging/systemd/rayleabot.service
+          - artifact_id: macos-arm64-full
+            runner: macos-14
+            archive: dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz
+            server_bin: dist/server/raylea-server
+            launcher_required: true
+            launcher_bundle: launcher/dist/package/mac-arm64/RayleaLauncher.app
+            systemd_file: ""
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve artifact selection
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.artifact }}" = "all" ] || [ "${{ github.event.inputs.artifact }}" = "${{ matrix.artifact_id }}" ]; then
+            echo "selected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "selected=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Go
+        if: steps.filter.outputs.selected == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Setup Node
+        if: steps.filter.outputs.selected == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        if: steps.filter.outputs.selected == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Python
+        if: steps.filter.outputs.selected == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build server
+        if: steps.filter.outputs.selected == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/server
+          if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
+            (cd server && go build -o ../dist/server/raylea-server.exe ./cmd/raylea-server)
+          else
+            (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
+          fi
+
+      - name: Install web dependencies
+        if: steps.filter.outputs.selected == 'true'
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        if: steps.filter.outputs.selected == 'true'
+        working-directory: web
+        run: pnpm build
+
+      - name: Install launcher dependencies
+        if: steps.filter.outputs.selected == 'true' && matrix.launcher_required
+        working-directory: launcher
+        run: pnpm install --frozen-lockfile
+
+      - name: Run launcher tests
+        if: steps.filter.outputs.selected == 'true' && matrix.launcher_required
+        working-directory: launcher
+        run: pnpm test
+
+      - name: Build launcher
+        if: steps.filter.outputs.selected == 'true' && matrix.launcher_required
+        working-directory: launcher
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: pnpm build
+
+      - name: Package artifact
+        if: steps.filter.outputs.selected == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$SMOKE_VERSION"
+          GIT_COMMIT="$(git rev-parse --short HEAD)"
+          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/actions/workflows/self-host-smoke.yml"
+          PACKAGE_ARGS=(
+            --artifact-id "${{ matrix.artifact_id }}"
+            --version "$VERSION"
+            --git-commit "$GIT_COMMIT"
+            --release-notes-ref "$RELEASE_NOTES_REF"
+            --server-bin "${{ matrix.server_bin }}"
+            --web-dist web/dist
+            --builtin-dir plugins/builtin
+            --contracts-dir contracts
+            --deps-dir .deps
+            --templates-dir templates
+            --default-config config/default.yaml
+            --output-dir dist/release
+          )
+          if [ "${{ matrix.launcher_required }}" = "true" ]; then
+            PACKAGE_ARGS+=(--launcher-bundle "${{ matrix.launcher_bundle }}")
+          fi
+          if [ -n "${{ matrix.systemd_file }}" ]; then
+            PACKAGE_ARGS+=(--systemd-file "${{ matrix.systemd_file }}")
+          fi
+          python scripts/release/release_tool.py package "${PACKAGE_ARGS[@]}"
+
+      - name: Run packaged smoke checks
+        if: steps.filter.outputs.selected == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$SMOKE_VERSION"
+          ARCHIVE="${{ matrix.archive }}"
+          python scripts/release/smoke_release.py \
+            --artifact-id "${{ matrix.artifact_id }}" \
+            --archive "$ARCHIVE"
+          python scripts/release/recovery_drill.py \
+            --artifact-id "${{ matrix.artifact_id }}" \
+            --archive "$ARCHIVE"
+          python scripts/release/self_host_smoke.py \
+            --artifact-id "${{ matrix.artifact_id }}" \
+            --archive "$ARCHIVE" \
+            --window-seconds "${{ github.event.inputs.window_seconds }}" \
+            --probe-interval-seconds "${{ github.event.inputs.probe_interval_seconds }}"

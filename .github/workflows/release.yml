@@ -92,6 +92,11 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --current-version "$VERSION" \
             --download-dir dist/release/recovery-bootstrap
+          python scripts/release/self_host_smoke.py \
+            --artifact-id windows-x64-full \
+            --archive dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip \
+            --window-seconds 600 \
+            --probe-interval-seconds 30
 
       - name: Upload windows release artifact
         uses: actions/upload-artifact@v4
@@ -185,6 +190,11 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --current-version "$VERSION" \
             --download-dir dist/release/recovery-bootstrap
+          python scripts/release/self_host_smoke.py \
+            --artifact-id linux-x64-full \
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz \
+            --window-seconds 600 \
+            --probe-interval-seconds 30
           python scripts/release/release_tool.py package \
             --artifact-id linux-x64-server \
             --version "$VERSION" \
@@ -208,6 +218,11 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --current-version "$VERSION" \
             --download-dir dist/release/recovery-bootstrap
+          python scripts/release/self_host_smoke.py \
+            --artifact-id linux-x64-server \
+            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz \
+            --window-seconds 600 \
+            --probe-interval-seconds 30
 
       - name: Upload linux full release artifact
         uses: actions/upload-artifact@v4
@@ -309,6 +324,11 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --current-version "$VERSION" \
             --download-dir dist/release/recovery-bootstrap
+          python scripts/release/self_host_smoke.py \
+            --artifact-id macos-arm64-full \
+            --archive dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz \
+            --window-seconds 600 \
+            --probe-interval-seconds 30
 
       - name: Upload macOS release artifact
         uses: actions/upload-artifact@v4
