@@ -137,7 +137,6 @@
 ## 当前仍需保留的基线 TODO
 
 - `TODO(repo.identity)`：仓库配置正式 remote 后，将 `server/go.mod` 的本地 module path 收敛为正式模块路径。
-- `TODO(deps.runtime.source_and_sha256)`：在 `.deps/manifest.json` 中补齐 Python、Node.js 资源来源与 SHA256。
 
 规则：
 

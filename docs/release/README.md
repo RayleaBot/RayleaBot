@@ -7,7 +7,7 @@
 - `contracts/release-manifest.schema.json` 已定义正式 release metadata 结构，并进入 fixture-ready。
 - 正式发行包当前包含 server、Web 管理面静态资源、Launcher（full artifact）、builtin 插件、`contracts/`、`templates/`、`.deps/manifest.json`、`config/default.yaml` 与 release metadata sidecar。
 - `fixtures/`、`examples/`、开发脚本与仓库治理文件属于仓库内容，不属于正式发行包交付面。
-- `.deps/manifest.json` 已固定 Chromium 资源的正式版本、来源、SHA256 与平台矩阵；Python / Node.js runtime metadata 仍保留后续补齐空间。
+- `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的正式版本、来源、SHA256 与平台矩阵；Python `3.12.13` 当前以官方 CPython source release 记录受控运行时来源，Node.js `24.14.0` 记录正式平台归档来源。
 
 ## 正式包目录真相
 

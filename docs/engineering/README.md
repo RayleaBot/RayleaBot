@@ -6,7 +6,7 @@
 
 - `server/` 已进入真实主链路开发阶段，当前覆盖配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化
 - `web/` 已形成真实管理面主流程，`launcher/` 已形成最小桌面闭环并进入 Windows CI
-- `.deps/manifest.json` 已形成资源清单骨架，来源与 SHA256 仍待补齐
+- `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的版本、来源、SHA256 与平台矩阵
 
 ## 文档分工
 

@@ -12,7 +12,7 @@
 
 | 阶段 | 名称 | 状态 | 当前落地摘要 |
 |------|------|------|--------------|
-| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、3 个 repo-local skills、CI skeleton 已落库；`.deps/manifest.json` 仍是资源占位清单 |
+| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、3 个 repo-local skills、CI skeleton 与 `.deps/manifest.json` 正式资源元数据已落库；repo identity TODO 仍保留 |
 | Phase 1 | 契约文件补全 | ✅ | 9 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
@@ -46,7 +46,7 @@
 | `docs/engineering/implementation-order.md` | ✅ | 10 阶段实施顺序已定义 |
 | `contracts/README.md` | ✅ | formal contract 范围与当前 TODO 边界已收敛 |
 | Server / Web / Launcher 基线文件 | ✅ | `server/go.mod`、`web/package.json`、`launcher/package.json`、`launcher/pnpm-lock.yaml` 已锁定基线 |
-| `.deps/manifest.json` | 🟡 | Chromium 资源已固定为官方 Chrome for Testing 的 version / source / SHA256；Python / Node.js runtime metadata 仍待补齐 |
+| `.deps/manifest.json` | ✅ | Chromium、Python 与 Node.js 资源的 version / source / SHA256 / platform 已固定；Python `3.12.13` 当前记录官方 source release，Node.js `24.14.0` 记录正式平台归档 |
 | CI skeleton | ✅ | `contracts.yml` 与 `lint.yml` 已落库，并实际校验 contracts、baseline、server smoke |
 
 ---
@@ -263,7 +263,7 @@
 | 最小 render artifact 输出 | ✅ | `render.image` 继续返回插件可消费的 `file:// image_path`，同时生成稳定 `artifact_id`、`mime` 与 `cache_key`，供管理面同源读取 |
 | 渲染队列与 Chromium 调度 | ✅ | bounded queue、并发 worker、排队超时、执行超时、Chromium 渲染与错误映射已落地 |
 | 模板校验 / 缓存 / 结果管理 | ✅ | `templates/` 已提供 `help.menu`、`status.panel`、input schema、模板版本、data hash cache key 与 artifact registry |
-| Chromium 资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium 资源的 version / source / SHA256；Python / Node.js runtime metadata 继续在 Foundation 跟踪 |
+| Chromium 与托管运行时资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / source / SHA256；doctor、Launcher 与 baseline 门禁已复用同一份清单校验运行时 metadata 完整性 |
 | 受控运行时资源接线 | ✅ | startup logs、`/readyz`、CLI `doctor`、Launcher preflight、release packaging 与 artifact route 已共享 Chromium / template 资源检查 |
 
 ---
@@ -304,7 +304,7 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要校验已有门禁。
-- 当前主要风险集中在 Foundation 跟踪项与更长周期观测层面：`.deps/manifest.json` 中 Python / Node runtime metadata 仍待补齐，基于共享 `recovery_summary` 的更长周期恢复观测也仍有扩展空间。
+- 当前主要风险集中在更长周期观测层面：基于共享 `recovery_summary` 的更长周期恢复观测与人工处理指引校验仍有扩展空间。
 
 ---
 
@@ -312,14 +312,11 @@
 
 ### 主工作包
 
-1. 收口长期自托管 smoke。
-   正式交付门禁已经覆盖长期自托管 smoke；后续重点转为扩展更长周期的运行与恢复观测，而不是再新增平行门禁口径。
-
-2. 继续跟踪 Foundation 中的运行时 metadata 缺口。
-   `.deps/manifest.json` 已固定 Chromium 资源，Python / Node.js runtime metadata 仍需在不扩张正式交付面的前提下补齐。
-
-3. 以恢复摘要为基础补强更长周期的恢复观测。
+1. 以恢复摘要为基础补强更长周期的恢复观测。
    现有 CLI、Web、Launcher 与 diagnostics 已共享 `recovery_summary`，下一轮可在此基础上补更长周期的回归观测与人工处理指引校验。
+
+2. 继续收口运行时 metadata 的消费一致性。
+   `.deps/manifest.json` 的来源与 SHA256 已固定；后续只允许在 doctor、Launcher、发布门禁与后续 bootstrap 准备链路中继续复用这份清单，不新增平行 metadata 面。
 
 ### 下一轮边界
 
@@ -333,5 +330,5 @@
 
 - 长时间窗 smoke 必须继续复用默认构建命令、现有 artifact matrix 与现有 release metadata。
 - 新增恢复观测必须继续复用共享 `recovery_summary`，不新增 Web / Launcher / CLI 各自独立状态口径。
-- Foundation metadata 的后续补齐不得反向扩张正式 contract 面或引入第二套发布语义。
+- 运行时 metadata 的后续消费不得反向扩张正式 contract 面或引入第二套发布语义。
 
