@@ -277,7 +277,9 @@ function wireIpc() {
   ipcMain.handle("launcher:start", async () => coordinator.start());
   ipcMain.handle("launcher:stop", async () => coordinator.stop());
   ipcMain.handle("launcher:reset-admin", async () => coordinator.resetAdmin());
-  ipcMain.handle("launcher:open-web", async () => coordinator.openWebUi());
+  ipcMain.handle("launcher:open-web", async (_event, targetPath?: string) => coordinator.openWebUi(targetPath));
+  ipcMain.handle("launcher:create-recovery-recheck", async () => coordinator.createRecoveryRecheck());
+  ipcMain.handle("launcher:create-runtime-bootstrap", async (_event, resources?: string[]) => coordinator.createRuntimeBootstrap(resources));
   ipcMain.handle("launcher:open-release-page", async () => coordinator.openReleasePage());
   ipcMain.handle("launcher:open-logs", async () => coordinator.openLogsDirectory());
   ipcMain.handle("launcher:save-settings", async (_event, settings: LauncherSettings) => coordinator.saveSettings(settings));

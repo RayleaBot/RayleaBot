@@ -260,6 +260,15 @@ export function App() {
       onStart={handlePrimaryServiceAction}
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
+      onRecoveryRecheck={() =>
+        runAction("recovery-recheck", () => window.rayleaLauncher.createRecoveryRecheck())
+      }
+      onRuntimeBootstrap={() =>
+        runAction("runtime-bootstrap", () => window.rayleaLauncher.createRuntimeBootstrap(["chromium"]))
+      }
+      onOpenRecoveryPlugin={(pluginId: string) =>
+        runAction("open-plugin", () => window.rayleaLauncher.openWebUi(`/plugins/${encodeURIComponent(pluginId)}`))
+      }
       onOpenReleasePage={() =>
         runAction("open-release-page", () =>
           window.rayleaLauncher.openReleasePage(),

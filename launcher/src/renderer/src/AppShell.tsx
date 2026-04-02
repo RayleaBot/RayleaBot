@@ -71,6 +71,9 @@ type AppShellProps = {
   onStart: () => void;
   onStop: () => void;
   onOpenWeb: () => void;
+  onRecoveryRecheck: () => void;
+  onRuntimeBootstrap: () => void;
+  onOpenRecoveryPlugin: (pluginId: string) => void;
   onOpenReleasePage: () => void;
   onOpenLogs: () => void;
   onResetAdmin: () => void;
@@ -132,6 +135,9 @@ export function AppShell({
   onStart,
   onStop,
   onOpenWeb,
+  onRecoveryRecheck,
+  onRuntimeBootstrap,
+  onOpenRecoveryPlugin,
   onOpenReleasePage,
   onOpenLogs,
   onResetAdmin,
@@ -357,7 +363,14 @@ export function AppShell({
                     <ul className="panel-guidance-list">
                       {snapshot.recoverySummary.skipped_plugins.map((plugin) => (
                         <li key={plugin.plugin_id} className="panel-guidance-list__item">
-                          <span className="panel-guidance-list__title">{plugin.plugin_id}</span>
+                          <Button
+                            appearance="transparent"
+                            size="small"
+                            className="frost-button frost-button--ghost frost-button--inline"
+                            onClick={() => onOpenRecoveryPlugin(plugin.plugin_id)}
+                          >
+                            {`查看插件 ${plugin.plugin_id}`}
+                          </Button>
                           <span className="panel-guidance-list__text">{plugin.summary}</span>
                           {plugin.manual_action ? (
                             <span className="panel-guidance-list__text">{plugin.manual_action}</span>
@@ -391,6 +404,24 @@ export function AppShell({
                     </ul>
                   </div>
                 ) : null}
+              </div>
+              <div className="panel-actions panel-actions--stack">
+                <Button
+                  appearance="transparent"
+                  size="small"
+                  className="frost-button frost-button--secondary"
+                  onClick={onRecoveryRecheck}
+                >
+                  重新检查恢复状态
+                </Button>
+                <Button
+                  appearance="transparent"
+                  size="small"
+                  className="frost-button frost-button--secondary"
+                  onClick={onRuntimeBootstrap}
+                >
+                  准备受控运行时
+                </Button>
               </div>
             </article>
 

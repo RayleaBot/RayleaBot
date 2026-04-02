@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@renderer/AppShell";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
@@ -89,6 +89,9 @@ describe("AppShell", () => {
         onStart={vi.fn()}
         onStop={vi.fn()}
         onOpenWeb={vi.fn()}
+        onRecoveryRecheck={vi.fn()}
+        onRuntimeBootstrap={vi.fn()}
+        onOpenRecoveryPlugin={vi.fn()}
         onOpenReleasePage={vi.fn()}
         onOpenLogs={vi.fn()}
         onResetAdmin={vi.fn()}
@@ -116,11 +119,13 @@ describe("AppShell", () => {
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
     expect(screen.getByText(/恢复兼容性/)).toBeInTheDocument();
     expect(screen.getByText("跳过插件")).toBeInTheDocument();
-    expect(screen.getByText("weather-pro")).toBeInTheDocument();
     expect(screen.getByText("处理建议")).toBeInTheDocument();
     expect(screen.getByText("处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。")).toBeInTheDocument();
     expect(screen.getByText("下一步")).toBeInTheDocument();
     expect(screen.getByText("查看管理面中的恢复摘要并处理跳过插件。")).toBeInTheDocument();
     expect(screen.getByText("通过管理面、Launcher 或 diagnostics 复核 recovery_summary。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新检查恢复状态" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "准备受控运行时" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看插件 weather-pro" })).toBeInTheDocument();
   });
 });

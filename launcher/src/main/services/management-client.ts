@@ -111,4 +111,40 @@ export class FetchLauncherManagementClient {
     );
     return (await readJson(response)) as { recovery_summary?: RecoveryCompatibilitySummary | null };
   }
+
+  async createRecoveryRecheck(endpoint: ServerEndpoint, sessionToken: string) {
+    const response = await ensureSuccess(
+      await this.fetchLike(
+        new URL("api/system/recovery/recheck", endpoint.baseUrl),
+        withTimeout(
+          {
+            method: "POST",
+            headers: createAuthedHeaders(sessionToken),
+          },
+          this.timeoutMs,
+        ),
+      ),
+    );
+    return (await readJson(response)) as { task_id: string };
+  }
+
+  async createRuntimeBootstrap(endpoint: ServerEndpoint, sessionToken: string, resources?: string[]) {
+    const response = await ensureSuccess(
+      await this.fetchLike(
+        new URL("api/system/runtime/bootstrap", endpoint.baseUrl),
+        withTimeout(
+          {
+            method: "POST",
+            headers: {
+              ...createAuthedHeaders(sessionToken),
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(resources?.length ? { resources } : {}),
+          },
+          this.timeoutMs,
+        ),
+      ),
+    );
+    return (await readJson(response)) as { task_id: string };
+  }
 }

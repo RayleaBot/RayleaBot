@@ -282,6 +282,88 @@ describe("inspectLauncherEnvironment", () => {
 
       expect(inspection.checks.some((item) => item.code === "deps.manifest" && item.severity === "ok")).toBe(true);
       expect(inspection.checks.some((item) => item.code === "render.templates" && item.severity === "ok")).toBe(true);
+      expect(inspection.checks.some((item) => item.code === "runtime.python_managed_ready" && item.severity === "ok")).toBe(true);
+    } finally {
+      await fs.rm(installRoot, { recursive: true, force: true });
+      await fs.rm(workdir, { recursive: true, force: true });
+    }
+  });
+
+  test("distinguishes prepared, cached, and on-demand managed runtime states from the runtime root", async () => {
+    const installRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rayleabot-runtime-root-"));
+    const workdir = await fs.mkdtemp(path.join(os.tmpdir(), "rayleabot-runtime-workdir-"));
+    const configDir = path.join(installRoot, "config");
+    const serverExecutablePath = path.join(installRoot, process.platform === "win32" ? "raylea-server.exe" : "raylea-server");
+    await fs.mkdir(configDir, { recursive: true });
+    await fs.mkdir(path.join(installRoot, ".deps"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "templates", "help.menu"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "cache", "downloads", "runtime"), { recursive: true });
+    await fs.writeFile(serverExecutablePath, "", "utf8");
+    await fs.writeFile(path.join(configDir, "user.yaml"), "server:\n  host: 127.0.0.1\n  port: 8080\n", "utf8");
+    await fs.writeFile(path.join(configDir, "default.yaml"), "server:\n  host: 127.0.0.1\n  port: 8080\n", "utf8");
+    await fs.writeFile(path.join(installRoot, "templates", "help.menu", "template.json"), "{}", "utf8");
+
+    const arch = os.arch() === "amd64" ? "x64" : os.arch();
+    const platform = process.platform === "win32" ? `windows-${arch}` : process.platform === "darwin" ? `macos-${arch}` : `${process.platform}-${arch}`;
+    const chromiumId = `chromium-${platform}`;
+    const pythonId = `python-${platform}`;
+    const nodeId = `node-${platform}`;
+    await fs.writeFile(
+      path.join(installRoot, ".deps", "manifest.json"),
+      JSON.stringify({
+        manifest_version: 2,
+        resources: [
+          {
+            id: chromiumId,
+            platform,
+            kind: "chromium",
+            version: "147.0.7727.24",
+            source: "https://example.invalid/chromium.zip",
+            sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+            archive_format: "zip",
+            entrypoints: { browser: ["chrome/chrome"] },
+          },
+          {
+            id: pythonId,
+            platform,
+            kind: "python-runtime",
+            version: "3.12.13",
+            source: "https://example.invalid/python.tar.gz",
+            sha256: "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+            archive_format: "tar.gz",
+            entrypoints: { python: ["python/bin/python"], pip: ["python/bin/pip"] },
+          },
+          {
+            id: nodeId,
+            platform,
+            kind: "nodejs-runtime",
+            version: "24.14.0",
+            source: "https://example.invalid/node.zip",
+            sha256: "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+            archive_format: "zip",
+            entrypoints: { node: ["node/bin/node"], npm: ["node/bin/npm"] },
+          },
+        ],
+      }),
+      "utf8",
+    );
+    await fs.mkdir(path.join(installRoot, ".deps", "store", chromiumId, "147.0.7727.24", "chrome"), { recursive: true });
+    await fs.writeFile(path.join(installRoot, ".deps", "store", chromiumId, "147.0.7727.24", "chrome", "chrome"), "", "utf8");
+    await fs.writeFile(path.join(installRoot, "cache", "downloads", "runtime", `${pythonId}-3.12.13.tar.gz`), "", "utf8");
+
+    const settings: LauncherResolvedSettings = {
+      installationRoot: installRoot,
+      serverExecutablePath,
+      configPath: path.join(configDir, "user.yaml"),
+      workdir,
+    };
+
+    try {
+      const inspection = await inspectEnvironmentFromNode(settings);
+
+      expect(inspection.checks.find((item) => item.code === "deps.chromium")?.summary).toBe("Chromium 资源已准备完成。");
+      expect(inspection.checks.find((item) => item.code === "runtime.python_managed_ready")?.summary).toBe("受控 Python 运行时归档已缓存，可离线准备。");
+      expect(inspection.checks.find((item) => item.code === "runtime.node_managed_ready")?.summary).toBe("受控 Node.js 运行时可按需准备。");
     } finally {
       await fs.rm(installRoot, { recursive: true, force: true });
       await fs.rm(workdir, { recursive: true, force: true });

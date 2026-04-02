@@ -50,4 +50,39 @@ describe("FetchLauncherManagementClient", () => {
     expect(receivedSignal).toBeDefined();
     expect(receivedSignal?.aborted).toBe(false);
   });
+
+  test("creates recovery recheck and runtime bootstrap tasks with auth headers", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        requests.push({ url: String(input), init });
+        return {
+          ok: true,
+          json: async () => ({ task_id: "task_fixture_0001" }),
+          text: async () => "",
+        } satisfies Partial<Response> as Response;
+      }),
+    );
+
+    const client = new FetchLauncherManagementClient();
+    const endpoint = {
+      host: "127.0.0.1",
+      port: 8080,
+      baseUrl: "http://127.0.0.1:8080/",
+    };
+
+    await client.createRecoveryRecheck(endpoint, "session_fixture_token");
+    await client.createRuntimeBootstrap(endpoint, "session_fixture_token", ["chromium", "python-runtime"]);
+
+    expect(requests[0]?.url).toBe("http://127.0.0.1:8080/api/system/recovery/recheck");
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect((requests[0]?.init?.headers as Record<string, string>).Authorization).toBe("Bearer session_fixture_token");
+
+    expect(requests[1]?.url).toBe("http://127.0.0.1:8080/api/system/runtime/bootstrap");
+    expect(requests[1]?.init?.method).toBe("POST");
+    expect((requests[1]?.init?.headers as Record<string, string>).Authorization).toBe("Bearer session_fixture_token");
+    expect(requests[1]?.init?.body).toBe(JSON.stringify({ resources: ["chromium", "python-runtime"] }));
+  });
 });

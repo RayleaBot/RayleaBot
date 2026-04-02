@@ -18,13 +18,22 @@ export interface EnvironmentProbeInput {
   templatesHaveFiles: boolean;
   platform: string;
   longPaths: "enabled" | "disabled" | "unsupported" | "unknown";
+  runtimeResourceStates?: Partial<Record<ManagedRuntimeKind, ManagedRuntimeState>>;
 }
 
 type LongPathsStatus = EnvironmentProbeInput["longPaths"];
+type ManagedRuntimeKind = "chromium" | "python-runtime" | "nodejs-runtime";
 type ExecFileLike = (
   file: string,
   args: string[],
 ) => Promise<{ stdout: string; stderr: string }>;
+type ManagedRuntimeState = {
+  metadataComplete: boolean;
+  cachedArchivePresent: boolean;
+  preparedStorePresent: boolean;
+  archivePath?: string;
+  storeRoot?: string;
+};
 type DepsManifestResource = {
   id?: string;
   platform?: string;
@@ -126,6 +135,105 @@ function requiredEntrypointKeys(kind?: string) {
     default:
       return [];
   }
+}
+
+function archiveSuffix(format?: string) {
+  switch (format?.trim()) {
+    case "tar.gz":
+      return ".tar.gz";
+    case "tar.xz":
+      return ".tar.xz";
+    default:
+      return ".zip";
+  }
+}
+
+function runtimeBootstrapRemediation(kind: ManagedRuntimeKind, archivePath?: string, storeRoot?: string) {
+  const fallbacks = [archivePath ? `预置已校验归档到 ${archivePath}` : "", storeRoot ? `预展开到 ${storeRoot}` : ""]
+    .filter((item) => item.length > 0)
+    .join("，或");
+
+  if (kind === "chromium") {
+    if (!fallbacks) {
+      return "请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。";
+    }
+    return `请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。离线环境可${fallbacks}`;
+  }
+  if (!fallbacks) {
+    return "请联网准备受控运行时，或按正式目录结构手动预置资源。";
+  }
+  return `请联网准备受控运行时；离线或受限网络环境可${fallbacks}`;
+}
+
+function resolveManagedRuntimeState(
+  probe: EnvironmentProbeInput,
+  resource: DepsManifestResource | undefined,
+  kind: ManagedRuntimeKind,
+): ManagedRuntimeState {
+  const state = probe.runtimeResourceStates?.[kind];
+  if (state) {
+    return state;
+  }
+  return {
+    metadataComplete: resourceHasCompleteMetadata(resource),
+    cachedArchivePresent: false,
+    preparedStorePresent: false,
+  };
+}
+
+function bootstrapStateIssue(
+  code: string,
+  title: string,
+  kind: ManagedRuntimeKind,
+  state: ManagedRuntimeState,
+  preparedSummary: string,
+  cachedSummary: string,
+  onDemandSummary: string,
+  warningSummary: string,
+  preparedDetail: string,
+  cachedDetail: string,
+  onDemandDetail: string,
+  warningDetail: string,
+  metadataRemediation: string,
+): EnvironmentCheckResult {
+  if (!state.metadataComplete) {
+    return {
+      code,
+      title,
+      severity: "warning",
+      summary: warningSummary,
+      detail: warningDetail,
+      remediation: metadataRemediation,
+    };
+  }
+  if (state.preparedStorePresent) {
+    return {
+      code,
+      title,
+      severity: "ok",
+      summary: preparedSummary,
+      detail: preparedDetail,
+      remediation: "",
+    };
+  }
+  if (state.cachedArchivePresent) {
+    return {
+      code,
+      title,
+      severity: "ok",
+      summary: cachedSummary,
+      detail: cachedDetail,
+      remediation: "",
+    };
+  }
+  return {
+    code,
+    title,
+    severity: "ok",
+    summary: onDemandSummary,
+    detail: onDemandDetail,
+    remediation: runtimeBootstrapRemediation(kind, state.archivePath, state.storeRoot),
+  };
 }
 
 export async function detectWindowsLongPathsStatus(
@@ -283,20 +391,27 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
               summary: "依赖清单缺少当前平台资源。",
               detail: `清单中没有 ${probe.platform} 资源。`,
               remediation: "请为当前平台重新生成或恢复打包后的 .deps 清单。",
-            },
+          },
       );
 
-      const hasChromium = resources.some((item) => item.platform === probe.platform && item.kind === "chromium");
+      const chromiumResource = findPlatformResource(resources, probe.platform, "chromium");
       checks.push(
-        hasChromium
-          ? {
-              code: "deps.chromium",
-              title: "Chromium 资源",
-              severity: "ok",
-              summary: "已声明 Chromium 资源。",
-              detail: "依赖清单中已包含当前平台 Chromium 资源。",
-              remediation: "",
-            }
+        chromiumResource
+          ? bootstrapStateIssue(
+              "deps.chromium",
+              "Chromium 资源",
+              "chromium",
+              resolveManagedRuntimeState(probe, chromiumResource, "chromium"),
+              "Chromium 资源已准备完成。",
+              "Chromium 资源归档已缓存，可离线准备。",
+              "Chromium 资源可按需准备。",
+              "Chromium 资源元数据不完整。",
+              "当前平台的受控 Chromium 已展开，可直接用于 render.image。",
+              "当前平台的受控 Chromium 归档已缓存，可在离线环境展开。",
+              "当前平台的受控 Chromium 元数据完整，可在需要时自动准备。",
+              `依赖清单中缺少 ${probe.platform} Chromium 资源的有效 archive_format、entrypoints、source 或 sha256。`,
+              "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源的 archive_format、entrypoints、source 与 sha256。",
+            )
           : {
               code: "deps.chromium_missing",
               title: "Chromium 资源",
@@ -308,6 +423,7 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
       );
 
       const pythonResource = findPlatformResource(resources, probe.platform, "python-runtime");
+      const pythonState = resolveManagedRuntimeState(probe, pythonResource, "python-runtime");
       checks.push(
         resourceHasCompleteMetadata(pythonResource)
           ? {
@@ -327,8 +443,26 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
               remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 source 与 sha256。",
             },
       );
+      checks.push(
+        bootstrapStateIssue(
+          "runtime.python_managed_ready",
+          "Python 运行时准备",
+          "python-runtime",
+          pythonState,
+          "受控 Python 运行时已准备完成。",
+          "受控 Python 运行时归档已缓存，可离线准备。",
+          "受控 Python 运行时可按需准备。",
+          "受控 Python 运行时当前不可准备。",
+          "当前平台的受控 Python 运行时已展开，可直接用于插件依赖安装与运行。",
+          "当前平台的受控 Python 运行时归档已缓存，可在离线环境展开。",
+          "当前平台的受控 Python 运行时元数据完整，可在需要时自动准备。",
+          `当前平台的受控 Python 运行时缺少有效元数据或本地资源。`,
+          "请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 archive_format、entrypoints、source 与 sha256。",
+        ),
+      );
 
       const nodeResource = findPlatformResource(resources, probe.platform, "nodejs-runtime");
+      const nodeState = resolveManagedRuntimeState(probe, nodeResource, "nodejs-runtime");
       checks.push(
         resourceHasCompleteMetadata(nodeResource)
           ? {
@@ -347,6 +481,40 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
               detail: `依赖清单中缺少 ${probe.platform} Node.js 运行时的有效 source 或 sha256。`,
               remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 source 与 sha256。",
             },
+      );
+      checks.push(
+        bootstrapStateIssue(
+          "runtime.node_managed_ready",
+          "Node.js 运行时准备",
+          "nodejs-runtime",
+          nodeState,
+          "受控 Node.js 运行时已准备完成。",
+          "受控 Node.js 运行时归档已缓存，可离线准备。",
+          "受控 Node.js 运行时可按需准备。",
+          "受控 Node.js 运行时当前不可准备。",
+          "当前平台的受控 Node.js 运行时已展开，可直接用于插件依赖安装与运行。",
+          "当前平台的受控 Node.js 运行时归档已缓存，可在离线环境展开。",
+          "当前平台的受控 Node.js 运行时元数据完整，可在需要时自动准备。",
+          `当前平台的受控 Node.js 运行时缺少有效元数据或本地资源。`,
+          "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
+        ),
+      );
+      checks.push(
+        bootstrapStateIssue(
+          "runtime.npm_managed_ready",
+          "npm 准备",
+          "nodejs-runtime",
+          nodeState,
+          "受控 npm 已准备完成。",
+          "受控 npm 归档已缓存，可离线准备。",
+          "受控 npm 可按需准备。",
+          "受控 npm 当前不可准备。",
+          "当前平台的受控 npm 已展开，可直接用于插件依赖安装。",
+          "当前平台的受控 npm 归档已缓存，可在离线环境展开。",
+          "当前平台的受控 npm 元数据完整，可在需要时自动准备。",
+          `当前平台的受控 npm 缺少有效元数据或本地资源。`,
+          "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
+        ),
       );
     }
   }
@@ -448,6 +616,65 @@ async function directoryHasFiles(targetPath: string) {
   }
 }
 
+async function fileExists(targetPath: string) {
+  try {
+    const stat = await fs.stat(targetPath);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function preparedEntrypointExists(storeRoot: string, candidates: string[] | undefined) {
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return false;
+  }
+  for (const candidate of candidates) {
+    const value = candidate.trim();
+    if (!value || value.startsWith("..") || path.isAbsolute(value)) {
+      continue;
+    }
+    if (await fileExists(path.join(storeRoot, ...value.split("/")))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function collectManagedRuntimeStates(
+  runtimeRoot: string,
+  resources: DepsManifestResource[],
+  platform: string,
+): Promise<Partial<Record<ManagedRuntimeKind, ManagedRuntimeState>>> {
+  const states: Partial<Record<ManagedRuntimeKind, ManagedRuntimeState>> = {};
+  for (const kind of ["chromium", "python-runtime", "nodejs-runtime"] as ManagedRuntimeKind[]) {
+    const resource = findPlatformResource(resources, platform, kind);
+    if (!resource || !resource.id || !resource.version) {
+      continue;
+    }
+    const archivePath = path.join(
+      runtimeRoot,
+      "cache",
+      "downloads",
+      "runtime",
+      `${resource.id}-${resource.version}${archiveSuffix(resource.archive_format)}`,
+    );
+    const storeRoot = path.join(runtimeRoot, ".deps", "store", resource.id, resource.version);
+    const requiredKeys = requiredEntrypointKeys(resource.kind);
+    const preparedChecks = await Promise.all(
+      requiredKeys.map(async (key) => preparedEntrypointExists(storeRoot, resource.entrypoints?.[key])),
+    );
+    states[kind] = {
+      metadataComplete: resourceHasCompleteMetadata(resource),
+      cachedArchivePresent: await fileExists(archivePath),
+      preparedStorePresent: requiredKeys.length > 0 && preparedChecks.every(Boolean),
+      archivePath,
+      storeRoot,
+    };
+  }
+  return states;
+}
+
 async function isWorkdirWritable(targetPath: string) {
   try {
     await fs.mkdir(targetPath, { recursive: true });
@@ -468,8 +695,24 @@ export async function inspectEnvironmentFromNode(settings: LauncherResolvedSetti
   const defaultConfigPath = path.join(path.dirname(settings.configPath), "default.yaml");
 
   let depsManifestText: string | undefined;
+  let runtimeResourceStates: Partial<Record<ManagedRuntimeKind, ManagedRuntimeState>> | undefined;
   if (await pathExists(depsManifestPath)) {
     depsManifestText = await fs.readFile(depsManifestPath, "utf8");
+    const parsedManifest = parseDepsManifest({
+      serverExecutableExists: true,
+      userConfigExists: true,
+      defaultConfigExists: true,
+      workdirWritable: true,
+      depsManifestExists: true,
+      depsManifestText,
+      templatesExist: true,
+      templatesHaveFiles: true,
+      platform: normalizeHostPlatform(),
+      longPaths: "unknown",
+    });
+    if (!parsedManifest.invalid) {
+      runtimeResourceStates = await collectManagedRuntimeStates(runtimeRoot, parsedManifest.resources, normalizeHostPlatform());
+    }
   }
 
   return inspectLauncherEnvironment({
@@ -483,5 +726,6 @@ export async function inspectEnvironmentFromNode(settings: LauncherResolvedSetti
     templatesHaveFiles: await directoryHasFiles(templatesPath),
     platform: normalizeHostPlatform(),
     longPaths: process.platform === "win32" ? await detectWindowsLongPathsStatus() : "unsupported",
+    runtimeResourceStates,
   });
 }

@@ -70,6 +70,14 @@ class FakeManagementClient implements LauncherManagementClient {
     return { recovery_summary: this.recoverySummary };
   }
 
+  async createRecoveryRecheck() {
+    return { task_id: "task_recovery_recheck_0001" };
+  }
+
+  async createRuntimeBootstrap() {
+    return { task_id: "task_runtime_bootstrap_0001" };
+  }
+
   async shutdown() {}
 }
 
@@ -308,9 +316,10 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
-    await coordinator.openWebUi();
+    await coordinator.openWebUi("/tasks?task_id=task_fixture_0001");
 
-    expect(externalOpener.openedUris.at(-1)).toContain("?token=");
+    expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_fixture_0001");
+    expect(externalOpener.openedUris.at(-1)).toContain("&token=");
 
     managementClient.setupInitialized = false;
     await coordinator.openWebUi();
@@ -344,9 +353,36 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
-    await coordinator.openWebUi();
+    await coordinator.openWebUi("/plugins/weather-pro");
 
-    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
+    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/plugins/weather-pro");
+  });
+
+  test("submits recovery tasks and opens the tasks page", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+    await coordinator.createRecoveryRecheck();
+    await coordinator.createRuntimeBootstrap(["chromium"]);
+
+    expect(externalOpener.openedUris.at(-2)).toContain("/tasks?task_id=task_recovery_recheck_0001");
+    expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_runtime_bootstrap_0001");
   });
 
   test("start does not launch another process when endpoint is already healthy", async () => {

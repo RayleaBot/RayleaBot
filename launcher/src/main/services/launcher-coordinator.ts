@@ -29,6 +29,8 @@ export interface LauncherManagementClient {
   issueLauncherToken(endpoint: ServerEndpoint): Promise<string>;
   admitLauncherToken(endpoint: ServerEndpoint, launcherToken: string): Promise<string>;
   getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<{ recovery_summary?: RecoveryCompatibilitySummary | null }>;
+  createRecoveryRecheck(endpoint: ServerEndpoint, sessionToken: string): Promise<{ task_id: string }>;
+  createRuntimeBootstrap(endpoint: ServerEndpoint, sessionToken: string, resources?: string[]): Promise<{ task_id: string }>;
   shutdown(endpoint: ServerEndpoint, sessionToken: string): Promise<void>;
 }
 
@@ -87,7 +89,9 @@ export interface LauncherCoordinator {
   start(): Promise<void>;
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
-  openWebUi(): Promise<void>;
+  openWebUi(targetPath?: string): Promise<void>;
+  createRecoveryRecheck(): Promise<void>;
+  createRuntimeBootstrap(resources?: string[]): Promise<void>;
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
@@ -226,10 +230,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
 
   async function tryLoadRecoverySummary(endpoint: ServerEndpoint): Promise<RecoveryCompatibilitySummary | null> {
     try {
-      if (!sessionToken) {
-        const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
-        sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
-      }
+      await ensureSessionToken(endpoint);
       const status = await deps.managementClient.getSystemStatus(endpoint, sessionToken);
       return status.recovery_summary ?? null;
     } catch {
@@ -242,6 +243,15 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         return null;
       }
     }
+  }
+
+  async function ensureSessionToken(endpoint: ServerEndpoint) {
+    if (sessionToken) {
+      return sessionToken;
+    }
+    const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
+    sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
+    return sessionToken;
   }
 
   async function refreshCore(forceReauthentication: boolean) {
@@ -332,7 +342,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     }
   }
 
-  return {
+  const coordinator: LauncherCoordinator = {
     get snapshot() {
       return snapshot;
     },
@@ -508,11 +518,12 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       const url = new URL(endpoint.baseUrl);
       await deps.externalOpener.openUri(url.toString());
     },
-    async openWebUi() {
+    async openWebUi(targetPath = "") {
       const settings = ensureSettings();
       currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
       const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
-      const url = new URL(endpoint.baseUrl);
+      const normalizedTarget = targetPath.startsWith("/") ? targetPath.slice(1) : targetPath;
+      const url = normalizedTarget ? new URL(normalizedTarget, endpoint.baseUrl) : new URL(endpoint.baseUrl);
       let initialized = false;
 
       try {
@@ -526,12 +537,32 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
           url.searchParams.set("token", launcherToken);
         } catch {
+          if (normalizedTarget) {
+            const fallbackURL = new URL(normalizedTarget, endpoint.baseUrl);
+            await deps.externalOpener.openUri(fallbackURL.toString());
+            await publish({ ...snapshot, serviceDetail: "已在默认浏览器中打开管理界面。", lastError: "" });
+            return;
+          }
           url.search = "";
         }
       }
 
       await deps.externalOpener.openUri(url.toString());
       await publish({ ...snapshot, serviceDetail: "已在默认浏览器中打开管理界面。", lastError: "" });
+    },
+    async createRecoveryRecheck() {
+      const settings = ensureSettings();
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
+      const accepted = await deps.managementClient.createRecoveryRecheck(endpoint, await ensureSessionToken(endpoint));
+      await coordinator.openWebUi(`/tasks?task_id=${encodeURIComponent(accepted.task_id)}`);
+    },
+    async createRuntimeBootstrap(resources) {
+      const settings = ensureSettings();
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
+      const accepted = await deps.managementClient.createRuntimeBootstrap(endpoint, await ensureSessionToken(endpoint), resources);
+      await coordinator.openWebUi(`/tasks?task_id=${encodeURIComponent(accepted.task_id)}`);
     },
     async openReleasePage() {
       if (!snapshot.releaseCheck.releasePageUrl) {
@@ -545,4 +576,6 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       await deps.externalOpener.openDirectory(deps.processController.logDirectory);
     },
   };
+
+  return coordinator;
 }

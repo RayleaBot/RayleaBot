@@ -9,7 +9,9 @@ export interface LauncherDesktopApi {
   start(): Promise<void>;
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
-  openWebUi(): Promise<void>;
+  openWebUi(targetPath?: string): Promise<void>;
+  createRecoveryRecheck(): Promise<void>;
+  createRuntimeBootstrap(resources?: string[]): Promise<void>;
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
