@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"rayleabot/server/internal/command"
 	"rayleabot/server/internal/config"
 	"rayleabot/server/internal/console"
+	"rayleabot/server/internal/deps"
 	"rayleabot/server/internal/dispatch"
 	"rayleabot/server/internal/health"
 	"rayleabot/server/internal/httpapi"
@@ -98,6 +100,10 @@ type App struct {
 	runCancelMu       sync.Mutex
 	runCancel         context.CancelFunc
 	shutdownOnce      sync.Once
+}
+
+var resolveManagedRenderBrowserPath = func(ctx context.Context, repoRoot string) (string, error) {
+	return deps.NewManager(repoRoot).ResolveEntrypoint(ctx, "chromium", "browser")
 }
 
 func New(options Options) (*App, error) {
@@ -252,13 +258,14 @@ func New(options Options) (*App, error) {
 		return nil, fmt.Errorf("create plugin config repository: %w", err)
 	}
 	pluginFileService := pluginfile.NewService(filepath.Join(filepath.Dir(databasePath), "plugins"))
+	renderBrowserPath := prepareRenderBrowserPath(context.Background(), logger, discoverySpec.repoRoot, cfg.Render.BrowserPath)
 	renderService, err := render.NewService(render.Options{
 		RepoRoot:           discoverySpec.repoRoot,
 		OutputRoot:         filepath.Join(filepath.Dir(databasePath), "render"),
 		Runner:             options.RenderRunner,
 		WorkerCount:        cfg.Render.WorkerCount,
 		BrowserArgs:        cfg.Render.BrowserArgs,
-		BrowserPath:        cfg.Render.BrowserPath,
+		BrowserPath:        renderBrowserPath,
 		QueueMaxLength:     cfg.Render.QueueMaxLength,
 		QueueWaitTimeout:   time.Duration(cfg.Render.QueueWaitTimeoutSeconds) * time.Second,
 		RenderTimeout:      time.Duration(cfg.Render.TimeoutSeconds) * time.Second,
@@ -467,6 +474,35 @@ func New(options Options) (*App, error) {
 
 func (a *App) Handler() http.Handler {
 	return a.router
+}
+
+func prepareRenderBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot string, configuredPath string) string {
+	browserPath := strings.TrimSpace(configuredPath)
+	if browserPath != "" {
+		return browserPath
+	}
+
+	managedBrowserPath, err := resolveManagedRenderBrowserPath(ctx, repoRoot)
+	if err != nil {
+		if logger != nil {
+			logger.Warn(
+				"managed chromium bootstrap pending",
+				"component", "render",
+				"code", "platform.resource_missing",
+				"err", err.Error(),
+			)
+		}
+		return ""
+	}
+
+	if logger != nil {
+		logger.Info(
+			"managed chromium bootstrap ready",
+			"component", "render",
+			"browser_path", managedBrowserPath,
+		)
+	}
+	return managedBrowserPath
 }
 
 func (a *App) Close() error {
