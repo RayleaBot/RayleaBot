@@ -305,7 +305,7 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
-- 当前主要风险集中在更长周期的人工作业闭环层面：共享 `recovery_summary` 已覆盖 API、本地文件、diagnostics、Web 与 Launcher，后续仍可继续扩展更复杂的人工处理场景回归。
+- 当前主要风险集中在恢复后人工处理入口与受限网络 bootstrap 体验层面：共享 `recovery_summary` 已覆盖 API、本地文件、diagnostics、Web、Launcher 与 packaged drill，兼容通过 / 需要人工处理两类摘要都已进入回归矩阵。
 
 ---
 
@@ -313,11 +313,11 @@
 
 ### 主工作包
 
-1. 继续补强恢复人工处理闭环。
-   共享 `recovery_summary` 已覆盖 API、本地文件、diagnostics、Web、Launcher 与 packaged drill；下一轮重点是补更多人工处理场景、跳过插件组合与更长时间窗回归。
+1. 补强恢复后人工处理的操作入口与再检查闭环。
+   共享 `recovery_summary` 已稳定保留 `manual_actions`、`next_steps`、跳过插件列表与 diagnostics 对齐；下一轮重点是补从人工处理建议回到再次检查、重新启用和状态收敛的操作入口。
 
-2. 评估受控运行时根路径的显式配置面。
-   当前受控 Chromium、Python 与 Node.js 统一落在安装根目录 `.deps/store/`；下一轮重点是评估是否需要显式 runtime root 配置面，同时保持默认目录、release metadata 与 bootstrap 语义不分叉。
+2. 评估离线或受限网络下的受控运行时 bootstrap 体验。
+   当前受控 Chromium、Python 与 Node.js 继续按 `config/user.yaml` 上两级目录推导运行时根，并从 `.deps/store/` 读取展开目录；下一轮重点是补离线、镜像缺失或下载受限场景下的用户提示、回退策略与诊断体验。
 
 ### 下一轮边界
 

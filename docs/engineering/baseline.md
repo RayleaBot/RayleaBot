@@ -21,6 +21,7 @@
 - `web/` 承载管理控制台主链路。
 - `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
 - `.deps/manifest.json` 固定受控 Chromium 与托管 Python / Node.js 运行时资源矩阵，并作为运行时 bootstrap 的唯一正式来源。
+- 受控运行时有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 
 ## v0.1 固定版本线
 
