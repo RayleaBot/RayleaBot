@@ -280,14 +280,15 @@
 | `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
 | `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、`linux-x64-full` / `linux-x64-server` packaging smoke、跨版本 packaged recovery drill 与 metadata verify |
 | `lint.yml` / `ci-launcher` | push main / PR | Windows / Linux / macOS 上的 `pnpm test` 与 `pnpm build`；Windows / macOS full artifact 打包、smoke 与跨版本 packaged recovery drill |
-| `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、跨版本 packaged recovery drill、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
+| `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、跨版本 packaged recovery drill、长期自托管 smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
+| `self-host-smoke.yml` | workflow_dispatch | 复用正式打包路径，对选定 artifact 执行长期自托管 smoke 手动回归 |
 
 ### 规划对齐缺口
 
 | 交付门禁 | 状态 | 说明 |
 |--------|------|------|
 | 跨版本 upgrade / rollback drills | ✅ | `lint.yml` 与 `release.yml` 已对 4 个正式 artifact 接入跨版本 upgrade / rollback-style packaged recovery drill，并显式处理 previous-release bootstrap skip |
-| 长期自托管 smoke | ❌ | 规划要求更长时间窗的安装、运行、诊断闭环回归，当前 CI 仍未覆盖 |
+| 长期自托管 smoke | ✅ | `release.yml` 已对 4 个正式 artifact 接入长期自托管 smoke，`self-host-smoke.yml` 提供按 artifact 子集执行的手动回归入口 |
 
 ### 当前验证结论
 
@@ -302,8 +303,8 @@
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
-- `ci-web`、`smoke-pr`、`ci-launcher`、`release` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、跨版本 packaged recovery drill 与恢复摘要校验已有门禁。
-- 当前主要风险集中在更长时间窗的交付门禁层面：长期自托管 smoke 仍未进入稳定门禁，`.deps/manifest.json` 中 Python / Node runtime metadata 也仍保留 Foundation 跟踪项。
+- `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要校验已有门禁。
+- 当前主要风险集中在 Foundation 跟踪项与更长周期观测层面：`.deps/manifest.json` 中 Python / Node runtime metadata 仍待补齐，基于共享 `recovery_summary` 的更长周期恢复观测也仍有扩展空间。
 
 ---
 
@@ -312,7 +313,7 @@
 ### 主工作包
 
 1. 收口长期自托管 smoke。
-   当前 CI 已覆盖交付矩阵的跨版本恢复闭环，下一轮需要把更长时间窗的安装、运行、诊断与恢复巡检补进稳定门禁。
+   正式交付门禁已经覆盖长期自托管 smoke；后续重点转为扩展更长周期的运行与恢复观测，而不是再新增平行门禁口径。
 
 2. 继续跟踪 Foundation 中的运行时 metadata 缺口。
    `.deps/manifest.json` 已固定 Chromium 资源，Python / Node.js runtime metadata 仍需在不扩张正式交付面的前提下补齐。
