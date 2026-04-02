@@ -88,14 +88,16 @@ describe('PluginsPage', () => {
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
-    expect(wrapper.text()).toContain('可信度')
     expect(wrapper.text()).toContain('1 个命令冲突')
     expect(wrapper.text()).toContain('weather')
     expect(wrapper.text()).not.toContain('显示状态')
     expect(wrapper.text()).not.toContain('discovered')
+    expect(wrapper.find('.plugins-data-table').exists()).toBe(true)
+    expect(wrapper.find('.plugin-cell-source').exists()).toBe(true)
+    expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
   })
 
-  it('uses a compact plugin card layout instead of the old metadata grid', async () => {
+  it('uses a compact plugin table layout instead of the old metadata grid', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: { template: '<div />' } }],
@@ -123,12 +125,11 @@ describe('PluginsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.data-viewport').exists()).toBe(true)
-    expect(wrapper.find('.plugin-summary-row').exists()).toBe(true)
-    expect(wrapper.find('.plugin-summary-identity').exists()).toBe(true)
-    expect(wrapper.find('.plugin-summary-statuses').exists()).toBe(true)
-    expect(wrapper.find('.plugin-summary-health').exists()).toBe(true)
-    expect(wrapper.find('.plugin-summary-bottom').exists()).toBe(false)
+    expect(wrapper.find('.plugins-data-table').exists()).toBe(true)
+    expect(wrapper.find('.plugin-cell-identity').exists()).toBe(true)
+    expect(wrapper.find('.plugin-cell-status').exists()).toBe(true)
+    expect(wrapper.find('.plugin-cell-actions').exists()).toBe(true)
+    expect(wrapper.find('.plugin-summary-row').exists()).toBe(false)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 })

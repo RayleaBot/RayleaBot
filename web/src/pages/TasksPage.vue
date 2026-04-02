@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -8,6 +8,7 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
+import { apiDownload } from '@/lib/http'
 import { getTaskStatusLabel, getTaskTypeLabel } from '@/lib/display'
 import { t } from '@/i18n'
 import type { TaskSummary } from '@/types/api'
@@ -18,6 +19,8 @@ const router = useRouter()
 const tasksStore = useTasksStore()
 const { cancelPending, currentTask, detailLoading, error, loading, sortedItems } = storeToRefs(tasksStore)
 const detailVisible = ref(false)
+const previewImageSrc = ref('')
+let previewImageLoadVersion = 0
 
 async function loadTasks() {
   try {
@@ -55,6 +58,7 @@ watch(detailVisible, async (visible) => {
     return
   }
 
+  resetPreviewImage()
   tasksStore.clearCurrentTask()
   if (route.query.task_id) {
     await router.replace({ name: 'tasks', query: { ...route.query, task_id: undefined } })
@@ -77,6 +81,10 @@ onMounted(() => {
   void loadTasks()
 })
 
+onBeforeUnmount(() => {
+  resetPreviewImage()
+})
+
 function taskDetailEntries(details?: Record<string, unknown>) {
   return Object.entries(details ?? {})
 }
@@ -95,6 +103,43 @@ function previewImageUrl(task: TaskSummary | null) {
   const imageUrl = task?.result?.details?.image_url
   return typeof imageUrl === 'string' && imageUrl ? imageUrl : ''
 }
+
+function resetPreviewImage() {
+  if (!previewImageSrc.value) {
+    return
+  }
+
+  window.URL.revokeObjectURL(previewImageSrc.value)
+  previewImageSrc.value = ''
+}
+
+watch(
+  [detailVisible, () => previewImageUrl(currentTask.value)],
+  async ([visible, imageUrl]) => {
+    const requestVersion = ++previewImageLoadVersion
+
+    if (!visible || !imageUrl) {
+      resetPreviewImage()
+      return
+    }
+
+    try {
+      const { blob } = await apiDownload(imageUrl)
+      if (requestVersion !== previewImageLoadVersion) {
+        return
+      }
+
+      resetPreviewImage()
+      previewImageSrc.value = window.URL.createObjectURL(blob)
+    } catch {
+      if (requestVersion !== previewImageLoadVersion) {
+        return
+      }
+      resetPreviewImage()
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -119,44 +164,56 @@ function previewImageUrl(task: TaskSummary | null) {
 
     <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <VirtualDataViewport
-      :items="sortedItems"
-      :item-height="142"
-      :get-item-key="(row) => row.task_id"
-      :empty-label="t('display.empty')"
+    <el-table
+      v-else
+      :data="sortedItems"
+      style="width: 100%;"
+      class="tasks-data-table"
+      :empty-text="t('display.empty')"
     >
-      <template #default="{ item: row }">
-        <article class="task-summary-row">
-          <div class="task-summary-top">
-            <div class="task-summary-primary">
-              <strong>{{ getTaskTypeLabel(row.task_type) }}</strong>
-              <small>{{ row.task_type }}</small>
-            </div>
-
-            <div class="task-summary-status">
-              <el-tag size="small">{{ getTaskStatusLabel(row.status) }}</el-tag>
-              <strong>{{ row.progress ?? t('display.empty') }}</strong>
-            </div>
-
-            <div class="task-summary-actions">
-              <el-button size="small" plain @click="inspect(row.task_id)">
-                {{ t('tasks.actions.detail') }}
-              </el-button>
-            </div>
+      <el-table-column :label="t('tasks.fields.type')" min-width="180">
+        <template #default="{ row }">
+          <div class="task-cell-identity">
+            <strong class="task-type-label">{{ getTaskTypeLabel(row.task_type) }}</strong>
+            <small class="task-type-id">{{ row.task_type }}</small>
           </div>
+        </template>
+      </el-table-column>
 
-          <div class="task-summary-bottom">
-            <div class="task-summary-meta">
-              <span>{{ row.task_id }}</span>
-              <span>{{ formatDateTime(row.started_at) }}</span>
-            </div>
-            <p class="summary-text-clamp" :title="row.summary">
-              {{ row.summary }}
-            </p>
+      <el-table-column :label="t('tasks.fields.status')" min-width="160">
+        <template #default="{ row }">
+          <div class="task-cell-status">
+            <el-tag size="small" :type="row.status === 'succeeded' ? 'success' : (row.status === 'failed' ? 'danger' : 'info')" effect="light">
+              {{ getTaskStatusLabel(row.status) }}
+            </el-tag>
+            <strong v-if="row.progress !== undefined" class="task-progress">{{ row.progress }}%</strong>
           </div>
-        </article>
-      </template>
-    </VirtualDataViewport>
+        </template>
+      </el-table-column>
+
+      <el-table-column :label="t('tasks.fields.started')" min-width="200">
+        <template #default="{ row }">
+          <div class="task-cell-time">
+            <div class="task-time-display">{{ formatDateTime(row.started_at) }}</div>
+            <small class="task-id-mono">{{ row.task_id }}</small>
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column :label="t('tasks.fields.summary')" min-width="300">
+        <template #default="{ row }">
+          <p class="task-summary-text" :title="row.summary">{{ row.summary }}</p>
+        </template>
+      </el-table-column>
+
+      <el-table-column fixed="right" width="120" align="right">
+        <template #default="{ row }">
+          <el-button size="small" plain @click="inspect(row.task_id)">
+            {{ t('tasks.actions.detail') }}
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <el-drawer v-model="detailVisible" :title="t('tasks.detailTitle')" size="clamp(320px, 92vw, 720px)" :modal="false">
       <el-skeleton :loading="detailLoading" animated>
@@ -188,8 +245,8 @@ function previewImageUrl(task: TaskSummary | null) {
               </div>
             </div>
             <img
-              v-if="previewImageUrl(currentTask)"
-              :src="previewImageUrl(currentTask)"
+              v-if="previewImageSrc"
+              :src="previewImageSrc"
               :alt="t('tasks.previewAlt')"
               class="task-preview-image"
             />
@@ -223,7 +280,104 @@ function previewImageUrl(task: TaskSummary | null) {
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+.tasks-data-table {
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
+  border: 1px solid rgba(22, 33, 39, 0.08);
+
+  :deep(.el-table__inner-wrapper) {
+    background: rgba(247, 250, 246, 0.88);
+  }
+  
+  :deep(.el-table__header-wrapper th) {
+    background-color: transparent !important;
+    border-bottom: 1px solid rgba(22, 33, 39, 0.08);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 16px 8px;
+  }
+
+  :deep(.el-table__row) {
+    background-color: transparent;
+    transition: background-color 150ms ease;
+    
+    td {
+      border-bottom: 1px solid rgba(22, 33, 39, 0.04);
+      padding: 12px 8px;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.6);
+      td {
+        background-color: transparent !important;
+      }
+    }
+  }
+
+  :deep(.el-table__body-wrapper) {
+    background-color: transparent;
+  }
+}
+
+.task-cell-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  .task-type-label {
+    font-size: 0.98rem;
+    color: var(--text);
+    font-weight: 600;
+  }
+  
+  .task-type-id {
+    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+}
+
+.task-cell-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .task-progress {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+}
+
+.task-cell-time {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .task-time-display {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .task-id-mono {
+    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+}
+
+.task-summary-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .drawer-section {
   margin-top: 20px;
 }

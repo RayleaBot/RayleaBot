@@ -5,7 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import TasksPage from '@/pages/TasksPage.vue'
+import { apiDownload } from '@/lib/http'
 import { useTasksStore } from '@/stores/tasks'
+
+vi.mock('@/lib/http', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/http')>()),
+  apiDownload: vi.fn(),
+}))
 
 describe('TasksPage', () => {
   beforeEach(() => {
@@ -20,6 +26,9 @@ describe('TasksPage', () => {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     })) as typeof window.matchMedia
+    window.URL.createObjectURL = vi.fn(() => 'blob:task-preview')
+    window.URL.revokeObjectURL = vi.fn()
+    vi.mocked(apiDownload).mockReset()
   })
 
   it('loads task detail from the route query', async () => {
@@ -61,6 +70,10 @@ describe('TasksPage', () => {
 
     const store = useTasksStore()
     vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    vi.mocked(apiDownload).mockResolvedValue({
+      blob: new Blob(['preview'], { type: 'image/png' }),
+      filename: null,
+    })
     vi.spyOn(store, 'fetchDetail').mockImplementation(async () => {
       store.currentTask = {
       task_id: 'task_render_preview_0001',
@@ -92,12 +105,13 @@ describe('TasksPage', () => {
     expect(wrapper.text()).toContain('渲染预览')
     expect(wrapper.text()).toContain('render.preview')
     expect(wrapper.text()).toContain('渲染预览已生成')
+    expect(apiDownload).toHaveBeenCalledWith('/api/system/render/artifacts/render_preview_0001.png')
     const image = wrapper.find('img[alt="渲染预览结果"]')
     expect(image.exists()).toBe(true)
-    expect(image.attributes('src')).toContain('/api/system/render/artifacts/render_preview_0001.png')
+    expect(image.attributes('src')).toBe('blob:task-preview')
   })
 
-  it('renders the task list inside a fixed internal viewport', async () => {
+  it('renders the task list inside a compact desktop table', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/tasks', component: TasksPage }],
@@ -126,11 +140,12 @@ describe('TasksPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.data-viewport').exists()).toBe(true)
-    expect(wrapper.find('.task-summary-row').exists()).toBe(true)
-    expect(wrapper.find('.task-summary-top').exists()).toBe(true)
-    expect(wrapper.find('.task-summary-bottom').exists()).toBe(true)
-    expect(wrapper.find('.summary-text-clamp').exists()).toBe(true)
+    expect(wrapper.find('.tasks-data-table').exists()).toBe(true)
+    expect(wrapper.find('.task-cell-identity').exists()).toBe(true)
+    expect(wrapper.find('.task-cell-status').exists()).toBe(true)
+    expect(wrapper.find('.task-cell-time').exists()).toBe(true)
+    expect(wrapper.find('.task-summary-text').exists()).toBe(true)
+    expect(wrapper.find('.task-summary-row').exists()).toBe(false)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 })

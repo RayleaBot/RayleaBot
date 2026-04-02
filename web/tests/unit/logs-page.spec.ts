@@ -11,7 +11,7 @@ describe('LogsPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders a compact filter toolbar and virtualized internal viewport', async () => {
+  it('renders a compact filter toolbar and structured logs table', async () => {
     const store = useLogsStore()
     store.items = [
       {
@@ -34,11 +34,10 @@ describe('LogsPage', () => {
 
     expect(wrapper.find('.logs-filter-toolbar').exists()).toBe(true)
     expect(wrapper.find('.logs-filter-grid').exists()).toBe(true)
-    expect(wrapper.find('.data-viewport').exists()).toBe(true)
-    expect(wrapper.find('.log-summary-row').exists()).toBe(true)
-    expect(wrapper.find('.log-summary-top').exists()).toBe(true)
-    expect(wrapper.find('.log-summary-bottom').exists()).toBe(true)
-    expect(wrapper.find('.summary-text-clamp').exists()).toBe(true)
+    expect(wrapper.find('.logs-data-table').exists()).toBe(true)
+    expect(wrapper.find('.log-cell-time').exists()).toBe(true)
+    expect(wrapper.find('.log-cell-source').exists()).toBe(true)
+    expect(wrapper.find('.log-message-text').exists()).toBe(true)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 })

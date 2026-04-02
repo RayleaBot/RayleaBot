@@ -12,12 +12,71 @@ export const useTasksStore = defineStore('tasks', () => {
   const detailLoading = ref(false)
   const cancelPending = ref(false)
   const error = ref<string | null>(null)
+  const taskVersions = new Map<string, number>()
+  let taskClock = 0
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.task_id.localeCompare(right.task_id)))
+
+  function getTaskVersion(taskId: string) {
+    return taskVersions.get(taskId) ?? 0
+  }
+
+  function markTaskVersion(taskId: string) {
+    taskClock += 1
+    taskVersions.set(taskId, taskClock)
+  }
+
+  function findExistingTask(taskId: string) {
+    if (currentTask.value?.task_id === taskId) {
+      return currentTask.value
+    }
+
+    return items.value.find((item) => item.task_id === taskId) ?? null
+  }
+
+  function mergeTask(existing: TaskSummary | null, incoming: TaskSummary) {
+    if (!existing) {
+      return incoming
+    }
+
+    return {
+      ...existing,
+      ...incoming,
+      progress: incoming.progress ?? existing.progress,
+      started_at: incoming.started_at ?? existing.started_at,
+      finished_at: incoming.finished_at ?? existing.finished_at,
+      result: incoming.result ?? existing.result,
+      error: incoming.error ?? existing.error,
+    }
+  }
+
+  function writeTask(task: TaskSummary, options: { requestVersion?: number; makeCurrent?: boolean } = {}) {
+    const existing = findExistingTask(task.task_id)
+    const hasNewerSnapshot = options.requestVersion !== undefined && getTaskVersion(task.task_id) > options.requestVersion
+    const nextTask = hasNewerSnapshot && existing ? existing : mergeTask(existing, task)
+
+    if (!hasNewerSnapshot || !existing) {
+      markTaskVersion(nextTask.task_id)
+    }
+
+    const index = items.value.findIndex((item) => item.task_id === nextTask.task_id)
+    if (index === -1) {
+      items.value = [nextTask, ...items.value]
+    } else {
+      items.value = items.value.map((item, itemIndex) => (itemIndex === index ? nextTask : item))
+    }
+
+    if (options.makeCurrent || currentTask.value?.task_id === nextTask.task_id) {
+      currentTask.value = nextTask
+    }
+
+    return nextTask
+  }
 
   async function fetchList(filters: { status?: string; taskType?: string; limit?: number } = {}) {
     loading.value = true
     error.value = null
+    const requestVersion = taskClock
     try {
       const params = new URLSearchParams()
       if (filters.status) {
@@ -32,7 +91,19 @@ export const useTasksStore = defineStore('tasks', () => {
 
       const suffix = params.size > 0 ? `?${params}` : ''
       const response = await apiRequest<TaskListResponse>(`/api/tasks${suffix}`)
-      items.value = response.items
+      items.value = response.items.map((task) => {
+        const existing = findExistingTask(task.task_id)
+        if (getTaskVersion(task.task_id) > requestVersion && existing) {
+          return existing
+        }
+
+        const nextTask = mergeTask(existing, task)
+        markTaskVersion(nextTask.task_id)
+        if (currentTask.value?.task_id === nextTask.task_id) {
+          currentTask.value = nextTask
+        }
+        return nextTask
+      })
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
@@ -43,11 +114,10 @@ export const useTasksStore = defineStore('tasks', () => {
 
   async function fetchDetail(taskId: string) {
     detailLoading.value = true
+    const requestVersion = getTaskVersion(taskId)
     try {
       const response = await apiRequest<TaskDetailResponse>(`/api/tasks/${taskId}`)
-      currentTask.value = response.task
-      upsert(response.task)
-      return response.task
+      return writeTask(response.task, { requestVersion, makeCurrent: true })
     } finally {
       detailLoading.value = false
     }
@@ -65,16 +135,7 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   function upsert(task: TaskSummary) {
-    const index = items.value.findIndex((item) => item.task_id === task.task_id)
-    if (index === -1) {
-      items.value = [task, ...items.value]
-    } else {
-      items.value = items.value.map((item, itemIndex) => (itemIndex === index ? task : item))
-    }
-
-    if (currentTask.value?.task_id === task.task_id) {
-      currentTask.value = task
-    }
+    return writeTask(task)
   }
 
   function clearCurrentTask() {

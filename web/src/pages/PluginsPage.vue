@@ -5,7 +5,6 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
 import RetryPanel from '@/components/RetryPanel.vue'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import {
   getPluginDesiredStateLabel,
   getPluginDisplayStateLabel,
@@ -135,49 +134,43 @@ async function submitInstall() {
 
     <el-alert v-if="installError" :title="t('errors.common.actionFailed')" type="error" :description="installError" show-icon />
 
-    <VirtualDataViewport
-      :items="sortedItems"
-      :item-height="164"
-      :get-item-key="(row) => row.id"
-      :empty-label="t('display.empty')"
+    <el-table
+      v-else
+      :data="sortedItems"
+      style="width: 100%;"
+      class="plugins-data-table"
+      :empty-text="t('display.empty')"
     >
-      <template #default="{ item: row }">
-        <article class="plugin-summary-row">
-          <div class="plugin-summary-identity">
-            <div class="plugin-summary-heading">
-              <div class="mono-list">
-                <strong>{{ row.name }}</strong>
-                <small>{{ row.id }}</small>
-              </div>
+      <el-table-column :label="t('plugins.title')" min-width="260">
+        <template #default="{ row }">
+          <div class="plugin-cell-identity">
+            <strong class="plugin-name">{{ row.name }}</strong>
+            <small class="plugin-id">{{ row.id }}</small>
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column :label="t('plugins.fields.source')" min-width="200">
+        <template #default="{ row }">
+          <div class="plugin-cell-source">
+            <div class="plugin-source-root" :title="row.source?.root ?? t('display.empty')">
+              {{ row.source?.root ?? t('display.empty') }}
             </div>
-
-            <div class="plugin-summary-facts">
-              <div class="plugin-summary-fact">
-                <span>{{ t('plugins.fields.source') }}</span>
-                <strong :title="row.source?.root ?? t('display.empty')">{{ row.source?.root ?? t('display.empty') }}</strong>
-              </div>
-
-              <div class="plugin-summary-fact">
-                <span>{{ t('plugins.fields.trust') }}</span>
-                <strong>{{ row.trust?.label ?? t('display.empty') }}</strong>
-              </div>
+            <div class="plugin-trust-label">
+              {{ row.trust?.label ?? t('display.empty') }}
             </div>
           </div>
+        </template>
+      </el-table-column>
 
-          <div class="plugin-summary-statuses">
-            <div class="plugin-status-grid">
-              <div class="plugin-status-card">
-                <span>{{ t('plugins.fields.desired') }}</span>
-                <strong>{{ getPluginDesiredStateLabel(row.desired_state) }}</strong>
-              </div>
-
-              <div class="plugin-status-card">
-                <span>{{ t('plugins.fields.runtime') }}</span>
-                <strong>{{ getPluginRuntimeStateLabel(row.runtime_state) }}</strong>
-              </div>
+      <el-table-column :label="t('plugins.fields.runtime')" min-width="300">
+        <template #default="{ row }">
+          <div class="plugin-cell-status">
+            <div class="plugin-status-badges">
+              <el-tag size="small" type="info" effect="plain">{{ getPluginDesiredStateLabel(row.desired_state) }}</el-tag>
+              <el-tag size="small" :type="row.runtime_state === 'running' ? 'success' : (row.runtime_state === 'stopped' ? 'info' : 'danger')" effect="light">{{ getPluginRuntimeStateLabel(row.runtime_state) }}</el-tag>
             </div>
-
-            <div class="plugin-summary-health">
+            <div v-if="getPluginHealthNotices(row).length > 0" class="plugin-health-notices">
               <el-tag
                 v-for="notice in getPluginHealthNotices(row)"
                 :key="notice.label"
@@ -189,27 +182,50 @@ async function submitInstall() {
               </el-tag>
             </div>
           </div>
+        </template>
+      </el-table-column>
 
-          <div class="plugin-summary-actions">
-            <el-button size="small" plain @click="openSummary(row.id)">
-              {{ t('plugins.actions.summary') }}
-            </el-button>
-            <el-button size="small" plain @click="openDetail(row.id)">
-              {{ t('plugins.actions.detail') }}
-            </el-button>
-            <el-button size="small" type="success" :loading="actionPending[row.id] === 'enable'" @click="pluginsStore.executeAction(row.id, 'enable')">
+      <el-table-column fixed="right" min-width="420" align="right">
+        <template #default="{ row }">
+          <div class="plugin-cell-actions">
+            <el-button size="small" plain @click="openSummary(row.id)">{{ t('plugins.actions.summary') }}</el-button>
+            <el-button size="small" plain @click="openDetail(row.id)">{{ t('plugins.actions.detail') }}</el-button>
+            
+            <el-divider direction="vertical" />
+
+            <el-button 
+              size="small" 
+              type="success" 
+              plain 
+              :loading="actionPending[row.id] === 'enable'" 
+              :disabled="row.desired_state === 'enabled'"
+              @click="pluginsStore.executeAction(row.id, 'enable')"
+            >
               {{ t('plugins.actions.enable') }}
             </el-button>
-            <el-button size="small" type="warning" :loading="actionPending[row.id] === 'reload'" @click="pluginsStore.executeAction(row.id, 'reload')">
+            <el-button 
+              size="small" 
+              type="warning" 
+              plain 
+              :loading="actionPending[row.id] === 'reload'" 
+              @click="pluginsStore.executeAction(row.id, 'reload')"
+            >
               {{ t('plugins.actions.reload') }}
             </el-button>
-            <el-button size="small" type="danger" plain :loading="actionPending[row.id] === 'disable'" @click="pluginsStore.executeAction(row.id, 'disable')">
+            <el-button 
+              size="small" 
+              type="danger" 
+              plain 
+              :loading="actionPending[row.id] === 'disable'" 
+              :disabled="row.desired_state === 'disabled'"
+              @click="pluginsStore.executeAction(row.id, 'disable')"
+            >
               {{ t('plugins.actions.disable') }}
             </el-button>
           </div>
-        </article>
-      </template>
-    </VirtualDataViewport>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
 
   <el-dialog v-model="installDialogVisible" :title="t('plugins.installDialogTitle')" width="520px">
@@ -280,3 +296,120 @@ async function submitInstall() {
     </template>
   </el-dialog>
 </template>
+
+<style lang="scss" scoped>
+.plugins-data-table {
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
+  border: 1px solid rgba(22, 33, 39, 0.08);
+
+  :deep(.el-table__inner-wrapper) {
+    background: rgba(247, 250, 246, 0.88);
+  }
+  
+  :deep(.el-table__header-wrapper th) {
+    background-color: transparent !important;
+    border-bottom: 1px solid rgba(22, 33, 39, 0.08);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 16px 8px;
+  }
+
+  :deep(.el-table__row) {
+    background-color: transparent;
+    transition: background-color 150ms ease;
+    
+    td {
+      border-bottom: 1px solid rgba(22, 33, 39, 0.04);
+      padding: 12px 8px;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.6);
+      td {
+        background-color: transparent !important;
+      }
+    }
+  }
+
+  :deep(.el-table__body-wrapper) {
+    background-color: transparent;
+  }
+}
+
+.plugin-cell-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  .plugin-name {
+    font-size: 0.98rem;
+    color: var(--text);
+    font-weight: 600;
+  }
+  
+  .plugin-id {
+    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+}
+
+.plugin-cell-source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  .plugin-source-root {
+    font-size: 0.9rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .plugin-trust-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+}
+
+.plugin-cell-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+
+  .plugin-status-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .plugin-health-notices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+.plugin-cell-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  
+  .el-button {
+    margin: 0;
+  }
+  
+  .plugin-more-btn {
+    padding: 6px;
+    font-weight: bold;
+    letter-spacing: 2px;
+  }
+}
+</style>
