@@ -6,10 +6,11 @@
 
 ### Fixture-ready 正式契约
 
-当前已有 9 份 fixture-ready formal contracts：
+当前已有 10 份 fixture-ready formal contracts：
 
 - `backup-manifest.schema.json`
 - `config.user.schema.json`
+- `deps-manifest.schema.json`
 - `error-codes.yaml`
 - `web-api.openapi.yaml`
 - `websocket-events.yaml`
@@ -27,6 +28,9 @@
 - `backup-manifest.schema.json`
   - `backup-manifest.json` 的正式机器可校验结构
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
+- `deps-manifest.schema.json`
+  - `.deps/manifest.json` 的正式机器可校验结构
+  - 托管 Chromium、Python / Node.js 运行时资源的来源、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
@@ -82,6 +86,13 @@
 - 增量升级
 - 发布流水线策略
 - `SHA256SUMS.txt` 文件内容结构
+
+### Deps Manifest
+
+- 更宽的资源种类矩阵
+- 多镜像源优先级
+- 资源签名与附加校验文件
+- 显式解压目标目录覆盖
 
 ### CLI
 

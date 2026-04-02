@@ -12,6 +12,10 @@
 - `examples/http/render-preview.accepted.json`
 - `examples/http/render-preview.task-detail.json`
 
+当前已收录的资源清单示例包含：
+
+- `examples/deps-manifest.sample.json`
+
 规则：
 
 - 示例只能演示已被 `contracts/` 确认的结构。

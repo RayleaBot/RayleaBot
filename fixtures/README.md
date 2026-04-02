@@ -28,6 +28,10 @@
   - 对应 `contracts/release-manifest.schema.json`
   - 统一采用 `input + expect` 结构
   - 主要服务产物元数据校验，以及后续 doctor、launcher、release 共享结构验证
+- `deps-manifest/`
+  - 对应 `contracts/deps-manifest.schema.json`
+  - 统一采用 `input + expect` 结构
+  - 主要服务托管运行时来源、校验值、归档格式与相对入口的契约回归
 - `cli/`
   - 对应 `contracts/cli-commands.yaml`
   - 统一采用 `input + expect` 结构

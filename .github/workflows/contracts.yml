@@ -38,6 +38,7 @@ jobs:
           required_files = {
               'README.md',
               'backup-manifest.schema.json',
+              'deps-manifest.schema.json',
               'plugin-info.schema.json',
               'plugin-protocol.schema.json',
               'web-api.openapi.yaml',
@@ -56,6 +57,7 @@ jobs:
           required_fixture_dirs = [
               fixtures / 'config',
               fixtures / 'backup-manifest',
+              fixtures / 'deps-manifest',
               fixtures / 'web-api',
               fixtures / 'websocket',
               fixtures / 'errors',
@@ -121,6 +123,7 @@ jobs:
           plugin_info = load_json(contracts / 'plugin-info.schema.json')
           plugin_protocol = load_json(contracts / 'plugin-protocol.schema.json')
           config_schema = load_json(contracts / 'config.user.schema.json')
+          deps_manifest_schema = load_json(contracts / 'deps-manifest.schema.json')
           release_schema = load_json(contracts / 'release-manifest.schema.json')
           web_api = load_yaml(contracts / 'web-api.openapi.yaml')
           websocket_events = load_yaml(contracts / 'websocket-events.yaml')
@@ -147,6 +150,21 @@ jobs:
               if not isinstance(properties, dict):
                   raise SystemExit(f'{label} must declare properties')
               return schema_obj, properties
+
+          if deps_manifest_schema.get('type') != 'object':
+              raise SystemExit('deps-manifest.schema.json must define an object schema')
+          if deps_manifest_schema.get('properties', {}).get('manifest_version', {}).get('const') != 2:
+              raise SystemExit('deps-manifest.schema.json manifest_version must be fixed to 2')
+          resource_base = deps_manifest_schema.get('$defs', {}).get('resourceBase', {})
+          for field in ['id', 'kind', 'version', 'platform', 'source', 'sha256', 'archive_format', 'entrypoints']:
+              if field not in resource_base.get('required', []):
+                  raise SystemExit(f'deps-manifest.schema.json resourceBase missing required field: {field}')
+          archive_formats = set(resource_base.get('properties', {}).get('archive_format', {}).get('enum', []))
+          if archive_formats != {'zip', 'tar.gz', 'tar.xz'}:
+              raise SystemExit(f'deps-manifest.schema.json archive_format enum mismatch: {sorted(archive_formats)}')
+          entrypoint_props = set(deps_manifest_schema.get('$defs', {}).get('entrypoints', {}).get('properties', {}).keys())
+          if entrypoint_props != {'browser', 'python', 'pip', 'node', 'npm'}:
+              raise SystemExit(f'deps-manifest.schema.json entrypoints keys mismatch: {sorted(entrypoint_props)}')
 
           if plugin_info.get('type') != 'object':
               raise SystemExit('plugin-info.schema.json must define an object schema')
@@ -506,6 +524,7 @@ jobs:
               {
                   'plugin_info': plugin_info,
                   'plugin_protocol': plugin_protocol,
+                  'deps_manifest': deps_manifest_schema,
                   'release': release_schema,
                   'error_codes': error_codes,
                   'websocket_events': websocket_events,
@@ -517,7 +536,7 @@ jobs:
                   raise SystemExit(f'out-of-scope content leaked into formal contracts: {legacy}')
 
           refs = []
-          for document in [plugin_info, plugin_protocol, config_schema, release_schema, error_codes, web_api, websocket_events]:
+          for document in [plugin_info, plugin_protocol, config_schema, deps_manifest_schema, release_schema, error_codes, web_api, websocket_events]:
               collect_fixture_refs(document, refs)
           if not refs:
               raise SystemExit('fixture-ready contracts must declare fixture references')

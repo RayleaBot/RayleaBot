@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/deps-manifest.schema.json",
+  "title": "RayleaBot Managed Dependencies Manifest",
+  "description": "Fixture-ready schema for .deps/manifest.json. This file is the formal source for managed runtime bootstrap resources and their relative entrypoints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "resources"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "integer",
+      "const": 2
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/resource"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "windows-x64",
+        "linux-x64",
+        "macos-arm64"
+      ]
+    },
+    "entrypointCandidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\.\\.(?:/|\\\\))(?!.*\\\\\\.\\.(?:/|\\\\)).+$"
+      }
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "browser": {
+          "$ref": "#/$defs/entrypointCandidates"
+        },
+        "python": {
+          "$ref": "#/$defs/entrypointCandidates"
+        },
+        "pip": {
+          "$ref": "#/$defs/entrypointCandidates"
+        },
+        "node": {
+          "$ref": "#/$defs/entrypointCandidates"
+        },
+        "npm": {
+          "$ref": "#/$defs/entrypointCandidates"
+        }
+      }
+    },
+    "resourceBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "version",
+        "platform",
+        "source",
+        "sha256",
+        "archive_format",
+        "entrypoints"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "chromium",
+            "python-runtime",
+            "nodejs-runtime"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "$ref": "#/$defs/platform"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://.+$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "archive_format": {
+          "type": "string",
+          "enum": [
+            "zip",
+            "tar.gz",
+            "tar.xz"
+          ]
+        },
+        "entrypoints": {
+          "$ref": "#/$defs/entrypoints"
+        }
+      }
+    },
+    "chromiumResource": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/resourceBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "chromium"
+            }
+          }
+        },
+        {
+          "properties": {
+            "entrypoints": {
+              "required": [
+                "browser"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "pythonResource": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/resourceBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "python-runtime"
+            }
+          }
+        },
+        {
+          "properties": {
+            "entrypoints": {
+              "required": [
+                "python",
+                "pip"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nodeResource": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/resourceBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "nodejs-runtime"
+            }
+          }
+        },
+        {
+          "properties": {
+            "entrypoints": {
+              "required": [
+                "node",
+                "npm"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "resource": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/chromiumResource"
+        },
+        {
+          "$ref": "#/$defs/pythonResource"
+        },
+        {
+          "$ref": "#/$defs/nodeResource"
+        }
+      ]
+    }
+  },
+  "x-fixtures": [
+    "fixtures/deps-manifest/ok.minimal.json",
+    "fixtures/deps-manifest/invalid.missing-entrypoints.json",
+    "fixtures/deps-manifest/invalid.bad-archive-format.json",
+    "fixtures/deps-manifest/edge.multi-runtime-matrix.json"
+  ]
+}
