@@ -128,8 +128,8 @@ jobs:
                       raise SystemExit(f"{label} must mention command: {command}")
 
           manifest = json.loads((root / ".deps" / "manifest.json").read_text(encoding="utf-8"))
-          if manifest.get("manifest_version") != 1:
-              raise SystemExit(".deps/manifest.json manifest_version must be 1")
+          if manifest.get("manifest_version") != 2:
+              raise SystemExit(".deps/manifest.json manifest_version must be 2")
           resources = manifest.get("resources", [])
           resource_ids = {item.get("id") for item in manifest.get("resources", [])}
           for expected in [
@@ -151,10 +151,16 @@ jobs:
                   raise SystemExit(".deps/manifest.json resources must contain objects only")
               source = str(resource.get("source", "")).strip()
               sha256 = str(resource.get("sha256", "")).strip().lower()
+              archive_format = str(resource.get("archive_format", "")).strip()
+              entrypoints = resource.get("entrypoints")
               if not source.startswith("https://") or "TODO(" in source:
                   raise SystemExit(f".deps/manifest.json resource has invalid source: {resource}")
               if len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
                   raise SystemExit(f".deps/manifest.json resource has invalid sha256: {resource}")
+              if archive_format not in {"zip", "tar.gz", "tar.xz"}:
+                  raise SystemExit(f".deps/manifest.json resource has invalid archive_format: {resource}")
+              if not isinstance(entrypoints, dict) or not entrypoints:
+                  raise SystemExit(f".deps/manifest.json resource must include entrypoints: {resource}")
 
           print("baseline validation passed")
           PY
@@ -303,7 +309,8 @@ jobs:
             --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz \
             --repository "$GITHUB_REPOSITORY" \
             --current-version "$VERSION" \
-            --download-dir dist/release/recovery-bootstrap
+            --download-dir dist/release/recovery-bootstrap \
+            --observation-window-seconds 60
           python scripts/release/release_tool.py package \
             --artifact-id linux-x64-server \
             --version "$VERSION" \
@@ -326,7 +333,8 @@ jobs:
             --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz \
             --repository "$GITHUB_REPOSITORY" \
             --current-version "$VERSION" \
-            --download-dir dist/release/recovery-bootstrap
+            --download-dir dist/release/recovery-bootstrap \
+            --observation-window-seconds 60
 
       - name: Generate and verify smoke release metadata
         shell: bash
@@ -471,4 +479,5 @@ jobs:
             --archive "$ARCHIVE" \
             --repository "$GITHUB_REPOSITORY" \
             --current-version "$VERSION" \
-            --download-dir dist/release/recovery-bootstrap
+            --download-dir dist/release/recovery-bootstrap \
+            --observation-window-seconds 60

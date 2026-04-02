@@ -17,6 +17,7 @@ from package_runtime import (
     REQUIRED_PATHS,
     choose_free_port,
     ensure_required_paths,
+    ensure_runtime_bootstrap,
     read_process_output,
     relative_executable,
     server_base_command,
@@ -301,6 +302,7 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
         temp_root = Path(tmp)
         release_root = unpack_archive(artifact_id, archive_path, temp_root)
         ensure_required_paths(release_root, artifact_id)
+        ensure_runtime_bootstrap(release_root, artifact_id)
 
         port = choose_free_port()
         config_path = write_user_config(release_root, port=port)

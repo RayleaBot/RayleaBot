@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import io
 import json
 import re
 import shutil
@@ -15,10 +16,12 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import self_host_smoke
 from package_runtime import (
     REQUIRED_PATHS,
     choose_free_port,
     ensure_required_paths,
+    ensure_runtime_bootstrap,
     read_process_output,
     relative_executable,
     server_base_command,
@@ -76,6 +79,9 @@ class DrillError(RuntimeError):
 
 class DrillBootstrapSkip(RuntimeError):
     pass
+
+
+DEFAULT_OBSERVATION_WINDOW_SECONDS = 300
 
 
 def seed_database(root: Path) -> Path:
@@ -444,11 +450,158 @@ def assert_recovery_summary(
             raise DrillError(f"expected skipped plugin {INCOMPATIBLE_PLUGIN_ID} in recovery summary: {summary}")
 
 
-def run_recovery_drill(artifact_id: str, archive_path: Path) -> None:
+def canonical_summary(summary: dict[str, object]) -> dict[str, object]:
+    return {
+        "status": summary.get("status"),
+        "phase": summary.get("phase"),
+        "operation": summary.get("operation"),
+        "issues": summary.get("issues", []),
+        "skipped_plugins": summary.get("skipped_plugins", []),
+        "manual_actions": summary.get("manual_actions", []),
+        "next_steps": summary.get("next_steps", []),
+    }
+
+
+def extract_diagnostics_recovery_summary(payload: bytes) -> dict[str, object]:
+    with zipfile.ZipFile(io.BytesIO(payload)) as zf:
+        try:
+            return json.loads(zf.read("recovery-summary.json").decode("utf-8"))
+        except KeyError as exc:
+            raise DrillError("diagnostics export missing recovery-summary.json") from exc
+
+
+def observe_recovery_window(
+    root: Path,
+    process: subprocess.Popen[str],
+    port: int,
+    *,
+    expected_operation: str | set[str],
+    expected_statuses: set[str],
+    require_skipped_plugin: bool,
+    observation_window_seconds: int,
+    allow_bootstrap: bool,
+) -> None:
+    base_url = f"http://127.0.0.1:{port}/"
+    self_host_smoke.wait_for_management_state(
+        root,
+        process,
+        base_url,
+        allowed_ready_statuses=self_host_smoke.STARTUP_READY_STATUSES if allow_bootstrap else self_host_smoke.MANAGED_READY_STATUSES,
+    )
+    if allow_bootstrap:
+        self_host_smoke.bootstrap_admin(base_url)
+    session_token = self_host_smoke.login(base_url)
+
+    baseline: dict[str, object] | None = None
+    midpoint = time.time() + max(observation_window_seconds / 2, 1)
+    deadline = time.time() + max(observation_window_seconds, 1)
+    diagnostics_checked = False
+    while time.time() < deadline:
+        ready_body = self_host_smoke.request_json(f"{base_url}readyz")
+        if str(ready_body.get("status", "")) not in self_host_smoke.MANAGED_READY_STATUSES:
+            raise DrillError(f"readyz returned blocking status during recovery observation: {ready_body}")
+
+        status_body = self_host_smoke.request_json(
+            f"{base_url}api/system/status",
+            headers=self_host_smoke.bearer_headers(session_token),
+        )
+        api_summary = status_body.get("recovery_summary")
+        if not isinstance(api_summary, dict):
+            raise DrillError(f"system status missing recovery_summary during observation: {status_body}")
+        file_summary = read_recovery_summary(root)
+        assert_recovery_summary(
+            api_summary,
+            expected_operation=expected_operation,
+            expected_phase="post_startup",
+            expected_statuses=expected_statuses,
+            requires_post_start_checks=False,
+            require_skipped_plugin=require_skipped_plugin,
+        )
+        current = canonical_summary(file_summary)
+        if baseline is None:
+            baseline = current
+        if canonical_summary(api_summary) != baseline or current != baseline:
+            raise DrillError("recovery summary drifted between API and local file during observation")
+
+        if time.time() >= midpoint and not diagnostics_checked:
+            payload = self_host_smoke.request_bytes(
+                f"{base_url}api/system/diagnostics/export",
+                headers=self_host_smoke.bearer_headers(session_token),
+            )
+            self_host_smoke.validate_diagnostics_archive(payload)
+            diagnostics_summary = extract_diagnostics_recovery_summary(payload)
+            if canonical_summary(diagnostics_summary) != baseline:
+                raise DrillError("diagnostics recovery summary drifted from API/file state")
+            diagnostics_checked = True
+        time.sleep(min(5, max(deadline - time.time(), 0)))
+
+    if baseline is None:
+        raise DrillError("recovery observation window completed without a summary baseline")
+
+    self_host_smoke.graceful_shutdown(base_url, session_token, process)
+
+
+def run_server_observation(
+    root: Path,
+    server_bin: Path,
+    port: int,
+    *,
+    expected_operation: str | set[str],
+    expected_statuses: set[str],
+    require_skipped_plugin: bool,
+    observation_window_seconds: int,
+) -> None:
+    process = subprocess.Popen(
+        [*server_base_command(server_bin)],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        observe_recovery_window(
+            root,
+            process,
+            port,
+            expected_operation=expected_operation,
+            expected_statuses=expected_statuses,
+            require_skipped_plugin=require_skipped_plugin,
+            observation_window_seconds=observation_window_seconds,
+            allow_bootstrap=True,
+        )
+    finally:
+        if process.poll() is None:
+            stop_process(process)
+
+    restarted = subprocess.Popen(
+        [*server_base_command(server_bin)],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        observe_recovery_window(
+            root,
+            restarted,
+            port,
+            expected_operation=expected_operation,
+            expected_statuses=expected_statuses,
+            require_skipped_plugin=require_skipped_plugin,
+            observation_window_seconds=max(30, observation_window_seconds // 2),
+            allow_bootstrap=False,
+        )
+    finally:
+        if restarted.poll() is None:
+            stop_process(restarted)
+
+
+def run_recovery_drill(artifact_id: str, archive_path: Path, *, observation_window_seconds: int) -> None:
     with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-") as tmp:
         temp_root = Path(tmp)
         release_root = unpack_archive(artifact_id, archive_path, temp_root)
         ensure_required_paths(release_root, artifact_id)
+        ensure_runtime_bootstrap(release_root, artifact_id)
         config_path, database_path, plugin_info_paths = seed_runtime_workspace(release_root)
         expected_snapshot = snapshot_runtime_state(release_root)
         server_bin = relative_executable(release_root, artifact_id)
@@ -460,19 +613,32 @@ def run_recovery_drill(artifact_id: str, archive_path: Path) -> None:
         overwrite_runtime_state(config_path, database_path, plugin_info_paths)
         run_restore(release_root, server_bin, backup_path)
         assert_restored(release_root, expected_snapshot)
-        probe_server(release_root, server_bin, extract_configured_port(config_path))
         assert_recovery_summary(
             read_recovery_summary(release_root),
             expected_operation="restore",
-            expected_phase="post_startup",
+            expected_phase="pre_restore",
+            expected_statuses={"pending"},
+            requires_post_start_checks=True,
+        )
+        run_server_observation(
+            release_root,
+            server_bin,
+            extract_configured_port(config_path),
+            expected_operation="restore",
             expected_statuses={"degraded"},
-            requires_post_start_checks=False,
             require_skipped_plugin=True,
+            observation_window_seconds=observation_window_seconds,
         )
         run_doctor(release_root, server_bin)
 
 
-def run_cross_version_recovery_drill(artifact_id: str, previous_archive: Path, current_archive: Path) -> None:
+def run_cross_version_recovery_drill(
+    artifact_id: str,
+    previous_archive: Path,
+    current_archive: Path,
+    *,
+    observation_window_seconds: int,
+) -> None:
     previous_build = read_build_info_from_archive(artifact_id, previous_archive)
     current_build = read_build_info_from_archive(artifact_id, current_archive)
     previous_version = str(previous_build.get("version", "")).strip()
@@ -490,6 +656,9 @@ def run_cross_version_recovery_drill(artifact_id: str, previous_archive: Path, c
         ensure_required_paths(previous_root, artifact_id)
         ensure_required_paths(current_root, artifact_id)
         ensure_required_paths(rollback_root, artifact_id)
+        ensure_runtime_bootstrap(previous_root, artifact_id)
+        ensure_runtime_bootstrap(current_root, artifact_id)
+        ensure_runtime_bootstrap(rollback_root, artifact_id)
 
         previous_server = relative_executable(previous_root, artifact_id)
         current_server = relative_executable(current_root, artifact_id)
@@ -506,7 +675,15 @@ def run_cross_version_recovery_drill(artifact_id: str, previous_archive: Path, c
             expected_statuses={"pending"},
             requires_post_start_checks=True,
         )
-        probe_server(current_root, current_server, extract_configured_port(current_root / "config" / "user.yaml"))
+        run_server_observation(
+            current_root,
+            current_server,
+            extract_configured_port(current_root / "config" / "user.yaml"),
+            expected_operation="upgrade",
+            expected_statuses={"degraded"},
+            require_skipped_plugin=True,
+            observation_window_seconds=observation_window_seconds,
+        )
         assert_recovery_summary(
             read_recovery_summary(current_root),
             expected_operation="upgrade",
@@ -530,7 +707,15 @@ def run_cross_version_recovery_drill(artifact_id: str, previous_archive: Path, c
             expected_statuses={"pending"},
             requires_post_start_checks=True,
         )
-        probe_server(rollback_root, rollback_server, extract_configured_port(rollback_root / "config" / "user.yaml"))
+        run_server_observation(
+            rollback_root,
+            rollback_server,
+            extract_configured_port(rollback_root / "config" / "user.yaml"),
+            expected_operation={"restore", "rollback"},
+            expected_statuses={"degraded"},
+            require_skipped_plugin=True,
+            observation_window_seconds=observation_window_seconds,
+        )
         assert_recovery_summary(
             read_recovery_summary(rollback_root),
             expected_operation={"restore", "rollback"},
@@ -550,6 +735,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repository")
     parser.add_argument("--current-version")
     parser.add_argument("--download-dir")
+    parser.add_argument("--observation-window-seconds", type=int, default=DEFAULT_OBSERVATION_WINDOW_SECONDS)
     return parser
 
 
@@ -557,7 +743,12 @@ def main() -> int:
     args = build_parser().parse_args()
     try:
         if args.previous_archive:
-            run_cross_version_recovery_drill(args.artifact_id, Path(args.previous_archive), Path(args.archive))
+            run_cross_version_recovery_drill(
+                args.artifact_id,
+                Path(args.previous_archive),
+                Path(args.archive),
+                observation_window_seconds=args.observation_window_seconds,
+            )
             print("cross-version recovery drill passed")
             return 0
         if args.repository and args.current_version and args.download_dir:
@@ -567,10 +758,19 @@ def main() -> int:
                 args.artifact_id,
                 Path(args.download_dir),
             )
-            run_cross_version_recovery_drill(args.artifact_id, previous_archive, Path(args.archive))
+            run_cross_version_recovery_drill(
+                args.artifact_id,
+                previous_archive,
+                Path(args.archive),
+                observation_window_seconds=args.observation_window_seconds,
+            )
             print("cross-version recovery drill passed")
             return 0
-        run_recovery_drill(args.artifact_id, Path(args.archive))
+        run_recovery_drill(
+            args.artifact_id,
+            Path(args.archive),
+            observation_window_seconds=args.observation_window_seconds,
+        )
         print("recovery drill passed")
     except DrillBootstrapSkip as exc:
         print(f"recovery drill bootstrap skip: {exc}")

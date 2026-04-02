@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import json
 import os
 import re
 import signal
 import socket
 import subprocess
+import shutil
 import tarfile
+import tempfile
+import time
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -17,6 +23,18 @@ SERVER_BINARIES = {
     "linux-x64-full": "raylea-server",
     "macos-arm64-full": "raylea-server",
     "linux-x64-server": "raylea-server",
+}
+
+RESOURCE_KINDS = ("chromium", "python-runtime", "nodejs-runtime")
+REQUIRED_ENTRYPOINTS = {
+    "chromium": ("browser",),
+    "python-runtime": ("python", "pip"),
+    "nodejs-runtime": ("node", "npm"),
+}
+ARCHIVE_SUFFIXES = {
+    "zip": ".zip",
+    "tar.gz": ".tar.gz",
+    "tar.xz": ".tar.xz",
 }
 
 REQUIRED_PATHS = {
@@ -125,6 +143,171 @@ def server_base_command(server_bin: Path) -> list[str]:
         "-config-schema",
         "contracts/config.user.schema.json",
     ]
+
+
+def artifact_platform(artifact_id: str) -> str:
+    parts = artifact_id.split("-")
+    if len(parts) < 2:
+        raise RuntimeError(f"invalid artifact id: {artifact_id}")
+    return "-".join(parts[:2])
+
+
+def load_deps_manifest(root: Path) -> dict[str, object]:
+    manifest_path = root / ".deps" / "manifest.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if payload.get("manifest_version") != 2:
+        raise RuntimeError(f"unsupported deps manifest version: {payload.get('manifest_version')}")
+    return payload
+
+
+def find_platform_resource(manifest: dict[str, object], platform: str, kind: str) -> dict[str, object]:
+    resources = manifest.get("resources")
+    if not isinstance(resources, list):
+        raise RuntimeError("deps manifest resources must be a list")
+    for item in resources:
+        if isinstance(item, dict) and item.get("platform") == platform and item.get("kind") == kind:
+            return item
+    raise RuntimeError(f"deps manifest missing {kind} for {platform}")
+
+
+def resource_has_complete_metadata(resource: dict[str, object]) -> bool:
+    source = str(resource.get("source", "")).strip()
+    sha256 = str(resource.get("sha256", "")).strip().lower()
+    archive_format = str(resource.get("archive_format", "")).strip()
+    if not source.startswith("https://") or "TODO(" in source.upper():
+        return False
+    if len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
+        return False
+    if archive_format not in ARCHIVE_SUFFIXES:
+        return False
+    entrypoints = resource.get("entrypoints")
+    if not isinstance(entrypoints, dict):
+        return False
+    for key in REQUIRED_ENTRYPOINTS.get(str(resource.get("kind", "")), ()):
+        candidates = entrypoints.get(key)
+        if not isinstance(candidates, list) or not any(_valid_entrypoint_candidate(item) for item in candidates):
+            return False
+    return True
+
+
+def _valid_entrypoint_candidate(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    return bool(text) and not text.startswith("..") and not Path(text).is_absolute()
+
+
+def store_root(root: Path, resource: dict[str, object]) -> Path:
+    return root / ".deps" / "store" / str(resource["id"]) / str(resource["version"])
+
+
+def cache_root(root: Path) -> Path:
+    return root / "cache" / "downloads" / "runtime"
+
+
+def resolve_prepared_entrypoints(root: Path, resource: dict[str, object]) -> dict[str, Path]:
+    prepared: dict[str, Path] = {}
+    entrypoints = resource.get("entrypoints")
+    if not isinstance(entrypoints, dict):
+        raise RuntimeError(f"resource entrypoints missing for {resource}")
+    for key in REQUIRED_ENTRYPOINTS.get(str(resource.get("kind", "")), ()):
+        candidates = entrypoints.get(key)
+        if not isinstance(candidates, list):
+            raise RuntimeError(f"resource entrypoint list missing for {resource}")
+        resolved = None
+        for candidate in candidates:
+            if not _valid_entrypoint_candidate(candidate):
+                continue
+            path = store_root(root, resource) / Path(str(candidate))
+            if path.exists() and path.is_file():
+                resolved = path
+                break
+        if resolved is None:
+            raise RuntimeError(f"prepared runtime is missing entrypoint {key} for {resource['kind']}")
+        prepared[key] = resolved
+    return prepared
+
+
+@contextlib.contextmanager
+def runtime_lock(root: Path):
+    lock_path = root / "cache" / "downloads" / "platform.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f"{os.getpid()}\n".encode("utf-8"))
+            os.close(fd)
+            break
+        except FileExistsError:
+            if lock_path.exists() and time.time() - lock_path.stat().st_mtime > 1800:
+                lock_path.unlink(missing_ok=True)
+                continue
+            time.sleep(0.2)
+    try:
+        yield
+    finally:
+        lock_path.unlink(missing_ok=True)
+
+
+def ensure_runtime_bootstrap(root: Path, artifact_id: str) -> None:
+    manifest = load_deps_manifest(root)
+    platform = artifact_platform(artifact_id)
+    with runtime_lock(root):
+        for kind in RESOURCE_KINDS:
+            resource = find_platform_resource(manifest, platform, kind)
+            if not resource_has_complete_metadata(resource):
+                raise RuntimeError(f"deps manifest resource is not bootstrap-ready: {resource}")
+            try:
+                resolve_prepared_entrypoints(root, resource)
+                continue
+            except RuntimeError:
+                pass
+            archive_path = download_runtime_archive(root, resource)
+            extract_runtime_archive(root, resource, archive_path)
+            resolve_prepared_entrypoints(root, resource)
+
+
+def download_runtime_archive(root: Path, resource: dict[str, object]) -> Path:
+    cache = cache_root(root)
+    cache.mkdir(parents=True, exist_ok=True)
+    archive_format = str(resource["archive_format"])
+    archive_path = cache / f"{resource['id']}-{resource['version']}{ARCHIVE_SUFFIXES[archive_format]}"
+    if archive_path.exists() and sha256_file(archive_path) == str(resource["sha256"]).lower():
+        return archive_path
+
+    temp_path = archive_path.with_suffix(archive_path.suffix + ".download")
+    with urllib.request.urlopen(str(resource["source"]), timeout=60) as response:
+        temp_path.write_bytes(response.read())
+    if sha256_file(temp_path) != str(resource["sha256"]).lower():
+        temp_path.unlink(missing_ok=True)
+        raise RuntimeError(f"runtime archive sha256 mismatch: {resource['id']}")
+    temp_path.replace(archive_path)
+    return archive_path
+
+
+def extract_runtime_archive(root: Path, resource: dict[str, object], archive_path: Path) -> None:
+    target_root = store_root(root, resource)
+    target_root.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=f"{resource['id']}-", dir=target_root.parent) as tmp:
+        temp_root = Path(tmp)
+        archive_format = str(resource["archive_format"])
+        if archive_format == "zip":
+            with zipfile.ZipFile(archive_path) as zf:
+                zf.extractall(temp_root)
+        else:
+            with tarfile.open(archive_path, "r:*") as tf:
+                tf.extractall(temp_root)
+        if target_root.exists():
+            shutil.rmtree(target_root, ignore_errors=True)
+        temp_root.replace(target_root)
+
+
+def sha256_file(path: Path) -> str:
+    hasher = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def stop_process(process: subprocess.Popen[str], *, timeout_seconds: int = 10) -> None:

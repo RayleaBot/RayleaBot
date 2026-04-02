@@ -3,8 +3,18 @@ from __future__ import annotations
 
 import argparse
 import tarfile
+import tempfile
 import zipfile
 from pathlib import Path
+
+from package_runtime import (
+    RESOURCE_KINDS,
+    artifact_platform,
+    find_platform_resource,
+    load_deps_manifest,
+    resource_has_complete_metadata,
+    unpack_archive,
+)
 
 
 EXPECTED = {
@@ -88,6 +98,17 @@ def list_entries(artifact_id: str, archive_path: Path) -> set[str]:
     return result
 
 
+def validate_runtime_bootstrap_prerequisites(artifact_id: str, archive_path: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="rayleabot-release-smoke-") as tmp:
+        root = unpack_archive(artifact_id, archive_path, Path(tmp))
+        manifest = load_deps_manifest(root)
+        platform = artifact_platform(artifact_id)
+        for kind in RESOURCE_KINDS:
+            resource = find_platform_resource(manifest, platform, kind)
+            if not resource_has_complete_metadata(resource):
+                raise RuntimeError(f"packaged deps manifest resource is not bootstrap-ready: {resource}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="RayleaBot packaged artifact smoke check")
     parser.add_argument("--artifact-id", required=True, choices=sorted(EXPECTED.keys()))
@@ -98,6 +119,7 @@ def main() -> int:
     missing = sorted(EXPECTED[args.artifact_id]["entries"] - entries)
     if missing:
         raise SystemExit(f"missing packaged entries: {missing}")
+    validate_runtime_bootstrap_prerequisites(args.artifact_id, Path(args.archive))
     print("release smoke passed")
     return 0
 
