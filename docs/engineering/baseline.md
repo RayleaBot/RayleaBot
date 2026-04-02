@@ -20,7 +20,7 @@
 - `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
 - `web/` 承载管理控制台主链路。
 - `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
-- `.deps/manifest.json` 固定受控 Chromium 与托管 Python / Node.js 运行时资源矩阵。
+- `.deps/manifest.json` 固定受控 Chromium 与托管 Python / Node.js 运行时资源矩阵，并作为运行时 bootstrap 的唯一正式来源。
 
 ## v0.1 固定版本线
 
@@ -56,6 +56,7 @@
 | Node.js 插件依赖安装器 | `npm` |
 | Python 插件依赖安装链路 | 受控 Python + 每插件独立 `.venv/` |
 | Node.js 插件运行链路 | Runtime 注入 `--max-old-space-size=<limit_mb>`，默认 `256 MB` |
+| 受控运行时资源准备 | `.deps/manifest.json` + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/` |
 
 ## 默认命令
 
@@ -95,7 +96,7 @@
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
 | `launcher/` | Electron 桌面启动器工程 |
-| `.deps/` | Chromium 与托管运行时资源清单 |
+| `.deps/` | Chromium 与托管运行时资源清单，以及按需展开后的受控运行时目录 |
 | `config/` | 默认配置模板与用户配置 |
 | `data/` | SQLite 状态库与运行数据 |
 | `cache/` | 渲染缓存、下载缓存、插件临时缓存 |
@@ -111,7 +112,7 @@
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
 | `launcher/package.json` | 固定 `packageManager = pnpm@10.32.1`、`engines.node = 24.14.0`、Electron/Vite/React/build 脚本与打包配置 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
-| `.deps/manifest.json` | 固定资源名、版本线、来源、SHA256 与平台矩阵 |
+| `.deps/manifest.json` | 固定资源名、版本线、来源、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
 
 ## 已冻结的规范化决议

@@ -12,8 +12,8 @@
 
 | 阶段 | 名称 | 状态 | 当前落地摘要 |
 |------|------|------|--------------|
-| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、3 个 repo-local skills、CI skeleton 与 `.deps/manifest.json` 正式资源元数据已落库；repo identity TODO 仍保留 |
-| Phase 1 | 契约文件补全 | ✅ | 9 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
+| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、3 个 repo-local skills、CI skeleton、`deps-manifest` formal contract 与受控运行时 bootstrap 基线已落库；repo identity TODO 仍保留 |
+| Phase 1 | 契约文件补全 | ✅ | 10 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
 | Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、`idle/ready` 语义、重连、心跳、消息/notice 归一化、`message.send` / `message.reply` 已接入主链路；更广动作族与多 adapter 仍未实现 |
@@ -46,7 +46,7 @@
 | `docs/engineering/implementation-order.md` | ✅ | 10 阶段实施顺序已定义 |
 | `contracts/README.md` | ✅ | formal contract 范围与当前 TODO 边界已收敛 |
 | Server / Web / Launcher 基线文件 | ✅ | `server/go.mod`、`web/package.json`、`launcher/package.json`、`launcher/pnpm-lock.yaml` 已锁定基线 |
-| `.deps/manifest.json` | ✅ | Chromium、Python 与 Node.js 资源的 version / source / SHA256 / platform 已固定；Python `3.12.13` 当前记录官方 source release，Node.js `24.14.0` 记录正式平台归档 |
+| `.deps/manifest.json` | ✅ | Chromium、Python 与 Node.js 资源的 version / source / SHA256 / archive_format / entrypoints / platform 已固定；Python `3.12.13` 当前记录 `python-build-standalone` 便携发行物来源，Node.js `24.14.0` 记录正式平台归档 |
 | CI skeleton | ✅ | `contracts.yml` 与 `lint.yml` 已落库，并实际校验 contracts、baseline、server smoke |
 
 ---
@@ -57,6 +57,7 @@
 
 - `backup-manifest.schema.json`
 - `config.user.schema.json`
+- `deps-manifest.schema.json`
 - `error-codes.yaml`
 - `web-api.openapi.yaml`
 - `websocket-events.yaml`
@@ -67,7 +68,7 @@
 
 说明：
 
-- 9 份 formal contract 均已进入 fixture-ready。
+- 10 份 formal contract 均已进入 fixture-ready。
 - 当前正式 contract 以 `contracts/` 为准；规划正文、README 与实现代码只作派生说明。
 
 ---
@@ -263,8 +264,8 @@
 | 最小 render artifact 输出 | ✅ | `render.image` 继续返回插件可消费的 `file:// image_path`，同时生成稳定 `artifact_id`、`mime` 与 `cache_key`，供管理面同源读取 |
 | 渲染队列与 Chromium 调度 | ✅ | bounded queue、并发 worker、排队超时、执行超时、Chromium 渲染与错误映射已落地 |
 | 模板校验 / 缓存 / 结果管理 | ✅ | `templates/` 已提供 `help.menu`、`status.panel`、input schema、模板版本、data hash cache key 与 artifact registry |
-| Chromium 与托管运行时资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / source / SHA256；doctor、Launcher 与 baseline 门禁已复用同一份清单校验运行时 metadata 完整性 |
-| 受控运行时资源接线 | ✅ | startup logs、`/readyz`、CLI `doctor`、Launcher preflight、release packaging 与 artifact route 已共享 Chromium / template 资源检查 |
+| Chromium 与托管运行时资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / source / SHA256 / archive_format / entrypoints；doctor、Launcher、`/readyz`、recovery finalization 与 baseline 门禁已复用同一份清单校验受控运行时 metadata 完整性 |
+| 受控运行时资源接线 | ✅ | 启动时、插件依赖安装、render 诊断、CLI `doctor`、Launcher preflight、release smoke、recovery drill 与长期自托管 smoke 已共享 `.deps/manifest.json` bootstrap 语义；受控运行时按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/` |
 
 ---
 
@@ -275,12 +276,12 @@
 | 工作流 / Job | 触发 | 覆盖 |
 |--------|------|------|
 | `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI fixtures 结构/覆盖校验、CLI contract 与 TaskType enum 交叉校验 |
-| `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` baseline 校验 |
+| `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` v2 baseline 校验 |
 | `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
 | `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
-| `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、`linux-x64-full` / `linux-x64-server` packaging smoke、跨版本 packaged recovery drill 与 metadata verify |
-| `lint.yml` / `ci-launcher` | push main / PR | Windows / Linux / macOS 上的 `pnpm test` 与 `pnpm build`；Windows / macOS full artifact 打包、smoke 与跨版本 packaged recovery drill |
-| `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、跨版本 packaged recovery drill、长期自托管 smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
+| `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、`linux-x64-full` / `linux-x64-server` packaging smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill（60 秒观察窗口）与 metadata verify |
+| `lint.yml` / `ci-launcher` | push main / PR | Windows / Linux / macOS 上的 `pnpm test` 与 `pnpm build`；Windows / macOS full artifact 打包、smoke、runtime bootstrap 前置条件校验与跨版本 packaged recovery drill（60 秒观察窗口） |
+| `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill（300 秒观察窗口）、长期自托管 smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
 | `self-host-smoke.yml` | workflow_dispatch | 复用正式打包路径，对选定 artifact 执行长期自托管 smoke 手动回归 |
 
 ### 规划对齐缺口
@@ -303,8 +304,8 @@
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
-- `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要校验已有门禁。
-- 当前主要风险集中在更长周期观测层面：基于共享 `recovery_summary` 的更长周期恢复观测与人工处理指引校验仍有扩展空间。
+- `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
+- 当前主要风险集中在更长周期的人工作业闭环层面：共享 `recovery_summary` 已覆盖 API、本地文件、diagnostics、Web 与 Launcher，后续仍可继续扩展更复杂的人工处理场景回归。
 
 ---
 
@@ -312,11 +313,11 @@
 
 ### 主工作包
 
-1. 以恢复摘要为基础补强更长周期的恢复观测。
-   现有 CLI、Web、Launcher 与 diagnostics 已共享 `recovery_summary`，下一轮可在此基础上补更长周期的回归观测与人工处理指引校验。
+1. 继续补强恢复人工处理闭环。
+   共享 `recovery_summary` 已覆盖 API、本地文件、diagnostics、Web、Launcher 与 packaged drill；下一轮重点是补更多人工处理场景、跳过插件组合与更长时间窗回归。
 
-2. 继续收口运行时 metadata 的消费一致性。
-   `.deps/manifest.json` 的来源与 SHA256 已固定；后续只允许在 doctor、Launcher、发布门禁与后续 bootstrap 准备链路中继续复用这份清单，不新增平行 metadata 面。
+2. 评估受控运行时根路径的显式配置面。
+   当前受控 Chromium、Python 与 Node.js 统一落在安装根目录 `.deps/store/`；下一轮重点是评估是否需要显式 runtime root 配置面，同时保持默认目录、release metadata 与 bootstrap 语义不分叉。
 
 ### 下一轮边界
 
@@ -328,7 +329,7 @@
 
 ### 下一轮验收口径
 
-- 长时间窗 smoke 必须继续复用默认构建命令、现有 artifact matrix 与现有 release metadata。
+- 长时间窗 smoke、packaged recovery drill 与 diagnostics 校验必须继续复用默认构建命令、现有 artifact matrix 与现有 release metadata。
 - 新增恢复观测必须继续复用共享 `recovery_summary`，不新增 Web / Launcher / CLI 各自独立状态口径。
-- 运行时 metadata 的后续消费不得反向扩张正式 contract 面或引入第二套发布语义。
+- 受控运行时目录策略的后续演进不得反向扩张正式 contract 面或引入第二套发布语义。
 
