@@ -127,7 +127,7 @@ describe('ConfigPage', () => {
     expect(saveSpy.mock.calls[0][0].server.host).toBe('0.0.0.0')
   })
 
-  it('uses a dual-pane config editor and keeps the OneBot address blank by default', async () => {
+  it('uses the refined config shell and keeps the OneBot address blank by default', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
 
@@ -141,9 +141,11 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
+    expect(wrapper.find('.config-page-wrapper').exists()).toBe(true)
     expect(wrapper.find('.config-layout').exists()).toBe(true)
-    expect(wrapper.find('.config-nav-viewport').exists()).toBe(true)
+    expect(wrapper.find('.nav-viewport-outer').exists()).toBe(true)
     expect(wrapper.find('.config-editor-panel').exists()).toBe(true)
+    expect(wrapper.find('.config-editor-shadow-box').exists()).toBe(true)
 
     const inputs = wrapper.findAll('input')
     const onebotInput = inputs.find((candidate) => candidate.element.value === '')

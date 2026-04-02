@@ -556,34 +556,61 @@ small {
   font-weight: 600;
 }
 
-.data-viewport__empty {
-  display: grid;
-  place-items: center;
-  flex: 1;
-  min-height: 280px;
-  color: var(--muted);
+/* Fluent UI Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+*:hover > ::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.data-viewport {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: visible; // Allow shadows to breathe
 }
 
 .data-viewport__scroller {
   flex: 1 1 auto;
   overflow: auto;
-  padding: 14px 18px 18px;
+  padding: 20px; // Increased padding for shadows
   min-height: 0;
+  
+  // Important: ensures the scroller itself doesn't clip the outer shadows
+  // though it must have overflow for scrolling. 
+  // We handle clipping by padding the content.
 }
 
 .data-viewport__canvas {
   position: relative;
   width: 100%;
+  overflow: visible;
 }
 
 .data-viewport__stack {
   position: absolute;
   inset: 0 0 auto 0;
+  overflow: visible;
 }
 
 .data-viewport__row {
   width: 100%;
-  padding: 8px 0;
+  padding: 10px 0;
+  overflow: visible;
 }
 
 .plugin-summary-row,
