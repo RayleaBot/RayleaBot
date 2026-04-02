@@ -186,7 +186,8 @@ func Finalize(summary CompatibilitySummary, input FinalizeInput) CompatibilitySu
 	summary.Phase = "post_startup"
 	summary.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	summary.RequiresPostStartChecks = false
-	summary.Issues = filterFinalizeIssues(summary.Issues)
+	summary.Status = "pending"
+	summary.Issues = nil
 	summary.ManualActions = nil
 	summary.NextSteps = nil
 	summary.SkippedPlugins = nil

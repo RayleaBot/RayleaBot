@@ -80,6 +80,7 @@ func (c *pluginLifecycleController) Enable(ctx context.Context, pluginID string)
 		}
 		go c.startPluginAsync(updated.PluginID, botID)
 	}
+	c.app.reconcileRecoverySummaryBestEffort("plugin.enable")
 
 	return updated, nil
 }
@@ -110,10 +111,12 @@ func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string)
 	botID := c.currentBotID()
 	if botID == "" {
 		go c.stopPluginAsync(pluginID, true)
+		c.app.reconcileRecoverySummaryBestEffort("plugin.reload")
 		return updated, nil
 	}
 
 	go c.reloadPluginAsync(pluginID, botID)
+	c.app.reconcileRecoverySummaryBestEffort("plugin.reload")
 	return updated, nil
 }
 
@@ -156,6 +159,7 @@ func (c *pluginLifecycleController) Disable(ctx context.Context, pluginID string
 			}
 		}
 	}
+	c.app.reconcileRecoverySummaryBestEffort("plugin.disable")
 
 	return updated, nil
 }
@@ -604,6 +608,7 @@ func (c *pluginLifecycleController) disablePluginForPermissionLoss(ctx context.C
 		c.logLifecycleWarn("set disabled desired_state after permission rejection", pluginID, err)
 	}
 	c.stopPlugin(ctx, pluginID, true)
+	c.app.reconcileRecoverySummaryBestEffort("plugin.permission_disable")
 }
 
 func (a *App) persistPluginDesiredState(ctx context.Context, pluginID, desiredState string) error {

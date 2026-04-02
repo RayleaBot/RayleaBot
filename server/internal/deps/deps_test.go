@@ -2,6 +2,7 @@ package deps
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -143,6 +144,107 @@ func TestPrepareDownloadsAndExtractsMissingResource(t *testing.T) {
 	}
 	if _, err := os.Stat(wantPath); err != nil {
 		t.Fatalf("managed node entrypoint should be prepared: %v", err)
+	}
+}
+
+func TestInspectReportsCachedArchiveAndPreparedStore(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 2,
+  "resources": [
+    {
+      "id": "chromium-test",
+      "kind": "chromium",
+      "version": "147.0.7727.24",
+      "platform": "` + CurrentPlatform() + `",
+      "source": "https://example.invalid/chromium.zip",
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "zip",
+      "entrypoints": {
+        "browser": ["chrome-win64/chrome.exe"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	cachePath := filepath.Join(CacheRoot(repoRoot), "chromium-test-147.0.7727.24.zip")
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
+		t.Fatalf("mkdir cache root: %v", err)
+	}
+	if err := os.WriteFile(cachePath, []byte("fixture-archive"), 0o644); err != nil {
+		t.Fatalf("write cached archive: %v", err)
+	}
+	writePreparedFile(t, filepath.Join(StoreRoot(repoRoot, &Resource{ID: "chromium-test", Version: "147.0.7727.24"}), "chrome-win64", "chrome.exe"))
+
+	manager := NewManager(repoRoot)
+	inspection, err := manager.Inspect("chromium")
+	if err != nil {
+		t.Fatalf("Inspect failed: %v", err)
+	}
+
+	if !inspection.MetadataComplete {
+		t.Fatalf("expected metadata complete inspection: %#v", inspection)
+	}
+	if !inspection.CachedArchivePresent {
+		t.Fatalf("expected cached archive to be detected: %#v", inspection)
+	}
+	if !inspection.PreparedStorePresent {
+		t.Fatalf("expected prepared store to be detected: %#v", inspection)
+	}
+}
+
+func TestPrepareWithReportClassifiesDownloadFailure(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 2,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "source": "https://example.invalid/node.tar.xz",
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	manager := NewManager(repoRoot)
+	manager.downloadFile = func(context.Context, string, string) error {
+		return errors.New("offline")
+	}
+
+	_, err := manager.PrepareWithReport(context.Background(), "nodejs-runtime")
+	if err == nil {
+		t.Fatal("PrepareWithReport should fail when download fails")
+	}
+
+	var bootstrapErr *BootstrapError
+	if !errors.As(err, &bootstrapErr) {
+		t.Fatalf("expected BootstrapError, got %T: %v", err, err)
+	}
+	if bootstrapErr.Kind != "nodejs-runtime" {
+		t.Fatalf("unexpected error kind: %#v", bootstrapErr)
+	}
+	if bootstrapErr.Stage != "download" {
+		t.Fatalf("unexpected error stage: %#v", bootstrapErr)
+	}
+	if bootstrapErr.ArchivePath == "" || bootstrapErr.StoreRoot == "" {
+		t.Fatalf("expected archive/store paths in BootstrapError: %#v", bootstrapErr)
+	}
+	if bootstrapErr.Remediation == "" {
+		t.Fatalf("expected remediation in BootstrapError: %#v", bootstrapErr)
 	}
 }
 

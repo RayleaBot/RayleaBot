@@ -387,6 +387,12 @@ func New(options Options) (*App, error) {
 	application.pluginLifecycle = newPluginLifecycleController(application)
 	application.refreshRecoverySummary()
 	pluginUninstallService.SetStopPlugin(application.pluginLifecycle.stopAndResetPlugin)
+	pluginInstallService.SetAfterSuccess(func(string) {
+		application.reconcileRecoverySummaryBestEffort("plugin.install")
+	})
+	pluginUninstallService.SetAfterSuccess(func(string) {
+		application.reconcileRecoverySummaryBestEffort("plugin.uninstall")
+	})
 	runtimeRegistry.SetOnCrash(application.pluginLifecycle.handleCrash)
 	adapterShell.SetEventHandler(application.handleAdapterEvent)
 	adapterShell.SetReadyHandler(application.handleAdapterReady)
@@ -416,6 +422,8 @@ func New(options Options) (*App, error) {
 		r.Get("/api/system/status", application.handleSystemStatus())
 		r.Post("/api/system/shutdown", application.handleSystemShutdown())
 		r.Post("/api/system/backup", application.handleSystemBackup())
+		r.Post("/api/system/recovery/recheck", application.handleSystemRecoveryRecheck())
+		r.Post("/api/system/runtime/bootstrap", application.handleSystemRuntimeBootstrap())
 		r.Get("/api/system/diagnostics/export", application.handleSystemDiagnosticsExport())
 		r.Post("/api/system/render/preview", application.handleSystemRenderPreview())
 		r.Get("/api/system/render/artifacts/{artifact_id}", application.handleSystemRenderArtifact())
@@ -934,18 +942,26 @@ func (a *App) currentReadiness() health.ReadinessReport {
 		}
 		report.Issues = append(report.Issues, recoveryIssuesToHealth(a.recoverySummary.Issues)...)
 	}
-	if a.renderer == nil {
-		return report
+	pluginsList := []plugins.Snapshot(nil)
+	if a.Plugins != nil {
+		pluginsList = a.Plugins.List()
 	}
-	renderIssues := recoveryIssuesToHealth(a.platformDiagnostics())
-	if len(renderIssues) == 0 {
-		return report
+
+	renderIssues := recoveryIssuesToHealth(a.renderDiagnostics())
+	if len(renderIssues) > 0 {
+		report.Checks["render"] = "resource_missing"
+		report.Issues = append(report.Issues, renderIssues...)
 	}
-	report.Checks["render"] = "resource_missing"
-	report.Issues = append(report.Issues, renderIssues...)
-	if report.Status == "ready" {
+
+	runtimeIssues := recoveryIssuesToHealth(a.managedRuntimeDiagnostics(pluginsList))
+	if len(runtimeIssues) > 0 {
+		report.Checks["runtime"] = "resource_missing"
+		report.Issues = append(report.Issues, runtimeIssues...)
+	}
+
+	if report.Status == "ready" && (len(renderIssues) > 0 || len(runtimeIssues) > 0) {
 		report.Status = "degraded"
-		report.Reason = "Render resources are incomplete"
+		report.Reason = "Platform resources require attention"
 		report.ReasonCodes = []string{"platform.resource_missing"}
 	}
 	return report

@@ -125,6 +125,7 @@ type Service struct {
 	templatesRoot string
 	outputRoot    string
 	browserPath   string
+	browserArgs   []string
 	runner        Runner
 	workerSem     chan struct{}
 	workerCount   int
@@ -200,6 +201,7 @@ func NewService(options Options) (*Service, error) {
 		templatesRoot:      templatesRoot,
 		outputRoot:         outputRoot,
 		browserPath:        browserPath,
+		browserArgs:        append([]string(nil), options.BrowserArgs...),
 		runner:             runner,
 		workerSem:          make(chan struct{}, workerCount),
 		workerCount:        workerCount,
@@ -220,6 +222,24 @@ func NewService(options Options) (*Service, error) {
 
 func (s *Service) Close() error {
 	return nil
+}
+
+func (s *Service) RefreshBrowserPath(browserPath string) {
+	if s == nil {
+		return
+	}
+
+	trimmed := strings.TrimSpace(browserPath)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.browserPath = trimmed
+	if _, ok := s.runner.(*chromiumRunner); ok {
+		s.runner = NewChromiumRunner(ChromiumOptions{
+			BrowserPath: trimmed,
+			BrowserArgs: append([]string(nil), s.browserArgs...),
+		})
+	}
 }
 
 func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
@@ -432,45 +452,57 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		}
 	}
 
-	manifest, err := deps.LoadManifest(s.repoRoot)
-	if err != nil {
-		issues = append(issues, health.DiagnosticIssue{
-			Code:        "platform.resource_missing",
-			Severity:    "warning",
-			Summary:     "Chromium 资源清单缺失",
-			Remediation: "请恢复 .deps/manifest.json 并包含当前平台的 Chromium 资源声明。",
-		})
+	if strings.TrimSpace(s.browserPath) != "" {
 		return issues
 	}
 
-	currentPlatform := deps.CurrentPlatform()
-	resource := manifest.FindResource(currentPlatform, "chromium")
-	if resource == nil {
+	inspection, err := deps.NewManager(s.repoRoot).Inspect("chromium")
+	if err != nil {
+		var bootstrapErr *deps.BootstrapError
+		if errors.As(err, &bootstrapErr) {
+			issues = append(issues, health.DiagnosticIssue{
+				Code:        "platform.resource_missing",
+				Severity:    "warning",
+				Summary:     bootstrapErr.Message,
+				Remediation: bootstrapErr.Remediation,
+			})
+			return issues
+		}
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     fmt.Sprintf("当前平台 %s 缺少 Chromium 资源声明", currentPlatform),
-			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源元数据。",
+			Summary:     "Chromium 资源清单不可用。",
+			Remediation: "请恢复 .deps/manifest.json，或在配置中显式设置 render.browser_path。",
 		})
 		return issues
 	}
-	if !deps.ResourceMetadataComplete(resource) {
+	if !inspection.MetadataComplete {
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     fmt.Sprintf("当前平台 %s 的 Chromium 资源元数据不完整", currentPlatform),
-			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源的 archive_format、entrypoints、source 与 sha256。",
+			Summary:     deps.BootstrapSummary("chromium", inspection),
+			Remediation: "请恢复当前平台 Chromium 资源的 archive_format、entrypoints、source 与 sha256，或在配置中显式设置 render.browser_path。",
 		})
 		return issues
 	}
-	if _, err := deps.NewManager(s.repoRoot).ResolvePreparedEntrypoint("chromium", "browser"); err != nil && strings.TrimSpace(s.browserPath) == "" {
+	if inspection.PreparedStorePresent {
+		return issues
+	}
+	if inspection.CachedArchivePresent {
 		issues = append(issues, health.DiagnosticIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     "Chromium 资源尚未准备完成",
-			Remediation: "请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。",
+			Summary:     "Chromium 资源归档已缓存，仍需展开运行时。",
+			Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),
 		})
+		return issues
 	}
+	issues = append(issues, health.DiagnosticIssue{
+		Code:        "platform.resource_missing",
+		Severity:    "warning",
+		Summary:     "Chromium 资源尚未准备完成。",
+		Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),
+	})
 	return issues
 }
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"rayleabot/server/internal/deps"
 	"rayleabot/server/internal/recovery"
 	"rayleabot/server/internal/storage"
 )
@@ -205,24 +207,36 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		}
 		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "python-runtime", "Python 运行时", "deps.python_runtime_metadata", "deps.python_runtime_metadata_incomplete"))
 		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "nodejs-runtime", "Node.js 运行时", "deps.nodejs_runtime_metadata", "deps.nodejs_runtime_metadata_incomplete"))
-		issues = append(issues, DoctorIssue{
-			Code:        "runtime.python_managed_ready",
-			Severity:    managedRuntimeSeverity(manifest, currentPlatform, "python-runtime"),
-			Summary:     managedRuntimeSummary(manifest, currentPlatform, "python-runtime", "受控 Python 运行时可按需准备。", "受控 Python 运行时当前不可准备。"),
-			Remediation: managedRuntimeRemediation(manifest, currentPlatform, "python-runtime", "请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 archive_format、entrypoints、source 与 sha256。"),
-		})
-		issues = append(issues, DoctorIssue{
-			Code:        "runtime.node_managed_ready",
-			Severity:    managedRuntimeSeverity(manifest, currentPlatform, "nodejs-runtime"),
-			Summary:     managedRuntimeSummary(manifest, currentPlatform, "nodejs-runtime", "受控 Node.js 运行时可按需准备。", "受控 Node.js 运行时当前不可准备。"),
-			Remediation: managedRuntimeRemediation(manifest, currentPlatform, "nodejs-runtime", "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。"),
-		})
-		issues = append(issues, DoctorIssue{
-			Code:        "runtime.npm_managed_ready",
-			Severity:    managedRuntimeSeverity(manifest, currentPlatform, "nodejs-runtime"),
-			Summary:     managedRuntimeSummary(manifest, currentPlatform, "nodejs-runtime", "受控 npm 可按需准备。", "受控 npm 当前不可准备。"),
-			Remediation: managedRuntimeRemediation(manifest, currentPlatform, "nodejs-runtime", "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。"),
-		})
+		issues = append(issues, managedRuntimeDoctorIssue(
+			repoRoot,
+			"python-runtime",
+			"runtime.python_managed_ready",
+			"受控 Python 运行时已准备完成。",
+			"受控 Python 运行时归档已缓存，可离线准备。",
+			"受控 Python 运行时可按需准备。",
+			"受控 Python 运行时当前不可准备。",
+			"请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 archive_format、entrypoints、source 与 sha256。",
+		))
+		issues = append(issues, managedRuntimeDoctorIssue(
+			repoRoot,
+			"nodejs-runtime",
+			"runtime.node_managed_ready",
+			"受控 Node.js 运行时已准备完成。",
+			"受控 Node.js 运行时归档已缓存，可离线准备。",
+			"受控 Node.js 运行时可按需准备。",
+			"受控 Node.js 运行时当前不可准备。",
+			"请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
+		))
+		issues = append(issues, managedRuntimeDoctorIssue(
+			repoRoot,
+			"nodejs-runtime",
+			"runtime.npm_managed_ready",
+			"受控 npm 已准备完成。",
+			"受控 npm 归档已缓存，可离线准备。",
+			"受控 npm 可按需准备。",
+			"受控 npm 当前不可准备。",
+			"请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
+		))
 	}
 
 	report := DoctorReport{Issues: issues}
@@ -355,23 +369,48 @@ func runtimeMetadataIssue(
 	}
 }
 
-func managedRuntimeSeverity(manifest *depsManifest, platform string, kind string) string {
-	if manifestResourceMetadataComplete(manifest.findResource(platform, kind)) {
-		return "ok"
+func managedRuntimeDoctorIssue(
+	repoRoot string,
+	kind string,
+	code string,
+	readySummary string,
+	cachedSummary string,
+	onDemandSummary string,
+	warningSummary string,
+	metadataRemediation string,
+) DoctorIssue {
+	inspection, err := deps.NewManager(repoRoot).Inspect(kind)
+	if err != nil {
+		var bootstrapErr *deps.BootstrapError
+		if errors.As(err, &bootstrapErr) {
+			return DoctorIssue{
+				Code:        code,
+				Severity:    "warning",
+				Summary:     warningSummary,
+				Remediation: bootstrapErr.Remediation,
+			}
+		}
+		return DoctorIssue{
+			Code:        code,
+			Severity:    "warning",
+			Summary:     warningSummary,
+			Remediation: metadataRemediation,
+		}
 	}
-	return "warning"
-}
-
-func managedRuntimeSummary(manifest *depsManifest, platform string, kind string, okSummary string, warningSummary string) string {
-	if manifestResourceMetadataComplete(manifest.findResource(platform, kind)) {
-		return okSummary
+	if !inspection.MetadataComplete {
+		return DoctorIssue{
+			Code:        code,
+			Severity:    "warning",
+			Summary:     warningSummary,
+			Remediation: metadataRemediation,
+		}
 	}
-	return warningSummary
-}
-
-func managedRuntimeRemediation(manifest *depsManifest, platform string, kind string, remediation string) string {
-	if manifestResourceMetadataComplete(manifest.findResource(platform, kind)) {
-		return ""
+	switch {
+	case inspection.PreparedStorePresent:
+		return DoctorIssue{Code: code, Severity: "ok", Summary: readySummary}
+	case inspection.CachedArchivePresent:
+		return DoctorIssue{Code: code, Severity: "ok", Summary: cachedSummary}
+	default:
+		return DoctorIssue{Code: code, Severity: "ok", Summary: onDemandSummary}
 	}
-	return remediation
 }

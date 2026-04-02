@@ -24,9 +24,11 @@ var allowedTaskTypes = map[string]struct{}{
 	"plugin.uninstall": {},
 	"plugin.reload":    {},
 	"backup.create":    {},
+	"recovery.recheck": {},
 	"restore.apply":    {},
 	"config.migrate":   {},
 	"db.migrate":       {},
+	"runtime.bootstrap": {},
 	"render.preview":   {},
 }
 

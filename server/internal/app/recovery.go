@@ -1,10 +1,14 @@
 package app
 
 import (
+	"errors"
+	"os"
+	"strings"
 	"time"
 
 	"rayleabot/server/internal/deps"
 	"rayleabot/server/internal/health"
+	"rayleabot/server/internal/plugins"
 	"rayleabot/server/internal/recovery"
 )
 
@@ -15,30 +19,16 @@ func (a *App) refreshRecoverySummary() {
 
 	summary, err := recovery.LoadSummary(a.repoRoot)
 	if err != nil || summary == nil {
-		a.recoverySummary = summary
+		a.applyRecoverySummary(summary)
 		return
 	}
 	if summary.RequiresPostStartChecks {
-		finalized := recovery.Finalize(*summary, recovery.FinalizeInput{
-			Plugins:          a.Plugins.List(),
-			DesiredStateRepo: a.pluginRepository,
-			Readiness: recovery.RuntimeReadiness{
-				RuntimeReady:  len(a.platformDiagnostics()) == 0,
-				RuntimeIssues: a.platformDiagnostics(),
-			},
-		})
-		if err := recovery.SaveSummary(a.repoRoot, finalized); err == nil {
-			summary = &finalized
+		reconciled, reconcileErr := a.reconcileRecoverySummary()
+		if reconcileErr == nil && reconciled != nil {
+			summary = reconciled
 		}
 	}
-	if summary != nil {
-		for _, skipped := range summary.SkippedPlugins {
-			if snapshot, ok := a.Plugins.Get(skipped.PluginID); ok && snapshot.DesiredState != "disabled" {
-				_, _ = a.Plugins.SetDesiredState(skipped.PluginID, "disabled")
-			}
-		}
-	}
-	a.recoverySummary = summary
+	a.applyRecoverySummary(summary)
 }
 
 func (a *App) renderDiagnostics() []recovery.CompatibilityIssue {
@@ -61,65 +51,62 @@ func (a *App) renderDiagnostics() []recovery.CompatibilityIssue {
 	return items
 }
 
-func (a *App) managedRuntimeDiagnostics() []recovery.CompatibilityIssue {
+func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
 	if a == nil || a.repoRoot == "" {
 		return nil
 	}
-	manifest, err := deps.LoadManifest(a.repoRoot)
-	if err != nil {
-		return []recovery.CompatibilityIssue{{
-			Code:        "deps.manifest_missing",
-			Severity:    "warning",
-			Summary:     "受控运行时清单缺失或无效。",
-			Remediation: "请恢复有效的 .deps/manifest.json。",
-		}}
+	requiredKinds := requiredManagedRuntimeKinds(pluginsList)
+	if len(requiredKinds) == 0 {
+		return nil
 	}
-	currentPlatform := deps.CurrentPlatform()
-	if !manifest.HasPlatform(currentPlatform) {
-		return []recovery.CompatibilityIssue{{
-			Code:        "deps.manifest_platform_missing",
-			Severity:    "warning",
-			Summary:     "受控运行时清单缺少当前平台资源。",
-			Remediation: "请恢复当前平台的 .deps 资源清单。",
-		}}
-	}
-
 	issues := []recovery.CompatibilityIssue{}
-	for _, item := range []struct {
-		kind        string
-		code        string
-		summary     string
-		remediation string
-	}{
-		{
-			kind:        "python-runtime",
-			code:        "deps.python_runtime_metadata_incomplete",
-			summary:     "受控 Python 运行时元数据不完整。",
-			remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 archive_format、entrypoints、source 与 sha256。",
-		},
-		{
-			kind:        "nodejs-runtime",
-			code:        "deps.nodejs_runtime_metadata_incomplete",
-			summary:     "受控 Node.js 运行时元数据不完整。",
-			remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
-		},
-	} {
-		if deps.ResourceMetadataComplete(manifest.FindResource(currentPlatform, item.kind)) {
+	manager := deps.NewManager(a.repoRoot)
+	for _, kind := range requiredKinds {
+		inspection, err := manager.Inspect(kind)
+		if err != nil {
+			var bootstrapErr *deps.BootstrapError
+			if errors.As(err, &bootstrapErr) && (errors.Is(bootstrapErr.Err, os.ErrNotExist) || !strings.Contains(strings.ToLower(bootstrapErr.Err.Error()), "does not include")) {
+				issues = append(issues, recovery.CompatibilityIssue{
+					Code:        "deps.manifest_missing",
+					Severity:    "warning",
+					Summary:     "受控运行时清单缺失或无效。",
+					Remediation: "请恢复有效的 .deps/manifest.json。",
+				})
+				continue
+			}
+			issues = append(issues, recovery.CompatibilityIssue{
+				Code:        "deps.manifest_platform_missing",
+				Severity:    "warning",
+				Summary:     "受控运行时清单缺少当前平台资源。",
+				Remediation: "请恢复当前平台的 .deps 资源清单。",
+			})
 			continue
 		}
+		if !inspection.MetadataComplete {
+			issues = append(issues, runtimeMetadataIssue(kind))
+			continue
+		}
+		if inspection.PreparedStorePresent {
+			continue
+		}
+		label := deps.ManagedResourceLabel(kind)
+		summary := label + "尚未准备完成。"
+		if inspection.CachedArchivePresent {
+			summary = label + "归档已缓存，仍需展开运行时。"
+		}
 		issues = append(issues, recovery.CompatibilityIssue{
-			Code:        item.code,
+			Code:        "platform.resource_missing",
 			Severity:    "warning",
-			Summary:     item.summary,
-			Remediation: item.remediation,
+			Summary:     summary,
+			Remediation: deps.BootstrapRemediation(kind, inspection.ArchivePath, inspection.StoreRoot),
 		})
 	}
 	return issues
 }
 
-func (a *App) platformDiagnostics() []recovery.CompatibilityIssue {
+func (a *App) platformDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
 	items := a.renderDiagnostics()
-	items = append(items, a.managedRuntimeDiagnostics()...)
+	items = append(items, a.managedRuntimeDiagnostics(pluginsList)...)
 	if len(items) == 0 {
 		return nil
 	}
@@ -137,6 +124,70 @@ func (a *App) recoverySummarySnapshot() *recovery.CompatibilitySummary {
 	return &summary
 }
 
+func (a *App) recoveryFinalizeInput() recovery.FinalizeInput {
+	pluginsList := []plugins.Snapshot(nil)
+	if a != nil && a.Plugins != nil {
+		pluginsList = a.Plugins.List()
+	}
+	issues := a.platformDiagnostics(pluginsList)
+	return recovery.FinalizeInput{
+		Plugins:          pluginsList,
+		DesiredStateRepo: a.pluginRepository,
+		Readiness: recovery.RuntimeReadiness{
+			RuntimeReady:  len(issues) == 0,
+			RuntimeIssues: issues,
+		},
+	}
+}
+
+func (a *App) reconcileRecoverySummary() (*recovery.CompatibilitySummary, error) {
+	if a == nil || a.repoRoot == "" {
+		return nil, nil
+	}
+	summary, err := recovery.LoadSummary(a.repoRoot)
+	if err != nil || summary == nil {
+		return summary, err
+	}
+	if !summary.RequiresPostStartChecks && summary.Phase != "post_startup" {
+		return nil, nil
+	}
+
+	reconciled := recovery.Finalize(*summary, a.recoveryFinalizeInput())
+	if err := recovery.SaveSummary(a.repoRoot, reconciled); err != nil {
+		return nil, err
+	}
+	a.applyRecoverySummary(&reconciled)
+	return &reconciled, nil
+}
+
+func (a *App) reconcileRecoverySummaryBestEffort(trigger string) {
+	if a == nil {
+		return
+	}
+	if _, err := a.reconcileRecoverySummary(); err != nil && a.Logger != nil {
+		a.Logger.Warn(
+			"failed to reconcile recovery summary",
+			"component", "app",
+			"trigger", strings.TrimSpace(trigger),
+			"err", err.Error(),
+		)
+	}
+}
+
+func (a *App) applyRecoverySummary(summary *recovery.CompatibilitySummary) {
+	if a == nil {
+		return
+	}
+	if summary != nil && a.Plugins != nil {
+		for _, skipped := range summary.SkippedPlugins {
+			if snapshot, ok := a.Plugins.Get(skipped.PluginID); ok && snapshot.DesiredState != "disabled" {
+				_, _ = a.Plugins.SetDesiredState(skipped.PluginID, "disabled")
+			}
+		}
+	}
+	a.recoverySummary = summary
+}
+
 func recoveryIssuesToHealth(issues []recovery.CompatibilityIssue) []health.DiagnosticIssue {
 	if len(issues) == 0 {
 		return nil
@@ -151,4 +202,62 @@ func recoveryIssuesToHealth(issues []recovery.CompatibilityIssue) []health.Diagn
 		})
 	}
 	return items
+}
+
+func runtimeMetadataIssue(kind string) recovery.CompatibilityIssue {
+	switch kind {
+	case "python-runtime":
+		return recovery.CompatibilityIssue{
+			Code:        "deps.python_runtime_metadata_incomplete",
+			Severity:    "warning",
+			Summary:     "受控 Python 运行时元数据不完整。",
+			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 archive_format、entrypoints、source 与 sha256。",
+		}
+	case "nodejs-runtime":
+		return recovery.CompatibilityIssue{
+			Code:        "deps.nodejs_runtime_metadata_incomplete",
+			Severity:    "warning",
+			Summary:     "受控 Node.js 运行时元数据不完整。",
+			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
+		}
+	default:
+		return recovery.CompatibilityIssue{
+			Code:        "platform.resource_missing",
+			Severity:    "warning",
+			Summary:     "受控运行时元数据不完整。",
+			Remediation: "请补齐当前平台受控运行时的 archive_format、entrypoints、source 与 sha256。",
+		}
+	}
+}
+
+func requiredManagedRuntimeKinds(pluginsList []plugins.Snapshot) []string {
+	kinds := make([]string, 0, 2)
+	for _, snapshot := range pluginsList {
+		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
+			continue
+		}
+		switch strings.TrimSpace(snapshot.Runtime) {
+		case "python":
+			kinds = appendRuntimeKind(kinds, "python-runtime")
+		case "nodejs":
+			kinds = appendRuntimeKind(kinds, "nodejs-runtime")
+		}
+	}
+	return kinds
+}
+
+func appendRuntimeKind(items []string, kind string) []string {
+	if kind == "" || containsRuntimeKind(items, kind) {
+		return items
+	}
+	return append(items, kind)
+}
+
+func containsRuntimeKind(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }
