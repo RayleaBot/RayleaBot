@@ -216,6 +216,7 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 			SourceDBSchemaVersion:     rawSummary["source_db_schema_version"].(string),
 			TargetDBSchemaVersion:     rawSummary["target_db_schema_version"].(string),
 			ManualActions:             toStringSlice(rawSummary["manual_actions"].([]any)),
+			NextSteps:                 toStringSlice(rawSummary["next_steps"].([]any)),
 		}
 		if rawIssues, ok := rawSummary["issues"].([]any); ok {
 			for _, raw := range rawIssues {

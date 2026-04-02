@@ -1145,10 +1145,12 @@ components:
             $ref: '#/components/schemas/RecoveryCompatibilitySkippedPlugin'
         manual_actions:
           type: array
+          description: Post-startup degraded summaries keep stable operator actions here; compatible summaries omit this field.
           items:
             type: string
         next_steps:
           type: array
+          description: Post-startup degraded summaries keep stable follow-up steps here; compatible summaries omit this field.
           items:
             type: string
 

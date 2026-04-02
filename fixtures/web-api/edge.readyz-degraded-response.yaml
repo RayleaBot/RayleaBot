@@ -47,5 +47,8 @@ response:
           manual_action: 升级程序或重新安装兼容版本插件。
       manual_actions:
         - 处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。
+      next_steps:
+        - 查看恢复摘要中的跳过插件列表并完成兼容性处理。
+        - 通过管理面、Launcher 或 diagnostics 复核 recovery_summary。
 expect:
   valid: true
