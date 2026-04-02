@@ -623,6 +623,39 @@ body {
   line-height: 1.45;
 }
 
+.panel-guidance-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.panel-guidance-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.panel-guidance-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.panel-guidance-list__title {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.panel-guidance-list__text {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 /* ── Status list (核心参数) ── */
 
 .status-list {

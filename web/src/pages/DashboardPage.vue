@@ -439,11 +439,29 @@ async function submitRenderPreview() {
           </div>
 
           <div v-if="recoverySummary.manual_actions?.length" style="margin-top: 12px;">
-            <small style="color: var(--muted);">处理建议：{{ recoverySummary.manual_actions.join('；') }}</small>
+            <small style="color: var(--muted); display: block; margin-bottom: 6px;">处理建议</small>
+            <ul style="margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
+              <li
+                v-for="action in recoverySummary.manual_actions"
+                :key="action"
+                data-testid="recovery-manual-action"
+              >
+                {{ action }}
+              </li>
+            </ul>
           </div>
 
           <div v-if="recoverySummary.next_steps?.length" style="margin-top: 12px;">
-            <small style="color: var(--muted);">下一步：{{ recoverySummary.next_steps.join('；') }}</small>
+            <small style="color: var(--muted); display: block; margin-bottom: 6px;">下一步</small>
+            <ul style="margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
+              <li
+                v-for="step in recoverySummary.next_steps"
+                :key="step"
+                data-testid="recovery-next-step"
+              >
+                {{ step }}
+              </li>
+            </ul>
           </div>
         </div>
       </el-card>

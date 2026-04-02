@@ -352,19 +352,44 @@ export function AppShell({
                   </Text>
                 ) : null}
                 {snapshot.recoverySummary?.skipped_plugins?.length ? (
-                  <Text size={100} className="panel-muted">
-                    跳过插件：{snapshot.recoverySummary.skipped_plugins.map((plugin) => plugin.plugin_id).join("、")}
-                  </Text>
+                  <div className="panel-guidance-block">
+                    <Text size={100} className="panel-muted">跳过插件</Text>
+                    <ul className="panel-guidance-list">
+                      {snapshot.recoverySummary.skipped_plugins.map((plugin) => (
+                        <li key={plugin.plugin_id} className="panel-guidance-list__item">
+                          <span className="panel-guidance-list__title">{plugin.plugin_id}</span>
+                          <span className="panel-guidance-list__text">{plugin.summary}</span>
+                          {plugin.manual_action ? (
+                            <span className="panel-guidance-list__text">{plugin.manual_action}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
                 {snapshot.recoverySummary?.manual_actions?.length ? (
-                  <Text size={100} className="panel-muted">
-                    处理建议：{snapshot.recoverySummary.manual_actions.join("；")}
-                  </Text>
+                  <div className="panel-guidance-block">
+                    <Text size={100} className="panel-muted">处理建议</Text>
+                    <ul className="panel-guidance-list">
+                      {snapshot.recoverySummary.manual_actions.map((action) => (
+                        <li key={action} className="panel-guidance-list__item">
+                          <span className="panel-guidance-list__text">{action}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
                 {snapshot.recoverySummary?.next_steps?.length ? (
-                  <Text size={100} className="panel-muted">
-                    下一步：{snapshot.recoverySummary.next_steps.join("；")}
-                  </Text>
+                  <div className="panel-guidance-block">
+                    <Text size={100} className="panel-muted">下一步</Text>
+                    <ul className="panel-guidance-list">
+                      {snapshot.recoverySummary.next_steps.map((step) => (
+                        <li key={step} className="panel-guidance-list__item">
+                          <span className="panel-guidance-list__text">{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
               </div>
             </article>

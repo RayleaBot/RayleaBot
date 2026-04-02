@@ -245,7 +245,7 @@ describe('DashboardPage', () => {
           },
         ],
         manual_actions: ['处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。'],
-        next_steps: ['查看恢复摘要中的跳过插件列表并完成兼容性处理。'],
+        next_steps: ['查看恢复摘要中的跳过插件列表并完成兼容性处理。', '通过管理面、Launcher 或 diagnostics 复核 recovery_summary。'],
       },
     }
 
@@ -264,5 +264,8 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('weather-pro')
     expect(wrapper.text()).toContain('处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。')
     expect(wrapper.text()).toContain('查看恢复摘要中的跳过插件列表并完成兼容性处理。')
+    expect(wrapper.text()).toContain('通过管理面、Launcher 或 diagnostics 复核 recovery_summary。')
+    expect(wrapper.findAll('[data-testid="recovery-manual-action"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="recovery-next-step"]')).toHaveLength(2)
   })
 })
