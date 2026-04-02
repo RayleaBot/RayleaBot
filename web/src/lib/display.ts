@@ -79,3 +79,27 @@ export function getBooleanLabel(value?: boolean) {
 
   return value ? '是' : '否'
 }
+
+export type StatusType = 'success' | 'warning' | 'danger' | 'muted'
+
+const STATUS_TYPE_MAP: Record<string, StatusType> = {
+  ok: 'success',
+  ready: 'success',
+  running: 'success',
+  connected: 'success',
+  degraded: 'warning',
+  connecting: 'warning',
+  reconnecting: 'warning',
+  failed: 'danger',
+  setup_required: 'danger',
+  shutting_down: 'danger',
+  disconnected: 'danger',
+  auth_failed: 'danger',
+}
+
+export function getStatusType(status?: string): StatusType {
+  if (!status) {
+    return 'muted'
+  }
+  return STATUS_TYPE_MAP[status] ?? 'muted'
+}

@@ -12,6 +12,35 @@ export function formatDateTime(value?: string) {
   }).format(new Date(value))
 }
 
+export function formatRelativeTime(value?: string): string {
+  if (!value) {
+    return t('display.empty')
+  }
+
+  const date = new Date(value)
+  if (isNaN(date.getTime())) {
+    return value
+  }
+
+  const now = Date.now()
+  const diffMs = now - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+
+  if (diffSec < 60) {
+    return `${diffSec} 秒前`
+  }
+  if (diffMin < 60) {
+    return `${diffMin} 分钟前`
+  }
+  if (diffHour < 24) {
+    return `${diffHour} 小时前`
+  }
+  return `${diffDay} 天前`
+}
+
 export function formatDurationSeconds(seconds?: number) {
   if (!seconds && seconds !== 0) {
     return t('display.empty')

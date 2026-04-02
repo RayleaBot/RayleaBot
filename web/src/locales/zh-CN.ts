@@ -54,6 +54,13 @@ export const zhCN = {
     backupAccepted: '备份任务已提交',
     diagnosticsAccepted: '诊断包导出已开始',
     previewAccepted: '渲染预览任务已提交',
+    lastRefreshed: '上次刷新',
+    autoRefresh: '自动刷新',
+    reasonCodes: '原因代码',
+    expandIssues: '展开剩余 {count} 项',
+    collapseIssues: '收起',
+    alertFailed: '系统异常',
+    alertDegraded: '性能降级',
   },
   plugins: {
     title: '插件',

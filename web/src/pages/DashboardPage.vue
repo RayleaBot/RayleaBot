@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -9,15 +9,20 @@ import {
   getAdapterStateLabel,
   getReadinessStatusLabel,
   getSystemStatusLabel,
+  getStatusType,
+  type StatusType,
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { formatDurationSeconds } from '@/lib/format'
+import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
 import { t } from '@/i18n'
 import { useSystemStore } from '@/stores/system'
+
+const AUTO_REFRESH_INTERVAL = 10
 
 const router = useRouter()
 const systemStore = useSystemStore()
 const { backupPending, diagnosticsPending, error, health, loading, previewPending, readiness, recentEvents, system } = storeToRefs(systemStore)
+
 const previewVisible = ref(false)
 const previewForm = reactive({
   template: 'help.menu',
@@ -36,16 +41,141 @@ const previewForm = reactive({
   }, null, 2),
 })
 
+const autoRefresh = ref(false)
+const lastRefreshed = ref<string | null>(null)
+const countdown = ref(AUTO_REFRESH_INTERVAL)
+const issuesExpanded = ref(false)
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+const healthStatusType = computed<StatusType>(() => getStatusType(health.value?.status))
+const readinessStatusType = computed<StatusType>(() => getStatusType(readiness.value?.status))
+const systemStatusType = computed<StatusType>(() => getStatusType(system.value?.status))
+const adapterStatusType = computed<StatusType>(() => getStatusType(system.value?.adapter_state))
+
+const topIssue = computed(() => {
+  if (!readiness.value?.issues?.length) return null
+  return readiness.value.issues.find(i => i.severity === 'error') ?? readiness.value.issues[0]
+})
+
+const alertBannerType = computed<'warning' | 'error' | null>(() => {
+  if (readiness.value?.status === 'failed') return 'error'
+  if (readiness.value?.status === 'degraded') return 'warning'
+  return null
+})
+
+const alertBannerMessage = computed(() => {
+  if (!readiness.value) return ''
+  if (readiness.value.reason) return readiness.value.reason
+  if (topIssue.value) return topIssue.value.summary
+  return ''
+})
+
+const statusBadgeConfig = computed(() => {
+  const status = readiness.value?.status
+  const type = readinessStatusType.value
+  const iconMap: Record<StatusType, string> = {
+    success: '\u2714',
+    warning: '\u26A0',
+    danger: '\u2717',
+    muted: '\u2014',
+  }
+  const labelMap: Record<string, string> = {
+    ready: '系统正常',
+    degraded: '性能降级',
+    failed: '系统异常',
+    setup_required: '需要配置',
+  }
+  return {
+    type,
+    icon: iconMap[type],
+    label: status ? (labelMap[status] ?? getReadinessStatusLabel(status)) : t('display.empty'),
+  }
+})
+
+const checkItems = computed(() => {
+  const checks = readiness.value?.checks ?? {}
+  const items: Array<{ key: string; value: string; status: StatusType }> = []
+  for (const [key, value] of Object.entries(checks)) {
+    if (value && (value === 'ok' || value === 'passed' || value === 'ready')) {
+      items.push({ key, value, status: 'success' })
+    } else if (value && (value === 'error' || value === 'failed' || value === 'unavailable')) {
+      items.push({ key, value, status: 'danger' })
+    } else {
+      items.push({ key, value, status: value ? 'warning' : 'muted' })
+    }
+  }
+  return items
+})
+
+function getCheckIcon(status: StatusType): string {
+  const map: Record<StatusType, string> = {
+    success: '\u2705',
+    warning: '\u26A0',
+    danger: '\u274C',
+    muted: '\u2014',
+  }
+  return map[status]
+}
+
+function getEventSeverityClass(severity?: string): string {
+  if (severity === 'error' || severity === 'danger') return 'event-item--danger'
+  if (severity === 'warning') return 'event-item--warning'
+  if (severity === 'success') return 'event-item--success'
+  return ''
+}
+
 async function refreshState() {
   try {
     await systemStore.refresh()
+    lastRefreshed.value = new Date().toISOString()
+    countdown.value = AUTO_REFRESH_INTERVAL
   } catch {
     // store error state drives the page
   }
 }
 
+function startAutoRefresh() {
+  stopAutoRefresh()
+  autoRefresh.value = true
+  countdown.value = AUTO_REFRESH_INTERVAL
+
+  countdownTimer = setInterval(() => {
+    countdown.value = Math.max(0, countdown.value - 1)
+  }, 1000)
+
+  autoRefreshTimer = setInterval(() => {
+    void refreshState()
+  }, AUTO_REFRESH_INTERVAL * 1000)
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer !== null) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+  if (countdownTimer !== null) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+  autoRefresh.value = false
+}
+
+function toggleAutoRefresh(val: boolean) {
+  if (val) {
+    void refreshState()
+    startAutoRefresh()
+  } else {
+    stopAutoRefresh()
+  }
+}
+
 onMounted(() => {
   void refreshState()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 
 async function createBackup() {
@@ -101,6 +231,27 @@ async function submitRenderPreview() {
     <section class="hero-panel">
       <div>
         <h1>{{ t('dashboard.title') }}</h1>
+        <div class="hero-meta">
+          <div :class="['status-badge', `status-badge--${statusBadgeConfig.type}`]">
+            <span class="status-badge__icon">{{ statusBadgeConfig.icon }}</span>
+            <span>{{ statusBadgeConfig.label }}</span>
+          </div>
+          <div v-if="lastRefreshed" class="hero-meta__time">
+            {{ t('dashboard.lastRefreshed') }}: {{ formatRelativeTime(lastRefreshed) }}
+            <template v-if="autoRefresh"> · {{ countdown }}s</template>
+          </div>
+          <div v-if="autoRefresh" class="auto-refresh-bar">
+            <div class="auto-refresh-bar__fill" :style="{ width: `${(countdown / AUTO_REFRESH_INTERVAL) * 100}%` }" />
+          </div>
+          <div class="hero-auto-refresh">
+            <span>{{ t('dashboard.autoRefresh') }}</span>
+            <el-switch
+              :model-value="autoRefresh"
+              size="small"
+              @change="toggleAutoRefresh"
+            />
+          </div>
+        </div>
       </div>
 
       <div class="table-actions">
@@ -109,6 +260,15 @@ async function submitRenderPreview() {
         </el-button>
       </div>
     </section>
+
+    <el-alert
+      v-if="alertBannerType"
+      :type="alertBannerType"
+      :title="alertBannerType === 'error' ? t('dashboard.alertFailed') : t('dashboard.alertDegraded')"
+      :description="alertBannerMessage"
+      show-icon
+      :closable="false"
+    />
 
     <RetryPanel
       v-if="error && !system"
@@ -121,22 +281,22 @@ async function submitRenderPreview() {
     <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
     <div class="stats-grid">
-      <el-card class="stat-card">
+      <el-card :class="['stat-card', `stat-card--${healthStatusType}`]">
         <span class="stat-label">{{ t('dashboard.health') }}</span>
         <strong>{{ health?.status === 'ok' ? '正常' : t('display.empty') }}</strong>
         <small>{{ health?.status ?? t('display.empty') }}</small>
       </el-card>
-      <el-card class="stat-card">
+      <el-card :class="['stat-card', `stat-card--${readinessStatusType}`]">
         <span class="stat-label">{{ t('dashboard.readiness') }}</span>
         <strong>{{ getReadinessStatusLabel(readiness?.status) }}</strong>
         <small>{{ readiness?.status ?? t('display.empty') }}</small>
       </el-card>
-      <el-card class="stat-card">
+      <el-card :class="['stat-card', `stat-card--${systemStatusType}`]">
         <span class="stat-label">{{ t('dashboard.service') }}</span>
         <strong>{{ getSystemStatusLabel(system?.status) }}</strong>
         <small>{{ system?.status ?? t('display.empty') }}</small>
       </el-card>
-      <el-card class="stat-card">
+      <el-card :class="['stat-card', `stat-card--${adapterStatusType}`]">
         <span class="stat-label">{{ t('dashboard.adapter') }}</span>
         <strong>{{ getAdapterStateLabel(system?.adapter_state) }}</strong>
         <small>{{ system?.adapter_state ?? t('display.empty') }}</small>
@@ -159,28 +319,48 @@ async function submitRenderPreview() {
           </div>
         </template>
 
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="原因">
-            {{ readiness?.reason ?? t('display.empty') }}
-          </el-descriptions-item>
-          <el-descriptions-item label="原因代码">
-            {{ readiness?.reason_codes?.join(', ') || t('display.empty') }}
-          </el-descriptions-item>
-          <el-descriptions-item label="检查项" v-if="!readiness?.issues?.length">
-            <div class="mono-list">
-              <div v-for="(value, key) in readiness?.checks" :key="key">
-                {{ key }} = {{ value }}
-              </div>
+        <div v-if="checkItems.length" class="readiness-checks">
+          <div
+            v-for="item in checkItems"
+            :key="item.key"
+            :class="['readiness-check', `readiness-check--${item.status}`]"
+          >
+            <div class="readiness-check__header">
+              <span class="readiness-check__icon">{{ getCheckIcon(item.status) }}</span>
+              <span class="readiness-check__name">{{ item.key }}</span>
             </div>
-          </el-descriptions-item>
-        </el-descriptions>
-
-        <div v-if="readiness?.issues?.length" class="issues-list">
-          <div v-for="issue in readiness.issues" :key="issue.code" class="issue-item">
-            <el-tag :type="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'" size="small">{{ issue.code }}</el-tag>
-            <span class="issue-summary">{{ issue.summary }}</span>
-            <span v-if="issue.remediation" class="issue-remediation">{{ issue.remediation }}</span>
+            <div class="readiness-check__value">{{ item.value }}</div>
           </div>
+        </div>
+
+        <el-empty v-else :description="t('display.empty')" />
+
+        <div v-if="readiness?.reason_codes?.length" style="margin-top: 14px;">
+          <small style="color: var(--muted);">{{ t('dashboard.reasonCodes') }}: {{ readiness.reason_codes.join(', ') }}</small>
+        </div>
+
+        <div v-if="readiness?.issues?.length" class="issues-list" :class="{ 'issues-list--collapsed': !issuesExpanded && readiness.issues.length > 3 }">
+          <div
+            v-for="issue in readiness.issues"
+            :key="issue.code"
+            :class="['issue-alert-card', { 'issue-alert-card--warning': issue.severity === 'warning' }]"
+          >
+            <div class="issue-alert-card__header">
+              <el-tag :type="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'" size="small">
+                {{ issue.code }}
+              </el-tag>
+              <span class="issue-alert-card__summary">{{ issue.summary }}</span>
+            </div>
+            <div v-if="issue.remediation" class="issue-alert-card__remediation">
+              {{ issue.remediation }}
+            </div>
+          </div>
+        </div>
+
+        <div v-if="readiness?.issues && readiness.issues.length > 3" class="issues-toggle">
+          <el-button size="small" text @click="issuesExpanded = !issuesExpanded">
+            {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readiness.issues.length - 3 }) }}
+          </el-button>
         </div>
       </el-card>
 
@@ -193,10 +373,17 @@ async function submitRenderPreview() {
 
         <el-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
-        <div v-else class="event-feed">
-          <div v-for="event in recentEvents" :key="`${event.timestamp}-${event.summary}`" class="event-item">
+        <div v-else class="events-section">
+          <div
+            v-for="event in recentEvents"
+            :key="`${event.timestamp}-${event.summary}`"
+            :class="['event-item', getEventSeverityClass(event.severity)]"
+          >
             <strong>{{ event.summary }}</strong>
-            <span>{{ event.timestamp }}</span>
+            <span
+              class="event-item__time"
+              :data-absolute="event.timestamp"
+            >{{ formatRelativeTime(event.timestamp) }}</span>
           </div>
         </div>
       </el-card>
