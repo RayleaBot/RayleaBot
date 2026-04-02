@@ -346,9 +346,26 @@ export function AppShell({
                     ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation} · ${snapshot.recoverySummary.phase}`
                     : "当前没有恢复摘要。"}
                 </Text>
-                {snapshot.recoverySummary?.manual_actions?.[0] && (
-                  <Text size={100} className="panel-muted">{snapshot.recoverySummary.manual_actions[0]}</Text>
-                )}
+                {snapshot.recoverySummary?.issues?.length ? (
+                  <Text size={100} className="panel-muted">
+                    {snapshot.recoverySummary.issues.map((issue) => issue.summary).join("；")}
+                  </Text>
+                ) : null}
+                {snapshot.recoverySummary?.skipped_plugins?.length ? (
+                  <Text size={100} className="panel-muted">
+                    跳过插件：{snapshot.recoverySummary.skipped_plugins.map((plugin) => plugin.plugin_id).join("、")}
+                  </Text>
+                ) : null}
+                {snapshot.recoverySummary?.manual_actions?.length ? (
+                  <Text size={100} className="panel-muted">
+                    处理建议：{snapshot.recoverySummary.manual_actions.join("；")}
+                  </Text>
+                ) : null}
+                {snapshot.recoverySummary?.next_steps?.length ? (
+                  <Text size={100} className="panel-muted">
+                    下一步：{snapshot.recoverySummary.next_steps.join("；")}
+                  </Text>
+                ) : null}
               </div>
             </article>
 

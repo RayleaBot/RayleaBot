@@ -51,7 +51,23 @@ const snapshot: LauncherSnapshot = {
     operation: "upgrade",
     created_at: "2026-04-02T08:00:00Z",
     updated_at: "2026-04-02T08:01:00Z",
+    issues: [
+      {
+        code: "recovery.plugin_min_core_version",
+        severity: "warning",
+        summary: "插件 weather-pro 需要更高版本的 RayleaBot core。",
+        remediation: "升级程序或重新安装兼容插件。",
+      },
+    ],
+    skipped_plugins: [
+      {
+        plugin_id: "weather-pro",
+        reason_code: "plugin.min_core_version",
+        summary: "插件最低 core 版本要求不满足。",
+      },
+    ],
     manual_actions: ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],
+    next_steps: ["查看管理面中的恢复摘要并处理跳过插件。"],
   },
 };
 
@@ -99,5 +115,7 @@ describe("AppShell", () => {
     expect(screen.getByText("服务尚未启动。")).toBeInTheDocument();
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
     expect(screen.getByText(/恢复兼容性/)).toBeInTheDocument();
+    expect(screen.getByText(/跳过插件：weather-pro/)).toBeInTheDocument();
+    expect(screen.getByText(/下一步：查看管理面中的恢复摘要并处理跳过插件。/)).toBeInTheDocument();
   });
 });

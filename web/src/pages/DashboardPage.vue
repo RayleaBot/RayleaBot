@@ -424,6 +424,10 @@ async function submitRenderPreview() {
           <div v-if="recoverySummary.manual_actions?.length" style="margin-top: 12px;">
             <small style="color: var(--muted);">处理建议：{{ recoverySummary.manual_actions.join('；') }}</small>
           </div>
+
+          <div v-if="recoverySummary.next_steps?.length" style="margin-top: 12px;">
+            <small style="color: var(--muted);">下一步：{{ recoverySummary.next_steps.join('；') }}</small>
+          </div>
         </div>
       </el-card>
 
