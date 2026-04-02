@@ -80,6 +80,40 @@ class SelfHostSmokeTests(unittest.TestCase):
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.extract_backup_archive_path(task_body)
 
+    def test_extract_task_id_requires_task_identifier(self) -> None:
+        self.assertEqual(
+            "task_runtime_bootstrap_0001",
+            self_host_smoke.extract_task_id({"task_id": "task_runtime_bootstrap_0001"}, "system/runtime/bootstrap"),
+        )
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.extract_task_id({}, "system/runtime/bootstrap")
+
+    def test_extract_runtime_bootstrap_results_reads_resource_details(self) -> None:
+        task_body = {
+            "task": {
+                "task_id": "task_runtime_bootstrap_0001",
+                "task_type": "runtime.bootstrap",
+                "status": "succeeded",
+                "result": {
+                    "summary": "runtime bootstrap completed",
+                    "details": {
+                        "resources": [
+                            {
+                                "kind": "python-runtime",
+                                "used_cached_archive": True,
+                                "store_root": "/tmp/python",
+                            }
+                        ]
+                    },
+                },
+            }
+        }
+
+        resources = self_host_smoke.extract_runtime_bootstrap_results(task_body)
+
+        self.assertEqual("python-runtime", resources[0]["kind"])
+        self.assertTrue(resources[0]["used_cached_archive"])
+
     def test_recovery_summary_accepts_absent_compatible_and_degraded(self) -> None:
         self_host_smoke.assert_recovery_summary_acceptable(None)
         self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible", "manual_actions": [], "next_steps": [], "skipped_plugins": []})

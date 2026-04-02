@@ -493,6 +493,10 @@ def canonical_summary(summary: dict[str, object]) -> dict[str, object]:
     }
 
 
+def remove_incompatible_plugin(root: Path) -> None:
+    shutil.rmtree(root / "plugins" / "installed" / INCOMPATIBLE_PLUGIN_ID, ignore_errors=True)
+
+
 def extract_diagnostics_recovery_summary(payload: bytes) -> dict[str, object]:
     with zipfile.ZipFile(io.BytesIO(payload)) as zf:
         try:
@@ -632,6 +636,73 @@ def run_server_observation(
             stop_process(restarted)
 
 
+def run_recovery_recheck_after_fix(
+    root: Path,
+    server_bin: Path,
+    port: int,
+    *,
+    expected_operation: str | set[str],
+    observation_window_seconds: int,
+) -> None:
+    process = subprocess.Popen(
+        [*server_base_command(server_bin)],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        base_url = f"http://127.0.0.1:{port}/"
+        self_host_smoke.wait_for_management_state(
+            root,
+            process,
+            base_url,
+            allowed_ready_statuses=self_host_smoke.MANAGED_READY_STATUSES,
+        )
+        session_token = self_host_smoke.login(base_url)
+        task_id = self_host_smoke.create_recovery_recheck_task(base_url, session_token)
+        task_detail = self_host_smoke.poll_task(
+            base_url,
+            session_token,
+            task_id,
+            expected_task_type="recovery.recheck",
+        )
+        details = self_host_smoke.extract_task_details(task_detail, "recovery.recheck")
+        task_summary = details.get("recovery_summary")
+        if not isinstance(task_summary, dict):
+            raise DrillError(f"recovery recheck task missing recovery_summary detail: {task_detail}")
+        assert_recovery_summary(
+            task_summary,
+            expected_operation=expected_operation,
+            expected_phase="post_startup",
+            expected_statuses={"compatible"},
+            requires_post_start_checks=False,
+            require_guidance=False,
+        )
+        assert_recovery_summary(
+            read_recovery_summary(root),
+            expected_operation=expected_operation,
+            expected_phase="post_startup",
+            expected_statuses={"compatible"},
+            requires_post_start_checks=False,
+            require_guidance=False,
+        )
+        observe_recovery_window(
+            root,
+            process,
+            port,
+            expected_operation=expected_operation,
+            expected_statuses={"compatible"},
+            require_skipped_plugin=False,
+            require_guidance=False,
+            observation_window_seconds=max(30, observation_window_seconds // 2),
+            allow_bootstrap=False,
+        )
+    finally:
+        if process.poll() is None:
+            stop_process(process)
+
+
 def run_recovery_drill(artifact_id: str, archive_path: Path, *, observation_window_seconds: int) -> None:
     with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-") as tmp:
         temp_root = Path(tmp)
@@ -682,6 +753,15 @@ def run_recovery_drill(artifact_id: str, archive_path: Path, *, observation_wind
                 require_skipped_plugin=include_incompatible,
                 require_guidance=require_guidance,
             )
+            if include_incompatible:
+                remove_incompatible_plugin(release_root)
+                run_recovery_recheck_after_fix(
+                    release_root,
+                    server_bin,
+                    extract_configured_port(config_path),
+                    expected_operation="restore",
+                    observation_window_seconds=observation_window_seconds,
+                )
             run_doctor(release_root, server_bin)
 
 
@@ -751,6 +831,15 @@ def run_cross_version_recovery_drill(
                 require_skipped_plugin=include_incompatible,
                 require_guidance=require_guidance,
             )
+            if include_incompatible:
+                remove_incompatible_plugin(current_root)
+                run_recovery_recheck_after_fix(
+                    current_root,
+                    current_server,
+                    extract_configured_port(current_root / "config" / "user.yaml"),
+                    expected_operation="upgrade",
+                    observation_window_seconds=observation_window_seconds,
+                )
             run_doctor(current_root, current_server)
 
             # Rollback-style flow: restore the pre-upgrade backup with the older packaged build.
@@ -788,6 +877,15 @@ def run_cross_version_recovery_drill(
                 require_skipped_plugin=include_incompatible,
                 require_guidance=require_guidance,
             )
+            if include_incompatible:
+                remove_incompatible_plugin(rollback_root)
+                run_recovery_recheck_after_fix(
+                    rollback_root,
+                    rollback_server,
+                    extract_configured_port(rollback_root / "config" / "user.yaml"),
+                    expected_operation={"restore", "rollback"},
+                    observation_window_seconds=observation_window_seconds,
+                )
             run_doctor(rollback_root, rollback_server)
 
 

@@ -3,6 +3,7 @@ import sys
 import tarfile
 import time
 import unittest
+import json
 import urllib.error
 import zipfile
 from tempfile import TemporaryDirectory
@@ -163,6 +164,71 @@ class RecoveryDrillTests(unittest.TestCase):
                 requires_post_start_checks=False,
                 require_guidance=False,
             )
+
+    def test_run_recovery_recheck_after_fix_requests_recheck_and_accepts_compatible_summary(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "logs" / "recovery-summary.json"
+            summary_path.parent.mkdir(parents=True, exist_ok=True)
+            summary_path.write_text(
+                json.dumps(
+                    {
+                        "status": "compatible",
+                        "phase": "post_startup",
+                        "operation": "restore",
+                        "issues": [],
+                        "skipped_plugins": [],
+                        "manual_actions": [],
+                        "next_steps": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            process = mock.Mock()
+            process.poll.return_value = None
+
+            with (
+                mock.patch("recovery_drill.subprocess.Popen", return_value=process),
+                mock.patch("recovery_drill.self_host_smoke.wait_for_management_state"),
+                mock.patch("recovery_drill.self_host_smoke.login", return_value="session-token"),
+                mock.patch("recovery_drill.self_host_smoke.create_recovery_recheck_task", return_value="task_recovery_recheck_0001"),
+                mock.patch(
+                    "recovery_drill.self_host_smoke.poll_task",
+                    return_value={
+                        "task": {
+                            "task_id": "task_recovery_recheck_0001",
+                            "task_type": "recovery.recheck",
+                            "status": "succeeded",
+                            "result": {
+                                "summary": "rechecked",
+                                "details": {
+                                    "recovery_summary": {
+                                        "status": "compatible",
+                                        "phase": "post_startup",
+                                        "operation": "restore",
+                                        "issues": [],
+                                        "skipped_plugins": [],
+                                        "manual_actions": [],
+                                        "next_steps": [],
+                                        "requires_post_start_checks": False,
+                                    }
+                                },
+                            },
+                        }
+                    },
+                ),
+                mock.patch("recovery_drill.observe_recovery_window") as observe_mock,
+                mock.patch("recovery_drill.stop_process"),
+            ):
+                recovery_drill.run_recovery_recheck_after_fix(
+                    root,
+                    Path("raylea-server"),
+                    8080,
+                    expected_operation="restore",
+                    observation_window_seconds=60,
+                )
+
+        observe_mock.assert_called_once()
 
 
 if __name__ == "__main__":

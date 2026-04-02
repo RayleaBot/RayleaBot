@@ -5,6 +5,7 @@ import argparse
 import contextlib
 import io
 import json
+import shutil
 import subprocess
 import tempfile
 import time
@@ -15,13 +16,17 @@ from pathlib import Path
 
 from package_runtime import (
     REQUIRED_PATHS,
+    artifact_platform,
     choose_free_port,
     ensure_required_paths,
     ensure_runtime_bootstrap,
+    find_platform_resource,
+    load_deps_manifest,
     read_process_output,
     relative_executable,
     server_base_command,
     stop_process,
+    store_root,
     unpack_archive,
     write_user_config,
 )
@@ -80,6 +85,63 @@ def extract_backup_archive_path(task_body: dict[str, object]) -> str:
     if not isinstance(archive_path, str) or not archive_path.strip():
         raise SmokeError(f"backup task missing archive_path detail: {task}")
     return archive_path
+
+
+def extract_task_id(payload: dict[str, object], endpoint: str) -> str:
+    task_id = payload.get("task_id")
+    if not isinstance(task_id, str) or not task_id:
+        raise SmokeError(f"{endpoint} did not return task_id: {payload}")
+    return task_id
+
+
+def extract_task_details(task_body: dict[str, object], expected_task_type: str) -> dict[str, object]:
+    task = task_body.get("task")
+    if not isinstance(task, dict):
+        raise SmokeError(f"task detail missing task payload: {task_body}")
+    if str(task.get("task_type", "")) != expected_task_type:
+        raise SmokeError(f"unexpected task type for {expected_task_type}: {task}")
+    result = task.get("result")
+    if not isinstance(result, dict):
+        raise SmokeError(f"task missing result summary: {task}")
+    details = result.get("details")
+    if not isinstance(details, dict):
+        raise SmokeError(f"task missing result details: {task}")
+    return details
+
+
+def extract_runtime_bootstrap_results(task_body: dict[str, object]) -> list[dict[str, object]]:
+    details = extract_task_details(task_body, "runtime.bootstrap")
+    resources = details.get("resources")
+    if not isinstance(resources, list):
+        raise SmokeError(f"runtime bootstrap task missing resources detail: {task_body}")
+    results: list[dict[str, object]] = []
+    for item in resources:
+        if not isinstance(item, dict):
+            raise SmokeError(f"runtime bootstrap task returned invalid resource detail: {task_body}")
+        results.append(item)
+    return results
+
+
+def create_runtime_bootstrap_task(base_url: str, session_token: str, resources: list[str] | None = None) -> str:
+    body = {"resources": resources} if resources is not None else None
+    accepted = request_json(
+        f"{base_url}api/system/runtime/bootstrap",
+        method="POST",
+        body=body,
+        headers=bearer_headers(session_token),
+        expected_status=202,
+    )
+    return extract_task_id(accepted, "system/runtime/bootstrap")
+
+
+def create_recovery_recheck_task(base_url: str, session_token: str) -> str:
+    accepted = request_json(
+        f"{base_url}api/system/recovery/recheck",
+        method="POST",
+        headers=bearer_headers(session_token),
+        expected_status=202,
+    )
+    return extract_task_id(accepted, "system/recovery/recheck")
 
 
 def assert_recovery_summary_acceptable(summary: dict[str, object] | None) -> None:
@@ -249,7 +311,14 @@ def run_diagnostics_export(base_url: str, session_token: str) -> None:
     validate_diagnostics_archive(payload)
 
 
-def poll_backup_task(base_url: str, session_token: str, task_id: str, *, timeout_seconds: int = 120) -> dict[str, object]:
+def poll_task(
+    base_url: str,
+    session_token: str,
+    task_id: str,
+    *,
+    expected_task_type: str,
+    timeout_seconds: int = 120,
+) -> dict[str, object]:
     deadline = time.time() + timeout_seconds
     seen_in_list = False
     while time.time() < deadline:
@@ -262,6 +331,8 @@ def poll_backup_task(base_url: str, session_token: str, task_id: str, *, timeout
         task = task_detail.get("task")
         if not isinstance(task, dict):
             raise SmokeError(f"task detail missing task payload: {task_detail}")
+        if str(task.get("task_type", "")) != expected_task_type:
+            raise SmokeError(f"unexpected task type for {expected_task_type}: {task}")
         status = str(task.get("status", ""))
         if status == "succeeded":
             if not seen_in_list:
@@ -270,7 +341,17 @@ def poll_backup_task(base_url: str, session_token: str, task_id: str, *, timeout
         if status in {"failed", "cancelled", "interrupted"}:
             raise SmokeError(f"backup task {task_id} ended in blocking state: {task_detail}")
         time.sleep(1)
-    raise SmokeError(f"timed out waiting for backup task {task_id}")
+    raise SmokeError(f"timed out waiting for task {task_id}")
+
+
+def poll_backup_task(base_url: str, session_token: str, task_id: str, *, timeout_seconds: int = 120) -> dict[str, object]:
+    return poll_task(
+        base_url,
+        session_token,
+        task_id,
+        expected_task_type="backup.create",
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def graceful_shutdown(base_url: str, session_token: str, process: subprocess.Popen[str]) -> None:
@@ -307,6 +388,44 @@ def run_backup_cycle(root: Path, base_url: str, session_token: str) -> None:
             raise SmokeError(f"backup task archive_path is not resolvable from package root: {archive_path}")
 
 
+def remove_prepared_runtime_stores(root: Path, artifact_id: str, resources: list[str]) -> None:
+    manifest = load_deps_manifest(root)
+    platform = artifact_platform(artifact_id)
+    for kind in resources:
+        resource = find_platform_resource(manifest, platform, kind)
+        shutil.rmtree(store_root(root, resource), ignore_errors=True)
+
+
+def run_runtime_bootstrap_cycle(root: Path, artifact_id: str, base_url: str, session_token: str) -> None:
+    resources = ["python-runtime", "nodejs-runtime"]
+    remove_prepared_runtime_stores(root, artifact_id, resources)
+    task_id = create_runtime_bootstrap_task(base_url, session_token, resources)
+    task_detail = poll_task(
+        base_url,
+        session_token,
+        task_id,
+        expected_task_type="runtime.bootstrap",
+    )
+    bootstrap_results = extract_runtime_bootstrap_results(task_detail)
+    by_kind = {
+        str(item.get("kind", "")): item
+        for item in bootstrap_results
+        if isinstance(item, dict) and isinstance(item.get("kind"), str)
+    }
+    for kind in resources:
+        result = by_kind.get(kind)
+        if result is None:
+            raise SmokeError(f"runtime bootstrap task missing {kind} result: {task_detail}")
+        if result.get("used_cached_archive") is not True:
+            raise SmokeError(f"runtime bootstrap task did not report cached archive hit for {kind}: {task_detail}")
+        archive_path = result.get("archive_path")
+        store_root_path = result.get("store_root")
+        if not isinstance(archive_path, str) or not Path(archive_path).exists():
+            raise SmokeError(f"runtime bootstrap task returned missing archive_path for {kind}: {task_detail}")
+        if not isinstance(store_root_path, str) or not Path(store_root_path).exists():
+            raise SmokeError(f"runtime bootstrap task returned missing store_root for {kind}: {task_detail}")
+
+
 def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seconds: int, probe_interval_seconds: int) -> None:
     with tempfile.TemporaryDirectory(prefix="rayleabot-self-host-") as tmp:
         temp_root = Path(tmp)
@@ -327,6 +446,7 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
             wait_for_management_state(release_root, process, base_url, allowed_ready_statuses=STARTUP_READY_STATUSES)
             bootstrap_admin(base_url)
             session_token = login(base_url)
+            run_runtime_bootstrap_cycle(release_root, artifact_id, base_url, session_token)
 
             previous_uptime: int | None = None
             stalled_polls = 0
