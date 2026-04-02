@@ -1,8 +1,13 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   detectWindowsLongPathsStatus,
   inspectLauncherEnvironment,
+  inspectEnvironmentFromNode,
 } from "@main/services/environment";
+import type { LauncherResolvedSettings } from "@shared/launcher-models";
 
 describe("inspectLauncherEnvironment", () => {
   test("reports bootstrap_available when user config is missing but default template exists", async () => {
@@ -208,5 +213,78 @@ describe("inspectLauncherEnvironment", () => {
     }));
 
     expect(status).toBe("disabled");
+  });
+
+  test("inspects deps and templates from the config-root runtime directory instead of workdir", async () => {
+    const installRoot = await fs.mkdtemp(path.join(os.tmpdir(), "rayleabot-install-"));
+    const workdir = await fs.mkdtemp(path.join(os.tmpdir(), "rayleabot-workdir-"));
+    const configDir = path.join(installRoot, "config");
+    const serverExecutablePath = path.join(installRoot, process.platform === "win32" ? "raylea-server.exe" : "raylea-server");
+    await fs.mkdir(configDir, { recursive: true });
+    await fs.mkdir(path.join(installRoot, ".deps"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "templates", "help.menu"), { recursive: true });
+    await fs.writeFile(serverExecutablePath, "", "utf8");
+    await fs.writeFile(path.join(configDir, "user.yaml"), "server:\n  host: 127.0.0.1\n  port: 8080\n", "utf8");
+    await fs.writeFile(path.join(configDir, "default.yaml"), "server:\n  host: 127.0.0.1\n  port: 8080\n", "utf8");
+    await fs.writeFile(path.join(installRoot, "templates", "help.menu", "template.json"), "{}", "utf8");
+
+    const arch = os.arch() === "amd64" ? "x64" : os.arch();
+    const platform = process.platform === "win32" ? `windows-${arch}` : process.platform === "darwin" ? `macos-${arch}` : `${process.platform}-${arch}`;
+    await fs.writeFile(
+      path.join(installRoot, ".deps", "manifest.json"),
+      JSON.stringify({
+        manifest_version: 2,
+        resources: [
+          {
+            id: `chromium-${platform}`,
+            platform,
+            kind: "chromium",
+            version: "147.0.7727.24",
+            source: "https://example.invalid/chromium.zip",
+            sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+            archive_format: "zip",
+            entrypoints: { browser: ["chrome/chrome"] },
+          },
+          {
+            id: `python-${platform}`,
+            platform,
+            kind: "python-runtime",
+            version: "3.12.13",
+            source: "https://example.invalid/python.tar.gz",
+            sha256: "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+            archive_format: "tar.gz",
+            entrypoints: { python: ["python/bin/python"], pip: ["python/bin/pip"] },
+          },
+          {
+            id: `node-${platform}`,
+            platform,
+            kind: "nodejs-runtime",
+            version: "24.14.0",
+            source: "https://example.invalid/node.zip",
+            sha256: "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+            archive_format: "zip",
+            entrypoints: { node: ["node/bin/node"], npm: ["node/bin/npm"] },
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const settings: LauncherResolvedSettings = {
+      installationRoot: installRoot,
+      serverExecutablePath,
+      configPath: path.join(configDir, "user.yaml"),
+      workdir,
+    };
+
+    try {
+      const inspection = await inspectEnvironmentFromNode(settings);
+
+      expect(inspection.checks.some((item) => item.code === "deps.manifest" && item.severity === "ok")).toBe(true);
+      expect(inspection.checks.some((item) => item.code === "render.templates" && item.severity === "ok")).toBe(true);
+    } finally {
+      await fs.rm(installRoot, { recursive: true, force: true });
+      await fs.rm(workdir, { recursive: true, force: true });
+    }
   });
 });

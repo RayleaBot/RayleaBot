@@ -668,8 +668,7 @@ func resolveRuntimeRoot(configPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve runtime root from %s: %w", configPath, err)
 	}
-
-	return filepath.Dir(filepath.Dir(absoluteConfigPath)), nil
+	return recovery.RepoRootFromConfigPath(absoluteConfigPath), nil
 }
 
 func resolveLegacyDatabasePath(configPath, databasePath string) (string, error) {

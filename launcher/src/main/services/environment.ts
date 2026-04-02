@@ -50,6 +50,11 @@ function normalizeHostPlatform(): string {
   }
 }
 
+function resolveRuntimeRootFromConfigPath(configPath: string) {
+  const absoluteConfigPath = path.resolve(configPath);
+  return path.dirname(path.dirname(absoluteConfigPath));
+}
+
 function parseDepsManifest(probe: EnvironmentProbeInput): { invalid: boolean; resources: DepsManifestResource[] } {
   if (!probe.depsManifestText) {
     return { invalid: false, resources: [] };
@@ -457,8 +462,9 @@ async function isWorkdirWritable(targetPath: string) {
 
 export async function inspectEnvironmentFromNode(settings: LauncherResolvedSettings): Promise<EnvironmentInspection> {
   const workdir = settings.workdir;
-  const depsManifestPath = path.join(workdir, ".deps", "manifest.json");
-  const templatesPath = path.join(workdir, "templates");
+  const runtimeRoot = resolveRuntimeRootFromConfigPath(settings.configPath);
+  const depsManifestPath = path.join(runtimeRoot, ".deps", "manifest.json");
+  const templatesPath = path.join(runtimeRoot, "templates");
   const defaultConfigPath = path.join(path.dirname(settings.configPath), "default.yaml");
 
   let depsManifestText: string | undefined;
