@@ -15,11 +15,11 @@ import (
 )
 
 type Command struct {
-	Name        string
-	ConfigPath  string
-	SchemaPath  string
-	Logger      *slog.Logger
-	Args        []string // additional positional arguments after the subcommand name
+	Name       string
+	ConfigPath string
+	SchemaPath string
+	Logger     *slog.Logger
+	Args       []string // additional positional arguments after the subcommand name
 }
 
 func Run(cmd Command) int {
@@ -171,6 +171,43 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		})
 	}
 
+	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	currentPlatform := currentManifestPlatform()
+	if manifest, err := loadDepsManifest(repoRoot); err != nil {
+		if os.IsNotExist(err) {
+			issues = append(issues, DoctorIssue{
+				Code:        "deps.manifest_missing",
+				Severity:    "warning",
+				Summary:     "依赖清单缺失。",
+				Remediation: "请恢复 .deps/manifest.json。",
+			})
+		} else {
+			issues = append(issues, DoctorIssue{
+				Code:        "deps.manifest_invalid",
+				Severity:    "warning",
+				Summary:     "依赖清单格式无效。",
+				Remediation: "请重新生成 .deps/manifest.json。",
+			})
+		}
+	} else {
+		if manifest.hasPlatform(currentPlatform) {
+			issues = append(issues, DoctorIssue{
+				Code:     "deps.manifest",
+				Severity: "ok",
+				Summary:  "依赖清单已包含当前平台资源。",
+			})
+		} else {
+			issues = append(issues, DoctorIssue{
+				Code:        "deps.manifest_platform_missing",
+				Severity:    "warning",
+				Summary:     "依赖清单缺少当前平台资源。",
+				Remediation: "请为当前平台重新生成或恢复 .deps/manifest.json。",
+			})
+		}
+		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "python-runtime", "Python 运行时", "deps.python_runtime_metadata", "deps.python_runtime_metadata_incomplete"))
+		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "nodejs-runtime", "Node.js 运行时", "deps.nodejs_runtime_metadata", "deps.nodejs_runtime_metadata_incomplete"))
+	}
+
 	// Check Python availability.
 	if !executableAvailable("python3", "python") {
 		issues = append(issues, DoctorIssue{
@@ -224,7 +261,6 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 	}
 
 	report := DoctorReport{Issues: issues}
-	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
 	summary, err := recovery.LoadSummary(repoRoot)
 	if err == nil && summary != nil {
 		report.RecoverySummary = summary
@@ -353,4 +389,28 @@ func checkExecutable(logger *slog.Logger, issues *int, names ...string) {
 
 func isWindows() bool {
 	return os.PathSeparator == '\\'
+}
+
+func runtimeMetadataIssue(
+	manifest *depsManifest,
+	platform string,
+	kind string,
+	label string,
+	okCode string,
+	incompleteCode string,
+) DoctorIssue {
+	resource := manifest.findResource(platform, kind)
+	if manifestResourceMetadataComplete(resource) {
+		return DoctorIssue{
+			Code:     okCode,
+			Severity: "ok",
+			Summary:  label + "元数据完整。",
+		}
+	}
+	return DoctorIssue{
+		Code:        incompleteCode,
+		Severity:    "warning",
+		Summary:     label + "元数据不完整。",
+		Remediation: "请在 .deps/manifest.json 中补齐当前平台 " + label + " 的 source 与 sha256。",
+	}
 }

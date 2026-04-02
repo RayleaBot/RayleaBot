@@ -392,6 +392,75 @@ func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	}
 }
 
+func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	schemaPath := filepath.Join(repoRoot, "contracts", "config.user.schema.json")
+	manifestPath := filepath.Join(repoRoot, ".deps", "manifest.json")
+
+	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeFile(t, schemaPath, "{}\n")
+	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, manifestPath, `{
+  "manifest_version": 1,
+  "resources": [
+    {
+      "id": "chromium-windows-x64",
+      "kind": "chromium",
+      "version": "147.0.7727.24",
+      "platform": "windows-x64",
+      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+      "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e"
+    },
+    {
+      "id": "python-windows-x64",
+      "kind": "python-runtime",
+      "version": "3.12.13",
+      "platform": "windows-x64",
+      "source": "TODO(v0.1-phase0)",
+      "sha256": "TODO(v0.1-phase0)"
+    },
+    {
+      "id": "nodejs-windows-x64",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "windows-x64",
+      "source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+      "sha256": "deadbeef"
+    }
+  ]
+}
+`)
+
+	report := BuildDoctorReport(Command{
+		ConfigPath: configPath,
+		SchemaPath: schemaPath,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	foundPython := false
+	foundNode := false
+	for _, issue := range report.Issues {
+		switch issue.Code {
+		case "deps.python_runtime_metadata_incomplete":
+			foundPython = true
+		case "deps.nodejs_runtime_metadata_incomplete":
+			foundNode = true
+		}
+	}
+
+	if !foundPython {
+		t.Fatalf("doctor report should flag incomplete Python runtime metadata, got %#v", report.Issues)
+	}
+	if !foundNode {
+		t.Fatalf("doctor report should flag incomplete Node.js runtime metadata, got %#v", report.Issues)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

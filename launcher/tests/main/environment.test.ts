@@ -77,6 +77,51 @@ describe("inspectLauncherEnvironment", () => {
     expect(inspection.checks.some((item) => item.code === "deps.chromium_missing")).toBe(true);
   });
 
+  test("flags incomplete Python and Node runtime metadata from the deps manifest", async () => {
+    const inspection = await inspectLauncherEnvironment({
+      serverExecutableExists: true,
+      userConfigExists: true,
+      defaultConfigExists: true,
+      workdirWritable: true,
+      depsManifestExists: true,
+      depsManifestText: JSON.stringify({
+        resources: [
+          {
+            id: "chromium-windows-x64",
+            platform: "windows-x64",
+            kind: "chromium",
+            version: "147.0.7727.24",
+            source: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+            sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+          },
+          {
+            id: "python-windows-x64",
+            platform: "windows-x64",
+            kind: "python-runtime",
+            version: "3.12.13",
+            source: "TODO(v0.1-phase0)",
+            sha256: "TODO(v0.1-phase0)",
+          },
+          {
+            id: "nodejs-windows-x64",
+            platform: "windows-x64",
+            kind: "nodejs-runtime",
+            version: "24.14.0",
+            source: "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+            sha256: "deadbeef",
+          },
+        ],
+      }),
+      templatesExist: true,
+      templatesHaveFiles: true,
+      platform: "windows-x64",
+      longPaths: "enabled",
+    });
+
+    expect(inspection.checks.some((item) => item.code === "deps.python_runtime_metadata_incomplete")).toBe(true);
+    expect(inspection.checks.some((item) => item.code === "deps.nodejs_runtime_metadata_incomplete")).toBe(true);
+  });
+
   test("flags missing template directory for render resources", async () => {
     const inspection = await inspectLauncherEnvironment({
       serverExecutableExists: true,

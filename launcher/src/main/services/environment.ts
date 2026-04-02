@@ -25,6 +25,12 @@ type ExecFileLike = (
   file: string,
   args: string[],
 ) => Promise<{ stdout: string; stderr: string }>;
+type DepsManifestResource = {
+  platform?: string;
+  kind?: string;
+  source?: string;
+  sha256?: string;
+};
 
 function normalizeHostPlatform(): string {
   const arch = os.arch();
@@ -40,16 +46,38 @@ function normalizeHostPlatform(): string {
   }
 }
 
-function parseDepsManifest(probe: EnvironmentProbeInput): Array<{ platform?: string; kind?: string }> {
+function parseDepsManifest(probe: EnvironmentProbeInput): { invalid: boolean; resources: DepsManifestResource[] } {
   if (!probe.depsManifestText) {
-    return [];
+    return { invalid: false, resources: [] };
   }
   try {
-    const payload = JSON.parse(probe.depsManifestText) as { resources?: Array<{ platform?: string; kind?: string }> };
-    return payload.resources ?? [];
+    const payload = JSON.parse(probe.depsManifestText) as { resources?: DepsManifestResource[] };
+    return { invalid: false, resources: payload.resources ?? [] };
   } catch {
-    return [];
+    return { invalid: true, resources: [] };
   }
+}
+
+function resourceHasCompleteMetadata(resource?: DepsManifestResource) {
+  if (!resource) {
+    return false;
+  }
+
+  const source = resource.source?.trim() ?? "";
+  if (!source.startsWith("https://") || source.toUpperCase().includes("TODO(")) {
+    return false;
+  }
+
+  const sha256 = resource.sha256?.trim().toLowerCase() ?? "";
+  if (sha256.includes("todo(")) {
+    return false;
+  }
+
+  return /^[0-9a-f]{64}$/.test(sha256);
+}
+
+function findPlatformResource(resources: DepsManifestResource[], platform: string, kind: string) {
+  return resources.find((item) => item.platform === platform && item.kind === kind);
 }
 
 export async function detectWindowsLongPathsStatus(
@@ -177,48 +205,102 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
       remediation: "请先恢复打包后的 .deps 资源。",
     });
   } else {
-    const resources = parseDepsManifest(probe);
-    const hasCurrentPlatform = resources.some((item) => item.platform === probe.platform);
-    checks.push(
-      hasCurrentPlatform
-        ? {
-            code: "deps.manifest",
-            title: ".deps 清单",
-            severity: "ok",
-            summary: "依赖清单可用。",
-            detail: "已包含当前平台资源。",
-            remediation: "",
-          }
-        : {
-            code: "deps.manifest_platform_missing",
-            title: ".deps 清单",
-            severity: "warning",
-            summary: "依赖清单缺少当前平台资源。",
-            detail: `清单中没有 ${probe.platform} 资源。`,
-            remediation: "请为当前平台重新生成或恢复打包后的 .deps 清单。",
-          },
-    );
+    const parsedManifest = parseDepsManifest(probe);
+    if (parsedManifest.invalid) {
+      checks.push({
+        code: "deps.manifest_invalid",
+        title: ".deps 清单",
+        severity: "warning",
+        summary: "依赖清单格式无效。",
+        detail: "manifest.json 无法解析。",
+        remediation: "请重新生成或恢复有效的 .deps 清单。",
+      });
+    } else {
+      const resources = parsedManifest.resources;
+      const hasCurrentPlatform = resources.some((item) => item.platform === probe.platform);
+      checks.push(
+        hasCurrentPlatform
+          ? {
+              code: "deps.manifest",
+              title: ".deps 清单",
+              severity: "ok",
+              summary: "依赖清单可用。",
+              detail: "已包含当前平台资源。",
+              remediation: "",
+            }
+          : {
+              code: "deps.manifest_platform_missing",
+              title: ".deps 清单",
+              severity: "warning",
+              summary: "依赖清单缺少当前平台资源。",
+              detail: `清单中没有 ${probe.platform} 资源。`,
+              remediation: "请为当前平台重新生成或恢复打包后的 .deps 清单。",
+            },
+      );
 
-    const hasChromium = resources.some((item) => item.platform === probe.platform && item.kind === "chromium");
-    checks.push(
-      hasChromium
-        ? {
-            code: "deps.chromium",
-            title: "Chromium 资源",
-            severity: "ok",
-            summary: "已声明 Chromium 资源。",
-            detail: "依赖清单中已包含当前平台 Chromium 资源。",
-            remediation: "",
-          }
-        : {
-            code: "deps.chromium_missing",
-            title: "Chromium 资源",
-            severity: "warning",
-            summary: "缺少 Chromium 资源声明。",
-            detail: `依赖清单中没有 ${probe.platform} Chromium 资源。`,
-            remediation: "启用 render.image 之前，请先恢复 Chromium 资源。",
-          },
-    );
+      const hasChromium = resources.some((item) => item.platform === probe.platform && item.kind === "chromium");
+      checks.push(
+        hasChromium
+          ? {
+              code: "deps.chromium",
+              title: "Chromium 资源",
+              severity: "ok",
+              summary: "已声明 Chromium 资源。",
+              detail: "依赖清单中已包含当前平台 Chromium 资源。",
+              remediation: "",
+            }
+          : {
+              code: "deps.chromium_missing",
+              title: "Chromium 资源",
+              severity: "warning",
+              summary: "缺少 Chromium 资源声明。",
+              detail: `依赖清单中没有 ${probe.platform} Chromium 资源。`,
+              remediation: "启用 render.image 之前，请先恢复 Chromium 资源。",
+            },
+      );
+
+      const pythonResource = findPlatformResource(resources, probe.platform, "python-runtime");
+      checks.push(
+        resourceHasCompleteMetadata(pythonResource)
+          ? {
+              code: "deps.python_runtime_metadata",
+              title: "Python 运行时元数据",
+              severity: "ok",
+              summary: "Python 运行时元数据完整。",
+              detail: "依赖清单中已包含当前平台 Python 运行时的来源与校验值。",
+              remediation: "",
+            }
+          : {
+              code: "deps.python_runtime_metadata_incomplete",
+              title: "Python 运行时元数据",
+              severity: "warning",
+              summary: "Python 运行时元数据不完整。",
+              detail: `依赖清单中缺少 ${probe.platform} Python 运行时的有效 source 或 sha256。`,
+              remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 source 与 sha256。",
+            },
+      );
+
+      const nodeResource = findPlatformResource(resources, probe.platform, "nodejs-runtime");
+      checks.push(
+        resourceHasCompleteMetadata(nodeResource)
+          ? {
+              code: "deps.nodejs_runtime_metadata",
+              title: "Node.js 运行时元数据",
+              severity: "ok",
+              summary: "Node.js 运行时元数据完整。",
+              detail: "依赖清单中已包含当前平台 Node.js 运行时的来源与校验值。",
+              remediation: "",
+            }
+          : {
+              code: "deps.nodejs_runtime_metadata_incomplete",
+              title: "Node.js 运行时元数据",
+              severity: "warning",
+              summary: "Node.js 运行时元数据不完整。",
+              detail: `依赖清单中缺少 ${probe.platform} Node.js 运行时的有效 source 或 sha256。`,
+              remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 source 与 sha256。",
+            },
+      );
+    }
   }
 
   if (!probe.templatesExist) {
