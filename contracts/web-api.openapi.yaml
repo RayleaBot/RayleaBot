@@ -19,14 +19,18 @@ x-fixtures:
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.system-backup-accepted.yaml
+  - fixtures/web-api/ok.system-recovery-recheck-accepted.yaml
+  - fixtures/web-api/ok.system-runtime-bootstrap-accepted.yaml
   - fixtures/web-api/ok.system-render-preview-accepted.yaml
   - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.logs-list-response.yaml
   - fixtures/web-api/ok.tasks-list-response.yaml
   - fixtures/web-api/ok.task-detail-response.yaml
+  - fixtures/web-api/ok.task-detail-succeeded-recovery-recheck.yaml
   - fixtures/web-api/ok.task-detail-succeeded-install.yaml
   - fixtures/web-api/ok.task-detail-succeeded-render-preview.yaml
+  - fixtures/web-api/ok.task-detail-succeeded-runtime-bootstrap.yaml
   - fixtures/web-api/ok.task-cancel-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-install-accepted-with-scripts.yaml
@@ -316,6 +320,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/recovery/recheck:
+    post:
+      summary: Start an asynchronous recovery.recheck task to recompute and persist the current recovery summary.
+      operationId: createRecoveryRecheck
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Recovery recheck task accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/runtime/bootstrap:
+    post:
+      summary: Start an asynchronous runtime.bootstrap task to prepare managed runtime resources for the current platform.
+      operationId: createRuntimeBootstrap
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuntimeBootstrapRequest'
+      responses:
+        '202':
+          description: Runtime bootstrap task accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         default:
@@ -1165,9 +1215,11 @@ components:
         - plugin.uninstall
         - plugin.reload
         - backup.create
+        - recovery.recheck
         - restore.apply
         - config.migrate
         - db.migrate
+        - runtime.bootstrap
         - render.preview
 
     TaskErrorSummary:
@@ -1247,6 +1299,20 @@ components:
       properties:
         task_id:
           type: string
+
+    RuntimeBootstrapResource:
+      type: string
+      enum: [chromium, python-runtime, nodejs-runtime]
+
+    RuntimeBootstrapRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeBootstrapResource'
+          uniqueItems: true
 
     RenderPreviewRequest:
       type: object

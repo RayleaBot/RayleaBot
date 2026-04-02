@@ -1,0 +1,33 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Task detail can expose a completed runtime.bootstrap snapshot with per-resource bootstrap details.
+request:
+  method: GET
+  path: /api/tasks/task_runtime_bootstrap_0001
+response:
+  status: 200
+  body:
+    task:
+      task_id: task_runtime_bootstrap_0001
+      task_type: runtime.bootstrap
+      status: succeeded
+      progress: 100
+      summary: 受控运行时已准备完成
+      started_at: 2026-04-03T08:00:00Z
+      finished_at: 2026-04-03T08:00:08Z
+      result:
+        summary: 受控运行时已准备完成
+        details:
+          resources:
+            - kind: chromium
+              archive_path: cache/downloads/runtime/chromium-windows-x64-147.0.7727.24.zip
+              store_root: .deps/store/chromium-windows-x64/147.0.7727.24
+              used_cached_archive: true
+              used_prepared_store: false
+            - kind: python-runtime
+              archive_path: cache/downloads/runtime/python-windows-x64-3.12.13.tar.gz
+              store_root: .deps/store/python-windows-x64/3.12.13
+              used_cached_archive: false
+              used_prepared_store: true
+expect:
+  valid: true

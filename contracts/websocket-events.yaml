@@ -5,7 +5,9 @@ description: >
   management surface.
 x-fixtures:
   - fixtures/websocket/ok.tasks-updated-running.json
+  - fixtures/websocket/ok.tasks-updated-succeeded-recovery-recheck.json
   - fixtures/websocket/ok.tasks-updated-succeeded-install.json
+  - fixtures/websocket/ok.tasks-updated-succeeded-runtime-bootstrap.json
   - fixtures/websocket/ok.logs-appended.json
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
@@ -75,9 +77,11 @@ channels:
                 - plugin.uninstall
                 - plugin.reload
                 - backup.create
+                - recovery.recheck
                 - restore.apply
                 - config.migrate
                 - db.migrate
+                - runtime.bootstrap
                 - render.preview
             status:
               type: string

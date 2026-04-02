@@ -1,0 +1,22 @@
+{
+  "channel": "tasks",
+  "type": "tasks.updated",
+  "timestamp": "2026-04-03T08:00:04Z",
+  "data": {
+    "task_id": "task_recovery_recheck_0001",
+    "task_type": "recovery.recheck",
+    "status": "succeeded",
+    "progress": 100,
+    "summary": "恢复摘要已重新检查",
+    "result": {
+      "summary": "恢复摘要已重新检查",
+      "details": {
+        "recovery_summary": {
+          "status": "compatible",
+          "phase": "post_startup",
+          "operation": "upgrade"
+        }
+      }
+    }
+  }
+}

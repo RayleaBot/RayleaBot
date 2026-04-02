@@ -1,0 +1,26 @@
+{
+  "channel": "tasks",
+  "type": "tasks.updated",
+  "timestamp": "2026-04-03T08:00:08Z",
+  "data": {
+    "task_id": "task_runtime_bootstrap_0001",
+    "task_type": "runtime.bootstrap",
+    "status": "succeeded",
+    "progress": 100,
+    "summary": "受控运行时已准备完成",
+    "result": {
+      "summary": "受控运行时已准备完成",
+      "details": {
+        "resources": [
+          {
+            "kind": "chromium",
+            "archive_path": "cache/downloads/runtime/chromium-windows-x64-147.0.7727.24.zip",
+            "store_root": ".deps/store/chromium-windows-x64/147.0.7727.24",
+            "used_cached_archive": true,
+            "used_prepared_store": false
+          }
+        ]
+      }
+    }
+  }
+}
