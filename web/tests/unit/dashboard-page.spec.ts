@@ -202,7 +202,11 @@ describe('DashboardPage', () => {
   it('renders recovery summary as a dedicated dashboard block', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [{ path: '/', component: DashboardPage }],
+      routes: [
+        { path: '/', component: DashboardPage },
+        { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+      ],
     })
     await router.push('/')
     await router.isReady()
@@ -267,5 +271,96 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('通过管理面、Launcher 或 diagnostics 复核 recovery_summary。')
     expect(wrapper.findAll('[data-testid="recovery-manual-action"]')).toHaveLength(1)
     expect(wrapper.findAll('[data-testid="recovery-next-step"]')).toHaveLength(2)
+  })
+
+  it('submits recovery recheck and runtime bootstrap tasks from the recovery block', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: DashboardPage },
+        { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const store = useSystemStore()
+    store.health = { status: 'ok' }
+    store.readiness = { status: 'degraded' }
+    store.system = {
+      status: 'running',
+      adapter_state: 'connected',
+      active_plugins: 2,
+      uptime_seconds: 120,
+      recovery_summary: {
+        status: 'degraded',
+        phase: 'post_startup',
+        operation: 'upgrade',
+        created_at: '2026-04-02T08:00:00Z',
+        updated_at: '2026-04-02T08:01:00Z',
+        issues: [
+          {
+            code: 'platform.resource_missing',
+            severity: 'warning',
+            summary: 'Chromium 资源尚未准备完成。',
+            remediation: '请先准备受控 Chromium 运行时。',
+          },
+        ],
+        skipped_plugins: [
+          {
+            plugin_id: 'weather-pro',
+            reason_code: 'plugin.min_core_version',
+            summary: '插件最低 core 版本要求不满足。',
+            manual_action: '升级程序或重新安装兼容版本插件。',
+          },
+        ],
+        manual_actions: ['升级程序或重新安装兼容版本插件。'],
+        next_steps: ['通过管理面、Launcher 或 diagnostics 复核 recovery_summary。'],
+      },
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    const recheckSpy = vi.spyOn(store as never, 'recheckRecovery').mockResolvedValue({ task_id: 'task_recovery_recheck_0001' })
+    const bootstrapSpy = vi.spyOn(store as never, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'task_runtime_bootstrap_0001' })
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    const recheckButton = wrapper.find('[data-testid="recovery-recheck-button"]')
+    const bootstrapButton = wrapper.find('[data-testid="runtime-bootstrap-button"]')
+    const pluginLink = wrapper.find('[data-testid="recovery-plugin-link-weather-pro"]')
+
+    expect(recheckButton.exists()).toBe(true)
+    expect(bootstrapButton.exists()).toBe(true)
+    expect(pluginLink.exists()).toBe(true)
+
+    await pluginLink.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('plugin-detail')
+    expect(router.currentRoute.value.params.id).toBe('weather-pro')
+
+    await router.push('/')
+    await flushPromises()
+
+    await recheckButton.trigger('click')
+    await flushPromises()
+    expect(recheckSpy).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.name).toBe('tasks')
+    expect(router.currentRoute.value.query.task_id).toBe('task_recovery_recheck_0001')
+
+    await router.push('/')
+    await flushPromises()
+
+    await bootstrapButton.trigger('click')
+    await flushPromises()
+    expect(bootstrapSpy).toHaveBeenCalledWith(['chromium'])
+    expect(router.currentRoute.value.name).toBe('tasks')
+    expect(router.currentRoute.value.query.task_id).toBe('task_runtime_bootstrap_0001')
   })
 })

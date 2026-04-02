@@ -54,6 +54,8 @@ export const zhCN = {
     backupAccepted: '备份任务已提交',
     diagnosticsAccepted: '诊断包导出已开始',
     previewAccepted: '渲染预览任务已提交',
+    recoveryRecheckAccepted: '恢复摘要重新检查任务已提交',
+    runtimeBootstrapAccepted: '受控运行时准备任务已提交',
     lastRefreshed: '上次刷新',
     autoRefresh: '自动刷新',
     reasonCodes: '原因代码',
@@ -61,6 +63,8 @@ export const zhCN = {
     collapseIssues: '收起',
     alertFailed: '系统异常',
     alertDegraded: '性能降级',
+    recoveryRecheck: '重新检查恢复状态',
+    runtimeBootstrap: '准备受控运行时',
   },
   plugins: {
     title: '插件',
@@ -337,8 +341,14 @@ export const zhCN = {
       backup: {
         create: '创建备份',
       },
+      recovery: {
+        recheck: '重新检查恢复状态',
+      },
       restore: {
         apply: '恢复备份',
+      },
+      runtime: {
+        bootstrap: '准备受控运行时',
       },
       config: {
         migrate: '迁移配置',

@@ -15,9 +15,11 @@ export type TaskType =
   | 'plugin.uninstall'
   | 'plugin.reload'
   | 'backup.create'
+  | 'recovery.recheck'
   | 'restore.apply'
   | 'config.migrate'
   | 'db.migrate'
+  | 'runtime.bootstrap'
   | 'render.preview'
 
 export type PluginRegistrationState = 'installed' | 'removed'
@@ -170,6 +172,12 @@ export interface TaskDetailResponse {
 
 export interface TaskAcceptedResponse {
   task_id: string
+}
+
+export type RuntimeBootstrapResource = 'chromium' | 'python-runtime' | 'nodejs-runtime'
+
+export interface RuntimeBootstrapRequest {
+  resources?: RuntimeBootstrapResource[]
 }
 
 export interface RenderPreviewRequest {

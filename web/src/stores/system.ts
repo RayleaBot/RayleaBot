@@ -8,6 +8,7 @@ import type {
   LivenessStatusResponse,
   ReadinessStatusResponse,
   RenderPreviewRequest,
+  RuntimeBootstrapResource,
   TaskAcceptedResponse,
   SystemShutdownResponse,
   SystemStatusResponse,
@@ -23,6 +24,8 @@ export const useSystemStore = defineStore('system', () => {
   const shutdownRequested = ref(false)
   const backupPending = ref(false)
   const diagnosticsPending = ref(false)
+  const recoveryRecheckPending = ref(false)
+  const runtimeBootstrapPending = ref(false)
   const previewPending = ref(false)
   const error = ref<string | null>(null)
   const recentEvents = ref<Array<{ timestamp: string; summary: string; payload: EventsPayload }>>([])
@@ -125,18 +128,47 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
+  async function recheckRecovery() {
+    recoveryRecheckPending.value = true
+    error.value = null
+    try {
+      return await apiRequest<TaskAcceptedResponse>('/api/system/recovery/recheck', {
+        method: 'POST',
+      })
+    } finally {
+      recoveryRecheckPending.value = false
+    }
+  }
+
+  async function bootstrapManagedRuntime(resources?: RuntimeBootstrapResource[]) {
+    runtimeBootstrapPending.value = true
+    error.value = null
+    try {
+      return await apiRequest<TaskAcceptedResponse>('/api/system/runtime/bootstrap', {
+        method: 'POST',
+        body: resources?.length ? { resources } : undefined,
+      })
+    } finally {
+      runtimeBootstrapPending.value = false
+    }
+  }
+
   return {
     backupPending,
+    bootstrapManagedRuntime,
     diagnosticsPending,
     error,
     health,
     isHealthy,
     loading,
     readiness,
+    recoveryRecheckPending,
     recentEvents,
+    recheckRecovery,
     shutdownPending,
     shutdownRequested,
     system,
+    runtimeBootstrapPending,
     applyEvent,
     createBackup,
     exportDiagnostics,
