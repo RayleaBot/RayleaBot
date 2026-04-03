@@ -1256,7 +1256,7 @@ body {
   min-width: 0;
 }
 
-.hero-card--fancy {
+.status-hero.hero-card--fancy {
   position: relative;
   overflow: hidden;
   background:
@@ -1269,12 +1269,12 @@ body {
   margin-bottom: 8px;
 }
 
-.hero-copy {
+.status-hero .hero-copy {
   flex: 1;
   min-width: 0;
 }
 
-.hero-actions--premium {
+.status-hero__actions.hero-actions--premium {
   width: auto;
   max-width: none;
 }
@@ -1389,11 +1389,11 @@ body {
   background: rgba(159, 230, 255, 0.08) !important;
 }
 
-.checks-stack--side {
+.status-summary-rail .checks-stack--side {
   padding: 0;
 }
 
-.check-item-mini {
+.status-summary-rail .check-item-mini {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
@@ -1405,31 +1405,31 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.check-item-mini--error { border-left: 3px solid var(--accent-error); }
-.check-item-mini--warning { border-left: 3px solid var(--accent-warning); }
+.status-summary-rail .check-item-mini--error { border-left: 3px solid var(--accent-error); }
+.status-summary-rail .check-item-mini--warning { border-left: 3px solid var(--accent-warning); }
 
-.check-item-mini__icon {
+.status-summary-rail .check-item-mini__icon {
   color: inherit;
   display: flex;
   flex-shrink: 0;
 }
 
-.check-item-mini__content {
+.status-summary-rail .check-item-mini__content {
   min-width: 0;
 }
 
-.panel--side {
+.status-summary-rail .panel--side {
   padding: 22px;
 }
 
-.version-status {
+.status-summary-rail .version-status {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
 }
 
-.update-badge {
+.status-summary-rail .update-badge {
   font-size: 0.65rem;
   font-weight: 800;
   padding: 1px 6px;
@@ -1442,7 +1442,7 @@ body {
   border: 1px solid rgba(159, 230, 255, 0.2) !important;
 }
 
-.side-actions-stack {
+.status-summary-rail .side-actions-stack {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1461,12 +1461,6 @@ body {
 
 @media (max-width: 1200px) {
   .status-summary-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 1180px) {
-  .hero-card:not(.status-hero) {
     grid-template-columns: 1fr;
   }
 }
