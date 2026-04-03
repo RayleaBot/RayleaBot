@@ -32,4 +32,15 @@ describe("renderer style regressions", () => {
     expect(styleSheet).toMatch(/\.maintenance-action-card\s*{[^}]*justify-content:\s*space-between;/s);
     expect(styleSheet).toMatch(/\.maintenance-action-card--danger\s*{[^}]*box-shadow:\s*inset 3px 0 0/s);
   });
+
+  test("locks the homepage hero layout and responsive downgrade behavior", () => {
+    expect(styleSheet).toMatch(/\.status-hero\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(240px,\s*320px\);/s);
+    expect(styleSheet).toMatch(/\.status-hero__secondary-actions\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*1200px\)\s*{[^}]*\.status-summary-grid\s*{[^}]*grid-template-columns:\s*1fr;/s);
+    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[^}]*\.status-hero\s*{[^}]*grid-template-columns:\s*1fr;/s);
+    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[^}]*\.status-hero__secondary-actions\s*{[^}]*grid-template-columns:\s*1fr;/s);
+    expect(styleSheet).toMatch(/\.status-summary-main\s*{[^}]*min-width:\s*0;/s);
+    expect(styleSheet).toMatch(/\.status-summary-rail\s*{[^}]*min-width:\s*0;/s);
+    expect(styleSheet).toMatch(/\.status-log-panel\s*{[^}]*min-width:\s*0;/s);
+  });
 });
