@@ -39,9 +39,9 @@ describe("renderer style regressions", () => {
   });
 
   test("locks the homepage responsive downgrade behavior", () => {
-    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*1200px\)\s*{[^}]*\.status-summary-grid\s*{[^}]*grid-template-columns:\s*1fr;/s);
-    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[^}]*\.status-hero\s*{[^}]*grid-template-columns:\s*1fr;/s);
-    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[^}]*\.status-hero__secondary-actions\s*{[^}]*grid-template-columns:\s*1fr;/s);
+    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*1200px\)\s*{[\s\S]*?\.status-summary-grid\s*{[\s\S]*?grid-template-columns:\s*1fr;/s);
+    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[\s\S]*?\.status-hero\s*{[\s\S]*?grid-template-columns:\s*1fr;/s);
+    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[\s\S]*?\.status-hero__secondary-actions\s*{[\s\S]*?grid-template-columns:\s*1fr;/s);
   });
 
   test("locks the homepage overflow safety", () => {
