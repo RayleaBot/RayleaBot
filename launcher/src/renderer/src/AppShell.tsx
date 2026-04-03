@@ -227,7 +227,7 @@ export function AppShell({
   const nonOkChecks = checks.filter((item) => item.severity !== "ok");
   const recoveryStatusSummary = snapshot.recoverySummary
     ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation}`
-    : "系统当前状态健康。";
+    : "当前没有恢复摘要。";
 
   return (
     <div className="app-shell">
@@ -391,7 +391,6 @@ export function AppShell({
                   <div className="brand-eyebrow brand-eyebrow--tight">版本监控</div>
                   <div className="version-status">
                     <Text size={200} className="panel-muted">{snapshot.releaseCheck.summary}</Text>
-                    {snapshot.releaseCheck.updateAvailable && <span className="update-badge">NEW</span>}
                   </div>
                   <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block frost-button--outline" onClick={onOpenReleasePage}>检查更新</Button>
                 </article>
@@ -412,9 +411,9 @@ export function AppShell({
                 <div className="brand-eyebrow">异常输出监控</div>
                 {snapshot.recentStderr.length > 0 && <span className="pulse-dot pulse-dot--error"></span>}
               </div>
-              <pre className="log-surface status-log-surface--modern">{snapshot.recentStderr.join("\n") || "当前系统运行状态平稳，无异常日志输出。"}</pre>
+              <pre className="log-surface status-log-surface--modern">{snapshot.recentStderr.join("\n") || "当前无异常日志。"}</pre>
               <div className="panel-footer-actions">
-                <Button appearance="transparent" size="small" className="frost-button frost-button--ghost-bright" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>打开日志目录</Button>
+                <Button appearance="transparent" size="small" className="frost-button frost-button--ghost-bright" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>
               </div>
             </article>
           </div>
