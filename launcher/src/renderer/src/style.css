@@ -1371,6 +1371,8 @@ body {
 .status-log-surface--modern {
   min-height: 140px;
   max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   background: rgba(4, 10, 20, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.03);

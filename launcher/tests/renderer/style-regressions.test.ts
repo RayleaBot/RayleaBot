@@ -48,5 +48,6 @@ describe("renderer style regressions", () => {
     expect(styleSheet).toMatch(/\.status-summary-main\s*{[^}]*min-width:\s*0;/s);
     expect(styleSheet).toMatch(/\.status-summary-rail\s*{[^}]*min-width:\s*0;/s);
     expect(styleSheet).toMatch(/\.status-log-panel\s*{[^}]*min-width:\s*0;/s);
+    expect(styleSheet).toMatch(/\.status-log-surface--modern\s*{[^}]*max-height:\s*300px;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;/s);
   });
 });
