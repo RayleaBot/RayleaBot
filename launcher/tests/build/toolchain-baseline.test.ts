@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
 type LauncherPackageJson = {
+  dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
 };
 
@@ -21,5 +22,13 @@ describe("launcher toolchain baseline", () => {
 
   test("records the launcher react plugin baseline in engineering docs", () => {
     expect(engineeringBaseline).toContain("`@vitejs/plugin-react 6.0.1`");
+  });
+
+  test("pins semver as a direct runtime dependency for release metadata comparison", () => {
+    expect(launcherPackage.dependencies?.semver).toBe("7.7.4");
+  });
+
+  test("does not keep an unused concurrently dependency in the launcher toolchain", () => {
+    expect(launcherPackage.devDependencies?.concurrently).toBeUndefined();
   });
 });

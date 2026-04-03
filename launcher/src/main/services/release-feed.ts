@@ -1,46 +1,16 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { compare as compareSemver, valid as validSemver } from "semver";
 import { createReleaseUnavailable } from "../../shared/launcher-copy";
-
-interface SemanticVersion {
-  major: number;
-  minor: number;
-  patch: number;
-  prerelease: string;
-}
 
 interface LauncherReleaseFeedClientOptions {
   fetchLike?: typeof fetch;
   requestTimeoutMs?: number;
 }
 
-function parseVersion(value: string): SemanticVersion | null {
-  const normalized = value.trim().replace(/^[vV]/, "");
-  const [base, prerelease = ""] = normalized.split("-", 2);
-  const [major, minor, patch] = base.split(".").map((part) => Number.parseInt(part, 10));
-  if ([major, minor, patch].some(Number.isNaN)) {
-    return null;
-  }
-  return { major, minor, patch, prerelease };
-}
-
-function compareVersions(left: SemanticVersion, right: SemanticVersion) {
-  if (left.major !== right.major) {
-    return left.major - right.major;
-  }
-  if (left.minor !== right.minor) {
-    return left.minor - right.minor;
-  }
-  if (left.patch !== right.patch) {
-    return left.patch - right.patch;
-  }
-  if (!left.prerelease && right.prerelease) {
-    return 1;
-  }
-  if (left.prerelease && !right.prerelease) {
-    return -1;
-  }
-  return left.prerelease.localeCompare(right.prerelease);
+function normalizeSemver(value: string) {
+  const trimmed = value.trim();
+  return validSemver(trimmed) ?? validSemver(trimmed.replace(/^[vV]/, ""));
 }
 
 function resolveRepositoryUrl(releaseNotesRef: string) {
@@ -128,18 +98,18 @@ export class LauncherReleaseFeedClient {
         break;
       }
 
-      const current = parseVersion(currentVersion);
-      const latest = parseVersion(latestVersion);
+      const current = normalizeSemver(currentVersion);
+      const latest = normalizeSemver(latestVersion);
       if (!current || !latest) {
         return createReleaseUnavailable("发布源返回的版本号无法与当前打包版本比较。");
       }
 
-      if (compareVersions(latest, current) > 0) {
+      if (compareSemver(latest, current) > 0) {
         return {
           status: "update_available",
           currentVersion,
-          latestVersion,
-          summary: `发现新版本：${currentVersion} -> ${latestVersion}。`,
+          latestVersion: latest,
+          summary: `发现新版本：${current} -> ${latest}。`,
           detail: "打开发布页即可查看已发布包的元数据和版本说明。",
           releasePageUrl,
           updateAvailable: true,
@@ -149,8 +119,8 @@ export class LauncherReleaseFeedClient {
       return {
         status: "up_to_date",
         currentVersion,
-        latestVersion: currentVersion,
-        summary: `当前版本 ${currentVersion} 已是最新。`,
+        latestVersion: current,
+        summary: `当前版本 ${current} 已是最新。`,
         detail: "",
         releasePageUrl,
         updateAvailable: false,

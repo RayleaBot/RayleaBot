@@ -79,4 +79,64 @@ describe("LauncherReleaseFeedClient", () => {
     expect(receivedSignal).toBeDefined();
     expect(receivedSignal?.aborted).toBe(false);
   });
+
+  test("treats build metadata as semver-equivalent to the packaged version", async () => {
+    const basePath = await createTempDir("build-metadata");
+    await fs.writeFile(
+      path.join(basePath, "build_info.json"),
+      JSON.stringify({
+        version: "1.0.0",
+        release_notes_ref: "https://github.com/rayleabot/rayleabot/releases/tag/v1.0.0",
+      }),
+      "utf8",
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          tag_name: "v1.0.0+build.1",
+          html_url: "https://github.com/rayleabot/rayleabot/releases/tag/v1.0.0+build.1",
+        }),
+        text: async () => "",
+      }) satisfies Partial<Response> as Response),
+    );
+
+    const client = new LauncherReleaseFeedClient(basePath);
+    const snapshot = await client.getSnapshot();
+
+    expect(snapshot.status).toBe("up_to_date");
+    expect(snapshot.latestVersion).toBe("1.0.0");
+  });
+
+  test("treats prerelease builds as older than the final release", async () => {
+    const basePath = await createTempDir("prerelease");
+    await fs.writeFile(
+      path.join(basePath, "build_info.json"),
+      JSON.stringify({
+        version: "1.0.0",
+        release_notes_ref: "https://github.com/rayleabot/rayleabot/releases/tag/v1.0.0",
+      }),
+      "utf8",
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          tag_name: "v1.0.0-rc.1+build.2",
+          html_url: "https://github.com/rayleabot/rayleabot/releases/tag/v1.0.0-rc.1",
+        }),
+        text: async () => "",
+      }) satisfies Partial<Response> as Response),
+    );
+
+    const client = new LauncherReleaseFeedClient(basePath);
+    const snapshot = await client.getSnapshot();
+
+    expect(snapshot.status).toBe("up_to_date");
+    expect(snapshot.latestVersion).toBe("1.0.0");
+  });
 });
