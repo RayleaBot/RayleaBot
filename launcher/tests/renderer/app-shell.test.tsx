@@ -33,6 +33,7 @@ const snapshot: LauncherSnapshot = {
   recentStderr: ["stderr line"],
   processId: null,
   serviceState: "stopped",
+  serviceOwnership: "none",
   shutdownRequested: false,
   serviceDetail: "服务尚未启动。",
   lastError: "",
@@ -118,14 +119,8 @@ describe("AppShell", () => {
     expect(screen.getByText("服务尚未启动。")).toBeInTheDocument();
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
     expect(screen.getByText(/恢复兼容性/)).toBeInTheDocument();
-    expect(screen.getByText("跳过插件")).toBeInTheDocument();
-    expect(screen.getByText("处理建议")).toBeInTheDocument();
-    expect(screen.getByText("处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。")).toBeInTheDocument();
-    expect(screen.getByText("下一步")).toBeInTheDocument();
-    expect(screen.getByText("查看管理面中的恢复摘要并处理跳过插件。")).toBeInTheDocument();
-    expect(screen.getByText("通过管理面、Launcher 或 diagnostics 复核 recovery_summary。")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "重新检查恢复状态" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "准备受控运行时" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看插件 weather-pro" })).toBeInTheDocument();
+    expect(screen.getByText("degraded · upgrade")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新检查" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "准备运行时" })).toBeInTheDocument();
   });
 });

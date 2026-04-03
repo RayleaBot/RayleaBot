@@ -115,6 +115,22 @@ export class ServerProcessController {
       this.recordStderr(text);
     });
 
+    child.on("exit", (code, signal) => {
+      if (this.process === child) {
+        this.process = null;
+      }
+
+      if ((code ?? 0) === 0 && !signal) {
+        return;
+      }
+
+      const detail =
+        code !== null && code !== undefined
+          ? `服务进程已退出，退出码 ${code}。`
+          : `服务进程已退出，信号 ${signal ?? "unknown"}。`;
+      this.recordLauncherDiagnostic(logPath, detail);
+    });
+
     await new Promise<void>((resolve, reject) => {
       let settled = false;
 
@@ -172,8 +188,11 @@ export class ServerProcessController {
     if (!terminated && this.isRunning) {
       try {
         child.kill();
-      } catch {
-        // Best-effort fallback.
+      } catch (error) {
+        this.recordLauncherDiagnostic(
+          path.join(this.logDirectory, "launcher.log"),
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
 
@@ -182,8 +201,11 @@ export class ServerProcessController {
     if (process.platform !== "win32" && this.isRunning) {
       try {
         child.kill("SIGKILL");
-      } catch {
-        // Best-effort fallback.
+      } catch (error) {
+        this.recordLauncherDiagnostic(
+          path.join(this.logDirectory, "launcher.log"),
+          error instanceof Error ? error.message : String(error),
+        );
       }
       await this.waitForExit(child, 500);
     }
@@ -206,6 +228,11 @@ export class ServerProcessController {
       this.stderrLines.push(line);
     }
     this.stderrLines = this.stderrLines.slice(-MAX_STDERR_LINES);
+  }
+
+  private recordLauncherDiagnostic(logPath: string, text: string) {
+    this.recordStderr(text);
+    this.queueLogWrite(logPath, "launcher", `${text}\n`);
   }
 
   private async waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number) {

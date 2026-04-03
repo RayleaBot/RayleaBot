@@ -3,12 +3,13 @@ export type LauncherCloseBehavior = "ask_every_time" | "hide_to_tray" | "exit_ap
 export type LauncherServiceState =
   | "stopped"
   | "starting"
-  | "external_service"
-  | "ready"
+  | "running"
   | "degraded"
   | "setup_required"
-  | "shutting_down"
+  | "stopping"
   | "failed";
+
+export type LauncherServiceOwnership = "none" | "launcher_managed" | "external";
 
 export type CheckSeverity = "ok" | "warning" | "error";
 
@@ -121,6 +122,7 @@ export interface LauncherSnapshot {
   recentStderr: string[];
   processId: number | null;
   serviceState: LauncherServiceState;
+  serviceOwnership: LauncherServiceOwnership;
   shutdownRequested: boolean;
   serviceDetail: string;
   lastError: string;

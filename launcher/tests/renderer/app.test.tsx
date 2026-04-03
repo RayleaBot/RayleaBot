@@ -25,6 +25,7 @@ const blankSnapshot: LauncherSnapshot = {
   recentStderr: [],
   processId: null,
   serviceState: "stopped",
+  serviceOwnership: "none",
   shutdownRequested: false,
   serviceDetail: "服务尚未启动。",
   lastError: "",
@@ -54,12 +55,26 @@ const loadedSnapshot: LauncherSnapshot = {
   serviceDetail: "服务尚未启动。",
 };
 
-const readySnapshot: LauncherSnapshot = {
-  ...loadedSnapshot,
+const runningManagedSnapshot = Object.assign({}, loadedSnapshot, {
   processId: 4242,
-  serviceState: "ready",
+  serviceState: "running",
+  serviceOwnership: "launcher_managed",
   serviceDetail: "服务正在运行。",
-};
+}) as LauncherSnapshot;
+
+const runningExternalSnapshot = Object.assign({}, loadedSnapshot, {
+  processId: null,
+  serviceState: "running",
+  serviceOwnership: "external",
+  serviceDetail: "检测到现有服务。",
+}) as LauncherSnapshot;
+
+const setupRequiredSnapshot = Object.assign({}, loadedSnapshot, {
+  processId: 4242,
+  serviceState: "setup_required",
+  serviceOwnership: "launcher_managed",
+  serviceDetail: "管理员初始化尚未完成。",
+}) as LauncherSnapshot;
 
 function installDesktopApi(api: LauncherDesktopApi) {
   Object.defineProperty(window, "rayleaLauncher", {
@@ -119,7 +134,7 @@ describe("App", () => {
     });
   });
 
-  test("keeps service actions disabled while initialization is still running", async () => {
+  test("shows a dedicated loading shell while initialization is still running", async () => {
     let resolveInitialize: (() => void) | null = null;
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
@@ -154,23 +169,22 @@ describe("App", () => {
 
     render(<App />);
 
-    // While initializing, the start button should be disabled
-    const startButton = screen.getByRole("button", { name: "启动 RayleaBot" });
-    expect(startButton).toBeDisabled();
+    expect(screen.getByText("正在准备启动器")).toBeInTheDocument();
+    expect(screen.queryByText("正在加载启动器设置...")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "启动 RayleaBot" })).not.toBeInTheDocument();
 
-    // After initialize resolves, the button should be enabled
     resolveInitialize?.();
     await waitFor(() => {
-      expect(startButton).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: "启动 RayleaBot" })).toBeEnabled();
     });
   });
 
-  test("restarts the managed service when the ready-state primary action is clicked", async () => {
+  test("restarts the managed service when the running-state primary action is clicked", async () => {
     let initialized = false;
     const calls: string[] = [];
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
-      getSnapshot: vi.fn(async () => (initialized ? readySnapshot : blankSnapshot)),
+      getSnapshot: vi.fn(async () => (initialized ? runningManagedSnapshot : blankSnapshot)),
       initialize: vi.fn(async () => {
         initialized = true;
       }),
@@ -208,6 +222,87 @@ describe("App", () => {
     await waitFor(() => {
       expect(calls).toEqual(["stop", "start"]);
     });
+  });
+
+  test("shows a disabled external-service action instead of start or restart", async () => {
+    let initialized = false;
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? runningExternalSnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => {
+        initialized = true;
+      }),
+      refresh: vi.fn(async () => undefined),
+      retry: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      resetAdmin: vi.fn(async () => undefined),
+      openWebUi: vi.fn(async () => undefined),
+      createRecoveryRecheck: vi.fn(async () => undefined),
+      createRuntimeBootstrap: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+    } as LauncherDesktopApi);
+
+    render(<App />);
+
+    const externalButton = await screen.findByRole("button", { name: "检测到现有服务" });
+    expect(externalButton).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "启动 RayleaBot" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重启服务" })).not.toBeInTheDocument();
+  });
+
+  test("disables recovery actions while setup is still required", async () => {
+    let initialized = false;
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? setupRequiredSnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => {
+        initialized = true;
+      }),
+      refresh: vi.fn(async () => undefined),
+      retry: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      resetAdmin: vi.fn(async () => undefined),
+      openWebUi: vi.fn(async () => undefined),
+      createRecoveryRecheck: vi.fn(async () => undefined),
+      createRuntimeBootstrap: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+    } as LauncherDesktopApi);
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "重新检查" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "准备运行时" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "管理面板" })).not.toBeDisabled();
   });
 
   test("previews derived settings while editing the installation root", async () => {

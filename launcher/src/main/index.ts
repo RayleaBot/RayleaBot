@@ -22,6 +22,7 @@ import { createApplicationExitManager } from "./services/app-exit";
 import { resolveLauncherAssetPaths, resolveLauncherBasePath } from "./services/app-paths";
 import { NodeRecoverySummaryReader } from "./services/recovery-summary-reader";
 import { createTrayImage } from "./services/tray-icon";
+import { wireSingleInstanceLifecycle } from "./services/single-instance";
 
 const devServerUrl = process.env.RAYLEA_DEV_SERVER_URL;
 
@@ -48,6 +49,18 @@ const coordinator = createLauncherCoordinator({
   releaseFeedClient: new LauncherReleaseFeedClient(executableBasePath),
   resetAdminRunner: new NodeResetAdminRunner(),
   recoverySummaryReader: new NodeRecoverySummaryReader(),
+  confirmExternalServiceStop: async () => {
+    const result = await dialog.showMessageBox(mainWindow!, {
+      type: "warning",
+      title: "停止现有服务",
+      message: "检测到的现有服务并非由当前 Launcher 启动。",
+      detail: "确认后，Launcher 会尝试通过正式管理接口请求该服务停止。",
+      buttons: ["继续停止", "取消"],
+      cancelId: 1,
+      defaultId: 1,
+    });
+    return result.response === 0;
+  },
 });
 const appExitManager = createApplicationExitManager({
   isManagedProcessRunning: () => processController.isRunning,
@@ -57,13 +70,24 @@ const appExitManager = createApplicationExitManager({
 });
 
 function trayStateFromSnapshot(snapshot: LauncherSnapshot): TrayMenuState {
+  const canOpenWebUi =
+    snapshot.serviceState === "running"
+    || snapshot.serviceState === "degraded"
+    || snapshot.serviceState === "setup_required";
+  const canStopService =
+    (
+      snapshot.serviceState === "running"
+      || snapshot.serviceState === "degraded"
+      || snapshot.serviceState === "failed"
+      || snapshot.serviceState === "setup_required"
+    ) && snapshot.serviceOwnership !== "none";
+
   return {
     trayStatusSummary: launcherCopy.statusSummary(snapshot.serviceState),
-    canOpenWebUi: snapshot.serviceState === "external_service" || snapshot.serviceState === "ready",
-    trayServiceAction: snapshot.serviceState === "external_service" || snapshot.serviceState === "ready" || snapshot.serviceState === "failed" ? "stop" : "start",
-    trayServiceActionLabel:
-      snapshot.serviceState === "external_service" || snapshot.serviceState === "ready" || snapshot.serviceState === "failed" ? "停止服务" : "启动服务",
-    canRunTrayServiceAction: snapshot.serviceState !== "starting" && snapshot.serviceState !== "shutting_down",
+    canOpenWebUi,
+    trayServiceAction: canStopService ? "stop" : "start",
+    trayServiceActionLabel: canStopService ? "停止服务" : "启动服务",
+    canRunTrayServiceAction: snapshot.serviceState !== "starting" && snapshot.serviceState !== "stopping",
   };
 }
 
@@ -323,4 +347,6 @@ app.on("before-quit", (event) => {
   void appExitManager.requestExit();
 });
 
-void bootstrap();
+if (wireSingleInstanceLifecycle(app, () => mainWindow)) {
+  void bootstrap();
+}

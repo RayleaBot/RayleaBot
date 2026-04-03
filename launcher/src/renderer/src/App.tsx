@@ -28,8 +28,9 @@ const initialSnapshot: LauncherSnapshot = {
   recentStderr: [],
   processId: null,
   serviceState: "stopped",
+  serviceOwnership: "none",
   shutdownRequested: false,
-  serviceDetail: "正在加载启动器设置...",
+  serviceDetail: "服务尚未启动。",
   lastError: "",
   releaseCheck: {
     status: "unavailable",
@@ -261,14 +262,33 @@ export function App() {
   }, []);
 
   const handlePrimaryServiceAction = useCallback(() => {
-    if (snapshot.serviceState === "ready") {
+    const isManagedRunnable =
+      (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
+      && snapshot.serviceOwnership === "launcher_managed";
+
+    if (isManagedRunnable) {
       return runAction("restart", async () => {
         await window.rayleaLauncher.stop();
         await window.rayleaLauncher.start();
       });
     }
+
+    if (snapshot.serviceState === "setup_required") {
+      return runAction("open-web", () => window.rayleaLauncher.openWebUi());
+    }
+
     return runAction("start", () => window.rayleaLauncher.start());
-  }, [runAction, snapshot.serviceState]);
+  }, [runAction, snapshot.serviceOwnership, snapshot.serviceState]);
+
+  if (initializing) {
+    return (
+      <div className="launcher-loading-shell">
+        <div className="launcher-loading-shell__eyebrow">RayleaLauncher</div>
+        <h1 className="launcher-loading-shell__title">正在准备启动器</h1>
+        <p className="launcher-loading-shell__detail">正在读取安装设置并检查本地服务状态。</p>
+      </div>
+    );
+  }
 
   return (
     <AppShell
