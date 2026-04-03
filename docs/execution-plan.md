@@ -245,7 +245,7 @@
 | 首启配置 bootstrap | ✅ | Launcher preflight 会提示缺失配置并继续拉起服务；首份 `user.yaml` 由 server 按 `default.yaml` 基线生成 |
 | 凭据丢失恢复入口 | ✅ | Launcher 偏好设置页提供"重置管理员凭据"入口，执行时停止服务、调用 `reset-admin` CLI、重启服务并打开 Web 初始化页面；coordinator、IPC、preload、renderer 全链路已接入并受测试覆盖 |
 | Launcher 设计系统与布局重构 | ✅ | 左侧导航、紧凑页头、统一 tokens / card / badge / log panel patterns、状态页单主操作层级、环境问题列表化、纵向诊断工具页、紧凑关闭策略设置、托盘短文案与统一弹窗表面已落地，整体视觉已收敛为更克制的深色 Fluent 工具壳 |
-| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按 launcher-local 语义建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态与启动完成语义分离，主状态文案保持 launcher-local 口径；健康端口已存在但不是当前 Launcher 子进程时，主界面会显式标为“检测到现有服务” |
+| 启动前状态建模与误导性报错修复 | ✅ | preflight、进程状态与 health 已按正式服务状态枚举建模；初始化、登录和管理会话问题已从 Launcher 主界面剥离，adapter / OneBot 连接状态与启动完成语义分离；健康端口已存在但不是当前 Launcher 子进程时，主界面会显式标为“检测到现有服务” |
 | 桌面交互反馈、禁用态与诊断引导 | ✅ | 全量中文文案、按钮 gating、首页问题提示条、路径复制与打开目录快捷动作、暗色对比度、文案去技术化、结构化诊断摘要与设置编辑态提示已系统化接入 |
 | 托盘最小化与关闭语义 | ✅ | 托盘左键直接恢复窗口，右键使用原生菜单承载状态头、动态服务动作、日志目录与完全退出；tooltip 与菜单可用态会随运行状态和环境风险联动 |
 | 关闭确认与托盘引导 | ✅ | 关闭行为已收口为 `AskEveryTime / HideToTray / ExitApplication` 三态策略；设置页、关闭确认弹窗与实际关闭路径共用同一模型，弹窗支持把本次选择设为默认行为 |
