@@ -1264,7 +1264,7 @@ body {
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
 }
 
-.brand-eyebrow--faded {
+.status-hero .brand-eyebrow--faded {
   opacity: 0.5;
   margin-bottom: 8px;
 }
@@ -1279,13 +1279,13 @@ body {
   max-width: none;
 }
 
-.hero-status-row--main {
+.status-hero .hero-status-row--main {
   display: flex;
   align-items: center;
   gap: 32px;
 }
 
-.hero-status-content {
+.status-hero .hero-status-content {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1339,22 +1339,22 @@ body {
   font-weight: 700;
 }
 
-.panel-header-row {
+.status-log-panel .panel-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.pulse-dot {
+.status-log-panel .pulse-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   position: relative;
 }
 
-.pulse-dot--error { background: var(--accent-error); }
+.status-log-panel .pulse-dot--error { background: var(--accent-error); }
 
-.pulse-dot::after {
+.status-log-panel .pulse-dot::after {
   content: "";
   position: absolute;
   inset: -4px;
@@ -1379,12 +1379,12 @@ body {
   color: rgba(255, 255, 255, 0.7);
 }
 
-.frost-button--ghost-bright.fui-Button {
+.status-log-panel .frost-button--ghost-bright.fui-Button {
   color: var(--accent-ice-strong) !important;
   opacity: 0.8;
 }
 
-.frost-button--ghost-bright.fui-Button:hover {
+.status-log-panel .frost-button--ghost-bright.fui-Button:hover {
   opacity: 1;
   background: rgba(159, 230, 255, 0.08) !important;
 }
@@ -1438,7 +1438,7 @@ body {
   color: #051019;
 }
 
-.frost-button--outline.fui-Button {
+.status-summary-rail .frost-button--outline.fui-Button {
   border: 1px solid rgba(159, 230, 255, 0.2) !important;
 }
 
