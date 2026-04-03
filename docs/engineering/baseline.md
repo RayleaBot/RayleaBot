@@ -32,7 +32,7 @@
 | Web / Node runtime | Node.js `24.14.0` |
 | JS package manager | `pnpm 10.32.1` |
 | Web UI | Vue `3.5.30` + Vite `8.0.0` + Element Plus `2.13.5` + Vue Router `5.0.3` + Pinia `3.0.4` |
-| Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `electron-builder 26.8.1` |
+| Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `@vitejs/plugin-react 6.0.1` + `electron-builder 26.8.1` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |
 | Render | `chromedp 0.14.2` + 受控 Chromium |
@@ -112,7 +112,7 @@
 | `server/go.sum` | 维护 server 依赖锁定结果 |
 | `web/package.json` | 固定 `packageManager = pnpm@10.32.1` 与 `engines.node = 24.14.0` |
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
-| `launcher/package.json` | 固定 `packageManager = pnpm@10.32.1`、`engines.node = 24.14.0`、Electron/Vite/React/build 脚本与打包配置 |
+| `launcher/package.json` | 固定 `packageManager = pnpm@10.32.1`、`engines.node = 24.14.0`、Electron/Vite/React/`@vitejs/plugin-react`/build 脚本与打包配置 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
 | `.deps/manifest.json` | 固定资源名、版本线、来源、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
