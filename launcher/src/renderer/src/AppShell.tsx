@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Radio,
-  RadioGroup,
-  Input,
-  PresenceBadge,
-  Text,
-  Button,
-} from "@fluentui/react-components";
+import { Radio, RadioGroup, Input, PresenceBadge, Text, Button } from "@fluentui/react-components";
 import type { PresenceBadgeStatus } from "@fluentui/react-components";
 import {
   Play20Filled,
@@ -36,10 +29,7 @@ import type {
 
 type SectionId = "status" | "environment" | "diagnostics" | "settings";
 
-const serviceStateConfig: Record<
-  LauncherServiceState,
-  { status: PresenceBadgeStatus; label: string }
-> = {
+const serviceStateConfig: Record<LauncherServiceState, { status: PresenceBadgeStatus; label: string }> = {
   stopped: { status: "offline", label: "已停止" },
   starting: { status: "busy", label: "启动中" },
   running: { status: "available", label: "运行中" },
@@ -50,14 +40,15 @@ const serviceStateConfig: Record<
 };
 
 const severityConfig = {
-  error: { color: "danger" as const, label: "阻塞", icon: <DismissCircle20Filled /> },
-  warning: { color: "warning" as const, label: "警告", icon: <Warning20Filled /> },
-  ok: { color: "success" as const, label: "正常", icon: <CheckmarkCircle20Filled /> },
+  error: { label: "阻塞", icon: <DismissCircle20Filled /> },
+  warning: { label: "警告", icon: <Warning20Filled /> },
+  ok: { label: "正常", icon: <CheckmarkCircle20Filled /> },
 };
 
 type AppShellProps = {
   snapshot: LauncherSnapshot;
   activeSection: SectionId;
+  platformLabel?: string;
   settingsDraft: LauncherSettings;
   resolvedSettings: LauncherResolvedSettings;
   editingSettings: boolean;
@@ -99,28 +90,38 @@ const sections = [
 const closeBehaviorOptions: Array<{
   value: LauncherSettings["closeBehavior"];
   label: string;
+  detail: string;
 }> = [
-  { value: "ask_every_time", label: "每次询问" },
-  { value: "hide_to_tray", label: "系统托盘" },
-  { value: "exit_application", label: "完全退出" },
+  { value: "ask_every_time", label: "每次询问", detail: "每次关闭窗口时都显示确认选项。" },
+  { value: "hide_to_tray", label: "系统托盘", detail: "关闭主窗口后保留托盘入口和后台状态。" },
+  { value: "exit_application", label: "完全退出", detail: "直接结束启动器窗口与托盘进程。" },
 ];
 
 function statusSummary(state: LauncherServiceState): string {
   switch (state) {
-    case "stopped": return "已停止";
-    case "starting": return "正在启动";
-    case "running": return "正在运行";
-    case "degraded": return "受限运行";
-    case "setup_required": return "需要设置";
-    case "stopping": return "正在停止";
-    case "failed": return "启动失败";
-    default: return "未知状态";
+    case "stopped":
+      return "已停止";
+    case "starting":
+      return "正在启动";
+    case "running":
+      return "正在运行";
+    case "degraded":
+      return "受限运行";
+    case "setup_required":
+      return "需要设置";
+    case "stopping":
+      return "正在停止";
+    case "failed":
+      return "启动失败";
+    default:
+      return "未知状态";
   }
 }
 
 export function AppShell({
   snapshot,
   activeSection,
+  platformLabel = "",
   settingsDraft,
   resolvedSettings,
   editingSettings,
@@ -135,7 +136,6 @@ export function AppShell({
   onOpenWeb,
   onRecoveryRecheck,
   onRuntimeBootstrap,
-  onOpenRecoveryPlugin,
   onOpenReleasePage,
   onOpenLogs,
   onResetAdmin,
@@ -153,30 +153,31 @@ export function AppShell({
 }: AppShellProps) {
   const [showAdvancedOverrides, setShowAdvancedOverrides] = useState(false);
   const checks = useMemo(() => snapshot.environmentChecks || [], [snapshot.environmentChecks]);
-  
-  const groupedChecks = useMemo(() => ({
-    blocking: checks.filter(i => i.severity === "error"),
-    warnings: checks.filter(i => i.severity === "warning"),
-    ready: checks.filter(i => i.severity === "ok"),
-  }), [checks]);
-
+  const groupedChecks = useMemo(
+    () => ({
+      blocking: checks.filter((item) => item.severity === "error"),
+      warnings: checks.filter((item) => item.severity === "warning"),
+      ready: checks.filter((item) => item.severity === "ok"),
+    }),
+    [checks],
+  );
   const categorizedChecks = useMemo(() => {
-    const coreCodes = ["server.executable_found", "config.file_readable", "workdir.writable"];
-    const runtimePrefixes = ["deps", "chromium", "python", "nodejs", "npm"];
-    
+    const corePrefixes = ["server.", "config.", "workdir."];
+    const runtimePrefixes = ["deps.", "chromium.", "python.", "nodejs.", "npm."];
     return {
-      core: checks.filter(c => coreCodes.includes(c.code)),
-      runtimes: checks.filter(c => runtimePrefixes.some(p => c.code.startsWith(p))),
-      others: checks.filter(c => 
-        !coreCodes.includes(c.code) && !runtimePrefixes.some(p => c.code.startsWith(p))
+      core: checks.filter((item) => corePrefixes.some((prefix) => item.code.startsWith(prefix))),
+      runtimes: checks.filter((item) => runtimePrefixes.some((prefix) => item.code.startsWith(prefix))),
+      others: checks.filter(
+        (item) =>
+          !corePrefixes.some((prefix) => item.code.startsWith(prefix))
+          && !runtimePrefixes.some((prefix) => item.code.startsWith(prefix)),
       ),
     };
   }, [checks]);
-
   const hasAdvancedOverrides = Boolean(
     settingsDraft.advancedOverrides?.serverExecutablePath
-    || settingsDraft.advancedOverrides?.configPath
-    || settingsDraft.advancedOverrides?.workdir,
+      || settingsDraft.advancedOverrides?.configPath
+      || settingsDraft.advancedOverrides?.workdir,
   );
 
   useEffect(() => {
@@ -208,14 +209,14 @@ export function AppShell({
           ? "打开初始化"
           : "启动 RayleaBot";
   const startDisabled =
-    controlsDisabled ||
-    busyAction === "start" ||
-    busyAction === "restart" ||
-    busyAction === "stop" ||
-    busyAction === "open-web" ||
-    isExternalRunnable ||
-    snapshot.serviceState === "starting" ||
-    snapshot.serviceState === "stopping";
+    controlsDisabled
+    || busyAction === "start"
+    || busyAction === "restart"
+    || busyAction === "stop"
+    || busyAction === "open-web"
+    || isExternalRunnable
+    || snapshot.serviceState === "starting"
+    || snapshot.serviceState === "stopping";
   const stopDisabled =
     controlsDisabled
     || busyAction === "restart"
@@ -240,19 +241,13 @@ export function AppShell({
           <div className="brand-eyebrow">RayleaBot</div>
           <div className="brand-headline">
             <h1>RayleaLauncher</h1>
-            {snapshot.releaseCheck.currentVersion && (
-              <span className="glass-chip">v{snapshot.releaseCheck.currentVersion}</span>
-            )}
+            {snapshot.releaseCheck.currentVersion && <span className="glass-chip">v{snapshot.releaseCheck.currentVersion}</span>}
           </div>
         </div>
 
         <nav className="section-nav">
           {sections.map((section) => (
-            <button
-              key={section.id}
-              className={`nav-item${activeSection === section.id ? " active" : ""}`}
-              onClick={() => onNavigate(section.id)}
-            >
+            <button key={section.id} className={`nav-item${activeSection === section.id ? " active" : ""}`} onClick={() => onNavigate(section.id)}>
               <span className="nav-item__icon">{section.icon}</span>
               <span className="nav-item__label">{section.title}</span>
             </button>
@@ -268,20 +263,11 @@ export function AppShell({
             <Text size={100} className="eyebrow-text">API ENDPOINT</Text>
             <Text size={100} className="sidebar-footer__endpoint">{snapshot.endpoint.baseUrl}</Text>
           </div>
-          <Button
-            appearance="transparent"
-            size="small"
-            onClick={onRefresh}
-            icon={<ArrowClockwise20Regular />}
-            className="frost-button frost-button--ghost frost-button--inline"
-          >
-            刷新状态
-          </Button>
+          <Button appearance="transparent" size="small" onClick={onRefresh} icon={<ArrowClockwise20Regular />} className="frost-button frost-button--ghost frost-button--inline">刷新状态</Button>
         </div>
       </aside>
 
       <main className={`shell-main ${activeSection === "environment" ? "active-environment" : ""}`}>
-        {/* RUNNING STATUS SECTION */}
         {activeSection === "status" && (
           <>
             <section className="hero-card glass-panel">
@@ -299,59 +285,31 @@ export function AppShell({
                   </div>
                 )}
               </div>
+
               <div className="hero-actions">
-                <Button
-                  appearance="transparent"
-                  className="frost-button frost-button--primary frost-button--block"
-                  onClick={onStart}
-                  disabled={startDisabled}
-                  icon={<Play20Filled />}
-                >
-                  {primaryActionLabel}
-                </Button>
-                <Button
-                  appearance="transparent"
-                  className="frost-button frost-button--secondary frost-button--block"
-                  onClick={onStop}
-                  disabled={stopDisabled}
-                  icon={<Stop20Filled />}
-                >
-                  停止服务
-                </Button>
-                <Button
-                  appearance="transparent"
-                  className="frost-button frost-button--secondary frost-button--block"
-                  onClick={onOpenWeb}
-                  disabled={controlsDisabled || !canOpenWebUi}
-                  icon={<Globe20Filled />}
-                >
-                  管理面板
-                </Button>
+                <Button appearance="transparent" className="frost-button frost-button--primary frost-button--block" onClick={onStart} disabled={startDisabled} icon={<Play20Filled />}>{primaryActionLabel}</Button>
+                <Button appearance="transparent" className="frost-button frost-button--secondary frost-button--block" onClick={onStop} disabled={stopDisabled} icon={<Stop20Filled />}>停止服务</Button>
+                <Button appearance="transparent" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Filled />}>管理面板</Button>
               </div>
             </section>
 
-            {/* 首页显示的异常检查项 */}
-            {checks.length > 0 && checks.some(i => i.severity !== "ok") && (
+            {checks.length > 0 && checks.some((item) => item.severity !== "ok") && (
               <div className="checks-stack">
-                {checks.map(item => (
-                  item.severity !== "ok" && (
-                    <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
-                      <div className="check-item__lead">
-                        <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
-                        <div className="check-item__copy">
-                          <Text weight="bold" size={300}>{item.title}</Text>
-                          <Text size={200} className="check-item__summary">
-                            {item.code === "os.long_paths_unknown" && item.severity === "warning"
-                              ? "无法确认长路径支持状态。若资源展开遇到限制，请手动检查系统长路径设置。" 
-                              : item.summary}
-                          </Text>
-                        </div>
+                {checks.filter((item) => item.severity !== "ok").map((item) => (
+                  <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
+                    <div className="check-item__lead">
+                      <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
+                      <div className="check-item__copy">
+                        <Text weight="bold" size={300}>{item.title}</Text>
+                        <Text size={200} className="check-item__summary">
+                          {item.code === "os.long_paths_unknown" && item.severity === "warning"
+                            ? "无法确认长路径支持状态。若资源展开遇到限制，请手动检查系统长路径设置。"
+                            : item.summary}
+                        </Text>
                       </div>
-                      <span className={`status-pill status-pill--${item.severity}`}>
-                        {severityConfig[item.severity as keyof typeof severityConfig]?.label}
-                      </span>
                     </div>
-                  )
+                    <span className={`status-pill status-pill--${item.severity}`}>{severityConfig[item.severity as keyof typeof severityConfig]?.label}</span>
+                  </div>
                 ))}
               </div>
             )}
@@ -393,59 +351,38 @@ export function AppShell({
           </>
         )}
 
-        {/* ENVIRONMENT SECTION */}
         {activeSection === "environment" && (
           <div className="env-details-flow">
             <article className="panel glass-panel">
               <div className="brand-eyebrow">运行环境概览</div>
               <div className="status-list env-status-grid">
-                <div className="status-item"><span className="status-label">平台架构</span><span className="status-value">{snapshot.platform || "—"}</span></div>
-                <div className="status-item"><span className="status-label">核心版本</span><span className="status-value">{snapshot.version}</span></div>
+                <div className="status-item"><span className="status-label">平台架构</span><span className="status-value">{platformLabel || "—"}</span></div>
+                <div className="status-item"><span className="status-label">核心版本</span><span className="status-value">{snapshot.releaseCheck.currentVersion || "—"}</span></div>
                 <div className="status-item"><span className="status-label">安装路径</span><span className="status-value mono">{snapshot.settings.installationRoot || "—"}</span></div>
               </div>
             </article>
 
-            <section className="env-section">
-              <div className="brand-eyebrow brand-eyebrow--section">系统核心</div>
-              <div className="checks-stack checks-stack--grid">
-                {categorizedChecks.core.map(item => (
-                  <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
-                    <div className="check-item__lead">
-                      <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
-                      <div className="check-item__copy"><Text weight="bold" size={200}>{item.title}</Text></div>
-                    </div>
+            {[{ title: "系统核心", data: categorizedChecks.core }, { title: "受控运行时", data: categorizedChecks.runtimes }, { title: "环境特性", data: categorizedChecks.others }]
+              .filter((section) => section.data.length > 0)
+              .map((section) => (
+                <section key={section.title} className="env-section">
+                  <div className="brand-eyebrow brand-eyebrow--section">{section.title}</div>
+                  <div className="checks-stack checks-stack--grid">
+                    {section.data.map((item) => (
+                      <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
+                        <div className="check-item__lead">
+                          <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
+                          <div className="check-item__copy">
+                            <Text weight="bold" size={200}>{item.title}</Text>
+                            <Text size={100} className="check-item__summary">{item.summary}</Text>
+                          </div>
+                        </div>
+                        <span className={`status-pill status-pill--${item.severity}`}>{severityConfig[item.severity as keyof typeof severityConfig]?.label}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="env-section">
-              <div className="brand-eyebrow brand-eyebrow--section">受控运行时</div>
-              <div className="checks-stack checks-stack--grid">
-                {categorizedChecks.runtimes.map(item => (
-                  <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
-                    <div className="check-item__lead">
-                      <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
-                      <div className="check-item__copy"><Text weight="bold" size={200}>{item.title}</Text></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="env-section">
-              <div className="brand-eyebrow brand-eyebrow--section">环境特性</div>
-              <div className="checks-stack checks-stack--grid">
-                {categorizedChecks.others.map(item => (
-                  <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
-                    <div className="check-item__lead">
-                      <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
-                      <div className="check-item__copy"><Text weight="bold" size={200}>{item.title}</Text></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                </section>
+              ))}
 
             <div className="metric-panel-container">
               <article className="panel glass-panel metric-panel">
@@ -460,7 +397,6 @@ export function AppShell({
           </div>
         )}
 
-        {/* DIAGNOSTICS SECTION */}
         {activeSection === "diagnostics" && (
           <article className="panel glass-panel diagnostics-panel">
             <div className="brand-eyebrow">系统诊断快照</div>
@@ -468,7 +404,6 @@ export function AppShell({
           </article>
         )}
 
-        {/* SETTINGS SECTION */}
         {activeSection === "settings" && (
           <article className="panel glass-panel settings-panel">
             <div className="panel-toolbar">
@@ -489,44 +424,71 @@ export function AppShell({
             </div>
 
             <div className="settings-shell">
-              <div className="path-stack">
-                <label className="path-field">
-                  <span className="path-field__label">安装目录</span>
-                  <div className="path-control">
-                    <Input value={settingsDraft.installationRoot} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, d) => onUpdateInstallationRoot(d.value)} />
-                    <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
-                  </div>
-                </label>
-                <label className="path-field"><span className="path-field__label">服务端路径</span><div className="path-control"><Input value={resolvedSettings.serverExecutablePath} readOnly className="frost-input frost-input--path" /></div></label>
-                <label className="path-field"><span className="path-field__label">配置文件</span><div className="path-control"><Input value={resolvedSettings.configPath} readOnly className="frost-input frost-input--path" /></div></label>
-                <label className="path-field"><span className="path-field__label">运行目录</span><div className="path-control"><Input value={resolvedSettings.workdir} readOnly className="frost-input frost-input--path" /></div></label>
-                <Button appearance="transparent" size="small" className="frost-button frost-button--ghost" onClick={() => setShowAdvancedOverrides((current) => !current)}>{showAdvancedOverrides ? "收起高级覆盖" : "高级覆盖"}</Button>
-                {showAdvancedOverrides && (
-                  <>
-                    <label className="path-field"><span className="path-field__label">服务端覆盖</span><div className="path-control"><Input value={settingsDraft.advancedOverrides?.serverExecutablePath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.serverExecutablePath} className="frost-input frost-input--path" onChange={(_, d) => onUpdateAdvancedOverride("serverExecutablePath", d.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
-                    <label className="path-field"><span className="path-field__label">配置覆盖</span><div className="path-control"><Input value={settingsDraft.advancedOverrides?.configPath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.configPath} className="frost-input frost-input--path" onChange={(_, d) => onUpdateAdvancedOverride("configPath", d.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
-                    <label className="path-field"><span className="path-field__label">运行目录覆盖</span><div className="path-control"><Input value={settingsDraft.advancedOverrides?.workdir ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.workdir} className="frost-input frost-input--path" onChange={(_, d) => onUpdateAdvancedOverride("workdir", d.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button></div></label>
-                  </>
-                )}
-              </div>
+              <div className="settings-main-column">
+                <div className="path-stack">
+                  <label className="path-field">
+                    <span className="path-field__label">安装目录</span>
+                    <div className="path-control">
+                      <Input value={settingsDraft.installationRoot} readOnly={!editingSettings} className="frost-input frost-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
+                      <Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
+                    </div>
+                  </label>
+                  <label className="path-field"><span className="path-field__label">服务端路径</span><div className="path-control"><Input value={resolvedSettings.serverExecutablePath} readOnly className="frost-input frost-input--path" /></div></label>
+                  <label className="path-field"><span className="path-field__label">配置文件</span><div className="path-control"><Input value={resolvedSettings.configPath} readOnly className="frost-input frost-input--path" /></div></label>
+                  <label className="path-field"><span className="path-field__label">运行目录</span><div className="path-control"><Input value={resolvedSettings.workdir} readOnly className="frost-input frost-input--path" /></div></label>
+                </div>
 
+                <section className="settings-advanced-panel glass-panel glass-panel--subtle">
+                  <div className="panel-row settings-advanced-row">
+                    <div className="panel-copy">
+                      <div className="brand-eyebrow brand-eyebrow--tight">高级覆盖</div>
+                      <Text size={200} className="panel-muted">需要时使用显式路径覆盖默认推导结果。</Text>
+                    </div>
+                    <Button appearance="transparent" size="small" className="frost-button frost-button--ghost" onClick={() => setShowAdvancedOverrides((current) => !current)}>{showAdvancedOverrides ? "收起高级覆盖" : "展开高级覆盖"}</Button>
+                  </div>
+
+                  {showAdvancedOverrides && (
+                    <div className="path-stack settings-advanced-fields">
+                      <label className="path-field"><span className="path-field__label">服务端覆盖</span><div className="path-control"><Input value={settingsDraft.advancedOverrides?.serverExecutablePath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.serverExecutablePath} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
+                      <label className="path-field"><span className="path-field__label">配置覆盖</span><div className="path-control"><Input value={settingsDraft.advancedOverrides?.configPath ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.configPath} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button></div></label>
+                      <label className="path-field"><span className="path-field__label">运行目录覆盖</span><div className="path-control"><Input value={settingsDraft.advancedOverrides?.workdir ?? ""} readOnly={!editingSettings} placeholder={resolvedSettings.workdir} className="frost-input frost-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} /><Button appearance="transparent" disabled={!editingSettings} size="small" className="frost-button frost-button--secondary frost-button--compact" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button></div></label>
+                    </div>
+                  )}
+                </section>
+              </div>
+            </div>
+
+            <div className="settings-lower-grid">
               <section className="preferences-panel glass-panel glass-panel--subtle">
-                <div className="brand-eyebrow brand-eyebrow--tight">退出行为偏好</div>
-                <RadioGroup value={settingsDraft.closeBehavior} onChange={(_, d) => onUpdateCloseBehavior(d.value as LauncherSettings["closeBehavior"])}>
+                <div className="panel-copy">
+                  <div className="brand-eyebrow brand-eyebrow--tight">退出行为偏好</div>
+                  <Text size={200} className="panel-muted">关闭窗口时采用的默认动作。托盘模式会保留后台入口。</Text>
+                </div>
+                <RadioGroup value={settingsDraft.closeBehavior} onChange={(_, data) => onUpdateCloseBehavior(data.value as LauncherSettings["closeBehavior"])}>
                   <div className="preference-options">
                     {closeBehaviorOptions.map((option) => (
-                      <div key={option.value} className={`preference-option${settingsDraft.closeBehavior === option.value ? " is-selected" : ""}${!editingSettings ? " is-disabled" : ""}`}>
-                        <Radio className="preference-radio" label={option.label} value={option.value} disabled={!editingSettings} />
-                      </div>
+                      <label key={option.value} className={`preference-option${settingsDraft.closeBehavior === option.value ? " is-selected" : ""}${!editingSettings ? " is-disabled" : ""}`}>
+                        <Radio className="preference-radio" value={option.value} disabled={!editingSettings} />
+                        <span className="preference-option__body">
+                          <span className="preference-option__title">{option.label}</span>
+                          <span className="preference-option__detail">{option.detail}</span>
+                        </span>
+                      </label>
                     ))}
                   </div>
                 </RadioGroup>
               </section>
-            </div>
 
-            <div className="settings-exit-row">
-              <Button appearance="transparent" size="small" className="frost-button frost-button--danger" onClick={onResetAdmin} disabled={controlsDisabled || snapshot.serviceState === "starting" || snapshot.serviceState === "stopping"} icon={<Warning20Filled />}>重置凭据</Button>
-              <Button appearance="transparent" size="small" className="frost-button frost-button--danger" onClick={onExit} icon={<Stop20Filled />}>退出</Button>
+              <section className="maintenance-panel glass-panel glass-panel--subtle">
+                <div className="panel-copy">
+                  <div className="brand-eyebrow brand-eyebrow--tight">维护操作</div>
+                  <Text size={200} className="panel-muted">用于重置本地凭据或直接结束启动器进程。</Text>
+                </div>
+                <div className="settings-exit-row settings-exit-row--stack">
+                  <Button appearance="transparent" size="small" className="frost-button frost-button--danger" onClick={onResetAdmin} disabled={controlsDisabled || snapshot.serviceState === "starting" || snapshot.serviceState === "stopping"} icon={<Warning20Filled />}>重置凭据</Button>
+                  <Button appearance="transparent" size="small" className="frost-button frost-button--danger" onClick={onExit} icon={<Stop20Filled />}>退出 RayleaLauncher</Button>
+                </div>
+              </section>
             </div>
           </article>
         )}

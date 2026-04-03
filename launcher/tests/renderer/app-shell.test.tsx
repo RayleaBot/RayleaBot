@@ -78,6 +78,7 @@ describe("AppShell", () => {
       <AppShell
         snapshot={snapshot}
         activeSection="status"
+        platformLabel="win32-x64"
         settingsDraft={snapshot.settings}
         resolvedSettings={snapshot.resolvedSettings}
         editingSettings={false}
@@ -118,9 +119,71 @@ describe("AppShell", () => {
     expect(screen.getByText("偏好设置")).toBeInTheDocument();
     expect(screen.getByText("服务尚未启动。")).toBeInTheDocument();
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
+    expect(screen.getByText("警告")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "处理建议" })).not.toBeInTheDocument();
     expect(screen.getByText(/恢复兼容性/)).toBeInTheDocument();
     expect(screen.getByText("degraded · upgrade")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重新检查" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "准备运行时" })).toBeInTheDocument();
+  });
+
+  test("restores editing controls and advanced overrides in settings", () => {
+    const { container } = render(
+      <AppShell
+        snapshot={snapshot}
+        activeSection="settings"
+        platformLabel="win32-x64"
+        settingsDraft={{
+          ...snapshot.settings,
+          advancedOverrides: {
+            serverExecutablePath: "D:\\Portable\\server\\raylea-server.exe",
+            configPath: "D:\\Portable\\config\\user.yaml",
+            workdir: "D:\\Portable",
+          },
+        }}
+        resolvedSettings={snapshot.resolvedSettings}
+        editingSettings={true}
+        diagnosticsSummary=""
+        busyAction={null}
+        controlsDisabled={false}
+        isMaximized={false}
+        onNavigate={vi.fn()}
+        onRefresh={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onOpenWeb={vi.fn()}
+        onRecoveryRecheck={vi.fn()}
+        onRuntimeBootstrap={vi.fn()}
+        onOpenRecoveryPlugin={vi.fn()}
+        onOpenReleasePage={vi.fn()}
+        onOpenLogs={vi.fn()}
+        onResetAdmin={vi.fn()}
+        onBeginEdit={vi.fn()}
+        onCancelEdit={vi.fn()}
+        onSaveSettings={vi.fn()}
+        onUpdateInstallationRoot={vi.fn()}
+        onUpdateCloseBehavior={vi.fn()}
+        onUpdateAdvancedOverride={vi.fn()}
+        onChooseInstallationRoot={vi.fn()}
+        onChooseServer={vi.fn()}
+        onChooseConfig={vi.fn()}
+        onChooseWorkdir={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "放弃" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "收起高级覆盖" })).toBeInTheDocument();
+    expect(screen.getByText("服务端覆盖")).toBeInTheDocument();
+    expect(screen.getByText("配置覆盖")).toBeInTheDocument();
+    expect(screen.getByText("运行目录覆盖")).toBeInTheDocument();
+    expect(screen.getByText("关闭窗口时采用的默认动作。托盘模式会保留后台入口。")).toBeInTheDocument();
+    expect(screen.getByText("每次关闭窗口时都显示确认选项。")).toBeInTheDocument();
+    expect(screen.getByText("关闭主窗口后保留托盘入口和后台状态。")).toBeInTheDocument();
+    expect(screen.getByText("直接结束启动器窗口与托盘进程。")).toBeInTheDocument();
+    expect(screen.getByText("维护操作")).toBeInTheDocument();
+    expect(container.querySelector(".settings-lower-grid")).not.toBeNull();
+    expect(container.querySelector(".settings-side-column")).toBeNull();
   });
 });

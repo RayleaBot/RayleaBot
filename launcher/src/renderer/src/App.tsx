@@ -49,6 +49,7 @@ export function App() {
   const [editingSettings, setEditingSettings] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [snapshot, setSnapshot] = useState<LauncherSnapshot>(initialSnapshot);
+  const [platformLabel, setPlatformLabel] = useState("");
   // Local draft: only used during settings editing; mirrors what Vue's settingsDraft ref did
   const [editingDraft, setEditingDraft] = useState<LauncherSettings | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -156,6 +157,26 @@ export function App() {
     window.rayleaLauncher.isMaximized().then(setIsMaximized);
     const unsub = window.rayleaLauncher.onMaximizedChange(setIsMaximized);
     return unsub;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.rayleaLauncher
+      .getPlatform()
+      .then((value) => {
+        if (!cancelled) {
+          setPlatformLabel(value);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPlatformLabel("");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const describeError = useCallback((error: unknown, fallback: string) => {
@@ -294,6 +315,7 @@ export function App() {
     <AppShell
       snapshot={snapshot}
       activeSection={activeSection}
+      platformLabel={platformLabel}
       settingsDraft={settingsDraft}
       resolvedSettings={editingSettings ? previewResolvedSettings : snapshot.resolvedSettings}
       editingSettings={editingSettings}
