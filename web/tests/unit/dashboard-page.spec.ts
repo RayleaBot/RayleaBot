@@ -147,6 +147,52 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).not.toContain('config = ok')
   })
 
+  it('shows degraded readiness as limited conditions and explains the difference from health', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: DashboardPage }],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const store = useSystemStore()
+    store.health = { status: 'ok' }
+    store.readiness = {
+      status: 'degraded',
+      reason: '运行条件未满足',
+      reason_codes: ['platform.resource_missing'],
+      issues: [
+        {
+          code: 'platform.resource_missing',
+          severity: 'warning',
+          summary: 'Python 运行时尚未准备完成。',
+          remediation: '请先准备受控 Python 运行时。',
+        },
+      ],
+    }
+    store.system = {
+      status: 'running',
+      adapter_state: 'idle',
+      active_plugins: 0,
+      uptime_seconds: 17,
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('运行条件受限')
+    expect(wrapper.text()).toContain('管理面可用，但依赖受控 Python 运行时的能力暂不可用。')
+    expect(wrapper.text()).toContain('健康检查正常，说明管理面可用；就绪状态受限，说明仍有运行条件未满足。')
+    expect(wrapper.text()).not.toContain('性能降级')
+  })
+
   it('deduplicates readiness issue codes already represented by issue cards', async () => {
     const router = createRouter({
       history: createMemoryHistory(),

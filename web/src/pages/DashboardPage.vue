@@ -77,6 +77,13 @@ const topIssue = computed(() => {
   return readinessIssues.value.find(i => i.severity === 'error') ?? readinessIssues.value[0]
 })
 
+function isPythonRuntimeIssue(issue: { code?: string; summary?: string; remediation?: string }) {
+  const joined = `${issue.code ?? ''} ${issue.summary ?? ''} ${issue.remediation ?? ''}`
+  return joined.includes('python') || joined.includes('Python')
+}
+
+const pythonRuntimeIssue = computed(() => readinessIssues.value.find((issue) => isPythonRuntimeIssue(issue)) ?? null)
+
 const recoveryStatusLabel = computed(() => {
   const status = recoverySummary.value?.status
   if (status === 'compatible') return '兼容通过'
@@ -115,8 +122,9 @@ const alertBannerType = computed<'warning' | 'error' | null>(() => {
 
 const alertBannerMessage = computed(() => {
   if (!readiness.value) return ''
-  if (readiness.value.reason) return readiness.value.reason
+  if (pythonRuntimeIssue.value) return t('dashboard.pythonRuntimeLimited')
   if (topIssue.value) return topIssue.value.summary
+  if (readiness.value.reason) return readiness.value.reason
   return ''
 })
 
@@ -131,7 +139,6 @@ const statusBadgeConfig = computed(() => {
   }
   const labelMap: Record<string, string> = {
     ready: '系统正常',
-    degraded: '性能降级',
     failed: '系统异常',
     setup_required: '需要配置',
   }
@@ -408,6 +415,12 @@ async function openRecoveryPlugin(pluginID: string) {
 
         <el-empty v-else :description="t('display.empty')" />
 
+        <div class="readiness-note">
+          <small style="color: var(--muted);">
+            {{ health?.status === 'ok' && readiness?.status === 'degraded' ? t('dashboard.readinessLimitedHint') : t('dashboard.readinessHint') }}
+          </small>
+        </div>
+
         <div v-if="visibleReasonCodes.length" style="margin-top: 14px;">
           <small style="color: var(--muted);">{{ t('dashboard.reasonCodes') }}: {{ visibleReasonCodes.join(', ') }}</small>
         </div>
@@ -621,3 +634,14 @@ async function openRecoveryPlugin(pluginID: string) {
     </el-dialog>
   </div>
 </template>
+
+<style scoped lang="scss">
+.readiness-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  line-height: 1.5;
+}
+</style>
