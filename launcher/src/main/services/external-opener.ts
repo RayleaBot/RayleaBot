@@ -5,6 +5,9 @@ export const externalOpener = {
     await shell.openExternal(uri);
   },
   async openDirectory(directoryPath: string) {
-    await shell.openPath(directoryPath);
+    const result = await shell.openPath(directoryPath);
+    if (result) {
+      throw new Error(result);
+    }
   },
 };

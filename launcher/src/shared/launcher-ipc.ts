@@ -1,0 +1,31 @@
+export const launcherInvokeChannels = {
+  getPlatform: "launcher:get-platform",
+  getSnapshot: "launcher:get-snapshot",
+  initialize: "launcher:initialize",
+  refresh: "launcher:refresh",
+  retry: "launcher:retry",
+  start: "launcher:start",
+  stop: "launcher:stop",
+  resetAdmin: "launcher:reset-admin",
+  openWeb: "launcher:open-web",
+  createRecoveryRecheck: "launcher:create-recovery-recheck",
+  createRuntimeBootstrap: "launcher:create-runtime-bootstrap",
+  openReleasePage: "launcher:open-release-page",
+  openLogs: "launcher:open-logs",
+  saveSettings: "launcher:save-settings",
+  previewResolvedSettings: "launcher:preview-resolved-settings",
+  chooseInstallationRoot: "launcher:choose-installation-root",
+  chooseServer: "launcher:choose-server",
+  chooseConfig: "launcher:choose-config",
+  chooseWorkdir: "launcher:choose-workdir",
+  exit: "launcher:exit",
+  minimize: "launcher:minimize",
+  maximize: "launcher:maximize",
+  close: "launcher:close",
+  isMaximized: "launcher:is-maximized",
+} as const;
+
+export const launcherEventChannels = {
+  snapshot: "launcher:snapshot",
+  maximizedChange: "launcher:maximized-change",
+} as const;

@@ -160,6 +160,38 @@ describe("inspectLauncherEnvironment", () => {
     expect(inspection.checks.some((item) => item.code === "deps.nodejs_runtime_metadata_incomplete")).toBe(true);
   });
 
+  test("does not treat contract-valid metadata as incomplete only because the source path contains TODO marker text", async () => {
+    const inspection = await inspectLauncherEnvironment({
+      serverExecutableExists: true,
+      userConfigExists: true,
+      defaultConfigExists: true,
+      workdirWritable: true,
+      depsManifestExists: true,
+      depsManifestText: JSON.stringify({
+        manifest_version: 2,
+        resources: [
+          {
+            id: "chromium-windows-x64",
+            platform: "windows-x64",
+            kind: "chromium",
+            version: "147.0.7727.24",
+            source: "https://example.invalid/runtime/TODO(chromium).zip",
+            sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+            archive_format: "zip",
+            entrypoints: { browser: ["chrome-win64/chrome.exe"] },
+          },
+        ],
+      }),
+      templatesExist: true,
+      templatesHaveFiles: true,
+      platform: "windows-x64",
+      longPaths: "enabled",
+    });
+
+    expect(inspection.checks.find((item) => item.code === "deps.chromium")?.severity).toBe("ok");
+    expect(inspection.checks.find((item) => item.code === "deps.chromium")?.summary).toBe("Chromium 资源可按需准备。");
+  });
+
   test("flags missing template directory for render resources", async () => {
     const inspection = await inspectLauncherEnvironment({
       serverExecutableExists: true,

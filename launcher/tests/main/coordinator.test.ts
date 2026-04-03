@@ -45,6 +45,13 @@ class FakeManagementClient implements LauncherManagementClient {
   issueLauncherTokenCalls = 0;
   admitLauncherTokenCalls = 0;
   systemStatusCalls = 0;
+  readiness = {
+    status: "ready",
+  };
+  systemStatus = {
+    status: "running",
+    recovery_summary: null as RecoveryCompatibilitySummary | null,
+  };
   recoverySummary: RecoveryCompatibilitySummary | null = null;
 
   async isHealthy() {
@@ -65,9 +72,16 @@ class FakeManagementClient implements LauncherManagementClient {
     return this.sessionToken;
   }
 
+  async getReadiness() {
+    return this.readiness;
+  }
+
   async getSystemStatus() {
     this.systemStatusCalls += 1;
-    return { recovery_summary: this.recoverySummary };
+    return {
+      ...this.systemStatus,
+      recovery_summary: this.recoverySummary ?? this.systemStatus.recovery_summary,
+    };
   }
 
   async createRecoveryRecheck() {
@@ -257,7 +271,64 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.recoverySummary?.status).toBe("degraded");
+    expect(coordinator.snapshot.serviceState).toBe("external_service");
+  });
+
+  test("initialize reflects degraded readiness details from /readyz", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    managementClient.readiness = {
+      status: "degraded",
+      reason: "OneBot11 正在重连，管理面仍可使用。",
+      reason_codes: ["adapter.reconnecting"],
+      checks: {
+        adapter: "warning",
+      },
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
     expect(coordinator.snapshot.serviceState).toBe("degraded");
+    expect(coordinator.snapshot.serviceDetail).toContain("OneBot11 正在重连");
+  });
+
+  test("initialize reflects system/status shutting_down state", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    managementClient.systemStatus = {
+      status: "shutting_down",
+      recovery_summary: null,
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    expect(coordinator.snapshot.serviceState).toBe("shutting_down");
   });
 
   test("initialize falls back to local recovery summary when api path is unavailable", async () => {
@@ -552,11 +623,14 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.lastError).toContain("config validation failed");
   });
 
-  test("initialize reports setup_required when setup is not initialized", async () => {
+  test("initialize reports setup_required when /readyz says setup is still required", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
-    managementClient.setupInitialized = false;
+    managementClient.readiness = {
+      status: "setup_required",
+      reason: "管理员初始化尚未完成。",
+    };
     const processController = new FakeProcessController();
     processController.isRunning = true;
 
@@ -575,6 +649,53 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.serviceState).toBe("setup_required");
+    expect(coordinator.snapshot.serviceDetail).toContain("管理员初始化");
+  });
+
+  test("initialize does not block on slow release checks", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const releaseSnapshot = {
+      status: "up_to_date",
+      currentVersion: "0.1.0",
+      latestVersion: "0.1.0",
+      summary: "当前版本 0.1.0 已是最新。",
+      detail: "",
+      releasePageUrl: "https://example.invalid/releases/v0.1.0",
+      updateAvailable: false,
+    };
+    let resolveRelease: ((value: typeof releaseSnapshot) => void) | null = null;
+    const slowReleaseClient: ReleaseFeedClient = {
+      getSnapshot: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveRelease = resolve;
+          }),
+      ),
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: slowReleaseClient,
+    });
+
+    const result = await Promise.race([
+      coordinator.initialize().then(() => "resolved"),
+      new Promise<string>((resolve) => setTimeout(() => resolve("timeout"), 25)),
+    ]);
+
+    expect(result).toBe("resolved");
+    expect(coordinator.snapshot.releaseCheck.status).toBe("unavailable");
+
+    resolveRelease?.(releaseSnapshot);
   });
 
   test("reset admin clears launcher session, restarts service, and opens setup entry", async () => {

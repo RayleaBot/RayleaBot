@@ -89,15 +89,11 @@ function resourceHasCompleteMetadata(resource?: DepsManifestResource) {
   }
 
   const source = resource.source?.trim() ?? "";
-  if (!source.startsWith("https://") || source.toUpperCase().includes("TODO(")) {
+  if (!source.startsWith("https://")) {
     return false;
   }
 
   const sha256 = resource.sha256?.trim().toLowerCase() ?? "";
-  if (sha256.includes("todo(")) {
-    return false;
-  }
-
   if (!/^[0-9a-f]{64}$/.test(sha256)) {
     return false;
   }

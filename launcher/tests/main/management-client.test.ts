@@ -51,6 +51,31 @@ describe("FetchLauncherManagementClient", () => {
     expect(receivedSignal?.aborted).toBe(false);
   });
 
+  test("reads /readyz payloads even when the server reports 503", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return {
+          ok: false,
+          status: 503,
+          statusText: "Service Unavailable",
+          json: async () => ({ status: "setup_required", reason: "管理员尚未初始化。" }),
+          text: async () => "",
+        } satisfies Partial<Response> as Response;
+      }),
+    );
+
+    const client = new FetchLauncherManagementClient();
+    const readiness = await client.getReadiness({
+      host: "127.0.0.1",
+      port: 8080,
+      baseUrl: "http://127.0.0.1:8080/",
+    });
+
+    expect(readiness.status).toBe("setup_required");
+    expect(readiness.reason).toContain("管理员尚未初始化");
+  });
+
   test("creates recovery recheck and runtime bootstrap tasks with auth headers", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
 

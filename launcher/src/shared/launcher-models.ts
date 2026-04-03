@@ -47,6 +47,22 @@ export interface RecoveryCompatibilitySummary {
   next_steps?: string[];
 }
 
+export interface LauncherReadinessSnapshot {
+  status: "ready" | "degraded" | "setup_required" | "failed";
+  reason?: string;
+  reason_codes?: string[];
+  checks?: Partial<Record<"config" | "database" | "runtime" | "adapter" | "render", string>>;
+  recovery_summary?: RecoveryCompatibilitySummary | null;
+}
+
+export interface LauncherSystemStatusSnapshot {
+  status: "running" | "shutting_down";
+  adapter_state?: string;
+  active_plugins?: number;
+  uptime_seconds?: number;
+  recovery_summary?: RecoveryCompatibilitySummary | null;
+}
+
 export interface LauncherAdvancedOverrides {
   serverExecutablePath?: string;
   configPath?: string;
