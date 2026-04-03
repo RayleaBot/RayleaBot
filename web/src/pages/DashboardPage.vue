@@ -16,12 +16,13 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
 import { t } from '@/i18n'
 import { useSystemStore } from '@/stores/system'
+import type { RuntimeBootstrapResource } from '@/types/api'
 
 const AUTO_REFRESH_INTERVAL = 10
 
 const router = useRouter()
 const systemStore = useSystemStore()
-const { backupPending, diagnosticsPending, error, health, loading, previewPending, readiness, recentEvents, system } = storeToRefs(systemStore)
+const { backupPending, diagnosticsPending, error, health, loading, previewPending, readiness, recentEvents, recoveryRecheckPending, runtimeBootstrapPending, system } = storeToRefs(systemStore)
 
 const previewVisible = ref(false)
 const previewForm = reactive({
@@ -83,6 +84,27 @@ const recoveryStatusLabel = computed(() => {
   if (status === 'degraded') return '需要人工处理'
   if (status === 'blocked') return '恢复被阻止'
   return t('display.empty')
+})
+
+const recoveryBootstrapResources = computed<RuntimeBootstrapResource[]>(() => {
+  const resources = new Set<RuntimeBootstrapResource>()
+  for (const issue of [...(recoverySummary.value?.issues ?? []), ...readinessIssues.value]) {
+    const code = issue.code ?? ''
+    const summary = issue.summary ?? ''
+    if (code.includes('python') || summary.includes('Python')) {
+      resources.add('python-runtime')
+    }
+    if (code.includes('node') || summary.includes('Node')) {
+      resources.add('nodejs-runtime')
+    }
+    if (code === 'platform.resource_missing' || code.includes('chromium') || summary.includes('Chromium')) {
+      resources.add('chromium')
+    }
+  }
+  if (resources.size === 0) {
+    resources.add('chromium')
+  }
+  return [...resources]
 })
 
 const alertBannerType = computed<'warning' | 'error' | null>(() => {
@@ -251,6 +273,30 @@ async function submitRenderPreview() {
     ElMessage.error(getDisplayErrorMessage(error))
   }
 }
+
+async function recheckRecoverySummary() {
+  try {
+    const response = await systemStore.recheckRecovery()
+    ElMessage.success(t('dashboard.recoveryRecheckAccepted'))
+    await router.push({ name: 'tasks', query: { task_id: response.task_id } })
+  } catch (error) {
+    ElMessage.error(getDisplayErrorMessage(error))
+  }
+}
+
+async function bootstrapRuntimeResources() {
+  try {
+    const response = await systemStore.bootstrapManagedRuntime(recoveryBootstrapResources.value)
+    ElMessage.success(t('dashboard.runtimeBootstrapAccepted'))
+    await router.push({ name: 'tasks', query: { task_id: response.task_id } })
+  } catch (error) {
+    ElMessage.error(getDisplayErrorMessage(error))
+  }
+}
+
+async function openRecoveryPlugin(pluginID: string) {
+  await router.push({ name: 'plugin-detail', params: { id: pluginID } })
+}
 </script>
 
 <template>
@@ -401,6 +447,25 @@ async function submitRenderPreview() {
         <el-empty v-if="!recoverySummary" :description="t('display.empty')" />
 
         <div v-else class="events-section">
+          <div class="table-actions" style="justify-content: flex-start; margin-bottom: 12px;">
+            <el-button
+              data-testid="recovery-recheck-button"
+              size="small"
+              :loading="recoveryRecheckPending"
+              @click="recheckRecoverySummary"
+            >
+              {{ t('dashboard.recoveryRecheck') }}
+            </el-button>
+            <el-button
+              data-testid="runtime-bootstrap-button"
+              size="small"
+              :loading="runtimeBootstrapPending"
+              @click="bootstrapRuntimeResources"
+            >
+              {{ t('dashboard.runtimeBootstrap') }}
+            </el-button>
+          </div>
+
           <div class="issue-alert-card" :class="{ 'issue-alert-card--warning': recoverySummary.status !== 'compatible' }">
             <div class="issue-alert-card__header">
               <el-tag :type="recoverySummary.status === 'blocked' ? 'danger' : recoverySummary.status === 'compatible' ? 'success' : 'warning'" size="small">
@@ -432,18 +497,44 @@ async function submitRenderPreview() {
               <el-tag type="warning" size="small">
                 {{ plugin.reason_code }}
               </el-tag>
-              <span class="issue-alert-card__summary">{{ plugin.plugin_id }}</span>
+              <el-button
+                link
+                type="primary"
+                class="issue-alert-card__summary issue-alert-card__summary--link"
+                :data-testid="`recovery-plugin-link-${plugin.plugin_id}`"
+                @click="openRecoveryPlugin(plugin.plugin_id)"
+              >
+                {{ plugin.plugin_id }}
+              </el-button>
             </div>
             <div class="issue-alert-card__remediation">{{ plugin.summary }}</div>
             <div v-if="plugin.manual_action" class="issue-alert-card__remediation">{{ plugin.manual_action }}</div>
           </div>
 
           <div v-if="recoverySummary.manual_actions?.length" style="margin-top: 12px;">
-            <small style="color: var(--muted);">处理建议：{{ recoverySummary.manual_actions.join('；') }}</small>
+            <small style="color: var(--muted); display: block; margin-bottom: 6px;">处理建议</small>
+            <ul style="margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
+              <li
+                v-for="action in recoverySummary.manual_actions"
+                :key="action"
+                data-testid="recovery-manual-action"
+              >
+                {{ action }}
+              </li>
+            </ul>
           </div>
 
           <div v-if="recoverySummary.next_steps?.length" style="margin-top: 12px;">
-            <small style="color: var(--muted);">下一步：{{ recoverySummary.next_steps.join('；') }}</small>
+            <small style="color: var(--muted); display: block; margin-bottom: 6px;">下一步</small>
+            <ul style="margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
+              <li
+                v-for="step in recoverySummary.next_steps"
+                :key="step"
+                data-testid="recovery-next-step"
+              >
+                {{ step }}
+              </li>
+            </ul>
           </div>
         </div>
       </el-card>

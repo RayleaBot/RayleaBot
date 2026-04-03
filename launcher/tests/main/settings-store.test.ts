@@ -37,6 +37,32 @@ afterEach(async () => {
 });
 
 describe("launcher settings store", () => {
+  test("recovers to defaults when launcher.json is malformed", async () => {
+    const currentRoot = await createTempDir("corrupt-workspace");
+    const userDataPath = await createTempDir("corrupt-userdata");
+
+    await createWorkspace(currentRoot);
+    await fs.writeFile(path.join(userDataPath, "launcher.json"), "{not valid json", "utf8");
+
+    const store = new JsonLauncherSettingsStore(userDataPath, path.join(currentRoot, "launcher"), "win32");
+    const loaded = await store.load();
+    const resolved = await resolveLauncherSettings(loaded, "win32");
+
+    expect(loaded.installationRoot).toBe(currentRoot);
+    expect(loaded.closeBehavior).toBe("ask_every_time");
+    expect(loaded.advancedOverrides).toBeUndefined();
+    expect(resolved.serverExecutablePath).toBe(path.join(currentRoot, "server", "raylea-server.exe"));
+    expect(resolved.configPath).toBe(path.join(currentRoot, "config", "user.yaml"));
+    expect(resolved.workdir).toBe(currentRoot);
+
+    const persisted = JSON.parse(await fs.readFile(path.join(userDataPath, "launcher.json"), "utf8")) as {
+      installationRoot: string;
+      closeBehavior: string;
+    };
+    expect(persisted.installationRoot).toBe(currentRoot);
+    expect(persisted.closeBehavior).toBe("ask_every_time");
+  });
+
   test("persists installation-root defaults when the settings file is missing", async () => {
     const currentRoot = await createTempDir("default-workspace");
     const userDataPath = await createTempDir("default-userdata");

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useDeferredValue } from "react";
 import type {
   LauncherAdvancedOverrides,
   LauncherSettings,
@@ -28,8 +28,9 @@ const initialSnapshot: LauncherSnapshot = {
   recentStderr: [],
   processId: null,
   serviceState: "stopped",
+  serviceOwnership: "none",
   shutdownRequested: false,
-  serviceDetail: "正在加载启动器设置...",
+  serviceDetail: "服务尚未启动。",
   lastError: "",
   releaseCheck: {
     status: "unavailable",
@@ -48,12 +49,15 @@ export function App() {
   const [editingSettings, setEditingSettings] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [snapshot, setSnapshot] = useState<LauncherSnapshot>(initialSnapshot);
+  const [platformLabel, setPlatformLabel] = useState("");
   // Local draft: only used during settings editing; mirrors what Vue's settingsDraft ref did
   const [editingDraft, setEditingDraft] = useState<LauncherSettings | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [previewResolvedSettings, setPreviewResolvedSettings] = useState(initialSnapshot.resolvedSettings);
 
   // settingsDraft = active editing draft when editing, else current settings from snapshot
   const settingsDraft = editingDraft ?? snapshot.settings;
+  const deferredSettingsDraft = useDeferredValue(settingsDraft);
 
   const controlsDisabled = useMemo(
     () => initializing || busyAction === "initialize",
@@ -97,6 +101,30 @@ export function App() {
   }, [snapshot.settings, editingSettings, editingDraft]);
 
   useEffect(() => {
+    if (!editingSettings) {
+      setPreviewResolvedSettings(snapshot.resolvedSettings);
+      return;
+    }
+
+    let cancelled = false;
+    window.rayleaLauncher.previewResolvedSettings(deferredSettingsDraft)
+      .then((resolvedSettings) => {
+        if (!cancelled) {
+          setPreviewResolvedSettings(resolvedSettings);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewResolvedSettings(snapshot.resolvedSettings);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingSettings, deferredSettingsDraft, snapshot.resolvedSettings]);
+
+  useEffect(() => {
     const unsub = window.rayleaLauncher.onSnapshot((next) => {
       setSnapshot(next);
     });
@@ -129,6 +157,26 @@ export function App() {
     window.rayleaLauncher.isMaximized().then(setIsMaximized);
     const unsub = window.rayleaLauncher.onMaximizedChange(setIsMaximized);
     return unsub;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.rayleaLauncher
+      .getPlatform()
+      .then((value) => {
+        if (!cancelled) {
+          setPlatformLabel(value);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPlatformLabel("");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const describeError = useCallback((error: unknown, fallback: string) => {
@@ -235,21 +283,41 @@ export function App() {
   }, []);
 
   const handlePrimaryServiceAction = useCallback(() => {
-    if (snapshot.serviceState === "ready") {
+    const isManagedRunnable =
+      (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
+      && snapshot.serviceOwnership === "launcher_managed";
+
+    if (isManagedRunnable) {
       return runAction("restart", async () => {
         await window.rayleaLauncher.stop();
         await window.rayleaLauncher.start();
       });
     }
+
+    if (snapshot.serviceState === "setup_required") {
+      return runAction("open-web", () => window.rayleaLauncher.openWebUi());
+    }
+
     return runAction("start", () => window.rayleaLauncher.start());
-  }, [runAction, snapshot.serviceState]);
+  }, [runAction, snapshot.serviceOwnership, snapshot.serviceState]);
+
+  if (initializing) {
+    return (
+      <div className="launcher-loading-shell">
+        <div className="launcher-loading-shell__eyebrow">RayleaLauncher</div>
+        <h1 className="launcher-loading-shell__title">正在准备启动器</h1>
+        <p className="launcher-loading-shell__detail">正在读取安装设置并检查本地服务状态。</p>
+      </div>
+    );
+  }
 
   return (
     <AppShell
       snapshot={snapshot}
       activeSection={activeSection}
+      platformLabel={platformLabel}
       settingsDraft={settingsDraft}
-      resolvedSettings={snapshot.resolvedSettings}
+      resolvedSettings={editingSettings ? previewResolvedSettings : snapshot.resolvedSettings}
       editingSettings={editingSettings}
       diagnosticsSummary={diagnosticsSummary}
       busyAction={busyAction}
@@ -260,6 +328,15 @@ export function App() {
       onStart={handlePrimaryServiceAction}
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
+      onRecoveryRecheck={() =>
+        runAction("recovery-recheck", () => window.rayleaLauncher.createRecoveryRecheck())
+      }
+      onRuntimeBootstrap={() =>
+        runAction("runtime-bootstrap", () => window.rayleaLauncher.createRuntimeBootstrap(["chromium"]))
+      }
+      onOpenRecoveryPlugin={(pluginId: string) =>
+        runAction("open-plugin", () => window.rayleaLauncher.openWebUi(`/plugins/${encodeURIComponent(pluginId)}`))
+      }
       onOpenReleasePage={() =>
         runAction("open-release-page", () =>
           window.rayleaLauncher.openReleasePage(),

@@ -190,4 +190,74 @@ describe("ServerProcessController", () => {
 
     expect(controller.isRunning).toBe(false);
   });
+
+  test("records non-zero exit codes for launcher diagnostics", async () => {
+    const installRoot = await createTempDir("controller-exit-code");
+    const runtimeRoot = await createTempDir("controller-exit-runtime");
+
+    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
+    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
+    await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
+
+    const child = new FakeChildProcess();
+    const spawnProcess = vi.fn(() => {
+      queueMicrotask(() => {
+        child.emit("spawn");
+      });
+      return child as never;
+    });
+
+    const controller = new ServerProcessController({
+      spawnProcess,
+      fileSystem: {
+        mkdir: vi.fn(async () => undefined),
+        appendFile: vi.fn(async () => undefined),
+      },
+      terminateProcessId: vi.fn(async () => true),
+    });
+
+    await controller.start(createSettings(installRoot, runtimeRoot));
+    child.exitCode = 23;
+    child.emit("exit", 23, null);
+
+    expect(controller.getRecentStderr().join("\n")).toContain("23");
+  });
+
+  test("records force-kill fallback failures instead of swallowing them silently", async () => {
+    const installRoot = await createTempDir("controller-force-kill");
+    const runtimeRoot = await createTempDir("controller-force-kill-runtime");
+
+    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
+    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
+    await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
+
+    const child = new FakeChildProcess();
+    child.kill = vi.fn(() => {
+      throw new Error("kill EPERM");
+    });
+    const spawnProcess = vi.fn(() => {
+      queueMicrotask(() => {
+        child.emit("spawn");
+      });
+      return child as never;
+    });
+
+    const controller = new ServerProcessController({
+      spawnProcess,
+      fileSystem: {
+        mkdir: vi.fn(async () => undefined),
+        appendFile: vi.fn(async () => undefined),
+      },
+      terminateProcessId: vi.fn(async () => false),
+    });
+
+    await controller.start(createSettings(installRoot, runtimeRoot));
+    await controller.forceKill();
+
+    expect(controller.getRecentStderr().join("\n")).toContain("kill EPERM");
+  });
 });

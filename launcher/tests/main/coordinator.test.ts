@@ -45,6 +45,13 @@ class FakeManagementClient implements LauncherManagementClient {
   issueLauncherTokenCalls = 0;
   admitLauncherTokenCalls = 0;
   systemStatusCalls = 0;
+  readiness = {
+    status: "ready",
+  };
+  systemStatus = {
+    status: "running",
+    recovery_summary: null as RecoveryCompatibilitySummary | null,
+  };
   recoverySummary: RecoveryCompatibilitySummary | null = null;
 
   async isHealthy() {
@@ -65,9 +72,24 @@ class FakeManagementClient implements LauncherManagementClient {
     return this.sessionToken;
   }
 
+  async getReadiness() {
+    return this.readiness;
+  }
+
   async getSystemStatus() {
     this.systemStatusCalls += 1;
-    return { recovery_summary: this.recoverySummary };
+    return {
+      ...this.systemStatus,
+      recovery_summary: this.recoverySummary ?? this.systemStatus.recovery_summary,
+    };
+  }
+
+  async createRecoveryRecheck() {
+    return { task_id: "task_recovery_recheck_0001" };
+  }
+
+  async createRuntimeBootstrap() {
+    return { task_id: "task_runtime_bootstrap_0001" };
   }
 
   async shutdown() {}
@@ -168,7 +190,7 @@ function okInspection(overrides: Partial<EnvironmentInspection> = {}): Environme
 }
 
 describe("launcher coordinator", () => {
-  test("initialize reports external service without launcher session bootstrap", async () => {
+  test("initialize reports externally managed running service with formal state names", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
@@ -190,10 +212,36 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("external_service");
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
     expect(managementClient.issueLauncherTokenCalls).toBe(1);
     expect(managementClient.admitLauncherTokenCalls).toBe(1);
     expect(coordinator.snapshot.releaseCheck.status).toBe("up_to_date");
+  });
+
+  test("initialize reports launcher-managed running service with separate ownership metadata", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    processController.isRunning = true;
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("launcher_managed");
   });
 
   test("initialize supports async endpoint resolution", async () => {
@@ -249,7 +297,64 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.recoverySummary?.status).toBe("degraded");
+    expect(coordinator.snapshot.serviceState).toBe("running");
+  });
+
+  test("initialize reflects degraded readiness details from /readyz", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    managementClient.readiness = {
+      status: "degraded",
+      reason: "OneBot11 正在重连，管理面仍可使用。",
+      reason_codes: ["adapter.reconnecting"],
+      checks: {
+        adapter: "warning",
+      },
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
     expect(coordinator.snapshot.serviceState).toBe("degraded");
+    expect(coordinator.snapshot.serviceDetail).toContain("OneBot11 正在重连");
+  });
+
+  test("initialize reflects system/status shutting_down state", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    managementClient.systemStatus = {
+      status: "shutting_down",
+      recovery_summary: null,
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    expect(coordinator.snapshot.serviceState).toBe("stopping");
   });
 
   test("initialize falls back to local recovery summary when api path is unavailable", async () => {
@@ -308,9 +413,10 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
-    await coordinator.openWebUi();
+    await coordinator.openWebUi("/tasks?task_id=task_fixture_0001");
 
-    expect(externalOpener.openedUris.at(-1)).toContain("?token=");
+    expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_fixture_0001");
+    expect(externalOpener.openedUris.at(-1)).toContain("&token=");
 
     managementClient.setupInitialized = false;
     await coordinator.openWebUi();
@@ -344,9 +450,63 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
-    await coordinator.openWebUi();
+    await coordinator.openWebUi("/plugins/weather-pro");
 
-    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
+    expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/plugins/weather-pro");
+  });
+
+  test("open web ui rejects absolute external targets", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    await expect(coordinator.openWebUi("https://evil.example/pwn")).rejects.toThrow(
+      "启动器只允许打开管理界面的相对路径。",
+    );
+    expect(externalOpener.openedUris).toHaveLength(0);
+  });
+
+  test("submits recovery tasks and opens the tasks page", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+    await coordinator.createRecoveryRecheck();
+    await coordinator.createRuntimeBootstrap(["chromium"]);
+
+    expect(externalOpener.openedUris.at(-2)).toContain("/tasks?task_id=task_recovery_recheck_0001");
+    expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_runtime_bootstrap_0001");
   });
 
   test("start does not launch another process when endpoint is already healthy", async () => {
@@ -371,7 +531,76 @@ describe("launcher coordinator", () => {
     await coordinator.start();
 
     expect(processController.startCalls).toBe(0);
-    expect(coordinator.snapshot.serviceState).toBe("external_service");
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+  });
+
+  test("stop keeps an external service running when the confirmation is declined", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const tryStopEndpointProcess = vi.fn(async () => false);
+    managementClient.shutdown = vi.fn(async () => undefined);
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess,
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      confirmExternalServiceStop: vi.fn(async () => false),
+    } as any);
+
+    await coordinator.initialize();
+    await coordinator.stop();
+
+    expect(managementClient.shutdown).not.toHaveBeenCalled();
+    expect(processController.forceKillCalls).toBe(0);
+    expect(tryStopEndpointProcess).not.toHaveBeenCalled();
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+  });
+
+  test("stop surfaces external shutdown admission failures without force killing the foreign process", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const tryStopEndpointProcess = vi.fn(async () => false);
+    managementClient.issueLauncherToken = vi.fn(async () => {
+      throw new Error("token issue failed");
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess,
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      confirmExternalServiceStop: vi.fn(async () => true),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 10,
+        shutdownTimeoutMs: 1,
+      },
+    } as any);
+
+    await coordinator.initialize();
+    await coordinator.stop();
+
+    expect(processController.forceKillCalls).toBe(0);
+    expect(tryStopEndpointProcess).not.toHaveBeenCalled();
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect(coordinator.snapshot.lastError).toContain("token issue failed");
   });
 
   test("stop waits for the managed process to exit before reporting final state", async () => {
@@ -489,11 +718,14 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.lastError).toContain("config validation failed");
   });
 
-  test("initialize reports setup_required when setup is not initialized", async () => {
+  test("initialize reports setup_required when /readyz says setup is still required", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
-    managementClient.setupInitialized = false;
+    managementClient.readiness = {
+      status: "setup_required",
+      reason: "管理员初始化尚未完成。",
+    };
     const processController = new FakeProcessController();
     processController.isRunning = true;
 
@@ -512,15 +744,74 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.serviceState).toBe("setup_required");
+    expect(coordinator.snapshot.serviceDetail).toContain("管理员初始化");
   });
 
-  test("reset admin clears launcher session, restarts service, and opens setup entry", async () => {
+  test("initialize does not block on slow release checks", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const releaseSnapshot = {
+      status: "up_to_date",
+      currentVersion: "0.1.0",
+      latestVersion: "0.1.0",
+      summary: "当前版本 0.1.0 已是最新。",
+      detail: "",
+      releasePageUrl: "https://example.invalid/releases/v0.1.0",
+      updateAvailable: false,
+    };
+    let resolveRelease: ((value: typeof releaseSnapshot) => void) | null = null;
+    const slowReleaseClient: ReleaseFeedClient = {
+      getSnapshot: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveRelease = resolve;
+          }),
+      ),
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: slowReleaseClient,
+    });
+
+    const result = await Promise.race([
+      coordinator.initialize().then(() => "resolved"),
+      new Promise<string>((resolve) => setTimeout(() => resolve("timeout"), 25)),
+    ]);
+
+    expect(result).toBe("resolved");
+    expect(coordinator.snapshot.releaseCheck.status).toBe("unavailable");
+
+    resolveRelease?.(releaseSnapshot);
+  });
+
+  test("reset admin waits for startup readiness before opening the setup entry", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
     const processController = new FakeProcessController();
     const externalOpener = new FakeExternalOpener();
     const resetAdminRunner = new FakeResetAdminRunner();
+    let healthChecks = 0;
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => {
+      healthChecks += 1;
+      return healthChecks >= 3;
+    });
+    managementClient.getReadiness = vi.fn(async () => managementClient.readiness);
+    managementClient.readiness = {
+      status: "setup_required",
+      reason: "管理员初始化尚未完成。",
+    };
 
     const coordinator = createLauncherCoordinator({
       settingsStore,
@@ -533,18 +824,20 @@ describe("launcher coordinator", () => {
       externalOpener,
       releaseFeedClient: new FakeReleaseFeedClient(),
       resetAdminRunner,
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 25,
+        shutdownTimeoutMs: 1,
+      },
     });
 
     await coordinator.initialize();
-    await coordinator.openWebUi();
-
-    managementClient.health = false;
-    managementClient.setupInitialized = false;
 
     await coordinator.resetAdmin();
 
     expect(resetAdminRunner.calls).toBe(1);
     expect(processController.startCalls).toBe(1);
+    expect(managementClient.getReadiness).toHaveBeenCalled();
     expect(coordinator.snapshot.serviceState).toBe("setup_required");
     expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
   });

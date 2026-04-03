@@ -2,6 +2,7 @@ import { createReleaseUnavailable } from "../../shared/launcher-copy";
 import type {
   EnvironmentCheckResult,
   EnvironmentInspection,
+  LauncherReadinessSnapshot,
   LauncherResolvedSettings,
   RecoveryCompatibilitySummary,
   LauncherSettings,
@@ -9,7 +10,10 @@ import type {
   ReleaseCheckSnapshot,
   ServerEndpoint,
   LauncherServiceState,
+  LauncherServiceOwnership,
+  LauncherSystemStatusSnapshot,
 } from "../../shared/launcher-models";
+import { sanitizeLauncherWebTargetPath } from "../../shared/launcher-validation";
 import { resolveLauncherSettings } from "./settings-store";
 
 export type { EnvironmentCheckResult, EnvironmentInspection, LauncherSettings, ServerEndpoint };
@@ -25,10 +29,13 @@ export interface ServerEndpointResolver {
 
 export interface LauncherManagementClient {
   isHealthy(endpoint: ServerEndpoint): Promise<boolean>;
+  getReadiness(endpoint: ServerEndpoint): Promise<LauncherReadinessSnapshot>;
   getSetupInitialized(endpoint: ServerEndpoint): Promise<boolean>;
   issueLauncherToken(endpoint: ServerEndpoint): Promise<string>;
   admitLauncherToken(endpoint: ServerEndpoint, launcherToken: string): Promise<string>;
-  getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<{ recovery_summary?: RecoveryCompatibilitySummary | null }>;
+  getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<LauncherSystemStatusSnapshot>;
+  createRecoveryRecheck(endpoint: ServerEndpoint, sessionToken: string): Promise<{ task_id: string }>;
+  createRuntimeBootstrap(endpoint: ServerEndpoint, sessionToken: string, resources?: string[]): Promise<{ task_id: string }>;
   shutdown(endpoint: ServerEndpoint, sessionToken: string): Promise<void>;
 }
 
@@ -62,6 +69,7 @@ interface LauncherCoordinatorOptions {
   startupTimeoutMs?: number;
   pollIntervalMs?: number;
   shutdownTimeoutMs?: number;
+  resetAdminTimeoutMs?: number;
 }
 
 interface LauncherCoordinatorDependencies {
@@ -76,6 +84,7 @@ interface LauncherCoordinatorDependencies {
   releaseFeedClient?: ReleaseFeedClient;
   resetAdminRunner?: LauncherResetAdminRunner;
   recoverySummaryReader?: RecoverySummaryReader;
+  confirmExternalServiceStop?(): Promise<boolean>;
   options?: LauncherCoordinatorOptions;
 }
 
@@ -87,7 +96,9 @@ export interface LauncherCoordinator {
   start(): Promise<void>;
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
-  openWebUi(): Promise<void>;
+  openWebUi(targetPath?: string): Promise<void>;
+  createRecoveryRecheck(): Promise<void>;
+  createRuntimeBootstrap(resources?: string[]): Promise<void>;
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
@@ -116,6 +127,7 @@ function defaultSnapshot(settings: LauncherSettings, resolvedSettings: LauncherR
     recentStderr: [],
     processId: null,
     serviceState: "stopped",
+    serviceOwnership: "none",
     shutdownRequested: false,
     serviceDetail: "服务尚未启动。",
     lastError: "",
@@ -158,17 +170,101 @@ async function withReleaseCheck(
   }
 }
 
+function releaseChecksEqual(left: ReleaseCheckSnapshot, right: ReleaseCheckSnapshot) {
+  return left.status === right.status
+    && left.currentVersion === right.currentVersion
+    && left.latestVersion === right.latestVersion
+    && left.summary === right.summary
+    && left.detail === right.detail
+    && left.releasePageUrl === right.releasePageUrl
+    && left.updateAvailable === right.updateAvailable;
+}
+
+function detailFromReadiness(readiness: LauncherReadinessSnapshot, fallback: string) {
+  return readiness.reason?.trim() || fallback;
+}
+
+function ownershipForHealthyService(isManagedProcess: boolean): LauncherServiceOwnership {
+  return isManagedProcess ? "launcher_managed" : "external";
+}
+
+function stateFromReadiness(
+  isManagedProcess: boolean,
+  readiness: LauncherReadinessSnapshot,
+  systemStatus: LauncherSystemStatusSnapshot | null,
+): {
+  serviceState: LauncherServiceState;
+  serviceOwnership: LauncherServiceOwnership;
+  serviceDetail: string;
+  lastError: string;
+} {
+  const serviceOwnership = ownershipForHealthyService(isManagedProcess);
+
+  if (systemStatus?.status === "shutting_down") {
+    return {
+      serviceState: "stopping" satisfies LauncherServiceState,
+      serviceOwnership,
+      serviceDetail: detailFromReadiness(readiness, "服务正在停止。"),
+      lastError: "",
+    };
+  }
+
+  switch (readiness.status) {
+    case "ready":
+      return {
+        serviceState: "running" satisfies LauncherServiceState,
+        serviceOwnership,
+        serviceDetail: detailFromReadiness(
+          readiness,
+          isManagedProcess
+            ? "服务正在运行。"
+            : "检测到现有服务。可以直接打开管理界面，或确认后停止它。",
+        ),
+        lastError: "",
+      };
+    case "degraded":
+      return {
+        serviceState: "degraded" satisfies LauncherServiceState,
+        serviceOwnership,
+        serviceDetail: detailFromReadiness(
+          readiness,
+          isManagedProcess
+            ? "服务处于降级可管理状态。"
+            : "检测到现有服务，当前处于受限运行状态。",
+        ),
+        lastError: "",
+      };
+    case "setup_required":
+      return {
+        serviceState: "setup_required" satisfies LauncherServiceState,
+        serviceOwnership,
+        serviceDetail: detailFromReadiness(readiness, "服务正在运行，需要完成管理员初始化。"),
+        lastError: "",
+      };
+    case "failed":
+    default:
+      return {
+        serviceState: "failed" satisfies LauncherServiceState,
+        serviceOwnership,
+        serviceDetail: detailFromReadiness(readiness, "服务已运行，但尚未达到就绪状态。"),
+        lastError: readiness.reason?.trim() || "服务尚未就绪。",
+      };
+  }
+}
+
 export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies): LauncherCoordinator {
   const listeners = new Set<(snapshot: LauncherSnapshot) => void>();
   const options = {
     startupTimeoutMs: deps.options?.startupTimeoutMs ?? 30000,
     pollIntervalMs: deps.options?.pollIntervalMs ?? 500,
     shutdownTimeoutMs: deps.options?.shutdownTimeoutMs ?? 5000,
+    resetAdminTimeoutMs: deps.options?.resetAdminTimeoutMs ?? 30000,
   };
 
   let currentSettings: LauncherSettings | null = null;
   let currentResolvedSettings: LauncherResolvedSettings = defaultResolvedSettings();
   let sessionToken = "";
+  let releaseCheckInFlight: Promise<void> | null = null;
   let snapshot = defaultSnapshot(
     {
       installationRoot: "",
@@ -179,13 +275,29 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   );
 
   async function publish(next: LauncherSnapshot) {
-    snapshot = {
-      ...next,
-      releaseCheck: await withReleaseCheck(deps.releaseFeedClient, next.releaseCheck),
-    };
+    snapshot = next;
     for (const listener of listeners) {
       listener(snapshot);
     }
+    if (!deps.releaseFeedClient || releaseCheckInFlight) {
+      return;
+    }
+    releaseCheckInFlight = withReleaseCheck(deps.releaseFeedClient, snapshot.releaseCheck)
+      .then((releaseCheck) => {
+        if (releaseChecksEqual(snapshot.releaseCheck, releaseCheck)) {
+          return;
+        }
+        snapshot = {
+          ...snapshot,
+          releaseCheck,
+        };
+        for (const listener of listeners) {
+          listener(snapshot);
+        }
+      })
+      .finally(() => {
+        releaseCheckInFlight = null;
+      });
   }
 
   function ensureSettings() {
@@ -203,6 +315,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     endpoint: ServerEndpoint,
     inspection: EnvironmentInspection,
     serviceState: LauncherServiceState,
+    serviceOwnership: LauncherServiceOwnership,
     serviceDetail: string,
     lastError = "",
   ) {
@@ -216,7 +329,8 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       recentStderr: deps.processController.getRecentStderr(),
       processId: deps.processController.isRunning ? deps.processController.processId : null,
       serviceState,
-      shutdownRequested: serviceState === "shutting_down",
+      serviceOwnership,
+      shutdownRequested: serviceState === "stopping",
       serviceDetail,
       lastError,
       releaseCheck: snapshot.releaseCheck,
@@ -224,24 +338,33 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     } satisfies LauncherSnapshot;
   }
 
-  async function tryLoadRecoverySummary(endpoint: ServerEndpoint): Promise<RecoveryCompatibilitySummary | null> {
+  async function tryLoadSystemStatus(endpoint: ServerEndpoint): Promise<LauncherSystemStatusSnapshot | null> {
     try {
-      if (!sessionToken) {
-        const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
-        sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
-      }
-      const status = await deps.managementClient.getSystemStatus(endpoint, sessionToken);
-      return status.recovery_summary ?? null;
+      await ensureSessionToken(endpoint);
+      return await deps.managementClient.getSystemStatus(endpoint, sessionToken);
     } catch {
-      if (!deps.recoverySummaryReader) {
-        return null;
-      }
-      try {
-        return await deps.recoverySummaryReader.read(deps.processController.logDirectory);
-      } catch {
-        return null;
-      }
+      return null;
     }
+  }
+
+  async function tryReadLocalRecoverySummary() {
+    if (!deps.recoverySummaryReader) {
+      return null;
+    }
+    try {
+      return await deps.recoverySummaryReader.read(deps.processController.logDirectory);
+    } catch {
+      return null;
+    }
+  }
+
+  async function ensureSessionToken(endpoint: ServerEndpoint) {
+    if (sessionToken) {
+      return sessionToken;
+    }
+    const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
+    sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
+    return sessionToken;
   }
 
   async function refreshCore(forceReauthentication: boolean) {
@@ -260,6 +383,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           endpoint,
           inspection,
           "stopped",
+          "none",
           inspection.canBootstrapUserConfig
             ? "服务尚未启动。启动服务后会基于 default.yaml 生成首份用户配置。"
             : buildLocalDetail("服务尚未启动。", inspection.checks),
@@ -274,47 +398,80 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         endpoint,
         inspection,
         deps.processController.isRunning ? "failed" : "stopped",
+        deps.processController.isRunning ? "launcher_managed" : "none",
         deps.processController.isRunning ? "子进程仍在运行，但健康检查失败。" : "服务尚未启动。",
         deps.processController.isRunning ? "健康检查失败。" : "",
       );
-      next.recoverySummary = await tryLoadRecoverySummary(endpoint);
+      next.recoverySummary = await tryReadLocalRecoverySummary();
       await publish(next);
       return;
     }
 
-    let setupInitialized = true;
+    let readiness: LauncherReadinessSnapshot;
     try {
-      setupInitialized = await deps.managementClient.getSetupInitialized(endpoint);
-    } catch {
-      // isHealthy already passed — a transient getSetupInitialized failure
-      // should not flash a misleading setup_required state to the user.
-      setupInitialized = true;
-    }
-
-    if (!setupInitialized) {
-      await publish(
-        await buildSnapshot(
-          endpoint,
-          inspection,
-          "setup_required",
-          "服务正在运行，需要完成管理员初始化。",
-        ),
+      readiness = await deps.managementClient.getReadiness(endpoint);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "无法读取 /readyz。";
+      const next = await buildSnapshot(
+        endpoint,
+        inspection,
+        "failed",
+        deps.processController.isRunning ? "launcher_managed" : "external",
+        "服务存活，但无法读取正式就绪状态。",
+        detail,
       );
+      next.recoverySummary = await tryReadLocalRecoverySummary();
+      await publish(next);
       return;
     }
 
+    const systemStatus =
+      readiness.status === "ready" || readiness.status === "degraded"
+        ? await tryLoadSystemStatus(endpoint)
+        : null;
+    const contractState = stateFromReadiness(deps.processController.isRunning, readiness, systemStatus);
     const next = await buildSnapshot(
       endpoint,
       inspection,
-      deps.processController.isRunning ? "ready" : "external_service",
-      deps.processController.isRunning ? "服务正在运行。" : "端口上已有服务正在运行。可以直接打开管理界面，或先停止它再由启动器重新启动。",
+      contractState.serviceState,
+      contractState.serviceOwnership,
+      contractState.serviceDetail,
+      contractState.lastError,
     );
-    next.recoverySummary = await tryLoadRecoverySummary(endpoint);
-    if (next.recoverySummary && next.recoverySummary.status !== "compatible") {
-      next.serviceState = "degraded";
-      next.serviceDetail = "恢复兼容性检查需要关注，请先处理摘要中的问题。";
-    }
+    next.recoverySummary =
+      systemStatus?.recovery_summary
+      ?? readiness.recovery_summary
+      ?? await tryReadLocalRecoverySummary();
     await publish(next);
+  }
+
+  async function waitForReadinessStatus(
+    endpoint: ServerEndpoint,
+    expectedStatus: LauncherReadinessSnapshot["status"],
+    timeoutMs: number,
+  ) {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      if (!deps.processController.isRunning) {
+        return null;
+      }
+
+      if (await deps.managementClient.isHealthy(endpoint).catch(() => false)) {
+        try {
+          const readiness = await deps.managementClient.getReadiness(endpoint);
+          if (readiness.status === expectedStatus) {
+            return readiness;
+          }
+        } catch {
+          // Keep polling until the server recovers enough to expose /readyz.
+        }
+      }
+
+      await delay(options.pollIntervalMs);
+    }
+
+    return null;
   }
 
   async function ensureManagedProcessStopped() {
@@ -332,7 +489,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     }
   }
 
-  return {
+  const coordinator: LauncherCoordinator = {
     get snapshot() {
       return snapshot;
     },
@@ -370,7 +527,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
 
       if (inspection.hasBlockingIssues && !inspection.canBootstrapUserConfig) {
         await publish(
-          await buildSnapshot(endpoint, inspection, "stopped", buildLocalDetail("启动器预检发现阻塞项。", inspection.checks)),
+          await buildSnapshot(endpoint, inspection, "stopped", "none", buildLocalDetail("启动器预检发现阻塞项。", inspection.checks)),
         );
         return;
       }
@@ -386,6 +543,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
             endpoint,
             inspection,
             "failed",
+            "none",
             "目标端口已被现有进程占用，启动器不会重复拉起服务。",
             `端口 ${endpoint.port} 已被占用。`,
           ),
@@ -397,7 +555,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         await deps.processController.start(resolvedSettings);
       } catch (error) {
         const detail = error instanceof Error ? error.message : "服务进程启动失败。";
-        await publish(await buildSnapshot(endpoint, inspection, "failed", "无法启动服务进程。", detail));
+        await publish(await buildSnapshot(endpoint, inspection, "failed", "none", "无法启动服务进程。", detail));
         return;
       }
       await publish(
@@ -405,6 +563,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           endpoint,
           inspection,
           "starting",
+          "launcher_managed",
           inspection.canBootstrapUserConfig
             ? "已基于 default.yaml 生成首份用户配置，正在等待 /healthz 返回正常。"
             : "正在等待 /healthz 返回正常。",
@@ -419,14 +578,14 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         }
         if (!deps.processController.isRunning) {
           const lastError = deps.processController.getRecentStderr().at(-1) ?? "服务进程在通过健康检查前已退出。";
-          await publish(await buildSnapshot(endpoint, inspection, "failed", "服务进程在启动阶段提前退出。", lastError));
+          await publish(await buildSnapshot(endpoint, inspection, "failed", "launcher_managed", "服务进程在启动阶段提前退出。", lastError));
           return;
         }
         await delay(options.pollIntervalMs);
       }
 
       await deps.processController.forceKill();
-      await publish(await buildSnapshot(endpoint, inspection, "failed", "启动超时内未通过健康检查。", "服务启动已超时。"));
+      await publish(await buildSnapshot(endpoint, inspection, "failed", "launcher_managed", "启动超时内未通过健康检查。", "服务启动已超时。"));
     },
     async stop() {
       const settings = ensureSettings();
@@ -434,10 +593,48 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       const resolvedSettings = ensureResolvedSettings();
       const endpoint = await deps.endpointResolver.resolve(resolvedSettings.configPath);
       const inspection = await deps.inspectEnvironment(resolvedSettings);
+      const healthy = await deps.managementClient.isHealthy(endpoint).catch(() => false);
+      const isManagedProcess = deps.processController.isRunning;
+      const serviceOwnership =
+        isManagedProcess ? "launcher_managed" satisfies LauncherServiceOwnership
+          : healthy ? "external" satisfies LauncherServiceOwnership
+            : "none" satisfies LauncherServiceOwnership;
 
-      await publish(await buildSnapshot(endpoint, inspection, "shutting_down", deps.processController.isRunning ? "正在停止服务。" : "正在停止现有服务。"));
+      if (healthy && serviceOwnership === "external") {
+        const confirmed = await deps.confirmExternalServiceStop?.() ?? false;
+        if (!confirmed) {
+          await refreshCore(false);
+          return;
+        }
 
-      if (await deps.managementClient.isHealthy(endpoint)) {
+        await publish(await buildSnapshot(endpoint, inspection, "stopping", "external", "正在停止现有服务。"));
+
+        try {
+          if (!await deps.managementClient.getSetupInitialized(endpoint)) {
+            throw new Error("检测到现有服务仍处于初始化阶段，无法由启动器停止。");
+          }
+
+          sessionToken = "";
+          const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
+          sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
+          await deps.managementClient.shutdown(endpoint, sessionToken);
+          sessionToken = "";
+          await refreshCore(true);
+        } catch (error) {
+          sessionToken = "";
+          await refreshCore(true);
+          await publish({
+            ...snapshot,
+            lastError: error instanceof Error ? error.message : "无法停止检测到的现有服务。",
+            serviceDetail: "无法停止检测到的现有服务。",
+          });
+        }
+        return;
+      }
+
+      await publish(await buildSnapshot(endpoint, inspection, "stopping", serviceOwnership, isManagedProcess ? "正在停止服务。" : "正在停止现有服务。"));
+
+      if (healthy) {
         try {
           if (await deps.managementClient.getSetupInitialized(endpoint)) {
             if (!sessionToken) {
@@ -475,7 +672,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
 
       // Stop the service first if running.
       if (deps.processController.isRunning || (await deps.managementClient.isHealthy(endpoint).catch(() => false))) {
-        await publish(await buildSnapshot(endpoint, inspection, "shutting_down", "正在停止服务以执行管理员重置。"));
+        await publish(await buildSnapshot(endpoint, inspection, "stopping", "launcher_managed", "正在停止服务以执行管理员重置。"));
         if (deps.processController.isRunning) {
           await deps.processController.forceKill();
         } else {
@@ -494,25 +691,39 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       } catch (error) {
         const detail = error instanceof Error ? error.message : "服务进程启动失败。";
         await publish(
-          await buildSnapshot(endpoint, inspection, "failed", "管理员凭据已重置，但服务重启失败。", detail),
+          await buildSnapshot(endpoint, inspection, "failed", "launcher_managed", "管理员凭据已重置，但服务重启失败。", detail),
         );
         return;
       }
 
-      // After reset-admin, the server enters setup_required on next start.
-      // Open the setup entry directly without waiting for full health recovery.
+      const readiness = await waitForReadinessStatus(endpoint, "setup_required", options.resetAdminTimeoutMs);
+      if (!readiness) {
+        const detail = deps.processController.getRecentStderr().at(-1) ?? "服务未在预期时间内恢复到初始化状态。";
+        await publish(
+          await buildSnapshot(endpoint, inspection, "failed", "launcher_managed", "管理员凭据已重置，但服务未进入初始化状态。", detail),
+        );
+        return;
+      }
+
       await publish(
-        await buildSnapshot(endpoint, inspection, "setup_required", "管理员凭据已重置，请在浏览器中完成初始化。"),
+        await buildSnapshot(
+          endpoint,
+          inspection,
+          "setup_required",
+          "launcher_managed",
+          detailFromReadiness(readiness, "管理员凭据已重置，请在浏览器中完成初始化。"),
+        ),
       );
 
       const url = new URL(endpoint.baseUrl);
       await deps.externalOpener.openUri(url.toString());
     },
-    async openWebUi() {
+    async openWebUi(targetPath = "") {
       const settings = ensureSettings();
       currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
       const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
-      const url = new URL(endpoint.baseUrl);
+      const normalizedTarget = sanitizeLauncherWebTargetPath(targetPath);
+      const url = normalizedTarget ? new URL(normalizedTarget, endpoint.baseUrl) : new URL(endpoint.baseUrl);
       let initialized = false;
 
       try {
@@ -526,12 +737,32 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
           url.searchParams.set("token", launcherToken);
         } catch {
+          if (normalizedTarget) {
+            const fallbackURL = new URL(normalizedTarget, endpoint.baseUrl);
+            await deps.externalOpener.openUri(fallbackURL.toString());
+            await publish({ ...snapshot, serviceDetail: "已在默认浏览器中打开管理界面。", lastError: "" });
+            return;
+          }
           url.search = "";
         }
       }
 
       await deps.externalOpener.openUri(url.toString());
       await publish({ ...snapshot, serviceDetail: "已在默认浏览器中打开管理界面。", lastError: "" });
+    },
+    async createRecoveryRecheck() {
+      const settings = ensureSettings();
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
+      const accepted = await deps.managementClient.createRecoveryRecheck(endpoint, await ensureSessionToken(endpoint));
+      await coordinator.openWebUi(`/tasks?task_id=${encodeURIComponent(accepted.task_id)}`);
+    },
+    async createRuntimeBootstrap(resources) {
+      const settings = ensureSettings();
+      currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
+      const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);
+      const accepted = await deps.managementClient.createRuntimeBootstrap(endpoint, await ensureSessionToken(endpoint), resources);
+      await coordinator.openWebUi(`/tasks?task_id=${encodeURIComponent(accepted.task_id)}`);
     },
     async openReleasePage() {
       if (!snapshot.releaseCheck.releasePageUrl) {
@@ -545,4 +776,6 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       await deps.externalOpener.openDirectory(deps.processController.logDirectory);
     },
   };
+
+  return coordinator;
 }

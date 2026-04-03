@@ -48,6 +48,105 @@ type PreparedResource struct {
 	Entrypoints map[string]string
 }
 
+type BootstrapInspection struct {
+	Kind                 string
+	Resource             *Resource
+	ArchivePath          string
+	StoreRoot            string
+	MetadataComplete     bool
+	CachedArchivePresent bool
+	PreparedStorePresent bool
+}
+
+type PrepareReport struct {
+	Kind               string
+	Resource           Resource
+	ArchivePath        string
+	StoreRoot          string
+	UsedPreparedStore  bool
+	UsedCachedArchive  bool
+	PreparedEntrypoint string
+	Entrypoints        map[string]string
+}
+
+type BootstrapError struct {
+	Kind        string
+	Stage       string
+	Source      string
+	ArchivePath string
+	StoreRoot   string
+	Remediation string
+	Message     string
+	Err         error
+}
+
+func (e *BootstrapError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return "managed runtime bootstrap failed"
+}
+
+func (e *BootstrapError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func (e *BootstrapError) Details() map[string]any {
+	if e == nil {
+		return nil
+	}
+	details := map[string]any{
+		"resource_kind": e.Kind,
+		"stage":         e.Stage,
+	}
+	if strings.TrimSpace(e.Source) != "" {
+		details["source"] = e.Source
+	}
+	if strings.TrimSpace(e.ArchivePath) != "" {
+		details["archive_path"] = e.ArchivePath
+	}
+	if strings.TrimSpace(e.StoreRoot) != "" {
+		details["store_root"] = e.StoreRoot
+	}
+	if strings.TrimSpace(e.Remediation) != "" {
+		details["remediation"] = e.Remediation
+	}
+	return details
+}
+
+func ManagedResourceLabel(kind string) string {
+	return managedResourceLabel(kind)
+}
+
+func BootstrapRemediation(kind, archivePath, storeRoot string) string {
+	return bootstrapRemediation(kind, archivePath, storeRoot)
+}
+
+func BootstrapSummary(kind string, inspection *BootstrapInspection) string {
+	label := managedResourceLabel(kind)
+	switch {
+	case inspection == nil:
+		return label + "清单不可用。"
+	case !inspection.MetadataComplete:
+		return label + "元数据不完整。"
+	case inspection.PreparedStorePresent:
+		return label + "已准备完成。"
+	case inspection.CachedArchivePresent:
+		return label + "归档已缓存，可离线准备。"
+	default:
+		return label + "可按需准备。"
+	}
+}
+
 type Manager struct {
 	repoRoot     string
 	downloadFile func(context.Context, string, string) error
@@ -260,54 +359,114 @@ func (m *Manager) ResolveEntrypoint(ctx context.Context, kind, name string) (str
 }
 
 func (m *Manager) Prepare(ctx context.Context, kind string) (*PreparedResource, error) {
+	report, err := m.PrepareWithReport(ctx, kind)
+	if err != nil {
+		return nil, err
+	}
+	return &PreparedResource{
+		Resource:    report.Resource,
+		Root:        report.StoreRoot,
+		Entrypoints: report.Entrypoints,
+	}, nil
+}
+
+func (m *Manager) Inspect(kind string) (*BootstrapInspection, error) {
+	if m == nil {
+		return nil, errors.New("deps manager is required")
+	}
+
+	manifest, resource, err := m.currentResource(kind)
+	if err != nil {
+		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", err)
+	}
+	inspection := &BootstrapInspection{
+		Kind:             kind,
+		Resource:         resource,
+		ArchivePath:      filepath.Join(CacheRoot(m.repoRoot), resource.ID+"-"+resource.Version+archiveSuffix(resource.ArchiveFormat)),
+		StoreRoot:        StoreRoot(m.repoRoot, resource),
+		MetadataComplete: manifest.HasPlatform(CurrentPlatform()) && ResourceMetadataComplete(resource),
+	}
+	if inspection.MetadataComplete && verifyFileSHA256(inspection.ArchivePath, resource.SHA256) == nil {
+		inspection.CachedArchivePresent = true
+	}
+	if _, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {
+		inspection.PreparedStorePresent = true
+	}
+	return inspection, nil
+}
+
+func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareReport, error) {
 	if m == nil {
 		return nil, errors.New("deps manager is required")
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	prepared, err := m.resolvePreparedResource(kind)
-	if err == nil {
-		return prepared, nil
-	}
-
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
-		return nil, err
+		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", err)
+	}
+	report := &PrepareReport{
+		Kind:        kind,
+		Resource:    *resource,
+		ArchivePath: filepath.Join(CacheRoot(m.repoRoot), resource.ID+"-"+resource.Version+archiveSuffix(resource.ArchiveFormat)),
+		StoreRoot:   StoreRoot(m.repoRoot, resource),
 	}
 	if !manifest.HasPlatform(CurrentPlatform()) {
-		return nil, fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform())
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform()))
 	}
 	if !ResourceMetadataComplete(resource) {
-		return nil, fmt.Errorf("deps resource %s for %s is not bootstrap-ready", kind, CurrentPlatform())
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", fmt.Errorf("deps resource %s for %s is not bootstrap-ready", kind, CurrentPlatform()))
+	}
+
+	if prepared, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {
+		report.UsedPreparedStore = true
+		report.Entrypoints = prepared.Entrypoints
+		report.PreparedEntrypoint = primaryEntrypoint(prepared)
+		return report, nil
 	}
 
 	lockPath := LockPath(m.repoRoot)
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
-		return nil, fmt.Errorf("create deps lock root: %w", err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", fmt.Errorf("create deps lock root: %w", err))
 	}
 	release, err := acquireLock(ctx, lockPath, m.now)
 	if err != nil {
-		return nil, err
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", err)
 	}
 	defer release()
 
 	if prepared, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {
-		return prepared, nil
+		report.UsedPreparedStore = true
+		report.Entrypoints = prepared.Entrypoints
+		report.PreparedEntrypoint = primaryEntrypoint(prepared)
+		return report, nil
 	}
 
 	if err := os.MkdirAll(CacheRoot(m.repoRoot), 0o755); err != nil {
-		return nil, fmt.Errorf("create deps cache root: %w", err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "download", fmt.Errorf("create deps cache root: %w", err))
 	}
-	archivePath := filepath.Join(CacheRoot(m.repoRoot), resource.ID+"-"+resource.Version+archiveSuffix(resource.ArchiveFormat))
-	if err := ensureDownloadedArchive(ctx, archivePath, resource, m.downloadFile); err != nil {
-		return nil, err
+	if verifyFileSHA256(report.ArchivePath, resource.SHA256) == nil {
+		report.UsedCachedArchive = true
 	}
-	if err := ensurePreparedResource(ctx, m.repoRoot, *resource, archivePath, m.extract); err != nil {
-		return nil, err
+	if err := ensureDownloadedArchive(ctx, report.ArchivePath, resource, m.downloadFile); err != nil {
+		stage := "download"
+		if strings.Contains(err.Error(), "verify deps resource") || strings.Contains(err.Error(), "persist deps archive") {
+			stage = "verify"
+		}
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, stage, err)
+	}
+	if err := ensurePreparedResource(ctx, m.repoRoot, *resource, report.ArchivePath, m.extract); err != nil {
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "extract", err)
 	}
 
-	return m.resolvePreparedManifestResource(manifest, resource)
+	prepared, err := m.resolvePreparedManifestResource(manifest, resource)
+	if err != nil {
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "entrypoint", err)
+	}
+	report.Entrypoints = prepared.Entrypoints
+	report.PreparedEntrypoint = primaryEntrypoint(prepared)
+	return report, nil
 }
 
 func (m *Manager) resolvePreparedResource(kind string) (*PreparedResource, error) {
@@ -369,6 +528,97 @@ func resolvePreparedEntrypoints(storeRoot string, resource *Resource) (map[strin
 		entrypoints[key] = resolved
 	}
 	return entrypoints, nil
+}
+
+func primaryEntrypoint(prepared *PreparedResource) string {
+	if prepared == nil {
+		return ""
+	}
+	for _, key := range requiredEntrypoints(&prepared.Resource) {
+		if entry := strings.TrimSpace(prepared.Entrypoints[key]); entry != "" {
+			return entry
+		}
+	}
+	return ""
+}
+
+func classifyBootstrapError(repoRoot, kind string, resource *Resource, stage string, err error) error {
+	if err == nil {
+		return nil
+	}
+	archivePath := ""
+	storeRoot := ""
+	source := ""
+	if resource != nil {
+		archivePath = filepath.Join(CacheRoot(repoRoot), resource.ID+"-"+resource.Version+archiveSuffix(resource.ArchiveFormat))
+		storeRoot = StoreRoot(repoRoot, resource)
+		source = strings.TrimSpace(resource.Source)
+	}
+	return &BootstrapError{
+		Kind:        kind,
+		Stage:       stage,
+		Source:      source,
+		ArchivePath: archivePath,
+		StoreRoot:   storeRoot,
+		Remediation: bootstrapRemediation(kind, archivePath, storeRoot),
+		Message:     bootstrapMessage(kind, stage),
+		Err:         err,
+	}
+}
+
+func bootstrapMessage(kind, stage string) string {
+	resourceLabel := managedResourceLabel(kind)
+	switch stage {
+	case "manifest":
+		return resourceLabel + "清单不可用"
+	case "lock":
+		return resourceLabel + "准备锁等待超时"
+	case "download":
+		return resourceLabel + "归档下载失败"
+	case "verify":
+		return resourceLabel + "归档校验失败"
+	case "extract":
+		return resourceLabel + "归档解压失败"
+	case "entrypoint":
+		return resourceLabel + "入口文件缺失"
+	default:
+		return resourceLabel + "准备失败"
+	}
+}
+
+func bootstrapRemediation(kind, archivePath, storeRoot string) string {
+	paths := []string{}
+	if strings.TrimSpace(archivePath) != "" {
+		paths = append(paths, "预置已校验归档到 "+archivePath)
+	}
+	if strings.TrimSpace(storeRoot) != "" {
+		paths = append(paths, "预展开到 "+storeRoot)
+	}
+	switch kind {
+	case "chromium":
+		if len(paths) == 0 {
+			return "请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。"
+		}
+		return "请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。离线环境可" + strings.Join(paths, "，或")
+	default:
+		if len(paths) == 0 {
+			return "请联网准备受控运行时，或按正式目录结构手动预置资源。"
+		}
+		return "请联网准备受控运行时；离线或受限网络环境可" + strings.Join(paths, "，或")
+	}
+}
+
+func managedResourceLabel(kind string) string {
+	switch kind {
+	case "chromium":
+		return "Chromium 资源"
+	case "python-runtime":
+		return "Python 运行时"
+	case "nodejs-runtime":
+		return "Node.js 运行时"
+	default:
+		return "受控运行时"
+	}
 }
 
 func pathWithinRoot(root, candidate string) bool {

@@ -73,6 +73,8 @@ type InstallService struct {
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
 	deps    installerDeps
+
+	afterSuccess func(string)
 }
 
 type installJob struct {
@@ -264,6 +266,13 @@ func (s *InstallService) Cancel(taskID string) bool {
 	return true
 }
 
+func (s *InstallService) SetAfterSuccess(fn func(string)) {
+	if s == nil {
+		return
+	}
+	s.afterSuccess = fn
+}
+
 func (s *InstallService) Close() error {
 	if s == nil {
 		return nil
@@ -436,6 +445,9 @@ func (s *InstallService) runInstall(job installJob) error {
 			_ = s.refreshCatalog()
 			return installError(codePluginInstallFailed, "写入插件安装元数据失败", "写入插件安装元数据失败")
 		}
+	}
+	if s.afterSuccess != nil {
+		s.afterSuccess(candidateSnapshot.PluginID)
 	}
 
 	_ = workingRoot

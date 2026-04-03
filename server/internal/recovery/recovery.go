@@ -186,7 +186,11 @@ func Finalize(summary CompatibilitySummary, input FinalizeInput) CompatibilitySu
 	summary.Phase = "post_startup"
 	summary.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	summary.RequiresPostStartChecks = false
+	summary.Status = "pending"
+	summary.Issues = nil
+	summary.ManualActions = nil
 	summary.NextSteps = nil
+	summary.SkippedPlugins = nil
 
 	if !input.Readiness.RuntimeReady {
 		summary.Status = "degraded"
@@ -222,10 +226,69 @@ func Finalize(summary CompatibilitySummary, input FinalizeInput) CompatibilitySu
 	if summary.Status == "pending" || summary.Status == "" {
 		summary.Status = "compatible"
 	}
-	if len(summary.SkippedPlugins) > 0 {
-		summary.ManualActions = append(summary.ManualActions, "处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。")
+	if summary.Status != "compatible" {
+		summary.ManualActions = buildManualActions(input.Readiness.RuntimeIssues, summary.SkippedPlugins)
+		summary.NextSteps = buildNextSteps(input.Readiness.RuntimeIssues, summary.SkippedPlugins)
 	}
 	return summary
+}
+
+func filterFinalizeIssues(issues []CompatibilityIssue) []CompatibilityIssue {
+	if len(issues) == 0 {
+		return nil
+	}
+	filtered := make([]CompatibilityIssue, 0, len(issues))
+	for _, issue := range issues {
+		if issue.Code == "recovery.post_start_checks_required" {
+			continue
+		}
+		filtered = append(filtered, issue)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
+func buildManualActions(runtimeIssues []CompatibilityIssue, skippedPlugins []SkippedPlugin) []string {
+	actions := make([]string, 0, len(runtimeIssues)+len(skippedPlugins)+1)
+	for _, issue := range runtimeIssues {
+		actions = appendUniqueString(actions, strings.TrimSpace(issue.Remediation))
+	}
+	for _, skipped := range skippedPlugins {
+		actions = appendUniqueString(actions, strings.TrimSpace(skipped.ManualAction))
+	}
+	if len(skippedPlugins) > 0 {
+		actions = appendUniqueString(actions, "处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。")
+	}
+	if len(actions) == 0 {
+		return nil
+	}
+	return actions
+}
+
+func buildNextSteps(runtimeIssues []CompatibilityIssue, skippedPlugins []SkippedPlugin) []string {
+	steps := make([]string, 0, 4)
+	if len(runtimeIssues) > 0 {
+		steps = appendUniqueString(steps, "完成上述兼容性处理后，重启服务并确认恢复摘要变为 compatible。")
+	}
+	if len(skippedPlugins) > 0 {
+		steps = appendUniqueString(steps, "查看恢复摘要中的跳过插件列表并完成兼容性处理。")
+		steps = appendUniqueString(steps, "处理完成后，在管理面中手动重新启用被跳过插件。")
+	}
+	steps = appendUniqueString(steps, "通过管理面、Launcher 或 diagnostics 复核 recovery_summary。")
+	if len(steps) == 0 {
+		return nil
+	}
+	return steps
+}
+
+func appendUniqueString(items []string, value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" || contains(items, value) {
+		return items
+	}
+	return append(items, value)
 }
 
 func SummaryPath(repoRoot string) string {

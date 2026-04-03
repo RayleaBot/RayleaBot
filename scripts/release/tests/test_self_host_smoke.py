@@ -80,16 +80,60 @@ class SelfHostSmokeTests(unittest.TestCase):
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.extract_backup_archive_path(task_body)
 
+    def test_extract_task_id_requires_task_identifier(self) -> None:
+        self.assertEqual(
+            "task_runtime_bootstrap_0001",
+            self_host_smoke.extract_task_id({"task_id": "task_runtime_bootstrap_0001"}, "system/runtime/bootstrap"),
+        )
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.extract_task_id({}, "system/runtime/bootstrap")
+
+    def test_extract_runtime_bootstrap_results_reads_resource_details(self) -> None:
+        task_body = {
+            "task": {
+                "task_id": "task_runtime_bootstrap_0001",
+                "task_type": "runtime.bootstrap",
+                "status": "succeeded",
+                "result": {
+                    "summary": "runtime bootstrap completed",
+                    "details": {
+                        "resources": [
+                            {
+                                "kind": "python-runtime",
+                                "used_cached_archive": True,
+                                "store_root": "/tmp/python",
+                            }
+                        ]
+                    },
+                },
+            }
+        }
+
+        resources = self_host_smoke.extract_runtime_bootstrap_results(task_body)
+
+        self.assertEqual("python-runtime", resources[0]["kind"])
+        self.assertTrue(resources[0]["used_cached_archive"])
+
     def test_recovery_summary_accepts_absent_compatible_and_degraded(self) -> None:
         self_host_smoke.assert_recovery_summary_acceptable(None)
-        self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible"})
-        self_host_smoke.assert_recovery_summary_acceptable({"status": "degraded"})
+        self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible", "manual_actions": [], "next_steps": [], "skipped_plugins": []})
+        self_host_smoke.assert_recovery_summary_acceptable({
+            "status": "degraded",
+            "manual_actions": ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],
+            "next_steps": ["查看恢复摘要中的跳过插件列表并完成兼容性处理。"],
+        })
 
     def test_recovery_summary_rejects_pending_and_blocked(self) -> None:
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.assert_recovery_summary_acceptable({"status": "pending"})
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.assert_recovery_summary_acceptable({"status": "blocked"})
+
+    def test_recovery_summary_rejects_guidance_mismatch(self) -> None:
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible", "manual_actions": ["unexpected"]})
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.assert_recovery_summary_acceptable({"status": "degraded", "manual_actions": [], "next_steps": []})
 
     def test_request_json_accepts_allowed_http_error_status(self) -> None:
         payload = b'{"status":"setup_required"}'

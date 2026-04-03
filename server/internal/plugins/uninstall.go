@@ -42,6 +42,8 @@ type UninstallService struct {
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
 	deps    uninstallerDeps
+
+	afterSuccess func(string)
 }
 
 type uninstallerDeps struct {
@@ -123,6 +125,10 @@ func NewUninstallService(
 
 func (s *UninstallService) SetStopPlugin(fn StopPluginFunc) {
 	s.stopPlugin = fn
+}
+
+func (s *UninstallService) SetAfterSuccess(fn func(string)) {
+	s.afterSuccess = fn
 }
 
 func (s *UninstallService) Accept(_ context.Context, pluginID string) (string, error) {
@@ -241,6 +247,9 @@ func (s *UninstallService) execute(job uninstallJob) {
 	if err := s.refreshCatalog(); err != nil {
 		s.failTask(job.taskID, codePluginUninstallFailed, "刷新插件目录索引失败", "刷新插件目录索引失败")
 		return
+	}
+	if s.afterSuccess != nil {
+		s.afterSuccess(job.pluginID)
 	}
 
 	now := s.deps.now().UTC()

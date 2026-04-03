@@ -75,6 +75,43 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	}
 }
 
+func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-src"), "callback-weather", "nodejs", "index.js")
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	defer service.Close()
+
+	called := make(chan string, 1)
+	service.SetAfterSuccess(func(pluginID string) {
+		called <- pluginID
+	})
+
+	taskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType: "local_directory",
+		Source:     sourceDir,
+	})
+	if err != nil {
+		t.Fatalf("Accept failed: %v", err)
+	}
+
+	snapshot := waitForTaskCompletion(t, registry, taskID)
+	if snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("unexpected task status: got %q want %q", snapshot.Status, tasks.StatusSucceeded)
+	}
+
+	select {
+	case pluginID := <-called:
+		if pluginID != "callback-weather" {
+			t.Fatalf("unexpected callback plugin id: got %q want callback-weather", pluginID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for install after-success callback")
+	}
+}
+
 func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	t.Parallel()
 

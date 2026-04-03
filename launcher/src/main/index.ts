@@ -1,11 +1,15 @@
-import path from "node:path";
-import { readFile } from "node:fs/promises";
-import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, nativeTheme } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeTheme } from "electron";
 import type { LauncherSettings, LauncherSnapshot, TrayMenuEntry, TrayMenuState } from "../shared/launcher-models";
 import { launcherCopy } from "../shared/launcher-copy";
+import { launcherEventChannels, launcherInvokeChannels } from "../shared/launcher-ipc";
+import {
+  parseLauncherSettingsInput,
+  parseRuntimeBootstrapResources,
+  sanitizeLauncherWebTargetPath,
+} from "../shared/launcher-validation";
 import { createLauncherCoordinator } from "./services/launcher-coordinator";
 import { inspectEnvironmentFromNode } from "./services/environment";
-import { JsonLauncherSettingsStore } from "./services/settings-store";
+import { JsonLauncherSettingsStore, resolveLauncherSettings } from "./services/settings-store";
 import { resolveServerEndpoint } from "./services/endpoint-resolver";
 import { FetchLauncherManagementClient } from "./services/management-client";
 import { ServerProcessController } from "./services/process-controller";
@@ -15,6 +19,10 @@ import { LauncherReleaseFeedClient } from "./services/release-feed";
 import { NodeResetAdminRunner } from "./services/reset-admin-runner";
 import { buildTrayMenuEntries } from "./services/tray-menu";
 import { createApplicationExitManager } from "./services/app-exit";
+import { resolveLauncherAssetPaths, resolveLauncherBasePath } from "./services/app-paths";
+import { NodeRecoverySummaryReader } from "./services/recovery-summary-reader";
+import { createTrayImage } from "./services/tray-icon";
+import { wireSingleInstanceLifecycle } from "./services/single-instance";
 
 const devServerUrl = process.env.RAYLEA_DEV_SERVER_URL;
 
@@ -22,7 +30,11 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let windowMaximized = false;
 
-const executableBasePath = app.isPackaged ? path.dirname(app.getPath("exe")) : path.resolve(__dirname, "..", "..", "..", "..");
+const executableBasePath = resolveLauncherBasePath({
+  appPath: app.getAppPath(),
+  executablePath: app.getPath("exe"),
+  isPackaged: app.isPackaged,
+});
 const settingsStore = new JsonLauncherSettingsStore(app.getPath("userData"), executableBasePath, process.platform);
 const processController = new ServerProcessController();
 const coordinator = createLauncherCoordinator({
@@ -36,11 +48,18 @@ const coordinator = createLauncherCoordinator({
   externalOpener,
   releaseFeedClient: new LauncherReleaseFeedClient(executableBasePath),
   resetAdminRunner: new NodeResetAdminRunner(),
-  recoverySummaryReader: {
-    async read(logDirectory) {
-      const payload = await readFile(path.join(logDirectory, "recovery-summary.json"), "utf8");
-      return JSON.parse(payload);
-    },
+  recoverySummaryReader: new NodeRecoverySummaryReader(),
+  confirmExternalServiceStop: async () => {
+    const result = await dialog.showMessageBox(mainWindow!, {
+      type: "warning",
+      title: "停止现有服务",
+      message: "检测到的现有服务并非由当前 Launcher 启动。",
+      detail: "确认后，Launcher 会尝试通过正式管理接口请求该服务停止。",
+      buttons: ["继续停止", "取消"],
+      cancelId: 1,
+      defaultId: 1,
+    });
+    return result.response === 0;
   },
 });
 const appExitManager = createApplicationExitManager({
@@ -51,34 +70,25 @@ const appExitManager = createApplicationExitManager({
 });
 
 function trayStateFromSnapshot(snapshot: LauncherSnapshot): TrayMenuState {
+  const canOpenWebUi =
+    snapshot.serviceState === "running"
+    || snapshot.serviceState === "degraded"
+    || snapshot.serviceState === "setup_required";
+  const canStopService =
+    (
+      snapshot.serviceState === "running"
+      || snapshot.serviceState === "degraded"
+      || snapshot.serviceState === "failed"
+      || snapshot.serviceState === "setup_required"
+    ) && snapshot.serviceOwnership !== "none";
+
   return {
     trayStatusSummary: launcherCopy.statusSummary(snapshot.serviceState),
-    canOpenWebUi: snapshot.serviceState === "external_service" || snapshot.serviceState === "ready",
-    trayServiceAction: snapshot.serviceState === "external_service" || snapshot.serviceState === "ready" || snapshot.serviceState === "failed" ? "stop" : "start",
-    trayServiceActionLabel:
-      snapshot.serviceState === "external_service" || snapshot.serviceState === "ready" || snapshot.serviceState === "failed" ? "停止服务" : "启动服务",
-    canRunTrayServiceAction: snapshot.serviceState !== "starting" && snapshot.serviceState !== "shutting_down",
+    canOpenWebUi,
+    trayServiceAction: canStopService ? "stop" : "start",
+    trayServiceActionLabel: canStopService ? "停止服务" : "启动服务",
+    canRunTrayServiceAction: snapshot.serviceState !== "starting" && snapshot.serviceState !== "stopping",
   };
-}
-
-function createTrayImage() {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-      <rect width="64" height="64" rx="18" fill="#122032"/>
-      <path d="M18 18h28v28H18z" fill="#264763" rx="10"/>
-      <path d="M24 22h16c4 0 8 4 8 8v12H36V30c0-2-2-4-4-4h-8z" fill="#7fd6ff"/>
-      <circle cx="28" cy="42" r="6" fill="#d6f5ff"/>
-    </svg>
-  `;
-  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`);
-}
-
-function resolvePreloadPath() {
-  return path.resolve(__dirname, "..", "..", "preload", "preload", "index.js");
-}
-
-function resolveRendererPath() {
-  return path.resolve(__dirname, "..", "..", "renderer", "index.html");
 }
 
 async function chooseServerExecutable() {
@@ -206,6 +216,7 @@ function refreshTrayMenu(snapshot: LauncherSnapshot) {
 
 async function createMainWindow() {
   nativeTheme.themeSource = "dark";
+  const { preloadPath, rendererPath } = resolveLauncherAssetPaths(app.getAppPath());
 
   mainWindow = new BrowserWindow({
     width: 1380,
@@ -219,7 +230,7 @@ async function createMainWindow() {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: resolvePreloadPath(),
+      preload: preloadPath,
       contextIsolation: true,
       sandbox: false,
     },
@@ -234,12 +245,12 @@ async function createMainWindow() {
 
   mainWindow.on("maximize", () => {
     windowMaximized = true;
-    mainWindow?.webContents.send("launcher:maximized-change", true);
+    mainWindow?.webContents.send(launcherEventChannels.maximizedChange, true);
   });
 
   mainWindow.on("unmaximize", () => {
     windowMaximized = false;
-    mainWindow?.webContents.send("launcher:maximized-change", false);
+    mainWindow?.webContents.send(launcherEventChannels.maximizedChange, false);
   });
 
   mainWindow.on("close", (event) => {
@@ -253,13 +264,13 @@ async function createMainWindow() {
   if (devServerUrl) {
     await mainWindow.loadURL(devServerUrl);
   } else {
-    await mainWindow.loadFile(resolveRendererPath());
+    await mainWindow.loadFile(rendererPath);
   }
 }
 
 function wireIpc() {
-  ipcMain.handle("launcher:minimize", () => mainWindow?.minimize());
-  ipcMain.handle("launcher:maximize", () => {
+  ipcMain.handle(launcherInvokeChannels.minimize, () => mainWindow?.minimize());
+  ipcMain.handle(launcherInvokeChannels.maximize, () => {
     if (!mainWindow) return;
     if (windowMaximized) {
       mainWindow.unmaximize();
@@ -267,25 +278,36 @@ function wireIpc() {
       mainWindow.maximize();
     }
   });
-  ipcMain.handle("launcher:close", () => handleCloseRequest());
-  ipcMain.handle("launcher:is-maximized", () => windowMaximized);
-  ipcMain.handle("launcher:get-platform", async () => `${process.platform}-${process.arch}`);
-  ipcMain.handle("launcher:get-snapshot", async () => coordinator.snapshot);
-  ipcMain.handle("launcher:initialize", async () => coordinator.initialize());
-  ipcMain.handle("launcher:refresh", async () => coordinator.refresh());
-  ipcMain.handle("launcher:retry", async () => coordinator.retry());
-  ipcMain.handle("launcher:start", async () => coordinator.start());
-  ipcMain.handle("launcher:stop", async () => coordinator.stop());
-  ipcMain.handle("launcher:reset-admin", async () => coordinator.resetAdmin());
-  ipcMain.handle("launcher:open-web", async () => coordinator.openWebUi());
-  ipcMain.handle("launcher:open-release-page", async () => coordinator.openReleasePage());
-  ipcMain.handle("launcher:open-logs", async () => coordinator.openLogsDirectory());
-  ipcMain.handle("launcher:save-settings", async (_event, settings: LauncherSettings) => coordinator.saveSettings(settings));
-  ipcMain.handle("launcher:choose-installation-root", async () => chooseInstallationRoot());
-  ipcMain.handle("launcher:choose-server", async () => chooseServerExecutable());
-  ipcMain.handle("launcher:choose-config", async () => chooseConfigFile());
-  ipcMain.handle("launcher:choose-workdir", async () => chooseWorkdir());
-  ipcMain.handle("launcher:exit", async () => appExitManager.requestExit());
+  ipcMain.handle(launcherInvokeChannels.close, () => handleCloseRequest());
+  ipcMain.handle(launcherInvokeChannels.isMaximized, () => windowMaximized);
+  ipcMain.handle(launcherInvokeChannels.getPlatform, async () => `${process.platform}-${process.arch}`);
+  ipcMain.handle(launcherInvokeChannels.getSnapshot, async () => coordinator.snapshot);
+  ipcMain.handle(launcherInvokeChannels.initialize, async () => coordinator.initialize());
+  ipcMain.handle(launcherInvokeChannels.refresh, async () => coordinator.refresh());
+  ipcMain.handle(launcherInvokeChannels.retry, async () => coordinator.retry());
+  ipcMain.handle(launcherInvokeChannels.start, async () => coordinator.start());
+  ipcMain.handle(launcherInvokeChannels.stop, async () => coordinator.stop());
+  ipcMain.handle(launcherInvokeChannels.resetAdmin, async () => coordinator.resetAdmin());
+  ipcMain.handle(launcherInvokeChannels.openWeb, async (_event, targetPath?: string) =>
+    coordinator.openWebUi(sanitizeLauncherWebTargetPath(targetPath)),
+  );
+  ipcMain.handle(launcherInvokeChannels.createRecoveryRecheck, async () => coordinator.createRecoveryRecheck());
+  ipcMain.handle(launcherInvokeChannels.createRuntimeBootstrap, async (_event, resources?: string[]) =>
+    coordinator.createRuntimeBootstrap(parseRuntimeBootstrapResources(resources)),
+  );
+  ipcMain.handle(launcherInvokeChannels.openReleasePage, async () => coordinator.openReleasePage());
+  ipcMain.handle(launcherInvokeChannels.openLogs, async () => coordinator.openLogsDirectory());
+  ipcMain.handle(launcherInvokeChannels.saveSettings, async (_event, settings: LauncherSettings) =>
+    coordinator.saveSettings(parseLauncherSettingsInput(settings)),
+  );
+  ipcMain.handle(launcherInvokeChannels.previewResolvedSettings, async (_event, settings: LauncherSettings) =>
+    resolveLauncherSettings(parseLauncherSettingsInput(settings), process.platform),
+  );
+  ipcMain.handle(launcherInvokeChannels.chooseInstallationRoot, async () => chooseInstallationRoot());
+  ipcMain.handle(launcherInvokeChannels.chooseServer, async () => chooseServerExecutable());
+  ipcMain.handle(launcherInvokeChannels.chooseConfig, async () => chooseConfigFile());
+  ipcMain.handle(launcherInvokeChannels.chooseWorkdir, async () => chooseWorkdir());
+  ipcMain.handle(launcherInvokeChannels.exit, async () => appExitManager.requestExit());
 }
 
 async function bootstrap() {
@@ -305,7 +327,7 @@ async function bootstrap() {
 
   coordinator.subscribe((snapshot) => {
     refreshTrayMenu(snapshot);
-    mainWindow?.webContents.send("launcher:snapshot", snapshot);
+    mainWindow?.webContents.send(launcherEventChannels.snapshot, snapshot);
   });
 
   await coordinator.initialize();
@@ -325,4 +347,6 @@ app.on("before-quit", (event) => {
   void appExitManager.requestExit();
 });
 
-void bootstrap();
+if (wireSingleInstanceLifecycle(app, () => mainWindow)) {
+  void bootstrap();
+}

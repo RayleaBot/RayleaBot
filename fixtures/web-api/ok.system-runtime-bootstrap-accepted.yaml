@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Managed runtime preparation submits an asynchronous runtime.bootstrap task.
+request:
+  method: POST
+  path: /api/system/runtime/bootstrap
+  body:
+    resources:
+      - chromium
+      - nodejs-runtime
+response:
+  status: 202
+  body:
+    task_id: task_runtime_bootstrap_0001
+expect:
+  valid: true

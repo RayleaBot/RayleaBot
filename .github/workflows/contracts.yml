@@ -398,8 +398,10 @@ jobs:
               '/api/system/status',
               '/api/system/shutdown',
               '/api/system/backup',
+              '/api/system/recovery/recheck',
               '/api/system/render/preview',
               '/api/system/render/artifacts/{artifact_id}',
+              '/api/system/runtime/bootstrap',
               '/api/system/diagnostics/export',
               '/api/logs',
               '/api/tasks',
@@ -436,6 +438,17 @@ jobs:
               raise SystemExit('disable must be synchronous and must not return 202')
           if 'task_id' not in web_api['components']['schemas']['TaskAcceptedResponse']['required']:
               raise SystemExit('TaskAcceptedResponse must require task_id')
+          runtime_bootstrap_request = web_api['components']['schemas'].get('RuntimeBootstrapRequest', {})
+          runtime_bootstrap_resources = runtime_bootstrap_request.get('properties', {}).get('resources', {})
+          resource_items = runtime_bootstrap_resources.get('items', {})
+          if runtime_bootstrap_request.get('type') != 'object':
+              raise SystemExit('RuntimeBootstrapRequest must remain an object schema')
+          if resource_items.get('$ref') != '#/components/schemas/RuntimeBootstrapResource':
+              raise SystemExit('RuntimeBootstrapRequest.resources items must reference RuntimeBootstrapResource')
+          task_type_enum = set(web_api['components']['schemas'].get('TaskType', {}).get('enum', []))
+          for task_type in ['recovery.recheck', 'runtime.bootstrap']:
+              if task_type not in task_type_enum:
+                  raise SystemExit(f'web-api.openapi.yaml TaskType missing {task_type}')
 
           channels = {item.get('path') for item in websocket_events.get('channels', [])}
           for expected in ['/ws/logs', '/ws/events', '/ws/tasks', '/ws/plugins/{id}/console']:

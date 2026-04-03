@@ -12,14 +12,13 @@ export const launcherCopy = {
         return "未启动";
       case "starting":
         return "启动中";
-      case "external_service":
-      case "ready":
+      case "running":
         return "运行中";
       case "degraded":
         return "受限运行";
       case "setup_required":
         return "需要设置";
-      case "shutting_down":
+      case "stopping":
         return "停止中";
       case "failed":
         return "启动失败";

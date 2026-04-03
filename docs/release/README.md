@@ -34,9 +34,12 @@
 - 跨版本 recovery drill 使用已发布 release asset、`release_manifest.json` 与发行包内 `build_info.json` 作为版本来源；找不到前一正式版时输出显式 bootstrap skip。
 - release smoke 会校验正式包内 `.deps/manifest.json` 的 runtime bootstrap 前置条件；recovery drill 与长期自托管 smoke 会在启动前按需准备受控运行时。
 - 长期自托管 smoke 直接启动发行包内 `raylea-server`，覆盖初始化、登录、在线诊断导出、在线备份、重启后再探活的长时间窗巡检；默认窗口为 600 秒，默认探针间隔为 30 秒。
-- 跨版本 recovery drill 会在 PR 级门禁使用 60 秒观察窗口，在 tag release 与手动回归使用 300 秒观察窗口，持续比对 API、本地 `logs/recovery-summary.json` 与 diagnostics 中的恢复摘要。
+- 跨版本 recovery drill 会在 PR 级门禁使用 60 秒观察窗口，在 tag release 与手动回归使用 300 秒观察窗口，覆盖兼容通过与需要人工处理两类恢复场景，并持续比对 API、本地 `logs/recovery-summary.json` 与 diagnostics 中的恢复摘要。
 - `restore` 预检与启动后兼容检查会把共享恢复摘要写入 `logs/recovery-summary.json`；CLI、Web、Launcher 与 diagnostics 都复用同一份摘要。
-- 正式包只携带 `.deps/manifest.json`，受控 Chromium、Python 与 Node.js 运行时按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`。
+- 正式管理面任务已包含 `recovery.recheck` 与 `runtime.bootstrap`；packaged recovery drill 会校验人工处理后的再次检查收敛路径，长期自托管 smoke 会校验运行时准备任务与缓存命中路径。
+- `post_startup` 恢复摘要在 `degraded` 状态下会稳定保留 `manual_actions`、`next_steps` 与跳过插件列表，在 `compatible` 状态下不保留人工处理建议。
+- 正式包只携带 `.deps/manifest.json`，受控 Chromium、Python 与 Node.js 运行时按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`；有效运行时根目录继续跟随发行包根目录或 `config/user.yaml` 所在根目录，不随 Launcher `workdir` 覆盖改变。
+- 离线或受限网络环境下，运行时资源可通过预置已校验归档到 `cache/downloads/runtime/`，或预展开到 `.deps/store/<resource-id>/<version>/` 的方式准备；Chromium 仍支持通过 `render.browser_path` 显式覆盖浏览器路径。
 
 ## 维护规则
 

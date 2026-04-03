@@ -6,6 +6,7 @@ import type {
   LauncherResolvedSettings,
   LauncherSettings,
 } from "../../shared/launcher-models";
+import { pathExists } from "./fs-utils";
 
 interface SerializedLauncherSettings {
   installationRoot?: string;
@@ -63,15 +64,6 @@ function readBoolean(...values: unknown[]) {
 
 function serverExecutableName(platform: NodeJS.Platform) {
   return platform === "win32" ? "raylea-server.exe" : "raylea-server";
-}
-
-async function pathExists(targetPath: string) {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function hasInstallationMarkers(root: string) {
@@ -152,7 +144,7 @@ async function resolveLegacyWorkdir(savedWorkdir: string, fallback: string, next
 }
 
 function normalizeOverrides(value: unknown): LauncherAdvancedOverrides | undefined {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
   }
 
@@ -486,7 +478,17 @@ export class JsonLauncherSettingsStore {
       return defaults;
     }
 
-    const payload = JSON.parse(await fs.readFile(this.settingsPath, "utf8")) as SerializedLauncherSettings;
+    let payload: SerializedLauncherSettings;
+    try {
+      const rawPayload = JSON.parse(await fs.readFile(this.settingsPath, "utf8"));
+      if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
+        throw new Error("launcher.json must contain an object payload.");
+      }
+      payload = rawPayload as SerializedLauncherSettings;
+    } catch {
+      await this.save(defaults);
+      return defaults;
+    }
     const normalized = await normalizeSettings(payload, defaults, this.platform);
     const serialized = await serializeSettings(normalized, defaults);
     if (JSON.stringify(payload) !== JSON.stringify(serialized)) {

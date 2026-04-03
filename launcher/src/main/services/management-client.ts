@@ -1,11 +1,15 @@
-import type { RecoveryCompatibilitySummary, ServerEndpoint } from "../../shared/launcher-models";
+import type {
+  LauncherReadinessSnapshot,
+  LauncherSystemStatusSnapshot,
+  ServerEndpoint,
+} from "../../shared/launcher-models";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 
 type FetchLike = typeof fetch;
 
-async function readJson(response: Response) {
-  return (await response.json()) as Record<string, unknown>;
+async function readJson<T>(response: Response) {
+  return (await response.json()) as T;
 }
 
 async function ensureSuccess(response: Response) {
@@ -45,11 +49,20 @@ export class FetchLauncherManagementClient {
     }
   }
 
+  async getReadiness(endpoint: ServerEndpoint): Promise<LauncherReadinessSnapshot> {
+    const response = await this.fetchLike(new URL("readyz", endpoint.baseUrl), withTimeout(undefined, this.timeoutMs));
+    if (response.status === 200 || response.status === 503) {
+      return await readJson<LauncherReadinessSnapshot>(response);
+    }
+    await ensureSuccess(response);
+    return { status: "failed" };
+  }
+
   async getSetupInitialized(endpoint: ServerEndpoint) {
     const response = await ensureSuccess(
       await this.fetchLike(new URL("api/setup/status", endpoint.baseUrl), withTimeout(undefined, this.timeoutMs)),
     );
-    const payload = await readJson(response);
+    const payload = await readJson<Record<string, unknown>>(response);
     return Boolean(payload.initialized);
   }
 
@@ -60,7 +73,7 @@ export class FetchLauncherManagementClient {
         withTimeout({ method: "POST" }, this.timeoutMs),
       ),
     );
-    const payload = await readJson(response);
+    const payload = await readJson<Record<string, unknown>>(response);
     return String(payload.launcher_token ?? "");
   }
 
@@ -78,7 +91,7 @@ export class FetchLauncherManagementClient {
         ),
       ),
     );
-    const payload = await readJson(response);
+    const payload = await readJson<Record<string, unknown>>(response);
     return String(payload.session_token ?? "");
   }
 
@@ -97,7 +110,7 @@ export class FetchLauncherManagementClient {
     );
   }
 
-  async getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<{ recovery_summary?: RecoveryCompatibilitySummary | null }> {
+  async getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<LauncherSystemStatusSnapshot> {
     const response = await ensureSuccess(
       await this.fetchLike(
         new URL("api/system/status", endpoint.baseUrl),
@@ -109,6 +122,42 @@ export class FetchLauncherManagementClient {
         ),
       ),
     );
-    return (await readJson(response)) as { recovery_summary?: RecoveryCompatibilitySummary | null };
+    return await readJson<LauncherSystemStatusSnapshot>(response);
+  }
+
+  async createRecoveryRecheck(endpoint: ServerEndpoint, sessionToken: string) {
+    const response = await ensureSuccess(
+      await this.fetchLike(
+        new URL("api/system/recovery/recheck", endpoint.baseUrl),
+        withTimeout(
+          {
+            method: "POST",
+            headers: createAuthedHeaders(sessionToken),
+          },
+          this.timeoutMs,
+        ),
+      ),
+    );
+    return await readJson<{ task_id: string }>(response);
+  }
+
+  async createRuntimeBootstrap(endpoint: ServerEndpoint, sessionToken: string, resources?: string[]) {
+    const response = await ensureSuccess(
+      await this.fetchLike(
+        new URL("api/system/runtime/bootstrap", endpoint.baseUrl),
+        withTimeout(
+          {
+            method: "POST",
+            headers: {
+              ...createAuthedHeaders(sessionToken),
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(resources?.length ? { resources } : {}),
+          },
+          this.timeoutMs,
+        ),
+      ),
+    );
+    return await readJson<{ task_id: string }>(response);
   }
 }

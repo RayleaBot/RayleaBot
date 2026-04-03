@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"rayleabot/server/internal/deps"
 	"rayleabot/server/internal/recovery"
 )
 
@@ -473,6 +474,81 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
 	if !foundNode {
 		t.Fatalf("doctor report should flag incomplete Node.js runtime metadata, got %#v", report.Issues)
 	}
+}
+
+func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	schemaPath := filepath.Join(repoRoot, "contracts", "config.user.schema.json")
+	platform := deps.CurrentPlatform()
+	pythonID := "python-" + platform
+	nodeID := "nodejs-" + platform
+
+	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeFile(t, schemaPath, "{}\n")
+	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(repoRoot, ".deps", "manifest.json"), `{
+  "manifest_version": 2,
+  "resources": [
+    {
+      "id": "`+pythonID+`",
+      "kind": "python-runtime",
+      "version": "3.12.13",
+      "platform": "`+platform+`",
+      "source": "https://example.invalid/python.tar.gz",
+      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "archive_format": "tar.gz",
+      "entrypoints": {
+        "python": ["python/install/python.exe"],
+        "pip": ["python/install/Scripts/pip.exe"]
+      }
+    },
+    {
+      "id": "`+nodeID+`",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "`+platform+`",
+      "source": "https://example.invalid/node.zip",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_format": "zip",
+      "entrypoints": {
+        "node": ["node/node.exe"],
+        "npm": ["node/npm.cmd"]
+      }
+    }
+  ]
+}
+`)
+	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "install", "python.exe"), "")
+	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "install", "Scripts", "pip.exe"), "")
+	writeFile(t, filepath.Join(repoRoot, "cache", "downloads", "runtime", nodeID+"-24.14.0.zip"), "")
+
+	report := BuildDoctorReport(Command{
+		ConfigPath: configPath,
+		SchemaPath: schemaPath,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	assertDoctorSummary(t, report.Issues, "runtime.python_managed_ready", "受控 Python 运行时已准备完成。")
+	assertDoctorSummary(t, report.Issues, "runtime.node_managed_ready", "受控 Node.js 运行时归档已缓存，可离线准备。")
+	assertDoctorSummary(t, report.Issues, "runtime.npm_managed_ready", "受控 npm 归档已缓存，可离线准备。")
+}
+
+func assertDoctorSummary(t *testing.T, issues []DoctorIssue, code, summary string) {
+	t.Helper()
+	for _, issue := range issues {
+		if issue.Code == code {
+			if issue.Summary != summary {
+				t.Fatalf("unexpected doctor summary for %s: got %q want %q", code, issue.Summary, summary)
+			}
+			return
+		}
+	}
+	t.Fatalf("doctor issue %s not found in %#v", code, issues)
 }
 
 func writeFile(t *testing.T, path, content string) {

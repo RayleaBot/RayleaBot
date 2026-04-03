@@ -1,20 +1,17 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createElectronBuilderInvocation } from "./build-package-support.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const expectedWindowsBundle = path.join(root, "dist", "package", "win-unpacked", "RayleaLauncher.exe");
 const renameFailurePattern = /rename '.*electron\.exe' -> '.*RayleaLauncher\.exe'/i;
 
 let combinedOutput = "";
+const builderInvocation = createElectronBuilderInvocation(root, process.env);
 
 const exitCode = await new Promise((resolve, reject) => {
-  const child = spawn("electron-builder", ["--dir"], {
-    cwd: root,
-    env: process.env,
-    shell: true,
-    stdio: ["inherit", "pipe", "pipe"],
-  });
+  const child = spawn(builderInvocation.command, builderInvocation.args, builderInvocation.options);
 
   child.stdout?.on("data", (chunk) => {
     const text = chunk.toString();
