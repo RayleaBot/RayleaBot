@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@renderer/AppShell";
 import type { LauncherSnapshot } from "@shared/launcher-models";
@@ -71,6 +71,45 @@ const snapshot: LauncherSnapshot = {
     next_steps: ["查看管理面中的恢复摘要并处理跳过插件。", "通过管理面、Launcher 或 diagnostics 复核 recovery_summary。"],
   },
 };
+
+function renderStatusShell() {
+  return render(
+    <AppShell
+      snapshot={snapshot}
+      activeSection="status"
+      platformLabel="win32-x64"
+      settingsDraft={snapshot.settings}
+      resolvedSettings={snapshot.resolvedSettings}
+      editingSettings={false}
+      diagnosticsSummary=""
+      busyAction={null}
+      controlsDisabled={false}
+      isMaximized={false}
+      onNavigate={vi.fn()}
+      onRefresh={vi.fn()}
+      onStart={vi.fn()}
+      onStop={vi.fn()}
+      onOpenWeb={vi.fn()}
+      onRecoveryRecheck={vi.fn()}
+      onRuntimeBootstrap={vi.fn()}
+      onOpenRecoveryPlugin={vi.fn()}
+      onOpenReleasePage={vi.fn()}
+      onOpenLogs={vi.fn()}
+      onResetAdmin={vi.fn()}
+      onBeginEdit={vi.fn()}
+      onCancelEdit={vi.fn()}
+      onSaveSettings={vi.fn()}
+      onUpdateInstallationRoot={vi.fn()}
+      onUpdateCloseBehavior={vi.fn()}
+      onUpdateAdvancedOverride={vi.fn()}
+      onChooseInstallationRoot={vi.fn()}
+      onChooseServer={vi.fn()}
+      onChooseConfig={vi.fn()}
+      onChooseWorkdir={vi.fn()}
+      onExit={vi.fn()}
+    />,
+  );
+}
 
 describe("AppShell", () => {
   test("renders navigation, hero summary, and environment warning", () => {
@@ -194,5 +233,31 @@ describe("AppShell", () => {
     expect(container.querySelector(".maintenance-action-card")).not.toBeNull();
     expect(container.querySelector(".settings-resolution-panel")).not.toBeNull();
     expect(container.querySelector(".settings-info-card")).toBeNull();
+  });
+
+  test("renders the balanced status homepage layout", () => {
+    const { container } = renderStatusShell();
+
+    expect(container.querySelector(".status-homepage")).not.toBeNull();
+    expect(container.querySelector(".status-hero")).not.toBeNull();
+    expect(container.querySelector(".status-hero__body")).not.toBeNull();
+    expect(container.querySelector(".status-hero__actions")).not.toBeNull();
+    expect(container.querySelector(".status-summary-grid")).not.toBeNull();
+    expect(container.querySelector(".status-summary-rail")).not.toBeNull();
+    expect(container.querySelector(".status-log-panel")).not.toBeNull();
+
+    const primaryAction = screen.getByRole("button", { name: "启动 RayleaBot" });
+    const stopAction = screen.getByRole("button", { name: "停止服务" });
+    const manageAction = screen.getByRole("button", { name: "管理面板" });
+
+    expect(primaryAction.closest(".status-hero__primary-action")).not.toBeNull();
+    expect(stopAction.closest(".status-hero__secondary-actions")).not.toBeNull();
+    expect(manageAction.closest(".status-hero__secondary-actions")).not.toBeNull();
+
+    const rail = container.querySelector(".status-summary-rail");
+    expect(rail).not.toBeNull();
+    expect(within(rail as HTMLElement).getByText("版本监控")).toBeInTheDocument();
+    expect(within(rail as HTMLElement).getByText("恢复兼容性")).toBeInTheDocument();
+    expect(within(rail as HTMLElement).getByText("环境预警")).toBeInTheDocument();
   });
 });
