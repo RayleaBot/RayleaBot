@@ -352,15 +352,13 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "偏好设置" }));
     fireEvent.click(screen.getByRole("button", { name: "编辑配置" }));
 
-    const installField = screen.getByText("安装目录").closest("label");
-    const installInput = installField?.querySelector("input");
-    expect(installInput).not.toBeNull();
-    fireEvent.change(installInput!, { target: { value: "D:\\RayleaPortable" } });
+    const installInput = screen.getByRole("textbox", { name: "安装目录" });
+    fireEvent.change(installInput, { target: { value: "D:\\RayleaPortable" } });
 
     await waitFor(() => {
       expect(previewResolvedSettings).toHaveBeenCalled();
-      expect(screen.getByDisplayValue("D:\\RayleaPortable\\server\\raylea-server.exe")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("D:\\RayleaPortable\\config\\user.yaml")).toBeInTheDocument();
+      expect(screen.getByText("D:\\RayleaPortable\\server\\raylea-server.exe")).toBeInTheDocument();
+      expect(screen.getByText("D:\\RayleaPortable\\config\\user.yaml")).toBeInTheDocument();
     });
   });
 });
