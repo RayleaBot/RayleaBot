@@ -224,6 +224,10 @@ export function AppShell({
     || snapshot.serviceState === "starting"
     || snapshot.serviceState === "stopping"
     || snapshot.serviceOwnership === "none";
+  const nonOkChecks = checks.filter((item) => item.severity !== "ok");
+  const recoveryStatusSummary = snapshot.recoverySummary
+    ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation}`
+    : "系统当前状态健康。";
 
   return (
     <div className="app-shell">
@@ -269,86 +273,151 @@ export function AppShell({
 
       <main className={`shell-main ${activeSection === "environment" ? "active-environment" : ""}`}>
         {activeSection === "status" && (
-          <>
-            <section className="hero-card glass-panel">
-              <div className="hero-copy">
-                <div className="brand-eyebrow">Service Control</div>
-                <div className="hero-status-row">
-                  <PresenceBadge status={serviceStateConfig[snapshot.serviceState]?.status ?? "unknown"} size="large" />
-                  <Text weight="bold" size={500} className="hero-status-text">{serviceStateConfig[snapshot.serviceState]?.label ?? "未知"}</Text>
+          <div className="status-homepage status-view-flow">
+            <section className="status-hero glass-panel hero-card hero-card--fancy">
+              <div className="status-hero__body hero-copy">
+                <div className="brand-eyebrow brand-eyebrow--faded">Service Control</div>
+                <div className="hero-status-row hero-status-row--main">
+                  <div className="hero-status-indicator">
+                    <PresenceBadge status={serviceStateConfig[snapshot.serviceState]?.status ?? "unknown"} size="extra-large" />
+                    <div className={`hero-status-glow hero-status-glow--${serviceStateConfig[snapshot.serviceState]?.status}`} />
+                  </div>
+                  <div className="hero-status-content">
+                    <Text weight="bold" size={800} className="hero-status-text hero-status-text--huge">{serviceStateConfig[snapshot.serviceState]?.label ?? "未知"}</Text>
+                    <Text size={300} className="hero-detail hero-detail--bright">{snapshot.serviceDetail}</Text>
+                  </div>
                 </div>
-                <Text size={200} className="hero-detail">{snapshot.serviceDetail}</Text>
                 {snapshot.lastError && (
-                  <div className="inline-alert inline-alert--error">
+                  <div className="inline-alert inline-alert--error inline-alert--glow">
                     <span className="inline-alert__icon"><DismissCircle20Filled /></span>
                     <span className="inline-alert__text">{snapshot.lastError}</span>
                   </div>
                 )}
               </div>
 
-              <div className="hero-actions">
-                <Button appearance="transparent" className="frost-button frost-button--primary frost-button--block" onClick={onStart} disabled={startDisabled} icon={<Play20Filled />}>{primaryActionLabel}</Button>
-                <Button appearance="transparent" className="frost-button frost-button--secondary frost-button--block" onClick={onStop} disabled={stopDisabled} icon={<Stop20Filled />}>停止服务</Button>
-                <Button appearance="transparent" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Filled />}>管理面板</Button>
+              <div className="status-hero__actions hero-actions hero-actions--premium">
+                <div className="status-hero__primary-action">
+                  <Button
+                    appearance="transparent"
+                    size="large"
+                    className="frost-button frost-button--primary status-action status-action--primary"
+                    onClick={onStart}
+                    disabled={startDisabled}
+                    icon={<Play20Filled />}
+                  >
+                    <span className="button-text-large">{primaryActionLabel}</span>
+                  </Button>
+                </div>
+                <div className="status-hero__secondary-actions hero-actions-row">
+                  <Button
+                    appearance="transparent"
+                    size="large"
+                    className="frost-button frost-button--secondary status-action"
+                    onClick={onStop}
+                    disabled={stopDisabled}
+                    icon={<Stop20Filled />}
+                  >
+                    停止服务
+                  </Button>
+                  <Button
+                    appearance="transparent"
+                    size="large"
+                    className="frost-button frost-button--secondary status-action"
+                    onClick={onOpenWeb}
+                    disabled={controlsDisabled || !canOpenWebUi}
+                    icon={<Globe20Filled />}
+                  >
+                    管理面板
+                  </Button>
+                </div>
               </div>
             </section>
 
-            {checks.length > 0 && checks.some((item) => item.severity !== "ok") && (
-              <div className="checks-stack">
-                {checks.filter((item) => item.severity !== "ok").map((item) => (
-                  <div key={item.code} className={`check-item glass-panel glass-panel--subtle check-item--${item.severity}`}>
-                    <div className="check-item__lead">
-                      <div className="check-item__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
-                      <div className="check-item__copy">
-                        <Text weight="bold" size={300}>{item.title}</Text>
-                        <Text size={200} className="check-item__summary">
-                          {item.code === "os.long_paths_unknown" && item.severity === "warning"
-                            ? "无法确认长路径支持状态。若资源展开遇到限制，请手动检查系统长路径设置。"
-                            : item.summary}
-                        </Text>
+            <div className="status-summary-grid status-grid">
+              <div className="status-summary-main status-main-column">
+                <article className="panel glass-panel panel--interactive">
+                  <div className="brand-eyebrow">核心参数</div>
+                  <div className="status-list status-list--grid-modern">
+                    <div className="status-item-modern">
+                      <div className="status-item-modern__icon"><Status20Filled /></div>
+                      <div className="status-item-modern__content">
+                        <span className="status-label">进程 ID</span>
+                        <code className="status-value status-value--highlight">{snapshot.processId ?? "—"}</code>
                       </div>
                     </div>
-                    <span className={`status-pill status-pill--${item.severity}`}>{severityConfig[item.severity as keyof typeof severityConfig]?.label}</span>
+                    <div className="status-item-modern">
+                      <div className="status-item-modern__icon"><Globe20Filled /></div>
+                      <div className="status-item-modern__content">
+                        <span className="status-label">本地端点</span>
+                        <span className="status-value mono">{snapshot.endpoint.baseUrl}</span>
+                      </div>
+                    </div>
+                    <div className="status-item-modern status-item-modern--full">
+                      <div className="status-item-modern__icon"><FolderOpen20Filled /></div>
+                      <div className="status-item-modern__content">
+                        <span className="status-label">安装目录</span>
+                        <span className="status-value mono" title={snapshot.settings.installationRoot}>{snapshot.settings.installationRoot || "—"}</span>
+                      </div>
+                    </div>
+                    <div className="status-item-modern status-item-modern--full">
+                      <div className="status-item-modern__icon"><DocumentText20Filled /></div>
+                      <div className="status-item-modern__content">
+                        <span className="status-label">运行目录</span>
+                        <span className="status-value mono" title={resolvedSettings.workdir}>{resolvedSettings.workdir || "—"}</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                </article>
               </div>
-            )}
 
-            <article className="panel glass-panel">
-              <div className="brand-eyebrow">核心参数</div>
-              <div className="status-list">
-                <div className="status-item"><span className="status-label">进程 ID</span><code className="status-value">{snapshot.processId ?? "—"}</code></div>
-                <div className="status-item"><span className="status-label">本地端点</span><span className="status-value mono">{snapshot.endpoint.baseUrl}</span></div>
-                <div className="status-item"><span className="status-label">安装目录</span><span className="status-value mono">{snapshot.settings.installationRoot || "—"}</span></div>
-                <div className="status-item"><span className="status-label">运行目录</span><span className="status-value mono">{resolvedSettings.workdir || "—"}</span></div>
+              <aside className="status-summary-rail status-side-column">
+                {nonOkChecks.length > 0 && (
+                  <div className="checks-stack checks-stack--side panel glass-panel glass-panel--subtle panel--side">
+                    <div className="brand-eyebrow brand-eyebrow--tight">环境预警</div>
+                    {nonOkChecks.map((item) => (
+                      <div key={item.code} className={`check-item-mini check-item-mini--${item.severity}`}>
+                        <div className="check-item-mini__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
+                        <div className="check-item-mini__content">
+                          <Text weight="bold" size={200}>{item.title}</Text>
+                          <Text size={100} className="panel-muted">{item.summary}</Text>
+                          <Text size={100} className="panel-muted">{severityConfig[item.severity as keyof typeof severityConfig]?.label}</Text>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <article className="panel glass-panel glass-panel--subtle panel--side">
+                  <div className="brand-eyebrow brand-eyebrow--tight">版本监控</div>
+                  <div className="version-status">
+                    <Text size={200} className="panel-muted">{snapshot.releaseCheck.summary}</Text>
+                    {snapshot.releaseCheck.updateAvailable && <span className="update-badge">NEW</span>}
+                  </div>
+                  <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block frost-button--outline" onClick={onOpenReleasePage}>检查更新</Button>
+                </article>
+
+                <article className="panel glass-panel glass-panel--subtle panel--side">
+                  <div className="brand-eyebrow brand-eyebrow--tight">恢复兼容性</div>
+                  <Text size={200} className="panel-muted">{recoveryStatusSummary}</Text>
+                  <div className="side-actions-stack">
+                    <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRecoveryRecheck} disabled={!canRunRecoveryActions}>重新检查</Button>
+                    <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行时</Button>
+                  </div>
+                </article>
+              </aside>
+            </div>
+
+            <article className="status-log-panel panel glass-panel">
+              <div className="panel-header-row">
+                <div className="brand-eyebrow">异常输出监控</div>
+                {snapshot.recentStderr.length > 0 && <span className="pulse-dot pulse-dot--error"></span>}
+              </div>
+              <pre className="log-surface status-log-surface--modern">{snapshot.recentStderr.join("\n") || "当前系统运行状态平稳，无异常日志输出。"}</pre>
+              <div className="panel-footer-actions">
+                <Button appearance="transparent" size="small" className="frost-button frost-button--ghost-bright" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>打开日志目录</Button>
               </div>
             </article>
-
-            <article className="panel glass-panel glass-panel--subtle panel-row">
-              <div className="panel-copy">
-                <div className="brand-eyebrow brand-eyebrow--tight">版本监控</div>
-                <Text size={200} className="panel-muted">{snapshot.releaseCheck.summary}</Text>
-              </div>
-              <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={onOpenReleasePage}>检查更新</Button>
-            </article>
-
-            <article className="panel glass-panel glass-panel--subtle panel-row">
-              <div className="panel-copy">
-                <div className="brand-eyebrow brand-eyebrow--tight">恢复兼容性</div>
-                <Text size={200} className="panel-muted">{snapshot.recoverySummary ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation}` : "当前没有恢复摘要。"}</Text>
-              </div>
-              <div className="panel-actions panel-actions--stack">
-                <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={onRecoveryRecheck} disabled={!canRunRecoveryActions}>重新检查</Button>
-                <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行时</Button>
-              </div>
-            </article>
-
-            <article className="panel glass-panel">
-              <div className="brand-eyebrow">异常输出监控</div>
-              <pre className="log-surface">{snapshot.recentStderr.join("\n") || "当前无异常日志。"}</pre>
-              <Button appearance="transparent" size="small" className="frost-button frost-button--ghost" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>
-            </article>
-          </>
+          </div>
         )}
 
         {activeSection === "environment" && (
