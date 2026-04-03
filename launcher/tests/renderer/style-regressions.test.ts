@@ -5,46 +5,55 @@ const styleSheetPath = new URL("../../src/renderer/src/style.css", import.meta.u
 const styleSheet = readFileSync(styleSheetPath, "utf8");
 
 describe("renderer style regressions", () => {
-  test("keeps a shadow-safe gutter around the environment metric summary", () => {
-    expect(styleSheet).toMatch(/\.metric-panel-container\s*{[^}]*overflow:\s*visible;/s);
-    expect(styleSheet).not.toMatch(/\.metric-panel-container\s*{[^}]*margin-inline:\s*-4px;/s);
-    expect(styleSheet).toMatch(/\.metric-panel::before\s*{[^}]*radial-gradient/s);
-    expect(styleSheet).not.toMatch(/\.metric-panel\s*{[^}]*box-shadow:\s*0 -18px 38px rgba\(0,\s*0,\s*0,\s*0\.56\), 0 10px 24px rgba\(0,\s*0,\s*0,\s*0\.22\);/s);
+  test("defines unified motion tokens and reduced-motion fallback", () => {
+    expect(styleSheet).toMatch(/--motion-enter-duration:\s*220ms;/);
+    expect(styleSheet).toMatch(/--motion-switch-duration:\s*180ms;/);
+    expect(styleSheet).toMatch(/--motion-emphasis-duration:\s*680ms;/);
+    expect(styleSheet).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*{[\s\S]*?--motion-enter-duration:\s*1ms;/s);
+    expect(styleSheet).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*{[\s\S]*?animation-duration:\s*1ms !important;/s);
   });
 
-  test("keeps environment check cards inside the scroll area without clipped outer shadows", () => {
-    expect(styleSheet).toMatch(/\.active-environment \.checks-stack--grid\s*{[^}]*padding:\s*2px 8px 6px;/s);
-    expect(styleSheet).toMatch(/\.active-environment \.check-item\s*{[^}]*box-shadow:\s*inset 0 1px 0/s);
-    expect(styleSheet).toMatch(/\.active-environment \.check-item:hover\s*{[^}]*transform:\s*none;/s);
-    expect(styleSheet).not.toMatch(/\.active-environment \.check-item\s*{[^}]*box-shadow:\s*0 2px 8px rgba\(0,\s*0,\s*0,\s*0\.1\);/s);
-    expect(styleSheet).not.toMatch(/\.active-environment \.check-item:hover\s*{[^}]*box-shadow:\s*0 4px 12px rgba\(0,\s*0,\s*0,\s*0\.2\);/s);
+  test("avoids transition all on primary interactive surfaces", () => {
+    expect(styleSheet).not.toMatch(/transition:\s*all\s+/);
+    expect(styleSheet).toMatch(/\.nav-item\s*{[\s\S]*?background-color var\(--motion-switch-duration\)/s);
+    expect(styleSheet).toMatch(/\.check-item\s*{[\s\S]*?border-color var\(--motion-switch-duration\)/s);
+    expect(styleSheet).toMatch(/\.preference-option\s*{[\s\S]*?box-shadow var\(--motion-switch-duration\)/s);
   });
 
-  test("keeps settings cards responsive after merging advanced overrides with resolved paths", () => {
-    expect(styleSheet).toMatch(/\.settings-layout\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(300px,\s*360px\);/s);
-    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*1100px\)\s*{[^}]*\.settings-layout\s*{[^}]*grid-template-columns:\s*1fr;/s);
-    expect(styleSheet).toMatch(/\.settings-resolution-panel\s*{[^}]*border-top:\s*1px solid/s);
-    expect(styleSheet).not.toMatch(/\.settings-column--secondary\s*{[^}]*position:\s*sticky;/s);
+  test("locks the shared section header and section transition shell", () => {
+    expect(styleSheet).toMatch(/\.section-header\s*{[^}]*justify-content:\s*space-between;/s);
+    expect(styleSheet).toMatch(/\.section-shell__content\s*{[^}]*transition:[^}]*opacity[^}]*transform/s);
+    expect(styleSheet).toMatch(/\.section-shell\[data-transition="exiting"\]\s+\.section-shell__content\s*{[^}]*opacity:\s*0;/s);
   });
 
-  test("uses an edit rail and action cards for the highlighted settings controls", () => {
-    expect(styleSheet).toMatch(/\.settings-edit-bar\s*{[^}]*justify-content:\s*space-between;/s);
-    expect(styleSheet).toMatch(/\.maintenance-action-card\s*{[^}]*justify-content:\s*space-between;/s);
-    expect(styleSheet).toMatch(/\.maintenance-action-card--danger\s*{[^}]*box-shadow:\s*inset 3px 0 0/s);
-  });
-
-  test("locks the homepage hero layout", () => {
+  test("locks the homepage hero layout and busy feedback", () => {
     expect(styleSheet).toMatch(/\.status-hero\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(240px,\s*320px\);/s);
     expect(styleSheet).toMatch(/\.status-hero__secondary-actions\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styleSheet).toMatch(/\.hero-context-grid\s*{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styleSheet).toMatch(/\.status-action-feedback\[data-busy="true"\]\s+\.status-action-feedback__dot\s*{[^}]*animation:\s*busyDot/s);
   });
 
   test("locks the homepage responsive downgrade behavior", () => {
     expect(styleSheet).toMatch(/@media\s*\(max-width:\s*1200px\)\s*{[\s\S]*?\.status-summary-grid\s*{[\s\S]*?grid-template-columns:\s*1fr;/s);
     expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[\s\S]*?\.status-hero\s*{[\s\S]*?grid-template-columns:\s*1fr;/s);
-    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[\s\S]*?\.status-hero__secondary-actions\s*{[\s\S]*?grid-template-columns:\s*1fr;/s);
+    expect(styleSheet).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[\s\S]*?\.hero-context-grid[\s\S]*?grid-template-columns:\s*1fr;/s);
   });
 
-  test("locks the homepage overflow safety", () => {
+  test("keeps environment cards readable at long content lengths", () => {
+    expect(styleSheet).toMatch(/\.checks-stack--grid\s*{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*300px\),\s*1fr\)\)/s);
+    expect(styleSheet).not.toMatch(/\.checks-stack--grid\s+\.check-item__summary,\s*\.checks-stack--grid\s+\.status-pill\s*{\s*display:\s*none !important;/s);
+    expect(styleSheet).toMatch(/\.check-item__headline\s*{[^}]*justify-content:\s*space-between;/s);
+    expect(styleSheet).toMatch(/\.check-item__remediation-text\s*{[^}]*overflow-wrap:\s*anywhere;/s);
+    expect(styleSheet).toMatch(/\.active-environment\s+\.check-item\s*{[^}]*padding:\s*16px;[^}]*min-height:\s*0;/s);
+  });
+
+  test("keeps the diagnostics and settings comparison surfaces", () => {
+    expect(styleSheet).toMatch(/\.diagnostics-context-grid\s*{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styleSheet).toMatch(/\.settings-compare-strip\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styleSheet).toMatch(/\.settings-surface-tag--resolved\s*{[^}]*background:\s*rgba\(159,\s*230,\s*255,\s*0\.1\);/s);
+  });
+
+  test("keeps the homepage overflow safety", () => {
     expect(styleSheet).toMatch(/\.status-summary-main\s*{[^}]*min-width:\s*0;/s);
     expect(styleSheet).toMatch(/\.status-summary-rail\s*{[^}]*min-width:\s*0;/s);
     expect(styleSheet).toMatch(/\.status-log-panel\s*{[^}]*min-width:\s*0;/s);

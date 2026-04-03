@@ -413,10 +413,12 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
+    const detailBeforeOpen = coordinator.snapshot.serviceDetail;
     await coordinator.openWebUi("/tasks?task_id=task_fixture_0001");
 
     expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_fixture_0001");
     expect(externalOpener.openedUris.at(-1)).toContain("&token=");
+    expect(coordinator.snapshot.serviceDetail).toBe(detailBeforeOpen);
 
     managementClient.setupInitialized = false;
     await coordinator.openWebUi();

@@ -229,8 +229,8 @@ function stateFromReadiness(
         serviceDetail: detailFromReadiness(
           readiness,
           isManagedProcess
-            ? "服务处于降级可管理状态。"
-            : "检测到现有服务，当前处于受限运行状态。",
+            ? "管理面可用，但当前仍有运行条件未满足。"
+            : "检测到现有服务，管理面可用，但当前仍有运行条件未满足。",
         ),
         lastError: "",
       };
@@ -740,7 +740,6 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           if (normalizedTarget) {
             const fallbackURL = new URL(normalizedTarget, endpoint.baseUrl);
             await deps.externalOpener.openUri(fallbackURL.toString());
-            await publish({ ...snapshot, serviceDetail: "已在默认浏览器中打开管理界面。", lastError: "" });
             return;
           }
           url.search = "";
@@ -748,7 +747,6 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       }
 
       await deps.externalOpener.openUri(url.toString());
-      await publish({ ...snapshot, serviceDetail: "已在默认浏览器中打开管理界面。", lastError: "" });
     },
     async createRecoveryRecheck() {
       const settings = ensureSettings();

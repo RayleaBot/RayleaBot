@@ -15,7 +15,7 @@ export const launcherCopy = {
       case "running":
         return "运行中";
       case "degraded":
-        return "受限运行";
+        return "运行条件受限";
       case "setup_required":
         return "需要设置";
       case "stopping":

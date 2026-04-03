@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "@renderer/App";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
@@ -179,6 +179,67 @@ describe("App", () => {
     });
   });
 
+  test("applies section transition metadata while switching views", async () => {
+    let initialized = false;
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? loadedSnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => {
+        initialized = true;
+      }),
+      refresh: vi.fn(async () => undefined),
+      retry: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      openWebUi: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "环境检查" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "环境检查" }));
+
+    const shellMain = document.querySelector(".shell-main");
+    expect(shellMain?.getAttribute("data-active-section")).toBe("environment");
+    expect(shellMain?.getAttribute("data-rendered-section")).toBe("status");
+    expect(shellMain?.getAttribute("data-transition")).toBe("exiting");
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+
+    await waitFor(() => {
+      expect(shellMain?.getAttribute("data-rendered-section")).toBe("environment");
+      expect(shellMain?.getAttribute("data-transition")).toBe("entering");
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 220));
+    });
+
+    await waitFor(() => {
+      expect(shellMain?.getAttribute("data-transition")).toBe("idle");
+    });
+  });
+
   test("restarts the managed service when the running-state primary action is clicked", async () => {
     let initialized = false;
     const calls: string[] = [];
@@ -350,6 +411,9 @@ describe("App", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "偏好设置" }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "偏好设置" })).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole("button", { name: "编辑配置" }));
 
     const installInput = screen.getByRole("textbox", { name: "安装目录" });

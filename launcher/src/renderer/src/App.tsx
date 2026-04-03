@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useDeferredValue } from "react";
+import { startTransition, useState, useEffect, useMemo, useCallback, useDeferredValue, useRef } from "react";
 import type {
   LauncherAdvancedOverrides,
   LauncherSettings,
@@ -7,6 +7,10 @@ import type {
 import { AppShell } from "./AppShell";
 
 type SectionId = "status" | "environment" | "diagnostics" | "settings";
+type SectionTransitionState = "idle" | "exiting" | "entering";
+
+const SECTION_EXIT_MS = 90;
+const SECTION_ENTER_MS = 180;
 
 const initialSnapshot: LauncherSnapshot = {
   settings: {
@@ -45,6 +49,8 @@ const initialSnapshot: LauncherSnapshot = {
 
 export function App() {
   const [activeSection, setActiveSection] = useState<SectionId>("status");
+  const [renderedSection, setRenderedSection] = useState<SectionId>("status");
+  const [sectionTransitionState, setSectionTransitionState] = useState<SectionTransitionState>("idle");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [editingSettings, setEditingSettings] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -54,6 +60,8 @@ export function App() {
   const [editingDraft, setEditingDraft] = useState<LauncherSettings | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [previewResolvedSettings, setPreviewResolvedSettings] = useState(initialSnapshot.resolvedSettings);
+  const sectionExitTimerRef = useRef<number | null>(null);
+  const sectionEnterTimerRef = useRef<number | null>(null);
 
   // settingsDraft = active editing draft when editing, else current settings from snapshot
   const settingsDraft = editingDraft ?? snapshot.settings;
@@ -92,6 +100,18 @@ export function App() {
       recentErrors,
     ].join("\n");
   }, [snapshot]);
+
+  const clearSectionTransitionTimers = useCallback(() => {
+    if (sectionExitTimerRef.current !== null) {
+      window.clearTimeout(sectionExitTimerRef.current);
+      sectionExitTimerRef.current = null;
+    }
+
+    if (sectionEnterTimerRef.current !== null) {
+      window.clearTimeout(sectionEnterTimerRef.current);
+      sectionEnterTimerRef.current = null;
+    }
+  }, []);
 
   // Sync snapshot updates into editing draft when not actively editing
   useEffect(() => {
@@ -158,6 +178,57 @@ export function App() {
     const unsub = window.rayleaLauncher.onMaximizedChange(setIsMaximized);
     return unsub;
   }, []);
+
+  useEffect(() => clearSectionTransitionTimers, [clearSectionTransitionTimers]);
+
+  useEffect(() => {
+    if (activeSection === renderedSection) {
+      return;
+    }
+
+    if (sectionExitTimerRef.current !== null) {
+      window.clearTimeout(sectionExitTimerRef.current);
+      sectionExitTimerRef.current = null;
+    }
+
+    setSectionTransitionState("exiting");
+
+    sectionExitTimerRef.current = window.setTimeout(() => {
+      setRenderedSection(activeSection);
+      setSectionTransitionState("entering");
+      sectionExitTimerRef.current = null;
+    }, SECTION_EXIT_MS);
+
+    return () => {
+      if (sectionExitTimerRef.current !== null) {
+        window.clearTimeout(sectionExitTimerRef.current);
+        sectionExitTimerRef.current = null;
+      }
+    };
+  }, [activeSection, renderedSection]);
+
+  useEffect(() => {
+    if (sectionTransitionState !== "entering") {
+      return;
+    }
+
+    if (sectionEnterTimerRef.current !== null) {
+      window.clearTimeout(sectionEnterTimerRef.current);
+      sectionEnterTimerRef.current = null;
+    }
+
+    sectionEnterTimerRef.current = window.setTimeout(() => {
+      setSectionTransitionState("idle");
+      sectionEnterTimerRef.current = null;
+    }, SECTION_ENTER_MS);
+
+    return () => {
+      if (sectionEnterTimerRef.current !== null) {
+        window.clearTimeout(sectionEnterTimerRef.current);
+        sectionEnterTimerRef.current = null;
+      }
+    };
+  }, [sectionTransitionState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -301,6 +372,19 @@ export function App() {
     return runAction("start", () => window.rayleaLauncher.start());
   }, [runAction, snapshot.serviceOwnership, snapshot.serviceState]);
 
+  const handleNavigate = useCallback(
+    (section: SectionId) => {
+      if (section === activeSection) {
+        return;
+      }
+
+      startTransition(() => {
+        setActiveSection(section);
+      });
+    },
+    [activeSection],
+  );
+
   if (initializing) {
     return (
       <div className="launcher-loading-shell">
@@ -315,6 +399,8 @@ export function App() {
     <AppShell
       snapshot={snapshot}
       activeSection={activeSection}
+      renderedSection={renderedSection}
+      sectionTransitionState={sectionTransitionState}
       platformLabel={platformLabel}
       settingsDraft={settingsDraft}
       resolvedSettings={editingSettings ? previewResolvedSettings : snapshot.resolvedSettings}
@@ -323,7 +409,7 @@ export function App() {
       busyAction={busyAction}
       controlsDisabled={controlsDisabled}
       isMaximized={isMaximized}
-      onNavigate={setActiveSection}
+      onNavigate={handleNavigate}
       onRefresh={() => runAction("refresh", () => window.rayleaLauncher.refresh())}
       onStart={handlePrimaryServiceAction}
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}

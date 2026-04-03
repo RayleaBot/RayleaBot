@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@renderer/AppShell";
 import type { LauncherSnapshot } from "@shared/launcher-models";
+import type { ComponentProps } from "react";
 
 const snapshot: LauncherSnapshot = {
   settings: {
@@ -72,11 +73,13 @@ const snapshot: LauncherSnapshot = {
   },
 };
 
-function renderStatusShell() {
+function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
   return render(
     <AppShell
       snapshot={snapshot}
       activeSection="status"
+      renderedSection="status"
+      sectionTransitionState="idle"
       platformLabel="win32-x64"
       settingsDraft={snapshot.settings}
       resolvedSettings={snapshot.resolvedSettings}
@@ -107,157 +110,158 @@ function renderStatusShell() {
       onChooseConfig={vi.fn()}
       onChooseWorkdir={vi.fn()}
       onExit={vi.fn()}
+      {...overrides}
     />,
   );
 }
 
 describe("AppShell", () => {
-  test("renders navigation, hero summary, and environment warning", () => {
-    render(
-      <AppShell
-        snapshot={snapshot}
-        activeSection="status"
-        platformLabel="win32-x64"
-        settingsDraft={snapshot.settings}
-        resolvedSettings={snapshot.resolvedSettings}
-        editingSettings={false}
-        diagnosticsSummary=""
-        busyAction={null}
-        controlsDisabled={false}
-        isMaximized={false}
-        onNavigate={vi.fn()}
-        onRefresh={vi.fn()}
-        onStart={vi.fn()}
-        onStop={vi.fn()}
-        onOpenWeb={vi.fn()}
-        onRecoveryRecheck={vi.fn()}
-        onRuntimeBootstrap={vi.fn()}
-        onOpenRecoveryPlugin={vi.fn()}
-        onOpenReleasePage={vi.fn()}
-        onOpenLogs={vi.fn()}
-        onResetAdmin={vi.fn()}
-        onBeginEdit={vi.fn()}
-        onCancelEdit={vi.fn()}
-        onSaveSettings={vi.fn()}
-        onUpdateInstallationRoot={vi.fn()}
-        onUpdateCloseBehavior={vi.fn()}
-        onUpdateAdvancedOverride={vi.fn()}
-        onChooseInstallationRoot={vi.fn()}
-        onChooseServer={vi.fn()}
-        onChooseConfig={vi.fn()}
-        onChooseWorkdir={vi.fn()}
-        onExit={vi.fn()}
-      />,
-    );
+  test("renders the shared section header with title, summary, and action", () => {
+    const { container } = renderShell();
+
+    expect(screen.getByRole("heading", { name: "运行状态" })).toBeInTheDocument();
+    expect(screen.getByText("查看当前服务状态，并直接处理启动、停止、管理和恢复动作。")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "刷新状态" })).toHaveLength(2);
+    expect(container.querySelector(".section-shell")).not.toBeNull();
+    expect(container.querySelector(".section-header")).not.toBeNull();
+  });
+
+  test("renders navigation, hero summary, and ordered status rail", () => {
+    const { container } = renderShell();
 
     expect(screen.getByText("RayleaBot")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "RayleaLauncher" })).toBeInTheDocument();
-    expect(screen.getByText("运行状态")).toBeInTheDocument();
-    expect(screen.getByText("环境检查")).toBeInTheDocument();
-    expect(screen.getByText("日志诊断")).toBeInTheDocument();
-    expect(screen.getByText("偏好设置")).toBeInTheDocument();
-    expect(screen.getByText("服务尚未启动。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "运行状态" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "环境检查" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "日志诊断" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "偏好设置" })).toBeInTheDocument();
     expect(screen.getByText("首次启动时会自动生成用户配置。")).toBeInTheDocument();
-    expect(screen.getByText("警告")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "处理建议" })).not.toBeInTheDocument();
-    expect(screen.getByText(/恢复兼容性/)).toBeInTheDocument();
     expect(screen.getByText("degraded · upgrade")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "重新检查" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "准备运行时" })).toBeInTheDocument();
-  });
-
-  test("restores editing controls and advanced overrides in settings", () => {
-    const { container } = render(
-      <AppShell
-        snapshot={snapshot}
-        activeSection="settings"
-        platformLabel="win32-x64"
-        settingsDraft={{
-          ...snapshot.settings,
-          advancedOverrides: {
-            serverExecutablePath: "D:\\Portable\\server\\raylea-server.exe",
-            configPath: "D:\\Portable\\config\\user.yaml",
-            workdir: "D:\\Portable",
-          },
-        }}
-        resolvedSettings={snapshot.resolvedSettings}
-        editingSettings={true}
-        diagnosticsSummary=""
-        busyAction={null}
-        controlsDisabled={false}
-        isMaximized={false}
-        onNavigate={vi.fn()}
-        onRefresh={vi.fn()}
-        onStart={vi.fn()}
-        onStop={vi.fn()}
-        onOpenWeb={vi.fn()}
-        onRecoveryRecheck={vi.fn()}
-        onRuntimeBootstrap={vi.fn()}
-        onOpenRecoveryPlugin={vi.fn()}
-        onOpenReleasePage={vi.fn()}
-        onOpenLogs={vi.fn()}
-        onResetAdmin={vi.fn()}
-        onBeginEdit={vi.fn()}
-        onCancelEdit={vi.fn()}
-        onSaveSettings={vi.fn()}
-        onUpdateInstallationRoot={vi.fn()}
-        onUpdateCloseBehavior={vi.fn()}
-        onUpdateAdvancedOverride={vi.fn()}
-        onChooseInstallationRoot={vi.fn()}
-        onChooseServer={vi.fn()}
-        onChooseConfig={vi.fn()}
-        onChooseWorkdir={vi.fn()}
-        onExit={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "放弃" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "收起高级覆盖" })).toBeInTheDocument();
-    expect(screen.getByText("服务端覆盖")).toBeInTheDocument();
-    expect(screen.getByText("配置覆盖")).toBeInTheDocument();
-    expect(screen.getByText("运行目录覆盖")).toBeInTheDocument();
-    expect(screen.getByText("当前解析结果")).toBeInTheDocument();
-    expect(screen.getByText("当前生效的服务端、配置与工作目录路径。")).toBeInTheDocument();
-    expect(screen.getByText("路径变更尚未保存，当前显示的是预览结果。")).toBeInTheDocument();
-    expect(screen.getByText("关闭窗口时采用的默认动作。托盘模式会保留后台入口。")).toBeInTheDocument();
-    expect(screen.getByText("每次关闭窗口时都显示确认选项。")).toBeInTheDocument();
-    expect(screen.getByText("关闭主窗口后保留托盘入口和后台状态。")).toBeInTheDocument();
-    expect(screen.getByText("直接结束启动器窗口与托盘进程。")).toBeInTheDocument();
-    expect(screen.getByText("维护操作")).toBeInTheDocument();
-    expect(screen.getByText("清除本地管理凭据，下次启动时重新完成初始化。")).toBeInTheDocument();
-    expect(screen.getByText("关闭窗口和托盘入口，不影响已保存配置与服务文件。")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "立即重置" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "退出启动器" })).toBeInTheDocument();
-    expect(container.querySelector(".settings-edit-bar")).not.toBeNull();
-    expect(container.querySelector(".maintenance-action-card")).not.toBeNull();
-    expect(container.querySelector(".settings-resolution-panel")).not.toBeNull();
-    expect(container.querySelector(".settings-info-card")).toBeNull();
-  });
-
-  test("renders the balanced status homepage layout", () => {
-    const { container } = renderStatusShell();
-
     expect(container.querySelector(".status-homepage")).not.toBeNull();
     expect(container.querySelector(".status-hero")).not.toBeNull();
-    expect(container.querySelector(".status-hero__body")).not.toBeNull();
-    expect(container.querySelector(".status-hero__actions")).not.toBeNull();
-    expect(container.querySelector(".status-summary-grid")).not.toBeNull();
-    expect(container.querySelector(".status-summary-rail")).not.toBeNull();
-    expect(container.querySelector(".status-log-panel")).not.toBeNull();
-
-    const primaryAction = screen.getByRole("button", { name: "启动 RayleaBot" });
-    const stopAction = screen.getByRole("button", { name: "停止服务" });
-    const manageAction = screen.getByRole("button", { name: "管理面板" });
-
-    expect(primaryAction.closest(".status-hero__primary-action")).not.toBeNull();
-    expect(stopAction.closest(".status-hero__secondary-actions")).not.toBeNull();
-    expect(manageAction.closest(".status-hero__secondary-actions")).not.toBeNull();
+    expect(container.querySelector(".status-action-feedback")).not.toBeNull();
+    expect(screen.getByText("当前没有进行中的操作。")).toBeInTheDocument();
 
     const rail = container.querySelector(".status-summary-rail");
     expect(rail).not.toBeNull();
-    expect(within(rail as HTMLElement).getByText("版本监控")).toBeInTheDocument();
-    expect(within(rail as HTMLElement).getByText("恢复兼容性")).toBeInTheDocument();
-    expect(within(rail as HTMLElement).getByText("环境预警")).toBeInTheDocument();
+    const railTitles = Array.from(rail?.querySelectorAll(".brand-eyebrow--tight") ?? []).map((node) => node.textContent);
+    expect(railTitles).toEqual(["环境预警", "恢复兼容性", "版本监控"]);
+
+    const primaryAction = screen.getByRole("button", { name: "启动 RayleaBot" });
+    expect(primaryAction.closest(".status-hero__primary-action")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "停止服务" }).closest(".status-hero__secondary-actions")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "管理面板" }).closest(".status-hero__secondary-actions")).not.toBeNull();
+  });
+
+  test("shows the constrained reason on the status page when readiness is degraded", () => {
+    renderShell({
+      snapshot: {
+        ...snapshot,
+        serviceState: "degraded",
+        serviceOwnership: "launcher_managed",
+        serviceDetail: "Python 运行时尚未准备完成。",
+        environmentChecks: [
+          {
+            code: "runtime.python_managed_ready",
+            title: "Python 运行时准备",
+            severity: "warning",
+            summary: "依赖受控 Python 运行时的能力暂不可用。",
+            detail: "当前平台的受控 Python 运行时缺少本地可用资源。",
+            remediation: "请联网准备受控运行时，或按正式目录结构手动预置资源。",
+          },
+        ],
+      },
+    });
+
+    expect(screen.getAllByText("运行条件受限").length).toBeGreaterThan(0);
+    expect(screen.getByText("当前限制")).toBeInTheDocument();
+    expect(screen.getAllByText("Python 运行时尚未准备完成。").length).toBeGreaterThan(0);
+    expect(screen.getByText("处理提示")).toBeInTheDocument();
+    expect(screen.getByText(/按正式目录结构手动预置资源/)).toBeInTheDocument();
+  });
+
+  test("renders environment cards with summary detail and remediation blocks", () => {
+    const { container } = renderShell({
+      activeSection: "environment",
+      renderedSection: "environment",
+      snapshot: {
+        ...snapshot,
+        environmentChecks: [
+          {
+            code: "runtime.python_managed_ready",
+            title: "Python 运行时准备",
+            severity: "ok",
+            summary: "受控 Python 运行时可按需准备。",
+            detail: "当前平台的受控 Python 运行时元数据完整，可在需要时自动准备。",
+            remediation: "请联网准备受控运行时；离线或受限网络环境可预置已校验归档到 C:\\RayleaBot\\cache\\downloads\\runtime\\python-runtime.tar.gz，或预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13。",
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByRole("heading", { name: "环境检查" })).toBeInTheDocument();
+    expect(screen.getByText("受控 Python 运行时可按需准备。")).toBeInTheDocument();
+    expect(screen.getByText("当前平台的受控 Python 运行时元数据完整，可在需要时自动准备。")).toBeInTheDocument();
+    expect(screen.getByText("离线准备")).toBeInTheDocument();
+    expect(screen.getByText(/预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13/)).toBeInTheDocument();
+    expect(container.querySelector(".check-item__remediation")).not.toBeNull();
+  });
+
+  test("renders draft and resolved settings surfaces during editing", () => {
+    const { container } = renderShell({
+      activeSection: "settings",
+      renderedSection: "settings",
+      editingSettings: true,
+      settingsDraft: {
+        ...snapshot.settings,
+        advancedOverrides: {
+          serverExecutablePath: "D:\\Portable\\server\\raylea-server.exe",
+          configPath: "D:\\Portable\\config\\user.yaml",
+          workdir: "D:\\Portable",
+        },
+      },
+    });
+
+    expect(screen.getByRole("heading", { name: "偏好设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "放弃" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
+    expect(screen.getByText("当前显示草稿路径与预览结果，保存后才会切换为生效值。")).toBeInTheDocument();
+    expect(screen.getAllByText("当前草稿").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("当前生效").length).toBeGreaterThan(0);
+    expect(screen.getByText("服务端覆盖")).toBeInTheDocument();
+    expect(screen.getByText("配置覆盖")).toBeInTheDocument();
+    expect(screen.getByText("运行目录覆盖")).toBeInTheDocument();
+    expect(container.querySelector(".settings-compare-strip")).not.toBeNull();
+    expect(container.querySelector(".settings-resolution-panel")).not.toBeNull();
+    expect(container.querySelector(".settings-edit-bar")).not.toBeNull();
+  });
+
+  test("renders quiet diagnostics state without error styling when stderr is empty", () => {
+    renderShell({
+      activeSection: "diagnostics",
+      renderedSection: "diagnostics",
+      diagnosticsSummary: "服务状态：稳定",
+      snapshot: {
+        ...snapshot,
+        recentStderr: [],
+      },
+    });
+
+    expect(screen.getByRole("heading", { name: "日志诊断" })).toBeInTheDocument();
+    expect(screen.getByText("当前没有新的异常输出。")).toBeInTheDocument();
+    expect(screen.getByText("诊断摘要已准备好，当前输出平稳。")).toBeInTheDocument();
+  });
+
+  test("marks current and rendered section metadata for transitions", () => {
+    const { container } = renderShell({
+      activeSection: "environment",
+      renderedSection: "status",
+      sectionTransitionState: "exiting",
+    });
+
+    const shellMain = container.querySelector(".shell-main");
+    expect(shellMain?.getAttribute("data-active-section")).toBe("environment");
+    expect(shellMain?.getAttribute("data-rendered-section")).toBe("status");
+    expect(shellMain?.getAttribute("data-transition")).toBe("exiting");
   });
 });
