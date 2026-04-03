@@ -379,7 +379,11 @@ export function AppShell({
                         <div className="check-item-mini__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</div>
                         <div className="check-item-mini__content">
                           <Text weight="bold" size={200}>{item.title}</Text>
-                          <Text size={100} className="panel-muted">{item.summary}</Text>
+                          <Text size={100} className="panel-muted">
+                            {item.code === "os.long_paths_unknown" && item.severity === "warning"
+                              ? "无法确认长路径支持状态。若资源展开遇到限制，请手动检查系统长路径设置。"
+                              : item.summary}
+                          </Text>
                           <Text size={100} className="panel-muted">{severityConfig[item.severity as keyof typeof severityConfig]?.label}</Text>
                         </div>
                       </div>
