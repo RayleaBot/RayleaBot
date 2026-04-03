@@ -1,43 +1,45 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { LauncherDesktopApi } from "../shared/desktop-api";
 import type { LauncherSettings, LauncherSnapshot } from "../shared/launcher-models";
+import { launcherEventChannels, launcherInvokeChannels } from "../shared/launcher-ipc";
 
 const api: LauncherDesktopApi = {
-  getPlatform: () => ipcRenderer.invoke("launcher:get-platform"),
-  getSnapshot: () => ipcRenderer.invoke("launcher:get-snapshot"),
-  initialize: () => ipcRenderer.invoke("launcher:initialize"),
-  refresh: () => ipcRenderer.invoke("launcher:refresh"),
-  retry: () => ipcRenderer.invoke("launcher:retry"),
-  start: () => ipcRenderer.invoke("launcher:start"),
-  stop: () => ipcRenderer.invoke("launcher:stop"),
-  resetAdmin: () => ipcRenderer.invoke("launcher:reset-admin"),
-  openWebUi: (targetPath?: string) => ipcRenderer.invoke("launcher:open-web", targetPath),
-  createRecoveryRecheck: () => ipcRenderer.invoke("launcher:create-recovery-recheck"),
-  createRuntimeBootstrap: (resources?: string[]) => ipcRenderer.invoke("launcher:create-runtime-bootstrap", resources),
-  openReleasePage: () => ipcRenderer.invoke("launcher:open-release-page"),
-  openLogsDirectory: () => ipcRenderer.invoke("launcher:open-logs"),
-  saveSettings: (settings: LauncherSettings) => ipcRenderer.invoke("launcher:save-settings", settings),
-  chooseInstallationRoot: () => ipcRenderer.invoke("launcher:choose-installation-root"),
-  chooseServerExecutable: () => ipcRenderer.invoke("launcher:choose-server"),
-  chooseConfigFile: () => ipcRenderer.invoke("launcher:choose-config"),
-  chooseWorkdir: () => ipcRenderer.invoke("launcher:choose-workdir"),
-  exitApplication: () => ipcRenderer.invoke("launcher:exit"),
-  minimize: () => ipcRenderer.invoke("launcher:minimize"),
-  maximize: () => ipcRenderer.invoke("launcher:maximize"),
-  close: () => ipcRenderer.invoke("launcher:close"),
-  isMaximized: () => ipcRenderer.invoke("launcher:is-maximized"),
+  getPlatform: () => ipcRenderer.invoke(launcherInvokeChannels.getPlatform),
+  getSnapshot: () => ipcRenderer.invoke(launcherInvokeChannels.getSnapshot),
+  initialize: () => ipcRenderer.invoke(launcherInvokeChannels.initialize),
+  refresh: () => ipcRenderer.invoke(launcherInvokeChannels.refresh),
+  retry: () => ipcRenderer.invoke(launcherInvokeChannels.retry),
+  start: () => ipcRenderer.invoke(launcherInvokeChannels.start),
+  stop: () => ipcRenderer.invoke(launcherInvokeChannels.stop),
+  resetAdmin: () => ipcRenderer.invoke(launcherInvokeChannels.resetAdmin),
+  openWebUi: (targetPath?: string) => ipcRenderer.invoke(launcherInvokeChannels.openWeb, targetPath),
+  createRecoveryRecheck: () => ipcRenderer.invoke(launcherInvokeChannels.createRecoveryRecheck),
+  createRuntimeBootstrap: (resources?: string[]) => ipcRenderer.invoke(launcherInvokeChannels.createRuntimeBootstrap, resources),
+  openReleasePage: () => ipcRenderer.invoke(launcherInvokeChannels.openReleasePage),
+  openLogsDirectory: () => ipcRenderer.invoke(launcherInvokeChannels.openLogs),
+  saveSettings: (settings: LauncherSettings) => ipcRenderer.invoke(launcherInvokeChannels.saveSettings, settings),
+  previewResolvedSettings: (settings: LauncherSettings) => ipcRenderer.invoke(launcherInvokeChannels.previewResolvedSettings, settings),
+  chooseInstallationRoot: () => ipcRenderer.invoke(launcherInvokeChannels.chooseInstallationRoot),
+  chooseServerExecutable: () => ipcRenderer.invoke(launcherInvokeChannels.chooseServer),
+  chooseConfigFile: () => ipcRenderer.invoke(launcherInvokeChannels.chooseConfig),
+  chooseWorkdir: () => ipcRenderer.invoke(launcherInvokeChannels.chooseWorkdir),
+  exitApplication: () => ipcRenderer.invoke(launcherInvokeChannels.exit),
+  minimize: () => ipcRenderer.invoke(launcherInvokeChannels.minimize),
+  maximize: () => ipcRenderer.invoke(launcherInvokeChannels.maximize),
+  close: () => ipcRenderer.invoke(launcherInvokeChannels.close),
+  isMaximized: () => ipcRenderer.invoke(launcherInvokeChannels.isMaximized),
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void) {
     const handler = (_event: unknown, snapshot: LauncherSnapshot) => listener(snapshot);
-    ipcRenderer.on("launcher:snapshot", handler);
+    ipcRenderer.on(launcherEventChannels.snapshot, handler);
     return () => {
-      ipcRenderer.off("launcher:snapshot", handler);
+      ipcRenderer.off(launcherEventChannels.snapshot, handler);
     };
   },
   onMaximizedChange(listener: (maximized: boolean) => void) {
     const handler = (_event: unknown, maximized: boolean) => listener(maximized);
-    ipcRenderer.on("launcher:maximized-change", handler);
+    ipcRenderer.on(launcherEventChannels.maximizedChange, handler);
     return () => {
-      ipcRenderer.off("launcher:maximized-change", handler);
+      ipcRenderer.off(launcherEventChannels.maximizedChange, handler);
     };
   },
 };

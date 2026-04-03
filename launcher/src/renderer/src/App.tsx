@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useDeferredValue } from "react";
 import type {
   LauncherAdvancedOverrides,
   LauncherSettings,
@@ -51,9 +51,11 @@ export function App() {
   // Local draft: only used during settings editing; mirrors what Vue's settingsDraft ref did
   const [editingDraft, setEditingDraft] = useState<LauncherSettings | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [previewResolvedSettings, setPreviewResolvedSettings] = useState(initialSnapshot.resolvedSettings);
 
   // settingsDraft = active editing draft when editing, else current settings from snapshot
   const settingsDraft = editingDraft ?? snapshot.settings;
+  const deferredSettingsDraft = useDeferredValue(settingsDraft);
 
   const controlsDisabled = useMemo(
     () => initializing || busyAction === "initialize",
@@ -95,6 +97,30 @@ export function App() {
       setEditingDraft(null);
     }
   }, [snapshot.settings, editingSettings, editingDraft]);
+
+  useEffect(() => {
+    if (!editingSettings) {
+      setPreviewResolvedSettings(snapshot.resolvedSettings);
+      return;
+    }
+
+    let cancelled = false;
+    window.rayleaLauncher.previewResolvedSettings(deferredSettingsDraft)
+      .then((resolvedSettings) => {
+        if (!cancelled) {
+          setPreviewResolvedSettings(resolvedSettings);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewResolvedSettings(snapshot.resolvedSettings);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingSettings, deferredSettingsDraft, snapshot.resolvedSettings]);
 
   useEffect(() => {
     const unsub = window.rayleaLauncher.onSnapshot((next) => {
@@ -249,7 +275,7 @@ export function App() {
       snapshot={snapshot}
       activeSection={activeSection}
       settingsDraft={settingsDraft}
-      resolvedSettings={snapshot.resolvedSettings}
+      resolvedSettings={editingSettings ? previewResolvedSettings : snapshot.resolvedSettings}
       editingSettings={editingSettings}
       diagnosticsSummary={diagnosticsSummary}
       busyAction={busyAction}

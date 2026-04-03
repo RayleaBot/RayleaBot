@@ -68,6 +68,15 @@ function installDesktopApi(api: LauncherDesktopApi) {
   });
 }
 
+function previewSettings(settings: LauncherSnapshot["settings"]) {
+  return {
+    installationRoot: settings.installationRoot,
+    serverExecutablePath: settings.installationRoot ? `${settings.installationRoot}\\server\\raylea-server.exe` : "",
+    configPath: settings.installationRoot ? `${settings.installationRoot}\\config\\user.yaml` : "",
+    workdir: settings.installationRoot,
+  };
+}
+
 afterEach(() => {
   Reflect.deleteProperty(window, "rayleaLauncher");
 });
@@ -89,6 +98,7 @@ describe("App", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
       chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
@@ -128,6 +138,7 @@ describe("App", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
       chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
@@ -175,6 +186,7 @@ describe("App", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
       chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
@@ -195,6 +207,65 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(calls).toEqual(["stop", "start"]);
+    });
+  });
+
+  test("previews derived settings while editing the installation root", async () => {
+    let initialized = false;
+    const previewResolvedSettings = vi.fn(async (settings: LauncherSnapshot["settings"]) => ({
+      installationRoot: settings.installationRoot,
+      serverExecutablePath: `${settings.installationRoot}\\server\\raylea-server.exe`,
+      configPath: `${settings.installationRoot}\\config\\user.yaml`,
+      workdir: settings.installationRoot,
+    }));
+
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? loadedSnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => {
+        initialized = true;
+      }),
+      refresh: vi.fn(async () => undefined),
+      retry: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      openWebUi: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+      previewResolvedSettings,
+    } as LauncherDesktopApi);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("C:\\Users\\26789\\Desktop\\RayleaBot").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "偏好设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑配置" }));
+
+    const installField = screen.getByText("安装目录").closest("label");
+    const installInput = installField?.querySelector("input");
+    expect(installInput).not.toBeNull();
+    fireEvent.change(installInput!, { target: { value: "D:\\RayleaPortable" } });
+
+    await waitFor(() => {
+      expect(previewResolvedSettings).toHaveBeenCalled();
+      expect(screen.getByDisplayValue("D:\\RayleaPortable\\server\\raylea-server.exe")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("D:\\RayleaPortable\\config\\user.yaml")).toBeInTheDocument();
     });
   });
 });

@@ -1,4 +1,4 @@
-import type { LauncherSettings, LauncherSnapshot } from "./launcher-models";
+import type { LauncherResolvedSettings, LauncherSettings, LauncherSnapshot } from "./launcher-models";
 
 export interface LauncherDesktopApi {
   getPlatform(): Promise<string>;
@@ -15,6 +15,7 @@ export interface LauncherDesktopApi {
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
+  previewResolvedSettings(settings: LauncherSettings): Promise<LauncherResolvedSettings>;
   chooseInstallationRoot(): Promise<string | null>;
   chooseServerExecutable(): Promise<string | null>;
   chooseConfigFile(): Promise<string | null>;
