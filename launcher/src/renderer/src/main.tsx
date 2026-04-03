@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { FluentProvider, webDarkTheme } from "@fluentui/react-components";
 import { App } from "./App";
+import { LauncherErrorBoundary } from "./LauncherErrorBoundary";
 import "./style.css";
 
 const launcherTheme = {
@@ -35,7 +36,9 @@ root.render(
       className="launcher-theme"
       style={{ background: "transparent", minHeight: "100vh" }}
     >
-      <App />
+      <LauncherErrorBoundary>
+        <App />
+      </LauncherErrorBoundary>
     </FluentProvider>
   </StrictMode>,
 );
