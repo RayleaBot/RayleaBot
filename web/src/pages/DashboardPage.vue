@@ -4,6 +4,12 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import DashboardHeroPanel from '@/components/DashboardHeroPanel.vue'
+import DashboardRecentEventsCard from '@/components/DashboardRecentEventsCard.vue'
+import DashboardReadinessCard from '@/components/DashboardReadinessCard.vue'
+import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
+import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
+import DashboardToolsPanel from '@/components/DashboardToolsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   getAdapterStateLabel,
@@ -56,9 +62,13 @@ const readinessStatusType = computed<StatusType>(() => getStatusType(readiness.v
 const systemStatusType = computed<StatusType>(() => getStatusType(system.value?.status))
 const adapterStatusType = computed<StatusType>(() => getStatusType(system.value?.adapter_state))
 const recoverySummary = computed(() => system.value?.recovery_summary ?? readiness.value?.recovery_summary ?? null)
+const healthValueText = computed(() => health.value?.status === 'ok' ? '正常' : t('display.empty'))
 const healthDetailText = computed(() => health.value?.status === 'ok' ? '管理面可用' : t('display.empty'))
+const readinessValueText = computed(() => getReadinessStatusLabel(readiness.value?.status))
 const readinessDetailText = computed(() => readiness.value?.reason || getReadinessStatusLabel(readiness.value?.status))
+const systemValueText = computed(() => getSystemStatusLabel(system.value?.status))
 const systemDetailText = computed(() => getSystemStatusLabel(system.value?.status))
+const adapterValueText = computed(() => getAdapterStateLabel(system.value?.adapter_state))
 const adapterDetailText = computed(() => getAdapterStateLabel(system.value?.adapter_state))
 const readinessIssues = computed(() => {
   const issues = readiness.value?.issues ?? []
@@ -190,23 +200,6 @@ const checkItems = computed(() => {
   }
   return items
 })
-
-function getCheckIcon(status: StatusType): string {
-  const map: Record<StatusType, string> = {
-    success: '\u2705',
-    warning: '\u26A0',
-    danger: '\u274C',
-    muted: '\u2014',
-  }
-  return map[status]
-}
-
-function getEventSeverityClass(severity?: string): string {
-  if (severity === 'error' || severity === 'danger') return 'event-item--danger'
-  if (severity === 'warning') return 'event-item--warning'
-  if (severity === 'success') return 'event-item--success'
-  return ''
-}
 
 async function refreshState() {
   try {
@@ -360,38 +353,17 @@ async function openRecoveryPlugin(pluginID: string) {
 
 <template>
   <div class="page-grid">
-    <section class="hero-panel">
-      <div>
-        <h1>{{ t('dashboard.title') }}</h1>
-        <div class="hero-meta">
-          <div :class="['status-badge', `status-badge--${statusBadgeConfig.type}`]">
-            <span class="status-badge__icon">{{ statusBadgeConfig.icon }}</span>
-            <span>{{ statusBadgeConfig.label }}</span>
-          </div>
-          <div v-if="lastRefreshed" class="hero-meta__time">
-            {{ t('dashboard.lastRefreshed') }}: {{ formatRelativeTime(lastRefreshed) }}
-            <template v-if="autoRefresh"> · {{ countdown }}s</template>
-          </div>
-          <div v-if="autoRefresh" class="auto-refresh-bar">
-            <div class="auto-refresh-bar__fill" :style="{ width: `${(countdown / AUTO_REFRESH_INTERVAL) * 100}%` }" />
-          </div>
-          <div class="hero-auto-refresh">
-            <span>{{ t('dashboard.autoRefresh') }}</span>
-            <el-switch
-              :model-value="autoRefresh"
-              size="small"
-              @change="toggleAutoRefresh"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="table-actions">
-        <el-button :loading="loading" @click="refreshState()">
-          {{ t('dashboard.refresh') }}
-        </el-button>
-      </div>
-    </section>
+    <DashboardHeroPanel
+      :title="t('dashboard.title')"
+      :status-badge="statusBadgeConfig"
+      :last-refreshed-label="lastRefreshed ? `${t('dashboard.lastRefreshed')}: ${formatRelativeTime(lastRefreshed)}` : null"
+      :auto-refresh="autoRefresh"
+      :countdown="countdown"
+      :auto-refresh-interval="AUTO_REFRESH_INTERVAL"
+      :loading="loading"
+      @refresh="refreshState()"
+      @toggle-auto-refresh="toggleAutoRefresh"
+    />
 
     <el-alert
       v-if="alertBannerType"
@@ -412,310 +384,71 @@ async function openRecoveryPlugin(pluginID: string) {
 
     <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <div class="stats-grid">
-      <el-card :class="['stat-card', `stat-card--${healthStatusType}`]">
-        <span class="stat-label">{{ t('dashboard.health') }}</span>
-        <strong>{{ health?.status === 'ok' ? '正常' : t('display.empty') }}</strong>
-        <small>{{ healthDetailText }}</small>
-      </el-card>
-      <el-card :class="['stat-card', `stat-card--${readinessStatusType}`]">
-        <span class="stat-label">{{ t('dashboard.readiness') }}</span>
-        <strong>{{ getReadinessStatusLabel(readiness?.status) }}</strong>
-        <small>{{ readinessDetailText }}</small>
-      </el-card>
-      <el-card :class="['stat-card', `stat-card--${systemStatusType}`]">
-        <span class="stat-label">{{ t('dashboard.service') }}</span>
-        <strong>{{ getSystemStatusLabel(system?.status) }}</strong>
-        <small>{{ systemDetailText }}</small>
-      </el-card>
-      <el-card :class="['stat-card', `stat-card--${adapterStatusType}`]">
-        <span class="stat-label">{{ t('dashboard.adapter') }}</span>
-        <strong>{{ getAdapterStateLabel(system?.adapter_state) }}</strong>
-        <small>{{ adapterDetailText }}</small>
-      </el-card>
-      <el-card class="stat-card">
-        <span class="stat-label">{{ t('dashboard.activePlugins') }}</span>
-        <strong>{{ system?.active_plugins ?? 0 }}</strong>
-      </el-card>
-      <el-card class="stat-card">
-        <span class="stat-label">{{ t('dashboard.uptime') }}</span>
-        <strong>{{ formatDurationSeconds(system?.uptime_seconds) }}</strong>
-      </el-card>
-    </div>
+    <DashboardStatusGrid
+      :health-status-type="healthStatusType"
+      :readiness-status-type="readinessStatusType"
+      :system-status-type="systemStatusType"
+      :adapter-status-type="adapterStatusType"
+      :health-label="t('dashboard.health')"
+      :health-value-text="healthValueText"
+      :health-detail-text="healthDetailText"
+      :readiness-label="t('dashboard.readiness')"
+      :readiness-value-text="readinessValueText"
+      :readiness-detail-text="readinessDetailText"
+      :system-label="t('dashboard.service')"
+      :system-value-text="systemValueText"
+      :system-detail-text="systemDetailText"
+      :adapter-label="t('dashboard.adapter')"
+      :adapter-value-text="adapterValueText"
+      :adapter-detail-text="adapterDetailText"
+      :active-plugins-label="t('dashboard.activePlugins')"
+      :active-plugins-count="system?.active_plugins ?? 0"
+      :uptime-label="t('dashboard.uptime')"
+      :uptime-text="formatDurationSeconds(system?.uptime_seconds)"
+    />
 
     <div class="content-grid">
-      <el-card>
-        <template #header>
-          <div class="card-header">
-            <span>{{ t('dashboard.readinessSection') }}</span>
-          </div>
-        </template>
+      <DashboardReadinessCard
+        :section-title="t('dashboard.readinessSection')"
+        :check-items="checkItems"
+        :readiness-note-text="health?.status === 'ok' && readiness?.status === 'degraded' ? t('dashboard.readinessLimitedHint') : t('dashboard.readinessHint')"
+        :reason-codes-label="t('dashboard.reasonCodes')"
+        :visible-reason-codes="visibleReasonCodes"
+        :readiness-issues="readinessIssues"
+        :issues-expanded="issuesExpanded"
+        :expand-issues-text="t('dashboard.expandIssues', { count: readinessIssues.length - 3 })"
+        :collapse-issues-text="t('dashboard.collapseIssues')"
+        @toggle-issues="issuesExpanded = !issuesExpanded"
+      />
 
-        <div v-if="checkItems.length" class="readiness-checks">
-          <div
-            v-for="item in checkItems"
-            :key="item.key"
-            :class="['readiness-check', `readiness-check--${item.status}`]"
-          >
-            <div class="readiness-check__header">
-              <span class="readiness-check__icon">{{ getCheckIcon(item.status) }}</span>
-              <span class="readiness-check__name">{{ item.key }}</span>
-            </div>
-            <div class="readiness-check__value">{{ item.value }}</div>
-          </div>
-        </div>
+      <DashboardRecoveryCard
+        v-model:selected-recovery-review-ids="selectedRecoveryReviewIds"
+        v-model:recovery-confirm-note="recoveryConfirmNote"
+        :recovery-summary="recoverySummary"
+        :recovery-status-label="recoveryStatusLabel"
+        :pending-recovery-plugins="pendingRecoveryPlugins"
+        :selected-recovery-review-count-label="selectedRecoveryReviewCountLabel"
+        :recovery-audit-entries="recoveryAuditEntries"
+        :recovery-recheck-pending="recoveryRecheckPending"
+        :recovery-confirm-pending="recoveryConfirmPending"
+        :runtime-bootstrap-pending="runtimeBootstrapPending"
+        @recheck="recheckRecoverySummary"
+        @bootstrap="bootstrapRuntimeResources"
+        @open-plugin="openRecoveryPlugin"
+        @confirm="confirmRecoverySelection"
+      />
 
-        <el-empty v-else :description="t('display.empty')" />
-
-        <div class="readiness-note">
-          <small style="color: var(--muted);">
-            {{ health?.status === 'ok' && readiness?.status === 'degraded' ? t('dashboard.readinessLimitedHint') : t('dashboard.readinessHint') }}
-          </small>
-        </div>
-
-        <div v-if="visibleReasonCodes.length" style="margin-top: 14px;">
-          <small style="color: var(--muted);">{{ t('dashboard.reasonCodes') }}: {{ visibleReasonCodes.join(', ') }}</small>
-        </div>
-
-        <div v-if="readinessIssues.length" class="issues-list" :class="{ 'issues-list--collapsed': !issuesExpanded && readinessIssues.length > 3 }">
-          <div
-            v-for="issue in readinessIssues"
-            :key="`${issue.code}-${issue.summary}`"
-            :class="['issue-alert-card', { 'issue-alert-card--warning': issue.severity === 'warning' }]"
-          >
-            <div class="issue-alert-card__header">
-              <el-tag :type="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'" size="small">
-                {{ issue.code }}
-              </el-tag>
-              <span class="issue-alert-card__summary">{{ issue.summary }}</span>
-            </div>
-            <div v-if="issue.remediation" class="issue-alert-card__remediation">
-              {{ issue.remediation }}
-            </div>
-          </div>
-        </div>
-
-        <div v-if="readinessIssues.length > 3" class="issues-toggle">
-          <el-button size="small" text @click="issuesExpanded = !issuesExpanded">
-            {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 }) }}
-          </el-button>
-        </div>
-      </el-card>
-
-      <el-card>
-        <template #header>
-          <div class="card-header">
-            <span>恢复兼容性</span>
-          </div>
-        </template>
-
-        <el-empty v-if="!recoverySummary" :description="t('display.empty')" />
-
-        <div v-else class="events-section">
-          <div class="table-actions" style="justify-content: flex-start; margin-bottom: 12px;">
-            <el-button
-              data-testid="recovery-recheck-button"
-              size="small"
-              :loading="recoveryRecheckPending"
-              @click="recheckRecoverySummary"
-            >
-              {{ t('dashboard.recoveryRecheck') }}
-            </el-button>
-            <el-button
-              data-testid="runtime-bootstrap-button"
-              size="small"
-              :loading="runtimeBootstrapPending"
-              @click="bootstrapRuntimeResources"
-            >
-              {{ t('dashboard.runtimeBootstrap') }}
-            </el-button>
-          </div>
-
-          <div class="issue-alert-card" :class="{ 'issue-alert-card--warning': recoverySummary.status !== 'compatible' }">
-            <div class="issue-alert-card__header">
-              <el-tag :type="recoverySummary.status === 'blocked' ? 'danger' : recoverySummary.status === 'compatible' ? 'success' : 'warning'" size="small">
-                {{ recoveryStatusLabel }}
-              </el-tag>
-              <span class="issue-alert-card__summary">
-                {{ recoverySummary.operation }} · {{ recoverySummary.phase }}
-              </span>
-            </div>
-            <div class="issue-alert-card__remediation">
-              core {{ recoverySummary.source_core_version ?? t('display.empty') }} -> {{ recoverySummary.target_core_version ?? t('display.empty') }}
-            </div>
-          </div>
-
-          <div v-for="issue in recoverySummary.issues ?? []" :key="issue.code" class="issue-alert-card" :class="{ 'issue-alert-card--warning': issue.severity === 'warning' }">
-            <div class="issue-alert-card__header">
-              <el-tag :type="issue.severity === 'error' ? 'danger' : 'warning'" size="small">
-                {{ issue.code }}
-              </el-tag>
-              <span class="issue-alert-card__summary">{{ issue.summary }}</span>
-            </div>
-            <div v-if="issue.remediation" class="issue-alert-card__remediation">
-              {{ issue.remediation }}
-            </div>
-          </div>
-
-          <div v-for="plugin in recoverySummary.skipped_plugins ?? []" :key="plugin.plugin_id" class="issue-alert-card issue-alert-card--warning">
-            <div class="issue-alert-card__header">
-              <el-tag :type="plugin.review_status === 'confirmed' ? 'success' : 'warning'" size="small">
-                {{ plugin.reason_code }}
-              </el-tag>
-              <el-button
-                link
-                type="primary"
-                class="issue-alert-card__summary issue-alert-card__summary--link"
-                :data-testid="`recovery-plugin-link-${plugin.plugin_id}`"
-                @click="openRecoveryPlugin(plugin.plugin_id)"
-              >
-                {{ plugin.plugin_id }}
-              </el-button>
-              <el-tag :type="plugin.review_status === 'confirmed' ? 'success' : 'warning'" size="small">
-                {{ plugin.review_status === 'confirmed' ? t('dashboard.recoveryConfirmed') : t('dashboard.recoveryPending') }}
-              </el-tag>
-            </div>
-            <div class="issue-alert-card__remediation">{{ plugin.summary }}</div>
-            <div v-if="plugin.manual_action" class="issue-alert-card__remediation">{{ plugin.manual_action }}</div>
-            <div v-if="plugin.review_status === 'confirmed'" class="issue-alert-card__remediation">
-              {{ t('dashboard.recoveryReviewedBy') }}：{{ plugin.reviewed_by || t('display.empty') }}
-              · {{ t('dashboard.recoveryReviewedAt') }}：{{ plugin.reviewed_at ? formatRelativeTime(plugin.reviewed_at) : t('display.empty') }}
-            </div>
-            <div v-else style="margin-top: 10px;">
-              <el-checkbox-group v-model="selectedRecoveryReviewIds">
-                <el-checkbox :value="plugin.review_id" :data-testid="`recovery-confirm-checkbox-${plugin.review_id}`">
-                  {{ t('dashboard.recoveryConfirm') }}
-                </el-checkbox>
-              </el-checkbox-group>
-            </div>
-          </div>
-
-          <div v-if="pendingRecoveryPlugins.length" class="issue-alert-card issue-alert-card--warning" style="margin-top: 12px;">
-            <div class="issue-alert-card__header">
-              <span class="issue-alert-card__summary">{{ t('dashboard.recoveryConfirmSection') }}</span>
-              <small style="color: var(--muted);">{{ selectedRecoveryReviewCountLabel }}</small>
-            </div>
-            <el-input
-              v-model="recoveryConfirmNote"
-              type="textarea"
-              :rows="3"
-              :maxlength="500"
-              show-word-limit
-              :placeholder="t('dashboard.recoveryConfirmNotePlaceholder')"
-            />
-            <div class="table-actions" style="justify-content: flex-start; margin-top: 12px;">
-              <el-button
-                data-testid="recovery-confirm-button"
-                size="small"
-                type="primary"
-                :loading="recoveryConfirmPending"
-                :disabled="selectedRecoveryReviewIds.length === 0"
-                @click="confirmRecoverySelection"
-              >
-                {{ t('dashboard.recoveryConfirm') }}
-              </el-button>
-            </div>
-          </div>
-
-          <div v-else-if="recoverySummary.skipped_plugins?.length" class="readiness-note">
-            <small style="color: var(--muted);">{{ t('dashboard.recoveryConfirmEmpty') }}</small>
-          </div>
-
-          <div v-if="recoverySummary.manual_actions?.length" style="margin-top: 12px;">
-            <small style="color: var(--muted); display: block; margin-bottom: 6px;">处理建议</small>
-            <ul style="margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
-              <li
-                v-for="action in recoverySummary.manual_actions"
-                :key="action"
-                data-testid="recovery-manual-action"
-              >
-                {{ action }}
-              </li>
-            </ul>
-          </div>
-
-          <div v-if="recoverySummary.next_steps?.length" style="margin-top: 12px;">
-            <small style="color: var(--muted); display: block; margin-bottom: 6px;">下一步</small>
-            <ul style="margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
-              <li
-                v-for="step in recoverySummary.next_steps"
-                :key="step"
-                data-testid="recovery-next-step"
-              >
-                {{ step }}
-              </li>
-            </ul>
-          </div>
-
-          <div v-if="recoveryAuditEntries.length" style="margin-top: 12px;">
-            <small style="color: var(--muted); display: block; margin-bottom: 6px;">{{ t('dashboard.recoveryAudit') }}</small>
-            <div
-              v-for="entry in recoveryAuditEntries"
-              :key="`${entry.task_id}-${entry.created_at}`"
-              class="issue-alert-card"
-            >
-              <div class="issue-alert-card__header">
-                <el-tag type="info" size="small">{{ entry.operator_id }}</el-tag>
-                <span class="issue-alert-card__summary">{{ formatRelativeTime(entry.created_at) }}</span>
-              </div>
-              <div class="issue-alert-card__remediation">{{ entry.note || t('display.empty') }}</div>
-              <ul style="margin: 8px 0 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
-                <li v-for="item in entry.items" :key="item.review_id">
-                  {{ item.plugin_id }} · {{ item.reason_code }}
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div v-else class="readiness-note" style="margin-top: 12px;">
-            <small style="color: var(--muted);">{{ t('dashboard.recoveryAuditEmpty') }}</small>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card>
-        <template #header>
-          <div class="card-header">
-            <span>{{ t('dashboard.recentEvents') }}</span>
-          </div>
-        </template>
-
-        <el-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
-
-        <div v-else class="events-section">
-          <div
-            v-for="event in recentEvents"
-            :key="`${event.timestamp}-${event.summary}`"
-            :class="['event-item', getEventSeverityClass(event.severity)]"
-          >
-            <strong>{{ event.summary }}</strong>
-            <span
-              class="event-item__time"
-              :data-absolute="event.timestamp"
-            >{{ formatRelativeTime(event.timestamp) }}</span>
-          </div>
-        </div>
-      </el-card>
+      <DashboardRecentEventsCard :recent-events="recentEvents" />
     </div>
 
-    <el-card class="tools-panel">
-      <template #header>
-        <div class="card-header">
-          <span>{{ t('dashboard.tools') }}</span>
-        </div>
-      </template>
-
-      <div class="table-actions">
-        <el-button type="primary" plain :loading="backupPending" @click="createBackup">
-          {{ t('dashboard.createBackup') }}
-        </el-button>
-        <el-button type="primary" plain :loading="diagnosticsPending" @click="exportDiagnostics">
-          {{ t('dashboard.exportDiagnostics') }}
-        </el-button>
-        <el-button type="primary" plain :loading="previewPending" @click="previewVisible = true">
-          {{ t('dashboard.renderPreview') }}
-        </el-button>
-      </div>
-    </el-card>
+    <DashboardToolsPanel
+      :backup-pending="backupPending"
+      :diagnostics-pending="diagnosticsPending"
+      :preview-pending="previewPending"
+      @create-backup="createBackup"
+      @export-diagnostics="exportDiagnostics"
+      @open-preview="previewVisible = true"
+    />
 
     <el-dialog v-model="previewVisible" :title="t('dashboard.previewTitle')" width="min(720px, 92vw)">
       <el-form label-position="top">
@@ -754,14 +487,3 @@ async function openRecoveryPlugin(pluginID: string) {
     </el-dialog>
   </div>
 </template>
-
-<style scoped lang="scss">
-.readiness-note {
-  margin-top: 14px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  line-height: 1.5;
-}
-</style>
