@@ -17,7 +17,38 @@ async function ensureSuccess(response: Response) {
     return response;
   }
   const body = await response.text();
-  throw new Error(body || `${response.status} ${response.statusText}`);
+  throw new Error(extractErrorMessage(body, response));
+}
+
+function extractErrorMessage(body: string, response: Response) {
+  if (!body) {
+    return `${response.status} ${response.statusText}`;
+  }
+
+  try {
+    const payload = JSON.parse(body) as {
+      error?: {
+        code?: string;
+        message?: string;
+        details?: Record<string, unknown>;
+      };
+    };
+    const error = payload.error;
+    const resourceType = typeof error?.details?.resource_type === "string" ? error.details.resource_type : "";
+    if (resourceType === "recovery_summary") {
+      return "当前没有恢复摘要，暂时不能重新检查。";
+    }
+    if (typeof error?.message === "string" && error.message.trim() !== "") {
+      return error.message;
+    }
+    if (error?.code === "platform.resource_missing") {
+      return "缺少必要资源。";
+    }
+  } catch {
+    // Fall back to the original response body when the payload is not JSON.
+  }
+
+  return body || `${response.status} ${response.statusText}`;
 }
 
 function createAuthedHeaders(sessionToken: string) {

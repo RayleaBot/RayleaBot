@@ -68,7 +68,7 @@ export function parseRuntimeBootstrapResources(value: unknown): string[] | undef
     return undefined;
   }
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
-    throw new Error("运行时资源列表格式无效。");
+    throw new Error("运行环境资源列表格式无效。");
   }
   return value;
 }

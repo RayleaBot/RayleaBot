@@ -110,4 +110,39 @@ describe("FetchLauncherManagementClient", () => {
     expect((requests[1]?.init?.headers as Record<string, string>).Authorization).toBe("Bearer session_fixture_token");
     expect(requests[1]?.init?.body).toBe(JSON.stringify({ resources: ["chromium", "python-runtime"] }));
   });
+
+  test("returns a short recovery summary message instead of raw error JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return {
+          ok: false,
+          status: 404,
+          statusText: "Not Found",
+          text: async () =>
+            JSON.stringify({
+              error: {
+                code: "platform.resource_missing",
+                message: "缺少必要资源",
+                details: {
+                  resource_type: "recovery_summary",
+                  path: "C:\\RayleaBot\\logs\\recovery-summary.json",
+                },
+              },
+            }),
+        } satisfies Partial<Response> as Response;
+      }),
+    );
+
+    const client = new FetchLauncherManagementClient();
+    const endpoint = {
+      host: "127.0.0.1",
+      port: 8080,
+      baseUrl: "http://127.0.0.1:8080/",
+    };
+
+    await expect(client.createRecoveryRecheck(endpoint, "session_fixture_token")).rejects.toThrow(
+      "当前没有恢复摘要，暂时不能重新检查。",
+    );
+  });
 });

@@ -159,15 +159,15 @@ describe("AppShell", () => {
         ...snapshot,
         serviceState: "degraded",
         serviceOwnership: "launcher_managed",
-        serviceDetail: "Python 运行时尚未准备完成。",
+        serviceDetail: "Python 运行环境尚未准备完成。",
         environmentChecks: [
           {
             code: "runtime.python_managed_ready",
-            title: "Python 运行时准备",
+            title: "Python 运行环境准备",
             severity: "warning",
-            summary: "依赖受控 Python 运行时的能力暂不可用。",
-            detail: "当前平台的受控 Python 运行时缺少本地可用资源。",
-            remediation: "请联网准备受控运行时，或按正式目录结构手动预置资源。",
+            summary: "依赖 Python 运行环境的功能暂不可用。",
+            detail: "当前平台的 Python 运行环境缺少本地可用资源。",
+            remediation: "请联网准备运行环境，或按正式目录结构手动预置资源。",
           },
         ],
       },
@@ -175,9 +175,40 @@ describe("AppShell", () => {
 
     expect(screen.getAllByText("运行条件受限").length).toBeGreaterThan(0);
     expect(screen.getByText("当前限制")).toBeInTheDocument();
-    expect(screen.getAllByText("Python 运行时尚未准备完成。").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Python 运行环境尚未准备完成。").length).toBeGreaterThan(0);
     expect(screen.getByText("处理提示")).toBeInTheDocument();
     expect(screen.getByText(/按正式目录结构手动预置资源/)).toBeInTheDocument();
+  });
+
+  test("shows startup preparation detail instead of constrained wording while the service is starting", () => {
+    renderShell({
+      snapshot: {
+        ...snapshot,
+        serviceState: "starting",
+        serviceOwnership: "launcher_managed",
+        serviceDetail: "正在准备运行环境并等待服务就绪。",
+      },
+    });
+
+    expect(screen.getAllByText("启动中").length).toBeGreaterThan(0);
+    expect(screen.getByText("运行说明")).toBeInTheDocument();
+    expect(screen.getAllByText("正在准备运行环境并等待服务就绪。").length).toBeGreaterThan(0);
+  });
+
+  test("disables recovery recheck when there is no recovery summary", () => {
+    renderShell({
+      snapshot: {
+        ...snapshot,
+        serviceState: "running",
+        serviceOwnership: "launcher_managed",
+        recoverySummary: null,
+      },
+    });
+
+    const buttons = screen.getAllByRole("button", { name: "重新检查" });
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toBeDisabled();
+    expect(screen.getByText("当前没有恢复摘要。")).toBeInTheDocument();
   });
 
   test("renders environment cards with summary detail and remediation blocks", () => {
@@ -189,19 +220,19 @@ describe("AppShell", () => {
         environmentChecks: [
           {
             code: "runtime.python_managed_ready",
-            title: "Python 运行时准备",
+            title: "Python 运行环境准备",
             severity: "ok",
-            summary: "受控 Python 运行时可按需准备。",
-            detail: "当前平台的受控 Python 运行时元数据完整，可在需要时自动准备。",
-            remediation: "请联网准备受控运行时；离线或受限网络环境可预置已校验归档到 C:\\RayleaBot\\cache\\downloads\\runtime\\python-runtime.tar.gz，或预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13。",
+            summary: "Python 运行环境已纳入启动流程。",
+            detail: "当前平台的 Python 运行环境配置信息完整，启动服务时会自动准备。",
+            remediation: "请联网准备运行环境；离线或受限网络环境可预置已校验归档到 C:\\RayleaBot\\cache\\downloads\\runtime\\python-runtime.tar.gz，或预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13。",
           },
         ],
       },
     });
 
     expect(screen.getByRole("heading", { name: "环境检查" })).toBeInTheDocument();
-    expect(screen.getByText("受控 Python 运行时可按需准备。")).toBeInTheDocument();
-    expect(screen.getByText("当前平台的受控 Python 运行时元数据完整，可在需要时自动准备。")).toBeInTheDocument();
+    expect(screen.getByText("Python 运行环境已纳入启动流程。")).toBeInTheDocument();
+    expect(screen.getByText("当前平台的 Python 运行环境配置信息完整，启动服务时会自动准备。")).toBeInTheDocument();
     expect(screen.getByText("离线准备")).toBeInTheDocument();
     expect(screen.getByText(/预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13/)).toBeInTheDocument();
     expect(container.querySelector(".check-item__remediation")).not.toBeNull();

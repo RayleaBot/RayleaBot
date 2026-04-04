@@ -184,6 +184,12 @@ function detailFromReadiness(readiness: LauncherReadinessSnapshot, fallback: str
   return readiness.reason?.trim() || fallback;
 }
 
+function startingDetail(canBootstrapUserConfig: boolean) {
+  return canBootstrapUserConfig
+    ? "已基于 default.yaml 生成首份用户配置，正在准备运行环境并等待服务就绪。"
+    : "正在准备运行环境并等待服务就绪。";
+}
+
 function ownershipForHealthyService(isManagedProcess: boolean): LauncherServiceOwnership {
   return isManagedProcess ? "launcher_managed" : "external";
 }
@@ -255,7 +261,7 @@ function stateFromReadiness(
 export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies): LauncherCoordinator {
   const listeners = new Set<(snapshot: LauncherSnapshot) => void>();
   const options = {
-    startupTimeoutMs: deps.options?.startupTimeoutMs ?? 30000,
+    startupTimeoutMs: deps.options?.startupTimeoutMs ?? 300000,
     pollIntervalMs: deps.options?.pollIntervalMs ?? 500,
     shutdownTimeoutMs: deps.options?.shutdownTimeoutMs ?? 5000,
     resetAdminTimeoutMs: deps.options?.resetAdminTimeoutMs ?? 30000,
@@ -564,9 +570,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           inspection,
           "starting",
           "launcher_managed",
-          inspection.canBootstrapUserConfig
-            ? "已基于 default.yaml 生成首份用户配置，正在等待 /healthz 返回正常。"
-            : "正在等待 /healthz 返回正常。",
+          startingDetail(inspection.canBootstrapUserConfig),
         ),
       );
 
@@ -749,6 +753,9 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       await deps.externalOpener.openUri(url.toString());
     },
     async createRecoveryRecheck() {
+      if (!snapshot.recoverySummary) {
+        return;
+      }
       const settings = ensureSettings();
       currentResolvedSettings = await resolveLauncherSettings(settings, process.platform);
       const endpoint = await deps.endpointResolver.resolve(ensureResolvedSettings().configPath);

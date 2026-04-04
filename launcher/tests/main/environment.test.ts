@@ -40,9 +40,9 @@ describe("inspectLauncherEnvironment", () => {
             platform: "windows-x64",
             kind: "python-runtime",
             source: "https://example.invalid/python.tar.gz",
-            sha256: "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+            sha256: "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             archive_format: "tar.gz",
-            entrypoints: { python: ["python/install/python.exe"], pip: ["python/install/Scripts/pip.exe"] },
+            entrypoints: { python: ["python/python.exe"], pip: ["python/Scripts/pip.exe"] },
           },
         ],
       }),
@@ -95,7 +95,7 @@ describe("inspectLauncherEnvironment", () => {
             source: "https://example.invalid/python.zip",
             sha256: "deadbeef",
             archive_format: "zip",
-            entrypoints: { python: ["python/install/python.exe"], pip: ["python/install/Scripts/pip.exe"] },
+            entrypoints: { python: ["python/python.exe"], pip: ["python/Scripts/pip.exe"] },
           },
         ],
       }),
@@ -136,7 +136,7 @@ describe("inspectLauncherEnvironment", () => {
             source: "http://example.invalid/python.tar.gz",
             sha256: "not-a-sha256",
             archive_format: "tar.gz",
-            entrypoints: { python: ["python/install/python.exe"], pip: ["python/install/Scripts/pip.exe"] },
+            entrypoints: { python: ["python/python.exe"], pip: ["python/Scripts/pip.exe"] },
           },
           {
             id: "nodejs-windows-x64",
@@ -283,7 +283,7 @@ describe("inspectLauncherEnvironment", () => {
             kind: "python-runtime",
             version: "3.12.13",
             source: "https://example.invalid/python.tar.gz",
-            sha256: "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+            sha256: "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             archive_format: "tar.gz",
             entrypoints: { python: ["python/bin/python"], pip: ["python/bin/pip"] },
           },
@@ -361,7 +361,7 @@ describe("inspectLauncherEnvironment", () => {
             kind: "python-runtime",
             version: "3.12.13",
             source: "https://example.invalid/python.tar.gz",
-            sha256: "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+            sha256: "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             archive_format: "tar.gz",
             entrypoints: { python: ["python/bin/python"], pip: ["python/bin/pip"] },
           },
@@ -394,8 +394,8 @@ describe("inspectLauncherEnvironment", () => {
       const inspection = await inspectEnvironmentFromNode(settings);
 
       expect(inspection.checks.find((item) => item.code === "deps.chromium")?.summary).toBe("Chromium 资源已准备完成。");
-      expect(inspection.checks.find((item) => item.code === "runtime.python_managed_ready")?.summary).toBe("受控 Python 运行时归档已缓存，可离线准备。");
-      expect(inspection.checks.find((item) => item.code === "runtime.node_managed_ready")?.summary).toBe("受控 Node.js 运行时可按需准备。");
+      expect(inspection.checks.find((item) => item.code === "runtime.python_managed_ready")?.summary).toBe("Python 运行环境安装包已缓存，启动时可直接完成准备。");
+      expect(inspection.checks.find((item) => item.code === "runtime.node_managed_ready")?.summary).toBe("Node.js 与 npm 环境已纳入启动流程。");
     } finally {
       await fs.rm(installRoot, { recursive: true, force: true });
       await fs.rm(workdir, { recursive: true, force: true });

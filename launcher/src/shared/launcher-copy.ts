@@ -48,7 +48,7 @@ export const launcherCopy = {
   },
 };
 
-export function createReleaseUnavailable(detail = "当前运行没有可读取的版本包元数据。") {
+export function createReleaseUnavailable(detail = "当前运行没有可读取的版本包信息。") {
   return {
     status: "unavailable",
     currentVersion: "",

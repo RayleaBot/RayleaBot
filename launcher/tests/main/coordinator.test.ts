@@ -300,17 +300,23 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.serviceState).toBe("running");
   });
 
-  test("initialize reflects degraded readiness details from /readyz", async () => {
+  test("initialize keeps the launcher in running state when /readyz only carries adapter warnings", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
     managementClient.readiness = {
-      status: "degraded",
-      reason: "OneBot11 正在重连，管理面仍可使用。",
-      reason_codes: ["adapter.reconnecting"],
+      status: "ready",
       checks: {
-        adapter: "warning",
+        adapter: "reconnecting",
       },
+      issues: [
+        {
+          code: "adapter.connection_lost",
+          severity: "warning",
+          summary: "OneBot reverse WebSocket is reconnecting",
+          remediation: "请检查 OneBot 服务可用性，或等待连接自动恢复。",
+        },
+      ],
     };
 
     const coordinator = createLauncherCoordinator({
@@ -327,8 +333,8 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("degraded");
-    expect(coordinator.snapshot.serviceDetail).toContain("OneBot11 正在重连");
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect(coordinator.snapshot.serviceDetail).toBe("检测到现有服务。可以直接打开管理界面，或确认后停止它。");
   });
 
   test("initialize reflects system/status shutting_down state", async () => {
@@ -503,12 +509,47 @@ describe("launcher coordinator", () => {
       releaseFeedClient: new FakeReleaseFeedClient(),
     });
 
+    managementClient.recoverySummary = {
+      status: "degraded",
+      phase: "post_startup",
+      operation: "upgrade",
+      created_at: "2026-04-04T08:00:00Z",
+      updated_at: "2026-04-04T08:00:01Z",
+    };
     await coordinator.initialize();
     await coordinator.createRecoveryRecheck();
     await coordinator.createRuntimeBootstrap(["chromium"]);
 
     expect(externalOpener.openedUris.at(-2)).toContain("/tasks?task_id=task_recovery_recheck_0001");
     expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_runtime_bootstrap_0001");
+  });
+
+  test("skips recovery recheck when there is no recovery summary", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const externalOpener = new FakeExternalOpener();
+
+    const createRecoveryRecheck = vi.spyOn(managementClient, "createRecoveryRecheck");
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener,
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+    await coordinator.createRecoveryRecheck();
+
+    expect(createRecoveryRecheck).not.toHaveBeenCalled();
+    expect(externalOpener.openedUris).toHaveLength(0);
   });
 
   test("start does not launch another process when endpoint is already healthy", async () => {
@@ -535,6 +576,47 @@ describe("launcher coordinator", () => {
     expect(processController.startCalls).toBe(0);
     expect(coordinator.snapshot.serviceState).toBe("running");
     expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+  });
+
+  test("start keeps the launcher in starting state while runtime preparation is still in progress", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    let ready = false;
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => ready);
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 100,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+
+    const startPromise = coordinator.start();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(coordinator.snapshot.serviceState).toBe("starting");
+    expect(coordinator.snapshot.serviceDetail).toContain("正在准备运行环境并等待服务就绪");
+
+    ready = true;
+    await startPromise;
+
+    expect(coordinator.snapshot.serviceState).toBe("running");
   });
 
   test("stop keeps an external service running when the confirmation is declined", async () => {

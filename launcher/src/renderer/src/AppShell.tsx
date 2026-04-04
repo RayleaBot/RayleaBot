@@ -62,7 +62,7 @@ const sectionContent = {
   environment: {
     eyebrow: "Environment Review",
     title: "环境检查",
-    detail: "汇总本地运行条件、恢复兼容性和受控运行时准备情况。",
+    detail: "汇总本地运行条件、恢复兼容性和运行环境准备情况。",
   },
   diagnostics: {
     eyebrow: "Diagnostics",
@@ -94,7 +94,7 @@ const busyActionLabels: Record<string, string> = {
   "open-logs": "正在打开日志目录",
   "reset-admin": "正在重置本地凭据",
   "recovery-recheck": "正在复核恢复兼容性",
-  "runtime-bootstrap": "正在准备受控运行时",
+  "runtime-bootstrap": "正在准备运行环境",
   "open-plugin": "正在打开插件详情",
 };
 
@@ -316,6 +316,7 @@ export function AppShell({
   const canRunRecoveryActions =
     (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
     && !controlsDisabled;
+  const canRecheckRecovery = canRunRecoveryActions && Boolean(snapshot.recoverySummary);
   const primaryActionLabel =
     isExternalRunnable
       ? "检测到现有服务"
@@ -407,8 +408,8 @@ export function AppShell({
       </Button>
     ) : renderedSection === "environment" ? (
       <>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={onRecoveryRecheck} disabled={!canRunRecoveryActions}>重新检查</Button>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行时</Button>
+        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={onRecoveryRecheck} disabled={!canRecheckRecovery}>重新检查</Button>
+        <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行环境</Button>
       </>
     ) : renderedSection === "diagnostics" ? (
       <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>查看完整日志</Button>
@@ -547,7 +548,7 @@ export function AppShell({
                         <div className="status-item-modern">
                           <div className="status-item-modern__icon"><Globe20Filled /></div>
                           <div className="status-item-modern__content">
-                            <span className="status-label">本地端点</span>
+                            <span className="status-label">本地访问地址</span>
                             <span className="status-value mono">{snapshot.endpoint.baseUrl}</span>
                           </div>
                         </div>
@@ -594,8 +595,8 @@ export function AppShell({
                       <div className="brand-eyebrow brand-eyebrow--tight">恢复兼容性</div>
                       <Text size={200} className="panel-muted">{recoveryStatusSummary}</Text>
                       <div className="side-actions-stack">
-                        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRecoveryRecheck} disabled={!canRunRecoveryActions}>重新检查</Button>
-                        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行时</Button>
+                        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRecoveryRecheck} disabled={!canRecheckRecovery}>重新检查</Button>
+                        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行环境</Button>
                       </div>
                     </article>
 
@@ -652,11 +653,11 @@ export function AppShell({
                     <div className="status-item"><span className="status-label">核心版本</span><span className="status-value">{snapshot.releaseCheck.currentVersion || "—"}</span></div>
                     <div className="status-item"><span className="status-label">安装路径</span><span className="status-value mono">{snapshot.settings.installationRoot || "—"}</span></div>
                     <div className="status-item"><span className="status-label">恢复兼容性</span><span className="status-value">{recoveryStatusSummary}</span></div>
-                    <div className="status-item"><span className="status-label">本地端点</span><span className="status-value mono">{snapshot.endpoint.baseUrl}</span></div>
+                    <div className="status-item"><span className="status-label">本地访问地址</span><span className="status-value mono">{snapshot.endpoint.baseUrl}</span></div>
                   </div>
                 </article>
 
-                {[{ title: "系统核心", data: categorizedChecks.core }, { title: "受控运行时", data: categorizedChecks.runtimes }, { title: "环境特性", data: categorizedChecks.others }]
+                {[{ title: "系统核心", data: categorizedChecks.core }, { title: "运行环境", data: categorizedChecks.runtimes }, { title: "环境特性", data: categorizedChecks.others }]
                   .filter((section) => section.data.length > 0)
                   .map((section) => (
                     <section key={section.title} className="env-section">

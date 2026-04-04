@@ -39,7 +39,7 @@ describe("launcher validation", () => {
   });
 
   test("rejects runtime bootstrap payloads with non-string resource ids", () => {
-    expect(() => parseRuntimeBootstrapResources(["chromium", 42])).toThrow("运行时资源列表格式无效。");
+    expect(() => parseRuntimeBootstrapResources(["chromium", 42])).toThrow("运行环境资源列表格式无效。");
   });
 
   test("rejects external and scheme-based launcher web targets", () => {

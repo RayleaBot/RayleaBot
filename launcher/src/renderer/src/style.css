@@ -1718,6 +1718,9 @@ body {
   min-width: 0;
   line-height: 1.45;
   color: var(--text-secondary);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .status-action-feedback {

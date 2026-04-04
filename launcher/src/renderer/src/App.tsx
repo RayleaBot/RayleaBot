@@ -418,7 +418,7 @@ export function App() {
         runAction("recovery-recheck", () => window.rayleaLauncher.createRecoveryRecheck())
       }
       onRuntimeBootstrap={() =>
-        runAction("runtime-bootstrap", () => window.rayleaLauncher.createRuntimeBootstrap(["chromium"]))
+        runAction("runtime-bootstrap", () => window.rayleaLauncher.createRuntimeBootstrap())
       }
       onOpenRecoveryPlugin={(pluginId: string) =>
         runAction("open-plugin", () => window.rayleaLauncher.openWebUi(`/plugins/${encodeURIComponent(pluginId)}`))

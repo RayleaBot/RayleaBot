@@ -362,7 +362,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("button", { name: "重新检查" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "准备运行时" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "准备运行环境" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "管理面板" })).not.toBeDisabled();
   });
 
