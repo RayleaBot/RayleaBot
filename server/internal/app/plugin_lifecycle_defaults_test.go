@@ -27,8 +27,12 @@ func TestSeedPluginDefaultConfigSeedsOnlyOnce(t *testing.T) {
 	}
 
 	application := &App{
-		Logger:       slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		pluginConfig: repo,
+		appCore: appCore{
+			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		},
+		appPlugins: appPlugins{
+			pluginConfig: repo,
+		},
 	}
 	controller := newPluginLifecycleController(application)
 

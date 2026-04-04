@@ -57,31 +57,37 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 	}
 
 	application := &App{
-		Config: config.Config{
-			Server: config.ServerConfig{
-				Host: "127.0.0.1",
-				Port: 8080,
+		appCore: appCore{
+			Config: config.Config{
+				Server: config.ServerConfig{
+					Host: "127.0.0.1",
+					Port: 8080,
+				},
+				Auth: config.AuthConfig{
+					AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
+				},
 			},
-			Auth: config.AuthConfig{
-				AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
-			},
+			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
 		},
-		Logger:     slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		Secrets:    secretStore,
-		Plugins:    plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}}),
-		Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
-		Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
-		webhooks:   newPluginWebhookRegistry(),
-		grantRepository: &stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
-				"repo-watcher": {{
-					PluginID:   "repo-watcher",
-					Capability: "event.expose_webhook",
-					ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
-				}, {
-					PluginID:   "repo-watcher",
-					Capability: "event.raw_payload",
-				}},
+		appPlatform: appPlatform{
+			Secrets: secretStore,
+		},
+		appPlugins: appPlugins{
+			Plugins:    plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}}),
+			Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
+			Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
+			webhooks:   newPluginWebhookRegistry(),
+			grantRepository: &stubLifecycleGrantRepository{
+				grants: map[string][]plugins.PluginGrant{
+					"repo-watcher": {{
+						PluginID:   "repo-watcher",
+						Capability: "event.expose_webhook",
+						ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
+					}, {
+						PluginID:   "repo-watcher",
+						Capability: "event.raw_payload",
+					}},
+				},
 			},
 		},
 	}
@@ -165,31 +171,37 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 	}
 
 	application := &App{
-		Config: config.Config{
-			Server: config.ServerConfig{
-				Host: "127.0.0.1",
-				Port: 8080,
+		appCore: appCore{
+			Config: config.Config{
+				Server: config.ServerConfig{
+					Host: "127.0.0.1",
+					Port: 8080,
+				},
+				Auth: config.AuthConfig{
+					AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
+				},
 			},
-			Auth: config.AuthConfig{
-				AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
-			},
+			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
 		},
-		Logger:     slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		Secrets:    secretStore,
-		Plugins:    plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}}),
-		Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
-		Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
-		webhooks:   newPluginWebhookRegistry(),
-		grantRepository: &stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
-				"repo-watcher": {{
-					PluginID:   "repo-watcher",
-					Capability: "event.expose_webhook",
-					ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
-				}, {
-					PluginID:   "repo-watcher",
-					Capability: "event.raw_payload",
-				}},
+		appPlatform: appPlatform{
+			Secrets: secretStore,
+		},
+		appPlugins: appPlugins{
+			Plugins:    plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}}),
+			Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
+			Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
+			webhooks:   newPluginWebhookRegistry(),
+			grantRepository: &stubLifecycleGrantRepository{
+				grants: map[string][]plugins.PluginGrant{
+					"repo-watcher": {{
+						PluginID:   "repo-watcher",
+						Capability: "event.expose_webhook",
+						ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
+					}, {
+						PluginID:   "repo-watcher",
+						Capability: "event.raw_payload",
+					}},
+				},
 			},
 		},
 	}

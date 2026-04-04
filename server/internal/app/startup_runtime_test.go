@@ -38,7 +38,7 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing
 	}
 
 	application := &App{
-		repoRoot: t.TempDir(),
+		appCore: appCore{repoRoot: t.TempDir()},
 	}
 
 	application.autoPrepareRuntimeEnvironments(context.Background())
@@ -90,7 +90,7 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForPrepareResult(t *testing.T) {
 		return &deps.PrepareReport{Kind: kind}, nil
 	}
 
-	application := &App{repoRoot: t.TempDir()}
+	application := &App{appCore: appCore{repoRoot: t.TempDir()}}
 
 	finished := make(chan struct{})
 	go func() {
@@ -125,7 +125,7 @@ func TestManagedRuntimeDiagnosticsUsesStartupFailureReason(t *testing.T) {
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "node.exe")
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "npm.cmd")
 
-	application := &App{repoRoot: repoRoot}
+	application := &App{appCore: appCore{repoRoot: repoRoot}}
 	issue := startupRuntimeFailureIssue("python-runtime", &deps.BootstrapError{
 		Kind:        "python-runtime",
 		Stage:       "download",
@@ -158,7 +158,7 @@ func TestManagedRuntimeDiagnosticsDoesNotReportPendingStartupRuntime(t *testing.
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "node.exe")
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "npm.cmd")
 
-	application := &App{repoRoot: repoRoot}
+	application := &App{appCore: appCore{repoRoot: repoRoot}}
 	application.setStartupRuntimeState("python-runtime", startupRuntimePending, nil)
 	application.setStartupRuntimeState("nodejs-runtime", startupRuntimeReady, nil)
 
@@ -171,7 +171,7 @@ func TestManagedRuntimeDiagnosticsStillChecksStartupManagedRuntimesWithoutPlugin
 	repoRoot := t.TempDir()
 	writeStartupRuntimeManifest(t, repoRoot)
 
-	application := &App{repoRoot: repoRoot}
+	application := &App{appCore: appCore{repoRoot: repoRoot}}
 
 	issues := application.managedRuntimeDiagnostics(nil)
 	if len(issues) != 2 {

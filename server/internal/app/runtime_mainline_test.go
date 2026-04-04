@@ -24,11 +24,13 @@ func TestEnrichCommandEventAddsCommandPayload(t *testing.T) {
 	t.Parallel()
 
 	application := &App{
-		commandParser: newCommandParser(config.Config{
-			Command: &config.CommandConfig{
-				Prefixes: []string{"/", "!"},
-			},
-		}),
+		appPlugins: appPlugins{
+			commandParser: newCommandParser(config.Config{
+				Command: &config.CommandConfig{
+					Prefixes: []string{"/", "!"},
+				},
+			}),
+		},
 	}
 
 	event := application.enrichCommandEvent(adapter.NormalizedEvent{

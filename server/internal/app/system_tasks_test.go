@@ -268,7 +268,7 @@ func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) 
 	})
 
 	application := newTaskOnlyApp(t, repoRoot)
-	application.renderer = renderer
+	application.appPlugins.renderer = renderer
 
 	original := prepareManagedRuntimeWithReport
 	t.Cleanup(func() {
@@ -319,12 +319,18 @@ func newTaskOnlyApp(t *testing.T, repoRoot string) *App {
 		_ = executor.Close()
 	})
 	return &App{
-		repoRoot:     repoRoot,
-		Tasks:        registry,
-		taskExecutor: executor,
-		Plugins:      plugins.NewCatalog(nil),
-		startedAt:    time.Now(),
-		Config:       config.Config{},
+		appCore: appCore{
+			repoRoot:  repoRoot,
+			startedAt: time.Now(),
+			Config:    config.Config{},
+		},
+		appPlatform: appPlatform{
+			Tasks:        registry,
+			taskExecutor: executor,
+		},
+		appPlugins: appPlugins{
+			Plugins: plugins.NewCatalog(nil),
+		},
 	}
 }
 

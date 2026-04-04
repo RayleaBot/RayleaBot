@@ -19,25 +19,29 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 	t.Parallel()
 
 	application := &App{
-		Config: config.Config{
-			Auth: config.AuthConfig{DefaultLevel: "group_admin"},
-			Command: &config.CommandConfig{
-				Prefixes: []string{"/"},
+		appCore: appCore{
+			Config: config.Config{
+				Auth: config.AuthConfig{DefaultLevel: "group_admin"},
+				Command: &config.CommandConfig{
+					Prefixes: []string{"/"},
+				},
 			},
 		},
-		Plugins: plugins.NewCatalog([]plugins.Snapshot{{
-			PluginID:          "weather",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			Commands: []plugins.Command{{
-				Name: "weather-admin",
-			}},
-		}}),
-		commandParser: newCommandParser(config.Config{
-			Command: &config.CommandConfig{Prefixes: []string{"/"}},
-		}),
+		appPlugins: appPlugins{
+			Plugins: plugins.NewCatalog([]plugins.Snapshot{{
+				PluginID:          "weather",
+				Valid:             true,
+				RegistrationState: "installed",
+				DesiredState:      "enabled",
+				RuntimeState:      "running",
+				Commands: []plugins.Command{{
+					Name: "weather-admin",
+				}},
+			}}),
+			commandParser: newCommandParser(config.Config{
+				Command: &config.CommandConfig{Prefixes: []string{"/"}},
+			}),
+		},
 	}
 
 	info := application.commandInfoForEvent(application.enrichCommandEvent(adapter.NormalizedEvent{
@@ -58,10 +62,12 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 	repo.block("user", "bad-user")
 	runtimeClient := &recordingRuntimeClient{}
 	application := &App{
-		Config:            config.Config{},
-		permissionChecker: newPermissionChecker(config.Config{}, repo),
-		commandParser:     newCommandParser(config.Config{}),
-		Bridge:            bridge.New(slog.Default(), runtimeClient, nil, nil),
+		appCore: appCore{Config: config.Config{}},
+		appPlugins: appPlugins{
+			permissionChecker: newPermissionChecker(config.Config{}, repo),
+			commandParser:     newCommandParser(config.Config{}),
+			Bridge:            bridge.New(slog.Default(), runtimeClient, nil, nil),
+		},
 	}
 
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
@@ -93,34 +99,36 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 		},
 	}
 	application := &App{
-		Config:            cfg,
-		permissionChecker: newPermissionChecker(cfg, nil),
-		commandParser:     newCommandParser(cfg),
-		Plugins: plugins.NewCatalog([]plugins.Snapshot{
-			{
-				PluginID:          "weather",
-				Valid:             true,
-				RegistrationState: "installed",
-				DesiredState:      "enabled",
-				RuntimeState:      "running",
-				Commands: []plugins.Command{{
-					Name:       "ops",
-					Permission: "everyone",
-				}},
-			},
-			{
-				PluginID:          "admin",
-				Valid:             true,
-				RegistrationState: "installed",
-				DesiredState:      "enabled",
-				RuntimeState:      "running",
-				Commands: []plugins.Command{{
-					Name:       "ops",
-					Permission: "group_admin",
-				}},
-			},
-		}),
-		Bridge: bridge.New(slog.Default(), runtimeClient, nil, nil),
+		appCore: appCore{Config: cfg},
+		appPlugins: appPlugins{
+			permissionChecker: newPermissionChecker(cfg, nil),
+			commandParser:     newCommandParser(cfg),
+			Plugins: plugins.NewCatalog([]plugins.Snapshot{
+				{
+					PluginID:          "weather",
+					Valid:             true,
+					RegistrationState: "installed",
+					DesiredState:      "enabled",
+					RuntimeState:      "running",
+					Commands: []plugins.Command{{
+						Name:       "ops",
+						Permission: "everyone",
+					}},
+				},
+				{
+					PluginID:          "admin",
+					Valid:             true,
+					RegistrationState: "installed",
+					DesiredState:      "enabled",
+					RuntimeState:      "running",
+					Commands: []plugins.Command{{
+						Name:       "ops",
+						Permission: "group_admin",
+					}},
+				},
+			}),
+			Bridge: bridge.New(slog.Default(), runtimeClient, nil, nil),
+		},
 	}
 
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
@@ -158,21 +166,23 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 		},
 	}
 	application := &App{
-		Config:            cfg,
-		permissionChecker: newPermissionChecker(cfg, nil),
-		commandParser:     newCommandParser(cfg),
-		outboundSender:    sender,
-		Plugins: plugins.NewCatalog([]plugins.Snapshot{{
-			PluginID:          "weather",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			Commands: []plugins.Command{{
-				Name:       "weather",
-				Permission: "everyone",
-			}},
-		}}),
+		appCore: appCore{Config: cfg},
+		appPlugins: appPlugins{
+			permissionChecker: newPermissionChecker(cfg, nil),
+			commandParser:     newCommandParser(cfg),
+			outboundSender:    sender,
+			Plugins: plugins.NewCatalog([]plugins.Snapshot{{
+				PluginID:          "weather",
+				Valid:             true,
+				RegistrationState: "installed",
+				DesiredState:      "enabled",
+				RuntimeState:      "running",
+				Commands: []plugins.Command{{
+					Name:       "weather",
+					Permission: "everyone",
+				}},
+			}}),
+		},
 	}
 	event := adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
@@ -208,35 +218,39 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 
 	repo := newStubBlacklistRepo()
 	app := &App{
-		Config: config.Config{
-			Auth: config.AuthConfig{
-				SuperAdmins:  []string{"1"},
-				DefaultLevel: "everyone",
+		appCore: appCore{
+			Config: config.Config{
+				Auth: config.AuthConfig{
+					SuperAdmins:  []string{"1"},
+					DefaultLevel: "everyone",
+				},
+				Command: &config.CommandConfig{
+					Prefixes: []string{"/"},
+				},
+				Cooldown: &config.CooldownConfig{
+					UserCommandRateLimit:  "5/1h",
+					GroupCommandRateLimit: "5/1h",
+					CooldownReply:         false,
+				},
+				Storage: config.StorageConfig{
+					KVValueMaxBytes: 1024,
+					KVTotalLimitMB:  8,
+					FileMaxBytes:    2048,
+					PluginWorkDirMB: 32,
+				},
+				HTTP: config.HTTPConfig{
+					TimeoutSeconds:    10,
+					MaxRetries:        0,
+					AllowPrivateHosts: []string{},
+				},
+				Logging: config.LoggingConfig{Level: "info"},
 			},
-			Command: &config.CommandConfig{
-				Prefixes: []string{"/"},
-			},
-			Cooldown: &config.CooldownConfig{
-				UserCommandRateLimit:  "5/1h",
-				GroupCommandRateLimit: "5/1h",
-				CooldownReply:         false,
-			},
-			Storage: config.StorageConfig{
-				KVValueMaxBytes: 1024,
-				KVTotalLimitMB:  8,
-				FileMaxBytes:    2048,
-				PluginWorkDirMB: 32,
-			},
-			HTTP: config.HTTPConfig{
-				TimeoutSeconds:    10,
-				MaxRetries:        0,
-				AllowPrivateHosts: []string{},
-			},
-			Logging: config.LoggingConfig{Level: "info"},
 		},
-		blacklistRepo:     repo,
-		permissionChecker: newPermissionChecker(config.Config{Auth: config.AuthConfig{SuperAdmins: []string{"1"}}}, repo),
-		commandParser:     newCommandParser(config.Config{Command: &config.CommandConfig{Prefixes: []string{"/"}}}),
+		appPlugins: appPlugins{
+			blacklistRepo:     repo,
+			permissionChecker: newPermissionChecker(config.Config{Auth: config.AuthConfig{SuperAdmins: []string{"1"}}}, repo),
+			commandParser:     newCommandParser(config.Config{Command: &config.CommandConfig{Prefixes: []string{"/"}}}),
+		},
 	}
 
 	restartRequired := applyHotReloadableFields(app, config.Config{
@@ -453,14 +467,18 @@ func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGr
 		RequiredPermissions: []string{"http.request"},
 	}})
 	app := &App{
-		Config:     config.Config{},
-		Logger:     slog.Default(),
-		Plugins:    catalog,
-		Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
-		Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
-		grantRepository: &stubLifecycleGrantRepository{
-			grants: map[string][]plugins.PluginGrant{
-				"weather": grants,
+		appCore: appCore{
+			Config: config.Config{},
+			Logger: slog.Default(),
+		},
+		appPlugins: appPlugins{
+			Plugins:    catalog,
+			Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
+			Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
+			grantRepository: &stubLifecycleGrantRepository{
+				grants: map[string][]plugins.PluginGrant{
+					"weather": grants,
+				},
 			},
 		},
 	}
