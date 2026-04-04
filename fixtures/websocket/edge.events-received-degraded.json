@@ -7,9 +7,9 @@
     "timestamp": "2026-03-17T09:33:00Z",
     "data": {
       "service_status": "degraded",
-      "summary": "OneBot authentication failed",
-      "reason": "OneBot authentication failed",
-      "reason_codes": ["adapter.auth_failed"]
+      "summary": "Recovery compatibility checks require attention",
+      "reason": "Recovery compatibility checks require attention",
+      "reason_codes": ["recovery.degraded"]
     }
   },
   "expect": {

@@ -9,7 +9,7 @@ response:
   body:
     error:
       code: platform.resource_missing
-      message: 必要运行时资源缺失
+      message: 缺少必要资源
       message_key: errors.platform.resource_missing
       request_id: req_001
       details:

@@ -263,6 +263,66 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 	}
 }
 
+func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "connect",
+			"self_id":         2609164374,
+		}); err != nil {
+			t.Errorf("wsjson.Write failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
+
+	snapshot := shell.Snapshot()
+	if snapshot.State != StateConnected {
+		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
+	}
+	if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
+	}
+	if snapshot.LastFrameType != "meta.lifecycle.connect" {
+		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.lifecycle.connect")
+	}
+	if snapshot.BotID != "2609164374" {
+		t.Fatalf("unexpected bot id: got %q want %q", snapshot.BotID, "2609164374")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
 func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 	t.Parallel()
 
@@ -627,7 +687,7 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 	}
 }
 
-func TestShellReconnectsWhenHeartbeatHasNotStartedAfterLifecycleEnable(t *testing.T) {
+func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -663,11 +723,14 @@ func TestShellReconnectsWhenHeartbeatHasNotStartedAfterLifecycleEnable(t *testin
 
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-	waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
+	time.Sleep(120 * time.Millisecond)
 
 	snapshot := shell.Snapshot()
-	if snapshot.LastErrorCode != errorCodeConnectionLost {
-		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeConnectionLost)
+	if snapshot.State != StateConnected {
+		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
+	}
+	if snapshot.LastErrorCode != "" {
+		t.Fatalf("unexpected error code: got %q want empty", snapshot.LastErrorCode)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

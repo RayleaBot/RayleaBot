@@ -12,7 +12,7 @@
 
 | 阶段 | 名称 | 状态 | 当前落地摘要 |
 |------|------|------|--------------|
-| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、3 个 repo-local skills、CI skeleton、`deps-manifest` formal contract 与受控运行时 bootstrap 基线已落库；repo identity TODO 仍保留 |
+| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、3 个 repo-local skills、CI skeleton、`deps-manifest` formal contract 与运行环境准备基线已落库；repo identity TODO 仍保留 |
 | Phase 1 | 契约文件补全 | ✅ | 10 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
@@ -22,7 +22,7 @@
 | Phase 7 | Web API & Tasks | ✅ | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress、插件来源/信任/命令冲突 metadata 与 render preview / artifact 管理面已进入正式主链 |
 | Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
 | Phase 9 | Launcher | ✅ | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口、正式发行包根目录入口、安装根目录派生设置模型与已有工作区复用语义已对齐 |
-| Phase 10 | Render Service | ✅ | 受控 Chromium 渲染、模板资源、artifact registry、`render.preview` 任务流、管理面预览入口、任务详情图片预览与统一资源诊断已接入主链 |
+| Phase 10 | Render Service | ✅ | Chromium 渲染、模板资源、artifact registry、`render.preview` 任务流、管理面预览入口、任务详情图片预览与统一资源诊断已接入主链 |
 
 ### 判定口径
 
@@ -266,8 +266,8 @@
 | 最小 render artifact 输出 | ✅ | `render.image` 继续返回插件可消费的 `file:// image_path`，同时生成稳定 `artifact_id`、`mime` 与 `cache_key`，供管理面同源读取 |
 | 渲染队列与 Chromium 调度 | ✅ | bounded queue、并发 worker、排队超时、执行超时、Chromium 渲染与错误映射已落地 |
 | 模板校验 / 缓存 / 结果管理 | ✅ | `templates/` 已提供 `help.menu`、`status.panel`、input schema、模板版本、data hash cache key 与 artifact registry |
-| Chromium 与托管运行时资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / source / SHA256 / archive_format / entrypoints；doctor、Launcher、`/readyz`、recovery finalization 与 baseline 门禁已复用同一份清单校验受控运行时 metadata 完整性 |
-| 受控运行时资源接线 | ✅ | 启动时、插件依赖安装、render 诊断、CLI `doctor`、Launcher preflight、release smoke、recovery drill 与长期自托管 smoke 已共享 `.deps/manifest.json` bootstrap 语义；受控运行时按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/` |
+| Chromium 与运行环境资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / source / SHA256 / archive_format / entrypoints；doctor、Launcher、`/readyz`、recovery finalization 与 baseline 门禁已复用同一份清单校验运行环境 metadata 完整性 |
+| 运行环境资源接线 | ✅ | 服务启动会自动准备 Python、Node.js 与 npm 环境；启动时、插件依赖安装、render 诊断、CLI `doctor`、Launcher preflight、release smoke、recovery drill 与长期自托管 smoke 已共享 `.deps/manifest.json` bootstrap 语义；运行环境按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/` |
 | 恢复摘要收敛与离线 bootstrap 动作 | ✅ | `recovery.recheck` 与 `runtime.bootstrap` 已进入 server / Web / Launcher 主链；恢复后人工处理完成后可重新检查并收敛到 `compatible`，离线或受限网络场景已给出缓存归档与预展开目录两条正式回退路径 |
 
 ---

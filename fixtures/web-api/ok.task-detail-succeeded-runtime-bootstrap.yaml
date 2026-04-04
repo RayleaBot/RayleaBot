@@ -12,11 +12,11 @@ response:
       task_type: runtime.bootstrap
       status: succeeded
       progress: 100
-      summary: 受控运行时已准备完成
+      summary: 所选资源已准备完成
       started_at: 2026-04-03T08:00:00Z
       finished_at: 2026-04-03T08:00:08Z
       result:
-        summary: 受控运行时已准备完成
+        summary: 所选资源已准备完成
         details:
           resources:
             - kind: chromium

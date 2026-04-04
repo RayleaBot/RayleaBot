@@ -21,6 +21,7 @@ const (
 	errorCodeAuthFailed     = "adapter.auth_failed"
 	errorCodeConnectionFail = "adapter.connection_failed"
 	errorCodeConnectionLost = "adapter.connection_lost"
+	defaultConnectedReadTimeout = 2 * time.Minute
 )
 
 type dialFunc func(context.Context, string, *websocket.DialOptions) (*websocket.Conn, *http.Response, error)
@@ -570,6 +571,12 @@ func (s *Shell) waitContext(ctx context.Context) (context.Context, context.Cance
 func (s *Shell) provisionalReadTimeout(snapshot Snapshot) time.Duration {
 	if snapshot.HeartbeatInterval > 0 {
 		return snapshot.HeartbeatInterval * 3
+	}
+	if snapshot.State == StateConnected {
+		if s.deps.connectTimeout > defaultConnectedReadTimeout {
+			return s.deps.connectTimeout
+		}
+		return defaultConnectedReadTimeout
 	}
 	if s.deps.connectTimeout > 0 {
 		return s.deps.connectTimeout

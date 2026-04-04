@@ -100,7 +100,7 @@ func TestReadyzIdleIsReadyWhenOneBotIsNotConfigured(t *testing.T) {
 	)
 }
 
-func TestReadyzAuthFailedIsDegraded(t *testing.T) {
+func TestReadyzAuthFailedStaysReady(t *testing.T) {
 	t.Parallel()
 
 	assertReadinessResponse(
@@ -111,11 +111,7 @@ func TestReadyzAuthFailedIsDegraded(t *testing.T) {
 		},
 		http.StatusOK,
 		map[string]any{
-			"status": "degraded",
-			"reason": "OneBot authentication failed",
-			"reason_codes": []any{
-				"adapter.auth_failed",
-			},
+			"status": "ready",
 			"checks": map[string]any{
 				"config":   "ok",
 				"database": "ok",
@@ -135,7 +131,7 @@ func TestReadyzAuthFailedIsDegraded(t *testing.T) {
 	)
 }
 
-func TestReadyzReconnectingIsDegraded(t *testing.T) {
+func TestReadyzReconnectingStaysReady(t *testing.T) {
 	t.Parallel()
 
 	assertReadinessResponse(
@@ -146,11 +142,7 @@ func TestReadyzReconnectingIsDegraded(t *testing.T) {
 		},
 		http.StatusOK,
 		map[string]any{
-			"status": "degraded",
-			"reason": "OneBot reverse WebSocket is reconnecting",
-			"reason_codes": []any{
-				"adapter.connection_lost",
-			},
+			"status": "ready",
 			"checks": map[string]any{
 				"config":   "ok",
 				"database": "ok",

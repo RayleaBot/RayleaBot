@@ -210,7 +210,7 @@ func newUninstallHandler(catalog *Catalog, coordinator UninstallCoordinator) htt
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
 		if !ok {
-			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			writeError(w, r, 404, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 			return
 		}
 		if snapshot.SourceRoot == "plugins/builtin" {
@@ -253,7 +253,7 @@ func newListGrantsHandler(catalog *Catalog, repo GrantRepository) http.HandlerFu
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if _, ok := catalog.Get(pluginID); !ok {
-			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			writeError(w, r, 404, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 			return
 		}
 		if repo == nil {
@@ -287,7 +287,7 @@ func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
 		if !ok {
-			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			writeError(w, r, 404, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 			return
 		}
 		if repo == nil {
@@ -343,7 +343,7 @@ func newRevokeGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerF
 		pluginID := chi.URLParam(r, "plugin_id")
 		capability := chi.URLParam(r, "capability")
 		if _, ok := catalog.Get(pluginID); !ok {
-			writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			writeError(w, r, 404, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 			return
 		}
 		if repo == nil {
@@ -412,7 +412,7 @@ func validateDesiredStateChange(catalog *Catalog, pluginID string, desired strin
 
 func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID string, err error) {
 	if errors.Is(err, ErrPluginNotFound) {
-		writeError(w, r, 404, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+		writeError(w, r, 404, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, ErrStateConflict) {
@@ -460,7 +460,7 @@ func newDetailHandler(catalog *Catalog) http.HandlerFunc {
 				r,
 				http.StatusNotFound,
 				codeResourceMissing,
-				"必要运行时资源缺失",
+				"缺少必要资源",
 				"errors.platform.resource_missing",
 				map[string]any{
 					"resource_type": "plugin",

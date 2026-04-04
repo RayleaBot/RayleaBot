@@ -95,7 +95,7 @@ func (a *App) handleTaskDetail() http.HandlerFunc {
 		taskID := chi.URLParam(r, "task_id")
 		snapshot, ok := a.Tasks.Get(taskID)
 		if !ok {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
 				"task_id":       taskID,
 			})
@@ -111,7 +111,7 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 		taskID := chi.URLParam(r, "task_id")
 		snapshot, ok := a.Tasks.Get(taskID)
 		if !ok {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
 				"task_id":       taskID,
 			})
@@ -141,7 +141,7 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 			Status:     &cancelled,
 			FinishedAt: &now,
 		}); !ok {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
 				"task_id":       taskID,
 			})

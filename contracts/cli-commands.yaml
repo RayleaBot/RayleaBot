@@ -102,7 +102,7 @@ commands:
       online: true
       offline: true
     description: >
-      检查运行时资源完整性、托管 Python / Node.js 可用性、
+      检查运行时资源完整性、Python / Node.js / npm 可用性、
       .deps/ 资源清单一致性、SQLite 数据库可打开性与基础
       schema 完整性。存在恢复摘要时，doctor 复用同一份
       recovery_summary 输出，帮助离线排查恢复后的资源、

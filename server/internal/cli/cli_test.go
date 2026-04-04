@@ -430,8 +430,8 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
       "sha256": "TODO(v0.1-phase0)",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/install/python.exe"],
-        "pip": ["python/install/Scripts/pip.exe"]
+        "python": ["python/python.exe"],
+        "pip": ["python/Scripts/pip.exe"]
       }
     },
     {
@@ -500,11 +500,11 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
       "version": "3.12.13",
       "platform": "`+platform+`",
       "source": "https://example.invalid/python.tar.gz",
-      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/install/python.exe"],
-        "pip": ["python/install/Scripts/pip.exe"]
+        "python": ["python/python.exe"],
+        "pip": ["python/Scripts/pip.exe"]
       }
     },
     {
@@ -523,8 +523,8 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
   ]
 }
 `)
-	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "install", "python.exe"), "")
-	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "install", "Scripts", "pip.exe"), "")
+	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "python.exe"), "")
+	writeFile(t, filepath.Join(repoRoot, ".deps", "store", pythonID, "3.12.13", "python", "Scripts", "pip.exe"), "")
 	writeFile(t, filepath.Join(repoRoot, "cache", "downloads", "runtime", nodeID+"-24.14.0.zip"), "")
 
 	report := BuildDoctorReport(Command{
@@ -533,9 +533,9 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
-	assertDoctorSummary(t, report.Issues, "runtime.python_managed_ready", "受控 Python 运行时已准备完成。")
-	assertDoctorSummary(t, report.Issues, "runtime.node_managed_ready", "受控 Node.js 运行时归档已缓存，可离线准备。")
-	assertDoctorSummary(t, report.Issues, "runtime.npm_managed_ready", "受控 npm 归档已缓存，可离线准备。")
+	assertDoctorSummary(t, report.Issues, "runtime.python_managed_ready", "Python 运行环境已准备完成。")
+	assertDoctorSummary(t, report.Issues, "runtime.node_managed_ready", "Node.js / npm 环境归档已缓存，启动时可直接完成准备。")
+	assertDoctorSummary(t, report.Issues, "runtime.npm_managed_ready", "npm 归档已缓存，启动时可直接完成准备。")
 }
 
 func assertDoctorSummary(t *testing.T, issues []DoctorIssue, code, summary string) {

@@ -118,8 +118,8 @@ codes:
     code: platform.resource_missing
     domain: platform
     message_key: errors.platform.resource_missing
-    message: 必要运行时资源缺失
-    description: A required managed runtime, browser, or other platform resource was missing.
+    message: 缺少必要资源
+    description: A required platform resource was missing.
     http_status: 503
     retryable: false
     applies_to: [http, websocket, readiness]

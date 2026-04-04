@@ -123,6 +123,9 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 	case frame.PostType == "meta_event" && frame.MetaEventType == "lifecycle" && frame.SubType == "enable":
 		summary.Category = FrameCategoryLifecycleReady
 		summary.Type = "meta.lifecycle.enable"
+	case frame.PostType == "meta_event" && frame.MetaEventType == "lifecycle" && frame.SubType == "connect":
+		summary.Category = FrameCategoryLifecycleReady
+		summary.Type = "meta.lifecycle.connect"
 	case frame.PostType == "meta_event" && frame.MetaEventType == "heartbeat":
 		summary.Category = FrameCategoryHeartbeat
 		summary.Type = "meta.heartbeat"

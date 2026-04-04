@@ -54,52 +54,54 @@ type Options struct {
 }
 
 type App struct {
-	Config            config.Config
-	Summary           config.Summary
-	Logger            *slog.Logger
-	LogLevel          *logging.LevelController
-	Tasks             *tasks.Registry
-	taskExecutor      *tasks.Executor
-	Plugins           *plugins.Catalog
-	Auth              *auth.Manager
-	Storage           *storage.Store
-	Secrets           secrets.Store
-	Scheduler         *scheduler.Engine
-	Logs              *logging.Stream
-	LogRepository     logging.Repository
-	Console           *console.Stream
-	Adapter           *adapter.Shell
-	Bridge            *bridge.Bridge
-	Dispatcher        *dispatch.Dispatcher
-	Runtimes          *runtimeRegistry
-	replyTargets      *replyTargetCache
-	outboundSender    outboundActionSender
-	PluginInstaller   plugins.InstallCoordinator
-	PluginUninstaller plugins.UninstallCoordinator
-	pluginRepository  plugins.DesiredStateRepository
-	pluginConfig      pluginconfig.Repository
-	pluginFiles       *pluginfile.Service
-	pluginKV          pluginkv.Repository
-	grantRepository   plugins.GrantRepository
-	blacklistRepo     permission.BlacklistRepository
-	permissionChecker *permission.Checker
-	pluginLifecycle   *pluginLifecycleController
-	webhooks          *pluginWebhookRegistry
-	renderer          *render.Service
-	commandParser     *command.Parser
-	pluginLogLimiter  *pluginLogLimiter
-	redactText        func(string) string
-	repoRoot          string
-	recoverySummary   *recovery.CompatibilitySummary
-	router            http.Handler
-	server            *http.Server
-	startedAt         time.Time
-	launcherTokens    *launcherTokenStore
-	loginFailures     *loginFailureTracker
-	shuttingDown      atomic.Bool
-	runCancelMu       sync.Mutex
-	runCancel         context.CancelFunc
-	shutdownOnce      sync.Once
+	Config               config.Config
+	Summary              config.Summary
+	Logger               *slog.Logger
+	LogLevel             *logging.LevelController
+	Tasks                *tasks.Registry
+	taskExecutor         *tasks.Executor
+	Plugins              *plugins.Catalog
+	Auth                 *auth.Manager
+	Storage              *storage.Store
+	Secrets              secrets.Store
+	Scheduler            *scheduler.Engine
+	Logs                 *logging.Stream
+	LogRepository        logging.Repository
+	Console              *console.Stream
+	Adapter              *adapter.Shell
+	Bridge               *bridge.Bridge
+	Dispatcher           *dispatch.Dispatcher
+	Runtimes             *runtimeRegistry
+	replyTargets         *replyTargetCache
+	outboundSender       outboundActionSender
+	PluginInstaller      plugins.InstallCoordinator
+	PluginUninstaller    plugins.UninstallCoordinator
+	pluginRepository     plugins.DesiredStateRepository
+	pluginConfig         pluginconfig.Repository
+	pluginFiles          *pluginfile.Service
+	pluginKV             pluginkv.Repository
+	grantRepository      plugins.GrantRepository
+	blacklistRepo        permission.BlacklistRepository
+	permissionChecker    *permission.Checker
+	pluginLifecycle      *pluginLifecycleController
+	webhooks             *pluginWebhookRegistry
+	renderer             *render.Service
+	commandParser        *command.Parser
+	pluginLogLimiter     *pluginLogLimiter
+	redactText           func(string) string
+	repoRoot             string
+	recoverySummary      *recovery.CompatibilitySummary
+	router               http.Handler
+	server               *http.Server
+	startedAt            time.Time
+	launcherTokens       *launcherTokenStore
+	loginFailures        *loginFailureTracker
+	shuttingDown         atomic.Bool
+	runCancelMu          sync.Mutex
+	runCancel            context.CancelFunc
+	startupRuntimeMu     sync.RWMutex
+	startupRuntimeStates map[string]startupRuntimeState
+	shutdownOnce         sync.Once
 }
 
 var resolveManagedRenderBrowserPath = func(ctx context.Context, repoRoot string) (string, error) {
@@ -345,44 +347,45 @@ func New(options Options) (*App, error) {
 	}
 
 	application = &App{
-		Config:            cfg,
-		Summary:           summary,
-		Logger:            logger,
-		LogLevel:          logLevel,
-		Tasks:             taskRegistry,
-		taskExecutor:      taskExecutor,
-		Plugins:           pluginCatalog,
-		Auth:              authManager,
-		Storage:           storageStore,
-		Secrets:           secretStore,
-		Scheduler:         schedulerEngine,
-		Logs:              logStream,
-		LogRepository:     logRepository,
-		Console:           consoleStream,
-		Adapter:           adapterShell,
-		Bridge:            eventBridge,
-		Dispatcher:        eventDispatcher,
-		Runtimes:          runtimeRegistry,
-		replyTargets:      replyTargets,
-		outboundSender:    adapterShell,
-		PluginInstaller:   pluginInstallService,
-		PluginUninstaller: pluginUninstallService,
-		pluginRepository:  pluginRepository,
-		pluginConfig:      pluginConfigRepository,
-		pluginFiles:       pluginFileService,
-		pluginKV:          pluginKVRepository,
-		grantRepository:   pluginRepository,
-		blacklistRepo:     blacklistRepo,
-		permissionChecker: newPermissionChecker(cfg, blacklistRepo),
-		webhooks:          webhookRegistry,
-		renderer:          renderService,
-		commandParser:     newCommandParser(cfg),
-		pluginLogLimiter:  newPluginLogLimiter(cfg),
-		redactText:        managementRedactor.Redact,
-		repoRoot:          discoverySpec.repoRoot,
-		startedAt:         time.Now().UTC(),
-		launcherTokens:    newLauncherTokenStore(time.Now, 5*time.Minute),
-		loginFailures:     newLoginFailureTracker(time.Now),
+		Config:               cfg,
+		Summary:              summary,
+		Logger:               logger,
+		LogLevel:             logLevel,
+		Tasks:                taskRegistry,
+		taskExecutor:         taskExecutor,
+		Plugins:              pluginCatalog,
+		Auth:                 authManager,
+		Storage:              storageStore,
+		Secrets:              secretStore,
+		Scheduler:            schedulerEngine,
+		Logs:                 logStream,
+		LogRepository:        logRepository,
+		Console:              consoleStream,
+		Adapter:              adapterShell,
+		Bridge:               eventBridge,
+		Dispatcher:           eventDispatcher,
+		Runtimes:             runtimeRegistry,
+		replyTargets:         replyTargets,
+		outboundSender:       adapterShell,
+		PluginInstaller:      pluginInstallService,
+		PluginUninstaller:    pluginUninstallService,
+		pluginRepository:     pluginRepository,
+		pluginConfig:         pluginConfigRepository,
+		pluginFiles:          pluginFileService,
+		pluginKV:             pluginKVRepository,
+		grantRepository:      pluginRepository,
+		blacklistRepo:        blacklistRepo,
+		permissionChecker:    newPermissionChecker(cfg, blacklistRepo),
+		webhooks:             webhookRegistry,
+		renderer:             renderService,
+		commandParser:        newCommandParser(cfg),
+		pluginLogLimiter:     newPluginLogLimiter(cfg),
+		redactText:           managementRedactor.Redact,
+		repoRoot:             discoverySpec.repoRoot,
+		startedAt:            time.Now().UTC(),
+		launcherTokens:       newLauncherTokenStore(time.Now, 5*time.Minute),
+		loginFailures:        newLoginFailureTracker(time.Now),
+		startupRuntimeStates: newStartupRuntimeStates(startupRuntimeKinds()),
 	}
 	application.pluginLifecycle = newPluginLifecycleController(application)
 	application.refreshRecoverySummary()
@@ -565,6 +568,14 @@ func (a *App) Run(ctx context.Context) error {
 	a.setRunCancel(cancel)
 	defer a.clearRunCancel()
 
+	a.autoPrepareRuntimeEnvironments(runCtx)
+	if err := runCtx.Err(); err != nil {
+		closeErr := a.Close()
+		if closeErr != nil {
+			return errors.Join(err, closeErr)
+		}
+		return err
+	}
 	a.Adapter.Start(runCtx)
 	a.Scheduler.Start(runCtx)
 
@@ -960,8 +971,14 @@ func (a *App) currentReadiness() health.ReadinessReport {
 	}
 
 	if report.Status == "ready" && (len(renderIssues) > 0 || len(runtimeIssues) > 0) {
+		reason := "运行环境需要处理"
+		if len(runtimeIssues) > 0 {
+			reason = runtimeIssues[0].Summary
+		} else if len(renderIssues) > 0 {
+			reason = renderIssues[0].Summary
+		}
 		report.Status = "degraded"
-		report.Reason = "Platform resources require attention"
+		report.Reason = reason
 		report.ReasonCodes = []string{"platform.resource_missing"}
 	}
 	return report
@@ -985,9 +1002,7 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 		report.Status = "ready"
 		report.Checks["adapter"] = "idle"
 	case adapter.StateAuthFailed:
-		report.Status = "degraded"
-		report.Reason = "OneBot authentication failed"
-		report.ReasonCodes = []string{"adapter.auth_failed"}
+		report.Status = "ready"
 		report.Checks["adapter"] = "auth_failed"
 		report.Issues = []health.DiagnosticIssue{
 			{
@@ -998,8 +1013,7 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 			},
 		}
 	case adapter.StateConnecting:
-		report.Status = "degraded"
-		report.Reason = "OneBot reverse WebSocket is connecting"
+		report.Status = "ready"
 		report.Checks["adapter"] = "connecting"
 		report.Issues = []health.DiagnosticIssue{
 			{
@@ -1010,13 +1024,11 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 			},
 		}
 	case adapter.StateReconnecting:
-		report.Status = "degraded"
-		report.Reason = "OneBot reverse WebSocket is reconnecting"
+		report.Status = "ready"
 		code := snapshot.LastErrorCode
 		if code == "" {
 			code = "adapter.reconnecting"
 		}
-		report.ReasonCodes = []string{code}
 		report.Checks["adapter"] = "reconnecting"
 		report.Issues = []health.DiagnosticIssue{
 			{
@@ -1027,8 +1039,7 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 			},
 		}
 	case adapter.StateStopped:
-		report.Status = "degraded"
-		report.Reason = "OneBot adapter has stopped"
+		report.Status = "ready"
 		report.Checks["adapter"] = "stopped"
 		report.Issues = []health.DiagnosticIssue{
 			{
@@ -1039,8 +1050,7 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 			},
 		}
 	default:
-		report.Status = "degraded"
-		report.Reason = "OneBot adapter has not started connecting yet"
+		report.Status = "ready"
 		report.Checks["adapter"] = "idle"
 		report.Issues = []health.DiagnosticIssue{
 			{

@@ -30,16 +30,16 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             "version": "3.12.13",
             "platform": "windows-x64",
             "source": "https://example.invalid/python.zip",
-            "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+            "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             "archive_format": "zip",
             "entrypoints": {
-                "python": ["python/install/python.exe"],
-                "pip": ["python/install/Scripts/pip.exe"],
+                "python": ["python/python.exe"],
+                "pip": ["python/Scripts/pip.exe"],
             },
         }
 
         self.assertTrue(package_runtime.resource_has_complete_metadata(resource))
-        resource["entrypoints"] = {"python": ["python/install/python.exe"]}
+        resource["entrypoints"] = {}
         self.assertFalse(package_runtime.resource_has_complete_metadata(resource))
 
     def test_ensure_runtime_bootstrap_prepares_current_platform_resources(self) -> None:
@@ -53,8 +53,8 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                     "chrome-win64/chrome.exe": b"chrome",
                 }),
                 "https://example.invalid/python.zip": self._runtime_archive({
-                    "python/install/python.exe": b"python",
-                    "python/install/Scripts/pip.exe": b"pip",
+                    "python/python.exe": b"python",
+                    "python/Scripts/pip.exe": b"pip",
                 }),
                 "https://example.invalid/node.zip": self._runtime_archive({
                     "node-v24.14.0-win-x64/node.exe": b"node",
@@ -83,8 +83,8 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                         "sha256": package_runtime.hashlib.sha256(archives["https://example.invalid/python.zip"]).hexdigest(),
                         "archive_format": "zip",
                         "entrypoints": {
-                            "python": ["python/install/python.exe"],
-                            "pip": ["python/install/Scripts/pip.exe"],
+                            "python": ["python/python.exe"],
+                            "pip": ["python/Scripts/pip.exe"],
                         },
                     },
                     {
@@ -112,7 +112,7 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                 package_runtime.ensure_runtime_bootstrap(root, "windows-x64-full")
 
             self.assertTrue((root / ".deps" / "store" / "chromium-windows-x64" / "147.0.7727.24" / "chrome-win64" / "chrome.exe").exists())
-            self.assertTrue((root / ".deps" / "store" / "python-windows-x64" / "3.12.13" / "python" / "install" / "python.exe").exists())
+            self.assertTrue((root / ".deps" / "store" / "python-windows-x64" / "3.12.13" / "python" / "python.exe").exists())
             self.assertTrue((root / ".deps" / "store" / "nodejs-windows-x64" / "24.14.0" / "node-v24.14.0-win-x64" / "npm.cmd").exists())
 
     @staticmethod

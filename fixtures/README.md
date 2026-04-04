@@ -31,7 +31,7 @@
 - `deps-manifest/`
   - 对应 `contracts/deps-manifest.schema.json`
   - 统一采用 `input + expect` 结构
-  - 主要服务托管运行时来源、校验值、归档格式与相对入口的契约回归
+  - 主要服务 Python / Node.js 运行环境来源、校验值、归档格式与相对入口的契约回归
 - `cli/`
   - 对应 `contracts/cli-commands.yaml`
   - 统一采用 `input + expect` 结构

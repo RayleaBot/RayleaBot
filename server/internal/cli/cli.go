@@ -205,37 +205,37 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 				Remediation: "请为当前平台重新生成或恢复 .deps/manifest.json。",
 			})
 		}
-		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "python-runtime", "Python 运行时", "deps.python_runtime_metadata", "deps.python_runtime_metadata_incomplete"))
-		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "nodejs-runtime", "Node.js 运行时", "deps.nodejs_runtime_metadata", "deps.nodejs_runtime_metadata_incomplete"))
+		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "python-runtime", "Python 运行环境", "deps.python_runtime_metadata", "deps.python_runtime_metadata_incomplete"))
+		issues = append(issues, runtimeMetadataIssue(manifest, currentPlatform, "nodejs-runtime", "Node.js / npm 环境", "deps.nodejs_runtime_metadata", "deps.nodejs_runtime_metadata_incomplete"))
 		issues = append(issues, managedRuntimeDoctorIssue(
 			repoRoot,
 			"python-runtime",
 			"runtime.python_managed_ready",
-			"受控 Python 运行时已准备完成。",
-			"受控 Python 运行时归档已缓存，可离线准备。",
-			"受控 Python 运行时可按需准备。",
-			"受控 Python 运行时当前不可准备。",
-			"请在 .deps/manifest.json 中补齐当前平台 Python 运行时的 archive_format、entrypoints、source 与 sha256。",
+			"Python 运行环境已准备完成。",
+			"Python 运行环境归档已缓存，启动时可直接完成准备。",
+			"Python 运行环境已纳入启动流程。",
+			"Python 运行环境当前不可准备。",
+			"请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、source 与 sha256。",
 		))
 		issues = append(issues, managedRuntimeDoctorIssue(
 			repoRoot,
 			"nodejs-runtime",
 			"runtime.node_managed_ready",
-			"受控 Node.js 运行时已准备完成。",
-			"受控 Node.js 运行时归档已缓存，可离线准备。",
-			"受控 Node.js 运行时可按需准备。",
-			"受控 Node.js 运行时当前不可准备。",
-			"请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
+			"Node.js / npm 环境已准备完成。",
+			"Node.js / npm 环境归档已缓存，启动时可直接完成准备。",
+			"Node.js / npm 环境已纳入启动流程。",
+			"Node.js / npm 环境当前不可准备。",
+			"请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、source 与 sha256。",
 		))
 		issues = append(issues, managedRuntimeDoctorIssue(
 			repoRoot,
 			"nodejs-runtime",
 			"runtime.npm_managed_ready",
-			"受控 npm 已准备完成。",
-			"受控 npm 归档已缓存，可离线准备。",
-			"受控 npm 可按需准备。",
-			"受控 npm 当前不可准备。",
-			"请在 .deps/manifest.json 中补齐当前平台 Node.js 运行时的 archive_format、entrypoints、source 与 sha256。",
+			"npm 已准备完成。",
+			"npm 归档已缓存，启动时可直接完成准备。",
+			"npm 已纳入启动流程。",
+			"npm 当前不可准备。",
+			"请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、source 与 sha256。",
 		))
 	}
 

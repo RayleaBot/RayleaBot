@@ -147,7 +147,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 
 		registration, ok := a.webhooks.Get(pluginID, route)
 		if !ok {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "webhook",
 				"plugin_id":     pluginID,
 				"route":         route,
@@ -155,7 +155,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 			return
 		}
 		if !slices.Contains(registration.Methods, r.Method) {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "webhook",
 				"plugin_id":     pluginID,
 				"route":         route,
@@ -165,7 +165,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 
 		snapshot, ok := a.Plugins.Get(pluginID)
 		if !ok || !snapshot.Valid || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "plugin",
 				"plugin_id":     pluginID,
 			})

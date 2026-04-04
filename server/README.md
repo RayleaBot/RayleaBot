@@ -91,7 +91,7 @@
   - `logging.retention_days`
   - `logging.rate_limit_per_plugin`
 - Render Service：
-  - 受控 Chromium 渲染与 bounded queue
+  - Chromium 渲染与 bounded queue
   - `templates/` 模板注册、input schema 校验与缓存键生成
   - `render.preview` 任务流、artifact registry 与同源图片读取面
   - startup logs、`/readyz`、CLI `doctor` 与 Launcher preflight 的统一资源诊断

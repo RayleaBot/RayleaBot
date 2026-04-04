@@ -69,7 +69,7 @@ func (a *App) handleSystemRenderPreview() http.HandlerFunc {
 func (a *App) handleSystemRenderArtifact() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if a == nil || a.renderer == nil {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "render_artifact",
 			})
 			return
@@ -80,7 +80,7 @@ func (a *App) handleSystemRenderArtifact() http.HandlerFunc {
 		if err != nil {
 			var renderErr *render.Error
 			if errors.As(err, &renderErr) && renderErr.Code == codeResourceMissing {
-				writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+				writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 					"resource_type": "render_artifact",
 					"artifact_id":   artifactID,
 				})

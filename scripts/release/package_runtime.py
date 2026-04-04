@@ -28,7 +28,7 @@ SERVER_BINARIES = {
 RESOURCE_KINDS = ("chromium", "python-runtime", "nodejs-runtime")
 REQUIRED_ENTRYPOINTS = {
     "chromium": ("browser",),
-    "python-runtime": ("python", "pip"),
+    "python-runtime": ("python",),
     "nodejs-runtime": ("node", "npm"),
 }
 ARCHIVE_SUFFIXES = {

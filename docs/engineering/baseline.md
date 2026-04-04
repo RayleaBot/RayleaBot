@@ -20,9 +20,9 @@
 - `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
 - `web/` 承载管理控制台主链路。
 - `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
-- `.deps/manifest.json` 固定受控 Chromium 与托管 Python / Node.js 运行时资源矩阵，并作为运行时 bootstrap 的唯一正式来源。
-- 受控运行时有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
-- 恢复人工处理与受控运行时准备继续复用共享任务模型；`recovery.recheck` 与 `runtime.bootstrap` 是当前正式操作入口。
+- `.deps/manifest.json` 固定 Chromium 与 Python / Node.js 运行环境资源矩阵，并作为运行环境准备的唯一正式来源。
+- 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
+- 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck` 与 `runtime.bootstrap` 是当前正式操作入口。
 
 ## v0.1 固定版本线
 
@@ -35,7 +35,7 @@
 | Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `@vitejs/plugin-react 6.0.1` + `electron-builder 26.8.1` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |
-| Render | `chromedp 0.14.2` + 受控 Chromium |
+| Render | `chromedp 0.14.2` + Chromium 浏览环境 |
 
 ## 固定工程选型
 
@@ -56,9 +56,9 @@
 | Launcher 渲染层 | React 18 + Fluent UI React v9 + Vite 单页面桌面壳 |
 | 仓库级 JS 包管理器 | `pnpm` |
 | Node.js 插件依赖安装器 | `npm` |
-| Python 插件依赖安装链路 | 受控 Python + 每插件独立 `.venv/` |
+| Python 插件依赖安装链路 | Python 运行环境 + 每插件独立 `.venv/` |
 | Node.js 插件运行链路 | Runtime 注入 `--max-old-space-size=<limit_mb>`，默认 `256 MB` |
-| 受控运行时资源准备 | `.deps/manifest.json` + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/` |
+| 运行环境资源准备 | `.deps/manifest.json` + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/` |
 
 ## 默认命令
 
@@ -98,7 +98,7 @@
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
 | `launcher/` | Electron 桌面启动器工程 |
-| `.deps/` | Chromium 与托管运行时资源清单，以及按需展开后的受控运行时目录 |
+| `.deps/` | Chromium 与 Python / Node.js 运行环境资源清单，以及按需展开后的运行环境目录 |
 | `config/` | 默认配置模板与用户配置 |
 | `data/` | SQLite 状态库与运行数据 |
 | `cache/` | 渲染缓存、下载缓存、插件临时缓存 |

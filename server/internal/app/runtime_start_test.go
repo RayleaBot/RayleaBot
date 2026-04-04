@@ -253,7 +253,7 @@ func writeManagedRuntimeFixtures(t *testing.T, repoRoot string) {
       "version": "3.12.13",
       "platform": "` + platform + `",
       "source": "https://example.invalid/python.tar.gz",
-      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
         "python": ["python/install/bin/python3"],

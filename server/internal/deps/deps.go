@@ -141,8 +141,14 @@ func BootstrapSummary(kind string, inspection *BootstrapInspection) string {
 	case inspection.PreparedStorePresent:
 		return label + "已准备完成。"
 	case inspection.CachedArchivePresent:
+		if kind == "python-runtime" || kind == "nodejs-runtime" {
+			return label + "安装包已缓存，启动时可直接完成准备。"
+		}
 		return label + "归档已缓存，可离线准备。"
 	default:
+		if kind == "python-runtime" || kind == "nodejs-runtime" {
+			return label + "已纳入启动流程。"
+		}
 		return label + "可按需准备。"
 	}
 }
@@ -311,7 +317,7 @@ func requiredEntrypoints(resource *Resource) []string {
 	case "chromium":
 		return []string{"browser"}
 	case "python-runtime":
-		return []string{"python", "pip"}
+		return []string{"python"}
 	case "nodejs-runtime":
 		return []string{"node", "npm"}
 	default:
@@ -597,27 +603,37 @@ func bootstrapRemediation(kind, archivePath, storeRoot string) string {
 	switch kind {
 	case "chromium":
 		if len(paths) == 0 {
-			return "请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。"
+			return "请先准备 Chromium 浏览环境，或在配置中显式设置 render.browser_path。"
 		}
-		return "请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。离线环境可" + strings.Join(paths, "，或")
+		return "请先准备 Chromium 浏览环境，或在配置中显式设置 render.browser_path。离线环境可" + strings.Join(paths, "，或")
+	case "python-runtime":
+		if len(paths) == 0 {
+			return "请联网准备 Python 运行环境，或按正式目录结构手动预置资源。"
+		}
+		return "请联网准备 Python 运行环境；离线或受限网络环境可" + strings.Join(paths, "，或")
+	case "nodejs-runtime":
+		if len(paths) == 0 {
+			return "请联网准备 Node.js 和 npm 环境，或按正式目录结构手动预置资源。"
+		}
+		return "请联网准备 Node.js 和 npm 环境；离线或受限网络环境可" + strings.Join(paths, "，或")
 	default:
 		if len(paths) == 0 {
-			return "请联网准备受控运行时，或按正式目录结构手动预置资源。"
+			return "请联网准备运行环境，或按正式目录结构手动预置资源。"
 		}
-		return "请联网准备受控运行时；离线或受限网络环境可" + strings.Join(paths, "，或")
+		return "请联网准备运行环境；离线或受限网络环境可" + strings.Join(paths, "，或")
 	}
 }
 
 func managedResourceLabel(kind string) string {
 	switch kind {
 	case "chromium":
-		return "Chromium 资源"
+		return "Chromium 浏览环境"
 	case "python-runtime":
-		return "Python 运行时"
+		return "Python 运行环境"
 	case "nodejs-runtime":
-		return "Node.js 运行时"
+		return "Node.js / npm 环境"
 	default:
-		return "受控运行时"
+		return "运行环境"
 	}
 }
 

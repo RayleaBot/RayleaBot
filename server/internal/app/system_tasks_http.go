@@ -53,7 +53,7 @@ func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
 			return
 		}
 		if summary == nil || (!summary.RequiresPostStartChecks && summary.Phase != "post_startup") {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "必要运行时资源缺失", "errors.platform.resource_missing", map[string]any{
+			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "recovery_summary",
 				"path":          recovery.SummaryPath(a.repoRoot),
 			})
@@ -112,7 +112,7 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 			return
 		}
 
-		taskID, err := a.taskExecutor.Submit("runtime.bootstrap", "准备受控运行时", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		taskID, err := a.taskExecutor.Submit("runtime.bootstrap", "准备运行环境", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 			results := make([]any, 0, len(resources))
 			for index, kind := range resources {
 				progress.Update((index*70)/len(resources), "准备 "+kind)
@@ -132,9 +132,9 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 					a.renderer.RefreshBrowserPath(report.PreparedEntrypoint)
 				}
 				results = append(results, map[string]any{
-					"kind":               report.Kind,
-					"archive_path":       report.ArchivePath,
-					"store_root":         report.StoreRoot,
+					"kind":                report.Kind,
+					"archive_path":        report.ArchivePath,
+					"store_root":          report.StoreRoot,
 					"used_cached_archive": report.UsedCachedArchive,
 					"used_prepared_store": report.UsedPreparedStore,
 				})
@@ -148,7 +148,7 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 			}
 
 			return &tasks.ResultSummary{
-				Summary: "受控运行时已准备完成",
+				Summary: "所选资源已准备完成",
 				Details: details,
 			}, nil
 		})

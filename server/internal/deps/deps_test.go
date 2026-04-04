@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -28,11 +29,11 @@ func TestResourceMetadataCompleteRequiresArchiveAndEntrypoints(t *testing.T) {
 		Version:       "3.12.13",
 		Platform:      "windows-x64",
 		Source:        "https://example.invalid/python.tar.gz",
-		SHA256:        "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+		SHA256:        "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
 		ArchiveFormat: "tar.gz",
 		Entrypoints: map[string][]string{
-			"python": {"python/install/python.exe"},
-			"pip":    {"python/install/Scripts/pip.exe"},
+			"python": {"python/python.exe"},
+			"pip":    {"python/Scripts/pip.exe"},
 		},
 	}
 	if !ResourceMetadataComplete(resource) {
@@ -44,7 +45,7 @@ func TestResourceMetadataCompleteRequiresArchiveAndEntrypoints(t *testing.T) {
 		t.Fatalf("resource metadata should require archive_format")
 	}
 	resource.ArchiveFormat = "tar.gz"
-	resource.Entrypoints = map[string][]string{"python": {"python/install/python.exe"}}
+	resource.Entrypoints = map[string][]string{}
 	if ResourceMetadataComplete(resource) {
 		t.Fatalf("resource metadata should require runtime entrypoints")
 	}
@@ -63,7 +64,7 @@ func TestResolveEntrypointUsesPreparedStoreWithoutDownload(t *testing.T) {
       "version": "3.12.13",
       "platform": "` + CurrentPlatform() + `",
       "source": "https://example.invalid/python.tar.gz",
-      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
         "python": ["python/install/bin/python3"],
@@ -245,6 +246,60 @@ func TestPrepareWithReportClassifiesDownloadFailure(t *testing.T) {
 	}
 	if bootstrapErr.Remediation == "" {
 		t.Fatalf("expected remediation in BootstrapError: %#v", bootstrapErr)
+	}
+}
+
+func TestRepoWindowsPythonManifestEntrypointsMatchPreparedLayout(t *testing.T) {
+	t.Parallel()
+
+	if CurrentPlatform() != "windows-x64" {
+		t.Skip("windows python manifest layout is only checked on windows-x64")
+	}
+
+	workingDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(workingDir, "..", "..", ".."))
+
+	manifest, err := LoadManifest(repoRoot)
+	if err != nil {
+		t.Fatalf("load repo manifest: %v", err)
+	}
+	resource := manifest.FindResource("windows-x64", "python-runtime")
+	if resource == nil {
+		t.Fatal("repo manifest does not include windows python runtime resource")
+	}
+
+	storeRoot := StoreRoot(repoRoot, resource)
+	if _, err := os.Stat(storeRoot); err == nil {
+		entrypoints, err := resolvePreparedEntrypoints(storeRoot, resource)
+		if err != nil {
+			t.Fatalf("resolve repo python entrypoints from %s failed: %v", storeRoot, err)
+		}
+		if strings.TrimSpace(entrypoints["python"]) == "" {
+			t.Fatalf("resolved repo python entrypoints are incomplete: %#v", entrypoints)
+		}
+		return
+	} else if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("inspect repo python store root %s: %v", storeRoot, err)
+	}
+
+	syntheticStoreRoot := t.TempDir()
+	for _, key := range []string{"python"} {
+		candidates := resource.Entrypoints[key]
+		if len(candidates) == 0 {
+			t.Fatalf("repo manifest is missing %s entrypoints for windows python runtime", key)
+		}
+		writePreparedFile(t, filepath.Join(syntheticStoreRoot, filepath.FromSlash(candidates[0])))
+	}
+
+	entrypoints, err := resolvePreparedEntrypoints(syntheticStoreRoot, resource)
+	if err != nil {
+		t.Fatalf("resolve repo python entrypoints from synthetic layout failed: %v", err)
+	}
+	if !strings.HasSuffix(filepath.ToSlash(entrypoints["python"]), "python/python.exe") {
+		t.Fatalf("unexpected python entrypoint: %q", entrypoints["python"])
 	}
 }
 

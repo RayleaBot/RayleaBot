@@ -49,15 +49,15 @@
       "version": "3.12.13",
       "platform": "windows-x64",
       "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
-      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
         "python": [
-          "python/install/python.exe"
+          "python/python.exe"
         ],
         "pip": [
-          "python/install/Scripts/pip.exe",
-          "python/install/Scripts/pip3.exe"
+          "python/Scripts/pip.exe",
+          "python/Scripts/pip3.exe"
         ]
       }
     },

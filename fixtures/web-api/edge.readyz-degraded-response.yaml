@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: Readyz degraded response keeps the control plane ready while surfacing adapter trouble.
+description: Readyz degraded response surfaces recovery compatibility work while keeping adapter warnings visible.
 request:
   method: GET
   path: /readyz
@@ -8,9 +8,9 @@ response:
   status: 200
   body:
     status: degraded
-    reason: OneBot authentication failed
+    reason: Recovery compatibility checks require attention
     reason_codes:
-      - adapter.auth_failed
+      - recovery.degraded
     checks:
       config: ok
       database: ok

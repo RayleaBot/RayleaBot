@@ -23,6 +23,11 @@ import (
 func TestHandleSystemRecoveryRecheckAcceptsTaskAndPersistsCompatibleSummary(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeDepsManifest(t, repoRoot)
+	platform := deps.CurrentPlatform()
+	writePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "python.exe")
+	writePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "Scripts", "pip.exe")
+	writePreparedRuntime(t, repoRoot, "nodejs-"+platform, "24.14.0", "node-v24.14.0-win-x64", "node.exe")
+	writePreparedRuntime(t, repoRoot, "nodejs-"+platform, "24.14.0", "node-v24.14.0-win-x64", "npm.cmd")
 	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
 		Status:            "degraded",
 		Phase:             "post_startup",
@@ -94,8 +99,8 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	writeDepsManifest(t, repoRoot)
 	platform := deps.CurrentPlatform()
 	writePreparedRuntime(t, repoRoot, "chromium-"+platform, "147.0.7727.24", "chrome-win64", "chrome.exe")
-	writePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "install", "python.exe")
-	writePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "install", "Scripts", "pip.exe")
+	writePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "python.exe")
+	writePreparedRuntime(t, repoRoot, "python-"+platform, "3.12.13", "python", "Scripts", "pip.exe")
 
 	application := newTaskOnlyApp(t, repoRoot)
 	request := httptest.NewRequest(http.MethodPost, "/api/system/runtime/bootstrap", stringsNewReader(`{"resources":["chromium","python-runtime"]}`))
@@ -193,12 +198,12 @@ func newTaskOnlyApp(t *testing.T, repoRoot string) *App {
 		_ = executor.Close()
 	})
 	return &App{
-		repoRoot:      repoRoot,
-		Tasks:         registry,
-		taskExecutor:  executor,
-		Plugins:       plugins.NewCatalog(nil),
-		startedAt:     time.Now(),
-		Config:        config.Config{},
+		repoRoot:     repoRoot,
+		Tasks:        registry,
+		taskExecutor: executor,
+		Plugins:      plugins.NewCatalog(nil),
+		startedAt:    time.Now(),
+		Config:       config.Config{},
 	}
 }
 
@@ -229,11 +234,11 @@ func writeDepsManifest(t *testing.T, repoRoot string) {
       "version": "3.12.13",
       "platform": "` + platform + `",
       "source": "https://example.invalid/python.tar.gz",
-      "sha256": "10b9fd9ba9441f246f2cb279c2c6e6b2f98e60ef7960c313fd2bbc7f0c1e6f5e",
+      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
-        "python": ["python/install/python.exe"],
-        "pip": ["python/install/Scripts/pip.exe"]
+        "python": ["python/python.exe"],
+        "pip": ["python/Scripts/pip.exe"]
       }
     },
     {
