@@ -6,6 +6,7 @@ import { apiDownload, apiRequest } from '@/lib/http'
 import type {
   EventsPayload,
   LivenessStatusResponse,
+  RecoveryConfirmRequest,
   ReadinessStatusResponse,
   RenderPreviewRequest,
   RuntimeBootstrapResource,
@@ -25,6 +26,7 @@ export const useSystemStore = defineStore('system', () => {
   const backupPending = ref(false)
   const diagnosticsPending = ref(false)
   const recoveryRecheckPending = ref(false)
+  const recoveryConfirmPending = ref(false)
   const runtimeBootstrapPending = ref(false)
   const previewPending = ref(false)
   const error = ref<string | null>(null)
@@ -140,6 +142,19 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
+  async function confirmRecovery(request: RecoveryConfirmRequest) {
+    recoveryConfirmPending.value = true
+    error.value = null
+    try {
+      return await apiRequest<TaskAcceptedResponse>('/api/system/recovery/confirm', {
+        method: 'POST',
+        body: request,
+      })
+    } finally {
+      recoveryConfirmPending.value = false
+    }
+  }
+
   async function bootstrapManagedRuntime(resources?: RuntimeBootstrapResource[]) {
     runtimeBootstrapPending.value = true
     error.value = null
@@ -156,12 +171,14 @@ export const useSystemStore = defineStore('system', () => {
   return {
     backupPending,
     bootstrapManagedRuntime,
+    confirmRecovery,
     diagnosticsPending,
     error,
     health,
     isHealthy,
     loading,
     readiness,
+    recoveryConfirmPending,
     recoveryRecheckPending,
     recentEvents,
     recheckRecovery,

@@ -52,7 +52,7 @@ codes:
     description: Request parameters or body shape did not satisfy the formal contract.
     http_status: 400
     retryable: false
-    applies_to: [http, websocket]
+    applies_to: [http, websocket, task]
 
   platform.invalid_config:
     code: platform.invalid_config

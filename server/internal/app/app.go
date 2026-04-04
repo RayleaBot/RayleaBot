@@ -426,6 +426,7 @@ func New(options Options) (*App, error) {
 		r.Post("/api/system/shutdown", application.handleSystemShutdown())
 		r.Post("/api/system/backup", application.handleSystemBackup())
 		r.Post("/api/system/recovery/recheck", application.handleSystemRecoveryRecheck())
+		r.Post("/api/system/recovery/confirm", application.handleSystemRecoveryConfirm())
 		r.Post("/api/system/runtime/bootstrap", application.handleSystemRuntimeBootstrap())
 		r.Get("/api/system/diagnostics/export", application.handleSystemDiagnosticsExport())
 		r.Post("/api/system/render/preview", application.handleSystemRenderPreview())

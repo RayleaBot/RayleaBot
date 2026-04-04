@@ -6,6 +6,7 @@ description: >
 x-fixtures:
   - fixtures/websocket/ok.tasks-updated-running.json
   - fixtures/websocket/ok.tasks-updated-succeeded-recovery-recheck.json
+  - fixtures/websocket/ok.tasks-updated-succeeded-recovery-confirm.json
   - fixtures/websocket/ok.tasks-updated-succeeded-install.json
   - fixtures/websocket/ok.tasks-updated-succeeded-runtime-bootstrap.json
   - fixtures/websocket/ok.logs-appended.json
@@ -78,6 +79,7 @@ channels:
                 - plugin.reload
                 - backup.create
                 - recovery.recheck
+                - recovery.confirm
                 - restore.apply
                 - config.migrate
                 - db.migrate

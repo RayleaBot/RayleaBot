@@ -8,9 +8,15 @@
 
 当前已收录的 HTTP 请求 / 响应示例包含：
 
+- `examples/http/recovery-confirm.request.json`
+- `examples/http/recovery-confirm.accepted.json`
+- `examples/http/recovery-confirm.task-detail.json`
+- `examples/http/recovery-recheck.accepted.json`
 - `examples/http/render-preview.request.json`
 - `examples/http/render-preview.accepted.json`
 - `examples/http/render-preview.task-detail.json`
+- `examples/http/runtime-bootstrap.request.json`
+- `examples/http/runtime-bootstrap.accepted.json`
 
 当前已收录的资源清单示例包含：
 

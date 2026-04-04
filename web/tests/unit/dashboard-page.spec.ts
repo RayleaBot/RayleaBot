@@ -294,11 +294,30 @@ describe('DashboardPage', () => {
             version: '1.4.0',
             reason_code: 'plugin.min_core_version',
             summary: '插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。',
+            review_id: 'review_weather_pro',
+            review_status: 'pending',
             manual_action: '升级程序或重新安装兼容版本插件。',
           },
         ],
         manual_actions: ['处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。'],
         next_steps: ['查看恢复摘要中的跳过插件列表并完成兼容性处理。', '通过管理面、Launcher 或 diagnostics 复核 recovery_summary。'],
+        audit: [
+          {
+            task_id: 'task_recovery_confirm_0001',
+            created_at: '2026-04-02T08:02:00Z',
+            operator_id: 'alice',
+            note: '已确认当前跳过状态。',
+            items: [
+              {
+                review_id: 'review_archived',
+                plugin_id: 'archived-plugin',
+                reason_code: 'plugin.platform_mismatch',
+                summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
+                version: '1.0.0',
+              },
+            ],
+          },
+        ],
       },
     }
 
@@ -315,14 +334,18 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('恢复兼容性')
     expect(wrapper.text()).toContain('需要人工处理')
     expect(wrapper.text()).toContain('weather-pro')
+    expect(wrapper.text()).toContain('待确认')
     expect(wrapper.text()).toContain('处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。')
     expect(wrapper.text()).toContain('查看恢复摘要中的跳过插件列表并完成兼容性处理。')
     expect(wrapper.text()).toContain('通过管理面、Launcher 或 diagnostics 复核 recovery_summary。')
+    expect(wrapper.text()).toContain('最近确认记录')
+    expect(wrapper.text()).toContain('alice')
+    expect(wrapper.text()).toContain('已确认当前跳过状态。')
     expect(wrapper.findAll('[data-testid="recovery-manual-action"]')).toHaveLength(1)
     expect(wrapper.findAll('[data-testid="recovery-next-step"]')).toHaveLength(2)
   })
 
-  it('submits recovery recheck and runtime bootstrap tasks from the recovery block', async () => {
+  it('submits recovery confirm, recovery recheck, and runtime bootstrap tasks from the recovery block', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -361,6 +384,8 @@ describe('DashboardPage', () => {
             plugin_id: 'weather-pro',
             reason_code: 'plugin.min_core_version',
             summary: '插件最低 core 版本要求不满足。',
+            review_id: 'review_weather_pro',
+            review_status: 'pending',
             manual_action: '升级程序或重新安装兼容版本插件。',
           },
         ],
@@ -370,6 +395,7 @@ describe('DashboardPage', () => {
     }
 
     vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    const confirmSpy = vi.spyOn(store as never, 'confirmRecovery').mockResolvedValue({ task_id: 'task_recovery_confirm_0001' })
     const recheckSpy = vi.spyOn(store as never, 'recheckRecovery').mockResolvedValue({ task_id: 'task_recovery_recheck_0001' })
     const bootstrapSpy = vi.spyOn(store as never, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'task_runtime_bootstrap_0001' })
 
@@ -382,17 +408,37 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     const recheckButton = wrapper.find('[data-testid="recovery-recheck-button"]')
+    const confirmButton = wrapper.find('[data-testid="recovery-confirm-button"]')
     const bootstrapButton = wrapper.find('[data-testid="runtime-bootstrap-button"]')
     const pluginLink = wrapper.find('[data-testid="recovery-plugin-link-weather-pro"]')
+    const checkbox = wrapper.find('[data-testid="recovery-confirm-checkbox-review_weather_pro"] input[type="checkbox"]')
+    const noteInput = wrapper.find('textarea')
 
     expect(recheckButton.exists()).toBe(true)
+    expect(confirmButton.exists()).toBe(true)
     expect(bootstrapButton.exists()).toBe(true)
     expect(pluginLink.exists()).toBe(true)
+    expect(checkbox.exists()).toBe(true)
+    expect(noteInput.exists()).toBe(true)
 
     await pluginLink.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('plugin-detail')
     expect(router.currentRoute.value.params.id).toBe('weather-pro')
+
+    await router.push('/')
+    await flushPromises()
+
+    await checkbox.setValue(true)
+    await noteInput.setValue('已确认当前跳过状态。')
+    await confirmButton.trigger('click')
+    await flushPromises()
+    expect(confirmSpy).toHaveBeenCalledWith({
+      review_ids: ['review_weather_pro'],
+      note: '已确认当前跳过状态。',
+    })
+    expect(router.currentRoute.value.name).toBe('tasks')
+    expect(router.currentRoute.value.query.task_id).toBe('task_recovery_confirm_0001')
 
     await router.push('/')
     await flushPromises()

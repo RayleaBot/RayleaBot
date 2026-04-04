@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Recovery confirmation submits an asynchronous recovery.confirm task.
+request:
+  method: POST
+  path: /api/system/recovery/confirm
+  body:
+    review_ids:
+      - review_weather_pro
+    note: 已确认当前跳过状态。
+response:
+  status: 202
+  body:
+    task_id: task_recovery_confirm_0001
+expect:
+  valid: true

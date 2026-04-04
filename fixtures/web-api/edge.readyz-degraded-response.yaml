@@ -44,11 +44,24 @@ response:
           version: 1.4.0
           reason_code: plugin.min_core_version
           summary: 插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。
+          review_id: review_weather_pro
+          review_status: pending
           manual_action: 升级程序或重新安装兼容版本插件。
       manual_actions:
         - 处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。
       next_steps:
         - 查看恢复摘要中的跳过插件列表并完成兼容性处理。
         - 通过管理面、Launcher 或 diagnostics 复核 recovery_summary。
+      audit:
+        - task_id: task_recovery_confirm_0001
+          created_at: 2026-04-01T08:02:00Z
+          operator_id: alice
+          note: 已确认其他恢复项。
+          items:
+            - review_id: review_archived_plugin
+              plugin_id: archived-plugin
+              reason_code: plugin.platform_mismatch
+              summary: 插件平台兼容性不满足，已保留安装目录并跳过自动启用。
+              version: 1.0.0
 expect:
   valid: true

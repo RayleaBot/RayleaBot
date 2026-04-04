@@ -35,7 +35,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、plugin lifecycle、plugin grants、tasks / logs / system surfaces、recovery recheck、runtime bootstrap、render preview 与 render artifact 读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、plugin lifecycle、plugin grants、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
@@ -131,9 +131,10 @@
 当前已进入 OpenAPI 冻结范围的 recovery / runtime task surface：
 
 - `POST /api/system/recovery/recheck`
+- `POST /api/system/recovery/confirm`
 - `POST /api/system/runtime/bootstrap`
 
-其中 `runtime.bootstrap` request 支持可选 `resources` 列表；任务详情会在 `result.details.resources` 中暴露每类资源的缓存归档、展开目录、已尝试来源列表与命中来源。
+其中 `recovery.confirm` request 支持 `review_ids` 与可选 `note`；任务详情会在 `result.details` 中暴露 `confirmed_review_ids`、`operator_id`、`note` 与更新后的 `recovery_summary`。`runtime.bootstrap` request 支持可选 `resources` 列表；任务详情会在 `result.details.resources` 中暴露每类资源的缓存归档、展开目录、已尝试来源列表与命中来源。
 
 ## 通用规则
 

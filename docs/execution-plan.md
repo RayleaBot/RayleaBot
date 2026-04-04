@@ -199,7 +199,7 @@
 | Health endpoints | ✅ | `GET /healthz` 与 `GET /readyz` |
 | Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login`、`session logout`、loopback-only `launcher-token` 与 `launcher-admission` 已落地 |
 | System management | ✅ | `GET /api/system/status`、`POST /api/system/shutdown` |
-| Recovery / runtime task surface | ✅ | `POST /api/system/recovery/recheck` 与 `POST /api/system/runtime/bootstrap` 已进入 formal API、任务流、fixtures、examples 与 tests |
+| Recovery / runtime task surface | ✅ | `POST /api/system/recovery/recheck`、`POST /api/system/recovery/confirm` 与 `POST /api/system/runtime/bootstrap` 已进入 formal API、任务流、fixtures、examples 与 tests |
 | Config management | ✅ | `GET /api/config`、`PUT /api/config` 已包含 `command` / `cooldown` / `storage` / `http`，并支持对应热更新 |
 | Logs query | ✅ | `GET /api/logs` 与 `/ws/logs` 已提供跨重启的持久化 summary 查询与历史回放 |
 | Tasks management | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` |
@@ -226,7 +226,7 @@
 | auth/session shell | ✅ | `setup/login/session`、路由守卫、`sessionStorage` token 与未授权回退已落地 |
 | 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志页、配置页，以及固定侧栏、内容区内部滚动摘要视图与响应式布局已落地 |
 | HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |
-| 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、恢复摘要操作入口、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
+| 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、恢复摘要操作入口、恢复批量确认与审计、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
 | 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、Launcher 自动登录失败短提示已接入 |
 | 前端质量与回归 | ✅ | Vitest 单测、fixture-backed Playwright E2E、异常路径、响应式与可访问性交互回归已落地 |
 
@@ -250,7 +250,7 @@
 | 托盘最小化与关闭语义 | ✅ | 托盘左键直接恢复窗口，右键使用原生菜单承载状态头、动态服务动作、日志目录与完全退出；tooltip 与菜单可用态会随运行状态和环境风险联动 |
 | 关闭确认与托盘引导 | ✅ | 关闭行为已收口为 `AskEveryTime / HideToTray / ExitApplication` 三态策略；设置页、关闭确认弹窗与实际关闭路径共用同一模型，弹窗支持把本次选择设为默认行为 |
 | Chromium / 模板资源完整性检查 | ✅ | Launcher preflight 已覆盖 Chromium 与模板资源完整性，并给出 remediation |
-| 恢复摘要与运行时动作深链 | ✅ | Launcher 已支持恢复摘要本地 fallback、打开 Web 插件详情、触发 `recovery.recheck` / `runtime.bootstrap` 任务并直接深链到对应任务页 |
+| 恢复摘要与运行时动作深链 | ✅ | Launcher 已支持恢复摘要本地 fallback、打开 Web 插件详情、触发 `recovery.recheck` / `runtime.bootstrap` 任务并直接深链到对应任务页；批量确认继续集中在 Web 管理面 |
 | 安装根目录派生设置模型 | ✅ | Launcher 偏好设置已收口为安装目录主模型，服务端路径、配置文件路径与运行目录默认从安装目录派生；高级覆盖仅用于排障与特殊复用场景 |
 | 发布目录布局与正式发行包 | ✅ | full artifact 已统一为根目录 Launcher 入口，`windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 的目录真相、smoke、packaged recovery drill 与用户 / release 文档已对齐 |
 | 发布元数据与交付 gate | ✅ | `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt`、`windows_full_smoke` / `linux_server_smoke` 与 release workflow 已接入 |
@@ -268,7 +268,7 @@
 | 模板校验 / 缓存 / 结果管理 | ✅ | `templates/` 已提供 `help.menu`、`status.panel`、input schema、模板版本、data hash cache key 与 artifact registry |
 | Chromium 与运行环境资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / 有序来源列表 / SHA256 / archive_format / entrypoints；doctor、Launcher、`/readyz`、recovery finalization 与 baseline 门禁已复用同一份清单校验运行环境 metadata 完整性 |
 | 运行环境资源接线 | ✅ | 服务启动会自动准备 Python、Node.js 与 npm 环境；启动时、插件依赖安装、render 诊断、CLI `doctor`、Launcher preflight、release smoke、recovery drill 与长期自托管 smoke 已共享 `.deps/manifest.json` bootstrap 语义；运行环境按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/` |
-| 恢复摘要收敛与离线 bootstrap 动作 | ✅ | `recovery.recheck` 与 `runtime.bootstrap` 已进入 server / Web / Launcher 主链；恢复后人工处理完成后可重新检查并收敛到 `compatible`，离线或受限网络场景已给出缓存归档与预展开目录两条正式回退路径 |
+| 恢复摘要收敛、批量确认与离线 bootstrap 动作 | ✅ | `recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 已进入 server / Web / Launcher 主链；恢复后可批量确认跳过插件当前状态、记录最近审计，并在人工处理完成后重新检查收敛到 `compatible`；离线或受限网络场景已给出缓存归档与预展开目录两条正式回退路径 |
 
 ---
 
@@ -279,7 +279,7 @@
 | 工作流 / Job | 触发 | 覆盖 |
 |--------|------|------|
 | `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI fixtures 结构/覆盖校验、CLI contract 与 TaskType enum 交叉校验 |
-| `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` v2 baseline 校验 |
+| `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` v3 baseline 校验 |
 | `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
 | `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
 | `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、`linux-x64-full` / `linux-x64-server` packaging smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill（60 秒观察窗口）与 metadata verify |
@@ -308,7 +308,7 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
-- 当前主要风险集中在恢复后批量处理体验层面：共享 `recovery_summary`、`recovery.recheck` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke，兼容通过 / 需要人工处理 / 修复后收敛三类路径都已进入回归矩阵；`.deps/manifest.json` 已进入有序来源列表契约，server、release、smoke 与长期自托管巡检共用同一份来源定义。
+- 共享 `recovery_summary`、`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke；兼容通过、需要人工处理、批量确认和修复后收敛四类路径已进入回归矩阵；`.deps/manifest.json` 已进入有序来源列表契约，server、release、smoke 与长期自托管巡检共用同一份来源定义。
 
 ---
 
@@ -316,8 +316,8 @@
 
 ### 主工作包
 
-1. 评估恢复后批量处理与审计追踪是否进入正式任务面。
-   当前恢复闭环已覆盖人工处理建议、再次检查、运行时准备和单插件深链；下一轮重点是判断批量处理、处理结果审计与 operator 级确认是否需要进入共享任务模型。
+1. 评估已确认恢复项的筛选、撤销与更长历史展示是否进入正式任务面。
+   当前恢复闭环已覆盖人工处理建议、批量确认、最近审计、再次检查、运行时准备和单插件深链；下一轮重点是判断更长历史展示、已确认项筛选与撤销是否需要进入共享任务模型。
 
 ### 下一轮边界
 

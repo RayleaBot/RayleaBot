@@ -224,13 +224,51 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 		if rawSkipped, ok := rawSummary["skipped_plugins"].([]any); ok {
 			for _, raw := range rawSkipped {
 				item := raw.(map[string]any)
-				report.RecoverySummary.SkippedPlugins = append(report.RecoverySummary.SkippedPlugins, recovery.SkippedPlugin{
+				skipped := recovery.SkippedPlugin{
 					PluginID:     item["plugin_id"].(string),
-					Version:      item["version"].(string),
 					ReasonCode:   item["reason_code"].(string),
 					Summary:      item["summary"].(string),
+					ReviewID:     item["review_id"].(string),
+					ReviewStatus: item["review_status"].(string),
 					ManualAction: item["manual_action"].(string),
-				})
+				}
+				if version, ok := item["version"].(string); ok {
+					skipped.Version = version
+				}
+				if reviewedAt, ok := item["reviewed_at"].(string); ok {
+					skipped.ReviewedAt = reviewedAt
+				}
+				if reviewedBy, ok := item["reviewed_by"].(string); ok {
+					skipped.ReviewedBy = reviewedBy
+				}
+				report.RecoverySummary.SkippedPlugins = append(report.RecoverySummary.SkippedPlugins, skipped)
+			}
+		}
+		if rawAudit, ok := rawSummary["audit"].([]any); ok {
+			for _, raw := range rawAudit {
+				item := raw.(map[string]any)
+				entry := recovery.AuditEntry{
+					TaskID:     item["task_id"].(string),
+					CreatedAt:  item["created_at"].(string),
+					OperatorID: item["operator_id"].(string),
+					Note:       item["note"].(string),
+				}
+				if rawItems, ok := item["items"].([]any); ok {
+					for _, rawItem := range rawItems {
+						auditItem := rawItem.(map[string]any)
+						record := recovery.AuditItem{
+							ReviewID:   auditItem["review_id"].(string),
+							PluginID:   auditItem["plugin_id"].(string),
+							ReasonCode: auditItem["reason_code"].(string),
+							Summary:    auditItem["summary"].(string),
+						}
+						if version, ok := auditItem["version"].(string); ok {
+							record.Version = version
+						}
+						entry.Items = append(entry.Items, record)
+					}
+				}
+				report.RecoverySummary.Audit = append(report.RecoverySummary.Audit, entry)
 			}
 		}
 	}

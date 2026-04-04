@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -16,13 +16,13 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
 import { t } from '@/i18n'
 import { useSystemStore } from '@/stores/system'
-import type { RuntimeBootstrapResource } from '@/types/api'
+import type { RecoveryCompatibilitySkippedPlugin, RuntimeBootstrapResource } from '@/types/api'
 
 const AUTO_REFRESH_INTERVAL = 10
 
 const router = useRouter()
 const systemStore = useSystemStore()
-const { backupPending, diagnosticsPending, error, health, loading, previewPending, readiness, recentEvents, recoveryRecheckPending, runtimeBootstrapPending, system } = storeToRefs(systemStore)
+const { backupPending, diagnosticsPending, error, health, loading, previewPending, readiness, recentEvents, recoveryConfirmPending, recoveryRecheckPending, runtimeBootstrapPending, system } = storeToRefs(systemStore)
 
 const previewVisible = ref(false)
 const previewForm = reactive({
@@ -46,6 +46,8 @@ const autoRefresh = ref(false)
 const lastRefreshed = ref<string | null>(null)
 const countdown = ref(AUTO_REFRESH_INTERVAL)
 const issuesExpanded = ref(false)
+const selectedRecoveryReviewIds = ref<string[]>([])
+const recoveryConfirmNote = ref('')
 let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
@@ -121,6 +123,14 @@ const recoveryBootstrapResources = computed<RuntimeBootstrapResource[]>(() => {
   }
   return [...resources]
 })
+
+const pendingRecoveryPlugins = computed<RecoveryCompatibilitySkippedPlugin[]>(() => {
+  return (recoverySummary.value?.skipped_plugins ?? []).filter((plugin) => plugin.review_status !== 'confirmed')
+})
+
+const selectedRecoveryReviewCountLabel = computed(() => t('dashboard.recoveryConfirmSelection', { count: selectedRecoveryReviewIds.value.length }))
+
+const recoveryAuditEntries = computed(() => recoverySummary.value?.audit ?? [])
 
 const alertBannerType = computed<'warning' | 'error' | null>(() => {
   if (readiness.value?.status === 'failed') return 'error'
@@ -251,6 +261,14 @@ onUnmounted(() => {
   stopAutoRefresh()
 })
 
+watch(recoverySummary, (nextSummary) => {
+  const pendingIds = new Set((nextSummary?.skipped_plugins ?? []).filter((plugin) => plugin.review_status !== 'confirmed').map((plugin) => plugin.review_id))
+  selectedRecoveryReviewIds.value = selectedRecoveryReviewIds.value.filter((reviewID) => pendingIds.has(reviewID))
+  if (selectedRecoveryReviewIds.value.length === 0) {
+    recoveryConfirmNote.value = ''
+  }
+})
+
 async function createBackup() {
   try {
     const response = await systemStore.createBackup()
@@ -302,6 +320,23 @@ async function recheckRecoverySummary() {
   try {
     const response = await systemStore.recheckRecovery()
     ElMessage.success(t('dashboard.recoveryRecheckAccepted'))
+    await router.push({ name: 'tasks', query: { task_id: response.task_id } })
+  } catch (error) {
+    ElMessage.error(getDisplayErrorMessage(error))
+  }
+}
+
+async function confirmRecoverySelection() {
+  if (selectedRecoveryReviewIds.value.length === 0) return
+
+  try {
+    const response = await systemStore.confirmRecovery({
+      review_ids: [...selectedRecoveryReviewIds.value],
+      note: recoveryConfirmNote.value.trim() || undefined,
+    })
+    ElMessage.success(t('dashboard.recoveryConfirmAccepted'))
+    selectedRecoveryReviewIds.value = []
+    recoveryConfirmNote.value = ''
     await router.push({ name: 'tasks', query: { task_id: response.task_id } })
   } catch (error) {
     ElMessage.error(getDisplayErrorMessage(error))
@@ -524,7 +559,7 @@ async function openRecoveryPlugin(pluginID: string) {
 
           <div v-for="plugin in recoverySummary.skipped_plugins ?? []" :key="plugin.plugin_id" class="issue-alert-card issue-alert-card--warning">
             <div class="issue-alert-card__header">
-              <el-tag type="warning" size="small">
+              <el-tag :type="plugin.review_status === 'confirmed' ? 'success' : 'warning'" size="small">
                 {{ plugin.reason_code }}
               </el-tag>
               <el-button
@@ -536,9 +571,54 @@ async function openRecoveryPlugin(pluginID: string) {
               >
                 {{ plugin.plugin_id }}
               </el-button>
+              <el-tag :type="plugin.review_status === 'confirmed' ? 'success' : 'warning'" size="small">
+                {{ plugin.review_status === 'confirmed' ? t('dashboard.recoveryConfirmed') : t('dashboard.recoveryPending') }}
+              </el-tag>
             </div>
             <div class="issue-alert-card__remediation">{{ plugin.summary }}</div>
             <div v-if="plugin.manual_action" class="issue-alert-card__remediation">{{ plugin.manual_action }}</div>
+            <div v-if="plugin.review_status === 'confirmed'" class="issue-alert-card__remediation">
+              {{ t('dashboard.recoveryReviewedBy') }}：{{ plugin.reviewed_by || t('display.empty') }}
+              · {{ t('dashboard.recoveryReviewedAt') }}：{{ plugin.reviewed_at ? formatRelativeTime(plugin.reviewed_at) : t('display.empty') }}
+            </div>
+            <div v-else style="margin-top: 10px;">
+              <el-checkbox-group v-model="selectedRecoveryReviewIds">
+                <el-checkbox :value="plugin.review_id" :data-testid="`recovery-confirm-checkbox-${plugin.review_id}`">
+                  {{ t('dashboard.recoveryConfirm') }}
+                </el-checkbox>
+              </el-checkbox-group>
+            </div>
+          </div>
+
+          <div v-if="pendingRecoveryPlugins.length" class="issue-alert-card issue-alert-card--warning" style="margin-top: 12px;">
+            <div class="issue-alert-card__header">
+              <span class="issue-alert-card__summary">{{ t('dashboard.recoveryConfirmSection') }}</span>
+              <small style="color: var(--muted);">{{ selectedRecoveryReviewCountLabel }}</small>
+            </div>
+            <el-input
+              v-model="recoveryConfirmNote"
+              type="textarea"
+              :rows="3"
+              :maxlength="500"
+              show-word-limit
+              :placeholder="t('dashboard.recoveryConfirmNotePlaceholder')"
+            />
+            <div class="table-actions" style="justify-content: flex-start; margin-top: 12px;">
+              <el-button
+                data-testid="recovery-confirm-button"
+                size="small"
+                type="primary"
+                :loading="recoveryConfirmPending"
+                :disabled="selectedRecoveryReviewIds.length === 0"
+                @click="confirmRecoverySelection"
+              >
+                {{ t('dashboard.recoveryConfirm') }}
+              </el-button>
+            </div>
+          </div>
+
+          <div v-else-if="recoverySummary.skipped_plugins?.length" class="readiness-note">
+            <small style="color: var(--muted);">{{ t('dashboard.recoveryConfirmEmpty') }}</small>
           </div>
 
           <div v-if="recoverySummary.manual_actions?.length" style="margin-top: 12px;">
@@ -565,6 +645,29 @@ async function openRecoveryPlugin(pluginID: string) {
                 {{ step }}
               </li>
             </ul>
+          </div>
+
+          <div v-if="recoveryAuditEntries.length" style="margin-top: 12px;">
+            <small style="color: var(--muted); display: block; margin-bottom: 6px;">{{ t('dashboard.recoveryAudit') }}</small>
+            <div
+              v-for="entry in recoveryAuditEntries"
+              :key="`${entry.task_id}-${entry.created_at}`"
+              class="issue-alert-card"
+            >
+              <div class="issue-alert-card__header">
+                <el-tag type="info" size="small">{{ entry.operator_id }}</el-tag>
+                <span class="issue-alert-card__summary">{{ formatRelativeTime(entry.created_at) }}</span>
+              </div>
+              <div class="issue-alert-card__remediation">{{ entry.note || t('display.empty') }}</div>
+              <ul style="margin: 8px 0 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px;">
+                <li v-for="item in entry.items" :key="item.review_id">
+                  {{ item.plugin_id }} · {{ item.reason_code }}
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div v-else class="readiness-note" style="margin-top: 12px;">
+            <small style="color: var(--muted);">{{ t('dashboard.recoveryAuditEmpty') }}</small>
           </div>
         </div>
       </el-card>

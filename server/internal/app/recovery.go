@@ -22,7 +22,7 @@ func (a *App) refreshRecoverySummary() {
 		a.applyRecoverySummary(summary)
 		return
 	}
-	if summary.RequiresPostStartChecks {
+	if summary.RequiresPostStartChecks || recovery.NeedsSummaryNormalization(*summary) {
 		reconciled, reconcileErr := a.reconcileRecoverySummary()
 		if reconcileErr == nil && reconciled != nil {
 			summary = reconciled

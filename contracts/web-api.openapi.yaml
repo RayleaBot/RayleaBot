@@ -20,6 +20,7 @@ x-fixtures:
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.system-backup-accepted.yaml
   - fixtures/web-api/ok.system-recovery-recheck-accepted.yaml
+  - fixtures/web-api/ok.system-recovery-confirm-accepted.yaml
   - fixtures/web-api/ok.system-runtime-bootstrap-accepted.yaml
   - fixtures/web-api/ok.system-render-preview-accepted.yaml
   - fixtures/web-api/ok.system-render-artifact.yaml
@@ -28,6 +29,7 @@ x-fixtures:
   - fixtures/web-api/ok.tasks-list-response.yaml
   - fixtures/web-api/ok.task-detail-response.yaml
   - fixtures/web-api/ok.task-detail-succeeded-recovery-recheck.yaml
+  - fixtures/web-api/ok.task-detail-succeeded-recovery-confirm.yaml
   - fixtures/web-api/ok.task-detail-succeeded-install.yaml
   - fixtures/web-api/ok.task-detail-succeeded-render-preview.yaml
   - fixtures/web-api/ok.task-detail-succeeded-runtime-bootstrap.yaml
@@ -338,6 +340,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/recovery/confirm:
+    post:
+      summary: Start an asynchronous recovery.confirm task to record operator confirmation for the current skipped plugin list.
+      operationId: createRecoveryConfirm
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecoveryConfirmRequest'
+      responses:
+        '202':
+          description: Recovery confirmation task accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         '404':
@@ -1136,7 +1166,7 @@ components:
     RecoveryCompatibilitySkippedPlugin:
       type: object
       additionalProperties: false
-      required: [plugin_id, reason_code, summary]
+      required: [plugin_id, reason_code, summary, review_id, review_status]
       properties:
         plugin_id:
           type: string
@@ -1146,10 +1176,72 @@ components:
           type: string
         summary:
           type: string
+        review_id:
+          type: string
+        review_status:
+          type: string
+          enum: [pending, confirmed]
+        reviewed_at:
+          type: string
+          format: date-time
+        reviewed_by:
+          type: string
         manual_action:
           type: string
         manifest_path:
           type: string
+
+    RecoveryCompatibilityAuditItem:
+      type: object
+      additionalProperties: false
+      required: [review_id, plugin_id, reason_code, summary]
+      properties:
+        review_id:
+          type: string
+        plugin_id:
+          type: string
+        reason_code:
+          type: string
+        summary:
+          type: string
+        version:
+          type: string
+
+    RecoveryCompatibilityAuditEntry:
+      type: object
+      additionalProperties: false
+      required: [task_id, created_at, operator_id, note, items]
+      properties:
+        task_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        operator_id:
+          type: string
+        note:
+          type: string
+          maxLength: 500
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecoveryCompatibilityAuditItem'
+
+    RecoveryConfirmRequest:
+      type: object
+      additionalProperties: false
+      required: [review_ids]
+      properties:
+        review_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+        note:
+          type: string
+          maxLength: 500
 
     RecoveryCompatibilitySummary:
       type: object
@@ -1203,6 +1295,11 @@ components:
           description: Post-startup degraded summaries keep stable follow-up steps here; compatible summaries omit this field.
           items:
             type: string
+        audit:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/RecoveryCompatibilityAuditEntry'
 
     TaskStatus:
       type: string
@@ -1216,6 +1313,7 @@ components:
         - plugin.reload
         - backup.create
         - recovery.recheck
+        - recovery.confirm
         - restore.apply
         - config.migrate
         - db.migrate

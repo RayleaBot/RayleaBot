@@ -16,6 +16,7 @@ export type TaskType =
   | 'plugin.reload'
   | 'backup.create'
   | 'recovery.recheck'
+  | 'recovery.confirm'
   | 'restore.apply'
   | 'config.migrate'
   | 'db.migrate'
@@ -82,8 +83,28 @@ export interface RecoveryCompatibilitySkippedPlugin {
   version?: string
   reason_code: string
   summary: string
+  review_id: string
+  review_status: 'pending' | 'confirmed'
+  reviewed_at?: string
+  reviewed_by?: string
   manual_action?: string
   manifest_path?: string
+}
+
+export interface RecoveryCompatibilityAuditItem {
+  review_id: string
+  plugin_id: string
+  reason_code: string
+  summary: string
+  version?: string
+}
+
+export interface RecoveryCompatibilityAuditEntry {
+  task_id: string
+  created_at: string
+  operator_id: string
+  note: string
+  items: RecoveryCompatibilityAuditItem[]
 }
 
 export interface RecoveryCompatibilitySummary {
@@ -103,6 +124,7 @@ export interface RecoveryCompatibilitySummary {
   skipped_plugins?: RecoveryCompatibilitySkippedPlugin[]
   manual_actions?: string[]
   next_steps?: string[]
+  audit?: RecoveryCompatibilityAuditEntry[]
 }
 
 export interface ReadinessStatusResponse {
@@ -172,6 +194,11 @@ export interface TaskDetailResponse {
 
 export interface TaskAcceptedResponse {
   task_id: string
+}
+
+export interface RecoveryConfirmRequest {
+  review_ids: string[]
+  note?: string
 }
 
 export type RuntimeBootstrapResource = 'chromium' | 'python-runtime' | 'nodejs-runtime'

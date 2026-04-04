@@ -66,6 +66,8 @@ const snapshot: LauncherSnapshot = {
         plugin_id: "weather-pro",
         reason_code: "plugin.min_core_version",
         summary: "插件最低 core 版本要求不满足。",
+        review_id: "review_weather_pro",
+        review_status: "pending",
       },
     ],
     manual_actions: ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],

@@ -2,7 +2,9 @@ package recovery
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +27,9 @@ const (
 	BackupManifestVersion = "1"
 	RecoverySummaryPath   = "logs/recovery-summary.json"
 	defaultCoreVersion    = "0.0.0-dev"
+	reviewStatusPending   = "pending"
+	reviewStatusConfirmed = "confirmed"
+	maxAuditEntries       = 50
 )
 
 type BackupManifest struct {
@@ -64,8 +69,28 @@ type SkippedPlugin struct {
 	Version       string `json:"version,omitempty"`
 	ReasonCode    string `json:"reason_code"`
 	Summary       string `json:"summary"`
+	ReviewID      string `json:"review_id"`
+	ReviewStatus  string `json:"review_status"`
+	ReviewedAt    string `json:"reviewed_at,omitempty"`
+	ReviewedBy    string `json:"reviewed_by,omitempty"`
 	ManualAction  string `json:"manual_action,omitempty"`
 	ManifestPath  string `json:"manifest_path,omitempty"`
+}
+
+type AuditItem struct {
+	ReviewID   string `json:"review_id"`
+	PluginID   string `json:"plugin_id"`
+	ReasonCode string `json:"reason_code"`
+	Summary    string `json:"summary"`
+	Version    string `json:"version,omitempty"`
+}
+
+type AuditEntry struct {
+	TaskID     string      `json:"task_id"`
+	CreatedAt  string      `json:"created_at"`
+	OperatorID string      `json:"operator_id"`
+	Note       string      `json:"note"`
+	Items      []AuditItem `json:"items"`
 }
 
 type CompatibilitySummary struct {
@@ -85,6 +110,7 @@ type CompatibilitySummary struct {
 	SkippedPlugins            []SkippedPlugin      `json:"skipped_plugins,omitempty"`
 	ManualActions             []string             `json:"manual_actions,omitempty"`
 	NextSteps                 []string             `json:"next_steps,omitempty"`
+	Audit                     []AuditEntry         `json:"audit,omitempty"`
 }
 
 type RuntimeReadiness struct {
@@ -96,6 +122,14 @@ type FinalizeInput struct {
 	Plugins          []plugins.Snapshot
 	DesiredStateRepo plugins.DesiredStateRepository
 	Readiness        RuntimeReadiness
+}
+
+type UnknownReviewIDsError struct {
+	ReviewIDs []string
+}
+
+func (e *UnknownReviewIDsError) Error() string {
+	return "unknown recovery review ids"
 }
 
 func BuildBackupManifest(repoRoot string, consistency string) BackupManifest {
@@ -186,51 +220,121 @@ func Finalize(summary CompatibilitySummary, input FinalizeInput) CompatibilitySu
 	summary.Phase = "post_startup"
 	summary.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	summary.RequiresPostStartChecks = false
-	summary.Status = "pending"
 	summary.Issues = nil
 	summary.ManualActions = nil
 	summary.NextSteps = nil
 	summary.SkippedPlugins = nil
+	summary.Audit = trimAuditEntries(summary.Audit)
 
-	if !input.Readiness.RuntimeReady {
-		summary.Status = "degraded"
-		for _, issue := range input.Readiness.RuntimeIssues {
-			summary.Issues = append(summary.Issues, CompatibilityIssue{
-				Code:        issue.Code,
-				Severity:    issue.Severity,
-				Summary:     issue.Summary,
-				Remediation: issue.Remediation,
-			})
-		}
-	}
+	machineIssues := cloneIssues(input.Readiness.RuntimeIssues)
+	summary.Issues = append(summary.Issues, machineIssues...)
+
+	confirmedReviews := confirmedReviewLookup(summary)
 
 	platformName := currentPlatform()
 	for _, plugin := range input.Plugins {
 		if plugin.SourceRoot == "plugins/builtin" || plugin.RegistrationState != "installed" {
 			continue
 		}
-		reasonCode, issue, skipped := pluginCompatibilityIssue(plugin, summary.TargetCoreVersion, platformName)
+		reasonCode, skipped := pluginCompatibilityIssue(plugin, summary.TargetCoreVersion, platformName)
 		if reasonCode == "" {
 			continue
 		}
-		if summary.Status == "pending" || summary.Status == "" {
-			summary.Status = "degraded"
+		if confirmation, ok := confirmedReviews[skipped.ReviewID]; ok {
+			skipped.ReviewStatus = reviewStatusConfirmed
+			skipped.ReviewedAt = confirmation.ReviewedAt
+			skipped.ReviewedBy = confirmation.ReviewedBy
 		}
-		summary.Issues = append(summary.Issues, issue)
 		summary.SkippedPlugins = append(summary.SkippedPlugins, skipped)
+		if skipped.ReviewStatus != reviewStatusConfirmed {
+			summary.Issues = append(summary.Issues, pluginIssueFromSkipped(skipped))
+		}
 		if input.DesiredStateRepo != nil && plugin.DesiredState != "disabled" {
 			_ = input.DesiredStateRepo.SaveDesiredState(context.Background(), plugin.PluginID, "disabled", time.Now().UTC())
 		}
 	}
 
-	if summary.Status == "pending" || summary.Status == "" {
-		summary.Status = "compatible"
-	}
+	pendingSkippedPlugins := pendingSkippedPlugins(summary.SkippedPlugins)
+	summary.Status = recoveryStatus(machineIssues, pendingSkippedPlugins)
 	if summary.Status != "compatible" {
-		summary.ManualActions = buildManualActions(input.Readiness.RuntimeIssues, summary.SkippedPlugins)
-		summary.NextSteps = buildNextSteps(input.Readiness.RuntimeIssues, summary.SkippedPlugins)
+		summary.ManualActions = buildManualActions(machineIssues, pendingSkippedPlugins)
+		summary.NextSteps = buildNextSteps(machineIssues, pendingSkippedPlugins)
 	}
 	return summary
+}
+
+func ConfirmSkippedPlugins(summary CompatibilitySummary, reviewIDs []string, operatorID, note, taskID string) (CompatibilitySummary, []string, error) {
+	reviewIDs = dedupeStrings(reviewIDs)
+	if len(reviewIDs) == 0 {
+		return summary, nil, &UnknownReviewIDsError{}
+	}
+
+	indexByReviewID := map[string]int{}
+	for index, skipped := range summary.SkippedPlugins {
+		if strings.TrimSpace(skipped.ReviewID) != "" {
+			indexByReviewID[skipped.ReviewID] = index
+		}
+	}
+
+	unknown := make([]string, 0, len(reviewIDs))
+	for _, reviewID := range reviewIDs {
+		if _, ok := indexByReviewID[reviewID]; !ok {
+			unknown = append(unknown, reviewID)
+		}
+	}
+	if len(unknown) > 0 {
+		return summary, nil, &UnknownReviewIDsError{ReviewIDs: unknown}
+	}
+
+	operatorID = strings.TrimSpace(operatorID)
+	note = strings.TrimSpace(note)
+	confirmedAt := time.Now().UTC().Format(time.RFC3339)
+	newlyConfirmed := make([]string, 0, len(reviewIDs))
+	auditItems := make([]AuditItem, 0, len(reviewIDs))
+
+	for _, reviewID := range reviewIDs {
+		skipped := &summary.SkippedPlugins[indexByReviewID[reviewID]]
+		if skipped.ReviewStatus == reviewStatusConfirmed {
+			continue
+		}
+		skipped.ReviewStatus = reviewStatusConfirmed
+		skipped.ReviewedAt = confirmedAt
+		skipped.ReviewedBy = operatorID
+		newlyConfirmed = append(newlyConfirmed, reviewID)
+		auditItems = append(auditItems, AuditItem{
+			ReviewID:   skipped.ReviewID,
+			PluginID:   skipped.PluginID,
+			ReasonCode: skipped.ReasonCode,
+			Summary:    skipped.Summary,
+			Version:    skipped.Version,
+		})
+	}
+
+	machineIssues := filterMachineIssues(summary.Issues)
+	pendingSkipped := pendingSkippedPlugins(summary.SkippedPlugins)
+	summary.Issues = append(machineIssues, issuesForSkippedPlugins(pendingSkipped)...)
+	if len(summary.Issues) == 0 {
+		summary.Issues = nil
+	}
+	summary.Status = recoveryStatus(machineIssues, pendingSkipped)
+	if summary.Status == "compatible" {
+		summary.ManualActions = nil
+		summary.NextSteps = nil
+	} else {
+		summary.ManualActions = buildManualActions(machineIssues, pendingSkipped)
+		summary.NextSteps = buildNextSteps(machineIssues, pendingSkipped)
+	}
+	if len(newlyConfirmed) > 0 {
+		summary.UpdatedAt = confirmedAt
+		summary.Audit = trimAuditEntries(append([]AuditEntry{{
+			TaskID:     strings.TrimSpace(taskID),
+			CreatedAt:  confirmedAt,
+			OperatorID: operatorID,
+			Note:       note,
+			Items:      auditItems,
+		}}, summary.Audit...))
+	}
+	return summary, newlyConfirmed, nil
 }
 
 func filterFinalizeIssues(issues []CompatibilityIssue) []CompatibilityIssue {
@@ -281,6 +385,26 @@ func buildNextSteps(runtimeIssues []CompatibilityIssue, skippedPlugins []Skipped
 		return nil
 	}
 	return steps
+}
+
+func NeedsSummaryNormalization(summary CompatibilitySummary) bool {
+	if summary.Phase != "post_startup" {
+		return false
+	}
+	if len(summary.Audit) > maxAuditEntries {
+		return true
+	}
+	for _, skipped := range summary.SkippedPlugins {
+		if strings.TrimSpace(skipped.ReviewID) == "" {
+			return true
+		}
+		switch skipped.ReviewStatus {
+		case reviewStatusPending, reviewStatusConfirmed:
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func appendUniqueString(items []string, value string) []string {
@@ -438,38 +562,224 @@ func currentPlatform() string {
 	}
 }
 
-func pluginCompatibilityIssue(plugin plugins.Snapshot, targetCoreVersion, platformName string) (string, CompatibilityIssue, SkippedPlugin) {
+func pluginCompatibilityIssue(plugin plugins.Snapshot, targetCoreVersion, platformName string) (string, SkippedPlugin) {
 	if strings.TrimSpace(plugin.MinCoreVersion) != "" && compareSemver(plugin.MinCoreVersion, targetCoreVersion) > 0 {
-		return "plugin.min_core_version", CompatibilityIssue{
-				Code:        "recovery.plugin_min_core_version",
-				Severity:    "warning",
-				Summary:     fmt.Sprintf("插件 %s 需要更高版本的 RayleaBot core。", plugin.PluginID),
-				Remediation: "升级程序或安装与当前版本兼容的插件包后，再手动重新启用该插件。",
-			}, SkippedPlugin{
+		return "plugin.min_core_version", SkippedPlugin{
 				PluginID:     plugin.PluginID,
 				Version:      plugin.Version,
 				ReasonCode:   "plugin.min_core_version",
 				Summary:      "插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。",
+				ReviewID:     buildReviewID(plugin.PluginID, "plugin.min_core_version", plugin.Version),
+				ReviewStatus: reviewStatusPending,
 				ManualAction: "升级程序或重新安装兼容版本插件。",
 				ManifestPath: plugin.ManifestPath,
 			}
 	}
 	if len(plugin.Platforms) > 0 && !contains(plugin.Platforms, platformName) {
-		return "plugin.platform_mismatch", CompatibilityIssue{
-				Code:        "recovery.plugin_platform_mismatch",
-				Severity:    "warning",
-				Summary:     fmt.Sprintf("插件 %s 不支持当前运行平台。", plugin.PluginID),
-				Remediation: "请改用支持当前平台的插件包后，再手动重新启用该插件。",
-			}, SkippedPlugin{
+		return "plugin.platform_mismatch", SkippedPlugin{
 				PluginID:     plugin.PluginID,
 				Version:      plugin.Version,
 				ReasonCode:   "plugin.platform_mismatch",
 				Summary:      "插件平台兼容性不满足，已保留安装目录并跳过自动启用。",
+				ReviewID:     buildReviewID(plugin.PluginID, "plugin.platform_mismatch", plugin.Version),
+				ReviewStatus: reviewStatusPending,
 				ManualAction: "安装支持当前平台的插件包。",
 				ManifestPath: plugin.ManifestPath,
 			}
 	}
-	return "", CompatibilityIssue{}, SkippedPlugin{}
+	return "", SkippedPlugin{}
+}
+
+type reviewConfirmation struct {
+	ReviewedAt string
+	ReviewedBy string
+}
+
+func confirmedReviewLookup(summary CompatibilitySummary) map[string]reviewConfirmation {
+	lookup := map[string]reviewConfirmation{}
+	for _, skipped := range summary.SkippedPlugins {
+		if skipped.ReviewStatus != reviewStatusConfirmed || strings.TrimSpace(skipped.ReviewID) == "" {
+			continue
+		}
+		lookup[skipped.ReviewID] = reviewConfirmation{
+			ReviewedAt: skipped.ReviewedAt,
+			ReviewedBy: skipped.ReviewedBy,
+		}
+	}
+	for _, entry := range summary.Audit {
+		for _, item := range entry.Items {
+			if strings.TrimSpace(item.ReviewID) == "" {
+				continue
+			}
+			if _, exists := lookup[item.ReviewID]; exists {
+				continue
+			}
+			lookup[item.ReviewID] = reviewConfirmation{
+				ReviewedAt: entry.CreatedAt,
+				ReviewedBy: entry.OperatorID,
+			}
+		}
+	}
+	return lookup
+}
+
+func cloneIssues(issues []CompatibilityIssue) []CompatibilityIssue {
+	if len(issues) == 0 {
+		return nil
+	}
+	cloned := make([]CompatibilityIssue, 0, len(issues))
+	for _, issue := range issues {
+		cloned = append(cloned, CompatibilityIssue{
+			Code:        issue.Code,
+			Severity:    issue.Severity,
+			Summary:     issue.Summary,
+			Remediation: issue.Remediation,
+		})
+	}
+	return cloned
+}
+
+func buildReviewID(pluginID, reasonCode, version string) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{
+		strings.TrimSpace(pluginID),
+		strings.TrimSpace(reasonCode),
+		strings.TrimSpace(version),
+	}, "\x00")))
+	return "review_" + hex.EncodeToString(sum[:])
+}
+
+func pluginIssueFromSkipped(skipped SkippedPlugin) CompatibilityIssue {
+	switch strings.TrimSpace(skipped.ReasonCode) {
+	case "plugin.min_core_version":
+		return CompatibilityIssue{
+			Code:        "recovery.plugin_min_core_version",
+			Severity:    "warning",
+			Summary:     fmt.Sprintf("插件 %s 需要更高版本的 RayleaBot core。", skipped.PluginID),
+			Remediation: "升级程序或安装与当前版本兼容的插件包后，再手动重新启用该插件。",
+		}
+	case "plugin.platform_mismatch":
+		return CompatibilityIssue{
+			Code:        "recovery.plugin_platform_mismatch",
+			Severity:    "warning",
+			Summary:     fmt.Sprintf("插件 %s 不支持当前运行平台。", skipped.PluginID),
+			Remediation: "请改用支持当前平台的插件包后，再手动重新启用该插件。",
+		}
+	default:
+		return CompatibilityIssue{
+			Code:        "recovery.plugin_incompatible",
+			Severity:    "warning",
+			Summary:     skipped.Summary,
+			Remediation: skipped.ManualAction,
+		}
+	}
+}
+
+func issuesForSkippedPlugins(skippedPlugins []SkippedPlugin) []CompatibilityIssue {
+	if len(skippedPlugins) == 0 {
+		return nil
+	}
+	issues := make([]CompatibilityIssue, 0, len(skippedPlugins))
+	for _, skipped := range skippedPlugins {
+		issues = append(issues, pluginIssueFromSkipped(skipped))
+	}
+	return issues
+}
+
+func pendingSkippedPlugins(skippedPlugins []SkippedPlugin) []SkippedPlugin {
+	if len(skippedPlugins) == 0 {
+		return nil
+	}
+	items := make([]SkippedPlugin, 0, len(skippedPlugins))
+	for _, skipped := range skippedPlugins {
+		if skipped.ReviewStatus == reviewStatusConfirmed {
+			continue
+		}
+		items = append(items, skipped)
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return items
+}
+
+func filterMachineIssues(issues []CompatibilityIssue) []CompatibilityIssue {
+	if len(issues) == 0 {
+		return nil
+	}
+	filtered := make([]CompatibilityIssue, 0, len(issues))
+	for _, issue := range issues {
+		if isPluginRecoveryIssueCode(issue.Code) {
+			continue
+		}
+		filtered = append(filtered, issue)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
+func isPluginRecoveryIssueCode(code string) bool {
+	return strings.HasPrefix(strings.TrimSpace(code), "recovery.plugin_")
+}
+
+func recoveryStatus(machineIssues []CompatibilityIssue, pendingSkipped []SkippedPlugin) string {
+	for _, issue := range machineIssues {
+		if issue.Severity == "error" {
+			return "blocked"
+		}
+	}
+	if len(machineIssues) > 0 || len(pendingSkipped) > 0 {
+		return "degraded"
+	}
+	return "compatible"
+}
+
+func trimAuditEntries(entries []AuditEntry) []AuditEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+	if len(entries) > maxAuditEntries {
+		entries = entries[:maxAuditEntries]
+	}
+	cloned := make([]AuditEntry, 0, len(entries))
+	for _, entry := range entries {
+		items := make([]AuditItem, 0, len(entry.Items))
+		for _, item := range entry.Items {
+			items = append(items, item)
+		}
+		cloned = append(cloned, AuditEntry{
+			TaskID:     entry.TaskID,
+			CreatedAt:  entry.CreatedAt,
+			OperatorID: entry.OperatorID,
+			Note:       entry.Note,
+			Items:      items,
+		})
+	}
+	return cloned
+}
+
+func dedupeStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		items = append(items, value)
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return items
 }
 
 func stringValue(value any) string {

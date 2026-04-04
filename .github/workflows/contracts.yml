@@ -404,6 +404,7 @@ jobs:
               '/api/system/shutdown',
               '/api/system/backup',
               '/api/system/recovery/recheck',
+              '/api/system/recovery/confirm',
               '/api/system/render/preview',
               '/api/system/render/artifacts/{artifact_id}',
               '/api/system/runtime/bootstrap',
@@ -451,7 +452,7 @@ jobs:
           if resource_items.get('$ref') != '#/components/schemas/RuntimeBootstrapResource':
               raise SystemExit('RuntimeBootstrapRequest.resources items must reference RuntimeBootstrapResource')
           task_type_enum = set(web_api['components']['schemas'].get('TaskType', {}).get('enum', []))
-          for task_type in ['recovery.recheck', 'runtime.bootstrap']:
+          for task_type in ['recovery.recheck', 'recovery.confirm', 'runtime.bootstrap']:
               if task_type not in task_type_enum:
                   raise SystemExit(f'web-api.openapi.yaml TaskType missing {task_type}')
 

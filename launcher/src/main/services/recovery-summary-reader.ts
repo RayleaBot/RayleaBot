@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
+  RecoveryCompatibilityAuditEntry,
+  RecoveryCompatibilityAuditItem,
   RecoveryCompatibilityIssue,
   RecoveryCompatibilitySkippedPlugin,
   RecoveryCompatibilitySummary,
@@ -86,10 +88,14 @@ function parseSkippedPlugins(value: unknown): RecoveryCompatibilitySummary["skip
       const pluginId = readNonEmptyString(payload.plugin_id);
       const reasonCode = readNonEmptyString(payload.reason_code);
       const summary = readNonEmptyString(payload.summary);
-      if (!pluginId || !reasonCode || !summary) {
+      const reviewId = readNonEmptyString(payload.review_id);
+      const reviewStatus = readNonEmptyString(payload.review_status);
+      if (!pluginId || !reasonCode || !summary || !reviewId || (reviewStatus !== "pending" && reviewStatus !== "confirmed")) {
         return null;
       }
       const version = readNonEmptyString(payload.version);
+      const reviewedAt = readNonEmptyString(payload.reviewed_at);
+      const reviewedBy = readNonEmptyString(payload.reviewed_by);
       const manualAction = readNonEmptyString(payload.manual_action);
       const manifestPath = readNonEmptyString(payload.manifest_path);
       const plugin: RecoveryCompatibilitySkippedPlugin = {
@@ -97,6 +103,10 @@ function parseSkippedPlugins(value: unknown): RecoveryCompatibilitySummary["skip
         ...(version ? { version } : {}),
         reason_code: reasonCode,
         summary,
+        review_id: reviewId,
+        review_status: reviewStatus as RecoveryCompatibilitySkippedPlugin["review_status"],
+        ...(reviewedAt ? { reviewed_at: reviewedAt } : {}),
+        ...(reviewedBy ? { reviewed_by: reviewedBy } : {}),
         ...(manualAction ? { manual_action: manualAction } : {}),
         ...(manifestPath ? { manifest_path: manifestPath } : {}),
       };
@@ -104,6 +114,68 @@ function parseSkippedPlugins(value: unknown): RecoveryCompatibilitySummary["skip
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
   return plugins.length > 0 ? plugins : undefined;
+}
+
+function parseAuditItems(value: unknown): RecoveryCompatibilityAuditItem[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => {
+      const payload = asObjectRecord(item);
+      if (!payload) {
+        return null;
+      }
+      const reviewId = readNonEmptyString(payload.review_id);
+      const pluginId = readNonEmptyString(payload.plugin_id);
+      const reasonCode = readNonEmptyString(payload.reason_code);
+      const summary = readNonEmptyString(payload.summary);
+      if (!reviewId || !pluginId || !reasonCode || !summary) {
+        return null;
+      }
+      const version = readNonEmptyString(payload.version);
+      const auditItem: RecoveryCompatibilityAuditItem = {
+        review_id: reviewId,
+        plugin_id: pluginId,
+        reason_code: reasonCode,
+        summary,
+        ...(version ? { version } : {}),
+      };
+      return auditItem;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+  return items.length > 0 ? items : undefined;
+}
+
+function parseAudit(value: unknown): RecoveryCompatibilitySummary["audit"] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = value
+    .map((item) => {
+      const payload = asObjectRecord(item);
+      if (!payload) {
+        return null;
+      }
+      const taskId = readNonEmptyString(payload.task_id);
+      const createdAt = readNonEmptyString(payload.created_at);
+      const operatorId = readNonEmptyString(payload.operator_id);
+      const rawNote = typeof payload.note === "string" ? payload.note.trim() : null;
+      const items = parseAuditItems(payload.items);
+      if (!taskId || !createdAt || !operatorId || rawNote === null || !items) {
+        return null;
+      }
+      const entry: RecoveryCompatibilityAuditEntry = {
+        task_id: taskId,
+        created_at: createdAt,
+        operator_id: operatorId,
+        note: rawNote,
+        items,
+      };
+      return entry;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+  return entries.length > 0 ? entries : undefined;
 }
 
 function parseRecoverySummary(value: unknown): RecoveryCompatibilitySummary | null {
@@ -172,6 +244,11 @@ function parseRecoverySummary(value: unknown): RecoveryCompatibilitySummary | nu
   const skippedPlugins = parseSkippedPlugins(payload.skipped_plugins);
   if (skippedPlugins) {
     summary.skipped_plugins = skippedPlugins;
+  }
+
+  const audit = parseAudit(payload.audit);
+  if (audit) {
+    summary.audit = audit;
   }
 
   return summary;
