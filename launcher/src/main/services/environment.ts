@@ -40,7 +40,11 @@ type DepsManifestResource = {
   platform?: string;
   kind?: string;
   version?: string;
-  source?: string;
+  sources?: Array<{
+    url?: string;
+    kind?: string;
+    label?: string;
+  }>;
   sha256?: string;
   archive_format?: string;
   entrypoints?: Record<string, string[]>;
@@ -71,7 +75,7 @@ function parseDepsManifest(probe: EnvironmentProbeInput): { invalid: boolean; re
   }
   try {
     const payload = JSON.parse(probe.depsManifestText) as { manifest_version?: number; resources?: DepsManifestResource[] };
-    if (payload.manifest_version !== 2) {
+    if (payload.manifest_version !== 3) {
       return { invalid: true, resources: [] };
     }
     return { invalid: false, resources: payload.resources ?? [] };
@@ -88,9 +92,24 @@ function resourceHasCompleteMetadata(resource?: DepsManifestResource) {
     return false;
   }
 
-  const source = resource.source?.trim() ?? "";
-  if (!source.startsWith("https://")) {
+  const sources = resource.sources ?? [];
+  if (sources.length === 0) {
     return false;
+  }
+  const seen = new Set<string>();
+  for (const source of sources) {
+    const url = source.url?.trim() ?? "";
+    const kind = source.kind?.trim() ?? "";
+    if (!url.startsWith("https://")) {
+      return false;
+    }
+    if (kind !== "upstream" && kind !== "mirror") {
+      return false;
+    }
+    if (seen.has(url)) {
+      return false;
+    }
+    seen.add(url);
   }
 
   const sha256 = resource.sha256?.trim().toLowerCase() ?? "";
@@ -418,8 +437,8 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
               "当前平台的 Chromium 浏览环境已展开，可直接用于 render.image。",
               "当前平台的 Chromium 浏览环境归档已缓存，可在离线环境展开。",
               "当前平台的 Chromium 配置信息完整，可在需要时自动准备。",
-              `依赖清单中缺少 ${probe.platform} Chromium 资源的有效 archive_format、entrypoints、source 或 sha256。`,
-              "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源的 archive_format、entrypoints、source 与 sha256。",
+              `依赖清单中缺少 ${probe.platform} Chromium 资源的有效 archive_format、entrypoints、sources 或 sha256。`,
+              "请在 .deps/manifest.json 中补齐当前平台 Chromium 资源的 archive_format、entrypoints、sources 与 sha256。",
             )
           : {
               code: "deps.chromium_missing",
@@ -446,11 +465,11 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
           : {
               code: "deps.python_runtime_metadata_incomplete",
               title: "Python 运行环境信息",
-              severity: "warning",
-              summary: "Python 运行环境信息不完整。",
-              detail: `配置清单中缺少 ${probe.platform} Python 运行环境的有效 source 或 sha256。`,
-              remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 source 与 sha256。",
-            },
+            severity: "warning",
+            summary: "Python 运行环境信息不完整。",
+            detail: `配置清单中缺少 ${probe.platform} Python 运行环境的有效 sources 或 sha256。`,
+            remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 sources 与 sha256。",
+          },
       );
       checks.push(
         bootstrapStateIssue(
@@ -466,7 +485,7 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
           "当前平台的 Python 运行环境安装包已缓存，启动服务时会自动完成准备。",
           "当前平台的 Python 运行环境配置信息完整，启动服务时会自动准备。",
           `当前平台的 Python 运行环境缺少有效配置信息或本地资源。`,
-          "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、source 与 sha256。",
+          "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、sources 与 sha256。",
         ),
       );
 
@@ -485,11 +504,11 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
           : {
               code: "deps.nodejs_runtime_metadata_incomplete",
               title: "Node.js / npm 环境信息",
-              severity: "warning",
-              summary: "Node.js / npm 环境信息不完整。",
-              detail: `配置清单中缺少 ${probe.platform} Node.js / npm 环境的有效 source 或 sha256。`,
-              remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 source 与 sha256。",
-            },
+            severity: "warning",
+            summary: "Node.js / npm 环境信息不完整。",
+            detail: `配置清单中缺少 ${probe.platform} Node.js / npm 环境的有效 sources 或 sha256。`,
+            remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 sources 与 sha256。",
+          },
       );
       checks.push(
         bootstrapStateIssue(
@@ -505,7 +524,7 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
           "当前平台的 Node.js 与 npm 安装包已缓存，启动服务时会自动完成准备。",
           "当前平台的 Node.js 与 npm 环境配置信息完整，启动服务时会自动准备。",
           `当前平台的 Node.js 与 npm 环境缺少有效配置信息或本地资源。`,
-          "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、source 与 sha256。",
+          "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、sources 与 sha256。",
         ),
       );
       checks.push(
@@ -522,7 +541,7 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
           "当前平台的 npm 安装包已缓存，启动服务时会自动完成准备。",
           "当前平台的 npm 配置信息完整，启动服务时会自动准备。",
           `当前平台的 npm 缺少有效配置信息或本地资源。`,
-          "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、source 与 sha256。",
+          "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、sources 与 sha256。",
         ),
       );
     }

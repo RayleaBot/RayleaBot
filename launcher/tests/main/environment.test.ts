@@ -18,12 +18,12 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
-        manifest_version: 2,
+        manifest_version: 3,
         resources: [
           {
             platform: "windows-x64",
             kind: "chromium",
-            source: "https://example.invalid/chromium.zip",
+            sources: [{ url: "https://example.invalid/chromium.zip", kind: "upstream" }],
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
             archive_format: "zip",
             entrypoints: { browser: ["chrome-win64/chrome.exe"] },
@@ -31,7 +31,7 @@ describe("inspectLauncherEnvironment", () => {
           {
             platform: "windows-x64",
             kind: "nodejs-runtime",
-            source: "https://example.invalid/node.zip",
+            sources: [{ url: "https://example.invalid/node.zip", kind: "upstream" }],
             sha256: "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
             archive_format: "zip",
             entrypoints: { node: ["node/node.exe"], npm: ["node/npm.cmd"] },
@@ -39,7 +39,7 @@ describe("inspectLauncherEnvironment", () => {
           {
             platform: "windows-x64",
             kind: "python-runtime",
-            source: "https://example.invalid/python.tar.gz",
+            sources: [{ url: "https://example.invalid/python.tar.gz", kind: "upstream" }],
             sha256: "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             archive_format: "tar.gz",
             entrypoints: { python: ["python/python.exe"], pip: ["python/Scripts/pip.exe"] },
@@ -65,8 +65,8 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
-        manifest_version: 2,
-        resources: [{ platform: "windows-x64", kind: "chromium", archive_format: "zip", source: "https://example.invalid/chromium.zip", sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e", entrypoints: { browser: ["chrome-win64/chrome.exe"] } }],
+        manifest_version: 3,
+        resources: [{ platform: "windows-x64", kind: "chromium", archive_format: "zip", sources: [{ url: "https://example.invalid/chromium.zip", kind: "upstream" }], sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e", entrypoints: { browser: ["chrome-win64/chrome.exe"] } }],
       }),
       templatesExist: true,
       templatesHaveFiles: true,
@@ -85,14 +85,14 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
-        manifest_version: 2,
+        manifest_version: 3,
         resources: [
           {
             id: "python-windows-x64",
             platform: "windows-x64",
             kind: "python-runtime",
             version: "3.12.13",
-            source: "https://example.invalid/python.zip",
+            sources: [{ url: "https://example.invalid/python.zip", kind: "upstream" }],
             sha256: "deadbeef",
             archive_format: "zip",
             entrypoints: { python: ["python/python.exe"], pip: ["python/Scripts/pip.exe"] },
@@ -116,14 +116,14 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
-        manifest_version: 2,
+        manifest_version: 3,
         resources: [
           {
             id: "chromium-windows-x64",
             platform: "windows-x64",
             kind: "chromium",
             version: "147.0.7727.24",
-            source: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+            sources: [{ url: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip", kind: "upstream" }],
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
             archive_format: "zip",
             entrypoints: { browser: ["chrome-win64/chrome.exe"] },
@@ -133,7 +133,7 @@ describe("inspectLauncherEnvironment", () => {
             platform: "windows-x64",
             kind: "python-runtime",
             version: "3.12.13",
-            source: "http://example.invalid/python.tar.gz",
+            sources: [{ url: "http://example.invalid/python.tar.gz", kind: "upstream" }],
             sha256: "not-a-sha256",
             archive_format: "tar.gz",
             entrypoints: { python: ["python/python.exe"], pip: ["python/Scripts/pip.exe"] },
@@ -143,7 +143,7 @@ describe("inspectLauncherEnvironment", () => {
             platform: "windows-x64",
             kind: "nodejs-runtime",
             version: "24.14.0",
-            source: "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+            sources: [{ url: "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip", kind: "upstream" }],
             sha256: "deadbeef",
             archive_format: "zip",
             entrypoints: { node: ["node-v24.14.0-win-x64/node.exe"], npm: ["node-v24.14.0-win-x64/npm.cmd"] },
@@ -168,14 +168,14 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
-        manifest_version: 2,
+        manifest_version: 3,
         resources: [
           {
             id: "chromium-windows-x64",
             platform: "windows-x64",
             kind: "chromium",
             version: "147.0.7727.24",
-            source: "https://example.invalid/runtime/TODO(chromium).zip",
+            sources: [{ url: "https://example.invalid/runtime/TODO(chromium).zip", kind: "upstream" }],
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
             archive_format: "zip",
             entrypoints: { browser: ["chrome-win64/chrome.exe"] },
@@ -200,14 +200,14 @@ describe("inspectLauncherEnvironment", () => {
       workdirWritable: true,
       depsManifestExists: true,
       depsManifestText: JSON.stringify({
-        manifest_version: 2,
+        manifest_version: 3,
         resources: [
           {
             id: "chromium-windows-x64",
             platform: "windows-x64",
             kind: "chromium",
             version: "147.0.7727.24",
-            source: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+            sources: [{ url: "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip", kind: "upstream" }],
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
             archive_format: "zip",
             entrypoints: { browser: ["chrome-win64/chrome.exe"] },
@@ -265,14 +265,14 @@ describe("inspectLauncherEnvironment", () => {
     await fs.writeFile(
       path.join(installRoot, ".deps", "manifest.json"),
       JSON.stringify({
-        manifest_version: 2,
+        manifest_version: 3,
         resources: [
           {
             id: `chromium-${platform}`,
             platform,
             kind: "chromium",
             version: "147.0.7727.24",
-            source: "https://example.invalid/chromium.zip",
+            sources: [{ url: "https://example.invalid/chromium.zip", kind: "upstream" }],
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
             archive_format: "zip",
             entrypoints: { browser: ["chrome/chrome"] },
@@ -282,7 +282,7 @@ describe("inspectLauncherEnvironment", () => {
             platform,
             kind: "python-runtime",
             version: "3.12.13",
-            source: "https://example.invalid/python.tar.gz",
+            sources: [{ url: "https://example.invalid/python.tar.gz", kind: "upstream" }],
             sha256: "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             archive_format: "tar.gz",
             entrypoints: { python: ["python/bin/python"], pip: ["python/bin/pip"] },
@@ -292,7 +292,7 @@ describe("inspectLauncherEnvironment", () => {
             platform,
             kind: "nodejs-runtime",
             version: "24.14.0",
-            source: "https://example.invalid/node.zip",
+            sources: [{ url: "https://example.invalid/node.zip", kind: "upstream" }],
             sha256: "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
             archive_format: "zip",
             entrypoints: { node: ["node/bin/node"], npm: ["node/bin/npm"] },
@@ -343,14 +343,14 @@ describe("inspectLauncherEnvironment", () => {
     await fs.writeFile(
       path.join(installRoot, ".deps", "manifest.json"),
       JSON.stringify({
-        manifest_version: 2,
+        manifest_version: 3,
         resources: [
           {
             id: chromiumId,
             platform,
             kind: "chromium",
             version: "147.0.7727.24",
-            source: "https://example.invalid/chromium.zip",
+            sources: [{ url: "https://example.invalid/chromium.zip", kind: "upstream" }],
             sha256: "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
             archive_format: "zip",
             entrypoints: { browser: ["chrome/chrome"] },
@@ -360,7 +360,7 @@ describe("inspectLauncherEnvironment", () => {
             platform,
             kind: "python-runtime",
             version: "3.12.13",
-            source: "https://example.invalid/python.tar.gz",
+            sources: [{ url: "https://example.invalid/python.tar.gz", kind: "upstream" }],
             sha256: "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             archive_format: "tar.gz",
             entrypoints: { python: ["python/bin/python"], pip: ["python/bin/pip"] },
@@ -370,7 +370,7 @@ describe("inspectLauncherEnvironment", () => {
             platform,
             kind: "nodejs-runtime",
             version: "24.14.0",
-            source: "https://example.invalid/node.zip",
+            sources: [{ url: "https://example.invalid/node.zip", kind: "upstream" }],
             sha256: "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
             archive_format: "zip",
             entrypoints: { node: ["node/bin/node"], npm: ["node/bin/npm"] },
