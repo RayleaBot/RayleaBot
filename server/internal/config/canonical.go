@@ -130,7 +130,43 @@ func canonicalizeDocument(raw map[string]any) (map[string]any, error) {
 	if version := strings.TrimSpace(stringValue(cloned["schema_version"])); version == "" {
 		cloned["schema_version"] = currentSchemaVersion
 	}
+	normalizeOneBotSection(cloned)
 	return cloned, nil
+}
+
+func normalizeOneBotSection(document map[string]any) {
+	onebot := section(document, "onebot")
+	if onebot == nil {
+		return
+	}
+
+	wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
+	if wsURL == "" {
+		onebot["ws_url"] = ""
+		return
+	}
+
+	normalized, ok := normalizeOneBotWSURL(wsURL)
+	if ok {
+		onebot["ws_url"] = normalized
+		return
+	}
+
+	onebot["ws_url"] = wsURL
+}
+
+func normalizeOneBotWSURL(raw string) (string, bool) {
+	lower := strings.ToLower(raw)
+	switch {
+	case strings.HasPrefix(lower, "ws://"), strings.HasPrefix(lower, "wss://"):
+		return raw, true
+	case strings.HasPrefix(lower, "ws:"):
+		return "ws://" + strings.TrimLeft(raw[len("ws:"):], "/"), true
+	case strings.HasPrefix(lower, "wss:"):
+		return "wss://" + strings.TrimLeft(raw[len("wss:"):], "/"), true
+	default:
+		return raw, false
+	}
 }
 
 func isLegacyDocument(document map[string]any) bool {

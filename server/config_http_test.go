@@ -157,6 +157,43 @@ func TestConfigPutRejectsInvalidConfig(t *testing.T) {
 	}
 }
 
+func TestConfigPutNormalizesShorthandOneBotURL(t *testing.T) {
+	t.Parallel()
+
+	application, configPath, schemaPath := newTestAppWithConfigMutation(t, nil, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	document, err := internalconfig.LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("load baseline config: %v", err)
+	}
+	document["onebot"].(map[string]any)["ws_url"] = "ws:127.0.0.1:2658"
+
+	payload, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal config update request: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("create config update request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	application.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected config update status: got %d want 200", recorder.Code)
+	}
+
+	saved, err := internalconfig.LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("reload config after update: %v", err)
+	}
+	if got := saved["onebot"].(map[string]any)["ws_url"]; got != "ws://127.0.0.1:2658" {
+		t.Fatalf("saved onebot.ws_url = %#v, want ws://127.0.0.1:2658", got)
+	}
+}
+
 func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), authOptions ...auth.Option) (*internalapp.App, string, string) {
 	t.Helper()
 

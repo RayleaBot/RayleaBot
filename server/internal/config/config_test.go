@@ -242,6 +242,31 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	}
 }
 
+func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	document := newPlanningConfigDocument()
+	document["onebot"].(map[string]any)["ws_url"] = "ws:127.0.0.1:2658"
+
+	cfg, _, err := SaveDocument(configPath, schemaPath, document)
+	if err != nil {
+		t.Fatalf("SaveDocument() error = %v", err)
+	}
+	if cfg.OneBot.WSURL != "ws://127.0.0.1:2658" {
+		t.Fatalf("OneBot.WSURL = %q, want ws://127.0.0.1:2658", cfg.OneBot.WSURL)
+	}
+
+	saved, err := LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("LoadDocument() error = %v", err)
+	}
+	if got := nestedString(t, saved, "onebot", "ws_url"); got != "ws://127.0.0.1:2658" {
+		t.Fatalf("saved onebot.ws_url = %q, want ws://127.0.0.1:2658", got)
+	}
+}
+
 func nestedString(t *testing.T, document map[string]any, path ...string) string {
 	t.Helper()
 
