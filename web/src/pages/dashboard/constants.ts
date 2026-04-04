@@ -1,0 +1,1 @@
+export const AUTO_REFRESH_INTERVAL = 10
