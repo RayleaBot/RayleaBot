@@ -86,7 +86,7 @@ describe('DashboardPage', () => {
 
     await flushPromises()
 
-    const previewButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('渲染预览'))
+    const previewButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('图片预览'))
     expect(previewButton).toBeTruthy()
 
     await previewButton!.trigger('click')
@@ -112,9 +112,7 @@ describe('DashboardPage', () => {
     const store = useSystemStore()
     store.health = { status: 'ok' }
     store.readiness = {
-      status: 'degraded',
-      reason: 'OneBot authentication failed',
-      reason_codes: ['adapter.auth_failed'],
+      status: 'ready',
       issues: [
         {
           code: 'adapter.auth_failed',
@@ -142,6 +140,9 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('就绪检查')
+    expect(wrapper.text()).toContain('协议连接警告')
+    expect(wrapper.text()).not.toContain('运行条件受限')
+    expect(wrapper.findAll('.stat-card--success').length).toBeGreaterThan(0)
     expect(wrapper.text()).toContain('adapter.auth_failed')
     expect(wrapper.text()).toContain('请检查 OneBot access_token 配置后重试连接。')
     expect(wrapper.text()).not.toContain('config = ok')
@@ -165,8 +166,8 @@ describe('DashboardPage', () => {
         {
           code: 'platform.resource_missing',
           severity: 'warning',
-          summary: 'Python 运行时尚未准备完成。',
-          remediation: '请先准备受控 Python 运行时。',
+          summary: 'Python 运行环境尚未准备完成。',
+          remediation: '请先准备 Python 运行环境。',
         },
       ],
     }
@@ -188,8 +189,10 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('运行条件受限')
-    expect(wrapper.text()).toContain('管理面可用，但依赖受控 Python 运行时的能力暂不可用。')
+    expect(wrapper.text()).toContain('管理面可用，但依赖 Python 运行环境的功能暂不可用。')
     expect(wrapper.text()).toContain('健康检查正常，说明管理面可用；就绪状态受限，说明仍有运行条件未满足。')
+    expect(wrapper.text()).toContain('管理面可用')
+    expect(wrapper.text()).not.toContain('degraded')
     expect(wrapper.text()).not.toContain('性能降级')
   })
 
@@ -212,13 +215,13 @@ describe('DashboardPage', () => {
           code: 'platform.resource_missing',
           severity: 'warning',
           summary: 'Chromium 资源尚未准备完成',
-          remediation: '请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。',
+          remediation: '请先准备 Chromium 浏览环境，或在配置中显式设置浏览器路径。',
         },
         {
           code: 'platform.resource_missing',
           severity: 'warning',
           summary: 'Chromium 资源尚未准备完成',
-          remediation: '请先准备受控 Chromium 运行时，或在配置中显式设置 render.browser_path。',
+          remediation: '请先准备 Chromium 浏览环境，或在配置中显式设置浏览器路径。',
         },
       ],
     }
@@ -350,7 +353,7 @@ describe('DashboardPage', () => {
             code: 'platform.resource_missing',
             severity: 'warning',
             summary: 'Chromium 资源尚未准备完成。',
-            remediation: '请先准备受控 Chromium 运行时。',
+            remediation: '请先准备 Chromium 浏览环境。',
           },
         ],
         skipped_plugins: [

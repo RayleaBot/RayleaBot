@@ -200,13 +200,13 @@ test('status page can submit render previews and show the artifact', async ({ pa
   await resetBackend(request, true)
   await login(page)
 
-  await page.getByRole('button', { name: '渲染预览' }).click()
+  await page.getByRole('button', { name: '图片预览' }).click()
   await page.getByPlaceholder('help.menu').fill('help.menu')
   await page.getByRole('button', { name: '生成预览' }).click()
 
   await expect(page.locator('#app-main').getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
   await expect(page.getByText('task_render_preview_0001').first()).toBeVisible()
-  await expect(page.getByRole('img', { name: '渲染预览结果' })).toBeVisible()
+  await expect(page.getByRole('img', { name: '图片预览结果' })).toBeVisible()
 })
 
 test('login keeps the protected shell after reload', async ({ page, request }) => {
@@ -244,7 +244,7 @@ test('error recovery covers retry, invalid grant expiry and uninstall failure', 
 
   await page.getByRole('button', { name: '卸载' }).click()
   await page.getByRole('button', { name: '确认卸载' }).click()
-  await expect(page.getByText('必要运行时资源缺失')).toBeVisible()
+  await expect(page.getByText('缺少必要资源')).toBeVisible()
 })
 
 test('shutdown flow shows the draining banner', async ({ page, request }) => {

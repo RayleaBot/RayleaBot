@@ -17,7 +17,7 @@ function renderPreviewRunningTask(): TaskSummary {
     task_type: 'render.preview',
     status: 'running',
     progress: 90,
-    summary: '生成渲染产物',
+    summary: '生成图片产物',
     started_at: '2026-04-01T15:21:43Z',
   }
 }
@@ -28,11 +28,11 @@ function renderPreviewSucceededTask(): TaskSummary {
     task_type: 'render.preview',
     status: 'succeeded',
     progress: 100,
-    summary: '渲染预览已生成',
+    summary: '图片预览已生成',
     started_at: '2026-04-01T15:21:43Z',
     finished_at: '2026-04-01T15:21:44Z',
     result: {
-      summary: '渲染预览已生成',
+      summary: '图片预览已生成',
       details: {
         artifact_id: 'render_preview_0001.png',
         image_url: '/api/system/render/artifacts/render_preview_0001.png',
@@ -80,7 +80,7 @@ describe('tasks store', () => {
 
     expect(task.status).toBe('succeeded')
     expect(store.currentTask?.status).toBe('succeeded')
-    expect(store.currentTask?.result?.summary).toBe('渲染预览已生成')
+    expect(store.currentTask?.result?.summary).toBe('图片预览已生成')
     expect(store.currentTask?.finished_at).toBe('2026-04-01T15:21:44Z')
   })
 })

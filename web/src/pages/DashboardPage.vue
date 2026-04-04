@@ -54,6 +54,10 @@ const readinessStatusType = computed<StatusType>(() => getStatusType(readiness.v
 const systemStatusType = computed<StatusType>(() => getStatusType(system.value?.status))
 const adapterStatusType = computed<StatusType>(() => getStatusType(system.value?.adapter_state))
 const recoverySummary = computed(() => system.value?.recovery_summary ?? readiness.value?.recovery_summary ?? null)
+const healthDetailText = computed(() => health.value?.status === 'ok' ? '管理面可用' : t('display.empty'))
+const readinessDetailText = computed(() => readiness.value?.reason || getReadinessStatusLabel(readiness.value?.status))
+const systemDetailText = computed(() => getSystemStatusLabel(system.value?.status))
+const adapterDetailText = computed(() => getAdapterStateLabel(system.value?.adapter_state))
 const readinessIssues = computed(() => {
   const issues = readiness.value?.issues ?? []
   const seen = new Set<string>()
@@ -76,6 +80,8 @@ const topIssue = computed(() => {
   if (!readinessIssues.value.length) return null
   return readinessIssues.value.find(i => i.severity === 'error') ?? readinessIssues.value[0]
 })
+
+const adapterWarningIssue = computed(() => readinessIssues.value.find((issue) => issue.code.startsWith('adapter.')) ?? null)
 
 function isPythonRuntimeIssue(issue: { code?: string; summary?: string; remediation?: string }) {
   const joined = `${issue.code ?? ''} ${issue.summary ?? ''} ${issue.remediation ?? ''}`
@@ -110,6 +116,8 @@ const recoveryBootstrapResources = computed<RuntimeBootstrapResource[]>(() => {
   }
   if (resources.size === 0) {
     resources.add('chromium')
+    resources.add('python-runtime')
+    resources.add('nodejs-runtime')
   }
   return [...resources]
 })
@@ -117,12 +125,21 @@ const recoveryBootstrapResources = computed<RuntimeBootstrapResource[]>(() => {
 const alertBannerType = computed<'warning' | 'error' | null>(() => {
   if (readiness.value?.status === 'failed') return 'error'
   if (readiness.value?.status === 'degraded') return 'warning'
+  if (adapterWarningIssue.value) return 'warning'
   return null
+})
+
+const alertBannerTitle = computed(() => {
+  if (readiness.value?.status === 'failed') return t('dashboard.alertFailed')
+  if (readiness.value?.status === 'degraded') return t('dashboard.alertDegraded')
+  if (adapterWarningIssue.value) return t('dashboard.alertProtocolWarning')
+  return ''
 })
 
 const alertBannerMessage = computed(() => {
   if (!readiness.value) return ''
   if (pythonRuntimeIssue.value) return t('dashboard.pythonRuntimeLimited')
+  if (adapterWarningIssue.value) return adapterWarningIssue.value.summary
   if (topIssue.value) return topIssue.value.summary
   if (readiness.value.reason) return readiness.value.reason
   return ''
@@ -344,7 +361,7 @@ async function openRecoveryPlugin(pluginID: string) {
     <el-alert
       v-if="alertBannerType"
       :type="alertBannerType"
-      :title="alertBannerType === 'error' ? t('dashboard.alertFailed') : t('dashboard.alertDegraded')"
+      :title="alertBannerTitle"
       :description="alertBannerMessage"
       show-icon
       :closable="false"
@@ -364,22 +381,22 @@ async function openRecoveryPlugin(pluginID: string) {
       <el-card :class="['stat-card', `stat-card--${healthStatusType}`]">
         <span class="stat-label">{{ t('dashboard.health') }}</span>
         <strong>{{ health?.status === 'ok' ? '正常' : t('display.empty') }}</strong>
-        <small>{{ health?.status ?? t('display.empty') }}</small>
+        <small>{{ healthDetailText }}</small>
       </el-card>
       <el-card :class="['stat-card', `stat-card--${readinessStatusType}`]">
         <span class="stat-label">{{ t('dashboard.readiness') }}</span>
         <strong>{{ getReadinessStatusLabel(readiness?.status) }}</strong>
-        <small>{{ readiness?.status ?? t('display.empty') }}</small>
+        <small>{{ readinessDetailText }}</small>
       </el-card>
       <el-card :class="['stat-card', `stat-card--${systemStatusType}`]">
         <span class="stat-label">{{ t('dashboard.service') }}</span>
         <strong>{{ getSystemStatusLabel(system?.status) }}</strong>
-        <small>{{ system?.status ?? t('display.empty') }}</small>
+        <small>{{ systemDetailText }}</small>
       </el-card>
       <el-card :class="['stat-card', `stat-card--${adapterStatusType}`]">
         <span class="stat-label">{{ t('dashboard.adapter') }}</span>
         <strong>{{ getAdapterStateLabel(system?.adapter_state) }}</strong>
-        <small>{{ system?.adapter_state ?? t('display.empty') }}</small>
+        <small>{{ adapterDetailText }}</small>
       </el-card>
       <el-card class="stat-card">
         <span class="stat-label">{{ t('dashboard.activePlugins') }}</span>

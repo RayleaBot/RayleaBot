@@ -80,9 +80,9 @@ describe('TasksPage', () => {
       task_type: 'render.preview',
       status: 'succeeded',
       progress: 100,
-      summary: '渲染预览已完成',
+      summary: '图片预览已完成',
       result: {
-        summary: '渲染预览已生成',
+        summary: '图片预览已生成',
         details: {
           image_url: '/api/system/render/artifacts/render_preview_0001.png',
           mime: 'image/png',
@@ -102,11 +102,11 @@ describe('TasksPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('任务类型')
-    expect(wrapper.text()).toContain('渲染预览')
+    expect(wrapper.text()).toContain('图片预览')
     expect(wrapper.text()).toContain('render.preview')
-    expect(wrapper.text()).toContain('渲染预览已生成')
+    expect(wrapper.text()).toContain('图片预览已生成')
     expect(apiDownload).toHaveBeenCalledWith('/api/system/render/artifacts/render_preview_0001.png')
-    const image = wrapper.find('img[alt="渲染预览结果"]')
+    const image = wrapper.find('img[alt="图片预览结果"]')
     expect(image.exists()).toBe(true)
     expect(image.attributes('src')).toBe('blob:task-preview')
   })
