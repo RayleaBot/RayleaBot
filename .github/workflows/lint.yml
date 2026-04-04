@@ -128,8 +128,8 @@ jobs:
                       raise SystemExit(f"{label} must mention command: {command}")
 
           manifest = json.loads((root / ".deps" / "manifest.json").read_text(encoding="utf-8"))
-          if manifest.get("manifest_version") != 2:
-              raise SystemExit(".deps/manifest.json manifest_version must be 2")
+          if manifest.get("manifest_version") != 3:
+              raise SystemExit(".deps/manifest.json manifest_version must be 3")
           resources = manifest.get("resources", [])
           resource_ids = {item.get("id") for item in manifest.get("resources", [])}
           for expected in [
@@ -149,12 +149,25 @@ jobs:
           for resource in resources:
               if not isinstance(resource, dict):
                   raise SystemExit(".deps/manifest.json resources must contain objects only")
-              source = str(resource.get("source", "")).strip()
+              sources = resource.get("sources")
               sha256 = str(resource.get("sha256", "")).strip().lower()
               archive_format = str(resource.get("archive_format", "")).strip()
               entrypoints = resource.get("entrypoints")
-              if not source.startswith("https://") or "TODO(" in source:
-                  raise SystemExit(f".deps/manifest.json resource has invalid source: {resource}")
+              if not isinstance(sources, list) or len(sources) == 0:
+                  raise SystemExit(f".deps/manifest.json resource must include sources: {resource}")
+              seen_urls = set()
+              for source in sources:
+                  if not isinstance(source, dict):
+                      raise SystemExit(f".deps/manifest.json resource source must be an object: {resource}")
+                  url = str(source.get("url", "")).strip()
+                  kind = str(source.get("kind", "")).strip()
+                  if not url.startswith("https://") or "TODO(" in url:
+                      raise SystemExit(f".deps/manifest.json resource has invalid source url: {resource}")
+                  if kind not in {"upstream", "mirror"}:
+                      raise SystemExit(f".deps/manifest.json resource has invalid source kind: {resource}")
+                  if url in seen_urls:
+                      raise SystemExit(f".deps/manifest.json resource has duplicate source url: {resource}")
+                  seen_urls.add(url)
               if len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
                   raise SystemExit(f".deps/manifest.json resource has invalid sha256: {resource}")
               if archive_format not in {"zip", "tar.gz", "tar.xz"}:

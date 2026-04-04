@@ -153,12 +153,17 @@ jobs:
 
           if deps_manifest_schema.get('type') != 'object':
               raise SystemExit('deps-manifest.schema.json must define an object schema')
-          if deps_manifest_schema.get('properties', {}).get('manifest_version', {}).get('const') != 2:
-              raise SystemExit('deps-manifest.schema.json manifest_version must be fixed to 2')
+          if deps_manifest_schema.get('properties', {}).get('manifest_version', {}).get('const') != 3:
+              raise SystemExit('deps-manifest.schema.json manifest_version must be fixed to 3')
           resource_base = deps_manifest_schema.get('$defs', {}).get('resourceBase', {})
-          for field in ['id', 'kind', 'version', 'platform', 'source', 'sha256', 'archive_format', 'entrypoints']:
+          for field in ['id', 'kind', 'version', 'platform', 'sources', 'sha256', 'archive_format', 'entrypoints']:
               if field not in resource_base.get('required', []):
                   raise SystemExit(f'deps-manifest.schema.json resourceBase missing required field: {field}')
+          source_entry = deps_manifest_schema.get('$defs', {}).get('sourceEntry', {})
+          if set(source_entry.get('required', [])) != {'url', 'kind'}:
+              raise SystemExit('deps-manifest.schema.json sourceEntry must require url and kind')
+          if set(source_entry.get('properties', {}).get('kind', {}).get('enum', [])) != {'upstream', 'mirror'}:
+              raise SystemExit('deps-manifest.schema.json sourceEntry kind enum mismatch')
           archive_formats = set(resource_base.get('properties', {}).get('archive_format', {}).get('enum', []))
           if archive_formats != {'zip', 'tar.gz', 'tar.xz'}:
               raise SystemExit(f'deps-manifest.schema.json archive_format enum mismatch: {sorted(archive_formats)}')

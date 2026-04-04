@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const ManifestVersion = 2
+const ManifestVersion = 3
 
 var sha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
@@ -31,12 +31,18 @@ type Manifest struct {
 	Resources       []Resource `json:"resources"`
 }
 
+type ResourceSource struct {
+	URL   string `json:"url"`
+	Kind  string `json:"kind"`
+	Label string `json:"label,omitempty"`
+}
+
 type Resource struct {
 	ID            string              `json:"id"`
 	Kind          string              `json:"kind"`
 	Version       string              `json:"version"`
 	Platform      string              `json:"platform"`
-	Source        string              `json:"source"`
+	Sources       []ResourceSource    `json:"sources"`
 	SHA256        string              `json:"sha256"`
 	ArchiveFormat string              `json:"archive_format"`
 	Entrypoints   map[string][]string `json:"entrypoints"`
@@ -65,19 +71,22 @@ type PrepareReport struct {
 	StoreRoot          string
 	UsedPreparedStore  bool
 	UsedCachedArchive  bool
+	AttemptedSources   []string
+	SelectedSource     string
 	PreparedEntrypoint string
 	Entrypoints        map[string]string
 }
 
 type BootstrapError struct {
-	Kind        string
-	Stage       string
-	Source      string
-	ArchivePath string
-	StoreRoot   string
-	Remediation string
-	Message     string
-	Err         error
+	Kind             string
+	Stage            string
+	SelectedSource   string
+	AttemptedSources []string
+	ArchivePath      string
+	StoreRoot        string
+	Remediation      string
+	Message          string
+	Err              error
 }
 
 func (e *BootstrapError) Error() string {
@@ -108,8 +117,11 @@ func (e *BootstrapError) Details() map[string]any {
 		"resource_kind": e.Kind,
 		"stage":         e.Stage,
 	}
-	if strings.TrimSpace(e.Source) != "" {
-		details["source"] = e.Source
+	if strings.TrimSpace(e.SelectedSource) != "" {
+		details["selected_source"] = e.SelectedSource
+	}
+	if len(e.AttemptedSources) > 0 {
+		details["attempted_sources"] = append([]string(nil), e.AttemptedSources...)
 	}
 	if strings.TrimSpace(e.ArchivePath) != "" {
 		details["archive_path"] = e.ArchivePath
@@ -250,12 +262,7 @@ func ResourceMetadataComplete(resource *Resource) bool {
 	if !resourceHasRequiredEntrypoints(resource) {
 		return false
 	}
-	source := strings.TrimSpace(resource.Source)
-	if source == "" || strings.Contains(strings.ToUpper(source), "TODO(") {
-		return false
-	}
-	parsedURL, err := url.Parse(source)
-	if err != nil || parsedURL.Scheme != "https" || parsedURL.Host == "" {
+	if !resourceSourcesComplete(resource) {
 		return false
 	}
 	sha256 := strings.ToLower(strings.TrimSpace(resource.SHA256))
@@ -263,6 +270,40 @@ func ResourceMetadataComplete(resource *Resource) bool {
 		return false
 	}
 	return sha256Pattern.MatchString(sha256)
+}
+
+func resourceSourcesComplete(resource *Resource) bool {
+	if resource == nil || len(resource.Sources) == 0 {
+		return false
+	}
+	seen := map[string]struct{}{}
+	for _, source := range resource.Sources {
+		rawURL := strings.TrimSpace(source.URL)
+		if rawURL == "" || strings.Contains(strings.ToUpper(rawURL), "TODO(") {
+			return false
+		}
+		parsedURL, err := url.Parse(rawURL)
+		if err != nil || parsedURL.Scheme != "https" || parsedURL.Host == "" {
+			return false
+		}
+		if !validResourceSourceKind(strings.TrimSpace(source.Kind)) {
+			return false
+		}
+		if _, ok := seen[rawURL]; ok {
+			return false
+		}
+		seen[rawURL] = struct{}{}
+	}
+	return true
+}
+
+func validResourceSourceKind(kind string) bool {
+	switch kind {
+	case "upstream", "mirror":
+		return true
+	default:
+		return false
+	}
 }
 
 func archiveFormatSupported(format string) bool {
@@ -383,7 +424,7 @@ func (m *Manager) Inspect(kind string) (*BootstrapInspection, error) {
 
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", "", nil, err)
 	}
 	inspection := &BootstrapInspection{
 		Kind:             kind,
@@ -410,7 +451,7 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 	}
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, nil, "manifest", "", nil, err)
 	}
 	report := &PrepareReport{
 		Kind:        kind,
@@ -419,10 +460,10 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 		StoreRoot:   StoreRoot(m.repoRoot, resource),
 	}
 	if !manifest.HasPlatform(CurrentPlatform()) {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform()))
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", "", nil, fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform()))
 	}
 	if !ResourceMetadataComplete(resource) {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", fmt.Errorf("deps resource %s for %s is not bootstrap-ready", kind, CurrentPlatform()))
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "manifest", "", nil, fmt.Errorf("deps resource %s for %s is not bootstrap-ready", kind, CurrentPlatform()))
 	}
 
 	if prepared, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {
@@ -434,11 +475,11 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 
 	lockPath := LockPath(m.repoRoot)
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", fmt.Errorf("create deps lock root: %w", err))
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", "", nil, fmt.Errorf("create deps lock root: %w", err))
 	}
 	release, err := acquireLock(ctx, lockPath, m.now)
 	if err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "lock", "", nil, err)
 	}
 	defer release()
 
@@ -450,25 +491,28 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 	}
 
 	if err := os.MkdirAll(CacheRoot(m.repoRoot), 0o755); err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "download", fmt.Errorf("create deps cache root: %w", err))
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "download", "", nil, fmt.Errorf("create deps cache root: %w", err))
 	}
 	if verifyFileSHA256(report.ArchivePath, resource.SHA256) == nil {
 		report.UsedCachedArchive = true
 	}
-	if err := ensureDownloadedArchive(ctx, report.ArchivePath, resource, m.downloadFile); err != nil {
+	selectedSource, attemptedSources, err := ensureDownloadedArchive(ctx, report.ArchivePath, resource, m.downloadFile)
+	report.SelectedSource = strings.TrimSpace(selectedSource)
+	report.AttemptedSources = append(report.AttemptedSources, attemptedSources...)
+	if err != nil {
 		stage := "download"
 		if strings.Contains(err.Error(), "verify deps resource") || strings.Contains(err.Error(), "persist deps archive") {
 			stage = "verify"
 		}
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, stage, err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, stage, report.SelectedSource, report.AttemptedSources, err)
 	}
 	if err := ensurePreparedResource(ctx, m.repoRoot, *resource, report.ArchivePath, m.extract); err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "extract", err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "extract", report.SelectedSource, report.AttemptedSources, err)
 	}
 
 	prepared, err := m.resolvePreparedManifestResource(manifest, resource)
 	if err != nil {
-		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "entrypoint", err)
+		return nil, classifyBootstrapError(m.repoRoot, kind, resource, "entrypoint", report.SelectedSource, report.AttemptedSources, err)
 	}
 	report.Entrypoints = prepared.Entrypoints
 	report.PreparedEntrypoint = primaryEntrypoint(prepared)
@@ -548,27 +592,26 @@ func primaryEntrypoint(prepared *PreparedResource) string {
 	return ""
 }
 
-func classifyBootstrapError(repoRoot, kind string, resource *Resource, stage string, err error) error {
+func classifyBootstrapError(repoRoot, kind string, resource *Resource, stage string, selectedSource string, attemptedSources []string, err error) error {
 	if err == nil {
 		return nil
 	}
 	archivePath := ""
 	storeRoot := ""
-	source := ""
 	if resource != nil {
 		archivePath = filepath.Join(CacheRoot(repoRoot), resource.ID+"-"+resource.Version+archiveSuffix(resource.ArchiveFormat))
 		storeRoot = StoreRoot(repoRoot, resource)
-		source = strings.TrimSpace(resource.Source)
 	}
 	return &BootstrapError{
-		Kind:        kind,
-		Stage:       stage,
-		Source:      source,
-		ArchivePath: archivePath,
-		StoreRoot:   storeRoot,
-		Remediation: bootstrapRemediation(kind, archivePath, storeRoot),
-		Message:     bootstrapMessage(kind, stage),
-		Err:         err,
+		Kind:             kind,
+		Stage:            stage,
+		SelectedSource:   strings.TrimSpace(selectedSource),
+		AttemptedSources: append([]string(nil), attemptedSources...),
+		ArchivePath:      archivePath,
+		StoreRoot:        storeRoot,
+		Remediation:      bootstrapRemediation(kind, archivePath, storeRoot),
+		Message:          bootstrapMessage(kind, stage),
+		Err:              err,
 	}
 }
 
@@ -645,25 +688,41 @@ func pathWithinRoot(root, candidate string) bool {
 	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
-func ensureDownloadedArchive(ctx context.Context, archivePath string, resource *Resource, downloader func(context.Context, string, string) error) error {
+func ensureDownloadedArchive(ctx context.Context, archivePath string, resource *Resource, downloader func(context.Context, string, string) error) (string, []string, error) {
 	if err := verifyFileSHA256(archivePath, resource.SHA256); err == nil {
-		return nil
+		return "", nil, nil
 	}
 	tempPath := archivePath + ".download"
-	_ = os.Remove(tempPath)
-	if err := downloader(ctx, resource.Source, tempPath); err != nil {
+	var attempted []string
+	var finalErr error
+	for _, source := range resource.Sources {
+		rawURL := strings.TrimSpace(source.URL)
+		if rawURL == "" {
+			continue
+		}
+		attempted = append(attempted, rawURL)
 		_ = os.Remove(tempPath)
-		return fmt.Errorf("download deps resource %s: %w", resource.Kind, err)
+		if err := downloader(ctx, rawURL, tempPath); err != nil {
+			_ = os.Remove(tempPath)
+			finalErr = fmt.Errorf("download deps resource %s from %s: %w", resource.Kind, rawURL, err)
+			continue
+		}
+		if err := verifyFileSHA256(tempPath, resource.SHA256); err != nil {
+			_ = os.Remove(tempPath)
+			finalErr = fmt.Errorf("verify deps resource %s archive from %s: %w", resource.Kind, rawURL, err)
+			continue
+		}
+		if err := os.Rename(tempPath, archivePath); err != nil {
+			_ = os.Remove(tempPath)
+			finalErr = fmt.Errorf("persist deps archive %s from %s: %w", resource.Kind, rawURL, err)
+			continue
+		}
+		return rawURL, attempted, nil
 	}
-	if err := verifyFileSHA256(tempPath, resource.SHA256); err != nil {
-		_ = os.Remove(tempPath)
-		return fmt.Errorf("verify deps resource %s archive: %w", resource.Kind, err)
+	if finalErr == nil {
+		finalErr = fmt.Errorf("download deps resource %s: no usable source configured", resource.Kind)
 	}
-	if err := os.Rename(tempPath, archivePath); err != nil {
-		_ = os.Remove(tempPath)
-		return fmt.Errorf("persist deps archive %s: %w", resource.Kind, err)
-	}
-	return nil
+	return "", attempted, finalErr
 }
 
 func ensurePreparedResource(

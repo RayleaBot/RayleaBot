@@ -31,6 +31,7 @@ REQUIRED_ENTRYPOINTS = {
     "python-runtime": ("python",),
     "nodejs-runtime": ("node", "npm"),
 }
+SOURCE_KINDS = {"upstream", "mirror"}
 ARCHIVE_SUFFIXES = {
     "zip": ".zip",
     "tar.gz": ".tar.gz",
@@ -155,7 +156,7 @@ def artifact_platform(artifact_id: str) -> str:
 def load_deps_manifest(root: Path) -> dict[str, object]:
     manifest_path = root / ".deps" / "manifest.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if payload.get("manifest_version") != 2:
+    if payload.get("manifest_version") != 3:
         raise RuntimeError(f"unsupported deps manifest version: {payload.get('manifest_version')}")
     return payload
 
@@ -171,10 +172,10 @@ def find_platform_resource(manifest: dict[str, object], platform: str, kind: str
 
 
 def resource_has_complete_metadata(resource: dict[str, object]) -> bool:
-    source = str(resource.get("source", "")).strip()
+    sources = resource.get("sources")
     sha256 = str(resource.get("sha256", "")).strip().lower()
     archive_format = str(resource.get("archive_format", "")).strip()
-    if not source.startswith("https://") or "TODO(" in source.upper():
+    if not _sources_are_complete(sources):
         return False
     if len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
         return False
@@ -188,6 +189,45 @@ def resource_has_complete_metadata(resource: dict[str, object]) -> bool:
         if not isinstance(candidates, list) or not any(_valid_entrypoint_candidate(item) for item in candidates):
             return False
     return True
+
+
+def _sources_are_complete(value: object) -> bool:
+    if not isinstance(value, list) or len(value) == 0:
+        return False
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            return False
+        url = str(item.get("url", "")).strip()
+        kind = str(item.get("kind", "")).strip()
+        if not url.startswith("https://") or "TODO(" in url.upper():
+            return False
+        if kind not in SOURCE_KINDS:
+            return False
+        if url in seen:
+            return False
+        seen.add(url)
+    return True
+
+
+def resource_sources(resource: dict[str, object]) -> list[dict[str, str]]:
+    sources = resource.get("sources")
+    if not isinstance(sources, list):
+        raise RuntimeError(f"resource sources missing: {resource}")
+    normalized: list[dict[str, str]] = []
+    for item in sources:
+        if not isinstance(item, dict):
+            raise RuntimeError(f"resource source entry invalid: {resource}")
+        normalized.append(
+            {
+                "url": str(item.get("url", "")).strip(),
+                "kind": str(item.get("kind", "")).strip(),
+                "label": str(item.get("label", "")).strip(),
+            }
+        )
+    if not _sources_are_complete(normalized):
+        raise RuntimeError(f"resource sources are not bootstrap-ready: {resource}")
+    return normalized
 
 
 def _valid_entrypoint_candidate(value: object) -> bool:
@@ -276,13 +316,27 @@ def download_runtime_archive(root: Path, resource: dict[str, object]) -> Path:
         return archive_path
 
     temp_path = archive_path.with_suffix(archive_path.suffix + ".download")
-    with urllib.request.urlopen(str(resource["source"]), timeout=60) as response:
-        temp_path.write_bytes(response.read())
-    if sha256_file(temp_path) != str(resource["sha256"]).lower():
+    attempted: list[str] = []
+    final_error: Exception | None = None
+    for source in resource_sources(resource):
+        url = source["url"]
+        attempted.append(url)
         temp_path.unlink(missing_ok=True)
-        raise RuntimeError(f"runtime archive sha256 mismatch: {resource['id']}")
-    temp_path.replace(archive_path)
-    return archive_path
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                temp_path.write_bytes(response.read())
+        except Exception as exc:  # noqa: BLE001
+            final_error = RuntimeError(f"download runtime archive failed from {url}: {exc}")
+            continue
+        if sha256_file(temp_path) != str(resource["sha256"]).lower():
+            temp_path.unlink(missing_ok=True)
+            final_error = RuntimeError(f"runtime archive sha256 mismatch from {url}: {resource['id']}")
+            continue
+        temp_path.replace(archive_path)
+        return archive_path
+    if final_error is None:
+        raise RuntimeError(f"runtime archive download failed: {resource['id']}")
+    raise RuntimeError(f"{final_error}; attempted_sources={attempted}")
 
 
 def extract_runtime_archive(root: Path, resource: dict[str, object], archive_path: Path) -> None:

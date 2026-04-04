@@ -129,6 +129,16 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	if !ok || len(resources) != 2 {
 		t.Fatalf("unexpected runtime bootstrap resources: %#v", snapshot.Result.Details)
 	}
+	first, ok := resources[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected runtime bootstrap result item: %#v", resources[0])
+	}
+	if _, ok := first["attempted_sources"]; !ok {
+		t.Fatalf("runtime bootstrap result should expose attempted_sources: %#v", first)
+	}
+	if _, ok := first["selected_source"]; !ok {
+		t.Fatalf("runtime bootstrap result should expose selected_source: %#v", first)
+	}
 }
 
 func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
@@ -214,14 +224,19 @@ func writeDepsManifest(t *testing.T, repoRoot string) {
 	pythonID := "python-" + platform
 	nodeID := "nodejs-" + platform
 	manifest := `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "` + chromiumID + `",
       "kind": "chromium",
       "version": "147.0.7727.24",
       "platform": "` + platform + `",
-      "source": "https://example.invalid/chromium.zip",
+      "sources": [
+        {
+          "url": "https://example.invalid/chromium.zip",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
       "archive_format": "zip",
       "entrypoints": {
@@ -233,7 +248,12 @@ func writeDepsManifest(t *testing.T, repoRoot string) {
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "` + platform + `",
-      "source": "https://example.invalid/python.tar.gz",
+      "sources": [
+        {
+          "url": "https://example.invalid/python.tar.gz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -246,7 +266,12 @@ func writeDepsManifest(t *testing.T, repoRoot string) {
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "` + platform + `",
-      "source": "https://example.invalid/node.zip",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.zip",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
       "archive_format": "zip",
       "entrypoints": {

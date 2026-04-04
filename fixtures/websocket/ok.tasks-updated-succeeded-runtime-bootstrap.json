@@ -17,7 +17,9 @@
             "archive_path": "cache/downloads/runtime/chromium-windows-x64-147.0.7727.24.zip",
             "store_root": ".deps/store/chromium-windows-x64/147.0.7727.24",
             "used_cached_archive": true,
-            "used_prepared_store": false
+            "used_prepared_store": false,
+            "attempted_sources": [],
+            "selected_source": ""
           }
         ]
       }

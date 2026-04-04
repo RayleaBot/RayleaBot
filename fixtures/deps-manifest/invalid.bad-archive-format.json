@@ -1,12 +1,17 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "nodejs-linux-x64",
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "linux-x64",
-      "source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+      "sources": [
+        {
+          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "41cd79bb7877c81605a9e68ec4c91547774f46a40c67a17e34d7179ef11729df",
       "archive_format": "tar.bz2",
       "entrypoints": {

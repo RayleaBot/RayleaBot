@@ -29,7 +29,12 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             "kind": "python-runtime",
             "version": "3.12.13",
             "platform": "windows-x64",
-            "source": "https://example.invalid/python.zip",
+            "sources": [
+                {
+                    "url": "https://example.invalid/python.zip",
+                    "kind": "upstream",
+                }
+            ],
             "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
             "archive_format": "zip",
             "entrypoints": {
@@ -62,14 +67,16 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                 }),
             }
             manifest = {
-                "manifest_version": 2,
+                "manifest_version": 3,
                 "resources": [
                     {
                         "id": "chromium-windows-x64",
                         "kind": "chromium",
                         "version": "147.0.7727.24",
                         "platform": "windows-x64",
-                        "source": "https://example.invalid/chromium.zip",
+                        "sources": [
+                            {"url": "https://example.invalid/chromium.zip", "kind": "upstream"}
+                        ],
                         "sha256": package_runtime.hashlib.sha256(archives["https://example.invalid/chromium.zip"]).hexdigest(),
                         "archive_format": "zip",
                         "entrypoints": {"browser": ["chrome-win64/chrome.exe"]},
@@ -79,7 +86,9 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                         "kind": "python-runtime",
                         "version": "3.12.13",
                         "platform": "windows-x64",
-                        "source": "https://example.invalid/python.zip",
+                        "sources": [
+                            {"url": "https://example.invalid/python.zip", "kind": "upstream"}
+                        ],
                         "sha256": package_runtime.hashlib.sha256(archives["https://example.invalid/python.zip"]).hexdigest(),
                         "archive_format": "zip",
                         "entrypoints": {
@@ -92,7 +101,9 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                         "kind": "nodejs-runtime",
                         "version": "24.14.0",
                         "platform": "windows-x64",
-                        "source": "https://example.invalid/node.zip",
+                        "sources": [
+                            {"url": "https://example.invalid/node.zip", "kind": "upstream"}
+                        ],
                         "sha256": package_runtime.hashlib.sha256(archives["https://example.invalid/node.zip"]).hexdigest(),
                         "archive_format": "zip",
                         "entrypoints": {
@@ -114,6 +125,38 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             self.assertTrue((root / ".deps" / "store" / "chromium-windows-x64" / "147.0.7727.24" / "chrome-win64" / "chrome.exe").exists())
             self.assertTrue((root / ".deps" / "store" / "python-windows-x64" / "3.12.13" / "python" / "python.exe").exists())
             self.assertTrue((root / ".deps" / "store" / "nodejs-windows-x64" / "24.14.0" / "node-v24.14.0-win-x64" / "npm.cmd").exists())
+
+    def test_download_runtime_archive_falls_back_to_next_source(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = self._runtime_archive({"node/node.exe": b"node", "node/npm.cmd": b"npm"})
+            resource = {
+                "id": "nodejs-windows-x64",
+                "kind": "nodejs-runtime",
+                "version": "24.14.0",
+                "platform": "windows-x64",
+                "sources": [
+                    {"url": "https://primary.example.invalid/node.zip", "kind": "upstream"},
+                    {"url": "https://mirror.example.invalid/node.zip", "kind": "mirror"},
+                ],
+                "sha256": package_runtime.hashlib.sha256(archive).hexdigest(),
+                "archive_format": "zip",
+                "entrypoints": {
+                    "node": ["node/node.exe"],
+                    "npm": ["node/npm.cmd"],
+                },
+            }
+
+            def fake_urlopen(request, timeout=60):  # noqa: ANN001
+                url = request if isinstance(request, str) else request.full_url
+                if "primary" in url:
+                    raise OSError("offline")
+                return _FakeResponse(archive)
+
+            with mock.patch.object(package_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+                archive_path = package_runtime.download_runtime_archive(root, resource)
+
+            self.assertTrue(archive_path.exists())
 
     @staticmethod
     def _runtime_archive(entries: dict[str, bytes]) -> bytes:

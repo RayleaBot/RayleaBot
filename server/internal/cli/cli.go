@@ -215,7 +215,7 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 			"Python 运行环境归档已缓存，启动时可直接完成准备。",
 			"Python 运行环境已纳入启动流程。",
 			"Python 运行环境当前不可准备。",
-			"请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、source 与 sha256。",
+			"请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、来源列表与 sha256。",
 		))
 		issues = append(issues, managedRuntimeDoctorIssue(
 			repoRoot,
@@ -225,7 +225,7 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 			"Node.js / npm 环境归档已缓存，启动时可直接完成准备。",
 			"Node.js / npm 环境已纳入启动流程。",
 			"Node.js / npm 环境当前不可准备。",
-			"请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、source 与 sha256。",
+			"请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、来源列表与 sha256。",
 		))
 		issues = append(issues, managedRuntimeDoctorIssue(
 			repoRoot,
@@ -235,7 +235,7 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 			"npm 归档已缓存，启动时可直接完成准备。",
 			"npm 已纳入启动流程。",
 			"npm 当前不可准备。",
-			"请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、source 与 sha256。",
+			"请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、来源列表与 sha256。",
 		))
 	}
 
@@ -365,7 +365,7 @@ func runtimeMetadataIssue(
 		Code:        incompleteCode,
 		Severity:    "warning",
 		Summary:     label + "元数据不完整。",
-		Remediation: "请在 .deps/manifest.json 中补齐当前平台 " + label + " 的 source 与 sha256。",
+		Remediation: "请在 .deps/manifest.json 中补齐当前平台 " + label + " 的来源列表、archive_format、entrypoints 与 sha256。",
 	}
 }
 

@@ -481,7 +481,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
 			Summary:     deps.BootstrapSummary("chromium", inspection),
-			Remediation: "请恢复当前平台 Chromium 资源的 archive_format、entrypoints、source 与 sha256，或在配置中显式设置 render.browser_path。",
+			Remediation: "请恢复当前平台 Chromium 资源的 archive_format、entrypoints、来源列表与 sha256，或在配置中显式设置 render.browser_path。",
 		})
 		return issues
 	}

@@ -7,7 +7,7 @@
 - `contracts/release-manifest.schema.json` 已定义正式 release metadata 结构，并进入 fixture-ready。
 - 正式发行包当前包含 server、Web 管理面静态资源、Launcher（full artifact）、builtin 插件、`contracts/`、`templates/`、`.deps/manifest.json`、`config/default.yaml` 与 release metadata sidecar。
 - `fixtures/`、`examples/`、开发脚本与仓库治理文件属于仓库内容，不属于正式发行包交付面。
-- `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的正式版本、来源、SHA256、archive_format、entrypoints 与平台矩阵；Python `3.12.13` 记录 `python-build-standalone` 便携发行物来源，Node.js `24.14.0` 记录正式平台归档来源。
+- `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的正式版本、有序来源列表、SHA256、archive_format、entrypoints 与平台矩阵；Python `3.12.13` 记录 `python-build-standalone` 便携发行物来源，Node.js `24.14.0` 记录正式平台归档来源。
 
 ## 正式包目录真相
 
@@ -38,7 +38,7 @@
 - `restore` 预检与启动后兼容检查会把共享恢复摘要写入 `logs/recovery-summary.json`；CLI、Web、Launcher 与 diagnostics 都复用同一份摘要。
 - 正式管理面任务已包含 `recovery.recheck` 与 `runtime.bootstrap`；packaged recovery drill 会校验人工处理后的再次检查收敛路径，长期自托管 smoke 会校验运行时准备任务与缓存命中路径。
 - `post_startup` 恢复摘要在 `degraded` 状态下会稳定保留 `manual_actions`、`next_steps` 与跳过插件列表，在 `compatible` 状态下不保留人工处理建议。
-- 正式包只携带 `.deps/manifest.json`，Chromium、Python 与 Node.js 资源按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`；有效运行环境根目录继续跟随发行包根目录或 `config/user.yaml` 所在根目录，不随 Launcher `workdir` 覆盖改变。
+- 正式包只携带 `.deps/manifest.json`，Chromium、Python 与 Node.js 资源按有序来源列表下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`；有效运行环境根目录继续跟随发行包根目录或 `config/user.yaml` 所在根目录，不随 Launcher `workdir` 覆盖改变。
 - 离线或受限网络环境下，运行时资源可通过预置已校验归档到 `cache/downloads/runtime/`，或预展开到 `.deps/store/<resource-id>/<version>/` 的方式准备；Chromium 仍支持通过 `render.browser_path` 显式覆盖浏览器路径。
 
 ## 维护规则

@@ -24,10 +24,15 @@ response:
               store_root: .deps/store/chromium-windows-x64/147.0.7727.24
               used_cached_archive: true
               used_prepared_store: false
+              attempted_sources: []
+              selected_source: ""
             - kind: python-runtime
               archive_path: cache/downloads/runtime/python-windows-x64-3.12.13.tar.gz
               store_root: .deps/store/python-windows-x64/3.12.13
               used_cached_archive: false
-              used_prepared_store: true
+              used_prepared_store: false
+              attempted_sources:
+                - https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
+              selected_source: https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
 expect:
   valid: true

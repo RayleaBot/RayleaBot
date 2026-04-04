@@ -22,6 +22,8 @@ type managedRuntimePrepareReport struct {
 	StoreRoot          string
 	UsedPreparedStore  bool
 	UsedCachedArchive  bool
+	AttemptedSources   []string
+	SelectedSource     string
 	PreparedEntrypoint string
 }
 
@@ -36,6 +38,8 @@ var prepareManagedRuntimeWithReport = func(ctx context.Context, repoRoot, kind s
 		StoreRoot:          report.StoreRoot,
 		UsedPreparedStore:  report.UsedPreparedStore,
 		UsedCachedArchive:  report.UsedCachedArchive,
+		AttemptedSources:   append([]string{}, report.AttemptedSources...),
+		SelectedSource:     report.SelectedSource,
 		PreparedEntrypoint: report.PreparedEntrypoint,
 	}, nil
 }
@@ -137,6 +141,8 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 					"store_root":          report.StoreRoot,
 					"used_cached_archive": report.UsedCachedArchive,
 					"used_prepared_store": report.UsedPreparedStore,
+					"attempted_sources":   append([]string{}, report.AttemptedSources...),
+					"selected_source":     report.SelectedSource,
 				})
 			}
 

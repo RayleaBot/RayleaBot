@@ -20,7 +20,7 @@
 - `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化。
 - `web/` 承载管理控制台主链路。
 - `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
-- `.deps/manifest.json` 固定 Chromium 与 Python / Node.js 运行环境资源矩阵，并作为运行环境准备的唯一正式来源。
+- `.deps/manifest.json` 固定 Chromium 与 Python / Node.js 运行环境资源矩阵及其有序来源列表，并作为运行环境准备的唯一正式来源。
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 - 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck` 与 `runtime.bootstrap` 是当前正式操作入口。
 
@@ -114,7 +114,7 @@
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
 | `launcher/package.json` | 固定 `packageManager = pnpm@10.32.1`、`engines.node = 24.14.0`、Electron/Vite/React/`@vitejs/plugin-react`/build 脚本与打包配置 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
-| `.deps/manifest.json` | 固定资源名、版本线、来源、SHA256、archive_format、entrypoints 与平台矩阵 |
+| `.deps/manifest.json` | 固定资源名、版本线、有序来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
 
 ## 已冻结的规范化决议

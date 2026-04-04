@@ -30,7 +30,7 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
-  - Chromium、Python / Node.js 运行环境资源的来源、SHA256、归档格式与相对入口
+  - Chromium、Python / Node.js 运行环境资源的有序来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
@@ -90,7 +90,6 @@
 ### Deps Manifest
 
 - 更宽的资源种类矩阵
-- 多镜像源优先级
 - 资源签名与附加校验文件
 - 显式解压目标目录覆盖
 
@@ -134,7 +133,7 @@
 - `POST /api/system/recovery/recheck`
 - `POST /api/system/runtime/bootstrap`
 
-其中 `runtime.bootstrap` request 支持可选 `resources` 列表；任务详情会在 `result.details.resources` 中暴露每类资源的缓存归档与展开目录明细。
+其中 `runtime.bootstrap` request 支持可选 `resources` 列表；任务详情会在 `result.details.resources` 中暴露每类资源的缓存归档、展开目录、已尝试来源列表与命中来源。
 
 ## 通用规则
 

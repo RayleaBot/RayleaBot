@@ -407,14 +407,19 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, manifestPath, `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "chromium-windows-x64",
       "kind": "chromium",
       "version": "147.0.7727.24",
       "platform": "windows-x64",
-      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+      "sources": [
+        {
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
       "archive_format": "zip",
       "entrypoints": {
@@ -426,7 +431,12 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "windows-x64",
-      "source": "TODO(v0.1-phase0)",
+      "sources": [
+        {
+          "url": "TODO(v0.1-phase0)",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "TODO(v0.1-phase0)",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -439,7 +449,12 @@ func TestDoctorReportFlagsIncompleteRuntimeMetadata(t *testing.T) {
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "windows-x64",
-      "source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+      "sources": [
+        {
+          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "deadbeef",
       "archive_format": "zip",
       "entrypoints": {
@@ -492,14 +507,19 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(repoRoot, ".deps", "manifest.json"), `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "`+pythonID+`",
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "`+platform+`",
-      "source": "https://example.invalid/python.tar.gz",
+      "sources": [
+        {
+          "url": "https://example.invalid/python.tar.gz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -512,7 +532,12 @@ func TestDoctorReportSummarizesManagedRuntimeBootstrapStates(t *testing.T) {
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "`+platform+`",
-      "source": "https://example.invalid/node.zip",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.zip",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "archive_format": "zip",
       "entrypoints": {

@@ -24,11 +24,13 @@ func TestResourceMetadataCompleteRequiresArchiveAndEntrypoints(t *testing.T) {
 	t.Parallel()
 
 	resource := &Resource{
-		ID:            "python-windows-x64",
-		Kind:          "python-runtime",
-		Version:       "3.12.13",
-		Platform:      "windows-x64",
-		Source:        "https://example.invalid/python.tar.gz",
+		ID:       "python-windows-x64",
+		Kind:     "python-runtime",
+		Version:  "3.12.13",
+		Platform: "windows-x64",
+		Sources: []ResourceSource{
+			{URL: "https://example.invalid/python.tar.gz", Kind: "upstream"},
+		},
 		SHA256:        "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
 		ArchiveFormat: "tar.gz",
 		Entrypoints: map[string][]string{
@@ -49,6 +51,27 @@ func TestResourceMetadataCompleteRequiresArchiveAndEntrypoints(t *testing.T) {
 	if ResourceMetadataComplete(resource) {
 		t.Fatalf("resource metadata should require runtime entrypoints")
 	}
+	resource.Entrypoints = map[string][]string{
+		"python": {"python/python.exe"},
+		"pip":    {"python/Scripts/pip.exe"},
+	}
+	resource.Sources = []ResourceSource{
+		{URL: "https://example.invalid/python.tar.gz", Kind: "upstream"},
+		{URL: "https://example.invalid/python.tar.gz", Kind: "mirror"},
+	}
+	if ResourceMetadataComplete(resource) {
+		t.Fatalf("resource metadata should reject duplicate source URLs")
+	}
+	resource.Sources = nil
+	if ResourceMetadataComplete(resource) {
+		t.Fatalf("resource metadata should require at least one source")
+	}
+	resource.Sources = []ResourceSource{
+		{URL: "https://example.invalid/python.tar.gz", Kind: "internal"},
+	}
+	if ResourceMetadataComplete(resource) {
+		t.Fatalf("resource metadata should reject unknown source kinds")
+	}
 }
 
 func TestResolveEntrypointUsesPreparedStoreWithoutDownload(t *testing.T) {
@@ -56,14 +79,19 @@ func TestResolveEntrypointUsesPreparedStoreWithoutDownload(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "python-test",
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "` + CurrentPlatform() + `",
-      "source": "https://example.invalid/python.tar.gz",
+      "sources": [
+        {
+          "url": "https://example.invalid/python.tar.gz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -102,14 +130,19 @@ func TestPrepareDownloadsAndExtractsMissingResource(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "node-test",
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "` + CurrentPlatform() + `",
-      "source": "https://example.invalid/node.tar.xz",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.tar.xz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
       "archive_format": "tar.xz",
       "entrypoints": {
@@ -153,14 +186,19 @@ func TestInspectReportsCachedArchiveAndPreparedStore(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "chromium-test",
       "kind": "chromium",
       "version": "147.0.7727.24",
       "platform": "` + CurrentPlatform() + `",
-      "source": "https://example.invalid/chromium.zip",
+      "sources": [
+        {
+          "url": "https://example.invalid/chromium.zip",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
       "archive_format": "zip",
       "entrypoints": {
@@ -202,14 +240,23 @@ func TestPrepareWithReportClassifiesDownloadFailure(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "node-test",
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "` + CurrentPlatform() + `",
-      "source": "https://example.invalid/node.tar.xz",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.tar.xz",
+          "kind": "upstream"
+        },
+        {
+          "url": "https://mirror.example.invalid/node.tar.xz",
+          "kind": "mirror"
+        }
+      ],
       "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
       "archive_format": "tar.xz",
       "entrypoints": {
@@ -246,6 +293,136 @@ func TestPrepareWithReportClassifiesDownloadFailure(t *testing.T) {
 	}
 	if bootstrapErr.Remediation == "" {
 		t.Fatalf("expected remediation in BootstrapError: %#v", bootstrapErr)
+	}
+	if len(bootstrapErr.AttemptedSources) != 2 {
+		t.Fatalf("expected attempted sources in BootstrapError: %#v", bootstrapErr)
+	}
+}
+
+func TestPrepareWithReportFallsBackToNextSource(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://primary.example.invalid/node.tar.xz",
+          "kind": "upstream"
+        },
+        {
+          "url": "https://mirror.example.invalid/node.tar.xz",
+          "kind": "mirror"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	manager := NewManager(repoRoot)
+	var requested []string
+	manager.downloadFile = func(_ context.Context, rawURL string, destPath string) error {
+		requested = append(requested, rawURL)
+		if strings.Contains(rawURL, "primary") {
+			return errors.New("offline")
+		}
+		return os.WriteFile(destPath, []byte("fixture-archive"), 0o644)
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		return nil
+	}
+
+	report, err := manager.PrepareWithReport(context.Background(), "nodejs-runtime")
+	if err != nil {
+		t.Fatalf("PrepareWithReport failed: %v", err)
+	}
+	if len(requested) != 2 {
+		t.Fatalf("expected two download attempts, got %#v", requested)
+	}
+	if report.SelectedSource != "https://mirror.example.invalid/node.tar.xz" {
+		t.Fatalf("unexpected selected source: %#v", report)
+	}
+	if len(report.AttemptedSources) != 2 {
+		t.Fatalf("expected attempted sources in report: %#v", report)
+	}
+}
+
+func TestPrepareWithReportUsesCachedArchiveWithoutDownload(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	manifest := `{
+  "manifest_version": 3,
+  "resources": [
+    {
+      "id": "node-test",
+      "kind": "nodejs-runtime",
+      "version": "24.14.0",
+      "platform": "` + CurrentPlatform() + `",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.tar.xz",
+          "kind": "upstream"
+        }
+      ],
+      "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
+      "archive_format": "tar.xz",
+      "entrypoints": {
+        "node": ["node/bin/node"],
+        "npm": ["node/bin/npm"]
+      }
+    }
+  ]
+}`
+	writeManifest(t, repoRoot, manifest)
+
+	archivePath := filepath.Join(CacheRoot(repoRoot), "node-test-24.14.0.tar.xz")
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
+		t.Fatalf("mkdir cache root: %v", err)
+	}
+	if err := os.WriteFile(archivePath, []byte("fixture-archive"), 0o644); err != nil {
+		t.Fatalf("write cached archive: %v", err)
+	}
+
+	manager := NewManager(repoRoot)
+	downloaded := false
+	manager.downloadFile = func(context.Context, string, string) error {
+		downloaded = true
+		return nil
+	}
+	manager.extract = func(_ context.Context, _ string, _ string, destRoot string) error {
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "node"))
+		writePreparedFile(t, filepath.Join(destRoot, "node", "bin", "npm"))
+		return nil
+	}
+
+	report, err := manager.PrepareWithReport(context.Background(), "nodejs-runtime")
+	if err != nil {
+		t.Fatalf("PrepareWithReport failed: %v", err)
+	}
+	if downloaded {
+		t.Fatal("PrepareWithReport should not download when cached archive matches")
+	}
+	if !report.UsedCachedArchive {
+		t.Fatalf("expected cached archive hit, got %#v", report)
+	}
+	if len(report.AttemptedSources) != 0 || report.SelectedSource != "" {
+		t.Fatalf("cached archive should not record source attempts, got %#v", report)
 	}
 }
 

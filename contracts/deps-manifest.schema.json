@@ -12,7 +12,7 @@
   "properties": {
     "manifest_version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "resources": {
       "type": "array",
@@ -41,6 +41,32 @@
         "linux-x64",
         "macos-arm64"
       ]
+    },
+    "sourceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "kind"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://.+$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "upstream",
+            "mirror"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "entrypointCandidates": {
       "type": "array",
@@ -80,7 +106,7 @@
         "kind",
         "version",
         "platform",
-        "source",
+        "sources",
         "sha256",
         "archive_format",
         "entrypoints"
@@ -105,10 +131,13 @@
         "platform": {
           "$ref": "#/$defs/platform"
         },
-        "source": {
-          "type": "string",
-          "format": "uri",
-          "pattern": "^https://.+$"
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceEntry"
+          },
+          "description": "按优先顺序排列的资源来源列表；每项 url 必须唯一。"
         },
         "sha256": {
           "$ref": "#/$defs/sha256"
@@ -213,8 +242,13 @@
   },
   "x-fixtures": [
     "fixtures/deps-manifest/ok.minimal.json",
+    "fixtures/deps-manifest/ok.multi-source.json",
     "fixtures/deps-manifest/invalid.missing-entrypoints.json",
     "fixtures/deps-manifest/invalid.bad-archive-format.json",
+    "fixtures/deps-manifest/invalid.missing-sources.json",
+    "fixtures/deps-manifest/invalid.empty-sources.json",
+    "fixtures/deps-manifest/invalid.duplicate-source-url.json",
+    "fixtures/deps-manifest/invalid.unknown-source-kind.json",
     "fixtures/deps-manifest/edge.multi-runtime-matrix.json"
   ]
 }

@@ -46,7 +46,7 @@
 | `docs/engineering/implementation-order.md` | ✅ | 10 阶段实施顺序已定义 |
 | `contracts/README.md` | ✅ | formal contract 范围与当前 TODO 边界已收敛 |
 | Server / Web / Launcher 基线文件 | ✅ | `server/go.mod`、`web/package.json`、`launcher/package.json`、`launcher/pnpm-lock.yaml` 已锁定基线 |
-| `.deps/manifest.json` | ✅ | Chromium、Python 与 Node.js 资源的 version / source / SHA256 / archive_format / entrypoints / platform 已固定；Python `3.12.13` 当前记录 `python-build-standalone` 便携发行物来源，Node.js `24.14.0` 记录正式平台归档 |
+| `.deps/manifest.json` | ✅ | Chromium、Python 与 Node.js 资源的 version / 有序来源列表 / SHA256 / archive_format / entrypoints / platform 已固定；Python `3.12.13` 当前记录 `python-build-standalone` 便携发行物来源，Node.js `24.14.0` 记录正式平台归档 |
 | CI skeleton | ✅ | `contracts.yml` 与 `lint.yml` 已落库，并实际校验 contracts、baseline、server smoke |
 
 ---
@@ -266,7 +266,7 @@
 | 最小 render artifact 输出 | ✅ | `render.image` 继续返回插件可消费的 `file:// image_path`，同时生成稳定 `artifact_id`、`mime` 与 `cache_key`，供管理面同源读取 |
 | 渲染队列与 Chromium 调度 | ✅ | bounded queue、并发 worker、排队超时、执行超时、Chromium 渲染与错误映射已落地 |
 | 模板校验 / 缓存 / 结果管理 | ✅ | `templates/` 已提供 `help.menu`、`status.panel`、input schema、模板版本、data hash cache key 与 artifact registry |
-| Chromium 与运行环境资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / source / SHA256 / archive_format / entrypoints；doctor、Launcher、`/readyz`、recovery finalization 与 baseline 门禁已复用同一份清单校验运行环境 metadata 完整性 |
+| Chromium 与运行环境资源基线 | ✅ | `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的 version / 有序来源列表 / SHA256 / archive_format / entrypoints；doctor、Launcher、`/readyz`、recovery finalization 与 baseline 门禁已复用同一份清单校验运行环境 metadata 完整性 |
 | 运行环境资源接线 | ✅ | 服务启动会自动准备 Python、Node.js 与 npm 环境；启动时、插件依赖安装、render 诊断、CLI `doctor`、Launcher preflight、release smoke、recovery drill 与长期自托管 smoke 已共享 `.deps/manifest.json` bootstrap 语义；运行环境按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/` |
 | 恢复摘要收敛与离线 bootstrap 动作 | ✅ | `recovery.recheck` 与 `runtime.bootstrap` 已进入 server / Web / Launcher 主链；恢复后人工处理完成后可重新检查并收敛到 `compatible`，离线或受限网络场景已给出缓存归档与预展开目录两条正式回退路径 |
 
@@ -308,7 +308,7 @@
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
-- 当前主要风险集中在多镜像源 / 内网镜像分发与恢复后批量处理体验层面：共享 `recovery_summary`、`recovery.recheck` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke，兼容通过 / 需要人工处理 / 修复后收敛三类路径都已进入回归矩阵。
+- 当前主要风险集中在恢复后批量处理体验层面：共享 `recovery_summary`、`recovery.recheck` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke，兼容通过 / 需要人工处理 / 修复后收敛三类路径都已进入回归矩阵；`.deps/manifest.json` 已进入有序来源列表契约，server、release、smoke 与长期自托管巡检共用同一份来源定义。
 
 ---
 
@@ -316,16 +316,12 @@
 
 ### 主工作包
 
-1. 评估多镜像源或内网镜像是否进入 `deps-manifest` 正式契约。
-   当前 `.deps/manifest.json` 已固定单一正式来源、SHA256 与 entrypoints；下一轮重点是判断镜像 URL、镜像优先级或企业内网分发信息是否需要进入 formal contract，而不是继续停留在脚本或部署约定层。
-
-2. 评估恢复后批量处理与审计追踪是否进入正式任务面。
+1. 评估恢复后批量处理与审计追踪是否进入正式任务面。
    当前恢复闭环已覆盖人工处理建议、再次检查、运行时准备和单插件深链；下一轮重点是判断批量处理、处理结果审计与 operator 级确认是否需要进入共享任务模型。
 
 ### 下一轮边界
 
 - 不在下一轮回头扩张第二套跨版本恢复状态语义或发布元数据口径。
-- 不在下一轮把镜像策略提前写成平行配置入口。
 - 不在下一轮推进多 adapter / 多 bot 抽象。
 - 不在下一轮扩展更宽 future action families。
 - 不新增平行安装入口、平行状态语义或新的独立发布 metadata。
@@ -333,6 +329,5 @@
 ### 下一轮验收口径
 
 - 长时间窗 smoke、packaged recovery drill 与 diagnostics 校验必须继续复用默认构建命令、现有 artifact matrix 与现有 release metadata。
-- 新增镜像或内网分发能力如需落地，必须继续复用 `.deps/manifest.json` 与既有 bootstrap 目录语义，不新增第二套运行时元数据面。
 - 新增恢复批量处理能力必须继续复用共享 `recovery_summary`、现有任务模型与现有 diagnostics 投影，不新增 Web / Launcher / CLI 各自独立状态口径。
 

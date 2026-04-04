@@ -245,14 +245,19 @@ func writeManagedRuntimeFixtures(t *testing.T, repoRoot string) {
 		t.Fatalf("mkdir deps root: %v", err)
 	}
 	manifest := `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "python-test",
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "` + platform + `",
-      "source": "https://example.invalid/python.tar.gz",
+      "sources": [
+        {
+          "url": "https://example.invalid/python.tar.gz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -265,7 +270,12 @@ func writeManagedRuntimeFixtures(t *testing.T, repoRoot string) {
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "` + platform + `",
-      "source": "https://example.invalid/node.tar.xz",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.tar.xz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "2bb9e071b229e9c0cb7d90297c51fa4cf3f5dbf4f88aded36d3f5892651baabf",
       "archive_format": "tar.xz",
       "entrypoints": {

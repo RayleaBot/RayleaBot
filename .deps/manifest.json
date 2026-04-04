@@ -1,12 +1,23 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "chromium-windows-x64",
       "kind": "chromium",
       "version": "147.0.7727.24",
       "platform": "windows-x64",
-      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+      "sources": [
+        {
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+          "kind": "upstream",
+          "label": "Chrome for Testing"
+        },
+        {
+          "url": "https://npmmirror.com/mirrors/chrome-for-testing/147.0.7727.24/win64/chrome-win64.zip",
+          "kind": "mirror",
+          "label": "npmmirror"
+        }
+      ],
       "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
       "archive_format": "zip",
       "entrypoints": {
@@ -20,7 +31,18 @@
       "kind": "chromium",
       "version": "147.0.7727.24",
       "platform": "linux-x64",
-      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/linux64/chrome-linux64.zip",
+      "sources": [
+        {
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/linux64/chrome-linux64.zip",
+          "kind": "upstream",
+          "label": "Chrome for Testing"
+        },
+        {
+          "url": "https://npmmirror.com/mirrors/chrome-for-testing/147.0.7727.24/linux64/chrome-linux64.zip",
+          "kind": "mirror",
+          "label": "npmmirror"
+        }
+      ],
       "sha256": "2623af6b98ab1029e9e752450e905e30c4669774aee14acf2a203ef2ea797ee0",
       "archive_format": "zip",
       "entrypoints": {
@@ -34,7 +56,18 @@
       "kind": "chromium",
       "version": "147.0.7727.24",
       "platform": "macos-arm64",
-      "source": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/mac-arm64/chrome-mac-arm64.zip",
+      "sources": [
+        {
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/mac-arm64/chrome-mac-arm64.zip",
+          "kind": "upstream",
+          "label": "Chrome for Testing"
+        },
+        {
+          "url": "https://npmmirror.com/mirrors/chrome-for-testing/147.0.7727.24/mac-arm64/chrome-mac-arm64.zip",
+          "kind": "mirror",
+          "label": "npmmirror"
+        }
+      ],
       "sha256": "37da2605bae9b5d349546eb9b6700ee6af27aa9b643ee4c58d7bc22d1209a03f",
       "archive_format": "zip",
       "entrypoints": {
@@ -48,7 +81,13 @@
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "windows-x64",
-      "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "sources": [
+        {
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+          "kind": "upstream",
+          "label": "python-build-standalone"
+        }
+      ],
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -66,7 +105,13 @@
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "linux-x64",
-      "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "sources": [
+        {
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+          "kind": "upstream",
+          "label": "python-build-standalone"
+        }
+      ],
       "sha256": "c71033dc2e0d1f73d3ee34d174090dbe6f96fbc6226ec636f7968b1d7419afbe",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -85,7 +130,13 @@
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "macos-arm64",
-      "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-aarch64-apple-darwin-install_only_stripped.tar.gz",
+      "sources": [
+        {
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-aarch64-apple-darwin-install_only_stripped.tar.gz",
+          "kind": "upstream",
+          "label": "python-build-standalone"
+        }
+      ],
       "sha256": "3772347e741f3bfe1ec6ca995ba20f6cc8e2cef95f8fe87940f1f7dcdfddc900",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -104,7 +155,18 @@
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "windows-x64",
-      "source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+      "sources": [
+        {
+          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+          "kind": "upstream",
+          "label": "nodejs.org"
+        },
+        {
+          "url": "https://npmmirror.com/mirrors/node/v24.14.0/node-v24.14.0-win-x64.zip",
+          "kind": "mirror",
+          "label": "npmmirror"
+        }
+      ],
       "sha256": "313fa40c0d7b18575821de8cb17483031fe07d95de5994f6f435f3b345f85c66",
       "archive_format": "zip",
       "entrypoints": {
@@ -121,7 +183,18 @@
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "linux-x64",
-      "source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+      "sources": [
+        {
+          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+          "kind": "upstream",
+          "label": "nodejs.org"
+        },
+        {
+          "url": "https://npmmirror.com/mirrors/node/v24.14.0/node-v24.14.0-linux-x64.tar.xz",
+          "kind": "mirror",
+          "label": "npmmirror"
+        }
+      ],
       "sha256": "41cd79bb7877c81605a9e68ec4c91547774f46a40c67a17e34d7179ef11729df",
       "archive_format": "tar.xz",
       "entrypoints": {
@@ -138,7 +211,18 @@
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "macos-arm64",
-      "source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz",
+      "sources": [
+        {
+          "url": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz",
+          "kind": "upstream",
+          "label": "nodejs.org"
+        },
+        {
+          "url": "https://npmmirror.com/mirrors/node/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz",
+          "kind": "mirror",
+          "label": "npmmirror"
+        }
+      ],
       "sha256": "448f01d4dfa5a21d280cfbacf00abc22b51aad52f38db0f4886e0e5d00df541d",
       "archive_format": "tar.xz",
       "entrypoints": {
@@ -153,6 +237,6 @@
   ],
   "notes": [
     "Python 3.12.13 使用 python-build-standalone install_only_stripped 归档，供 Launcher、doctor、启动前准备与插件依赖安装共用。",
-    "Node.js 24.14.0 与 Chromium 147.0.7727.24 继续通过 .deps/manifest.json 统一定义正式来源、SHA256 与相对入口。"
+    "Chromium 与 Node.js 资源列表同时包含公开来源和中国境内可用的 npmmirror 镜像；Python 运行环境继续保留已核实的公开来源。"
   ]
 }

@@ -9,25 +9,21 @@
       "sources": [
         {
           "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
-          "kind": "upstream",
-          "label": "python-build-standalone"
+          "kind": "upstream"
         },
         {
-          "url": "https://mirror.example.com/runtimes/python/cpython-3.12.13-linux-x64.tar.gz",
-          "kind": "mirror",
-          "label": "内网镜像"
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.12.13%2B20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+          "kind": "mirror"
         }
       ],
       "sha256": "c71033dc2e0d1f73d3ee34d174090dbe6f96fbc6226ec636f7968b1d7419afbe",
       "archive_format": "tar.gz",
       "entrypoints": {
         "python": [
-          "python/install/bin/python3.12",
-          "python/install/bin/python3"
+          "python/install/bin/python3.12"
         ],
         "pip": [
-          "python/install/bin/pip3.12",
-          "python/install/bin/pip3"
+          "python/install/bin/pip3.12"
         ]
       }
     }

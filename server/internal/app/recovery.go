@@ -225,21 +225,21 @@ func runtimeMetadataIssue(kind string) recovery.CompatibilityIssue {
 			Code:        "deps.python_runtime_metadata_incomplete",
 			Severity:    "warning",
 			Summary:     "Python 运行环境元数据不完整。",
-			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、source 与 sha256。",
+			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、来源列表与 sha256。",
 		}
 	case "nodejs-runtime":
 		return recovery.CompatibilityIssue{
 			Code:        "deps.nodejs_runtime_metadata_incomplete",
 			Severity:    "warning",
 			Summary:     "Node.js / npm 环境元数据不完整。",
-			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、source 与 sha256。",
+			Remediation: "请在 .deps/manifest.json 中补齐当前平台 Node.js / npm 环境的 archive_format、entrypoints、来源列表与 sha256。",
 		}
 	default:
 		return recovery.CompatibilityIssue{
 			Code:        "platform.resource_missing",
 			Severity:    "warning",
 			Summary:     "运行环境元数据不完整。",
-			Remediation: "请补齐当前平台运行环境的 archive_format、entrypoints、source 与 sha256。",
+			Remediation: "请补齐当前平台运行环境的 archive_format、entrypoints、来源列表与 sha256。",
 		}
 	}
 }

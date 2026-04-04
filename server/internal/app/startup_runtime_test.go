@@ -187,14 +187,19 @@ func writeStartupRuntimeManifest(t *testing.T, repoRoot string) {
 		t.Fatalf("mkdir deps root: %v", err)
 	}
 	manifest := `{
-  "manifest_version": 2,
+  "manifest_version": 3,
   "resources": [
     {
       "id": "python-test",
       "kind": "python-runtime",
       "version": "3.12.13",
       "platform": "` + deps.CurrentPlatform() + `",
-      "source": "https://example.invalid/python.tar.gz",
+      "sources": [
+        {
+          "url": "https://example.invalid/python.tar.gz",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
       "archive_format": "tar.gz",
       "entrypoints": {
@@ -207,7 +212,12 @@ func writeStartupRuntimeManifest(t *testing.T, repoRoot string) {
       "kind": "nodejs-runtime",
       "version": "24.14.0",
       "platform": "` + deps.CurrentPlatform() + `",
-      "source": "https://example.invalid/node.zip",
+      "sources": [
+        {
+          "url": "https://example.invalid/node.zip",
+          "kind": "upstream"
+        }
+      ],
       "sha256": "313fa40c0d7b18575821de8cb17483031fe07d95de5994f6f435f3b345f85c66",
       "archive_format": "zip",
       "entrypoints": {
