@@ -3,30 +3,13 @@
 本文档聚焦当前仓库状态下已经证实的工程问题、实际影响与可执行改进建议。
 基线、契约与正式目录职责继续以 `docs/engineering/baseline.md`、`docs/engineering/implementation-order.md` 和 `contracts/` 为准。
 
+当前仓库的 `App`、`runtime`、插件安装、Launcher 壳层和系统状态页采用职责拆分结构。以下问题列表继续跟踪测试覆盖、CI 门禁、稳定性、安全基线和长期维护性。
+
 ---
 
 ## 1. 当前确认的问题
 
-### 1.1 `app` 包编排面仍然偏大
-
-`App` 顶层字段已经按 `appCore`、`appPlatform`、`appPlugins`、`appProcessState` 四组收口，`New()` 也已经拆分为装配阶段。当前主要问题不再是字段平铺本身，而是 `server/internal/app` 继续集中承载生命周期编排、恢复摘要、运行环境准备、管理面路由和部分插件本地 action 逻辑，`runtime`、插件安装和前端页面级协调逻辑也仍然保留较宽的编排面。
-
-以下文件行数已经进入高维护成本区间：
-
-| 文件 | 当前约行数 |
-| --- | --- |
-| `server/internal/runtime/manager.go` | `890` |
-| `server/internal/plugins/install.go` | `527` |
-| `web/src/pages/DashboardPage.vue` | `489` |
-| `server/internal/app/app.go` | `344` |
-| `launcher/src/renderer/src/AppShellView.tsx` | `283` |
-
-**建议**
-
-- `App` 继续收敛为依赖注入与启动停止编排入口。
-- `runtime`、插件安装和页面级壳层按协议、进程管理、下载复制、视图片区块等行为继续拆分。
-
-### 1.2 测试覆盖与分布
+### 1.1 测试覆盖与分布
 
 CI 当前运行 `go test ./...`、Web `pnpm test`、Web `pnpm build`，缺少覆盖率采集与阈值门禁。
 
@@ -46,7 +29,7 @@ CI 当前也没有运行 `go test -race`。
 - 将属性测试继续扩展到协议、配置与命令边界。
 - 在可行的 CI 或定期检测路径中加入 `go test -race`。
 
-### 1.3 静态检查与发布工作流
+### 1.2 静态检查与发布工作流
 
 当前 `.github/workflows/lint.yml` 已经承担基线、版本线、`.deps/manifest.json` v3 与有序 `sources` 的校验，但代码静态分析和依赖安全扫描仍未进入默认门禁。
 
@@ -66,7 +49,7 @@ CI 当前也没有运行 `go test -race`。
 - 将依赖漏洞扫描纳入 PR 与主分支 CI。
 - 将 release workflow 收敛为 matrix 或复用工作流。
 
-### 1.4 生产路径稳定性
+### 1.3 生产路径稳定性
 
 以下问题已经可以直接在当前代码中定位：
 
@@ -84,7 +67,7 @@ CI 当前也没有运行 `go test -race`。
 - 为构造期资源引入统一清理栈。
 - 将 dispatcher 的等待行为移到锁外，或加入明确超时控制。
 
-### 1.5 存储、网络与安全基线
+### 1.4 存储、网络与安全基线
 
 当前仍有几项明确的工程缺口：
 
@@ -101,7 +84,7 @@ CI 当前也没有运行 `go test -race`。
 - 为 Web 与 Launcher 入口增加 CSP 策略。
 - 为前端 HTTP 封装增加默认超时与取消能力。
 
-### 1.6 文档、类型与前端维护性
+### 1.5 文档、类型与前端维护性
 
 以下问题属于维护性观察项，已经有足够证据支持继续关注：
 
@@ -118,7 +101,7 @@ CI 当前也没有运行 `go test -race`。
 - 按页面或领域拆分前端类型与 i18n 文案。
 - 逐步分离前端远程数据缓存与页面本地状态。
 
-### 1.7 用户可见消息边界
+### 1.6 用户可见消息边界
 
 用户可见自然语言消息仍然散落在部分业务代码中。当前问题的重点是消息是否绕过了正式错误码或消息键边界，不是中文本身。
 
