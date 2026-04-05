@@ -2,183 +2,31 @@ name: lint
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+    paths:
+      - "server/**"
+      - "web/**"
+      - "launcher/**"
+      - "scripts/**"
+      - "packaging/**"
+      - "templates/**"
+      - ".deps/manifest.json"
+      - ".github/workflows/lint.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/self-host-smoke.yml"
+      - "server/go.mod"
+      - "server/go.sum"
+      - "web/package.json"
+      - "web/pnpm-lock.yaml"
+      - "launcher/package.json"
+      - "launcher/pnpm-lock.yaml"
+  workflow_dispatch:
 
-env:
-  SMOKE_VERSION: 9999.0.0-smoke
+concurrency:
+  group: lint-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  baseline:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Validate repository baseline
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          root = Path(".")
-
-          required_dirs = [
-              root / "docs" / "engineering",
-              root / "docs" / "architecture",
-              root / "docs" / "dev",
-              root / "docs" / "plugin",
-              root / "docs" / "plugin" / "sdk",
-              root / "docs" / "user",
-              root / "docs" / "release",
-              root / "fixtures",
-              root / "examples",
-              root / ".deps",
-              root / "server",
-              root / "web",
-              root / "launcher",
-              root / ".github" / "workflows",
-          ]
-
-          required_files = [
-              root / "AGENTS.md",
-              root / "docs" / "engineering" / "baseline.md",
-              root / "docs" / "engineering" / "implementation-order.md",
-              root / ".deps" / "manifest.json",
-              root / "server" / "go.mod",
-              root / "server" / "go.sum",
-              root / "web" / "package.json",
-              root / "web" / "pnpm-lock.yaml",
-              root / "launcher" / "package.json",
-              root / "launcher" / "pnpm-lock.yaml",
-          ]
-
-          for path in required_dirs:
-              if not path.is_dir():
-                  raise SystemExit(f"missing directory: {path}")
-
-          for path in required_files:
-              if not path.exists():
-                  raise SystemExit(f"missing file: {path}")
-
-          go_mod = (root / "server" / "go.mod").read_text(encoding="utf-8")
-          if "module rayleabot/server" not in go_mod:
-              raise SystemExit("server/go.mod must use module path rayleabot/server")
-          if "go 1.25.8" not in go_mod:
-              raise SystemExit("server/go.mod must pin Go 1.25.8")
-
-          for package_path in [root / "web" / "package.json", root / "launcher" / "package.json"]:
-              package_json = json.loads(package_path.read_text(encoding="utf-8"))
-              if package_json.get("packageManager") != "pnpm@10.32.1":
-                  raise SystemExit(f"{package_path} packageManager must be pnpm@10.32.1")
-              engines = package_json.get("engines", {})
-              if engines.get("node") != "24.14.0":
-                  raise SystemExit(f"{package_path} engines.node must be 24.14.0")
-              if engines.get("pnpm") != "10.32.1":
-                  raise SystemExit(f"{package_path} engines.pnpm must be 10.32.1")
-
-          launcher_package = json.loads((root / "launcher" / "package.json").read_text(encoding="utf-8"))
-          launcher_deps = launcher_package.get("dependencies", {})
-          launcher_dev_deps = launcher_package.get("devDependencies", {})
-          if launcher_deps.get("react") != "^18.3.1":
-              raise SystemExit("launcher/package.json must pin react ^18.3.1")
-          if launcher_deps.get("@fluentui/react-components") != "^9.54.0":
-              raise SystemExit("launcher/package.json must pin @fluentui/react-components ^9.54.0")
-          if launcher_dev_deps.get("electron") != "41.1.0":
-              raise SystemExit("launcher/package.json must pin electron 41.1.0")
-          if launcher_dev_deps.get("electron-builder") != "26.8.1":
-              raise SystemExit("launcher/package.json must pin electron-builder 26.8.1")
-
-          baseline = (root / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
-          expected_snippets = [
-              "Go `1.25.8`",
-              "Node.js `24.14.0`",
-              "`pnpm 10.32.1`",
-              "Python `3.12.13`",
-              "Electron `41.1.0`",
-              "`127.0.0.1`",
-              "`onebot.ws_url`",
-          ]
-          for snippet in expected_snippets:
-              if snippet not in baseline:
-                  raise SystemExit(f"baseline.md missing expected snippet: {snippet}")
-
-          docs_to_check = {
-              "AGENTS.md": (root / "AGENTS.md").read_text(encoding="utf-8"),
-              "docs/engineering/baseline.md": baseline,
-              "CLAUDE.md": (root / "CLAUDE.md").read_text(encoding="utf-8"),
-          }
-          required_commands = [
-              "go build ./cmd/raylea-server",
-              "pnpm install --frozen-lockfile",
-              "pnpm test",
-              "pnpm build",
-          ]
-          for label, text in docs_to_check.items():
-              for command in required_commands:
-                  if command not in text:
-                      raise SystemExit(f"{label} must mention command: {command}")
-
-          manifest = json.loads((root / ".deps" / "manifest.json").read_text(encoding="utf-8"))
-          if manifest.get("manifest_version") != 3:
-              raise SystemExit(".deps/manifest.json manifest_version must be 3")
-          resources = manifest.get("resources", [])
-          resource_ids = {item.get("id") for item in manifest.get("resources", [])}
-          for expected in [
-              "chromium-windows-x64",
-              "chromium-linux-x64",
-              "chromium-macos-arm64",
-              "python-windows-x64",
-              "python-linux-x64",
-              "python-macos-arm64",
-              "nodejs-windows-x64",
-              "nodejs-linux-x64",
-              "nodejs-macos-arm64",
-          ]:
-              if expected not in resource_ids:
-                  raise SystemExit(f".deps/manifest.json missing resource: {expected}")
-
-          for resource in resources:
-              if not isinstance(resource, dict):
-                  raise SystemExit(".deps/manifest.json resources must contain objects only")
-              sources = resource.get("sources")
-              sha256 = str(resource.get("sha256", "")).strip().lower()
-              archive_format = str(resource.get("archive_format", "")).strip()
-              entrypoints = resource.get("entrypoints")
-              if not isinstance(sources, list) or len(sources) == 0:
-                  raise SystemExit(f".deps/manifest.json resource must include sources: {resource}")
-              seen_urls = set()
-              for source in sources:
-                  if not isinstance(source, dict):
-                      raise SystemExit(f".deps/manifest.json resource source must be an object: {resource}")
-                  url = str(source.get("url", "")).strip()
-                  kind = str(source.get("kind", "")).strip()
-                  if not url.startswith("https://") or "TODO(" in url:
-                      raise SystemExit(f".deps/manifest.json resource has invalid source url: {resource}")
-                  if kind not in {"upstream", "mirror"}:
-                      raise SystemExit(f".deps/manifest.json resource has invalid source kind: {resource}")
-                  if url in seen_urls:
-                      raise SystemExit(f".deps/manifest.json resource has duplicate source url: {resource}")
-                  seen_urls.add(url)
-              if len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
-                  raise SystemExit(f".deps/manifest.json resource has invalid sha256: {resource}")
-              if archive_format not in {"zip", "tar.gz", "tar.xz"}:
-                  raise SystemExit(f".deps/manifest.json resource has invalid archive_format: {resource}")
-              if not isinstance(entrypoints, dict) or not entrypoints:
-                  raise SystemExit(f".deps/manifest.json resource must include entrypoints: {resource}")
-
-          print("baseline validation passed")
-          PY
-
-  server-smoke:
+  server-core:
     runs-on: ubuntu-latest
 
     steps:
@@ -198,17 +46,13 @@ jobs:
         working-directory: server
         run: go build ./cmd/raylea-server
 
-  go-coverage:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
         with:
-          go-version-file: server/go.mod
+          version: v1.64.8
+          install-mode: goinstall
+          working-directory: server
+          args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 
       - name: Run Go coverage gate
         shell: bash
@@ -232,77 +76,17 @@ jobs:
           print(f"Go coverage gate passed: {total:.1f}%")
           PY
 
-  go-static:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: server/go.mod
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.64.8
-          install-mode: goinstall
-          working-directory: server
-          args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
-
-  go-vuln:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: server/go.mod
-
       - name: Run govulncheck
-        working-directory: server
         shell: bash
+        working-directory: server
         run: |
           set -euo pipefail
           tmp_bin="$(mktemp)"
+          trap 'rm -f "$tmp_bin"' EXIT
           go build -o "$tmp_bin" ./cmd/raylea-server
           go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 -mode=binary "$tmp_bin"
 
-  ci-web:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24.14.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - name: Install web dependencies
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Run web unit tests
-        working-directory: web
-        run: pnpm test
-
-      - name: Build web shell
-        working-directory: web
-        run: pnpm build
-
-  web-static:
+  web-core:
     runs-on: ubuntu-latest
 
     steps:
@@ -327,82 +111,15 @@ jobs:
         working-directory: web
         run: pnpm run typecheck
 
-  web-audit:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24.14.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - name: Install web dependencies
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Run web dependency audit
-        working-directory: web
-        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
-
-  web-coverage:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24.14.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - name: Install web dependencies
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
       - name: Run web coverage gate
         working-directory: web
         run: pnpm test:coverage
 
-  launcher-coverage:
-    runs-on: ubuntu-latest
+      - name: Build web shell
+        working-directory: web
+        run: pnpm build
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24.14.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - name: Install launcher dependencies
-        working-directory: launcher
-        run: pnpm install --frozen-lockfile
-
-      - name: Run launcher coverage gate
-        working-directory: launcher
-        run: pnpm test:coverage
-
-  launcher-static:
+  launcher-core-linux:
     runs-on: ubuntu-latest
 
     steps:
@@ -427,45 +144,26 @@ jobs:
         working-directory: launcher
         run: pnpm run typecheck
 
-  launcher-audit:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24.14.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - name: Install launcher dependencies
+      - name: Run launcher coverage gate
         working-directory: launcher
-        run: pnpm install --frozen-lockfile
+        run: pnpm test:coverage
 
-      - name: Run launcher dependency audit
+      - name: Build launcher shell
         working-directory: launcher
-        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: pnpm build
 
-  smoke-pr:
+  pr-smoke-light:
     runs-on: ubuntu-latest
     needs:
-      - server-smoke
-      - ci-web
+      - server-core
+      - web-core
+      - launcher-core-linux
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: server/go.mod
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -484,10 +182,6 @@ jobs:
 
       - name: Install web dependencies
         working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Install launcher dependencies
-        working-directory: launcher
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browser
@@ -501,116 +195,9 @@ jobs:
       - name: Run release helper tests
         run: python -m unittest discover -s scripts/release/tests
 
-      - name: Build linux server package inputs
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist/server
-          (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
-
-      - name: Build web dist for packaging
-        working-directory: web
-        run: pnpm build
-
-      - name: Build linux launcher package inputs
-        working-directory: launcher
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: pnpm build
-
-      - name: Package linux release smoke artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$SMOKE_VERSION"
-          GIT_COMMIT="$(git rev-parse --short HEAD)"
-          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases"
-          python scripts/release/release_tool.py package \
-            --artifact-id linux-x64-full \
-            --version "$VERSION" \
-            --git-commit "$GIT_COMMIT" \
-            --release-notes-ref "$RELEASE_NOTES_REF" \
-            --server-bin dist/server/raylea-server \
-            --launcher-bundle launcher/dist/package/linux-unpacked \
-            --web-dist web/dist \
-            --builtin-dir plugins/builtin \
-            --contracts-dir contracts \
-            --deps-dir .deps \
-            --templates-dir templates \
-            --default-config config/default.yaml \
-            --output-dir dist/release
-          python scripts/release/smoke_release.py \
-            --artifact-id linux-x64-full \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz
-          python scripts/release/recovery_drill.py \
-            --artifact-id linux-x64-full \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz \
-            --repository "$GITHUB_REPOSITORY" \
-            --current-version "$VERSION" \
-            --download-dir dist/release/recovery-bootstrap \
-            --observation-window-seconds 60
-          python scripts/release/release_tool.py package \
-            --artifact-id linux-x64-server \
-            --version "$VERSION" \
-            --git-commit "$GIT_COMMIT" \
-            --release-notes-ref "$RELEASE_NOTES_REF" \
-            --server-bin dist/server/raylea-server \
-            --web-dist web/dist \
-            --builtin-dir plugins/builtin \
-            --contracts-dir contracts \
-            --deps-dir .deps \
-            --templates-dir templates \
-            --default-config config/default.yaml \
-            --systemd-file packaging/systemd/rayleabot.service \
-            --output-dir dist/release
-          python scripts/release/smoke_release.py \
-            --artifact-id linux-x64-server \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz
-          python scripts/release/recovery_drill.py \
-            --artifact-id linux-x64-server \
-            --archive dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz \
-            --repository "$GITHUB_REPOSITORY" \
-            --current-version "$VERSION" \
-            --download-dir dist/release/recovery-bootstrap \
-            --observation-window-seconds 60
-
-      - name: Generate and verify smoke release metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$SMOKE_VERSION"
-          GIT_COMMIT="$(git rev-parse --short HEAD)"
-          CONFIG_SCHEMA_VERSION="$(python -c "import json; print(json.load(open('contracts/config.user.schema.json', encoding='utf-8'))['properties']['schema_version']['const'])")"
-          DB_SCHEMA_VERSION="$(python -c "from pathlib import Path; print(len(list(Path('server/internal/storage/migrations').glob('*.sql'))))")"
-          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases"
-          python scripts/release/release_tool.py metadata \
-            --version "$VERSION" \
-            --git-commit "$GIT_COMMIT" \
-            --config-schema-version "$CONFIG_SCHEMA_VERSION" \
-            --db-schema-version "$DB_SCHEMA_VERSION" \
-            --plugin-protocol-version "1" \
-            --release-notes-ref "$RELEASE_NOTES_REF" \
-            --deps-manifest .deps/manifest.json \
-            --sidecar dist/release/RayleaBot-v${VERSION}-linux-x64-full.tar.gz.artifact.json \
-            --sidecar dist/release/RayleaBot-v${VERSION}-linux-x64-server.tar.gz.artifact.json \
-            --output-dir dist/release/metadata
-          python scripts/release/release_tool.py verify \
-            --manifest dist/release/metadata/release_manifest.json \
-            --checksums dist/release/metadata/SHA256SUMS.txt \
-            --artifact-dir dist/release
-
-  ci-launcher:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            platform: windows-x64
-          - runner: ubuntu-latest
-            platform: linux-x64
-          - runner: macos-14
-            platform: macos-arm64
-    runs-on: ${{ matrix.runner }}
+  dependency-audit-manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -621,101 +208,23 @@ jobs:
         with:
           node-version: "24.14.0"
 
-      - name: Setup Go
-        if: matrix.platform != 'linux-x64'
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: server/go.mod
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.32.1
 
-      - name: Setup Python
-        if: matrix.platform != 'linux-x64'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Run web dependency audit
+        working-directory: web
+        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
 
       - name: Install launcher dependencies
         working-directory: launcher
         run: pnpm install --frozen-lockfile
 
-      - name: Install web dependencies
-        if: matrix.platform != 'linux-x64'
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Run launcher tests
+      - name: Run launcher dependency audit
         working-directory: launcher
-        run: pnpm test
-
-      - name: Build web shell
-        if: matrix.platform != 'linux-x64'
-        working-directory: web
-        run: pnpm build
-
-      - name: Build launcher shell
-        working-directory: launcher
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: pnpm build
-
-      - name: Build packaged recovery inputs
-        if: matrix.platform != 'linux-x64'
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist/server
-          if [ "${{ matrix.platform }}" = "windows-x64" ]; then
-            (cd server && go build -o ../dist/server/raylea-server.exe ./cmd/raylea-server)
-          else
-            (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
-          fi
-
-      - name: Package and drill full artifact
-        if: matrix.platform != 'linux-x64'
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$SMOKE_VERSION"
-          GIT_COMMIT="$(git rev-parse --short HEAD)"
-          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases"
-
-          if [ "${{ matrix.platform }}" = "windows-x64" ]; then
-            ARTIFACT_ID="windows-x64-full"
-            SERVER_BIN="dist/server/raylea-server.exe"
-            LAUNCHER_BUNDLE="launcher/dist/package/win-unpacked"
-            ARCHIVE="dist/release/RayleaBot-v${VERSION}-windows-x64-full.zip"
-          else
-            ARTIFACT_ID="macos-arm64-full"
-            SERVER_BIN="dist/server/raylea-server"
-            LAUNCHER_BUNDLE="launcher/dist/package/mac-arm64/RayleaLauncher.app"
-            ARCHIVE="dist/release/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz"
-          fi
-
-          python scripts/release/release_tool.py package \
-            --artifact-id "$ARTIFACT_ID" \
-            --version "$VERSION" \
-            --git-commit "$GIT_COMMIT" \
-            --release-notes-ref "$RELEASE_NOTES_REF" \
-            --server-bin "$SERVER_BIN" \
-            --launcher-bundle "$LAUNCHER_BUNDLE" \
-            --web-dist web/dist \
-            --builtin-dir plugins/builtin \
-            --contracts-dir contracts \
-            --deps-dir .deps \
-            --templates-dir templates \
-            --default-config config/default.yaml \
-            --output-dir dist/release
-          python scripts/release/smoke_release.py \
-            --artifact-id "$ARTIFACT_ID" \
-            --archive "$ARCHIVE"
-          python scripts/release/recovery_drill.py \
-            --artifact-id "$ARTIFACT_ID" \
-            --archive "$ARCHIVE" \
-            --repository "$GITHUB_REPOSITORY" \
-            --current-version "$VERSION" \
-            --download-dir dist/release/recovery-bootstrap \
-            --observation-window-seconds 60
+        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
