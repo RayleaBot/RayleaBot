@@ -47,7 +47,7 @@
 | `contracts/README.md` | ✅ | formal contract 范围与当前 TODO 边界已收敛 |
 | Server / Web / Launcher 基线文件 | ✅ | `server/go.mod`、`web/package.json`、`launcher/package.json`、`launcher/pnpm-lock.yaml` 已锁定基线 |
 | `.deps/manifest.json` | ✅ | Chromium、Python 与 Node.js 资源的 version / 有序来源列表 / SHA256 / archive_format / entrypoints / platform 已固定；Python `3.12.13` 当前记录 `python-build-standalone` 便携发行物来源，Node.js `24.14.0` 记录正式平台归档 |
-| CI skeleton | ✅ | `contracts.yml` 与 `lint.yml` 已落库，并实际校验 contracts、baseline、server smoke |
+| CI skeleton | ✅ | `contracts.yml` 与 `lint.yml` 已落库，默认门禁覆盖 contracts、baseline 与 PR 轻量核心链路 |
 
 ---
 
@@ -241,7 +241,7 @@
 | 环境检查 / 本机诊断壳 | ✅ | server 可执行文件、配置文件、workdir、`LongPathsEnabled`、`.deps/manifest.json` 检查与诊断摘要已落地 |
 | 真实 Launcher 行为 | ✅ | 单窗口桌面壳、启动 / 停止 / 打开管理界面 / 重试健康检查、错误输出 ring buffer 与 `logs/launcher.log` 已落地 |
 | 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与打开 Web 时的本机自动登录增强 |
-| Launcher 测试与 CI | ✅ | `pnpm test`、`pnpm build` 与 Windows / Linux / macOS `ci-launcher` job 已落地 |
+| Launcher 测试与 CI | ✅ | `pnpm test`、`pnpm build` 与 PR Linux 核心门禁已落地；跨平台验证由 `release.yml` 与 `self-host-smoke.yml` 覆盖 |
 | 首启配置 bootstrap | ✅ | Launcher preflight 会提示缺失配置并继续拉起服务；首份 `user.yaml` 由 server 按 `default.yaml` 基线生成 |
 | 凭据丢失恢复入口 | ✅ | Launcher 偏好设置页提供"重置管理员凭据"入口，执行时停止服务、调用 `reset-admin` CLI、重启服务并打开 Web 初始化页面；coordinator、IPC、preload、renderer 全链路已接入并受测试覆盖 |
 | Launcher 设计系统与布局重构 | ✅ | 左侧导航、紧凑页头、统一 tokens / card / badge / log panel patterns、状态页单主操作层级、环境问题列表化、纵向诊断工具页、紧凑关闭策略设置、托盘短文案与统一弹窗表面已落地，整体视觉已收敛为更克制的深色 Fluent 工具壳 |
@@ -278,12 +278,13 @@
 
 | 工作流 / Job | 触发 | 覆盖 |
 |--------|------|------|
+| `contracts.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` v3 baseline 校验 |
 | `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI fixtures 结构/覆盖校验、CLI contract 与 TaskType enum 交叉校验 |
-| `lint.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` v3 baseline 校验 |
-| `lint.yml` / `server-smoke` | push main / PR | `go test ./...` 与 `go build ./cmd/raylea-server` |
-| `lint.yml` / `ci-web` | push main / PR | `pnpm install --frozen-lockfile`、`pnpm test`、`pnpm build` |
-| `lint.yml` / `smoke-pr` | push main / PR | mocked Web E2E、release helper tests、`linux-x64-full` / `linux-x64-server` packaging smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill（60 秒观察窗口）与 metadata verify |
-| `lint.yml` / `ci-launcher` | push main / PR | Windows / Linux / macOS 上的 `pnpm test` 与 `pnpm build`；Windows / macOS full artifact 打包、smoke、runtime bootstrap 前置条件校验与跨版本 packaged recovery drill（60 秒观察窗口） |
+| `lint.yml` / `server-core` | pull_request（代码/构建路径）/ workflow_dispatch | `go test ./...`、`go build ./cmd/raylea-server`、`golangci-lint`、Go coverage gate、`govulncheck` binary mode |
+| `lint.yml` / `web-core` | pull_request（代码/构建路径）/ workflow_dispatch | `pnpm install --frozen-lockfile`、`pnpm typecheck`、`pnpm test:coverage`、`pnpm build` |
+| `lint.yml` / `launcher-core-linux` | pull_request（代码/构建路径）/ workflow_dispatch | Linux 上的 `pnpm install --frozen-lockfile`、`pnpm typecheck`、`pnpm test:coverage`、`pnpm build` |
+| `lint.yml` / `pr-smoke-light` | pull_request（代码/构建路径）/ workflow_dispatch | mocked Web E2E 与 release helper tests 轻量闭环 |
+| `lint.yml` / `dependency-audit-manual` | workflow_dispatch | Web / Launcher 生产依赖审计手动回归 |
 | `release.yml` | tag push | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` 打包、smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill（300 秒观察窗口）、长期自托管 smoke、`release_manifest.json` / `SHA256SUMS.txt` 校验与发布 |
 | `self-host-smoke.yml` | workflow_dispatch | 复用正式打包路径，对选定 artifact 执行长期自托管 smoke 手动回归 |
 
@@ -291,7 +292,7 @@
 
 | 交付门禁 | 状态 | 说明 |
 |--------|------|------|
-| 跨版本 upgrade / rollback drills | ✅ | `lint.yml` 与 `release.yml` 已对 4 个正式 artifact 接入跨版本 upgrade / rollback-style packaged recovery drill，并显式处理 previous-release bootstrap skip |
+| 跨版本 upgrade / rollback drills | ✅ | `release.yml` 与 `self-host-smoke.yml` 已对 4 个正式 artifact 接入跨版本 upgrade / rollback-style packaged recovery drill，并显式处理 previous-release bootstrap skip |
 | 长期自托管 smoke | ✅ | `release.yml` 已对 4 个正式 artifact 接入长期自托管 smoke，`self-host-smoke.yml` 提供按 artifact 子集执行的手动回归入口 |
 
 ### 当前验证结论
@@ -307,7 +308,7 @@
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
-- `ci-web`、`smoke-pr`、`ci-launcher`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
+- `contracts`、`server-core`、`web-core`、`launcher-core-linux`、`pr-smoke-light`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
 - 共享 `recovery_summary`、`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke；兼容通过、需要人工处理、批量确认和修复后收敛四类路径已进入回归矩阵；`.deps/manifest.json` 已进入有序来源列表契约，server、release、smoke 与长期自托管巡检共用同一份来源定义。
 
 ---

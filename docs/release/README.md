@@ -26,8 +26,9 @@
 
 ## 当前门禁
 
-- `lint.yml` 的 `smoke-pr` 会对 `linux-x64-full` 与 `linux-x64-server` 正式包执行打包、smoke、跨版本 recovery drill 与 metadata verify。
-- `lint.yml` 的 `ci-launcher` 会在 Windows 与 macOS runner 上补齐对应 full artifact 的打包、smoke 与跨版本 recovery drill。
+- `contracts.yml` 会在 PR 与 `main` push 执行 `baseline` 与 `validate-contracts`，覆盖基线一致性与 formal contracts 完整性。
+- `lint.yml` 在 PR 默认门禁执行 `server-core`、`web-core`、`launcher-core-linux` 与 `pr-smoke-light`，覆盖服务端核心检查、Web 与 Launcher Linux 核心链路，以及轻量集成 smoke。
+- `lint.yml` 的依赖审计收敛到 `workflow_dispatch` 手动入口 `dependency-audit-manual`，不在每个 PR 自动执行。
 - `release.yml` 会对 `windows-x64-full`、`linux-x64-full`、`linux-x64-server`、`macos-arm64-full` 依次执行打包、smoke、跨版本 recovery drill、长期自托管 smoke、release metadata 校验与发布。
 - `self-host-smoke.yml` 提供 `workflow_dispatch` 手动回归入口，可按 artifact 子集复用正式打包路径并执行同一套长期自托管 smoke 脚本。
 - full artifact 的 smoke 与 recovery drill 统一校验根目录 Launcher 入口，不依赖 `launcher/` 子目录布局。

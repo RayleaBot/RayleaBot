@@ -3899,20 +3899,18 @@ dist/
 
 | 工作流 | 主要内容 | 平台 | PR 合并门禁 | 说明 |
 | --- | --- | --- | --- | --- |
-| `lint` | Go / Web / Launcher 基线校验、静态检查、基础类型检查 | `ubuntu-x64` | 是 | 最快失败层，优先暴露低成本问题 |
-| `contracts` | 校验 `contracts/` 下的 OpenAPI、JSON Schema、错误码表、契约与 fixture 同步性 | `ubuntu-x64` | 是 | 契约漂移必须在合并前阻断 |
-| `ci-server` | `go test ./...`、Server 构建、事件 / 协议 / 配置 / 迁移 fixtures | `ubuntu-x64`、`windows-x64` | 是 | 核心后端路径必须跨主平台通过 |
-| `ci-web` | `pnpm install --frozen-lockfile`、`pnpm build`、Vitest | `ubuntu-x64` | 是 | Web UI 构建与单元测试门禁 |
-| `ci-launcher` | `pnpm test`、`pnpm build` | `windows-x64`、`linux-x64`、`macos-arm64` | 是 | Launcher 在三套正式桌面平台上进入门禁 |
-| `smoke-pr` | 轻量闭环 smoke：初始化、登录、插件列表、任务流、`/healthz` / `/readyz`、最小渲染验证 | `ubuntu-x64` | 是 | PR 级别只跑最小闭环，不跑最重恢复场景 |
+| `contracts` | `baseline` 与 `contracts/` 下的 OpenAPI、JSON Schema、错误码表、契约与 fixture 同步性 | `ubuntu-x64` | 是 | 文档与契约改动保持低成本必跑门禁 |
+| `lint` | `server-core`、`web-core`、`launcher-core-linux`、`pr-smoke-light` | `ubuntu-x64` | 是 | PR 默认轻量门禁，保留核心质量检查并控制分钟消耗 |
+| `dependency-audit-manual` | Web / Launcher 生产依赖审计 | `ubuntu-x64` | 否（手动） | 高成本审计进入按需回归路径 |
 | `release` | 构建正式产物、校验 `release_manifest.json` / checksum、运行交付矩阵 smoke profile 后发布 | `windows-x64`、`linux-x64`、`macos-arm64` | Tag 门禁 | 不通过则不得发布正式 Release |
+| `self-host-smoke` | 复用正式打包路径执行长期自托管 smoke | `windows-x64`、`linux-x64`、`macos-arm64` | 否（手动） | 长窗口回归按需触发，不占用 PR 配额 |
 
 执行原则：
 
-- `contracts`、`ci-server`、`ci-web`、`ci-launcher`、`smoke-pr` 必须全部通过，PR 才可合并。
-- 事件 / 插件协议 / 配置 / 错误码 / 迁移相关 Golden Fixtures 必须进入 `contracts` 或 `ci-server` 的 PR 门禁，而不是只留给高成本回归场景。
+- `contracts` 与 `lint` 必须全部通过，PR 才可合并。
+- 事件 / 插件协议 / 配置 / 错误码 / 迁移相关 Golden Fixtures 必须进入 `contracts` 或 PR 轻量门禁，而不是只留给高成本回归场景。
 - Chromium 重渲染 golden、备份恢复、跨版本迁移等高成本场景优先放入 `release` 与按需回归，避免把所有 PR 门禁拖得过重。
-- `macos-arm64` 作为正式桌面交付平台进入 launcher 门禁与 release 门禁。
+- `macos-arm64` 作为正式桌面交付平台进入 `release` 与按需手动回归。
 
 ### 4.8 可观测性与诊断
 

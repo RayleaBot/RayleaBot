@@ -83,8 +83,8 @@
 - `recovery.recheck`、`recovery.confirm`、`runtime.bootstrap` 已是正式操作入口
 - 前端默认安装命令已固定为 `pnpm install --frozen-lockfile`
 - Go、Web、Launcher 已有覆盖率采集与最低门槛
-- `lint.yml` 已包含 `golangci-lint`、Web / Launcher 静态检查、`govulncheck` 与生产依赖审计
-- `go test -race ./...` 已进入独立定时路径
+- `lint.yml` 默认门禁当前包含 `golangci-lint`、Go/Web/Launcher Linux 核心静态与覆盖率检查、`govulncheck`，生产依赖审计保留在手动回归路径
+- `go test -race ./...` 保留为独立手动回归路径
 - `release.yml` 已采用 matrix 构建全量桌面包，并保留独立的 Linux server 制品
 - 第一批 store、renderer hook、配置规范化与命令边界测试已进入默认测试集
 

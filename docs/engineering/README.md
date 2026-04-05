@@ -5,7 +5,7 @@
 ## 当前工程状态
 
 - `server/` 已进入真实主链路开发阶段，当前覆盖配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger 与管理面日志持久化
-- `web/` 已形成真实管理面主流程，`launcher/` 已形成最小桌面闭环并进入 Windows CI
+- `web/` 已形成真实管理面主流程，`launcher/` 已形成最小桌面闭环；PR 默认门禁使用 Linux 核心链路，跨平台回归由 `release.yml` 与 `self-host-smoke.yml` 承担
 - `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的版本、来源、SHA256 与平台矩阵
 
 ## 文档分工
