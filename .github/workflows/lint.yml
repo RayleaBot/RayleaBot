@@ -249,7 +249,7 @@ jobs:
         with:
           version: v1.64.8
           working-directory: server
-          args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
+          args: --go=1.24 --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 
   go-vuln:
     runs-on: ubuntu-latest
