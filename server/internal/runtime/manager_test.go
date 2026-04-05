@@ -123,7 +123,7 @@ func TestManagerStartFailsOnEarlyExit(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()
-	spec := helperSpec(t, "early-exit", "")
+	spec := helperSpecWithTimings(t, "early-exit", "", time.Second, 3*time.Second, 400*time.Millisecond)
 
 	err := manager.Start(context.Background(), spec, testInitPayload())
 	assertRuntimeErrorCode(t, err, codePluginInternalError)
@@ -865,6 +865,10 @@ func TestHelperProcessRuntime(t *testing.T) {
 		}
 		os.Exit(0)
 	case "early-exit":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		time.Sleep(runtimeTestDuration(20 * time.Millisecond))
 		os.Exit(0)
 	case "event-action-message-send":
 		if !scanner.Scan() {
@@ -1465,7 +1469,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"request_id":       initFrame["request_id"],
 			"status":           "ready",
 		})
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(runtimeTestDuration(20 * time.Millisecond))
 		os.Exit(0)
 	case "progress-forever":
 		if !scanner.Scan() {
@@ -1498,7 +1502,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 		if err := json.Unmarshal(line, &initFrame); err != nil {
 			os.Exit(3)
 		}
-		time.Sleep(120 * time.Millisecond)
+		time.Sleep(runtimeTestDuration(120 * time.Millisecond))
 		writeHelperFrame(map[string]any{
 			"protocol_version": "1",
 			"type":             "init_progress",
@@ -1507,7 +1511,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"request_id":       initFrame["request_id"],
 			"summary":          "warming up",
 		})
-		time.Sleep(120 * time.Millisecond)
+		time.Sleep(runtimeTestDuration(120 * time.Millisecond))
 		writeHelperFrame(map[string]any{
 			"protocol_version": "1",
 			"type":             "init_ack",
@@ -1612,7 +1616,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"reason":           "stop",
 		})
 		// Let the runtime consume the invalid frame before the helper exits.
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(runtimeTestDuration(20 * time.Millisecond))
 		os.Exit(0)
 	case "success":
 		if !scanner.Scan() {
@@ -1662,7 +1666,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"request_id":       initFrame["request_id"],
 			"status":           "ready",
 		})
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(runtimeTestDuration(20 * time.Millisecond))
 		os.Exit(1) // non-zero exit = crash
 	default:
 		os.Exit(5)
@@ -1676,9 +1680,9 @@ func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 		t,
 		scenario,
 		recordPath,
-		runtimeTestDuration(300*time.Millisecond),
-		runtimeTestDuration(time.Second),
-		runtimeTestDuration(400*time.Millisecond),
+		300*time.Millisecond,
+		time.Second,
+		400*time.Millisecond,
 	)
 }
 
@@ -1713,10 +1717,10 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 		Env:           env,
 		WorkDir:       t.TempDir(),
 		EntryPath:     "helper",
-		InitTimeout:   initTimeout,
-		InitMaxTotal:  initMaxTotal,
+		InitTimeout:   runtimeTestDuration(initTimeout),
+		InitMaxTotal:  runtimeTestDuration(initMaxTotal),
 		EventTimeout:  runtimeTestDuration(300 * time.Millisecond),
-		ShutdownGrace: shutdownGrace,
+		ShutdownGrace: runtimeTestDuration(shutdownGrace),
 	}
 }
 

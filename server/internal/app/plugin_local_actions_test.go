@@ -625,7 +625,9 @@ func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("hello http"))
+		if _, err := w.Write([]byte("hello http")); err != nil {
+			t.Fatalf("write http response: %v", err)
+		}
 	}))
 	defer server.Close()
 

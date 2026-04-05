@@ -34,7 +34,9 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -133,7 +135,9 @@ func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		frames := []struct {
 			delay time.Duration
@@ -212,7 +216,9 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -272,7 +278,9 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -332,7 +340,9 @@ func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := conn.Write(context.Background(), websocket.MessageBinary, []byte(`{"post_type":"meta_event","meta_event_type":"heartbeat","interval":1000}`)); err != nil {
 			t.Errorf("conn.Write failed: %v", err)
@@ -386,7 +396,9 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -453,7 +465,9 @@ func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -527,7 +541,9 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -600,7 +616,9 @@ func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		<-r.Context().Done()
 	}))
@@ -641,7 +659,9 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -696,7 +716,9 @@ func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -749,7 +771,9 @@ func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -799,7 +823,9 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -848,7 +874,9 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -977,7 +1005,9 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -1056,7 +1086,9 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -1177,7 +1209,9 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -1282,7 +1316,9 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
