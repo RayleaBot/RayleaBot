@@ -3,33 +3,13 @@
 本文档聚焦当前仓库状态下已经证实的工程问题、实际影响与可执行改进建议。
 基线、契约与正式目录职责继续以 `docs/engineering/baseline.md`、`docs/engineering/implementation-order.md` 和 `contracts/` 为准。
 
-当前仓库的 `App`、`runtime`、插件安装、Launcher 壳层和系统状态页采用职责拆分结构。以下问题列表继续跟踪 CI 门禁、稳定性、安全基线和长期维护性。
+当前仓库的 `App`、`runtime`、插件安装、Launcher 壳层和系统状态页采用职责拆分结构。以下问题列表继续跟踪稳定性、安全基线和长期维护性。
 
 ---
 
 ## 1. 当前确认的问题
 
-### 1.1 静态检查与发布工作流
-
-当前 `.github/workflows/lint.yml` 已经承担基线、版本线、`.deps/manifest.json` v3 与有序 `sources` 的校验，但代码静态分析和依赖安全扫描仍未进入默认门禁。
-
-当前缺少的门禁包括：
-
-- `golangci-lint`
-- Web / Launcher 静态检查
-- `govulncheck`
-- `pnpm audit`
-
-`.github/workflows/release.yml` 中 Windows、Linux、macOS 三个平台 job 继续包含大量相似步骤，维护成本偏高。
-
-**建议**
-
-- 为 Go 接入 `golangci-lint`，至少覆盖 `errcheck`、`staticcheck`、`govet`、`unused`、`ineffassign`。
-- 为 Web 与 Launcher 增加统一的静态检查入口。
-- 将依赖漏洞扫描纳入 PR 与主分支 CI。
-- 将 release workflow 收敛为 matrix 或复用工作流。
-
-### 1.2 生产路径稳定性
+### 1.1 生产路径稳定性
 
 以下问题已经可以直接在当前代码中定位：
 
@@ -47,7 +27,7 @@
 - 为构造期资源引入统一清理栈。
 - 将 dispatcher 的等待行为移到锁外，或加入明确超时控制。
 
-### 1.3 存储、网络与安全基线
+### 1.2 存储、网络与安全基线
 
 当前仍有几项明确的工程缺口：
 
@@ -64,7 +44,7 @@
 - 为 Web 与 Launcher 入口增加 CSP 策略。
 - 为前端 HTTP 封装增加默认超时与取消能力。
 
-### 1.4 文档、类型与前端维护性
+### 1.3 文档、类型与前端维护性
 
 以下问题属于维护性观察项，已经有足够证据支持继续关注：
 
@@ -81,7 +61,7 @@
 - 按页面或领域拆分前端类型与 i18n 文案。
 - 逐步分离前端远程数据缓存与页面本地状态。
 
-### 1.5 用户可见消息边界
+### 1.4 用户可见消息边界
 
 用户可见自然语言消息仍然散落在部分业务代码中。当前问题的重点是消息是否绕过了正式错误码或消息键边界，不是中文本身。
 
@@ -103,7 +83,9 @@
 - `recovery.recheck`、`recovery.confirm`、`runtime.bootstrap` 已是正式操作入口
 - 前端默认安装命令已固定为 `pnpm install --frozen-lockfile`
 - Go、Web、Launcher 已有覆盖率采集与最低门槛
+- `lint.yml` 已包含 `golangci-lint`、Web / Launcher 静态检查、`govulncheck` 与生产依赖审计
 - `go test -race ./...` 已进入独立定时路径
+- `release.yml` 已采用 matrix 构建全量桌面包，并保留独立的 Linux server 制品
 - 第一批 store、renderer hook、配置规范化与命令边界测试已进入默认测试集
 
 依赖版本仍有 `^` 前缀的风险，主要通过锁文件和安装门禁控制；这一点属于持续约束，不构成对当前基线本身的否定。
@@ -116,9 +98,7 @@
 | --- | --- | --- |
 | P0 | 移除生产路径 `panic`、补齐 `http.Server` 超时与头部限制 | 降低服务中断与排障成本 |
 | P0 | 修复构造期资源清理与 dispatcher 锁内等待 | 降低泄漏、死锁与停机风险 |
-| P0 | 接入 Go / 前端静态检查与依赖漏洞扫描 | 建立基础质量与安全门禁 |
 | P1 | 为前端 HTTP 封装增加超时与取消 | 降低前端挂起与长时间加载问题 |
-| P1 | 收敛 release workflow 重复步骤 | 降低发布脚本维护成本 |
 | P1 | 提高 request ID 质量 | 提升日志关联与问题定位能力 |
 | P2 | 拆分超大文件与超大文档 | 降低修改冲突与阅读成本 |
 | P2 | 拆分前端类型、文案与 store 职责 | 降低前端维护成本 |

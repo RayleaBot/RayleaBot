@@ -232,6 +232,41 @@ jobs:
           print(f"Go coverage gate passed: {total:.1f}%")
           PY
 
+  go-static:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.8
+          working-directory: server
+          args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
+
+  go-vuln:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Run govulncheck
+        working-directory: server
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
   ci-web:
     runs-on: ubuntu-latest
 
@@ -260,6 +295,56 @@ jobs:
       - name: Build web shell
         working-directory: web
         run: pnpm build
+
+  web-static:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Run web typecheck
+        working-directory: web
+        run: pnpm run typecheck
+
+  web-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Run web dependency audit
+        working-directory: web
+        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
 
   web-coverage:
     runs-on: ubuntu-latest
@@ -310,6 +395,56 @@ jobs:
       - name: Run launcher coverage gate
         working-directory: launcher
         run: pnpm test:coverage
+
+  launcher-static:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install launcher dependencies
+        working-directory: launcher
+        run: pnpm install --frozen-lockfile
+
+      - name: Run launcher typecheck
+        working-directory: launcher
+        run: pnpm run typecheck
+
+  launcher-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install launcher dependencies
+        working-directory: launcher
+        run: pnpm install --frozen-lockfile
+
+      - name: Run launcher dependency audit
+        working-directory: launcher
+        run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
 
   smoke-pr:
     runs-on: ubuntu-latest

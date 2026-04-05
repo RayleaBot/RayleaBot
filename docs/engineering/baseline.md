@@ -31,7 +31,7 @@
 | Server | Go `1.25.8` |
 | Web / Node runtime | Node.js `24.14.0` |
 | JS package manager | `pnpm 10.32.1` |
-| Web UI | Vue `3.5.30` + Vite `8.0.0` + Element Plus `2.13.5` + Vue Router `5.0.3` + Pinia `3.0.4` |
+| Web UI | Vue `3.5.30` + Vite `8.0.0` + Element Plus `2.13.6` + Vue Router `5.0.4` + Pinia `3.0.4` |
 | Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `@vitejs/plugin-react 6.0.1` + `electron-builder 26.8.1` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |

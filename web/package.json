@@ -10,10 +10,16 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
+    "typecheck": "vue-tsc --noEmit",
     "build": "vue-tsc --noEmit && vite build",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
+  },
+  "pnpm": {
+    "overrides": {
+      "picomatch": "4.0.4"
+    }
   },
   "dependencies": {
     "element-plus": "2.13.6",
