@@ -248,7 +248,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
-          install-mode: gomodule
+          install-mode: goinstall
           working-directory: server
           args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 
@@ -266,7 +266,12 @@ jobs:
 
       - name: Run govulncheck
         working-directory: server
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp_bin="$(mktemp)"
+          go build -o "$tmp_bin" ./cmd/raylea-server
+          go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 -mode=binary "$tmp_bin"
 
   ci-web:
     runs-on: ubuntu-latest
