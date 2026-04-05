@@ -1,8 +1,7 @@
-import { Text } from "@fluentui/react-components";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
-import { busyActionLabels, severityConfig, serviceStateConfig, sortChecks } from "./AppShell.shared";
+import { busyActionLabels, sortChecks } from "./AppShell.shared";
 import { AppShellStatusHero } from "./AppShellStatusHero";
 import { AppShellStatusLogs } from "./AppShellStatusLogs";
 import { AppShellStatusRail } from "./AppShellStatusRail";

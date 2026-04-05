@@ -1,5 +1,6 @@
 import { Button, PresenceBadge, Text } from "@fluentui/react-components";
 import { Globe20Filled, Play20Filled, Stop20Filled } from "@fluentui/react-icons";
+import type { LauncherServiceState } from "@shared/launcher-models";
 
 import { serviceStateConfig } from "./AppShell.shared";
 
@@ -15,7 +16,7 @@ type AppShellStatusHeroProps = {
   snapshot: {
     lastError: string;
     serviceDetail: string;
-    serviceState: string;
+    serviceState: LauncherServiceState;
   };
   startDisabled: boolean;
   statusGuidanceLabel: string;
