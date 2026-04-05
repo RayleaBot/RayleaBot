@@ -114,7 +114,7 @@ func TestProperty_Catalog_ConcurrentSafety(t *testing.T) {
 				if idx%2 == 0 {
 					desired = "disabled"
 				}
-				catalog.SetDesiredState(id, desired)
+				_, _ = catalog.SetDesiredState(id, desired)
 			case 1:
 				catalog.Get(id)
 			case 2:

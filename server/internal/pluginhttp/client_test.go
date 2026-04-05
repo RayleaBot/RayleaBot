@@ -21,7 +21,9 @@ func TestClientAllowsPrivateHostAndDoesNotFollowRedirect(t *testing.T) {
 			w.WriteHeader(http.StatusFound)
 			return
 		}
-		w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Errorf("Write response body failed: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -49,7 +51,9 @@ func TestClientRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Errorf("Write response body failed: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -78,7 +82,9 @@ func TestClientRetriesIdempotentStatusCodes(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("recovered"))
+		if _, err := w.Write([]byte("recovered")); err != nil {
+			t.Errorf("Write response body failed: %v", err)
+		}
 	}))
 	defer server.Close()
 

@@ -23,7 +23,9 @@ func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		// Send ready frame.
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
@@ -104,7 +106,9 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -176,7 +180,9 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -258,7 +264,9 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",
@@ -332,7 +340,9 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 			t.Errorf("Accept failed: %v", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() {
+			_ = conn.CloseNow()
+		}()
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"post_type":       "meta_event",

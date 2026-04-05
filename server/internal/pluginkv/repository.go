@@ -84,7 +84,9 @@ func (r *SQLiteRepository) Set(ctx context.Context, pluginID, key string, value 
 	if err != nil {
 		return fmt.Errorf("begin plugin kv transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	var previousSize int
 	if err := tx.QueryRowContext(

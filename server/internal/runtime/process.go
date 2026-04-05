@@ -233,15 +233,6 @@ func resetTimer(timer *time.Timer, duration time.Duration) {
 	timer.Reset(duration)
 }
 
-func drainOutput(reader io.ReadCloser) {
-	if reader == nil {
-		return
-	}
-	defer reader.Close()
-
-	_, _ = io.Copy(io.Discard, reader)
-}
-
 func writeJSONLine(writer io.Writer, value any) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {

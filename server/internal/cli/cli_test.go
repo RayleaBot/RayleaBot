@@ -179,11 +179,23 @@ func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
 	}
 	w := zip.NewWriter(outFile)
 	manifest := recovery.BackupManifest{Version: "99", CreatedAt: "2025-01-01T00:00:00Z"}
-	data, _ := json.Marshal(manifest)
-	mw, _ := w.Create("backup-manifest.json")
-	mw.Write(data)
-	w.Close()
-	outFile.Close()
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	mw, err := w.Create("backup-manifest.json")
+	if err != nil {
+		t.Fatalf("create manifest entry: %v", err)
+	}
+	if _, err := mw.Write(data); err != nil {
+		t.Fatalf("write manifest entry: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close archive writer: %v", err)
+	}
+	if err := outFile.Close(); err != nil {
+		t.Fatalf("close archive file: %v", err)
+	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runRestore(Command{
@@ -217,13 +229,30 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 			{Label: "config", Path: "config/user.yaml"},
 		},
 	}
-	data, _ := json.Marshal(manifest)
-	mw, _ := w.Create("backup-manifest.json")
-	mw.Write(data)
-	fw, _ := w.Create("config/user.yaml")
-	fw.Write([]byte("server:\n  host: 127.0.0.1\n"))
-	w.Close()
-	outFile.Close()
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	mw, err := w.Create("backup-manifest.json")
+	if err != nil {
+		t.Fatalf("create manifest entry: %v", err)
+	}
+	if _, err := mw.Write(data); err != nil {
+		t.Fatalf("write manifest entry: %v", err)
+	}
+	fw, err := w.Create("config/user.yaml")
+	if err != nil {
+		t.Fatalf("create config entry: %v", err)
+	}
+	if _, err := fw.Write([]byte("server:\n  host: 127.0.0.1\n")); err != nil {
+		t.Fatalf("write config entry: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close archive writer: %v", err)
+	}
+	if err := outFile.Close(); err != nil {
+		t.Fatalf("close archive file: %v", err)
+	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runRestore(Command{
@@ -255,10 +284,19 @@ func TestRestoreRejectsMissingManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := zip.NewWriter(outFile)
-	fw, _ := w.Create("some-file.txt")
-	fw.Write([]byte("data"))
-	w.Close()
-	outFile.Close()
+	fw, err := w.Create("some-file.txt")
+	if err != nil {
+		t.Fatalf("create archive entry: %v", err)
+	}
+	if _, err := fw.Write([]byte("data")); err != nil {
+		t.Fatalf("write archive entry: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close archive writer: %v", err)
+	}
+	if err := outFile.Close(); err != nil {
+		t.Fatalf("close archive file: %v", err)
+	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runRestore(Command{
@@ -282,16 +320,33 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 	w := zip.NewWriter(outFile)
 
 	manifest := recovery.BackupManifest{Version: recovery.BackupManifestVersion, CreatedAt: "2025-01-01T00:00:00Z"}
-	data, _ := json.Marshal(manifest)
-	mw, _ := w.Create("backup-manifest.json")
-	mw.Write(data)
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	mw, err := w.Create("backup-manifest.json")
+	if err != nil {
+		t.Fatalf("create manifest entry: %v", err)
+	}
+	if _, err := mw.Write(data); err != nil {
+		t.Fatalf("write manifest entry: %v", err)
+	}
 
 	// Attempt path traversal.
-	fw, _ := w.Create("../../../etc/evil.txt")
-	fw.Write([]byte("malicious"))
+	fw, err := w.Create("../../../etc/evil.txt")
+	if err != nil {
+		t.Fatalf("create traversal entry: %v", err)
+	}
+	if _, err := fw.Write([]byte("malicious")); err != nil {
+		t.Fatalf("write traversal entry: %v", err)
+	}
 
-	w.Close()
-	outFile.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close archive writer: %v", err)
+	}
+	if err := outFile.Close(); err != nil {
+		t.Fatalf("close archive file: %v", err)
+	}
 
 	destDir := t.TempDir()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

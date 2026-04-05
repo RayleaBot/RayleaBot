@@ -18,10 +18,6 @@ func currentManifestPlatform() string {
 	return deps.CurrentPlatform()
 }
 
-func manifestPlatform(goos, goarch string) string {
-	return deps.ManifestPlatform(goos, goarch)
-}
-
 func (manifest *depsManifest) hasPlatform(platform string) bool {
 	if manifest == nil {
 		return false

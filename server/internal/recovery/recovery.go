@@ -337,23 +337,6 @@ func ConfirmSkippedPlugins(summary CompatibilitySummary, reviewIDs []string, ope
 	return summary, newlyConfirmed, nil
 }
 
-func filterFinalizeIssues(issues []CompatibilityIssue) []CompatibilityIssue {
-	if len(issues) == 0 {
-		return nil
-	}
-	filtered := make([]CompatibilityIssue, 0, len(issues))
-	for _, issue := range issues {
-		if issue.Code == "recovery.post_start_checks_required" {
-			continue
-		}
-		filtered = append(filtered, issue)
-	}
-	if len(filtered) == 0 {
-		return nil
-	}
-	return filtered
-}
-
 func buildManualActions(runtimeIssues []CompatibilityIssue, skippedPlugins []SkippedPlugin) []string {
 	actions := make([]string, 0, len(runtimeIssues)+len(skippedPlugins)+1)
 	for _, issue := range runtimeIssues {

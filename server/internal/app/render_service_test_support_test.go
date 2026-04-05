@@ -45,15 +45,3 @@ func newRenderService(root string) *render.Service {
 	}
 	return service
 }
-
-func newTestRenderService(t *testing.T, root string) *render.Service {
-	t.Helper()
-
-	service := newRenderService(root)
-	t.Cleanup(func() {
-		if err := service.Close(); err != nil {
-			t.Fatalf("close render service: %v", err)
-		}
-	})
-	return service
-}

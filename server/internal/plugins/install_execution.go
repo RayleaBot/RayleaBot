@@ -71,8 +71,6 @@ func (s *InstallService) runInstall(job installJob) error {
 		return installError(codePluginInstallFailed, "写入插件安装目录失败", "写入插件安装目录失败")
 	}
 
-	candidateDir = ""
-
 	s.registry.Update(job.taskID, tasks.Update{
 		Progress: intPtr(75),
 		Summary:  stringPtr("刷新插件目录索引"),

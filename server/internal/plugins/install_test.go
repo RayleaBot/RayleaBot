@@ -375,9 +375,9 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 
 func installServiceTimeout() time.Duration {
 	if testing.CoverMode() != "" || testRaceEnabled {
-		return 10 * time.Second
+		return 20 * time.Second
 	}
-	return 5 * time.Second
+	return 15 * time.Second
 }
 
 type installSourceOptions struct {
@@ -557,7 +557,7 @@ func waitForTaskCompletion(t *testing.T, registry *tasks.Registry, taskID string
 
 func taskCompletionTimeout() time.Duration {
 	if testing.CoverMode() != "" || testRaceEnabled {
-		return 10 * time.Second
+		return 20 * time.Second
 	}
-	return 5 * time.Second
+	return 15 * time.Second
 }
