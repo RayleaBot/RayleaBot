@@ -234,7 +234,7 @@ func writePluginInstallSource(t *testing.T, root, pluginID, runtimeName, entry s
 func waitForTaskStatus(t *testing.T, registry *tasks.Registry, taskID string, want tasks.Status) tasks.Snapshot {
 	t.Helper()
 
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(taskStatusTimeout())
 	for time.Now().Before(deadline) {
 		snapshot, ok := registry.Get(taskID)
 		if ok {
@@ -252,4 +252,11 @@ func waitForTaskStatus(t *testing.T, registry *tasks.Registry, taskID string, wa
 	snapshot, _ := registry.Get(taskID)
 	t.Fatalf("timed out waiting for task %s to reach %q; last snapshot=%#v", taskID, want, snapshot)
 	return tasks.Snapshot{}
+}
+
+func taskStatusTimeout() time.Duration {
+	if testing.CoverMode() != "" || testRaceEnabled {
+		return 10 * time.Second
+	}
+	return 5 * time.Second
 }

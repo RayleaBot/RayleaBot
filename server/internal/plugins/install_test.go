@@ -364,13 +364,20 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 			{Label: "examples/plugins", Path: examplesRoot},
 			{Label: "plugins/installed", Path: installedRoot},
 		},
-		2*time.Second,
+		installServiceTimeout(),
 		deps,
 	)
 	if err != nil {
 		t.Fatalf("newInstallService failed: %v", err)
 	}
 	return service, catalog
+}
+
+func installServiceTimeout() time.Duration {
+	if testing.CoverMode() != "" || testRaceEnabled {
+		return 10 * time.Second
+	}
+	return 5 * time.Second
 }
 
 type installSourceOptions struct {
@@ -532,7 +539,7 @@ func writePluginZip(t *testing.T, archivePath, sourceDir string) {
 func waitForTaskCompletion(t *testing.T, registry *tasks.Registry, taskID string) tasks.Snapshot {
 	t.Helper()
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(taskCompletionTimeout())
 	for time.Now().Before(deadline) {
 		snapshot, ok := registry.Get(taskID)
 		if ok {
@@ -546,4 +553,11 @@ func waitForTaskCompletion(t *testing.T, registry *tasks.Registry, taskID string
 
 	t.Fatalf("timed out waiting for task %s to complete", taskID)
 	return tasks.Snapshot{}
+}
+
+func taskCompletionTimeout() time.Duration {
+	if testing.CoverMode() != "" || testRaceEnabled {
+		return 10 * time.Second
+	}
+	return 5 * time.Second
 }

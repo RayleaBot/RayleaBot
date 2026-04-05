@@ -1672,7 +1672,14 @@ func TestHelperProcessRuntime(t *testing.T) {
 func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 	t.Helper()
 
-	return helperSpecWithTimings(t, scenario, recordPath, 300*time.Millisecond, time.Second, 400*time.Millisecond)
+	return helperSpecWithTimings(
+		t,
+		scenario,
+		recordPath,
+		runtimeTestDuration(300*time.Millisecond),
+		runtimeTestDuration(time.Second),
+		runtimeTestDuration(400*time.Millisecond),
+	)
 }
 
 func helperSpecWithEventTimeout(t *testing.T, scenario string, recordPath string, eventTimeout time.Duration) Spec {
@@ -1708,7 +1715,7 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 		EntryPath:     "helper",
 		InitTimeout:   initTimeout,
 		InitMaxTotal:  initMaxTotal,
-		EventTimeout:  300 * time.Millisecond,
+		EventTimeout:  runtimeTestDuration(300 * time.Millisecond),
 		ShutdownGrace: shutdownGrace,
 	}
 }
@@ -1972,7 +1979,7 @@ func writeHelperFrame(frame map[string]any) {
 func waitForRuntimeState(t *testing.T, manager *Manager, want State) {
 	t.Helper()
 
-	deadline := time.Now().Add(500 * time.Millisecond)
+	deadline := time.Now().Add(runtimeTestDuration(500 * time.Millisecond))
 	for time.Now().Before(deadline) {
 		if snapshot := manager.Snapshot(); snapshot.State == want {
 			return
@@ -1981,6 +1988,13 @@ func waitForRuntimeState(t *testing.T, manager *Manager, want State) {
 	}
 
 	t.Fatalf("runtime did not reach state %q; last snapshot: %+v", want, manager.Snapshot())
+}
+
+func runtimeTestDuration(base time.Duration) time.Duration {
+	if testing.CoverMode() != "" || testRaceEnabled {
+		return base * 3
+	}
+	return base
 }
 
 func helperReadFrame(scanner *bufio.Scanner, code int) map[string]any {
