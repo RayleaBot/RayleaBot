@@ -35,5 +35,15 @@ export default defineConfig({
     setupFiles: ['./tests/unit/setup.ts'],
     css: true,
     include: ['tests/unit/**/*.spec.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary'],
+      thresholds: {
+        statements: 40,
+        lines: 40,
+        functions: 40,
+        branches: 25,
+      },
+    },
   },
 })

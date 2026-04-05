@@ -198,6 +198,40 @@ jobs:
         working-directory: server
         run: go build ./cmd/raylea-server
 
+  go-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Run Go coverage gate
+        shell: bash
+        working-directory: server
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(go list ./... | grep -v '/cmd/raylea-server$')
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "no packages selected for coverage"
+            exit 1
+          fi
+          go test -covermode=atomic -coverprofile=coverage.out "${packages[@]}"
+          total="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%","",$3); print $3}')"
+          echo "Go coverage total: ${total}%"
+          python - <<'PY' "$total"
+          import sys
+          total = float(sys.argv[1])
+          threshold = 55.0
+          if total < threshold:
+              raise SystemExit(f"Go coverage {total:.1f}% is below required {threshold:.1f}%")
+          print(f"Go coverage gate passed: {total:.1f}%")
+          PY
+
   ci-web:
     runs-on: ubuntu-latest
 
@@ -226,6 +260,56 @@ jobs:
       - name: Build web shell
         working-directory: web
         run: pnpm build
+
+  web-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Run web coverage gate
+        working-directory: web
+        run: pnpm test:coverage
+
+  launcher-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install launcher dependencies
+        working-directory: launcher
+        run: pnpm install --frozen-lockfile
+
+      - name: Run launcher coverage gate
+        working-directory: launcher
+        run: pnpm test:coverage
 
   smoke-pr:
     runs-on: ubuntu-latest

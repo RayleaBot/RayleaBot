@@ -1,0 +1,137 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { useLogsStore } from '@/stores/logs'
+import { usePluginsStore } from '@/stores/plugins'
+import { useSessionStore } from '@/stores/session'
+import { useSocketStore } from '@/stores/sockets'
+import { useSystemStore } from '@/stores/system'
+import { useTasksStore } from '@/stores/tasks'
+
+const { MockManagedSocket } = vi.hoisted(() => {
+  class HoistedManagedSocket<TFrameData = Record<string, unknown>> {
+    static instances: HoistedManagedSocket[] = []
+
+    readonly options: {
+      name: string
+      onStatusChange?: (status: string, lastError?: string) => void
+      onFrame?: (frame: TFrameData) => void
+    }
+
+    start = vi.fn()
+    stop = vi.fn()
+    refresh = vi.fn()
+
+    constructor(options: HoistedManagedSocket<TFrameData>['options']) {
+      this.options = options
+      HoistedManagedSocket.instances.push(this)
+    }
+
+    emitStatus(status: string, lastError?: string) {
+      this.options.onStatusChange?.(status, lastError)
+    }
+
+    emitFrame(frame: TFrameData) {
+      this.options.onFrame?.(frame)
+    }
+  }
+  return { MockManagedSocket: HoistedManagedSocket }
+})
+
+vi.mock('@/lib/ws', () => ({
+  ManagedSocket: MockManagedSocket,
+}))
+
+describe('socket store', () => {
+  beforeEach(() => {
+    MockManagedSocket.instances = []
+    setActivePinia(createPinia())
+  })
+
+  it('starts management sockets, projects statuses, and routes frames to stores', () => {
+    const sessionStore = useSessionStore()
+    sessionStore.token = 'session-token'
+    const systemStore = useSystemStore()
+    const tasksStore = useTasksStore()
+    const logsStore = useLogsStore()
+    const pluginsStore = usePluginsStore()
+    const store = useSocketStore()
+
+    store.ensureManagementSockets()
+
+    expect(MockManagedSocket.instances).toHaveLength(4)
+    expect(MockManagedSocket.instances[0].start).toHaveBeenCalledTimes(1)
+    expect(MockManagedSocket.instances[1].start).toHaveBeenCalledTimes(1)
+    expect(MockManagedSocket.instances[2].start).toHaveBeenCalledTimes(1)
+
+    MockManagedSocket.instances[0].emitStatus('authenticated')
+    MockManagedSocket.instances[1].emitStatus('reconnecting', 'tasks 连接异常')
+    expect(store.snapshots.events.status).toBe('authenticated')
+    expect(store.snapshots.tasks.lastError).toBe('tasks 连接异常')
+
+    MockManagedSocket.instances[0].emitFrame({
+      timestamp: '2026-04-05T08:00:00Z',
+      data: {
+        summary: 'adapter ready',
+        plugin_id: 'weather',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+      },
+    })
+    MockManagedSocket.instances[1].emitFrame({
+      type: 'tasks.updated',
+      data: {
+        task_id: 'task_1',
+        task_type: 'runtime.bootstrap',
+        status: 'running',
+      },
+    })
+    MockManagedSocket.instances[2].emitFrame({
+      type: 'logs.appended',
+      data: {
+        timestamp: '2026-04-05T08:00:01Z',
+        level: 'warn',
+        source: 'adapter',
+        message: 'log line',
+      },
+    })
+
+    expect(systemStore.recentEvents).toHaveLength(1)
+    expect(pluginsStore.items[0].id).toBe('weather')
+    expect(tasksStore.items[0].task_id).toBe('task_1')
+    expect(logsStore.items[0].message).toBe('log line')
+  })
+
+  it('manages the console socket separately and disconnects all sockets', () => {
+    const sessionStore = useSessionStore()
+    sessionStore.token = 'session-token'
+    const pluginsStore = usePluginsStore()
+    const store = useSocketStore()
+
+    store.ensureManagementSockets()
+    store.setConsolePlugin('weather')
+
+    expect(MockManagedSocket.instances[3].start).toHaveBeenCalledTimes(1)
+    expect(MockManagedSocket.instances[3].refresh).toHaveBeenCalledTimes(1)
+
+    MockManagedSocket.instances[3].emitFrame({
+      type: 'plugins.console',
+      data: {
+        plugin_id: 'weather',
+        stream: 'stdout',
+        text: 'console line',
+        timestamp: '2026-04-05T08:00:02Z',
+      },
+    })
+    expect(pluginsStore.getConsole('weather')[0].text).toBe('console line')
+
+    store.disconnectAll()
+
+    expect(MockManagedSocket.instances[0].stop).toHaveBeenCalledTimes(1)
+    expect(MockManagedSocket.instances[1].stop).toHaveBeenCalledTimes(1)
+    expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(1)
+    expect(MockManagedSocket.instances[3].stop).toHaveBeenCalledTimes(1)
+  })
+})
