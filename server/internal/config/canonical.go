@@ -746,6 +746,9 @@ func defaultDocument() map[string]any {
 }
 
 func stringValue(value any) string {
+	if value == nil {
+		return ""
+	}
 	switch typed := value.(type) {
 	case string:
 		return typed
