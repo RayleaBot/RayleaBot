@@ -248,8 +248,9 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
+          install-mode: gomodule
           working-directory: server
-          args: --go=1.24 --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
+          args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 
   go-vuln:
     runs-on: ubuntu-latest
