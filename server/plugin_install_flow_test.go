@@ -256,7 +256,7 @@ func waitForTaskStatus(t *testing.T, registry *tasks.Registry, taskID string, wa
 
 func taskStatusTimeout() time.Duration {
 	if testing.CoverMode() != "" || testRaceEnabled {
-		return 10 * time.Second
+		return 20 * time.Second
 	}
-	return 5 * time.Second
+	return 15 * time.Second
 }

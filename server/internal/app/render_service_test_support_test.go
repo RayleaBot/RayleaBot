@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"path/filepath"
-	"testing"
 	"time"
 
 	"rayleabot/server/internal/render"
