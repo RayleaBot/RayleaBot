@@ -1,0 +1,11 @@
+export const auth = {
+  surface: '管理界面',
+  loginTitle: '登录',
+  loginBody: '输入管理员账号和密钥后进入管理界面。',
+  setupTitle: '创建管理员账号',
+  setupBody: '首次使用时，请先创建管理员账号。',
+  identifier: '管理员账号',
+  secret: '管理员密钥',
+  loginSubmit: '登录',
+  setupSubmit: '创建并进入管理界面',
+} as const

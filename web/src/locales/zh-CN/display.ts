@@ -1,0 +1,111 @@
+export const display = {
+  empty: '—',
+  connectionChannels: {
+    events: '事件流',
+    tasks: '任务流',
+    logs: '日志流',
+    pluginConsole: '控制台',
+  },
+  connectionStatuses: {
+    disconnected: '未连接',
+    connecting: '连接中',
+    connected: '已连接',
+    authenticated: '已认证',
+    auth_failed: '鉴权失败',
+    reconnecting: '重连中',
+  },
+  taskTypes: {
+    plugin: {
+      install: '安装插件',
+      uninstall: '卸载插件',
+      reload: '重载插件',
+    },
+    backup: {
+      create: '创建备份',
+    },
+    recovery: {
+      recheck: '重新检查恢复状态',
+      confirm: '确认恢复处理结果',
+    },
+    restore: {
+      apply: '恢复备份',
+    },
+    runtime: {
+      bootstrap: '准备运行环境',
+    },
+    config: {
+      migrate: '迁移配置',
+    },
+    db: {
+      migrate: '迁移数据库',
+    },
+    render: {
+      preview: '图片预览',
+    },
+  },
+  taskStatuses: {
+    pending: '等待中',
+    running: '执行中',
+    succeeded: '已完成',
+    failed: '失败',
+    cancelled: '已取消',
+    interrupted: '已中断',
+  },
+  pluginRegistrationStates: {
+    installed: '已安装',
+    removed: '已移除',
+  },
+  pluginDesiredStates: {
+    enabled: '已启用',
+    disabled: '已停用',
+  },
+  pluginRuntimeStates: {
+    starting: '启动中',
+    running: '运行中',
+    stopping: '停止中',
+    crashed: '已崩溃',
+    backoff: '退避中',
+    dead_letter: '异常挂起',
+    stopped: '已停止',
+  },
+  pluginRoles: {
+    builtin: '内置',
+    user: '用户',
+    example: '示例',
+    dev: '开发',
+  },
+  pluginDisplayStates: {
+    discovered: '已识别',
+    invalid_manifest: '清单无效',
+    conflict: '存在冲突',
+    disabled: '已停用',
+    running: '运行中',
+    stopped: '已停止',
+    enabled: '已启用',
+    removed: '已移除',
+  },
+  logLevels: {
+    debug: '调试',
+    info: '信息',
+    warn: '警告',
+    error: '错误',
+  },
+  systemStatuses: {
+    running: '运行中',
+    shutting_down: '停止中',
+  },
+  readinessStatuses: {
+    ready: '就绪',
+    degraded: '运行条件受限',
+    setup_required: '待初始化',
+    failed: '异常',
+  },
+  adapterStates: {
+    idle: '未配置',
+    connecting: '连接中',
+    connected: '已连接',
+    auth_failed: '鉴权失败',
+    reconnecting: '重连中',
+    stopped: '已停止',
+  },
+} as const
