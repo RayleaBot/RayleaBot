@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"rayleabot/server/internal/sqlcgen"
 	"rayleabot/server/internal/storage"
 )
 
@@ -30,9 +31,11 @@ type Repository interface {
 }
 
 type SQLiteRepository struct {
-	read  *sql.DB
-	write *sql.DB
-	now   func() time.Time
+	readQ  *sqlcgen.Queries
+	writeQ *sqlcgen.Queries
+	write  *sql.DB
+	read   *sql.DB
+	now    func() time.Time
 }
 
 func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
@@ -40,20 +43,19 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 		return nil, errors.New("sqlite store is required")
 	}
 	return &SQLiteRepository{
-		read:  store.Read,
-		write: store.Write,
-		now:   time.Now,
+		readQ:  sqlcgen.New(store.Read),
+		writeQ: sqlcgen.New(store.Write),
+		write:  store.Write,
+		read:   store.Read,
+		now:    time.Now,
 	}, nil
 }
 
 func (r *SQLiteRepository) Get(ctx context.Context, pluginID, key string) (any, bool, error) {
-	var valueJSON string
-	err := r.read.QueryRowContext(
-		ctx,
-		`SELECT value_json FROM plugin_kv WHERE plugin_id = ? AND key = ?`,
-		strings.TrimSpace(pluginID),
-		strings.TrimSpace(key),
-	).Scan(&valueJSON)
+	valueJSON, err := r.readQ.GetKV(ctx, sqlcgen.GetKVParams{
+		PluginID: strings.TrimSpace(pluginID),
+		Key:      strings.TrimSpace(key),
+	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
@@ -88,44 +90,33 @@ func (r *SQLiteRepository) Set(ctx context.Context, pluginID, key string, value 
 		_ = tx.Rollback()
 	}()
 
-	var previousSize int
-	if err := tx.QueryRowContext(
-		ctx,
-		`SELECT COALESCE(size_bytes, 0) FROM plugin_kv WHERE plugin_id = ? AND key = ?`,
-		pluginID,
-		key,
-	).Scan(&previousSize); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	q := r.writeQ.WithTx(tx)
+
+	previousSize, err := q.GetKVSize(ctx, sqlcgen.GetKVSizeParams{
+		PluginID: pluginID,
+		Key:      key,
+	})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("query previous plugin kv size: %w", err)
 	}
 
-	var totalSize int
-	if err := tx.QueryRowContext(
-		ctx,
-		`SELECT COALESCE(SUM(size_bytes), 0) FROM plugin_kv WHERE plugin_id = ?`,
-		pluginID,
-	).Scan(&totalSize); err != nil {
+	totalSize, err := q.GetKVTotalSize(ctx, pluginID)
+	if err != nil {
 		return fmt.Errorf("query plugin kv total size: %w", err)
 	}
 
-	nextTotal := totalSize - previousSize + sizeBytes
+	nextTotal := int(totalSize) - int(previousSize) + sizeBytes
 	if limits.TotalMaxBytes > 0 && nextTotal > limits.TotalMaxBytes {
 		return ErrQuotaExceeded
 	}
 
-	if _, err := tx.ExecContext(
-		ctx,
-		`INSERT INTO plugin_kv (plugin_id, key, value_json, size_bytes, updated_at)
-		 VALUES (?, ?, ?, ?, ?)
-		 ON CONFLICT(plugin_id, key) DO UPDATE SET
-		 	value_json = excluded.value_json,
-		 	size_bytes = excluded.size_bytes,
-		 	updated_at = excluded.updated_at`,
-		pluginID,
-		key,
-		string(valueJSON),
-		sizeBytes,
-		r.now().UTC().Format(time.RFC3339Nano),
-	); err != nil {
+	if err := q.UpsertKV(ctx, sqlcgen.UpsertKVParams{
+		PluginID:  pluginID,
+		Key:       key,
+		ValueJson: string(valueJSON),
+		SizeBytes: int64(sizeBytes),
+		UpdatedAt: r.now().UTC().Format(time.RFC3339Nano),
+	}); err != nil {
 		return fmt.Errorf("upsert plugin kv value: %w", err)
 	}
 
@@ -136,12 +127,10 @@ func (r *SQLiteRepository) Set(ctx context.Context, pluginID, key string, value 
 }
 
 func (r *SQLiteRepository) Delete(ctx context.Context, pluginID, key string) (bool, error) {
-	result, err := r.write.ExecContext(
-		ctx,
-		`DELETE FROM plugin_kv WHERE plugin_id = ? AND key = ?`,
-		strings.TrimSpace(pluginID),
-		strings.TrimSpace(key),
-	)
+	result, err := r.writeQ.DeleteKV(ctx, sqlcgen.DeleteKVParams{
+		PluginID: strings.TrimSpace(pluginID),
+		Key:      strings.TrimSpace(key),
+	})
 	if err != nil {
 		return false, fmt.Errorf("delete plugin kv value: %w", err)
 	}
@@ -152,6 +141,7 @@ func (r *SQLiteRepository) Delete(ctx context.Context, pluginID, key string) (bo
 	return rows > 0, nil
 }
 
+// List uses ESCAPE clause not supported by sqlc's SQLite parser; kept as hand-written SQL.
 func (r *SQLiteRepository) List(ctx context.Context, pluginID, prefix string) ([]string, error) {
 	rows, err := r.read.QueryContext(
 		ctx,

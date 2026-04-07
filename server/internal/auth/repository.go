@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"rayleabot/server/internal/sqlcgen"
 	"rayleabot/server/internal/storage"
 )
 
@@ -26,8 +27,9 @@ type Repository interface {
 }
 
 type SQLiteRepository struct {
-	read  *sql.DB
-	write *sql.DB
+	readQ  *sqlcgen.Queries
+	writeQ *sqlcgen.Queries
+	write  *sql.DB
 }
 
 func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
@@ -36,20 +38,14 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 	}
 
 	return &SQLiteRepository{
-		read:  store.Read,
-		write: store.Write,
+		readQ:  sqlcgen.New(store.Read),
+		writeQ: sqlcgen.New(store.Write),
+		write:  store.Write,
 	}, nil
 }
 
 func (r *SQLiteRepository) LoadBootstrap(ctx context.Context) (*BootstrapState, error) {
-	var state BootstrapState
-	var initializedAt string
-	err := r.read.QueryRowContext(
-		ctx,
-		`SELECT identifier, secret_digest, signing_key, initialized_at
-		FROM auth_bootstrap_state
-		WHERE singleton_id = 1`,
-	).Scan(&state.Identifier, &state.SecretDigest, &state.SigningKey, &initializedAt)
+	row, err := r.readQ.LoadBootstrap(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -57,46 +53,42 @@ func (r *SQLiteRepository) LoadBootstrap(ctx context.Context) (*BootstrapState, 
 		return nil, fmt.Errorf("load bootstrap state: %w", err)
 	}
 
-	parsedTime, err := time.Parse(time.RFC3339Nano, initializedAt)
+	parsedTime, err := time.Parse(time.RFC3339Nano, row.InitializedAt)
 	if err != nil {
 		return nil, fmt.Errorf("parse bootstrap initialized_at: %w", err)
 	}
-	state.InitializedAt = parsedTime.UTC()
 
-	return &state, nil
+	return &BootstrapState{
+		Identifier:    row.Identifier,
+		SecretDigest:  row.SecretDigest,
+		SigningKey:    row.SigningKey,
+		InitializedAt: parsedTime.UTC(),
+	}, nil
 }
 
 func (r *SQLiteRepository) LoadSessions(ctx context.Context) ([]Claims, error) {
-	rows, err := r.read.QueryContext(ctx, `SELECT session_id, subject, issued_at, expires_at FROM admin_sessions`)
+	rows, err := r.readQ.LoadSessions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query admin sessions: %w", err)
 	}
-	defer rows.Close()
 
-	sessions := make([]Claims, 0)
-	for rows.Next() {
+	sessions := make([]Claims, 0, len(rows))
+	for _, row := range rows {
 		var claims Claims
-		var issuedAt string
-		var expiresAt string
-		if err := rows.Scan(&claims.SessionID, &claims.Subject, &issuedAt, &expiresAt); err != nil {
-			return nil, fmt.Errorf("scan admin session: %w", err)
-		}
+		claims.SessionID = row.SessionID
+		claims.Subject = row.Subject
 
-		claims.IssuedAt, err = time.Parse(time.RFC3339Nano, issuedAt)
+		claims.IssuedAt, err = time.Parse(time.RFC3339Nano, row.IssuedAt)
 		if err != nil {
 			return nil, fmt.Errorf("parse session issued_at: %w", err)
 		}
-		claims.ExpiresAt, err = time.Parse(time.RFC3339Nano, expiresAt)
+		claims.ExpiresAt, err = time.Parse(time.RFC3339Nano, row.ExpiresAt)
 		if err != nil {
 			return nil, fmt.Errorf("parse session expires_at: %w", err)
 		}
 		claims.IssuedAt = claims.IssuedAt.UTC()
 		claims.ExpiresAt = claims.ExpiresAt.UTC()
 		sessions = append(sessions, claims)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate admin sessions: %w", err)
 	}
 
 	return sessions, nil
@@ -108,11 +100,10 @@ func (r *SQLiteRepository) SaveBootstrap(ctx context.Context, state BootstrapSta
 		return fmt.Errorf("begin bootstrap transaction: %w", err)
 	}
 
-	var existing int
-	if err := tx.QueryRowContext(
-		ctx,
-		`SELECT COUNT(*) FROM auth_bootstrap_state WHERE singleton_id = 1`,
-	).Scan(&existing); err != nil {
+	q := r.writeQ.WithTx(tx)
+
+	existing, err := q.CountBootstrap(ctx)
+	if err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("check bootstrap state: %w", err)
 	}
@@ -121,22 +112,19 @@ func (r *SQLiteRepository) SaveBootstrap(ctx context.Context, state BootstrapSta
 		return ErrBootstrapAlreadyInitialized
 	}
 
-	if _, err := tx.ExecContext(
-		ctx,
-		`INSERT INTO auth_bootstrap_state (singleton_id, identifier, secret_digest, signing_key, initialized_at)
-		VALUES (1, ?, ?, ?, ?)`,
-		state.Identifier,
-		state.SecretDigest,
-		state.SigningKey,
-		state.InitializedAt.UTC().Format(time.RFC3339Nano),
-	); err != nil {
+	if err := q.InsertBootstrap(ctx, sqlcgen.InsertBootstrapParams{
+		Identifier:    state.Identifier,
+		SecretDigest:  state.SecretDigest,
+		SigningKey:    state.SigningKey,
+		InitializedAt: state.InitializedAt.UTC().Format(time.RFC3339Nano),
+	}); err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("insert bootstrap state: %w", err)
 	}
 
-	if err := upsertSession(ctx, tx, session); err != nil {
+	if err := q.UpsertSession(ctx, claimsToUpsertParams(session)); err != nil {
 		_ = tx.Rollback()
-		return err
+		return fmt.Errorf("upsert session %s: %w", session.SessionID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -147,10 +135,9 @@ func (r *SQLiteRepository) SaveBootstrap(ctx context.Context, state BootstrapSta
 }
 
 func (r *SQLiteRepository) SaveSession(ctx context.Context, claims Claims) error {
-	if err := upsertSession(ctx, r.write, claims); err != nil {
-		return err
+	if err := r.writeQ.UpsertSession(ctx, claimsToUpsertParams(claims)); err != nil {
+		return fmt.Errorf("upsert session %s: %w", claims.SessionID, err)
 	}
-
 	return nil
 }
 
@@ -159,34 +146,18 @@ func (r *SQLiteRepository) DeleteSessions(ctx context.Context, sessionIDs []stri
 		if sessionID == "" {
 			continue
 		}
-		if _, err := r.write.ExecContext(ctx, `DELETE FROM admin_sessions WHERE session_id = ?`, sessionID); err != nil {
+		if err := r.writeQ.DeleteSession(ctx, sessionID); err != nil {
 			return fmt.Errorf("delete session %s: %w", sessionID, err)
 		}
 	}
-
 	return nil
 }
 
-type sqlExecutor interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-}
-
-func upsertSession(ctx context.Context, executor sqlExecutor, claims Claims) error {
-	if _, err := executor.ExecContext(
-		ctx,
-		`INSERT INTO admin_sessions (session_id, subject, issued_at, expires_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(session_id) DO UPDATE SET
-			subject = excluded.subject,
-			issued_at = excluded.issued_at,
-			expires_at = excluded.expires_at`,
-		claims.SessionID,
-		claims.Subject,
-		claims.IssuedAt.UTC().Format(time.RFC3339Nano),
-		claims.ExpiresAt.UTC().Format(time.RFC3339Nano),
-	); err != nil {
-		return fmt.Errorf("upsert session %s: %w", claims.SessionID, err)
+func claimsToUpsertParams(claims Claims) sqlcgen.UpsertSessionParams {
+	return sqlcgen.UpsertSessionParams{
+		SessionID: claims.SessionID,
+		Subject:   claims.Subject,
+		IssuedAt:  claims.IssuedAt.UTC().Format(time.RFC3339Nano),
+		ExpiresAt: claims.ExpiresAt.UTC().Format(time.RFC3339Nano),
 	}
-
-	return nil
 }

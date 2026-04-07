@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"rayleabot/server/internal/sqlcgen"
 	"rayleabot/server/internal/storage"
 )
 
@@ -20,8 +21,10 @@ type Repository interface {
 }
 
 type SQLiteRepository struct {
-	read  *sql.DB
-	write *sql.DB
+	readQ  *sqlcgen.Queries
+	writeQ *sqlcgen.Queries
+	read   *sql.DB
+	write  *sql.DB
 }
 
 func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
@@ -29,8 +32,10 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 		return nil, errors.New("sqlite store is required")
 	}
 	return &SQLiteRepository{
-		read:  store.Read,
-		write: store.Write,
+		readQ:  sqlcgen.New(store.Read),
+		writeQ: sqlcgen.New(store.Write),
+		read:   store.Read,
+		write:  store.Write,
 	}, nil
 }
 
@@ -40,9 +45,9 @@ func (r *SQLiteRepository) SeedDefaults(ctx context.Context, pluginID string, va
 	}
 
 	namespace := namespaceForPlugin(pluginID)
-	existing, err := r.namespaceCount(ctx, namespace)
+	existing, err := r.readQ.CountNamespace(ctx, namespace)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("count system configs for %s: %w", namespace, err)
 	}
 	if existing > 0 {
 		return false, nil
@@ -54,6 +59,7 @@ func (r *SQLiteRepository) SeedDefaults(ctx context.Context, pluginID string, va
 	return true, nil
 }
 
+// Read uses dynamic IN clause not supported by sqlc; kept as hand-written SQL.
 func (r *SQLiteRepository) Read(ctx context.Context, pluginID string, keys []string) (map[string]any, error) {
 	if len(keys) == 0 {
 		return map[string]any{}, nil
@@ -116,14 +122,6 @@ func (r *SQLiteRepository) Write(ctx context.Context, pluginID string, values ma
 	return r.writeValues(ctx, namespace, values, true)
 }
 
-func (r *SQLiteRepository) namespaceCount(ctx context.Context, namespace string) (int, error) {
-	var count int
-	if err := r.read.QueryRowContext(ctx, `SELECT COUNT(*) FROM system_configs WHERE namespace = ?`, namespace).Scan(&count); err != nil {
-		return 0, fmt.Errorf("count system configs for %s: %w", namespace, err)
-	}
-	return count, nil
-}
-
 func (r *SQLiteRepository) writeValues(ctx context.Context, namespace string, values map[string]any, overwrite bool) ([]string, error) {
 	if len(values) == 0 {
 		return []string{}, nil
@@ -148,25 +146,32 @@ func (r *SQLiteRepository) writeValues(ctx context.Context, namespace string, va
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	q := r.writeQ.WithTx(tx)
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	statement := `INSERT INTO system_configs (namespace, key, value_json, updated_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(namespace, key) DO UPDATE SET
-			value_json = excluded.value_json,
-			updated_at = excluded.updated_at`
-	if !overwrite {
-		statement = `INSERT INTO system_configs (namespace, key, value_json, updated_at)
-			VALUES (?, ?, ?, ?)
-			ON CONFLICT(namespace, key) DO NOTHING`
-	}
 
 	for _, key := range keys {
 		raw, err := json.Marshal(values[key])
 		if err != nil {
 			return nil, fmt.Errorf("marshal system config %s: %w", key, err)
 		}
-		if _, err := tx.ExecContext(ctx, statement, namespace, key, string(raw), now); err != nil {
-			return nil, fmt.Errorf("upsert system config %s: %w", key, err)
+		if overwrite {
+			if err := q.UpsertConfig(ctx, sqlcgen.UpsertConfigParams{
+				Namespace: namespace,
+				Key:       key,
+				ValueJson: string(raw),
+				UpdatedAt: now,
+			}); err != nil {
+				return nil, fmt.Errorf("upsert system config %s: %w", key, err)
+			}
+		} else {
+			if err := q.SeedConfig(ctx, sqlcgen.SeedConfigParams{
+				Namespace: namespace,
+				Key:       key,
+				ValueJson: string(raw),
+				UpdatedAt: now,
+			}); err != nil {
+				return nil, fmt.Errorf("seed system config %s: %w", key, err)
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"rayleabot/server/internal/sqlcgen"
 	"rayleabot/server/internal/storage"
 )
 
@@ -20,8 +21,8 @@ type Repository interface {
 
 // SQLiteRepository implements Repository using SQLite.
 type SQLiteRepository struct {
-	read  *sql.DB
-	write *sql.DB
+	readQ  *sqlcgen.Queries
+	writeQ *sqlcgen.Queries
 }
 
 // NewSQLiteRepository creates a new SQLite-backed task repository.
@@ -30,8 +31,8 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 		return nil, errors.New("sqlite store is required")
 	}
 	return &SQLiteRepository{
-		read:  store.Read,
-		write: store.Write,
+		readQ:  sqlcgen.New(store.Read),
+		writeQ: sqlcgen.New(store.Write),
 	}, nil
 }
 
@@ -46,63 +47,18 @@ func (r *SQLiteRepository) SaveTask(ctx context.Context, snapshot Snapshot) erro
 		return fmt.Errorf("marshal task error for %s: %w", snapshot.TaskID, err)
 	}
 
-	if _, err := r.write.ExecContext(ctx,
-		`INSERT INTO tasks (task_id, task_type, status, progress, summary, started_at, finished_at, result_json, error_json, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(task_id) DO UPDATE SET
-			status = CASE
-				WHEN tasks.status IN ('succeeded', 'failed', 'cancelled', 'interrupted')
-					AND excluded.status IN ('pending', 'running')
-				THEN tasks.status
-				ELSE excluded.status
-			END,
-			progress = CASE
-				WHEN tasks.status IN ('succeeded', 'failed', 'cancelled', 'interrupted')
-					AND excluded.status IN ('pending', 'running')
-				THEN tasks.progress
-				ELSE excluded.progress
-			END,
-			summary = CASE
-				WHEN tasks.status IN ('succeeded', 'failed', 'cancelled', 'interrupted')
-					AND excluded.status IN ('pending', 'running')
-				THEN tasks.summary
-				ELSE excluded.summary
-			END,
-			started_at = CASE
-				WHEN tasks.status IN ('succeeded', 'failed', 'cancelled', 'interrupted')
-					AND excluded.status IN ('pending', 'running')
-				THEN tasks.started_at
-				ELSE excluded.started_at
-			END,
-			finished_at = CASE
-				WHEN tasks.status IN ('succeeded', 'failed', 'cancelled', 'interrupted')
-					AND excluded.status IN ('pending', 'running')
-				THEN tasks.finished_at
-				ELSE excluded.finished_at
-			END,
-			result_json = CASE
-				WHEN tasks.status IN ('succeeded', 'failed', 'cancelled', 'interrupted')
-					AND excluded.status IN ('pending', 'running')
-				THEN tasks.result_json
-				ELSE excluded.result_json
-			END,
-			error_json = CASE
-				WHEN tasks.status IN ('succeeded', 'failed', 'cancelled', 'interrupted')
-					AND excluded.status IN ('pending', 'running')
-				THEN tasks.error_json
-				ELSE excluded.error_json
-			END`,
-		snapshot.TaskID,
-		snapshot.TaskType,
-		string(snapshot.Status),
-		snapshot.Progress,
-		snapshot.Summary,
-		formatOptionalTime(snapshot.StartedAt),
-		formatOptionalTime(snapshot.FinishedAt),
-		resultJSON,
-		errorJSON,
-		time.Now().UTC().Format(time.RFC3339Nano),
-	); err != nil {
+	if err := r.writeQ.SaveTask(ctx, sqlcgen.SaveTaskParams{
+		TaskID:     snapshot.TaskID,
+		TaskType:   snapshot.TaskType,
+		Status:     string(snapshot.Status),
+		Progress:   int64(snapshot.Progress),
+		Summary:    snapshot.Summary,
+		StartedAt:  toNullString(formatOptionalTime(snapshot.StartedAt)),
+		FinishedAt: toNullString(formatOptionalTime(snapshot.FinishedAt)),
+		ResultJson: toNullString(resultJSON),
+		ErrorJson:  toNullString(errorJSON),
+		CreatedAt:  time.Now().UTC().Format(time.RFC3339Nano),
+	}); err != nil {
 		return fmt.Errorf("upsert task %s: %w", snapshot.TaskID, err)
 	}
 	return nil
@@ -110,51 +66,44 @@ func (r *SQLiteRepository) SaveTask(ctx context.Context, snapshot Snapshot) erro
 
 // LoadTasks loads all task snapshots from the database, ordered by creation time.
 func (r *SQLiteRepository) LoadTasks(ctx context.Context) ([]Snapshot, error) {
-	rows, err := r.read.QueryContext(ctx,
-		`SELECT task_id, task_type, status, progress, summary, started_at, finished_at, result_json, error_json
-		FROM tasks ORDER BY created_at ASC`)
+	rows, err := r.readQ.LoadTasks(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query tasks: %w", err)
 	}
-	defer rows.Close()
 
-	var snapshots []Snapshot
-	for rows.Next() {
-		var s Snapshot
-		var status string
-		var startedAt, finishedAt sql.NullString
-		var resultJSON, errorJSON sql.NullString
-
-		if err := rows.Scan(&s.TaskID, &s.TaskType, &status, &s.Progress, &s.Summary,
-			&startedAt, &finishedAt, &resultJSON, &errorJSON); err != nil {
-			return nil, fmt.Errorf("scan task row: %w", err)
+	snapshots := make([]Snapshot, 0, len(rows))
+	for _, row := range rows {
+		s := Snapshot{
+			TaskID:     row.TaskID,
+			TaskType:   row.TaskType,
+			Status:     Status(row.Status),
+			Progress:   int(row.Progress),
+			Summary:    row.Summary,
+			StartedAt:  parseOptionalTime(row.StartedAt),
+			FinishedAt: parseOptionalTime(row.FinishedAt),
 		}
 
-		s.Status = Status(status)
-		s.StartedAt = parseOptionalTime(startedAt)
-		s.FinishedAt = parseOptionalTime(finishedAt)
-
-		if resultJSON.Valid && resultJSON.String != "" {
+		if row.ResultJson.Valid && row.ResultJson.String != "" {
 			var result ResultSummary
-			if err := json.Unmarshal([]byte(resultJSON.String), &result); err == nil {
+			if err := json.Unmarshal([]byte(row.ResultJson.String), &result); err == nil {
 				s.Result = &result
 			}
 		}
-		if errorJSON.Valid && errorJSON.String != "" {
+		if row.ErrorJson.Valid && row.ErrorJson.String != "" {
 			var errSummary ErrorSummary
-			if err := json.Unmarshal([]byte(errorJSON.String), &errSummary); err == nil {
+			if err := json.Unmarshal([]byte(row.ErrorJson.String), &errSummary); err == nil {
 				s.Error = &errSummary
 			}
 		}
 
 		snapshots = append(snapshots, s)
 	}
-	return snapshots, rows.Err()
+	return snapshots, nil
 }
 
 // DeleteTask removes a task snapshot from the database.
 func (r *SQLiteRepository) DeleteTask(ctx context.Context, taskID string) error {
-	if _, err := r.write.ExecContext(ctx, `DELETE FROM tasks WHERE task_id = ?`, taskID); err != nil {
+	if err := r.writeQ.DeleteTask(ctx, taskID); err != nil {
 		return fmt.Errorf("delete task %s: %w", taskID, err)
 	}
 	return nil
@@ -169,6 +118,13 @@ func marshalOptionalJSON(v any) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func toNullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
 }
 
 func formatOptionalTime(t *time.Time) string {

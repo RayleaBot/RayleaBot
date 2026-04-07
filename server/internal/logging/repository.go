@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"rayleabot/server/internal/sqlcgen"
 	"rayleabot/server/internal/storage"
 )
 
@@ -26,8 +27,9 @@ type Repository interface {
 }
 
 type SQLiteRepository struct {
-	read  *sql.DB
-	write *sql.DB
+	readQ  *sqlcgen.Queries
+	writeQ *sqlcgen.Queries
+	read   *sql.DB
 }
 
 func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
@@ -35,28 +37,27 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 		return nil, errors.New("sqlite store is required")
 	}
 	return &SQLiteRepository{
-		read:  store.Read,
-		write: store.Write,
+		readQ:  sqlcgen.New(store.Read),
+		writeQ: sqlcgen.New(store.Write),
+		read:   store.Read,
 	}, nil
 }
 
 func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary Summary) error {
-	if _, err := r.write.ExecContext(
-		ctx,
-		`INSERT INTO management_logs (ts, level, source, message, plugin_id, request_id)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		summary.Timestamp,
-		strings.ToLower(strings.TrimSpace(summary.Level)),
-		strings.TrimSpace(summary.Source),
-		strings.TrimSpace(summary.Message),
-		strings.TrimSpace(summary.PluginID),
-		strings.TrimSpace(summary.RequestID),
-	); err != nil {
+	if err := r.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+		Ts:        summary.Timestamp,
+		Level:     strings.ToLower(strings.TrimSpace(summary.Level)),
+		Source:    strings.TrimSpace(summary.Source),
+		Message:   strings.TrimSpace(summary.Message),
+		PluginID:  strings.TrimSpace(summary.PluginID),
+		RequestID: strings.TrimSpace(summary.RequestID),
+	}); err != nil {
 		return fmt.Errorf("insert management log summary: %w", err)
 	}
 	return nil
 }
 
+// ListSummaries uses dynamic WHERE clauses not supported by sqlc; kept as hand-written SQL.
 func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Summary, error) {
 	limit := query.Limit
 	if limit <= 0 {
@@ -127,11 +128,7 @@ func (r *SQLiteRepository) PruneOlderThan(ctx context.Context, cutoff time.Time)
 		return nil
 	}
 
-	if _, err := r.write.ExecContext(
-		ctx,
-		`DELETE FROM management_logs WHERE ts < ?`,
-		cutoff.UTC().Format(time.RFC3339),
-	); err != nil {
+	if err := r.writeQ.PruneLogsBefore(ctx, cutoff.UTC().Format(time.RFC3339)); err != nil {
 		return fmt.Errorf("prune management log summaries: %w", err)
 	}
 	return nil
