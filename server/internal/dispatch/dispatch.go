@@ -83,11 +83,9 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 // and Snapshot (both *runtime.Manager and test fakes satisfy this).
 func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []CommandDecl) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	if old, ok := d.slots[pluginID]; ok {
-		close(old.queue)
-		<-old.done
+	old, replacing := d.slots[pluginID]
+	if replacing {
+		delete(d.slots, pluginID)
 	}
 
 	slot := &pluginSlot{
@@ -99,6 +97,12 @@ func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []strin
 	}
 	d.slots[pluginID] = slot
 	go d.worker(pluginID, slot)
+	d.mu.Unlock()
+
+	if replacing {
+		close(old.queue)
+		<-old.done
+	}
 }
 
 // Deregister removes a plugin from dispatch and stops its worker.

@@ -108,10 +108,8 @@ func WriteJSON(w http.ResponseWriter, statusCode int, body any) {
 }
 
 func newRequestID() string {
-	bytes := make([]byte, 8)
-	if _, err := rand.Read(bytes); err != nil {
-		return "req_0000000000000000"
-	}
+	bytes := make([]byte, 16)
+	_, _ = rand.Read(bytes) // crypto/rand.Read never returns an error in Go 1.25+
 
 	return "req_" + hex.EncodeToString(bytes)
 }

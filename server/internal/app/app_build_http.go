@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -28,8 +29,13 @@ func buildAppHTTPServer(application *App) (http.Handler, *http.Server) {
 
 	listenAddr := net.JoinHostPort(application.Config.Server.Host, strconv.Itoa(application.Config.Server.Port))
 	server := &http.Server{
-		Addr:    listenAddr,
-		Handler: router,
+		Addr:              listenAddr,
+		Handler:           router,
+		ReadTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MiB
 	}
 
 	logConfiguredServer(application, listenAddr)

@@ -109,6 +109,9 @@ func Open(path string, opts ...Option) (*Store, error) {
 	if err := configureHandle(context.Background(), readDB, options.busyTimeout); err != nil {
 		return cleanup(fmt.Errorf("configure sqlite read handle: %w", err))
 	}
+	if _, err := readDB.ExecContext(context.Background(), "PRAGMA query_only = ON"); err != nil {
+		return cleanup(fmt.Errorf("set sqlite read handle to query_only: %w", err))
+	}
 	if err := applyMigrations(context.Background(), writeDB, options.migrations); err != nil {
 		return cleanup(fmt.Errorf("apply sqlite migrations: %w", err))
 	}
