@@ -9,16 +9,16 @@ RayleaBot 当前已经接入以下插件主链路：
 - `contracts/plugin-info.schema.json` 驱动的插件静态校验与 discovery
 - `plugins/builtin`、`examples/plugins`、`plugins/installed` 三个 discovery roots
 - builtin plugin 默认发现、默认启用、允许 enable / disable / reload，拒绝卸载
-- per-plugin runtime manager、`init -> init_ack` 启动握手、`ping/pong` 保活、`shutdown` 优雅停止
+- per-plugin runtime manager、`init -> init_progress -> init_ack` 启动握手（`init_progress` 为可选进度上报）、`ping/pong` 保活、`shutdown` 优雅停止
 - dispatcher 订阅 fan-out、命令定向投递与 scheduler `scheduler.trigger`
 - `message.send` / `message.reply` 与 shared `message.segments` 出站模型
-- local action RPC：`logger.write`、`storage.kv`、`storage.file`、`http.request`
+- local action RPC：`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image`
 - plugin-scoped KV persistence、plugin_data 文件区与 management log integration
 
 ## 当前正式边界
 
 - 插件 manifest 与 runtime JSONL 协议以 `contracts/plugin-info.schema.json` 和 `contracts/plugin-protocol.schema.json` 为准。
-- 当前正式 `action` 集合包含 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file` 与 `http.request`。
+- 当前正式 `action` 集合包含 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`与 `render.image`。
 - 当前正式 outbound segment 种类为 `text`、`image`、`at`、`at_all`、`face`、`reply`。
 - grants storage、scope 校验、temporal grants 与 enable / reload / reconcile / restart 前权限门禁已接入正式行为。
 - 聊天侧 blacklist、命令权限、cooldown 与可选 cooldown reply 已进入 live command path。

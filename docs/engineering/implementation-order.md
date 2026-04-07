@@ -6,7 +6,7 @@
 
 当前基础：
 
-- `contracts/` 已具备 8 份 fixture-ready formal contracts，覆盖配置、错误码、管理 HTTP / WebSocket、插件 manifest、插件协议、release metadata 与 CLI。
+- `contracts/` 已具备 10 份 fixture-ready formal contracts，覆盖配置、错误码、管理 HTTP / WebSocket、插件 manifest、插件协议、release metadata、CLI、backup manifest 与 deps manifest。
 
 进入本阶段时应继续遵守：
 
@@ -36,7 +36,7 @@
 
 当前基础：
 
-- server 已从骨架阶段进入真实主链路，当前具备入口、配置校验、健康检查、SQLite、鉴权、任务、插件目录、日志与管理面装配。
+- server 主链路完整，当前具备配置（热重载快照）、SQLite 存储（12 张表、14 个迁移）、鉴权（HMAC-SHA256 session）、任务（11 种类型、顺序执行器）、插件 runtime（7 种状态、local actions）、dispatcher / scheduler、render service、聊天权限、recovery/backup、diagnostics 与管理面全路由；约 30 个内部包。
 
 进入本阶段时应继续遵守：
 
@@ -51,7 +51,7 @@
 
 当前基础：
 
-- OneBot11 reverse WebSocket adapter 已接入 ready gating、重连、心跳、最小事件归一化与三种正式消息 action。
+- OneBot11 reverse WebSocket adapter 已接入 ready gating、重连 backoff、心跳超时、消息 / notice 最小归一化与全部正式消息 action（valid_count/invalid_count/conflict_count 指标）。
 
 进入本阶段时应继续遵守：
 
@@ -66,7 +66,7 @@
 
 当前基础：
 
-- 当前主链已具备 per-plugin runtime manager、`init/init_ack`、`ping/pong`、`shutdown`、dispatcher fan-out、命令定向投递、scheduler `scheduler.trigger` 与 zero-gap reload。
+- 当前主链已具备 per-plugin runtime manager、`init / init_progress / init_ack`、`ping/pong`、`shutdown`、dispatcher fan-out、命令定向投递、scheduler `scheduler.trigger`、zero-gap reload与全部 local action（message.send / message.reply / logger.write / storage.kv / storage.file / http.request / config.read / config.write / scheduler.create / event.expose_webhook / render.image）。
 
 进入本阶段时应继续遵守：
 
@@ -81,12 +81,11 @@
 
 当前基础：
 
-- 配置 schema 校验、SQLite migration、auth persistence、task persistence、plugin desired_state、grants、secret store、scheduler persistence 与日志持久化已经接入 server。
+- 配置 schema 校验、SQLite migration、auth persistence、task persistence、plugin desired_state、grants、secret store、scheduler persistence、日志持久化、聊天侧 permission / blacklist / cooldown 与 temporal grants 已全部接入 server 主路径。
 
 进入本阶段时应继续遵守：
 
 - 配置、迁移、权限与存储结构变更先更新 contracts、baseline 和 migration，再进入业务路径。
-- 聊天侧 permission / blacklist / cooldown 与 temporal grants 仍属于这一阶段的收尾项。
 
 暂不做什么：
 
@@ -96,7 +95,7 @@
 
 当前基础：
 
-- 管理 HTTP / WebSocket、setup/session、config、system status、tasks、logs、plugin lifecycle、grants 与 console 已进入真实路由和主链。
+- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、grants、console、render preview、backup 与 recovery 已全部进入真实路由。
 
 进入本阶段时应继续遵守：
 

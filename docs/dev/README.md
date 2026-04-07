@@ -38,7 +38,32 @@
 - 在 `launcher/` 下执行 `pnpm install --frozen-lockfile` 安装 Electron 启动器依赖。
 - `pnpm test` 运行主进程、服务层、托盘菜单与渲染层测试。
 - `pnpm build` 产出当前平台的 Electron 目录包。
-- 当前 Launcher 只复用既有 server management surface：`healthz`、`readyz`、`setup/status`、`session/launcher-token`、`session/launcher-admission`、`system/status`、`system/shutdown`。
+- 当前 Launcher 只复用既有 server management surface：`healthz`、`readyz`、`setup/status`、`session/launcher-token`、`session/launcher-admission`、`system/status`、`system/shutdown`、`GET /api/system/diagnostics/export`。
+
+## CLI 子命令
+
+`raylea-server` 提供以下管理子命令，适用于脱机维护场景：
+
+| 子命令 | 说明 |
+|--------|------|
+| `reset-admin` | 重置管理员密码 |
+| `backup` | 创建数据备份归档 |
+| `restore` | 从备份归档恢复数据 |
+| `doctor` | 环境与数据一致性诊断 |
+| `migrate` | 手动触发数据库迁移 |
+| `cleanup` | 清理过期数据与临时文件 |
+
+## CI 门禁文件
+
+`.github/workflows/` 当前包含以下门禁工作流：
+
+| 文件 | 用途 |
+|------|------|
+| `contracts.yml` | 验证 contracts fixtures 与 schema 一致性 |
+| `lint.yml` | Go lint（golangci-lint v1.64.8）+ 覆盖率门禁（55%）|
+| `race.yml` | Go race detector 回归 |
+| `release.yml` | 跨平台构建、打包与发布 |
+| `self-host-smoke.yml` | 自托管烟雾测试 |
 
 ## 协作规则
 
