@@ -48,12 +48,15 @@ export function configureApiRuntime(config: Partial<RuntimeConfig>) {
 export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   auth?: boolean
   body?: unknown
+  timeoutMs?: number
 }
 
 export interface ApiDownloadResult {
   blob: Blob
   filename: string | null
 }
+
+const DEFAULT_TIMEOUT_MS = 30_000
 
 function withRuntimeHeaders(
   headers: HeadersInit | undefined,
@@ -93,15 +96,25 @@ function parseDownloadFilename(contentDisposition: string | null) {
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { auth = true, headers, body, ...rest } = options
+  const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, ...rest } = options
   const tokenSnapshot = auth ? runtime.getToken() : null
   const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, tokenSnapshot)
 
-  const response = await fetch(path, {
-    ...rest,
-    headers: requestHeaders,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  const controller = new AbortController()
+  const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined
+  callerSignal?.addEventListener('abort', () => controller.abort(), { once: true })
+
+  let response: Response
+  try {
+    response = await fetch(path, {
+      ...rest,
+      signal: controller.signal,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
+  }
 
   if (response.status === 204) {
     return undefined as T
@@ -134,15 +147,25 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 }
 
 export async function apiDownload(path: string, options: ApiRequestOptions = {}): Promise<ApiDownloadResult> {
-  const { auth = true, headers, body, ...rest } = options
+  const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, ...rest } = options
   const tokenSnapshot = auth ? runtime.getToken() : null
   const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, tokenSnapshot)
 
-  const response = await fetch(path, {
-    ...rest,
-    headers: requestHeaders,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  const controller = new AbortController()
+  const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined
+  callerSignal?.addEventListener('abort', () => controller.abort(), { once: true })
+
+  let response: Response
+  try {
+    response = await fetch(path, {
+      ...rest,
+      signal: controller.signal,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
+  }
 
   if (!response.ok) {
     const contentType = response.headers.get('content-type') ?? ''
