@@ -54,6 +54,12 @@ jobs:
           working-directory: server
           args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 
+      - name: Check sqlc generated code drift
+        working-directory: server
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
+          sqlc diff
+
       - name: Run Go coverage gate
         shell: bash
         working-directory: server
@@ -106,6 +112,12 @@ jobs:
       - name: Install web dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile
+
+      - name: Check generated types drift
+        working-directory: web
+        run: |
+          pnpm generate:types
+          git diff --exit-code src/types/generated.ts
 
       - name: Run web typecheck
         working-directory: web
