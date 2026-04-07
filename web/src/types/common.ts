@@ -1,5 +1,10 @@
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+import type { components } from './generated'
 
+// --- Contract-derived (from contracts/web-api.openapi.yaml) ---
+export type LogLevel = components['schemas']['LogLevel']
+export type ErrorEnvelope = components['schemas']['ErrorEnvelope']
+
+// --- WebSocket-only (from contracts/websocket-events.yaml, not in HTTP OpenAPI) ---
 export type ConnectionStatus =
   | 'disconnected'
   | 'connecting'
@@ -7,16 +12,6 @@ export type ConnectionStatus =
   | 'authenticated'
   | 'auth_failed'
   | 'reconnecting'
-
-export interface ErrorEnvelope {
-  error: {
-    code: string
-    message: string
-    message_key: string
-    request_id: string
-    details?: Record<string, unknown>
-  }
-}
 
 export interface WebSocketFrame<T = Record<string, unknown>> {
   channel: 'logs' | 'events' | 'tasks' | 'plugin_console'

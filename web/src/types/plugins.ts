@@ -1,62 +1,17 @@
-export type PluginRegistrationState = 'installed' | 'removed'
-export type PluginDesiredState = 'enabled' | 'disabled'
-export type PluginRuntimeState = 'starting' | 'running' | 'stopping' | 'crashed' | 'backoff' | 'dead_letter' | 'stopped'
-export type PluginRole = 'builtin' | 'user' | 'example' | 'dev'
-export type PluginTrustLevel = 'official' | 'third_party' | 'unverified' | 'development'
+import type { components } from './generated'
 
-export type PluginInstallSourceType = 'local_zip' | 'local_directory' | 'remote_url'
-
-export interface PluginSourceSummary {
-  root: string
-  package_source_type?: PluginInstallSourceType
-  package_source_ref?: string
-  verified: boolean
-}
-
-export interface PluginTrustSummary {
-  level: PluginTrustLevel
-  label: string
-}
-
-export interface PluginSummary {
-  id: string
-  name: string
-  role: PluginRole
-  registration_state: PluginRegistrationState
-  desired_state: PluginDesiredState
-  runtime_state: PluginRuntimeState
-  display_state?: string
-  source?: PluginSourceSummary
-  trust?: PluginTrustSummary
-  command_conflicts?: string[]
-}
-
-export interface PluginListResponse {
-  items: PluginSummary[]
-}
-
-export interface PluginDetailResponse {
-  plugin: PluginSummary
-}
-
-export interface PluginInstallRequest {
-  source_type: PluginInstallSourceType
-  source: string
-  allow_install_scripts?: boolean
-}
-
-export interface PluginGrantRequest {
-  capability: string
-  expires_at?: string
-}
-
-export interface PluginGrantSummary {
-  plugin_id: string
-  capability: string
-  granted_at: string
-  expires_at?: string | null
-}
-
-export interface PluginGrantListResponse {
-  items: PluginGrantSummary[]
-}
+export type PluginRegistrationState = components['schemas']['PluginRegistrationState']
+export type PluginDesiredState = components['schemas']['PluginDesiredState']
+export type PluginRuntimeState = components['schemas']['PluginRuntimeState']
+export type PluginRole = components['schemas']['PluginRole']
+export type PluginTrustLevel = components['schemas']['PluginTrustSummary']['level']
+export type PluginInstallSourceType = components['schemas']['PluginInstallRequest']['source_type']
+export type PluginSourceSummary = components['schemas']['PluginSourceSummary']
+export type PluginTrustSummary = components['schemas']['PluginTrustSummary']
+export type PluginSummary = components['schemas']['PluginSummary']
+export type PluginListResponse = components['schemas']['PluginListResponse']
+export type PluginDetailResponse = components['schemas']['PluginDetailResponse']
+export type PluginInstallRequest = components['schemas']['PluginInstallRequest']
+export type PluginGrantRequest = components['schemas']['PluginGrantRequest']
+export type PluginGrantSummary = components['schemas']['PluginGrantSummary']
+export type PluginGrantListResponse = components['schemas']['PluginGrantListResponse']

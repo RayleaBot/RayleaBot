@@ -1,14 +1,4 @@
-import type { LogLevel } from './common'
+import type { components } from './generated'
 
-export interface LogSummary {
-  timestamp: string
-  level: LogLevel
-  source: string
-  message: string
-  plugin_id?: string
-  request_id?: string
-}
-
-export interface LogListResponse {
-  items: LogSummary[]
-}
+export type LogSummary = components['schemas']['LogSummary']
+export type LogListResponse = components['schemas']['LogListResponse']
