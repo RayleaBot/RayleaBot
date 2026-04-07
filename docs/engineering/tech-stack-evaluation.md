@@ -35,62 +35,25 @@
 
 ## 引入计划
 
-### 计划 A：契约驱动类型生成（优先级：高）
+### 计划 A：契约驱动类型生成 ✅
 
-**问题**：手工维护三处类型定义（`contracts/web-api.openapi.yaml` → Go handler types → `web/src/types/*.ts`），31 个路由每次变更须同步三处。Web 侧 7 个领域类型文件（common, tasks, plugins, system, logs, config, events）已从 `api.ts` 拆出，但仍为手写。
+`openapi-typescript` 7.8.0 从 `contracts/web-api.openapi.yaml` 生成 `web/src/types/generated.ts`（1922 行），覆盖全部 31 个路由的请求/响应定义。7 个领域类型文件（common, tasks, plugins, system, logs, config, events）从 `generated.ts` re-export。
 
-**候选工具**：
+lint CI 的 `web-core` job 包含生成文件一致性检查（`pnpm generate:types && git diff --exit-code`）。
 
-| 工具 | 用途 | 与冻结选型的关系 |
-|------|------|------------------|
-| **openapi-typescript** | 从 `contracts/web-api.openapi.yaml` 生成 TypeScript 类型 | 兼容——替代手写 `web/src/types/*.ts`，不引入运行时依赖 |
-| **oapi-codegen** | 从同一契约文件生成 Go types + chi server 接口 | 兼容——底层仍是 `net/http` + chi，生成代码替代手写 |
-
-**触发条件**：API 路由新增或修改导致前后端类型不同步的事件累计达到 2 次。
-
-**实施路径**：
-
-1. 将 `openapi-typescript` 加入 `web/package.json` devDependencies
-2. 在 `web/package.json` 添加 `"generate:types": "openapi-typescript contracts/web-api.openapi.yaml -o src/types/generated.ts"` 脚本
-3. 将 `web/src/types/*.ts` 的手写类型迁移为从 `generated.ts` re-export
-4. 在 lint CI 门禁中添加生成文件一致性检查（`pnpm generate:types && git diff --exit-code`）
-5. 评估 `oapi-codegen` 对 Server 侧的适用性：从一个 endpoint 组（如 `/api/tasks`）试点，对比生成代码与手写 handler 的集成成本
-
-**验收标准**：
-- `pnpm generate:types` 产出的类型文件覆盖全部 31 个路由的请求/响应定义
-- 现有 58 项 Web 单元测试和 1 项 E2E 测试全部通过
-- CI 门禁拦截手动修改生成文件的提交
+`oapi-codegen`（Server 侧 Go 类型生成）待评估：触发条件为 Server handler 手写类型不同步的事件累计达到 2 次。
 
 ---
 
-### 计划 B：SQL 代码生成（优先级：高）
+### 计划 B：SQL 代码生成 ✅
 
-**问题**：7 个 SQLiteRepository 中存在大量重复的 `rows.Scan` 手动映射和字符串级 SQL 拼装。字段增减时须逐个修改 Scan 列表，编译期无法捕获字段不匹配。
+sqlc v1.29.0 以 `server/internal/sqlcqueries/` 下 7 个 `.sql` 文件（34 named queries）为单一来源，生成 `server/internal/sqlcgen/`（9 个 Go 文件、12 model structs）。全部 7 个 SQLiteRepository（auth, tasks, scheduler, logging, plugins, pluginkv, pluginconfig）的静态查询均由 sqlc 生成；动态 SQL（`ESCAPE` 子句、运行时 `IN` 列表、动态 `WHERE`）保留为手写。
 
-**候选工具**：
+配置：`server/sqlc.yaml`，schema 来自 `server/internal/storage/migrations/`。
 
-| 工具 | 定位 | 与冻结选型的关系 |
-|------|------|------------------|
-| **sqlc** | 以 `.sql` 文件为单一来源，生成类型安全 Go 代码，零运行时 | 兼容——保留 Repository 接口层和 `database/sql`，生成代码替代手写 `Scan` |
-| GORM | 全自动 ORM + 自动迁移 | **冲突**——替换 `database/sql` + 手写 SQL 冻结选型 |
-| Ent | 代码优先 Schema 定义 | **冲突**——理念与 SQL 优先的现状差异大 |
+lint CI 的 `server-core` job 包含 `sqlc diff` 一致性门禁。
 
-**触发条件**：下一次涉及新建或修改 SQLiteRepository 的变更。
-
-**实施路径**：
-
-1. 安装 sqlc CLI，在 `server/` 创建 `sqlc.yaml` 配置文件
-2. 将 `server/internal/storage/migrations/` 指定为 schema 来源
-3. 从一个中等复杂度的 Repository（如 `tasks`）开始试点：将手写 SQL 迁入 `server/internal/tasks/queries.sql`，运行 `sqlc generate`
-4. 对比生成的 Go 代码与手写实现，确认类型安全和接口兼容
-5. 逐步迁移其余 6 个 Repository，每次以一个包为单位提交
-6. 在 lint CI 中添加 `sqlc diff` 一致性门禁
-
-**验收标准**：
-- 全部 7 个 SQLiteRepository 的查询由 sqlc 生成
-- Repository 接口层不因迁移而对调用方产生 breaking change
-- `go test ./...` 全量通过
-- CI 门禁拦截手动修改生成代码的提交
+Repository 接口层未因迁移产生 breaking change，`go test ./...` 全量通过。
 
 ---
 
@@ -215,13 +178,13 @@
 
 ## 插件 SDK 技术路线
 
-Python SDK 和 Node.js SDK 具备功能骨架（事件/命令注册、消息发送、协议帧解析），均以 `contracts/plugin-protocol.schema.json` 为协议来源。
+Python SDK 和 Node.js SDK 均以 `contracts/plugin-protocol.schema.json` 为协议来源，提供事件/命令注册、消息发送和协议帧解析。
 
-| 方向 | 说明 | 行动 |
+| 方向 | 状态 | 说明 |
 |------|------|------|
-| Python SDK 类型化 | 基于 `dataclasses` 定义协议消息，零额外依赖；若需运行时校验，评估 **pydantic** | SDK 对外发布前确定 |
-| Node.js SDK TypeScript 化 | 以 TypeScript 重写发布，附带 `.d.ts` | SDK 对外发布前实施 |
-| 协议消息 Schema 校验 | 两端均从 `contracts/plugin-protocol.schema.json` 驱动运行时校验 | 与 SDK 正式发布同步 |
+| Python SDK 类型化 | ✅ | `sdk/python/rayleabot/models.py` 基于 `dataclasses` 定义全部 10 种帧类型和 6 种 segment 类型，零额外依赖。`frame_from_dict()` 将原始 dict 解析为对应 dataclass。若需运行时校验可评估 **pydantic**。 |
+| Node.js SDK TypeScript 化 | ✅ | `sdk/nodejs/src/` 以 TypeScript 重写（`types.ts`, `protocol.ts`, `index.ts`），`tsconfig.json` 配置 `declaration: true` 生成 `.d.ts`。`typescript` ~5.8.3 + `@types/node` ^24.0.0 作为 devDependencies。 |
+| 协议消息 Schema 校验 | 待定 | 两端均从 `contracts/plugin-protocol.schema.json` 驱动运行时校验，与 SDK 正式发布同步 |
 
 ---
 

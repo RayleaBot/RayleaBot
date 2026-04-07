@@ -280,8 +280,8 @@
 |--------|------|------|
 | `contracts.yml` / `baseline` | push main / PR | baseline 版本锁定、必要目录与文件存在性、`.deps/manifest.json` v3 baseline 校验 |
 | `contracts.yml` / `validate-contracts` | push main / PR | formal contracts、fixture 引用、example manifests、OpenAPI frozen path set、WebSocket frozen event set、plugin-protocol action shape、CLI fixtures 结构/覆盖校验、CLI contract 与 TaskType enum 交叉校验 |
-| `lint.yml` / `server-core` | pull_request（代码/构建路径）/ workflow_dispatch | `go test ./...`、`go build ./cmd/raylea-server`、`golangci-lint`、Go coverage gate、`govulncheck` binary mode |
-| `lint.yml` / `web-core` | pull_request（代码/构建路径）/ workflow_dispatch | `pnpm install --frozen-lockfile`、`pnpm typecheck`、`pnpm test:coverage`、`pnpm build` |
+| `lint.yml` / `server-core` | pull_request（代码/构建路径）/ workflow_dispatch | `go test ./...`、`go build ./cmd/raylea-server`、`golangci-lint`、Go coverage gate、`govulncheck` binary mode、`sqlc diff` 一致性门禁 |
+| `lint.yml` / `web-core` | pull_request（代码/构建路径）/ workflow_dispatch | `pnpm install --frozen-lockfile`、生成类型文件一致性检查、`pnpm typecheck`、`pnpm test:coverage`、`pnpm build` |
 | `lint.yml` / `launcher-core-linux` | pull_request（代码/构建路径）/ workflow_dispatch | Linux 上的 `pnpm install --frozen-lockfile`、`pnpm typecheck`、`pnpm test:coverage`、`pnpm build` |
 | `lint.yml` / `pr-smoke-light` | pull_request（代码/构建路径）/ workflow_dispatch | mocked Web E2E 与 release helper tests 轻量闭环 |
 | `lint.yml` / `dependency-audit-manual` | workflow_dispatch | Web / Launcher 生产依赖审计手动回归 |
@@ -310,6 +310,9 @@
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
 - `contracts`、`server-core`、`web-core`、`launcher-core-linux`、`pr-smoke-light`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
 - 共享 `recovery_summary`、`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke；兼容通过、需要人工处理、批量确认和修复后收敛四类路径已进入回归矩阵；`.deps/manifest.json` 已进入有序来源列表契约，server、release、smoke 与长期自托管巡检共用同一份来源定义。
+- `openapi-typescript` 7.8.0 从 `contracts/web-api.openapi.yaml` 生成 `web/src/types/generated.ts`，覆盖全部 31 个路由；lint CI 包含生成文件一致性检查。
+- sqlc v1.29.0 从 `server/internal/sqlcqueries/` 生成 `server/internal/sqlcgen/`，覆盖全部 7 个 SQLiteRepository 的静态查询；lint CI 包含 `sqlc diff` 一致性门禁。
+- Python SDK 提供 `dataclasses` 协议帧类型（`sdk/python/rayleabot/models.py`）；Node.js SDK 以 TypeScript 重写并输出 `.d.ts`（`sdk/nodejs/src/`）。
 
 ---
 
