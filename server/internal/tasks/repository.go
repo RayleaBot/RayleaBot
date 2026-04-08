@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"rayleabot/server/internal/sqlcgen"
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 // Repository defines the persistence interface for task snapshots.

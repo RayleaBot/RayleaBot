@@ -7,10 +7,10 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"rayleabot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 type renderTemplate struct {

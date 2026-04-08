@@ -5,8 +5,8 @@ import (
 	"slices"
 	"time"
 
-	internalconfig "rayleabot/server/internal/config"
-	"rayleabot/server/internal/render"
+	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 const redactedConfigValue = "__REDACTED__"

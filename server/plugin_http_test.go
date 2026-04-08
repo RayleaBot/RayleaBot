@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"rayleabot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestListPluginsReturnsContractShape(t *testing.T) {

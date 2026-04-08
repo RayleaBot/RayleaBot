@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func TestTaskStatusesMatchFrozenContractValues(t *testing.T) {

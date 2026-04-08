@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"rayleabot/server/internal/pluginconfig"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func TestSeedPluginDefaultConfigSeedsOnlyOnce(t *testing.T) {

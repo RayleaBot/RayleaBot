@@ -11,9 +11,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"rayleabot/server/internal/health"
-	"rayleabot/server/internal/httpapi"
-	"rayleabot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func buildAppHTTPServer(application *App) (http.Handler, *http.Server) {

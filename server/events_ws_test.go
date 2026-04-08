@@ -11,9 +11,9 @@ import (
 
 	"github.com/coder/websocket"
 
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/bridge"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {

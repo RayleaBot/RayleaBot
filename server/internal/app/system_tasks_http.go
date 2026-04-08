@@ -9,9 +9,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/recovery"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 const maxRecoveryConfirmNoteRunes = 500
@@ -202,10 +202,10 @@ func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
 			return &tasks.ResultSummary{
 				Summary: summaryText,
 				Details: map[string]any{
-					"recovery_summary":      confirmedSummary,
-					"confirmed_review_ids":  confirmedReviewIDs,
-					"operator_id":           operatorID,
-					"note":                  note,
+					"recovery_summary":     confirmedSummary,
+					"confirmed_review_ids": confirmedReviewIDs,
+					"operator_id":          operatorID,
+					"note":                 note,
 				},
 			}, nil
 		})

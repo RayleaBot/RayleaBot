@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 )
 
 const defaultReplyTargetCacheSize = 10000

@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 var allowedTaskStatuses = map[string]struct{}{
@@ -20,16 +20,16 @@ var allowedTaskStatuses = map[string]struct{}{
 }
 
 var allowedTaskTypes = map[string]struct{}{
-	"plugin.install":   {},
-	"plugin.uninstall": {},
-	"plugin.reload":    {},
-	"backup.create":    {},
-	"recovery.recheck": {},
-	"restore.apply":    {},
-	"config.migrate":   {},
-	"db.migrate":       {},
+	"plugin.install":    {},
+	"plugin.uninstall":  {},
+	"plugin.reload":     {},
+	"backup.create":     {},
+	"recovery.recheck":  {},
+	"restore.apply":     {},
+	"config.migrate":    {},
+	"db.migrate":        {},
 	"runtime.bootstrap": {},
-	"render.preview":   {},
+	"render.preview":    {},
 }
 
 type taskListResponse struct {

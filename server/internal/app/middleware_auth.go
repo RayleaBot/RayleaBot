@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"rayleabot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 )
 
 // claimsKey is an unexported type used as the context key for storing auth.Claims,

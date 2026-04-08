@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/go-chi/chi/v5"
-	"rayleabot/server/internal/httpapi"
-	"rayleabot/server/internal/tasks"
 )
 
 const (

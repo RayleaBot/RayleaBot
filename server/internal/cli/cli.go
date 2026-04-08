@@ -10,9 +10,9 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/recovery"
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 type Command struct {

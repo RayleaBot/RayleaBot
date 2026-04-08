@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/permission"
-	"rayleabot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const (

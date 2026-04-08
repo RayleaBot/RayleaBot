@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func openTestStore(t *testing.T) *storage.Store {

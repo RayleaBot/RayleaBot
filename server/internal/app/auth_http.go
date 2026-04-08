@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 )
 
 const (

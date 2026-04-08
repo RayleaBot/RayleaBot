@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"rayleabot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 type configFixture struct {

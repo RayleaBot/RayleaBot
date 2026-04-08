@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"rayleabot/server/internal/logging"
-	"rayleabot/server/internal/cli"
-	"rayleabot/server/internal/recovery"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/cli"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func (a *App) handleSystemBackup() http.HandlerFunc {

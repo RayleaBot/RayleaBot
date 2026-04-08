@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"rayleabot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 type logListResponse struct {

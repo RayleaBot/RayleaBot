@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 )
 
 func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing.T) {

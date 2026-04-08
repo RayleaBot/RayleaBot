@@ -1,6 +1,6 @@
 package cli
 
-import "rayleabot/server/internal/deps"
+import "github.com/RayleaBot/RayleaBot/server/internal/deps"
 
 type depsManifest deps.Manifest
 type depsManifestResource deps.Resource

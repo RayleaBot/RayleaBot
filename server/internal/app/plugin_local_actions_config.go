@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func (a *App) executeConfigRead(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {

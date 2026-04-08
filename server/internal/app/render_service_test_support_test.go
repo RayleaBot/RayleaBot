@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"rayleabot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 var (

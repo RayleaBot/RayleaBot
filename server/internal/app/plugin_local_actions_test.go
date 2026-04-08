@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/dispatch"
-	"rayleabot/server/internal/pluginconfig"
-	"rayleabot/server/internal/pluginfile"
-	"rayleabot/server/internal/pluginkv"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/runtime"
-	"rayleabot/server/internal/scheduler"
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {

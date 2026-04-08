@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 type runtimeRegistry struct {

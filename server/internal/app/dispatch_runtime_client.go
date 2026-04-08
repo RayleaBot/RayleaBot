@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"rayleabot/server/internal/dispatch"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 type dispatcherRuntimeClient struct {

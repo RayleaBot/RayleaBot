@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"rayleabot/server/internal/dispatch"
-	"rayleabot/server/internal/render"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func (a *App) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {

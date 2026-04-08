@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"rayleabot/server/internal/app"
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/render"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 var testPreviewPNGBytes, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=")

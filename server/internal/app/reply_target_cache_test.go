@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"rayleabot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 )
 
 func TestReplyTargetCacheStoresRecentEventTargets(t *testing.T) {

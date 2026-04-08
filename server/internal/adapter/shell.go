@@ -14,13 +14,13 @@ import (
 
 	"github.com/coder/websocket"
 
-	"rayleabot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 const (
-	errorCodeAuthFailed     = "adapter.auth_failed"
-	errorCodeConnectionFail = "adapter.connection_failed"
-	errorCodeConnectionLost = "adapter.connection_lost"
+	errorCodeAuthFailed         = "adapter.auth_failed"
+	errorCodeConnectionFail     = "adapter.connection_failed"
+	errorCodeConnectionLost     = "adapter.connection_lost"
 	defaultConnectedReadTimeout = 2 * time.Minute
 )
 

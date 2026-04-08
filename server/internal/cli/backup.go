@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"rayleabot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 func runBackup(cmd Command) int {

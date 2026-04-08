@@ -3,7 +3,7 @@ package plugins
 import (
 	"time"
 
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func stringPtr(value string) *string {

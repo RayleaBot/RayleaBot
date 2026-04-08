@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 func TestLogsListReturnsFilteredSummaries(t *testing.T) {

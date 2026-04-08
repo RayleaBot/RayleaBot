@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func (c *pluginLifecycleController) reconcileRuntime(ctx context.Context, botID string) {

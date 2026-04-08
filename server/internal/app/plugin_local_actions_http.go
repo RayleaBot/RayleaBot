@@ -8,10 +8,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/pluginhttp"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginhttp"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func (a *App) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {

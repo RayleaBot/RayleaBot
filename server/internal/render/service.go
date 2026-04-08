@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
 )
 
 const (

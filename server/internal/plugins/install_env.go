@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"rayleabot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 )
 
 func hashFileSHA256(path string) (string, error) {

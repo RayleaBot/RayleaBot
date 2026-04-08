@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 type pluginDiscoverySpec struct {

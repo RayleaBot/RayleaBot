@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func (s *InstallService) prepareSource(ctx context.Context, request InstallRequest) (string, string, func(), error) {

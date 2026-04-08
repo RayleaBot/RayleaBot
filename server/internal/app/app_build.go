@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/logging"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/schema"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 var resolveManagedRenderBrowserPath = func(ctx context.Context, repoRoot string) (string, error) {

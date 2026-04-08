@@ -4,8 +4,8 @@ import (
 	"os"
 	"strings"
 
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/redact"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 func buildManagementRedactor(cfg config.Config) *redact.Redactor {

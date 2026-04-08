@@ -10,7 +10,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func TestTasksWebSocketReplaysCurrentSnapshots(t *testing.T) {

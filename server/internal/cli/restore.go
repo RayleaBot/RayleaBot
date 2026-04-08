@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"rayleabot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 func runRestore(cmd Command) int {

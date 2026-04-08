@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func TestTasksListReturnsFilteredSnapshots(t *testing.T) {

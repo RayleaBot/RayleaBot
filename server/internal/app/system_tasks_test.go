@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/health"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/recovery"
-	"rayleabot/server/internal/render"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func TestHandleSystemRecoveryRecheckAcceptsTaskAndPersistsCompatibleSummary(t *testing.T) {

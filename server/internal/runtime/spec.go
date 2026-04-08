@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const (

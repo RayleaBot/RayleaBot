@@ -16,7 +16,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"rayleabot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 )
 
 func TestSetupAdminReturnsSessionToken(t *testing.T) {

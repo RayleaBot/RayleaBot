@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 var inspectStartupRuntime = func(repoRoot, kind string) (*deps.BootstrapInspection, error) {

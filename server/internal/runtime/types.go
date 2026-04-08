@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"rayleabot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/console"
 )
 
 type State string

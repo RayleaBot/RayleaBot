@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"rayleabot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 type loginFailureTracker struct {

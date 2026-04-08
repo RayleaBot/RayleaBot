@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 
-	"rayleabot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 type Config struct {
@@ -72,9 +72,9 @@ type LogConfig struct {
 }
 
 type MessageConfig struct {
-	RateLimitPerPlugin   string `json:"rate_limit_per_plugin" yaml:"rate_limit_per_plugin"`
-	RateLimitPerTarget   string `json:"rate_limit_per_target" yaml:"rate_limit_per_target"`
-	CircuitBreakerSeconds int   `json:"circuit_breaker_seconds" yaml:"circuit_breaker_seconds"`
+	RateLimitPerPlugin    string `json:"rate_limit_per_plugin" yaml:"rate_limit_per_plugin"`
+	RateLimitPerTarget    string `json:"rate_limit_per_target" yaml:"rate_limit_per_target"`
+	CircuitBreakerSeconds int    `json:"circuit_breaker_seconds" yaml:"circuit_breaker_seconds"`
 }
 
 type UserConfig struct {

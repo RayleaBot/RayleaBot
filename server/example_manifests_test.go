@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"rayleabot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 func TestBundledPluginManifestsMatchContract(t *testing.T) {

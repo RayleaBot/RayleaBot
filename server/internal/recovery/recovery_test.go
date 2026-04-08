@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type desiredStateRepoStub struct {

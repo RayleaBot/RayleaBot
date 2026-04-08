@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"rayleabot/server/internal/deps"
-	"rayleabot/server/internal/health"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 func (a *App) refreshRecoverySummary() {

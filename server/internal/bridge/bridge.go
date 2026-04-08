@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/outbound"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 const (

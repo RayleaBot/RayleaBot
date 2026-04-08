@@ -71,8 +71,8 @@ jobs:
                   raise SystemExit(f"missing file: {path}")
 
           go_mod = (root / "server" / "go.mod").read_text(encoding="utf-8")
-          if "module rayleabot/server" not in go_mod:
-              raise SystemExit("server/go.mod must use module path rayleabot/server")
+          if "module github.com/RayleaBot/RayleaBot/server" not in go_mod:
+              raise SystemExit("server/go.mod must use module path github.com/RayleaBot/RayleaBot/server")
           if "go 1.25.8" not in go_mod:
               raise SystemExit("server/go.mod must pin Go 1.25.8")
 

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/dispatch"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/runtime"
-	"rayleabot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 type pluginLifecycleController struct {

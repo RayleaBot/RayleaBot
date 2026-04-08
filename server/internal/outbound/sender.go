@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 const (

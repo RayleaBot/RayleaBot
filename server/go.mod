@@ -1,4 +1,4 @@
-module rayleabot/server
+module github.com/RayleaBot/RayleaBot/server
 
 go 1.25.8
 

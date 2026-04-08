@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func TestRepositoryBackedManagerReloadsBootstrapAndSessions(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"rayleabot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 type logFrame struct {

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/dispatch"
-	"rayleabot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func (a *App) persistPluginDesiredState(ctx context.Context, pluginID, desiredState string) error {

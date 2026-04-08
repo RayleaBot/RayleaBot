@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"rayleabot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
 const sessionSigningKeySecret = "platform.auth.session_signing_key"

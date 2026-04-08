@@ -4,7 +4,7 @@ import (
 	"io"
 	"time"
 
-	"rayleabot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/console"
 )
 
 const (

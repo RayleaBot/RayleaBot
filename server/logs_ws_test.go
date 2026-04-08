@@ -12,9 +12,9 @@ import (
 
 	"github.com/coder/websocket"
 
-	"rayleabot/server/internal/app"
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {

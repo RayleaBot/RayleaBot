@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"rayleabot/server/internal/permission"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 const (

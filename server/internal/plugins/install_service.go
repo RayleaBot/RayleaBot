@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func (s *InstallService) Accept(_ context.Context, request InstallRequest) (string, error) {

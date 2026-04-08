@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/app"
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {

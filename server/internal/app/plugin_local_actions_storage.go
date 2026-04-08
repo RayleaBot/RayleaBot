@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"errors"
 
-	"rayleabot/server/internal/pluginfile"
-	"rayleabot/server/internal/pluginkv"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func (a *App) executeStorageKV(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {

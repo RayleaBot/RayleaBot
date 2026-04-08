@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"rayleabot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 type setupStatusResponse struct {

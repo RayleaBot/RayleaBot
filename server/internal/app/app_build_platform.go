@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/console"
-	"rayleabot/server/internal/logging"
-	"rayleabot/server/internal/scheduler"
-	"rayleabot/server/internal/secrets"
-	"rayleabot/server/internal/storage"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func buildAppPlatform(state appBuildState, schedulerTrigger func(context.Context, scheduler.Job)) (appPlatform, error) {

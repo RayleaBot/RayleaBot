@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 // ErrNotFound is returned when a requested secret key does not exist.

@@ -1,9 +1,9 @@
 package app
 
 import (
-	"rayleabot/server/internal/adapter"
-	"rayleabot/server/internal/health"
-	"rayleabot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func (a *App) currentReadiness() health.ReadinessReport {

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"rayleabot/server/internal/schema"
-	"rayleabot/server/internal/tasks"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 const (

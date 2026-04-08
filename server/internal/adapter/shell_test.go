@@ -15,7 +15,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"rayleabot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {

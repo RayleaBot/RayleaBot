@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/permission"
-	"rayleabot/server/internal/pluginfile"
-	"rayleabot/server/internal/pluginkv"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 )
 
 func (a *App) pluginCapabilityGranted(ctx context.Context, pluginID, capability string) bool {

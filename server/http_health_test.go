@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"gopkg.in/yaml.v3"
-	"rayleabot/server/internal/adapter"
 
-	"rayleabot/server/internal/app"
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/health"
-	"rayleabot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
 type webAPIFixture struct {

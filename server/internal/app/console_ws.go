@@ -10,7 +10,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/go-chi/chi/v5"
 
-	"rayleabot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/console"
 )
 
 type consoleFrame struct {

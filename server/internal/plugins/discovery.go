@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"rayleabot/server/internal/schema"
+	"github.com/RayleaBot/RayleaBot/server/internal/schema"
 )
 
 const (

@@ -108,7 +108,7 @@
 
 | 路径 | 约束 |
 | --- | --- |
-| `server/go.mod` | 固定 `module rayleabot/server`、Go `1.25.8` 与 server 依赖版本 |
+| `server/go.mod` | 固定 `module github.com/RayleaBot/RayleaBot/server`、Go `1.25.8` 与 server 依赖版本 |
 | `server/go.sum` | 维护 server 依赖锁定结果 |
 | `web/package.json` | 固定 `packageManager = pnpm@10.32.1` 与 `engines.node = 24.14.0` |
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
@@ -122,7 +122,7 @@
 - `contracts/config.user.schema.json` 中 `server.host` 默认值采用 `127.0.0.1`。
 - OneBot 连接地址正式键名采用 `onebot.ws_url`。
 - `launcher/package.json` 锁定 Electron 启动器的脚本入口、打包形态与 Node / pnpm 基线。
-- `server/go.mod` 当前采用 `rayleabot/server` 作为 module path。
+- `server/go.mod` 采用 `github.com/RayleaBot/RayleaBot/server` 作为 module path。
 
 ## `contracts/` 作为正式来源
 
@@ -137,11 +137,6 @@
 - 发行元数据：`contracts/release-manifest.schema.json`
 - CLI：`contracts/cli-commands.yaml`
 
-## 当前仍需保留的基线 TODO
-
-- `TODO(repo.identity)`：仓库配置正式 remote 后，将 `server/go.mod` 的本地 module path 收敛为正式模块路径。
-
 规则：
 
-- 上述 TODO 进入真实运行链路前，需要先在 baseline、相关工程文件和契约说明中一并收敛。
 - 若后续变更尝试绕开 baseline 与 contracts 直接写功能代码，应视为违反仓库治理规则。

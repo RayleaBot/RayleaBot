@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/dispatch"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/runtime"
-	"rayleabot/server/internal/secrets"
-	"rayleabot/server/internal/storage"
 )
 
 type capturingRuntime struct {

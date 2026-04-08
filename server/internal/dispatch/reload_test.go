@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func TestReloadPluginSwapsRuntime(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"rayleabot/server/internal/outbound"
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 // runtimeDeliverer is the interface a plugin runtime must satisfy for dispatch.

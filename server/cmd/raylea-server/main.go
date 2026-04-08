@@ -7,9 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"rayleabot/server/internal/app"
-	"rayleabot/server/internal/cli"
-	"rayleabot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/cli"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 func main() {

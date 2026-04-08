@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 )
 
 var testPNGBytes, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=")

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"rayleabot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 )
 
 type stubAuthRepository struct {

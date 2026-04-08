@@ -13,12 +13,12 @@ import (
 	"github.com/coder/websocket"
 	"gopkg.in/yaml.v3"
 
-	"rayleabot/server/internal/app"
-	"rayleabot/server/internal/auth"
-	"rayleabot/server/internal/bridge"
-	"rayleabot/server/internal/runtime"
-	"rayleabot/server/internal/secrets"
-	"rayleabot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 const sessionSigningKeySecret = "platform.auth.session_signing_key"

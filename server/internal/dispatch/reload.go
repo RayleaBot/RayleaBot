@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"rayleabot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 // ReloadPlugin performs a zero-gap reload by starting a new runtime before

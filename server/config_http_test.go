@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	internalapp "rayleabot/server/internal/app"
-	"rayleabot/server/internal/auth"
-	internalconfig "rayleabot/server/internal/config"
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 func TestConfigGetReturnsRedactedSnapshot(t *testing.T) {

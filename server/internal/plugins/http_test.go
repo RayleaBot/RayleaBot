@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/go-chi/chi/v5"
 	"pgregory.net/rapid"
-	"rayleabot/server/internal/tasks"
 )
 
 // --- helpers ---

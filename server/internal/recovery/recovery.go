@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	_ "modernc.org/sqlite"
-	"rayleabot/server/internal/config"
-	"rayleabot/server/internal/plugins"
-	"rayleabot/server/internal/storage"
 )
 
 const (
@@ -65,16 +65,16 @@ type CompatibilityIssue struct {
 }
 
 type SkippedPlugin struct {
-	PluginID      string `json:"plugin_id"`
-	Version       string `json:"version,omitempty"`
-	ReasonCode    string `json:"reason_code"`
-	Summary       string `json:"summary"`
-	ReviewID      string `json:"review_id"`
-	ReviewStatus  string `json:"review_status"`
-	ReviewedAt    string `json:"reviewed_at,omitempty"`
-	ReviewedBy    string `json:"reviewed_by,omitempty"`
-	ManualAction  string `json:"manual_action,omitempty"`
-	ManifestPath  string `json:"manifest_path,omitempty"`
+	PluginID     string `json:"plugin_id"`
+	Version      string `json:"version,omitempty"`
+	ReasonCode   string `json:"reason_code"`
+	Summary      string `json:"summary"`
+	ReviewID     string `json:"review_id"`
+	ReviewStatus string `json:"review_status"`
+	ReviewedAt   string `json:"reviewed_at,omitempty"`
+	ReviewedBy   string `json:"reviewed_by,omitempty"`
+	ManualAction string `json:"manual_action,omitempty"`
+	ManifestPath string `json:"manifest_path,omitempty"`
 }
 
 type AuditItem struct {
@@ -548,27 +548,27 @@ func currentPlatform() string {
 func pluginCompatibilityIssue(plugin plugins.Snapshot, targetCoreVersion, platformName string) (string, SkippedPlugin) {
 	if strings.TrimSpace(plugin.MinCoreVersion) != "" && compareSemver(plugin.MinCoreVersion, targetCoreVersion) > 0 {
 		return "plugin.min_core_version", SkippedPlugin{
-				PluginID:     plugin.PluginID,
-				Version:      plugin.Version,
-				ReasonCode:   "plugin.min_core_version",
-				Summary:      "插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。",
-				ReviewID:     buildReviewID(plugin.PluginID, "plugin.min_core_version", plugin.Version),
-				ReviewStatus: reviewStatusPending,
-				ManualAction: "升级程序或重新安装兼容版本插件。",
-				ManifestPath: plugin.ManifestPath,
-			}
+			PluginID:     plugin.PluginID,
+			Version:      plugin.Version,
+			ReasonCode:   "plugin.min_core_version",
+			Summary:      "插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。",
+			ReviewID:     buildReviewID(plugin.PluginID, "plugin.min_core_version", plugin.Version),
+			ReviewStatus: reviewStatusPending,
+			ManualAction: "升级程序或重新安装兼容版本插件。",
+			ManifestPath: plugin.ManifestPath,
+		}
 	}
 	if len(plugin.Platforms) > 0 && !contains(plugin.Platforms, platformName) {
 		return "plugin.platform_mismatch", SkippedPlugin{
-				PluginID:     plugin.PluginID,
-				Version:      plugin.Version,
-				ReasonCode:   "plugin.platform_mismatch",
-				Summary:      "插件平台兼容性不满足，已保留安装目录并跳过自动启用。",
-				ReviewID:     buildReviewID(plugin.PluginID, "plugin.platform_mismatch", plugin.Version),
-				ReviewStatus: reviewStatusPending,
-				ManualAction: "安装支持当前平台的插件包。",
-				ManifestPath: plugin.ManifestPath,
-			}
+			PluginID:     plugin.PluginID,
+			Version:      plugin.Version,
+			ReasonCode:   "plugin.platform_mismatch",
+			Summary:      "插件平台兼容性不满足，已保留安装目录并跳过自动启用。",
+			ReviewID:     buildReviewID(plugin.PluginID, "plugin.platform_mismatch", plugin.Version),
+			ReviewStatus: reviewStatusPending,
+			ManualAction: "安装支持当前平台的插件包。",
+			ManifestPath: plugin.ManifestPath,
+		}
 	}
 	return "", SkippedPlugin{}
 }
