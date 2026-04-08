@@ -16,6 +16,7 @@ type processHandle struct {
 	stdout *bufio.Reader
 	spec   Spec
 
+	writeMu sync.Mutex
 	done    chan struct{}
 	exitMu  sync.RWMutex
 	exitErr error
@@ -233,14 +234,35 @@ func resetTimer(timer *time.Timer, duration time.Duration) {
 	timer.Reset(duration)
 }
 
+func (h *processHandle) writeJSONLine(value any) error {
+	if h == nil {
+		return fmt.Errorf("plugin process handle is not available")
+	}
+
+	h.writeMu.Lock()
+	defer h.writeMu.Unlock()
+
+	return writeJSONLine(h.stdin, value)
+}
+
 func writeJSONLine(writer io.Writer, value any) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 
-	if _, err := writer.Write(append(encoded, '\n')); err != nil {
-		return err
+	data := append(encoded, '\n')
+	for len(data) > 0 {
+		written, writeErr := writer.Write(data)
+		if written > 0 {
+			data = data[written:]
+		}
+		if writeErr != nil {
+			return writeErr
+		}
+		if written == 0 {
+			return io.ErrShortWrite
+		}
 	}
 
 	return nil

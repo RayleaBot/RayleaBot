@@ -83,7 +83,7 @@ func (m *Manager) writeLocalResult(handle *processHandle, requestID string, data
 		"status":           "success",
 		"data":             data,
 	}
-	if err := writeJSONLine(handle.stdin, frame); err != nil {
+	if err := handle.writeJSONLine(frame); err != nil {
 		return errorf(codePluginInternalError, "write local action result frame", err)
 	}
 	return nil
@@ -99,7 +99,7 @@ func (m *Manager) writeLocalError(handle *processHandle, requestID string, code 
 		"code":             code,
 		"message":          message,
 	}
-	if err := writeJSONLine(handle.stdin, frame); err != nil {
+	if err := handle.writeJSONLine(frame); err != nil {
 		return errorf(codePluginInternalError, "write local action error frame", err)
 	}
 	return nil

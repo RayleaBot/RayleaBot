@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -78,7 +79,7 @@ type oneBotFrame struct {
 	RawMessage    string          `json:"raw_message"`
 	Message       json.RawMessage `json:"message"`
 	Sender        *senderObject   `json:"sender"`
-	Status        string          `json:"status"`
+	Status        any             `json:"status"`
 	RetCode       int             `json:"retcode"`
 	Wording       string          `json:"wording"`
 	Data          map[string]any  `json:"data"`
@@ -89,9 +90,12 @@ type classifiedFrame struct {
 	Summary        FrameSummary
 	Frame          oneBotFrame
 	InvalidSummary string
+	PayloadPreview any
 }
 
 func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt time.Time) classifiedFrame {
+	payloadPreview := previewFramePayload(payload)
+
 	if messageType != websocket.MessageText && messageType != websocket.MessageBinary {
 		return classifiedFrame{
 			Summary: FrameSummary{
@@ -100,6 +104,7 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 				ObservedAt: observedAt,
 			},
 			InvalidSummary: "unexpected websocket message type",
+			PayloadPreview: payloadPreview,
 		}
 	}
 
@@ -112,6 +117,7 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 				ObservedAt: observedAt,
 			},
 			InvalidSummary: summarizeError(err),
+			PayloadPreview: payloadPreview,
 		}
 	}
 
@@ -136,11 +142,13 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 		if _, ok := frameEcho(frame.Echo); !ok {
 			return classifiedFrame{
 				Summary: FrameSummary{
-					Category:   FrameCategoryInvalid,
-					Type:       string(FrameCategoryInvalid),
+					Category:   FrameCategoryUnknown,
+					Type:       "api.response.ignored",
 					ObservedAt: observedAt,
 				},
 				InvalidSummary: "api response echo must be a non-empty string",
+				Frame:          frame,
+				PayloadPreview: payloadPreview,
 			}
 		}
 		summary.Category = FrameCategoryAPIResponse
@@ -154,8 +162,9 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 	}
 
 	return classifiedFrame{
-		Summary: summary,
-		Frame:   frame,
+		Summary:        summary,
+		Frame:          frame,
+		PayloadPreview: payloadPreview,
 	}
 }
 
@@ -169,6 +178,32 @@ func frameEcho(value any) (string, bool) {
 		return "", false
 	}
 	return echo, true
+}
+
+func frameStatusText(value any) string {
+	status, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(status)
+}
+
+func previewFramePayload(payload []byte) any {
+	trimmed := bytes.TrimSpace(payload)
+	if len(trimmed) == 0 {
+		return ""
+	}
+
+	var decoded any
+	if err := json.Unmarshal(trimmed, &decoded); err == nil {
+		return decoded
+	}
+
+	text := string(trimmed)
+	if len(text) > 256 {
+		return text[:256] + "...(truncated)"
+	}
+	return text
 }
 
 func applyFrameSummary(snapshot *Snapshot, frame classifiedFrame) {

@@ -30,7 +30,7 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 
 	requestID := m.deps.requestID()
 	frame := buildEventFrame(event, handle.spec.PluginID, requestID, m.deps.now().Unix())
-	if err := writeJSONLine(handle.stdin, frame); err != nil {
+	if err := handle.writeJSONLine(frame); err != nil {
 		return Delivery{}, errorf(codePluginInternalError, "write event frame", err)
 	}
 

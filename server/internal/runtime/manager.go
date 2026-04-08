@@ -143,7 +143,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		"entry_path", spec.EntryPath,
 	)
 
-	if err := writeJSONLine(stdin, initFrame{
+	if err := handle.writeJSONLine(initFrame{
 		ProtocolVersion: "1",
 		Type:            "init",
 		Timestamp:       m.deps.now().Unix(),

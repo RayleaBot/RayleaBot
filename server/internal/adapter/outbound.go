@@ -333,7 +333,12 @@ func (s *Shell) routeAPIResponse(frame classifiedFrame) {
 			"adapter api response had no pending request",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
+			"direction", "inbound",
 			"echo", response.Echo,
+			"status", response.Status,
+			"retcode", response.RetCode,
+			"wording", response.Wording,
+			"payload_preview", response.Data,
 		)
 		return
 	}
@@ -408,7 +413,7 @@ func apiResponseFromFrame(frame oneBotFrame) (apiResponse, bool) {
 
 	return apiResponse{
 		Echo:    echo,
-		Status:  strings.TrimSpace(frame.Status),
+		Status:  frameStatusText(frame.Status),
 		RetCode: frame.RetCode,
 		Wording: strings.TrimSpace(frame.Wording),
 		Data:    data,

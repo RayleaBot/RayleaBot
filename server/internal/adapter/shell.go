@@ -383,14 +383,29 @@ func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
 	snapshot := s.recordFrame(frame)
 
 	switch {
-	case frame.Summary.Category == FrameCategoryInvalid:
+	case isIgnoredAPIResponse(frame):
 		s.logger.Warn(
-			"adapter invalid frame received",
+			"ignored OneBot API response with unsupported echo",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
+			"direction", "inbound",
+			"frame_type", frame.Summary.Type,
+			"reason", frame.InvalidSummary,
+			"echo_value_type", echoValueType(frame.Frame.Echo),
+			"payload_preview", frame.PayloadPreview,
+			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+		)
+		return nil
+	case frame.Summary.Category == FrameCategoryInvalid:
+		s.logger.Warn(
+			"invalid OneBot frame received",
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"direction", "inbound",
 			"frame_type", frame.Summary.Type,
 			"invalid_frame_count", snapshot.InvalidReceivedFrames,
 			"reason", frame.InvalidSummary,
+			"payload_preview", frame.PayloadPreview,
 			"ws_url", sanitizeWSURL(s.cfg.WSURL),
 		)
 		return fmt.Errorf("invalid frame: %s", frame.InvalidSummary)
@@ -405,6 +420,17 @@ func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
 	}
 
 	return nil
+}
+
+func isIgnoredAPIResponse(frame classifiedFrame) bool {
+	return frame.Summary.Category == FrameCategoryUnknown && frame.Summary.Type == "api.response.ignored"
+}
+
+func echoValueType(value any) string {
+	if value == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%T", value)
 }
 
 func (s *Shell) readFrame(ctx context.Context, conn *websocket.Conn) (classifiedFrame, error) {

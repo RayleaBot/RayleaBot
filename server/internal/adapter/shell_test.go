@@ -224,6 +224,12 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 			"post_type":       "meta_event",
 			"meta_event_type": "heartbeat",
 			"interval":        1000,
+			"self_id":         2609164374,
+			"time":            1775656456,
+			"status": map[string]any{
+				"good":   true,
+				"online": true,
+			},
 		}); err != nil {
 			t.Errorf("wsjson.Write failed: %v", err)
 			return
@@ -260,6 +266,12 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 	}
 	if snapshot.LastFrameType != "meta.heartbeat" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.heartbeat")
+	}
+	if snapshot.State != StateConnected {
+		t.Fatalf("unexpected state after structured heartbeat: got %s want %s", snapshot.State, StateConnected)
+	}
+	if snapshot.BotID != "2609164374" {
+		t.Fatalf("unexpected bot id from heartbeat: got %q want %q", snapshot.BotID, "2609164374")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -522,6 +534,159 @@ func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
 	}
 	if snapshot.LastFrameType != "unknown" {
 		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "unknown")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
+	t.Parallel()
+
+	ignoredSent := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write failed: %v", err)
+			return
+		}
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"echo":    123,
+		}); err != nil {
+			t.Errorf("wsjson.Write failed: %v", err)
+			return
+		}
+		close(ignoredSent)
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 500 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	select {
+	case <-ignoredSent:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ignored api response")
+	}
+
+	snapshot := waitForSnapshot(t, shell, 500*time.Millisecond, func(snapshot Snapshot) bool {
+		return snapshot.TotalReceivedFrames == 2
+	})
+	if snapshot.State != StateConnected {
+		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
+	}
+	if snapshot.InvalidReceivedFrames != 0 {
+		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
+	}
+	if snapshot.LastFrameCategory != FrameCategoryUnknown {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryUnknown)
+	}
+	if snapshot.LastFrameType != "api.response.ignored" {
+		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "api.response.ignored")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
+	t.Parallel()
+
+	ignoredSent := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write failed: %v", err)
+			return
+		}
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"echo":    "   ",
+		}); err != nil {
+			t.Errorf("wsjson.Write failed: %v", err)
+			return
+		}
+		close(ignoredSent)
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 500 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	select {
+	case <-ignoredSent:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ignored api response")
+	}
+
+	snapshot := waitForSnapshot(t, shell, 500*time.Millisecond, func(snapshot Snapshot) bool {
+		return snapshot.TotalReceivedFrames == 2
+	})
+	if snapshot.State != StateConnected {
+		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
+	}
+	if snapshot.InvalidReceivedFrames != 0 {
+		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
+	}
+	if snapshot.LastFrameType != "api.response.ignored" {
+		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "api.response.ignored")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

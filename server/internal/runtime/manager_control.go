@@ -38,7 +38,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		"runtime_state", string(StateStopping),
 	)
 
-	writeErr := writeJSONLine(handle.stdin, shutdownFrame{
+	writeErr := handle.writeJSONLine(shutdownFrame{
 		ProtocolVersion: "1",
 		Type:            "shutdown",
 		Timestamp:       m.deps.now().Unix(),
@@ -95,7 +95,8 @@ func isIgnorableShutdownWriteError(err error) bool {
 	if errors.Is(err, io.ErrClosedPipe) || errors.Is(err, os.ErrClosed) {
 		return true
 	}
-	return strings.Contains(err.Error(), "broken pipe")
+	message := err.Error()
+	return strings.Contains(message, "broken pipe") || strings.Contains(message, "pipe is being closed")
 }
 
 func classifyProtocolReadError(handle *processHandle, readErr error, exitMessage string, protocolMessage string) *Error {
@@ -146,7 +147,7 @@ func (m *Manager) Ping(ctx context.Context) error {
 	}
 
 	requestID := m.deps.requestID()
-	if err := writeJSONLine(handle.stdin, pingFrame{
+	if err := handle.writeJSONLine(pingFrame{
 		ProtocolVersion: "1",
 		Type:            "ping",
 		Timestamp:       m.deps.now().Unix(),

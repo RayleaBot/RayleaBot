@@ -13,7 +13,7 @@ func TestClassifyFrameHeartbeat(t *testing.T) {
 	observedAt := time.Unix(1700000000, 0).UTC()
 	frame := classifyFrame(
 		websocket.MessageText,
-		[]byte(`{"post_type":"meta_event","meta_event_type":"heartbeat","interval":5000}`),
+		[]byte(`{"post_type":"meta_event","meta_event_type":"heartbeat","interval":5000,"status":{"good":true,"online":true}}`),
 		observedAt,
 	)
 
@@ -28,6 +28,17 @@ func TestClassifyFrameHeartbeat(t *testing.T) {
 	}
 	if !frame.Summary.ObservedAt.Equal(observedAt) {
 		t.Fatalf("unexpected observedAt: got %s want %s", frame.Summary.ObservedAt, observedAt)
+	}
+}
+
+func TestFrameStatusTextIgnoresStructuredHeartbeatStatus(t *testing.T) {
+	t.Parallel()
+
+	if got := frameStatusText(map[string]any{"good": true, "online": true}); got != "" {
+		t.Fatalf("unexpected status text: got %q want empty", got)
+	}
+	if got := frameStatusText(" ok "); got != "ok" {
+		t.Fatalf("unexpected string status text: got %q want %q", got, "ok")
 	}
 }
 
@@ -103,6 +114,43 @@ func TestClassifyFrameUnknown(t *testing.T) {
 	}
 	if frame.Summary.Type != "unknown" {
 		t.Fatalf("unexpected type: got %q want %q", frame.Summary.Type, "unknown")
+	}
+}
+
+func TestClassifyFrameAPIResponseWithNonStringEchoIsIgnored(t *testing.T) {
+	t.Parallel()
+
+	frame := classifyFrame(
+		websocket.MessageText,
+		[]byte(`{"status":"ok","retcode":0,"echo":123}`),
+		time.Unix(1700000000, 0).UTC(),
+	)
+
+	if frame.Summary.Category != FrameCategoryUnknown {
+		t.Fatalf("unexpected category: got %s want %s", frame.Summary.Category, FrameCategoryUnknown)
+	}
+	if frame.Summary.Type != "api.response.ignored" {
+		t.Fatalf("unexpected type: got %q want %q", frame.Summary.Type, "api.response.ignored")
+	}
+	if frame.InvalidSummary == "" {
+		t.Fatal("expected ignored response reason")
+	}
+}
+
+func TestClassifyFrameAPIResponseWithBlankEchoIsIgnored(t *testing.T) {
+	t.Parallel()
+
+	frame := classifyFrame(
+		websocket.MessageText,
+		[]byte(`{"status":"ok","retcode":0,"echo":"   "}`),
+		time.Unix(1700000000, 0).UTC(),
+	)
+
+	if frame.Summary.Category != FrameCategoryUnknown {
+		t.Fatalf("unexpected category: got %s want %s", frame.Summary.Category, FrameCategoryUnknown)
+	}
+	if frame.Summary.Type != "api.response.ignored" {
+		t.Fatalf("unexpected type: got %q want %q", frame.Summary.Type, "api.response.ignored")
 	}
 }
 
