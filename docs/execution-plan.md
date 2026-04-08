@@ -20,7 +20,7 @@
 | Phase 5 | Plugin Protocol Bridge | ✅ | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` local action RPC 与 gated `event.raw_payload` 已接入；完整 Chromium Render Service 继续后置到 Phase 10 |
 | Phase 6 | Config / Storage / Security | ✅ | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；`/readyz`、诊断包、`doctor`、Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 统一诊断结构 |
 | Phase 7 | Web API & Tasks | ✅ | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress、插件来源/信任/命令冲突 metadata 与 render preview / artifact 管理面已进入正式主链 |
-| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
+| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、恢复摘要筛选与确认历史展示、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
 | Phase 9 | Launcher | ✅ | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口、正式发行包根目录入口、安装根目录派生设置模型与已有工作区复用语义已对齐 |
 | Phase 10 | Render Service | ✅ | Chromium 渲染、模板资源、artifact registry、`render.preview` 任务流、管理面预览入口、任务详情图片预览与统一资源诊断已接入主链 |
 
@@ -226,7 +226,7 @@
 | auth/session shell | ✅ | `setup/login/session`、路由守卫、`sessionStorage` token 与未授权回退已落地 |
 | 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志页、配置页，以及固定侧栏、内容区内部滚动摘要视图与响应式布局已落地 |
 | HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |
-| 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、恢复摘要操作入口、恢复批量确认与审计、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
+| 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、恢复摘要操作入口、恢复批量确认、全部 / 待确认 / 已确认筛选、现有 50 条确认历史展示、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
 | 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、Launcher 自动登录失败短提示已接入 |
 | 前端质量与回归 | ✅ | Vitest 单测、fixture-backed Playwright E2E、异常路径、响应式与可访问性交互回归已落地 |
 
@@ -308,6 +308,7 @@
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。
 - 在线备份、诊断导出、webhook ingress、插件来源 / 信任 / 命令冲突 metadata 已受 API、Web 单测 / E2E 与 management tests 覆盖。
+- Web 状态页与任务详情当前已支持恢复项全部 / 待确认 / 已确认筛选，并完整展示当前 `recovery_summary.audit` 保留窗口内的确认历史；对应交互已受 Web 单测覆盖。
 - `contracts`、`server-core`、`web-core`、`launcher-core-linux`、`pr-smoke-light`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
 - 共享 `recovery_summary`、`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke；兼容通过、需要人工处理、批量确认和修复后收敛四类路径已进入回归矩阵；`.deps/manifest.json` 已进入有序来源列表契约，server、release、smoke 与长期自托管巡检共用同一份来源定义。
 - `openapi-typescript` 7.8.0 从 `contracts/web-api.openapi.yaml` 生成 `web/src/types/generated.ts`，覆盖全部 31 个路由；lint CI 包含生成文件一致性检查。
@@ -318,13 +319,16 @@
 
 ## 十四、下一轮规划
 
+当前恢复摘要任务面已具备全部 / 待确认 / 已确认筛选与现有确认历史展示；撤销确认继续保持在当前正式任务模型之外。
+
 ### 主工作包
 
-1. 评估已确认恢复项的筛选、撤销与更长历史展示是否进入正式任务面。
-   当前恢复闭环已覆盖人工处理建议、批量确认、最近审计、再次检查、运行时准备和单插件深链；下一轮重点是判断更长历史展示、已确认项筛选与撤销是否需要进入共享任务模型。
+1. 收敛 `repo.identity`。
+   当前正式 remote 已固定为 `https://github.com/RayleaBot/RayleaBot.git`；下一轮把 `server/go.mod`、Go import path、CI 校验与工程文档统一到 `github.com/RayleaBot/RayleaBot/server`。
 
 ### 下一轮边界
 
+- 不在下一轮重新打开恢复项撤销确认或独立长历史资源。
 - 不在下一轮回头扩张第二套跨版本恢复状态语义或发布元数据口径。
 - 不在下一轮推进多 adapter / 多 bot 抽象。
 - 不在下一轮扩展更宽 future action families。
@@ -332,6 +336,7 @@
 
 ### 下一轮验收口径
 
-- 长时间窗 smoke、packaged recovery drill 与 diagnostics 校验必须继续复用默认构建命令、现有 artifact matrix 与现有 release metadata。
-- 新增恢复批量处理能力必须继续复用共享 `recovery_summary`、现有任务模型与现有 diagnostics 投影，不新增 Web / Launcher / CLI 各自独立状态口径。
+- `go test ./...` 与 `go build ./cmd/raylea-server` 继续通过。
+- CI 中的 module path 校验与正式 Git remote 保持一致。
+- baseline、`execution-plan.md`、CI 校验与工程文件中的 repo identity 口径保持一致。
 
