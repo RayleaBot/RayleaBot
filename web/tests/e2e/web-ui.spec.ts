@@ -104,6 +104,8 @@ test('plugin management flow covers install, grants and console recovery', async
   await page.getByRole('link', { name: '插件' }).click()
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
   await expect(pluginRows(page).first()).toBeVisible()
+  await expect(page.locator('.plugins-data-table')).toContainText('help')
+  await expect(page.locator('.plugins-data-table')).toContainText('weather')
 
   await page.getByRole('button', { name: '安装插件' }).click()
   await page.getByLabel('服务器路径').fill('C:/plugins/weather.zip')
@@ -116,7 +118,9 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
   await expect(page.getByText('未验证来源')).toBeVisible()
   await expect(page.getByText('plugins/installed')).toBeVisible()
-  await expect(page.getByText('命令冲突')).toBeVisible()
+  await expect(page.getByRole('article').getByText('命令冲突')).toBeVisible()
+  await expect(page.getByText('已注册指令')).toBeVisible()
+  await expect(page.getByText('查询天气')).toBeVisible()
 
   await page.getByRole('button', { name: '新增授权' }).click()
   await page.getByLabel('能力标识').fill('storage.file')
@@ -271,6 +275,26 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
   await expect(page.getByText('plugin runtime stderr truncated').first()).toBeVisible()
   await expect(page.locator('.logs-filter-toolbar').getByText('协议')).toHaveCount(0)
+})
+
+test('command center shows all declared commands and filters by plugin selection', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.getByRole('link', { name: '指令中心' }).click()
+  await expect(page.locator('#app-main').getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expect(page.locator('.commands-data-table')).toContainText('help')
+  await expect(page.locator('.commands-data-table')).toContainText('weather')
+
+  const pluginSelector = page.locator('.commands-filter-toolbar .el-select').first()
+  const pluginSelectorInput = page.locator('.commands-filter-toolbar input[readonly]').first()
+  await expect(pluginSelectorInput).toBeVisible()
+  await expect(pluginSelectorInput).toHaveAttribute('readonly', '')
+  await pluginSelector.click()
+  await page.getByText('Weather（weather）').click()
+
+  await expect(page.locator('.commands-data-table')).toContainText('查询天气')
+  await expect(page.locator('.commands-data-table')).not.toContainText('查看帮助菜单')
 })
 
 test('login keeps the protected shell after reload', async ({ page, request }) => {

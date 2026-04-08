@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
+import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   getPluginDesiredStateLabel,
@@ -14,7 +15,8 @@ import {
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
-import type { PluginInstallRequest } from '@/types/api'
+import { isPluginCommandConflicted } from '@/lib/plugin-commands'
+import type { PluginCommandSummary, PluginInstallRequest } from '@/types/api'
 import { usePluginsStore } from '@/stores/plugins'
 
 type HealthNoticeTone = '' | 'info' | 'warning' | 'danger'
@@ -66,6 +68,22 @@ function getPluginHealthNotices(row: (typeof sortedItems.value)[number]) {
   }
 
   return notices.slice(0, 3)
+}
+
+function getVisibleCommands(commands: PluginCommandSummary[]) {
+  return commands.slice(0, 3)
+}
+
+function getOverflowCommandCount(commands: PluginCommandSummary[]) {
+  return Math.max(commands.length - 3, 0)
+}
+
+function getCommandAliasesText(command: PluginCommandSummary) {
+  return command.aliases?.length ? command.aliases.join(', ') : t('display.empty')
+}
+
+function isConflictedCommand(command: PluginCommandSummary, conflicts?: string[]) {
+  return isPluginCommandConflicted(command, conflicts)
 }
 
 async function loadPlugins() {
@@ -160,6 +178,37 @@ async function submitInstall() {
               {{ row.trust?.label ?? t('display.empty') }}
             </div>
           </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column :label="t('plugins.fields.commands')" min-width="250">
+        <template #default="{ row }">
+          <div v-if="row.commands.length > 0" class="plugin-cell-commands">
+            <div
+              v-for="command in getVisibleCommands(row.commands)"
+              :key="`${row.id}-${command.name}`"
+              class="plugin-command-chip"
+            >
+              <el-tag
+                size="small"
+                effect="plain"
+                :type="isConflictedCommand(command, row.command_conflicts) ? 'warning' : 'success'"
+              >
+                {{ command.name }}
+              </el-tag>
+              <el-tooltip
+                v-if="command.aliases?.length"
+                :content="getCommandAliasesText(command)"
+                placement="top"
+              >
+                <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
+              </el-tooltip>
+            </div>
+            <small v-if="getOverflowCommandCount(row.commands) > 0" class="plugin-command-overflow">
+              {{ t('plugins.commandOverflow', { count: getOverflowCommandCount(row.commands) }) }}
+            </small>
+          </div>
+          <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
         </template>
       </el-table-column>
 
@@ -293,6 +342,16 @@ async function submitInstall() {
           <span v-else>{{ t('display.empty') }}</span>
         </el-descriptions-item>
       </el-descriptions>
+
+      <el-card class="plugin-command-summary-card section-gap">
+        <template #header>
+          <strong>{{ t('plugins.sections.commands') }}</strong>
+        </template>
+        <PluginCommandsPanel
+          :commands="summaryPlugin.commands"
+          :command-conflicts="summaryPlugin.command_conflicts"
+        />
+      </el-card>
     </template>
   </el-dialog>
 </template>
@@ -394,6 +453,32 @@ async function submitInstall() {
     flex-wrap: wrap;
     gap: 6px;
   }
+}
+
+.plugin-cell-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.plugin-command-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plugin-command-chip small,
+.plugin-command-overflow,
+.plugin-command-empty {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.plugin-command-summary-card {
+  margin-top: 16px;
+  border-radius: 20px;
 }
 
 .plugin-cell-actions {

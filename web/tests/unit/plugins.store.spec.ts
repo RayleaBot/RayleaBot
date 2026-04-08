@@ -33,6 +33,9 @@ describe('plugins store', () => {
         registration_state: 'installed',
         desired_state: 'enabled',
         runtime_state: 'running',
+        commands: [
+          { name: 'weather' },
+        ],
       },
     })))
 
@@ -46,6 +49,31 @@ describe('plugins store', () => {
     expect(store.actionPending.weather).toBeNull()
     expect(store.items[0].desired_state).toBe('enabled')
     expect(store.items[0].runtime_state).toBe('running')
+    expect(store.items[0].commands).toEqual([{ name: 'weather' }])
+  })
+
+  it('preserves existing commands when a runtime event only updates states', () => {
+    const store = usePluginsStore()
+
+    store.upsert({
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'running',
+      commands: [{ name: 'weather' }],
+      command_conflicts: [],
+    })
+
+    store.upsert({
+      id: 'weather',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'starting',
+    })
+
+    expect(store.items[0].commands).toEqual([{ name: 'weather' }])
   })
 
   it('keeps grants sorted and trims console frames to the latest 100 entries', async () => {

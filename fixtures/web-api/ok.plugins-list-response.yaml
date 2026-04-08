@@ -21,6 +21,13 @@ response:
         trust:
           level: official
           label: 官方
+        commands:
+          - name: help
+            aliases:
+              - 帮助
+            description: 查看帮助菜单
+            usage: help [命令]
+            permission: member
         command_conflicts: []
       - id: weather
         name: Weather
@@ -37,9 +44,18 @@ response:
         trust:
           level: unverified
           label: 未验证来源
+        commands:
+          - name: weather
+            aliases:
+              - tq
+              - 天气
+            description: 查询天气
+            usage: weather <城市>
+            permission: member
         command_conflicts:
           - weather
 expect:
   valid: true
   notes:
     - command_conflicts enables explicit fan-out conflict warnings in the Web UI.
+    - commands keeps declared plugin commands visible in list and detail surfaces.

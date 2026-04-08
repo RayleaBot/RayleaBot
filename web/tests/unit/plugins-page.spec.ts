@@ -26,6 +26,8 @@ describe('PluginsPage', () => {
       desired_state: 'disabled',
       runtime_state: 'stopped',
       display_state: 'disabled',
+      commands: [],
+      command_conflicts: [],
     }]
 
     vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
@@ -70,6 +72,15 @@ describe('PluginsPage', () => {
           level: 'unverified',
           label: '未验证来源',
         },
+        commands: [
+          {
+            name: 'weather',
+            aliases: ['tq', '天气'],
+            description: '查询天气',
+            usage: 'weather <城市>',
+            permission: 'member',
+          },
+        ],
         command_conflicts: ['weather'],
       },
     ]
@@ -90,10 +101,12 @@ describe('PluginsPage', () => {
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('1 个命令冲突')
     expect(wrapper.text()).toContain('weather')
+    expect(wrapper.text()).toContain('2 个别名')
     expect(wrapper.text()).not.toContain('显示状态')
     expect(wrapper.text()).not.toContain('discovered')
     expect(wrapper.find('.plugins-data-table').exists()).toBe(true)
     expect(wrapper.find('.plugin-cell-source').exists()).toBe(true)
+    expect(wrapper.find('.plugin-cell-commands').exists()).toBe(true)
     expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
   })
 
@@ -112,6 +125,8 @@ describe('PluginsPage', () => {
         desired_state: 'enabled',
         runtime_state: 'running',
         display_state: 'running',
+        commands: [],
+        command_conflicts: [],
       },
     ]
 

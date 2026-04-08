@@ -34,16 +34,25 @@ type errorBody struct {
 }
 
 type pluginSummaryResponse struct {
-	ID                string               `json:"id"`
-	Name              string               `json:"name"`
-	Role              string               `json:"role"`
-	RegistrationState string               `json:"registration_state"`
-	DesiredState      string               `json:"desired_state"`
-	RuntimeState      string               `json:"runtime_state"`
-	DisplayState      string               `json:"display_state,omitempty"`
-	Source            pluginSourceResponse `json:"source"`
-	Trust             pluginTrustResponse  `json:"trust"`
-	CommandConflicts  []string             `json:"command_conflicts"`
+	ID                string                  `json:"id"`
+	Name              string                  `json:"name"`
+	Role              string                  `json:"role"`
+	RegistrationState string                  `json:"registration_state"`
+	DesiredState      string                  `json:"desired_state"`
+	RuntimeState      string                  `json:"runtime_state"`
+	DisplayState      string                  `json:"display_state,omitempty"`
+	Source            pluginSourceResponse    `json:"source"`
+	Trust             pluginTrustResponse     `json:"trust"`
+	Commands          []pluginCommandResponse `json:"commands"`
+	CommandConflicts  []string                `json:"command_conflicts"`
+}
+
+type pluginCommandResponse struct {
+	Name        string   `json:"name"`
+	Aliases     []string `json:"aliases,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Usage       string   `json:"usage,omitempty"`
+	Permission  string   `json:"permission,omitempty"`
 }
 
 type pluginSourceResponse struct {
@@ -520,6 +529,7 @@ func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryRespons
 		DisplayState:      snapshot.DisplayState,
 		Source:            buildPluginSource(snapshot),
 		Trust:             buildPluginTrust(role, snapshot),
+		Commands:          buildPluginCommands(snapshot),
 		CommandConflicts:  normalizeConflictList(conflicts),
 	}
 }
@@ -529,6 +539,44 @@ func normalizeConflictList(conflicts []string) []string {
 		return []string{}
 	}
 	return append([]string(nil), conflicts...)
+}
+
+func buildPluginCommands(snapshot Snapshot) []pluginCommandResponse {
+	if !snapshot.Valid || snapshot.RegistrationState != "installed" || len(snapshot.Commands) == 0 {
+		return []pluginCommandResponse{}
+	}
+
+	items := make([]pluginCommandResponse, 0, len(snapshot.Commands))
+	for _, command := range snapshot.Commands {
+		items = append(items, pluginCommandResponse{
+			Name:        command.Name,
+			Aliases:     normalizeStringList(command.Aliases),
+			Description: strings.TrimSpace(command.Description),
+			Usage:       strings.TrimSpace(command.Usage),
+			Permission:  strings.TrimSpace(command.Permission),
+		})
+	}
+
+	return items
+}
+
+func normalizeStringList(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		items = append(items, trimmed)
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return items
 }
 
 func pluginDisplayName(snapshot Snapshot) string {

@@ -1533,10 +1533,28 @@ components:
         verified:
           type: boolean
 
+    PluginCommandSummary:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        usage:
+          type: string
+        permission:
+          type: string
+
     PluginSummary:
       type: object
       additionalProperties: false
-      required: [id, name, role, registration_state, desired_state, runtime_state]
+      required: [id, name, role, registration_state, desired_state, runtime_state, commands]
       properties:
         id:
           type: string
@@ -1556,6 +1574,10 @@ components:
           $ref: '#/components/schemas/PluginSourceSummary'
         trust:
           $ref: '#/components/schemas/PluginTrustSummary'
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginCommandSummary'
         command_conflicts:
           type: array
           items:

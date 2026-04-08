@@ -8,6 +8,7 @@ export type PluginTrustLevel = components['schemas']['PluginTrustSummary']['leve
 export type PluginInstallSourceType = components['schemas']['PluginInstallRequest']['source_type']
 export type PluginSourceSummary = components['schemas']['PluginSourceSummary']
 export type PluginTrustSummary = components['schemas']['PluginTrustSummary']
+export type PluginCommandSummary = components['schemas']['PluginCommandSummary']
 export type PluginSummary = components['schemas']['PluginSummary']
 export type PluginListResponse = components['schemas']['PluginListResponse']
 export type PluginDetailResponse = components['schemas']['PluginDetailResponse']

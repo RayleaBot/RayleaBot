@@ -3,6 +3,7 @@ import { createRouter, createWebHistory, type Router, type RouterHistory, type R
 import { useSessionStore } from '@/stores/session'
 import DashboardPage from '@/pages/DashboardPage.vue'
 import ConfigPage from '@/pages/ConfigPage.vue'
+import CommandsPage from '@/pages/CommandsPage.vue'
 import LoginPage from '@/pages/LoginPage.vue'
 import LogsPage from '@/pages/LogsPage.vue'
 import PluginDetailPage from '@/pages/PluginDetailPage.vue'
@@ -43,6 +44,7 @@ export const routes: RouteRecordRaw[] = [
       { path: '', name: 'status', component: DashboardPage, meta: { requiresAuth: true, titleKey: 'routes.status' } },
       { path: 'plugins', name: 'plugins', component: PluginsPage, meta: { requiresAuth: true, titleKey: 'routes.plugins' } },
       { path: 'plugins/:id', name: 'plugin-detail', component: PluginDetailPage, meta: { requiresAuth: true, titleKey: 'routes.pluginDetail' } },
+      { path: 'commands', name: 'commands', component: CommandsPage, meta: { requiresAuth: true, titleKey: 'routes.commands' } },
       { path: 'tasks', name: 'tasks', component: TasksPage, meta: { requiresAuth: true, titleKey: 'routes.tasks' } },
       { path: 'logs', name: 'logs', component: LogsPage, meta: { requiresAuth: true, titleKey: 'routes.logs' } },
       { path: 'protocols', name: 'protocols', component: ProtocolsPage, meta: { requiresAuth: true, titleKey: 'routes.protocols' } },

@@ -27,6 +27,7 @@ describe('AppShell', () => {
               meta: { title: '系统状态' },
             },
             { path: 'plugins', component: { template: '<div>插件</div>' } },
+            { path: 'commands', component: { template: '<div>指令中心</div>' } },
             { path: 'tasks', component: { template: '<div>任务</div>' } },
             { path: 'logs', component: { template: '<div>日志</div>' } },
             { path: 'protocols', component: { template: '<div>协议中心</div>' } },
@@ -68,6 +69,7 @@ describe('AppShell', () => {
     expect(wrapper.text()).toContain('系统状态')
     expect(wrapper.text()).toContain('就绪状态')
     expect(wrapper.text()).toContain('协议中心')
+    expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).not.toContain('协议日志')
     expect(wrapper.text()).not.toContain('Management Surface')
     expect(wrapper.text()).not.toContain('Control Plane')

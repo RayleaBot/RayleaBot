@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
+import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   getConnectionStatusLabel,
@@ -238,6 +239,20 @@ async function scrollConsoleToBottom() {
         </el-skeleton>
       </el-card>
     </div>
+
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <span>{{ t('plugins.sections.commands') }}</span>
+          <el-tag size="small">{{ current?.commands?.length ?? 0 }}</el-tag>
+        </div>
+      </template>
+
+      <PluginCommandsPanel
+        :commands="current?.commands ?? []"
+        :command-conflicts="current?.command_conflicts ?? []"
+      />
+    </el-card>
 
     <el-card>
       <template #header>

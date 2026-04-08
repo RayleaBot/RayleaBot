@@ -23,6 +23,13 @@ response:
         trust:
           level: third_party
           label: 第三方
+        commands:
+          - name: weather
+            aliases:
+              - tq
+            description: 查询天气
+            usage: weather <城市>
+            permission: member
         command_conflicts:
           - weather
       - id: weather-admin
@@ -38,6 +45,13 @@ response:
         trust:
           level: development
           label: 开发中
+        commands:
+          - name: weather
+            aliases:
+              - weather-admin
+            description: 查询天气后台信息
+            usage: weather --admin
+            permission: admin
         command_conflicts:
           - weather
 expect:

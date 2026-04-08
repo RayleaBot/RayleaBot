@@ -42,7 +42,13 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			PackageSourceType: "local_zip",
 			PackageSourceRef:  "C:/plugins/weather.zip",
 			Commands: []plugins.Command{
-				{Name: "weather"},
+				{
+					Name:        "weather",
+					Aliases:     []string{"天气"},
+					Description: "查询天气",
+					Usage:       "weather <城市>",
+					Permission:  "member",
+				},
 			},
 		},
 		{
@@ -98,6 +104,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			"display_state":      true,
 			"source":             true,
 			"trust":              true,
+			"commands":           true,
 			"command_conflicts":  true,
 		}
 		for key := range itemMap {
@@ -115,6 +122,11 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	if conflicts := builtin["command_conflicts"].([]any); len(conflicts) != 0 {
 		t.Fatalf("builtin-help command_conflicts = %#v, want []", conflicts)
 	}
+	assertCommandList(t, builtin["commands"], []map[string]any{
+		{
+			"name": "help",
+		},
+	})
 
 	weather := byID["weather"]
 	if weather["name"] != "Weather" {
@@ -146,6 +158,15 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	if conflicts := weather["command_conflicts"].([]any); len(conflicts) != 1 || conflicts[0] != "weather" {
 		t.Fatalf("weather command_conflicts = %#v, want [weather]", conflicts)
 	}
+	assertCommandList(t, weather["commands"], []map[string]any{
+		{
+			"name":        "weather",
+			"aliases":     []any{"天气"},
+			"description": "查询天气",
+			"usage":       "weather <城市>",
+			"permission":  "member",
+		},
+	})
 
 	devPlugin := byID["weather-admin"]
 	if devPlugin["role"] != "dev" {
@@ -158,6 +179,11 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	if devTrust["label"] != "开发中" {
 		t.Fatalf("weather-admin trust.label = %v, want 开发中", devTrust["label"])
 	}
+	assertCommandList(t, devPlugin["commands"], []map[string]any{
+		{
+			"name": "weather",
+		},
+	})
 }
 
 func TestGetPluginReturnsValidSnapshot(t *testing.T) {
@@ -174,6 +200,15 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 			RuntimeState:      "stopped",
 			DisplayState:      "discovered",
 			SourceRoot:        "examples/plugins",
+			Commands: []plugins.Command{
+				{
+					Name:        "hello",
+					Aliases:     []string{"hi"},
+					Description: "Say hello",
+					Usage:       "hello",
+					Permission:  "member",
+				},
+			},
 		},
 	}))
 
@@ -206,6 +241,15 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 			"trust": map[string]any{
 				"level": "third_party",
 				"label": "示例",
+			},
+			"commands": []any{
+				map[string]any{
+					"name":        "hello",
+					"aliases":     []any{"hi"},
+					"description": "Say hello",
+					"usage":       "hello",
+					"permission":  "member",
+				},
 			},
 			"command_conflicts": []any{},
 		},
@@ -251,6 +295,9 @@ func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
 		DisplayState:      "invalid_manifest",
 		ManifestPath:      "plugins/installed/legacy-binary-tool/info.json",
 		ValidationSummary: "runtime must be one of python or nodejs",
+		Commands: []plugins.Command{
+			{Name: "legacy"},
+		},
 	}
 	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{snapshot}))
 
@@ -264,6 +311,10 @@ func TestInvalidPluginAppearsInListButDetailReturns409(t *testing.T) {
 	items := listBody["items"].([]any)
 	if len(items) != 1 {
 		t.Fatalf("unexpected list count: got %d want 1", len(items))
+	}
+	item := items[0].(map[string]any)
+	if commands := item["commands"].([]any); len(commands) != 0 {
+		t.Fatalf("invalid plugin commands = %#v, want []", commands)
 	}
 
 	detailRequest := httptest.NewRequest("GET", "/api/plugins/legacy-binary-tool", nil)
@@ -301,8 +352,29 @@ func TestConflictPluginDetailReturns409(t *testing.T) {
 				"plugins/installed/weather/info.json",
 			},
 			SourceRoots: []string{"examples/plugins", "plugins/installed"},
+			Commands: []plugins.Command{
+				{Name: "weather"},
+			},
 		},
 	}))
+
+	listRequest := httptest.NewRequest("GET", "/api/plugins", nil)
+	listRecorder := httptest.NewRecorder()
+	router.ServeHTTP(listRecorder, listRequest)
+
+	if listRecorder.Code != 200 {
+		t.Fatalf("unexpected list status: got %d want 200", listRecorder.Code)
+	}
+
+	listBody := decodeBody(t, listRecorder.Body.Bytes())
+	items := listBody["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("unexpected list count: got %d want 1", len(items))
+	}
+	item := items[0].(map[string]any)
+	if commands := item["commands"].([]any); len(commands) != 0 {
+		t.Fatalf("conflict plugin commands = %#v, want []", commands)
+	}
 
 	request := httptest.NewRequest("GET", "/api/plugins/weather", nil)
 	recorder := httptest.NewRecorder()
@@ -364,6 +436,27 @@ type stubUninstallCoordinator struct {
 
 func (s *stubUninstallCoordinator) Accept(_ context.Context, _ string) (string, error) {
 	return s.taskID, s.err
+}
+
+func assertCommandList(t *testing.T, got any, want []map[string]any) {
+	t.Helper()
+
+	items, ok := got.([]any)
+	if !ok {
+		t.Fatalf("expected commands array, got %#v", got)
+	}
+	if len(items) != len(want) {
+		t.Fatalf("unexpected command count: got %d want %d", len(items), len(want))
+	}
+	for index, expected := range want {
+		command, ok := items[index].(map[string]any)
+		if !ok {
+			t.Fatalf("expected command object, got %#v", items[index])
+		}
+		if !reflect.DeepEqual(command, expected) {
+			t.Fatalf("unexpected command at index %d: got %#v want %#v", index, command, expected)
+		}
+	}
 }
 
 func TestReloadPluginReturnsUpdatedSnapshot(t *testing.T) {

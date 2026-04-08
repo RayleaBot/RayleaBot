@@ -6,6 +6,7 @@ import { ElMessage } from 'element-plus'
 import {
   Activity,
   ChevronDown,
+  Command,
   LayoutDashboard,
   LogOut,
   LucideIcon,
@@ -43,6 +44,7 @@ interface NavItem {
 const navigationItems: NavItem[] = [
   { index: '/', labelKey: 'routes.status', icon: LayoutDashboard },
   { index: '/plugins', labelKey: 'routes.plugins', icon: Plug },
+  { index: '/commands', labelKey: 'routes.commands', icon: Command },
   { index: '/tasks', labelKey: 'routes.tasks', icon: Sword },
   { index: '/logs', labelKey: 'routes.logs', icon: SquareTerminal },
   {

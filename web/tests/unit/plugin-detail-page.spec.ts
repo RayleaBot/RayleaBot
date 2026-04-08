@@ -42,6 +42,15 @@ describe('PluginDetailPage', () => {
         level: 'unverified',
         label: '未验证来源',
       },
+      commands: [
+        {
+          name: 'weather',
+          aliases: ['tq', '天气'],
+          description: '查询天气',
+          usage: 'weather <城市>',
+          permission: 'member',
+        },
+      ],
       command_conflicts: ['weather'],
     }
     pluginsStore.grants = {
@@ -77,9 +86,12 @@ describe('PluginDetailPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('当前状态')
+    expect(wrapper.text()).toContain('已注册指令')
     expect(wrapper.text()).toContain('当前授权')
     expect(wrapper.text()).toContain('实时控制台')
     expect(wrapper.text()).toContain('http.request')
+    expect(wrapper.text()).toContain('查询天气')
+    expect(wrapper.text()).toContain('member')
     expect(wrapper.text()).toContain('Traceback (most recent call last): ...')
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.text()).toContain('未验证来源')
@@ -87,6 +99,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('已识别')
     expect(wrapper.text()).toContain('weather')
     expect(wrapper.find('.console-terminal').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'PluginCommandsPanel' }).exists()).toBe(true)
 
     const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新连接'))
     expect(reconnectButton).toBeTruthy()

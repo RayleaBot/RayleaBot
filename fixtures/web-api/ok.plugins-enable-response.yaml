@@ -23,6 +23,14 @@ response:
       trust:
         level: unverified
         label: 未验证来源
+      commands:
+        - name: weather
+          aliases:
+            - tq
+            - 天气
+          description: 查询天气
+          usage: weather <城市>
+          permission: member
       command_conflicts: []
 expect:
   valid: true

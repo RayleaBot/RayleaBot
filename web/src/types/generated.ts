@@ -807,6 +807,13 @@ export interface components {
             package_source_ref?: string;
             verified: boolean;
         };
+        PluginCommandSummary: {
+            name: string;
+            aliases?: string[];
+            description?: string;
+            usage?: string;
+            permission?: string;
+        };
         PluginSummary: {
             id: string;
             name: string;
@@ -817,6 +824,7 @@ export interface components {
             display_state?: string;
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
+            commands: components["schemas"]["PluginCommandSummary"][];
             command_conflicts?: string[];
         };
         PluginListResponse: {

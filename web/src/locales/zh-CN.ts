@@ -1,5 +1,6 @@
 import { app, routes, shell } from './zh-CN/app'
 import { dashboard } from './zh-CN/dashboard'
+import { commands } from './zh-CN/commands'
 import { plugins } from './zh-CN/plugins'
 import { tasks } from './zh-CN/tasks'
 import { logs } from './zh-CN/logs'
@@ -14,6 +15,7 @@ export const zhCN = {
   routes,
   shell,
   dashboard,
+  commands,
   plugins,
   tasks,
   logs,
