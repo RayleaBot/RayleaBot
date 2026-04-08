@@ -12,7 +12,7 @@
 
 | 阶段 | 名称 | 状态 | 当前落地摘要 |
 |------|------|------|--------------|
-| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | 🟡 | baseline、治理规则、3 个 repo-local skills、CI skeleton、`deps-manifest` formal contract 与运行环境准备基线已落库；repo identity TODO 仍保留 |
+| Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | ✅ | baseline、治理规则、3 个 repo-local skills、CI skeleton、`deps-manifest` formal contract、运行环境准备基线与 repo identity 已统一 |
 | Phase 1 | 契约文件补全 | ✅ | 10 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
@@ -35,7 +35,7 @@
 
 ---
 
-## 二、Pre-Phase / Foundation — 基线 / 仓库治理 / CI 骨架 🟡
+## 二、Pre-Phase / Foundation — 基线 / 仓库治理 / CI 骨架 ✅
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
@@ -319,24 +319,24 @@
 
 ## 十四、下一轮规划
 
-当前恢复摘要任务面已具备全部 / 待确认 / 已确认筛选与现有确认历史展示；撤销确认继续保持在当前正式任务模型之外。
+当前恢复摘要任务面具备全部 / 待确认 / 已确认筛选与现有确认历史展示；恢复确认继续沿用当前正式任务模型。
 
-### 主工作包
+### 主结论
 
-1. 收敛 `repo.identity`。
-   当前正式 remote 已固定为 `https://github.com/RayleaBot/RayleaBot.git`；下一轮把 `server/go.mod`、Go import path、CI 校验与工程文档统一到 `github.com/RayleaBot/RayleaBot/server`。
+当前 `repo.identity` 已完成，v0.1 主线进入维护冻结，后续以修正、门禁加固和工程口径保持一致为主。
 
-### 下一轮边界
+### 维护边界
 
-- 不在下一轮重新打开恢复项撤销确认或独立长历史资源。
-- 不在下一轮回头扩张第二套跨版本恢复状态语义或发布元数据口径。
-- 不在下一轮推进多 adapter / 多 bot 抽象。
-- 不在下一轮扩展更宽 future action families。
-- 不新增平行安装入口、平行状态语义或新的独立发布 metadata。
+- 恢复项撤销确认与独立长历史资源不纳入当前正式模型。
+- 第二套跨版本恢复状态语义与额外发布 metadata 不纳入当前维护范围。
+- 多 adapter / 多 bot 抽象保持在 v0.1 范围之外。
+- 更宽 future action families 保持在 v0.1 范围之外。
+- 平行安装入口、平行状态语义与独立管理入口不纳入当前维护范围。
 
-### 下一轮验收口径
+### 维护验收口径
 
 - `go test ./...` 与 `go build ./cmd/raylea-server` 继续通过。
 - CI 中的 module path 校验与正式 Git remote 保持一致。
-- baseline、`execution-plan.md`、CI 校验与工程文件中的 repo identity 口径保持一致。
+- baseline、`execution-plan.md`、CI 校验、工程文件与仓库真实 remote 的 repo identity 口径保持一致。
+- 已跟踪源码、CI 与工程文档中不保留旧模块路径字符串。
 
