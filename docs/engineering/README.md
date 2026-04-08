@@ -1,23 +1,39 @@
 # Engineering Docs
 
-本目录用于承载 RayleaBot 的工程治理内容，固定版本线、默认命令、仓库边界与实施顺序。
+本目录承载 RayleaBot 的工程治理内容，固定版本线、目录职责、实施顺序和质量门禁。
 
-## 当前工程状态
+## 工程目录模型
 
-- `server/` 主链路完整，覆盖配置（热重载快照）、SQLite 存储（12 张表、14 个迁移）、鉴权（HMAC-SHA256 session）、任务（11 种类型、顺序执行器）、插件 runtime（7 种状态、local actions）、dispatcher/scheduler、render service（Chromium 渲染队列）、聊天权限（blacklist/cooldown/cooldown reply）、recovery/backup、diagnostics 与管理面全路由；约 30 个内部包，约 127 个 Go 源文件
-- `web/` 已形成真实管理面主流程，`launcher/` 已形成最小桌面闭环；PR 默认门禁使用 Linux 核心链路，跨平台回归由 `release.yml` 与 `self-host-smoke.yml` 承担
-- `contracts/` 已具备 10 份 fixture-ready formal contracts，覆盖配置、错误码、管理 HTTP / WebSocket、插件 manifest、插件协议、release metadata、CLI、backup manifest 与 deps manifest
-- `.deps/manifest.json` 已固定 Chromium、Python 与 Node.js 资源的版本、来源、SHA256 与平台矩阵
+| 路径 | 作用 |
+| --- | --- |
+| `server/` | Go 服务端主链路 |
+| `web/` | Web 管理面 |
+| `launcher/` | Electron 桌面启动器 |
+| `contracts/` | 正式接口、schema、错误码与 release metadata |
+| `fixtures/` | 契约样例与回归基线 |
+| `examples/` | 示例插件、示例配置和示例请求 |
+| `plugins/` | 插件根目录，含 `builtin/`、`installed/` 与 `dev/` |
+| `config/` | 默认配置与用户配置 |
+| `data/` | SQLite 状态库与插件业务数据 |
+| `cache/` | 渲染缓存、下载缓存与临时缓存 |
+| `logs/` | 结构化日志与诊断输出 |
+| `.deps/` | Chromium、Python、Node.js 与相关资源清单 |
+| `.github/workflows/` | CI、打包与发布门禁 |
+| `docs/` | 文档总纲与专题说明 |
+| `Dockerfile` / `docker-compose.yml` | 容器化补充部署入口 |
 
-## 文档分工
+## 阅读入口
 
-- `baseline.md`：版本线、默认命令、目录职责、冻结选型
-- `implementation-order.md`：长期有效的阶段边界与进入条件
-- `../execution-plan.md`：当前进度与下一步行动记录
-- `../../contracts/README.md`：formal contracts 与 contract 级 TODO 概览
+| 文档 | 主题 |
+| --- | --- |
+| [baseline.md](./baseline.md) | 固定版本线、默认命令、目录职责与冻结选型 |
+| [implementation-order.md](./implementation-order.md) | 长期阶段边界与进入条件 |
+| [quality-gates.md](./quality-gates.md) | 默认验证命令、CI 门禁与发布回归 |
+| [tech-stack-evaluation.md](./tech-stack-evaluation.md) | 技术栈评估与引入计划 |
+| [`../execution-plan.md`](../execution-plan.md) | 当前进度与维护计划 |
 
 ## 维护规则
 
 - 对外接口裁决不在本目录，而在 `contracts/`。
-- 本目录用于固定工程实现边界、命令入口和协作规则，不替代执行计划。
-- 任何基线变更都必须同步更新对应工程文件与 CI，而不是只改文档。
+- 工程基线变化必须同步对应工程文件和 CI。
+- 本目录负责约束实现边界和协作规则，不替代正式契约。

@@ -24,7 +24,7 @@ x-fixtures:
   - fixtures/cli/invalid.cleanup.unsupported-mode.yaml
   - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
 
-x-design-source: docs/RayleaBot机器人项目规划.md § 3.12
+x-design-source: docs/user/cli.md
 
 commands:
   reset-admin:
