@@ -38,6 +38,7 @@ plugins/**/node_modules/
 /server/coverage.out
 /server/.coverprofile
 /server/.gocache
+/server/config/
 .tmp/gocache
 
 # Electron launcher outputs.
