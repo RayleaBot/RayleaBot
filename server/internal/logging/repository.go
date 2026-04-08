@@ -15,6 +15,7 @@ import (
 type Query struct {
 	Level     string
 	Source    string
+	Protocol  string
 	PluginID  string
 	RequestID string
 	Limit     int
@@ -44,6 +45,8 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 }
 
 func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary Summary) error {
+	summary = NormalizeSummary(summary)
+
 	if err := r.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
 		Ts:        summary.Timestamp,
 		Level:     strings.ToLower(strings.TrimSpace(summary.Level)),
@@ -73,6 +76,16 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 	if query.Source != "" {
 		clauses = append(clauses, "source = ?")
 		args = append(args, strings.TrimSpace(query.Source))
+	}
+	if query.Protocol != "" {
+		sources := protocolSources(query.Protocol)
+		if len(sources) == 0 {
+			return []Summary{}, nil
+		}
+		clauses = append(clauses, "source IN (?, ?, ?)")
+		for _, source := range sources {
+			args = append(args, source)
+		}
 	}
 	if query.PluginID != "" {
 		clauses = append(clauses, "plugin_id = ?")
@@ -111,6 +124,7 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 		); err != nil {
 			return nil, fmt.Errorf("scan management log summary: %w", err)
 		}
+		summary = NormalizeSummary(summary)
 		items = append(items, summary)
 	}
 	if err := rows.Err(); err != nil {

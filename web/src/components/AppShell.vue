@@ -40,6 +40,7 @@ const navigationItems: NavItem[] = [
   { index: '/plugins', labelKey: 'routes.plugins', icon: Plug },
   { index: '/tasks', labelKey: 'routes.tasks', icon: Sword },
   { index: '/logs', labelKey: 'routes.logs', icon: SquareTerminal },
+  { index: '/protocols', labelKey: 'routes.protocols', icon: Activity },
   { index: '/config', labelKey: 'routes.config', icon: Settings },
 ]
 

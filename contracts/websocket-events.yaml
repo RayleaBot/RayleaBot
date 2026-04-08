@@ -10,6 +10,7 @@ x-fixtures:
   - fixtures/websocket/ok.tasks-updated-succeeded-install.json
   - fixtures/websocket/ok.tasks-updated-succeeded-runtime-bootstrap.json
   - fixtures/websocket/ok.logs-appended.json
+  - fixtures/websocket/ok.logs-appended.protocol-onebot11.json
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
   - fixtures/websocket/edge.tasks-updated-failed-install.json
@@ -140,12 +141,15 @@ channels:
               type: string
             message:
               type: string
+            protocol:
+              type: string
+              enum: [onebot11]
             plugin_id:
               type: string
             request_id:
               type: string
         required: [timestamp, level, source, message]
-        example_ref: fixtures/websocket/ok.logs-appended.json
+        example_ref: fixtures/websocket/ok.logs-appended.protocol-onebot11.json
 
   - path: /ws/events
     channel: events

@@ -17,6 +17,7 @@ response:
       - timestamp: "2026-03-20T10:00:01Z"
         level: error
         source: adapter.onebot11
+        protocol: onebot11
         message: reverse websocket connection lost
 expect:
   valid: true

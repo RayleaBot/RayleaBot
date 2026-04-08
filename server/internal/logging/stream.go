@@ -16,6 +16,7 @@ type Summary struct {
 	Level     string `json:"level"`
 	Source    string `json:"source"`
 	Message   string `json:"message"`
+	Protocol  string `json:"protocol,omitempty"`
 	PluginID  string `json:"plugin_id,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
 }
@@ -65,6 +66,8 @@ func (s *Stream) SetRepository(repository Repository, retentionDays int) {
 }
 
 func (s *Stream) Append(summary Summary) {
+	summary = NormalizeSummary(summary)
+
 	s.mu.Lock()
 
 	if len(s.history) == s.limit {
@@ -262,12 +265,10 @@ func summaryFromJSONLine(line []byte) (Summary, bool) {
 		PluginID:  toString(body["plugin_id"]),
 		RequestID: toString(body["request_id"]),
 	}
+	summary = NormalizeSummary(summary)
 
 	if summary.Timestamp == "" || summary.Level == "" || summary.Message == "" {
 		return Summary{}, false
-	}
-	if summary.Source == "" {
-		summary.Source = "server"
 	}
 
 	return summary, true

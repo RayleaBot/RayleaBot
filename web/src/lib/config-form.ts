@@ -32,24 +32,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'onebot',
-      title: t('config.sections.onebot'),
-      fields: [
-        {
-          path: 'onebot.ws_url',
-          label: t('config.fields.onebotWsUrl'),
-          type: 'text',
-          description: t('config.hints.onebotOptional'),
-        },
-        {
-          path: 'onebot.access_token',
-          label: t('config.fields.onebotAccessToken'),
-          type: 'text',
-          description: t('config.hints.redacted'),
-        },
-      ],
-    },
-    {
       key: 'database',
       title: t('config.sections.database'),
       fields: [
@@ -191,17 +173,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [{ path: 'group.command_rate_limit', label: t('config.fields.groupCommandRateLimit'), type: 'text' }],
     },
     {
-      key: 'adapter',
-      title: t('config.sections.adapter'),
-      fields: [
-        { path: 'adapter.connect_timeout_seconds', label: t('config.fields.adapterConnectTimeoutSeconds'), type: 'number' },
-        { path: 'adapter.reconnect_initial_seconds', label: t('config.fields.adapterReconnectInitialSeconds'), type: 'number' },
-        { path: 'adapter.reconnect_multiplier', label: t('config.fields.adapterReconnectMultiplier'), type: 'number' },
-        { path: 'adapter.reconnect_max_seconds', label: t('config.fields.adapterReconnectMaxSeconds'), type: 'number' },
-        { path: 'adapter.reconnect_jitter_ratio', label: t('config.fields.adapterReconnectJitterRatio'), type: 'number' },
-      ],
-    },
-    {
       key: 'http',
       title: t('config.sections.http'),
       fields: [
@@ -240,6 +211,40 @@ export function getConfigSections(): ConfigSectionDefinition[] {
             { label: t('config.options.backupOnline'), value: 'online' },
           ],
         },
+      ],
+    },
+  ]
+}
+
+export function getProtocolConfigSections(): ConfigSectionDefinition[] {
+  return [
+    {
+      key: 'onebot',
+      title: t('config.sections.onebot'),
+      fields: [
+        {
+          path: 'onebot.ws_url',
+          label: t('config.fields.onebotWsUrl'),
+          type: 'text',
+          description: t('config.hints.onebotOptional'),
+        },
+        {
+          path: 'onebot.access_token',
+          label: t('config.fields.onebotAccessToken'),
+          type: 'text',
+          description: t('config.hints.redacted'),
+        },
+      ],
+    },
+    {
+      key: 'adapter',
+      title: t('config.sections.adapter'),
+      fields: [
+        { path: 'adapter.connect_timeout_seconds', label: t('config.fields.adapterConnectTimeoutSeconds'), type: 'number' },
+        { path: 'adapter.reconnect_initial_seconds', label: t('config.fields.adapterReconnectInitialSeconds'), type: 'number' },
+        { path: 'adapter.reconnect_multiplier', label: t('config.fields.adapterReconnectMultiplier'), type: 'number' },
+        { path: 'adapter.reconnect_max_seconds', label: t('config.fields.adapterReconnectMaxSeconds'), type: 'number' },
+        { path: 'adapter.reconnect_jitter_ratio', label: t('config.fields.adapterReconnectJitterRatio'), type: 'number' },
       ],
     },
   ]

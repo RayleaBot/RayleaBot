@@ -52,6 +52,9 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	if data["source"] != "adapter.onebot11" {
 		t.Fatalf("unexpected source: got %#v want %q", data["source"], "adapter.onebot11")
 	}
+	if data["protocol"] != "onebot11" {
+		t.Fatalf("unexpected protocol: got %#v want %q", data["protocol"], "onebot11")
+	}
 	if data["message"] != "authentication failed for reverse websocket" {
 		t.Fatalf("unexpected message: got %#v", data["message"])
 	}
@@ -97,6 +100,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 		"level":      true,
 		"source":     true,
 		"message":    true,
+		"protocol":   true,
 		"plugin_id":  true,
 		"request_id": true,
 	}
@@ -220,6 +224,9 @@ func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
 	}
 	if data["source"] != "adapter.onebot11" {
 		t.Fatalf("unexpected websocket replay source: %#v", data["source"])
+	}
+	if data["protocol"] != "onebot11" {
+		t.Fatalf("unexpected websocket replay protocol: %#v", data["protocol"])
 	}
 }
 

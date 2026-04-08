@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 
@@ -11,6 +12,7 @@ import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
+const router = useRouter()
 const configStore = useConfigStore()
 const { document, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
 
@@ -112,6 +114,17 @@ async function save() {
         show-icon
       />
     </div>
+
+    <el-alert :title="t('config.protocolCenterNoticeTitle')" type="info" show-icon :closable="false">
+      <template #default>
+        <div class="protocol-center-notice">
+          <span>{{ t('config.protocolCenterNoticeBody') }}</span>
+          <el-button link type="primary" @click="router.push('/protocols')">
+            {{ t('config.protocolCenterNoticeAction') }}
+          </el-button>
+        </div>
+      </template>
+    </el-alert>
 
     <div class="config-main-area">
       <el-skeleton :loading="loading" animated style="height: 100%">
@@ -266,6 +279,13 @@ async function save() {
   align-items: center;
   gap: 16px;
   h1 { margin: 0; font-size: 1.5rem; }
+}
+
+.protocol-center-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .config-main-area {
@@ -427,5 +447,6 @@ async function save() {
 @media (max-width: 1024px) {
   .config-layout { grid-template-columns: 1fr; }
   .config-nav-panel { display: none; }
+  .protocol-center-notice { flex-direction: column; align-items: flex-start; }
 }
 </style>

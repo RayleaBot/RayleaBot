@@ -90,6 +90,9 @@ export const display = {
     warn: '警告',
     error: '错误',
   },
+  logProtocols: {
+    onebot11: 'OneBot11',
+  },
   systemStatuses: {
     running: '运行中',
     shutting_down: '停止中',

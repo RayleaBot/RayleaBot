@@ -22,6 +22,11 @@ func (a *App) handleLogsList() http.HandlerFunc {
 		}
 
 		sourceFilter := strings.TrimSpace(r.URL.Query().Get("source"))
+		protocolFilter := strings.TrimSpace(r.URL.Query().Get("protocol"))
+		if protocolFilter != "" && !logging.IsSupportedProtocol(protocolFilter) {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
 		pluginIDFilter := strings.TrimSpace(r.URL.Query().Get("plugin_id"))
 		requestIDFilter := strings.TrimSpace(r.URL.Query().Get("request_id"))
 
@@ -38,6 +43,7 @@ func (a *App) handleLogsList() http.HandlerFunc {
 		items, err := a.listLogSummaries(r.Context(), logging.Query{
 			Level:     levelFilter,
 			Source:    sourceFilter,
+			Protocol:  protocolFilter,
 			PluginID:  pluginIDFilter,
 			RequestID: requestIDFilter,
 			Limit:     limit,
@@ -64,6 +70,9 @@ func (a *App) listLogSummaries(ctx context.Context, query logging.Query) ([]logg
 			continue
 		}
 		if query.Source != "" && summary.Source != query.Source {
+			continue
+		}
+		if query.Protocol != "" && summary.Protocol != query.Protocol {
 			continue
 		}
 		if query.PluginID != "" && summary.PluginID != query.PluginID {

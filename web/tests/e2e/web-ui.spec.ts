@@ -209,6 +209,35 @@ test('status page can submit render previews and show the artifact', async ({ pa
   await expect(page.getByRole('img', { name: '图片预览结果' })).toBeVisible()
 })
 
+test('protocol center owns OneBot settings and keeps protocol logs scoped to OneBot11', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/config')
+  await expect(page.getByText('协议连接设置')).toBeVisible()
+  await expect(page.getByText('反向 WebSocket 地址')).toHaveCount(0)
+  await page.getByRole('button', { name: '打开协议中心' }).click()
+
+  await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
+  await expect(page.getByText('当前正式支持协议：OneBot11')).toBeVisible()
+  await expect(page.getByText('OneBot authentication failed')).toBeVisible()
+
+  await page.getByLabel('反向 WebSocket 地址').fill('ws://127.0.0.1:8090/onebot')
+  await page.getByLabel('连接超时（秒）').fill('18')
+  await page.getByRole('button', { name: '保存协议设置' }).click()
+  await expect(page.getByText('配置已保存，重启后生效')).toBeVisible()
+
+  const protocolLogsTable = page.locator('.logs-data-table')
+  await expect(protocolLogsTable.locator('.protocol-name-pill')).toHaveCount(2)
+  await expect(protocolLogsTable.getByText('authentication failed for reverse websocket').first()).toBeVisible()
+  await expect(protocolLogsTable.getByText('plugin runtime stderr truncated')).toHaveCount(0)
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  await expect(page.getByText('plugin runtime stderr truncated').first()).toBeVisible()
+  await expect(page.locator('.logs-filter-toolbar').getByText('协议')).toHaveCount(0)
+})
+
 test('login keeps the protected shell after reload', async ({ page, request }) => {
   await resetBackend(request, true)
 

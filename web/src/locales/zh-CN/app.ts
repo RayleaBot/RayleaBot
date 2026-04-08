@@ -10,6 +10,7 @@ export const routes = {
   pluginDetail: '插件详情',
   tasks: '任务',
   logs: '日志',
+  protocols: '协议中心',
   config: '配置',
   login: '登录',
   setup: '创建管理员账号',

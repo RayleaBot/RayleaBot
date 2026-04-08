@@ -1,6 +1,7 @@
 import type {
   ConnectionStatus,
   LogLevel,
+  LogProtocol,
   PluginDesiredState,
   PluginRole,
   PluginRuntimeState,
@@ -59,6 +60,10 @@ export function getPluginRoleLabel(role?: PluginRole) {
 
 export function getLogLevelLabel(level?: LogLevel) {
   return level ? translated(`display.logLevels.${level}`, level) : t('display.empty')
+}
+
+export function getLogProtocolLabel(protocol?: LogProtocol | string) {
+  return protocol ? translated(`display.logProtocols.${protocol}`, protocol) : t('display.empty')
 }
 
 export function getSystemStatusLabel(status?: SystemStatusResponse['status']) {

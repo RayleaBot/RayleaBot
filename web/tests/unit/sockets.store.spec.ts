@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
+import { useProtocolLogsStore } from '@/stores/protocol-logs'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore } from '@/stores/system'
@@ -54,6 +55,7 @@ describe('socket store', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
     const logsStore = useLogsStore()
+    const protocolLogsStore = useProtocolLogsStore()
     const pluginsStore = usePluginsStore()
     const store = useSocketStore()
 
@@ -93,15 +95,26 @@ describe('socket store', () => {
       data: {
         timestamp: '2026-04-05T08:00:01Z',
         level: 'warn',
+        protocol: 'onebot11',
         source: 'adapter',
         message: 'log line',
+      },
+    })
+    MockManagedSocket.instances[2].emitFrame({
+      type: 'logs.appended',
+      data: {
+        timestamp: '2026-04-05T08:00:02Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'runtime line',
       },
     })
 
     expect(systemStore.recentEvents).toHaveLength(1)
     expect(pluginsStore.items[0].id).toBe('weather')
     expect(tasksStore.items[0].task_id).toBe('task_1')
-    expect(logsStore.items[0].message).toBe('log line')
+    expect(logsStore.items.map((item) => item.message)).toEqual(['runtime line', 'log line'])
+    expect(protocolLogsStore.items.map((item) => item.message)).toEqual(['log line'])
   })
 
   it('manages the console socket separately and disconnects all sockets', () => {

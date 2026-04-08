@@ -1,0 +1,29 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Log query returns only summaries that belong to the requested protocol.
+request:
+  method: GET
+  path: /api/logs?protocol=onebot11&limit=10
+response:
+  status: 200
+  body:
+    items:
+      - timestamp: "2026-03-20T10:00:00Z"
+        level: warn
+        source: adapter
+        protocol: onebot11
+        message: adapter reconnect scheduled
+      - timestamp: "2026-03-20T10:00:01Z"
+        level: error
+        source: adapter.onebot11
+        protocol: onebot11
+        message: reverse websocket authentication failed
+        request_id: req_adapter_0002
+      - timestamp: "2026-03-20T10:00:02Z"
+        level: info
+        source: bridge
+        protocol: onebot11
+        message: runtime bridge delivered adapter event
+        request_id: req_bridge_0001
+expect:
+  valid: true

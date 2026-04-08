@@ -79,6 +79,41 @@ func TestSQLiteRepositoryPrunesOldSummaries(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	for _, summary := range []Summary{
+		{Timestamp: "2026-03-20T10:00:00Z", Level: "warn", Source: "adapter", Message: "adapter"},
+		{Timestamp: "2026-03-20T10:00:01Z", Level: "warn", Source: "adapter.onebot11", Message: "adapter.onebot11"},
+		{Timestamp: "2026-03-20T10:00:02Z", Level: "info", Source: "bridge", Message: "bridge"},
+		{Timestamp: "2026-03-20T10:00:03Z", Level: "info", Source: "runtime", Message: "runtime"},
+	} {
+		if err := repository.SaveSummary(ctx, summary); err != nil {
+			t.Fatalf("save summary: %v", err)
+		}
+	}
+
+	items, err := repository.ListSummaries(ctx, Query{
+		Protocol: ProtocolOneBot11,
+		Limit:    10,
+	})
+	if err != nil {
+		t.Fatalf("list summaries by protocol: %v", err)
+	}
+
+	if len(items) != 3 {
+		t.Fatalf("unexpected protocol summary count: got %d want 3", len(items))
+	}
+	for _, item := range items {
+		if item.Protocol != ProtocolOneBot11 {
+			t.Fatalf("unexpected summary protocol: %#v", item)
+		}
+	}
+}
+
 func openLoggingRepository(t *testing.T) *SQLiteRepository {
 	t.Helper()
 

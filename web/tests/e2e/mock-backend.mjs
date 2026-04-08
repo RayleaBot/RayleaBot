@@ -60,7 +60,7 @@ const fixtures = {
   pluginGrantWithExpiry: await readFixture('fixtures/web-api/ok.plugins-grant-with-expiry-response.yaml'),
   invalidGrantExpiry: await readFixture('fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml'),
   invalidUninstallNotFound: await readFixture('fixtures/web-api/invalid.plugins-uninstall-not-found.yaml'),
-  wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.json'),
+  wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
   wsConsole: await readFixture('fixtures/websocket/ok.plugins-console-stderr.json'),
@@ -492,6 +492,7 @@ const server = http.createServer(async (request, response) => {
 
     const level = searchParams.get('level')
     const source = searchParams.get('source')
+    const protocol = searchParams.get('protocol')
     const pluginId = searchParams.get('plugin_id')
     const requestId = searchParams.get('request_id')
     const limit = Number(searchParams.get('limit') ?? '50')
@@ -499,6 +500,7 @@ const server = http.createServer(async (request, response) => {
     const items = state.logs.filter((item) => {
       if (level && item.level !== level) return false
       if (source && item.source !== source) return false
+      if (protocol && item.protocol !== protocol) return false
       if (pluginId && item.plugin_id !== pluginId) return false
       if (requestId && item.request_id !== requestId) return false
       return true

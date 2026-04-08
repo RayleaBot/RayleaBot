@@ -601,11 +601,14 @@ export interface components {
         };
         /** @enum {string} */
         LogLevel: "debug" | "info" | "warn" | "error";
+        /** @enum {string} */
+        LogProtocol: "onebot11";
         LogSummary: {
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
             message: string;
+            protocol?: components["schemas"]["LogProtocol"];
             plugin_id?: string;
             request_id?: string;
         };
@@ -1604,6 +1607,7 @@ export interface operations {
             query?: {
                 level?: components["schemas"]["LogLevel"];
                 source?: string;
+                protocol?: components["schemas"]["LogProtocol"];
                 plugin_id?: string;
                 request_id?: string;
                 limit?: number;

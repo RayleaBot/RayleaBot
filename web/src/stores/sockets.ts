@@ -3,8 +3,10 @@ import { defineStore } from 'pinia'
 
 import { ManagedSocket } from '@/lib/ws'
 import type { ConnectionStatus, EventsPayload, LogSummary, TaskSummary, WebSocketFrame } from '@/types/api'
+import { ONEBOT11_PROTOCOL } from '@/lib/protocols'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
+import { useProtocolLogsStore } from '@/stores/protocol-logs'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
@@ -35,6 +37,7 @@ export const useSocketStore = defineStore('sockets', () => {
   const pluginsStore = usePluginsStore()
   const tasksStore = useTasksStore()
   const logsStore = useLogsStore()
+  const protocolLogsStore = useProtocolLogsStore()
   const systemStore = useSystemStore()
 
   const eventsSocket = new ManagedSocket<EventsPayload>({
@@ -85,6 +88,9 @@ export const useSocketStore = defineStore('sockets', () => {
     onFrame: (frame: WebSocketFrame<LogSummary>) => {
       if (frame.type === 'logs.appended') {
         logsStore.append(frame.data)
+        if (frame.data.protocol === ONEBOT11_PROTOCOL) {
+          protocolLogsStore.append(frame.data)
+        }
       }
     },
   })

@@ -67,6 +67,70 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	}
 }
 
+func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.protocol-onebot11.yaml"))
+
+	for _, summary := range []logging.Summary{
+		{
+			Timestamp: "2026-03-20T10:00:00Z",
+			Level:     "warn",
+			Source:    "adapter",
+			Message:   "adapter reconnect scheduled",
+		},
+		{
+			Timestamp: "2026-03-20T10:00:01Z",
+			Level:     "error",
+			Source:    "adapter.onebot11",
+			Message:   "reverse websocket authentication failed",
+			RequestID: "req_adapter_0002",
+		},
+		{
+			Timestamp: "2026-03-20T10:00:02Z",
+			Level:     "info",
+			Source:    "bridge",
+			Message:   "runtime bridge delivered adapter event",
+			RequestID: "req_bridge_0001",
+		},
+		{
+			Timestamp: "2026-03-20T10:00:03Z",
+			Level:     "warn",
+			Source:    "runtime",
+			Message:   "plugin runtime stderr truncated",
+		},
+	} {
+		application.Logs.Append(summary)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create protocol logs list request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform protocol logs list request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected protocol logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, fixture.Response.Body) {
+		t.Fatalf("unexpected protocol logs body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
 func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	t.Parallel()
 
@@ -103,6 +167,45 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	body := decodeBody(t, readAll(t, response))
 	if !reflect.DeepEqual(body, fixture.Response.Body) {
 		t.Fatalf("unexpected empty logs body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
+func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.protocol-onebot11.yaml"))
+	application.Logs.Append(logging.Summary{
+		Timestamp: "2026-03-20T10:00:00Z",
+		Level:     "info",
+		Source:    "runtime",
+		Message:   "runtime only",
+	})
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create empty protocol logs request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform empty protocol logs request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected empty protocol logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, fixture.Response.Body) {
+		t.Fatalf("unexpected empty protocol logs body: got %#v want %#v", body, fixture.Response.Body)
 	}
 }
 
@@ -187,6 +290,7 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 		"level":      true,
 		"source":     true,
 		"message":    true,
+		"protocol":   true,
 		"plugin_id":  true,
 		"request_id": true,
 	}
