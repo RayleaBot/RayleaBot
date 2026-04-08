@@ -18,5 +18,6 @@ export const tasks = {
     cancel: '请求取消',
   },
   previewAlt: '图片预览结果',
+  recoverySummary: '恢复摘要',
   cancelAccepted: '取消请求已发送',
 } as const

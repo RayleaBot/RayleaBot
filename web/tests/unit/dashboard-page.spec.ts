@@ -298,6 +298,17 @@ describe('DashboardPage', () => {
             review_status: 'pending',
             manual_action: '升级程序或重新安装兼容版本插件。',
           },
+          {
+            plugin_id: 'legacy-plugin',
+            version: '1.0.0',
+            reason_code: 'plugin.platform_mismatch',
+            summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
+            review_id: 'review_legacy_plugin',
+            review_status: 'confirmed',
+            reviewed_at: '2026-04-02T08:03:00Z',
+            reviewed_by: 'alice',
+            manual_action: '安装适用于当前平台的插件包。',
+          },
         ],
         manual_actions: ['处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。'],
         next_steps: ['查看恢复摘要中的跳过插件列表并完成兼容性处理。', '通过管理面、Launcher 或 diagnostics 复核 recovery_summary。'],
@@ -311,6 +322,21 @@ describe('DashboardPage', () => {
               {
                 review_id: 'review_archived',
                 plugin_id: 'archived-plugin',
+                reason_code: 'plugin.platform_mismatch',
+                summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
+                version: '1.0.0',
+              },
+            ],
+          },
+          {
+            task_id: 'task_recovery_confirm_0002',
+            created_at: '2026-04-02T08:05:00Z',
+            operator_id: 'bob',
+            note: '已记录平台兼容性处理结论。',
+            items: [
+              {
+                review_id: 'review_legacy_plugin',
+                plugin_id: 'legacy-plugin',
                 reason_code: 'plugin.platform_mismatch',
                 summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
                 version: '1.0.0',
@@ -341,8 +367,23 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('最近确认记录')
     expect(wrapper.text()).toContain('alice')
     expect(wrapper.text()).toContain('已确认当前跳过状态。')
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="recovery-audit-entry"]')).toHaveLength(2)
     expect(wrapper.findAll('[data-testid="recovery-manual-action"]')).toHaveLength(1)
     expect(wrapper.findAll('[data-testid="recovery-next-step"]')).toHaveLength(2)
+
+    await wrapper.find('[data-testid="recovery-filter-confirmed"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="recovery-filter-all"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(true)
   })
 
   it('submits recovery confirm, recovery recheck, and runtime bootstrap tasks from the recovery block', async () => {

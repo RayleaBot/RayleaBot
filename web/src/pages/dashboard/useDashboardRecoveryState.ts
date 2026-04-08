@@ -1,5 +1,6 @@
 import { computed, type Ref } from 'vue'
 
+import { getRecoveryStatusLabel } from '@/lib/display'
 import { t } from '@/i18n'
 import type { RecoveryCompatibilitySkippedPlugin, RuntimeBootstrapResource } from '@/types/api'
 
@@ -20,14 +21,7 @@ export function useDashboardRecoveryState(input: RecoveryInput) {
   const topIssue = computed(() => input.readinessIssues.value.find((issue: any) => issue.severity === 'error') ?? input.readinessIssues.value[0] ?? null)
   const adapterWarningIssue = computed(() => input.readinessIssues.value.find((issue: any) => issue.code.startsWith('adapter.')) ?? null)
   const pythonRuntimeIssue = computed(() => input.readinessIssues.value.find((issue: any) => isPythonRuntimeIssue(issue)) ?? null)
-  const recoveryStatusLabel = computed(() => {
-    const status = recoverySummary.value?.status
-    if (status === 'compatible') return '兼容通过'
-    if (status === 'pending') return '待完成检查'
-    if (status === 'degraded') return '需要人工处理'
-    if (status === 'blocked') return '恢复被阻止'
-    return t('display.empty')
-  })
+  const recoveryStatusLabel = computed(() => getRecoveryStatusLabel(recoverySummary.value?.status))
   const recoveryBootstrapResources = computed<RuntimeBootstrapResource[]>(() => {
     const resources = new Set<RuntimeBootstrapResource>()
     for (const issue of [...(recoverySummary.value?.issues ?? []), ...input.readinessIssues.value]) {
@@ -50,7 +44,6 @@ export function useDashboardRecoveryState(input: RecoveryInput) {
     return (recoverySummary.value?.skipped_plugins ?? []).filter((plugin: RecoveryCompatibilitySkippedPlugin) => plugin.review_status !== 'confirmed')
   })
   const selectedRecoveryReviewCountLabel = computed(() => t('dashboard.recoveryConfirmSelection', { count: input.selectedRecoveryReviewIds.value.length }))
-  const recoveryAuditEntries = computed(() => recoverySummary.value?.audit ?? [])
   const alertBannerType = computed<'warning' | 'error' | null>(() => {
     if (input.readiness.value?.status === 'failed') return 'error'
     if (input.readiness.value?.status === 'degraded') return 'warning'
@@ -77,7 +70,6 @@ export function useDashboardRecoveryState(input: RecoveryInput) {
     alertBannerTitle,
     alertBannerType,
     pendingRecoveryPlugins,
-    recoveryAuditEntries,
     recoveryBootstrapResources,
     recoveryStatusLabel,
     recoverySummary,

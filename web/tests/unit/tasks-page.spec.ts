@@ -111,6 +111,127 @@ describe('TasksPage', () => {
     expect(image.attributes('src')).toBe('blob:task-preview')
   })
 
+  it('renders recovery summaries in task detail without dumping the raw recovery_summary payload', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/tasks', component: TasksPage },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+      ],
+    })
+    await router.push('/tasks?task_id=task_recovery_confirm_0001')
+    await router.isReady()
+
+    const store = useTasksStore()
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    vi.spyOn(store, 'fetchDetail').mockImplementation(async () => {
+      store.currentTask = {
+        task_id: 'task_recovery_confirm_0001',
+        task_type: 'recovery.confirm',
+        status: 'succeeded',
+        progress: 100,
+        summary: '恢复项确认已完成',
+        result: {
+          summary: '所选恢复项已确认',
+          details: {
+            confirmed_review_ids: ['review_weather_pro'],
+            operator_id: 'alice',
+            note: '已确认当前跳过状态。',
+            recovery_summary: {
+              status: 'degraded',
+              phase: 'post_startup',
+              operation: 'upgrade',
+              created_at: '2026-04-03T07:59:00Z',
+              updated_at: '2026-04-03T08:00:03Z',
+              source_core_version: '0.1.0',
+              target_core_version: '0.2.0',
+              skipped_plugins: [
+                {
+                  plugin_id: 'weather-pro',
+                  version: '1.4.0',
+                  reason_code: 'plugin.min_core_version',
+                  summary: '插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。',
+                  review_id: 'review_weather_pro',
+                  review_status: 'pending',
+                  manual_action: '升级程序或重新安装兼容版本插件。',
+                },
+                {
+                  plugin_id: 'legacy-plugin',
+                  version: '1.0.0',
+                  reason_code: 'plugin.platform_mismatch',
+                  summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
+                  review_id: 'review_legacy_plugin',
+                  review_status: 'confirmed',
+                  reviewed_at: '2026-04-03T08:00:03Z',
+                  reviewed_by: 'alice',
+                  manual_action: '安装适用于当前平台的插件包。',
+                },
+              ],
+              manual_actions: ['处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。'],
+              next_steps: ['查看恢复摘要中的跳过插件列表并完成兼容性处理。'],
+              audit: [
+                {
+                  task_id: 'task_recovery_confirm_0001',
+                  created_at: '2026-04-03T08:00:03Z',
+                  operator_id: 'alice',
+                  note: '已确认当前跳过状态。',
+                  items: [
+                    {
+                      review_id: 'review_weather_pro',
+                      plugin_id: 'weather-pro',
+                      reason_code: 'plugin.min_core_version',
+                      summary: '插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。',
+                      version: '1.4.0',
+                    },
+                  ],
+                },
+                {
+                  task_id: 'task_recovery_confirm_0002',
+                  created_at: '2026-04-03T08:05:00Z',
+                  operator_id: 'bob',
+                  note: '已记录平台兼容性处理结论。',
+                  items: [
+                    {
+                      review_id: 'review_legacy_plugin',
+                      plugin_id: 'legacy-plugin',
+                      reason_code: 'plugin.platform_mismatch',
+                      summary: '插件平台兼容性不满足，已保留安装目录并跳过自动启用。',
+                      version: '1.0.0',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      }
+      return store.currentTask
+    })
+
+    const wrapper = mount(TasksPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('恢复摘要')
+    expect(wrapper.text()).toContain('confirmed_review_ids = ["review_weather_pro"]')
+    expect(wrapper.text()).toContain('operator_id = alice')
+    expect(wrapper.text()).not.toContain('recovery_summary =')
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="recovery-audit-entry"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="recovery-confirm-button"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="recovery-filter-confirmed"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_weather_pro"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="recovery-plugin-card-review_legacy_plugin"]').exists()).toBe(true)
+  })
+
   it('renders the task list inside a compact desktop table', async () => {
     const router = createRouter({
       history: createMemoryHistory(),

@@ -5,6 +5,7 @@ import type {
   PluginRole,
   PluginRuntimeState,
   PluginRegistrationState,
+  RecoveryCompatibilitySummary,
   ReadinessStatusResponse,
   SystemStatusResponse,
   TaskStatus,
@@ -70,6 +71,10 @@ export function getReadinessStatusLabel(status?: ReadinessStatusResponse['status
 
 export function getAdapterStateLabel(status?: string) {
   return status ? translated(`display.adapterStates.${status}`, status) : t('display.empty')
+}
+
+export function getRecoveryStatusLabel(status?: RecoveryCompatibilitySummary['status']) {
+  return status ? translated(`display.recoveryStatuses.${status}`, status) : t('display.empty')
 }
 
 export function getBooleanLabel(value?: boolean) {

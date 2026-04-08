@@ -46,7 +46,6 @@ const {
   readinessStatusType,
   readinessValueText,
   recentEvents,
-  recoveryAuditEntries,
   recoveryConfirmNote,
   recoveryConfirmPending,
   recoveryRecheckPending,
@@ -145,7 +144,6 @@ const {
         :recovery-status-label="recoveryStatusLabel"
         :pending-recovery-plugins="pendingRecoveryPlugins"
         :selected-recovery-review-count-label="selectedRecoveryReviewCountLabel"
-        :recovery-audit-entries="recoveryAuditEntries"
         :recovery-recheck-pending="recoveryRecheckPending"
         :recovery-confirm-pending="recoveryConfirmPending"
         :runtime-bootstrap-pending="runtimeBootstrapPending"

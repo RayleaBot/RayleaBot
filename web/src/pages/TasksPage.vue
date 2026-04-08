@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
+import RecoverySummaryDetails from '@/components/RecoverySummaryDetails.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
+import { getRecoveryStatusLabel, getTaskStatusLabel, getTaskTypeLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { apiDownload } from '@/lib/http'
-import { getTaskStatusLabel, getTaskTypeLabel } from '@/lib/display'
 import { t } from '@/i18n'
-import type { TaskSummary } from '@/types/api'
+import type { RecoveryCompatibilitySummary, TaskSummary } from '@/types/api'
 import { useTasksStore } from '@/stores/tasks'
 
 const route = useRoute()
@@ -86,7 +86,7 @@ onBeforeUnmount(() => {
 })
 
 function taskDetailEntries(details?: Record<string, unknown>) {
-  return Object.entries(details ?? {})
+  return Object.entries(details ?? {}).filter(([key]) => key !== 'recovery_summary')
 }
 
 function formatTaskDetailValue(value: unknown) {
@@ -102,6 +102,28 @@ function formatTaskDetailValue(value: unknown) {
 function previewImageUrl(task: TaskSummary | null) {
   const imageUrl = task?.result?.details?.image_url
   return typeof imageUrl === 'string' && imageUrl ? imageUrl : ''
+}
+
+function isRecoverySummary(value: unknown): value is RecoveryCompatibilitySummary {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && typeof (value as RecoveryCompatibilitySummary).status === 'string'
+    && typeof (value as RecoveryCompatibilitySummary).phase === 'string'
+    && typeof (value as RecoveryCompatibilitySummary).operation === 'string',
+  )
+}
+
+const taskRecoverySummary = computed<RecoveryCompatibilitySummary | null>(() => {
+  const recoverySummary = currentTask.value?.result?.details?.recovery_summary
+  return isRecoverySummary(recoverySummary) ? recoverySummary : null
+})
+
+const taskRecoveryStatusLabel = computed(() => getRecoveryStatusLabel(taskRecoverySummary.value?.status))
+
+async function openRecoveryPlugin(pluginId: string) {
+  await router.push({ name: 'plugin-detail', params: { id: pluginId } })
 }
 
 function resetPreviewImage() {
@@ -249,6 +271,18 @@ watch(
               :src="previewImageSrc"
               :alt="t('tasks.previewAlt')"
               class="task-preview-image"
+            />
+          </div>
+
+          <div v-if="taskRecoverySummary" class="drawer-section">
+            <div class="card-header">
+              <span>{{ t('tasks.recoverySummary') }}</span>
+            </div>
+            <RecoverySummaryDetails
+              :recovery-summary="taskRecoverySummary"
+              :recovery-status-label="taskRecoveryStatusLabel"
+              show-plugin-links
+              @open-plugin="openRecoveryPlugin"
             />
           </div>
 

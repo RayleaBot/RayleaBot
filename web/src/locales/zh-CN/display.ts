@@ -100,6 +100,22 @@ export const display = {
     setup_required: '待初始化',
     failed: '异常',
   },
+  recoveryStatuses: {
+    compatible: '兼容通过',
+    pending: '待完成检查',
+    degraded: '需要人工处理',
+    blocked: '恢复被阻止',
+  },
+  recoveryFilters: {
+    all: '全部',
+    pending: '待确认',
+    confirmed: '已确认',
+  },
+  recoveryItems: '恢复项',
+  recoveryFilterEmpty: '当前筛选下没有恢复项。',
+  recoveryManualActions: '处理建议',
+  recoveryNextSteps: '下一步',
+  recoveryHistory: '最近确认记录',
   adapterStates: {
     idle: '未配置',
     connecting: '连接中',
