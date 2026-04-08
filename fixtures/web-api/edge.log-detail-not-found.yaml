@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Log detail returns not found when log_id does not exist.
+request:
+  method: GET
+  path: /api/logs/log_missing_0001
+response:
+  status: 404
+  body:
+    error:
+      code: platform.resource_missing
+      message: 缺少必要资源
+      message_key: errors.platform.resource_missing
+      request_id: req_001
+      details:
+        resource_type: log
+        log_id: log_missing_0001
+expect:
+  valid: true

@@ -23,12 +23,14 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.yaml"))
 
 	application.Logs.Append(logging.Summary{
+		LogID:     "log_warn_0001",
 		Timestamp: "2026-03-20T09:59:59Z",
 		Level:     "warn",
 		Source:    "runtime",
 		Message:   "ignored warning",
 	})
 	application.Logs.Append(logging.Summary{
+		LogID:     "log_runtime_0001",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "error",
 		Source:    "runtime",
@@ -37,6 +39,7 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 		RequestID: "req_plugin_0001",
 	})
 	application.Logs.Append(logging.Summary{
+		LogID:     "log_adapter_0001",
 		Timestamp: "2026-03-20T10:00:01Z",
 		Level:     "error",
 		Source:    "adapter.onebot11",
@@ -78,12 +81,14 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 
 	for _, summary := range []logging.Summary{
 		{
+			LogID:     "log_protocol_0001",
 			Timestamp: "2026-03-20T10:00:00Z",
 			Level:     "warn",
 			Source:    "adapter",
 			Message:   "adapter reconnect scheduled",
 		},
 		{
+			LogID:     "log_protocol_0002",
 			Timestamp: "2026-03-20T10:00:01Z",
 			Level:     "error",
 			Source:    "adapter.onebot11",
@@ -91,6 +96,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 			RequestID: "req_adapter_0002",
 		},
 		{
+			LogID:     "log_protocol_0003",
 			Timestamp: "2026-03-20T10:00:02Z",
 			Level:     "info",
 			Source:    "bridge",
@@ -140,6 +146,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.yaml"))
 	application.Logs.Append(logging.Summary{
+		LogID:     "log_empty_0001",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
 		Source:    "adapter.onebot11",
@@ -179,6 +186,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.protocol-onebot11.yaml"))
 	application.Logs.Append(logging.Summary{
+		LogID:     "log_runtime_0002",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
 		Source:    "runtime",
@@ -286,6 +294,7 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 	}
 	item := items[0].(map[string]any)
 	allowed := map[string]bool{
+		"log_id":     true,
 		"timestamp":  true,
 		"level":      true,
 		"source":     true,
@@ -302,6 +311,133 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 	if !strings.Contains(item["message"].(string), "[REDACTED]") {
 		t.Fatalf("expected redacted message, got %#v", item["message"])
 	}
+}
+
+func TestLogDetailReturnsStructuredDetails(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.log-detail-response.yaml"))
+
+	application.Logs.Append(logging.Summary{
+		LogID:     "log_bridge_0001",
+		Timestamp: "2026-03-20T10:00:02Z",
+		Level:     "info",
+		Source:    "bridge",
+		Message:   "runtime bridge delivered adapter event",
+		RequestID: "req_bridge_0001",
+		Details: map[string]any{
+			"direction":         "inbound",
+			"event_kind":        "onebot11.message",
+			"event_type":        "message.group",
+			"conversation_type": "group",
+			"conversation_id":   "2001",
+			"sender_id":         "3001",
+			"message_id":        "1001",
+			"plain_text":        "hello bridge",
+			"segments": []any{
+				map[string]any{
+					"type": "text",
+					"data": map[string]any{"text": "hello bridge"},
+				},
+			},
+		},
+	})
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create log detail request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform log detail request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, fixture.Response.Body) {
+		t.Fatalf("unexpected log detail body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
+func TestLogDetailReturnsEmptyObjectForLegacyRows(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.log-detail-legacy-empty-details.yaml"))
+
+	application.Logs.Append(logging.Summary{
+		LogID:     "log_legacy_0001",
+		Timestamp: "2026-03-20T10:00:01Z",
+		Level:     "warn",
+		Source:    "adapter",
+		Message:   "adapter reconnect scheduled",
+	})
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create legacy log detail request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform legacy log detail request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected legacy log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, fixture.Response.Body) {
+		t.Fatalf("unexpected legacy log detail body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
+func TestLogDetailReturnsNotFound(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.log-detail-not-found.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create missing log detail request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform missing log detail request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected missing log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	assertErrorEnvelopeMatchesFixture(t, body, fixture.Response.Body, "platform.resource_missing")
 }
 
 func TestLogsRouteRequiresAuth(t *testing.T) {
@@ -384,6 +520,9 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	item := items[0].(map[string]any)
 	if item["message"] != "persisted log survives restart" {
 		t.Fatalf("unexpected persisted log message: %#v", item["message"])
+	}
+	if item["log_id"] == "" {
+		t.Fatalf("expected persisted log_id, got %#v", item["log_id"])
 	}
 	if item["plugin_id"] != "weather" || item["request_id"] != "req_persist_1" {
 		t.Fatalf("unexpected persisted log envelope: %#v", item)

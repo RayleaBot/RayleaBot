@@ -77,7 +77,7 @@ function mergeLogs(primary: LogSummary[], secondary: LogSummary[], limit: number
   const seen = new Set<string>()
 
   for (const log of [...primary, ...secondary]) {
-    const key = [
+    const key = log.log_id || [
       log.timestamp,
       log.level,
       log.protocol ?? '',

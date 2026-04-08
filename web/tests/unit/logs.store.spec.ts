@@ -19,6 +19,7 @@ describe('logs store', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       items: [
         {
+          log_id: 'log_warn_0001',
           timestamp: '2026-04-05T08:00:00Z',
           level: 'warn',
           source: 'adapter',
@@ -27,6 +28,7 @@ describe('logs store', () => {
           message: 'same message',
         },
         {
+          log_id: 'log_warn_0001',
           timestamp: '2026-04-05T08:00:00Z',
           level: 'warn',
           source: 'adapter',
@@ -60,11 +62,11 @@ describe('logs store', () => {
     const store = useLogsStore()
     store.filters = { limit: 2 }
     store.items = [
-      { timestamp: '2026-04-05T08:00:01Z', level: 'info', source: 'system', message: 'older' },
-      { timestamp: '2026-04-05T08:00:00Z', level: 'info', source: 'system', message: 'oldest' },
+      { log_id: 'log_info_0002', timestamp: '2026-04-05T08:00:01Z', level: 'info', source: 'system', message: 'older' },
+      { log_id: 'log_info_0001', timestamp: '2026-04-05T08:00:00Z', level: 'info', source: 'system', message: 'oldest' },
     ]
 
-    store.append({ timestamp: '2026-04-05T08:00:02Z', level: 'error', source: 'system', message: 'latest' })
+    store.append({ log_id: 'log_error_0001', timestamp: '2026-04-05T08:00:02Z', level: 'error', source: 'system', message: 'latest' })
 
     expect(store.items.map((item) => item.message)).toEqual(['latest', 'older'])
   })

@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
 import {
   Activity,
+  ChevronDown,
   LayoutDashboard,
   LogOut,
   LucideIcon,
@@ -33,6 +34,10 @@ interface NavItem {
   index: string
   labelKey: string
   icon: LucideIcon
+  children?: Array<{
+    index: string
+    labelKey: string
+  }>
 }
 
 const navigationItems: NavItem[] = [
@@ -40,9 +45,17 @@ const navigationItems: NavItem[] = [
   { index: '/plugins', labelKey: 'routes.plugins', icon: Plug },
   { index: '/tasks', labelKey: 'routes.tasks', icon: Sword },
   { index: '/logs', labelKey: 'routes.logs', icon: SquareTerminal },
-  { index: '/protocols', labelKey: 'routes.protocols', icon: Activity },
+  {
+    index: '/protocols',
+    labelKey: 'routes.protocols',
+    icon: Activity,
+    children: [
+      { index: '/protocols/logs', labelKey: 'routes.protocolLogs' },
+    ],
+  },
   { index: '/config', labelKey: 'routes.config', icon: Settings },
 ]
+const expandedNavGroups = ref<string[]>([])
 
 const headerTitle = computed(() => {
   if (route.meta.titleKey) {
@@ -69,8 +82,38 @@ function isActive(index: string) {
 function getNavItemClass(index: string) {
   return {
     'shell-nav-item': true,
+    'shell-nav-item--group': navigationItems.some((item) => item.index === index && item.children?.length),
     'is-active': isActive(index),
   }
+}
+
+function isGroupExpanded(index: string) {
+  return expandedNavGroups.value.includes(index) || isActive(index)
+}
+
+function toggleGroup(index: string) {
+  if (isGroupExpanded(index) && !isActive(index)) {
+    expandedNavGroups.value = expandedNavGroups.value.filter((item) => item !== index)
+    return
+  }
+
+  if (!expandedNavGroups.value.includes(index)) {
+    expandedNavGroups.value = [...expandedNavGroups.value, index]
+  }
+}
+
+function getSubNavItemClass(index: string) {
+  return {
+    'shell-subnav-item': true,
+    'is-active': isActive(index),
+  }
+}
+
+function navigateTo(index: string) {
+  if (route.path === index) {
+    return
+  }
+  void router.push(index)
 }
 
 async function handleLogout() {
@@ -100,15 +143,45 @@ async function confirmShutdown() {
       </div>
 
       <nav class="shell-nav" aria-label="Primary">
-        <RouterLink
-          v-for="item in navigationItems"
-          :key="item.index"
-          :to="item.index"
-          :class="getNavItemClass(item.index)"
-        >
-          <component :is="item.icon" :size="18" class="nav-icon" />
-          <span class="nav-label">{{ t(item.labelKey) }}</span>
-        </RouterLink>
+        <template v-for="item in navigationItems" :key="item.index">
+          <div v-if="item.children?.length" class="shell-nav-group" :class="{ 'is-open': isGroupExpanded(item.index) }">
+            <div :class="getNavItemClass(item.index)">
+              <button type="button" class="shell-nav-link" @click="navigateTo(item.index)">
+                <component :is="item.icon" :size="18" class="nav-icon" />
+                <span class="nav-label">{{ t(item.labelKey) }}</span>
+              </button>
+              <button
+                type="button"
+                class="shell-nav-toggle"
+                :aria-label="`${t(item.labelKey)}子页面`"
+                :aria-expanded="isGroupExpanded(item.index)"
+                @click.stop="toggleGroup(item.index)"
+              >
+                <ChevronDown :size="16" class="nav-chevron" />
+              </button>
+            </div>
+
+            <div v-if="isGroupExpanded(item.index)" class="shell-subnav">
+              <RouterLink
+                v-for="child in item.children"
+                :key="child.index"
+                :to="child.index"
+                :class="getSubNavItemClass(child.index)"
+              >
+                <span>{{ t(child.labelKey) }}</span>
+              </RouterLink>
+            </div>
+          </div>
+
+          <RouterLink
+            v-else
+            :to="item.index"
+            :class="getNavItemClass(item.index)"
+          >
+            <component :is="item.icon" :size="18" class="nav-icon" />
+            <span class="nav-label">{{ t(item.labelKey) }}</span>
+          </RouterLink>
+        </template>
       </nav>
 
       <div class="sidebar-metrics">

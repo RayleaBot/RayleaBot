@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiDownload, apiRequest } from '@/lib/http'
+import { formatDashboardEventSummary } from '@/lib/management-summary'
 import type {
   EventsPayload,
   LivenessStatusResponse,
@@ -56,11 +57,9 @@ export const useSystemStore = defineStore('system', () => {
   }
 
   function applyEvent(timestamp: string, payload: EventsPayload) {
-    let summary = '管理事件'
-    if ('summary' in payload) {
-      summary = payload.summary
-    } else if ('plugin_id' in payload) {
-      summary = `${payload.plugin_id} -> ${payload.runtime_state}`
+    const summary = formatDashboardEventSummary(payload)
+    if (!summary) {
+      return
     }
 
     recentEvents.value = [{ timestamp, summary, payload }, ...recentEvents.value].slice(0, 12)

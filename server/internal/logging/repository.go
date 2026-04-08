@@ -21,9 +21,12 @@ type Query struct {
 	Limit     int
 }
 
+var ErrLogNotFound = errors.New("management log not found")
+
 type Repository interface {
 	SaveSummary(context.Context, Summary) error
 	ListSummaries(context.Context, Query) ([]Summary, error)
+	GetSummary(context.Context, string) (Summary, error)
 	PruneOlderThan(context.Context, time.Time) error
 }
 
@@ -46,14 +49,20 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 
 func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary Summary) error {
 	summary = NormalizeSummary(summary)
+	detailsJSON, err := encodeDetailsJSON(summary.Details)
+	if err != nil {
+		return fmt.Errorf("encode management log details: %w", err)
+	}
 
 	if err := r.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+		LogID:     summary.LogID,
 		Ts:        summary.Timestamp,
 		Level:     strings.ToLower(strings.TrimSpace(summary.Level)),
 		Source:    strings.TrimSpace(summary.Source),
 		Message:   strings.TrimSpace(summary.Message),
 		PluginID:  strings.TrimSpace(summary.PluginID),
 		RequestID: strings.TrimSpace(summary.RequestID),
+		DetailsJson: detailsJSON,
 	}); err != nil {
 		return fmt.Errorf("insert management log summary: %w", err)
 	}
@@ -99,7 +108,7 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 
 	rows, err := r.read.QueryContext(
 		ctx,
-		`SELECT ts, level, source, message, plugin_id, request_id
+		`SELECT log_id, ts, level, source, message, plugin_id, request_id
 		 FROM management_logs
 		 WHERE `+strings.Join(clauses, " AND ")+`
 		 ORDER BY ts DESC, id DESC
@@ -115,6 +124,7 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 	for rows.Next() {
 		var summary Summary
 		if err := rows.Scan(
+			&summary.LogID,
 			&summary.Timestamp,
 			&summary.Level,
 			&summary.Source,
@@ -135,6 +145,32 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 		items[left], items[right] = items[right], items[left]
 	}
 	return items, nil
+}
+
+func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summary, error) {
+	item, err := r.readQ.GetLogSummary(ctx, strings.TrimSpace(logID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Summary{}, ErrLogNotFound
+		}
+		return Summary{}, fmt.Errorf("query management log detail: %w", err)
+	}
+
+	details, err := decodeDetailsJSON(item.DetailsJson)
+	if err != nil {
+		return Summary{}, fmt.Errorf("decode management log detail %s: %w", item.LogID, err)
+	}
+
+	return NormalizeSummary(Summary{
+		LogID:     item.LogID,
+		Timestamp: item.Ts,
+		Level:     item.Level,
+		Source:    item.Source,
+		Message:   item.Message,
+		PluginID:  item.PluginID,
+		RequestID: item.RequestID,
+		Details:   details,
+	}), nil
 }
 
 func (r *SQLiteRepository) PruneOlderThan(ctx context.Context, cutoff time.Time) error {

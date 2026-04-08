@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 
@@ -11,42 +12,46 @@ import {
   setValueByPath,
   type ConfigFieldDefinition,
 } from '@/lib/config-form'
-import {
-  getAdapterStateLabel,
-  getLogLevelLabel,
-  getLogProtocolLabel,
-  getStatusType,
-} from '@/lib/display'
-import { formatDateTime, fromMultilineList, toMultilineList } from '@/lib/format'
+import { getAdapterStateLabel, getStatusType } from '@/lib/display'
+import { formatProtocolEventSummary, formatProtocolIssueSummary } from '@/lib/management-summary'
+import { fromMultilineList, toMultilineList } from '@/lib/format'
 import { ONEBOT11_PROTOCOL_NAME, isProtocolEvent, isProtocolIssue } from '@/lib/protocols'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
-import { useProtocolLogsStore } from '@/stores/protocol-logs'
 import { useSystemStore } from '@/stores/system'
 import type { ConfigDocument } from '@/types/api'
 
+const router = useRouter()
 const configStore = useConfigStore()
-const protocolLogsStore = useProtocolLogsStore()
 const systemStore = useSystemStore()
 
-const { document, error: configError, loading: configLoading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
-const { error: logsError, filters, items, loading: logsLoading } = storeToRefs(protocolLogsStore)
+const {
+  document,
+  error: configError,
+  loading: configLoading,
+  redactedFields,
+  restartRequired,
+  saving,
+} = storeToRefs(configStore)
 const { readiness, recentEvents, system } = storeToRefs(systemStore)
 
 const draft = ref<ConfigDocument | null>(null)
+
 const configSections = computed(() => getProtocolConfigSections())
 const protocolStatusLabel = computed(() => getAdapterStateLabel(system.value?.adapter_state))
 const protocolStatusType = computed(() => getStatusType(system.value?.adapter_state))
-const pageLoading = computed(() => configLoading.value || logsLoading.value)
+const pageLoading = computed(() => configLoading.value)
 const protocolSummary = computed(() => {
   const readinessIssue = readiness.value?.issues?.find((issue) => isProtocolIssue(issue))
-  if (readinessIssue?.summary) {
-    return readinessIssue.summary
+  const issueSummary = formatProtocolIssueSummary(readinessIssue)
+  if (issueSummary) {
+    return issueSummary
   }
 
   const recentEvent = recentEvents.value.find((event) => isProtocolEvent(event))
-  if (recentEvent?.summary) {
-    return recentEvent.summary
+  const eventSummary = formatProtocolEventSummary(recentEvent?.payload)
+  if (eventSummary) {
+    return eventSummary
   }
 
   return protocolStatusLabel.value
@@ -58,10 +63,7 @@ watch(document, (value) => {
 
 async function loadPage() {
   try {
-    const requests: Array<Promise<unknown>> = [
-      configStore.fetchConfig(),
-      protocolLogsStore.fetchList(),
-    ]
+    const requests: Array<Promise<unknown>> = [configStore.fetchConfig()]
     if (!system.value || !readiness.value) {
       requests.push(systemStore.refresh())
     }
@@ -112,18 +114,10 @@ async function save() {
   const response = await configStore.saveConfig(draft.value)
   ElMessage.success(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
 }
-
-async function loadLogs() {
-  try {
-    await protocolLogsStore.fetchList()
-  } catch {
-    // store error state drives the page
-  }
-}
 </script>
 
 <template>
-  <div class="page-grid page-grid--viewport">
+  <div class="page-grid">
     <section class="hero-panel">
       <div>
         <h1>{{ t('protocols.title') }}</h1>
@@ -136,6 +130,9 @@ async function loadLogs() {
         </el-button>
         <el-button :loading="pageLoading" @click="loadPage">
           {{ t('dashboard.refresh') }}
+        </el-button>
+        <el-button plain @click="router.push('/protocols/logs')">
+          {{ t('protocols.openLogs') }}
         </el-button>
       </div>
     </section>
@@ -157,7 +154,10 @@ async function loadLogs() {
         </div>
         <div class="protocol-overview-item">
           <small>{{ t('protocols.protocolStatusLabel') }}</small>
-          <el-tag :type="protocolStatusType === 'danger' ? 'danger' : (protocolStatusType === 'warning' ? 'warning' : (protocolStatusType === 'success' ? 'success' : 'info'))" effect="plain">
+          <el-tag
+            :type="protocolStatusType === 'danger' ? 'danger' : (protocolStatusType === 'warning' ? 'warning' : (protocolStatusType === 'success' ? 'success' : 'info'))"
+            effect="plain"
+          >
             {{ protocolStatusLabel }}
           </el-tag>
         </div>
@@ -273,93 +273,6 @@ async function loadLogs() {
         </el-card>
       </div>
     </section>
-
-    <section class="protocol-logs-section">
-      <div class="section-heading">
-        <div>
-          <h2>{{ t('protocols.logsTitle') }}</h2>
-        </div>
-        <el-button :loading="logsLoading" @click="loadLogs">
-          {{ t('protocols.logsRefresh') }}
-        </el-button>
-      </div>
-
-      <el-card class="logs-filter-toolbar">
-        <el-form label-position="top" class="logs-filter-grid">
-          <el-form-item :label="t('protocols.filters.level')">
-            <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')">
-              <el-option :label="t('display.logLevels.debug')" value="debug" />
-              <el-option :label="t('display.logLevels.info')" value="info" />
-              <el-option :label="t('display.logLevels.warn')" value="warn" />
-              <el-option :label="t('display.logLevels.error')" value="error" />
-            </el-select>
-          </el-form-item>
-          <el-form-item :label="t('protocols.filters.source')">
-            <el-input v-model="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" />
-          </el-form-item>
-          <el-form-item :label="t('protocols.filters.requestId')">
-            <el-input v-model="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" />
-          </el-form-item>
-        </el-form>
-
-        <div class="logs-filter-actions">
-          <el-button type="primary" @click="loadLogs">{{ t('protocols.filters.apply') }}</el-button>
-        </div>
-      </el-card>
-
-      <RetryPanel
-        v-if="logsError && items.length === 0"
-        :title="t('errors.common.loadFailed')"
-        :description="logsError"
-        :loading="logsLoading"
-        @retry="loadLogs"
-      />
-
-      <el-alert v-else-if="logsError" :title="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon />
-
-      <el-table
-        v-else
-        :data="items"
-        style="width: 100%;"
-        class="logs-data-table"
-        :empty-text="t('display.empty')"
-      >
-        <el-table-column :label="t('protocols.fields.timestamp')" width="220">
-          <template #default="{ row }">
-            <div class="log-cell-time">
-              <div class="log-time-display">{{ formatDateTime(row.timestamp) }}</div>
-              <small class="log-request-id">{{ row.request_id ?? t('display.empty') }}</small>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column :label="t('protocols.fields.level')" width="100">
-          <template #default="{ row }">
-            <el-tag size="small" :type="row.level === 'error' ? 'danger' : (row.level === 'warn' ? 'warning' : 'info')" effect="plain">
-              {{ getLogLevelLabel(row.level) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column :label="t('protocols.fields.protocol')" width="120">
-          <template #default="{ row }">
-            <span class="protocol-name-pill">{{ getLogProtocolLabel(row.protocol) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column :label="t('protocols.fields.source')" width="160">
-          <template #default="{ row }">
-            <span class="log-source-text">{{ row.source }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column :label="t('protocols.fields.message')" min-width="420">
-          <template #default="{ row }">
-            <p class="log-message-text" :title="row.message">{{ row.message }}</p>
-          </template>
-        </el-table-column>
-      </el-table>
-    </section>
   </div>
 </template>
 
@@ -474,43 +387,14 @@ async function loadLogs() {
   }
 }
 
-.protocol-name-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(15, 111, 112, 0.12);
-  color: #0f6f70;
-  font-weight: 600;
-}
-
-.log-cell-time {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.log-time-display,
-.log-source-text {
-  color: var(--text);
-}
-
-.log-request-id {
-  font-family: "Cascadia Mono", "Consolas", monospace;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.log-message-text {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
 @media (max-width: 1024px) {
   .protocol-overview-grid,
   .protocol-settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .hero-actions {
+    flex-wrap: wrap;
   }
 }
 </style>

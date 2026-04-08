@@ -27,6 +27,7 @@ x-fixtures:
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.logs-list-response.yaml
   - fixtures/web-api/ok.logs-list-response.protocol-onebot11.yaml
+  - fixtures/web-api/ok.log-detail-response.yaml
   - fixtures/web-api/ok.tasks-list-response.yaml
   - fixtures/web-api/ok.task-detail-response.yaml
   - fixtures/web-api/ok.task-detail-succeeded-recovery-recheck.yaml
@@ -55,6 +56,8 @@ x-fixtures:
   - fixtures/web-api/edge.readyz-setup-required-response.yaml
   - fixtures/web-api/edge.logs-empty-response.yaml
   - fixtures/web-api/edge.logs-empty-response.protocol-onebot11.yaml
+  - fixtures/web-api/edge.log-detail-not-found.yaml
+  - fixtures/web-api/edge.log-detail-legacy-empty-details.yaml
   - fixtures/web-api/edge.setup-admin-already-initialized.yaml
   - fixtures/web-api/edge.session-login-max-sessions.yaml
   - fixtures/web-api/edge.session-login-rate-limited.yaml
@@ -626,6 +629,28 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/logs/{log_id}:
+    get:
+      summary: Get one redacted management log detail.
+      operationId: getLogDetail
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LogId'
+      responses:
+        '200':
+          description: One redacted log detail with the same summary fields as /api/logs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/plugins:
     get:
       summary: List registered plugins with tri-layer state snapshots.
@@ -917,6 +942,13 @@ components:
       schema:
         type: string
         minLength: 1
+    LogId:
+      name: log_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
     PluginId:
       name: plugin_id
       in: path
@@ -1075,8 +1107,11 @@ components:
     LogSummary:
       type: object
       additionalProperties: false
-      required: [timestamp, level, source, message]
+      required: [log_id, timestamp, level, source, message]
       properties:
+        log_id:
+          type: string
+          minLength: 1
         timestamp:
           type: string
         level:
@@ -1101,6 +1136,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LogSummary'
+
+    LogDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/LogSummary'
+        - type: object
+          additionalProperties: false
+          required: [details]
+          properties:
+            details:
+              type: object
+              additionalProperties: true
 
     LivenessStatusResponse:
       type: object

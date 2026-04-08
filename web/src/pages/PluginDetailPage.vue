@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -33,6 +33,7 @@ const consoleSnapshot = computed(() => socketStore.snapshots.pluginConsole)
 const grantBusy = computed(() => grantsLoading.value[pluginId.value] ?? false)
 const loadError = ref<string | null>(null)
 const operationError = ref<string | null>(null)
+const consoleScroller = ref<HTMLElement | null>(null)
 const grantDialogVisible = ref(false)
 const uninstallDialogVisible = ref(false)
 const grantForm = reactive({
@@ -105,6 +106,13 @@ function clearConsole() {
   pluginsStore.clearConsole(pluginId.value)
 }
 
+watch(
+  () => consoleFrames.value.length,
+  async () => {
+    await scrollConsoleToBottom()
+  },
+)
+
 watch(pluginId, () => {
   void loadDetail()
 })
@@ -116,6 +124,18 @@ onMounted(() => {
 onUnmounted(() => {
   socketStore.setConsolePlugin(null)
 })
+
+async function scrollConsoleToBottom() {
+  await nextTick()
+  if (!consoleScroller.value) {
+    return
+  }
+
+  consoleScroller.value.scrollTo({
+    top: consoleScroller.value.scrollHeight,
+    behavior: 'smooth',
+  })
+}
 </script>
 
 <template>
@@ -242,8 +262,12 @@ onUnmounted(() => {
 
       <el-empty v-if="consoleFrames.length === 0" :description="t('plugins.empty.console')" />
 
-      <div v-else class="console-feed">
-        <div v-for="frame in consoleFrames" :key="`${frame.timestamp}-${frame.text}`" class="console-line">
+      <div v-else ref="consoleScroller" class="console-terminal" aria-label="插件实时控制台">
+        <div
+          v-for="frame in consoleFrames"
+          :key="`${frame.timestamp}-${frame.text}`"
+          :class="['console-terminal-line', `is-${frame.stream}`]"
+        >
           <span class="console-meta">{{ formatDateTime(frame.timestamp) }} · {{ frame.stream }}</span>
           <pre>{{ frame.text }}</pre>
         </div>
@@ -284,3 +308,56 @@ onUnmounted(() => {
     </template>
   </el-dialog>
 </template>
+
+<style scoped lang="scss">
+.console-terminal {
+  min-height: 320px;
+  max-height: 560px;
+  overflow: auto;
+  padding: 14px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(14, 20, 25, 0.98), rgba(18, 26, 33, 0.98)),
+    radial-gradient(circle at top right, rgba(86, 198, 255, 0.08), transparent 24%);
+  border: 1px solid rgba(110, 204, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  display: grid;
+  gap: 10px;
+}
+
+.console-terminal-line {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  color: #e8eff6;
+  box-shadow: inset 2px 0 0 rgba(88, 196, 255, 0.48);
+}
+
+.console-terminal-line.is-stderr {
+  box-shadow: inset 2px 0 0 rgba(255, 104, 104, 0.72);
+}
+
+.console-terminal-line.is-system {
+  box-shadow: inset 2px 0 0 rgba(255, 187, 74, 0.68);
+}
+
+.console-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: #8ca4b3;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.78rem;
+}
+
+.console-terminal-line pre {
+  margin: 0;
+  color: #f5f8fb;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  line-height: 1.55;
+}
+</style>

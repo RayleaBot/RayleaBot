@@ -214,23 +214,58 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await login(page)
 
   await page.goto('/config')
-  await expect(page.getByText('协议连接设置')).toBeVisible()
+  await expect(page.getByText('协议连接设置')).toHaveCount(0)
   await expect(page.getByText('反向 WebSocket 地址')).toHaveCount(0)
-  await page.getByRole('button', { name: '打开协议中心' }).click()
+  await page.goto('/protocols')
 
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   await expect(page.getByText('当前正式支持协议：OneBot11')).toBeVisible()
-  await expect(page.getByText('OneBot authentication failed')).toBeVisible()
+  await expect(page.getByText('协议鉴权失败，请检查访问令牌')).toBeVisible()
 
   await page.getByLabel('反向 WebSocket 地址').fill('ws://127.0.0.1:8090/onebot')
   await page.getByLabel('连接超时（秒）').fill('18')
   await page.getByRole('button', { name: '保存协议设置' }).click()
   await expect(page.getByText('配置已保存，重启后生效')).toBeVisible()
 
-  const protocolLogsTable = page.locator('.logs-data-table')
-  await expect(protocolLogsTable.locator('.protocol-name-pill')).toHaveCount(2)
-  await expect(protocolLogsTable.getByText('authentication failed for reverse websocket').first()).toBeVisible()
-  await expect(protocolLogsTable.getByText('plugin runtime stderr truncated')).toHaveCount(0)
+  await page.getByRole('button', { name: '查看协议日志' }).click()
+  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
+
+  const terminal = page.locator('.protocol-terminal')
+  await expect(terminal).toBeVisible()
+  await expect(terminal.getByText('reverse websocket connection lost')).toBeVisible()
+  await expect(terminal.getByText('plugin runtime stderr truncated')).toHaveCount(0)
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_adapter_live_0002',
+        timestamp: '2026-04-08T10:18:00Z',
+        level: 'warn',
+        source: 'adapter.onebot11',
+        protocol: 'onebot11',
+        message: 'ignored OneBot API response with unsupported echo',
+        request_id: 'req_adapter_ignored_0002',
+      },
+      details: {
+        details: {
+          direction: 'inbound',
+          frame_type: 'api.response.ignored',
+          reason: 'api response echo must be a non-empty string',
+          echo_value_type: 'number',
+          payload_preview: {
+            echo: 123,
+            status: 'ok',
+          },
+        },
+      },
+    },
+  })
+
+  const liveLine = terminal.getByText('ignored OneBot API response with unsupported echo').last()
+  await expect(liveLine).toBeVisible()
+  await liveLine.click()
+  await expect(page.getByText('api.response.ignored')).toBeVisible()
+  await expect(page.locator('.detail-json-block')).toContainText('"echo": 123')
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()

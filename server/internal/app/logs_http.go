@@ -6,11 +6,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 type logListResponse struct {
 	Items []logging.Summary `json:"items"`
+}
+
+type logDetailResponse struct {
+	logging.Summary
+	Details map[string]any `json:"details"`
 }
 
 func (a *App) handleLogsList() http.HandlerFunc {
@@ -56,6 +63,34 @@ func (a *App) handleLogsList() http.HandlerFunc {
 	}
 }
 
+func (a *App) handleLogDetail() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logID := strings.TrimSpace(chi.URLParam(r, "log_id"))
+		if logID == "" {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+
+		item, err := a.getLogSummary(r.Context(), logID)
+		if err != nil {
+			if err == logging.ErrLogNotFound {
+				writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+					"resource_type": "log",
+					"log_id":        logID,
+				})
+				return
+			}
+			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+
+		writeAuthJSON(w, http.StatusOK, logDetailResponse{
+			Summary: item,
+			Details: item.Details,
+		})
+	}
+}
+
 func (a *App) listLogSummaries(ctx context.Context, query logging.Query) ([]logging.Summary, error) {
 	if a != nil && a.LogRepository != nil {
 		return a.LogRepository.ListSummaries(ctx, query)
@@ -87,6 +122,23 @@ func (a *App) listLogSummaries(ctx context.Context, query logging.Query) ([]logg
 		items = items[len(items)-query.Limit:]
 	}
 	return items, nil
+}
+
+func (a *App) getLogSummary(ctx context.Context, logID string) (logging.Summary, error) {
+	if a != nil && a.LogRepository != nil {
+		return a.LogRepository.GetSummary(ctx, logID)
+	}
+
+	if a == nil || a.Logs == nil {
+		return logging.Summary{}, logging.ErrLogNotFound
+	}
+
+	for _, item := range a.Logs.Snapshot() {
+		if item.LogID == logID {
+			return item, nil
+		}
+	}
+	return logging.Summary{}, logging.ErrLogNotFound
 }
 
 func isAllowedLogLevel(level string) bool {

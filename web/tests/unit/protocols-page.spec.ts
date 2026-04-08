@@ -2,10 +2,10 @@ import ElementPlus from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import ProtocolsPage from '@/pages/ProtocolsPage.vue'
 import { useConfigStore } from '@/stores/config'
-import { useProtocolLogsStore } from '@/stores/protocol-logs'
 import { useSystemStore } from '@/stores/system'
 import type { ConfigDocument } from '@/types/api'
 
@@ -97,23 +97,22 @@ describe('ProtocolsPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders the protocol overview and protocol-only logs', async () => {
+  function createTestRouter() {
+    return createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/protocols', component: ProtocolsPage },
+        { path: '/protocols/logs', component: { template: '<div>协议日志</div>' } },
+      ],
+    })
+  }
+
+  it('renders protocol settings with a readable chinese status summary', async () => {
     const configStore = useConfigStore()
-    const logsStore = useProtocolLogsStore()
     const systemStore = useSystemStore()
 
     configStore.document = createFixtureConfig()
     configStore.redactedFields = ['onebot.access_token']
-    logsStore.items = [
-      {
-        timestamp: '2026-04-05T08:00:00Z',
-        level: 'warn',
-        protocol: 'onebot11',
-        source: 'adapter',
-        request_id: 'req_adapter_1',
-        message: 'authentication failed for reverse websocket',
-      },
-    ]
     systemStore.system = {
       status: 'running',
       adapter_state: 'auth_failed',
@@ -132,11 +131,14 @@ describe('ProtocolsPage', () => {
     }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(logsStore, 'fetchList').mockResolvedValue(undefined)
+
+    const router = createTestRouter()
+    await router.push('/protocols')
+    await router.isReady()
 
     const wrapper = mount(ProtocolsPage, {
       global: {
-        plugins: [ElementPlus],
+        plugins: [ElementPlus, router],
       },
     })
 
@@ -144,15 +146,14 @@ describe('ProtocolsPage', () => {
 
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('OneBot11')
-    expect(wrapper.text()).toContain('OneBot authentication failed')
-    expect(wrapper.text()).toContain('反向 WebSocket 地址')
-    expect(wrapper.text()).toContain('协议日志')
-    expect(wrapper.text()).toContain('authentication failed for reverse websocket')
+    expect(wrapper.text()).toContain('协议鉴权失败，请检查访问令牌')
+    expect(wrapper.text()).toContain('连接设置')
+    expect(wrapper.text()).toContain('查看协议日志')
+    expect(wrapper.text()).not.toContain('协议日志显示 OneBot11 连接')
   })
 
   it('submits the full config document while editing protocol fields only', async () => {
     const configStore = useConfigStore()
-    const logsStore = useProtocolLogsStore()
     const systemStore = useSystemStore()
 
     configStore.document = createFixtureConfig()
@@ -167,16 +168,19 @@ describe('ProtocolsPage', () => {
     }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(logsStore, 'fetchList').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(configStore, 'saveConfig').mockResolvedValue({
       config: configStore.document,
       redacted_fields: [],
       restart_required: true,
     })
 
+    const router = createTestRouter()
+    await router.push('/protocols')
+    await router.isReady()
+
     const wrapper = mount(ProtocolsPage, {
       global: {
-        plugins: [ElementPlus],
+        plugins: [ElementPlus, router],
       },
     })
 

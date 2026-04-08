@@ -200,7 +200,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 		handler, wasCalled, _ := dummyHandler()
 		wrapped := middleware(handler)
 
-		path := rapid.SampledFrom([]string{"/api/config", "/api/logs", "/api/plugins", "/api/tasks", "/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
+		path := rapid.SampledFrom([]string{"/api/config", "/api/logs", "/api/logs/log_test_0001", "/api/plugins", "/api/tasks", "/ws/events", "/ws/tasks", "/ws/logs"}).Draw(t, "path")
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		if sc.header != "" {
 			req.Header.Set("Authorization", sc.header)
@@ -528,6 +528,7 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 		{http.MethodGet, "/api/system/status"},
 		{http.MethodPost, "/api/system/shutdown"},
 		{http.MethodGet, "/api/logs"},
+		{http.MethodGet, "/api/logs/log_test_0001"},
 		{http.MethodGet, "/api/tasks"},
 		{http.MethodGet, "/api/plugins"},
 		{http.MethodGet, "/api/plugins/fake-plugin-id"},
@@ -646,7 +647,7 @@ func TestWebSocketEventsSupportsSessionTokenQueryParam(t *testing.T) {
 func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *testing.T) {
 	t.Parallel()
 
-	paths := []string{"/ws/tasks", "/ws/logs", "/ws/plugins/hello-node/console"}
+	paths := []string{"/ws/tasks", "/ws/logs", "/ws/plugins/raylea.help/console"}
 	for _, path := range paths {
 		path := path
 		t.Run(path, func(t *testing.T) {

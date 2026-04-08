@@ -387,6 +387,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/logs/{log_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one redacted management log detail. */
+        get: operations["getLogDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins": {
         parameters: {
             query?: never;
@@ -604,6 +621,7 @@ export interface components {
         /** @enum {string} */
         LogProtocol: "onebot11";
         LogSummary: {
+            log_id: string;
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
@@ -614,6 +632,11 @@ export interface components {
         };
         LogListResponse: {
             items: components["schemas"]["LogSummary"][];
+        };
+        LogDetailResponse: components["schemas"]["LogSummary"] & {
+            details: {
+                [key: string]: unknown;
+            };
         };
         LivenessStatusResponse: {
             /** @constant */
@@ -1049,6 +1072,7 @@ export interface components {
     };
     parameters: {
         TaskId: string;
+        LogId: string;
         PluginId: string;
     };
     requestBodies: never;
@@ -1629,6 +1653,31 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getLogDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                log_id: components["parameters"]["LogId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One redacted log detail with the same summary fields as /api/logs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogDetailResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

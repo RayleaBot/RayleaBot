@@ -148,7 +148,7 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).not.toContain('config = ok')
   })
 
-  it('shows degraded readiness as limited conditions and explains the difference from health', async () => {
+  it('shows degraded readiness without the old explanatory note', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: DashboardPage }],
@@ -190,10 +190,10 @@ describe('DashboardPage', () => {
 
     expect(wrapper.text()).toContain('运行条件受限')
     expect(wrapper.text()).toContain('管理面可用，但依赖 Python 运行环境的功能暂不可用。')
-    expect(wrapper.text()).toContain('健康检查正常，说明管理面可用；就绪状态受限，说明仍有运行条件未满足。')
     expect(wrapper.text()).toContain('管理面可用')
     expect(wrapper.text()).not.toContain('degraded')
     expect(wrapper.text()).not.toContain('性能降级')
+    expect(wrapper.text()).not.toContain('健康检查正常，说明管理面可用；就绪状态受限，说明仍有运行条件未满足。')
   })
 
   it('deduplicates readiness issue codes already represented by issue cards', async () => {

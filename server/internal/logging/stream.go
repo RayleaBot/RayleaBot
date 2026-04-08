@@ -12,6 +12,7 @@ import (
 )
 
 type Summary struct {
+	LogID     string         `json:"log_id"`
 	Timestamp string `json:"timestamp"`
 	Level     string `json:"level"`
 	Source    string `json:"source"`
@@ -19,6 +20,7 @@ type Summary struct {
 	Protocol  string `json:"protocol,omitempty"`
 	PluginID  string `json:"plugin_id,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
+	Details   map[string]any `json:"-"`
 }
 
 type Stream struct {
@@ -47,7 +49,10 @@ func (s *Stream) Snapshot() []Summary {
 	defer s.mu.RUnlock()
 
 	cloned := make([]Summary, len(s.history))
-	copy(cloned, s.history)
+	for index, item := range s.history {
+		cloned[index] = item
+		cloned[index].Details = cloneDetailsMap(item.Details)
+	}
 	return cloned
 }
 
@@ -258,12 +263,14 @@ func summaryFromJSONLine(line []byte) (Summary, bool) {
 	}
 
 	summary := Summary{
+		LogID:     toString(body["log_id"]),
 		Timestamp: toString(body["ts"]),
 		Level:     strings.ToLower(toString(body["level"])),
 		Source:    toString(body["component"]),
 		Message:   toString(body["msg"]),
 		PluginID:  toString(body["plugin_id"]),
 		RequestID: toString(body["request_id"]),
+		Details:   extractSummaryDetails(body),
 	}
 	summary = NormalizeSummary(summary)
 

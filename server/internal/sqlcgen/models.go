@@ -32,13 +32,15 @@ type BlacklistEntry struct {
 }
 
 type ManagementLog struct {
-	ID        int64
-	Ts        string
-	Level     string
-	Source    string
-	Message   string
-	PluginID  string
-	RequestID string
+	ID          int64
+	Ts          string
+	Level       string
+	Source      string
+	Message     string
+	PluginID    string
+	RequestID   string
+	LogID       string
+	DetailsJson string
 }
 
 type PluginGrant struct {

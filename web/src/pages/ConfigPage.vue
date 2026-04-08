@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 
@@ -12,7 +11,6 @@ import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
-const router = useRouter()
 const configStore = useConfigStore()
 const { document, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
 
@@ -115,17 +113,6 @@ async function save() {
       />
     </div>
 
-    <el-alert :title="t('config.protocolCenterNoticeTitle')" type="info" show-icon :closable="false">
-      <template #default>
-        <div class="protocol-center-notice">
-          <span>{{ t('config.protocolCenterNoticeBody') }}</span>
-          <el-button link type="primary" @click="router.push('/protocols')">
-            {{ t('config.protocolCenterNoticeAction') }}
-          </el-button>
-        </div>
-      </template>
-    </el-alert>
-
     <div class="config-main-area">
       <el-skeleton :loading="loading" animated style="height: 100%">
         <template #template>
@@ -136,7 +123,6 @@ async function save() {
         </template>
 
         <div v-if="draft" class="config-layout">
-          <!-- Sidebar: No overflow:hidden here -->
           <aside class="config-nav-panel">
             <div class="nav-header">
               <strong>{{ t('config.sectionList') }}</strong>
@@ -169,7 +155,6 @@ async function save() {
             </div>
           </aside>
 
-          <!-- Main Area: Use a padded container to protect shadows -->
           <div class="config-editor-shadow-box">
             <main class="config-editor-panel glass-panel">
               <div class="panel-header">
@@ -258,7 +243,7 @@ async function save() {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: visible; // Key fix
+  overflow: visible;
 }
 
 .hero-panel {
@@ -281,17 +266,10 @@ async function save() {
   h1 { margin: 0; font-size: 1.5rem; }
 }
 
-.protocol-center-notice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .config-main-area {
   flex: 1;
   min-height: 0;
-  overflow: visible; // Key fix
+  overflow: visible;
 }
 
 .config-layout {
@@ -299,7 +277,7 @@ async function save() {
   grid-template-columns: 300px 1fr;
   gap: 32px;
   height: 100%;
-  overflow: visible; // Key fix
+  overflow: visible;
 }
 
 .config-nav-panel {
@@ -321,7 +299,6 @@ async function save() {
 .nav-viewport-outer {
   flex: 1;
   min-height: 0;
-  // Let the scroller inside VirtualDataViewport handle shadows via the global SCSS update
 }
 
 .nav-item-wrapper {
@@ -379,7 +356,7 @@ async function save() {
 .config-editor-shadow-box {
   flex: 1;
   min-height: 0;
-  padding: 20px 40px 40px 20px; // Breathe room for shadow
+  padding: 20px 40px 40px 20px;
   margin: -20px -40px -40px -20px;
   overflow: visible;
   display: flex;
@@ -394,7 +371,7 @@ async function save() {
   box-shadow: 0 20px 60px rgba(18, 32, 38, 0.12);
   display: flex;
   flex-direction: column;
-  overflow: visible; // CRITICAL
+  overflow: visible;
 }
 
 .panel-header {
@@ -421,7 +398,6 @@ async function save() {
   overflow-y: auto;
   padding: 32px;
   scroll-behavior: smooth;
-  // Global scrollbar styling will apply here
 }
 
 .config-form-grid {
@@ -447,6 +423,5 @@ async function save() {
 @media (max-width: 1024px) {
   .config-layout { grid-template-columns: 1fr; }
   .config-nav-panel { display: none; }
-  .protocol-center-notice { flex-direction: column; align-items: flex-start; }
 }
 </style>

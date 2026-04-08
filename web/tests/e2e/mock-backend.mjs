@@ -35,6 +35,9 @@ const fixtures = {
   sessionDenied: await readFixture('fixtures/web-api/invalid.session-login-bad-credentials.yaml'),
   configGet: await readFixture('fixtures/web-api/ok.config-get-response.yaml'),
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
+  logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
+  logDetailLegacy: await readFixture('fixtures/web-api/edge.log-detail-legacy-empty-details.yaml'),
+  logDetailNotFound: await readFixture('fixtures/web-api/edge.log-detail-not-found.yaml'),
   tasksList: await readFixture('fixtures/web-api/ok.tasks-list-response.yaml'),
   taskDetail: await readFixture('fixtures/web-api/ok.task-detail-response.yaml'),
   taskDetailSucceededInstall: await readFixture('fixtures/web-api/ok.task-detail-succeeded-install.yaml'),
@@ -83,6 +86,7 @@ function baseState() {
     plugins: pluginMap,
     tasks: structuredClone(fixtures.tasksList.response.body.items),
     logs: structuredClone(fixtures.logsList.response.body.items),
+    logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
@@ -96,6 +100,44 @@ function baseState() {
       failLogsOnce: false,
       failSystemStatusOnce: false,
       failUninstallOnce: false,
+    },
+  }
+}
+
+function createLogDetailMap() {
+  return {
+    [fixtures.logDetail.response.body.log_id]: structuredClone(fixtures.logDetail.response.body),
+    [fixtures.logDetailLegacy.response.body.log_id]: structuredClone(fixtures.logDetailLegacy.response.body),
+    log_runtime_0001: {
+      log_id: 'log_runtime_0001',
+      timestamp: '2026-03-20T10:00:00Z',
+      level: 'error',
+      source: 'runtime',
+      message: 'plugin runtime stderr truncated',
+      plugin_id: 'weather',
+      request_id: 'req_plugin_0001',
+      details: {
+        direction: 'internal',
+        reason: 'stderr exceeded preview limit',
+        payload_preview: {
+          plugin_id: 'weather',
+          stream: 'stderr',
+          line_preview: 'Traceback (most recent call last): ...',
+        },
+      },
+    },
+    log_adapter_0001: {
+      log_id: 'log_adapter_0001',
+      timestamp: '2026-03-20T10:00:01Z',
+      level: 'error',
+      source: 'adapter.onebot11',
+      protocol: 'onebot11',
+      message: 'reverse websocket connection lost',
+      details: {
+        direction: 'inbound',
+        frame_type: 'socket.close',
+        reason: 'reverse websocket connection lost',
+      },
     },
   }
 }
@@ -219,6 +261,48 @@ function taskSummary(taskId, taskType, summary) {
   }
 }
 
+function appendLogSummary(summary, detail) {
+  state.logs = [
+    ...state.logs.filter((item) => item.log_id !== summary.log_id),
+    structuredClone(summary),
+  ]
+
+  if (detail) {
+    state.logDetails[summary.log_id] = structuredClone(detail)
+  }
+}
+
+function defaultProtocolLiveLog() {
+  const summary = {
+    log_id: 'log_adapter_live_0001',
+    timestamp: '2026-04-08T10:16:00Z',
+    level: 'warn',
+    source: 'adapter.onebot11',
+    protocol: 'onebot11',
+    message: 'ignored OneBot API response with unsupported echo',
+    request_id: 'req_adapter_ignored_0001',
+  }
+
+  return {
+    summary,
+    detail: {
+      ...summary,
+      details: {
+        direction: 'inbound',
+        frame_type: 'api.response.ignored',
+        reason: 'api response echo must be a non-empty string',
+        echo_value_type: 'number',
+        payload_preview: {
+          status: 'ok',
+          retcode: 0,
+          echo: 123,
+          wording: 'ignored by adapter',
+        },
+      },
+    },
+  }
+}
+
 function errorEnvelope(code, message, requestId, details) {
   return {
     error: {
@@ -272,6 +356,33 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, { ok: true, channel })
+    return
+  }
+
+  if (pathname === '/__test/push-log' && request.method === 'POST') {
+    const payload = await parseBody(request)
+    const seed = defaultProtocolLiveLog()
+    const summary = {
+      ...seed.summary,
+      ...(payload.summary ?? payload),
+      log_id: (payload.summary?.log_id ?? payload.log_id ?? seed.summary.log_id),
+      timestamp: (payload.summary?.timestamp ?? payload.timestamp ?? new Date().toISOString()),
+    }
+    const detail = {
+      ...seed.detail,
+      ...(payload.detail ?? {}),
+      ...summary,
+      details: structuredClone(payload.detail?.details ?? payload.details ?? seed.detail.details),
+    }
+
+    appendLogSummary(summary, detail)
+    broadcast('logs', {
+      channel: 'logs',
+      type: 'logs.appended',
+      timestamp: summary.timestamp,
+      data: summary,
+    })
+    json(response, 200, { ok: true, log_id: summary.log_id })
     return
   }
 
@@ -507,6 +618,22 @@ const server = http.createServer(async (request, response) => {
     }).slice(0, limit)
 
     json(response, 200, { items })
+    return
+  }
+
+  if (pathname.startsWith('/api/logs/') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const logId = decodeURIComponent(pathname.split('/')[3] ?? '')
+    const detail = state.logDetails[logId]
+    if (!detail) {
+      json(response, fixtures.logDetailNotFound.response.status, fixtures.logDetailNotFound.response.body)
+      return
+    }
+
+    json(response, 200, structuredClone(detail))
     return
   }
 
@@ -794,7 +921,16 @@ wsServer.on('connection', (socket, request) => {
   } else if (channel === 'tasks') {
     setTimeout(() => socket.send(JSON.stringify(fixtures.wsTasks.frame)), 180)
   } else if (channel === 'logs') {
-    setTimeout(() => socket.send(JSON.stringify(fixtures.wsLogs.frame)), 210)
+    setTimeout(() => {
+      const liveLog = defaultProtocolLiveLog()
+      appendLogSummary(liveLog.summary, liveLog.detail)
+      socket.send(JSON.stringify({
+        channel: 'logs',
+        type: 'logs.appended',
+        timestamp: liveLog.summary.timestamp,
+        data: liveLog.summary,
+      }))
+    }, 210)
   } else if (channel === 'plugin_console') {
     const pluginId = pathname.split('/')[3]
     setTimeout(() => {

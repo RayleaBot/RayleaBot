@@ -86,6 +86,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('已识别')
     expect(wrapper.text()).toContain('weather')
+    expect(wrapper.find('.console-terminal').exists()).toBe(true)
 
     const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新连接'))
     expect(reconnectButton).toBeTruthy()

@@ -47,6 +47,18 @@ describe('socket store', () => {
   beforeEach(() => {
     MockManagedSocket.instances = []
     setActivePinia(createPinia())
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      log_id: 'log_protocol_live_0001',
+      timestamp: '2026-04-05T08:00:01Z',
+      level: 'warn',
+      protocol: 'onebot11',
+      source: 'adapter',
+      message: 'log line',
+      details: {},
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })))
   })
 
   it('starts management sockets, projects statuses, and routes frames to stores', () => {
@@ -56,6 +68,8 @@ describe('socket store', () => {
     const tasksStore = useTasksStore()
     const logsStore = useLogsStore()
     const protocolLogsStore = useProtocolLogsStore()
+    protocolLogsStore.activate()
+    protocolLogsStore.pauseAutoFollow()
     const pluginsStore = usePluginsStore()
     const store = useSocketStore()
 
@@ -93,6 +107,7 @@ describe('socket store', () => {
     MockManagedSocket.instances[2].emitFrame({
       type: 'logs.appended',
       data: {
+        log_id: 'log_protocol_live_0001',
         timestamp: '2026-04-05T08:00:01Z',
         level: 'warn',
         protocol: 'onebot11',
@@ -103,6 +118,7 @@ describe('socket store', () => {
     MockManagedSocket.instances[2].emitFrame({
       type: 'logs.appended',
       data: {
+        log_id: 'log_runtime_0001',
         timestamp: '2026-04-05T08:00:02Z',
         level: 'info',
         source: 'runtime',

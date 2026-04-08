@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -38,6 +39,11 @@ func TestSQLiteRepositoryListsFilteredSummariesInAscendingOrder(t *testing.T) {
 	}
 	if items[0].Message != "second" || items[1].Message != "third" {
 		t.Fatalf("unexpected summary order: %#v", items)
+	}
+	for _, item := range items {
+		if item.LogID == "" {
+			t.Fatalf("expected log_id to be populated: %#v", item)
+		}
 	}
 }
 
@@ -111,6 +117,57 @@ func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
 		if item.Protocol != ProtocolOneBot11 {
 			t.Fatalf("unexpected summary protocol: %#v", item)
 		}
+	}
+}
+
+func TestSQLiteRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	if err := repository.SaveSummary(ctx, Summary{
+		LogID:     "log_detail_0001",
+		Timestamp: "2026-03-20T10:00:00Z",
+		Level:     "warn",
+		Source:    "adapter.onebot11",
+		Message:   "ignored OneBot API response with unsupported echo",
+		RequestID: "req_adapter_ignored",
+		Details: map[string]any{
+			"direction":       "inbound",
+			"echo_value_type": "float64",
+			"payload_preview": map[string]any{"status": "ok"},
+			"token":           "should-not-survive",
+		},
+	}); err != nil {
+		t.Fatalf("save detail summary: %v", err)
+	}
+
+	item, err := repository.GetSummary(ctx, "log_detail_0001")
+	if err != nil {
+		t.Fatalf("get detail summary: %v", err)
+	}
+	if item.LogID != "log_detail_0001" {
+		t.Fatalf("unexpected log_id: %#v", item.LogID)
+	}
+	if item.Protocol != ProtocolOneBot11 {
+		t.Fatalf("unexpected protocol: %#v", item.Protocol)
+	}
+	if item.Details["echo_value_type"] != "float64" {
+		t.Fatalf("unexpected details: %#v", item.Details)
+	}
+	if _, ok := item.Details["token"]; ok {
+		t.Fatalf("sensitive detail key should be removed: %#v", item.Details)
+	}
+}
+
+func TestSQLiteRepositoryReturnsNotFoundForMissingLogID(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	_, err := repository.GetSummary(context.Background(), "log_missing_0001")
+	if !errors.Is(err, ErrLogNotFound) {
+		t.Fatalf("expected ErrLogNotFound, got %v", err)
 	}
 }
 

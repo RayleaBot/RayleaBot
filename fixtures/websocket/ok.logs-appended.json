@@ -6,6 +6,7 @@
     "type": "logs.appended",
     "timestamp": "2026-03-17T09:31:00Z",
     "data": {
+      "log_id": "log_adapter_0001",
       "timestamp": "2026-03-17T09:31:00Z",
       "level": "warn",
       "source": "adapter.onebot11",

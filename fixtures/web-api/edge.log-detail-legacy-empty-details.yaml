@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Legacy log rows without detail payload still return an empty details object.
+request:
+  method: GET
+  path: /api/logs/log_legacy_0001
+response:
+  status: 200
+  body:
+    log_id: log_legacy_0001
+    timestamp: "2026-03-20T10:00:01Z"
+    level: warn
+    source: adapter
+    protocol: onebot11
+    message: adapter reconnect scheduled
+    details: {}
+expect:
+  valid: true

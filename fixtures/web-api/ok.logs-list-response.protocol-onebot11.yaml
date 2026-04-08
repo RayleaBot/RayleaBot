@@ -8,18 +8,21 @@ response:
   status: 200
   body:
     items:
-      - timestamp: "2026-03-20T10:00:00Z"
+      - log_id: log_protocol_0001
+        timestamp: "2026-03-20T10:00:00Z"
         level: warn
         source: adapter
         protocol: onebot11
         message: adapter reconnect scheduled
-      - timestamp: "2026-03-20T10:00:01Z"
+      - log_id: log_protocol_0002
+        timestamp: "2026-03-20T10:00:01Z"
         level: error
         source: adapter.onebot11
         protocol: onebot11
         message: reverse websocket authentication failed
         request_id: req_adapter_0002
-      - timestamp: "2026-03-20T10:00:02Z"
+      - log_id: log_protocol_0003
+        timestamp: "2026-03-20T10:00:02Z"
         level: info
         source: bridge
         protocol: onebot11

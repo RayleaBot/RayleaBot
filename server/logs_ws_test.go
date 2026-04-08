@@ -46,6 +46,9 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	}
 
 	data := frame["data"].(map[string]any)
+	if data["log_id"] == "" {
+		t.Fatalf("expected log_id to be populated, got %#v", data["log_id"])
+	}
 	if data["level"] != "warn" {
 		t.Fatalf("unexpected level: got %#v want %q", data["level"], "warn")
 	}
@@ -96,6 +99,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	frame := decodeBody(t, payload)
 	data := frame["data"].(map[string]any)
 	allowed := map[string]bool{
+		"log_id":     true,
 		"timestamp":  true,
 		"level":      true,
 		"source":     true,
@@ -221,6 +225,9 @@ func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
 	data := frame["data"].(map[string]any)
 	if data["message"] != "persisted websocket replay" {
 		t.Fatalf("unexpected websocket replay message: %#v", data["message"])
+	}
+	if data["log_id"] == "" {
+		t.Fatalf("expected websocket replay log_id, got %#v", data["log_id"])
 	}
 	if data["source"] != "adapter.onebot11" {
 		t.Fatalf("unexpected websocket replay source: %#v", data["source"])

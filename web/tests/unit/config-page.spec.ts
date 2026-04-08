@@ -2,8 +2,6 @@ import ElementPlus from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
-
 import ConfigPage from '@/pages/ConfigPage.vue'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
@@ -96,16 +94,6 @@ describe('ConfigPage', () => {
     setActivePinia(createPinia())
   })
 
-  function createTestRouter() {
-    return createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/config', component: ConfigPage },
-        { path: '/protocols', component: { template: '<div>协议中心</div>' } },
-      ],
-    })
-  }
-
   it('submits the edited config document', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
@@ -118,13 +106,9 @@ describe('ConfigPage', () => {
       restart_required: true,
     })
 
-    const router = createTestRouter()
-    await router.push('/config')
-    await router.isReady()
-
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [ElementPlus],
       },
     })
 
@@ -142,19 +126,15 @@ describe('ConfigPage', () => {
     expect(saveSpy.mock.calls[0][0].server.host).toBe('0.0.0.0')
   })
 
-  it('shows the protocol center hint and keeps protocol fields out of the general config page', async () => {
+  it('keeps protocol fields out of the general config page', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
 
-    const router = createTestRouter()
-    await router.push('/config')
-    await router.isReady()
-
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [ElementPlus],
       },
     })
 
@@ -165,8 +145,6 @@ describe('ConfigPage', () => {
     expect(wrapper.find('.nav-viewport-outer').exists()).toBe(true)
     expect(wrapper.find('.config-editor-panel').exists()).toBe(true)
     expect(wrapper.find('.config-editor-shadow-box').exists()).toBe(true)
-    expect(wrapper.text()).toContain('协议连接设置')
-    expect(wrapper.text()).toContain('打开协议中心')
     expect(wrapper.text()).not.toContain('OneBot 连接')
     expect(wrapper.text()).not.toContain('适配器')
   })

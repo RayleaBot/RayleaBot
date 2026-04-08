@@ -129,8 +129,11 @@ channels:
         payload_schema:
           type: object
           additionalProperties: false
-          required: [timestamp, level, source, message]
+          required: [log_id, timestamp, level, source, message]
           properties:
+            log_id:
+              type: string
+              minLength: 1
             timestamp:
               type: string
               format: date-time
@@ -148,7 +151,7 @@ channels:
               type: string
             request_id:
               type: string
-        required: [timestamp, level, source, message]
+        required: [log_id, timestamp, level, source, message]
         example_ref: fixtures/websocket/ok.logs-appended.protocol-onebot11.json
 
   - path: /ws/events

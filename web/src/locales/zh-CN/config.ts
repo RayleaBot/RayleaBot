@@ -9,9 +9,6 @@ export const config = {
   redactedTitle: '脱敏字段',
   saveSuccess: '配置已保存并已生效',
   saveRestart: '配置已保存，重启后生效',
-  protocolCenterNoticeTitle: '协议连接设置',
-  protocolCenterNoticeBody: 'OneBot11 连接地址、访问令牌和重连参数统一在协议中心维护。',
-  protocolCenterNoticeAction: '打开协议中心',
   sections: {
     server: '服务监听',
     onebot: 'OneBot 连接',

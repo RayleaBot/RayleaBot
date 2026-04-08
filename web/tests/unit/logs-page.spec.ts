@@ -15,6 +15,7 @@ describe('LogsPage', () => {
     const store = useLogsStore()
     store.items = [
       {
+        log_id: 'log_warn_0001',
         timestamp: '2026-04-02T00:53:16Z',
         level: 'warn',
         source: 'adapter',

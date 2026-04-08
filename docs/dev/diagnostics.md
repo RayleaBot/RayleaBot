@@ -10,7 +10,7 @@
 | `/readyz` | 本地控制面与关键资源就绪检查 |
 | `GET /api/system/diagnostics/export` | 导出诊断包 |
 | `raylea doctor` | 执行本地环境与资源检查 |
-| `/ws/logs` 与日志查询 | 查看管理日志与增量日志 |
+| `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看管理日志摘要、单条日志详情与增量日志 |
 | `/ws/plugins/{id}/console` | 查看插件 stderr |
 | `logs/recovery-summary.json` | 查看恢复与兼容处理摘要 |
 
@@ -24,6 +24,7 @@
 - 最近 24 小时的未支持事件类型与未知消息段计数
 - 后台任务结果和错误摘要
 - 恢复摘要、人工处理建议和最近确认记录
+- 脱敏后的协议消息详情、消息段、异常原因、payload preview 和 echo 类型
 
 ## 健康接口语义
 
@@ -53,6 +54,7 @@
 - Web 管理面、CLI、Launcher 和导出诊断包尽量复用同一份结构化摘要。
 - 排障优先使用正式诊断入口，而不是依赖临时日志拼接。
 - 高风险问题需要在多个入口保持同一份 `code`、`severity`、`summary` 和 `remediation` 口径。
+- OneBot API response 的 `echo` 缺失、空值或非字符串时，诊断面记录 warning 与结构化详情；真实 JSON 解析错误、读超时和连接错误继续按断链处理。
 
 ## 敏感信息边界
 

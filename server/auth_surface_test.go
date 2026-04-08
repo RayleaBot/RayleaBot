@@ -30,14 +30,15 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodGet, path: "/api/system/status", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/system/shutdown", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/logs", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/logs/log_test_0001", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/install", want: http.StatusUnauthorized},
-		{method: http.MethodPost, path: "/api/plugins/hello-node/enable", want: http.StatusUnauthorized},
-		{method: http.MethodPost, path: "/api/plugins/hello-node/disable", want: http.StatusUnauthorized},
+		{method: http.MethodPost, path: "/api/plugins/raylea.help/enable", want: http.StatusUnauthorized},
+		{method: http.MethodPost, path: "/api/plugins/raylea.help/disable", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/events", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/logs", want: http.StatusUnauthorized},
-		{method: http.MethodGet, path: "/ws/plugins/hello-node/console", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/ws/plugins/raylea.help/console", want: http.StatusUnauthorized},
 	}
 
 	for _, tc := range cases {

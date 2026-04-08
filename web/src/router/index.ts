@@ -7,6 +7,7 @@ import LoginPage from '@/pages/LoginPage.vue'
 import LogsPage from '@/pages/LogsPage.vue'
 import PluginDetailPage from '@/pages/PluginDetailPage.vue'
 import PluginsPage from '@/pages/PluginsPage.vue'
+import ProtocolLogsPage from '@/pages/ProtocolLogsPage.vue'
 import ProtocolsPage from '@/pages/ProtocolsPage.vue'
 import SetupPage from '@/pages/SetupPage.vue'
 import TasksPage from '@/pages/TasksPage.vue'
@@ -45,6 +46,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'tasks', name: 'tasks', component: TasksPage, meta: { requiresAuth: true, titleKey: 'routes.tasks' } },
       { path: 'logs', name: 'logs', component: LogsPage, meta: { requiresAuth: true, titleKey: 'routes.logs' } },
       { path: 'protocols', name: 'protocols', component: ProtocolsPage, meta: { requiresAuth: true, titleKey: 'routes.protocols' } },
+      { path: 'protocols/logs', name: 'protocol-logs', component: ProtocolLogsPage, meta: { requiresAuth: true, titleKey: 'routes.protocolLogs' } },
       { path: 'config', name: 'config', component: ConfigPage, meta: { requiresAuth: true, titleKey: 'routes.config' } },
     ],
   },

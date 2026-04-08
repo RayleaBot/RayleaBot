@@ -5,12 +5,18 @@ import "strings"
 const ProtocolOneBot11 = "onebot11"
 
 func NormalizeSummary(summary Summary) Summary {
+	summary.LogID = strings.TrimSpace(summary.LogID)
 	summary.Level = strings.ToLower(strings.TrimSpace(summary.Level))
 	summary.Source = strings.TrimSpace(summary.Source)
 	summary.Message = strings.TrimSpace(summary.Message)
 	summary.PluginID = strings.TrimSpace(summary.PluginID)
 	summary.RequestID = strings.TrimSpace(summary.RequestID)
 	summary.Protocol = strings.TrimSpace(summary.Protocol)
+	summary.Details = sanitizeDetailsMap(cloneDetailsMap(summary.Details))
+
+	if summary.LogID == "" {
+		summary.LogID = generateLogID()
+	}
 
 	if summary.Source == "" {
 		summary.Source = "server"

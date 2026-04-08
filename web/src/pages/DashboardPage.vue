@@ -127,7 +127,7 @@ const {
       <DashboardReadinessCard
         :section-title="t('dashboard.readinessSection')"
         :check-items="checkItems"
-        :readiness-note-text="health?.status === 'ok' && readiness?.status === 'degraded' ? t('dashboard.readinessLimitedHint') : t('dashboard.readinessHint')"
+        readiness-note-text=""
         :reason-codes-label="t('dashboard.reasonCodes')"
         :visible-reason-codes="visibleReasonCodes"
         :readiness-issues="readinessIssues"

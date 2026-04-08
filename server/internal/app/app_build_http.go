@@ -60,6 +60,7 @@ func registerAppProtectedRoutes(router chi.Router, application *App) {
 	router.Get("/api/config", application.handleConfigGet())
 	router.Put("/api/config", application.handleConfigPut())
 	router.Get("/api/logs", application.handleLogsList())
+	router.Get("/api/logs/{log_id}", application.handleLogDetail())
 	router.Get("/api/system/status", application.handleSystemStatus())
 	router.Post("/api/system/shutdown", application.handleSystemShutdown())
 	router.Post("/api/system/backup", application.handleSystemBackup())

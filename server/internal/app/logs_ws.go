@@ -87,7 +87,12 @@ func (a *App) replayLogSummaries(ctx context.Context) []logging.Summary {
 }
 
 func logSummaryKey(summary logging.Summary) string {
+	if summary.LogID != "" {
+		return summary.LogID
+	}
+
 	return strings.Join([]string{
+		summary.LogID,
 		summary.Timestamp,
 		summary.Level,
 		summary.Source,

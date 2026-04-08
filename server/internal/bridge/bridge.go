@@ -3,7 +3,9 @@ package bridge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -144,24 +146,16 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 
 	if !isSupportedEvent(event) {
 		b.recordIgnored(event, now)
-		b.logger.Debug(
-			"runtime bridge ignored adapter event",
-			"component", "bridge",
-			"event_kind", event.Kind,
-			"event_type", event.EventType,
-		)
+		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
 		return OutcomeIgnored
 	}
 
 	if b.runtime == nil || b.runtime.Snapshot().State != runtime.StateRunning {
 		b.recordRejected(event, now, codePlatformInvalidRequest, "runtime is not running")
-		b.logger.Warn(
-			"runtime bridge rejected adapter event",
-			"component", "bridge",
-			"event_kind", event.Kind,
-			"event_type", event.EventType,
-			"error_code", codePlatformInvalidRequest,
-		)
+		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		attrs = append(attrs, "error_code", codePlatformInvalidRequest)
+		b.logger.Warn(bridgeEventSummary("rejected", event), attrs...)
 		return OutcomeRejected
 	}
 
@@ -204,13 +198,9 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 		if errors.As(err, &runtimeErr) {
 			if runtimeErr.Code == codePlatformInvalidRequest || runtimeErr.Code == codePluginStopping {
 				b.recordRejected(event, now, runtimeErr.Code, runtimeErr.Message)
-				b.logger.Warn(
-					"runtime bridge rejected adapter event",
-					"component", "bridge",
-					"event_kind", event.Kind,
-					"event_type", event.EventType,
-					"error_code", runtimeErr.Code,
-				)
+				attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+				attrs = append(attrs, "error_code", runtimeErr.Code)
+				b.logger.Warn(bridgeEventSummary("rejected", event), attrs...)
 				return OutcomeRejected
 			}
 
@@ -224,24 +214,16 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 			}
 
 			b.recordError(event, now, errorCode, errorMessage)
-			b.logger.Warn(
-				"runtime bridge received plugin error",
-				"component", "bridge",
-				"event_kind", event.Kind,
-				"event_type", event.EventType,
-				"error_code", runtimeErr.Code,
-			)
+			attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+			attrs = append(attrs, "error_code", runtimeErr.Code)
+			b.logger.Warn(bridgeEventSummary("received plugin error for", event), attrs...)
 			return OutcomeError
 		}
 
 		b.recordError(event, now, "plugin.internal_error", err.Error())
-		b.logger.Warn(
-			"runtime bridge failed during event delivery",
-			"component", "bridge",
-			"event_kind", event.Kind,
-			"event_type", event.EventType,
-			"error_code", "plugin.internal_error",
-		)
+		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		attrs = append(attrs, "error_code", "plugin.internal_error")
+		b.logger.Warn(bridgeEventSummary("failed during delivery for", event), attrs...)
 		return OutcomeError
 	}
 
@@ -257,36 +239,28 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 			}
 
 			b.recordError(event, now, code, message)
-			b.logger.Warn(
-				"runtime bridge failed to execute outbound adapter action",
-				"component", "bridge",
-				"event_kind", event.Kind,
-				"event_type", event.EventType,
-				"error_code", code,
-			)
+			attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+			attrs = append(attrs, bridgeActionLogAttrs(*delivery.Action)...)
+			attrs = append(attrs, "error_code", code)
+			b.logger.Warn(bridgeEventSummary("failed outbound action for", event), attrs...)
 			return OutcomeError
 		}
 
 		b.recordDelivered(event, now)
-		b.logger.Info(
-			"runtime bridge executed outbound adapter action",
-			"component", "bridge",
-			"event_kind", event.Kind,
-			"event_type", event.EventType,
+		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		attrs = append(attrs, bridgeActionLogAttrs(*delivery.Action)...)
+		attrs = append(attrs,
 			"request_id", delivery.RequestID,
-			"message_id", result.MessageID,
+			"outbound_message_id", result.MessageID,
 		)
+		b.logger.Info(bridgeEventSummary("executed outbound action for", event), attrs...)
 		return OutcomeDelivered
 	}
 
 	b.recordDelivered(event, now)
-	b.logger.Info(
-		"runtime bridge delivered adapter event",
-		"component", "bridge",
-		"event_kind", event.Kind,
-		"event_type", event.EventType,
-		"request_id", delivery.RequestID,
-	)
+	attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+	attrs = append(attrs, "request_id", delivery.RequestID)
+	b.logger.Info(bridgeEventSummary("delivered", event), attrs...)
 	return OutcomeDelivered
 }
 
@@ -430,4 +404,120 @@ func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) 
 			}
 		}
 	}
+}
+
+func bridgeEventSummary(action string, event adapter.NormalizedEvent) string {
+	base := "adapter event"
+	switch event.EventType {
+	case "message.group":
+		base = "group message"
+	case "message.private":
+		base = "private message"
+	case "notice.member_increase":
+		base = "group member increase notice"
+	case "notice.member_decrease":
+		base = "group member decrease notice"
+	}
+
+	summary := fmt.Sprintf("runtime bridge %s %s", action, base)
+	if text := strings.TrimSpace(event.PlainText); text != "" {
+		summary += ": " + summarizeBridgeText(text)
+	}
+	return summary
+}
+
+func summarizeBridgeText(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	if len(text) > 72 {
+		return text[:72] + "..."
+	}
+	return text
+}
+
+func bridgeEventLogAttrs(event adapter.NormalizedEvent) []any {
+	attrs := []any{
+		"direction", "inbound",
+		"event_kind", event.Kind,
+		"event_type", event.EventType,
+		"conversation_type", event.ConversationType,
+		"conversation_id", event.ConversationID,
+		"sender_id", event.SenderID,
+	}
+	if event.MessageID != "" {
+		attrs = append(attrs, "message_id", event.MessageID)
+	}
+	if event.PlainText != "" {
+		attrs = append(attrs, "plain_text", event.PlainText)
+	}
+	if len(event.Segments) > 0 {
+		attrs = append(attrs, "segments", bridgeSegmentsToAny(event.Segments))
+	}
+	return attrs
+}
+
+func bridgeActionLogAttrs(action runtime.Action) []any {
+	attrs := []any{
+		"target_type", action.TargetType,
+		"target_id", action.TargetID,
+	}
+	if len(action.MessageSegments) > 0 {
+		attrs = append(attrs, "segments", bridgeActionSegmentsToAny(action.MessageSegments))
+	}
+	if text := bridgeActionPlainText(action.MessageSegments); text != "" {
+		attrs = append(attrs, "plain_text", text)
+	}
+	return attrs
+}
+
+func bridgeSegmentsToAny(segments []adapter.MessageSegment) []any {
+	items := make([]any, 0, len(segments))
+	for _, segment := range segments {
+		items = append(items, map[string]any{
+			"type": segment.Type,
+			"data": cloneBridgeData(segment.Data),
+		})
+	}
+	return items
+}
+
+func bridgeActionSegmentsToAny(segments []runtime.ActionSegment) []any {
+	items := make([]any, 0, len(segments))
+	for _, segment := range segments {
+		items = append(items, map[string]any{
+			"type": segment.Type,
+			"data": cloneBridgeData(segment.Data),
+		})
+	}
+	return items
+}
+
+func bridgeActionPlainText(segments []runtime.ActionSegment) string {
+	if len(segments) == 0 {
+		return ""
+	}
+
+	var builder strings.Builder
+	for _, segment := range segments {
+		if strings.TrimSpace(segment.Type) != "text" {
+			continue
+		}
+		text, _ := segment.Data["text"].(string)
+		builder.WriteString(text)
+	}
+	return strings.TrimSpace(builder.String())
+}
+
+func cloneBridgeData(data map[string]any) map[string]any {
+	if len(data) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(data))
+	for key, value := range data {
+		cloned[key] = value
+	}
+	return cloned
 }

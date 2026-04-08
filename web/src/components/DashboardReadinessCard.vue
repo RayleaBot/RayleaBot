@@ -58,7 +58,7 @@ function getCheckIcon(status: StatusType): string {
 
     <el-empty v-else :description="t('display.empty')" />
 
-    <div class="readiness-note">
+    <div v-if="readinessNoteText" class="readiness-note">
       <small style="color: var(--muted);">
         {{ readinessNoteText }}
       </small>
