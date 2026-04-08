@@ -99,7 +99,7 @@
 | `GET /readyz` | ✅ | readiness 与保守 adapter 状态映射已实现 |
 | SQLite foundation | ✅ | WAL、migration runner、读写句柄分离、自动建库已落地 |
 | Auth / Task / Plugin 基础装配 | ✅ | auth、tasks、plugin catalog、storage、secret store 已随 app 启动装配 |
-| plugin discovery | ✅ | 当前扫描 `plugins/builtin`、`examples/plugins` 与 `plugins/installed` |
+| plugin discovery | ✅ | 当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责 |
 
 ---
 

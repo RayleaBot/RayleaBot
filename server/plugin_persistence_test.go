@@ -18,18 +18,18 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	token := issueLoginToken(t, appA)
 	serverA := httptest.NewServer(appA.Handler())
 
-	enableReq, err := http.NewRequest(http.MethodPost, serverA.URL+"/api/plugins/hello-node/enable", nil)
+	enableReq, err := http.NewRequest(http.MethodPost, serverA.URL+"/api/plugins/raylea.help/disable", nil)
 	if err != nil {
-		t.Fatalf("create enable request: %v", err)
+		t.Fatalf("create disable request: %v", err)
 	}
 	enableReq.Header.Set("Authorization", "Bearer "+token)
 	enableResp, err := serverA.Client().Do(enableReq)
 	if err != nil {
-		t.Fatalf("perform enable request: %v", err)
+		t.Fatalf("perform disable request: %v", err)
 	}
 	enableResp.Body.Close()
 	if enableResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected enable status: got %d want 200", enableResp.StatusCode)
+		t.Fatalf("unexpected disable status: got %d want 200", enableResp.StatusCode)
 	}
 	serverA.Close()
 	closePersistentTestApp(t, appA)
@@ -54,22 +54,22 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	listBody := decodeBody(t, readAll(t, listResp))
 	items := listBody["items"].([]any)
 
-	var helloNode map[string]any
+	var builtinHelp map[string]any
 	for _, item := range items {
 		entry := item.(map[string]any)
-		if entry["id"] == "hello-node" {
-			helloNode = entry
+		if entry["id"] == "raylea.help" {
+			builtinHelp = entry
 			break
 		}
 	}
-	if helloNode == nil {
-		t.Fatal("expected hello-node in plugin list")
+	if builtinHelp == nil {
+		t.Fatal("expected raylea.help in plugin list")
 	}
-	if helloNode["desired_state"] != "enabled" {
-		t.Fatalf("unexpected persisted desired_state: got %#v want enabled", helloNode["desired_state"])
+	if builtinHelp["desired_state"] != "disabled" {
+		t.Fatalf("unexpected persisted desired_state: got %#v want disabled", builtinHelp["desired_state"])
 	}
-	if helloNode["runtime_state"] != "stopped" {
-		t.Fatalf("unexpected runtime_state after restart: got %#v want stopped", helloNode["runtime_state"])
+	if builtinHelp["runtime_state"] != "stopped" {
+		t.Fatalf("unexpected runtime_state after restart: got %#v want stopped", builtinHelp["runtime_state"])
 	}
 }
 

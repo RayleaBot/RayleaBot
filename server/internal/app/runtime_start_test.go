@@ -18,21 +18,21 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 
 	repoRoot := t.TempDir()
 	writeManagedRuntimeFixtures(t, repoRoot)
-	createPluginEntry(t, repoRoot, "examples/plugins/hello-node", "index.js")
-	createPluginEntry(t, repoRoot, "examples/plugins/zzz-plugin", "main.py")
+	createPluginEntry(t, repoRoot, "plugins/installed/hello-node", "index.js")
+	createPluginEntry(t, repoRoot, "plugins/installed/zzz-plugin", "main.py")
 
 	catalog := plugins.NewCatalog([]plugins.Snapshot{
 		{
 			PluginID:     "aaa-invalid",
 			Valid:        false,
-			ManifestPath: "examples/plugins/aaa-invalid/info.json",
+			ManifestPath: "plugins/installed/aaa-invalid/info.json",
 		},
 		{
 			PluginID:          "hello-node",
 			Valid:             true,
 			Runtime:           "nodejs",
 			Entry:             "index.js",
-			ManifestPath:      "examples/plugins/hello-node/info.json",
+			ManifestPath:      "plugins/installed/hello-node/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 		},
@@ -41,7 +41,7 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 			Valid:             true,
 			Runtime:           "python",
 			Entry:             "main.py",
-			ManifestPath:      "examples/plugins/zzz-plugin/info.json",
+			ManifestPath:      "plugins/installed/zzz-plugin/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "disabled",
 		},
@@ -90,7 +90,7 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 			Valid:             true,
 			Runtime:           "nodejs",
 			Entry:             "index.js",
-			ManifestPath:      "examples/plugins/hello-node/info.json",
+			ManifestPath:      "plugins/installed/hello-node/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 		},
@@ -120,7 +120,7 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	writeManagedRuntimeFixtures(t, repoRoot)
-	createPluginEntry(t, repoRoot, "examples/plugins/hello-node", "index.js")
+	createPluginEntry(t, repoRoot, "plugins/installed/hello-node", "index.js")
 
 	manager := &fakeRuntimeStarter{
 		snapshot: runtime.Snapshot{State: runtime.StateStopped},
@@ -131,7 +131,7 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 			Valid:             true,
 			Runtime:           "nodejs",
 			Entry:             "index.js",
-			ManifestPath:      "examples/plugins/hello-node/info.json",
+			ManifestPath:      "plugins/installed/hello-node/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 		},
@@ -158,7 +158,7 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	writeManagedRuntimeFixtures(t, repoRoot)
-	createPluginEntry(t, repoRoot, "examples/plugins/hello-node", "index.js")
+	createPluginEntry(t, repoRoot, "plugins/installed/hello-node", "index.js")
 
 	manager := &fakeRuntimeStarter{
 		snapshot: runtime.Snapshot{State: runtime.StateStopped},
@@ -169,7 +169,7 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 			Valid:             true,
 			Runtime:           "nodejs",
 			Entry:             "index.js",
-			ManifestPath:      "examples/plugins/hello-node/info.json",
+			ManifestPath:      "plugins/installed/hello-node/info.json",
 			RegistrationState: "installed",
 			DesiredState:      "disabled",
 		},

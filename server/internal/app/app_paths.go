@@ -182,10 +182,6 @@ func pluginDiscoveryContext(configSchemaPath string) (string, string, []plugins.
 			Path:  filepath.Join(repoRoot, "plugins", "builtin"),
 		},
 		{
-			Label: "examples/plugins",
-			Path:  filepath.Join(repoRoot, "examples", "plugins"),
-		},
-		{
 			Label: "plugins/installed",
 			Path:  filepath.Join(repoRoot, "plugins", "installed"),
 		},

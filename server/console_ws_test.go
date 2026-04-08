@@ -17,7 +17,7 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	application.Console.Append(console.Entry{
-		PluginID:  "hello-node",
+		PluginID:  "raylea.help",
 		Stream:    "stderr",
 		Text:      "Traceback (most recent call last): ...",
 		Timestamp: time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC),
@@ -27,7 +27,7 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/hello-node/console", token)
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.help/console", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	frame := readWebSocketJSON(t, conn)
@@ -39,8 +39,8 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	}
 
 	data := frame["data"].(map[string]any)
-	if data["plugin_id"] != "hello-node" {
-		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "hello-node")
+	if data["plugin_id"] != "raylea.help" {
+		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "raylea.help")
 	}
 	if data["stream"] != "stderr" {
 		t.Fatalf("unexpected stream: got %#v want %q", data["stream"], "stderr")
@@ -61,12 +61,12 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/hello-python/console", token)
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.help/console", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForConsoleSubscriber(t, application.Console, "hello-python")
+	waitForConsoleSubscriber(t, application.Console, "raylea.help")
 	application.Console.Append(console.Entry{
-		PluginID:  "hello-python",
+		PluginID:  "raylea.help",
 		Stream:    "system",
 		Text:      "[System] stderr rate limit exceeded, output truncated",
 		Timestamp: time.Date(2026, 3, 20, 10, 5, 0, 0, time.UTC),
@@ -74,8 +74,8 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 
 	frame := readWebSocketJSON(t, conn)
 	data := frame["data"].(map[string]any)
-	if data["plugin_id"] != "hello-python" {
-		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "hello-python")
+	if data["plugin_id"] != "raylea.help" {
+		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "raylea.help")
 	}
 	if data["stream"] != "system" {
 		t.Fatalf("unexpected stream: got %#v want %q", data["stream"], "system")
@@ -95,7 +95,7 @@ func TestPluginConsoleWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/hello-node/console", nil)
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.help/console", nil)
 	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}

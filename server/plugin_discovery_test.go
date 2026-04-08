@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -17,71 +18,28 @@ type pluginInfoFixture struct {
 	} `json:"expect"`
 }
 
-func TestDiscoverExamplesPlugins(t *testing.T) {
+func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 	t.Parallel()
 
-	repoRoot := repoRootPath(t)
-	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
-	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugins.ScanRoot{
-			{
-				Label: "examples/plugins",
-				Path:  filepath.Join(repoRoot, "examples", "plugins"),
-			},
-		},
-		RepoRoot: repoRoot,
+	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
+	application, err := app.New(app.Options{
+		ConfigPath: configPath,
+		SchemaPath: filepath.Join("..", "contracts", "config.user.schema.json"),
 	})
 	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
+		t.Fatalf("app.New failed: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := application.Close(); err != nil {
+			t.Fatalf("close app resources: %v", err)
+		}
+	})
 
-	if summary.ValidCount != 9 {
-		t.Fatalf("unexpected valid count: got %d want 9", summary.ValidCount)
+	if _, ok := application.Plugins.Get("raylea.help"); !ok {
+		t.Fatal("expected builtin plugin to be discovered")
 	}
-
-	catalog := plugins.NewCatalog(snapshots)
-	for _, pluginID := range []string{
-		"echo-python",
-		"example-config-panel",
-		"example-permission-scope",
-		"example-render-card",
-		"example-scheduler",
-		"example-webhook",
-		"hello-node",
-		"hello-python",
-		"notice-logger",
-	} {
-		snapshot, ok := catalog.Get(pluginID)
-		if !ok {
-			t.Fatalf("expected plugin %s to be discovered", pluginID)
-		}
-		if !snapshot.Valid {
-			t.Fatalf("expected plugin %s to be valid", pluginID)
-		}
-		if snapshot.RegistrationState != "installed" {
-			t.Fatalf("unexpected registration_state for %s: %s", pluginID, snapshot.RegistrationState)
-		}
-		if snapshot.DesiredState != "disabled" {
-			t.Fatalf("unexpected desired_state for %s: %s", pluginID, snapshot.DesiredState)
-		}
-		if snapshot.RuntimeState != "stopped" {
-			t.Fatalf("unexpected runtime_state for %s: %s", pluginID, snapshot.RuntimeState)
-		}
-		if snapshot.DisplayState != "discovered" {
-			t.Fatalf("unexpected display_state for %s: %s", pluginID, snapshot.DisplayState)
-		}
-	}
-
-	exampleSnapshot, ok := catalog.Get("example-permission-scope")
-	if !ok {
-		t.Fatal("expected example-permission-scope to be discovered")
-	}
-	if exampleSnapshot.Role != "example" {
-		t.Fatalf("unexpected role: got %q want example", exampleSnapshot.Role)
-	}
-	if got := exampleSnapshot.DefaultConfig["cache_file"]; got != "example-homepage.txt" {
-		t.Fatalf("unexpected default_config.cache_file: got %#v want example-homepage.txt", got)
+	if _, ok := application.Plugins.Get("hello-python"); ok {
+		t.Fatal("examples/plugins must not be discovered by the default application roots")
 	}
 }
 

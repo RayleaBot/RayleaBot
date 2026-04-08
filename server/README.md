@@ -8,7 +8,7 @@
 - `config/user.yaml` 读取与 `contracts/config.user.schema.json` 校验
 - `GET /healthz`、`GET /readyz`
 - SQLite store、migration runner、auth persistence、task persistence、plugin desired_state persistence、grant persistence、secret store
-- plugin discovery：当前扫描 `plugins/builtin`、`examples/plugins` 与 `plugins/installed`
+- plugin discovery：当前扫描 `plugins/builtin` 与 `plugins/installed`；`examples/plugins` 仅保留示例职责
 - management auth surface：
   - `POST /api/setup/admin`
   - `GET /api/setup/status`
