@@ -120,7 +120,7 @@
 ## 已冻结的规范化决议
 
 - `contracts/config.user.schema.json` 中 `server.host` 默认值采用 `127.0.0.1`。
-- OneBot 连接地址正式键名采用 `onebot.ws_url`。
+- OneBot 连接配置正式键名采用 `onebot.reverse_ws.url`、`onebot.forward_ws.url`、`onebot.http_api.url` 与 `onebot.webhook.url`。
 - `launcher/package.json` 锁定 Electron 启动器的脚本入口、打包形态与 Node / pnpm 基线。
 - `server/go.mod` 采用 `github.com/RayleaBot/RayleaBot/server` 作为 module path。
 

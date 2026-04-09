@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: OneBot11 reverse WebSocket ingress accepts an upgrade request.
+request:
+  method: GET
+  path: /api/protocols/onebot11/reverse-ws
+  headers:
+    Authorization: Bearer masked-token
+response:
+  status: 101
+expect:
+  valid: true

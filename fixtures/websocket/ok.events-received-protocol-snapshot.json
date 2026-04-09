@@ -10,21 +10,20 @@
       "protocol_snapshot": {
         "protocol": "onebot11",
         "provider": "standard",
-        "configured_transports": ["reverse_ws"],
-        "active_transport": "reverse_ws",
+        "configured_transports": ["forward_ws"],
+        "active_transports": ["forward_ws"],
         "transport_status": [
           {
-            "transport": "reverse_ws",
+            "transport": "forward_ws",
             "enabled": true,
             "configured": true,
-            "implemented": true,
-            "active": true,
-            "endpoint": "ws://127.0.0.1:8089"
+            "endpoint": "ws://127.0.0.1:8089",
+            "state": "connected",
+            "summary": "主动连接已建立"
           }
         ],
-        "connection_state": "connected",
         "readiness_status": "ready",
-        "summary": "OneBot11 reverse WebSocket 已连接",
+        "summary": "OneBot11 主动连接已就绪",
         "recent_transport_issues": []
       }
     }

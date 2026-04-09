@@ -10,13 +10,11 @@
     },
     "onebot": {
       "provider": "standard",
-      "ws_url": "",
       "access_token": "",
       "reverse_ws": { "enabled": false, "url": "" },
       "forward_ws": { "enabled": false, "url": "" },
       "http_api": { "enabled": false, "url": "" },
-      "webhook": { "enabled": false, "url": "" },
-      "sse": { "enabled": false, "url": "" }
+      "webhook": { "enabled": false, "url": "" }
     },
     "database": {
       "engine": "sqlite",

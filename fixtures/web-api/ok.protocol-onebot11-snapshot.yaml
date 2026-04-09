@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: OneBot11 protocol snapshot returns the current configured transports and adapter-facing state.
+description: OneBot11 protocol snapshot returns the current transport-focused status.
 request:
   method: GET
   path: /api/protocols/onebot11
@@ -10,42 +10,36 @@ response:
     protocol: onebot11
     provider: standard
     configured_transports:
-      - reverse_ws
-    active_transport: reverse_ws
+      - forward_ws
+    active_transports:
+      - forward_ws
     transport_status:
       - transport: reverse_ws
-        enabled: true
-        configured: true
-        implemented: true
-        active: true
-        endpoint: ws://127.0.0.1:8089
-      - transport: forward_ws
         enabled: false
         configured: false
-        implemented: false
-        active: false
         endpoint: ""
+        state: idle
+        summary: 未启用
+      - transport: forward_ws
+        enabled: true
+        configured: true
+        endpoint: ws://127.0.0.1:8089
+        state: connected
+        summary: 主动连接已建立
       - transport: http_api
         enabled: false
         configured: false
-        implemented: false
-        active: false
         endpoint: ""
+        state: idle
+        summary: 未启用
       - transport: webhook
         enabled: false
         configured: false
-        implemented: false
-        active: false
         endpoint: ""
-      - transport: sse
-        enabled: false
-        configured: false
-        implemented: false
-        active: false
-        endpoint: ""
-    connection_state: connected
+        state: idle
+        summary: 未启用
     readiness_status: ready
-    summary: OneBot11 reverse WebSocket 已连接
+    summary: OneBot11 主动连接已就绪
     recent_transport_issues: []
 expect:
   valid: true

@@ -11,7 +11,6 @@ request:
       port: 8081
     onebot:
       provider: standard
-      ws_url: ""
       access_token: __REDACTED__
       reverse_ws:
         enabled: false
@@ -23,9 +22,6 @@ request:
         enabled: false
         url: ""
       webhook:
-        enabled: false
-        url: ""
-      sse:
         enabled: false
         url: ""
     database:
@@ -118,7 +114,6 @@ response:
         port: 8081
       onebot:
         provider: standard
-        ws_url: ""
         access_token: __REDACTED__
         reverse_ws:
           enabled: false
@@ -130,9 +125,6 @@ response:
           enabled: false
           url: ""
         webhook:
-          enabled: false
-          url: ""
-        sse:
           enabled: false
           url: ""
       database:

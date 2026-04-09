@@ -59,27 +59,13 @@
         "reverse_ws",
         "forward_ws",
         "http_api",
-        "webhook",
-        "sse"
+        "webhook"
       ],
       "properties": {
         "provider": {
           "type": "string",
           "enum": ["standard", "napcat", "luckylillia"],
           "default": "standard"
-        },
-        "ws_url": {
-          "type": "string",
-          "default": "",
-          "anyOf": [
-            {
-              "const": ""
-            },
-            {
-              "format": "uri",
-              "pattern": "^(ws|wss)://.+$"
-            }
-          ]
         },
         "access_token": {
           "type": "string",
@@ -95,9 +81,6 @@
           "$ref": "#/$defs/onebotHttpTransport"
         },
         "webhook": {
-          "$ref": "#/$defs/onebotHttpTransport"
-        },
-        "sse": {
           "$ref": "#/$defs/onebotHttpTransport"
         }
       }

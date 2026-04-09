@@ -35,7 +35,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot、plugin lifecycle、plugin grants、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`

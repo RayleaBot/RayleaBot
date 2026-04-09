@@ -1,0 +1,17 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: OneBot11 webhook ingress rejects a malformed payload.
+request:
+  method: POST
+  path: /api/protocols/onebot11/webhook
+  headers:
+    Authorization: Bearer masked-token
+  body:
+    payload: invalid
+response:
+  status: 400
+  body:
+    error:
+      code: adapter.transport_webhook_invalid_payload
+expect:
+  valid: true

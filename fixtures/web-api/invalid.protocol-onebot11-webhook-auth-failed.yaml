@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: OneBot11 webhook ingress rejects a request with an invalid access token.
+request:
+  method: POST
+  path: /api/protocols/onebot11/webhook
+  headers:
+    Authorization: Bearer wrong-token
+  body:
+    post_type: meta_event
+    meta_event_type: heartbeat
+response:
+  status: 401
+  body:
+    error:
+      code: adapter.transport_webhook_auth_failed
+expect:
+  valid: true

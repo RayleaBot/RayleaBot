@@ -11,7 +11,6 @@ request:
       port: 8080
     onebot:
       provider: standard
-      ws_url: http://127.0.0.1:6700
       access_token: __REDACTED__
       reverse_ws:
         enabled: true
@@ -23,9 +22,6 @@ request:
         enabled: false
         url: ""
       webhook:
-        enabled: false
-        url: ""
-      sse:
         enabled: false
         url: ""
     database:

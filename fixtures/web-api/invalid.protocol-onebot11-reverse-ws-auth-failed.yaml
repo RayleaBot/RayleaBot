@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: OneBot11 reverse WebSocket ingress rejects a request with an invalid access token.
+request:
+  method: GET
+  path: /api/protocols/onebot11/reverse-ws
+  headers:
+    Authorization: Bearer wrong-token
+response:
+  status: 401
+  body:
+    error:
+      code: adapter.transport_reverse_ws_auth_failed
+expect:
+  valid: true

@@ -1,0 +1,25 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: OneBot11 webhook ingress accepts a valid event payload.
+request:
+  method: POST
+  path: /api/protocols/onebot11/webhook
+  headers:
+    Authorization: Bearer masked-token
+  body:
+    post_type: message
+    message_type: private
+    self_id: 2609164374
+    user_id: 20001
+    message_id: 1001
+    raw_message: hello
+    message:
+      - type: text
+        data:
+          text: hello
+response:
+  status: 202
+  body:
+    accepted: true
+expect:
+  valid: true
