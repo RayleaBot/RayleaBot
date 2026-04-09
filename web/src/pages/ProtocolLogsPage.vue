@@ -4,13 +4,10 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 import RetryPanel from '@/components/RetryPanel.vue'
-import { getAdapterStateLabel, getLogLevelLabel, getLogProtocolLabel, getStatusType } from '@/lib/display'
+import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
-import { formatProtocolEventSummary, formatProtocolIssueSummary } from '@/lib/management-summary'
-import { ONEBOT11_PROTOCOL_NAME, isProtocolEvent, isProtocolIssue } from '@/lib/protocols'
 import { t } from '@/i18n'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
-import { useSystemStore } from '@/stores/system'
 
 const protocolDetailFieldKeys = [
   'direction',
@@ -34,7 +31,6 @@ type ProtocolDetailFieldKey = (typeof protocolDetailFieldKeys)[number]
 
 const router = useRouter()
 const protocolLogsStore = useProtocolLogsStore()
-const systemStore = useSystemStore()
 
 const {
   autoFollow,
@@ -48,27 +44,8 @@ const {
   selectedItem,
   selectedLogId,
 } = storeToRefs(protocolLogsStore)
-const { readiness, recentEvents, system } = storeToRefs(systemStore)
 
 const terminalScroller = ref<HTMLElement | null>(null)
-
-const protocolStatusLabel = computed(() => getAdapterStateLabel(system.value?.adapter_state))
-const protocolStatusType = computed(() => getStatusType(system.value?.adapter_state))
-const protocolSummary = computed(() => {
-  const readinessIssue = readiness.value?.issues?.find((issue) => isProtocolIssue(issue))
-  const issueSummary = formatProtocolIssueSummary(readinessIssue)
-  if (issueSummary) {
-    return issueSummary
-  }
-
-  const recentEvent = recentEvents.value.find((event) => isProtocolEvent(event))
-  const eventSummary = formatProtocolEventSummary(recentEvent?.payload)
-  if (eventSummary) {
-    return eventSummary
-  }
-
-  return protocolStatusLabel.value
-})
 const selectedSummary = computed(() => currentDetail.value ?? selectedItem.value ?? null)
 const detailEntries = computed(() => {
   const details = currentDetail.value?.details ?? {}
@@ -94,18 +71,14 @@ watch(
     if (!followEnabled || !latest || latest.log_id !== logId) {
       return
     }
-    await scrollTerminalToBottom()
+    await scrollTerminalToBottom('smooth')
   },
 )
 
 async function loadPage() {
   try {
-    const requests: Array<Promise<unknown>> = [protocolLogsStore.fetchList()]
-    if (!system.value || !readiness.value) {
-      requests.push(systemStore.refresh())
-    }
-    await Promise.all(requests)
-    await scrollTerminalToBottom()
+    await protocolLogsStore.fetchList()
+    await scrollTerminalToBottom('auto')
   } catch {
     // store error state drives the page
   }
@@ -123,7 +96,7 @@ onUnmounted(() => {
 async function refreshLogs() {
   try {
     await protocolLogsStore.fetchList()
-    await scrollTerminalToBottom()
+    await scrollTerminalToBottom('auto')
   } catch {
     // store error state drives the page
   }
@@ -135,7 +108,7 @@ function clearBuffer() {
 
 async function resumeAutoFollow() {
   await protocolLogsStore.resumeAutoFollow()
-  await scrollTerminalToBottom()
+  await scrollTerminalToBottom('auto')
 }
 
 function pauseAutoFollow() {
@@ -150,7 +123,7 @@ async function handleLogSelection(logId: string) {
   }
 }
 
-async function scrollTerminalToBottom() {
+async function scrollTerminalToBottom(behavior: ScrollBehavior = 'smooth') {
   await nextTick()
   if (!terminalScroller.value) {
     return
@@ -158,7 +131,7 @@ async function scrollTerminalToBottom() {
 
   terminalScroller.value.scrollTo({
     top: terminalScroller.value.scrollHeight,
-    behavior: 'smooth',
+    behavior,
   })
 }
 
@@ -207,30 +180,6 @@ function getLevelPillClass(level: string) {
         </el-button>
       </div>
     </section>
-
-    <div class="industrial-card overview-panel">
-      <div class="card-header">
-        <strong class="uppercase">> {{ t('protocols.overviewTitle') }}</strong>
-        <span class="industrial-badge">[{{ t('protocols.fixedProtocolLabel') }}: {{ ONEBOT11_PROTOCOL_NAME }}]</span>
-      </div>
-
-      <div class="protocol-overview-grid">
-        <div class="overview-item">
-          <small class="mono-label">[{{ t('protocols.protocolNameLabel') }}]</small>
-          <strong class="mono-value">{{ ONEBOT11_PROTOCOL_NAME }}</strong>
-        </div>
-        <div class="overview-item">
-          <small class="mono-label">[{{ t('protocols.protocolStatusLabel') }}]</small>
-          <span class="industrial-badge status-badge" :class="protocolStatusType">
-            {{ protocolStatusLabel }}
-          </span>
-        </div>
-        <div class="overview-item">
-          <small class="mono-label">[{{ t('protocols.protocolSummaryLabel') }}]</small>
-          <strong class="mono-value highlight-value">{{ protocolSummary }}</strong>
-        </div>
-      </div>
-    </div>
 
     <section class="protocol-logs-section">
       <div class="section-heading">
@@ -484,22 +433,6 @@ function getLevelPillClass(level: string) {
 .industrial-badge.danger { border-color: #ff4500; color: #ff4500; }
 .industrial-badge.warning { border-color: #ffb000; color: #ffb000; }
 
-.protocol-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  padding: 20px;
-}
-
-.overview-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  background: rgba(17, 17, 17, 0.03);
-  border: 2px dashed var(--border-color);
-}
-
 .mono-label {
   font-family: "Cascadia Mono", monospace;
   font-size: 0.85rem;
@@ -512,10 +445,6 @@ function getLevelPillClass(level: string) {
   font-size: 1.1rem;
   font-weight: bold;
   word-break: break-all;
-}
-
-.highlight-value {
-  color: var(--accent-color);
 }
 
 /* Section Heading */

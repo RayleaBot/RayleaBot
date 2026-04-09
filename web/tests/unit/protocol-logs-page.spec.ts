@@ -6,11 +6,15 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import ProtocolLogsPage from '@/pages/ProtocolLogsPage.vue'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
-import { useSystemStore } from '@/stores/system'
 
 describe('ProtocolLogsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    })
   })
 
   function createTestRouter() {
@@ -25,7 +29,6 @@ describe('ProtocolLogsPage', () => {
 
   it('renders the protocol terminal stream and structured detail panel', async () => {
     const logsStore = useProtocolLogsStore()
-    const systemStore = useSystemStore()
 
     logsStore.items = [
       {
@@ -58,22 +61,6 @@ describe('ProtocolLogsPage', () => {
         },
       },
     }
-    systemStore.system = {
-      status: 'running',
-      adapter_state: 'connected',
-      active_plugins: 1,
-      uptime_seconds: 12,
-    }
-    systemStore.readiness = {
-      status: 'degraded',
-      issues: [
-        {
-          code: 'adapter.partial_warning',
-          severity: 'warning',
-          summary: 'OneBot warning is visible in protocol logs',
-        },
-      ],
-    }
 
     vi.spyOn(logsStore, 'fetchList').mockResolvedValue(logsStore.items)
 
@@ -89,9 +76,10 @@ describe('ProtocolLogsPage', () => {
 
     await flushPromises()
 
+    expect(HTMLElement.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({
+      behavior: 'auto',
+    }))
     expect(wrapper.text()).toContain('协议日志')
-    expect(wrapper.text()).toContain('OneBot11')
-    expect(wrapper.text()).toContain('协议有异常提示，请查看协议日志')
     expect(wrapper.find('.protocol-terminal').exists()).toBe(true)
     expect(wrapper.findAll('.protocol-terminal-line')).toHaveLength(1)
     expect(wrapper.text()).toContain('ignored OneBot API response with unsupported echo')
@@ -102,7 +90,6 @@ describe('ProtocolLogsPage', () => {
 
   it('loads log detail when a terminal line is selected', async () => {
     const logsStore = useProtocolLogsStore()
-    const systemStore = useSystemStore()
 
     logsStore.items = [
       {
@@ -115,15 +102,6 @@ describe('ProtocolLogsPage', () => {
         message: 'runtime bridge delivered adapter event',
       },
     ]
-    systemStore.system = {
-      status: 'running',
-      adapter_state: 'connected',
-      active_plugins: 1,
-      uptime_seconds: 12,
-    }
-    systemStore.readiness = {
-      status: 'ready',
-    }
 
     vi.spyOn(logsStore, 'fetchList').mockResolvedValue(logsStore.items)
     const selectSpy = vi.spyOn(logsStore, 'selectLog').mockResolvedValue(null)
@@ -142,5 +120,57 @@ describe('ProtocolLogsPage', () => {
 
     await wrapper.find('.protocol-terminal-line').trigger('click')
     expect(selectSpy).toHaveBeenCalledWith('log_bridge_0001')
+  })
+
+  it('uses smooth follow only for live append auto-follow updates', async () => {
+    const logsStore = useProtocolLogsStore()
+
+    logsStore.items = [
+      {
+        log_id: 'log_adapter_live_0001',
+        timestamp: '2026-04-08T10:16:00Z',
+        level: 'warn',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        request_id: 'req_adapter_ignored_0001',
+        message: 'ignored OneBot API response with unsupported echo',
+      },
+    ]
+    logsStore.selectedLogId = 'log_adapter_live_0001'
+
+    vi.spyOn(logsStore, 'fetchList').mockResolvedValue(logsStore.items)
+
+    const router = createTestRouter()
+    await router.push('/protocols/logs')
+    await router.isReady()
+
+    mount(ProtocolLogsPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+    vi.mocked(HTMLElement.prototype.scrollTo).mockClear()
+
+    logsStore.items = [
+      ...logsStore.items,
+      {
+        log_id: 'log_adapter_live_0002',
+        timestamp: '2026-04-08T10:17:00Z',
+        level: 'warn',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        request_id: 'req_adapter_ignored_0002',
+        message: 'ignored OneBot API response with blank echo',
+      },
+    ]
+    logsStore.selectedLogId = 'log_adapter_live_0002'
+
+    await flushPromises()
+
+    expect(HTMLElement.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({
+      behavior: 'smooth',
+    }))
   })
 })
