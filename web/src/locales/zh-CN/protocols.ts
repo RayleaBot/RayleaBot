@@ -3,7 +3,6 @@ export const protocols = {
   subtitle: '当前正式支持协议：OneBot11',
   logsPageTitle: '协议日志',
   overviewTitle: '协议概览',
-  compatibilityTitle: '兼容矩阵',
   connectionSettings: '连接设置',
   connectionSettingsHint: '在这里填写 OneBot11 地址、访问令牌和重连参数。',
   logsTitle: '协议日志',

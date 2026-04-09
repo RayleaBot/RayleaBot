@@ -65,9 +65,6 @@ export const useSocketStore = defineStore('sockets', () => {
         protocolsStore.applySnapshot(frame.data.protocol_snapshot)
         return
       }
-      if ('protocol_compatibility' in frame.data) {
-        protocolsStore.applyCompatibility(frame.data.protocol_compatibility)
-      }
     },
   })
 

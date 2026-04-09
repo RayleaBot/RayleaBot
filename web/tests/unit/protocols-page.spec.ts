@@ -132,15 +132,9 @@ describe('ProtocolsPage', () => {
       summary: 'OneBot11 鉴权失败，请检查访问令牌',
       recent_transport_issues: [],
     }
-    protocolsStore.compatibility = {
-      protocol: 'onebot11',
-      provider: 'standard',
-      generated_at: '2026-04-09T09:00:00Z',
-      groups: [],
-    }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot!, compatibility: protocolsStore.compatibility! })
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
 
     const router = createTestRouter()
     await router.push('/protocols')
@@ -157,7 +151,6 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('OneBot11')
     expect(wrapper.text()).toContain('OneBot11 鉴权失败，请检查访问令牌')
-    expect(wrapper.text()).toContain('兼容矩阵')
     expect(wrapper.text()).toContain('连接设置')
     expect(wrapper.text()).toContain('查看协议日志')
   })
@@ -180,15 +173,9 @@ describe('ProtocolsPage', () => {
       summary: 'OneBot11 reverse WebSocket 已连接',
       recent_transport_issues: [],
     }
-    protocolsStore.compatibility = {
-      protocol: 'onebot11',
-      provider: 'standard',
-      generated_at: '2026-04-09T09:00:00Z',
-      groups: [],
-    }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot!, compatibility: protocolsStore.compatibility! })
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
     const saveSpy = vi.spyOn(configStore, 'saveConfig').mockResolvedValue({
       config: configStore.document,
       redacted_fields: [],

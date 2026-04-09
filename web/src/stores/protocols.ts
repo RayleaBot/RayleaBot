@@ -3,14 +3,10 @@ import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
-import type {
-  OneBot11ProtocolCompatibilityResponse,
-  OneBot11ProtocolSnapshotResponse,
-} from '@/types/api'
+import type { OneBot11ProtocolSnapshotResponse } from '@/types/api'
 
 export const useProtocolsStore = defineStore('protocols', () => {
   const snapshot = ref<OneBot11ProtocolSnapshotResponse | null>(null)
-  const compatibility = ref<OneBot11ProtocolCompatibilityResponse | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -18,13 +14,9 @@ export const useProtocolsStore = defineStore('protocols', () => {
     loading.value = true
     error.value = null
     try {
-      const [nextSnapshot, nextCompatibility] = await Promise.all([
-        apiRequest<OneBot11ProtocolSnapshotResponse>('/api/protocols/onebot11'),
-        apiRequest<OneBot11ProtocolCompatibilityResponse>('/api/protocols/onebot11/compatibility'),
-      ])
+      const nextSnapshot = await apiRequest<OneBot11ProtocolSnapshotResponse>('/api/protocols/onebot11')
       snapshot.value = nextSnapshot
-      compatibility.value = nextCompatibility
-      return { snapshot: nextSnapshot, compatibility: nextCompatibility }
+      return { snapshot: nextSnapshot }
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
@@ -37,16 +29,10 @@ export const useProtocolsStore = defineStore('protocols', () => {
     snapshot.value = nextSnapshot
   }
 
-  function applyCompatibility(nextCompatibility: OneBot11ProtocolCompatibilityResponse) {
-    compatibility.value = nextCompatibility
-  }
-
   return {
-    compatibility,
     error,
     loading,
     snapshot,
-    applyCompatibility,
     applySnapshot,
     refresh,
   }
