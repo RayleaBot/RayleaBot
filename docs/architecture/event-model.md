@@ -21,9 +21,27 @@
 | `post_type=message, message_type=group` | `message.group` |
 | `post_type=notice, notice_type=group_increase` | `notice.member_increase` |
 | `post_type=notice, notice_type=group_decrease` | `notice.member_decrease` |
+| `post_type=notice, notice_type=group_admin` | `notice.group_admin` |
+| `post_type=notice, notice_type=group_ban` | `notice.group_ban` |
+| `post_type=notice, notice_type=group_recall` | `notice.group_recall` |
+| `post_type=notice, notice_type=group_upload` | `notice.group_upload` |
+| `post_type=notice, notice_type=group_card` | `notice.group_card` |
+| `post_type=notice, notice_type=group_title` | `notice.group_title` |
+| `post_type=notice, notice_type=essence` | `notice.group_essence` |
+| `post_type=notice, notice_type=friend_add` | `notice.friend_add` |
+| `post_type=notice, notice_type=friend_recall` | `notice.friend_recall` |
+| `post_type=notice, notice_type=flash_file` | `notice.flash_file` |
+| `post_type=notice, notice_type=notify, sub_type=poke` | `notice.poke` |
+| `post_type=notice, notice_type=notify, sub_type=poke_recall` | `notice.poke_recall` |
+| `post_type=notice, notice_type=notify, sub_type=profile_like` | `notice.profile_like` |
+| `post_type=notice, notice_type=notify, sub_type=input_status` | `notice.input_status` |
+| `post_type=notice, notice_type=notify, sub_type=group_msg_emoji_like` | `notice.group_message_emoji_like` |
+| `post_type=request, request_type=friend` | `request.friend` |
+| `post_type=request, request_type=group` | `request.group` |
 | `post_type=meta_event, meta_event_type=heartbeat` | `meta.heartbeat` |
 | `post_type=meta_event, meta_event_type=lifecycle` | `meta.lifecycle` |
 
+- 生命周期与心跳继续作为 adapter 连接状态信号，不进入插件事件投递主链。
 - 未进入正式范围的事件不会伪装成已支持能力。
 - 归一化后事件进入 bridge，再由 dispatcher 投递到订阅该事件的插件 runtime。
 
@@ -80,6 +98,23 @@ OneBot11 WS 上报
 - `at_all`
 - `face`
 - `reply`
+- `record`
+- `video`
+- `file`
+- `flash_file`
+- `json`
+- `xml`
+- `markdown`
+- `music`
+- `contact`
+- `forward`
+- `node`
+- `poke`
+- `dice`
+- `rps`
+- `mface`
+- `keyboard`
+- `shake`
 
 ## 四、管理 WebSocket 事件
 

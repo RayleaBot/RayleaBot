@@ -111,6 +111,7 @@
 - `record`
 - `video`
 - `file`
+- `flash_file`
 - `json`
 - `xml`
 - `markdown`
