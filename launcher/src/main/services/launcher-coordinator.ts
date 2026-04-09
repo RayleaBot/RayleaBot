@@ -582,6 +582,23 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
         }
         if (!deps.processController.isRunning) {
           const lastError = deps.processController.getRecentStderr().at(-1) ?? "服务进程在通过健康检查前已退出。";
+          if (await deps.managementClient.isHealthy(endpoint).catch(() => false)) {
+            await refreshCore(true);
+            return;
+          }
+          if (await deps.isEndpointListening(endpoint).catch(() => false)) {
+            await publish(
+              await buildSnapshot(
+                endpoint,
+                inspection,
+                "failed",
+                "none",
+                "目标端口已被现有进程占用，RayleaBot 无法监听当前地址。",
+                lastError,
+              ),
+            );
+            return;
+          }
           await publish(await buildSnapshot(endpoint, inspection, "failed", "launcher_managed", "服务进程在启动阶段提前退出。", lastError));
           return;
         }

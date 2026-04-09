@@ -106,7 +106,9 @@ export class ServerProcessController {
     this.process = child;
 
     child.stdout.on("data", (chunk) => {
-      this.queueLogWrite(logPath, "stdout", String(chunk));
+      const text = String(chunk);
+      this.queueLogWrite(logPath, "stdout", text);
+      this.recordStdoutDiagnostics(text);
     });
 
     child.stderr.on("data", (chunk) => {
@@ -228,6 +230,25 @@ export class ServerProcessController {
       this.stderrLines.push(line);
     }
     this.stderrLines = this.stderrLines.slice(-MAX_STDERR_LINES);
+  }
+
+  private recordStdoutDiagnostics(text: string) {
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || !this.shouldCaptureStdoutDiagnostic(line)) {
+        continue;
+      }
+      this.stderrLines.push(line);
+    }
+    this.stderrLines = this.stderrLines.slice(-MAX_STDERR_LINES);
+  }
+
+  private shouldCaptureStdoutDiagnostic(line: string) {
+    return line.includes("\"level\":\"ERROR\"")
+      || /\bpanic\b/i.test(line)
+      || /\bfatal\b/i.test(line)
+      || /\blisten on\b/i.test(line)
+      || /\bbind:\b/i.test(line);
   }
 
   private recordLauncherDiagnostic(logPath: string, text: string) {

@@ -225,6 +225,39 @@ describe("ServerProcessController", () => {
     expect(controller.getRecentStderr().join("\n")).toContain("23");
   });
 
+  test("captures startup errors written to stdout for launcher diagnostics", async () => {
+    const installRoot = await createTempDir("controller-stdout");
+    const runtimeRoot = await createTempDir("controller-stdout-runtime");
+
+    await fs.mkdir(path.join(installRoot, "contracts"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "server"), { recursive: true });
+    await fs.mkdir(path.join(installRoot, "config"), { recursive: true });
+    await fs.writeFile(path.join(installRoot, "contracts", "config.user.schema.json"), "{}", "utf8");
+    await fs.writeFile(path.join(installRoot, "config", "user.yaml"), "server: {}\n", "utf8");
+
+    const child = new FakeChildProcess();
+    const spawnProcess = vi.fn(() => {
+      queueMicrotask(() => {
+        child.emit("spawn");
+      });
+      return child as never;
+    });
+
+    const controller = new ServerProcessController({
+      spawnProcess,
+      fileSystem: {
+        mkdir: vi.fn(async () => undefined),
+        appendFile: vi.fn(async () => undefined),
+      },
+      terminateProcessId: vi.fn(async () => true),
+    });
+
+    await controller.start(createSettings(installRoot, runtimeRoot));
+    child.stdout.emit("data", "{\"level\":\"ERROR\",\"msg\":\"listen on 127.0.0.1:8080: bind: address already in use\"}\n");
+
+    expect(controller.getRecentStderr().join("\n")).toContain("listen on 127.0.0.1:8080");
+  });
+
   test("records force-kill fallback failures instead of swallowing them silently", async () => {
     const installRoot = await createTempDir("controller-force-kill");
     const runtimeRoot = await createTempDir("controller-force-kill-runtime");

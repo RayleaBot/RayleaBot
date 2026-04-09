@@ -802,6 +802,92 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.lastError).toContain("config validation failed");
   });
 
+  test("start treats a post-exit healthy endpoint as an existing running service", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    let healthChecks = 0;
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => {
+      healthChecks += 1;
+      if (healthChecks <= 2) {
+        return false;
+      }
+      if (healthChecks === 3) {
+        processController.isRunning = false;
+        return false;
+      }
+      return true;
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 50,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await coordinator.start();
+
+    expect(processController.startCalls).toBe(1);
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+  });
+
+  test("start reports port occupation when the child exits and another process is still listening", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    processController.recentStderr = ["listen on 127.0.0.1:8080: bind: address already in use"];
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => {
+      processController.isRunning = false;
+      return false;
+    });
+    const isEndpointListening = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValue(true);
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening,
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 50,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await coordinator.start();
+
+    expect(coordinator.snapshot.serviceState).toBe("failed");
+    expect(coordinator.snapshot.serviceDetail).toContain("目标端口已被现有进程占用");
+    expect(coordinator.snapshot.lastError).toContain("bind: address already in use");
+  });
+
   test("initialize reports setup_required when /readyz says setup is still required", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
