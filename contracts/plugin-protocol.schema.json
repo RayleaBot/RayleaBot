@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Fixture-ready schema for the minimum platform-runtime JSONL protocol. This contract freezes startup, startup progress, message.send/message.reply payloads with a shared outbound segment model, local config/logger/storage/http/scheduler/webhook/render action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
+  "description": "Fixture-ready schema for the RayleaBot platform-runtime JSONL protocol. This contract freezes startup, startup progress, shared outbound segment payloads, the initial OneBot11 wider action family surface, local config/logger/storage/http/scheduler/webhook/render action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -384,6 +384,54 @@
           "$ref": "#/$defs/outbound_message_segment_face"
         },
         {
+          "$ref": "#/$defs/outbound_message_segment_record"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_video"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_file"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_json"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_xml"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_markdown"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_music"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_contact"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_forward"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_node"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_poke"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_dice"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_rps"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_mface"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_keyboard"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_shake"
+        },
+        {
           "$ref": "#/$defs/outbound_message_segment_reply"
         }
       ]
@@ -404,6 +452,54 @@
         },
         {
           "$ref": "#/$defs/outbound_message_segment_face"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_record"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_video"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_file"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_json"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_xml"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_markdown"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_music"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_contact"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_forward"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_node"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_poke"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_dice"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_rps"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_mface"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_keyboard"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_shake"
         }
       ]
     },
@@ -567,6 +663,85 @@
         }
       }
     },
+    "outbound_message_segment_record": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_media"
+    },
+    "outbound_message_segment_video": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_media"
+    },
+    "outbound_message_segment_file": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_media"
+    },
+    "outbound_message_segment_json": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_xml": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_markdown": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_music": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_contact": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_forward": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_node": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_poke": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_dice": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_rps": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_mface": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_keyboard": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_shake": {
+      "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+    },
+    "outbound_message_segment_passthrough_media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "data"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["record", "video", "file"]
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true,
+          "minProperties": 1
+        }
+      }
+    },
+    "outbound_message_segment_passthrough_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["json", "xml", "markdown", "music", "contact", "forward", "node", "poke", "dice", "rps", "mface", "keyboard", "shake"]
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
     "action_message_send_data": {
       "type": "object",
       "additionalProperties": false,
@@ -646,8 +821,111 @@
         },
         {
           "$ref": "#/$defs/action_render_image"
+        },
+        {
+          "$ref": "#/$defs/action_onebot_family"
+        },
+        {
+          "$ref": "#/$defs/action_provider_extension"
         }
       ]
+    },
+    "action_onebot_family_data": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "action_onebot_family": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": ["type", "action", "data"],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "message.get",
+                "message.delete",
+                "message.history.get",
+                "message.forward.get",
+                "message.forward.send",
+                "message.read.mark",
+                "friend.request.handle",
+                "friend.list",
+                "friend.remark.set",
+                "user.info.get",
+                "user.like.send",
+                "group.list",
+                "group.info.get",
+                "group.member.get",
+                "group.member.list",
+                "group.request.handle",
+                "group.leave",
+                "group.admin.set",
+                "group.ban.set",
+                "group.card.set",
+                "group.title.set",
+                "group.name.set",
+                "group.announcement.list",
+                "group.announcement.create",
+                "group.announcement.delete",
+                "group.essence.list",
+                "group.essence.set",
+                "group.essence.unset",
+                "group.honor.get",
+                "group.todo.set",
+                "file.get",
+                "file.download",
+                "file.group.upload",
+                "file.private.upload",
+                "file.group.url.get",
+                "file.private.url.get",
+                "file.group.fs.info",
+                "file.group.fs.list",
+                "file.group.fs.mkdir",
+                "file.group.fs.delete",
+                "reaction.set",
+                "reaction.list",
+                "poke.send"
+              ]
+            },
+            "data": {
+              "$ref": "#/$defs/action_onebot_family_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_provider_extension": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": ["type", "action", "data"],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "action": {
+              "type": "string",
+              "pattern": "^provider\\.(napcat|luckylillia)\\.[a-z0-9_.]+$"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     },
     "action_message_send": {
       "allOf": [
@@ -1823,6 +2101,38 @@
       "example_ref": "fixtures/plugin-protocol/ok.action-render-image.yaml"
     },
     {
+      "type": "action",
+      "action_kind": "message.history.get",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-message-history-get.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "provider.napcat.message_emoji.like.set",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-provider-napcat-message-emoji-like-set.yaml"
+    },
+    {
       "type": "result",
       "direction": "bidirectional",
       "request_id_policy": "required_same_as_request",
@@ -1917,6 +2227,13 @@
     "fixtures/plugin-protocol/ok.action-scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.action-event-expose-webhook.yaml",
     "fixtures/plugin-protocol/ok.action-render-image.yaml",
+    "fixtures/plugin-protocol/ok.action-message-history-get.yaml",
+    "fixtures/plugin-protocol/ok.action-group-announcement-create.yaml",
+    "fixtures/plugin-protocol/ok.action-file-group-upload.yaml",
+    "fixtures/plugin-protocol/ok.action-reaction-set.yaml",
+    "fixtures/plugin-protocol/ok.action-provider-napcat-message-emoji-like-set.yaml",
+    "fixtures/plugin-protocol/ok.action-provider-luckylillia-friend-groups-get.yaml",
+    "fixtures/plugin-protocol/ok.action-message-send-extended-segments.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
     "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
@@ -1945,11 +2262,14 @@
     "fixtures/plugin-protocol/invalid.action-message-send-unsupported-segment.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
+    "fixtures/plugin-protocol/invalid.action-provider-invalid-namespace.yaml",
+    "fixtures/plugin-protocol/invalid.action-onebot-family-non-object-data.yaml",
     "fixtures/plugin-protocol/edge.action-logger-write-result.yaml",
     "fixtures/plugin-protocol/edge.action-storage-kv-list-result.yaml",
+    "fixtures/plugin-protocol/edge.action-provider-luckylillia-friend-groups-get-result.yaml",
     "fixtures/plugin-protocol/ok.event-message-with-segments.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply and local-action RPC logger.write/storage.kv/config.read/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image. message.* use the shared outbound segment model; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching, debug streams, complex streaming payloads, and wider action families remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. message.* uses the shared outbound segment model; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

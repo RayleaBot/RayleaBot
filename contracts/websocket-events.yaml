@@ -13,6 +13,8 @@ x-fixtures:
   - fixtures/websocket/ok.logs-appended.protocol-onebot11.json
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
+  - fixtures/websocket/ok.events-received-protocol-snapshot.json
+  - fixtures/websocket/ok.events-received-protocol-compatibility.json
   - fixtures/websocket/edge.tasks-updated-failed-install.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
@@ -219,6 +221,125 @@ channels:
                   type: string
             - type: object
               additionalProperties: false
+              required: [protocol, protocol_snapshot]
+              properties:
+                protocol:
+                  type: string
+                  enum: [onebot11]
+                protocol_snapshot:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    [protocol, provider, configured_transports, transport_status, connection_state, readiness_status, summary, recent_transport_issues]
+                  properties:
+                    protocol:
+                      type: string
+                      enum: [onebot11]
+                    provider:
+                      type: string
+                      enum: [standard, napcat, luckylillia]
+                    configured_transports:
+                      type: array
+                      items:
+                        type: string
+                        enum: [reverse_ws, forward_ws, http_api, webhook, sse]
+                    active_transport:
+                      type: string
+                      enum: [reverse_ws, forward_ws, http_api, webhook, sse]
+                    transport_status:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required: [transport, enabled, configured, implemented, active, endpoint]
+                        properties:
+                          transport:
+                            type: string
+                            enum: [reverse_ws, forward_ws, http_api, webhook, sse]
+                          enabled:
+                            type: boolean
+                          configured:
+                            type: boolean
+                          implemented:
+                            type: boolean
+                          active:
+                            type: boolean
+                          endpoint:
+                            type: string
+                    connection_state:
+                      type: string
+                      enum: [idle, connecting, connected, auth_failed, reconnecting, stopped]
+                    readiness_status:
+                      type: string
+                      enum: [ready, degraded, failed, setup_required]
+                    summary:
+                      type: string
+                    recent_transport_issues:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required: [code, severity, summary]
+                        properties:
+                          code:
+                            type: string
+                          severity:
+                            type: string
+                            enum: [info, warning, error]
+                          summary:
+                            type: string
+            - type: object
+              additionalProperties: false
+              required: [protocol, protocol_compatibility]
+              properties:
+                protocol:
+                  type: string
+                  enum: [onebot11]
+                protocol_compatibility:
+                  type: object
+                  additionalProperties: false
+                  required: [protocol, provider, generated_at, groups]
+                  properties:
+                    protocol:
+                      type: string
+                      enum: [onebot11]
+                    provider:
+                      type: string
+                      enum: [standard, napcat, luckylillia]
+                    generated_at:
+                      type: string
+                      format: date-time
+                    groups:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required: [group, title, items]
+                        properties:
+                          group:
+                            type: string
+                            enum: [core, segment, action, provider_extension]
+                          title:
+                            type: string
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required: [name, status]
+                              properties:
+                                name:
+                                  type: string
+                                status:
+                                  type: string
+                                  enum: [implemented, frozen, partial]
+                                provider:
+                                  type: string
+                                  enum: [standard, napcat, luckylillia]
+                                notes:
+                                  type: string
+            - type: object
+              additionalProperties: false
               required: [observability_scope, summary, delivered_count, result_count, error_count]
               properties:
                 observability_scope:
@@ -245,7 +366,7 @@ channels:
                 error_count:
                   type: integer
                   minimum: 0
-        example_ref: fixtures/websocket/edge.events-received-degraded.json
+        example_ref: fixtures/websocket/ok.events-received-protocol-snapshot.json
 
   - path: /ws/plugins/{id}/console
     channel: plugin_console

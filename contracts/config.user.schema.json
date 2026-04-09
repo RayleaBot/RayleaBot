@@ -53,7 +53,21 @@
     "onebot": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "provider",
+        "access_token",
+        "reverse_ws",
+        "forward_ws",
+        "http_api",
+        "webhook",
+        "sse"
+      ],
       "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["standard", "napcat", "luckylillia"],
+          "default": "standard"
+        },
         "ws_url": {
           "type": "string",
           "default": "",
@@ -70,6 +84,21 @@
         "access_token": {
           "type": "string",
           "default": ""
+        },
+        "reverse_ws": {
+          "$ref": "#/$defs/onebotWsTransport"
+        },
+        "forward_ws": {
+          "$ref": "#/$defs/onebotWsTransport"
+        },
+        "http_api": {
+          "$ref": "#/$defs/onebotHttpTransport"
+        },
+        "webhook": {
+          "$ref": "#/$defs/onebotHttpTransport"
+        },
+        "sse": {
+          "$ref": "#/$defs/onebotHttpTransport"
         }
       }
     },
@@ -547,6 +576,54 @@
     }
   },
   "$defs": {
+    "onebotWsTransport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "url"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "url": {
+          "type": "string",
+          "default": "",
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "format": "uri",
+              "pattern": "^(ws|wss)://.+$"
+            }
+          ]
+        }
+      }
+    },
+    "onebotHttpTransport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "url"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "url": {
+          "type": "string",
+          "default": "",
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "format": "uri",
+              "pattern": "^https?://.+$"
+            }
+          ]
+        }
+      }
+    },
     "rateLimit": {
       "type": "string",
       "pattern": "^[1-9][0-9]*/[1-9][0-9]*(s|m|h)$"

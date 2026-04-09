@@ -336,3 +336,53 @@ codes:
     http_status: 409
     retryable: false
     applies_to: [http, websocket, plugin_protocol]
+
+  adapter.transport_not_implemented:
+    code: adapter.transport_not_implemented
+    domain: adapter
+    message_key: errors.adapter.transport_not_implemented
+    message: 当前协议传输模式尚未实现
+    description: The requested OneBot transport is part of the frozen v0.2 contract surface but does not have a runnable adapter implementation yet.
+    http_status: 501
+    retryable: false
+    applies_to: [http, websocket, readiness, plugin_protocol]
+
+  adapter.transport_invalid_config:
+    code: adapter.transport_invalid_config
+    domain: adapter
+    message_key: errors.adapter.transport_invalid_config
+    message: 协议传输配置不合法
+    description: The requested OneBot transport is enabled but missing a valid endpoint or contains an incompatible URL shape.
+    http_status: 400
+    retryable: false
+    applies_to: [http, websocket, readiness]
+
+  adapter.compatibility_not_supported:
+    code: adapter.compatibility_not_supported
+    domain: adapter
+    message_key: errors.adapter.compatibility_not_supported
+    message: 当前协议兼容项尚未实现
+    description: The requested OneBot event, segment, or action is part of the formal matrix but is not implemented by the current runtime path yet.
+    http_status: 501
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol]
+
+  adapter.provider_extension_not_supported:
+    code: adapter.provider_extension_not_supported
+    domain: adapter
+    message_key: errors.adapter.provider_extension_not_supported
+    message: 当前 provider 扩展能力尚未实现
+    description: The requested NapCat or LuckyLillia provider-specific extension is formally named in the compatibility matrix but is not implemented by the current runtime path yet.
+    http_status: 501
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol]
+
+  adapter.matrix_projection_failed:
+    code: adapter.matrix_projection_failed
+    domain: adapter
+    message_key: errors.adapter.matrix_projection_failed
+    message: 协议兼容矩阵生成失败
+    description: The management surface failed to project the current OneBot compatibility matrix or protocol snapshot into the formal management response.
+    http_status: 500
+    retryable: true
+    applies_to: [http, websocket]

@@ -17,6 +17,8 @@ x-fixtures:
   - fixtures/web-api/ok.config-get-response.yaml
   - fixtures/web-api/ok.config-update-response.yaml
   - fixtures/web-api/ok.system-status.yaml
+  - fixtures/web-api/ok.protocol-onebot11-snapshot.yaml
+  - fixtures/web-api/ok.protocol-onebot11-compatibility.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.system-backup-accepted.yaml
   - fixtures/web-api/ok.system-recovery-recheck-accepted.yaml
@@ -65,6 +67,7 @@ x-fixtures:
   - fixtures/web-api/invalid.session-login-bad-credentials.yaml
   - fixtures/web-api/invalid.auth-missing-token.yaml
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
+  - fixtures/web-api/invalid.protocol-onebot11-compatibility-invalid.yaml
   - fixtures/web-api/invalid.session-launcher-admission-invalid-token.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
   - fixtures/web-api/invalid.system-render-preview-invalid.yaml
@@ -327,6 +330,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/protocols/onebot11:
+    get:
+      summary: Query the current OneBot11 protocol snapshot without reconstructing it from system summary fragments.
+      operationId: getOneBot11ProtocolSnapshot
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OneBot11 protocol snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneBot11ProtocolSnapshotResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/protocols/onebot11/compatibility:
+    get:
+      summary: Query the current formal OneBot11 compatibility matrix.
+      operationId: getOneBot11ProtocolCompatibility
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OneBot11 compatibility matrix.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneBot11ProtocolCompatibilityResponse'
         '401':
           $ref: '#/components/responses/Error'
         default:
@@ -1087,6 +1126,141 @@ components:
           minimum: 0
         recovery_summary:
           $ref: '#/components/schemas/RecoveryCompatibilitySummary'
+
+    ProtocolProvider:
+      type: string
+      enum: [standard, napcat, luckylillia]
+
+    ProtocolTransportKey:
+      type: string
+      enum: [reverse_ws, forward_ws, http_api, webhook, sse]
+
+    ProtocolConnectionState:
+      type: string
+      enum: [idle, connecting, connected, auth_failed, reconnecting, stopped]
+
+    ProtocolReadinessStatus:
+      type: string
+      enum: [ready, degraded, failed, setup_required]
+
+    ProtocolIssue:
+      type: object
+      additionalProperties: false
+      required: [code, severity, summary]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, error]
+        summary:
+          type: string
+
+    ProtocolTransportStatus:
+      type: object
+      additionalProperties: false
+      required: [transport, enabled, configured, implemented, active, endpoint]
+      properties:
+        transport:
+          $ref: '#/components/schemas/ProtocolTransportKey'
+        enabled:
+          type: boolean
+        configured:
+          type: boolean
+        implemented:
+          type: boolean
+        active:
+          type: boolean
+        endpoint:
+          type: string
+
+    OneBot11ProtocolSnapshotResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [protocol, provider, configured_transports, transport_status, connection_state, readiness_status, summary, recent_transport_issues]
+      properties:
+        protocol:
+          type: string
+          const: onebot11
+        provider:
+          $ref: '#/components/schemas/ProtocolProvider'
+        configured_transports:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolTransportKey'
+        active_transport:
+          allOf:
+            - $ref: '#/components/schemas/ProtocolTransportKey'
+          nullable: true
+        transport_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolTransportStatus'
+        connection_state:
+          $ref: '#/components/schemas/ProtocolConnectionState'
+        readiness_status:
+          $ref: '#/components/schemas/ProtocolReadinessStatus'
+        summary:
+          type: string
+        recent_transport_issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolIssue'
+
+    ProtocolCompatibilityStatus:
+      type: string
+      enum: [implemented, frozen, partial]
+
+    ProtocolCompatibilityGroupKey:
+      type: string
+      enum: [core, segment, action, provider_extension]
+
+    ProtocolCompatibilityItem:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProtocolCompatibilityStatus'
+        provider:
+          $ref: '#/components/schemas/ProtocolProvider'
+        notes:
+          type: string
+
+    ProtocolCompatibilityGroup:
+      type: object
+      additionalProperties: false
+      required: [group, title, items]
+      properties:
+        group:
+          $ref: '#/components/schemas/ProtocolCompatibilityGroupKey'
+        title:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolCompatibilityItem'
+
+    OneBot11ProtocolCompatibilityResponse:
+      type: object
+      additionalProperties: false
+      required: [protocol, provider, generated_at, groups]
+      properties:
+        protocol:
+          type: string
+          const: onebot11
+        provider:
+          $ref: '#/components/schemas/ProtocolProvider'
+        generated_at:
+          type: string
+          format: date-time
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolCompatibilityGroup'
 
     SystemShutdownResponse:
       type: object

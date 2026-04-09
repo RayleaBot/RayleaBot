@@ -123,6 +123,29 @@
           "type": "string",
           "minLength": 1
         },
+        "onebot_matrix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transport_matrix_version",
+            "compatibility_matrix_version",
+            "provider_extension_matrix_version"
+          ],
+          "properties": {
+            "transport_matrix_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "compatibility_matrix_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "provider_extension_matrix_version": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
         "artifacts": {
           "type": "array",
           "items": {
@@ -173,6 +196,30 @@
         "release_manifest_sha256": {
           "$ref": "#/$defs/sha256",
           "description": "Optional digest of the published release_manifest.json. Release packaging keeps this field optional so the package archive checksum remains a stable checksum of the final uploaded bytes."
+        },
+        "onebot_matrix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transport_matrix_version",
+            "compatibility_matrix_version",
+            "provider_extension_matrix_version"
+          ],
+          "properties": {
+            "transport_matrix_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "compatibility_matrix_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "provider_extension_matrix_version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "description": "Optional OneBot11 matrix versions copied from release_manifest.json so packaged builds can expose the validated matrix set."
         }
       }
     }
