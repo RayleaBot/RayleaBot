@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000207
+    plugin_id: weather
+    request_id: act_invalid_provider_0001
+    action: provider.custom.unsupported
+    data:
+      foo: bar
+expect:
+  valid: false
+  reason: provider-specific action namespace must use provider.napcat.* or provider.luckylillia.*

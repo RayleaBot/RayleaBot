@@ -9,8 +9,14 @@
       "port": 8080
     },
     "onebot": {
+      "provider": "standard",
       "ws_url": "wss://onebot.example.local/ws",
-      "access_token": "masked-token"
+      "access_token": "masked-token",
+      "reverse_ws": { "enabled": true, "url": "wss://onebot.example.local/ws" },
+      "forward_ws": { "enabled": false, "url": "" },
+      "http_api": { "enabled": false, "url": "" },
+      "webhook": { "enabled": false, "url": "" },
+      "sse": { "enabled": false, "url": "" }
     },
     "database": {
       "engine": "sqlite",

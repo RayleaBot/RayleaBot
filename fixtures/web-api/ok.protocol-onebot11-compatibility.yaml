@@ -1,0 +1,45 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: OneBot11 compatibility matrix groups core events, segments, actions and provider extensions.
+request:
+  method: GET
+  path: /api/protocols/onebot11/compatibility
+response:
+  status: 200
+  body:
+    protocol: onebot11
+    provider: napcat
+    generated_at: 2026-04-09T09:00:00Z
+    groups:
+      - group: core
+        title: 核心事件与查询
+        items:
+          - name: message.group
+            status: implemented
+          - name: request.friend
+            status: frozen
+      - group: segment
+        title: 消息段兼容
+        items:
+          - name: text
+            status: implemented
+          - name: markdown
+            status: frozen
+      - group: action
+        title: 动作族
+        items:
+          - name: user.info.get
+            status: implemented
+          - name: file.group.upload
+            status: frozen
+      - group: provider_extension
+        title: Provider 扩展
+        items:
+          - name: provider.napcat.message_emoji.like.set
+            status: frozen
+            provider: napcat
+          - name: provider.luckylillia.friend_groups.get
+            status: frozen
+            provider: luckylillia
+expect:
+  valid: true

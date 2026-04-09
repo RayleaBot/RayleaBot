@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000209
+    plugin_id: weather
+    request_id: act_luckylillia_friend_groups_0001
+    status: success
+    data:
+      groups:
+        - group_id: "100"
+          group_name: 默认分组
+expect:
+  valid: true

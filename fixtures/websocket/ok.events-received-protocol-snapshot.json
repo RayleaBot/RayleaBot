@@ -1,0 +1,35 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-04-09T09:00:00Z",
+    "data": {
+      "protocol": "onebot11",
+      "protocol_snapshot": {
+        "protocol": "onebot11",
+        "provider": "standard",
+        "configured_transports": ["reverse_ws"],
+        "active_transport": "reverse_ws",
+        "transport_status": [
+          {
+            "transport": "reverse_ws",
+            "enabled": true,
+            "configured": true,
+            "implemented": true,
+            "active": true,
+            "endpoint": "ws://127.0.0.1:8089"
+          }
+        ],
+        "connection_state": "connected",
+        "readiness_status": "ready",
+        "summary": "OneBot11 reverse WebSocket 已连接",
+        "recent_transport_issues": []
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

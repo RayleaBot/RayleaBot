@@ -1,0 +1,26 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000206
+    plugin_id: weather
+    request_id: act_ext_segments_0001
+    action: message.send
+    data:
+      target_type: group
+      target_id: "456"
+      message:
+        segments:
+          - type: text
+            data:
+              text: 查看扩展消息段
+          - type: markdown
+            data:
+              content: "**天气**"
+          - type: keyboard
+            data:
+              buttons:
+                - text: 查看详情
+expect:
+  valid: true

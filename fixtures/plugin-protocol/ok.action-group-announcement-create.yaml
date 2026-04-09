@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000201
+    plugin_id: weather
+    request_id: act_group_announce_0001
+    action: group.announcement.create
+    data:
+      group_id: "456"
+      content: 群公告内容
+expect:
+  valid: true

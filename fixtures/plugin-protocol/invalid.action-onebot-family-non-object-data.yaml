@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000208
+    plugin_id: weather
+    request_id: act_non_object_data_0001
+    action: user.info.get
+    data:
+      - not
+      - an
+      - object
+expect:
+  valid: false
+  reason: onebot family action data must be an object

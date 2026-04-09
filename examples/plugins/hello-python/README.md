@@ -14,3 +14,13 @@
 - 这是 contract-aligned example，不是生产插件模板。
 - 它不展示 OneBot、插件子进程拉起、IPC、shutdown、错误恢复或 SDK 包装层。
 - 入口文件只覆盖最小协议骨架，便于后续 AI / 人工实现对照。
+
+常用 SDK helper 示例：
+
+```python
+plugin.message_history_get(request_id, "group", "123456", limit=20)
+plugin.group_announcement_create(request_id, "123456", "维护窗口：今晚 23:00")
+plugin.file_group_upload(request_id, "123456", "report.txt", "https://example.com/report.txt")
+plugin.reaction_set(request_id, "msg_001", "👍")
+plugin.luckylillia_friend_groups_get(request_id, "10001")
+```

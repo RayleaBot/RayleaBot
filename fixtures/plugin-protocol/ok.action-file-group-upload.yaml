@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000202
+    plugin_id: weather
+    request_id: act_file_upload_0001
+    action: file.group.upload
+    data:
+      group_id: "456"
+      file_name: weather.png
+      file_url: https://example.com/weather.png
+expect:
+  valid: true

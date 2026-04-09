@@ -1,0 +1,13 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000205
+    plugin_id: weather
+    request_id: act_luckylillia_friend_groups_0001
+    action: provider.luckylillia.friend_groups.get
+    data:
+      user_id: "10001"
+expect:
+  valid: true

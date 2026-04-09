@@ -1,7 +1,7 @@
 {
   "contract": "contracts/config.user.schema.json",
   "case": "invalid",
-  "description": "Invalid because onebot.ws_url must use ws:// or wss://.",
+  "description": "Invalid because onebot reverse_ws.url must use ws:// or wss://.",
   "input": {
     "schema_version": "2",
     "server": {
@@ -9,8 +9,14 @@
       "port": 8080
     },
     "onebot": {
+      "provider": "standard",
       "ws_url": "http://127.0.0.1:6700",
-      "access_token": ""
+      "access_token": "",
+      "reverse_ws": { "enabled": true, "url": "http://127.0.0.1:6700" },
+      "forward_ws": { "enabled": false, "url": "" },
+      "http_api": { "enabled": false, "url": "" },
+      "webhook": { "enabled": false, "url": "" },
+      "sse": { "enabled": false, "url": "" }
     },
     "database": {
       "engine": "sqlite",
@@ -110,6 +116,6 @@
   },
   "expect": {
     "valid": false,
-    "reason": "onebot.ws_url must satisfy the formal reverse WebSocket URI constraint"
+    "reason": "onebot.reverse_ws.url must satisfy the formal reverse WebSocket URI constraint"
   }
 }

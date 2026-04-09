@@ -1,0 +1,21 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Compatibility matrix items must use the frozen status enum.
+request:
+  method: GET
+  path: /api/protocols/onebot11/compatibility
+response:
+  status: 200
+  body:
+    protocol: onebot11
+    provider: standard
+    generated_at: 2026-04-09T09:00:00Z
+    groups:
+      - group: action
+        title: 动作族
+        items:
+          - name: user.info.get
+            status: unsupported
+expect:
+  valid: false
+  reason: ProtocolCompatibilityItem.status must use implemented, frozen or partial

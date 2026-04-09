@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000200
+    plugin_id: weather
+    request_id: act_hist_0001
+    action: message.history.get
+    data:
+      conversation_type: group
+      conversation_id: "456"
+      limit: 20
+expect:
+  valid: true

@@ -1,0 +1,33 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-04-09T09:00:01Z",
+    "data": {
+      "protocol": "onebot11",
+      "protocol_compatibility": {
+        "protocol": "onebot11",
+        "provider": "napcat",
+        "generated_at": "2026-04-09T09:00:01Z",
+        "groups": [
+          {
+            "group": "provider_extension",
+            "title": "Provider 扩展",
+            "items": [
+              {
+                "name": "provider.napcat.message_emoji.like.set",
+                "status": "frozen",
+                "provider": "napcat"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}
