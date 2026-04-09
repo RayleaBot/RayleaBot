@@ -5,7 +5,6 @@ import type {
 } from './plugins'
 import type { ConnectionStatus } from './common'
 import type {
-  OneBot11ProtocolCompatibilityResponse,
   OneBot11ProtocolSnapshotResponse,
 } from './api'
 
@@ -43,8 +42,4 @@ export type EventsPayload =
   | {
       protocol: 'onebot11'
       protocol_snapshot: OneBot11ProtocolSnapshotResponse
-    }
-  | {
-      protocol: 'onebot11'
-      protocol_compatibility: OneBot11ProtocolCompatibilityResponse
     }

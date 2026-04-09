@@ -97,6 +97,7 @@ const STATUS_TYPE_MAP: Record<string, StatusType> = {
   ready: 'success',
   running: 'success',
   connected: 'success',
+  listening: 'warning',
   degraded: 'warning',
   connecting: 'warning',
   reconnecting: 'warning',

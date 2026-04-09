@@ -35,7 +35,6 @@ const fixtures = {
   sessionDenied: await readFixture('fixtures/web-api/invalid.session-login-bad-credentials.yaml'),
   configGet: await readFixture('fixtures/web-api/ok.config-get-response.yaml'),
   protocolSnapshot: await readFixture('fixtures/web-api/ok.protocol-onebot11-snapshot.yaml'),
-  protocolCompatibility: await readFixture('fixtures/web-api/ok.protocol-onebot11-compatibility.yaml'),
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
   logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
   logDetailLegacy: await readFixture('fixtures/web-api/edge.log-detail-legacy-empty-details.yaml'),
@@ -69,7 +68,6 @@ const fixtures = {
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
   wsEventsProtocolSnapshot: await readFixture('fixtures/websocket/ok.events-received-protocol-snapshot.json'),
-  wsEventsProtocolCompatibility: await readFixture('fixtures/websocket/ok.events-received-protocol-compatibility.json'),
   wsConsole: await readFixture('fixtures/websocket/ok.plugins-console-stderr.json'),
   wsSessionExpired: await readFixture('fixtures/websocket/edge.session-expired.json'),
 }
@@ -93,7 +91,6 @@ function baseState() {
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
     protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
-    protocolCompatibility: structuredClone(fixtures.protocolCompatibility.response.body),
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
       'builtin-help': [],
@@ -117,29 +114,73 @@ function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
   const forwardWs = onebot.forward_ws ?? { enabled: false, url: '' }
   const httpApi = onebot.http_api ?? { enabled: false, url: '' }
   const webhook = onebot.webhook ?? { enabled: false, url: '' }
-  const sse = onebot.sse ?? { enabled: false, url: '' }
   const transports = [
     ['reverse_ws', reverseWs],
     ['forward_ws', forwardWs],
     ['http_api', httpApi],
     ['webhook', webhook],
-    ['sse', sse],
   ]
 
   snapshot.provider = onebot.provider ?? 'standard'
-  snapshot.transport_status = snapshot.transport_status.map((item) => {
-    const entry = transports.find(([name]) => name === item.transport)?.[1] ?? { enabled: false, url: '' }
+  snapshot.transport_status = transports.map(([transport, entry]) => {
+    const configured = Boolean(entry.enabled && entry.url)
+    let state = 'idle'
+    let summary = '未启用'
+
+    if (configured) {
+      if (transport === 'forward_ws') {
+        state = 'connected'
+        summary = '主动连接已建立'
+      } else if (transport === 'reverse_ws') {
+        state = 'listening'
+        summary = '等待 OneBot 回连'
+      } else if (transport === 'http_api') {
+        state = 'connected'
+        summary = 'HTTP API 可用'
+      } else if (transport === 'webhook') {
+        state = 'listening'
+        summary = 'Webhook 入口可接收上报'
+      }
+    }
+
     return {
-      ...item,
+      transport,
       enabled: Boolean(entry.enabled),
-      configured: Boolean(entry.enabled && entry.url),
+      configured,
       endpoint: entry.url ? entry.url.replace(/^(https?:\/\/[^/]+|wss?:\/\/[^/]+).*$/, '$1') : '',
+      state,
+      summary,
     }
   })
   snapshot.configured_transports = transports
     .filter(([, entry]) => Boolean(entry.enabled && entry.url))
     .map(([name]) => name)
-  snapshot.active_transport = snapshot.configured_transports[0] ?? null
+
+  if (forwardWs.enabled && forwardWs.url) {
+    snapshot.active_transports = ['forward_ws']
+    snapshot.readiness_status = 'ready'
+    snapshot.summary = 'OneBot11 主动连接已就绪'
+  } else if (reverseWs.enabled && reverseWs.url) {
+    snapshot.active_transports = ['reverse_ws']
+    snapshot.readiness_status = 'degraded'
+    snapshot.summary = 'OneBot11 等待回连'
+  } else if (httpApi.enabled && httpApi.url && webhook.enabled && webhook.url) {
+    snapshot.active_transports = ['http_api', 'webhook']
+    snapshot.readiness_status = 'ready'
+    snapshot.summary = 'OneBot11 HTTP API 与 Webhook 已就绪'
+  } else if (httpApi.enabled && httpApi.url) {
+    snapshot.active_transports = ['http_api']
+    snapshot.readiness_status = 'degraded'
+    snapshot.summary = 'OneBot11 仅 HTTP API 可用'
+  } else if (webhook.enabled && webhook.url) {
+    snapshot.active_transports = ['webhook']
+    snapshot.readiness_status = 'degraded'
+    snapshot.summary = 'OneBot11 仅 Webhook 上报可用'
+  } else {
+    snapshot.active_transports = []
+    snapshot.readiness_status = 'setup_required'
+    snapshot.summary = 'OneBot11 尚未配置连接'
+  }
   return snapshot
 }
 
@@ -640,15 +681,6 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname === '/api/protocols/onebot11/compatibility' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, structuredClone(state.protocolCompatibility))
-    return
-  }
-
   if (pathname === '/api/logs' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -982,14 +1014,7 @@ wsServer.on('connection', (socket, request) => {
         protocol_snapshot: structuredClone(state.protocolSnapshot),
       },
     })), 80)
-    setTimeout(() => socket.send(JSON.stringify({
-      ...fixtures.wsEventsProtocolCompatibility.frame,
-      data: {
-        ...fixtures.wsEventsProtocolCompatibility.frame.data,
-        protocol_compatibility: structuredClone(state.protocolCompatibility),
-      },
-    })), 120)
-    setTimeout(() => socket.send(JSON.stringify(fixtures.wsEvents.frame)), 150)
+    setTimeout(() => socket.send(JSON.stringify(fixtures.wsEvents.frame)), 120)
   } else if (channel === 'tasks') {
     setTimeout(() => socket.send(JSON.stringify(fixtures.wsTasks.frame)), 180)
   } else if (channel === 'logs') {

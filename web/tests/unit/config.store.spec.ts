@@ -16,31 +16,53 @@ describe('config store', () => {
   })
 
   it('loads config snapshot into store state', async () => {
+    const config = {
+      schema_version: '2',
+      onebot: {
+        provider: 'standard',
+        access_token: '',
+        reverse_ws: { enabled: false, url: '' },
+        forward_ws: { enabled: false, url: '' },
+        http_api: { enabled: false, url: '' },
+        webhook: { enabled: false, url: '' },
+      },
+    }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
-      config: { schema_version: '2', onebot: { ws_url: '' } },
+      config,
       redacted_fields: ['onebot.access_token'],
     })))
 
     const store = useConfigStore()
     await store.fetchConfig()
 
-    expect(store.document).toEqual({ schema_version: '2', onebot: { ws_url: '' } })
+    expect(store.document).toEqual(config)
     expect(store.redactedFields).toEqual(['onebot.access_token'])
     expect(store.restartRequired).toBeNull()
   })
 
   it('saves config and updates restart_required', async () => {
+    const config = {
+      schema_version: '2',
+      onebot: {
+        provider: 'standard',
+        access_token: '',
+        reverse_ws: { enabled: false, url: '' },
+        forward_ws: { enabled: true, url: 'ws://127.0.0.1:2658' },
+        http_api: { enabled: false, url: '' },
+        webhook: { enabled: false, url: '' },
+      },
+    }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
-      config: { schema_version: '2', onebot: { ws_url: 'ws://127.0.0.1:2658' } },
+      config,
       redacted_fields: [],
       restart_required: true,
     })))
 
     const store = useConfigStore()
-    const response = await store.saveConfig({ schema_version: '2', onebot: { ws_url: 'ws://127.0.0.1:2658' } })
+    const response = await store.saveConfig(config)
 
     expect(response.restart_required).toBe(true)
-    expect(store.document).toEqual({ schema_version: '2', onebot: { ws_url: 'ws://127.0.0.1:2658' } })
+    expect(store.document).toEqual(config)
     expect(store.restartRequired).toBe(true)
   })
 

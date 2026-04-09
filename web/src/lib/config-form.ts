@@ -304,23 +304,6 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
     },
     {
       key: 'onebot',
-      title: t('config.sections.onebotSse'),
-      fields: [
-        {
-          path: 'onebot.sse.enabled',
-          label: t('config.fields.onebotTransportEnabled'),
-          type: 'boolean',
-        },
-        {
-          path: 'onebot.sse.url',
-          label: t('config.fields.onebotSseUrl'),
-          type: 'text',
-          description: t('config.hints.onebotHttpTransport'),
-        },
-      ],
-    },
-    {
-      key: 'onebot',
       title: t('config.sections.onebotAuth'),
       fields: [
         {

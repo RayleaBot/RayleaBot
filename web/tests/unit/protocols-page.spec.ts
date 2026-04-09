@@ -15,13 +15,11 @@ function createFixtureConfig(): ConfigDocument {
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
       provider: 'standard',
-      ws_url: '',
       access_token: '__REDACTED__',
       reverse_ws: { enabled: false, url: '' },
       forward_ws: { enabled: false, url: '' },
       http_api: { enabled: false, url: '' },
       webhook: { enabled: false, url: '' },
-      sse: { enabled: false, url: '' },
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
@@ -122,12 +120,14 @@ describe('ProtocolsPage', () => {
     protocolsStore.snapshot = {
       protocol: 'onebot11',
       provider: 'standard',
-      configured_transports: ['reverse_ws'],
-      active_transport: 'reverse_ws',
+      configured_transports: ['forward_ws'],
+      active_transports: ['forward_ws'],
       transport_status: [
-        { transport: 'reverse_ws', enabled: true, configured: true, implemented: true, active: true, endpoint: 'ws://127.0.0.1:8089' },
+        { transport: 'reverse_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'auth_failed', summary: '主动连接鉴权失败' },
+        { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
       ],
-      connection_state: 'auth_failed',
       readiness_status: 'degraded',
       summary: 'OneBot11 鉴权失败，请检查访问令牌',
       recent_transport_issues: [],
@@ -151,6 +151,9 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('OneBot11')
     expect(wrapper.text()).toContain('OneBot11 鉴权失败，请检查访问令牌')
+    expect(wrapper.text()).toContain('传输状态')
+    expect(wrapper.text()).toContain('主动连接 WebSocket')
+    expect(wrapper.text()).toContain('主动连接鉴权失败')
     expect(wrapper.text()).toContain('连接设置')
     expect(wrapper.text()).toContain('查看协议日志')
   })
@@ -163,14 +166,16 @@ describe('ProtocolsPage', () => {
     protocolsStore.snapshot = {
       protocol: 'onebot11',
       provider: 'standard',
-      configured_transports: ['reverse_ws'],
-      active_transport: 'reverse_ws',
+      configured_transports: ['forward_ws'],
+      active_transports: ['forward_ws'],
       transport_status: [
-        { transport: 'reverse_ws', enabled: true, configured: true, implemented: true, active: true, endpoint: 'ws://127.0.0.1:8089' },
+        { transport: 'reverse_ws', enabled: true, configured: true, endpoint: 'wss://bot.example.com/reverse', state: 'listening', summary: '等待 OneBot 回连' },
+        { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'connected', summary: '主动连接已建立' },
+        { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
       ],
-      connection_state: 'connected',
       readiness_status: 'ready',
-      summary: 'OneBot11 reverse WebSocket 已连接',
+      summary: 'OneBot11 主动连接已就绪',
       recent_transport_issues: [],
     }
 
@@ -194,16 +199,16 @@ describe('ProtocolsPage', () => {
 
     await flushPromises()
 
-    const wsUrlInput = wrapper.find('input[aria-label="反向 WebSocket 地址"]')
+    const wsUrlInput = wrapper.find('input[aria-label="回连地址"]')
     expect(wsUrlInput.exists()).toBe(true)
-    await wsUrlInput.setValue('ws://127.0.0.1:8089/onebot')
+    await wsUrlInput.setValue('wss://bot.example.com/reverse/onebot')
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存协议设置'))
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
-    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('ws://127.0.0.1:8089/onebot')
+    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('wss://bot.example.com/reverse/onebot')
     expect(saveSpy.mock.calls[0][0].server.host).toBe('127.0.0.1')
   })
 })

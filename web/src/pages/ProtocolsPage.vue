@@ -41,19 +41,58 @@ const {
 const draft = ref<ConfigDocument | null>(null)
 
 const configSections = computed(() => getProtocolConfigSections())
-const protocolStatusLabel = computed(() => getAdapterStateLabel(snapshot.value?.connection_state))
-const protocolStatusType = computed(() => getStatusType(snapshot.value?.connection_state))
+const activeTransportState = computed(() => {
+  if (!snapshot.value) {
+    return undefined
+  }
+
+  const active = new Set(snapshot.value.active_transports)
+  const preferred = snapshot.value.transport_status.find((item) => active.has(item.transport))
+  return preferred?.state
+})
+const protocolStatusLabel = computed(() => (
+  activeTransportState.value
+    ? getAdapterStateLabel(activeTransportState.value)
+    : getReadinessStatusLabel(snapshot.value?.readiness_status)
+))
+const protocolStatusType = computed(() => getStatusType(activeTransportState.value ?? snapshot.value?.readiness_status))
 const readinessLabel = computed(() => getReadinessStatusLabel(snapshot.value?.readiness_status))
 const readinessType = computed(() => getStatusType(snapshot.value?.readiness_status))
 const pageLoading = computed(() => configLoading.value || protocolsLoading.value)
 const protocolSummary = computed(() => snapshot.value?.summary ?? t('display.empty'))
-const configuredTransportsText = computed(() => (
-  snapshot.value?.configured_transports.length
-    ? snapshot.value.configured_transports.join(' / ')
-    : t('display.empty')
-))
-const activeTransportText = computed(() => snapshot.value?.active_transport ?? t('display.empty'))
 const pageError = computed(() => configError.value || protocolsError.value)
+const transportLabelMap = {
+  reverse_ws: t('config.sections.onebotReverseWs'),
+  forward_ws: t('config.sections.onebotForwardWs'),
+  http_api: t('config.sections.onebotHttpApi'),
+  webhook: t('config.sections.onebotWebhook'),
+} as const
+
+function getTransportLabel(transport?: string) {
+  if (!transport) {
+    return t('display.empty')
+  }
+  return transportLabelMap[transport as keyof typeof transportLabelMap] ?? transport
+}
+
+function joinTransportLabels(transports?: readonly string[]) {
+  if (!transports?.length) {
+    return t('display.empty')
+  }
+  return transports.map((transport) => getTransportLabel(transport)).join(' / ')
+}
+
+const configuredTransportsText = computed(() => joinTransportLabels(snapshot.value?.configured_transports))
+const activeTransportText = computed(() => joinTransportLabels(snapshot.value?.active_transports))
+const transportStatusItems = computed(() => (
+  snapshot.value?.transport_status.map((item) => ({
+    ...item,
+    label: getTransportLabel(item.transport),
+    stateLabel: getAdapterStateLabel(item.state),
+    stateType: getStatusType(item.state),
+    endpointText: item.endpoint || t('display.empty'),
+  })) ?? []
+))
 
 watch(document, (value) => {
   draft.value = value ? cloneConfig(value) : null
@@ -172,6 +211,36 @@ async function save() {
         <div class="overview-item">
           <small class="mono-label">[{{ t('protocols.activeTransportLabel') }}]</small>
           <strong class="mono-value">{{ activeTransportText }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="industrial-card">
+      <div class="card-header">
+        <strong class="uppercase">> {{ t('protocols.transportStatusTitle') }}</strong>
+        <span>{{ t('protocols.transportStatusHint') }}</span>
+      </div>
+
+      <div class="transport-status-grid">
+        <div
+          v-for="item in transportStatusItems"
+          :key="item.transport"
+          class="transport-status-card"
+        >
+          <div class="transport-status-header">
+            <strong>{{ item.label }}</strong>
+            <span class="industrial-badge status-badge" :class="item.stateType">
+              {{ item.stateLabel }}
+            </span>
+          </div>
+          <div class="transport-status-meta">
+            <small class="mono-label">[{{ t('protocols.fields.endpoint') }}]</small>
+            <strong class="mono-value">{{ item.endpointText }}</strong>
+          </div>
+          <div class="transport-status-meta">
+            <small class="mono-label">[{{ t('protocols.protocolSummaryLabel') }}]</small>
+            <span class="transport-status-summary">{{ item.summary }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -410,6 +479,12 @@ async function save() {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 20px;
 }
+.transport-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
 .protocol-settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -421,6 +496,30 @@ async function save() {
   padding: 16px;
   background: rgba(17, 17, 17, 0.03);
   border: 2px dashed var(--border-color);
+}
+
+.transport-status-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(17, 17, 17, 0.03);
+  border: 2px dashed var(--border-color);
+}
+
+.transport-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.transport-status-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.transport-status-summary {
+  line-height: 1.5;
 }
 
 .mono-label {
@@ -531,7 +630,7 @@ async function save() {
 }
 
 @media (max-width: 1024px) {
-  .protocol-overview-grid, .protocol-settings-grid {
+  .protocol-overview-grid, .protocol-settings-grid, .transport-status-grid {
     grid-template-columns: 1fr;
   }
   .hero-panel {

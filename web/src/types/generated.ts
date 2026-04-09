@@ -234,17 +234,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/protocols/onebot11/compatibility": {
+    "/api/protocols/onebot11/reverse-ws": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Query the current formal OneBot11 compatibility matrix. */
-        get: operations["getOneBot11ProtocolCompatibility"];
+        /** Accept a OneBot11 reverse WebSocket callback session. */
+        get: operations["connectOneBot11ReverseWs"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/protocols/onebot11/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept a OneBot11 webhook event payload. */
+        post: operations["ingestOneBot11Webhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -650,9 +667,9 @@ export interface components {
         /** @enum {string} */
         ProtocolProvider: "standard" | "napcat" | "luckylillia";
         /** @enum {string} */
-        ProtocolTransportKey: "reverse_ws" | "forward_ws" | "http_api" | "webhook" | "sse";
+        ProtocolTransportKey: "reverse_ws" | "forward_ws" | "http_api" | "webhook";
         /** @enum {string} */
-        ProtocolConnectionState: "idle" | "connecting" | "connected" | "auth_failed" | "reconnecting" | "stopped";
+        ProtocolTransportState: "idle" | "listening" | "connecting" | "connected" | "auth_failed" | "reconnecting" | "stopped";
         /** @enum {string} */
         ProtocolReadinessStatus: "ready" | "degraded" | "failed" | "setup_required";
         ProtocolIssue: {
@@ -665,44 +682,20 @@ export interface components {
             transport: components["schemas"]["ProtocolTransportKey"];
             enabled: boolean;
             configured: boolean;
-            implemented: boolean;
-            active: boolean;
             endpoint: string;
+            state: components["schemas"]["ProtocolTransportState"];
+            summary: string;
         };
         OneBot11ProtocolSnapshotResponse: {
             /** @constant */
             protocol: "onebot11";
             provider: components["schemas"]["ProtocolProvider"];
             configured_transports: components["schemas"]["ProtocolTransportKey"][];
-            active_transport?: components["schemas"]["ProtocolTransportKey"] | null;
+            active_transports: components["schemas"]["ProtocolTransportKey"][];
             transport_status: components["schemas"]["ProtocolTransportStatus"][];
-            connection_state: components["schemas"]["ProtocolConnectionState"];
             readiness_status: components["schemas"]["ProtocolReadinessStatus"];
             summary: string;
             recent_transport_issues: components["schemas"]["ProtocolIssue"][];
-        };
-        /** @enum {string} */
-        ProtocolCompatibilityStatus: "implemented" | "frozen" | "partial";
-        /** @enum {string} */
-        ProtocolCompatibilityGroupKey: "core" | "segment" | "action" | "provider_extension";
-        ProtocolCompatibilityItem: {
-            name: string;
-            status: components["schemas"]["ProtocolCompatibilityStatus"];
-            provider?: components["schemas"]["ProtocolProvider"];
-            notes?: string;
-        };
-        ProtocolCompatibilityGroup: {
-            group: components["schemas"]["ProtocolCompatibilityGroupKey"];
-            title: string;
-            items: components["schemas"]["ProtocolCompatibilityItem"][];
-        };
-        OneBot11ProtocolCompatibilityResponse: {
-            /** @constant */
-            protocol: "onebot11";
-            provider: components["schemas"]["ProtocolProvider"];
-            /** Format: date-time */
-            generated_at: string;
-            groups: components["schemas"]["ProtocolCompatibilityGroup"][];
         };
         SystemShutdownResponse: {
             accepted: boolean;
@@ -992,14 +985,11 @@ export interface components {
                  */
                 provider: "standard" | "napcat" | "luckylillia";
                 /** @default  */
-                ws_url: string | "" | unknown;
-                /** @default  */
                 access_token: string;
                 reverse_ws: components["schemas"]["onebotWsTransport"];
                 forward_ws: components["schemas"]["onebotWsTransport"];
                 http_api: components["schemas"]["onebotHttpTransport"];
                 webhook: components["schemas"]["onebotHttpTransport"];
-                sse: components["schemas"]["onebotHttpTransport"];
             };
             database: {
                 /**
@@ -1548,7 +1538,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    getOneBot11ProtocolCompatibility: {
+    connectOneBot11ReverseWs: {
         parameters: {
             query?: never;
             header?: never;
@@ -1557,15 +1547,42 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OneBot11 compatibility matrix. */
-            200: {
+            /** @description Reverse WebSocket upgrade accepted. */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    ingestOneBot11Webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Webhook event accepted. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OneBot11ProtocolCompatibilityResponse"];
+                    "application/json": components["schemas"]["WebhookAcceptedResponse"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

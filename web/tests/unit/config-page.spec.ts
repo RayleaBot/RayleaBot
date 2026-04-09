@@ -11,8 +11,12 @@ function createFixtureConfig(): ConfigDocument {
     schema_version: '2',
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
-      ws_url: '',
+      provider: 'standard',
       access_token: '__REDACTED__',
+      reverse_ws: { enabled: false, url: '' },
+      forward_ws: { enabled: false, url: '' },
+      http_api: { enabled: false, url: '' },
+      webhook: { enabled: false, url: '' },
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },

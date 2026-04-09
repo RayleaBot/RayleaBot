@@ -120,7 +120,8 @@ export const display = {
   recoveryNextSteps: '下一步',
   recoveryHistory: '最近确认记录',
   adapterStates: {
-    idle: '未配置',
+    idle: '未启用',
+    listening: '监听中',
     connecting: '连接中',
     connected: '已连接',
     auth_failed: '鉴权失败',
