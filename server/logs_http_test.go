@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -333,11 +334,31 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 			"direction":         "inbound",
 			"event_kind":        "onebot11.message",
 			"event_type":        "message.group",
+			"post_type":         "message",
+			"message_type":      "group",
+			"event_timestamp":   float64(1711015202),
+			"time":              float64(1711015202),
 			"conversation_type": "group",
 			"conversation_id":   "2001",
+			"group_id":          "2001",
 			"sender_id":         "3001",
+			"user_id":           "3001",
+			"sender_nickname":   "Alice",
+			"sender_card":       "管理员",
+			"sender_role":       "admin",
 			"message_id":        "1001",
+			"real_id":           "1001",
+			"message_seq":       "1001",
+			"raw_message":       "hello bridge",
+			"message_format":    "array",
+			"font":              float64(14),
 			"plain_text":        "hello bridge",
+			"sender": map[string]any{
+				"user_id":  "3001",
+				"nickname": "Alice",
+				"card":     "管理员",
+				"role":     "admin",
+			},
 			"segments": []any{
 				map[string]any{
 					"type": "text",
@@ -440,6 +461,63 @@ func TestLogDetailReturnsNotFound(t *testing.T) {
 	assertErrorEnvelopeMatchesFixture(t, body, fixture.Response.Body, "platform.resource_missing")
 }
 
+func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+
+	application.LogRepository = &stubMissingLogRepository{}
+	application.Logs.Append(logging.Summary{
+		LogID:     "log_live_only_0001",
+		Timestamp: "2026-04-09T20:51:46Z",
+		Level:     "info",
+		Source:    "bridge",
+		Message:   "runtime bridge delivered group message: 装修臭头大",
+		RequestID: "dispatch_1775739204056693800",
+		Details: map[string]any{
+			"direction":       "inbound",
+			"event_type":      "message.group",
+			"conversation_id": "860105388",
+			"group_id":        "860105388",
+			"sender_nickname": "Alice",
+			"plain_text":      "装修臭头大",
+		},
+	})
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs/log_live_only_0001", nil)
+	if err != nil {
+		t.Fatalf("create live stream fallback request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform live stream fallback request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected live stream fallback status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if body["log_id"] != "log_live_only_0001" {
+		t.Fatalf("unexpected fallback log id: %#v", body["log_id"])
+	}
+	details, ok := body["details"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected fallback details map, got %#v", body["details"])
+	}
+	if details["plain_text"] != "装修臭头大" {
+		t.Fatalf("unexpected fallback details: %#v", details)
+	}
+}
+
 func TestLogsRouteRequiresAuth(t *testing.T) {
 	t.Parallel()
 
@@ -460,6 +538,24 @@ func TestLogsRouteRequiresAuth(t *testing.T) {
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unexpected logs auth status: got %d want 401", response.StatusCode)
 	}
+}
+
+type stubMissingLogRepository struct{}
+
+func (*stubMissingLogRepository) SaveSummary(context.Context, logging.Summary) error {
+	return nil
+}
+
+func (*stubMissingLogRepository) ListSummaries(context.Context, logging.Query) ([]logging.Summary, error) {
+	return nil, nil
+}
+
+func (*stubMissingLogRepository) GetSummary(context.Context, string) (logging.Summary, error) {
+	return logging.Summary{}, logging.ErrLogNotFound
+}
+
+func (*stubMissingLogRepository) PruneOlderThan(context.Context, time.Time) error {
+	return nil
 }
 
 func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {

@@ -287,6 +287,96 @@
                     "operator_id": {
                       "type": "string",
                       "description": "The user who triggered the notice event, if different from the actor."
+                    },
+                    "onebot": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "post_type": {
+                          "type": "string"
+                        },
+                        "message_type": {
+                          "type": "string"
+                        },
+                        "request_type": {
+                          "type": "string"
+                        },
+                        "notice_type": {
+                          "type": "string"
+                        },
+                        "sub_type": {
+                          "type": "string"
+                        },
+                        "self_id": {
+                          "type": "string"
+                        },
+                        "user_id": {
+                          "type": "string"
+                        },
+                        "group_id": {
+                          "type": "string"
+                        },
+                        "target_id": {
+                          "type": "string"
+                        },
+                        "time": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "message_id": {
+                          "type": "string"
+                        },
+                        "real_id": {
+                          "type": "string"
+                        },
+                        "message_seq": {
+                          "type": "string"
+                        },
+                        "raw_message": {
+                          "type": "string"
+                        },
+                        "font": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "message_format": {
+                          "type": "string"
+                        },
+                        "sender": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "user_id": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            },
+                            "card": {
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "sex": {
+                              "type": "string"
+                            },
+                            "age": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        },
+                        "comment": {
+                          "type": "string"
+                        },
+                        "flag": {
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 },
@@ -2268,6 +2358,7 @@
     "fixtures/plugin-protocol/edge.action-storage-kv-list-result.yaml",
     "fixtures/plugin-protocol/edge.action-provider-luckylillia-friend-groups-get-result.yaml",
     "fixtures/plugin-protocol/ok.event-message-with-segments.yaml",
+    "fixtures/plugin-protocol/ok.event-message-sent-group.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],

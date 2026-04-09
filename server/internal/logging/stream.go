@@ -73,7 +73,30 @@ func (s *Stream) SetRepository(repository Repository, retentionDays int) {
 func (s *Stream) Append(summary Summary) {
 	summary = NormalizeSummary(summary)
 
+	s.mu.RLock()
+	repository := s.repository
+	retentionDays := s.retentionDays
+	s.mu.RUnlock()
+
+	if repository == nil {
+		s.appendInMemory(summary)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = repository.SaveSummary(ctx, summary)
+	if retentionDays > 0 {
+		cutoff := time.Now().AddDate(0, 0, -retentionDays)
+		_ = repository.PruneOlderThan(ctx, cutoff)
+	}
+
+	s.appendInMemory(summary)
+}
+
+func (s *Stream) appendInMemory(summary Summary) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if len(s.history) == s.limit {
 		copy(s.history, s.history[1:])
@@ -95,22 +118,6 @@ func (s *Stream) Append(summary Summary) {
 			default:
 			}
 		}
-	}
-
-	repository := s.repository
-	retentionDays := s.retentionDays
-	s.mu.Unlock()
-
-	if repository == nil {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = repository.SaveSummary(ctx, summary)
-	if retentionDays > 0 {
-		cutoff := time.Now().AddDate(0, 0, -retentionDays)
-		_ = repository.PruneOlderThan(ctx, cutoff)
 	}
 }
 

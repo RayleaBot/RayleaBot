@@ -207,6 +207,76 @@ func TestManagerDeliverEventReturnsResult(t *testing.T) {
 	}
 }
 
+func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
+	t.Parallel()
+
+	frame := buildEventFrame(Event{
+		EventID:        "evt-onebot-1",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "adapter.onebot11",
+		EventType:      "message_sent.group",
+		Timestamp:      1_729_679_125,
+		Actor: &EventActor{
+			ID:       "721011692",
+			Nickname: "--",
+			Role:     "owner",
+		},
+		Target: &EventTarget{
+			Type: "group",
+			ID:   "860105388",
+		},
+		Message: &EventMessage{
+			PlainText: "您好",
+			Segments: []EventSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "您好"},
+			}},
+		},
+		MessageID: "966671988",
+		PayloadFields: map[string]any{
+			"sub_type": "normal",
+			"onebot": map[string]any{
+				"post_type":      "message_sent",
+				"message_type":   "group",
+				"self_id":        "721011692",
+				"user_id":        "721011692",
+				"group_id":       "860105388",
+				"time":           int64(1_729_679_125),
+				"message_id":     "966671988",
+				"real_id":        "966671988",
+				"message_seq":    "966671988",
+				"raw_message":    "您好",
+				"font":           14,
+				"message_format": "array",
+				"sender": map[string]any{
+					"user_id":  "721011692",
+					"nickname": "--",
+					"role":     "owner",
+				},
+			},
+		},
+	}, "echo", "req_evt_onebot", 1_729_679_126)
+
+	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
+		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
+	}
+	if frame.Event.Payload.MessageID != "966671988" {
+		t.Fatalf("unexpected payload message_id: %#v", frame.Event.Payload.MessageID)
+	}
+	if frame.Event.Payload.OneBot.PostType != "message_sent" {
+		t.Fatalf("unexpected onebot post_type: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.GroupID != "860105388" {
+		t.Fatalf("unexpected onebot group_id: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.Time != 1_729_679_125 {
+		t.Fatalf("unexpected onebot time: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.Sender == nil || frame.Event.Payload.OneBot.Sender.Nickname != "--" {
+		t.Fatalf("unexpected onebot sender: %#v", frame.Event.Payload.OneBot.Sender)
+	}
+}
+
 func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
 	t.Parallel()
 
@@ -1056,7 +1126,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"action":           "message.reply",
 			"data": map[string]any{
 				removedReplyMessageIDKey(): "98765",
-				"text":                    "reply from plugin",
+				"text":                     "reply from plugin",
 			},
 		})
 		for scanner.Scan() {

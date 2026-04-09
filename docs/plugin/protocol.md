@@ -33,6 +33,15 @@
 - 每次事件投递和本地 action 调用都通过 `request_id` 关联。
 - 事件方向和 action 方向使用同一套结果 / 错误语义，避免双套协议。
 
+### 事件字段
+
+- `event.message.plain_text` 提供统一纯文本摘要。
+- `event.message.segments` 保留结构化消息段。
+- `event.payload.message_id` 表示单条消息编号。
+- `event.target.id` 与 `event.payload.onebot.group_id` / `event.payload.onebot.user_id` 一起用于定位会话。
+- `event.payload.onebot` 保留 OneBot11 原生字段，包括 `post_type`、`message_type`、`group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`message_format`、`font` 和 `sender`。
+- `message_sent.private` 与 `message_sent.group` 作为独立事件类型进入插件协议，不并入普通 `message.*`。
+
 ## Local Action RPC
 
 当前正式 local action 集合：

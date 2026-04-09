@@ -176,15 +176,98 @@ class Target:
 
 
 @dataclass(slots=True)
+class OneBotSender:
+    user_id: str | None = None
+    nickname: str | None = None
+    card: str | None = None
+    role: str | None = None
+    title: str | None = None
+    sex: str | None = None
+    age: int | None = None
+
+    def to_dict(self) -> dict:
+        return _strip_none(asdict(self))
+
+    @classmethod
+    def from_dict(cls, d: dict) -> OneBotSender:
+        return cls(
+            user_id=d.get("user_id"),
+            nickname=d.get("nickname"),
+            card=d.get("card"),
+            role=d.get("role"),
+            title=d.get("title"),
+            sex=d.get("sex"),
+            age=d.get("age"),
+        )
+
+
+@dataclass(slots=True)
+class OneBotPayload:
+    post_type: str | None = None
+    message_type: str | None = None
+    request_type: str | None = None
+    notice_type: str | None = None
+    sub_type: str | None = None
+    self_id: str | None = None
+    user_id: str | None = None
+    group_id: str | None = None
+    target_id: str | None = None
+    time: int | None = None
+    message_id: str | None = None
+    real_id: str | None = None
+    message_seq: str | None = None
+    raw_message: str | None = None
+    font: int | None = None
+    message_format: str | None = None
+    sender: OneBotSender | None = None
+    comment: str | None = None
+    flag: str | None = None
+
+    def to_dict(self) -> dict:
+        d = _strip_none(asdict(self))
+        if self.sender is not None:
+            d["sender"] = self.sender.to_dict()
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> OneBotPayload:
+        return cls(
+            post_type=d.get("post_type"),
+            message_type=d.get("message_type"),
+            request_type=d.get("request_type"),
+            notice_type=d.get("notice_type"),
+            sub_type=d.get("sub_type"),
+            self_id=d.get("self_id"),
+            user_id=d.get("user_id"),
+            group_id=d.get("group_id"),
+            target_id=d.get("target_id"),
+            time=d.get("time"),
+            message_id=d.get("message_id"),
+            real_id=d.get("real_id"),
+            message_seq=d.get("message_seq"),
+            raw_message=d.get("raw_message"),
+            font=d.get("font"),
+            message_format=d.get("message_format"),
+            sender=OneBotSender.from_dict(d["sender"]) if "sender" in d else None,
+            comment=d.get("comment"),
+            flag=d.get("flag"),
+        )
+
+
+@dataclass(slots=True)
 class EventPayload:
     command: str | None = None
     args: list[str] | None = None
     message_id: str | None = None
     sub_type: str | None = None
     operator_id: str | None = None
+    onebot: OneBotPayload | None = None
 
     def to_dict(self) -> dict:
-        return _strip_none(asdict(self))
+        d = _strip_none(asdict(self))
+        if self.onebot is not None:
+            d["onebot"] = self.onebot.to_dict()
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> EventPayload:
@@ -194,6 +277,7 @@ class EventPayload:
             message_id=d.get("message_id"),
             sub_type=d.get("sub_type"),
             operator_id=d.get("operator_id"),
+            onebot=OneBotPayload.from_dict(d["onebot"]) if "onebot" in d else None,
         )
 
 

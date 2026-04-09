@@ -1,25 +1,22 @@
 import { i18n } from '@/i18n'
 import { t } from '@/i18n'
 
-export function formatDateTime(value?: string) {
-  if (!value) {
-    return t('display.empty')
+export function formatDateTime(value?: string | number | Date | null) {
+  const date = toValidDate(value)
+  if (!date) {
+    return formatFallbackValue(value)
   }
 
   return new Intl.DateTimeFormat(i18n.global.locale.value, {
     dateStyle: 'short',
     timeStyle: 'medium',
-  }).format(new Date(value))
+  }).format(date)
 }
 
-export function formatRelativeTime(value?: string): string {
-  if (!value) {
-    return t('display.empty')
-  }
-
-  const date = new Date(value)
-  if (isNaN(date.getTime())) {
-    return value
+export function formatRelativeTime(value?: string | number | Date | null): string {
+  const date = toValidDate(value)
+  if (!date) {
+    return formatFallbackValue(value)
   }
 
   const now = Date.now()
@@ -68,4 +65,30 @@ export function fromMultilineList(value: string) {
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function toValidDate(value?: string | number | Date | null) {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  return date
+}
+
+function formatFallbackValue(value?: string | number | Date | null) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed || t('display.empty')
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+
+  return t('display.empty')
 }

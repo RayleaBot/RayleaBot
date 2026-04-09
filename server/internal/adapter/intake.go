@@ -31,6 +31,7 @@ type FrameSummary struct {
 const (
 	EventKindMessageText = "onebot11.message_text"
 	EventKindMessage     = "onebot11.message"
+	EventKindMessageSent = "onebot11.message_sent"
 	EventKindNotice      = "onebot11.notice"
 	EventKindRequest     = "onebot11.request"
 )
@@ -60,6 +61,7 @@ type senderObject struct {
 	Nickname string `json:"nickname"`
 	Card     string `json:"card"`
 	Role     string `json:"role"`
+	Title    string `json:"title"`
 	Sex      string `json:"sex"`
 	Age      int    `json:"age"`
 }
@@ -73,6 +75,8 @@ type oneBotFrame struct {
 	Interval      int             `json:"interval"`
 	MessageType   string          `json:"message_type"`
 	MessageID     int64           `json:"message_id"`
+	RealID        int64           `json:"real_id"`
+	MessageSeq    int64           `json:"message_seq"`
 	Time          int64           `json:"time"`
 	SelfID        int64           `json:"self_id"`
 	UserID        int64           `json:"user_id"`
@@ -80,6 +84,8 @@ type oneBotFrame struct {
 	OperatorID    int64           `json:"operator_id"`
 	TargetID      int64           `json:"target_id"`
 	RawMessage    string          `json:"raw_message"`
+	Font          int             `json:"font"`
+	MessageFormat string          `json:"message_format"`
 	Message       json.RawMessage `json:"message"`
 	Sender        *senderObject   `json:"sender"`
 	Status        any             `json:"status"`
@@ -251,6 +257,8 @@ func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (Normalize
 	switch frame.PostType {
 	case "message":
 		return normalizeMessageEvent(frame, observedAt)
+	case "message_sent":
+		return normalizeMessageSentEvent(frame, observedAt)
 	case "notice":
 		return normalizeNoticeEvent(frame, observedAt)
 	case "request":
@@ -261,6 +269,14 @@ func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (Normalize
 }
 
 func normalizeMessageEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	return normalizeMessageLikeEvent(frame, observedAt, false)
+}
+
+func normalizeMessageSentEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	return normalizeMessageLikeEvent(frame, observedAt, true)
+}
+
+func normalizeMessageLikeEvent(frame oneBotFrame, observedAt time.Time, sent bool) (NormalizedEvent, bool) {
 	if frame.SelfID <= 0 || frame.UserID <= 0 {
 		return NormalizedEvent{}, false
 	}
@@ -270,14 +286,22 @@ func normalizeMessageEvent(frame oneBotFrame, observedAt time.Time) (NormalizedE
 	var conversationID string
 	switch frame.MessageType {
 	case "private":
-		eventType = "message.private"
+		if sent {
+			eventType = "message_sent.private"
+		} else {
+			eventType = "message.private"
+		}
 		conversationType = "private"
 		conversationID = fmt.Sprintf("%d", frame.UserID)
 	case "group":
 		if frame.GroupID <= 0 {
 			return NormalizedEvent{}, false
 		}
-		eventType = "message.group"
+		if sent {
+			eventType = "message_sent.group"
+		} else {
+			eventType = "message.group"
+		}
 		conversationType = "group"
 		conversationID = fmt.Sprintf("%d", frame.GroupID)
 	default:
@@ -293,18 +317,22 @@ func normalizeMessageEvent(frame oneBotFrame, observedAt time.Time) (NormalizedE
 	if frame.MessageID > 0 {
 		eventID = fmt.Sprintf("onebot11-message-%d", frame.MessageID)
 	}
+	if sent {
+		eventID = fmt.Sprintf("onebot11-message-sent-%d-%d", timestamp, frame.UserID)
+		if frame.MessageID > 0 {
+			eventID = fmt.Sprintf("onebot11-message-sent-%d", frame.MessageID)
+		}
+	}
 
-	// Parse message segments from either JSON array or CQ string.
 	segments := parseFrameMessage(frame)
 	plainText := strings.TrimSpace(segmentsToPlainText(segments))
 	if plainText == "" {
 		plainText = strings.TrimSpace(frame.RawMessage)
 	}
-	if plainText == "" {
+	if plainText == "" && len(segments) == 0 {
 		return NormalizedEvent{}, false
 	}
 
-	// Extract sender info.
 	var actorNickname, actorRole string
 	if frame.Sender != nil {
 		actorNickname = frame.Sender.Card
@@ -319,8 +347,15 @@ func normalizeMessageEvent(frame oneBotFrame, observedAt time.Time) (NormalizedE
 		messageID = fmt.Sprintf("%d", frame.MessageID)
 	}
 
+	payloadFields := buildCommonPayloadFields(frame)
+
 	return NormalizedEvent{
-		Kind:             EventKindMessage,
+		Kind: func() string {
+			if sent {
+				return EventKindMessageSent
+			}
+			return EventKindMessage
+		}(),
 		EventID:          eventID,
 		BotID:            fmt.Sprintf("%d", frame.SelfID),
 		SourceProtocol:   "onebot11",
@@ -335,6 +370,7 @@ func normalizeMessageEvent(frame oneBotFrame, observedAt time.Time) (NormalizedE
 		MessageID:        messageID,
 		ActorNickname:    actorNickname,
 		ActorRole:        actorRole,
+		PayloadFields:    payloadFields,
 	}, true
 }
 
@@ -589,6 +625,9 @@ func buildCommonPayloadFields(frame oneBotFrame) map[string]any {
 	if data := buildDataPayload(frame.Data); len(data) > 0 {
 		payloadFields["data"] = data
 	}
+	if onebot := buildOneBotPayload(frame); len(onebot) > 0 {
+		payloadFields["onebot"] = onebot
+	}
 	return payloadFields
 }
 
@@ -596,8 +635,9 @@ func buildSenderPayload(sender *senderObject) map[string]any {
 	if sender == nil {
 		return map[string]any{}
 	}
-	payload := map[string]any{
-		"user_id": fmt.Sprintf("%d", sender.UserID),
+	payload := map[string]any{}
+	if sender.UserID > 0 {
+		payload["user_id"] = fmt.Sprintf("%d", sender.UserID)
 	}
 	if sender.Nickname != "" {
 		payload["nickname"] = sender.Nickname
@@ -608,11 +648,76 @@ func buildSenderPayload(sender *senderObject) map[string]any {
 	if sender.Role != "" {
 		payload["role"] = sender.Role
 	}
+	if sender.Title != "" {
+		payload["title"] = sender.Title
+	}
 	if sender.Sex != "" {
 		payload["sex"] = sender.Sex
 	}
 	if sender.Age > 0 {
 		payload["age"] = sender.Age
+	}
+	return payload
+}
+
+func buildOneBotPayload(frame oneBotFrame) map[string]any {
+	payload := map[string]any{}
+	if frame.PostType != "" {
+		payload["post_type"] = frame.PostType
+	}
+	if frame.MessageType != "" {
+		payload["message_type"] = frame.MessageType
+	}
+	if frame.RequestType != "" {
+		payload["request_type"] = frame.RequestType
+	}
+	if frame.NoticeType != "" {
+		payload["notice_type"] = frame.NoticeType
+	}
+	if frame.SubType != "" {
+		payload["sub_type"] = frame.SubType
+	}
+	if frame.SelfID > 0 {
+		payload["self_id"] = fmt.Sprintf("%d", frame.SelfID)
+	}
+	if frame.UserID > 0 {
+		payload["user_id"] = fmt.Sprintf("%d", frame.UserID)
+	}
+	if frame.GroupID > 0 {
+		payload["group_id"] = fmt.Sprintf("%d", frame.GroupID)
+	}
+	if frame.TargetID > 0 {
+		payload["target_id"] = fmt.Sprintf("%d", frame.TargetID)
+	}
+	if frame.Time > 0 {
+		payload["time"] = frame.Time
+	}
+	if frame.MessageID > 0 {
+		payload["message_id"] = fmt.Sprintf("%d", frame.MessageID)
+	}
+	if frame.RealID > 0 {
+		payload["real_id"] = fmt.Sprintf("%d", frame.RealID)
+	}
+	if frame.MessageSeq > 0 {
+		payload["message_seq"] = fmt.Sprintf("%d", frame.MessageSeq)
+	}
+	if frame.RawMessage != "" {
+		payload["raw_message"] = frame.RawMessage
+	}
+	if frame.Font > 0 {
+		payload["font"] = frame.Font
+	}
+	if frame.MessageFormat != "" {
+		payload["message_format"] = frame.MessageFormat
+	}
+	if sender := buildSenderPayload(frame.Sender); len(sender) > 0 {
+		payload["sender"] = sender
+	}
+	if frame.Comment != "" {
+		payload["comment"] = frame.Comment
+	}
+	if frame.Flag != "" {
+		payload["flag"] = frame.Flag
 	}
 	return payload
 }

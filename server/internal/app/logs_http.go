@@ -125,20 +125,44 @@ func (a *App) listLogSummaries(ctx context.Context, query logging.Query) ([]logg
 }
 
 func (a *App) getLogSummary(ctx context.Context, logID string) (logging.Summary, error) {
+	trimmedLogID := strings.TrimSpace(logID)
 	if a != nil && a.LogRepository != nil {
-		return a.LogRepository.GetSummary(ctx, logID)
+		item, err := a.LogRepository.GetSummary(ctx, trimmedLogID)
+		if err == nil {
+			return item, nil
+		}
+		if err != logging.ErrLogNotFound {
+			return logging.Summary{}, err
+		}
+		if item, ok := a.findStreamLogSummary(trimmedLogID); ok {
+			return item, nil
+		}
+		return logging.Summary{}, logging.ErrLogNotFound
+	}
+
+	if item, ok := a.findStreamLogSummary(trimmedLogID); ok {
+		return item, nil
 	}
 
 	if a == nil || a.Logs == nil {
 		return logging.Summary{}, logging.ErrLogNotFound
 	}
 
+	return logging.Summary{}, logging.ErrLogNotFound
+}
+
+func (a *App) findStreamLogSummary(logID string) (logging.Summary, bool) {
+	if a == nil || a.Logs == nil || logID == "" {
+		return logging.Summary{}, false
+	}
+
 	for _, item := range a.Logs.Snapshot() {
 		if item.LogID == logID {
-			return item, nil
+			return item, true
 		}
 	}
-	return logging.Summary{}, logging.ErrLogNotFound
+
+	return logging.Summary{}, false
 }
 
 func isAllowedLogLevel(level string) bool {

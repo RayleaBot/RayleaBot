@@ -68,12 +68,43 @@ export interface EventTarget {
     id: string;
     name?: string;
 }
+export interface OneBotSender {
+    user_id?: string;
+    nickname?: string;
+    card?: string;
+    role?: string;
+    title?: string;
+    sex?: string;
+    age?: number;
+}
+export interface OneBotPayload {
+    post_type?: string;
+    message_type?: string;
+    request_type?: string;
+    notice_type?: string;
+    sub_type?: string;
+    self_id?: string;
+    user_id?: string;
+    group_id?: string;
+    target_id?: string;
+    time?: number;
+    message_id?: string;
+    real_id?: string;
+    message_seq?: string;
+    raw_message?: string;
+    font?: number;
+    message_format?: string;
+    sender?: OneBotSender;
+    comment?: string;
+    flag?: string;
+}
 export interface EventPayload {
     command?: string | null;
     args?: string[];
     message_id?: string;
     sub_type?: string;
     operator_id?: string;
+    onebot?: OneBotPayload;
 }
 export interface EventMessage {
     segments?: Array<{

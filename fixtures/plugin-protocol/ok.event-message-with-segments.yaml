@@ -25,6 +25,26 @@ frames:
         args:
           - hello
         message_id: "12345"
+        sub_type: normal
+        onebot:
+          post_type: message
+          message_type: group
+          sub_type: normal
+          self_id: "999001"
+          user_id: "100001"
+          group_id: "200001"
+          time: 1710000010
+          message_id: "12345"
+          real_id: "12345"
+          message_seq: "12345"
+          raw_message: " /echo hello"
+          message_format: array
+          font: 14
+          sender:
+            user_id: "100001"
+            nickname: Alice
+            card: Alice
+            role: admin
       message:
         segments:
           - type: reply

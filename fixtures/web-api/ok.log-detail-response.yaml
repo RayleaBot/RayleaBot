@@ -18,11 +18,30 @@ response:
       direction: inbound
       event_kind: onebot11.message
       event_type: message.group
+      post_type: message
+      message_type: group
+      event_timestamp: 1711015202.0
+      time: 1711015202.0
       conversation_type: group
       conversation_id: "2001"
+      group_id: "2001"
       sender_id: "3001"
+      user_id: "3001"
+      sender_nickname: Alice
+      sender_card: 管理员
+      sender_role: admin
       message_id: "1001"
+      real_id: "1001"
+      message_seq: "1001"
+      raw_message: hello bridge
+      message_format: array
+      font: 14.0
       plain_text: hello bridge
+      sender:
+        user_id: "3001"
+        nickname: Alice
+        card: 管理员
+        role: admin
       segments:
         - type: text
           data:

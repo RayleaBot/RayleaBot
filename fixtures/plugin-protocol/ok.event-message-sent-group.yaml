@@ -1,0 +1,58 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1729679126
+    plugin_id: echo
+    request_id: evt_message_sent_001
+    event:
+      event_id: onebot11-message-sent-966671988
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: message_sent.group
+      timestamp: 1729679125
+      actor:
+        id: "721011692"
+        nickname: "--"
+        role: owner
+      target:
+        type: group
+        id: "860105388"
+      payload:
+        message_id: "966671988"
+        sub_type: normal
+        onebot:
+          post_type: message_sent
+          message_type: group
+          sub_type: normal
+          self_id: "721011692"
+          user_id: "721011692"
+          group_id: "860105388"
+          time: 1729679125
+          message_id: "966671988"
+          real_id: "966671988"
+          message_seq: "966671988"
+          raw_message: 您好
+          message_format: array
+          font: 14
+          sender:
+            user_id: "721011692"
+            nickname: "--"
+            role: owner
+      message:
+        segments:
+          - type: text
+            data:
+              text: 您好
+        plain_text: 您好
+  - protocol_version: "1"
+    type: result
+    timestamp: 1729679127
+    plugin_id: echo
+    request_id: evt_message_sent_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true

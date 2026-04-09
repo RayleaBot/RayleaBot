@@ -79,11 +79,44 @@ type protocolSegmentFrame struct {
 }
 
 type protocolPayloadFrame struct {
-	MessageID  string   `json:"message_id,omitempty"`
-	Command    string   `json:"command,omitempty"`
-	Args       []string `json:"args,omitempty"`
-	SubType    string   `json:"sub_type,omitempty"`
-	OperatorID string   `json:"operator_id,omitempty"`
+	MessageID  string                      `json:"message_id,omitempty"`
+	Command    string                      `json:"command,omitempty"`
+	Args       []string                    `json:"args,omitempty"`
+	SubType    string                      `json:"sub_type,omitempty"`
+	OperatorID string                      `json:"operator_id,omitempty"`
+	OneBot     *protocolOneBotPayloadFrame `json:"onebot,omitempty"`
+}
+
+type protocolOneBotPayloadFrame struct {
+	PostType      string                     `json:"post_type,omitempty"`
+	MessageType   string                     `json:"message_type,omitempty"`
+	RequestType   string                     `json:"request_type,omitempty"`
+	NoticeType    string                     `json:"notice_type,omitempty"`
+	SubType       string                     `json:"sub_type,omitempty"`
+	SelfID        string                     `json:"self_id,omitempty"`
+	UserID        string                     `json:"user_id,omitempty"`
+	GroupID       string                     `json:"group_id,omitempty"`
+	TargetID      string                     `json:"target_id,omitempty"`
+	Time          int64                      `json:"time,omitempty"`
+	MessageID     string                     `json:"message_id,omitempty"`
+	RealID        string                     `json:"real_id,omitempty"`
+	MessageSeq    string                     `json:"message_seq,omitempty"`
+	RawMessage    string                     `json:"raw_message,omitempty"`
+	Font          int                        `json:"font,omitempty"`
+	MessageFormat string                     `json:"message_format,omitempty"`
+	Sender        *protocolOneBotSenderFrame `json:"sender,omitempty"`
+	Comment       string                     `json:"comment,omitempty"`
+	Flag          string                     `json:"flag,omitempty"`
+}
+
+type protocolOneBotSenderFrame struct {
+	UserID   string `json:"user_id,omitempty"`
+	Nickname string `json:"nickname,omitempty"`
+	Card     string `json:"card,omitempty"`
+	Role     string `json:"role,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Sex      string `json:"sex,omitempty"`
+	Age      int    `json:"age,omitempty"`
 }
 
 type actionFrame struct {

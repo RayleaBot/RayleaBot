@@ -13,10 +13,25 @@ const protocolDetailFieldKeys = [
   'direction',
   'event_kind',
   'event_type',
+  'post_type',
+  'message_type',
+  'event_timestamp',
+  'time',
   'conversation_type',
   'conversation_id',
+  'group_id',
   'sender_id',
+  'user_id',
+  'sender_nickname',
+  'sender_card',
+  'sender_role',
+  'sender_title',
   'message_id',
+  'real_id',
+  'message_seq',
+  'raw_message',
+  'message_format',
+  'font',
   'plain_text',
   'target_type',
   'target_id',
@@ -48,18 +63,18 @@ const {
 const terminalScroller = ref<HTMLElement | null>(null)
 const selectedSummary = computed(() => currentDetail.value ?? selectedItem.value ?? null)
 const detailEntries = computed(() => {
-  const details = currentDetail.value?.details ?? {}
+  const details = toDetailRecord(currentDetail.value?.details)
   return protocolDetailFieldKeys.flatMap((key) => (
     key in details
       ? [{
         key,
         label: t(`protocols.detailFields.${key}`),
-        value: formatDetailValue(key, details[key as keyof typeof details]),
+        value: formatDetailValue(key, details[key]),
       }]
       : []
   ))
 })
-const detailJson = computed(() => JSON.stringify(currentDetail.value?.details ?? {}, null, 2))
+const detailJson = computed(() => safeJsonStringify(toDetailRecord(currentDetail.value?.details)))
 const terminalStatusLabel = computed(() => (
   autoFollow.value ? t('protocols.logsFollowing') : t('protocols.logsPaused')
 ))
@@ -140,16 +155,62 @@ function formatDetailValue(key: ProtocolDetailFieldKey, value: unknown) {
     return t('display.empty')
   }
 
+  if (key === 'event_timestamp' || key === 'time') {
+    return formatProtocolEventTime(value)
+  }
+
   if (key === 'segments' && Array.isArray(value)) {
     return t('protocols.segmentCount', { count: value.length })
   }
 
   if (typeof value === 'object') {
-    const raw = JSON.stringify(value)
+    const raw = safeJsonStringify(value)
     return raw.length > 140 ? `${raw.slice(0, 140)}...` : raw
   }
 
   return String(value)
+}
+
+function formatProtocolEventTime(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return formatDateTime(normalizeUnixTimestamp(value))
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return t('display.empty')
+    }
+
+    const numeric = Number(trimmed)
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return formatDateTime(normalizeUnixTimestamp(numeric))
+    }
+
+    return formatDateTime(trimmed)
+  }
+
+  return String(value)
+}
+
+function normalizeUnixTimestamp(value: number) {
+  return value >= 1_000_000_000_000 ? value : value * 1000
+}
+
+function toDetailRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return value as Record<string, unknown>
+}
+
+function safeJsonStringify(value: unknown) {
+  try {
+    return JSON.stringify(value ?? {}, null, 2)
+  } catch {
+    return '{}'
+  }
 }
 
 function getLogRowClass(logId: string) {

@@ -34,7 +34,7 @@ func buildEventFrame(event Event, pluginID string, requestID string, timestamp i
 			Name: event.Target.Name,
 		}
 	}
-	if event.Message != nil && event.Message.PlainText != "" {
+	if event.Message != nil && (event.Message.PlainText != "" || len(event.Message.Segments) > 0) {
 		msgFrame := &protocolMessageFrame{PlainText: event.Message.PlainText}
 		for _, seg := range event.Message.Segments {
 			msgFrame.Segments = append(msgFrame.Segments, protocolSegmentFrame{
@@ -77,11 +77,199 @@ func buildEventPayload(event Event) (*protocolPayloadFrame, bool) {
 			payload.Args = v
 			hasPayload = true
 		}
+		if onebot, ok := buildProtocolOneBotPayload(event.PayloadFields); ok {
+			payload.OneBot = onebot
+			hasPayload = true
+		}
 	}
 	if !hasPayload {
 		return nil, false
 	}
 	return &payload, true
+}
+
+func buildProtocolOneBotPayload(fields map[string]any) (*protocolOneBotPayloadFrame, bool) {
+	raw, ok := fields["onebot"].(map[string]any)
+	if !ok || len(raw) == 0 {
+		return nil, false
+	}
+
+	var payload protocolOneBotPayloadFrame
+	hasPayload := false
+	if v, ok := payloadString(raw, "post_type"); ok {
+		payload.PostType = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "message_type"); ok {
+		payload.MessageType = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "request_type"); ok {
+		payload.RequestType = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "notice_type"); ok {
+		payload.NoticeType = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "sub_type"); ok {
+		payload.SubType = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "self_id"); ok {
+		payload.SelfID = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "user_id"); ok {
+		payload.UserID = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "group_id"); ok {
+		payload.GroupID = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "target_id"); ok {
+		payload.TargetID = v
+		hasPayload = true
+	}
+	if v, ok := payloadInt64(raw, "time"); ok {
+		payload.Time = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "message_id"); ok {
+		payload.MessageID = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "real_id"); ok {
+		payload.RealID = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "message_seq"); ok {
+		payload.MessageSeq = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "raw_message"); ok {
+		payload.RawMessage = v
+		hasPayload = true
+	}
+	if v, ok := payloadInt(raw, "font"); ok {
+		payload.Font = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "message_format"); ok {
+		payload.MessageFormat = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "comment"); ok {
+		payload.Comment = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(raw, "flag"); ok {
+		payload.Flag = v
+		hasPayload = true
+	}
+	if sender, ok := buildProtocolOneBotSender(raw); ok {
+		payload.Sender = sender
+		hasPayload = true
+	}
+	if !hasPayload {
+		return nil, false
+	}
+	return &payload, true
+}
+
+func buildProtocolOneBotSender(raw map[string]any) (*protocolOneBotSenderFrame, bool) {
+	senderRaw, ok := raw["sender"].(map[string]any)
+	if !ok || len(senderRaw) == 0 {
+		return nil, false
+	}
+
+	var sender protocolOneBotSenderFrame
+	hasPayload := false
+	if v, ok := payloadString(senderRaw, "user_id"); ok {
+		sender.UserID = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(senderRaw, "nickname"); ok {
+		sender.Nickname = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(senderRaw, "card"); ok {
+		sender.Card = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(senderRaw, "role"); ok {
+		sender.Role = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(senderRaw, "title"); ok {
+		sender.Title = v
+		hasPayload = true
+	}
+	if v, ok := payloadString(senderRaw, "sex"); ok {
+		sender.Sex = v
+		hasPayload = true
+	}
+	if v, ok := payloadInt(senderRaw, "age"); ok {
+		sender.Age = v
+		hasPayload = true
+	}
+	if !hasPayload {
+		return nil, false
+	}
+	return &sender, true
+}
+
+func payloadString(values map[string]any, key string) (string, bool) {
+	value, ok := values[key].(string)
+	if !ok || value == "" {
+		return "", false
+	}
+	return value, true
+}
+
+func payloadInt64(values map[string]any, key string) (int64, bool) {
+	switch value := values[key].(type) {
+	case int64:
+		if value <= 0 {
+			return 0, false
+		}
+		return value, true
+	case int:
+		if value <= 0 {
+			return 0, false
+		}
+		return int64(value), true
+	case float64:
+		if value <= 0 {
+			return 0, false
+		}
+		return int64(value), true
+	default:
+		return 0, false
+	}
+}
+
+func payloadInt(values map[string]any, key string) (int, bool) {
+	switch value := values[key].(type) {
+	case int:
+		if value <= 0 {
+			return 0, false
+		}
+		return value, true
+	case int64:
+		if value <= 0 {
+			return 0, false
+		}
+		return int(value), true
+	case float64:
+		if value <= 0 {
+			return 0, false
+		}
+		return int(value), true
+	default:
+		return 0, false
+	}
 }
 
 func (m *Manager) processEventFrame(ctx context.Context, handle *processHandle, eventRequestID string, seenLocalRequestIDs map[string]struct{}, line []byte) (Delivery, bool, error) {
