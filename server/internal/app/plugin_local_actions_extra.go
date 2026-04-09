@@ -48,7 +48,7 @@ func (a *App) executeRenderImage(ctx context.Context, pluginID string, action ru
 }
 
 func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
-	if a == nil || a.Dispatcher == nil || !a.Dispatcher.HasPlugin(pluginID) {
+	if a == nil || a.Dispatcher == nil || !a.Dispatcher.HasDeliverablePlugin(pluginID) {
 		return
 	}
 

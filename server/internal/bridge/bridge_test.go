@@ -8,58 +8,39 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func TestBridgeDeliversSupportedEventToRunningRuntime(t *testing.T) {
+func TestBridgeQueuesSupportedEventToDispatcher(t *testing.T) {
 	t.Parallel()
 
-	fakeSender := &fakeActionSender{
-		sendResult: adapter.SendMessageResult{MessageID: "9001"},
+	fakeDispatcher := &recordingDispatcher{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{{
+			PluginID: "weather",
+			Outcome:  dispatch.OutcomeDelivered,
+		}},
 	}
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-				RequestID: "req_evt_1",
-				Action: &runtime.Action{
-					Kind:       "message.send",
-					TargetType: "group",
-					TargetID:   "2001",
-					MessageSegments: []runtime.ActionSegment{{
-						Type: "text",
-						Data: map[string]any{"text": "hello bridge"},
-					}},
-				},
-			}, nil
-		},
-	}
-	eventBridge := testBridge(fakeRuntime, fakeSender)
+	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeDelivered {
 		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
 	}
 
-	if len(fakeRuntime.events) != 1 {
-		t.Fatalf("unexpected runtime delivery count: got %d want 1", len(fakeRuntime.events))
+	if len(fakeDispatcher.events) != 1 {
+		t.Fatalf("unexpected dispatcher delivery count: got %d want 1", len(fakeDispatcher.events))
 	}
-	delivered := fakeRuntime.events[0]
+	delivered := fakeDispatcher.events[0]
 	if delivered.EventType != "message.group" {
 		t.Fatalf("unexpected delivered event type: got %q want %q", delivered.EventType, "message.group")
 	}
-	if len(fakeSender.actions) != 1 {
-		t.Fatalf("expected one outbound action, got %d", len(fakeSender.actions))
-	}
-	if fakeSender.actions[0].TargetType != "group" || fakeSender.actions[0].TargetID != "2001" {
-		t.Fatalf("unexpected outbound action payload: %#v", fakeSender.actions[0])
-	}
-	if len(fakeSender.actions[0].Segments) != 1 || fakeSender.actions[0].Segments[0].Type != "text" || fakeSender.actions[0].Segments[0].Data["text"] != "hello bridge" {
-		t.Fatalf("unexpected outbound action segments: %#v", fakeSender.actions[0])
-	}
 	if delivered.Message == nil || delivered.Message.PlainText != "hello bridge" {
 		t.Fatalf("unexpected delivered message: %#v", delivered.Message)
+	}
+	if fakeDispatcher.commands[0] != "" {
+		t.Fatalf("unexpected command routing hint: got %q want empty", fakeDispatcher.commands[0])
 	}
 
 	snapshot := eventBridge.Snapshot()
@@ -68,23 +49,17 @@ func TestBridgeDeliversSupportedEventToRunningRuntime(t *testing.T) {
 	}
 }
 
-func TestBridgeReturnsPluginErrorForDeliveredEvent(t *testing.T) {
+func TestBridgeReturnsErrorWhenDispatcherCannotQueueAnyTarget(t *testing.T) {
 	t.Parallel()
 
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-					RequestID:    "req_evt_2",
-					ErrorCode:    "plugin.not_handled",
-					ErrorMessage: "plugin chose not to handle this event",
-				}, &runtime.Error{
-					Code:    "plugin.not_handled",
-					Message: "plugin chose not to handle this event",
-				}
+	fakeDispatcher := &recordingDispatcher{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{
+			{PluginID: "weather", Outcome: dispatch.OutcomeDropped},
+			{PluginID: "echo", Outcome: dispatch.OutcomeError, ErrorCode: "platform.invalid_request"},
 		},
 	}
-	eventBridge := testBridge(fakeRuntime, nil)
+	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeError {
@@ -95,18 +70,16 @@ func TestBridgeReturnsPluginErrorForDeliveredEvent(t *testing.T) {
 	if snapshot.ErrorCount != 1 {
 		t.Fatalf("unexpected error count: %+v", snapshot)
 	}
-	if snapshot.LastErrorCode != "plugin.not_handled" {
-		t.Fatalf("unexpected last error code: got %q want %q", snapshot.LastErrorCode, "plugin.not_handled")
+	if snapshot.LastErrorCode != "plugin.internal_error" {
+		t.Fatalf("unexpected last error code: got %q want %q", snapshot.LastErrorCode, "plugin.internal_error")
 	}
 }
 
 func TestBridgeIgnoresUnsupportedAdapterEventShape(t *testing.T) {
 	t.Parallel()
 
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-	}
-	eventBridge := testBridge(fakeRuntime, nil)
+	fakeDispatcher := &recordingDispatcher{deliverable: true}
+	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:      "onebot11.unsupported",
@@ -115,8 +88,8 @@ func TestBridgeIgnoresUnsupportedAdapterEventShape(t *testing.T) {
 	if outcome != OutcomeIgnored {
 		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
 	}
-	if len(fakeRuntime.events) != 0 {
-		t.Fatalf("unsupported event should not reach runtime")
+	if len(fakeDispatcher.events) != 0 {
+		t.Fatalf("unsupported event should not reach dispatcher")
 	}
 
 	snapshot := eventBridge.Snapshot()
@@ -125,20 +98,18 @@ func TestBridgeIgnoresUnsupportedAdapterEventShape(t *testing.T) {
 	}
 }
 
-func TestBridgeRejectsEventWhenRuntimeIsNotRunning(t *testing.T) {
+func TestBridgeRejectsEventWhenNoDeliverableRuntimeExists(t *testing.T) {
 	t.Parallel()
 
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateStopped},
-	}
-	eventBridge := testBridge(fakeRuntime, nil)
+	fakeDispatcher := &recordingDispatcher{deliverable: false}
+	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
 	if outcome != OutcomeRejected {
 		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeRejected)
 	}
-	if len(fakeRuntime.events) != 0 {
-		t.Fatalf("runtime should not receive event when stopped")
+	if len(fakeDispatcher.events) != 0 {
+		t.Fatalf("dispatcher should not receive event when nothing is deliverable")
 	}
 
 	snapshot := eventBridge.Snapshot()
@@ -147,55 +118,32 @@ func TestBridgeRejectsEventWhenRuntimeIsNotRunning(t *testing.T) {
 	}
 }
 
-func TestBridgeAllowsOpaqueResultWithoutOutboundAction(t *testing.T) {
+func TestBridgeRejectsEventWhenNoTargetAccepts(t *testing.T) {
 	t.Parallel()
 
-	fakeSender := &fakeActionSender{}
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-				RequestID: "req_evt_3",
-				Result: map[string]any{
-					"handled": true,
-				},
-			}, nil
-		},
-	}
-	eventBridge := testBridge(fakeRuntime, fakeSender)
+	fakeDispatcher := &recordingDispatcher{deliverable: true}
+	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeDelivered {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	if outcome != OutcomeRejected {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeRejected)
 	}
-	if len(fakeRuntime.events) != 1 {
-		t.Fatalf("unexpected runtime delivery count: got %d want 1", len(fakeRuntime.events))
-	}
-
-	snapshot := eventBridge.Snapshot()
-	if snapshot.ResultCount != 1 || snapshot.ErrorCount != 0 || snapshot.RejectedCount != 0 {
-		t.Fatalf("unexpected bridge counters after opaque result: %+v", snapshot)
-	}
-	if len(fakeSender.actions) != 0 {
-		t.Fatalf("opaque result should not trigger outbound action: %#v", fakeSender.actions)
+	if len(fakeDispatcher.events) != 1 {
+		t.Fatalf("dispatcher should inspect the event once, got %d", len(fakeDispatcher.events))
 	}
 }
 
 func TestBridgeDeliversFriendRequestEvent(t *testing.T) {
 	t.Parallel()
 
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-				RequestID: "req_evt_friend_request",
-				Result: map[string]any{
-					"handled": true,
-				},
-			}, nil
-		},
+	fakeDispatcher := &recordingDispatcher{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{{
+			PluginID: "friend-handler",
+			Outcome:  dispatch.OutcomeDelivered,
+		}},
 	}
-	eventBridge := testBridge(fakeRuntime, &fakeActionSender{})
+	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:             adapter.EventKindRequest,
@@ -216,260 +164,100 @@ func TestBridgeDeliversFriendRequestEvent(t *testing.T) {
 	if outcome != OutcomeDelivered {
 		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
 	}
-	if len(fakeRuntime.events) != 1 {
-		t.Fatalf("unexpected runtime delivery count: got %d want 1", len(fakeRuntime.events))
+	if len(fakeDispatcher.events) != 1 {
+		t.Fatalf("unexpected dispatcher delivery count: got %d want 1", len(fakeDispatcher.events))
 	}
-	if fakeRuntime.events[0].EventType != "request.friend" {
-		t.Fatalf("unexpected delivered event type: %q", fakeRuntime.events[0].EventType)
+	if fakeDispatcher.events[0].EventType != "request.friend" {
+		t.Fatalf("unexpected delivered event type: %q", fakeDispatcher.events[0].EventType)
 	}
-	if got := fakeRuntime.events[0].PayloadFields["flag"]; got != "friend-flag-1" {
+	if got := fakeDispatcher.events[0].PayloadFields["flag"]; got != "friend-flag-1" {
 		t.Fatalf("unexpected payload flag: %#v", got)
 	}
 }
 
-func TestBridgeReturnsAdapterErrorForOutboundActionFailure(t *testing.T) {
+func TestBridgeDeliversMessageSentEvent(t *testing.T) {
 	t.Parallel()
 
-	fakeSender := &fakeActionSender{
-		sendErr: &adapter.Error{
-			Code:    "adapter.send_failed",
-			Message: "onebot send_msg failed",
-		},
+	fakeDispatcher := &recordingDispatcher{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{{
+			PluginID: "self-log",
+			Outcome:  dispatch.OutcomeDelivered,
+		}},
 	}
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-				RequestID: "req_evt_4",
-				Action: &runtime.Action{
-					Kind:       "message.send",
-					TargetType: "group",
-					TargetID:   "2001",
-					MessageSegments: []runtime.ActionSegment{{
-						Type: "text",
-						Data: map[string]any{"text": "hello bridge"},
-					}},
+	eventBridge := testBridge(fakeDispatcher)
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessageSent,
+		EventID:          "onebot11-message-sent-1001",
+		BotID:            "10001",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message_sent.group",
+		Timestamp:        time.Unix(1_700_000_456, 0).Unix(),
+		ConversationType: "group",
+		ConversationID:   "2001",
+		SenderID:         "3001",
+		MessageID:        "1001",
+		PlainText:        "hello self",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"post_type":      "message_sent",
+				"message_type":   "group",
+				"group_id":       "2001",
+				"user_id":        "3001",
+				"time":           int64(1_700_000_456),
+				"message_id":     "1001",
+				"real_id":        "1001",
+				"message_seq":    "1001",
+				"raw_message":    "hello self",
+				"message_format": "array",
+				"font":           14,
+				"sender": map[string]any{
+					"nickname": "Alice",
+					"role":     "owner",
 				},
-			}, nil
-		},
-	}
-	eventBridge := testBridge(fakeRuntime, fakeSender)
-
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeError {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeError)
-	}
-
-	snapshot := eventBridge.Snapshot()
-	if snapshot.ErrorCount != 1 || snapshot.LastErrorCode != "adapter.send_failed" {
-		t.Fatalf("unexpected bridge error snapshot: %+v", snapshot)
-	}
-}
-
-func TestBridgeDeliversMessageReplyAction(t *testing.T) {
-	t.Parallel()
-
-	fakeSender := &fakeActionSender{
-		sendResult: adapter.SendMessageResult{MessageID: "9002"},
-	}
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-				RequestID: "req_evt_reply",
-				Action: &runtime.Action{
-					Kind:           "message.reply",
-					ReplyToEventID: "onebot11-message-12345",
-					MessageSegments: []runtime.ActionSegment{{
-						Type: "text",
-						Data: map[string]any{"text": "今日天气：晴"},
-					}},
-				},
-			}, nil
-		},
-	}
-	eventBridge := New(
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		fakeRuntime,
-		fakeSender,
-		stubReplyTargetResolver{
-			"onebot11-message-12345": {
-				MessageID:  "98765",
-				TargetType: "group",
-				TargetID:   "2001",
 			},
 		},
-	)
-
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
+	})
 	if outcome != OutcomeDelivered {
 		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
 	}
-	if len(fakeSender.replyActions) != 1 {
-		t.Fatalf("expected one reply action, got %d", len(fakeSender.replyActions))
+	if len(fakeDispatcher.events) != 1 {
+		t.Fatalf("unexpected dispatcher delivery count: got %d want 1", len(fakeDispatcher.events))
 	}
-	if fakeSender.replyActions[0].ReplyToMessageID != "98765" {
-		t.Fatalf("unexpected reply action payload: %#v", fakeSender.replyActions[0])
+	if fakeDispatcher.events[0].EventType != "message_sent.group" {
+		t.Fatalf("unexpected delivered event type: %q", fakeDispatcher.events[0].EventType)
 	}
-	if len(fakeSender.replyActions[0].Segments) != 1 || fakeSender.replyActions[0].Segments[0].Type != "text" || fakeSender.replyActions[0].Segments[0].Data["text"] != "今日天气：晴" {
-		t.Fatalf("unexpected reply action segments: %#v", fakeSender.replyActions[0])
-	}
-	if len(fakeSender.actions) != 0 {
-		t.Fatalf("message.reply should not call SendMessage, got %d calls", len(fakeSender.actions))
-	}
-}
-
-func TestBridgeRejectsUnsupportedOutboundActionKind(t *testing.T) {
-	t.Parallel()
-
-	fakeSender := &fakeActionSender{}
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-				RequestID: "req_evt_5",
-				Action: &runtime.Action{
-					Kind: "message.broadcast",
-				},
-			}, nil
-		},
-	}
-	eventBridge := testBridge(fakeRuntime, fakeSender)
-
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeError {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeError)
-	}
-	if len(fakeSender.actions) != 0 || len(fakeSender.replyActions) != 0 {
-		t.Fatalf("unsupported action kind should not reach adapter sender")
-	}
-}
-
-func TestBridgeFallsBackToSendWhenRichReplyTargetIsMissing(t *testing.T) {
-	t.Parallel()
-
-	fakeSender := &fakeActionSender{
-		sendResult: adapter.SendMessageResult{MessageID: "9003"},
-		replyErr: &adapter.Error{
-			Code:    "adapter.reply_target_missing",
-			Message: "reply target missing",
-		},
-	}
-	fakeRuntime := &fakeRuntimeClient{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-			return runtime.Delivery{
-				RequestID: "req_evt_reply_fallback",
-				Action: &runtime.Action{
-					Kind:                    "message.reply",
-					ReplyToEventID:          "onebot11-message-12345",
-					FallbackToSendIfMissing: true,
-					MessageSegments: []runtime.ActionSegment{{
-						Type: "text",
-						Data: map[string]any{"text": "rich fallback body"},
-					}},
-				},
-			}, nil
-		},
-	}
-
-	eventBridge := New(
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		fakeRuntime,
-		fakeSender,
-		stubReplyTargetResolver{
-			"onebot11-message-12345": {
-				MessageID:  "98765",
-				TargetType: "group",
-				TargetID:   "2001",
-			},
-		},
-	)
-
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeDelivered {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
-	}
-	if len(fakeSender.replyActions) != 1 {
-		t.Fatalf("expected one reply attempt, got %d", len(fakeSender.replyActions))
-	}
-	if len(fakeSender.actions) != 1 {
-		t.Fatalf("expected one fallback send, got %d", len(fakeSender.actions))
-	}
-	if fakeSender.actions[0].TargetType != "group" || fakeSender.actions[0].TargetID != "2001" {
-		t.Fatalf("unexpected fallback send target: %#v", fakeSender.actions[0])
-	}
-	if len(fakeSender.actions[0].Segments) != 1 || fakeSender.actions[0].Segments[0].Type != "text" {
-		t.Fatalf("unexpected fallback segments: %#v", fakeSender.actions[0].Segments)
-	}
-}
-
-type fakeRuntimeClient struct {
-	snapshot    runtime.Snapshot
-	deliverFunc func(context.Context, runtime.Event) (runtime.Delivery, error)
-	events      []runtime.Event
-}
-
-func (f *fakeRuntimeClient) Snapshot() runtime.Snapshot {
-	return f.snapshot
-}
-
-func (f *fakeRuntimeClient) DeliverEvent(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
-	f.events = append(f.events, event)
-	if f.deliverFunc == nil {
-		return runtime.Delivery{}, nil
-	}
-	return f.deliverFunc(ctx, event)
-}
-
-type fakeActionSender struct {
-	actions      []adapter.OutboundMessageSend
-	replyActions []adapter.OutboundMessageReply
-	sendResult   adapter.SendMessageResult
-	sendErr      error
-	replyErr     error
-}
-
-func (f *fakeActionSender) SendMessage(ctx context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
-	f.actions = append(f.actions, action)
-	if f.sendErr != nil {
-		return adapter.SendMessageResult{}, f.sendErr
-	}
-	return f.sendResult, nil
-}
-
-func (f *fakeActionSender) SendReply(ctx context.Context, action adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
-	f.replyActions = append(f.replyActions, action)
-	if f.replyErr != nil {
-		return adapter.SendMessageResult{}, f.replyErr
-	}
-	if f.sendErr != nil {
-		return adapter.SendMessageResult{}, f.sendErr
-	}
-	return f.sendResult, nil
-}
-
-func testBridge(runtimeClient runtimeClient, sender *fakeActionSender) *Bridge {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(logger, runtimeClient, sender, nil)
-}
-
-type stubReplyTargetResolver map[string]struct {
-	MessageID  string
-	TargetType string
-	TargetID   string
-}
-
-func (r stubReplyTargetResolver) ResolveReplyTarget(eventID string) (outbound.ReplyTarget, bool) {
-	target, ok := r[eventID]
+	onebot, ok := fakeDispatcher.events[0].PayloadFields["onebot"].(map[string]any)
 	if !ok {
-		return outbound.ReplyTarget{}, false
+		t.Fatalf("missing onebot payload: %#v", fakeDispatcher.events[0].PayloadFields)
 	}
-	return outbound.ReplyTarget{
-		MessageID:  target.MessageID,
-		TargetType: target.TargetType,
-		TargetID:   target.TargetID,
-	}, true
+	if got := onebot["post_type"]; got != "message_sent" {
+		t.Fatalf("unexpected post_type: %#v", got)
+	}
+}
+
+type recordingDispatcher struct {
+	deliverable bool
+	results     []dispatch.DeliveryResult
+	events      []runtime.Event
+	commands    []string
+}
+
+func (r *recordingDispatcher) HasDeliverablePlugins() bool {
+	return r.deliverable
+}
+
+func (r *recordingDispatcher) Dispatch(_ context.Context, event runtime.Event, commandName string) []dispatch.DeliveryResult {
+	r.events = append(r.events, event)
+	r.commands = append(r.commands, commandName)
+	return append([]dispatch.DeliveryResult(nil), r.results...)
+}
+
+func testBridge(dispatcher dispatcherClient) *Bridge {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return New(logger, dispatcher)
 }
 
 func supportedAdapterEvent() adapter.NormalizedEvent {
@@ -485,5 +273,25 @@ func supportedAdapterEvent() adapter.NormalizedEvent {
 		ConversationID:   "2001",
 		SenderID:         "3001",
 		PlainText:        "hello bridge",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"post_type":      "message",
+				"message_type":   "group",
+				"group_id":       "2001",
+				"user_id":        "3001",
+				"time":           int64(1_700_000_123),
+				"message_id":     "1001",
+				"real_id":        "1001",
+				"message_seq":    "1001",
+				"raw_message":    "hello bridge",
+				"message_format": "array",
+				"font":           14,
+				"sender": map[string]any{
+					"nickname": "Alice",
+					"card":     "管理员",
+					"role":     "admin",
+				},
+			},
+		},
 	}
 }

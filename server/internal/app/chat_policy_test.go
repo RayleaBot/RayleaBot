@@ -60,13 +60,13 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 
 	repo := newStubBlacklistRepo()
 	repo.block("user", "bad-user")
-	runtimeClient := &recordingRuntimeClient{}
+	dispatcherClient := &recordingDispatcherClient{}
 	application := &App{
 		appCore: appCore{Config: config.Config{}},
 		appPlugins: appPlugins{
 			permissionChecker: newPermissionChecker(config.Config{}, repo),
 			commandParser:     newCommandParser(config.Config{}),
-			Bridge:            bridge.New(slog.Default(), runtimeClient, nil, nil),
+			Bridge:            bridge.New(slog.Default(), dispatcherClient),
 		},
 	}
 
@@ -83,15 +83,15 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 		PlainText:        "hello",
 	})
 
-	if runtimeClient.deliverCount != 0 {
-		t.Fatalf("deliverCount = %d, want 0", runtimeClient.deliverCount)
+	if dispatcherClient.deliverCount != 0 {
+		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
 	}
 }
 
 func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T) {
 	t.Parallel()
 
-	runtimeClient := &recordingRuntimeClient{}
+	dispatcherClient := &recordingDispatcherClient{}
 	cfg := config.Config{
 		Auth: config.AuthConfig{DefaultLevel: "everyone"},
 		Command: &config.CommandConfig{
@@ -127,7 +127,7 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 					}},
 				},
 			}),
-			Bridge: bridge.New(slog.Default(), runtimeClient, nil, nil),
+			Bridge: bridge.New(slog.Default(), dispatcherClient),
 		},
 	}
 
@@ -146,8 +146,8 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 		MessageID:        "30001",
 	})
 
-	if runtimeClient.deliverCount != 0 {
-		t.Fatalf("deliverCount = %d, want 0", runtimeClient.deliverCount)
+	if dispatcherClient.deliverCount != 0 {
+		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
 	}
 }
 
@@ -305,17 +305,20 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	}
 }
 
-type recordingRuntimeClient struct {
+type recordingDispatcherClient struct {
 	deliverCount int
 }
 
-func (r *recordingRuntimeClient) Snapshot() runtime.Snapshot {
-	return runtime.Snapshot{State: runtime.StateRunning}
+func (r *recordingDispatcherClient) HasDeliverablePlugins() bool {
+	return true
 }
 
-func (r *recordingRuntimeClient) DeliverEvent(_ context.Context, _ runtime.Event) (runtime.Delivery, error) {
+func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ runtime.Event, _ string) []dispatch.DeliveryResult {
 	r.deliverCount++
-	return runtime.Delivery{}, nil
+	return []dispatch.DeliveryResult{{
+		PluginID: "test",
+		Outcome:  dispatch.OutcomeDelivered,
+	}}
 }
 
 type recordingOutboundSender struct {

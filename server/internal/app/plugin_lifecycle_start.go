@@ -184,7 +184,7 @@ func (c *pluginLifecycleController) registerRuntimeIfNeeded(pluginID string, man
 	if c == nil || c.app == nil || c.app.Dispatcher == nil || manager == nil {
 		return
 	}
-	if c.app.Dispatcher.HasPlugin(pluginID) {
+	if c.app.Dispatcher.HasDeliverablePlugin(pluginID) {
 		return
 	}
 	snapshot, ok := c.app.Plugins.Get(pluginID)

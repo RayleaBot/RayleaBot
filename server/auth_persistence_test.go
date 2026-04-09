@@ -16,7 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -239,15 +239,13 @@ func closePersistentTestApp(t *testing.T, application *app.App) {
 }
 
 func newPersistentEventsBridge(application *app.App) *bridge.Bridge {
-	return bridge.New(application.Logger, &eventsRuntimeStub{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverResult: runtime.Delivery{
-			RequestID: "req_evt_1",
-			Result: map[string]any{
-				"handled": true,
-			},
-		},
-	}, nil, nil)
+	return bridge.New(application.Logger, &eventsDispatchStub{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{{
+			PluginID: "weather",
+			Outcome:  dispatch.OutcomeDelivered,
+		}},
+	})
 }
 
 func writePersistentYAMLConfig(t *testing.T, databasePath string) string {

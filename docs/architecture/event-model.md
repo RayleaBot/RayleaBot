@@ -19,6 +19,8 @@
 | --- | --- |
 | `post_type=message, message_type=private` | `message.private` |
 | `post_type=message, message_type=group` | `message.group` |
+| `post_type=message_sent, message_type=private` | `message_sent.private` |
+| `post_type=message_sent, message_type=group` | `message_sent.group` |
 | `post_type=notice, notice_type=group_increase` | `notice.member_increase` |
 | `post_type=notice, notice_type=group_decrease` | `notice.member_decrease` |
 | `post_type=notice, notice_type=group_admin` | `notice.group_admin` |
@@ -43,15 +45,19 @@
 
 - 生命周期与心跳继续作为 adapter 连接状态信号，不进入插件事件投递主链。
 - 未进入正式范围的事件不会伪装成已支持能力。
-- 归一化后事件进入 bridge，再由 dispatcher 投递到订阅该事件的插件 runtime。
+- Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、fan-out 排队和执行插件返回的动作。
+- `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
+- OneBot 原生字段通过 `event.payload.onebot` 正式暴露，插件和管理面都可以直接读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message` 和 `sender` 等字段。
 
 ### 归一化链路
 
 ```plain
 OneBot11 WS 上报
   -> adapter 解析原始 JSON
-  -> bridge 映射统一事件
-  -> dispatcher 投递到插件 runtime
+  -> bridge 校验并映射统一事件
+  -> dispatcher 选择可投递 runtime 并排队
+  -> plugin runtime
+  -> dispatcher 执行动作
 ```
 
 ## 三、插件协议消息

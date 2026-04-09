@@ -17,10 +17,15 @@ type fakeDeliverer struct {
 	delivery runtime.Delivery
 	err      error
 	blockCh  chan struct{} // if non-nil, block until closed
+	state    runtime.State
 }
 
 func (f *fakeDeliverer) Snapshot() runtime.Snapshot {
-	return runtime.Snapshot{State: runtime.StateRunning}
+	state := f.state
+	if state == "" {
+		state = runtime.StateRunning
+	}
+	return runtime.Snapshot{State: state}
 }
 
 func (f *fakeDeliverer) DeliverEvent(_ context.Context, event runtime.Event) (runtime.Delivery, error) {
@@ -177,6 +182,46 @@ func TestDispatchSubscriptionFiltering(t *testing.T) {
 	}
 }
 
+func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	rtRunning := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{"ok": true}}}
+	rtBackoff := &fakeDeliverer{
+		state:    runtime.StateBackoff,
+		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+	}
+
+	d.Register("running", rtRunning, nil, nil)
+	d.Register("backoff", rtBackoff, nil, nil)
+
+	results := d.Dispatch(context.Background(), testEvent(), "")
+	if len(results) != 1 {
+		t.Fatalf("expected only one deliverable target, got %d", len(results))
+	}
+	if results[0].PluginID != "running" {
+		t.Fatalf("unexpected target: got %q want %q", results[0].PluginID, "running")
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	if rtRunning.eventCount() != 1 {
+		t.Fatalf("running runtime should receive the event, got %d", rtRunning.eventCount())
+	}
+	if rtBackoff.eventCount() != 0 {
+		t.Fatalf("backoff runtime should not receive the event, got %d", rtBackoff.eventCount())
+	}
+	if !d.HasDeliverablePlugin("running") {
+		t.Fatal("running runtime should be deliverable")
+	}
+	if d.HasDeliverablePlugin("backoff") {
+		t.Fatal("backoff runtime should not be deliverable")
+	}
+	if !d.HasDeliverablePlugins() {
+		t.Fatal("dispatcher should report at least one deliverable runtime")
+	}
+}
+
 func TestDispatchQueueOverflow(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 1)
@@ -222,6 +267,31 @@ func TestDispatchDeregister(t *testing.T) {
 	results := d.Dispatch(context.Background(), testEvent(), "")
 	if len(results) != 0 {
 		t.Fatalf("expected 0 results after deregister, got %d", len(results))
+	}
+}
+
+func TestDispatchToPluginRejectsNonRunningRuntime(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	rt := &fakeDeliverer{
+		state:    runtime.StateBackoff,
+		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+	}
+	d.Register("test", rt, nil, nil)
+
+	result := d.DispatchToPlugin(context.Background(), "test", testEvent())
+	if result.Outcome != OutcomeError {
+		t.Fatalf("unexpected outcome: got %q want %q", result.Outcome, OutcomeError)
+	}
+	if result.ErrorCode != "platform.invalid_request" {
+		t.Fatalf("unexpected error code: got %q want %q", result.ErrorCode, "platform.invalid_request")
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	if rt.eventCount() != 0 {
+		t.Fatalf("non-running runtime should not receive the event, got %d", rt.eventCount())
 	}
 }
 

@@ -51,7 +51,8 @@
   - crash / backoff / dead_letter
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
-  - dispatcher fan-out
+  - bridge event validation and observability
+  - dispatcher target selection, fan-out, and outbound action execution
   - command-directed delivery
   - scheduler `scheduler.trigger`
   - zero-gap reload

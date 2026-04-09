@@ -13,6 +13,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
@@ -20,15 +21,13 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	application.Bridge = bridge.New(application.Logger, &eventsRuntimeStub{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-		deliverResult: runtime.Delivery{
-			RequestID: "req_evt_1",
-			Result: map[string]any{
-				"handled": true,
-			},
-		},
-	}, nil, nil)
+	application.Bridge = bridge.New(application.Logger, &eventsDispatchStub{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{{
+			PluginID: "weather",
+			Outcome:  dispatch.OutcomeDelivered,
+		}},
+	})
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
@@ -106,9 +105,9 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	application.Bridge = bridge.New(application.Logger, &eventsRuntimeStub{
-		snapshot: runtime.Snapshot{State: runtime.StateRunning},
-	}, nil, nil)
+	application.Bridge = bridge.New(application.Logger, &eventsDispatchStub{
+		deliverable: true,
+	})
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
@@ -147,18 +146,17 @@ func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	}
 }
 
-type eventsRuntimeStub struct {
-	snapshot      runtime.Snapshot
-	deliverResult runtime.Delivery
-	deliverError  error
+type eventsDispatchStub struct {
+	deliverable bool
+	results     []dispatch.DeliveryResult
 }
 
-func (s *eventsRuntimeStub) Snapshot() runtime.Snapshot {
-	return s.snapshot
+func (s *eventsDispatchStub) HasDeliverablePlugins() bool {
+	return s.deliverable
 }
 
-func (s *eventsRuntimeStub) DeliverEvent(context.Context, runtime.Event) (runtime.Delivery, error) {
-	return s.deliverResult, s.deliverError
+func (s *eventsDispatchStub) Dispatch(context.Context, runtime.Event, string) []dispatch.DeliveryResult {
+	return append([]dispatch.DeliveryResult(nil), s.results...)
 }
 
 func issueLoginToken(t *testing.T, application interface{ Handler() http.Handler }) string {

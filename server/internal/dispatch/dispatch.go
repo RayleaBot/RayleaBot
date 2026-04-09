@@ -122,6 +122,10 @@ func (d *Dispatcher) Deregister(pluginID string) {
 
 // PluginIDs returns a snapshot of currently registered plugin IDs.
 func (d *Dispatcher) PluginIDs() []string {
+	if d == nil {
+		return nil
+	}
+
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -134,6 +138,10 @@ func (d *Dispatcher) PluginIDs() []string {
 
 // HasPlugin reports whether a plugin slot is currently registered.
 func (d *Dispatcher) HasPlugin(pluginID string) bool {
+	if d == nil {
+		return false
+	}
+
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -141,11 +149,50 @@ func (d *Dispatcher) HasPlugin(pluginID string) bool {
 	return ok
 }
 
+// HasDeliverablePlugins reports whether at least one registered runtime is in
+// the running state and can accept delivery.
+func (d *Dispatcher) HasDeliverablePlugins() bool {
+	if d == nil {
+		return false
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	for _, slot := range d.slots {
+		if slotIsDeliverable(slot) {
+			return true
+		}
+	}
+	return false
+}
+
+// HasDeliverablePlugin reports whether the given plugin currently has a
+// running runtime and can accept delivery.
+func (d *Dispatcher) HasDeliverablePlugin(pluginID string) bool {
+	if d == nil {
+		return false
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	slot, ok := d.slots[pluginID]
+	if !ok {
+		return false
+	}
+	return slotIsDeliverable(slot)
+}
+
 // Dispatch fans out an event to all matching registered plugins.
 // If commandName is non-empty, plugins declaring that command are
 // preferred (directed delivery). Otherwise all message-subscribed
 // plugins receive the event.
 func (d *Dispatcher) Dispatch(ctx context.Context, event runtime.Event, commandName string) []DeliveryResult {
+	if d == nil {
+		return nil
+	}
+
 	d.mu.RLock()
 	targets := d.selectTargets(event, commandName)
 	d.mu.RUnlock()
@@ -155,6 +202,14 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event runtime.Event, commandN
 
 // DispatchToPlugin delivers an event to one specific registered plugin.
 func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event runtime.Event) DeliveryResult {
+	if d == nil {
+		return DeliveryResult{
+			PluginID:  pluginID,
+			Outcome:   OutcomeError,
+			ErrorCode: "platform.invalid_request",
+		}
+	}
+
 	results := d.enqueueTargets(ctx, event, []string{pluginID})
 	if len(results) == 0 {
 		return DeliveryResult{
@@ -171,8 +226,14 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtime.Event, ta
 	for _, pluginID := range targets {
 		d.mu.RLock()
 		slot, ok := d.slots[pluginID]
+		deliverable := ok && slotIsDeliverable(slot)
 		d.mu.RUnlock()
-		if !ok {
+		if !ok || !deliverable {
+			results = append(results, DeliveryResult{
+				PluginID:  pluginID,
+				Outcome:   OutcomeError,
+				ErrorCode: "platform.invalid_request",
+			})
 			continue
 		}
 
@@ -199,6 +260,9 @@ func (d *Dispatcher) selectTargets(event runtime.Event, commandName string) []st
 	if commandName != "" {
 		var directed []string
 		for id, slot := range d.slots {
+			if !slotIsDeliverable(slot) {
+				continue
+			}
 			if slotDeclaresCommand(slot, commandName) {
 				directed = append(directed, id)
 			}
@@ -211,6 +275,9 @@ func (d *Dispatcher) selectTargets(event runtime.Event, commandName string) []st
 	// Fan-out to all plugins with matching subscriptions.
 	var targets []string
 	for id, slot := range d.slots {
+		if !slotIsDeliverable(slot) {
+			continue
+		}
 		if slotAcceptsEvent(slot, event.EventType) {
 			targets = append(targets, id)
 		}
@@ -230,6 +297,13 @@ func slotDeclaresCommand(slot *pluginSlot, commandName string) bool {
 		}
 	}
 	return false
+}
+
+func slotIsDeliverable(slot *pluginSlot) bool {
+	if slot == nil || slot.runtime == nil {
+		return false
+	}
+	return slot.runtime.Snapshot().State == runtime.StateRunning
 }
 
 func slotAcceptsEvent(slot *pluginSlot, eventType string) bool {

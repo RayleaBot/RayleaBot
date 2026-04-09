@@ -192,7 +192,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 			return
 		}
 
-		if !a.Dispatcher.HasPlugin(pluginID) && a.pluginLifecycle != nil {
+		if !a.Dispatcher.HasDeliverablePlugin(pluginID) && a.pluginLifecycle != nil {
 			if botID := a.pluginLifecycle.currentBotID(); botID != "" {
 				if err := a.pluginLifecycle.ensurePluginRunning(r.Context(), pluginID, botID); err != nil {
 					a.Logger.Warn(

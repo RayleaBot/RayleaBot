@@ -34,7 +34,7 @@ func buildAppPlugins(
 	runtimeRegistry := newRuntimeRegistry(state.core.Logger, runtimeOptions)
 	replyTargets := newReplyTargetCache(defaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(state.core.Logger, adapterShell, replyTargets, state.core.Config.Runtime.MaxPendingEventsPerPlugin)
-	eventBridge := bridge.New(state.core.Logger, newDispatcherRuntimeClient(eventDispatcher), adapterShell, replyTargets)
+	eventBridge := bridge.New(state.core.Logger, eventDispatcher)
 
 	pluginRepository, pluginKVRepository, pluginConfigRepository, err := buildPluginRepositories(platform)
 	if err != nil {

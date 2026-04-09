@@ -64,6 +64,9 @@ func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int,
 	if c == nil || c.app == nil {
 		return
 	}
+	if c.app.Dispatcher != nil {
+		c.app.Dispatcher.Deregister(pluginID)
+	}
 
 	manager, ok := c.app.Runtimes.Get(pluginID)
 	if !ok || manager == nil {
