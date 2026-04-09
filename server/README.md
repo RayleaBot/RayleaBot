@@ -22,23 +22,34 @@
   - `GET /api/system/status`
   - `POST /api/system/shutdown`
   - `POST /api/system/render/preview`
-  - `GET /api/system/render/artifacts/{artifact_id}`
-  - `GET /api/logs`
-  - `GET /api/tasks`
-  - `GET /api/tasks/{task_id}`
-  - `POST /api/tasks/{task_id}/cancel`
-  - `/ws/events`
-  - `/ws/tasks`
-  - `/ws/logs`
-  - `/ws/plugins/{id}/console`
+- `GET /api/system/render/artifacts/{artifact_id}`
+- `GET /api/protocols/onebot11`
+- `GET /api/logs`
+- `GET /api/logs/{log_id}`
+- `GET /api/tasks`
+- `GET /api/tasks/{task_id}`
+- `POST /api/tasks/{task_id}/cancel`
+- `POST /api/system/backup`
+- `POST /api/system/recovery/recheck`
+- `POST /api/system/recovery/confirm`
+- `POST /api/system/runtime/bootstrap`
+- `GET /api/system/diagnostics/export`
+- `GET /api/protocols/onebot11/reverse-ws`
+- `POST /api/protocols/onebot11/webhook`
+- `/ws/events`
+- `/ws/tasks`
+- `/ws/logs`
+- `/ws/plugins/{id}/console`
 - plugin lifecycle：
   - install / enable / disable / reload / uninstall
   - grants list / grant / revoke
   - builtin plugin 默认发现、默认启用、拒绝卸载
-- OneBot11 reverse WebSocket adapter：
-  - ready frame gating
-  - reconnect / heartbeat timeout
-  - message / notice 最小归一化
+- OneBot11 adapter：
+  - `reverse_ws`、`forward_ws`、`http_api`、`webhook`
+  - ready / degraded / failed / setup_required 协议快照
+  - reverse WebSocket ingress 与 webhook ingress
+  - reconnect / heartbeat timeout / ingress auth failure
+  - message / notice / request / meta 主链归一化
   - `message.send` / `message.reply`
   - shared outbound `message.segments` 映射到 OneBot11 消息段数组
   - `reply_to_event_id` 最近事件窗口解析与 `adapter.reply_target_missing` fallback
@@ -52,6 +63,7 @@
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
   - bridge event validation and observability
+  - event ingress command extraction / chat policy
   - dispatcher target selection, fan-out, and outbound action execution
   - command-directed delivery
   - scheduler `scheduler.trigger`
@@ -61,6 +73,14 @@
   - plugin-scoped `storage.kv` persistence with SQLite-backed limits
   - `storage.file` scoped to `plugin_data` with path traversal / symlink rejection and per-plugin workdir limits
   - `http.request` scoped by `http_hosts` with DNS preflight, SSRF guards, controlled private-host exceptions, timeout, and retry policy
+  - `scheduler.create`
+  - `event.expose_webhook`
+  - `render.image`
+  - generic / provider-specific OneBot local action execution
+- protocol / webhook / system services：
+  - protocol snapshot aggregation and `/ws/events` protocol updates
+  - plugin webhook registry, auth validation, on-demand runtime start, and `webhook.received`
+  - recovery summary refresh, backup, diagnostics export, and runtime bootstrap tasks
 - live chat command policy：
   - blacklist pre-check
   - command permission enforcement
@@ -106,7 +126,9 @@
 
 ## 当前边界
 
-- 更广插件动作族尚未 formalize
+- 单实例、单活跃 OneBot 主模型
+- 插件 runtime 通过正式 local action surface 访问平台能力
+- App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力分别由独立服务承载
 
 ## 默认命令
 

@@ -8,12 +8,15 @@
 
 | 模块 | 作用 |
 | --- | --- |
+| App | 负责服务组装、运行控制、关闭和统一路由输出 |
+| Event Ingress Service | 负责 adapter 事件入口、命令提取、聊天权限、cooldown reply 和 adapter ready 协调 |
 | Bridge | 负责 adapter 事件校验、统一事件转换和桥接层观测 |
 | Dispatcher | 负责目标选择、命令定向、fan-out 排队和插件返回动作执行 |
-| Command Parser | 负责命令前缀匹配、`command` / `args` 提取与定向投递 |
-| Permission System | 负责聊天侧黑名单、权限级别与冷却限流 |
-| Plugin Manager | 负责发现、注册、启停与生命周期编排 |
+| Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
 | Runtime Manager | 负责插件握手、保活、重载、崩溃恢复与状态同步 |
+| Local Action Service | 负责配置、存储、渲染、调度、Webhook 暴露和 OneBot 动作执行 |
+| Protocol Service | 负责协议快照、OneBot 回连入口和 Webhook 协议入口 |
+| Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
 | Scheduler | 负责定时触发和一次性任务 |
 | Capability Grant Manager | 负责插件能力授权与时效过滤 |
 | Config Manager | 负责配置读取、校验、覆盖与热更新入口 |
@@ -22,6 +25,7 @@
 
 ## 事件分发规则
 
+- Event Ingress 在进入 Bridge 前完成命令提取、黑名单、权限级别和冷却限流检查。
 - 订阅以统一 `event_type` 为中心，当前支持精确匹配和 `*` 全量订阅。
 - 多个插件命中同一事件时默认 fan-out 分发，不提供停止传播、优先级抢占或“首个处理者获胜”。
 - 同一插件的事件投递按 per-plugin queue 顺序执行；队列满时直接丢弃并进入可观测摘要。
@@ -34,7 +38,7 @@
 ### 命令解析
 
 - 命令前缀来自 `config/user.yaml` 的 `command.prefixes`。
-- 命中前缀后，平台把命令名写入 `payload.command`，把参数数组写入 `payload.args`。
+- Event Ingress 命中前缀后，把命令名写入 `payload.command`，把参数数组写入 `payload.args`。
 - 插件可在 manifest 的 `commands` 字段中声明主命令、别名、说明、示例和权限级别。
 - 命令消息优先定向投递给声明该命令的插件；无声明时仍可按消息订阅继续 fan-out。
 - `raylea:*` 保留给官方内置插件；第三方插件不得占用。
@@ -72,7 +76,8 @@
 
 ## 启动与 Ready 语义
 
-- 启动顺序固定为配置加载、迁移检查、运行时与渲染资源检查、初始化判定、插件注册与调度恢复、管理控制面可用、Adapter 建链。
+- App 负责配置加载、平台服务组装、插件服务组装、HTTP 路由注册和关闭协调。
+- 启动检查覆盖迁移、运行时资源、渲染资源、初始化判定、插件注册与调度恢复，以及 Adapter 建链。
 - 配置、迁移、关键资源检查失败时，服务不会进入 `running`。
 - 处于 `setup_required` 时，平台不会加载插件、建立 OneBot11 连接或启动调度。
 - 本地管理控制面和关键资源正常时，服务即可进入可管理状态；外部协议链路暂时不可用时，可进入 `degraded`，但不会伪装成完全就绪。
