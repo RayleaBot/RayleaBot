@@ -210,6 +210,72 @@ export function createPlugin() {
       return await requestLocalAction(pluginId, requestId, 'render.image', payload, { timeoutMs });
     },
 
+    async onebotAction(requestId, action, data = {}, options = {}) {
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, action, data, { timeoutMs });
+    },
+
+    async providerAction(requestId, provider, action, data = {}, options = {}) {
+      return await plugin.onebotAction(requestId, `provider.${provider}.${action}`, data, options);
+    },
+
+    async messageHistoryGet(requestId, conversationType, conversationId, options = {}) {
+      const { limit, timeoutMs = 30000 } = options;
+      const data = {
+        conversation_type: conversationType,
+        conversation_id: conversationId,
+      };
+      if (limit !== undefined) {
+        data.limit = limit;
+      }
+      return await plugin.onebotAction(requestId, 'message.history.get', data, { timeoutMs });
+    },
+
+    async groupAnnouncementCreate(requestId, groupId, content, options = {}) {
+      return await plugin.onebotAction(requestId, 'group.announcement.create', {
+        group_id: groupId,
+        content,
+      }, options);
+    },
+
+    async fileGroupUpload(requestId, groupId, fileName, fileUrl, options = {}) {
+      return await plugin.onebotAction(requestId, 'file.group.upload', {
+        group_id: groupId,
+        file_name: fileName,
+        file_url: fileUrl,
+      }, options);
+    },
+
+    async reactionSet(requestId, messageId, emoji, enabled = true, options = {}) {
+      return await plugin.onebotAction(requestId, 'reaction.set', {
+        message_id: messageId,
+        emoji,
+        enabled,
+      }, options);
+    },
+
+    async pokeSend(requestId, targetType, targetId, userId, options = {}) {
+      return await plugin.onebotAction(requestId, 'poke.send', {
+        target_type: targetType,
+        target_id: targetId,
+        user_id: userId,
+      }, options);
+    },
+
+    async napcatMessageEmojiLikeSet(requestId, messageId, emojiId, enabled = true, options = {}) {
+      return await plugin.onebotAction(requestId, 'provider.napcat.message_emoji.like.set', {
+        message_id: messageId,
+        emoji_id: emojiId,
+        enabled,
+      }, options);
+    },
+
+    async luckylilliaFriendGroupsGet(requestId, userId, options = {}) {
+      return await plugin.onebotAction(requestId, 'provider.luckylillia.friend_groups.get', {
+        user_id: userId,
+      }, options);
+    },
+
     async run() {
       for await (const frame of readFrames()) {
         const { type, plugin_id, request_id } = frame;

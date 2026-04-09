@@ -81,6 +81,7 @@ type ActionSegment struct {
 
 type Action struct {
 	Kind                    string
+	RawData                 map[string]any
 	TargetType              string
 	TargetID                string
 	ReplyToEventID          string

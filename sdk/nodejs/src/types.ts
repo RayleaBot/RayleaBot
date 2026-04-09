@@ -50,13 +50,35 @@ export interface ReplySegment {
   data: { message_id: string };
 }
 
+export interface PassthroughSegment {
+  type:
+    | 'record'
+    | 'video'
+    | 'file'
+    | 'json'
+    | 'xml'
+    | 'markdown'
+    | 'music'
+    | 'contact'
+    | 'forward'
+    | 'node'
+    | 'poke'
+    | 'dice'
+    | 'rps'
+    | 'mface'
+    | 'keyboard'
+    | 'shake';
+  data?: Record<string, unknown>;
+}
+
 export type Segment =
   | TextSegment
   | ImageSegment
   | AtSegment
   | AtAllSegment
   | FaceSegment
-  | ReplySegment;
+  | ReplySegment
+  | PassthroughSegment;
 
 export type NonReplySegment = Exclude<Segment, ReplySegment>;
 
@@ -208,4 +230,20 @@ export function faceSegment(faceId: string): FaceSegment {
 
 export function replySegment(messageId: string): ReplySegment {
   return { type: 'reply', data: { message_id: messageId } };
+}
+
+export function passthroughSegment(type: PassthroughSegment['type'], data: Record<string, unknown> = {}): PassthroughSegment {
+  return { type, data };
+}
+
+export function markdownSegment(content: string): PassthroughSegment {
+  return passthroughSegment('markdown', { content });
+}
+
+export function fileSegment(data: Record<string, unknown>): PassthroughSegment {
+  return passthroughSegment('file', data);
+}
+
+export function keyboardSegment(data: Record<string, unknown>): PassthroughSegment {
+  return passthroughSegment('keyboard', data);
 }

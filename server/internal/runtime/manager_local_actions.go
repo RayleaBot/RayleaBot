@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 )
 
 func (m *Manager) handleLocalActionFrame(ctx context.Context, handle *processHandle, envelope frameEnvelope, seenLocalRequestIDs map[string]struct{}, line []byte) error {
@@ -43,7 +44,12 @@ func (m *Manager) handleLocalActionFrame(ctx context.Context, handle *processHan
 	case "message.send", "message.reply":
 		return errorf(codePluginProtocolViolation, "terminal message actions must use the current event request_id", nil)
 	default:
-		return errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
+		switch {
+		case isOneBotFamilyAction(frame.Action), isProviderExtensionAction(frame.Action):
+			action, err = parseOneBotFamilyAction(frame.Action, frame.Data)
+		default:
+			return errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
+		}
 	}
 	if err != nil {
 		return err
@@ -51,6 +57,62 @@ func (m *Manager) handleLocalActionFrame(ctx context.Context, handle *processHan
 
 	seenLocalRequestIDs[envelope.RequestID] = struct{}{}
 	return m.executeLocalAction(ctx, handle, envelope.RequestID, *action)
+}
+
+func isOneBotFamilyAction(kind string) bool {
+	switch kind {
+	case
+		"message.get",
+		"message.delete",
+		"message.history.get",
+		"message.forward.get",
+		"message.forward.send",
+		"message.read.mark",
+		"friend.request.handle",
+		"friend.list",
+		"friend.remark.set",
+		"user.info.get",
+		"user.like.send",
+		"group.list",
+		"group.info.get",
+		"group.member.get",
+		"group.member.list",
+		"group.request.handle",
+		"group.leave",
+		"group.admin.set",
+		"group.ban.set",
+		"group.card.set",
+		"group.title.set",
+		"group.name.set",
+		"group.announcement.list",
+		"group.announcement.create",
+		"group.announcement.delete",
+		"group.essence.list",
+		"group.essence.set",
+		"group.essence.unset",
+		"group.honor.get",
+		"group.todo.set",
+		"file.get",
+		"file.download",
+		"file.group.upload",
+		"file.private.upload",
+		"file.group.url.get",
+		"file.private.url.get",
+		"file.group.fs.info",
+		"file.group.fs.list",
+		"file.group.fs.mkdir",
+		"file.group.fs.delete",
+		"reaction.set",
+		"reaction.list",
+		"poke.send":
+		return true
+	default:
+		return false
+	}
+}
+
+func isProviderExtensionAction(kind string) bool {
+	return strings.HasPrefix(kind, "provider.napcat.") || strings.HasPrefix(kind, "provider.luckylillia.")
 }
 
 func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle, requestID string, action Action) error {

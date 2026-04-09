@@ -83,9 +83,14 @@ func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string
 	case "render.image":
 		return a.executeRenderImage(ctx, pluginID, action)
 	default:
-		return nil, &runtime.Error{
-			Code:    "plugin.protocol_violation",
-			Message: "received unsupported local action kind",
+		switch {
+		case runtimeIsOneBotLocalAction(action.Kind), runtimeIsProviderExtensionAction(action.Kind):
+			return a.executeOneBotLocalAction(ctx, pluginID, requestID, action)
+		default:
+			return nil, &runtime.Error{
+				Code:    "plugin.protocol_violation",
+				Message: "received unsupported local action kind",
+			}
 		}
 	}
 }

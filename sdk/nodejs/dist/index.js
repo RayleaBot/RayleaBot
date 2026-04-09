@@ -1,5 +1,5 @@
 import { readFrames, requestLocalAction, sendAction, sendInitAck, sendPong, sendResult, } from './protocol.js';
-export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, } from './types.js';
+export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, passthroughSegment, markdownSegment, fileSegment, keyboardSegment, } from './types.js';
 export { ActionError } from './protocol.js';
 export function createPlugin() {
     const eventHandlers = [];
@@ -173,6 +173,62 @@ export function createPlugin() {
             }
             return await requestLocalAction(pluginId, requestId, 'render.image', payload, { timeoutMs });
         },
+        async onebotAction(requestId, action, data = {}, options = {}) {
+            return await requestOneBotAction(requestId, action, data, options);
+        },
+        async providerAction(requestId, provider, action, data = {}, options = {}) {
+            return await requestOneBotAction(requestId, `provider.${provider}.${action}`, data, options);
+        },
+        async messageHistoryGet(requestId, conversationType, conversationId, options = {}) {
+            const { limit, timeoutMs = 30000 } = options;
+            const data = {
+                conversation_type: conversationType,
+                conversation_id: conversationId,
+            };
+            if (limit !== undefined) {
+                data.limit = limit;
+            }
+            return await requestOneBotAction(requestId, 'message.history.get', data, { timeoutMs });
+        },
+        async groupAnnouncementCreate(requestId, groupId, content, options = {}) {
+            return await requestOneBotAction(requestId, 'group.announcement.create', {
+                group_id: groupId,
+                content,
+            }, options);
+        },
+        async fileGroupUpload(requestId, groupId, fileName, fileUrl, options = {}) {
+            return await requestOneBotAction(requestId, 'file.group.upload', {
+                group_id: groupId,
+                file_name: fileName,
+                file_url: fileUrl,
+            }, options);
+        },
+        async reactionSet(requestId, messageId, emoji, enabled = true, options = {}) {
+            return await requestOneBotAction(requestId, 'reaction.set', {
+                message_id: messageId,
+                emoji,
+                enabled,
+            }, options);
+        },
+        async pokeSend(requestId, targetType, targetId, userId, options = {}) {
+            return await requestOneBotAction(requestId, 'poke.send', {
+                target_type: targetType,
+                target_id: targetId,
+                user_id: userId,
+            }, options);
+        },
+        async napcatMessageEmojiLikeSet(requestId, messageId, emojiId, enabled = true, options = {}) {
+            return await requestOneBotAction(requestId, 'provider.napcat.message_emoji.like.set', {
+                message_id: messageId,
+                emoji_id: emojiId,
+                enabled,
+            }, options);
+        },
+        async luckylilliaFriendGroupsGet(requestId, userId, options = {}) {
+            return await requestOneBotAction(requestId, 'provider.luckylillia.friend_groups.get', {
+                user_id: userId,
+            }, options);
+        },
         async run() {
             for await (const frame of readFrames()) {
                 const { type, plugin_id, request_id } = frame;
@@ -209,6 +265,10 @@ export function createPlugin() {
             }
         }
         sendResult(pid, requestId, { handled: false });
+    }
+    async function requestOneBotAction(requestId, action, data, options = {}) {
+        const { timeoutMs = 30000 } = options;
+        return await requestLocalAction(pluginId, requestId, action, data, { timeoutMs });
     }
     return plugin;
 }

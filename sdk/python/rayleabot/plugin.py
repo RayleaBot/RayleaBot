@@ -278,6 +278,84 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
+    def onebot_action(self, request_id, action, data=None, timeout_seconds=30):
+        """Call one frozen OneBot family action through the shared local action path."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            action,
+            data or {},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def provider_action(self, request_id, provider, action, data=None, timeout_seconds=30):
+        """Call one provider-specific OneBot extension action."""
+        return self.onebot_action(
+            request_id,
+            f"provider.{provider}.{action}",
+            data=data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def message_history_get(self, request_id, conversation_type, conversation_id, limit=None, timeout_seconds=30):
+        data = {
+            "conversation_type": conversation_type,
+            "conversation_id": conversation_id,
+        }
+        if limit is not None:
+            data["limit"] = limit
+        return self.onebot_action(request_id, "message.history.get", data, timeout_seconds=timeout_seconds)
+
+    def group_announcement_create(self, request_id, group_id, content, timeout_seconds=30):
+        return self.onebot_action(
+            request_id,
+            "group.announcement.create",
+            {"group_id": group_id, "content": content},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def file_group_upload(self, request_id, group_id, file_name, file_url, timeout_seconds=30):
+        return self.onebot_action(
+            request_id,
+            "file.group.upload",
+            {"group_id": group_id, "file_name": file_name, "file_url": file_url},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def reaction_set(self, request_id, message_id, emoji, enabled=True, timeout_seconds=30):
+        return self.onebot_action(
+            request_id,
+            "reaction.set",
+            {"message_id": message_id, "emoji": emoji, "enabled": enabled},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def poke_send(self, request_id, target_type, target_id, user_id, timeout_seconds=30):
+        return self.onebot_action(
+            request_id,
+            "poke.send",
+            {"target_type": target_type, "target_id": target_id, "user_id": user_id},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def napcat_message_emoji_like_set(self, request_id, message_id, emoji_id, enabled=True, timeout_seconds=30):
+        return self.provider_action(
+            request_id,
+            "napcat",
+            "message_emoji.like.set",
+            {"message_id": message_id, "emoji_id": emoji_id, "enabled": enabled},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def luckylillia_friend_groups_get(self, request_id, user_id, timeout_seconds=30):
+        return self.provider_action(
+            request_id,
+            "luckylillia",
+            "friend_groups.get",
+            {"user_id": user_id},
+            timeout_seconds=timeout_seconds,
+        )
+
     storageFileRead = storage_file_read
     storageFileWrite = storage_file_write
     storageFileDelete = storage_file_delete
@@ -288,6 +366,15 @@ class RayleaBotPlugin:
     schedulerCreate = scheduler_create
     exposeWebhook = expose_webhook
     renderImage = render_image
+    onebotAction = onebot_action
+    providerAction = provider_action
+    messageHistoryGet = message_history_get
+    groupAnnouncementCreate = group_announcement_create
+    fileGroupUpload = file_group_upload
+    reactionSet = reaction_set
+    pokeSend = poke_send
+    napcatMessageEmojiLikeSet = napcat_message_emoji_like_set
+    luckylilliaFriendGroupsGet = luckylillia_friend_groups_get
 
     def run(self):
         """Main event loop: handles init, events, ping, and shutdown."""

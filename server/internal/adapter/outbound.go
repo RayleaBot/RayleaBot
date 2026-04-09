@@ -245,6 +245,11 @@ func convertOutboundSegment(segment OutboundMessageSegment) (oneBotMessageSegmen
 			Type: "reply",
 			Data: map[string]any{"id": messageID},
 		}, true
+	case "record", "video", "file", "json", "xml", "markdown", "music", "contact", "forward", "node", "poke", "dice", "rps", "mface", "keyboard", "shake":
+		return oneBotMessageSegment{
+			Type: strings.TrimSpace(segment.Type),
+			Data: cloneOutboundSegmentData(segment.Data),
+		}, true
 	default:
 		return oneBotMessageSegment{}, false
 	}

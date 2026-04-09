@@ -1,6 +1,6 @@
 import type { EventBody, Segment } from './types.js';
 export type { Frame, Segment, EventBody } from './types.js';
-export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, } from './types.js';
+export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, passthroughSegment, markdownSegment, fileSegment, keyboardSegment, } from './types.js';
 export { ActionError } from './protocol.js';
 type EventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
 interface ActionOptions {
@@ -58,6 +58,17 @@ export interface RayleaBotPlugin {
         output?: string;
         fallbackText?: string;
     }): Promise<Record<string, unknown>>;
+    onebotAction(requestId: string, action: string, data?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+    providerAction(requestId: string, provider: 'napcat' | 'luckylillia', action: string, data?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+    messageHistoryGet(requestId: string, conversationType: 'group' | 'private', conversationId: string, options?: ActionOptions & {
+        limit?: number;
+    }): Promise<Record<string, unknown>>;
+    groupAnnouncementCreate(requestId: string, groupId: string, content: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileGroupUpload(requestId: string, groupId: string, fileName: string, fileUrl: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    reactionSet(requestId: string, messageId: string, emoji: string, enabled?: boolean, options?: ActionOptions): Promise<Record<string, unknown>>;
+    pokeSend(requestId: string, targetType: 'group' | 'private', targetId: string, userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    napcatMessageEmojiLikeSet(requestId: string, messageId: string, emojiId: string, enabled?: boolean, options?: ActionOptions): Promise<Record<string, unknown>>;
+    luckylilliaFriendGroupsGet(requestId: string, userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     run(): Promise<void>;
 }
 export declare function createPlugin(): RayleaBotPlugin;

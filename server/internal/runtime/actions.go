@@ -414,6 +414,22 @@ func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
 	}, nil
 }
 
+func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*Action, error) {
+	payload := map[string]any{}
+	if len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin returned malformed onebot action data", err)
+		}
+		if payload == nil {
+			payload = map[string]any{}
+		}
+	}
+	return &Action{
+		Kind:    actionKind,
+		RawData: payload,
+	}, nil
+}
+
 func decodeExclusiveTextOrBase64(text *string, encoded *string, required bool) ([]byte, error) {
 	if text != nil && encoded != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame mixes text and base64 content fields", nil)
@@ -521,6 +537,10 @@ func parseOutboundActionSegment(segment protocolSegmentFrame, index int) (Action
 			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid reply segment", nil)
 		}
 		data["message_id"] = messageID
+	case "record", "video", "file", "json", "xml", "markdown", "music", "contact", "forward", "node", "poke", "dice", "rps", "mface", "keyboard", "shake":
+		if data == nil {
+			data = map[string]any{}
+		}
 	default:
 		return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported message segment type", nil)
 	}

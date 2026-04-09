@@ -24,4 +24,16 @@ export function faceSegment(faceId) {
 export function replySegment(messageId) {
     return { type: 'reply', data: { message_id: messageId } };
 }
+export function passthroughSegment(type, data = {}) {
+    return { type, data };
+}
+export function markdownSegment(content) {
+    return passthroughSegment('markdown', { content });
+}
+export function fileSegment(data) {
+    return passthroughSegment('file', data);
+}
+export function keyboardSegment(data) {
+    return passthroughSegment('keyboard', data);
+}
 //# sourceMappingURL=types.js.map

@@ -22,6 +22,10 @@ export {
   atAllSegment,
   faceSegment,
   replySegment,
+  passthroughSegment,
+  markdownSegment,
+  fileSegment,
+  keyboardSegment,
 } from './types.js';
 export { ActionError } from './protocol.js';
 
@@ -129,6 +133,64 @@ export interface RayleaBotPlugin {
       output?: string;
       fallbackText?: string;
     },
+  ): Promise<Record<string, unknown>>;
+  onebotAction(
+    requestId: string,
+    action: string,
+    data?: Record<string, unknown>,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  providerAction(
+    requestId: string,
+    provider: 'napcat' | 'luckylillia',
+    action: string,
+    data?: Record<string, unknown>,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  messageHistoryGet(
+    requestId: string,
+    conversationType: 'group' | 'private',
+    conversationId: string,
+    options?: ActionOptions & { limit?: number },
+  ): Promise<Record<string, unknown>>;
+  groupAnnouncementCreate(
+    requestId: string,
+    groupId: string,
+    content: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  fileGroupUpload(
+    requestId: string,
+    groupId: string,
+    fileName: string,
+    fileUrl: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  reactionSet(
+    requestId: string,
+    messageId: string,
+    emoji: string,
+    enabled?: boolean,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  pokeSend(
+    requestId: string,
+    targetType: 'group' | 'private',
+    targetId: string,
+    userId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  napcatMessageEmojiLikeSet(
+    requestId: string,
+    messageId: string,
+    emojiId: string,
+    enabled?: boolean,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  luckylilliaFriendGroupsGet(
+    requestId: string,
+    userId: string,
+    options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
 
   run(): Promise<void>;
@@ -497,6 +559,120 @@ export function createPlugin(): RayleaBotPlugin {
       );
     },
 
+    async onebotAction(
+      requestId: string,
+      action: string,
+      data: Record<string, unknown> = {},
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, action, data, options);
+    },
+
+    async providerAction(
+      requestId: string,
+      provider: 'napcat' | 'luckylillia',
+      action: string,
+      data: Record<string, unknown> = {},
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, `provider.${provider}.${action}`, data, options);
+    },
+
+    async messageHistoryGet(
+      requestId: string,
+      conversationType: 'group' | 'private',
+      conversationId: string,
+      options: ActionOptions & { limit?: number } = {},
+    ): Promise<Record<string, unknown>> {
+      const { limit, timeoutMs = 30000 } = options;
+      const data: Record<string, unknown> = {
+        conversation_type: conversationType,
+        conversation_id: conversationId,
+      };
+      if (limit !== undefined) {
+        data.limit = limit;
+      }
+      return await requestOneBotAction(requestId, 'message.history.get', data, { timeoutMs });
+    },
+
+    async groupAnnouncementCreate(
+      requestId: string,
+      groupId: string,
+      content: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, 'group.announcement.create', {
+        group_id: groupId,
+        content,
+      }, options);
+    },
+
+    async fileGroupUpload(
+      requestId: string,
+      groupId: string,
+      fileName: string,
+      fileUrl: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, 'file.group.upload', {
+        group_id: groupId,
+        file_name: fileName,
+        file_url: fileUrl,
+      }, options);
+    },
+
+    async reactionSet(
+      requestId: string,
+      messageId: string,
+      emoji: string,
+      enabled = true,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, 'reaction.set', {
+        message_id: messageId,
+        emoji,
+        enabled,
+      }, options);
+    },
+
+    async pokeSend(
+      requestId: string,
+      targetType: 'group' | 'private',
+      targetId: string,
+      userId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, 'poke.send', {
+        target_type: targetType,
+        target_id: targetId,
+        user_id: userId,
+      }, options);
+    },
+
+    async napcatMessageEmojiLikeSet(
+      requestId: string,
+      messageId: string,
+      emojiId: string,
+      enabled = true,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, 'provider.napcat.message_emoji.like.set', {
+        message_id: messageId,
+        emoji_id: emojiId,
+        enabled,
+      }, options);
+    },
+
+    async luckylilliaFriendGroupsGet(
+      requestId: string,
+      userId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestOneBotAction(requestId, 'provider.luckylillia.friend_groups.get', {
+        user_id: userId,
+      }, options);
+    },
+
     async run(): Promise<void> {
       for await (const frame of readFrames()) {
         const { type, plugin_id, request_id } = frame;
@@ -539,6 +715,16 @@ export function createPlugin(): RayleaBotPlugin {
     }
 
     sendResult(pid, requestId, { handled: false });
+  }
+
+  async function requestOneBotAction(
+    requestId: string,
+    action: string,
+    data: Record<string, unknown>,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    const { timeoutMs = 30000 } = options;
+    return await requestLocalAction(pluginId, requestId, action, data, { timeoutMs });
   }
 
   return plugin;

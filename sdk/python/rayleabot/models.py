@@ -91,8 +91,16 @@ class ReplySegment:
     def to_dict(self) -> dict:
         return {"type": "reply", "data": {"message_id": self.message_id}}
 
+@dataclass(slots=True)
+class PassthroughSegment:
+    segment_type: str
+    data: dict[str, Any] = field(default_factory=dict)
 
-Segment = TextSegment | ImageSegment | AtSegment | AtAllSegment | FaceSegment | ReplySegment
+    def to_dict(self) -> dict:
+        return {"type": self.segment_type, "data": self.data}
+
+
+Segment = TextSegment | ImageSegment | AtSegment | AtAllSegment | FaceSegment | ReplySegment | PassthroughSegment
 
 
 def segment_from_dict(d: dict) -> Segment:
@@ -112,8 +120,14 @@ def segment_from_dict(d: dict) -> Segment:
             return FaceSegment(face_id=data["face_id"])
         case "reply":
             return ReplySegment(message_id=data["message_id"])
+        case "record" | "video" | "file" | "json" | "xml" | "markdown" | "music" | "contact" | "forward" | "node" | "poke" | "dice" | "rps" | "mface" | "keyboard" | "shake":
+            return PassthroughSegment(segment_type=seg_type, data=data)
         case _:
             raise ValueError(f"unknown segment type: {seg_type}")
+
+
+def passthrough_segment(segment_type: str, data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return PassthroughSegment(segment_type=segment_type, data=data or {})
 
 
 # ---------------------------------------------------------------------------

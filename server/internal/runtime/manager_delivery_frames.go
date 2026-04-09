@@ -149,6 +149,9 @@ func decodeTerminalAction(eventRequestID string, line []byte) (Delivery, bool, e
 	case "logger.write", "storage.kv", "config.read", "config.write", "storage.file", "http.request", "scheduler.create", "event.expose_webhook", "render.image":
 		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
 	default:
+		if isOneBotFamilyAction(frame.Action) || isProviderExtensionAction(frame.Action) {
+			return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
+		}
 		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
 	}
 }
