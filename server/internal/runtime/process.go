@@ -81,6 +81,10 @@ func (m *Manager) markStopped(code, message string, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	m.markStoppedLocked(code, message, err)
+}
+
+func (m *Manager) markStoppedLocked(code, message string, err error) {
 	stoppedAt := m.deps.now()
 	m.proc = nil
 	m.snap.State = StateStopped

@@ -298,7 +298,7 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 		nil,
 	)
 	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
-	application.dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil)
+	application.dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil, 1)
 
 	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", runtime.Action{
 		Kind: "config.write",

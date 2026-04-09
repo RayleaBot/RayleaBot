@@ -30,8 +30,11 @@
 | `result` | 插件对事件或 action 的成功响应 |
 | `error` | 插件对事件或 action 的失败响应 |
 
-- 每次事件投递和本地 action 调用都通过 `request_id` 关联。
-- 事件方向和 action 方向使用同一套结果 / 错误语义，避免双套协议。
+- 事件投递使用独立 `request_id`。
+- 本地 action 使用自己的 `request_id`，并通过 `parent_request_id` 归属到对应事件。
+- manifest 省略 `concurrency` 时，插件按串行事件处理；显式声明后，不同 `event.target` 可并发，同一 `event.target` 保持顺序。
+- 并发插件发起本地 action 时必须提供 `parent_request_id`。
+- 事件方向和 action 方向共用 `result` / `error` 语义。
 
 ### 事件字段
 
@@ -106,6 +109,10 @@
   - `provider.luckylillia.*`
 
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
+
+- 同一事件内允许多个 local action 同时在途。
+- 插件在本地 action 尚未完成时返回事件级 `result` 或 `error`，属于协议违规。
+- 处理器需要满足可重入要求，避免把会话外状态写成单线程假设。
 
 ## 出站消息结构
 

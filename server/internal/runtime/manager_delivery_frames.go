@@ -1,9 +1,6 @@
 package runtime
 
-import (
-	"context"
-	"encoding/json"
-)
+import "encoding/json"
 
 func buildEventFrame(event Event, pluginID string, requestID string, timestamp int64) eventFrame {
 	frame := eventFrame{
@@ -270,20 +267,6 @@ func payloadInt(values map[string]any, key string) (int, bool) {
 	default:
 		return 0, false
 	}
-}
-
-func (m *Manager) processEventFrame(ctx context.Context, handle *processHandle, eventRequestID string, seenLocalRequestIDs map[string]struct{}, line []byte) (Delivery, bool, error) {
-	envelope, err := parseEventEnvelope(line, handle.spec.PluginID)
-	if err != nil {
-		return Delivery{}, false, err
-	}
-	if envelope.RequestID != eventRequestID {
-		if err := m.handleLocalActionFrame(ctx, handle, envelope, seenLocalRequestIDs, line); err != nil {
-			return Delivery{}, false, err
-		}
-		return Delivery{}, false, nil
-	}
-	return decodeTerminalDelivery(eventRequestID, line, envelope.Type)
 }
 
 func parseEventEnvelope(line []byte, pluginID string) (frameEnvelope, error) {

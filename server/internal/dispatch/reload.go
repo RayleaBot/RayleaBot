@@ -39,6 +39,7 @@ func (d *Dispatcher) ReloadPlugin(
 		runtime:       newManager,
 		subscriptions: append([]string(nil), subscriptions...),
 		commands:      append([]CommandDecl(nil), cmds...),
+		concurrency:   spec.EffectiveConcurrency,
 		queue:         make(chan dispatchItem, d.queueSize),
 		done:          make(chan struct{}),
 	}

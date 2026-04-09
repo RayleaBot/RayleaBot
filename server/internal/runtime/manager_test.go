@@ -538,6 +538,115 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	}
 }
 
+func TestManagerDeliverEventRejectsLocalActionWithoutParentRequestIDWhenConcurrent(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpecWithConcurrency(t, "event-local-action-missing-parent-request-id", "", 2)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventProcessesConcurrentLocalActionsWithinOneSession(t *testing.T) {
+	t.Parallel()
+
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action) (map[string]any, error) {
+			if pluginID != "helper-plugin" {
+				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
+			}
+			started <- requestID
+			<-release
+			return map[string]any{"request_id": requestID}, nil
+		},
+	})
+	spec := helperSpecWithConcurrency(t, "event-concurrent-local-actions-then-result", "", 2)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	type deliveryResult struct {
+		delivery Delivery
+		err      error
+	}
+	done := make(chan deliveryResult, 1)
+	go func() {
+		delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+		done <- deliveryResult{delivery: delivery, err: err}
+	}()
+
+	seen := map[string]bool{}
+	for len(seen) < 2 {
+		select {
+		case requestID := <-started:
+			seen[requestID] = true
+		case <-time.After(runtimeTestDuration(500 * time.Millisecond)):
+			t.Fatalf("expected two local actions to start concurrently, got %#v", seen)
+		}
+	}
+	if !seen["local_logger_3"] || !seen["local_storage_3"] {
+		t.Fatalf("unexpected local action request ids: %#v", seen)
+	}
+
+	close(release)
+
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatalf("deliver event: %v", result.err)
+		}
+		if got, _ := result.delivery.Result["logger_started"].(bool); !got {
+			t.Fatalf("unexpected logger_started result: %#v", result.delivery.Result)
+		}
+		if got, _ := result.delivery.Result["storage_started"].(bool); !got {
+			t.Fatalf("unexpected storage_started result: %#v", result.delivery.Result)
+		}
+	case <-time.After(runtimeTestDuration(time.Second)):
+		t.Fatal("deliver event did not finish after local actions completed")
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventRejectsTerminalFrameBeforePendingLocalActionsComplete(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(context.Context, string, string, Action) (map[string]any, error) {
+			<-release
+			return map[string]any{}, nil
+		},
+	})
+	spec := helperSpecWithConcurrency(t, "event-local-action-early-terminal-result", "", 2)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+	close(release)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
 func TestManagerDeliverEventRejectsLocalActionUsingEventRequestID(t *testing.T) {
 	t.Parallel()
 
@@ -555,6 +664,87 @@ func TestManagerDeliverEventRejectsLocalActionUsingEventRequestID(t *testing.T) 
 
 	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
 	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *testing.T) {
+	t.Parallel()
+
+	startedSlow := make(chan string, 1)
+	releaseSlow := make(chan struct{})
+	manager := testManagerWithRequestIDs(Options{
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action) (map[string]any, error) {
+			if pluginID != "helper-plugin" {
+				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
+			}
+			if action.Kind != "http.request" {
+				t.Fatalf("unexpected local action kind: %#v", action)
+			}
+			startedSlow <- requestID
+			<-releaseSlow
+			return map[string]any{"status_code": 200}, nil
+		},
+	})
+	spec := helperSpecWithConcurrency(t, "event-concurrent-slow-local-action-does-not-block-other-session", "", 2)
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	type deliveryResult struct {
+		delivery Delivery
+		err      error
+	}
+
+	firstDone := make(chan deliveryResult, 1)
+	go func() {
+		delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEventWithTarget("2001"))
+		firstDone <- deliveryResult{delivery: delivery, err: err}
+	}()
+
+	select {
+	case requestID := <-startedSlow:
+		if requestID != "slow_http_1" {
+			t.Fatalf("unexpected slow request_id: %q", requestID)
+		}
+	case <-time.After(runtimeTestDuration(500 * time.Millisecond)):
+		t.Fatal("expected slow local action to start")
+	}
+
+	secondDone := make(chan deliveryResult, 1)
+	go func() {
+		delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEventWithTarget("2002"))
+		secondDone <- deliveryResult{delivery: delivery, err: err}
+	}()
+
+	select {
+	case result := <-secondDone:
+		if result.err != nil {
+			t.Fatalf("second deliver event: %v", result.err)
+		}
+		if got, _ := result.delivery.Result["session"].(string); got != "fast" {
+			t.Fatalf("unexpected fast session result: %#v", result.delivery.Result)
+		}
+	case <-time.After(runtimeTestDuration(500 * time.Millisecond)):
+		t.Fatal("second session remained blocked behind the slow local action")
+	}
+
+	close(releaseSlow)
+
+	select {
+	case result := <-firstDone:
+		if result.err != nil {
+			t.Fatalf("first deliver event: %v", result.err)
+		}
+		if got, _ := result.delivery.Result["session"].(string); got != "slow" {
+			t.Fatalf("unexpected slow session result: %#v", result.delivery.Result)
+		}
+	case <-time.After(runtimeTestDuration(time.Second)):
+		t.Fatal("first session did not finish after slow local action completed")
+	}
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
@@ -1417,6 +1607,158 @@ func TestHelperProcessRuntime(t *testing.T) {
 		})
 		helperConsumeShutdown(scanner, 6)
 		os.Exit(0)
+	case "event-local-action-missing-parent-request-id":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		eventFrame := helperReadFrame(scanner, 4)
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "action",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       "local_logger_missing_parent",
+			"action":           "logger.write",
+			"data": map[string]any{
+				"level":   "info",
+				"message": "missing parent_request_id should fail",
+			},
+		})
+		for scanner.Scan() {
+		}
+		os.Exit(0)
+	case "event-concurrent-local-actions-then-result":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		eventFrame := helperReadFrame(scanner, 4)
+		parentRequestID, _ := eventFrame["request_id"].(string)
+		writeHelperFrame(map[string]any{
+			"protocol_version":  "1",
+			"type":              "action",
+			"timestamp":         time.Now().Unix(),
+			"plugin_id":         eventFrame["plugin_id"],
+			"request_id":        "local_logger_3",
+			"parent_request_id": parentRequestID,
+			"action":            "logger.write",
+			"data": map[string]any{
+				"level":   "info",
+				"message": "first concurrent local action",
+			},
+		})
+		writeHelperFrame(map[string]any{
+			"protocol_version":  "1",
+			"type":              "action",
+			"timestamp":         time.Now().Unix(),
+			"plugin_id":         eventFrame["plugin_id"],
+			"request_id":        "local_storage_3",
+			"parent_request_id": parentRequestID,
+			"action":            "storage.kv",
+			"data": map[string]any{
+				"operation": "get",
+				"key":       "concurrent:key",
+			},
+		})
+		firstResponse := helperReadFrame(scanner, 5)
+		secondResponse := helperReadFrame(scanner, 6)
+		seen := map[string]bool{}
+		for _, frame := range []map[string]any{firstResponse, secondResponse} {
+			requestID, _ := frame["request_id"].(string)
+			frameType, _ := frame["type"].(string)
+			if frameType != "result" {
+				os.Exit(205)
+			}
+			seen[requestID] = true
+		}
+		if !seen["local_logger_3"] || !seen["local_storage_3"] {
+			os.Exit(206)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "result",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       parentRequestID,
+			"status":           "success",
+			"data": map[string]any{
+				"logger_started":  seen["local_logger_3"],
+				"storage_started": seen["local_storage_3"],
+			},
+		})
+		helperConsumeShutdown(scanner, 7)
+		os.Exit(0)
+	case "event-local-action-early-terminal-result":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		eventFrame := helperReadFrame(scanner, 4)
+		parentRequestID, _ := eventFrame["request_id"].(string)
+		writeHelperFrame(map[string]any{
+			"protocol_version":  "1",
+			"type":              "action",
+			"timestamp":         time.Now().Unix(),
+			"plugin_id":         eventFrame["plugin_id"],
+			"request_id":        "local_logger_pending",
+			"parent_request_id": parentRequestID,
+			"action":            "logger.write",
+			"data": map[string]any{
+				"level":   "info",
+				"message": "pending local action",
+			},
+		})
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "result",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       parentRequestID,
+			"status":           "success",
+			"data": map[string]any{
+				"handled": true,
+			},
+		})
+		for scanner.Scan() {
+		}
+		os.Exit(0)
 	case "event-local-action-same-request-id":
 		if !scanner.Scan() {
 			os.Exit(2)
@@ -1447,6 +1789,68 @@ func TestHelperProcessRuntime(t *testing.T) {
 				"message": "this should fail",
 			},
 		})
+		os.Exit(0)
+	case "event-concurrent-slow-local-action-does-not-block-other-session":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		firstEvent := helperReadFrame(scanner, 4)
+		firstRequestID, _ := firstEvent["request_id"].(string)
+		writeHelperFrame(map[string]any{
+			"protocol_version":  "1",
+			"type":              "action",
+			"timestamp":         time.Now().Unix(),
+			"plugin_id":         firstEvent["plugin_id"],
+			"request_id":        "slow_http_1",
+			"parent_request_id": firstRequestID,
+			"action":            "http.request",
+			"data": map[string]any{
+				"method": "GET",
+				"url":    "https://example.com/slow",
+			},
+		})
+		secondEvent := helperReadFrame(scanner, 5)
+		secondRequestID, _ := secondEvent["request_id"].(string)
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "result",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        secondEvent["plugin_id"],
+			"request_id":       secondRequestID,
+			"status":           "success",
+			"data": map[string]any{
+				"session": "fast",
+			},
+		})
+		slowResponse := helperExpectFrameType(scanner, "slow_http_1", "result", 6)
+		if data, ok := slowResponse["data"].(map[string]any); !ok || data["status_code"] != float64(200) {
+			os.Exit(206)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "result",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        firstEvent["plugin_id"],
+			"request_id":       firstRequestID,
+			"status":           "success",
+			"data": map[string]any{
+				"session": "slow",
+			},
+		})
+		helperConsumeShutdown(scanner, 7)
 		os.Exit(0)
 	case "event-unsupported-action":
 		if !scanner.Scan() {
@@ -1764,6 +2168,17 @@ func helperSpecWithEventTimeout(t *testing.T, scenario string, recordPath string
 	return spec
 }
 
+func helperSpecWithConcurrency(t *testing.T, scenario string, recordPath string, concurrency int) Spec {
+	t.Helper()
+
+	spec := helperSpec(t, scenario, recordPath)
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	spec.EffectiveConcurrency = concurrency
+	return spec
+}
+
 func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, initMaxTotal time.Duration, shutdownGrace time.Duration) Spec {
 	t.Helper()
 
@@ -1780,17 +2195,18 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 	}
 
 	return Spec{
-		PluginID:      "helper-plugin",
-		Runtime:       "test",
-		Command:       executable,
-		Args:          []string{"-test.run=TestHelperProcessRuntime", "--"},
-		Env:           env,
-		WorkDir:       t.TempDir(),
-		EntryPath:     "helper",
-		InitTimeout:   runtimeTestDuration(initTimeout),
-		InitMaxTotal:  runtimeTestDuration(initMaxTotal),
-		EventTimeout:  runtimeTestDuration(300 * time.Millisecond),
-		ShutdownGrace: runtimeTestDuration(shutdownGrace),
+		PluginID:             "helper-plugin",
+		Runtime:              "test",
+		Command:              executable,
+		Args:                 []string{"-test.run=TestHelperProcessRuntime", "--"},
+		Env:                  env,
+		WorkDir:              t.TempDir(),
+		EntryPath:            "helper",
+		InitTimeout:          runtimeTestDuration(initTimeout),
+		InitMaxTotal:         runtimeTestDuration(initMaxTotal),
+		EventTimeout:         runtimeTestDuration(300 * time.Millisecond),
+		ShutdownGrace:        runtimeTestDuration(shutdownGrace),
+		EffectiveConcurrency: 1,
 	}
 }
 
@@ -1822,6 +2238,16 @@ func testRuntimeEvent() Event {
 			PlainText: "hello from adapter bridge",
 		},
 	}
+}
+
+func testRuntimeEventWithTarget(targetID string) Event {
+	event := testRuntimeEvent()
+	event.EventID = "evt-" + targetID
+	event.Target = &EventTarget{
+		Type: "group",
+		ID:   targetID,
+	}
+	return event
 }
 
 func TestManagerCrashInvokesCrashCallback(t *testing.T) {
@@ -1979,6 +2405,25 @@ func testManagerWithOptions(options Options) *Manager {
 		},
 		requestID: func() string {
 			return "req_test"
+		},
+	}, options)
+}
+
+func testManagerWithRequestIDs(options Options) *Manager {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	var (
+		mu      sync.Mutex
+		counter int
+	)
+	return newManager(logger, managerDeps{
+		now: func() time.Time {
+			return time.Unix(1_700_000_000, 0).UTC()
+		},
+		requestID: func() string {
+			mu.Lock()
+			defer mu.Unlock()
+			counter++
+			return fmt.Sprintf("req_test_%d", counter)
 		},
 	}, options)
 }

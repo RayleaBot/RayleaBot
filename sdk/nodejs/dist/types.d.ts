@@ -146,6 +146,7 @@ export interface EventFrame extends FrameCommon {
 }
 export interface ActionFrame extends FrameCommon {
     type: 'action';
+    parent_request_id?: string;
     action: string;
     data: Record<string, unknown>;
 }

@@ -25,7 +25,8 @@
 
 - discovery 读取合法 manifest 后进入插件目录目录表。
 - 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手。
-- 运行中通过 `ping/pong` 保活，通过 `shutdown` 做优雅停止。
+- 运行中通过 `ping/pong` 保活。
+- 停止时先停止接收新事件，等待活跃会话排空，再发送 `shutdown`。
 - 插件崩溃后进入受控 backoff；超过阈值后进入 `dead_letter`，等待人工干预。
 - 热重载保持正式的 start-before-stop / zero-gap reload 语义。
 

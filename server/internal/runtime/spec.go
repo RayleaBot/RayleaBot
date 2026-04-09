@@ -67,17 +67,18 @@ type InitPayload struct {
 }
 
 type Spec struct {
-	PluginID      string
-	Runtime       string
-	Command       string
-	Args          []string
-	Env           []string
-	WorkDir       string
-	EntryPath     string
-	InitTimeout   time.Duration
-	InitMaxTotal  time.Duration
-	EventTimeout  time.Duration
-	ShutdownGrace time.Duration
+	PluginID            string
+	Runtime             string
+	Command             string
+	Args                []string
+	Env                 []string
+	WorkDir             string
+	EntryPath           string
+	InitTimeout         time.Duration
+	InitMaxTotal        time.Duration
+	EventTimeout        time.Duration
+	ShutdownGrace       time.Duration
+	EffectiveConcurrency int
 }
 
 func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
@@ -168,18 +169,32 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	initMaxTotal := durationFromSeconds(runtimeConfig.PluginInitMaxTotalSeconds, 300)
 
 	return Spec{
-		PluginID:      snapshot.PluginID,
-		Runtime:       snapshot.Runtime,
-		Command:       command,
-		Args:          []string{resolvedEntryPath},
-		Env:           env,
-		WorkDir:       resolvedManifestDir,
-		EntryPath:     resolvedEntryPath,
-		InitTimeout:   initTimeout,
-		InitMaxTotal:  initMaxTotal,
-		EventTimeout:  durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
-		ShutdownGrace: durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
+		PluginID:            snapshot.PluginID,
+		Runtime:             snapshot.Runtime,
+		Command:             command,
+		Args:                []string{resolvedEntryPath},
+		Env:                 env,
+		WorkDir:             resolvedManifestDir,
+		EntryPath:           resolvedEntryPath,
+		InitTimeout:         initTimeout,
+		InitMaxTotal:        initMaxTotal,
+		EventTimeout:        durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
+		ShutdownGrace:       durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
+		EffectiveConcurrency: effectivePluginConcurrency(snapshot.Concurrency, runtimeConfig.MaxConcurrentTasksPerPlugin),
 	}, nil
+}
+
+func effectivePluginConcurrency(manifestConcurrency int, maxPerPlugin int) int {
+	if manifestConcurrency < 1 {
+		manifestConcurrency = 1
+	}
+	if maxPerPlugin < 1 {
+		maxPerPlugin = 1
+	}
+	if manifestConcurrency > maxPerPlugin {
+		return maxPerPlugin
+	}
+	return manifestConcurrency
 }
 
 func runtimeCommand(ctx context.Context, runtimeName string, repoRoot string, manifestDir string, runtimeConfig config.RuntimeConfig) (string, []string, error) {

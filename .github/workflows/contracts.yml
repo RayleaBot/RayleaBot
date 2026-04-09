@@ -349,7 +349,7 @@ jobs:
               if field not in plugin_info.get('required', []):
                   raise SystemExit(f'plugin-info.schema.json missing required field: {field}')
           info_props = plugin_info.get('properties', {})
-          for field in ['description', 'author', 'sdk_min_version', 'runtime_version', 'min_core_version', 'data_schema_version', 'role', 'default_config', 'capabilities', 'permissions', 'dependencies', 'require_install_scripts', 'platforms']:
+          for field in ['description', 'author', 'sdk_min_version', 'runtime_version', 'min_core_version', 'data_schema_version', 'concurrency', 'role', 'default_config', 'capabilities', 'permissions', 'dependencies', 'require_install_scripts', 'platforms']:
               if field not in info_props:
                   raise SystemExit(f'plugin-info.schema.json missing property: {field}')
           if 'authors' in info_props:

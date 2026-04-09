@@ -7,8 +7,10 @@ import threading
 import time
 
 _frame_queue = queue.Queue()
+_pending_requests = {}
 _reader_started = False
-_reader_lock = threading.Lock()
+_state_lock = threading.Lock()
+_write_lock = threading.Lock()
 _local_request_counter = 0
 
 
@@ -29,17 +31,18 @@ def _reader_loop():
     while True:
         line = sys.stdin.readline()
         if not line:
-            _frame_queue.put(None)
+            _close_stream(ProtocolError("stdin closed while waiting for local action response"))
             return
         line = line.strip()
         if not line:
             continue
-        _frame_queue.put(json.loads(line))
+        frame = json.loads(line)
+        _dispatch_frame(frame)
 
 
 def _ensure_reader():
     global _reader_started
-    with _reader_lock:
+    with _state_lock:
         if _reader_started:
             return
         thread = threading.Thread(target=_reader_loop, daemon=True)
@@ -49,15 +52,6 @@ def _ensure_reader():
 
 def read_frame(timeout_seconds=None):
     """Read and parse one JSONL frame from stdin."""
-    if timeout_seconds is None and not _reader_started:
-        line = sys.stdin.readline()
-        if not line:
-            return None
-        line = line.strip()
-        if not line:
-            return read_frame(timeout_seconds=None)
-        return json.loads(line)
-
     _ensure_reader()
     try:
         frame = _frame_queue.get(timeout=timeout_seconds)
@@ -68,8 +62,9 @@ def read_frame(timeout_seconds=None):
 
 def write_frame(frame):
     """Write a JSONL frame to stdout."""
-    sys.stdout.write(json.dumps(frame, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    with _write_lock:
+        sys.stdout.write(json.dumps(frame, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
 
 
 def send_init_ack(plugin_id, request_id, subscriptions=None):
@@ -111,9 +106,9 @@ def send_result(plugin_id, request_id, data=None):
     })
 
 
-def send_action(plugin_id, request_id, action, data):
+def send_action(plugin_id, request_id, action, data, parent_request_id=None):
     """Send an outbound action."""
-    write_frame({
+    frame = {
         "protocol_version": "1",
         "type": "action",
         "timestamp": int(time.time()),
@@ -121,7 +116,10 @@ def send_action(plugin_id, request_id, action, data):
         "request_id": request_id,
         "action": action,
         "data": data,
-    })
+    }
+    if parent_request_id:
+        frame["parent_request_id"] = parent_request_id
+    write_frame(frame)
 
 
 def send_error(plugin_id, request_id, code, message):
@@ -150,35 +148,67 @@ def next_local_request_id(parent_request_id):
 def request_local_action(plugin_id, parent_request_id, action, data, timeout_seconds=30):
     """Send a local platform action and wait for the matching result/error frame."""
     request_id = next_local_request_id(parent_request_id)
-    send_action(plugin_id, request_id, action, data)
-    deadline = time.monotonic() + timeout_seconds
+    _ensure_reader()
+    response_queue = queue.Queue(maxsize=1)
+    with _state_lock:
+        _pending_requests[request_id] = response_queue
 
-    while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise TimeoutError(f"timed out waiting for local action response: {action}")
+    try:
+        send_action(plugin_id, request_id, action, data, parent_request_id=parent_request_id)
+    except Exception:
+        with _state_lock:
+            _pending_requests.pop(request_id, None)
+        raise
 
-        frame = read_frame(timeout_seconds=remaining)
-        if frame is None:
-            raise ProtocolError("stdin closed while waiting for local action response")
+    try:
+        frame = response_queue.get(timeout=timeout_seconds)
+    except queue.Empty as exc:
+        with _state_lock:
+            _pending_requests.pop(request_id, None)
+        raise TimeoutError(f"timed out waiting for local action response: {action}") from exc
 
-        frame_type = frame.get("type")
-        frame_request_id = frame.get("request_id")
+    if isinstance(frame, Exception):
+        raise frame
 
-        if frame_type == "ping":
-            send_pong(plugin_id, frame_request_id)
-            continue
+    frame_type = frame.get("type")
+    if frame_type == "result":
+        return frame.get("data", {})
 
-        if frame_type == "shutdown":
-            raise ProtocolError("received shutdown while waiting for local action response")
+    if frame_type == "error":
+        raise ActionError(frame.get("code", "plugin.internal_error"), frame.get("message", "local action failed"), frame.get("details"))
 
-        if frame_request_id != request_id:
-            raise ProtocolError(f"unexpected frame while waiting for local action response: {frame_type}")
+    raise ProtocolError(f"unexpected frame type while waiting for local action response: {frame_type}")
 
-        if frame_type == "result":
-            return frame.get("data", {})
 
-        if frame_type == "error":
-            raise ActionError(frame.get("code", "plugin.internal_error"), frame.get("message", "local action failed"), frame.get("details"))
+def _dispatch_frame(frame):
+    frame_type = frame.get("type")
+    request_id = frame.get("request_id")
 
-        raise ProtocolError(f"unexpected frame type while waiting for local action response: {frame_type}")
+    with _state_lock:
+        response_queue = None
+        if frame_type in ("result", "error"):
+            response_queue = _pending_requests.pop(request_id, None)
+
+    if response_queue is not None:
+        response_queue.put(frame)
+        return
+
+    _frame_queue.put(frame)
+    if frame_type == "shutdown":
+        _reject_pending_requests(ProtocolError("received shutdown while waiting for local action response"))
+
+
+def _reject_pending_requests(error):
+    with _state_lock:
+        if not _pending_requests:
+            return
+        pending = list(_pending_requests.values())
+        _pending_requests.clear()
+
+    for response_queue in pending:
+        response_queue.put(error)
+
+
+def _close_stream(error):
+    _reject_pending_requests(error)
+    _frame_queue.put(None)

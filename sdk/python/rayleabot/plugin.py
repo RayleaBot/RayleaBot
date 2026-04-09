@@ -1,5 +1,7 @@
 """High-level plugin framework for RayleaBot Python plugins."""
 
+import threading
+
 from rayleabot import protocol
 
 
@@ -9,6 +11,8 @@ class RayleaBotPlugin:
     def __init__(self):
         self._event_handlers = []
         self._command_handlers = {}
+        self._active_handlers = set()
+        self._handler_lock = threading.Lock()
         self._plugin_id = ""
         self._bot_id = ""
         self._capabilities = []
@@ -395,13 +399,44 @@ class RayleaBotPlugin:
                 protocol.send_init_ack(plugin_id, request_id, self._subscriptions)
 
             elif frame_type == "event":
-                self._handle_event(frame, plugin_id, request_id)
+                self._start_event_handler(frame, plugin_id, request_id)
 
             elif frame_type == "ping":
                 protocol.send_pong(plugin_id, request_id)
 
             elif frame_type == "shutdown":
                 break
+
+        self._wait_for_handlers()
+
+    def _start_event_handler(self, frame, plugin_id, request_id):
+        handler_thread = threading.Thread(
+            target=self._handle_event_safely,
+            args=(frame, plugin_id, request_id),
+            daemon=False,
+        )
+        with self._handler_lock:
+            self._active_handlers.add(handler_thread)
+        handler_thread.start()
+
+    def _handle_event_safely(self, frame, plugin_id, request_id):
+        try:
+            self._handle_event(frame, plugin_id, request_id)
+        except Exception as exc:
+            message = str(exc) or exc.__class__.__name__
+            protocol.send_error(plugin_id, request_id, "plugin.internal_error", message)
+        finally:
+            with self._handler_lock:
+                self._active_handlers.discard(threading.current_thread())
+
+    def _wait_for_handlers(self):
+        while True:
+            with self._handler_lock:
+                handlers = [thread for thread in self._active_handlers if thread.is_alive()]
+            if not handlers:
+                return
+            for handler in handlers:
+                handler.join(timeout=0.05)
 
     def _handle_event(self, frame, plugin_id, request_id):
         event = frame.get("event", {})

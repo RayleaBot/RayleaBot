@@ -101,7 +101,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | --- | --- | --- |
 | `contracts/web-api.openapi.yaml` | ◐ | OneBot transport、协议快照、日志详情与相关主链已冻结；模板编辑器与治理读取面仍待继续 |
 | `contracts/websocket-events.yaml` | ◐ | 协议状态与日志主链已补齐；模板预览与其余实时事件仍待继续 |
-| `contracts/plugin-info.schema.json` | ⚠️ | `default_config`、`concurrency`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` |
+| `contracts/plugin-info.schema.json` | ⚠️ | `default_config`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` |
 | `contracts/plugin-protocol.schema.json` | ◐ | OneBot 主链所需更宽 `action` 与消息段已冻结；剩余 v0.2 范围仍待继续 |
 | `contracts/config.user.schema.json` | ◐ | OneBot 多 transport 配置主模型已冻结；模板与治理可见配置仍待继续 |
 | `contracts/error-codes.yaml` | ◐ | OneBot transport、compatibility 与 provider extension 主链错误码已冻结；模板编辑相关仍待继续 |
@@ -246,7 +246,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | 生命周期状态同步 | 🟡 | 继续收敛 `registration_state`、`desired_state`、`runtime_state`、`display_state` 与任务、恢复摘要之间的一致性 |
 | 配置迁移 | 🟡 | 继续完成迁移结果、保存影响分类、局部热更新与需要重启语义 |
 | manifest 元数据补齐 | 🟡 | 补齐 `icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` |
-| `default_config` / `concurrency` 正式化 | 🟡 | 将当前文档与实现已涉及、但 contract 尚未完全收口的字段纳入正式边界 |
+| `default_config` / `concurrency` 正式化 | ◐ | `concurrency` 与并发投递语义已进入正式边界；`default_config` 仍待继续收口 |
 | blacklist / cooldown / command permission 可见性 | 🟡 | 补齐治理读取面、管理面展示、配置可见性与诊断可见性 |
 | 插件升级与重确认 | 🟡 | 保留现有升级、重确认、恢复后重启与权限扩张裁决主线，并补齐 v0.2 新边界 |
 

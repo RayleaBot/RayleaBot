@@ -9,6 +9,7 @@ import {
   readFrames,
   requestLocalAction,
   sendAction,
+  sendError,
   sendInitAck,
   sendPong,
   sendResult,
@@ -199,6 +200,7 @@ export interface RayleaBotPlugin {
 export function createPlugin(): RayleaBotPlugin {
   const eventHandlers: Array<{ type: string | null; handler: EventHandler }> = [];
   const commandHandlers = new Map<string, EventHandler>();
+  const activeHandlers = new Set<Promise<void>>();
   let pluginId = '';
   let botId = '';
   let subscriptions: string[] | null = null;
@@ -684,15 +686,28 @@ export function createPlugin(): RayleaBotPlugin {
           sendInitAck(pluginId, request_id, subscriptions);
         } else if (type === 'event') {
           const eventFrame = frame as EventFrame;
-          await handleEvent(eventFrame, plugin_id, request_id);
+          startEventHandler(eventFrame, plugin_id, request_id);
         } else if (type === 'ping') {
-          sendPong(pluginId, request_id);
+          sendPong(plugin_id || pluginId, request_id);
         } else if (type === 'shutdown') {
           break;
         }
       }
+      await Promise.allSettled(Array.from(activeHandlers));
     },
   };
+
+  function startEventHandler(frame: EventFrame, pid: string, requestId: string): void {
+    let task: Promise<void>;
+    task = handleEvent(frame, pid, requestId)
+      .catch((error: unknown) => {
+        sendError(pid, requestId, 'plugin.internal_error', formatErrorMessage(error));
+      })
+      .finally(() => {
+        activeHandlers.delete(task);
+      });
+    activeHandlers.add(task);
+  }
 
   async function handleEvent(
     frame: EventFrame,
@@ -728,4 +743,11 @@ export function createPlugin(): RayleaBotPlugin {
   }
 
   return plugin;
+}
+
+function formatErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || error.name;
+  }
+  return String(error);
 }

@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+manifest:
+  concurrency: 2
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000415
+    plugin_id: scope-cache
+    request_id: local_http_missing_parent_0001
+    action: http.request
+    data:
+      method: GET
+      url: https://api.example.test/v1/data
+expect:
+  valid: false
+  reason: Concurrent plugins must include parent_request_id on local action frames so the runtime can bind the request back to its event session.

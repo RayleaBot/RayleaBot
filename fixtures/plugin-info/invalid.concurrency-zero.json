@@ -1,0 +1,24 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "weather-invalid-concurrency",
+    "name": "Weather Invalid Concurrency",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "nodejs",
+    "entry": "plugin.mjs",
+    "license": "MIT",
+    "concurrency": 0,
+    "permissions": {
+      "required": [],
+      "optional": []
+    }
+  },
+  "expect": {
+    "valid": false,
+    "reason": "concurrency must be an integer greater than or equal to 1."
+  }
+}

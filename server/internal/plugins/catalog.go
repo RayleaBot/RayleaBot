@@ -45,6 +45,7 @@ type Snapshot struct {
 	Version               string
 	MinCoreVersion        string
 	DataSchemaVersion     string
+	Concurrency           int
 	Platforms             []string
 	Runtime               string
 	Entry                 string

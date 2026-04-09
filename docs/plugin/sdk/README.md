@@ -18,6 +18,14 @@
 - provider helper：`provider.napcat.*` 与 `provider.luckylillia.*`
 - 扩展消息段 helper：`markdown`、`file`、`keyboard` 与通用 passthrough segment builder
 
+## 并发与请求归属
+
+- 本地 action helper 会自动生成独立 `request_id` 并附带 `parent_request_id`。
+- SDK 按 `request_id` 路由等待结果，不依赖“下一帧就是我的返回”。
+- Node.js SDK 的 `run()` 会持续收帧，并允许不同事件处理器并发执行。
+- Python SDK 的 `run()` 使用线程并发处理事件。
+- 使用 SDK 时，事件处理函数需要满足可重入要求。
+
 ## 相关文档
 
 - [Plugin Lifecycle](../lifecycle.md)

@@ -7,6 +7,7 @@
   "type": "managed_runtime",
   "runtime": "python",
   "entry": "main.py",
+  "concurrency": 2,
   "license": "MIT",
   "description": "Python example plugin demonstrating scoped http.request and storage.file usage.",
   "author": "raylea",

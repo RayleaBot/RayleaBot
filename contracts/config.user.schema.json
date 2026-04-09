@@ -320,7 +320,8 @@
         "max_concurrent_tasks_per_plugin": {
           "type": "integer",
           "minimum": 1,
-          "default": 4
+          "default": 4,
+          "description": "Upper bound for one plugin's concurrent event sessions. The runtime applies min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin) with a floor of 1."
         },
         "crash_backoff_initial_seconds": {
           "type": "integer",

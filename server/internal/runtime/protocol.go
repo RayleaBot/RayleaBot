@@ -125,6 +125,7 @@ type actionFrame struct {
 	Timestamp       int64           `json:"timestamp"`
 	PluginID        string          `json:"plugin_id"`
 	RequestID       string          `json:"request_id"`
+	ParentRequestID string          `json:"parent_request_id,omitempty"`
 	Action          string          `json:"action"`
 	Data            json.RawMessage `json:"data"`
 }

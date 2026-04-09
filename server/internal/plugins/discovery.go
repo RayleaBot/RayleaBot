@@ -228,6 +228,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		Version:           stringField(manifest, "version"),
 		MinCoreVersion:    stringField(manifest, "min_core_version"),
 		DataSchemaVersion: stringField(manifest, "data_schema_version"),
+		Concurrency:       manifestConcurrency(manifest),
 		Platforms:         stringListField(manifest, "platforms"),
 		Type:              stringField(manifest, "type"),
 		Runtime:           stringField(manifest, "runtime"),
@@ -373,6 +374,28 @@ func manifestBoolField(document map[string]any, key string) bool {
 		return false
 	}
 	return booleanValue
+}
+
+func manifestConcurrency(document map[string]any) int {
+	value, ok := document["concurrency"]
+	if !ok {
+		return 1
+	}
+	switch typed := value.(type) {
+	case int:
+		if typed >= 1 {
+			return typed
+		}
+	case int64:
+		if typed >= 1 {
+			return int(typed)
+		}
+	case float64:
+		if typed >= 1 {
+			return int(typed)
+		}
+	}
+	return 1
 }
 
 func manifestPermissionList(document map[string]any, key string) []string {

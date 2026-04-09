@@ -18,10 +18,12 @@ type Manager struct {
 	deps   managerDeps
 	opts   Options
 
-	mu        sync.RWMutex
-	deliverMu sync.Mutex
-	proc      *processHandle
-	snap      Snapshot
+	mu            sync.RWMutex
+	protocolMu    sync.Mutex
+	proc          *processHandle
+	snap          Snapshot
+	pendingEvents map[string]*eventSession
+	pendingPings  map[string]*pingRequest
 }
 
 func New(logger *slog.Logger, options Options) *Manager {
@@ -58,6 +60,8 @@ func newManager(logger *slog.Logger, deps managerDeps, options Options) *Manager
 		logger: logger,
 		deps:   deps,
 		opts:   options,
+		pendingEvents: make(map[string]*eventSession),
+		pendingPings:  make(map[string]*pingRequest),
 		snap: Snapshot{
 			State: StateStopped,
 		},
@@ -182,6 +186,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		"entry_path", spec.EntryPath,
 	)
 
+	go m.readRuntimeFrames(handle)
 	go m.watchRunningProcess(handle)
 
 	return nil

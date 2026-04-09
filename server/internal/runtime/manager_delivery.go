@@ -10,96 +10,43 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 		return Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
 	}
 
-	m.deliverMu.Lock()
-	defer m.deliverMu.Unlock()
-
 	m.mu.RLock()
 	handle := m.proc
-	snapshot := m.snap
 	m.mu.RUnlock()
-
-	if handle == nil || snapshot.State == StateStopped {
+	if handle == nil {
 		return Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
-	}
-	if snapshot.State == StateStopping {
-		return Delivery{}, errorf(codePluginStopping, "plugin runtime is stopping", nil)
-	}
-	if snapshot.State != StateRunning {
-		return Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not ready for event delivery", nil)
 	}
 
 	requestID := m.deps.requestID()
-	frame := buildEventFrame(event, handle.spec.PluginID, requestID, m.deps.now().Unix())
-	if err := handle.writeJSONLine(frame); err != nil {
-		return Delivery{}, errorf(codePluginInternalError, "write event frame", err)
+	session, runtimeErr := m.registerEventSession(ctx, handle, requestID)
+	if runtimeErr != nil {
+		return Delivery{}, runtimeErr
 	}
 
-	return m.awaitEventResponse(ctx, handle, requestID)
-}
+	frame := buildEventFrame(event, handle.spec.PluginID, requestID, m.deps.now().Unix())
+	if err := handle.writeJSONLine(frame); err != nil {
+		m.removeEventSession(handle, requestID)
+		return Delivery{}, m.failRuntime(handle, codePluginInternalError, "write event frame", err)
+	}
 
-func (m *Manager) awaitEventResponse(ctx context.Context, handle *processHandle, requestID string) (Delivery, error) {
 	timeout := handle.spec.EventTimeout
 	if deadline, ok := ctx.Deadline(); ok {
-		remaining := time.Until(deadline)
-		if remaining > 0 && remaining < timeout {
+		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
 			timeout = remaining
 		}
 	}
-	deadline := time.Now().Add(timeout)
-	seenLocalRequestIDs := make(map[string]struct{})
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 
-	for {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", nil)
-			m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
-			return Delivery{}, runtimeErr
+	select {
+	case <-session.done:
+		if session.err != nil {
+			return session.delivery, session.err
 		}
-
-		readCh := make(chan []byte, 1)
-		readErrCh := make(chan error, 1)
-		go func() {
-			line, err := handle.stdout.ReadBytes('\n')
-			if err != nil {
-				readErrCh <- err
-				return
-			}
-			readCh <- line
-		}()
-
-		timer := time.NewTimer(remaining)
-		select {
-		case line := <-readCh:
-			timer.Stop()
-			delivery, done, err := m.processEventFrame(ctx, handle, requestID, seenLocalRequestIDs, line)
-			if err != nil {
-				if done {
-					return delivery, err
-				}
-				return Delivery{}, err
-			}
-			if done {
-				return delivery, nil
-			}
-		case readErr := <-readErrCh:
-			timer.Stop()
-			return Delivery{}, classifyProtocolReadError(handle, readErr, "plugin exited during event delivery", "read plugin event response")
-		case <-handle.done:
-			timer.Stop()
-			waitErr, _ := handle.exitResult()
-			if waitErr == nil {
-				return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", nil)
-			}
-			return Delivery{}, errorf(codePluginInternalError, "plugin exited during event delivery", waitErr)
-		case <-timer.C:
-			runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", nil)
-			m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
-			return Delivery{}, runtimeErr
-		case <-ctx.Done():
-			timer.Stop()
-			runtimeErr := errorf(codePluginEventTimeout, "plugin event response timed out", ctx.Err())
-			m.cleanupFailedDelivery(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
-			return Delivery{}, runtimeErr
-		}
+		return session.delivery, nil
+	case <-timer.C:
+		return Delivery{}, m.failRuntime(handle, codePluginEventTimeout, "plugin event response timed out", nil)
+	case <-ctx.Done():
+		return Delivery{}, m.failRuntime(handle, codePluginEventTimeout, "plugin event response timed out", ctx.Err())
 	}
 }

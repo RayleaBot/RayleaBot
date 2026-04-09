@@ -40,12 +40,14 @@
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
+  - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时回落到 `auth.default_level`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `message.send`、`message.reply` 使用 shared `message.segments` payload
   - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface
+  - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已冻结 OneBot family / provider namespace 扩展 action，provider-specific namespace 固定为 `provider.napcat.*` 与 `provider.luckylillia.*`
   - 正式 outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
 - `release-manifest.schema.json`
@@ -58,7 +60,6 @@
 ### Plugin Manifest
 
 - `default_config`
-- `concurrency`
 - `role`
 - `icon`
 - `repo`

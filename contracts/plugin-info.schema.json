@@ -95,6 +95,11 @@
       "minLength": 1,
       "description": "Plugin-private data schema version used to decide migration windows and automatic re-enable eligibility."
     },
+    "concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional plugin event concurrency opt-in. When omitted, the platform treats the plugin as serial with concurrency 1."
+    },
     "platforms": {
       "type": "array",
       "description": "Optional platform compatibility filter used during install-time gating.",
@@ -323,7 +328,9 @@
     "fixtures/plugin-info/ok.minimal-python.json",
     "fixtures/plugin-info/invalid.unsupported-binary-runtime.json",
     "fixtures/plugin-info/edge.permission-regrant-and-migration.json",
-    "fixtures/plugin-info/ok.plugin-with-commands.json"
+    "fixtures/plugin-info/ok.plugin-with-commands.json",
+    "fixtures/plugin-info/ok.concurrency-opt-in.json",
+    "fixtures/plugin-info/invalid.concurrency-zero.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, default plugin config seeding, and migration boundaries. Concurrency, icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support remain outside this frozen surface."
+  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, default plugin config seeding, migration boundaries, and opt-in event concurrency. Icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support remain outside this frozen surface."
 }

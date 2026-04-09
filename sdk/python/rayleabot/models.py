@@ -621,10 +621,11 @@ class ActionFrame:
     request_id: str
     action: str
     data: dict
+    parent_request_id: str | None = None
     timestamp: int = field(default_factory=_now)
 
     def to_dict(self) -> dict:
-        return {
+        frame = {
             "protocol_version": PROTOCOL_VERSION,
             "type": "action",
             "timestamp": self.timestamp,
@@ -633,12 +634,16 @@ class ActionFrame:
             "action": self.action,
             "data": self.data,
         }
+        if self.parent_request_id is not None:
+            frame["parent_request_id"] = self.parent_request_id
+        return frame
 
     @classmethod
     def from_dict(cls, d: dict) -> ActionFrame:
         return cls(
             plugin_id=d["plugin_id"],
             request_id=d["request_id"],
+            parent_request_id=d.get("parent_request_id"),
             action=d["action"],
             data=d["data"],
             timestamp=d.get("timestamp", _now()),

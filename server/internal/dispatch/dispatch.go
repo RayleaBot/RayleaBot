@@ -2,7 +2,9 @@ package dispatch
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
@@ -47,6 +49,7 @@ type pluginSlot struct {
 	runtime       runtimeDeliverer
 	subscriptions []string
 	commands      []CommandDecl
+	concurrency   int
 	queue         chan dispatchItem
 	done          chan struct{}
 }
@@ -81,17 +84,21 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 // Register adds a plugin runtime to the dispatch registry and starts its
 // delivery worker goroutine. The rt parameter must implement DeliverEvent
 // and Snapshot (both *runtime.Manager and test fakes satisfy this).
-func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []CommandDecl) {
+func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []CommandDecl, concurrency int) {
 	d.mu.Lock()
 	old, replacing := d.slots[pluginID]
 	if replacing {
 		delete(d.slots, pluginID)
+	}
+	if concurrency <= 0 {
+		concurrency = 1
 	}
 
 	slot := &pluginSlot{
 		runtime:       rt,
 		subscriptions: append([]string(nil), subs...),
 		commands:      append([]CommandDecl(nil), cmds...),
+		concurrency:   concurrency,
 		queue:         make(chan dispatchItem, d.queueSize),
 		done:          make(chan struct{}),
 	}
@@ -319,24 +326,124 @@ func slotAcceptsEvent(slot *pluginSlot, eventType string) bool {
 	return false
 }
 
-// worker is the per-plugin goroutine that sequentially delivers events.
+// worker is the per-plugin scheduler that preserves FIFO within one lane and
+// allows different lanes to run in parallel up to slot.concurrency.
 func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 	defer close(slot.done)
 
-	for item := range slot.queue {
-		delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
-		if err != nil {
-			d.logger.Warn("dispatch delivery failed",
-				"component", "dispatch",
-				"plugin_id", pluginID,
-				"event_id", item.event.EventID,
-				"err", err.Error(),
-			)
-			continue
+	type laneCompletion struct {
+		laneKey string
+	}
+
+	activeLanes := make(map[string]struct{})
+	pendingByLane := make(map[string][]dispatchItem)
+	laneOrder := make([]string, 0)
+	completions := make(chan laneCompletion, slot.concurrency)
+	queue := slot.queue
+	fallbackCounter := 0
+	activeCount := 0
+
+	appendLane := func(laneKey string) {
+		for _, existing := range laneOrder {
+			if existing == laneKey {
+				return
+			}
+		}
+		laneOrder = append(laneOrder, laneKey)
+	}
+
+	removeLaneAt := func(index int) {
+		copy(laneOrder[index:], laneOrder[index+1:])
+		laneOrder = laneOrder[:len(laneOrder)-1]
+	}
+
+	startReadyLanes := func() {
+		for activeCount < slot.concurrency {
+			started := false
+			for i := 0; i < len(laneOrder) && activeCount < slot.concurrency; i++ {
+				laneKey := laneOrder[i]
+				if _, active := activeLanes[laneKey]; active {
+					continue
+				}
+				queueForLane := pendingByLane[laneKey]
+				if len(queueForLane) == 0 {
+					delete(pendingByLane, laneKey)
+					removeLaneAt(i)
+					i--
+					continue
+				}
+
+				item := queueForLane[0]
+				queueForLane = queueForLane[1:]
+				if len(queueForLane) == 0 {
+					delete(pendingByLane, laneKey)
+					removeLaneAt(i)
+					i--
+				} else {
+					pendingByLane[laneKey] = queueForLane
+				}
+
+				activeLanes[laneKey] = struct{}{}
+				activeCount++
+				started = true
+
+				go func(laneKey string, item dispatchItem) {
+					delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
+					if err != nil {
+						d.logger.Warn("dispatch delivery failed",
+							"component", "dispatch",
+							"plugin_id", pluginID,
+							"event_id", item.event.EventID,
+							"lane_key", laneKey,
+							"err", err.Error(),
+						)
+						completions <- laneCompletion{laneKey: laneKey}
+						return
+					}
+
+					if delivery.Action != nil {
+						d.executeAction(item.ctx, pluginID, item.event, *delivery.Action)
+					}
+					completions <- laneCompletion{laneKey: laneKey}
+				}(laneKey, item)
+			}
+			if !started {
+				return
+			}
+		}
+	}
+
+	for {
+		startReadyLanes()
+		if queue == nil && activeCount == 0 && len(pendingByLane) == 0 {
+			return
 		}
 
-		if delivery.Action != nil {
-			d.executeAction(item.ctx, pluginID, item.event, *delivery.Action)
+		var inbound <-chan dispatchItem
+		if queue != nil && activeCount < slot.concurrency {
+			inbound = queue
+		}
+
+		select {
+		case item, ok := <-inbound:
+			if !ok {
+				queue = nil
+				continue
+			}
+			laneKey := laneKeyForEvent(item.event, &fallbackCounter)
+			pendingByLane[laneKey] = append(pendingByLane[laneKey], item)
+			if _, active := activeLanes[laneKey]; !active {
+				appendLane(laneKey)
+			}
+		case completion := <-completions:
+			if _, active := activeLanes[completion.laneKey]; !active {
+				continue
+			}
+			delete(activeLanes, completion.laneKey)
+			activeCount--
+			if len(pendingByLane[completion.laneKey]) > 0 {
+				appendLane(completion.laneKey)
+			}
 		}
 	}
 }
@@ -356,6 +463,18 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, event r
 			"err", err.Error(),
 		)
 	}
+}
+
+func laneKeyForEvent(event runtime.Event, fallbackCounter *int) string {
+	if event.Target != nil {
+		targetType := strings.TrimSpace(event.Target.Type)
+		targetID := strings.TrimSpace(event.Target.ID)
+		if targetType != "" && targetID != "" {
+			return targetType + ":" + targetID
+		}
+	}
+	*fallbackCounter = *fallbackCounter + 1
+	return fmt.Sprintf("fallback:%d", *fallbackCounter)
 }
 
 // Close deregisters all plugins and stops all workers.

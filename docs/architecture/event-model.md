@@ -45,7 +45,7 @@
 
 - 生命周期与心跳继续作为 adapter 连接状态信号，不进入插件事件投递主链。
 - 未进入正式范围的事件不会伪装成已支持能力。
-- Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、fan-out 排队和执行插件返回的动作。
+- Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、按会话 lane 排队和执行插件返回的动作。
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
 - OneBot 原生字段通过 `event.payload.onebot` 正式暴露，插件和管理面都可以直接读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message` 和 `sender` 等字段。
 
@@ -80,7 +80,10 @@ OneBot11 上报帧
 | `event` | 平台向插件投递统一事件 |
 | `result` | 插件对事件或 action 的成功响应 |
 | `error` | 插件对事件或 action 的失败响应 |
-| `action_request` / `action_response` | 本地 action RPC |
+| `action` | 插件发起本地 action 请求；平台返回 `result` 或 `error` |
+
+- 本地 action 使用独立 `request_id`，并通过 `parent_request_id` 归属到对应事件。
+- manifest 省略 `concurrency` 时，插件按串行事件处理；显式声明后，同一 `event.target` 保持顺序，不同 `event.target` 可并发。
 
 ### 当前正式 local action
 

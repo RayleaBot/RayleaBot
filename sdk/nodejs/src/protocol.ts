@@ -1,16 +1,16 @@
 import { createInterface } from 'readline';
-import type {
-  Frame,
-  InitAckFrame,
-  PongFrame,
-  ResultFrame,
-  ActionFrame,
-  ErrorFrame,
-} from './types.js';
+import type { ErrorFrame, Frame, ResultFrame } from './types.js';
 
 const rl = createInterface({ input: process.stdin });
 const pendingFrames: Array<Frame | null> = [];
 const waitingResolvers: Array<(frame: Frame | null) => void> = [];
+const pendingRequests = new Map<
+  string,
+  {
+    resolve: (frame: ResultFrame) => void;
+    reject: (error: Error) => void;
+  }
+>();
 let streamClosed = false;
 let localRequestCounter = 0;
 
@@ -26,20 +26,15 @@ export class ActionError extends Error {
   }
 }
 
-rl.on('line', (line: string) => {
-  if (!line.trim()) {
-    return;
-  }
-  const frame = JSON.parse(line) as Frame;
+function enqueueFrame(frame: Frame | null): void {
   if (waitingResolvers.length > 0) {
     waitingResolvers.shift()!(frame);
     return;
   }
   pendingFrames.push(frame);
-});
+}
 
-rl.on('close', () => {
-  streamClosed = true;
+function closeFrameStream(): void {
   if (waitingResolvers.length > 0) {
     while (waitingResolvers.length > 0) {
       waitingResolvers.shift()!(null);
@@ -47,6 +42,58 @@ rl.on('close', () => {
     return;
   }
   pendingFrames.push(null);
+}
+
+function rejectPendingRequests(error: Error): void {
+  if (pendingRequests.size === 0) {
+    return;
+  }
+  const activeRequests = Array.from(pendingRequests.values());
+  pendingRequests.clear();
+  for (const pending of activeRequests) {
+    pending.reject(error);
+  }
+}
+
+function isLocalActionResponse(frame: Frame): frame is ResultFrame | ErrorFrame {
+  return frame.type === 'result' || frame.type === 'error';
+}
+
+rl.on('line', (line: string) => {
+  if (!line.trim()) {
+    return;
+  }
+  const frame = JSON.parse(line) as Frame;
+
+  if (isLocalActionResponse(frame)) {
+    const pending = pendingRequests.get(frame.request_id);
+    if (pending) {
+      pendingRequests.delete(frame.request_id);
+      if (frame.type === 'result') {
+        pending.resolve(frame);
+      } else {
+        pending.reject(
+          new ActionError(
+            frame.code ?? 'plugin.internal_error',
+            frame.message ?? 'local action failed',
+            frame.details ?? {},
+          ),
+        );
+      }
+      return;
+    }
+  }
+
+  enqueueFrame(frame);
+  if (frame.type === 'shutdown') {
+    rejectPendingRequests(new Error('received shutdown while waiting for local action response'));
+  }
+});
+
+rl.on('close', () => {
+  streamClosed = true;
+  rejectPendingRequests(new Error('stdin closed while waiting for local action response'));
+  closeFrameStream();
 });
 
 function dequeueFrame(): Frame | null | undefined {
@@ -151,8 +198,9 @@ export function sendAction(
   requestId: string,
   action: string,
   data: Record<string, unknown>,
+  opts: { parentRequestId?: string } = {},
 ): void {
-  writeFrame({
+  const frame: Record<string, unknown> = {
     protocol_version: '1',
     type: 'action',
     timestamp: Math.floor(Date.now() / 1000),
@@ -160,7 +208,11 @@ export function sendAction(
     request_id: requestId,
     action,
     data,
-  });
+  };
+  if (opts.parentRequestId) {
+    frame.parent_request_id = opts.parentRequestId;
+  }
+  writeFrame(frame);
 }
 
 export function sendError(
@@ -198,45 +250,43 @@ export async function requestLocalAction(
 ): Promise<Record<string, unknown>> {
   const timeoutMs = opts.timeoutMs ?? 30000;
   const requestId = nextLocalRequestId(parentRequestId);
-  sendAction(pluginId, requestId, action, data);
-  const deadline = Date.now() + timeoutMs;
 
-  while (true) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) {
-      throw new Error(`timed out waiting for local action response: ${action}`);
+  return await new Promise<Record<string, unknown>>((resolve, reject) => {
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = (): void => {
+      if (timeoutHandle !== null) {
+        clearTimeout(timeoutHandle);
+      }
+      pendingRequests.delete(requestId);
+    };
+
+    pendingRequests.set(requestId, {
+      resolve: (frame: ResultFrame): void => {
+        cleanup();
+        resolve(frame.data ?? {});
+      },
+      reject: (error: Error): void => {
+        cleanup();
+        reject(error);
+      },
+    });
+
+    if (timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        if (!pendingRequests.has(requestId)) {
+          return;
+        }
+        cleanup();
+        reject(new Error(`timed out waiting for local action response: ${action}`));
+      }, timeoutMs);
     }
 
-    const frame = await readFrame({ timeoutMs: remaining });
-    if (frame === null) {
-      throw new Error('stdin closed while waiting for local action response');
+    try {
+      sendAction(pluginId, requestId, action, data, { parentRequestId });
+    } catch (error) {
+      cleanup();
+      reject(error instanceof Error ? error : new Error(String(error)));
     }
-
-    if (frame.type === 'ping') {
-      sendPong(pluginId, frame.request_id);
-      continue;
-    }
-
-    if (frame.type === 'shutdown') {
-      throw new Error('received shutdown while waiting for local action response');
-    }
-
-    if (frame.request_id !== requestId) {
-      throw new Error(`unexpected frame while waiting for local action response: ${frame.type}`);
-    }
-
-    if (frame.type === 'result') {
-      return frame.data ?? {};
-    }
-
-    if (frame.type === 'error') {
-      throw new ActionError(
-        frame.code ?? 'plugin.internal_error',
-        frame.message ?? 'local action failed',
-        frame.details ?? {},
-      );
-    }
-
-    throw new Error(`unexpected frame type while waiting for local action response: ${frame.type}`);
-  }
+  });
 }

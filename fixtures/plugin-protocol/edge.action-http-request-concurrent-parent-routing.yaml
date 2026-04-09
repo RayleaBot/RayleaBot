@@ -1,0 +1,48 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+manifest:
+  concurrency: 2
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000410
+    plugin_id: scope-cache
+    request_id: local_http_0004
+    parent_request_id: req_event_group_0001
+    action: http.request
+    data:
+      method: GET
+      url: https://api.example.test/v1/group
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000411
+    plugin_id: scope-cache
+    request_id: local_http_0005
+    parent_request_id: req_event_private_0001
+    action: http.request
+    data:
+      method: GET
+      url: https://api.example.test/v1/private
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000412
+    plugin_id: scope-cache
+    request_id: local_http_0005
+    status: success
+    data:
+      status_code: 200
+      body_text: private-ready
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000413
+    plugin_id: scope-cache
+    request_id: local_http_0004
+    status: success
+    data:
+      status_code: 200
+      body_text: group-ready
+expect:
+  valid: true
+  notes:
+    - parent_request_id lets the runtime route concurrent local actions back to the correct event session.
+    - local action result frames may return interleaved as long as request_id stays stable.

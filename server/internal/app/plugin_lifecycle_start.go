@@ -199,5 +199,12 @@ func (c *pluginLifecycleController) registerRuntime(pluginID string, snapshot pl
 		return
 	}
 	runtimeSnapshot := manager.Snapshot()
-	c.dispatcher.Register(pluginID, manager, runtimeSnapshot.Subscriptions, dispatchCommands(snapshot.Commands))
+	concurrency := snapshot.Concurrency
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	if max := c.state.Config.Runtime.MaxConcurrentTasksPerPlugin; max > 0 && concurrency > max {
+		concurrency = max
+	}
+	c.dispatcher.Register(pluginID, manager, runtimeSnapshot.Subscriptions, dispatchCommands(snapshot.Commands), concurrency)
 }

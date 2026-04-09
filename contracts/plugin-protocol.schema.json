@@ -936,6 +936,10 @@
             "type": {
               "const": "action"
             },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "action": {
               "type": "string",
               "enum": [
@@ -1003,6 +1007,10 @@
           "properties": {
             "type": {
               "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
             },
             "action": {
               "type": "string",
@@ -1406,6 +1414,10 @@
             "type": {
               "const": "action"
             },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "action": {
               "type": "string",
               "const": "logger.write"
@@ -1433,6 +1445,10 @@
           "properties": {
             "type": {
               "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
             },
             "action": {
               "type": "string",
@@ -1474,6 +1490,10 @@
           "properties": {
             "type": {
               "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
             },
             "action": {
               "type": "string",
@@ -1518,6 +1538,10 @@
           "properties": {
             "type": {
               "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
             },
             "action": {
               "type": "string",
@@ -1832,6 +1856,10 @@
             "type": {
               "const": "action"
             },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "action": {
               "type": "string",
               "const": "config.read"
@@ -1859,6 +1887,10 @@
           "properties": {
             "type": {
               "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
             },
             "action": {
               "type": "string",
@@ -1888,6 +1920,10 @@
             "type": {
               "const": "action"
             },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "action": {
               "type": "string",
               "const": "scheduler.create"
@@ -1916,6 +1952,10 @@
             "type": {
               "const": "action"
             },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "action": {
               "type": "string",
               "const": "event.expose_webhook"
@@ -1943,6 +1983,10 @@
           "properties": {
             "type": {
               "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
             },
             "action": {
               "type": "string",
@@ -2057,6 +2101,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2073,6 +2118,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2089,6 +2135,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2105,6 +2152,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2121,6 +2169,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2137,6 +2186,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2153,6 +2203,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2169,6 +2220,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2185,6 +2237,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2201,6 +2254,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2217,6 +2271,7 @@
         "timestamp",
         "plugin_id",
         "request_id",
+        "parent_request_id",
         "action",
         "data"
       ],
@@ -2336,6 +2391,7 @@
     "fixtures/plugin-protocol/edge.action-scheduler-create-result.yaml",
     "fixtures/plugin-protocol/edge.action-event-expose-webhook-result.yaml",
     "fixtures/plugin-protocol/edge.action-render-image-result.yaml",
+    "fixtures/plugin-protocol/edge.action-http-request-concurrent-parent-routing.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml",
     "fixtures/plugin-protocol/invalid.action-logger-write-missing-message.yaml",
@@ -2354,6 +2410,7 @@
     "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
     "fixtures/plugin-protocol/invalid.action-provider-invalid-namespace.yaml",
     "fixtures/plugin-protocol/invalid.action-onebot-family-non-object-data.yaml",
+    "fixtures/plugin-protocol/invalid.action-http-request-missing-parent-request-id.yaml",
     "fixtures/plugin-protocol/edge.action-logger-write-result.yaml",
     "fixtures/plugin-protocol/edge.action-storage-kv-list-result.yaml",
     "fixtures/plugin-protocol/edge.action-provider-luckylillia-friend-groups-get-result.yaml",
@@ -2362,5 +2419,5 @@
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. message.* uses the shared outbound segment model; local actions use distinct request_ids and receive result/error frames from the platform before the plugin completes its event. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. message.* uses the shared outbound segment model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

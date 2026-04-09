@@ -2,6 +2,7 @@ import {
   readFrames,
   requestLocalAction,
   sendAction,
+  sendError,
   sendInitAck,
   sendPong,
   sendResult,
@@ -10,6 +11,7 @@ import {
 export function createPlugin() {
   const eventHandlers = [];
   const commandHandlers = new Map();
+  const activeHandlers = new Set();
   let pluginId = '';
   let botId = '';
   let subscriptions = null;
@@ -285,15 +287,28 @@ export function createPlugin() {
           botId = frame.bot?.id ?? '';
           sendInitAck(pluginId, request_id, subscriptions);
         } else if (type === 'event') {
-          await handleEvent(frame, plugin_id, request_id);
+          startEventHandler(frame, plugin_id, request_id);
         } else if (type === 'ping') {
-          sendPong(pluginId, request_id);
+          sendPong(plugin_id || pluginId, request_id);
         } else if (type === 'shutdown') {
           break;
         }
       }
+      await Promise.allSettled(Array.from(activeHandlers));
     },
   };
+
+  function startEventHandler(frame, pid, requestId) {
+    let task;
+    task = handleEvent(frame, pid, requestId)
+      .catch((error) => {
+        sendError(pid, requestId, 'plugin.internal_error', formatErrorMessage(error));
+      })
+      .finally(() => {
+        activeHandlers.delete(task);
+      });
+    activeHandlers.add(task);
+  }
 
   async function handleEvent(frame, pid, requestId) {
     const event = frame.event ?? {};
@@ -315,4 +330,11 @@ export function createPlugin() {
   }
 
   return plugin;
+}
+
+function formatErrorMessage(error) {
+  if (error instanceof Error) {
+    return error.message || error.name;
+  }
+  return String(error);
 }

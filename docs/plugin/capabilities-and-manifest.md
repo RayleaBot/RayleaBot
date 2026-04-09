@@ -13,6 +13,7 @@
 | `type` | 当前正式值为 `managed_runtime` 或 `dev_source` |
 | `runtime` | 当前正式值为 `python` 或 `nodejs` |
 | `entry` | 插件入口 |
+| `concurrency` | 插件事件并发度声明；省略时按 `1` 处理 |
 | `license` | 插件许可信息 |
 | `role` | `builtin` / `user` / `example` / `dev` |
 | `default_config` | 插件默认配置 |
@@ -49,6 +50,13 @@
 - 插件可通过 `commands` 声明命令名、别名、说明、示例和权限级别。
 - 平台保留 `raylea:*` 命名空间给官方内置插件。
 - 同名命令默认保持 fan-out；管理面负责提示冲突，不自动做互斥仲裁。
+
+## 并发声明
+
+- `concurrency` 只定义事件处理并发度。
+- 插件有效并发度取 `min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin)`，最小值为 `1`。
+- 同一插件内按 `event.target.type + ":" + event.target.id` 保持同会话顺序；不同会话可并发。
+- 没有稳定 `event.target` 的事件使用独立 fallback lane，不参与同会话串行。
 
 ## 依赖与发布边界
 
