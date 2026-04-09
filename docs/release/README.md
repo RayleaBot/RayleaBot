@@ -1,13 +1,13 @@
 # Release Docs
 
-本目录说明 RayleaBot 的交付矩阵、发布元数据、升级回滚和 v0.1 验收口径。
+本目录说明 RayleaBot 的交付矩阵、发布元数据、升级回滚和当前正式验收口径。
 
 ## 阅读入口
 
 | 文档 | 主题 |
 | --- | --- |
 | [delivery-and-upgrade.md](./delivery-and-upgrade.md) | 构建目标、产物矩阵、包目录、元数据和升级回滚 |
-| [acceptance-and-risks.md](./acceptance-and-risks.md) | v0.1 风险、验收结论和关键场景 |
+| [acceptance-and-risks.md](./acceptance-and-risks.md) | 当前风险、验收结论和关键场景 |
 
 ## 当前原则
 

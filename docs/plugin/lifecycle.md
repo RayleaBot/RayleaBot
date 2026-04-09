@@ -10,15 +10,14 @@
 | --- | --- |
 | `plugins/builtin/` | 官方内置插件，跟随发行包交付 |
 | `plugins/installed/` | 用户安装插件 |
-| `plugins/dev/` | 本地开发调试插件 |
 
-- `plugins/builtin/` 默认发现并按正式边界支持启用、禁用和重载。
-- `plugins/installed/` 用于用户安装的正式插件包。
-- `plugins/dev/` 面向开发调试，不承担普通用户交付职责。
+- 默认 discovery 只扫描 `plugins/builtin/` 和 `plugins/installed/`。
+- `examples/plugins/` 只承担示例职责，不进入默认发现主链。
+- `plugins/dev/` 不属于默认正式 discovery root。
 
 ## 当前支持的运行时
 
-- v0.1 正式支持 Python 与 Node.js 插件。
+- 当前正式支持 Python 与 Node.js 插件。
 - 插件发布形态覆盖平台托管运行时插件和开发调试来源插件。
 - 其他语言的运行形态不纳入当前正式支持范围。
 

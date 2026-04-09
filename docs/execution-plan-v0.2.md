@@ -65,6 +65,16 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 9 | Launcher / 本地运维入口 | ◐ | 启动失败诊断与端口占用识别已补强，环境诊断与深链引导仍待继续 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
 
+### 已冻结内容与当前实现偏差
+
+以下条目保留原计划语义，只标记当前实现现状：
+
+| 已冻结条目 | 当前实现现状 |
+| --- | --- |
+| Batch A 中的 compatibility matrix 管理面读取面 | 当前正式管理面只保留 OneBot 协议快照；`/api/protocols/onebot11/compatibility` 不在正式 API 内，协议中心也不展示兼容矩阵 |
+| LuckyLillia 的 HTTP / SSE 接收兼容说明 | 当前正式 transport 只包含 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`；`SSE` 不在正式配置模型、协议快照枚举和协议中心范围内 |
+| Phase 2 中“protocol snapshot、compatibility matrix、管理面 companion updates 已补齐” | 当前已补齐协议快照、日志主链、widened actions 与部分 companion updates；兼容矩阵相关内容保留在文档、fixtures 和测试口径中 |
+
 ---
 
 ## 二、Pre-Phase — 范围重置与前置承接 ☑️

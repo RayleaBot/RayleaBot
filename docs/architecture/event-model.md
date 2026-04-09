@@ -6,9 +6,9 @@
 
 ## 一、OneBot11 接入边界
 
-- v0.1 只支持 OneBot11 反向 WebSocket。
-- 默认使用 Header 方式附加 `access_token`，并兼容查询参数方式。
-- 未支持的传输模式在启动前直接拒绝，不进入运行态。
+- 当前正式传输模式包括 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`。
+- `reverse_ws` 用于 OneBot 主动回连 RayleaBot；`forward_ws` 用于 RayleaBot 主动连接 OneBot；`http_api` 负责出站 API 调用；`webhook` 负责入站事件上报。
+- 传输鉴权统一使用 `onebot.access_token`；协议快照对外暴露 `configured_transports`、`active_transports`、`transport_status` 和 `readiness_status`。
 - `self_id` 会用于一致性检查；发现不一致时记录可观测告警。
 
 ## 二、OneBot11 事件归一化
@@ -52,7 +52,7 @@
 ### 归一化链路
 
 ```plain
-OneBot11 WS 上报
+OneBot11 上报帧
   -> adapter 解析原始 JSON
   -> bridge 校验并映射统一事件
   -> dispatcher 选择可投递 runtime 并排队
@@ -84,17 +84,9 @@ OneBot11 WS 上报
 
 ### 当前正式 local action
 
-- `message.send`
-- `message.reply`
-- `logger.write`
-- `storage.kv`
-- `storage.file`
-- `http.request`
-- `config.read`
-- `config.write`
-- `scheduler.create`
-- `event.expose_webhook`
-- `render.image`
+- 平台基础动作包括 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook` 和 `render.image`。
+- OneBot generic action 覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke 等家族。
+- Provider 扩展动作使用 `provider.napcat.*` 和 `provider.luckylillia.*` 命名空间。
 
 ### 当前正式消息段
 
@@ -132,3 +124,5 @@ OneBot11 WS 上报
 | `/ws/plugins/{id}/console` | `plugins.console` |
 
 管理面 WebSocket 使用统一 envelope，承载任务更新、日志追加、平台观测事件和插件 console。
+
+- `/ws/events` 当前承载协议快照更新和 `bridge_runtime` 聚合观测事件。

@@ -12,7 +12,7 @@
 | `contracts/` | 正式接口、schema、错误码与 release metadata |
 | `fixtures/` | 契约样例与回归基线 |
 | `examples/` | 示例插件、示例配置和示例请求 |
-| `plugins/` | 插件根目录，含 `builtin/`、`installed/` 与 `dev/` |
+| `plugins/` | 插件根目录，默认发现 `builtin/` 与 `installed/` |
 | `config/` | 默认配置与用户配置 |
 | `data/` | SQLite 状态库与插件业务数据 |
 | `cache/` | 渲染缓存、下载缓存与临时缓存 |
@@ -20,7 +20,6 @@
 | `.deps/` | Chromium、Python、Node.js 与相关资源清单 |
 | `.github/workflows/` | CI、打包与发布门禁 |
 | `docs/` | 文档总纲与专题说明 |
-| `Dockerfile` / `docker-compose.yml` | 容器化补充部署入口 |
 
 ## 阅读入口
 
@@ -30,7 +29,8 @@
 | [implementation-order.md](./implementation-order.md) | 长期阶段边界与进入条件 |
 | [quality-gates.md](./quality-gates.md) | 默认验证命令、CI 门禁与发布回归 |
 | [tech-stack-evaluation.md](./tech-stack-evaluation.md) | 技术栈评估与引入计划 |
-| [`../execution-plan.md`](../execution-plan.md) | 当前进度与维护计划 |
+| [`../execution-plan-v0.2.md`](../execution-plan-v0.2.md) | 当前执行计划 |
+| [`../execution-plan.md`](../execution-plan.md) | v0.1 基线与历史对照 |
 
 ## 维护规则
 

@@ -72,7 +72,7 @@ running -> interrupted   # 服务重启
 | `expires_at` 在未来 | 在到期前有效 |
 | `expires_at` 已过期 | 不再投影到运行时能力列表 |
 
-## 五、OneBot11 连接状态
+## 五、OneBot11 Adapter 聚合状态
 
 | 状态 | 含义 |
 | --- | --- |
@@ -82,3 +82,31 @@ running -> interrupted   # 服务重启
 | `auth_failed` | 鉴权失败，等待人工处理 |
 | `reconnecting` | 链路中断后按 backoff 重连 |
 | `stopped` | 连接流程被主动停止 |
+
+## 六、OneBot11 协议快照状态
+
+### readiness_status
+
+| 状态 | 含义 |
+| --- | --- |
+| `ready` | 当前收发链路完整可用 |
+| `degraded` | 当前只具备部分收发能力 |
+| `failed` | 已配置传输链路，但当前不可用 |
+| `setup_required` | 尚未配置任何正式传输链路 |
+
+### active_transports
+
+- `active_transports` 表示当前实际参与链路的传输集合。
+- WebSocket 会话、HTTP API 和 webhook 可以同时进入该集合，不压缩成单值。
+
+### transport_status.state
+
+| 状态 | 含义 |
+| --- | --- |
+| `idle` | 该传输尚未启动 |
+| `listening` | 回连入口或 webhook 入口已可接收请求 |
+| `connecting` | 主动连接或 HTTP API 验证中 |
+| `connected` | 该传输当前可用 |
+| `auth_failed` | 最近一次鉴权失败 |
+| `reconnecting` | 该传输正在按 backoff 重试 |
+| `stopped` | 该传输已停止 |

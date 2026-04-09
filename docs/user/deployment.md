@@ -31,17 +31,15 @@
 
 ## Docker 边界
 
-- Dockerfile 和 `docker-compose.yml` 作为补充部署方式，不反向定义产品目录结构。
-- 容器化长期运行时，至少挂载 `config/`、`data/` 和 `plugins/installed/`。
-- `logs/`、`cache/` 和 `.deps/` 可按需求挂载以保留排障信息和冷启动缓存。
-- Docker Desktop 场景下，不直接把宿主机目录 bind mount 到容器内 `data/` 作为 SQLite 状态库存放位置；至少使用 Docker Named Volume。
-- 容器示例必须显式设置时区，避免调度任务按错误时区触发。
-- 官方镜像需要支持 `PUID` / `PGID` 映射，保证挂载卷权限可用。
+- 容器化属于补充自建部署方式，仓库当前不附带正式 Dockerfile、Compose 文件或容器镜像。
+- 容器化长期运行时，目录职责仍遵守正式发行包根目录结构。
+- SQLite 状态库存放路径应使用稳定可写卷，不直接落在不可靠的网络文件系统上。
+- 容器场景应显式设置时区，避免调度任务按错误时区触发。
 
 ## Linux systemd / LXC
 
 - Linux 自托管优先推荐“原生 `raylea-server` + `systemd` 服务 + Web 管理面”的路径。
-- 正式交付应提供 `systemd` 示例服务文件或等价安装脚本，覆盖工作目录、自动重启和日志输出。
+- `linux-x64-server` 包内包含 `systemd/rayleabot.service` 示例服务文件，覆盖工作目录、自动重启和日志输出。
 - `systemd` 部署继续复用正式发行包目录结构，不另造第二套路径模型。
 - LXC 场景需要额外确认 Chromium 资源、字体资源、权限映射和 SQLite 可写性。
 - 非特权 LXC 如使用 bind mount，需要确认 `subuid` / `subgid` 或目录 owner 映射正确。

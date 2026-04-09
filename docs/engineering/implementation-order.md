@@ -1,6 +1,6 @@
 # Implementation Order
 
-本文档定义 RayleaBot 的长期实施顺序与阶段边界，用于约束“什么先冻结、什么后接线、进入下一阶段前需要具备什么条件”。当前进度记录见 `../execution-plan.md`。
+本文档定义 RayleaBot 的长期实施顺序与阶段边界，用于约束“什么先冻结、什么后接线、进入下一阶段前需要具备什么条件”。当前执行计划见 `../execution-plan-v0.2.md`，v0.1 基线与历史对照见 `../execution-plan.md`。
 
 ## 1. 契约文件补全
 
@@ -51,7 +51,7 @@
 
 当前基础：
 
-- OneBot11 reverse WebSocket adapter 已接入 ready gating、重连 backoff、心跳超时、消息 / notice 最小归一化与全部正式消息 action（valid_count/invalid_count/conflict_count 指标）。
+- OneBot11 adapter 已接入 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四条正式 transport，具备协议快照、回连入口、webhook 入口、ready / degraded 语义、重连 backoff、心跳超时、`message` / `message_sent` / 常用 `notice` / `request` 归一化，以及协议日志详情主链。
 
 进入本阶段时应继续遵守：
 
@@ -66,7 +66,7 @@
 
 当前基础：
 
-- 当前主链已具备 per-plugin runtime manager、`init / init_progress / init_ack`、`ping/pong`、`shutdown`、dispatcher fan-out、命令定向投递、scheduler `scheduler.trigger`、zero-gap reload与全部 local action（message.send / message.reply / logger.write / storage.kv / storage.file / http.request / config.read / config.write / scheduler.create / event.expose_webhook / render.image）。
+- 当前主链已具备 per-plugin runtime manager、`init / init_progress / init_ack`、`ping/pong`、`shutdown`、`bridge -> dispatcher -> runtime` 主链、dispatcher fan-out、命令定向投递、scheduler `scheduler.trigger`、zero-gap reload、`payload.onebot` 原生字段，以及基础 local action、OneBot generic action 与 provider namespace 动作执行链路。
 
 进入本阶段时应继续遵守：
 
@@ -95,7 +95,7 @@
 
 当前基础：
 
-- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、grants、console、render preview、backup 与 recovery 已全部进入真实路由。
+- 管理 HTTP / WebSocket、setup/session、config、system status/shutdown/diagnostics、OneBot 协议快照、reverse WebSocket 回连入口、webhook 入口、tasks、logs、plugin lifecycle（install/uninstall/enable/disable/reload）、grants、console、render preview、backup 与 recovery 已全部进入真实路由。
 
 进入本阶段时应继续遵守：
 
@@ -114,7 +114,7 @@
 
 产出物：
 
-- Web UI 工程脚手架、登录壳、插件列表、任务流、日志流、配置页等最小管理面。
+- Web UI 当前覆盖登录、系统状态、插件、指令中心、任务、日志、协议中心、协议日志和配置等正式页面。
 
 暂不做什么：
 
@@ -128,7 +128,7 @@
 
 产出物：
 
-- Electron 桌面启动器的环境检查、启动/停止、打开 Web UI、版本检查最小闭环。
+- Electron 桌面启动器当前覆盖环境检查、启动/停止、已有服务识别、端口占用识别、打开 Web UI 和版本检查。
 - 正式桌面交付矩阵覆盖 `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`，同时保留 `linux-x64-server`。
 
 暂不做什么：
