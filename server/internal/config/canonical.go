@@ -119,8 +119,9 @@ func canonicalizeDocument(raw map[string]any) (map[string]any, error) {
 	if !ok {
 		return nil, fmt.Errorf("normalized document is not an object")
 	}
+	document = stripNullValues(document)
 	if isLegacyDocument(document) {
-		canonical := legacyToCanonical(document)
+		canonical := stripNullValues(legacyToCanonical(document))
 		normalizeOneBotSection(canonical)
 		return canonical, nil
 	}
@@ -134,6 +135,45 @@ func canonicalizeDocument(raw map[string]any) (map[string]any, error) {
 	}
 	normalizeOneBotSection(cloned)
 	return cloned, nil
+}
+
+func stripNullValues(document map[string]any) map[string]any {
+	if document == nil {
+		return nil
+	}
+
+	cleaned := make(map[string]any, len(document))
+	for key, value := range document {
+		cleanedValue, keep := stripNullValue(value)
+		if !keep {
+			continue
+		}
+		cleaned[key] = cleanedValue
+	}
+	return cleaned
+}
+
+func stripNullValue(value any) (any, bool) {
+	if value == nil {
+		return nil, false
+	}
+
+	switch typed := value.(type) {
+	case map[string]any:
+		return stripNullValues(typed), true
+	case []any:
+		items := make([]any, 0, len(typed))
+		for _, item := range typed {
+			cleanedItem, keep := stripNullValue(item)
+			if !keep {
+				continue
+			}
+			items = append(items, cleanedItem)
+		}
+		return items, true
+	default:
+		return value, true
+	}
 }
 
 func normalizeOneBotSection(document map[string]any) {

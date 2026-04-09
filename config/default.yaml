@@ -39,6 +39,22 @@ message:
     rate_limit_per_target: 5/5s
 onebot:
     access_token: ""
+    forward_ws:
+        enabled: false
+        url: ""
+    http_api:
+        enabled: false
+        url: ""
+    provider: standard
+    reverse_ws:
+        enabled: false
+        url: ""
+    sse:
+        enabled: false
+        url: ""
+    webhook:
+        enabled: false
+        url: ""
     ws_url: ""
 permission:
     auto_grant_capabilities: []

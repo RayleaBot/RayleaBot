@@ -271,6 +271,54 @@ func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
 	}
 }
 
+func TestLoadHealsNullPlanningAlignedValues(t *testing.T) {
+	t.Parallel()
+
+	configDir := filepath.Join(t.TempDir(), "config")
+	configPath := filepath.Join(configDir, "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+
+	defaultDoc := newPlanningConfigDocument()
+	defaultDoc["adapter"].(map[string]any)["connect_timeout_seconds"] = nil
+	defaultDoc["adapter"].(map[string]any)["reconnect_initial_seconds"] = nil
+	defaultDoc["adapter"].(map[string]any)["reconnect_multiplier"] = nil
+	defaultDoc["adapter"].(map[string]any)["reconnect_max_seconds"] = nil
+	defaultDoc["adapter"].(map[string]any)["reconnect_jitter_ratio"] = nil
+	defaultDoc["scheduler"].(map[string]any)["timezone"] = nil
+	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), defaultDoc)
+	writeYAMLDocument(t, configPath, map[string]any{
+		"schema_version": "2",
+		"server": map[string]any{
+			"host": "127.0.0.1",
+			"port": 8080,
+		},
+	})
+
+	cfg, _, err := Load(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.Adapter.ConnectTimeoutSeconds != 15 {
+		t.Fatalf("Adapter.ConnectTimeoutSeconds = %d, want 15", cfg.Adapter.ConnectTimeoutSeconds)
+	}
+	if cfg.Adapter.ReconnectInitialSeconds != 2 {
+		t.Fatalf("Adapter.ReconnectInitialSeconds = %d, want 2", cfg.Adapter.ReconnectInitialSeconds)
+	}
+	if cfg.Adapter.ReconnectMultiplier != 2 {
+		t.Fatalf("Adapter.ReconnectMultiplier = %v, want 2", cfg.Adapter.ReconnectMultiplier)
+	}
+	if cfg.Adapter.ReconnectMaxSeconds != 120 {
+		t.Fatalf("Adapter.ReconnectMaxSeconds = %d, want 120", cfg.Adapter.ReconnectMaxSeconds)
+	}
+	if cfg.Adapter.ReconnectJitterRatio != 0.2 {
+		t.Fatalf("Adapter.ReconnectJitterRatio = %v, want 0.2", cfg.Adapter.ReconnectJitterRatio)
+	}
+	if cfg.Scheduler.Timezone != "" {
+		t.Fatalf("Scheduler.Timezone = %q, want empty", cfg.Scheduler.Timezone)
+	}
+}
+
 func nestedString(t *testing.T, document map[string]any, path ...string) string {
 	t.Helper()
 
