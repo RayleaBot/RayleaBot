@@ -12,18 +12,17 @@ import {
   setValueByPath,
   type ConfigFieldDefinition,
 } from '@/lib/config-form'
-import { getAdapterStateLabel, getStatusType } from '@/lib/display'
-import { formatProtocolEventSummary, formatProtocolIssueSummary } from '@/lib/management-summary'
+import { getAdapterStateLabel, getReadinessStatusLabel, getStatusType } from '@/lib/display'
 import { fromMultilineList, toMultilineList } from '@/lib/format'
-import { ONEBOT11_PROTOCOL_NAME, isProtocolEvent, isProtocolIssue } from '@/lib/protocols'
+import { ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
-import { useSystemStore } from '@/stores/system'
+import { useProtocolsStore } from '@/stores/protocols'
 import type { ConfigDocument } from '@/types/api'
 
 const router = useRouter()
 const configStore = useConfigStore()
-const systemStore = useSystemStore()
+const protocolsStore = useProtocolsStore()
 
 const {
   document,
@@ -33,29 +32,29 @@ const {
   restartRequired,
   saving,
 } = storeToRefs(configStore)
-const { readiness, recentEvents, system } = storeToRefs(systemStore)
+const {
+  compatibility,
+  error: protocolsError,
+  loading: protocolsLoading,
+  snapshot,
+} = storeToRefs(protocolsStore)
 
 const draft = ref<ConfigDocument | null>(null)
 
 const configSections = computed(() => getProtocolConfigSections())
-const protocolStatusLabel = computed(() => getAdapterStateLabel(system.value?.adapter_state))
-const protocolStatusType = computed(() => getStatusType(system.value?.adapter_state))
-const pageLoading = computed(() => configLoading.value)
-const protocolSummary = computed(() => {
-  const readinessIssue = readiness.value?.issues?.find((issue) => isProtocolIssue(issue))
-  const issueSummary = formatProtocolIssueSummary(readinessIssue)
-  if (issueSummary) {
-    return issueSummary
-  }
-
-  const recentEvent = recentEvents.value.find((event) => isProtocolEvent(event))
-  const eventSummary = formatProtocolEventSummary(recentEvent?.payload)
-  if (eventSummary) {
-    return eventSummary
-  }
-
-  return protocolStatusLabel.value
-})
+const protocolStatusLabel = computed(() => getAdapterStateLabel(snapshot.value?.connection_state))
+const protocolStatusType = computed(() => getStatusType(snapshot.value?.connection_state))
+const readinessLabel = computed(() => getReadinessStatusLabel(snapshot.value?.readiness_status))
+const readinessType = computed(() => getStatusType(snapshot.value?.readiness_status))
+const pageLoading = computed(() => configLoading.value || protocolsLoading.value)
+const protocolSummary = computed(() => snapshot.value?.summary ?? t('display.empty'))
+const configuredTransportsText = computed(() => (
+  snapshot.value?.configured_transports.length
+    ? snapshot.value.configured_transports.join(' / ')
+    : t('display.empty')
+))
+const activeTransportText = computed(() => snapshot.value?.active_transport ?? t('display.empty'))
+const pageError = computed(() => configError.value || protocolsError.value)
 
 watch(document, (value) => {
   draft.value = value ? cloneConfig(value) : null
@@ -63,11 +62,10 @@ watch(document, (value) => {
 
 async function loadPage() {
   try {
-    const requests: Array<Promise<unknown>> = [configStore.fetchConfig()]
-    if (!system.value || !readiness.value) {
-      requests.push(systemStore.refresh())
-    }
-    await Promise.all(requests)
+    await Promise.all([
+      configStore.fetchConfig(),
+      protocolsStore.refresh(),
+    ])
   } catch {
     // store error state drives the page
   }
@@ -158,11 +156,29 @@ async function save() {
           <small class="mono-label">[{{ t('protocols.protocolSummaryLabel') }}]</small>
           <strong class="mono-value highlight-value">{{ protocolSummary }}</strong>
         </div>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.providerLabel') }}]</small>
+          <strong class="mono-value">{{ snapshot?.provider || t('display.empty') }}</strong>
+        </div>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.readinessLabel') }}]</small>
+          <span class="industrial-badge status-badge" :class="readinessType">
+            {{ readinessLabel }}
+          </span>
+        </div>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.configuredTransportLabel') }}]</small>
+          <strong class="mono-value">{{ configuredTransportsText }}</strong>
+        </div>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.activeTransportLabel') }}]</small>
+          <strong class="mono-value">{{ activeTransportText }}</strong>
+        </div>
       </div>
     </div>
 
-    <div class="config-alerts-container" v-if="configError || redactedFields.length > 0">
-      <el-alert v-if="configError" :title="t('errors.common.actionFailed')" type="error" :description="configError" show-icon />
+    <div class="config-alerts-container" v-if="pageError || redactedFields.length > 0">
+      <el-alert v-if="pageError" :title="t('errors.common.actionFailed')" type="error" :description="pageError" show-icon />
       <el-alert
         v-if="redactedFields.length > 0"
         :title="t('config.redactedTitle')"
@@ -173,14 +189,37 @@ async function save() {
     </div>
 
     <RetryPanel
-      v-if="configError && !draft"
+      v-if="pageError && !draft"
       :title="t('protocols.connectionSettings')"
-      :description="configError"
+      :description="pageError"
       :loading="configLoading"
       @retry="loadPage"
     />
 
     <section v-else class="protocol-settings-section">
+      <div class="industrial-card protocol-matrix-card" v-if="compatibility">
+        <div class="card-header">
+          <strong>> {{ t('protocols.compatibilityTitle') }}</strong>
+          <span>{{ compatibility.generated_at }}</span>
+        </div>
+
+        <div class="protocol-matrix-groups">
+          <div v-for="group in compatibility.groups" :key="group.group" class="matrix-group">
+            <h3>{{ group.title }}</h3>
+            <div class="matrix-item-grid">
+              <div v-for="item in group.items" :key="`${group.group}-${item.name}`" class="matrix-item">
+                <strong>{{ item.name }}</strong>
+                <span class="industrial-badge" :class="getStatusType(item.status)">
+                  {{ item.status }}
+                </span>
+                <small v-if="item.provider">{{ item.provider }}</small>
+                <small v-else-if="item.notes">{{ item.notes }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section-heading">
         <div>
           <h2>{{ t('protocols.connectionSettings') }}</h2>
@@ -215,6 +254,7 @@ async function save() {
                 <el-input
                   v-if="field.type === 'text'"
                   :model-value="String(readField(field.path, field.type) ?? '')"
+                  :aria-label="field.label"
                   class="refined-input"
                   @update:model-value="(value) => writeField(field.path, field.type, value)"
                 />
@@ -222,6 +262,7 @@ async function save() {
                 <el-input-number
                   v-else-if="field.type === 'number'"
                   :model-value="Number(readField(field.path, field.type) ?? 0)"
+                  :aria-label="field.label"
                   :min="0"
                   :step="1"
                   controls-position="right"
@@ -232,6 +273,7 @@ async function save() {
                 <div v-else-if="field.type === 'boolean'" class="switch-wrap">
                   <el-switch
                     :model-value="Boolean(readField(field.path, field.type))"
+                    :aria-label="field.label"
                     @update:model-value="(value) => writeField(field.path, field.type, value)"
                     style="--el-switch-on-color: var(--accent-color); --el-switch-off-color: var(--border-color)"
                   />
@@ -240,6 +282,7 @@ async function save() {
                 <el-select
                   v-else-if="field.type === 'select'"
                   :model-value="String(readField(field.path, field.type) ?? '')"
+                  :aria-label="field.label"
                   class="refined-input"
                   @update:model-value="(value) => writeField(field.path, field.type, value)"
                   popper-class="industrial-popper"
@@ -255,6 +298,7 @@ async function save() {
                 <el-input
                   v-else
                   :model-value="String(readField(field.path, field.type) ?? '')"
+                  :aria-label="field.label"
                   type="textarea"
                   :autosize="{ minRows: 4, maxRows: 8 }"
                   class="refined-input refined-textarea"
@@ -356,6 +400,30 @@ async function save() {
   border: 3px solid var(--border-color);
   box-shadow: 6px 6px 0px var(--border-color);
   margin-bottom: 32px;
+}
+
+.protocol-matrix-groups {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+}
+
+.matrix-group h3 {
+  margin: 0 0 12px;
+}
+
+.matrix-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.matrix-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .card-header {

@@ -223,11 +223,106 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
       title: t('config.sections.onebot'),
       fields: [
         {
-          path: 'onebot.ws_url',
-          label: t('config.fields.onebotWsUrl'),
+          path: 'onebot.provider',
+          label: t('config.fields.onebotProvider'),
+          type: 'select',
+          options: [
+            { label: t('config.options.onebotProviderStandard'), value: 'standard' },
+            { label: t('config.options.onebotProviderNapCat'), value: 'napcat' },
+            { label: t('config.options.onebotProviderLuckyLillia'), value: 'luckylillia' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'onebot',
+      title: t('config.sections.onebotReverseWs'),
+      fields: [
+        {
+          path: 'onebot.reverse_ws.enabled',
+          label: t('config.fields.onebotTransportEnabled'),
+          type: 'boolean',
+        },
+        {
+          path: 'onebot.reverse_ws.url',
+          label: t('config.fields.onebotReverseWsUrl'),
           type: 'text',
           description: t('config.hints.onebotOptional'),
         },
+      ],
+    },
+    {
+      key: 'onebot',
+      title: t('config.sections.onebotForwardWs'),
+      fields: [
+        {
+          path: 'onebot.forward_ws.enabled',
+          label: t('config.fields.onebotTransportEnabled'),
+          type: 'boolean',
+        },
+        {
+          path: 'onebot.forward_ws.url',
+          label: t('config.fields.onebotForwardWsUrl'),
+          type: 'text',
+          description: t('config.hints.onebotForwardWs'),
+        },
+      ],
+    },
+    {
+      key: 'onebot',
+      title: t('config.sections.onebotHttpApi'),
+      fields: [
+        {
+          path: 'onebot.http_api.enabled',
+          label: t('config.fields.onebotTransportEnabled'),
+          type: 'boolean',
+        },
+        {
+          path: 'onebot.http_api.url',
+          label: t('config.fields.onebotHttpApiUrl'),
+          type: 'text',
+          description: t('config.hints.onebotHttpTransport'),
+        },
+      ],
+    },
+    {
+      key: 'onebot',
+      title: t('config.sections.onebotWebhook'),
+      fields: [
+        {
+          path: 'onebot.webhook.enabled',
+          label: t('config.fields.onebotTransportEnabled'),
+          type: 'boolean',
+        },
+        {
+          path: 'onebot.webhook.url',
+          label: t('config.fields.onebotWebhookUrl'),
+          type: 'text',
+          description: t('config.hints.onebotHttpTransport'),
+        },
+      ],
+    },
+    {
+      key: 'onebot',
+      title: t('config.sections.onebotSse'),
+      fields: [
+        {
+          path: 'onebot.sse.enabled',
+          label: t('config.fields.onebotTransportEnabled'),
+          type: 'boolean',
+        },
+        {
+          path: 'onebot.sse.url',
+          label: t('config.fields.onebotSseUrl'),
+          type: 'text',
+          description: t('config.hints.onebotHttpTransport'),
+        },
+      ],
+    },
+    {
+      key: 'onebot',
+      title: t('config.sections.onebotAuth'),
+      fields: [
         {
           path: 'onebot.access_token',
           label: t('config.fields.onebotAccessToken'),

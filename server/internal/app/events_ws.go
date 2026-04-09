@@ -24,14 +24,32 @@ func (a *App) handleEventsWebSocket() http.HandlerFunc {
 		}()
 
 		eventsCtx := conn.CloseRead(context.Background())
-		frames, unsubscribe := a.Bridge.SubscribeObservability(1)
-		defer unsubscribe()
+		bridgeFrames, unsubscribeBridge := a.Bridge.SubscribeObservability(1)
+		defer unsubscribeBridge()
+		protocolFrames, unsubscribeProtocol := a.subscribeProtocolEvents(2)
+		defer unsubscribeProtocol()
+
+		for _, frame := range []managementEventFrame{
+			a.protocolSnapshotEvent(),
+			a.protocolCompatibilityEvent(),
+		} {
+			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
+				return
+			}
+		}
 
 		for {
 			select {
 			case <-eventsCtx.Done():
 				return
-			case frame, ok := <-frames:
+			case frame, ok := <-bridgeFrames:
+				if !ok {
+					return
+				}
+				if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
+					return
+				}
+			case frame, ok := <-protocolFrames:
 				if !ok {
 					return
 				}

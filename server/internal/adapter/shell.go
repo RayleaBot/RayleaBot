@@ -49,6 +49,7 @@ type Shell struct {
 	started          bool
 	eventHandler     func(context.Context, NormalizedEvent)
 	readyHandler     func(context.Context)
+	stateHandler     func(Snapshot)
 	eventQueue       chan NormalizedEvent
 	nextEcho         uint64
 	pendingResponses map[string]chan apiResponse
@@ -178,6 +179,12 @@ func (s *Shell) SetReadyHandler(handler func(context.Context)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.readyHandler = handler
+}
+
+func (s *Shell) SetStateHandler(handler func(Snapshot)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.stateHandler = handler
 }
 
 func (s *Shell) run(ctx context.Context) {
@@ -480,8 +487,6 @@ func (s *Shell) clearConn(target *websocket.Conn) {
 
 func (s *Shell) markConnecting() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.snapshot.State = StateConnecting
 	s.snapshot.LastErrorCode = ""
 	s.snapshot.LastErrorMessage = ""
@@ -493,48 +498,67 @@ func (s *Shell) markConnecting() {
 	s.snapshot.HeartbeatSeen = false
 	s.snapshot.LastHeartbeatAt = nil
 	s.snapshot.HeartbeatInterval = 0
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
 }
 
 func (s *Shell) markConnected(now time.Time) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.snapshot.State = StateConnected
 	s.snapshot.LastErrorCode = ""
 	s.snapshot.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = true
 	s.snapshot.ConnectedAt = cloneTime(&now)
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
 }
 
 func (s *Shell) markAuthFailed(err error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.snapshot.State = StateAuthFailed
 	s.snapshot.LastErrorCode = errorCodeAuthFailed
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
 }
 
 func (s *Shell) markReconnecting(code string, err error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.snapshot.State = StateReconnecting
 	s.snapshot.LastErrorCode = code
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
 }
 
 func (s *Shell) markStopped() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.snapshot.State = StateStopped
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) emitStateSnapshot(handler func(Snapshot), snapshot Snapshot) {
+	if handler == nil {
+		return
+	}
+	handler(snapshot)
 }
 
 func isAuthFailure(response *http.Response) bool {

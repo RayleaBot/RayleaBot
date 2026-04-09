@@ -6,7 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import ProtocolsPage from '@/pages/ProtocolsPage.vue'
 import { useConfigStore } from '@/stores/config'
-import { useSystemStore } from '@/stores/system'
+import { useProtocolsStore } from '@/stores/protocols'
 import type { ConfigDocument } from '@/types/api'
 
 function createFixtureConfig(): ConfigDocument {
@@ -14,8 +14,14 @@ function createFixtureConfig(): ConfigDocument {
     schema_version: '2',
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
+      provider: 'standard',
       ws_url: '',
       access_token: '__REDACTED__',
+      reverse_ws: { enabled: false, url: '' },
+      forward_ws: { enabled: false, url: '' },
+      http_api: { enabled: false, url: '' },
+      webhook: { enabled: false, url: '' },
+      sse: { enabled: false, url: '' },
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
@@ -109,28 +115,32 @@ describe('ProtocolsPage', () => {
 
   it('renders protocol settings with a readable chinese status summary', async () => {
     const configStore = useConfigStore()
-    const systemStore = useSystemStore()
+    const protocolsStore = useProtocolsStore()
 
     configStore.document = createFixtureConfig()
     configStore.redactedFields = ['onebot.access_token']
-    systemStore.system = {
-      status: 'running',
-      adapter_state: 'auth_failed',
-      active_plugins: 1,
-      uptime_seconds: 12,
-    }
-    systemStore.readiness = {
-      status: 'degraded',
-      issues: [
-        {
-          code: 'adapter.auth_failed',
-          severity: 'warning',
-          summary: 'OneBot authentication failed',
-        },
+    protocolsStore.snapshot = {
+      protocol: 'onebot11',
+      provider: 'standard',
+      configured_transports: ['reverse_ws'],
+      active_transport: 'reverse_ws',
+      transport_status: [
+        { transport: 'reverse_ws', enabled: true, configured: true, implemented: true, active: true, endpoint: 'ws://127.0.0.1:8089' },
       ],
+      connection_state: 'auth_failed',
+      readiness_status: 'degraded',
+      summary: 'OneBot11 鉴权失败，请检查访问令牌',
+      recent_transport_issues: [],
+    }
+    protocolsStore.compatibility = {
+      protocol: 'onebot11',
+      provider: 'standard',
+      generated_at: '2026-04-09T09:00:00Z',
+      groups: [],
     }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot!, compatibility: protocolsStore.compatibility! })
 
     const router = createTestRouter()
     await router.push('/protocols')
@@ -146,28 +156,39 @@ describe('ProtocolsPage', () => {
 
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('OneBot11')
-    expect(wrapper.text()).toContain('协议鉴权失败，请检查访问令牌')
+    expect(wrapper.text()).toContain('OneBot11 鉴权失败，请检查访问令牌')
+    expect(wrapper.text()).toContain('兼容矩阵')
     expect(wrapper.text()).toContain('连接设置')
     expect(wrapper.text()).toContain('查看协议日志')
-    expect(wrapper.text()).not.toContain('协议日志显示 OneBot11 连接')
   })
 
   it('submits the full config document while editing protocol fields only', async () => {
     const configStore = useConfigStore()
-    const systemStore = useSystemStore()
+    const protocolsStore = useProtocolsStore()
 
     configStore.document = createFixtureConfig()
-    systemStore.system = {
-      status: 'running',
-      adapter_state: 'connected',
-      active_plugins: 1,
-      uptime_seconds: 12,
+    protocolsStore.snapshot = {
+      protocol: 'onebot11',
+      provider: 'standard',
+      configured_transports: ['reverse_ws'],
+      active_transport: 'reverse_ws',
+      transport_status: [
+        { transport: 'reverse_ws', enabled: true, configured: true, implemented: true, active: true, endpoint: 'ws://127.0.0.1:8089' },
+      ],
+      connection_state: 'connected',
+      readiness_status: 'ready',
+      summary: 'OneBot11 reverse WebSocket 已连接',
+      recent_transport_issues: [],
     }
-    systemStore.readiness = {
-      status: 'ready',
+    protocolsStore.compatibility = {
+      protocol: 'onebot11',
+      provider: 'standard',
+      generated_at: '2026-04-09T09:00:00Z',
+      groups: [],
     }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot!, compatibility: protocolsStore.compatibility! })
     const saveSpy = vi.spyOn(configStore, 'saveConfig').mockResolvedValue({
       config: configStore.document,
       redacted_fields: [],
@@ -186,17 +207,16 @@ describe('ProtocolsPage', () => {
 
     await flushPromises()
 
-    const inputs = wrapper.findAll('input')
-    const wsUrlInput = inputs.find((candidate) => candidate.attributes('aria-label') === '反向 WebSocket 地址' || candidate.element.value === '')
-    expect(wsUrlInput).toBeTruthy()
-    await wsUrlInput!.setValue('ws://127.0.0.1:8089/onebot')
+    const wsUrlInput = wrapper.find('input[aria-label="反向 WebSocket 地址"]')
+    expect(wsUrlInput.exists()).toBe(true)
+    await wsUrlInput.setValue('ws://127.0.0.1:8089/onebot')
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存协议设置'))
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
-    expect(saveSpy.mock.calls[0][0].onebot.ws_url).toBe('ws://127.0.0.1:8089/onebot')
+    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('ws://127.0.0.1:8089/onebot')
     expect(saveSpy.mock.calls[0][0].server.host).toBe('127.0.0.1')
   })
 })

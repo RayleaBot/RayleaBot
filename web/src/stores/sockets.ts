@@ -5,6 +5,7 @@ import { ManagedSocket } from '@/lib/ws'
 import type { ConnectionStatus, EventsPayload, LogSummary, TaskSummary, WebSocketFrame } from '@/types/api'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
+import { useProtocolsStore } from '@/stores/protocols'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
@@ -36,6 +37,7 @@ export const useSocketStore = defineStore('sockets', () => {
   const pluginsStore = usePluginsStore()
   const tasksStore = useTasksStore()
   const logsStore = useLogsStore()
+  const protocolsStore = useProtocolsStore()
   const protocolLogsStore = useProtocolLogsStore()
   const systemStore = useSystemStore()
 
@@ -57,6 +59,14 @@ export const useSocketStore = defineStore('sockets', () => {
           runtime_state: frame.data.runtime_state,
           display_state: frame.data.display_state,
         })
+        return
+      }
+      if ('protocol_snapshot' in frame.data) {
+        protocolsStore.applySnapshot(frame.data.protocol_snapshot)
+        return
+      }
+      if ('protocol_compatibility' in frame.data) {
+        protocolsStore.applyCompatibility(frame.data.protocol_compatibility)
       }
     },
   })

@@ -224,7 +224,7 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
 
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   await expect(page.getByText('当前正式支持协议：OneBot11')).toBeVisible()
-  await expect(page.getByText('协议鉴权失败，请检查访问令牌')).toBeVisible()
+  await expect(page.getByText('OneBot11 reverse WebSocket 已连接')).toBeVisible()
 
   await page.getByLabel('反向 WebSocket 地址').fill('ws://127.0.0.1:8090/onebot')
   await page.getByLabel('连接超时（秒）').fill('18')

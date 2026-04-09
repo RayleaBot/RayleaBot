@@ -55,8 +55,8 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if _, ok := document["adapter"]; !ok {
 		t.Fatal("expected planning-aligned adapter section in persisted document")
 	}
-	if got := nestedString(t, document, "onebot", "ws_url"); got != "" {
-		t.Fatalf("onebot.ws_url = %q, want empty", got)
+	if got := nestedString(t, document, "onebot", "reverse_ws", "url"); got != "" {
+		t.Fatalf("onebot.reverse_ws.url = %q, want empty", got)
 	}
 }
 
@@ -223,6 +223,8 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
 	document["onebot"].(map[string]any)["ws_url"] = ""
+	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["url"] = ""
+	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["enabled"] = false
 	delete(document["onebot"].(map[string]any), "access_token")
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
@@ -237,8 +239,8 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if got := nestedString(t, saved, "onebot", "ws_url"); got != "" {
-		t.Fatalf("saved onebot.ws_url = %q, want empty", got)
+	if got := nestedString(t, saved, "onebot", "reverse_ws", "url"); got != "" {
+		t.Fatalf("saved onebot.reverse_ws.url = %q, want empty", got)
 	}
 }
 
@@ -249,6 +251,8 @@ func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
 	document["onebot"].(map[string]any)["ws_url"] = "ws:127.0.0.1:2658"
+	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["url"] = "ws:127.0.0.1:2658"
+	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["enabled"] = true
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
 	if err != nil {
@@ -262,8 +266,8 @@ func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if got := nestedString(t, saved, "onebot", "ws_url"); got != "ws://127.0.0.1:2658" {
-		t.Fatalf("saved onebot.ws_url = %q, want ws://127.0.0.1:2658", got)
+	if got := nestedString(t, saved, "onebot", "reverse_ws", "url"); got != "ws://127.0.0.1:2658" {
+		t.Fatalf("saved onebot.reverse_ws.url = %q, want ws://127.0.0.1:2658", got)
 	}
 }
 
@@ -319,8 +323,29 @@ func newPlanningConfigDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
+			"provider":     "standard",
 			"ws_url":       "",
 			"access_token": "",
+			"reverse_ws": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"forward_ws": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"http_api": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"webhook": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"sse": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
 		},
 		"database": map[string]any{
 			"engine": "sqlite",

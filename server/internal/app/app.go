@@ -97,6 +97,9 @@ type appProcessState struct {
 	runCancel            context.CancelFunc
 	startupRuntimeMu     sync.RWMutex
 	startupRuntimeStates map[string]startupRuntimeState
+	protocolMu           sync.RWMutex
+	nextProtocolSubID    uint64
+	protocolSubscribers  map[uint64]chan managementEventFrame
 	shutdownOnce         sync.Once
 }
 
@@ -142,6 +145,7 @@ func New(options Options) (*App, error) {
 		appPlugins:  pluginState,
 		appProcessState: appProcessState{
 			startupRuntimeStates: newStartupRuntimeStates(startupRuntimeKinds()),
+			protocolSubscribers:  make(map[uint64]chan managementEventFrame),
 		},
 	}
 	application.pluginLifecycle = newPluginLifecycleController(application)
@@ -167,6 +171,9 @@ func New(options Options) (*App, error) {
 	if application.Adapter != nil {
 		application.Adapter.SetEventHandler(application.handleAdapterEvent)
 		application.Adapter.SetReadyHandler(application.handleAdapterReady)
+		application.Adapter.SetStateHandler(func(adapter.Snapshot) {
+			application.publishProtocolSnapshot()
+		})
 	}
 
 	router, server := buildAppHTTPServer(application)

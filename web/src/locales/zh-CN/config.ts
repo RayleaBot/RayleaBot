@@ -12,6 +12,12 @@ export const config = {
   sections: {
     server: '服务监听',
     onebot: 'OneBot 连接',
+    onebotReverseWs: '反向 WebSocket',
+    onebotForwardWs: '正向 WebSocket',
+    onebotHttpApi: 'HTTP API',
+    onebotWebhook: 'Webhook',
+    onebotSse: 'SSE',
+    onebotAuth: '鉴权',
     database: '数据库',
     command: '命令',
     admin: '管理员',
@@ -33,7 +39,14 @@ export const config = {
   fields: {
     serverHost: '监听地址',
     serverPort: '监听端口',
-    onebotWsUrl: '反向 WebSocket 地址',
+    onebotProvider: 'Provider',
+    onebotTransportEnabled: '启用',
+    onebotWsUrl: '兼容连接地址',
+    onebotReverseWsUrl: '反向 WebSocket 地址',
+    onebotForwardWsUrl: '正向 WebSocket 地址',
+    onebotHttpApiUrl: 'HTTP API 地址',
+    onebotWebhookUrl: 'Webhook 地址',
+    onebotSseUrl: 'SSE 地址',
     onebotAccessToken: '访问令牌',
     databaseEngine: '数据库引擎',
     databasePath: '数据库路径',
@@ -98,6 +111,9 @@ export const config = {
     backupDefaultConsistency: '默认一致性',
   },
   options: {
+    onebotProviderStandard: '标准 OneBot11',
+    onebotProviderNapCat: 'NapCat',
+    onebotProviderLuckyLillia: '幸运莉莉娅',
     permissionEveryone: '所有人',
     permissionGroupAdmin: '群管理员',
     permissionSuperAdmin: '超级管理员',
@@ -114,5 +130,7 @@ export const config = {
   hints: {
     redacted: '未改动时保留 __REDACTED__。',
     onebotOptional: '留空表示暂不启用机器人连接。地址使用 ws:// 或 wss://。',
+    onebotForwardWs: '地址使用 ws:// 或 wss://。',
+    onebotHttpTransport: '地址使用 http:// 或 https://。',
   },
 } as const

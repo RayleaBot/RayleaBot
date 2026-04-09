@@ -94,6 +94,11 @@ type AdapterConfig struct {
 	ReconnectJitterRatio    float64 `json:"reconnect_jitter_ratio" yaml:"reconnect_jitter_ratio"`
 }
 
+type OneBotTransportConfig struct {
+	Enabled bool   `json:"enabled" yaml:"enabled"`
+	URL     string `json:"url" yaml:"url"`
+}
+
 type CooldownConfig struct {
 	UserCommandRateLimit  string `json:"user_command_rate_limit" yaml:"user_command_rate_limit"`
 	GroupCommandRateLimit string `json:"group_command_rate_limit" yaml:"group_command_rate_limit"`
@@ -106,13 +111,19 @@ type ServerConfig struct {
 }
 
 type OneBotConfig struct {
-	WSURL                   string  `json:"ws_url" yaml:"ws_url"`
-	AccessToken             string  `json:"access_token" yaml:"access_token"`
-	ConnectTimeoutSeconds   int     `json:"connect_timeout_seconds,omitempty" yaml:"connect_timeout_seconds,omitempty"`
-	ReconnectInitialSeconds int     `json:"reconnect_initial_seconds,omitempty" yaml:"reconnect_initial_seconds,omitempty"`
-	ReconnectMultiplier     float64 `json:"reconnect_multiplier,omitempty" yaml:"reconnect_multiplier,omitempty"`
-	ReconnectMaxSeconds     int     `json:"reconnect_max_seconds,omitempty" yaml:"reconnect_max_seconds,omitempty"`
-	ReconnectJitterRatio    float64 `json:"reconnect_jitter_ratio,omitempty" yaml:"reconnect_jitter_ratio,omitempty"`
+	Provider                string                `json:"provider" yaml:"provider"`
+	WSURL                   string                `json:"ws_url" yaml:"ws_url"`
+	AccessToken             string                `json:"access_token" yaml:"access_token"`
+	ReverseWS               OneBotTransportConfig `json:"reverse_ws" yaml:"reverse_ws"`
+	ForwardWS               OneBotTransportConfig `json:"forward_ws" yaml:"forward_ws"`
+	HTTPAPI                 OneBotTransportConfig `json:"http_api" yaml:"http_api"`
+	Webhook                 OneBotTransportConfig `json:"webhook" yaml:"webhook"`
+	SSE                     OneBotTransportConfig `json:"sse" yaml:"sse"`
+	ConnectTimeoutSeconds   int                   `json:"connect_timeout_seconds,omitempty" yaml:"connect_timeout_seconds,omitempty"`
+	ReconnectInitialSeconds int                   `json:"reconnect_initial_seconds,omitempty" yaml:"reconnect_initial_seconds,omitempty"`
+	ReconnectMultiplier     float64               `json:"reconnect_multiplier,omitempty" yaml:"reconnect_multiplier,omitempty"`
+	ReconnectMaxSeconds     int                   `json:"reconnect_max_seconds,omitempty" yaml:"reconnect_max_seconds,omitempty"`
+	ReconnectJitterRatio    float64               `json:"reconnect_jitter_ratio,omitempty" yaml:"reconnect_jitter_ratio,omitempty"`
 }
 
 type DatabaseConfig struct {
@@ -239,6 +250,10 @@ func validateDocument(schemaPath string, document any) error {
 }
 
 func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) Summary {
+	endpoint := cfg.OneBot.WSURL
+	if endpoint == "" {
+		endpoint = cfg.OneBot.ReverseWS.URL
+	}
 	return Summary{
 		ConfigPath:       configPath,
 		SchemaPath:       schemaPath,
@@ -249,8 +264,8 @@ func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) S
 		WebExposureMode:  cfg.Web.ExposureMode,
 		LoggingLevel:     configLogLevel(cfg),
 		SuperAdminCount:  len(configSuperAdmins(cfg)),
-		OneBotConfigured: cfg.OneBot.WSURL != "",
-		OneBotEndpoint:   sanitizeOneBotEndpoint(cfg.OneBot.WSURL),
+		OneBotConfigured: endpoint != "",
+		OneBotEndpoint:   sanitizeOneBotEndpoint(endpoint),
 	}
 }
 
@@ -301,6 +316,18 @@ func (cfg *Config) hydrateCompatibility() {
 		cfg.Adapter.ReconnectMaxSeconds = cfg.OneBot.ReconnectMaxSeconds
 		cfg.Adapter.ReconnectJitterRatio = cfg.OneBot.ReconnectJitterRatio
 	}
+	if cfg.OneBot.Provider == "" {
+		cfg.OneBot.Provider = "standard"
+	}
+	if cfg.OneBot.WSURL == "" && cfg.OneBot.ReverseWS.URL != "" {
+		cfg.OneBot.WSURL = cfg.OneBot.ReverseWS.URL
+	}
+	if cfg.OneBot.ReverseWS.URL == "" && cfg.OneBot.WSURL != "" {
+		cfg.OneBot.ReverseWS.URL = cfg.OneBot.WSURL
+	}
+	if cfg.OneBot.ReverseWS.URL != "" {
+		cfg.OneBot.ReverseWS.Enabled = true
+	}
 
 	if len(cfg.Auth.SuperAdmins) == 0 && len(cfg.Admin.SuperAdmins) > 0 {
 		cfg.Auth.SuperAdmins = append([]string(nil), cfg.Admin.SuperAdmins...)
@@ -340,6 +367,15 @@ func (cfg *Config) hydrateCompatibility() {
 		cfg.OneBot.ReconnectMultiplier = cfg.Adapter.ReconnectMultiplier
 		cfg.OneBot.ReconnectMaxSeconds = cfg.Adapter.ReconnectMaxSeconds
 		cfg.OneBot.ReconnectJitterRatio = cfg.Adapter.ReconnectJitterRatio
+	}
+	if cfg.OneBot.WSURL == "" && cfg.OneBot.ReverseWS.URL != "" {
+		cfg.OneBot.WSURL = cfg.OneBot.ReverseWS.URL
+	}
+	if cfg.OneBot.ReverseWS.URL == "" && cfg.OneBot.WSURL != "" {
+		cfg.OneBot.ReverseWS.URL = cfg.OneBot.WSURL
+	}
+	if cfg.OneBot.ReverseWS.URL != "" {
+		cfg.OneBot.ReverseWS.Enabled = true
 	}
 }
 

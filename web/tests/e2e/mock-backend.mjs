@@ -34,6 +34,8 @@ const fixtures = {
   sessionLauncherAdmission: await readFixture('fixtures/web-api/ok.session-launcher-admission.yaml'),
   sessionDenied: await readFixture('fixtures/web-api/invalid.session-login-bad-credentials.yaml'),
   configGet: await readFixture('fixtures/web-api/ok.config-get-response.yaml'),
+  protocolSnapshot: await readFixture('fixtures/web-api/ok.protocol-onebot11-snapshot.yaml'),
+  protocolCompatibility: await readFixture('fixtures/web-api/ok.protocol-onebot11-compatibility.yaml'),
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
   logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
   logDetailLegacy: await readFixture('fixtures/web-api/edge.log-detail-legacy-empty-details.yaml'),
@@ -66,6 +68,8 @@ const fixtures = {
   wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
+  wsEventsProtocolSnapshot: await readFixture('fixtures/websocket/ok.events-received-protocol-snapshot.json'),
+  wsEventsProtocolCompatibility: await readFixture('fixtures/websocket/ok.events-received-protocol-compatibility.json'),
   wsConsole: await readFixture('fixtures/websocket/ok.plugins-console-stderr.json'),
   wsSessionExpired: await readFixture('fixtures/websocket/edge.session-expired.json'),
 }
@@ -88,6 +92,8 @@ function baseState() {
     logs: structuredClone(fixtures.logsList.response.body.items),
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
+    protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
+    protocolCompatibility: structuredClone(fixtures.protocolCompatibility.response.body),
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
       'builtin-help': [],
@@ -102,6 +108,39 @@ function baseState() {
       failUninstallOnce: false,
     },
   }
+}
+
+function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
+  const snapshot = structuredClone(currentSnapshot)
+  const onebot = config.onebot ?? {}
+  const reverseWs = onebot.reverse_ws ?? { enabled: false, url: '' }
+  const forwardWs = onebot.forward_ws ?? { enabled: false, url: '' }
+  const httpApi = onebot.http_api ?? { enabled: false, url: '' }
+  const webhook = onebot.webhook ?? { enabled: false, url: '' }
+  const sse = onebot.sse ?? { enabled: false, url: '' }
+  const transports = [
+    ['reverse_ws', reverseWs],
+    ['forward_ws', forwardWs],
+    ['http_api', httpApi],
+    ['webhook', webhook],
+    ['sse', sse],
+  ]
+
+  snapshot.provider = onebot.provider ?? 'standard'
+  snapshot.transport_status = snapshot.transport_status.map((item) => {
+    const entry = transports.find(([name]) => name === item.transport)?.[1] ?? { enabled: false, url: '' }
+    return {
+      ...item,
+      enabled: Boolean(entry.enabled),
+      configured: Boolean(entry.enabled && entry.url),
+      endpoint: entry.url ? entry.url.replace(/^(https?:\/\/[^/]+|wss?:\/\/[^/]+).*$/, '$1') : '',
+    }
+  })
+  snapshot.configured_transports = transports
+    .filter(([, entry]) => Boolean(entry.enabled && entry.url))
+    .map(([name]) => name)
+  snapshot.active_transport = snapshot.configured_transports[0] ?? null
+  return snapshot
 }
 
 function createLogDetailMap() {
@@ -583,11 +622,30 @@ const server = http.createServer(async (request, response) => {
 
     const payload = await parseBody(request)
     state.config = payload
+    state.protocolSnapshot = computeProtocolSnapshotFromConfig(state.config, state.protocolSnapshot)
     json(response, 200, {
       config: state.config,
       redacted_fields: ['onebot.access_token'],
       restart_required: true,
     })
+    return
+  }
+
+  if (pathname === '/api/protocols/onebot11' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, structuredClone(state.protocolSnapshot))
+    return
+  }
+
+  if (pathname === '/api/protocols/onebot11/compatibility' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, structuredClone(state.protocolCompatibility))
     return
   }
 
@@ -917,6 +975,20 @@ wsServer.on('connection', (socket, request) => {
   })
 
   if (channel === 'events') {
+    setTimeout(() => socket.send(JSON.stringify({
+      ...fixtures.wsEventsProtocolSnapshot.frame,
+      data: {
+        ...fixtures.wsEventsProtocolSnapshot.frame.data,
+        protocol_snapshot: structuredClone(state.protocolSnapshot),
+      },
+    })), 80)
+    setTimeout(() => socket.send(JSON.stringify({
+      ...fixtures.wsEventsProtocolCompatibility.frame,
+      data: {
+        ...fixtures.wsEventsProtocolCompatibility.frame.data,
+        protocol_compatibility: structuredClone(state.protocolCompatibility),
+      },
+    })), 120)
     setTimeout(() => socket.send(JSON.stringify(fixtures.wsEvents.frame)), 150)
   } else if (channel === 'tasks') {
     setTimeout(() => socket.send(JSON.stringify(fixtures.wsTasks.frame)), 180)

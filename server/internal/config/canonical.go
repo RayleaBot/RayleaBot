@@ -120,7 +120,9 @@ func canonicalizeDocument(raw map[string]any) (map[string]any, error) {
 		return nil, fmt.Errorf("normalized document is not an object")
 	}
 	if isLegacyDocument(document) {
-		return legacyToCanonical(document), nil
+		canonical := legacyToCanonical(document)
+		normalizeOneBotSection(canonical)
+		return canonical, nil
 	}
 
 	cloned := CloneDocument(document)
@@ -140,19 +142,60 @@ func normalizeOneBotSection(document map[string]any) {
 		return
 	}
 
+	if strings.TrimSpace(stringValue(onebot["provider"])) == "" {
+		onebot["provider"] = "standard"
+	}
+	if _, ok := onebot["access_token"]; !ok {
+		onebot["access_token"] = ""
+	}
+
 	wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
-	if wsURL == "" {
-		onebot["ws_url"] = ""
-		return
+	if wsURL != "" {
+		if normalized, ok := normalizeOneBotWSURL(wsURL); ok {
+			wsURL = normalized
+		}
 	}
-
-	normalized, ok := normalizeOneBotWSURL(wsURL)
-	if ok {
-		onebot["ws_url"] = normalized
-		return
-	}
-
 	onebot["ws_url"] = wsURL
+
+	normalizeOneBotTransport(onebot, "reverse_ws", normalizeOneBotWSURL)
+	normalizeOneBotTransport(onebot, "forward_ws", normalizeOneBotWSURL)
+	normalizeOneBotTransport(onebot, "http_api", normalizeOneBotHTTPURL)
+	normalizeOneBotTransport(onebot, "webhook", normalizeOneBotHTTPURL)
+	normalizeOneBotTransport(onebot, "sse", normalizeOneBotHTTPURL)
+
+	reverseWS := transportSection(onebot, "reverse_ws")
+	if reverseWS == nil {
+		reverseWS = map[string]any{"enabled": false, "url": ""}
+		onebot["reverse_ws"] = reverseWS
+	}
+	if stringValue(reverseWS["url"]) == "" && wsURL != "" {
+		reverseWS["url"] = wsURL
+	}
+	if strings.TrimSpace(stringValue(reverseWS["url"])) != "" {
+		reverseWS["enabled"] = true
+	}
+}
+
+func normalizeOneBotTransport(onebot map[string]any, key string, normalize func(string) (string, bool)) {
+	transport := transportSection(onebot, key)
+	if transport == nil {
+		transport = map[string]any{
+			"enabled": false,
+			"url":     "",
+		}
+		onebot[key] = transport
+	}
+
+	urlValue := strings.TrimSpace(stringValue(transport["url"]))
+	if urlValue != "" {
+		if normalized, ok := normalize(urlValue); ok {
+			urlValue = normalized
+		}
+	}
+	transport["url"] = urlValue
+	if _, ok := transport["enabled"].(bool); !ok {
+		transport["enabled"] = false
+	}
 }
 
 func normalizeOneBotWSURL(raw string) (string, bool) {
@@ -164,6 +207,20 @@ func normalizeOneBotWSURL(raw string) (string, bool) {
 		return "ws://" + strings.TrimLeft(raw[len("ws:"):], "/"), true
 	case strings.HasPrefix(lower, "wss:"):
 		return "wss://" + strings.TrimLeft(raw[len("wss:"):], "/"), true
+	default:
+		return raw, false
+	}
+}
+
+func normalizeOneBotHTTPURL(raw string) (string, bool) {
+	lower := strings.ToLower(raw)
+	switch {
+	case strings.HasPrefix(lower, "http://"), strings.HasPrefix(lower, "https://"):
+		return raw, true
+	case strings.HasPrefix(lower, "http:"):
+		return "http://" + strings.TrimLeft(raw[len("http:"):], "/"), true
+	case strings.HasPrefix(lower, "https:"):
+		return "https://" + strings.TrimLeft(raw[len("https:"):], "/"), true
 	default:
 		return raw, false
 	}
@@ -194,6 +251,9 @@ func isLegacyDocument(document map[string]any) bool {
 		if _, ok := onebotSection["connect_timeout_seconds"]; ok {
 			return true
 		}
+		if _, ok := onebotSection["reverse_ws"]; !ok {
+			return true
+		}
 	}
 	return strings.TrimSpace(stringValue(document["schema_version"])) == "1"
 }
@@ -213,8 +273,29 @@ func legacyToCanonical(document map[string]any) map[string]any {
 
 	if onebot := section(document, "onebot"); onebot != nil {
 		canonical["onebot"] = map[string]any{
+			"provider":     "standard",
 			"ws_url":       onebot["ws_url"],
 			"access_token": onebot["access_token"],
+			"reverse_ws": map[string]any{
+				"enabled": strings.TrimSpace(stringValue(onebot["ws_url"])) != "",
+				"url":     onebot["ws_url"],
+			},
+			"forward_ws": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"http_api": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"webhook": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"sse": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
 		}
 		canonical["adapter"] = map[string]any{
 			"connect_timeout_seconds":   onebot["connect_timeout_seconds"],
@@ -282,6 +363,15 @@ func section(document map[string]any, key string) map[string]any {
 	return typed
 }
 
+func transportSection(document map[string]any, key string) map[string]any {
+	value, ok := document[key]
+	if !ok {
+		return nil
+	}
+	typed, _ := value.(map[string]any)
+	return typed
+}
+
 func mergeDocuments(base, overlay map[string]any) map[string]any {
 	result := CloneDocument(base)
 	if result == nil {
@@ -326,6 +416,7 @@ func decodeTypedConfig(document map[string]any) (Config, error) {
 
 func canonicalDocumentFromTyped(cfg Config) map[string]any {
 	cfg.hydrateCompatibility()
+	reverseWS := configOneBotReverseWS(cfg)
 	return map[string]any{
 		"schema_version": currentSchemaVersion,
 		"server": map[string]any{
@@ -333,8 +424,29 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"port": cfg.Server.Port,
 		},
 		"onebot": map[string]any{
-			"ws_url":       cfg.OneBot.WSURL,
+			"provider":     configOneBotProvider(cfg),
+			"ws_url":       reverseWS.URL,
 			"access_token": cfg.OneBot.AccessToken,
+			"reverse_ws": map[string]any{
+				"enabled": reverseWS.Enabled,
+				"url":     reverseWS.URL,
+			},
+			"forward_ws": map[string]any{
+				"enabled": cfg.OneBot.ForwardWS.Enabled,
+				"url":     cfg.OneBot.ForwardWS.URL,
+			},
+			"http_api": map[string]any{
+				"enabled": cfg.OneBot.HTTPAPI.Enabled,
+				"url":     cfg.OneBot.HTTPAPI.URL,
+			},
+			"webhook": map[string]any{
+				"enabled": cfg.OneBot.Webhook.Enabled,
+				"url":     cfg.OneBot.Webhook.URL,
+			},
+			"sse": map[string]any{
+				"enabled": cfg.OneBot.SSE.Enabled,
+				"url":     cfg.OneBot.SSE.URL,
+			},
 		},
 		"database": map[string]any{
 			"engine": cfg.Database.Engine,
@@ -636,6 +748,24 @@ func configAdapterReconnectJitter(cfg Config) float64 {
 	return cfg.OneBot.ReconnectJitterRatio
 }
 
+func configOneBotProvider(cfg Config) string {
+	if strings.TrimSpace(cfg.OneBot.Provider) != "" {
+		return cfg.OneBot.Provider
+	}
+	return "standard"
+}
+
+func configOneBotReverseWS(cfg Config) OneBotTransportConfig {
+	transport := cfg.OneBot.ReverseWS
+	if transport.URL == "" && cfg.OneBot.WSURL != "" {
+		transport.URL = cfg.OneBot.WSURL
+	}
+	if transport.URL != "" {
+		transport.Enabled = true
+	}
+	return transport
+}
+
 func defaultDocument() map[string]any {
 	return map[string]any{
 		"schema_version": currentSchemaVersion,
@@ -644,8 +774,29 @@ func defaultDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
+			"provider":     "standard",
 			"ws_url":       "",
 			"access_token": "",
+			"reverse_ws": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"forward_ws": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"http_api": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"webhook": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"sse": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
 		},
 		"database": map[string]any{
 			"engine": "sqlite",

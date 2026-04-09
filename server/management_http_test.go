@@ -407,6 +407,57 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	}
 }
 
+func TestProtocolSnapshotAndCompatibilityHandlers(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11", nil)
+	if err != nil {
+		t.Fatalf("create protocol snapshot request: %v", err)
+	}
+	snapshotReq.Header.Set("Authorization", "Bearer "+token)
+	snapshotResp, err := server.Client().Do(snapshotReq)
+	if err != nil {
+		t.Fatalf("perform protocol snapshot request: %v", err)
+	}
+	defer snapshotResp.Body.Close()
+	if snapshotResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected protocol snapshot status: got %d want 200", snapshotResp.StatusCode)
+	}
+	snapshotBody := decodeBody(t, readAll(t, snapshotResp))
+	if snapshotBody["protocol"] != "onebot11" {
+		t.Fatalf("unexpected protocol snapshot body: %#v", snapshotBody)
+	}
+	if _, ok := snapshotBody["transport_status"].([]any); !ok {
+		t.Fatalf("expected transport_status array, got %#v", snapshotBody["transport_status"])
+	}
+
+	matrixReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/compatibility", nil)
+	if err != nil {
+		t.Fatalf("create protocol compatibility request: %v", err)
+	}
+	matrixReq.Header.Set("Authorization", "Bearer "+token)
+	matrixResp, err := server.Client().Do(matrixReq)
+	if err != nil {
+		t.Fatalf("perform protocol compatibility request: %v", err)
+	}
+	defer matrixResp.Body.Close()
+	if matrixResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected protocol compatibility status: got %d want 200", matrixResp.StatusCode)
+	}
+	matrixBody := decodeBody(t, readAll(t, matrixResp))
+	if matrixBody["protocol"] != "onebot11" {
+		t.Fatalf("unexpected protocol compatibility body: %#v", matrixBody)
+	}
+	if _, ok := matrixBody["groups"].([]any); !ok {
+		t.Fatalf("expected groups array, got %#v", matrixBody["groups"])
+	}
+}
+
 func TestSystemBackupAcceptsTaskAndCreatesArchive(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)

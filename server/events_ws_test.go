@@ -38,6 +38,8 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	waitForObservabilitySubscriber(t, application.Bridge)
+	readProtocolReplayFrame(t, conn)
+	readProtocolReplayFrame(t, conn)
 
 	outcome := application.Bridge.HandleAdapterEvent(context.Background(), testBridgeEvent())
 	if outcome != bridge.OutcomeDelivered {
@@ -101,7 +103,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	}
 }
 
-func TestEventsWebSocketIsLiveOnlyWithoutReplay(t *testing.T) {
+func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
@@ -117,17 +119,10 @@ func TestEventsWebSocketIsLiveOnlyWithoutReplay(t *testing.T) {
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	waitForObservabilitySubscriber(t, application.Bridge)
-
-	readCtx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
-	defer cancel()
-
-	_, _, err := conn.Read(readCtx)
-	if err == nil {
-		t.Fatalf("expected no replay/backfill frame on connect")
-	}
-	if !strings.Contains(err.Error(), context.DeadlineExceeded.Error()) {
-		t.Fatalf("expected deadline exceeded for live-only idle connection, got %v", err)
-	}
+	first := readProtocolReplayFrame(t, conn)
+	second := readProtocolReplayFrame(t, conn)
+	assertProtocolReplayFrame(t, first, "protocol_snapshot")
+	assertProtocolReplayFrame(t, second, "protocol_compatibility")
 }
 
 func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
@@ -231,6 +226,45 @@ func testBridgeEvent() adapter.NormalizedEvent {
 		ConversationID:   "2001",
 		SenderID:         "3001",
 		PlainText:        "hello bridge",
+	}
+}
+
+func readProtocolReplayFrame(t *testing.T, conn *websocket.Conn) map[string]any {
+	t.Helper()
+
+	readCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, payload, err := conn.Read(readCtx)
+	if err != nil {
+		t.Fatalf("read websocket frame: %v", err)
+	}
+
+	var frame map[string]any
+	if err := json.Unmarshal(payload, &frame); err != nil {
+		t.Fatalf("unmarshal websocket frame: %v", err)
+	}
+	return frame
+}
+
+func assertProtocolReplayFrame(t *testing.T, frame map[string]any, key string) {
+	t.Helper()
+
+	if frame["channel"] != "events" {
+		t.Fatalf("unexpected channel: %#v", frame["channel"])
+	}
+	if frame["type"] != "events.received" {
+		t.Fatalf("unexpected type: %#v", frame["type"])
+	}
+	data, ok := frame["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data object, got %#v", frame["data"])
+	}
+	if data["protocol"] != "onebot11" {
+		t.Fatalf("unexpected protocol: %#v", data["protocol"])
+	}
+	if _, ok := data[key]; !ok {
+		t.Fatalf("expected %s in replay payload: %#v", key, data)
 	}
 }
 

@@ -217,6 +217,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/protocols/onebot11": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query the current OneBot11 protocol snapshot without reconstructing it from system summary fragments. */
+        get: operations["getOneBot11ProtocolSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/protocols/onebot11/compatibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query the current formal OneBot11 compatibility matrix. */
+        get: operations["getOneBot11ProtocolCompatibility"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/recovery/recheck": {
         parameters: {
             query?: never;
@@ -613,6 +647,63 @@ export interface components {
             uptime_seconds?: number;
             recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
         };
+        /** @enum {string} */
+        ProtocolProvider: "standard" | "napcat" | "luckylillia";
+        /** @enum {string} */
+        ProtocolTransportKey: "reverse_ws" | "forward_ws" | "http_api" | "webhook" | "sse";
+        /** @enum {string} */
+        ProtocolConnectionState: "idle" | "connecting" | "connected" | "auth_failed" | "reconnecting" | "stopped";
+        /** @enum {string} */
+        ProtocolReadinessStatus: "ready" | "degraded" | "failed" | "setup_required";
+        ProtocolIssue: {
+            code: string;
+            /** @enum {string} */
+            severity: "info" | "warning" | "error";
+            summary: string;
+        };
+        ProtocolTransportStatus: {
+            transport: components["schemas"]["ProtocolTransportKey"];
+            enabled: boolean;
+            configured: boolean;
+            implemented: boolean;
+            active: boolean;
+            endpoint: string;
+        };
+        OneBot11ProtocolSnapshotResponse: {
+            /** @constant */
+            protocol: "onebot11";
+            provider: components["schemas"]["ProtocolProvider"];
+            configured_transports: components["schemas"]["ProtocolTransportKey"][];
+            active_transport?: components["schemas"]["ProtocolTransportKey"] | null;
+            transport_status: components["schemas"]["ProtocolTransportStatus"][];
+            connection_state: components["schemas"]["ProtocolConnectionState"];
+            readiness_status: components["schemas"]["ProtocolReadinessStatus"];
+            summary: string;
+            recent_transport_issues: components["schemas"]["ProtocolIssue"][];
+        };
+        /** @enum {string} */
+        ProtocolCompatibilityStatus: "implemented" | "frozen" | "partial";
+        /** @enum {string} */
+        ProtocolCompatibilityGroupKey: "core" | "segment" | "action" | "provider_extension";
+        ProtocolCompatibilityItem: {
+            name: string;
+            status: components["schemas"]["ProtocolCompatibilityStatus"];
+            provider?: components["schemas"]["ProtocolProvider"];
+            notes?: string;
+        };
+        ProtocolCompatibilityGroup: {
+            group: components["schemas"]["ProtocolCompatibilityGroupKey"];
+            title: string;
+            items: components["schemas"]["ProtocolCompatibilityItem"][];
+        };
+        OneBot11ProtocolCompatibilityResponse: {
+            /** @constant */
+            protocol: "onebot11";
+            provider: components["schemas"]["ProtocolProvider"];
+            /** Format: date-time */
+            generated_at: string;
+            groups: components["schemas"]["ProtocolCompatibilityGroup"][];
+        };
         SystemShutdownResponse: {
             accepted: boolean;
         };
@@ -865,6 +956,18 @@ export interface components {
         WebhookAcceptedResponse: {
             accepted: boolean;
         };
+        onebotWsTransport: {
+            /** @default false */
+            enabled: boolean;
+            /** @default  */
+            url: string | "" | unknown;
+        };
+        onebotHttpTransport: {
+            /** @default false */
+            enabled: boolean;
+            /** @default  */
+            url: string | "" | unknown;
+        };
         rateLimit: string;
         /**
          * RayleaBot User Config
@@ -883,10 +986,20 @@ export interface components {
                 port: number;
             };
             onebot: {
+                /**
+                 * @default standard
+                 * @enum {string}
+                 */
+                provider: "standard" | "napcat" | "luckylillia";
                 /** @default  */
                 ws_url: string | "" | unknown;
                 /** @default  */
                 access_token: string;
+                reverse_ws: components["schemas"]["onebotWsTransport"];
+                forward_ws: components["schemas"]["onebotWsTransport"];
+                http_api: components["schemas"]["onebotHttpTransport"];
+                webhook: components["schemas"]["onebotHttpTransport"];
+                sse: components["schemas"]["onebotHttpTransport"];
             };
             database: {
                 /**
@@ -1063,6 +1176,18 @@ export interface components {
                 default_consistency: "offline" | "online";
             };
             $defs: {
+                onebotWsTransport: {
+                    /** @default false */
+                    enabled: boolean;
+                    /** @default  */
+                    url: string | "" | unknown;
+                };
+                onebotHttpTransport: {
+                    /** @default false */
+                    enabled: boolean;
+                    /** @default  */
+                    url: string | "" | unknown;
+                };
                 rateLimit: string;
             };
         };
@@ -1395,6 +1520,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskAcceptedResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getOneBot11ProtocolSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OneBot11 protocol snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OneBot11ProtocolSnapshotResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getOneBot11ProtocolCompatibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OneBot11 compatibility matrix. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OneBot11ProtocolCompatibilityResponse"];
                 };
             };
             401: components["responses"]["Error"];
