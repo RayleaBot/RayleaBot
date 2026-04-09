@@ -250,6 +250,9 @@ func writeJSONLine(writer io.Writer, value any) error {
 	if err != nil {
 		return err
 	}
+	if !json.Valid(encoded) {
+		return fmt.Errorf("protocol frame encoded invalid json")
+	}
 
 	data := append(encoded, '\n')
 	for len(data) > 0 {
