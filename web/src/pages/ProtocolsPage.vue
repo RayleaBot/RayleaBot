@@ -117,56 +117,49 @@ async function save() {
 </script>
 
 <template>
-  <div class="page-grid">
+  <div class="page-grid industrial-theme">
     <section class="hero-panel">
-      <div>
-        <h1>{{ t('protocols.title') }}</h1>
-        <p>{{ t('protocols.subtitle') }}</p>
+      <div class="hero-text">
+        <h1 class="glitch-title">{{ t('protocols.title') }}</h1>
+        <p class="subtitle">>> {{ t('protocols.subtitle') }}</p>
       </div>
 
       <div class="hero-actions">
-        <el-button type="primary" :disabled="!canSave" :loading="saving" @click="save">
-          {{ t('protocols.save') }}
+        <el-button class="industrial-btn primary" :disabled="!canSave" :loading="saving" @click="save">
+          [ {{ t('protocols.save') }} ]
         </el-button>
-        <el-button :loading="pageLoading" @click="loadPage">
-          {{ t('dashboard.refresh') }}
+        <el-button class="industrial-btn" :loading="pageLoading" @click="loadPage">
+          [ {{ t('dashboard.refresh') }} ]
         </el-button>
-        <el-button plain @click="router.push('/protocols/logs')">
-          {{ t('protocols.openLogs') }}
+        <el-button class="industrial-btn outline" @click="router.push('/protocols/logs')">
+          [ {{ t('protocols.openLogs') }} ]
         </el-button>
       </div>
     </section>
 
-    <el-card class="protocol-overview-card">
-      <template #header>
-        <div class="protocol-overview-header">
-          <strong>{{ t('protocols.overviewTitle') }}</strong>
-          <el-tag size="small" effect="dark" type="info">
-            {{ t('protocols.fixedProtocolLabel') }}: {{ ONEBOT11_PROTOCOL_NAME }}
-          </el-tag>
-        </div>
-      </template>
+    <div class="industrial-card protocol-overview-card">
+      <div class="card-header">
+        <strong class="uppercase">> {{ t('protocols.overviewTitle') }}</strong>
+        <span class="industrial-badge">{{ t('protocols.fixedProtocolLabel') }}: {{ ONEBOT11_PROTOCOL_NAME }}</span>
+      </div>
 
       <div class="protocol-overview-grid">
-        <div class="protocol-overview-item">
-          <small>{{ t('protocols.protocolNameLabel') }}</small>
-          <strong>{{ ONEBOT11_PROTOCOL_NAME }}</strong>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.protocolNameLabel') }}]</small>
+          <strong class="mono-value">{{ ONEBOT11_PROTOCOL_NAME }}</strong>
         </div>
-        <div class="protocol-overview-item">
-          <small>{{ t('protocols.protocolStatusLabel') }}</small>
-          <el-tag
-            :type="protocolStatusType === 'danger' ? 'danger' : (protocolStatusType === 'warning' ? 'warning' : (protocolStatusType === 'success' ? 'success' : 'info'))"
-            effect="plain"
-          >
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.protocolStatusLabel') }}]</small>
+          <span class="industrial-badge status-badge" :class="protocolStatusType">
             {{ protocolStatusLabel }}
-          </el-tag>
+          </span>
         </div>
-        <div class="protocol-overview-item">
-          <small>{{ t('protocols.protocolSummaryLabel') }}</small>
-          <strong>{{ protocolSummary }}</strong>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.protocolSummaryLabel') }}]</small>
+          <strong class="mono-value highlight-value">{{ protocolSummary }}</strong>
         </div>
       </div>
-    </el-card>
+    </div>
 
     <div class="config-alerts-container" v-if="configError || redactedFields.length > 0">
       <el-alert v-if="configError" :title="t('errors.common.actionFailed')" type="error" :description="configError" show-icon />
@@ -191,23 +184,21 @@ async function save() {
       <div class="section-heading">
         <div>
           <h2>{{ t('protocols.connectionSettings') }}</h2>
-          <p>{{ t('protocols.connectionSettingsHint') }}</p>
+          <p class="subtitle">>> {{ t('protocols.connectionSettingsHint') }}</p>
         </div>
         <div v-if="restartRequired !== null" class="restart-indicator">
-          <el-tag :type="restartRequired ? 'warning' : 'success'" size="small" effect="dark">
+          <span class="industrial-badge" :class="restartRequired ? 'warning' : 'success'">
             {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
-          </el-tag>
+          </span>
         </div>
       </div>
 
       <div v-if="draft" class="protocol-settings-grid">
-        <el-card v-for="section in configSections" :key="section.key" class="protocol-settings-card">
-          <template #header>
-            <div class="protocol-settings-card__header">
-              <strong>{{ section.title }}</strong>
-              <span>{{ section.fields.length }} {{ t('config.fieldCount') }}</span>
-            </div>
-          </template>
+        <div v-for="section in configSections" :key="section.key" class="industrial-card">
+          <div class="card-header">
+            <strong>> {{ section.title }}</strong>
+            <span>[{{ section.fields.length }} {{ t('config.fieldCount') }}]</span>
+          </div>
 
           <el-form label-position="top" class="protocol-form-grid">
             <div v-for="field in section.fields" :key="field.path" class="config-field-item">
@@ -242,6 +233,7 @@ async function save() {
                   <el-switch
                     :model-value="Boolean(readField(field.path, field.type))"
                     @update:model-value="(value) => writeField(field.path, field.type, value)"
+                    style="--el-switch-on-color: var(--accent-color); --el-switch-off-color: var(--border-color)"
                   />
                 </div>
 
@@ -250,6 +242,7 @@ async function save() {
                   :model-value="String(readField(field.path, field.type) ?? '')"
                   class="refined-input"
                   @update:model-value="(value) => writeField(field.path, field.type, value)"
+                  popper-class="industrial-popper"
                 >
                   <el-option
                     v-for="option in field.options"
@@ -270,131 +263,261 @@ async function save() {
               </el-form-item>
             </div>
           </el-form>
-        </el-card>
+        </div>
       </div>
     </section>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.hero-actions,
-.section-heading,
-.protocol-overview-header,
-.protocol-settings-card__header {
+.industrial-theme {
+  --bg-color: #f4f4f0;
+  --border-color: #111111;
+  --text-main: #111111;
+  --text-muted: #555555;
+  --accent-color: #ff4500;
+  --accent-hover: #e03c00;
+  --card-bg: #ffffff;
+  
+  color: var(--text-main);
+  background-color: var(--bg-color);
+  background-image: 
+    linear-gradient(rgba(17, 17, 17, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  padding: 24px;
+  min-height: 100%;
+}
+
+.hero-panel {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
+  margin-bottom: 32px;
+  border-bottom: 4px solid var(--border-color);
+  padding-bottom: 16px;
 }
 
-.section-heading {
-  margin-bottom: 12px;
-}
-
-.section-heading h2 {
+.hero-text h1 {
+  font-size: 2.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
   margin: 0;
-  font-size: 1.2rem;
+  letter-spacing: -0.05em;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
-.section-heading p {
-  margin: 6px 0 0;
-  color: var(--muted);
+.hero-text .subtitle, .section-heading .subtitle {
+  font-family: "Cascadia Mono", monospace;
+  color: var(--accent-color);
+  margin: 8px 0 0;
+  font-weight: bold;
 }
 
-.config-alerts-container {
-  display: grid;
+.hero-actions {
+  display: flex;
   gap: 12px;
 }
 
-.protocol-overview-card,
-.protocol-settings-card {
-  border-radius: 24px;
+/* Industrial Buttons */
+.industrial-btn {
+  border: 2px solid var(--border-color) !important;
+  background: var(--card-bg) !important;
+  color: var(--text-main) !important;
+  font-family: "Cascadia Mono", monospace !important;
+  font-weight: bold !important;
+  border-radius: 0 !important;
+  padding: 8px 16px !important;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px var(--border-color) !important;
+  transition: transform 0.1s, box-shadow 0.1s !important;
+}
+.industrial-btn:hover:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0px var(--border-color) !important;
+}
+.industrial-btn.primary {
+  background: var(--accent-color) !important;
+  color: #fff !important;
+}
+.industrial-btn.outline {
+  background: transparent !important;
+}
+.industrial-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0px var(--border-color) !important;
 }
 
-.protocol-overview-grid,
-.protocol-settings-grid {
+/* Cards */
+.industrial-card {
+  background: var(--card-bg);
+  border: 3px solid var(--border-color);
+  box-shadow: 6px 6px 0px var(--border-color);
+  margin-bottom: 32px;
+}
+
+.card-header {
+  background: var(--border-color);
+  color: #fff;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "Cascadia Mono", monospace;
+  text-transform: uppercase;
+}
+
+.industrial-badge {
+  background: var(--card-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  font-family: "Cascadia Mono", monospace;
+}
+.industrial-badge.success { border-color: #00a86b; color: #00a86b; }
+.industrial-badge.danger { border-color: #ff4500; color: #ff4500; }
+.industrial-badge.warning { border-color: #ffb000; color: #ffb000; }
+
+.protocol-overview-grid, .protocol-settings-grid {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
-
 .protocol-overview-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 20px;
 }
-
 .protocol-settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.protocol-overview-item {
+.overview-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 18px 20px;
-  border-radius: 20px;
-  background: rgba(247, 250, 246, 0.88);
-  border: 1px solid rgba(22, 33, 39, 0.08);
+  padding: 16px;
+  background: rgba(17, 17, 17, 0.03);
+  border: 2px dashed var(--border-color);
 }
 
-.protocol-overview-item small,
-.protocol-settings-card__header span {
-  color: var(--muted);
+.mono-label {
+  font-family: "Cascadia Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
+.mono-value {
+  font-family: "Cascadia Mono", monospace;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.highlight-value {
+  color: var(--accent-color);
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 24px;
+  border-bottom: 3px solid var(--border-color);
+  padding-bottom: 8px;
+}
+.section-heading h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  text-transform: uppercase;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Forms */
 .protocol-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px 24px;
+  gap: 24px;
+  padding: 20px;
+}
+
+.config-field-item {
+  display: flex;
+  flex-direction: column;
 }
 
 .field-label-wrap {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
+  font-family: "Cascadia Mono", monospace;
+  font-weight: bold;
+  margin-bottom: 8px;
 }
 
 .field-info-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(15, 111, 112, 0.12);
-  color: #0f6f70;
-  font-size: 0.75rem;
-  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  background: var(--text-main);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: bold;
   cursor: help;
 }
 
 .refined-input {
   :deep(.el-input__wrapper),
   :deep(.el-textarea__inner) {
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) inset;
+    border-radius: 0;
+    border: 2px solid var(--border-color);
+    background: #fff;
+    box-shadow: none !important;
+    font-family: "Cascadia Mono", monospace;
     transition: all 0.2s;
 
-    &:hover {
-      background: #fff;
-      border-color: #0f6f70;
-    }
-
-    &.is-focus {
-      background: #fff;
-      box-shadow: 0 0 0 1px #0f6f70 inset, 0 10px 25px rgba(15, 111, 112, 0.1);
+    &:hover, &.is-focus {
+      border-color: var(--accent-color);
+      box-shadow: 4px 4px 0px var(--border-color) !important;
+      transform: translate(-2px, -2px);
     }
   }
 }
 
+.refined-number-input {
+  :deep(.el-input__wrapper) {
+    border-radius: 0;
+    border: 2px solid var(--border-color);
+    box-shadow: none !important;
+    font-family: "Cascadia Mono", monospace;
+    
+    &:hover, &.is-focus {
+      border-color: var(--accent-color);
+      box-shadow: 4px 4px 0px var(--border-color) !important;
+      transform: translate(-2px, -2px);
+    }
+  }
+}
+
+.config-alerts-container {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
 @media (max-width: 1024px) {
-  .protocol-overview-grid,
-  .protocol-settings-grid {
+  .protocol-overview-grid, .protocol-settings-grid {
     grid-template-columns: 1fr;
   }
-
-  .hero-actions {
-    flex-wrap: wrap;
+  .hero-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
   }
 }
 </style>

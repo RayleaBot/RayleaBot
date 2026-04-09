@@ -191,74 +191,70 @@ function getLevelPillClass(level: string) {
 </script>
 
 <template>
-  <div class="page-grid page-grid--viewport">
+  <div class="page-grid industrial-theme">
     <section class="hero-panel">
-      <div>
-        <h1>{{ t('protocols.logsPageTitle') }}</h1>
-        <p>{{ t('protocols.logsSubtitle') }}</p>
+      <div class="hero-text">
+        <h1 class="glitch-title">{{ t('protocols.logsPageTitle') }}</h1>
+        <p class="subtitle">>> {{ t('protocols.logsSubtitle') }}</p>
       </div>
 
       <div class="hero-actions">
-        <el-button plain @click="router.push('/protocols')">
-          {{ t('protocols.openSettings') }}
+        <el-button class="industrial-btn outline" @click="router.push('/protocols')">
+          [ {{ t('protocols.openSettings') }} ]
         </el-button>
-        <el-button :loading="logsLoading" @click="refreshLogs">
-          {{ t('protocols.logsRefresh') }}
+        <el-button class="industrial-btn primary" :loading="logsLoading" @click="refreshLogs">
+          [ {{ t('protocols.logsRefresh') }} ]
         </el-button>
       </div>
     </section>
 
-    <el-card class="protocol-overview-card">
-      <template #header>
-        <div class="protocol-overview-header">
-          <strong>{{ t('protocols.overviewTitle') }}</strong>
-          <el-tag size="small" effect="dark" type="info">
-            {{ t('protocols.fixedProtocolLabel') }}: {{ ONEBOT11_PROTOCOL_NAME }}
-          </el-tag>
-        </div>
-      </template>
+    <div class="industrial-card overview-panel">
+      <div class="card-header">
+        <strong class="uppercase">> {{ t('protocols.overviewTitle') }}</strong>
+        <span class="industrial-badge">[{{ t('protocols.fixedProtocolLabel') }}: {{ ONEBOT11_PROTOCOL_NAME }}]</span>
+      </div>
 
       <div class="protocol-overview-grid">
-        <div class="protocol-overview-item">
-          <small>{{ t('protocols.protocolNameLabel') }}</small>
-          <strong>{{ ONEBOT11_PROTOCOL_NAME }}</strong>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.protocolNameLabel') }}]</small>
+          <strong class="mono-value">{{ ONEBOT11_PROTOCOL_NAME }}</strong>
         </div>
-        <div class="protocol-overview-item">
-          <small>{{ t('protocols.protocolStatusLabel') }}</small>
-          <el-tag
-            :type="protocolStatusType === 'danger' ? 'danger' : (protocolStatusType === 'warning' ? 'warning' : (protocolStatusType === 'success' ? 'success' : 'info'))"
-            effect="plain"
-          >
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.protocolStatusLabel') }}]</small>
+          <span class="industrial-badge status-badge" :class="protocolStatusType">
             {{ protocolStatusLabel }}
-          </el-tag>
+          </span>
         </div>
-        <div class="protocol-overview-item">
-          <small>{{ t('protocols.protocolSummaryLabel') }}</small>
-          <strong>{{ protocolSummary }}</strong>
+        <div class="overview-item">
+          <small class="mono-label">[{{ t('protocols.protocolSummaryLabel') }}]</small>
+          <strong class="mono-value highlight-value">{{ protocolSummary }}</strong>
         </div>
       </div>
-    </el-card>
+    </div>
 
     <section class="protocol-logs-section">
       <div class="section-heading">
         <div>
           <h2>{{ t('protocols.logsTitle') }}</h2>
-          <p>{{ t('protocols.logsStreamHint') }}</p>
+          <p class="subtitle">>> {{ t('protocols.logsStreamHint') }}</p>
         </div>
         <div class="terminal-header-actions">
-          <el-tag effect="dark" :type="autoFollow ? 'success' : 'warning'">
+          <span class="industrial-badge" :class="autoFollow ? 'success' : 'warning'">
             {{ terminalStatusLabel }}
-          </el-tag>
-          <el-tag effect="plain" type="info">
-            {{ t('protocols.bufferCount', { count: items.length }) }}
-          </el-tag>
+          </span>
+          <span class="industrial-badge">
+            [{{ t('protocols.bufferCount', { count: items.length }) }}]
+          </span>
         </div>
       </div>
 
-      <el-card class="logs-filter-toolbar">
-        <el-form label-position="top" class="logs-filter-grid">
+      <div class="industrial-card logs-filter-toolbar">
+        <div class="card-header">
+          <strong>> {{ t('protocols.filters.apply') }}</strong>
+        </div>
+        <el-form label-position="top" class="logs-filter-grid protocol-form-grid">
           <el-form-item :label="t('protocols.filters.level')">
-            <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')">
+            <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')" class="refined-input">
               <el-option :label="t('display.logLevels.debug')" value="debug" />
               <el-option :label="t('display.logLevels.info')" value="info" />
               <el-option :label="t('display.logLevels.warn')" value="warn" />
@@ -266,20 +262,20 @@ function getLevelPillClass(level: string) {
             </el-select>
           </el-form-item>
           <el-form-item :label="t('protocols.filters.source')">
-            <el-input v-model="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" />
+            <el-input v-model="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" class="refined-input" />
           </el-form-item>
           <el-form-item :label="t('protocols.filters.requestId')">
-            <el-input v-model="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" />
+            <el-input v-model="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
           </el-form-item>
         </el-form>
 
         <div class="logs-filter-actions">
-          <el-button type="primary" @click="refreshLogs">{{ t('protocols.filters.apply') }}</el-button>
-          <el-button v-if="autoFollow" @click="pauseAutoFollow">{{ t('protocols.logsPause') }}</el-button>
-          <el-button v-else type="success" plain @click="resumeAutoFollow">{{ t('protocols.logsResume') }}</el-button>
-          <el-button plain @click="clearBuffer">{{ t('protocols.logsClear') }}</el-button>
+          <el-button class="industrial-btn primary" @click="refreshLogs">[ {{ t('protocols.filters.apply') }} ]</el-button>
+          <el-button class="industrial-btn" v-if="autoFollow" @click="pauseAutoFollow">[ {{ t('protocols.logsPause') }} ]</el-button>
+          <el-button class="industrial-btn" v-else @click="resumeAutoFollow">[ {{ t('protocols.logsResume') }} ]</el-button>
+          <el-button class="industrial-btn outline" @click="clearBuffer">[ {{ t('protocols.logsClear') }} ]</el-button>
         </div>
-      </el-card>
+      </div>
 
       <RetryPanel
         v-if="logsError && items.length === 0"
@@ -292,17 +288,14 @@ function getLevelPillClass(level: string) {
       <el-alert v-else-if="logsError" :title="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon />
 
       <div v-else class="protocol-log-layout">
-        <el-card class="protocol-log-terminal-card">
-          <template #header>
-            <div class="card-header">
-              <div>
-                <strong>{{ t('protocols.logsStreamTitle') }}</strong>
-                <p>{{ t('protocols.logsStreamHint') }}</p>
-              </div>
-            </div>
-          </template>
+        <div class="industrial-card terminal-stream-panel">
+          <div class="card-header">
+            <strong>> {{ t('protocols.logsStreamTitle') }}</strong>
+          </div>
 
-          <el-empty v-if="items.length === 0" :description="t('protocols.logsEmpty')" />
+          <div v-if="items.length === 0" class="term-empty">
+            [{{ t('protocols.logsEmpty') }}]
+          </div>
 
           <div v-else ref="terminalScroller" class="protocol-terminal" aria-label="协议日志终端流">
             <button
@@ -314,35 +307,29 @@ function getLevelPillClass(level: string) {
               @click="handleLogSelection(log.log_id)"
             >
               <div class="terminal-line__meta">
-                <span>{{ formatDateTime(log.timestamp) }}</span>
-                <span>{{ getLogLevelLabel(log.level) }}</span>
-                <span>{{ getLogProtocolLabel(log.protocol) }}</span>
-                <span>{{ log.source }}</span>
+                <span class="meta-time">[{{ formatDateTime(log.timestamp) }}]</span>
+                <span class="meta-level">[{{ getLogLevelLabel(log.level) }}]</span>
+                <span class="meta-protocol">[{{ getLogProtocolLabel(log.protocol) }}]</span>
+                <span class="meta-source">{{ log.source }}</span>
               </div>
               <div class="terminal-line__message">
                 {{ log.message }}
               </div>
               <small class="terminal-line__request">
-                {{ log.request_id || t('protocols.noRequestId') }}
+                ID: {{ log.request_id || t('protocols.noRequestId') }}
               </small>
             </button>
           </div>
-        </el-card>
+        </div>
 
-        <el-card class="protocol-log-detail-card">
-          <template #header>
-            <div class="card-header">
-              <div>
-                <strong>{{ t('protocols.logsDetailTitle') }}</strong>
-                <p>{{ t('protocols.logsDetailHint') }}</p>
-              </div>
-            </div>
-          </template>
+        <div class="industrial-card protocol-log-detail-panel">
+          <div class="card-header">
+            <strong>> {{ t('protocols.logsDetailTitle') }}</strong>
+          </div>
 
-          <el-empty
-            v-if="!selectedSummary && !detailLoading"
-            :description="t('protocols.logsDetailEmpty')"
-          />
+          <div v-if="!selectedSummary && !detailLoading" class="term-empty">
+            [{{ t('protocols.logsDetailEmpty') }}]
+          </div>
 
           <el-skeleton v-else :loading="detailLoading && !currentDetail" animated>
             <div v-if="selectedSummary" class="protocol-log-detail">
@@ -357,192 +344,352 @@ function getLevelPillClass(level: string) {
 
               <div class="detail-summary-card">
                 <div class="detail-summary-card__top">
-                  <span class="detail-summary-card__level">{{ getLogLevelLabel(selectedSummary.level) }}</span>
-                  <span class="detail-summary-card__protocol">{{ getLogProtocolLabel(selectedSummary.protocol) }}</span>
+                  <span class="industrial-badge">{{ getLogLevelLabel(selectedSummary.level) }}</span>
+                  <span class="industrial-badge">{{ getLogProtocolLabel(selectedSummary.protocol) }}</span>
                 </div>
-                <strong>{{ selectedSummary.message }}</strong>
+                <strong class="detail-message">> {{ selectedSummary.message }}</strong>
                 <div class="detail-summary-card__meta">
-                  <span>{{ formatDateTime(selectedSummary.timestamp) }}</span>
+                  <span>[{{ formatDateTime(selectedSummary.timestamp) }}]</span>
                   <span>{{ selectedSummary.source }}</span>
                   <span>{{ selectedSummary.request_id || t('protocols.noRequestId') }}</span>
-                  <span>{{ selectedSummary.log_id }}</span>
+                  <span class="mono-id">ID: {{ selectedSummary.log_id }}</span>
                 </div>
               </div>
 
               <div v-if="detailEntries.length > 0" class="detail-key-grid">
                 <div v-for="entry in detailEntries" :key="entry.key" class="detail-key-card">
-                  <small>{{ entry.label }}</small>
-                  <strong>{{ entry.value }}</strong>
+                  <small class="mono-label">[{{ entry.label }}]</small>
+                  <strong class="mono-value">{{ entry.value }}</strong>
                 </div>
               </div>
 
               <div class="detail-json-block">
                 <div class="detail-json-block__header">
-                  <strong>{{ t('protocols.logsDetailJson') }}</strong>
+                  <strong>> {{ t('protocols.logsDetailJson') }}</strong>
                 </div>
                 <pre>{{ detailJson }}</pre>
               </div>
             </div>
           </el-skeleton>
-        </el-card>
+        </div>
       </div>
     </section>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.hero-actions,
-.section-heading,
-.protocol-overview-header,
-.terminal-header-actions {
+.industrial-theme {
+  --bg-color: #f4f4f0;
+  --border-color: #111111;
+  --text-main: #111111;
+  --text-muted: #555555;
+  --accent-color: #ff4500;
+  --accent-hover: #e03c00;
+  --card-bg: #ffffff;
+  
+  color: var(--text-main);
+  background-color: var(--bg-color);
+  background-image: 
+    linear-gradient(rgba(17, 17, 17, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  padding: 24px;
+  min-height: 100%;
+}
+
+.hero-panel {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
+  margin-bottom: 32px;
+  border-bottom: 4px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.hero-text h1 {
+  font-size: 2.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  margin: 0;
+  letter-spacing: -0.05em;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.hero-text .subtitle, .section-heading .subtitle {
+  font-family: "Cascadia Mono", monospace;
+  color: var(--accent-color);
+  margin: 8px 0 0;
+  font-weight: bold;
+}
+
+.hero-actions {
+  display: flex;
   gap: 12px;
 }
 
-.section-heading {
-  margin-bottom: 12px;
+/* Industrial Buttons */
+.industrial-btn {
+  border: 2px solid var(--border-color) !important;
+  background: var(--card-bg) !important;
+  color: var(--text-main) !important;
+  font-family: "Cascadia Mono", monospace !important;
+  font-weight: bold !important;
+  border-radius: 0 !important;
+  padding: 8px 16px !important;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px var(--border-color) !important;
+  transition: transform 0.1s, box-shadow 0.1s !important;
+}
+.industrial-btn:hover:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0px var(--border-color) !important;
+}
+.industrial-btn.primary {
+  background: var(--accent-color) !important;
+  color: #fff !important;
+}
+.industrial-btn.outline {
+  background: transparent !important;
 }
 
-.section-heading h2 {
-  margin: 0;
-  font-size: 1.2rem;
+/* Cards */
+.industrial-card {
+  background: var(--card-bg);
+  border: 3px solid var(--border-color);
+  box-shadow: 6px 6px 0px var(--border-color);
+  margin-bottom: 32px;
 }
 
-.section-heading p,
-.card-header p {
-  margin: 6px 0 0;
-  color: var(--muted);
+.card-header {
+  background: var(--border-color);
+  color: #fff;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "Cascadia Mono", monospace;
+  text-transform: uppercase;
 }
 
-.protocol-overview-card,
-.protocol-log-terminal-card,
-.protocol-log-detail-card {
-  border-radius: 24px;
+.industrial-badge {
+  background: var(--card-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  font-family: "Cascadia Mono", monospace;
 }
-
-.protocol-overview-grid,
-.protocol-log-layout {
-  display: grid;
-  gap: 16px;
-}
+.industrial-badge.success { border-color: #00a86b; color: #00a86b; }
+.industrial-badge.danger { border-color: #ff4500; color: #ff4500; }
+.industrial-badge.warning { border-color: #ffb000; color: #ffb000; }
 
 .protocol-overview-grid {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  padding: 20px;
 }
 
-.protocol-log-layout {
-  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
-  align-items: stretch;
-}
-
-.protocol-overview-item {
+.overview-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 18px 20px;
-  border-radius: 20px;
-  background: rgba(247, 250, 246, 0.88);
-  border: 1px solid rgba(22, 33, 39, 0.08);
+  padding: 16px;
+  background: rgba(17, 17, 17, 0.03);
+  border: 2px dashed var(--border-color);
 }
 
-.protocol-overview-item small {
-  color: var(--muted);
+.mono-label {
+  font-family: "Cascadia Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
-.protocol-terminal {
-  min-height: 480px;
-  max-height: 640px;
-  overflow: auto;
-  padding: 14px;
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(14, 20, 25, 0.98), rgba(18, 26, 33, 0.98)),
-    radial-gradient(circle at top right, rgba(86, 198, 255, 0.08), transparent 24%);
-  border: 1px solid rgba(110, 204, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+.mono-value {
+  font-family: "Cascadia Mono", monospace;
+  font-size: 1.1rem;
+  font-weight: bold;
+  word-break: break-all;
+}
+
+.highlight-value {
+  color: var(--accent-color);
+}
+
+/* Section Heading */
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 24px;
+  border-bottom: 3px solid var(--border-color);
+  padding-bottom: 8px;
+}
+.section-heading h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  text-transform: uppercase;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.terminal-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Filter */
+.logs-filter-toolbar {
+  margin-bottom: 32px;
+}
+.protocol-form-grid {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  padding: 20px;
+}
+
+:deep(.el-form-item__label) {
+  font-family: "Cascadia Mono", monospace;
+  font-weight: bold;
+  color: var(--text-main);
+}
+
+.refined-input {
+  :deep(.el-input__wrapper) {
+    border-radius: 0;
+    border: 2px solid var(--border-color);
+    background: #fff;
+    box-shadow: none !important;
+    font-family: "Cascadia Mono", monospace;
+    transition: all 0.2s;
+
+    &:hover, &.is-focus {
+      border-color: var(--accent-color);
+      box-shadow: 4px 4px 0px var(--border-color) !important;
+      transform: translate(-2px, -2px);
+    }
+  }
+}
+
+.logs-filter-actions {
+  display: flex;
+  gap: 12px;
+  padding: 0 20px 20px;
+}
+
+/* Layout */
+.protocol-log-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+/* Terminal Stream */
+.protocol-terminal {
+  min-height: 520px;
+  max-height: 680px;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(17, 17, 17, 0.02);
 }
 
 .protocol-terminal-line {
   width: 100%;
   border: 0;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  color: #e8eff6;
+  border-left: 4px solid transparent;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  font-family: "Cascadia Mono", monospace;
   cursor: pointer;
   text-align: left;
   display: grid;
   gap: 6px;
-  transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  transition: all 0.1s;
 
   &:hover {
-    background: rgba(110, 204, 255, 0.08);
-    transform: translateY(-1px);
+    transform: translateX(4px);
+    box-shadow: -4px 0 0 var(--accent-color);
   }
 
   &.is-selected {
-    background: rgba(110, 204, 255, 0.14);
-    box-shadow: inset 2px 0 0 #62d5ff;
+    background: var(--border-color);
+    color: #fff;
+    box-shadow: -4px 0 0 var(--accent-color);
   }
 }
 
-.terminal-line__meta,
-.terminal-line__request,
-.detail-summary-card__meta,
-.detail-summary-card__top {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  font-family: "Cascadia Mono", "Consolas", monospace;
-  font-size: 0.78rem;
-}
-
 .terminal-line__meta {
-  color: #8ca4b3;
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.protocol-terminal-line.is-selected .terminal-line__meta {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .terminal-line__message {
-  color: #f5f8fb;
-  line-height: 1.55;
+  font-weight: bold;
+  line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .terminal-line__request {
-  color: #6f8592;
+  font-size: 0.75rem;
+  opacity: 0.6;
 }
 
+.term-empty {
+  padding: 40px;
+  text-align: center;
+  font-family: "Cascadia Mono", monospace;
+  color: var(--text-muted);
+}
+
+/* Detail Panel */
 .protocol-log-detail {
-  display: grid;
-  gap: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 680px;
+  overflow-y: auto;
 }
 
 .detail-summary-card {
+  border: 2px solid var(--border-color);
+  padding: 16px;
+  background: rgba(17, 17, 17, 0.03);
   display: grid;
-  gap: 10px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: rgba(247, 250, 246, 0.9);
-  border: 1px solid rgba(22, 33, 39, 0.08);
+  gap: 12px;
 }
 
-.detail-summary-card__top,
+.detail-summary-card__top {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-message {
+  font-size: 1.2rem;
+  word-break: break-word;
+}
+
 .detail-summary-card__meta {
-  color: var(--muted);
-}
-
-.detail-summary-card__level,
-.detail-summary-card__protocol {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(15, 111, 112, 0.08);
-  color: #0f6f70;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: "Cascadia Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .detail-key-grid {
@@ -552,78 +699,44 @@ function getLevelPillClass(level: string) {
 }
 
 .detail-key-card {
+  border: 2px dashed var(--border-color);
+  padding: 12px;
   display: grid;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(22, 33, 39, 0.08);
-}
-
-.detail-key-card small {
-  color: var(--muted);
-}
-
-.detail-key-card strong {
-  line-height: 1.55;
-  word-break: break-word;
+  gap: 6px;
 }
 
 .detail-json-block {
-  display: grid;
-  gap: 10px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: #121a20;
-  color: #e6edf3;
-  border: 1px solid rgba(110, 204, 255, 0.12);
+  border: 2px solid var(--border-color);
+  background: var(--border-color);
+  color: #fff;
+  padding: 16px;
+  box-shadow: 4px 4px 0 var(--accent-color);
 }
-
 .detail-json-block__header {
-  color: #8ca4b3;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
 }
-
 .detail-json-block pre {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: "Cascadia Mono", "Consolas", monospace;
-  font-size: 0.86rem;
-  line-height: 1.55;
+  font-family: "Cascadia Mono", monospace;
+  font-size: 0.85rem;
 }
 
-.is-debug {
-  box-shadow: inset 2px 0 0 rgba(124, 140, 150, 0.48);
-}
-
-.is-info {
-  box-shadow: inset 2px 0 0 rgba(88, 196, 255, 0.48);
-}
-
-.is-warn {
-  box-shadow: inset 2px 0 0 rgba(255, 187, 74, 0.68);
-}
-
-.is-error {
-  box-shadow: inset 2px 0 0 rgba(255, 104, 104, 0.72);
-}
+.is-info { border-left-color: #00a2ff; }
+.is-warn { border-left-color: #ffb000; }
+.is-error { border-left-color: #ff4500; }
 
 @media (max-width: 1024px) {
-  .protocol-overview-grid,
   .protocol-log-layout {
     grid-template-columns: 1fr;
   }
-
-  .logs-filter-toolbar .el-card__body,
-  .logs-filter-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .logs-filter-actions,
-  .hero-actions,
-  .terminal-header-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+  .hero-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
   }
 }
 </style>
