@@ -48,6 +48,53 @@
 - `scheduler.create`
 - `event.expose_webhook`
 - `render.image`
+- OneBot family actions:
+  - `message.get`
+  - `message.delete`
+  - `message.history.get`
+  - `message.forward.get`
+  - `message.forward.send`
+  - `message.read.mark`
+  - `friend.request.handle`
+  - `friend.list`
+  - `friend.remark.set`
+  - `user.info.get`
+  - `user.like.send`
+  - `group.list`
+  - `group.info.get`
+  - `group.member.get`
+  - `group.member.list`
+  - `group.request.handle`
+  - `group.leave`
+  - `group.admin.set`
+  - `group.ban.set`
+  - `group.card.set`
+  - `group.title.set`
+  - `group.name.set`
+  - `group.announcement.list`
+  - `group.announcement.create`
+  - `group.announcement.delete`
+  - `group.essence.list`
+  - `group.essence.set`
+  - `group.essence.unset`
+  - `group.honor.get`
+  - `group.todo.set`
+  - `file.get`
+  - `file.download`
+  - `file.group.upload`
+  - `file.private.upload`
+  - `file.group.url.get`
+  - `file.private.url.get`
+  - `file.group.fs.info`
+  - `file.group.fs.list`
+  - `file.group.fs.mkdir`
+  - `file.group.fs.delete`
+  - `reaction.set`
+  - `reaction.list`
+  - `poke.send`
+- Provider extension actions:
+  - `provider.napcat.*`
+  - `provider.luckylillia.*`
 
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
 
@@ -61,6 +108,22 @@
 - `at_all`
 - `face`
 - `reply`
+- `record`
+- `video`
+- `file`
+- `json`
+- `xml`
+- `markdown`
+- `music`
+- `contact`
+- `forward`
+- `node`
+- `poke`
+- `dice`
+- `rps`
+- `mface`
+- `keyboard`
+- `shake`
 
 平台负责把 shared `message.segments` 投影到当前适配器支持的消息格式。
 

@@ -22,6 +22,12 @@
 
 v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行时、管理面、渲染服务、恢复与发布基线。v0.2 以这些既有能力为前提，直接进入补齐、扩展与收口。
 
+当前已完成：
+
+- Pre-Phase 已收口
+- Phase 1 Batch A = OneBot 主链已完成
+- Phase 2 Batch A = OneBot 主链已完成
+
 ### 本轮明确纳入
 
 - 在线模板编辑器
@@ -59,18 +65,23 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 二、Pre-Phase — 范围重置与前置承接 🟡
+## 二、Pre-Phase — 范围重置与前置承接（已收口）
 
 | 任务项 | 状态 | 说明 |
 | --- | --- | --- |
-| v0.2 文档主入口收口 | 🟡 | `docs/execution-plan-v0.2.md` 作为当前执行计划，`docs/execution-plan.md` 作为 v0.1 基线参考 |
-| v0.1 基线承接 | 🟡 | 单实例、基础 OneBot11 reverse WebSocket、插件运行时、管理面、渲染与恢复链路作为本轮前提 |
-| v0.2 范围冻结 | 🟡 | 在线模板编辑器、可视化、更宽 action family、OneBot11 全传输模式、NapCat 与幸运莉莉娅扩展兼容纳入本轮 |
-| 延后边界冻结 | 🟡 | 插件市场、强沙盒、插件间依赖、自动覆盖更新、非 OneBot 生态多协议继续后置 |
+| v0.2 文档主入口收口 | 已完成 | `docs/execution-plan-v0.2.md` 作为当前执行计划，`docs/execution-plan.md` 作为 v0.1 基线参考 |
+| v0.1 基线承接 | 已完成 | 单实例、基础 OneBot11 reverse WebSocket、插件运行时、管理面、渲染与恢复链路作为本轮前提 |
+| v0.2 范围冻结 | 已完成 | 在线模板编辑器、可视化、更宽 action family、OneBot11 全传输模式、NapCat 与幸运莉莉娅扩展兼容纳入本轮 |
+| 延后边界冻结 | 已完成 | 插件市场、强沙盒、插件间依赖、自动覆盖更新、非 OneBot 生态多协议继续后置 |
 
 ---
 
-## 三、Phase 1 — Contract / Schema 冻结 ⚠️
+## 三、Phase 1 — Contract / Schema 冻结
+
+### 当前批次
+
+- Batch A = OneBot 主链已完成
+- 后续批次继续覆盖模板编辑器、治理读取面、manifest 元数据与其余 v0.2 surface
 
 ### 本轮必需冻结的正式边界
 
@@ -106,7 +117,13 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 四、Phase 2 — Fixtures / Examples / SDK 🟡
+## 四、Phase 2 — Fixtures / Examples / SDK
+
+### 当前批次
+
+- Batch A = OneBot 主链已完成
+- 当前已补齐 protocol snapshot、compatibility matrix、widened actions、provider namespace、SDK helper 与管理面 companion updates
+- 后续批次继续覆盖模板编辑器、治理与 manifest 相关 examples / SDK / docs
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |

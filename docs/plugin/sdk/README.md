@@ -14,6 +14,9 @@
 - 事件接收与结果回传
 - 消息能力：`sendMessage` / `sendReply` 与 Python 对应 helper
 - 本地 action helper：日志、KV、文件、HTTP、配置、调度、Webhook、渲染
+- OneBot family helper：history、group manage、file、reaction / poke
+- provider helper：`provider.napcat.*` 与 `provider.luckylillia.*`
+- 扩展消息段 helper：`markdown`、`file`、`keyboard` 与通用 passthrough segment builder
 
 ## 相关文档
 
