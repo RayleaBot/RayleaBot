@@ -1,10 +1,10 @@
 # RayleaBot v0.2 执行计划
 
-> 本文档根据 `docs/RayleaBot机器人项目规划.md`、`docs/execution-plan.md`、`docs/engineering/implementation-order.md` 与 `docs/` 各专题正式边界整理。
+> `docs/execution-plan-v0.2.md` 作为当前最新执行计划使用。  
+> `docs/execution-plan.md` 保留 v0.1 已完成基线与历史对照。  
+> 本文档只记录 v0.2 仍需执行的内容，不重复展开 v0.1 已完成项。
 >
-> 本文档作为 RayleaBot v0.2 的总纲，采用“差距计划”口径：以 v0.1 已形成的正式基线为起点，收敛 v0.2 需要补强的能力、门禁与排除项。
->
-> 状态图例：✅ 已具备前置基础 · 🟡 v0.2 主线补强 · ❌ 不纳入本轮 · ⚠️ 需先 contract-first
+> 状态图例：`⚠️ 需先 contract-first` · `🟡 v0.2 本轮实施` · `❌ 延后到 v0.3+`
 
 ---
 
@@ -12,298 +12,270 @@
 
 ### v0.2 主线目标
 
-- 完善插件生命周期状态同步，收敛运行时状态、后台任务、恢复摘要和管理面显示之间的关系。
-- 完善配置迁移、保存影响分类和局部热更新边界，统一 `migrate`、Web 配置页、恢复流程和 Launcher 提示口径。
-- 增加更多诊断与调试能力，让 Web、CLI、Launcher 和诊断导出复用同一份问题摘要。
-- 提供基于现有内置模板和受控输入的实时预览能力，并补齐更完整的管理体验。
+- 补齐 OneBot11 完整可用面，覆盖 reverse WebSocket、forward WebSocket、HTTP 调用与 webhook 上报。
+- 补齐 OneBot11 核心能力与 NapCat、幸运莉莉娅扩展兼容矩阵。
+- 扩展插件协议与 SDK，使更宽 `action family` 与更宽消息段进入正式主链。
+- 增加在线模板编辑器、模板可视化预览与更强管理面可视化能力。
+- 继续完成生命周期状态同步、配置迁移、局部热更新、诊断与恢复闭环。
 
-### 当前差距判断
+### 前置承接
 
-- v0.1 的 contracts、fixtures、Server、Web、Launcher、Render、Release 基线已形成，v0.2 不重新开启第二条产品主线。
-- v0.2 的重点不在新增平台级大能力，而在既有正式能力之间的状态收敛、运维补强和管理体验补强。
-- 所有新增正式 surface 继续遵守 contract-first 与 companion updates 四件套，不在文档中预写未冻结字段名。
-- `docs/engineering/tech-stack-evaluation.md` 中的补充技术保持条件触发评估，不作为 v0.2 默认交付内容。
+v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行时、管理面、渲染服务、恢复与发布基线。v0.2 以这些既有能力为前提，直接进入补齐、扩展与收口。
 
-### 本轮可能触及的正式边界
+### 本轮明确纳入
 
-| 正式边界 | v0.2 关注点 |
-| --- | --- |
-| `contracts/web-api.openapi.yaml` | 管理面增量入口、读取面和任务结果形状补强 |
-| `contracts/websocket-events.yaml` | 管理面实时事件、调试事件和状态投影补强 |
-| `contracts/plugin-info.schema.json` | manifest 元数据、升级与授权相关边界补强 |
-| `contracts/plugin-protocol.schema.json` | 生命周期、调试读取面和 SDK 对齐补强 |
-| `contracts/config.user.schema.json` | 配置迁移、保存影响分类和热更新相关边界补强 |
-| `contracts/error-codes.yaml` | 诊断、恢复、迁移和预览相关错误摘要补强 |
-| `contracts/release-manifest.schema.json` | 自托管交付矩阵、发布元数据和回归门禁补强 |
+- 在线模板编辑器
+- 更强的可视化管理与编辑体验
+- 更宽 `action family`
+- OneBot11 剩余兼容面
+- OneBot11 正向 WebSocket、HTTP、Webhook
+- NapCat 扩展兼容
+- 幸运莉莉娅扩展兼容
+- 文档中已写明、但尚未进入当前 v0.2 主线的用户侧关键能力
 
-### 总览表
+### 本轮明确延后
 
-| 阶段 | 名称 | 状态 | 当前差距摘要 |
-|------|------|------|--------------|
-| Pre-Phase | Foundation / v0.2 范围冻结与基线承接 | ✅ | v0.1 已形成正式基线，v0.2 只围绕管理与运行时完善，不重新开启多协议、多实例、插件市场、强沙盒和自动覆盖更新主线 |
-| Phase 1 | Contract / Schema 补充 | ⚠️ | 生命周期状态同步、配置迁移/保存影响说明、诊断读取面和实时预览管理面补强都必须先冻结正式边界 |
-| Phase 2 | Fixtures / Examples / Golden 扩充 | 🟡 | 所有新增 surface 需同步补 fixtures、examples、SDK 示例与 CI 校验，不新开平行示例体系 |
-| Phase 3 | Runtime / 生命周期状态收敛 | 🟡 | 当前已有插件运行时、后台任务和恢复摘要；v0.2 继续收敛 `registration_state`、`desired_state`、`runtime_state`、`display_state` 与任务结果之间的一致性 |
-| Phase 4 | Adapter / Event Debug 补强 | 🟡 | 当前已具备 OneBot11 主链；v0.2 聚焦未知事件、未支持消息段、链路失败和调试可读性，不扩到多协议 |
-| Phase 5 | Plugin Platform / SDK / Upgrade Flow 完善 | 🟡 | 当前插件平台已可用；v0.2 聚焦升级、重授权、SDK helper 对齐和 manifest 可读性补强 |
-| Phase 6 | Config Migration / Hot Reload / Storage 运维完善 | 🟡 | 当前配置读写、热更新和迁移主路径已存在；v0.2 聚焦迁移口径、保存影响分类和运维一致性 |
-| Phase 7 | Diagnostics / Recovery / Runtime Ops 完善 | 🟡 | 当前已具备 `doctor`、`/readyz`、诊断导出、恢复摘要和运行环境准备入口；v0.2 聚焦统一问题口径和调试读取面 |
-| Phase 8 | Web API / Web UI 管理体验增强 | 🟡 | 当前管理面已覆盖主流程；v0.2 聚焦更完整管理体验与连续预览，不扩展到在线模板编辑器 |
-| Phase 9 | Launcher / 本地运维入口增强 | 🟡 | 当前 Launcher 已形成本地服务壳；v0.2 聚焦与 Web/CLI 协同、诊断一致性和动作深链补强 |
-| Phase 10 | Release / Deployment / Quality Gates 补强 | 🟡 | 当前交付矩阵和回归工作流已存在；v0.2 聚焦自托管交付、发布门禁和长期巡检补强 |
+- 插件市场与远程分发平台
+- 强沙盒与更强资源隔离
+- 插件间依赖解析
+- 自动覆盖更新
+- 非 OneBot 生态的多协议扩展
 
-### 判定口径
+### 总阶段表
 
-- “已具备前置基础”只用于当前 docs 已明确写明、可直接作为 v0.2 前提承接的内容。
-- “v0.2 主线补强”用于当前已有正式主链，但仍需在 v0.2 内补足状态收敛、诊断、管理体验或交付门禁的内容。
-- “需先 contract-first”用于会改变正式 surface、任务结果形状、状态语义、错误摘要或管理读取面的内容。
-- “不纳入本轮”用于已在长期路线图中存在，但不属于 v0.2 主线的内容。
+| 阶段 | 名称 | 状态 | 当前目标 |
+| --- | --- | --- | --- |
+| Pre-Phase | 范围重置与前置承接 | 🟡 | 把 v0.2 收口为当前执行计划，统一纳入 OneBot11 完整能力、模板编辑器、可视化与更宽插件协议 |
+| Phase 1 | Contract / Schema 冻结 | ⚠️ | 冻结 transport、兼容矩阵、模板编辑器、wider actions、治理读取面与发布边界 |
+| Phase 2 | Fixtures / Examples / SDK | 🟡 | 新增 transport、event、segment、action、template 与 provider extension 样例、示例与 SDK 对齐 |
+| Phase 3 | OneBot11 传输模式补齐 | 🟡 | 完成 reverse WS、forward WS、HTTP、webhook 四条接入链路的正式主链 |
+| Phase 4 | OneBot11 事件与消息兼容补齐 | 🟡 | 完成核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵 |
+| Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
+| Phase 6 | 在线模板编辑器 / Render 可视化 | 🟡 | 提供模板编辑、校验、预览、保存、回退与渲染结果可视化 |
+| Phase 7 | Plugin Platform / Manifest / Config / Governance | 🟡 | 完成生命周期状态同步、配置迁移、manifest 元数据与治理读取面收口 |
+| Phase 8 | Diagnostics / Web API / Web UI | 🟡 | 完成协议中心、兼容矩阵、模板编辑、诊断与管理联动可视化 |
+| Phase 9 | Launcher / 本地运维入口 | 🟡 | 保持本地服务壳定位，补齐启动、诊断、深链与打开 Web 入口 |
+| Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
 
 ---
 
-## 二、Pre-Phase / Foundation — v0.2 范围冻结与基线承接 ✅
+## 二、Pre-Phase — 范围重置与前置承接 🟡
 
 | 任务项 | 状态 | 说明 |
-|--------|------|------|
-| v0.1 正式基线承接 | ✅ | 以 `docs/execution-plan.md`、`contracts/`、`docs/engineering/baseline.md` 和现有专题文档作为 v0.2 的唯一前置基础 |
-| 目录职责与默认命令承接 | ✅ | Server、Web、Launcher、`contracts/`、`fixtures/`、`examples/`、`.deps/` 与默认验证命令继续沿用现有工程基线 |
-| 管理与运行时完善主线冻结 | ✅ | v0.2 聚焦生命周期状态同步、配置迁移与局部热更新、诊断与调试能力、模板实时预览和更完整管理体验 |
-| 条件触发型技术补充 | ✅ | `docs/engineering/tech-stack-evaluation.md` 中的数据获取层、表单校验增强和 Launcher IPC 类型收敛继续按触发条件评估，不作为本轮默认交付 |
-| 多协议 / 多实例 / 插件市场 / 强沙盒 / 自动覆盖更新 | ❌ | 不重新开启 v0.1 已排除的长期主线，不把 v0.3 / v0.4 的能力提前写入本轮范围 |
+| --- | --- | --- |
+| v0.2 文档主入口收口 | 🟡 | `docs/execution-plan-v0.2.md` 作为当前执行计划，`docs/execution-plan.md` 作为 v0.1 基线参考 |
+| v0.1 基线承接 | 🟡 | 单实例、基础 OneBot11 reverse WebSocket、插件运行时、管理面、渲染与恢复链路作为本轮前提 |
+| v0.2 范围冻结 | 🟡 | 在线模板编辑器、可视化、更宽 action family、OneBot11 全传输模式、NapCat 与幸运莉莉娅扩展兼容纳入本轮 |
+| 延后边界冻结 | 🟡 | 插件市场、强沙盒、插件间依赖、自动覆盖更新、非 OneBot 生态多协议继续后置 |
 
 ---
 
-## 三、Phase 1 — Contract / Schema 补充 ⚠️
+## 三、Phase 1 — Contract / Schema 冻结 ⚠️
 
-### 本轮需要先冻结的正式边界
+### 本轮必需冻结的正式边界
+
+| 正式边界 | 状态 | 本轮冻结方向 |
+| --- | --- | --- |
+| `contracts/web-api.openapi.yaml` | ⚠️ | OneBot transport 配置与状态读取面、模板编辑器读取 / 保存 / 校验 / 预览、兼容矩阵读取面、治理读取面 |
+| `contracts/websocket-events.yaml` | ⚠️ | 协议状态、兼容结果、模板预览与编辑结果的实时更新事件 |
+| `contracts/plugin-info.schema.json` | ⚠️ | `default_config`、`concurrency`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` |
+| `contracts/plugin-protocol.schema.json` | ⚠️ | 更宽 `action` 集合、更宽消息段集合、必要的结构化结果与错误返回 |
+| `contracts/config.user.schema.json` | ⚠️ | OneBot 多 transport 配置模型、模板编辑与渲染相关受控配置、治理可见配置补充 |
+| `contracts/error-codes.yaml` | ⚠️ | transport、兼容、模板编辑、wider action、provider extension 相关错误摘要 |
+| `contracts/release-manifest.schema.json` | ⚠️ | transport / compatibility / template editor / wider actions 所需版本与回归声明 |
+
+### 本轮 contract 冻结清单
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 生命周期状态同步 surface | ⚠️ | 先收敛插件 `registration_state`、`desired_state`、`runtime_state`、`display_state`、后台任务和恢复摘要之间的正式投影关系 |
-| 配置迁移与保存影响说明 | ⚠️ | 先冻结配置迁移、保存后即时生效 / 局部重载 / 需要重启三类影响的正式读取面和结果摘要口径 |
-| 诊断与调试读取面 | ⚠️ | 先冻结 `doctor`、`/readyz`、诊断导出、恢复摘要、插件 console、最近失败任务和问题摘要之间的正式读取边界 |
-| 实时预览管理面补充 | ⚠️ | 先冻结基于现有内置模板和受控 JSON 输入的连续预览能力，不把在线模板编辑器写入正式范围 |
-| Manifest / Upgrade 可读性补强 | ⚠️ | 先冻结插件升级、权限重确认、来源与信任标识、命令冲突提示等正式裁决边界 |
+| --- | --- | --- |
+| OneBot11 传输模式 | ⚠️ | reverse WebSocket、forward WebSocket、HTTP 调用、webhook 上报，以及幸运莉莉娅 HTTP / SSE 接收兼容说明 |
+| OneBot11 兼容矩阵 | ⚠️ | 核心事件、消息段、动作族、历史消息、消息详情、转发消息、文件与 provider 扩展矩阵 |
+| Plugin Protocol 扩展 | ⚠️ | 更宽 `action family`、更宽消息段、必要的结果数据与结构化错误 |
+| 在线模板编辑器 | ⚠️ | 模板列表、详情、源码编辑、schema 校验、实时预览、保存、历史版本与回退 |
+| 治理与配置读取面 | ⚠️ | blacklist、cooldown、command permission 剩余读取面，以及生命周期状态同步、配置迁移、局部热更新相关读取面 |
 
-### 本轮不纳入的边界
+### 本轮排除项
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 多协议 / 多 bot / 多实例 | ❌ | 保持在 v0.2 范围之外，不在正式 contract 中预留并行主链 |
-| 更宽 action family / 复杂流式协议 | ❌ | 插件协议继续只覆盖当前已冻结 action 集合和既有消息类型 |
-| 在线模板编辑器 / 用户模板发布 | ❌ | 渲染侧继续围绕平台内置模板、受控输入和管理侧预览，不扩展到新模板工作流 |
+| --- | --- | --- |
+| 插件市场与远程分发平台 | ❌ | 保持在 v0.3+ |
+| 强沙盒与更强资源隔离 | ❌ | 保持在 v0.3+ |
+| 插件间依赖解析 | ❌ | 保持在 v0.3+ |
+| 自动覆盖更新 | ❌ | 保持在 v0.3+ |
+| 非 OneBot 生态多协议扩展 | ❌ | Satori、Milky 等协议不进入 v0.2 |
 
 ---
 
-## 四、Phase 2 — Fixtures / Examples / Golden 扩充 🟡
+## 四、Phase 2 — Fixtures / Examples / SDK 🟡
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 新增 contract companion updates | 🟡 | 所有新增正式 surface 同轮补齐 contract、fixtures、examples、tests 和 docs，不留“之后再补”路径 |
-| Fixtures 最小覆盖扩充 | 🟡 | 生命周期状态同步、配置迁移、诊断摘要、连续预览和恢复/运行环境操作新增 `ok` / `invalid` / `edge` 样例 |
-| Examples 继续复用现有体系 | 🟡 | 示例插件优先在现有 `examples/plugins/` 基础上补强，不新开平行目录与第二套示例语义 |
-| SDK 示例与示例插件对齐 | 🟡 | Python / Node.js SDK 示例继续跟随新增读取面和正式 helper，同步反映升级与授权边界 |
-| CI fixture / frozen set 校验补位 | 🟡 | `contracts.yml` 继续承接新增 schema、OpenAPI、WebSocket event set 和示例覆盖校验 |
+| --- | --- | --- |
+| transport / event / action fixtures | 🟡 | 新增 transport、event、segment、action、template 与治理 surface 的 `ok` / `invalid` / `edge` 样例 |
+| OneBot11 provider 分层样例 | 🟡 | fixtures 按标准 OneBot11、NapCat 扩展、幸运莉莉娅扩展三层组织 |
+| examples 同步补齐 | 🟡 | 优先补现有示例插件与现有 examples，不建立平行示例体系 |
+| SDK 示例与文档同步 | 🟡 | Python / Node.js SDK 示例与文档覆盖 v0.2 扩展后的 action、消息段与结果数据 |
+| Golden 回归基线 | 🟡 | transport matrix、compatibility matrix、template editor、wider action family 建立固定回归样例 |
 
 ---
 
-## 五、Phase 3 — Runtime / 生命周期状态收敛 🟡
-
-### 当前基础
-
-- v0.1 已具备 per-plugin runtime manager、后台任务模型、恢复摘要、授权时效和管理面状态投影。
-
-### v0.2 主线补强
+## 五、Phase 3 — OneBot11 传输模式补齐 🟡
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 插件显示状态收敛 | 🟡 | install、upgrade、reload、disable、crash、backoff、dead_letter、recovery 后的可见状态继续收敛到单一正式模型 |
-| 任务与生命周期联动 | 🟡 | 插件相关后台任务、最终结果摘要和插件显示状态保持一致，不形成两套互相矛盾的状态语义 |
-| 恢复摘要与运行时状态联动 | 🟡 | 恢复后的跳过插件、人工处理项、确认记录和插件当前可见状态继续维持同一套解释口径 |
-| 管理面状态可读性补强 | 🟡 | Web 与 Launcher 对插件当前状态、阻塞原因和下一步动作的描述继续共用同一份正式模型 |
-| 状态历史与最近摘要边界 | 🟡 | 持续保留“当前态 + 最近摘要”模型，不额外扩展为独立长历史资源 |
-
-### 本轮不纳入
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 第二套独立状态源 | ❌ | Web、CLI、Launcher 继续复用同一套状态名和任务模型 |
-| 插件间依赖状态编排 | ❌ | 插件间依赖解析和级联状态编排继续保留给后续阶段 |
+| --- | --- | --- |
+| reverse WebSocket 收口 | 🟡 | 保留既有主链，并统一鉴权、ready、degraded、reconnect 与错误摘要 |
+| forward WebSocket | 🟡 | 纳入正式主链，管理面与诊断面展示连接状态与失败原因 |
+| HTTP API 调用 | 🟡 | 纳入 OneBot11 HTTP 调用主链，与 WS 模式共享鉴权、错误与状态语义 |
+| webhook 事件上报 | 🟡 | 纳入正式接入模式，与 transport 状态和调试面统一 |
+| 幸运莉莉娅 HTTP / SSE 兼容 | 🟡 | 作为 provider-specific 兼容矩阵中的正式条目处理 |
+| 单实例约束 | 🟡 | 保持单实例、单活跃 OneBot 连接模型，不引入多 bot / 多实例并行管理 |
 
 ---
 
-## 六、Phase 4 — Adapter / Event Debug 补强 🟡
+## 六、Phase 4 — OneBot11 事件与消息兼容补齐 🟡
 
-### 当前基础
-
-- v0.1 已具备 OneBot11 reverse WebSocket 主链、ready gating、重连 backoff、心跳超时和最小事件归一化。
-
-### v0.2 主线补强
+### 核心事件兼容
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 未知事件与未支持消息段观测 | 🟡 | 将未知事件类型、未支持消息段和链路异常收敛到统一调试摘要与诊断面 |
-| 链路失败可读性补强 | 🟡 | 鉴权失败、持续重连、ready 未达成、链路中断等问题继续提升管理面和诊断面的可读提示 |
-| 调试读取面补充 | 🟡 | Web、CLI、Launcher 和诊断导出继续共用同一套 adapter 问题摘要，而不是各自解释连接状态 |
-| 管理面事件可观测性补强 | 🟡 | 围绕既有管理 WebSocket 和任务流补强事件观测，不新增平行调试通道 |
+| --- | --- | --- |
+| message / notice / request / meta 完整矩阵 | 🟡 | 补齐 friend、group request、recall、admin、ban、poke、like、essence、upload、flash file 等事件 |
+| 历史与详情读取 | 🟡 | 补齐历史消息、消息详情、转发消息详情、文件详情等读取面 |
+| provider 扩展事件 | 🟡 | NapCat 与幸运莉莉娅已公开的 OneBot 扩展事件进入兼容矩阵 |
+| 不兼容项明示 | 🟡 | 以 provider 级兼容矩阵记录缺口，避免模糊 TODO 口径 |
 
-### 本轮不纳入
+### 消息段兼容矩阵
 
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 多协议接入 | ❌ | v0.2 不扩展到 OneBot11 之外的协议栈 |
-| 更宽平台动作族 | ❌ | 继续保持当前正式动作集合，不把 richer action 族写入本轮默认范围 |
+| 类型组 | 状态 | 范围 |
+| --- | --- | --- |
+| 基础消息段 | 🟡 | `text`、`image`、`at`、`reply`、`face` |
+| 媒体与文件 | 🟡 | `record`、`video`、`file`、`flash file` |
+| 富文本与卡片 | 🟡 | `json`、`xml`、`markdown`、`music`、`contact` |
+| 组合与转发 | 🟡 | `forward`、`node` |
+| 互动消息段 | 🟡 | `poke`、`dice`、`rps`、reaction / emoji-like |
+| provider 扩展消息段 | 🟡 | `mface`、`keyboard`、`shake` 及 NapCat / 幸运莉莉娅已公开段类型 |
+
+### 本轮要求
+
+- 未支持消息段统计从“调试摘要”升级为“兼容补齐清单”。
+- 管理面需能展示当前 provider、当前 transport 与当前能力覆盖情况。
 
 ---
 
-## 七、Phase 5 — Plugin Platform / SDK / Upgrade Flow 完善 🟡
+## 七、Phase 5 — Plugin Protocol / Wider Action Family 🟡
 
-### 当前基础
+| 动作家族 | 状态 | 本轮目标 |
+| --- | --- | --- |
+| message / media send family | 🟡 | 扩展文本、图片、语音、视频、文件、音乐卡片、转发、戳一戳等发送能力 |
+| message manage / query family | 🟡 | 补齐撤回、已读、历史消息、消息详情、转发表现与读取类能力 |
+| friend / user family | 🟡 | 补齐点赞、好友处理、备注、陌生人信息与相关扩展能力 |
+| group manage family | 🟡 | 补齐群管理、群成员、群请求、公告、禁言、头衔、卡片等能力 |
+| announcement / essence / honor family | 🟡 | 补齐精华、荣誉、公告、待办等群扩展能力 |
+| file transfer / file system family | 🟡 | 补齐上传、下载、目录、转永久、闪传与在线文件相关能力 |
+| reaction / poke / read-state family | 🟡 | 补齐表情回应、戳一戳、已读状态与相关互动能力 |
+| provider-specific extension family | 🟡 | 纳入 NapCat 与幸运莉莉娅已公开且用户侧价值明确的 OneBot 扩展能力 |
 
-- v0.1 已具备 manifest、capability grant、升级时重确认边界、Python / Node.js SDK 和示例插件主链。
+### 本轮要求
 
-### v0.2 主线补强
+- plugin protocol、SDK、fixtures、examples、权限模型与错误码同步更新。
+- 继续保持 Python / Node.js 作为正式托管运行时。
+
+### 本轮排除项
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 插件升级与权限重确认补强 | 🟡 | 继续收敛升级、重载、恢复后重启和新增高敏权限时的正式处理路径 |
-| Manifest 元数据可读性补强 | 🟡 | 继续增强来源、信任、角色、命令冲突和升级判断所需的正式可见信息 |
-| SDK helper 覆盖与读取面对齐 | 🟡 | Python / Node.js SDK 继续只覆盖已冻结协议和 action，同时补齐 v0.2 新增的正式读取面和示例 |
-| 示例插件补强 | 🟡 | 通过现有示例插件演示升级、配置迁移、诊断读取和预览消费等正式能力 |
-| 授权与作用域提示补强 | 🟡 | grant 时效、作用域约束和待确认状态继续向 Web、Launcher 和诊断面输出一致的结果摘要 |
-
-### 本轮不纳入
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 插件间依赖解析 | ❌ | 继续留给 v0.3 生态基础设施阶段 |
-| 额外托管运行时语言 | ❌ | v0.2 继续只覆盖 Python 与 Node.js |
-| 复杂流式协议与额外调试流 | ❌ | 保持在 plugin protocol 当前正式边界之外 |
+| --- | --- | --- |
+| 复杂流式协议 | ❌ | 流式回传与独立调试流不进入 v0.2 |
+| 插件间依赖 | ❌ | 保持在 v0.3+ |
+| 额外托管运行时语言 | ❌ | Go / Rust 官方托管运行时不进入本轮 |
 
 ---
 
-## 八、Phase 6 — Config Migration / Hot Reload / Storage 运维完善 🟡
-
-### 当前基础
-
-- v0.1 已具备 canonical config、`default.yaml -> user.yaml` 覆盖语义、字段级热更新、`restart_required` 判定和显式迁移入口。
-
-### v0.2 主线补强
+## 八、Phase 6 — 在线模板编辑器 / Render 可视化 🟡
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 配置迁移口径收敛 | 🟡 | `migrate`、恢复路径、Web 配置页和 Launcher 提示继续围绕同一套迁移结果和兼容说明 |
-| 保存影响分类统一 | 🟡 | 即时生效、局部重载 / 重连、需要重启三类影响继续收敛为统一判断模型和用户提示 |
-| 局部热更新边界补强 | 🟡 | 继续补足会触发局部重连、重建或调度调整的配置项，而不是用笼统重启掩盖真实影响 |
-| 存储与运维一致性补强 | 🟡 | 配置、迁移、恢复、状态库和目录职责继续围绕单一运行根目录模型解释 |
-| Canonical 输出与用户可见性 | 🟡 | 保存后的配置结果、被忽略项、需重启项和兼容输入继续保持明确可读 |
+| --- | --- | --- |
+| 模板列表与详情 | 🟡 | 管理面提供模板列表、模板详情、当前版本与使用范围读取面 |
+| 源码编辑 | 🟡 | 浏览器内编辑模板源码与受控 schema |
+| schema 校验 | 🟡 | 保存前与预览前都可执行结构校验 |
+| 实时预览 | 🟡 | 基于当前模板与输入数据进行连续预览 |
+| 保存与版本回退 | 🟡 | 提供保存、历史版本查看与回退能力 |
+| 输入结构可视化 | 🟡 | 展示模板输入结构、字段说明与校验结果 |
+| 渲染结果可视化 | 🟡 | 展示 artifact、缓存命中、失败定位与任务结果 |
+| 错误定位可视化 | 🟡 | 将模板错误、资源错误、渲染错误以可读方式展示在管理面 |
 
-### 本轮不纳入
+### 本轮排除项
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 平行配置模型 | ❌ | 不为 CLI、Launcher 或部署方式建立第二套配置真相 |
-| 用户直接编辑内部状态文件 | ❌ | `cache/`、`.deps/`、状态库文件继续不作为常规人工编辑对象 |
+| --- | --- | --- |
+| 拖拽式模板搭建器 | ❌ | 不进入本轮 |
+| 模板市场与远程发布 | ❌ | 不进入本轮 |
 
 ---
 
-## 九、Phase 7 — Diagnostics / Recovery / Runtime Ops 完善 🟡
-
-### 当前基础
-
-- v0.1 已具备 `doctor`、`/readyz`、诊断导出、恢复摘要、`runtime.bootstrap`、`recovery.recheck`、`recovery.confirm` 与插件 console。
-
-### v0.2 主线补强
+## 九、Phase 7 — Plugin Platform / Manifest / Config / Governance 🟡
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 统一问题摘要口径 | 🟡 | Web、CLI、Launcher、诊断导出和日志继续共享同一份 `code`、`severity`、`summary`、`remediation` |
-| 调试读取面补强 | 🟡 | `doctor`、`/readyz`、诊断导出、恢复摘要、插件 console、最近失败任务之间继续提升可交叉排障性 |
-| 恢复与运行环境运维闭环 | 🟡 | 恢复再检查、人工确认和运行环境准备继续作为同一条正式运维链路维护 |
-| 最近失败任务与异常摘要 | 🟡 | 继续提升后台任务失败、渲染失败、链路失败与恢复异常的结构化摘要可见性 |
-| 诊断导出内容补强 | 🟡 | 继续扩充对配置摘要、关键目录、资源问题、插件状态和恢复建议的统一表达 |
+| --- | --- | --- |
+| 生命周期状态同步 | 🟡 | 继续收敛 `registration_state`、`desired_state`、`runtime_state`、`display_state` 与任务、恢复摘要之间的一致性 |
+| 配置迁移 | 🟡 | 继续完成迁移结果、保存影响分类、局部热更新与需要重启语义 |
+| manifest 元数据补齐 | 🟡 | 补齐 `icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` |
+| `default_config` / `concurrency` 正式化 | 🟡 | 将当前文档与实现已涉及、但 contract 尚未完全收口的字段纳入正式边界 |
+| blacklist / cooldown / command permission 可见性 | 🟡 | 补齐治理读取面、管理面展示、配置可见性与诊断可见性 |
+| 插件升级与重确认 | 🟡 | 保留现有升级、重确认、恢复后重启与权限扩张裁决主线，并补齐 v0.2 新边界 |
 
-### 本轮不纳入
+### 本轮说明
 
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 独立长历史恢复资源 | ❌ | 恢复摘要继续维持当前正式窗口，不额外建立第二套长历史模型 |
-| 恢复确认撤销入口 | ❌ | 当前正式模型继续不提供确认撤销路径 |
+- blacklist、cooldown、聊天权限的运行内核已存在，本轮聚焦正式边界、管理可见性与验收收口。
 
 ---
 
-## 十、Phase 8 — Web API / Web UI 管理体验增强 🟡
-
-### 当前基础
-
-- v0.1 已具备系统状态、插件、任务、日志、配置、恢复、预览、备份、诊断导出与管理 WebSocket 主流程。
-
-### v0.2 主线补强
+## 十、Phase 8 — Diagnostics / Web API / Web UI 🟡
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 插件详情与状态钻取补强 | 🟡 | 插件详情页继续增强生命周期、来源、信任、冲突、授权和异常读取面的可读性 |
-| 任务与日志钻取补强 | 🟡 | 继续补强任务详情、最近失败任务、关联问题摘要和日志查询之间的协同体验 |
-| 恢复处理入口补强 | 🟡 | 状态页、任务页和插件页继续围绕恢复摘要、再检查、确认和运行环境准备提供一致操作入口 |
-| 配置保存反馈补强 | 🟡 | 配置页继续围绕即时生效、局部重载、需要重启和迁移提示提供单一用户反馈模型 |
-| 实时预览能力补强 | 🟡 | 在既有内置模板、受控 JSON 输入和 artifact 读取主链上补强连续预览、失败反馈和缓存命中可读性 |
-
-### 本轮不纳入
-
-| 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 在线模板编辑器 | ❌ | 不在管理面中引入模板编辑、用户模板发布或独立模板工作流 |
-| 用户自定义模板市场 | ❌ | 模板侧继续围绕平台内置模板与正式 artifact 读取面 |
+| --- | --- | --- |
+| 协议 transport 可视化 | 🟡 | 展示当前连接模式、当前 provider、当前状态、失败原因与调试摘要 |
+| OneBot 兼容矩阵可视化 | 🟡 | 展示当前能力覆盖、未覆盖项与 provider 差异 |
+| 模板编辑与预览界面 | 🟡 | 把模板编辑器与 artifact、任务、日志联动到同一管理流 |
+| 协议中心增强 | 🟡 | 从 OneBot 连接设置与日志入口扩展为 OneBot 连接模式与兼容状态总入口 |
+| 任务 / 日志 / 协议 / 插件联动钻取 | 🟡 | 提供从命令、插件、协议、日志、任务之间的联动查看路径 |
+| 诊断与恢复增强 | 🟡 | 继续补齐 `doctor`、`/readyz`、诊断导出、恢复摘要、协议日志与插件 console 的统一口径 |
 
 ---
 
-## 十一、Phase 9 — Launcher / 本地运维入口增强 🟡
-
-### 当前基础
-
-- v0.1 已具备本地服务壳、环境检查、打开 Web、恢复/运行环境动作深链、设置模型与版本提示。
-
-### v0.2 主线补强
+## 十一、Phase 9 — Launcher / 本地运维入口 🟡
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 与 Web / CLI 的职责协同补强 | 🟡 | Launcher 继续作为本地服务壳与 Web 入口，不把常规在线管理逻辑复制到桌面壳中 |
-| 恢复与运行环境动作深链补强 | 🟡 | 继续增强恢复摘要、本地诊断、再检查、运行环境准备和打开对应管理页之间的协同路径 |
-| 错误提示与诊断一致性 | 🟡 | 启动失败、现有服务、自动登录失败、资源缺失和恢复问题继续复用统一问题摘要 |
-| 设置模型与可见性补强 | 🟡 | 安装根目录派生设置模型、路径覆盖、关闭语义和本机排障入口继续提升可读性 |
-| 桌面界面约束保持一致 | 🟡 | 继续服从 `docs/design/launcher-design-system.md` 与 `docs/dev/electron-glass-ui-lessons.md` 的界面和交互约束 |
+| --- | --- | --- |
+| 启动 / 停止 / 健康检查 | 🟡 | 继续承担本地服务壳职责 |
+| 环境检查与资源诊断 | 🟡 | 检查模板资源、协议资源、运行环境资源与关键目录状态 |
+| 打开 Web 管理面 | 🟡 | 继续作为主要桌面入口，打开 Web 主界面 |
+| Web 页面深链 | 🟡 | 支持打开协议中心、模板编辑器、任务详情等指定 Web 页面 |
+| 错误提示与恢复引导 | 🟡 | 输出本机可读错误摘要，并引导用户进入对应 Web 页面或恢复入口 |
 
-### 本轮不纳入
+### 本轮排除项
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 第二套控制面 | ❌ | Launcher 不承担独立的在线插件管理、配置编辑和状态裁决职责 |
-| 自动覆盖更新 | ❌ | 更新检查继续只负责提示，不负责自动下载和替换 |
+| --- | --- | --- |
+| 协议中心桌面版平行业务界面 | ❌ | Launcher 不复制 Web 协议中心 |
+| 模板编辑器桌面版重复实现 | ❌ | Launcher 不复制 Web 模板编辑器 |
+| 命令中心 / 插件管理 / 配置管理桌面版 | ❌ | Launcher 不复制 Web 已有业务功能 |
 
 ---
 
-## 十二、Phase 10 — Release / Deployment / Quality Gates 补强 🟡
-
-### 当前基础
-
-- v0.1 已具备正式交付矩阵、release metadata、packaged recovery drill、长期自托管 smoke 和部署文档主线。
-
-### v0.2 主线补强
+## 十二、Phase 10 — Release / Deployment / Quality Gates 🟡
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 发布元数据补强 | 🟡 | release metadata 继续围绕 artifact matrix、schema / protocol 版本、资源清单摘要和回归结果增强可核验性 |
-| 自托管交付矩阵补强 | 🟡 | 继续提升 full artifact、server artifact、Docker、systemd 与 LXC 的受支持说明和回归要求 |
-| 长期巡检与 packaged recovery drill 补强 | 🟡 | 发布门禁继续围绕自托管可管理性、升级 / 回滚恢复和长期巡检收敛 |
-| 发布门禁层次补强 | 🟡 | PR 轻量门禁、发布门禁与手动高成本回归继续明确分层，不把高成本检查挤进每个 PR |
-| 部署文档与正式包目录一致性 | 🟡 | 发行包目录、运行根目录、自托管路径和 release docs 继续围绕单一正式结构解释 |
+| --- | --- | --- |
+| transport matrix 门禁 | 🟡 | 建立 reverse WS、forward WS、HTTP、webhook 回归门禁 |
+| compatibility matrix 门禁 | 🟡 | 建立标准 OneBot11、NapCat、幸运莉莉娅兼容门禁 |
+| template editor 门禁 | 🟡 | 建立模板编辑、校验、预览、保存、回退回归门禁 |
+| wider action family 门禁 | 🟡 | 建立扩展 action family 的 contract、SDK、Server、Web 联合回归 |
+| self-host upgrade / rollback | 🟡 | 将 v0.2 新能力纳入打包回归、升级回滚与长期自托管验证 |
+| 发布元数据补齐 | 🟡 | release metadata 明确声明 transport、compatibility 与 plugin protocol 版本信息 |
 
-### 本轮不纳入
+### 本轮排除项
 
 | 子任务 | 状态 | 说明 |
-|--------|------|------|
-| 自动覆盖更新 | ❌ | 继续不纳入当前正式交付范围 |
-| 插件市场分发平台 | ❌ | 发布侧继续只面向 RayleaBot 正式交付产物 |
+| --- | --- | --- |
+| 自动覆盖更新 | ❌ | 保持在 v0.3+ |
 
 ---
 
@@ -318,68 +290,56 @@
 
 #### Web
 
-- `pnpm install --frozen-lockfile`
 - `pnpm test`
 - `pnpm build`
 - `pnpm test:e2e`
 
 #### Launcher
 
-- `pnpm install --frozen-lockfile`
 - `pnpm test`
 - `pnpm build`
 
-### CI 门禁目标
+### CI 分层
 
 | 层次 | 目标 | 说明 |
-|------|------|------|
-| PR 轻量门禁 | contracts、baseline、Server、Web、Launcher Linux 核心检查和轻量 smoke | 保持可合并性，不把高成本检查前移为默认阻塞 |
-| 发布门禁 | 正式产物矩阵、release metadata、checksum、packaged recovery drill、长期自托管 smoke | 负责可交付性和升级/回滚可靠性 |
-| 手动高成本回归 | Playwright 高成本场景、依赖审计、长时巡检、额外自托管验证 | 保留独立入口，不挤占默认门禁预算 |
+| --- | --- | --- |
+| PR 轻量门禁 | contracts / fixtures / SDK shape、Server / Web / Launcher 核心检查 | 保证可合并性 |
+| 发布门禁 | transport matrix、compatibility matrix、template editor、wider action family、packaged recovery、self-host smoke | 保证可交付性 |
+| 手动高成本回归 | provider extension 深回归、大样本消息段 / 文件 / 历史消息矩阵、长时间协议稳定性巡检 | 保留独立回归入口 |
 
 ### v0.2 核心验收场景
 
-| 场景 | 目标 |
-|------|------|
-| 插件生命周期状态同步 | install、upgrade、reload、disable、crash、backoff、dead_letter、recovery 后的显示状态、后台任务和恢复摘要保持一致 |
-| 配置迁移与热更新 | `migrate`、Web 配置页、恢复流程和 Launcher 提示对迁移结果、即时生效、局部重载和需要重启给出同一口径 |
-| 诊断与恢复闭环 | `doctor`、`/readyz`、诊断导出、恢复摘要、插件 console 和最近失败任务能形成统一排障链路 |
-| 模板实时预览与渲染反馈 | 连续预览、失败反馈、artifact 读取和缓存命中在管理面与任务结果中保持结构化可读 |
-| 自托管交付与升级回滚 | 正式 artifact matrix、packaged recovery drill、长期自托管 smoke 和部署文档保持一致 |
+| 场景 | 验收目标 |
+| --- | --- |
+| OneBot11 全传输模式 | reverse WS、forward WS、HTTP、webhook 四种接入路径都能建立受控链路 |
+| Provider 扩展兼容 | NapCat 与幸运莉莉娅至少形成可核验的兼容矩阵与回归样例 |
+| OneBot11 事件与消息兼容 | 剩余核心事件、消息段、历史消息、详情读取进入正式兼容矩阵与回归范围 |
+| Wider Action Family | plugin protocol、SDK、fixtures、examples、运行链路保持一致 |
+| 在线模板编辑器 | 支持编辑、校验、预览、保存和回退 |
+| 生命周期 / 配置 / 诊断 | 生命周期状态同步、配置迁移、局部热更新、诊断与恢复继续完成原 v0.2 目标 |
+| 治理读取面 | blacklist / cooldown / permission 的剩余管理可见性在 Web 管理面可验证 |
+| 管理面联动 | 协议中心、日志、任务、模板编辑器、指令中心之间的跳转与摘要口径一致 |
+| Launcher 职责 | Launcher 只验证本地壳职责、诊断深链与打开 Web，不承担 Web 业务回归 |
+| 发布与回滚 | transport、compatibility、template editor、wider action family 进入交付门禁与升级回滚回归 |
 
 ### Companion updates 原则
 
-- 任何触及协议、schema、状态、错误码、迁移、任务结果或管理读取面的改动，都必须同步更新实现、契约、测试、示例和文档。
-- v0.2 不新增第二套本地、CI 或发布验证入口，继续沿用现有默认命令和工作流分层。
-- `docs/engineering/tech-stack-evaluation.md` 的条件触发项不进入默认门禁，只有在触发条件满足并正式冻结后才进入本轮执行清单。
+- 任何涉及协议、schema、状态、配置、错误码、插件协议、模板编辑、迁移与发布边界的改动，都需要同步更新实现、契约、测试、示例与文档。
+- 默认验证命令继续沿用现有入口，不建立第二套本地、CI 或发布命令。
 
 ---
 
 ## 十四、下一轮规划
 
-### v0.2 收口结论
+### v0.2 收口后的延后能力
 
-v0.2 继续围绕“管理与运行时完善”收敛正式边界，不把后续生态和平台扩展能力提前写入当前主线。
-
-### 延后能力清单
-
-- 多协议接入
-- 多实例 / 多 bot
 - 插件市场与远程分发平台
 - 强沙盒与更强资源隔离
-- 更宽 action family
-- 在线模板编辑器
-- 自动覆盖更新
 - 插件间依赖解析
-
-### 后续版本预留方向
-
-| 版本 | 预留方向 |
-|------|----------|
-| v0.3 | 插件依赖管理、插件签名或可信来源校验、增强插件隔离策略、为插件索引和分发准备元数据规范 |
-| v0.4 | 评估插件市场或插件索引服务、评估多协议适配能力、评估更强的运行时隔离与资源控制 |
+- 自动覆盖更新
+- 非 OneBot 生态的多协议扩展
 
 ### 长期边界
 
-- v0.2 结束后，继续优先稳定统一事件模型、manifest、插件协议、能力授权、配置迁移、恢复摘要和渲染接口。
-- 后续扩展仍遵守 `contracts/` 为正式来源、companion updates 四件套和单一状态源原则。
+- v0.2 结束后，继续优先稳定 OneBot11 兼容矩阵、插件协议、manifest、能力授权、配置迁移、模板编辑与渲染接口。
+- 后续扩展继续遵守 `contracts/` 为正式来源与 companion updates 四件套。
