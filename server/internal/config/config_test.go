@@ -222,9 +222,8 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
-	document["onebot"].(map[string]any)["ws_url"] = ""
-	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["url"] = ""
-	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["enabled"] = false
+	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["url"] = ""
+	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["enabled"] = false
 	delete(document["onebot"].(map[string]any), "access_token")
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
@@ -239,8 +238,8 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if got := nestedString(t, saved, "onebot", "reverse_ws", "url"); got != "" {
-		t.Fatalf("saved onebot.reverse_ws.url = %q, want empty", got)
+	if got := nestedString(t, saved, "onebot", "forward_ws", "url"); got != "" {
+		t.Fatalf("saved onebot.forward_ws.url = %q, want empty", got)
 	}
 }
 
@@ -251,8 +250,6 @@ func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
 	document["onebot"].(map[string]any)["ws_url"] = "ws:127.0.0.1:2658"
-	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["url"] = "ws:127.0.0.1:2658"
-	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["enabled"] = true
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
 	if err != nil {
@@ -266,8 +263,8 @@ func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if got := nestedString(t, saved, "onebot", "reverse_ws", "url"); got != "ws://127.0.0.1:2658" {
-		t.Fatalf("saved onebot.reverse_ws.url = %q, want ws://127.0.0.1:2658", got)
+	if got := nestedString(t, saved, "onebot", "forward_ws", "url"); got != "ws://127.0.0.1:2658" {
+		t.Fatalf("saved onebot.forward_ws.url = %q, want ws://127.0.0.1:2658", got)
 	}
 }
 
@@ -372,7 +369,6 @@ func newPlanningConfigDocument() map[string]any {
 		},
 		"onebot": map[string]any{
 			"provider":     "standard",
-			"ws_url":       "",
 			"access_token": "",
 			"reverse_ws": map[string]any{
 				"enabled": false,
@@ -387,10 +383,6 @@ func newPlanningConfigDocument() map[string]any {
 				"url":     "",
 			},
 			"webhook": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"sse": map[string]any{
 				"enabled": false,
 				"url":     "",
 			},

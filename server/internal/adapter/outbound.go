@@ -89,7 +89,7 @@ type apiResponse struct {
 	Status  string
 	RetCode int
 	Wording string
-	Data    map[string]any
+	Data    any
 }
 
 func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (SendMessageResult, error) {
@@ -283,10 +283,6 @@ func outboundSegmentString(data map[string]any, key string) (string, bool) {
 
 func (s *Shell) sendSegments(ctx context.Context, targetType, targetID string, segments []oneBotMessageSegment, replyAttempt bool) (SendMessageResult, error) {
 	echo := s.nextRequestEcho()
-	responseCh := make(chan apiResponse, 1)
-	s.registerPendingResponse(echo, responseCh)
-	defer s.dropPendingResponse(echo)
-
 	request := sendMsgRequest{
 		Action: "send_msg",
 		Params: sendMsgParams{
@@ -302,24 +298,46 @@ func (s *Shell) sendSegments(ctx context.Context, targetType, targetID string, s
 		request.Params.UserID = oneBotTargetValue(targetID)
 	}
 
-	conn, snapshot := s.currentConn()
-	if conn == nil || snapshot.State != StateConnected {
-		return SendMessageResult{}, errorf(errorCodeConnectionLost, "adapter websocket is not connected", nil)
+	conn, _, snapshot := s.currentWSConn()
+	if conn != nil && snapshot.State == StateConnected {
+		responseCh := make(chan apiResponse, 1)
+		s.registerPendingResponse(echo, responseCh)
+		defer s.dropPendingResponse(echo)
+
+		s.sendMu.Lock()
+		writeErr := wsjsonWrite(ctx, conn, request)
+		s.sendMu.Unlock()
+		if writeErr != nil {
+			return SendMessageResult{}, errorf(errorCodeSendFailed, "write send_msg request", writeErr)
+		}
+
+		select {
+		case response := <-responseCh:
+			return parseSendMessageResponse(response, replyAttempt)
+		case <-ctx.Done():
+			return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg response timed out", ctx.Err())
+		}
 	}
 
-	s.sendMu.Lock()
-	writeErr := wsjsonWrite(ctx, conn, request)
-	s.sendMu.Unlock()
-	if writeErr != nil {
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "write send_msg request", writeErr)
+	params := map[string]any{
+		"message_type": targetType,
+		"message":      segments,
 	}
-
-	select {
-	case response := <-responseCh:
-		return parseSendMessageResponse(response, replyAttempt)
-	case <-ctx.Done():
-		return SendMessageResult{}, errorf(errorCodeSendFailed, "adapter send_msg response timed out", ctx.Err())
+	if request.Params.UserID != nil {
+		params["user_id"] = request.Params.UserID
 	}
+	if request.Params.GroupID != nil {
+		params["group_id"] = request.Params.GroupID
+	}
+	response, err := s.doHTTPAPIRequest(ctx, apiCallRequest{
+		Action: request.Action,
+		Params: params,
+		Echo:   request.Echo,
+	})
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+	return parseSendMessageResponse(response, replyAttempt)
 }
 
 func (s *Shell) routeAPIResponse(frame classifiedFrame) {
@@ -366,12 +384,6 @@ type websocketWriter interface {
 	Write(context.Context, websocket.MessageType, []byte) error
 }
 
-func (s *Shell) currentConn() (*websocket.Conn, Snapshot) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.conn, cloneSnapshot(s.snapshot)
-}
-
 func (s *Shell) nextRequestEcho() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -411,17 +423,12 @@ func apiResponseFromFrame(frame oneBotFrame) (apiResponse, bool) {
 		return apiResponse{}, false
 	}
 
-	data := frame.Data
-	if data == nil {
-		data = map[string]any{}
-	}
-
 	return apiResponse{
 		Echo:    echo,
 		Status:  frameStatusText(frame.Status),
 		RetCode: frame.RetCode,
 		Wording: strings.TrimSpace(frame.Wording),
-		Data:    data,
+		Data:    frame.Data,
 	}, true
 }
 
@@ -472,12 +479,13 @@ func isReplyTargetMissing(message string) bool {
 	return false
 }
 
-func extractMessageID(data map[string]any) string {
-	if data == nil {
+func extractMessageID(data any) string {
+	decoded, ok := data.(map[string]any)
+	if !ok || decoded == nil {
 		return ""
 	}
 
-	switch value := data["message_id"].(type) {
+	switch value := decoded["message_id"].(type) {
 	case string:
 		return strings.TrimSpace(value)
 	case float64:

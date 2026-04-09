@@ -143,61 +143,78 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 	switch stateOrIdle(snapshot.State) {
 	case adapter.StateConnected:
 		report.Status = "ready"
+		report.Checks["adapter"] = "ok"
 	case adapter.StateIdle:
 		report.Status = "ready"
 		report.Checks["adapter"] = "idle"
 	case adapter.StateAuthFailed:
 		report.Status = "ready"
 		report.Checks["adapter"] = "auth_failed"
-		report.Issues = []health.DiagnosticIssue{{
-			Code:        "adapter.auth_failed",
+		report.Issues = append(report.Issues, health.DiagnosticIssue{
+			Code:        firstNonEmpty(snapshot.LastErrorCode, "adapter.auth_failed"),
 			Severity:    "warning",
-			Summary:     "OneBot authentication failed",
+			Summary:     "OneBot 鉴权失败",
 			Remediation: "请检查 OneBot access_token 配置后重试连接。",
-		}}
-	case adapter.StateConnecting:
-		report.Status = "ready"
-		report.Checks["adapter"] = "connecting"
-		report.Issues = []health.DiagnosticIssue{{
-			Code:        "adapter.connecting",
-			Severity:    "warning",
-			Summary:     "OneBot reverse WebSocket is connecting",
-			Remediation: "请等待 OneBot 连接建立，或检查目标端点是否可达。",
-		}}
+		})
 	case adapter.StateReconnecting:
 		report.Status = "ready"
-		code := snapshot.LastErrorCode
-		if code == "" {
-			code = "adapter.reconnecting"
-		}
 		report.Checks["adapter"] = "reconnecting"
-		report.Issues = []health.DiagnosticIssue{{
-			Code:        code,
+		report.Issues = append(report.Issues, health.DiagnosticIssue{
+			Code:        firstNonEmpty(snapshot.LastErrorCode, "adapter.connection_lost"),
 			Severity:    "warning",
-			Summary:     "OneBot reverse WebSocket is reconnecting",
+			Summary:     "OneBot 正在重连",
 			Remediation: "请检查 OneBot 服务可用性，或等待连接自动恢复。",
-		}}
-	case adapter.StateStopped:
-		report.Status = "ready"
-		report.Checks["adapter"] = "stopped"
-		report.Issues = []health.DiagnosticIssue{{
-			Code:        "adapter.stopped",
+		})
+	case adapter.StateConnecting:
+		report.Status = "degraded"
+		report.Checks["adapter"] = "connecting"
+		report.Issues = append(report.Issues, health.DiagnosticIssue{
+			Code:        "adapter.connection_pending",
 			Severity:    "warning",
-			Summary:     "OneBot adapter has stopped",
-			Remediation: "请检查 OneBot 连接配置，必要时重启服务。",
-		}}
+			Summary:     "OneBot 正在建立连接",
+			Remediation: "请稍后重试，或检查上游服务是否可达。",
+		})
 	default:
-		report.Status = "ready"
-		report.Checks["adapter"] = "idle"
-		report.Issues = []health.DiagnosticIssue{{
-			Code:        "adapter.idle",
-			Severity:    "warning",
-			Summary:     "OneBot adapter has not started connecting yet",
-			Remediation: "请检查 OneBot 连接配置后重新启动连接。",
-		}}
+		report.Status = "failed"
+		report.Checks["adapter"] = "failed"
+		report.Issues = append(report.Issues, health.DiagnosticIssue{
+			Code:        "adapter.connection_failed",
+			Severity:    "error",
+			Summary:     "OneBot 传输链路不可用",
+			Remediation: "请检查 OneBot 传输配置、访问令牌和上游服务状态。",
+		})
 	}
 
+	appendIssue := func(code, message string) {
+		if code == "" {
+			return
+		}
+		severity := "warning"
+		if report.Status == "failed" {
+			severity = "error"
+		}
+		report.Issues = append(report.Issues, health.DiagnosticIssue{
+			Code:        code,
+			Severity:    severity,
+			Summary:     message,
+			Remediation: "请检查协议中心中的 OneBot 传输状态与日志。",
+		})
+	}
+	appendIssue(snapshot.ForwardWS.LastErrorCode, snapshot.ForwardWS.LastErrorMessage)
+	appendIssue(snapshot.ReverseWS.LastErrorCode, snapshot.ReverseWS.LastErrorMessage)
+	appendIssue(snapshot.HTTPAPI.LastErrorCode, snapshot.HTTPAPI.LastErrorMessage)
+	appendIssue(snapshot.Webhook.LastErrorCode, snapshot.Webhook.LastErrorMessage)
+
 	return report
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func stateOrIdle(state adapter.State) adapter.State {

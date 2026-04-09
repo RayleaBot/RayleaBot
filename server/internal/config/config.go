@@ -112,18 +112,20 @@ type ServerConfig struct {
 
 type OneBotConfig struct {
 	Provider                string                `json:"provider" yaml:"provider"`
-	WSURL                   string                `json:"ws_url" yaml:"ws_url"`
 	AccessToken             string                `json:"access_token" yaml:"access_token"`
 	ReverseWS               OneBotTransportConfig `json:"reverse_ws" yaml:"reverse_ws"`
 	ForwardWS               OneBotTransportConfig `json:"forward_ws" yaml:"forward_ws"`
 	HTTPAPI                 OneBotTransportConfig `json:"http_api" yaml:"http_api"`
 	Webhook                 OneBotTransportConfig `json:"webhook" yaml:"webhook"`
-	SSE                     OneBotTransportConfig `json:"sse" yaml:"sse"`
 	ConnectTimeoutSeconds   int                   `json:"connect_timeout_seconds,omitempty" yaml:"connect_timeout_seconds,omitempty"`
 	ReconnectInitialSeconds int                   `json:"reconnect_initial_seconds,omitempty" yaml:"reconnect_initial_seconds,omitempty"`
 	ReconnectMultiplier     float64               `json:"reconnect_multiplier,omitempty" yaml:"reconnect_multiplier,omitempty"`
 	ReconnectMaxSeconds     int                   `json:"reconnect_max_seconds,omitempty" yaml:"reconnect_max_seconds,omitempty"`
 	ReconnectJitterRatio    float64               `json:"reconnect_jitter_ratio,omitempty" yaml:"reconnect_jitter_ratio,omitempty"`
+
+	// Legacy migration inputs retained for in-memory compatibility only.
+	WSURL string                `json:"-" yaml:"-"`
+	SSE   OneBotTransportConfig `json:"-" yaml:"-"`
 }
 
 type DatabaseConfig struct {
@@ -250,10 +252,7 @@ func validateDocument(schemaPath string, document any) error {
 }
 
 func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) Summary {
-	endpoint := cfg.OneBot.WSURL
-	if endpoint == "" {
-		endpoint = cfg.OneBot.ReverseWS.URL
-	}
+	endpoint := firstConfiguredOneBotEndpoint(cfg.OneBot)
 	return Summary{
 		ConfigPath:       configPath,
 		SchemaPath:       schemaPath,
@@ -319,11 +318,14 @@ func (cfg *Config) hydrateCompatibility() {
 	if cfg.OneBot.Provider == "" {
 		cfg.OneBot.Provider = "standard"
 	}
-	if cfg.OneBot.WSURL == "" && cfg.OneBot.ReverseWS.URL != "" {
-		cfg.OneBot.WSURL = cfg.OneBot.ReverseWS.URL
+	if cfg.OneBot.WSURL == "" && cfg.OneBot.ForwardWS.URL != "" {
+		cfg.OneBot.WSURL = cfg.OneBot.ForwardWS.URL
 	}
-	if cfg.OneBot.ReverseWS.URL == "" && cfg.OneBot.WSURL != "" {
-		cfg.OneBot.ReverseWS.URL = cfg.OneBot.WSURL
+	if cfg.OneBot.ForwardWS.URL == "" && cfg.OneBot.WSURL != "" {
+		cfg.OneBot.ForwardWS.URL = cfg.OneBot.WSURL
+	}
+	if cfg.OneBot.ForwardWS.URL != "" {
+		cfg.OneBot.ForwardWS.Enabled = true
 	}
 	if cfg.OneBot.ReverseWS.URL != "" {
 		cfg.OneBot.ReverseWS.Enabled = true
@@ -368,15 +370,33 @@ func (cfg *Config) hydrateCompatibility() {
 		cfg.OneBot.ReconnectMaxSeconds = cfg.Adapter.ReconnectMaxSeconds
 		cfg.OneBot.ReconnectJitterRatio = cfg.Adapter.ReconnectJitterRatio
 	}
-	if cfg.OneBot.WSURL == "" && cfg.OneBot.ReverseWS.URL != "" {
-		cfg.OneBot.WSURL = cfg.OneBot.ReverseWS.URL
+	if cfg.OneBot.WSURL == "" && cfg.OneBot.ForwardWS.URL != "" {
+		cfg.OneBot.WSURL = cfg.OneBot.ForwardWS.URL
 	}
-	if cfg.OneBot.ReverseWS.URL == "" && cfg.OneBot.WSURL != "" {
-		cfg.OneBot.ReverseWS.URL = cfg.OneBot.WSURL
+	if cfg.OneBot.ForwardWS.URL == "" && cfg.OneBot.WSURL != "" {
+		cfg.OneBot.ForwardWS.URL = cfg.OneBot.WSURL
+	}
+	if cfg.OneBot.ForwardWS.URL != "" {
+		cfg.OneBot.ForwardWS.Enabled = true
 	}
 	if cfg.OneBot.ReverseWS.URL != "" {
 		cfg.OneBot.ReverseWS.Enabled = true
 	}
+}
+
+func firstConfiguredOneBotEndpoint(cfg OneBotConfig) string {
+	for _, endpoint := range []string{
+		cfg.ForwardWS.URL,
+		cfg.ReverseWS.URL,
+		cfg.HTTPAPI.URL,
+		cfg.Webhook.URL,
+		cfg.WSURL,
+	} {
+		if endpoint != "" {
+			return endpoint
+		}
+	}
+	return ""
 }
 
 func sanitizeOneBotEndpoint(raw string) string {

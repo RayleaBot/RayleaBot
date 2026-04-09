@@ -195,25 +195,39 @@ func normalizeOneBotSection(document map[string]any) {
 			wsURL = normalized
 		}
 	}
-	onebot["ws_url"] = wsURL
 
 	normalizeOneBotTransport(onebot, "reverse_ws", normalizeOneBotWSURL)
 	normalizeOneBotTransport(onebot, "forward_ws", normalizeOneBotWSURL)
 	normalizeOneBotTransport(onebot, "http_api", normalizeOneBotHTTPURL)
 	normalizeOneBotTransport(onebot, "webhook", normalizeOneBotHTTPURL)
-	normalizeOneBotTransport(onebot, "sse", normalizeOneBotHTTPURL)
 
 	reverseWS := transportSection(onebot, "reverse_ws")
 	if reverseWS == nil {
 		reverseWS = map[string]any{"enabled": false, "url": ""}
 		onebot["reverse_ws"] = reverseWS
 	}
-	if stringValue(reverseWS["url"]) == "" && wsURL != "" {
-		reverseWS["url"] = wsURL
+
+	forwardWS := transportSection(onebot, "forward_ws")
+	if forwardWS == nil {
+		forwardWS = map[string]any{"enabled": false, "url": ""}
+		onebot["forward_ws"] = forwardWS
+	}
+	if stringValue(forwardWS["url"]) == "" && wsURL != "" {
+		forwardWS["url"] = wsURL
+	}
+	if strings.TrimSpace(stringValue(forwardWS["url"])) != "" {
+		forwardWS["enabled"] = true
+	}
+	if wsURL != "" && stringValue(reverseWS["url"]) == wsURL {
+		reverseWS["url"] = ""
+		reverseWS["enabled"] = false
 	}
 	if strings.TrimSpace(stringValue(reverseWS["url"])) != "" {
 		reverseWS["enabled"] = true
 	}
+
+	delete(onebot, "ws_url")
+	delete(onebot, "sse")
 }
 
 func normalizeOneBotTransport(onebot map[string]any, key string, normalize func(string) (string, bool)) {
@@ -312,27 +326,23 @@ func legacyToCanonical(document map[string]any) map[string]any {
 	copySectionIfPresent(canonical, "command", document, "command")
 
 	if onebot := section(document, "onebot"); onebot != nil {
+		wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
 		canonical["onebot"] = map[string]any{
 			"provider":     "standard",
-			"ws_url":       onebot["ws_url"],
 			"access_token": onebot["access_token"],
 			"reverse_ws": map[string]any{
-				"enabled": strings.TrimSpace(stringValue(onebot["ws_url"])) != "",
-				"url":     onebot["ws_url"],
-			},
-			"forward_ws": map[string]any{
 				"enabled": false,
 				"url":     "",
+			},
+			"forward_ws": map[string]any{
+				"enabled": wsURL != "",
+				"url":     wsURL,
 			},
 			"http_api": map[string]any{
 				"enabled": false,
 				"url":     "",
 			},
 			"webhook": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"sse": map[string]any{
 				"enabled": false,
 				"url":     "",
 			},
@@ -457,6 +467,7 @@ func decodeTypedConfig(document map[string]any) (Config, error) {
 func canonicalDocumentFromTyped(cfg Config) map[string]any {
 	cfg.hydrateCompatibility()
 	reverseWS := configOneBotReverseWS(cfg)
+	forwardWS := configOneBotForwardWS(cfg)
 	return map[string]any{
 		"schema_version": currentSchemaVersion,
 		"server": map[string]any{
@@ -465,15 +476,14 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 		},
 		"onebot": map[string]any{
 			"provider":     configOneBotProvider(cfg),
-			"ws_url":       reverseWS.URL,
 			"access_token": cfg.OneBot.AccessToken,
 			"reverse_ws": map[string]any{
 				"enabled": reverseWS.Enabled,
 				"url":     reverseWS.URL,
 			},
 			"forward_ws": map[string]any{
-				"enabled": cfg.OneBot.ForwardWS.Enabled,
-				"url":     cfg.OneBot.ForwardWS.URL,
+				"enabled": forwardWS.Enabled,
+				"url":     forwardWS.URL,
 			},
 			"http_api": map[string]any{
 				"enabled": cfg.OneBot.HTTPAPI.Enabled,
@@ -482,10 +492,6 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"webhook": map[string]any{
 				"enabled": cfg.OneBot.Webhook.Enabled,
 				"url":     cfg.OneBot.Webhook.URL,
-			},
-			"sse": map[string]any{
-				"enabled": cfg.OneBot.SSE.Enabled,
-				"url":     cfg.OneBot.SSE.URL,
 			},
 		},
 		"database": map[string]any{
@@ -797,6 +803,14 @@ func configOneBotProvider(cfg Config) string {
 
 func configOneBotReverseWS(cfg Config) OneBotTransportConfig {
 	transport := cfg.OneBot.ReverseWS
+	if transport.URL != "" {
+		transport.Enabled = true
+	}
+	return transport
+}
+
+func configOneBotForwardWS(cfg Config) OneBotTransportConfig {
+	transport := cfg.OneBot.ForwardWS
 	if transport.URL == "" && cfg.OneBot.WSURL != "" {
 		transport.URL = cfg.OneBot.WSURL
 	}
@@ -815,7 +829,6 @@ func defaultDocument() map[string]any {
 		},
 		"onebot": map[string]any{
 			"provider":     "standard",
-			"ws_url":       "",
 			"access_token": "",
 			"reverse_ws": map[string]any{
 				"enabled": false,
@@ -830,10 +843,6 @@ func defaultDocument() map[string]any {
 				"url":     "",
 			},
 			"webhook": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"sse": map[string]any{
 				"enabled": false,
 				"url":     "",
 			},

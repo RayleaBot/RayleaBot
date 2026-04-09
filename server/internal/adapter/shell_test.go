@@ -803,8 +803,8 @@ func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 	waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
 
 	snapshot := shell.Snapshot()
-	if snapshot.LastErrorCode != errorCodeConnectionFail {
-		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeConnectionFail)
+	if snapshot.LastErrorCode != errorCodeForwardWSConnectFail {
+		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSConnectFail)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -861,8 +861,8 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 	waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
 
 	snapshot := shell.Snapshot()
-	if snapshot.LastErrorCode != errorCodeConnectionLost {
-		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeConnectionLost)
+	if snapshot.LastErrorCode != errorCodeForwardWSSessionLost {
+		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSSessionLost)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
@@ -968,8 +968,8 @@ func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 	waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
 
 	snapshot := shell.Snapshot()
-	if snapshot.LastErrorCode != errorCodeConnectionLost {
-		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeConnectionLost)
+	if snapshot.LastErrorCode != errorCodeForwardWSSessionLost {
+		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSSessionLost)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

@@ -52,6 +52,8 @@ func registerAppPublicRoutes(router chi.Router, application *App) {
 	router.Post("/api/session/login", application.handleSessionLogin())
 	router.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
 	router.Post("/api/session/launcher-admission", application.handleLauncherAdmission())
+	router.Get("/api/protocols/onebot11/reverse-ws", application.handleProtocolOneBot11ReverseWS())
+	router.Post("/api/protocols/onebot11/webhook", application.handleProtocolOneBot11Webhook())
 	router.Post("/api/webhooks/{plugin_id}/{route}", application.handlePluginWebhook())
 }
 
@@ -60,7 +62,6 @@ func registerAppProtectedRoutes(router chi.Router, application *App) {
 	router.Get("/api/config", application.handleConfigGet())
 	router.Put("/api/config", application.handleConfigPut())
 	router.Get("/api/protocols/onebot11", application.handleProtocolOneBot11Snapshot())
-	router.Get("/api/protocols/onebot11/compatibility", application.handleProtocolOneBot11Compatibility())
 	router.Get("/api/logs", application.handleLogsList())
 	router.Get("/api/logs/{log_id}", application.handleLogDetail())
 	router.Get("/api/system/status", application.handleSystemStatus())

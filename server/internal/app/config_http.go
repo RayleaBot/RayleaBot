@@ -109,7 +109,6 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 		newCfg.OneBot.ForwardWS != oldCfg.OneBot.ForwardWS ||
 		newCfg.OneBot.HTTPAPI != oldCfg.OneBot.HTTPAPI ||
 		newCfg.OneBot.Webhook != oldCfg.OneBot.Webhook ||
-		newCfg.OneBot.SSE != oldCfg.OneBot.SSE ||
 		newCfg.OneBot.ConnectTimeoutSeconds != oldCfg.OneBot.ConnectTimeoutSeconds ||
 		newCfg.OneBot.ReconnectInitialSeconds != oldCfg.OneBot.ReconnectInitialSeconds ||
 		newCfg.OneBot.ReconnectMultiplier != oldCfg.OneBot.ReconnectMultiplier ||
@@ -137,7 +136,6 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 	a.commandParser = newCommandParser(newCfg)
 	a.permissionChecker = newPermissionChecker(newCfg, a.blacklistRepo)
 	a.publishProtocolSnapshot()
-	a.publishProtocolCompatibility()
 
 	return restartRequired
 }

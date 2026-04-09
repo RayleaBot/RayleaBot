@@ -31,7 +31,6 @@ func (a *App) handleEventsWebSocket() http.HandlerFunc {
 
 		for _, frame := range []managementEventFrame{
 			a.protocolSnapshotEvent(),
-			a.protocolCompatibilityEvent(),
 		} {
 			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
 				return

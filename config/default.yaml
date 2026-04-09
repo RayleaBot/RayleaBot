@@ -49,13 +49,9 @@ onebot:
     reverse_ws:
         enabled: false
         url: ""
-    sse:
-        enabled: false
-        url: ""
     webhook:
         enabled: false
         url: ""
-    ws_url: ""
 permission:
     auto_grant_capabilities: []
     default_level: everyone

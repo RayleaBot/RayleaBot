@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 )
 
 type managementEventFrame struct {
@@ -24,44 +25,23 @@ type protocolIssueResponse struct {
 }
 
 type protocolTransportStatusResponse struct {
-	Transport   string `json:"transport"`
-	Enabled     bool   `json:"enabled"`
-	Configured  bool   `json:"configured"`
-	Implemented bool   `json:"implemented"`
-	Active      bool   `json:"active"`
-	Endpoint    string `json:"endpoint"`
+	Transport  string `json:"transport"`
+	Enabled    bool   `json:"enabled"`
+	Configured bool   `json:"configured"`
+	Endpoint   string `json:"endpoint"`
+	State      string `json:"state"`
+	Summary    string `json:"summary"`
 }
 
 type oneBot11ProtocolSnapshotResponse struct {
 	Protocol              string                            `json:"protocol"`
 	Provider              string                            `json:"provider"`
 	ConfiguredTransports  []string                          `json:"configured_transports"`
-	ActiveTransport       *string                           `json:"active_transport,omitempty"`
+	ActiveTransports      []string                          `json:"active_transports"`
 	TransportStatus       []protocolTransportStatusResponse `json:"transport_status"`
-	ConnectionState       string                            `json:"connection_state"`
 	ReadinessStatus       string                            `json:"readiness_status"`
 	Summary               string                            `json:"summary"`
 	RecentTransportIssues []protocolIssueResponse           `json:"recent_transport_issues"`
-}
-
-type protocolCompatibilityItemResponse struct {
-	Name     string `json:"name"`
-	Status   string `json:"status"`
-	Provider string `json:"provider,omitempty"`
-	Notes    string `json:"notes,omitempty"`
-}
-
-type protocolCompatibilityGroupResponse struct {
-	Group string                              `json:"group"`
-	Title string                              `json:"title"`
-	Items []protocolCompatibilityItemResponse `json:"items"`
-}
-
-type oneBot11ProtocolCompatibilityResponse struct {
-	Protocol    string                               `json:"protocol"`
-	Provider    string                               `json:"provider"`
-	GeneratedAt string                               `json:"generated_at"`
-	Groups      []protocolCompatibilityGroupResponse `json:"groups"`
 }
 
 func (a *App) handleProtocolOneBot11Snapshot() http.HandlerFunc {
@@ -70,176 +50,104 @@ func (a *App) handleProtocolOneBot11Snapshot() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleProtocolOneBot11Compatibility() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		writeAuthJSON(w, http.StatusOK, a.currentOneBot11ProtocolCompatibility())
+func (a *App) handleProtocolOneBot11ReverseWS() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if a.Adapter == nil {
+			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口不可用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
+			return
+		}
+		if strings.TrimSpace(a.Config.OneBot.AccessToken) == "" {
+			a.Logger.Warn("onebot reverse websocket ingress accepted without access token", "component", "adapter", "transport", "reverse_ws")
+		}
+		if !allowOneBotIngress(r, a.Config.OneBot.AccessToken) {
+			a.Adapter.MarkReverseWSAuthFailed()
+			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_reverse_ws_auth_failed", "协议鉴权失败", "errors.adapter.transport_reverse_ws_auth_failed", nil)
+			return
+		}
+
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		a.Adapter.AttachReverseWS(conn)
+	}
+}
+
+func (a *App) handleProtocolOneBot11Webhook() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if a.Adapter == nil {
+			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 不可用", "errors.adapter.transport_webhook_invalid_payload", nil)
+			return
+		}
+		if strings.TrimSpace(a.Config.OneBot.AccessToken) == "" {
+			a.Logger.Warn("onebot webhook ingress accepted without access token", "component", "adapter", "transport", "webhook")
+		}
+		if !allowOneBotIngress(r, a.Config.OneBot.AccessToken) {
+			a.Adapter.MarkWebhookAuthFailed()
+			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_webhook_auth_failed", "协议鉴权失败", "errors.adapter.transport_webhook_auth_failed", nil)
+			return
+		}
+
+		payload, err := readRequestBody(w, r, maxWebhookBodyBytes)
+		if err != nil {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		if err := a.Adapter.AcceptWebhookPayload(r.Context(), payload); err != nil {
+			writeAppError(w, r, http.StatusBadRequest, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 负载不合法", "errors.adapter.transport_webhook_invalid_payload", nil)
+			return
+		}
+		writeAuthJSON(w, http.StatusAccepted, systemShutdownResponse{Accepted: true})
 	}
 }
 
 func (a *App) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotResponse {
-	cfg := a.Config
-	report := a.currentReadiness()
 	adapterSnapshot := adapter.Snapshot{}
 	if a.Adapter != nil {
 		adapterSnapshot = a.Adapter.Snapshot()
 	}
 
-	reverseWS := cfg.OneBot.ReverseWS
-	if reverseWS.URL == "" && cfg.OneBot.WSURL != "" {
-		reverseWS.URL = cfg.OneBot.WSURL
-	}
-	if reverseWS.URL != "" {
-		reverseWS.Enabled = true
-	}
-
 	transports := []struct {
-		key    string
-		config struct {
-			Enabled bool
-			URL     string
-		}
-		implemented bool
+		key      adapter.TransportKey
+		snapshot adapter.TransportSnapshot
 	}{
-		{key: "reverse_ws", config: struct {
-			Enabled bool
-			URL     string
-		}{Enabled: reverseWS.Enabled, URL: reverseWS.URL}, implemented: true},
-		{key: "forward_ws", config: struct {
-			Enabled bool
-			URL     string
-		}{Enabled: cfg.OneBot.ForwardWS.Enabled, URL: cfg.OneBot.ForwardWS.URL}, implemented: false},
-		{key: "http_api", config: struct {
-			Enabled bool
-			URL     string
-		}{Enabled: cfg.OneBot.HTTPAPI.Enabled, URL: cfg.OneBot.HTTPAPI.URL}, implemented: false},
-		{key: "webhook", config: struct {
-			Enabled bool
-			URL     string
-		}{Enabled: cfg.OneBot.Webhook.Enabled, URL: cfg.OneBot.Webhook.URL}, implemented: false},
-		{key: "sse", config: struct {
-			Enabled bool
-			URL     string
-		}{Enabled: cfg.OneBot.SSE.Enabled, URL: cfg.OneBot.SSE.URL}, implemented: false},
+		{key: adapter.TransportReverseWS, snapshot: adapterSnapshot.ReverseWS},
+		{key: adapter.TransportForwardWS, snapshot: adapterSnapshot.ForwardWS},
+		{key: adapter.TransportHTTPAPI, snapshot: adapterSnapshot.HTTPAPI},
+		{key: adapter.TransportWebhook, snapshot: adapterSnapshot.Webhook},
 	}
 
-	configuredTransports := make([]string, 0, len(transports))
-	var activeTransport *string
-	if reverseWS.Enabled && reverseWS.URL != "" {
-		switch stateOrIdle(adapterSnapshot.State) {
-		case adapter.StateConnecting, adapter.StateConnected, adapter.StateAuthFailed, adapter.StateReconnecting, adapter.StateStopped:
-			key := "reverse_ws"
-			activeTransport = &key
-		}
-	}
-
-	transportStatus := make([]protocolTransportStatusResponse, 0, len(transports))
+	configured := make([]string, 0, len(transports))
+	status := make([]protocolTransportStatusResponse, 0, len(transports))
 	for _, transport := range transports {
-		configured := transport.config.Enabled && strings.TrimSpace(transport.config.URL) != ""
-		if configured {
-			configuredTransports = append(configuredTransports, transport.key)
+		if transport.snapshot.Configured {
+			configured = append(configured, string(transport.key))
 		}
-		transportStatus = append(transportStatus, protocolTransportStatusResponse{
-			Transport:   transport.key,
-			Enabled:     transport.config.Enabled,
-			Configured:  configured,
-			Implemented: transport.implemented,
-			Active:      activeTransport != nil && *activeTransport == transport.key,
-			Endpoint:    sanitizeProtocolEndpoint(transport.config.URL),
+		status = append(status, protocolTransportStatusResponse{
+			Transport:  string(transport.key),
+			Enabled:    transport.snapshot.Enabled,
+			Configured: transport.snapshot.Configured,
+			Endpoint:   transport.snapshot.Endpoint,
+			State:      string(transport.snapshot.State),
+			Summary:    protocolTransportSummary(transport.key, transport.snapshot),
 		})
 	}
 
+	active := make([]string, 0, len(adapterSnapshot.ActiveTransports))
+	for _, key := range adapterSnapshot.ActiveTransports {
+		active = append(active, string(key))
+	}
+
+	readiness := protocolReadinessStatus(adapterSnapshot)
 	return oneBot11ProtocolSnapshotResponse{
 		Protocol:              "onebot11",
-		Provider:              currentOneBotProvider(cfg.OneBot.Provider),
-		ConfiguredTransports:  configuredTransports,
-		ActiveTransport:       activeTransport,
-		TransportStatus:       transportStatus,
-		ConnectionState:       string(stateOrIdle(adapterSnapshot.State)),
-		ReadinessStatus:       string(report.Status),
-		Summary:               protocolSnapshotSummary(report, adapterSnapshot, activeTransport),
-		RecentTransportIssues: protocolIssuesFromReadiness(report),
-	}
-}
-
-func (a *App) currentOneBot11ProtocolCompatibility() oneBot11ProtocolCompatibilityResponse {
-	provider := currentOneBotProvider(a.Config.OneBot.Provider)
-	return oneBot11ProtocolCompatibilityResponse{
-		Protocol:    "onebot11",
-		Provider:    provider,
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Groups: []protocolCompatibilityGroupResponse{
-			{
-				Group: "core",
-				Title: "核心事件与查询",
-				Items: []protocolCompatibilityItemResponse{
-					{Name: "message.group", Status: "implemented"},
-					{Name: "message.private", Status: "implemented"},
-					{Name: "notice.group_admin", Status: "partial"},
-					{Name: "notice.group_ban", Status: "partial"},
-					{Name: "request.friend", Status: "frozen"},
-					{Name: "request.group", Status: "frozen"},
-					{Name: "meta.lifecycle", Status: "implemented"},
-					{Name: "meta.heartbeat", Status: "implemented"},
-					{Name: "message.history", Status: "frozen"},
-					{Name: "message.forward", Status: "frozen"},
-				},
-			},
-			{
-				Group: "segment",
-				Title: "消息段兼容",
-				Items: []protocolCompatibilityItemResponse{
-					{Name: "text", Status: "implemented"},
-					{Name: "image", Status: "implemented"},
-					{Name: "at", Status: "implemented"},
-					{Name: "reply", Status: "implemented"},
-					{Name: "face", Status: "implemented"},
-					{Name: "record", Status: "frozen"},
-					{Name: "video", Status: "frozen"},
-					{Name: "file", Status: "frozen"},
-					{Name: "json", Status: "frozen"},
-					{Name: "xml", Status: "frozen"},
-					{Name: "markdown", Status: "frozen"},
-					{Name: "music", Status: "frozen"},
-					{Name: "contact", Status: "frozen"},
-					{Name: "forward", Status: "frozen"},
-					{Name: "node", Status: "frozen"},
-					{Name: "poke", Status: "frozen"},
-					{Name: "dice", Status: "frozen"},
-					{Name: "rps", Status: "frozen"},
-					{Name: "mface", Status: "frozen"},
-					{Name: "keyboard", Status: "frozen"},
-					{Name: "shake", Status: "frozen"},
-				},
-			},
-			{
-				Group: "action",
-				Title: "动作族",
-				Items: []protocolCompatibilityItemResponse{
-					{Name: "message.send", Status: "implemented"},
-					{Name: "message.reply", Status: "implemented"},
-					{Name: "user.info.get", Status: "implemented"},
-					{Name: "group.info.get", Status: "implemented"},
-					{Name: "group.member.get", Status: "implemented"},
-					{Name: "message.get", Status: "frozen"},
-					{Name: "message.history.get", Status: "frozen"},
-					{Name: "message.forward.send", Status: "frozen"},
-					{Name: "group.announcement.create", Status: "frozen"},
-					{Name: "file.group.upload", Status: "frozen"},
-					{Name: "reaction.set", Status: "frozen"},
-					{Name: "poke.send", Status: "frozen"},
-				},
-			},
-			{
-				Group: "provider_extension",
-				Title: "Provider 扩展",
-				Items: []protocolCompatibilityItemResponse{
-					{Name: "provider.napcat.message_emoji.like.set", Status: "frozen", Provider: "napcat"},
-					{Name: "provider.napcat.group.sign.set", Status: "frozen", Provider: "napcat"},
-					{Name: "provider.luckylillia.friend_groups.get", Status: "frozen", Provider: "luckylillia"},
-					{Name: "provider.luckylillia.sse.receive", Status: "partial", Provider: "luckylillia"},
-				},
-			},
-		},
+		Provider:              currentOneBotProvider(a.Config.OneBot.Provider),
+		ConfiguredTransports:  configured,
+		ActiveTransports:      active,
+		TransportStatus:       status,
+		ReadinessStatus:       readiness,
+		Summary:               protocolSnapshotSummary(adapterSnapshot, readiness),
+		RecentTransportIssues: protocolIssuesFromSnapshot(adapterSnapshot),
 	}
 }
 
@@ -255,24 +163,8 @@ func (a *App) protocolSnapshotEvent() managementEventFrame {
 	}
 }
 
-func (a *App) protocolCompatibilityEvent() managementEventFrame {
-	return managementEventFrame{
-		Channel:   "events",
-		Type:      "events.received",
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Data: map[string]any{
-			"protocol":               "onebot11",
-			"protocol_compatibility": a.currentOneBot11ProtocolCompatibility(),
-		},
-	}
-}
-
 func (a *App) publishProtocolSnapshot() {
 	a.publishProtocolEvent(a.protocolSnapshotEvent())
-}
-
-func (a *App) publishProtocolCompatibility() {
-	a.publishProtocolEvent(a.protocolCompatibilityEvent())
 }
 
 func (a *App) publishProtocolEvent(frame managementEventFrame) {
@@ -319,42 +211,168 @@ func (a *App) subscribeProtocolEvents(buffer int) (<-chan managementEventFrame, 
 	}
 }
 
-func protocolIssuesFromReadiness(report health.ReadinessReport) []protocolIssueResponse {
-	issues := make([]protocolIssueResponse, 0, len(report.Issues))
-	for _, issue := range report.Issues {
-		if !strings.HasPrefix(issue.Code, "adapter.") {
-			continue
+func protocolReadinessStatus(snapshot adapter.Snapshot) string {
+	outboundReady := snapshot.ForwardWS.State == adapter.TransportStateConnected ||
+		snapshot.ReverseWS.State == adapter.TransportStateConnected ||
+		snapshot.HTTPAPI.State == adapter.TransportStateConnected
+	inboundReady := snapshot.ReverseWS.State == adapter.TransportStateConnected ||
+		snapshot.Webhook.State == adapter.TransportStateListening ||
+		snapshot.Webhook.State == adapter.TransportStateConnected
+
+	configuredAny := snapshot.ForwardWS.Configured || snapshot.ReverseWS.Configured || snapshot.HTTPAPI.Configured || snapshot.Webhook.Configured
+	if !configuredAny {
+		return "setup_required"
+	}
+	if snapshot.ForwardWS.State == adapter.TransportStateConnected || snapshot.ReverseWS.State == adapter.TransportStateConnected {
+		return "ready"
+	}
+	if outboundReady && inboundReady {
+		return "ready"
+	}
+	if outboundReady || inboundReady || len(snapshot.ActiveTransports) > 0 {
+		return "degraded"
+	}
+	return "failed"
+}
+
+func protocolSnapshotSummary(snapshot adapter.Snapshot, readiness string) string {
+	switch readiness {
+	case "ready":
+		if snapshot.ForwardWS.State == adapter.TransportStateConnected {
+			return "OneBot11 主动连接已就绪"
+		}
+		if snapshot.ReverseWS.State == adapter.TransportStateConnected {
+			return "OneBot11 回连链路已就绪"
+		}
+		return "OneBot11 HTTP API 与 Webhook 已就绪"
+	case "degraded":
+		if snapshot.HTTPAPI.State == adapter.TransportStateConnected && (snapshot.Webhook.State == adapter.TransportStateListening || snapshot.Webhook.State == adapter.TransportStateConnected) {
+			return "OneBot11 HTTP API 与 Webhook 可用，但尚未建立 WebSocket 会话"
+		}
+		if snapshot.HTTPAPI.State == adapter.TransportStateConnected {
+			return "OneBot11 仅 HTTP API 可用"
+		}
+		if snapshot.Webhook.State == adapter.TransportStateListening || snapshot.Webhook.State == adapter.TransportStateConnected {
+			return "OneBot11 仅 Webhook 上报可用"
+		}
+		if snapshot.ReverseWS.State == adapter.TransportStateListening {
+			return "OneBot11 等待回连"
+		}
+		if snapshot.ForwardWS.State == adapter.TransportStateConnecting || snapshot.ForwardWS.State == adapter.TransportStateReconnecting {
+			return "OneBot11 正在建立主动连接"
+		}
+		return "OneBot11 传输链路部分可用"
+	case "failed":
+		return "OneBot11 传输链路不可用"
+	default:
+		return "OneBot11 尚未配置连接"
+	}
+}
+
+func protocolTransportSummary(key adapter.TransportKey, snapshot adapter.TransportSnapshot) string {
+	if !snapshot.Enabled || !snapshot.Configured {
+		return "未启用"
+	}
+
+	switch key {
+	case adapter.TransportReverseWS:
+		switch snapshot.State {
+		case adapter.TransportStateConnected:
+			return "OneBot 已回连"
+		case adapter.TransportStateAuthFailed:
+			return "最近一次回连鉴权失败"
+		case adapter.TransportStateStopped:
+			return "回连入口已停止"
+		default:
+			return "等待 OneBot 回连"
+		}
+	case adapter.TransportForwardWS:
+		switch snapshot.State {
+		case adapter.TransportStateConnected:
+			return "主动连接已建立"
+		case adapter.TransportStateConnecting:
+			return "正在主动连接"
+		case adapter.TransportStateReconnecting:
+			return "连接已断开，正在重试"
+		case adapter.TransportStateAuthFailed:
+			return "主动连接鉴权失败"
+		case adapter.TransportStateStopped:
+			return "主动连接已停止"
+		default:
+			return "等待主动连接"
+		}
+	case adapter.TransportHTTPAPI:
+		switch snapshot.State {
+		case adapter.TransportStateConnected:
+			return "HTTP API 可用"
+		case adapter.TransportStateAuthFailed:
+			return "HTTP API 鉴权失败"
+		case adapter.TransportStateReconnecting:
+			return "HTTP API 请求失败，等待重试"
+		case adapter.TransportStateStopped:
+			return "HTTP API 已停止"
+		default:
+			return "HTTP API 未验证"
+		}
+	case adapter.TransportWebhook:
+		switch snapshot.State {
+		case adapter.TransportStateConnected:
+			return "Webhook 正在接收上报"
+		case adapter.TransportStateAuthFailed:
+			return "Webhook 鉴权失败"
+		case adapter.TransportStateStopped:
+			return "Webhook 入口已停止"
+		default:
+			return "Webhook 入口可接收上报"
+		}
+	default:
+		return "未启用"
+	}
+}
+
+func protocolIssuesFromSnapshot(snapshot adapter.Snapshot) []protocolIssueResponse {
+	issues := make([]protocolIssueResponse, 0, 4)
+	appendIssue := func(code, summary string) {
+		if strings.TrimSpace(code) == "" {
+			return
 		}
 		issues = append(issues, protocolIssueResponse{
-			Code:     issue.Code,
-			Severity: issue.Severity,
-			Summary:  issue.Summary,
+			Code:     code,
+			Severity: "warning",
+			Summary:  summary,
 		})
 	}
+
+	appendIssue(snapshot.ForwardWS.LastErrorCode, transportIssueSummary(snapshot.ForwardWS))
+	appendIssue(snapshot.ReverseWS.LastErrorCode, transportIssueSummary(snapshot.ReverseWS))
+	appendIssue(snapshot.HTTPAPI.LastErrorCode, transportIssueSummary(snapshot.HTTPAPI))
+	appendIssue(snapshot.Webhook.LastErrorCode, transportIssueSummary(snapshot.Webhook))
 	return issues
 }
 
-func protocolSnapshotSummary(report health.ReadinessReport, snapshot adapter.Snapshot, activeTransport *string) string {
-	switch stateOrIdle(snapshot.State) {
-	case adapter.StateConnected:
-		return "OneBot11 reverse WebSocket 已连接"
-	case adapter.StateConnecting:
-		return "OneBot11 reverse WebSocket 正在连接"
-	case adapter.StateAuthFailed:
-		return "OneBot11 鉴权失败，请检查访问令牌"
-	case adapter.StateReconnecting:
-		return "OneBot11 正在重连"
-	case adapter.StateStopped:
-		return "OneBot11 连接已停止"
-	case adapter.StateIdle:
-		if activeTransport != nil {
-			return "OneBot11 已配置，等待建立连接"
+func transportIssueSummary(snapshot adapter.TransportSnapshot) string {
+	if strings.TrimSpace(snapshot.LastErrorMessage) != "" {
+		return snapshot.LastErrorMessage
+	}
+	return "OneBot 传输链路出现异常"
+}
+
+func allowOneBotIngress(r *http.Request, accessToken string) bool {
+	trimmedToken := strings.TrimSpace(accessToken)
+	if trimmedToken == "" {
+		return true
+	}
+
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+		if strings.TrimSpace(authHeader[7:]) == trimmedToken {
+			return true
 		}
 	}
-	if strings.TrimSpace(report.Reason) != "" {
-		return report.Reason
+	if strings.TrimSpace(r.URL.Query().Get("access_token")) == trimmedToken {
+		return true
 	}
-	return "OneBot11 尚未配置连接"
+	return false
 }
 
 func currentOneBotProvider(raw string) string {

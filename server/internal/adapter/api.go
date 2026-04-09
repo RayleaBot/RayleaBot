@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -43,42 +44,65 @@ type apiCallRequest struct {
 // response. It reuses the same echo-based request/response infrastructure
 // that outbound.go uses for send_msg.
 func (s *Shell) callAPI(ctx context.Context, action string, params map[string]any) (map[string]any, error) {
-	echo := s.nextRequestEcho()
-	responseCh := make(chan apiResponse, 1)
-	s.registerPendingResponse(echo, responseCh)
-	defer s.dropPendingResponse(echo)
+	responseData, err := s.CallAPIAny(ctx, action, params)
+	if err != nil {
+		return nil, err
+	}
+	data, ok := responseData.(map[string]any)
+	if !ok {
+		return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s returned a non-object payload", action), nil)
+	}
+	return data, nil
+}
 
+func (s *Shell) CallAPIAny(ctx context.Context, action string, params map[string]any) (any, error) {
+	echo := s.nextRequestEcho()
 	request := apiCallRequest{
 		Action: action,
 		Params: params,
 		Echo:   echo,
 	}
 
-	conn, snapshot := s.currentConn()
-	if conn == nil || snapshot.State != StateConnected {
-		return nil, errorf(errorCodeConnectionLost, "adapter websocket is not connected", nil)
-	}
+	conn, _, snapshot := s.currentWSConn()
+	if conn != nil && snapshot.State == StateConnected {
+		responseCh := make(chan apiResponse, 1)
+		s.registerPendingResponse(echo, responseCh)
+		defer s.dropPendingResponse(echo)
 
-	s.sendMu.Lock()
-	writeErr := wsjsonWrite(ctx, conn, request)
-	s.sendMu.Unlock()
-	if writeErr != nil {
-		return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("write %s request", action), writeErr)
-	}
-
-	select {
-	case response := <-responseCh:
-		if response.Status != "ok" || response.RetCode != 0 {
-			message := fmt.Sprintf("%s call failed", action)
-			if response.Wording != "" {
-				message = response.Wording
-			}
-			return nil, errorf(errorCodeAPICallFailed, message, nil)
+		s.sendMu.Lock()
+		writeErr := wsjsonWrite(ctx, conn, request)
+		s.sendMu.Unlock()
+		if writeErr != nil {
+			return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("write %s request", action), writeErr)
 		}
-		return response.Data, nil
-	case <-ctx.Done():
-		return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
+
+		select {
+		case response := <-responseCh:
+			if response.Status != "ok" || response.RetCode != 0 {
+				message := fmt.Sprintf("%s call failed", action)
+				if response.Wording != "" {
+					message = response.Wording
+				}
+				return nil, errorf(errorCodeAPICallFailed, message, nil)
+			}
+			return normalizeAPIResult(response.Data), nil
+		case <-ctx.Done():
+			return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
+		}
 	}
+
+	response, err := s.doHTTPAPIRequest(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	if response.Status != "ok" || response.RetCode != 0 {
+		message := fmt.Sprintf("%s call failed", action)
+		if response.Wording != "" {
+			message = response.Wording
+		}
+		return nil, errorf(errorCodeAPICallFailed, message, nil)
+	}
+	return normalizeAPIResult(response.Data), nil
 }
 
 // GetLoginInfo calls the OneBot11 get_login_info API and returns the bot's
@@ -155,4 +179,66 @@ func extractStringField(data map[string]any, key string) string {
 	default:
 		return fmt.Sprint(value)
 	}
+}
+
+func normalizeAPIResult(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		result := make(map[string]any, len(typed))
+		for key, item := range typed {
+			if item == nil {
+				result[key] = nil
+				continue
+			}
+			if isIdentifierKey(key) {
+				result[key] = extractStringValue(item)
+				continue
+			}
+			result[key] = normalizeAPIResult(item)
+		}
+		return result
+	case []any:
+		items := make([]any, 0, len(typed))
+		for _, item := range typed {
+			items = append(items, normalizeAPIResult(item))
+		}
+		return items
+	default:
+		return normalizeScalarValue(typed)
+	}
+}
+
+func normalizeScalarValue(value any) any {
+	switch typed := value.(type) {
+	case json.Number:
+		return typed.String()
+	case float64:
+		if typed == float64(int64(typed)) {
+			return int64(typed)
+		}
+		return typed
+	default:
+		return value
+	}
+}
+
+func extractStringValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case json.Number:
+		return typed.String()
+	case float64:
+		if typed == float64(int64(typed)) {
+			return strconv.FormatInt(int64(typed), 10)
+		}
+		return strconv.FormatFloat(typed, 'f', -1, 64)
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
+}
+
+func isIdentifierKey(key string) bool {
+	key = strings.ToLower(strings.TrimSpace(key))
+	return key == "id" || strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "_seq")
 }

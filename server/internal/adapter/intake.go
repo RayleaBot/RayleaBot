@@ -32,6 +32,7 @@ const (
 	EventKindMessageText = "onebot11.message_text"
 	EventKindMessage     = "onebot11.message"
 	EventKindNotice      = "onebot11.notice"
+	EventKindRequest     = "onebot11.request"
 )
 
 type NormalizedEvent struct {
@@ -66,6 +67,7 @@ type senderObject struct {
 type oneBotFrame struct {
 	PostType      string          `json:"post_type"`
 	MetaEventType string          `json:"meta_event_type"`
+	RequestType   string          `json:"request_type"`
 	SubType       string          `json:"sub_type"`
 	NoticeType    string          `json:"notice_type"`
 	Interval      int             `json:"interval"`
@@ -76,14 +78,17 @@ type oneBotFrame struct {
 	UserID        int64           `json:"user_id"`
 	GroupID       int64           `json:"group_id"`
 	OperatorID    int64           `json:"operator_id"`
+	TargetID      int64           `json:"target_id"`
 	RawMessage    string          `json:"raw_message"`
 	Message       json.RawMessage `json:"message"`
 	Sender        *senderObject   `json:"sender"`
 	Status        any             `json:"status"`
 	RetCode       int             `json:"retcode"`
 	Wording       string          `json:"wording"`
-	Data          map[string]any  `json:"data"`
+	Data          any             `json:"data"`
 	Echo          any             `json:"echo"`
+	Comment       string          `json:"comment"`
+	Flag          string          `json:"flag"`
 }
 
 type classifiedFrame struct {
@@ -248,6 +253,8 @@ func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (Normalize
 		return normalizeMessageEvent(frame, observedAt)
 	case "notice":
 		return normalizeNoticeEvent(frame, observedAt)
+	case "request":
+		return normalizeRequestEvent(frame, observedAt)
 	default:
 		return NormalizedEvent{}, false
 	}
@@ -332,16 +339,147 @@ func normalizeMessageEvent(frame oneBotFrame, observedAt time.Time) (NormalizedE
 }
 
 func normalizeNoticeEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
-	if frame.SelfID <= 0 || frame.UserID <= 0 || frame.GroupID <= 0 {
+	if frame.SelfID <= 0 {
 		return NormalizedEvent{}, false
 	}
 
 	var eventType string
+	conversationType := "group"
+	conversationID := fmt.Sprintf("%d", frame.GroupID)
+	senderID := fmt.Sprintf("%d", frame.UserID)
 	switch frame.NoticeType {
 	case "group_increase":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
 		eventType = "notice.member_increase"
 	case "group_decrease":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
 		eventType = "notice.member_decrease"
+	case "group_admin":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.group_admin"
+	case "group_ban":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.group_ban"
+	case "group_recall":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.group_recall"
+	case "group_upload":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.group_upload"
+	case "group_card":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.group_card"
+	case "group_title":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.group_title"
+	case "essence":
+		if frame.UserID <= 0 || frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.group_essence"
+	case "friend_add":
+		if frame.UserID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.friend_add"
+		conversationType = "private"
+		conversationID = fmt.Sprintf("%d", frame.UserID)
+	case "friend_recall":
+		if frame.UserID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.friend_recall"
+		conversationType = "private"
+		conversationID = fmt.Sprintf("%d", frame.UserID)
+	case "notify":
+		return normalizeNotifyEvent(frame, observedAt)
+	case "flash_file":
+		if frame.UserID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "notice.flash_file"
+		if frame.GroupID <= 0 {
+			conversationType = "private"
+			conversationID = fmt.Sprintf("%d", frame.UserID)
+		}
+	default:
+		return NormalizedEvent{}, false
+	}
+
+	if conversationID == "0" || senderID == "0" {
+		return NormalizedEvent{}, false
+	}
+
+	timestamp := frame.Time
+	if timestamp <= 0 {
+		timestamp = observedAt.Unix()
+	}
+
+	eventID := fmt.Sprintf("onebot11-notice-%s-%d-%d", strings.ReplaceAll(frame.NoticeType, "_", "-"), timestamp, frame.UserID)
+	if frame.MessageID > 0 {
+		eventID = fmt.Sprintf("onebot11-notice-%s-%d", strings.ReplaceAll(frame.NoticeType, "_", "-"), frame.MessageID)
+	}
+
+	payloadFields := buildCommonPayloadFields(frame)
+
+	return NormalizedEvent{
+		Kind:             EventKindNotice,
+		EventID:          eventID,
+		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        eventType,
+		Timestamp:        timestamp,
+		ConversationType: conversationType,
+		ConversationID:   conversationID,
+		SenderID:         senderID,
+		MessageID:        messageIDString(frame.MessageID),
+		PayloadFields:    payloadFields,
+	}, true
+}
+
+func normalizeNotifyEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	if frame.SelfID <= 0 || frame.UserID <= 0 {
+		return NormalizedEvent{}, false
+	}
+
+	conversationType := "private"
+	conversationID := fmt.Sprintf("%d", frame.UserID)
+	if frame.GroupID > 0 {
+		conversationType = "group"
+		conversationID = fmt.Sprintf("%d", frame.GroupID)
+	}
+
+	var eventType string
+	switch frame.SubType {
+	case "poke":
+		eventType = "notice.poke"
+	case "poke_recall":
+		eventType = "notice.poke_recall"
+	case "profile_like":
+		eventType = "notice.profile_like"
+		conversationType = "private"
+		conversationID = fmt.Sprintf("%d", frame.UserID)
+	case "input_status":
+		eventType = "notice.input_status"
+	case "group_msg_emoji_like":
+		eventType = "notice.group_message_emoji_like"
 	default:
 		return NormalizedEvent{}, false
 	}
@@ -351,14 +489,10 @@ func normalizeNoticeEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEv
 		timestamp = observedAt.Unix()
 	}
 
-	eventID := fmt.Sprintf("onebot11-notice-%d-%d", timestamp, frame.UserID)
-
-	payloadFields := map[string]any{}
-	if frame.SubType != "" {
-		payloadFields["sub_type"] = frame.SubType
-	}
-	if frame.OperatorID > 0 {
-		payloadFields["operator_id"] = fmt.Sprintf("%d", frame.OperatorID)
+	payloadFields := buildCommonPayloadFields(frame)
+	eventID := fmt.Sprintf("onebot11-notify-%s-%d-%d", strings.ReplaceAll(frame.SubType, "_", "-"), timestamp, frame.UserID)
+	if frame.MessageID > 0 {
+		eventID = fmt.Sprintf("onebot11-notify-%s-%d", strings.ReplaceAll(frame.SubType, "_", "-"), frame.MessageID)
 	}
 
 	return NormalizedEvent{
@@ -369,11 +503,137 @@ func normalizeNoticeEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEv
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        eventType,
 		Timestamp:        timestamp,
-		ConversationType: "group",
-		ConversationID:   fmt.Sprintf("%d", frame.GroupID),
+		ConversationType: conversationType,
+		ConversationID:   conversationID,
+		SenderID:         fmt.Sprintf("%d", frame.UserID),
+		MessageID:        messageIDString(frame.MessageID),
+		PayloadFields:    payloadFields,
+	}, true
+}
+
+func normalizeRequestEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	if frame.SelfID <= 0 || frame.UserID <= 0 {
+		return NormalizedEvent{}, false
+	}
+
+	var (
+		eventType        string
+		conversationType string
+		conversationID   string
+	)
+	switch frame.RequestType {
+	case "friend":
+		eventType = "request.friend"
+		conversationType = "private"
+		conversationID = fmt.Sprintf("%d", frame.UserID)
+	case "group":
+		if frame.GroupID <= 0 {
+			return NormalizedEvent{}, false
+		}
+		eventType = "request.group"
+		conversationType = "group"
+		conversationID = fmt.Sprintf("%d", frame.GroupID)
+	default:
+		return NormalizedEvent{}, false
+	}
+
+	timestamp := frame.Time
+	if timestamp <= 0 {
+		timestamp = observedAt.Unix()
+	}
+
+	eventID := fmt.Sprintf("onebot11-request-%s-%d-%d", strings.ReplaceAll(frame.RequestType, "_", "-"), timestamp, frame.UserID)
+	payloadFields := buildCommonPayloadFields(frame)
+	if comment := strings.TrimSpace(frame.Comment); comment != "" {
+		payloadFields["comment"] = comment
+	}
+	if flag := strings.TrimSpace(frame.Flag); flag != "" {
+		payloadFields["flag"] = flag
+	}
+
+	return NormalizedEvent{
+		Kind:             EventKindRequest,
+		EventID:          eventID,
+		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        eventType,
+		Timestamp:        timestamp,
+		ConversationType: conversationType,
+		ConversationID:   conversationID,
 		SenderID:         fmt.Sprintf("%d", frame.UserID),
 		PayloadFields:    payloadFields,
 	}, true
+}
+
+func buildCommonPayloadFields(frame oneBotFrame) map[string]any {
+	payloadFields := map[string]any{}
+	if frame.SubType != "" {
+		payloadFields["sub_type"] = frame.SubType
+	}
+	if frame.NoticeType != "" {
+		payloadFields["notice_type"] = frame.NoticeType
+	}
+	if frame.RequestType != "" {
+		payloadFields["request_type"] = frame.RequestType
+	}
+	if frame.OperatorID > 0 {
+		payloadFields["operator_id"] = fmt.Sprintf("%d", frame.OperatorID)
+	}
+	if frame.TargetID > 0 {
+		payloadFields["target_id"] = fmt.Sprintf("%d", frame.TargetID)
+	}
+	if frame.Sender != nil {
+		payloadFields["sender"] = buildSenderPayload(frame.Sender)
+	}
+	if data := buildDataPayload(frame.Data); len(data) > 0 {
+		payloadFields["data"] = data
+	}
+	return payloadFields
+}
+
+func buildSenderPayload(sender *senderObject) map[string]any {
+	if sender == nil {
+		return map[string]any{}
+	}
+	payload := map[string]any{
+		"user_id": fmt.Sprintf("%d", sender.UserID),
+	}
+	if sender.Nickname != "" {
+		payload["nickname"] = sender.Nickname
+	}
+	if sender.Card != "" {
+		payload["card"] = sender.Card
+	}
+	if sender.Role != "" {
+		payload["role"] = sender.Role
+	}
+	if sender.Sex != "" {
+		payload["sex"] = sender.Sex
+	}
+	if sender.Age > 0 {
+		payload["age"] = sender.Age
+	}
+	return payload
+}
+
+func buildDataPayload(raw any) map[string]any {
+	decoded, ok := raw.(map[string]any)
+	if !ok || len(decoded) == 0 {
+		return map[string]any{}
+	}
+	payload := make(map[string]any, len(decoded))
+	for key, value := range decoded {
+		payload[key] = value
+	}
+	return payload
+}
+
+func messageIDString(messageID int64) string {
+	if messageID <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d", messageID)
 }
 
 // parseFrameMessage extracts segments from the OneBot frame Message field,

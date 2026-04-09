@@ -39,7 +39,6 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 
 	waitForObservabilitySubscriber(t, application.Bridge)
 	readProtocolReplayFrame(t, conn)
-	readProtocolReplayFrame(t, conn)
 
 	outcome := application.Bridge.HandleAdapterEvent(context.Background(), testBridgeEvent())
 	if outcome != bridge.OutcomeDelivered {
@@ -120,9 +119,7 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 
 	waitForObservabilitySubscriber(t, application.Bridge)
 	first := readProtocolReplayFrame(t, conn)
-	second := readProtocolReplayFrame(t, conn)
 	assertProtocolReplayFrame(t, first, "protocol_snapshot")
-	assertProtocolReplayFrame(t, second, "protocol_compatibility")
 }
 
 func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {

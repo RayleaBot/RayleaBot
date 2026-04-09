@@ -181,6 +181,52 @@ func TestBridgeAllowsOpaqueResultWithoutOutboundAction(t *testing.T) {
 	}
 }
 
+func TestBridgeDeliversFriendRequestEvent(t *testing.T) {
+	t.Parallel()
+
+	fakeRuntime := &fakeRuntimeClient{
+		snapshot: runtime.Snapshot{State: runtime.StateRunning},
+		deliverFunc: func(ctx context.Context, event runtime.Event) (runtime.Delivery, error) {
+			return runtime.Delivery{
+				RequestID: "req_evt_friend_request",
+				Result: map[string]any{
+					"handled": true,
+				},
+			}, nil
+		},
+	}
+	eventBridge := testBridge(fakeRuntime, &fakeActionSender{})
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindRequest,
+		EventID:          "onebot11-request-friend-1001",
+		BotID:            "10001",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "request.friend",
+		Timestamp:        time.Unix(1_700_000_456, 0).Unix(),
+		ConversationType: "private",
+		ConversationID:   "2001",
+		SenderID:         "2001",
+		PayloadFields: map[string]any{
+			"flag":    "friend-flag-1",
+			"comment": "请通过好友申请",
+		},
+	})
+	if outcome != OutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	}
+	if len(fakeRuntime.events) != 1 {
+		t.Fatalf("unexpected runtime delivery count: got %d want 1", len(fakeRuntime.events))
+	}
+	if fakeRuntime.events[0].EventType != "request.friend" {
+		t.Fatalf("unexpected delivered event type: %q", fakeRuntime.events[0].EventType)
+	}
+	if got := fakeRuntime.events[0].PayloadFields["flag"]; got != "friend-flag-1" {
+		t.Fatalf("unexpected payload flag: %#v", got)
+	}
+}
+
 func TestBridgeReturnsAdapterErrorForOutboundActionFailure(t *testing.T) {
 	t.Parallel()
 

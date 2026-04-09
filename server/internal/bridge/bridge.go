@@ -286,7 +286,7 @@ func isSupportedEvent(event adapter.NormalizedEvent) bool {
 
 func isSupportedEventKind(kind string) bool {
 	switch kind {
-	case adapter.EventKindMessageText, adapter.EventKindMessage, adapter.EventKindNotice:
+	case adapter.EventKindMessageText, adapter.EventKindMessage, adapter.EventKindNotice, adapter.EventKindRequest:
 		return true
 	default:
 		return false
@@ -303,7 +303,24 @@ func isSupportedEventType(event adapter.NormalizedEvent) bool {
 		return event.ConversationType == "group"
 	case "message.private":
 		return event.ConversationType == "private"
-	case "notice.member_increase", "notice.member_decrease":
+	case "notice.member_increase",
+		"notice.member_decrease",
+		"notice.group_admin",
+		"notice.group_ban",
+		"notice.group_recall",
+		"notice.group_upload",
+		"notice.group_card",
+		"notice.group_title",
+		"notice.group_essence",
+		"notice.group_message_emoji_like":
+		return event.ConversationType == "group"
+	case "notice.friend_add", "notice.friend_recall", "notice.profile_like", "notice.input_status":
+		return event.ConversationType == "private"
+	case "notice.poke", "notice.poke_recall", "notice.flash_file":
+		return event.ConversationType == "group" || event.ConversationType == "private"
+	case "request.friend":
+		return event.ConversationType == "private"
+	case "request.group":
 		return event.ConversationType == "group"
 	default:
 		return false
@@ -417,6 +434,38 @@ func bridgeEventSummary(action string, event adapter.NormalizedEvent) string {
 		base = "group member increase notice"
 	case "notice.member_decrease":
 		base = "group member decrease notice"
+	case "notice.group_admin":
+		base = "group admin notice"
+	case "notice.group_ban":
+		base = "group ban notice"
+	case "notice.group_recall":
+		base = "group recall notice"
+	case "notice.group_upload":
+		base = "group upload notice"
+	case "notice.group_card":
+		base = "group card notice"
+	case "notice.group_title":
+		base = "group title notice"
+	case "notice.group_essence":
+		base = "group essence notice"
+	case "notice.group_message_emoji_like":
+		base = "group emoji reaction notice"
+	case "notice.friend_add":
+		base = "friend add notice"
+	case "notice.friend_recall":
+		base = "friend recall notice"
+	case "notice.profile_like":
+		base = "profile like notice"
+	case "notice.poke":
+		base = "poke notice"
+	case "notice.poke_recall":
+		base = "poke recall notice"
+	case "notice.flash_file":
+		base = "flash file notice"
+	case "request.friend":
+		base = "friend request"
+	case "request.group":
+		base = "group request"
 	}
 
 	summary := fmt.Sprintf("runtime bridge %s %s", action, base)

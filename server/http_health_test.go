@@ -123,7 +123,7 @@ func TestReadyzAuthFailedStaysReady(t *testing.T) {
 				map[string]any{
 					"code":        "adapter.auth_failed",
 					"severity":    "warning",
-					"summary":     "OneBot authentication failed",
+					"summary":     "OneBot 鉴权失败",
 					"remediation": "请检查 OneBot access_token 配置后重试连接。",
 				},
 			},
@@ -154,7 +154,7 @@ func TestReadyzReconnectingStaysReady(t *testing.T) {
 				map[string]any{
 					"code":        "adapter.connection_lost",
 					"severity":    "warning",
-					"summary":     "OneBot reverse WebSocket is reconnecting",
+					"summary":     "OneBot 正在重连",
 					"remediation": "请检查 OneBot 服务可用性，或等待连接自动恢复。",
 				},
 			},

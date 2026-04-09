@@ -46,8 +46,8 @@ func TestCanonicalizeDocumentAssignsSchemaVersionAndNormalizesOneBotWSURL(t *tes
 		if got := strings.TrimSpace(stringValue(document["schema_version"])); got != CurrentSchemaVersion() {
 			t.Fatalf("schema_version = %q, want %q", got, CurrentSchemaVersion())
 		}
-		if got := stringValue(section(document, "onebot")["ws_url"]); got != "ws://"+target {
-			t.Fatalf("onebot.ws_url = %q, want %q", got, "ws://"+target)
+		if got := stringValue(section(section(document, "onebot"), "forward_ws")["url"]); got != "ws://"+target {
+			t.Fatalf("onebot.forward_ws.url = %q, want %q", got, "ws://"+target)
 		}
 	})
 }

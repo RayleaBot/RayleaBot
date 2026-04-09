@@ -166,7 +166,8 @@ func TestConfigPutNormalizesShorthandOneBotURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load baseline config: %v", err)
 	}
-	document["onebot"].(map[string]any)["ws_url"] = "ws:127.0.0.1:2658"
+	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["url"] = "ws:127.0.0.1:2658"
+	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["enabled"] = true
 
 	payload, err := json.Marshal(document)
 	if err != nil {
@@ -189,8 +190,9 @@ func TestConfigPutNormalizesShorthandOneBotURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload config after update: %v", err)
 	}
-	if got := saved["onebot"].(map[string]any)["ws_url"]; got != "ws://127.0.0.1:2658" {
-		t.Fatalf("saved onebot.ws_url = %#v, want ws://127.0.0.1:2658", got)
+	forwardWS := saved["onebot"].(map[string]any)["forward_ws"].(map[string]any)
+	if got := forwardWS["url"]; got != "ws://127.0.0.1:2658" {
+		t.Fatalf("saved onebot.forward_ws.url = %#v, want ws://127.0.0.1:2658", got)
 	}
 }
 

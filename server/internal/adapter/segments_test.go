@@ -165,7 +165,22 @@ func TestSegmentsToPlainText(t *testing.T) {
 		{Type: "unknown_type", Data: map[string]any{}},
 	}
 	result := segmentsToPlainText(segments)
-	expected := "@某人 hello [图片][表情]@全体成员[未支持消息]"
+	expected := "@200 hello [图片][表情]@全体成员[未支持消息]"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestSegmentsToPlainTextExtendedSegments(t *testing.T) {
+	segments := []MessageSegment{
+		{Type: "record", Data: map[string]any{"file": "voice.amr"}},
+		{Type: "file", Data: map[string]any{"name": "report.pdf"}},
+		{Type: "flash_file", Data: map[string]any{"name": "flash.zip"}},
+		{Type: "poke", Data: map[string]any{}},
+		{Type: "keyboard", Data: map[string]any{}},
+	}
+	result := segmentsToPlainText(segments)
+	expected := "[语音][文件:report.pdf][闪传文件:flash.zip][戳一戳][按键面板]"
 	if result != expected {
 		t.Errorf("expected %q, got %q", expected, result)
 	}

@@ -1,0 +1,366 @@
+package adapter
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/coder/websocket"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+)
+
+func newTransportSnapshot(cfg config.OneBotConfig) Snapshot {
+	forwardURL := strings.TrimSpace(cfg.ForwardWS.URL)
+	if forwardURL == "" {
+		forwardURL = strings.TrimSpace(cfg.WSURL)
+	}
+
+	snapshot := Snapshot{
+		State: StateIdle,
+		ForwardWS: TransportSnapshot{
+			Enabled:    cfg.ForwardWS.Enabled || forwardURL != "",
+			Configured: forwardURL != "",
+			Endpoint:   sanitizeWSURL(forwardURL),
+			State:      TransportStateIdle,
+		},
+		ReverseWS: TransportSnapshot{
+			Enabled:    cfg.ReverseWS.Enabled || strings.TrimSpace(cfg.ReverseWS.URL) != "",
+			Configured: strings.TrimSpace(cfg.ReverseWS.URL) != "",
+			Endpoint:   sanitizeWSURL(cfg.ReverseWS.URL),
+			State:      TransportStateIdle,
+		},
+		HTTPAPI: TransportSnapshot{
+			Enabled:    cfg.HTTPAPI.Enabled || strings.TrimSpace(cfg.HTTPAPI.URL) != "",
+			Configured: strings.TrimSpace(cfg.HTTPAPI.URL) != "",
+			Endpoint:   sanitizeHTTPURL(cfg.HTTPAPI.URL),
+			State:      TransportStateIdle,
+		},
+		Webhook: TransportSnapshot{
+			Enabled:    cfg.Webhook.Enabled || strings.TrimSpace(cfg.Webhook.URL) != "",
+			Configured: strings.TrimSpace(cfg.Webhook.URL) != "",
+			Endpoint:   sanitizeHTTPURL(cfg.Webhook.URL),
+			State:      TransportStateIdle,
+		},
+	}
+	return snapshot
+}
+
+func (s *Shell) markTransportPrimed() {
+	s.mu.Lock()
+	if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
+		s.snapshot.ReverseWS.State = TransportStateListening
+	}
+	if s.snapshot.Webhook.Enabled && s.snapshot.Webhook.Configured {
+		s.snapshot.Webhook.State = TransportStateListening
+	}
+	if s.snapshot.HTTPAPI.Enabled && s.snapshot.HTTPAPI.Configured {
+		s.snapshot.HTTPAPI.State = TransportStateConnected
+	}
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) forwardWSURL() string {
+	if strings.TrimSpace(s.cfg.ForwardWS.URL) != "" {
+		return strings.TrimSpace(s.cfg.ForwardWS.URL)
+	}
+	return strings.TrimSpace(s.cfg.WSURL)
+}
+
+func (s *Shell) transportEndpoint(transport TransportKey) string {
+	switch transport {
+	case TransportForwardWS:
+		return sanitizeWSURL(s.forwardWSURL())
+	case TransportReverseWS:
+		return sanitizeWSURL(s.cfg.ReverseWS.URL)
+	case TransportHTTPAPI:
+		return sanitizeHTTPURL(s.cfg.HTTPAPI.URL)
+	case TransportWebhook:
+		return sanitizeHTTPURL(s.cfg.Webhook.URL)
+	default:
+		return ""
+	}
+}
+
+func sanitizeHTTPURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	return parsed.Scheme + "://" + parsed.Host
+}
+
+func (s *Shell) refreshAggregateStateLocked() {
+	active := make([]TransportKey, 0, 4)
+	if s.snapshot.ForwardWS.State == TransportStateConnecting ||
+		s.snapshot.ForwardWS.State == TransportStateConnected ||
+		s.snapshot.ForwardWS.State == TransportStateReconnecting ||
+		s.snapshot.ForwardWS.State == TransportStateAuthFailed {
+		active = append(active, TransportForwardWS)
+	}
+	if s.snapshot.ReverseWS.State == TransportStateListening || s.snapshot.ReverseWS.State == TransportStateConnected {
+		active = append(active, TransportReverseWS)
+	}
+	if s.snapshot.HTTPAPI.State == TransportStateConnected || s.snapshot.HTTPAPI.State == TransportStateAuthFailed || s.snapshot.HTTPAPI.State == TransportStateReconnecting {
+		active = append(active, TransportHTTPAPI)
+	}
+	if s.snapshot.Webhook.State == TransportStateListening || s.snapshot.Webhook.State == TransportStateConnected {
+		active = append(active, TransportWebhook)
+	}
+	s.snapshot.ActiveTransports = active
+
+	switch {
+	case s.snapshot.ForwardWS.State == TransportStateConnected || s.snapshot.ReverseWS.State == TransportStateConnected:
+		s.snapshot.State = StateConnected
+	case s.snapshot.ForwardWS.State == TransportStateConnecting:
+		s.snapshot.State = StateConnecting
+	case s.snapshot.ForwardWS.State == TransportStateReconnecting:
+		s.snapshot.State = StateReconnecting
+	case s.snapshot.ForwardWS.State == TransportStateAuthFailed ||
+		s.snapshot.ReverseWS.State == TransportStateAuthFailed ||
+		s.snapshot.HTTPAPI.State == TransportStateAuthFailed ||
+		s.snapshot.Webhook.State == TransportStateAuthFailed:
+		s.snapshot.State = StateAuthFailed
+	case len(active) > 0:
+		s.snapshot.State = StateIdle
+	default:
+		s.snapshot.State = StateStopped
+	}
+}
+
+func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
+	if strings.TrimSpace(eventID) == "" {
+		return false
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cutoff := observedAt.Add(-recentEventDedupRetention)
+	for key, seenAt := range s.recentEventIDs {
+		if seenAt.Before(cutoff) {
+			delete(s.recentEventIDs, key)
+		}
+	}
+	if _, ok := s.recentEventIDs[eventID]; ok {
+		return true
+	}
+	s.recentEventIDs[eventID] = observedAt
+	return false
+}
+
+func (s *Shell) AttachReverseWS(conn *websocket.Conn) {
+	if conn == nil {
+		return
+	}
+
+	s.mu.Lock()
+	if s.reverseConn != nil {
+		_ = s.reverseConn.Close(websocket.StatusNormalClosure, "")
+	}
+	s.reverseConn = conn
+	s.mu.Unlock()
+
+	go s.handleReverseSession(conn)
+}
+
+func (s *Shell) handleReverseSession(conn *websocket.Conn) {
+	ctx := conn.CloseRead(context.Background())
+	defer func() {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		s.clearReverseConn(conn)
+		s.mu.Lock()
+		if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
+			s.snapshot.ReverseWS.State = TransportStateListening
+		} else {
+			s.snapshot.ReverseWS.State = TransportStateIdle
+		}
+		s.refreshAggregateStateLocked()
+		snapshot := cloneSnapshot(s.snapshot)
+		handler := s.stateHandler
+		s.mu.Unlock()
+		s.emitStateSnapshot(handler, snapshot)
+	}()
+
+	ready, err := s.waitForReadyFrame(ctx, TransportReverseWS, conn)
+	if err != nil {
+		if ctx.Err() != nil {
+			return
+		}
+		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
+		return
+	}
+
+	s.mu.Lock()
+	s.snapshot.ReverseWS.State = TransportStateConnected
+	s.snapshot.ReverseWS.LastErrorCode = ""
+	s.snapshot.ReverseWS.LastErrorMessage = ""
+	s.snapshot.ReadyFrameSeen = true
+	s.snapshot.ConnectedAt = cloneTime(&ready.ObservedAt)
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+
+	if readyHandler := s.currentReadyHandler(); readyHandler != nil {
+		go readyHandler(ctx)
+	}
+
+	if err := s.readLoop(ctx, TransportReverseWS, conn); err != nil && ctx.Err() == nil {
+		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
+	}
+}
+
+func (s *Shell) AcceptWebhookPayload(ctx context.Context, payload []byte) error {
+	frame := classifyFrame(websocket.MessageText, payload, s.deps.now())
+	if err := s.recordAndValidateFrame(TransportWebhook, frame); err != nil {
+		s.markTransportFailure(TransportWebhook, TransportStateListening, errorCodeWebhookInvalidPayload, err)
+		return errorf(errorCodeWebhookInvalidPayload, "webhook payload is invalid", err)
+	}
+
+	s.mu.Lock()
+	s.snapshot.Webhook.State = TransportStateListening
+	s.snapshot.Webhook.LastErrorCode = ""
+	s.snapshot.Webhook.LastErrorMessage = ""
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+
+	s.routeAPIResponse(frame)
+	s.forwardSupportedEvent(ctx, TransportWebhook, frame)
+	return nil
+}
+
+func (s *Shell) MarkReverseWSAuthFailed() {
+	s.markTransportFailure(TransportReverseWS, TransportStateAuthFailed, errorCodeReverseWSAuthFailed, errors.New("reverse websocket authentication failed"))
+}
+
+func (s *Shell) MarkWebhookAuthFailed() {
+	s.markTransportFailure(TransportWebhook, TransportStateAuthFailed, errorCodeWebhookAuthFailed, errors.New("webhook authentication failed"))
+}
+
+func (s *Shell) markTransportFailure(transport TransportKey, fallback TransportState, code string, err error) {
+	s.mu.Lock()
+	switch transport {
+	case TransportReverseWS:
+		s.snapshot.ReverseWS.State = fallback
+		s.snapshot.ReverseWS.LastErrorCode = code
+		s.snapshot.ReverseWS.LastErrorMessage = summarizeError(err)
+	case TransportHTTPAPI:
+		s.snapshot.HTTPAPI.State = fallback
+		s.snapshot.HTTPAPI.LastErrorCode = code
+		s.snapshot.HTTPAPI.LastErrorMessage = summarizeError(err)
+	case TransportWebhook:
+		s.snapshot.Webhook.State = fallback
+		s.snapshot.Webhook.LastErrorCode = code
+		s.snapshot.Webhook.LastErrorMessage = summarizeError(err)
+	case TransportForwardWS:
+		s.snapshot.ForwardWS.State = fallback
+		s.snapshot.ForwardWS.LastErrorCode = code
+		s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
+	}
+	s.snapshot.LastErrorCode = code
+	s.snapshot.LastErrorMessage = summarizeError(err)
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) currentWSConn() (*websocket.Conn, TransportKey, Snapshot) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	snapshot := cloneSnapshot(s.snapshot)
+	switch {
+	case s.conn != nil && snapshot.ForwardWS.State == TransportStateConnected:
+		return s.conn, TransportForwardWS, snapshot
+	case s.reverseConn != nil && snapshot.ReverseWS.State == TransportStateConnected:
+		return s.reverseConn, TransportReverseWS, snapshot
+	default:
+		return nil, "", snapshot
+	}
+}
+
+func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (apiResponse, error) {
+	endpoint := strings.TrimSpace(s.cfg.HTTPAPI.URL)
+	if endpoint == "" || !s.cfg.HTTPAPI.Enabled {
+		return apiResponse{}, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return apiResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "encode OneBot HTTP request failed", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(string(body)))
+	if err != nil {
+		return apiResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "build OneBot HTTP request failed", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if s.cfg.AccessToken != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+s.cfg.AccessToken)
+	}
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIRequestFailed, err)
+		return apiResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "OneBot HTTP API request failed", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		s.markTransportFailure(TransportHTTPAPI, TransportStateAuthFailed, errorCodeHTTPAPIAuthFailed, fmt.Errorf("status %d", resp.StatusCode))
+		return apiResponse{}, errorf(errorCodeHTTPAPIAuthFailed, "OneBot HTTP API authentication failed", nil)
+	}
+
+	var decoded struct {
+		Status  any `json:"status"`
+		RetCode int `json:"retcode"`
+		Wording string `json:"wording"`
+		Data    any `json:"data"`
+		Echo    any `json:"echo"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
+		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIInvalidResponse, err)
+		return apiResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "OneBot HTTP API response is invalid", err)
+	}
+
+	s.mu.Lock()
+	s.snapshot.HTTPAPI.State = TransportStateConnected
+	s.snapshot.HTTPAPI.LastErrorCode = ""
+	s.snapshot.HTTPAPI.LastErrorMessage = ""
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+
+	echo, _ := frameEcho(decoded.Echo)
+	return apiResponse{
+		Echo:    echo,
+		Status:  frameStatusText(decoded.Status),
+		RetCode: decoded.RetCode,
+		Wording: strings.TrimSpace(decoded.Wording),
+		Data:    decoded.Data,
+	}, nil
+}

@@ -18,10 +18,20 @@ import (
 )
 
 const (
-	errorCodeAuthFailed         = "adapter.auth_failed"
-	errorCodeConnectionFail     = "adapter.connection_failed"
-	errorCodeConnectionLost     = "adapter.connection_lost"
-	defaultConnectedReadTimeout = 2 * time.Minute
+	errorCodeAuthFailed              = "adapter.auth_failed"
+	errorCodeConnectionFail          = "adapter.connection_failed"
+	errorCodeConnectionLost          = "adapter.connection_lost"
+	errorCodeForwardWSConnectFail    = "adapter.transport_forward_ws_connection_failed"
+	errorCodeForwardWSSessionLost    = "adapter.transport_forward_ws_session_lost"
+	errorCodeReverseWSAuthFailed     = "adapter.transport_reverse_ws_auth_failed"
+	errorCodeHTTPAPIRequestFailed    = "adapter.transport_http_api_request_failed"
+	errorCodeHTTPAPIAuthFailed       = "adapter.transport_http_api_auth_failed"
+	errorCodeHTTPAPIInvalidResponse  = "adapter.transport_http_api_invalid_response"
+	errorCodeWebhookAuthFailed       = "adapter.transport_webhook_auth_failed"
+	errorCodeWebhookInvalidPayload   = "adapter.transport_webhook_invalid_payload"
+	errorCodeWebhookDuplicateEvent   = "adapter.transport_webhook_duplicate_event"
+	defaultConnectedReadTimeout      = 2 * time.Minute
+	recentEventDedupRetention        = 2 * time.Minute
 )
 
 type dialFunc func(context.Context, string, *websocket.DialOptions) (*websocket.Conn, *http.Response, error)
@@ -44,6 +54,7 @@ type Shell struct {
 	mu               sync.RWMutex
 	snapshot         Snapshot
 	conn             *websocket.Conn
+	reverseConn      *websocket.Conn
 	cancel           context.CancelFunc
 	done             chan struct{}
 	started          bool
@@ -53,6 +64,8 @@ type Shell struct {
 	eventQueue       chan NormalizedEvent
 	nextEcho         uint64
 	pendingResponses map[string]chan apiResponse
+	httpClient       *http.Client
+	recentEventIDs   map[string]time.Time
 }
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
@@ -89,11 +102,13 @@ func newShell(cfg config.OneBotConfig, logger *slog.Logger, deps shellDeps) *She
 		cfg:    cfg,
 		logger: logger,
 		deps:   deps,
-		snapshot: Snapshot{
-			State: StateIdle,
-		},
+		snapshot:         newTransportSnapshot(cfg),
 		eventQueue:       make(chan NormalizedEvent, 16),
 		pendingResponses: make(map[string]chan apiResponse),
+		httpClient: &http.Client{
+			Timeout: deps.connectTimeout,
+		},
+		recentEventIDs: make(map[string]time.Time),
 	}
 }
 
@@ -114,16 +129,18 @@ func (s *Shell) Start(ctx context.Context) {
 		"adapter shell starting",
 		"component", "adapter",
 		"adapter_state", StateIdle,
-		"ws_url", sanitizeWSURL(s.cfg.WSURL),
+		"forward_ws_url", sanitizeWSURL(s.forwardWSURL()),
 	)
 	if s.cfg.AccessToken == "" {
 		s.logger.Warn(
 			"adapter access token is empty",
 			"component", "adapter",
 			"adapter_state", StateIdle,
-			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+			"forward_ws_url", sanitizeWSURL(s.forwardWSURL()),
 		)
 	}
+
+	s.markTransportPrimed()
 
 	go s.dispatchEvents(runCtx)
 	go s.run(runCtx)
@@ -134,6 +151,7 @@ func (s *Shell) Stop(ctx context.Context) error {
 	cancel := s.cancel
 	done := s.done
 	conn := s.conn
+	reverseConn := s.reverseConn
 	started := s.started
 	s.mu.Unlock()
 
@@ -153,6 +171,9 @@ func (s *Shell) Stop(ctx context.Context) error {
 	}
 	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}
+	if reverseConn != nil {
+		_ = reverseConn.Close(websocket.StatusNormalClosure, "")
 	}
 
 	select {
@@ -190,6 +211,7 @@ func (s *Shell) SetStateHandler(handler func(Snapshot)) {
 func (s *Shell) run(ctx context.Context) {
 	defer func() {
 		s.clearConn(nil)
+		s.clearReverseConn(nil)
 		s.markStopped()
 		s.logger.Info(
 			"adapter shell stopped",
@@ -207,9 +229,9 @@ func (s *Shell) run(ctx context.Context) {
 		s.mu.Unlock()
 	}()
 
-	if strings.TrimSpace(s.cfg.WSURL) == "" {
+	if strings.TrimSpace(s.forwardWSURL()) == "" {
 		s.logger.Info(
-			"adapter connection is not configured",
+			"adapter forward websocket is idle",
 			"component", "adapter",
 			"adapter_state", StateIdle,
 		)
@@ -252,10 +274,11 @@ func (s *Shell) run(ctx context.Context) {
 func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	s.markConnecting()
 	s.logger.Info(
-		"adapter connecting",
+		"adapter forward websocket connecting",
 		"component", "adapter",
 		"adapter_state", StateConnecting,
-		"ws_url", sanitizeWSURL(s.cfg.WSURL),
+		"transport", string(TransportForwardWS),
+		"ws_url", sanitizeWSURL(s.forwardWSURL()),
 	)
 
 	conn, response, err := s.dial(ctx)
@@ -266,11 +289,12 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 		if isAuthFailure(response) {
 			s.markAuthFailed(err)
 			s.logger.Error(
-				"adapter authentication failed",
+				"adapter forward websocket authentication failed",
 				"component", "adapter",
 				"adapter_state", StateAuthFailed,
-				"ws_url", sanitizeWSURL(s.cfg.WSURL),
-				"error_code", errorCodeAuthFailed,
+				"transport", string(TransportForwardWS),
+				"ws_url", sanitizeWSURL(s.forwardWSURL()),
+				"error_code", errorCodeForwardWSConnectFail,
 				"err", summarizeError(err),
 			)
 
@@ -282,7 +306,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 			return false, true
 		}
 
-		s.markReconnecting(errorCodeConnectionFail, err)
+		s.markReconnecting(errorCodeForwardWSConnectFail, err)
 		return false, false
 	}
 
@@ -292,28 +316,29 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 		s.clearConn(conn)
 	}()
 
-	ready, err := s.waitForReadyFrame(ctx, conn)
+	ready, err := s.waitForReadyFrame(ctx, TransportForwardWS, conn)
 	if err != nil {
 		if ctx.Err() != nil {
 			return false, true
 		}
 
-		s.markReconnecting(errorCodeConnectionFail, err)
+		s.markReconnecting(errorCodeForwardWSConnectFail, err)
 		return false, false
 	}
 
 	s.markConnected(ready.ObservedAt)
 	s.logger.Info(
-		"adapter connected",
+		"adapter forward websocket connected",
 		"component", "adapter",
 		"adapter_state", StateConnected,
-		"ws_url", sanitizeWSURL(s.cfg.WSURL),
+		"transport", string(TransportForwardWS),
+		"ws_url", sanitizeWSURL(s.forwardWSURL()),
 	)
 	if handler := s.currentReadyHandler(); handler != nil {
 		go handler(ctx)
 	}
 
-	err = s.readLoop(ctx, conn)
+	err = s.readLoop(ctx, TransportForwardWS, conn)
 	if err == nil {
 		return true, true
 	}
@@ -322,19 +347,20 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		s.logger.Warn(
-			"adapter heartbeat timeout",
+			"adapter forward websocket heartbeat timeout",
 			"component", "adapter",
 			"adapter_state", StateConnected,
-			"error_code", errorCodeConnectionLost,
-			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+			"error_code", errorCodeForwardWSSessionLost,
+			"transport", string(TransportForwardWS),
+			"ws_url", sanitizeWSURL(s.forwardWSURL()),
 		)
 	}
 
-	s.markReconnecting(errorCodeConnectionLost, err)
+	s.markReconnecting(errorCodeForwardWSSessionLost, err)
 	return true, false
 }
 
-func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (FrameSummary, error) {
+func (s *Shell) waitForReadyFrame(ctx context.Context, transport TransportKey, conn *websocket.Conn) (FrameSummary, error) {
 	waitingForFirstFrame := true
 
 	for {
@@ -351,7 +377,7 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (Fr
 			return FrameSummary{}, err
 		}
 
-		if err := s.recordAndValidateFrame(frame); err != nil {
+		if err := s.recordAndValidateFrame(transport, frame); err != nil {
 			return FrameSummary{}, err
 		}
 		if isReadySummary(frame.Summary) {
@@ -362,7 +388,7 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, conn *websocket.Conn) (Fr
 	}
 }
 
-func (s *Shell) readLoop(ctx context.Context, conn *websocket.Conn) error {
+func (s *Shell) readLoop(ctx context.Context, transport TransportKey, conn *websocket.Conn) error {
 	for {
 		readCtx, cancel := s.readContext(ctx)
 		frame, err := s.readFrame(readCtx, conn)
@@ -371,12 +397,12 @@ func (s *Shell) readLoop(ctx context.Context, conn *websocket.Conn) error {
 			return err
 		}
 
-		if err := s.recordAndValidateFrame(frame); err != nil {
+		if err := s.recordAndValidateFrame(transport, frame); err != nil {
 			return err
 		}
 
 		s.routeAPIResponse(frame)
-		s.forwardSupportedEvent(ctx, frame)
+		s.forwardSupportedEvent(ctx, transport, frame)
 	}
 }
 
@@ -386,7 +412,7 @@ func (s *Shell) readContext(ctx context.Context) (context.Context, context.Cance
 	return context.WithTimeout(ctx, timeout)
 }
 
-func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
+func (s *Shell) recordAndValidateFrame(transport TransportKey, frame classifiedFrame) error {
 	snapshot := s.recordFrame(frame)
 
 	switch {
@@ -400,7 +426,8 @@ func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
 			"reason", frame.InvalidSummary,
 			"echo_value_type", echoValueType(frame.Frame.Echo),
 			"payload_preview", frame.PayloadPreview,
-			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+			"transport", string(transport),
+			"endpoint", s.transportEndpoint(transport),
 		)
 		return nil
 	case frame.Summary.Category == FrameCategoryInvalid:
@@ -413,7 +440,8 @@ func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
 			"invalid_frame_count", snapshot.InvalidReceivedFrames,
 			"reason", frame.InvalidSummary,
 			"payload_preview", frame.PayloadPreview,
-			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+			"transport", string(transport),
+			"endpoint", s.transportEndpoint(transport),
 		)
 		return fmt.Errorf("invalid frame: %s", frame.InvalidSummary)
 	case isLifecycleDisable(frame.Frame):
@@ -422,7 +450,8 @@ func (s *Shell) recordAndValidateFrame(frame classifiedFrame) error {
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"frame_type", frame.Summary.Type,
-			"ws_url", sanitizeWSURL(s.cfg.WSURL),
+			"transport", string(transport),
+			"endpoint", s.transportEndpoint(transport),
 		)
 	}
 
@@ -458,7 +487,7 @@ func (s *Shell) dial(ctx context.Context) (*websocket.Conn, *http.Response, erro
 		headers.Set("Authorization", "Bearer "+s.cfg.AccessToken)
 	}
 
-	return s.deps.dial(dialCtx, dialURL(s.cfg.WSURL, s.cfg.AccessToken), &websocket.DialOptions{
+	return s.deps.dial(dialCtx, dialURL(s.forwardWSURL(), s.cfg.AccessToken), &websocket.DialOptions{
 		HTTPHeader: headers,
 	})
 }
@@ -485,9 +514,19 @@ func (s *Shell) clearConn(target *websocket.Conn) {
 	}
 }
 
+func (s *Shell) clearReverseConn(target *websocket.Conn) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if target == nil || s.reverseConn == target {
+		s.reverseConn = nil
+	}
+}
+
 func (s *Shell) markConnecting() {
 	s.mu.Lock()
-	s.snapshot.State = StateConnecting
+	s.snapshot.ForwardWS.State = TransportStateConnecting
+	s.snapshot.ForwardWS.LastErrorCode = ""
+	s.snapshot.ForwardWS.LastErrorMessage = ""
 	s.snapshot.LastErrorCode = ""
 	s.snapshot.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = false
@@ -498,6 +537,7 @@ func (s *Shell) markConnecting() {
 	s.snapshot.HeartbeatSeen = false
 	s.snapshot.LastHeartbeatAt = nil
 	s.snapshot.HeartbeatInterval = 0
+	s.refreshAggregateStateLocked()
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()
@@ -506,11 +546,14 @@ func (s *Shell) markConnecting() {
 
 func (s *Shell) markConnected(now time.Time) {
 	s.mu.Lock()
-	s.snapshot.State = StateConnected
+	s.snapshot.ForwardWS.State = TransportStateConnected
+	s.snapshot.ForwardWS.LastErrorCode = ""
+	s.snapshot.ForwardWS.LastErrorMessage = ""
 	s.snapshot.LastErrorCode = ""
 	s.snapshot.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = true
 	s.snapshot.ConnectedAt = cloneTime(&now)
+	s.refreshAggregateStateLocked()
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()
@@ -519,11 +562,14 @@ func (s *Shell) markConnected(now time.Time) {
 
 func (s *Shell) markAuthFailed(err error) {
 	s.mu.Lock()
-	s.snapshot.State = StateAuthFailed
-	s.snapshot.LastErrorCode = errorCodeAuthFailed
+	s.snapshot.ForwardWS.State = TransportStateAuthFailed
+	s.snapshot.ForwardWS.LastErrorCode = errorCodeForwardWSConnectFail
+	s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
+	s.snapshot.LastErrorCode = errorCodeForwardWSConnectFail
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
+	s.refreshAggregateStateLocked()
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()
@@ -532,11 +578,14 @@ func (s *Shell) markAuthFailed(err error) {
 
 func (s *Shell) markReconnecting(code string, err error) {
 	s.mu.Lock()
-	s.snapshot.State = StateReconnecting
+	s.snapshot.ForwardWS.State = TransportStateReconnecting
+	s.snapshot.ForwardWS.LastErrorCode = code
+	s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
 	s.snapshot.LastErrorCode = code
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
+	s.refreshAggregateStateLocked()
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()
@@ -545,9 +594,27 @@ func (s *Shell) markReconnecting(code string, err error) {
 
 func (s *Shell) markStopped() {
 	s.mu.Lock()
-	s.snapshot.State = StateStopped
+	s.snapshot.ForwardWS.State = TransportStateStopped
+	if s.snapshot.ReverseWS.State != TransportStateConnected {
+		if s.snapshot.ReverseWS.Configured && s.snapshot.ReverseWS.Enabled {
+			s.snapshot.ReverseWS.State = TransportStateStopped
+		} else {
+			s.snapshot.ReverseWS.State = TransportStateIdle
+		}
+	}
+	if s.snapshot.Webhook.Configured && s.snapshot.Webhook.Enabled {
+		s.snapshot.Webhook.State = TransportStateStopped
+	} else {
+		s.snapshot.Webhook.State = TransportStateIdle
+	}
+	if s.snapshot.HTTPAPI.Configured && s.snapshot.HTTPAPI.Enabled {
+		s.snapshot.HTTPAPI.State = TransportStateStopped
+	} else {
+		s.snapshot.HTTPAPI.State = TransportStateIdle
+	}
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
+	s.refreshAggregateStateLocked()
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()
@@ -655,7 +722,7 @@ func maxInt(value, fallback int) int {
 	return value
 }
 
-func (s *Shell) forwardSupportedEvent(ctx context.Context, frame classifiedFrame) {
+func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKey, frame classifiedFrame) {
 	if frame.Summary.Category != FrameCategoryEvent {
 		return
 	}
@@ -666,7 +733,20 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, frame classifiedFrame
 			"adapter event ignored by runtime bridge",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
+			"transport", string(transport),
 			"frame_type", frame.Summary.Type,
+		)
+		return
+	}
+	if s.isDuplicateEvent(normalizedEvent.EventID, frame.Summary.ObservedAt) {
+		s.logger.Info(
+			"duplicate OneBot event dropped",
+			"component", "adapter",
+			"adapter_state", s.Snapshot().State,
+			"transport", string(transport),
+			"error_code", errorCodeWebhookDuplicateEvent,
+			"event_id", normalizedEvent.EventID,
+			"event_type", normalizedEvent.EventType,
 		)
 		return
 	}
