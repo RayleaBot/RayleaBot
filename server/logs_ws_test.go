@@ -21,7 +21,7 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	application.Logger.Warn(
+	application.Logger().Warn(
 		"authentication failed for reverse websocket",
 		"component", "adapter.onebot11",
 		"request_id", "req_adapter_0001",
@@ -70,7 +70,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	replayCount := len(application.Logs.Snapshot())
+	replayCount := len(application.Logs().Snapshot())
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
@@ -78,12 +78,12 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForLogSubscriber(t, application.Logs)
+	waitForLogSubscriber(t, application.Logs())
 	for i := 0; i < replayCount; i++ {
 		_ = readWebSocketJSON(t, conn)
 	}
 
-	application.Logger.Error(
+	application.Logger().Error(
 		"plugin runtime stderr truncated",
 		"component", "runtime",
 		"plugin_id", "weather",
@@ -135,7 +135,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 
 func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
 	application := newTestAppWithOneBotAccessToken(t, "fixture-only-secret", deterministicAuthOptions()...)
-	replayCount := len(application.Logs.Snapshot())
+	replayCount := len(application.Logs().Snapshot())
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
@@ -143,12 +143,12 @@ func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForLogSubscriber(t, application.Logs)
+	waitForLogSubscriber(t, application.Logs())
 	for i := 0; i < replayCount; i++ {
 		_ = readWebSocketJSON(t, conn)
 	}
 
-	application.Logger.Error(
+	application.Logger().Error(
 		"downstream rejected fixture-only-secret during adapter handshake",
 		"component", "runtime",
 	)
@@ -202,7 +202,7 @@ func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-ws-a")
 	_ = issueLoginToken(t, appA)
-	appA.Logger.Warn(
+	appA.Logger().Warn(
 		"persisted websocket replay",
 		"component", "adapter.onebot11",
 		"request_id", "req_ws_persist_1",

@@ -29,9 +29,9 @@ type authResponse struct {
 	SessionToken string `json:"session_token"`
 }
 
-func (a *App) handleSetupAdmin() http.HandlerFunc {
+func (h *authHTTPHandlers) handleSetupAdmin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a.Config.Web.SetupLocalOnly && !isLoopbackRequest(r) {
+		if h.state.Config.Web.SetupLocalOnly && !isLoopbackRequest(r) {
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
@@ -42,7 +42,7 @@ func (a *App) handleSetupAdmin() http.HandlerFunc {
 			return
 		}
 
-		token, _, err := a.Auth.Bootstrap(request.Identifier, request.Secret)
+		token, _, err := h.auth.Bootstrap(request.Identifier, request.Secret)
 		switch {
 		case err == nil:
 			writeAuthJSON(w, http.StatusOK, authResponse{SessionToken: token})
@@ -57,7 +57,7 @@ func (a *App) handleSetupAdmin() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleSessionLogin() http.HandlerFunc {
+func (h *authHTTPHandlers) handleSessionLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request authRequest
 		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
@@ -66,22 +66,22 @@ func (a *App) handleSessionLogin() http.HandlerFunc {
 		}
 
 		sourceIP := requestRemoteIP(r)
-		if a.loginFailures != nil && a.loginFailures.IsLimited(sourceIP, loginFailureLimit(a.Config), loginFailureWindow(a.Config)) {
+		if h.loginFailures != nil && h.loginFailures.IsLimited(sourceIP, loginFailureLimit(h.state.Config), loginFailureWindow(h.state.Config)) {
 			writeAppError(w, r, http.StatusTooManyRequests, "platform.rate_limited", "触发平台级限流", "errors.platform.rate_limited", nil)
 			return
 		}
 
-		token, _, err := a.Auth.Login(request.Identifier, request.Secret)
+		token, _, err := h.auth.Login(request.Identifier, request.Secret)
 		switch {
 		case err == nil:
-			if a.loginFailures != nil {
-				a.loginFailures.Reset(sourceIP)
+			if h.loginFailures != nil {
+				h.loginFailures.Reset(sourceIP)
 			}
 			writeAuthJSON(w, http.StatusOK, authResponse{SessionToken: token})
 			return
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			if a.loginFailures != nil {
-				a.loginFailures.RecordFailure(sourceIP, loginFailureLimit(a.Config), loginFailureWindow(a.Config))
+			if h.loginFailures != nil {
+				h.loginFailures.RecordFailure(sourceIP, loginFailureLimit(h.state.Config), loginFailureWindow(h.state.Config))
 			}
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
@@ -95,13 +95,13 @@ func (a *App) handleSessionLogin() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleLauncherAdmission() http.HandlerFunc {
+func (h *authHTTPHandlers) handleLauncherAdmission() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !isLoopbackRequest(r) {
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
-		if a.Auth == nil || !a.Auth.IsBootstrapped() {
+		if h.auth == nil || !h.auth.IsBootstrapped() {
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
@@ -111,12 +111,12 @@ func (a *App) handleLauncherAdmission() http.HandlerFunc {
 			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
 			return
 		}
-		if !a.launcherTokens.Consume(request.LauncherToken) {
+		if !h.launcherTokens.Consume(request.LauncherToken) {
 			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
 
-		token, _, err := a.Auth.Issue("launcher")
+		token, _, err := h.auth.Issue("launcher")
 		switch {
 		case err == nil:
 			writeAuthJSON(w, http.StatusOK, authResponse{SessionToken: token})

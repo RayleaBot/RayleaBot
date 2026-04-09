@@ -1,0 +1,478 @@
+package app
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
+)
+
+type schedulerTriggerProxy struct {
+	mu      sync.RWMutex
+	handler func(context.Context, scheduler.Job)
+}
+
+func newSchedulerTriggerProxy() *schedulerTriggerProxy {
+	return &schedulerTriggerProxy{}
+}
+
+func (p *schedulerTriggerProxy) Set(handler func(context.Context, scheduler.Job)) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.handler = handler
+}
+
+func (p *schedulerTriggerProxy) Handle(ctx context.Context, job scheduler.Job) {
+	if p == nil {
+		return
+	}
+	p.mu.RLock()
+	handler := p.handler
+	p.mu.RUnlock()
+	if handler != nil {
+		handler(ctx, job)
+	}
+}
+
+func (s *appRuntimeState) redactString(value string) string {
+	if s == nil || s.redactText == nil {
+		return value
+	}
+	return s.redactText(value)
+}
+
+func (s *appRuntimeState) recoverySummarySnapshot() *recovery.CompatibilitySummary {
+	if s == nil {
+		return nil
+	}
+	s.recoveryMu.RLock()
+	defer s.recoveryMu.RUnlock()
+	if s.recoverySummary == nil {
+		return nil
+	}
+	summary := *s.recoverySummary
+	if summary.UpdatedAt == "" {
+		summary.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	return &summary
+}
+
+func (s *appRuntimeState) setRecoverySummary(summary *recovery.CompatibilitySummary) {
+	if s == nil {
+		return
+	}
+	s.recoveryMu.Lock()
+	defer s.recoveryMu.Unlock()
+	s.recoverySummary = summary
+}
+
+type pluginGrantView struct {
+	state           *appRuntimeState
+	plugins         *plugins.Catalog
+	grantRepository plugins.GrantRepository
+}
+
+func (v *pluginGrantView) grantedCapabilities(ctx context.Context, pluginID string) []string {
+	auto := append([]string(nil), v.state.Config.Auth.AutoGrantCapabilities...)
+	if v == nil || v.grantRepository == nil {
+		return auto
+	}
+	grants, err := v.grantRepository.LoadGrants(ctx, pluginID)
+	if err != nil {
+		return auto
+	}
+	for _, g := range grants {
+		if !containsString(auto, g.Capability) {
+			auto = append(auto, g.Capability)
+		}
+	}
+	return auto
+}
+
+func (v *pluginGrantView) capabilityGranted(ctx context.Context, pluginID, capability string) bool {
+	for _, granted := range v.grantedCapabilities(ctx, pluginID) {
+		if strings.TrimSpace(granted) == capability {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *pluginGrantView) grantedScope(ctx context.Context, pluginID, capability string) grantedScope {
+	autoGranted := false
+	if v != nil && v.state != nil {
+		for _, granted := range v.state.Config.Auth.AutoGrantCapabilities {
+			if strings.TrimSpace(granted) == capability {
+				autoGranted = true
+				break
+			}
+		}
+	}
+
+	if v != nil && v.grantRepository != nil {
+		grants, err := v.grantRepository.LoadGrants(ctx, pluginID)
+		if err == nil {
+			for _, grant := range grants {
+				if strings.TrimSpace(grant.Capability) != capability {
+					continue
+				}
+				scope := parseGrantedScope(grant.ScopeJSON)
+				if len(scope.HTTPHosts) > 0 || len(scope.StorageRoots) > 0 || len(scope.Webhooks) > 0 {
+					return scope
+				}
+			}
+		}
+	}
+
+	if autoGranted && v != nil && v.plugins != nil {
+		if snapshot, ok := v.plugins.Get(pluginID); ok {
+			return grantedScope{
+				HTTPHosts:    append([]string(nil), snapshot.ScopeHTTPHosts...),
+				StorageRoots: append([]string(nil), snapshot.ScopeStorageRoots...),
+				Webhooks:     append([]plugins.WebhookScope(nil), snapshot.ScopeWebhooks...),
+			}
+		}
+	}
+
+	return grantedScope{}
+}
+
+func (v *pluginGrantView) storageRootGranted(ctx context.Context, pluginID, root string) bool {
+	if strings.TrimSpace(root) == "" {
+		return false
+	}
+	for _, grantedRoot := range v.grantedScope(ctx, pluginID, "storage.file").StorageRoots {
+		if strings.TrimSpace(grantedRoot) == root {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *pluginGrantView) grantedWebhookScope(ctx context.Context, pluginID, route string) (plugins.WebhookScope, bool) {
+	scope := v.grantedScope(ctx, pluginID, "event.expose_webhook")
+	route = strings.TrimSpace(route)
+	for _, item := range scope.Webhooks {
+		if strings.TrimSpace(item.Route) == route {
+			return item, true
+		}
+	}
+	return plugins.WebhookScope{}, false
+}
+
+type localActionServiceDeps struct {
+	state            *appRuntimeState
+	grants           *pluginGrantView
+	pluginConfig     pluginconfig.Repository
+	pluginFiles      *pluginfile.Service
+	pluginKV         pluginkv.Repository
+	scheduler        *scheduler.Engine
+	dispatcher       *dispatch.Dispatcher
+	renderer         *render.Service
+	adapter          *adapter.Shell
+	pluginLogLimiter *pluginLogLimiter
+}
+
+type pluginLifecycleDeps struct {
+	state            *appRuntimeState
+	plugins          *plugins.Catalog
+	desiredStateRepo plugins.DesiredStateRepository
+	grants           *pluginGrantView
+	runtimes         *runtimeRegistry
+	dispatcher       *dispatch.Dispatcher
+	pluginConfig     pluginconfig.Repository
+	adapter          *adapter.Shell
+	webhooks         *pluginWebhookRegistry
+	onRecoveryChange func(string)
+}
+
+type eventIngressDeps struct {
+	state          *appRuntimeState
+	plugins        *plugins.Catalog
+	replyTargets   *replyTargetCache
+	outboundSender outboundActionSender
+	bridge         *bridge.Bridge
+	lifecycle      *pluginLifecycleController
+	blacklistRepo  permission.BlacklistRepository
+}
+
+type pluginWebhookServiceDeps struct {
+	state      *appRuntimeState
+	registry   *pluginWebhookRegistry
+	secrets    secrets.Store
+	plugins    *plugins.Catalog
+	dispatcher *dispatch.Dispatcher
+	lifecycle  *pluginLifecycleController
+	grants     *pluginGrantView
+}
+
+type systemServiceDeps struct {
+	state            *appRuntimeState
+	auth             *auth.Manager
+	adapter          *adapter.Shell
+	plugins          *plugins.Catalog
+	runtimes         *runtimeRegistry
+	renderer         *render.Service
+	pluginRepository plugins.DesiredStateRepository
+	taskExecutor     *tasks.Executor
+	logRepository    logging.Repository
+}
+
+type authHTTPDeps struct {
+	state          *appRuntimeState
+	auth           *auth.Manager
+	loginFailures  *loginFailureTracker
+	launcherTokens *launcherTokenStore
+}
+
+type managementHTTPDeps struct {
+	state           *appRuntimeState
+	auth            *auth.Manager
+	launcherTokens  *launcherTokenStore
+	system          *systemService
+	requestShutdown func()
+}
+
+type configHTTPDeps struct {
+	state            *appRuntimeState
+	logs             *logging.Stream
+	logRepository    logging.Repository
+	renderer         *render.Service
+	pluginLogLimiter *pluginLogLimiter
+	protocol         *protocolService
+	eventIngress     *eventIngressService
+	blacklistRepo    permission.BlacklistRepository
+}
+
+type httpServerDeps struct {
+	state             *appRuntimeState
+	auth              *auth.Manager
+	tasks             *tasks.Registry
+	plugins           *plugins.Catalog
+	logs              *logService
+	console           *console.Stream
+	pluginInstaller   plugins.InstallCoordinator
+	pluginUninstaller plugins.UninstallCoordinator
+	pluginRepository  plugins.DesiredStateRepository
+	grantRepository   plugins.GrantRepository
+	pluginLifecycle   *pluginLifecycleController
+	taskExecutor      *tasks.Executor
+	renderer          *render.Service
+	launcherTokens    *launcherTokenStore
+	loginFailures     *loginFailureTracker
+	configHandler     *configHTTPHandlers
+	authHandler       *authHTTPHandlers
+	managementHandler *managementHTTPHandlers
+	taskHandler       *taskHTTPHandlers
+	logHandler        *logHTTPHandlers
+	renderHandler     *renderHTTPHandlers
+	systemHandler     *systemHTTPHandlers
+	protocolHandler   *protocolHTTPHandlers
+	eventsWS          *eventsWSHandler
+	tasksWS           *tasksWSHandler
+	logsWS            *logsWSHandler
+	consoleWS         *consoleWSHandler
+	pluginWebhooks    *pluginWebhookHTTPHandlers
+}
+
+type authHTTPHandlers struct {
+	state          *appRuntimeState
+	auth           *auth.Manager
+	loginFailures  *loginFailureTracker
+	launcherTokens *launcherTokenStore
+}
+
+func newAuthHTTPHandlers(deps authHTTPDeps) *authHTTPHandlers {
+	return &authHTTPHandlers{
+		state:          deps.state,
+		auth:           deps.auth,
+		loginFailures:  deps.loginFailures,
+		launcherTokens: deps.launcherTokens,
+	}
+}
+
+type managementHTTPHandlers struct {
+	state           *appRuntimeState
+	auth            *auth.Manager
+	launcherTokens  *launcherTokenStore
+	system          *systemService
+	requestShutdown func()
+}
+
+func newManagementHTTPHandlers(deps managementHTTPDeps) *managementHTTPHandlers {
+	return &managementHTTPHandlers{
+		state:           deps.state,
+		auth:            deps.auth,
+		launcherTokens:  deps.launcherTokens,
+		system:          deps.system,
+		requestShutdown: deps.requestShutdown,
+	}
+}
+
+type configHTTPHandlers struct {
+	state            *appRuntimeState
+	logs             *logging.Stream
+	logRepository    logging.Repository
+	renderer         *render.Service
+	pluginLogLimiter *pluginLogLimiter
+	protocol         *protocolService
+	eventIngress     *eventIngressService
+	blacklistRepo    permission.BlacklistRepository
+}
+
+func newConfigHTTPHandlers(deps configHTTPDeps) *configHTTPHandlers {
+	return &configHTTPHandlers{
+		state:            deps.state,
+		logs:             deps.logs,
+		logRepository:    deps.logRepository,
+		renderer:         deps.renderer,
+		pluginLogLimiter: deps.pluginLogLimiter,
+		protocol:         deps.protocol,
+		eventIngress:     deps.eventIngress,
+		blacklistRepo:    deps.blacklistRepo,
+	}
+}
+
+type logService struct {
+	stream     *logging.Stream
+	repository logging.Repository
+}
+
+func newLogService(stream *logging.Stream, repository logging.Repository) *logService {
+	return &logService{stream: stream, repository: repository}
+}
+
+type logHTTPHandlers struct {
+	logs *logService
+}
+
+func newLogHTTPHandlers(logs *logService) *logHTTPHandlers {
+	return &logHTTPHandlers{logs: logs}
+}
+
+type taskHTTPHandlers struct {
+	tasks           *tasks.Registry
+	taskExecutor    *tasks.Executor
+	pluginInstaller plugins.InstallCoordinator
+}
+
+func newTaskHTTPHandlers(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, pluginInstaller plugins.InstallCoordinator) *taskHTTPHandlers {
+	return &taskHTTPHandlers{
+		tasks:           taskRegistry,
+		taskExecutor:    taskExecutor,
+		pluginInstaller: pluginInstaller,
+	}
+}
+
+type renderHTTPHandlers struct {
+	renderer     *render.Service
+	taskExecutor *tasks.Executor
+}
+
+func newRenderHTTPHandlers(renderer *render.Service, taskExecutor *tasks.Executor) *renderHTTPHandlers {
+	return &renderHTTPHandlers{
+		renderer:     renderer,
+		taskExecutor: taskExecutor,
+	}
+}
+
+type systemHTTPHandlers struct {
+	system *systemService
+}
+
+func newSystemHTTPHandlers(system *systemService) *systemHTTPHandlers {
+	return &systemHTTPHandlers{system: system}
+}
+
+type protocolHTTPHandlers struct {
+	protocol *protocolService
+}
+
+func newProtocolHTTPHandlers(protocol *protocolService) *protocolHTTPHandlers {
+	return &protocolHTTPHandlers{protocol: protocol}
+}
+
+type pluginWebhookHTTPHandlers struct {
+	webhooks *pluginWebhookService
+}
+
+func newPluginWebhookHTTPHandlers(webhooks *pluginWebhookService) *pluginWebhookHTTPHandlers {
+	return &pluginWebhookHTTPHandlers{webhooks: webhooks}
+}
+
+type eventsWSHandler struct {
+	bridge   *bridge.Bridge
+	protocol *protocolService
+}
+
+func newEventsWSHandler(bridge *bridge.Bridge, protocol *protocolService) *eventsWSHandler {
+	return &eventsWSHandler{bridge: bridge, protocol: protocol}
+}
+
+type tasksWSHandler struct {
+	tasks *tasks.Registry
+}
+
+func newTasksWSHandler(tasks *tasks.Registry) *tasksWSHandler {
+	return &tasksWSHandler{tasks: tasks}
+}
+
+type logsWSHandler struct {
+	logs *logService
+}
+
+func newLogsWSHandler(logs *logService) *logsWSHandler {
+	return &logsWSHandler{logs: logs}
+}
+
+type consoleWSHandler struct {
+	console *console.Stream
+	plugins *plugins.Catalog
+}
+
+func newConsoleWSHandler(console *console.Stream, plugins *plugins.Catalog) *consoleWSHandler {
+	return &consoleWSHandler{console: console, plugins: plugins}
+}
+
+type webhookGateway interface {
+	Expose(context.Context, string, runtime.Action) (map[string]any, error)
+}
+
+func containsString(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
+}
+
+type readinessProvider interface {
+	CurrentReadiness() health.ReadinessReport
+}
+
+var _ readinessProvider = (*systemService)(nil)
+var _ http.Handler = (http.Handler)(nil)

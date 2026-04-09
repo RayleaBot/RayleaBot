@@ -9,11 +9,11 @@ import (
 )
 
 func (c *pluginLifecycleController) reconcileRuntime(ctx context.Context, botID string) {
-	if c == nil || c.app == nil || strings.TrimSpace(botID) == "" {
+	if c == nil || strings.TrimSpace(botID) == "" {
 		return
 	}
 
-	for _, snapshot := range c.app.Plugins.List() {
+	for _, snapshot := range c.plugins.List() {
 		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
 			continue
 		}
@@ -28,51 +28,51 @@ func (c *pluginLifecycleController) reconcileRuntime(ctx context.Context, botID 
 }
 
 func (c *pluginLifecycleController) ensurePluginRunning(ctx context.Context, pluginID, botID string) error {
-	if c == nil || c.app == nil || c.app.Runtimes == nil {
+	if c == nil || c.runtimes == nil {
 		return nil
 	}
 
-	manager := c.app.Runtimes.GetOrCreate(pluginID)
+	manager := c.runtimes.GetOrCreate(pluginID)
 	switch manager.Snapshot().State {
 	case runtime.StateRunning:
 		c.registerRuntimeIfNeeded(pluginID, manager)
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
 		return nil
 	case runtime.StateStarting, runtime.StateStopping, runtime.StateBackoff, runtime.StateCrashed, runtime.StateDeadLetter:
 		return nil
 	default:
 	}
 
-	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))
 	return c.startRuntime(ctx, pluginID, botID, manager)
 }
 
 func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
-	if c == nil || c.app == nil || strings.TrimSpace(botID) == "" {
+	if c == nil || strings.TrimSpace(botID) == "" {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.app.Config.Runtime))
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.state.Config.Runtime))
 	defer cancel()
 
-	manager := c.app.Runtimes.GetOrCreate(pluginID)
+	manager := c.runtimes.GetOrCreate(pluginID)
 	if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
 		c.logLifecycleWarn("start plugin runtime after enable", pluginID, err)
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 	}
 }
 
 func (c *pluginLifecycleController) reloadPluginAsync(pluginID, botID string) {
-	if c == nil || c.app == nil || strings.TrimSpace(botID) == "" {
+	if c == nil || strings.TrimSpace(botID) == "" {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.app.Config.Runtime))
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.state.Config.Runtime))
 	defer cancel()
 
-	snapshot, ok := c.app.Plugins.Get(pluginID)
+	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 		return
 	}
 	if _, err := c.validateActivation(ctx, snapshot); err != nil {
@@ -80,7 +80,7 @@ func (c *pluginLifecycleController) reloadPluginAsync(pluginID, botID string) {
 		return
 	}
 
-	current, ok := c.app.Runtimes.Get(pluginID)
+	current, ok := c.runtimes.Get(pluginID)
 	if !ok || current == nil {
 		c.startPluginAsync(pluginID, botID)
 		return
@@ -102,20 +102,20 @@ func (c *pluginLifecycleController) reloadPluginAsync(pluginID, botID string) {
 	spec, payload, err := c.buildStartInputs(ctx, pluginID, botID)
 	if err != nil {
 		c.logLifecycleWarn("build runtime spec for plugin reload", pluginID, err)
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 		return
 	}
 
-	newManager := c.app.Runtimes.NewDetached()
-	if err := c.app.Dispatcher.ReloadPlugin(ctx, pluginID, current, newManager, spec, payload, dispatchCommands(snapshot.Commands)); err != nil {
+	newManager := c.runtimes.NewDetached()
+	if err := c.dispatcher.ReloadPlugin(ctx, pluginID, current, newManager, spec, payload, dispatchCommands(snapshot.Commands)); err != nil {
 		c.logLifecycleWarn("reload plugin runtime", pluginID, err)
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
 		return
 	}
 
-	c.app.Runtimes.Replace(pluginID, newManager)
+	c.runtimes.Replace(pluginID, newManager)
 	newManager.ResetCrashCount()
-	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
 }
 
 func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, botID string, manager *runtime.Manager) error {
@@ -123,12 +123,12 @@ func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, 
 		return nil
 	}
 
-	snapshot, ok := c.app.Plugins.Get(pluginID)
+	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
 		return plugins.ErrPluginNotFound
 	}
 	if snapshot.DesiredState != "enabled" {
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 		return nil
 	}
 
@@ -152,21 +152,21 @@ func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, 
 
 	manager.ResetCrashCount()
 	c.registerRuntime(pluginID, snapshot, manager)
-	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
 	return nil
 }
 
 func (c *pluginLifecycleController) buildStartInputs(ctx context.Context, pluginID, botID string) (runtime.Spec, runtime.InitPayload, error) {
-	return c.buildStartInputsWithCapabilities(pluginID, botID, c.grantedCapabilities(ctx, pluginID))
+	return c.buildStartInputsWithCapabilities(pluginID, botID, c.grants.grantedCapabilities(ctx, pluginID))
 }
 
 func (c *pluginLifecycleController) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (runtime.Spec, runtime.InitPayload, error) {
-	snapshot, ok := c.app.Plugins.Get(pluginID)
+	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
 		return runtime.Spec{}, runtime.InitPayload{}, plugins.ErrPluginNotFound
 	}
 
-	spec, err := runtime.BuildSpec(snapshot, c.app.repoRoot, c.app.Config.Runtime)
+	spec, err := runtime.BuildSpec(snapshot, c.state.repoRoot, c.state.Config.Runtime)
 	if err != nil {
 		return runtime.Spec{}, runtime.InitPayload{}, err
 	}
@@ -181,13 +181,13 @@ func (c *pluginLifecycleController) buildStartInputsWithCapabilities(pluginID, b
 }
 
 func (c *pluginLifecycleController) registerRuntimeIfNeeded(pluginID string, manager *runtime.Manager) {
-	if c == nil || c.app == nil || c.app.Dispatcher == nil || manager == nil {
+	if c == nil || c.dispatcher == nil || manager == nil {
 		return
 	}
-	if c.app.Dispatcher.HasDeliverablePlugin(pluginID) {
+	if c.dispatcher.HasDeliverablePlugin(pluginID) {
 		return
 	}
-	snapshot, ok := c.app.Plugins.Get(pluginID)
+	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
 		return
 	}
@@ -195,9 +195,9 @@ func (c *pluginLifecycleController) registerRuntimeIfNeeded(pluginID string, man
 }
 
 func (c *pluginLifecycleController) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *runtime.Manager) {
-	if c == nil || c.app == nil || c.app.Dispatcher == nil || manager == nil {
+	if c == nil || c.dispatcher == nil || manager == nil {
 		return
 	}
 	runtimeSnapshot := manager.Snapshot()
-	c.app.Dispatcher.Register(pluginID, manager, runtimeSnapshot.Subscriptions, dispatchCommands(snapshot.Commands))
+	c.dispatcher.Register(pluginID, manager, runtimeSnapshot.Subscriptions, dispatchCommands(snapshot.Commands))
 }

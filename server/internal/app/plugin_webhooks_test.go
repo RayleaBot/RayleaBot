@@ -56,47 +56,37 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 		t.Fatalf("NewSQLiteStore: %v", err)
 	}
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Server: config.ServerConfig{
-					Host: "127.0.0.1",
-					Port: 8080,
-				},
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		},
-		appPlatform: appPlatform{
-			Secrets: secretStore,
-		},
-		appPlugins: appPlugins{
-			Plugins:    plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}}),
-			Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
-			Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
-			webhooks:   newPluginWebhookRegistry(),
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"repo-watcher": {{
-						PluginID:   "repo-watcher",
-						Capability: "event.expose_webhook",
-						ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
-					}, {
-						PluginID:   "repo-watcher",
-						Capability: "event.raw_payload",
-					}},
-				},
-			},
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
+	registry := newPluginWebhookRegistry()
+	grantRepo := &stubLifecycleGrantRepository{
+		grants: map[string][]plugins.PluginGrant{
+			"repo-watcher": {{
+				PluginID:   "repo-watcher",
+				Capability: "event.expose_webhook",
+				ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
+			}, {
+				PluginID:   "repo-watcher",
+				Capability: "event.raw_payload",
+			}},
 		},
 	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	application := newTestAppState(config.Config{
+		Server: config.ServerConfig{
+			Host: "127.0.0.1",
+			Port: 8080,
+		},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
+	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
+	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
-	application.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil)
+	application.dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil)
 
-	if err := application.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
+	if err := application.secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)
 	}
 
@@ -170,47 +160,37 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 		t.Fatalf("NewSQLiteStore: %v", err)
 	}
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Server: config.ServerConfig{
-					Host: "127.0.0.1",
-					Port: 8080,
-				},
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		},
-		appPlatform: appPlatform{
-			Secrets: secretStore,
-		},
-		appPlugins: appPlugins{
-			Plugins:    plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}}),
-			Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
-			Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
-			webhooks:   newPluginWebhookRegistry(),
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"repo-watcher": {{
-						PluginID:   "repo-watcher",
-						Capability: "event.expose_webhook",
-						ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
-					}, {
-						PluginID:   "repo-watcher",
-						Capability: "event.raw_payload",
-					}},
-				},
-			},
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
+	registry := newPluginWebhookRegistry()
+	grantRepo := &stubLifecycleGrantRepository{
+		grants: map[string][]plugins.PluginGrant{
+			"repo-watcher": {{
+				PluginID:   "repo-watcher",
+				Capability: "event.expose_webhook",
+				ScopeJSON:  `{"webhooks":[{"route":"github","auth_strategy":"hmac_sha256","header":"X-Hub-Signature-256","secret_ref":"webhook.github.secret"}]}`,
+			}, {
+				PluginID:   "repo-watcher",
+				Capability: "event.raw_payload",
+			}},
 		},
 	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	application := newTestAppState(config.Config{
+		Server: config.ServerConfig{
+			Host: "127.0.0.1",
+			Port: 8080,
+		},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"event.expose_webhook", "event.raw_payload"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
+	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
+	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 
 	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
-	application.Dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil)
+	application.dispatcher.Register("repo-watcher", fakeRuntime, []string{"webhook.received"}, nil)
 
-	if err := application.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
+	if err := application.secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set webhook secret: %v", err)
 	}
 

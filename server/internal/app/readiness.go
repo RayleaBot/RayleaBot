@@ -6,8 +6,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func (a *App) currentReadiness() health.ReadinessReport {
-	if a == nil {
+func (s *systemService) CurrentReadiness() health.ReadinessReport {
+	if s == nil {
 		return health.ReadinessReport{
 			Status: "failed",
 			Reason: "Management application is unavailable",
@@ -25,7 +25,7 @@ func (a *App) currentReadiness() health.ReadinessReport {
 			RecoverySummary: nil,
 		}
 	}
-	if a.Auth == nil {
+	if s.auth == nil {
 		return health.ReadinessReport{
 			Status: "failed",
 			Reason: "Management auth service is unavailable",
@@ -40,10 +40,10 @@ func (a *App) currentReadiness() health.ReadinessReport {
 					Remediation: "请检查服务日志，确认认证服务已完成初始化。",
 				},
 			},
-			RecoverySummary: a.recoverySummary,
+			RecoverySummary: s.state.recoverySummarySnapshot(),
 		}
 	}
-	if !a.Auth.IsBootstrapped() {
+	if !s.auth.IsBootstrapped() {
 		return health.ReadinessReport{
 			Status: "setup_required",
 			Reason: "Initial admin setup is required",
@@ -58,10 +58,10 @@ func (a *App) currentReadiness() health.ReadinessReport {
 					Remediation: "请先完成管理员初始化，然后再使用管理入口。",
 				},
 			},
-			RecoverySummary: a.recoverySummary,
+			RecoverySummary: s.state.recoverySummarySnapshot(),
 		}
 	}
-	if a.Adapter == nil {
+	if s.adapter == nil {
 		return health.ReadinessReport{
 			Status: "failed",
 			Reason: "OneBot adapter is unavailable",
@@ -76,14 +76,14 @@ func (a *App) currentReadiness() health.ReadinessReport {
 					Remediation: "请检查 OneBot adapter 配置并重启服务。",
 				},
 			},
-			RecoverySummary: a.recoverySummary,
+			RecoverySummary: s.state.recoverySummarySnapshot(),
 		}
 	}
 
-	report := ReadinessReportFromAdapter(a.Adapter.Snapshot())
-	report.RecoverySummary = a.recoverySummary
-	if a.recoverySummary != nil {
-		switch a.recoverySummary.Status {
+	report := ReadinessReportFromAdapter(s.adapter.Snapshot())
+	report.RecoverySummary = s.state.recoverySummarySnapshot()
+	if report.RecoverySummary != nil {
+		switch report.RecoverySummary.Status {
 		case "blocked":
 			report.Status = "failed"
 			report.Reason = "Recovery compatibility checks blocked startup"
@@ -96,20 +96,20 @@ func (a *App) currentReadiness() health.ReadinessReport {
 				report.ReasonCodes = []string{"recovery.degraded"}
 			}
 		}
-		report.Issues = append(report.Issues, recoveryIssuesToHealth(a.recoverySummary.Issues)...)
+		report.Issues = append(report.Issues, recoveryIssuesToHealth(report.RecoverySummary.Issues)...)
 	}
 	pluginsList := []plugins.Snapshot(nil)
-	if a.Plugins != nil {
-		pluginsList = a.Plugins.List()
+	if s.plugins != nil {
+		pluginsList = s.plugins.List()
 	}
 
-	renderIssues := recoveryIssuesToHealth(a.renderDiagnostics())
+	renderIssues := recoveryIssuesToHealth(s.renderDiagnostics())
 	if len(renderIssues) > 0 {
 		report.Checks["render"] = "resource_missing"
 		report.Issues = append(report.Issues, renderIssues...)
 	}
 
-	runtimeIssues := recoveryIssuesToHealth(a.managedRuntimeDiagnostics(pluginsList))
+	runtimeIssues := recoveryIssuesToHealth(s.managedRuntimeDiagnostics(pluginsList))
 	if len(runtimeIssues) > 0 {
 		report.Checks["runtime"] = "resource_missing"
 		report.Issues = append(report.Issues, runtimeIssues...)

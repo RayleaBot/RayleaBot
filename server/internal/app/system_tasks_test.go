@@ -60,7 +60,7 @@ func TestHandleSystemRecoveryRecheckAcceptsTaskAndPersistsCompatibleSummary(t *t
 	if err := json.Unmarshal(recorder.Body.Bytes(), &accepted); err != nil {
 		t.Fatalf("decode task accepted response: %v", err)
 	}
-	snapshot := waitTask(t, application.Tasks, accepted.TaskID, tasks.StatusSucceeded)
+	snapshot := waitTask(t, application.tasks, accepted.TaskID, tasks.StatusSucceeded)
 	if snapshot.TaskType != "recovery.recheck" {
 		t.Fatalf("unexpected task type: %#v", snapshot)
 	}
@@ -139,7 +139,7 @@ func TestHandleSystemRecoveryConfirmAcceptsTaskAndPersistsAudit(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &accepted); err != nil {
 		t.Fatalf("decode task accepted response: %v", err)
 	}
-	snapshot := waitTask(t, application.Tasks, accepted.TaskID, tasks.StatusSucceeded)
+	snapshot := waitTask(t, application.tasks, accepted.TaskID, tasks.StatusSucceeded)
 	if snapshot.TaskType != "recovery.confirm" {
 		t.Fatalf("unexpected task type: %#v", snapshot)
 	}
@@ -229,7 +229,7 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	if err := json.Unmarshal(recorder.Body.Bytes(), &accepted); err != nil {
 		t.Fatalf("decode task accepted response: %v", err)
 	}
-	snapshot := waitTask(t, application.Tasks, accepted.TaskID, tasks.StatusSucceeded)
+	snapshot := waitTask(t, application.tasks, accepted.TaskID, tasks.StatusSucceeded)
 	if snapshot.TaskType != "runtime.bootstrap" {
 		t.Fatalf("unexpected task type: %#v", snapshot)
 	}
@@ -268,7 +268,8 @@ func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) 
 	})
 
 	application := newTaskOnlyApp(t, repoRoot)
-	application.appPlugins.renderer = renderer
+	application.renderer = renderer
+	application.systemService.renderer = renderer
 
 	original := prepareManagedRuntimeWithReport
 	t.Cleanup(func() {
@@ -304,7 +305,7 @@ func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) 
 	if err := json.Unmarshal(recorder.Body.Bytes(), &accepted); err != nil {
 		t.Fatalf("decode task accepted response: %v", err)
 	}
-	waitTask(t, application.Tasks, accepted.TaskID, tasks.StatusSucceeded)
+	waitTask(t, application.tasks, accepted.TaskID, tasks.StatusSucceeded)
 
 	if containsIssueCode(renderer.Diagnostics(), "platform.resource_missing") {
 		t.Fatalf("expected runtime bootstrap to refresh chromium diagnostics")
@@ -318,20 +319,14 @@ func newTaskOnlyApp(t *testing.T, repoRoot string) *App {
 	t.Cleanup(func() {
 		_ = executor.Close()
 	})
-	return &App{
-		appCore: appCore{
-			repoRoot:  repoRoot,
-			startedAt: time.Now(),
-			Config:    config.Config{},
-		},
-		appPlatform: appPlatform{
-			Tasks:        registry,
-			taskExecutor: executor,
-		},
-		appPlugins: appPlugins{
-			Plugins: plugins.NewCatalog(nil),
-		},
-	}
+	application := newTestAppState(config.Config{}, nil)
+	application.state.repoRoot = repoRoot
+	application.state.startedAt = time.Now()
+	application.tasks = registry
+	application.taskExecutor = executor
+	application.plugins = plugins.NewCatalog(nil)
+	application.setTestSystem(registry, executor, nil, nil)
+	return application
 }
 
 func writeDepsManifest(t *testing.T, repoRoot string) {

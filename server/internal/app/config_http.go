@@ -22,9 +22,9 @@ type configUpdateResponse struct {
 	RestartRequired bool           `json:"restart_required"`
 }
 
-func (a *App) handleConfigGet() http.HandlerFunc {
+func (h *configHTTPHandlers) handleConfigGet() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		document, redactedFields := sanitizeConfigDocument(configDocumentFromTyped(a.Config))
+		document, redactedFields := sanitizeConfigDocument(configDocumentFromTyped(h.state.Config))
 		writeAuthJSON(w, http.StatusOK, configResponse{
 			Config:         document,
 			RedactedFields: redactedFields,
@@ -32,7 +32,7 @@ func (a *App) handleConfigGet() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleConfigPut() http.HandlerFunc {
+func (h *configHTTPHandlers) handleConfigPut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request map[string]any
 		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil {
@@ -40,14 +40,14 @@ func (a *App) handleConfigPut() http.HandlerFunc {
 			return
 		}
 
-		resolved := resolveRedactedConfigValues(request, a.Config)
-		newCfg, _, err := internalconfig.SaveDocument(a.Summary.ConfigPath, a.Summary.SchemaPath, resolved)
+		resolved := resolveRedactedConfigValues(request, h.state.Config)
+		newCfg, _, err := internalconfig.SaveDocument(h.state.Summary.ConfigPath, h.state.Summary.SchemaPath, resolved)
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", nil)
 			return
 		}
 
-		restartRequired := applyHotReloadableFields(a, newCfg)
+		restartRequired := h.applyHotReloadableFields(newCfg)
 
 		document, redactedFields := sanitizeConfigDocument(resolved)
 		writeAuthJSON(w, http.StatusOK, configUpdateResponse{
@@ -61,15 +61,15 @@ func (a *App) handleConfigPut() http.HandlerFunc {
 // applyHotReloadableFields compares the new config with the current config,
 // applies fields that can take effect immediately, and returns true if any
 // non-hot-reloadable field has changed (requiring a restart).
-func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
-	oldCfg := a.Config
+func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Config) bool {
+	oldCfg := h.state.Config
 	restartRequired := false
 
 	// logging.level — immediate effect via LevelController.
 	if newCfg.Logging.Level != oldCfg.Logging.Level {
-		if a.LogLevel != nil {
-			if err := a.LogLevel.SetLevel(newCfg.Logging.Level); err == nil {
-				a.Logger.Info("log level changed",
+		if h.state.LogLevel != nil {
+			if err := h.state.LogLevel.SetLevel(newCfg.Logging.Level); err == nil {
+				h.state.Logger.Info("log level changed",
 					"component", "config",
 					"old_level", oldCfg.Logging.Level,
 					"new_level", newCfg.Logging.Level,
@@ -77,16 +77,16 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 			}
 		}
 	}
-	if newCfg.Logging.RetentionDays != oldCfg.Logging.RetentionDays && a.Logs != nil {
-		a.Logs.SetRepository(a.LogRepository, newCfg.Logging.RetentionDays)
+	if newCfg.Logging.RetentionDays != oldCfg.Logging.RetentionDays && h.logs != nil {
+		h.logs.SetRepository(h.logRepository, newCfg.Logging.RetentionDays)
 	}
-	if newCfg.Logging.RateLimitPerPlugin != oldCfg.Logging.RateLimitPerPlugin && a.pluginLogLimiter != nil {
-		a.pluginLogLimiter.SetLimit(parsePluginLogRateLimit(newCfg))
+	if newCfg.Logging.RateLimitPerPlugin != oldCfg.Logging.RateLimitPerPlugin && h.pluginLogLimiter != nil {
+		h.pluginLogLimiter.SetLimit(parsePluginLogRateLimit(newCfg))
 	}
-	if a.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
+	if h.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
 		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||
 		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength) {
-		a.renderer.UpdateRuntimeConfig(render.RuntimeConfig{
+		h.renderer.UpdateRuntimeConfig(render.RuntimeConfig{
 			QueueMaxLength:   newCfg.Render.QueueMaxLength,
 			QueueWaitTimeout: time.Duration(newCfg.Render.QueueWaitTimeoutSeconds) * time.Second,
 			RenderTimeout:    time.Duration(newCfg.Render.TimeoutSeconds) * time.Second,
@@ -132,10 +132,13 @@ func applyHotReloadableFields(a *App, newCfg internalconfig.Config) bool {
 	}
 
 	// Update in-memory config to reflect the saved state.
-	a.Config = newCfg
-	a.commandParser = newCommandParser(newCfg)
-	a.permissionChecker = newPermissionChecker(newCfg, a.blacklistRepo)
-	a.publishProtocolSnapshot()
+	h.state.Config = newCfg
+	if h.eventIngress != nil {
+		h.eventIngress.UpdateConfig(newCfg)
+	}
+	if h.protocol != nil {
+		h.protocol.PublishSnapshot()
+	}
 
 	return restartRequired
 }

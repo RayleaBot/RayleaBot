@@ -44,7 +44,7 @@ type taskAcceptedResponse struct {
 	TaskID string `json:"task_id"`
 }
 
-func (a *App) handleTaskList() http.HandlerFunc {
+func (h *taskHTTPHandlers) handleTaskList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statusFilter := r.URL.Query().Get("status")
 		if statusFilter != "" {
@@ -73,7 +73,7 @@ func (a *App) handleTaskList() http.HandlerFunc {
 		}
 
 		items := make([]tasks.Snapshot, 0)
-		for _, snapshot := range a.Tasks.List() {
+		for _, snapshot := range h.tasks.List() {
 			if statusFilter != "" && string(snapshot.Status) != statusFilter {
 				continue
 			}
@@ -90,10 +90,10 @@ func (a *App) handleTaskList() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleTaskDetail() http.HandlerFunc {
+func (h *taskHTTPHandlers) handleTaskDetail() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskID := chi.URLParam(r, "task_id")
-		snapshot, ok := a.Tasks.Get(taskID)
+		snapshot, ok := h.tasks.Get(taskID)
 		if !ok {
 			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
@@ -106,10 +106,10 @@ func (a *App) handleTaskDetail() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleTaskCancel() http.HandlerFunc {
+func (h *taskHTTPHandlers) handleTaskCancel() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskID := chi.URLParam(r, "task_id")
-		snapshot, ok := a.Tasks.Get(taskID)
+		snapshot, ok := h.tasks.Get(taskID)
 		if !ok {
 			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "task",
@@ -118,11 +118,11 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 			return
 		}
 
-		if a.PluginInstaller != nil && a.PluginInstaller.Cancel(taskID) {
+		if h.pluginInstaller != nil && h.pluginInstaller.Cancel(taskID) {
 			writeAuthJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
 			return
 		}
-		if a.taskExecutor != nil && a.taskExecutor.Cancel(taskID) {
+		if h.taskExecutor != nil && h.taskExecutor.Cancel(taskID) {
 			writeAuthJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
 			return
 		}
@@ -137,7 +137,7 @@ func (a *App) handleTaskCancel() http.HandlerFunc {
 
 		cancelled := tasks.StatusCancelled
 		now := time.Now().UTC()
-		if _, ok := a.Tasks.Update(taskID, tasks.Update{
+		if _, ok := h.tasks.Update(taskID, tasks.Update{
 			Status:     &cancelled,
 			FinishedAt: &now,
 		}); !ok {

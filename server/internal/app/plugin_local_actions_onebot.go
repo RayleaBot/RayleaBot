@@ -65,8 +65,8 @@ func runtimeIsProviderExtensionAction(kind string) bool {
 	return strings.HasPrefix(kind, "provider.napcat.") || strings.HasPrefix(kind, "provider.luckylillia.")
 }
 
-func (a *App) executeOneBotLocalAction(ctx context.Context, _ string, _ string, action runtime.Action) (map[string]any, error) {
-	if a.Adapter == nil {
+func (s *localActionService) executeOneBotLocalAction(ctx context.Context, _ string, _ string, action runtime.Action) (map[string]any, error) {
+	if s.adapter == nil {
 		return nil, &runtime.Error{
 			Code:    "adapter.transport_not_implemented",
 			Message: "OneBot adapter 不可用",
@@ -74,7 +74,7 @@ func (a *App) executeOneBotLocalAction(ctx context.Context, _ string, _ string, 
 	}
 
 	if runtimeIsProviderExtensionAction(action.Kind) {
-		return a.executeOneBotProviderAction(ctx, action)
+		return s.executeOneBotProviderAction(ctx, action)
 	}
 
 	apiAction, params, err := projectOneBotGenericAction(action)
@@ -82,7 +82,7 @@ func (a *App) executeOneBotLocalAction(ctx context.Context, _ string, _ string, 
 		return nil, err
 	}
 
-	result, callErr := a.Adapter.CallAPIAny(ctx, apiAction, params)
+	result, callErr := s.adapter.CallAPIAny(ctx, apiAction, params)
 	if callErr != nil {
 		return nil, toRuntimeActionError(callErr)
 	}
@@ -129,8 +129,8 @@ func toRuntimeActionError(err error) error {
 	}
 }
 
-func (a *App) executeOneBotProviderAction(ctx context.Context, action runtime.Action) (map[string]any, error) {
-	provider := currentOneBotProvider(a.Config.OneBot.Provider)
+func (s *localActionService) executeOneBotProviderAction(ctx context.Context, action runtime.Action) (map[string]any, error) {
+	provider := currentOneBotProvider(s.state.Config.OneBot.Provider)
 
 	var (
 		requiredProvider string
@@ -165,7 +165,7 @@ func (a *App) executeOneBotProviderAction(ctx context.Context, action runtime.Ac
 	if err != nil {
 		return nil, err
 	}
-	result, callErr := a.Adapter.CallAPIAny(ctx, apiAction, params)
+	result, callErr := s.adapter.CallAPIAny(ctx, apiAction, params)
 	if callErr != nil {
 		return nil, toRuntimeActionError(callErr)
 	}

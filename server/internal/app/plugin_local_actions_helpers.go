@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -10,18 +9,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 )
-
-func (a *App) pluginCapabilityGranted(ctx context.Context, pluginID, capability string) bool {
-	if a == nil || a.pluginLifecycle == nil {
-		return false
-	}
-	for _, granted := range a.pluginLifecycle.grantedCapabilities(ctx, pluginID) {
-		if strings.TrimSpace(granted) == capability {
-			return true
-		}
-	}
-	return false
-}
 
 func currentKVLimits(cfg config.Config) pluginkv.Limits {
 	valueLimit := cfg.Storage.KVValueMaxBytes
@@ -51,13 +38,6 @@ func currentFileLimits(cfg config.Config) pluginfile.Limits {
 		FileMaxBytes:  fileLimit,
 		TotalMaxBytes: totalLimitMB * 1024 * 1024,
 	}
-}
-
-func (a *App) redactString(value string) string {
-	if a == nil || a.redactText == nil {
-		return value
-	}
-	return a.redactText(value)
 }
 
 func redactValue(redactText func(string) string, value any) any {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -44,23 +45,39 @@ type oneBot11ProtocolSnapshotResponse struct {
 	RecentTransportIssues []protocolIssueResponse           `json:"recent_transport_issues"`
 }
 
-func (a *App) handleProtocolOneBot11Snapshot() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		writeAuthJSON(w, http.StatusOK, a.currentOneBot11ProtocolSnapshot())
+type protocolService struct {
+	state       *appRuntimeState
+	adapter     *adapter.Shell
+	mu          sync.RWMutex
+	nextSubID   uint64
+	subscribers map[uint64]chan managementEventFrame
+}
+
+func newProtocolService(state *appRuntimeState, adapterShell *adapter.Shell) *protocolService {
+	return &protocolService{
+		state:       state,
+		adapter:     adapterShell,
+		subscribers: make(map[uint64]chan managementEventFrame),
 	}
 }
 
-func (a *App) handleProtocolOneBot11ReverseWS() http.HandlerFunc {
+func (h *protocolHTTPHandlers) handleProtocolOneBot11Snapshot() http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeAuthJSON(w, http.StatusOK, h.protocol.currentOneBot11ProtocolSnapshot())
+	}
+}
+
+func (h *protocolHTTPHandlers) handleProtocolOneBot11ReverseWS() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a.Adapter == nil {
+		if h.protocol.adapter == nil {
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口不可用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
 			return
 		}
-		if strings.TrimSpace(a.Config.OneBot.AccessToken) == "" {
-			a.Logger.Warn("onebot reverse websocket ingress accepted without access token", "component", "adapter", "transport", "reverse_ws")
+		if strings.TrimSpace(h.protocol.state.Config.OneBot.AccessToken) == "" {
+			h.protocol.state.Logger.Warn("onebot reverse websocket ingress accepted without access token", "component", "adapter", "transport", "reverse_ws")
 		}
-		if !allowOneBotIngress(r, a.Config.OneBot.AccessToken) {
-			a.Adapter.MarkReverseWSAuthFailed()
+		if !allowOneBotIngress(r, h.protocol.state.Config.OneBot.AccessToken) {
+			h.protocol.adapter.MarkReverseWSAuthFailed()
 			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_reverse_ws_auth_failed", "协议鉴权失败", "errors.adapter.transport_reverse_ws_auth_failed", nil)
 			return
 		}
@@ -69,21 +86,21 @@ func (a *App) handleProtocolOneBot11ReverseWS() http.HandlerFunc {
 		if err != nil {
 			return
 		}
-		a.Adapter.AttachReverseWS(conn)
+		h.protocol.adapter.AttachReverseWS(conn)
 	}
 }
 
-func (a *App) handleProtocolOneBot11Webhook() http.HandlerFunc {
+func (h *protocolHTTPHandlers) handleProtocolOneBot11Webhook() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a.Adapter == nil {
+		if h.protocol.adapter == nil {
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 不可用", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
-		if strings.TrimSpace(a.Config.OneBot.AccessToken) == "" {
-			a.Logger.Warn("onebot webhook ingress accepted without access token", "component", "adapter", "transport", "webhook")
+		if strings.TrimSpace(h.protocol.state.Config.OneBot.AccessToken) == "" {
+			h.protocol.state.Logger.Warn("onebot webhook ingress accepted without access token", "component", "adapter", "transport", "webhook")
 		}
-		if !allowOneBotIngress(r, a.Config.OneBot.AccessToken) {
-			a.Adapter.MarkWebhookAuthFailed()
+		if !allowOneBotIngress(r, h.protocol.state.Config.OneBot.AccessToken) {
+			h.protocol.adapter.MarkWebhookAuthFailed()
 			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_webhook_auth_failed", "协议鉴权失败", "errors.adapter.transport_webhook_auth_failed", nil)
 			return
 		}
@@ -93,7 +110,7 @@ func (a *App) handleProtocolOneBot11Webhook() http.HandlerFunc {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		if err := a.Adapter.AcceptWebhookPayload(r.Context(), payload); err != nil {
+		if err := h.protocol.adapter.AcceptWebhookPayload(r.Context(), payload); err != nil {
 			writeAppError(w, r, http.StatusBadRequest, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 负载不合法", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
@@ -101,10 +118,10 @@ func (a *App) handleProtocolOneBot11Webhook() http.HandlerFunc {
 	}
 }
 
-func (a *App) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotResponse {
+func (s *protocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotResponse {
 	adapterSnapshot := adapter.Snapshot{}
-	if a.Adapter != nil {
-		adapterSnapshot = a.Adapter.Snapshot()
+	if s.adapter != nil {
+		adapterSnapshot = s.adapter.Snapshot()
 	}
 
 	transports := []struct {
@@ -141,7 +158,7 @@ func (a *App) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotResponse
 	readiness := protocolReadinessStatus(adapterSnapshot)
 	return oneBot11ProtocolSnapshotResponse{
 		Protocol:              "onebot11",
-		Provider:              currentOneBotProvider(a.Config.OneBot.Provider),
+		Provider:              currentOneBotProvider(s.state.Config.OneBot.Provider),
 		ConfiguredTransports:  configured,
 		ActiveTransports:      active,
 		TransportStatus:       status,
@@ -151,33 +168,33 @@ func (a *App) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnapshotResponse
 	}
 }
 
-func (a *App) protocolSnapshotEvent() managementEventFrame {
+func (s *protocolService) protocolSnapshotEvent() managementEventFrame {
 	return managementEventFrame{
 		Channel:   "events",
 		Type:      "events.received",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Data: map[string]any{
 			"protocol":          "onebot11",
-			"protocol_snapshot": a.currentOneBot11ProtocolSnapshot(),
+			"protocol_snapshot": s.currentOneBot11ProtocolSnapshot(),
 		},
 	}
 }
 
-func (a *App) publishProtocolSnapshot() {
-	a.publishProtocolEvent(a.protocolSnapshotEvent())
+func (s *protocolService) PublishSnapshot() {
+	s.publishProtocolEvent(s.protocolSnapshotEvent())
 }
 
-func (a *App) publishProtocolEvent(frame managementEventFrame) {
-	if a == nil {
+func (s *protocolService) publishProtocolEvent(frame managementEventFrame) {
+	if s == nil {
 		return
 	}
 
-	a.protocolMu.RLock()
-	subscribers := make([]chan managementEventFrame, 0, len(a.protocolSubscribers))
-	for _, subscriber := range a.protocolSubscribers {
+	s.mu.RLock()
+	subscribers := make([]chan managementEventFrame, 0, len(s.subscribers))
+	for _, subscriber := range s.subscribers {
 		subscribers = append(subscribers, subscriber)
 	}
-	a.protocolMu.RUnlock()
+	s.mu.RUnlock()
 
 	for _, subscriber := range subscribers {
 		select {
@@ -187,26 +204,26 @@ func (a *App) publishProtocolEvent(frame managementEventFrame) {
 	}
 }
 
-func (a *App) subscribeProtocolEvents(buffer int) (<-chan managementEventFrame, func()) {
+func (s *protocolService) subscribeProtocolEvents(buffer int) (<-chan managementEventFrame, func()) {
 	if buffer <= 0 {
 		buffer = 1
 	}
 
 	ch := make(chan managementEventFrame, buffer)
-	a.protocolMu.Lock()
-	id := a.nextProtocolSubID
-	a.nextProtocolSubID++
-	a.protocolSubscribers[id] = ch
-	a.protocolMu.Unlock()
+	s.mu.Lock()
+	id := s.nextSubID
+	s.nextSubID++
+	s.subscribers[id] = ch
+	s.mu.Unlock()
 
 	return ch, func() {
-		a.protocolMu.Lock()
-		defer a.protocolMu.Unlock()
-		subscriber, ok := a.protocolSubscribers[id]
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		subscriber, ok := s.subscribers[id]
 		if !ok {
 			return
 		}
-		delete(a.protocolSubscribers, id)
+		delete(s.subscribers, id)
 		close(subscriber)
 	}
 }

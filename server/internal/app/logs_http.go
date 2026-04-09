@@ -20,7 +20,7 @@ type logDetailResponse struct {
 	Details map[string]any `json:"details"`
 }
 
-func (a *App) handleLogsList() http.HandlerFunc {
+func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		levelFilter := strings.TrimSpace(r.URL.Query().Get("level"))
 		if levelFilter != "" && !isAllowedLogLevel(levelFilter) {
@@ -47,7 +47,7 @@ func (a *App) handleLogsList() http.HandlerFunc {
 			limit = parsed
 		}
 
-		items, err := a.listLogSummaries(r.Context(), logging.Query{
+		items, err := h.logs.listLogSummaries(r.Context(), logging.Query{
 			Level:     levelFilter,
 			Source:    sourceFilter,
 			Protocol:  protocolFilter,
@@ -63,7 +63,7 @@ func (a *App) handleLogsList() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleLogDetail() http.HandlerFunc {
+func (h *logHTTPHandlers) handleLogDetail() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logID := strings.TrimSpace(chi.URLParam(r, "log_id"))
 		if logID == "" {
@@ -71,7 +71,7 @@ func (a *App) handleLogDetail() http.HandlerFunc {
 			return
 		}
 
-		item, err := a.getLogSummary(r.Context(), logID)
+		item, err := h.logs.getLogSummary(r.Context(), logID)
 		if err != nil {
 			if err == logging.ErrLogNotFound {
 				writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
@@ -91,16 +91,16 @@ func (a *App) handleLogDetail() http.HandlerFunc {
 	}
 }
 
-func (a *App) listLogSummaries(ctx context.Context, query logging.Query) ([]logging.Summary, error) {
-	if a != nil && a.LogRepository != nil {
-		return a.LogRepository.ListSummaries(ctx, query)
+func (s *logService) listLogSummaries(ctx context.Context, query logging.Query) ([]logging.Summary, error) {
+	if s != nil && s.repository != nil {
+		return s.repository.ListSummaries(ctx, query)
 	}
 
 	items := make([]logging.Summary, 0)
-	if a == nil || a.Logs == nil {
+	if s == nil || s.stream == nil {
 		return items, nil
 	}
-	for _, summary := range a.Logs.Snapshot() {
+	for _, summary := range s.stream.Snapshot() {
 		if query.Level != "" && summary.Level != query.Level {
 			continue
 		}
@@ -124,39 +124,39 @@ func (a *App) listLogSummaries(ctx context.Context, query logging.Query) ([]logg
 	return items, nil
 }
 
-func (a *App) getLogSummary(ctx context.Context, logID string) (logging.Summary, error) {
+func (s *logService) getLogSummary(ctx context.Context, logID string) (logging.Summary, error) {
 	trimmedLogID := strings.TrimSpace(logID)
-	if a != nil && a.LogRepository != nil {
-		item, err := a.LogRepository.GetSummary(ctx, trimmedLogID)
+	if s != nil && s.repository != nil {
+		item, err := s.repository.GetSummary(ctx, trimmedLogID)
 		if err == nil {
 			return item, nil
 		}
 		if err != logging.ErrLogNotFound {
 			return logging.Summary{}, err
 		}
-		if item, ok := a.findStreamLogSummary(trimmedLogID); ok {
+		if item, ok := s.findStreamLogSummary(trimmedLogID); ok {
 			return item, nil
 		}
 		return logging.Summary{}, logging.ErrLogNotFound
 	}
 
-	if item, ok := a.findStreamLogSummary(trimmedLogID); ok {
+	if item, ok := s.findStreamLogSummary(trimmedLogID); ok {
 		return item, nil
 	}
 
-	if a == nil || a.Logs == nil {
+	if s == nil || s.stream == nil {
 		return logging.Summary{}, logging.ErrLogNotFound
 	}
 
 	return logging.Summary{}, logging.ErrLogNotFound
 }
 
-func (a *App) findStreamLogSummary(logID string) (logging.Summary, bool) {
-	if a == nil || a.Logs == nil || logID == "" {
+func (s *logService) findStreamLogSummary(logID string) (logging.Summary, bool) {
+	if s == nil || s.stream == nil || logID == "" {
 		return logging.Summary{}, false
 	}
 
-	for _, item := range a.Logs.Snapshot() {
+	for _, item := range s.stream.Snapshot() {
 		if item.LogID == logID {
 			return item, true
 		}

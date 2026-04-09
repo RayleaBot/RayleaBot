@@ -9,28 +9,28 @@ import (
 )
 
 func (a *App) Handler() http.Handler {
-	return a.router
+	return a.process.router
 }
 
 func (a *App) Close() error {
 	var errs []error
-	if a != nil && a.Runtimes != nil {
+	if a != nil && a.runtimes != nil {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		if err := a.Runtimes.StopAll(stopCtx); err != nil {
+		if err := a.runtimes.StopAll(stopCtx); err != nil {
 			errs = append(errs, fmt.Errorf("stop runtime managers: %w", err))
 		}
 		cancel()
-		a.Runtimes = nil
+		a.runtimes = nil
 	}
-	if a != nil && a.Dispatcher != nil {
-		a.Dispatcher.Close()
-		a.Dispatcher = nil
+	if a != nil && a.dispatcher != nil {
+		a.dispatcher.Close()
+		a.dispatcher = nil
 	}
-	if a != nil && a.PluginInstaller != nil {
-		if err := a.PluginInstaller.Close(); err != nil {
+	if a != nil && a.pluginInstaller != nil {
+		if err := a.pluginInstaller.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
 		}
-		a.PluginInstaller = nil
+		a.pluginInstaller = nil
 	}
 	if a != nil && a.taskExecutor != nil {
 		if err := a.taskExecutor.Close(); err != nil {
@@ -38,13 +38,13 @@ func (a *App) Close() error {
 		}
 		a.taskExecutor = nil
 	}
-	if a != nil && a.PluginUninstaller != nil {
-		if closer, ok := a.PluginUninstaller.(interface{ Close() error }); ok {
+	if a != nil && a.pluginUninstaller != nil {
+		if closer, ok := a.pluginUninstaller.(interface{ Close() error }); ok {
 			if err := closer.Close(); err != nil {
 				errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
 			}
 		}
-		a.PluginUninstaller = nil
+		a.pluginUninstaller = nil
 	}
 	if a != nil && a.renderer != nil {
 		if err := a.renderer.Close(); err != nil {
@@ -64,7 +64,7 @@ func (a *App) Run(ctx context.Context) error {
 	a.setRunCancel(cancel)
 	defer a.clearRunCancel()
 
-	a.autoPrepareRuntimeEnvironments(runCtx)
+	a.systemService.autoPrepareRuntimeEnvironments(runCtx)
 	if err := runCtx.Err(); err != nil {
 		closeErr := a.Close()
 		if closeErr != nil {
@@ -72,12 +72,12 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		return err
 	}
-	a.Adapter.Start(runCtx)
-	a.Scheduler.Start(runCtx)
+	a.adapter.Start(runCtx)
+	a.scheduler.Start(runCtx)
 
 	go func() {
-		a.Logger.Info("http server starting", "component", "app", "listen_addr", a.server.Addr)
-		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		a.state.Logger.Info("http server starting", "component", "app", "listen_addr", a.process.server.Addr)
+		if err := a.process.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 			return
 		}
@@ -86,62 +86,62 @@ func (a *App) Run(ctx context.Context) error {
 
 	select {
 	case <-runCtx.Done():
-		a.shuttingDown.Store(true)
-		a.Logger.Info("http server shutting down", "component", "app", "listen_addr", a.server.Addr)
-		a.Scheduler.Stop()
+		a.process.shuttingDown.Store(true)
+		a.state.Logger.Info("http server shutting down", "component", "app", "listen_addr", a.process.server.Addr)
+		a.scheduler.Stop()
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
-		if err := a.Runtimes.StopAll(runtimeStopCtx); err != nil && !errors.Is(err, context.Canceled) {
+		if err := a.runtimes.StopAll(runtimeStopCtx); err != nil && !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("stop runtime managers: %w", err)
 		}
 
 		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer adapterStopCancel()
-		if err := a.Adapter.Stop(adapterStopCtx); err != nil && !errors.Is(err, context.Canceled) {
+		if err := a.adapter.Stop(adapterStopCtx); err != nil && !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("stop adapter shell: %w", err)
 		}
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := a.server.Shutdown(shutdownCtx); err != nil {
+		if err := a.process.server.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
 		return a.Close()
 	case err := <-errCh:
-		a.Scheduler.Stop()
+		a.scheduler.Stop()
 		runtimeStopCtx, runtimeStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer runtimeStopCancel()
-		if stopErr := a.Runtimes.StopAll(runtimeStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
+		if stopErr := a.runtimes.StopAll(runtimeStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
 			return fmt.Errorf("stop runtime managers after http server error: %w", stopErr)
 		}
 
 		adapterStopCtx, adapterStopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer adapterStopCancel()
-		if stopErr := a.Adapter.Stop(adapterStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
+		if stopErr := a.adapter.Stop(adapterStopCtx); stopErr != nil && !errors.Is(stopErr, context.Canceled) {
 			return fmt.Errorf("stop adapter shell after http server error: %w", stopErr)
 		}
 
 		closeErr := a.Close()
 		if err != nil {
 			if closeErr != nil {
-				return errors.Join(fmt.Errorf("listen on %s: %w", a.server.Addr, err), closeErr)
+				return errors.Join(fmt.Errorf("listen on %s: %w", a.process.server.Addr, err), closeErr)
 			}
-			return fmt.Errorf("listen on %s: %w", a.server.Addr, err)
+			return fmt.Errorf("listen on %s: %w", a.process.server.Addr, err)
 		}
 		return closeErr
 	}
 }
 
 func (a *App) setRunCancel(cancel context.CancelFunc) {
-	a.runCancelMu.Lock()
-	defer a.runCancelMu.Unlock()
-	a.runCancel = cancel
+	a.process.runCancelMu.Lock()
+	defer a.process.runCancelMu.Unlock()
+	a.process.runCancel = cancel
 }
 
 func (a *App) clearRunCancel() {
-	a.runCancelMu.Lock()
-	defer a.runCancelMu.Unlock()
-	a.runCancel = nil
+	a.process.runCancelMu.Lock()
+	defer a.process.runCancelMu.Unlock()
+	a.process.runCancel = nil
 }
 
 func (a *App) requestShutdown() {
@@ -149,11 +149,11 @@ func (a *App) requestShutdown() {
 		return
 	}
 
-	a.shuttingDown.Store(true)
-	a.shutdownOnce.Do(func() {
-		a.runCancelMu.Lock()
-		cancel := a.runCancel
-		a.runCancelMu.Unlock()
+	a.process.shuttingDown.Store(true)
+	a.process.shutdownOnce.Do(func() {
+		a.process.runCancelMu.Lock()
+		cancel := a.process.runCancel
+		a.process.runCancelMu.Unlock()
 		if cancel != nil {
 			cancel()
 		}
@@ -161,14 +161,14 @@ func (a *App) requestShutdown() {
 }
 
 func (a *App) closeStorage() error {
-	if a == nil || a.Storage == nil {
+	if a == nil || a.storage == nil {
 		return nil
 	}
 
-	if err := a.Storage.Close(); err != nil {
+	if err := a.storage.Close(); err != nil {
 		return fmt.Errorf("close sqlite store: %w", err)
 	}
 
-	a.Storage = nil
+	a.storage = nil
 	return nil
 }

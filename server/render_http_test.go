@@ -53,7 +53,7 @@ func TestSystemRenderPreviewAcceptsTaskAndExposesArtifact(t *testing.T) {
 		t.Fatalf("expected task_id, got %#v", body)
 	}
 
-	snapshot := waitForTaskStatus(t, application.Tasks, taskID, tasks.StatusSucceeded)
+	snapshot := waitForTaskStatus(t, application.Tasks(), taskID, tasks.StatusSucceeded)
 	if snapshot.TaskType != "render.preview" {
 		t.Fatalf("unexpected task type: got %q want %q", snapshot.TaskType, "render.preview")
 	}

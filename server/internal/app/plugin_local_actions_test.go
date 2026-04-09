@@ -27,18 +27,19 @@ import (
 func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
 	t.Parallel()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		},
-		appPlugins: appPlugins{
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{},
-			},
-		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", runtime.Action{
 		Kind:             "storage.kv",
@@ -52,26 +53,29 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 	t.Parallel()
 
 	buffer := &bytes.Buffer{}
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"logger.write"},
-				},
-				Logging: config.LoggingConfig{
-					RateLimitPerPlugin: "1/1h",
-				},
-			},
-			Logger: slog.New(slog.NewJSONHandler(buffer, nil)),
-			redactText: func(text string) string {
-				return text
-			},
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"logger.write"},
 		},
-		appPlugins: appPlugins{
-			pluginLogLimiter: newPluginLogLimiter(config.Config{Logging: config.LoggingConfig{RateLimitPerPlugin: "1/1h"}}),
+		Logging: config.LoggingConfig{
+			RateLimitPerPlugin: "1/1h",
 		},
+	}, slog.New(slog.NewJSONHandler(buffer, nil)))
+	application.state.redactText = func(text string) string {
+		return text
 	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	application.setTestLocalActions(
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newPluginLogLimiter(config.Config{Logging: config.LoggingConfig{RateLimitPerPlugin: "1/1h"}}),
+		nil,
+	)
 
 	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_2", runtime.Action{
 		Kind:       "logger.write",
@@ -103,29 +107,31 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Storage: config.StorageConfig{
-					KVValueMaxBytes: 1024,
-					KVTotalLimitMB:  1,
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	application := newTestAppState(config.Config{
+		Storage: config.StorageConfig{
+			KVValueMaxBytes: 1024,
+			KVTotalLimitMB:  1,
 		},
-		appPlugins: appPlugins{
-			pluginKV: repo,
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"notice-logger": {{
-						PluginID:   "notice-logger",
-						Capability: "storage.kv",
-					}},
-				},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"notice-logger": {{
+					PluginID:   "notice-logger",
+					Capability: "storage.kv",
+				}},
 			},
 		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+		nil,
+		nil,
+		repo,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_4", runtime.Action{
 		Kind:             "storage.kv",
@@ -191,21 +197,23 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"config.read", "config.write"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"config.read", "config.write"},
 		},
-		appPlugins: appPlugins{
-			pluginConfig:    repo,
-			grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
-		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		repo,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{
 		"default_city": "北京",
@@ -271,24 +279,26 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"config.write"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"config.write"},
 		},
-		appPlugins: appPlugins{
-			pluginConfig:    repo,
-			Dispatcher:      dispatch.New(slog.Default(), nil, nil, 16),
-			grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
-		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		repo,
+		nil,
+		nil,
+		nil,
+		dispatcher,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 	fakeRuntime := &capturingRuntime{events: make(chan runtime.Event, 1)}
-	application.Dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil)
+	application.dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil)
 
 	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", runtime.Action{
 		Kind: "config.write",
@@ -330,23 +340,23 @@ func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 		t.Fatalf("scheduler.New: %v", err)
 	}
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"scheduler.create"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"scheduler.create"},
 		},
-		appPlatform: appPlatform{
-			Scheduler: engine,
-		},
-		appPlugins: appPlugins{
-			grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
-		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		engine,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	first, err := application.executeLocalAction(context.Background(), "weather", "req_sched_1", runtime.Action{
 		Kind:               "scheduler.create",
@@ -395,27 +405,7 @@ func TestExecuteSchedulerCreateUpsert(t *testing.T) {
 func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 	t.Parallel()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Server: config.ServerConfig{
-					Host: "127.0.0.1",
-					Port: 8080,
-				},
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"event.expose_webhook"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		},
-		appPlugins: appPlugins{
-			webhooks:        newPluginWebhookRegistry(),
-			grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
-		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
-
-	application.grantRepository = &stubLifecycleGrantRepository{
+	grantRepo := &stubLifecycleGrantRepository{
 		grants: map[string][]plugins.PluginGrant{
 			"repo-watcher": {{
 				PluginID:   "repo-watcher",
@@ -424,6 +414,18 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 			}},
 		},
 	}
+	application := newTestAppState(config.Config{
+		Server: config.ServerConfig{
+			Host: "127.0.0.1",
+			Port: 8080,
+		},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"event.expose_webhook"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	registry := newPluginWebhookRegistry()
+	application.setTestLocalActions(grantRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	application.setTestWebhookService(nil, nil, nil, registry)
 
 	result, err := application.executeLocalAction(context.Background(), "repo-watcher", "req_webhook_1", runtime.Action{
 		Kind:                   "event.expose_webhook",
@@ -445,7 +447,7 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 		t.Fatalf("unexpected webhook url: %#v", urlValue)
 	}
 
-	registration, ok := application.webhooks.Get("repo-watcher", "github")
+	registration, ok := application.webhookRegistry.Get("repo-watcher", "github")
 	if !ok {
 		t.Fatal("expected webhook registration to be stored")
 	}
@@ -460,30 +462,32 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 func TestExecuteStorageFileRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Storage: config.StorageConfig{
-					FileMaxBytes:    1024,
-					PluginWorkDirMB: 1,
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	application := newTestAppState(config.Config{
+		Storage: config.StorageConfig{
+			FileMaxBytes:    1024,
+			PluginWorkDirMB: 1,
 		},
-		appPlugins: appPlugins{
-			pluginFiles: pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"scope-cache": {{
-						PluginID:   "scope-cache",
-						Capability: "storage.file",
-						ScopeJSON:  `{"storage_roots":["plugin_data"]}`,
-					}},
-				},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "storage.file",
+					ScopeJSON:  `{"storage_roots":["plugin_data"]}`,
+				}},
 			},
 		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+		nil,
+		pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_1", runtime.Action{
 		Kind:             "storage.file",
@@ -535,25 +539,27 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 func TestExecuteStorageFileRejectsMissingScope(t *testing.T) {
 	t.Parallel()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		},
-		appPlugins: appPlugins{
-			pluginFiles: pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"scope-cache": {{
-						PluginID:   "scope-cache",
-						Capability: "storage.file",
-						ScopeJSON:  `{"storage_roots":[]}`,
-					}},
-				},
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "storage.file",
+					ScopeJSON:  `{"storage_roots":[]}`,
+				}},
 			},
 		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+		nil,
+		pluginfile.NewService(filepath.Join(t.TempDir(), "plugins")),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_5", runtime.Action{
 		Kind:             "storage.file",
@@ -568,21 +574,23 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Auth: config.AuthConfig{
-					AutoGrantCapabilities: []string{"render.image"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
 		},
-		appPlugins: appPlugins{
-			renderer:        newRenderService(renderRoot),
-			grantRepository: &stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
-		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderService(renderRoot),
+		nil,
+		nil,
+		nil,
+	)
 
 	result, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_1", runtime.Action{
 		Kind:               "render.image",
@@ -631,30 +639,33 @@ func TestExecuteHTTPRequestUsesGrantedScopeAndReturnsText(t *testing.T) {
 	}))
 	defer server.Close()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				HTTP: config.HTTPConfig{
-					TimeoutSeconds:    5,
-					MaxRetries:        0,
-					AllowPrivateHosts: []string{"127.0.0.1"},
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	application := newTestAppState(config.Config{
+		HTTP: config.HTTPConfig{
+			TimeoutSeconds:    5,
+			MaxRetries:        0,
+			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
-		appPlugins: appPlugins{
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"scope-cache": {{
-						PluginID:   "scope-cache",
-						Capability: "http.request",
-						ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
-					}},
-				},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "http.request",
+					ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
+				}},
 			},
 		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	result, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_1", runtime.Action{
 		Kind:       "http.request",
@@ -680,29 +691,32 @@ func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 	}))
 	defer server.Close()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				HTTP: config.HTTPConfig{
-					TimeoutSeconds: 5,
-					MaxRetries:     0,
-				},
-			},
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+	application := newTestAppState(config.Config{
+		HTTP: config.HTTPConfig{
+			TimeoutSeconds: 5,
+			MaxRetries:     0,
 		},
-		appPlugins: appPlugins{
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"scope-cache": {{
-						PluginID:   "scope-cache",
-						Capability: "http.request",
-						ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
-					}},
-				},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"scope-cache": {{
+					PluginID:   "scope-cache",
+					Capability: "http.request",
+					ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
+				}},
 			},
 		},
-	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 
 	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_2", runtime.Action{
 		Kind:       "http.request",

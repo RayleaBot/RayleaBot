@@ -28,7 +28,7 @@ type taskFrameData struct {
 	Error    *tasks.ErrorSummary  `json:"error,omitempty"`
 }
 
-func (a *App) handleTasksWebSocket() http.HandlerFunc {
+func (h *tasksWSHandler) handleTasksWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -44,10 +44,10 @@ func (a *App) handleTasksWebSocket() http.HandlerFunc {
 		}()
 
 		framesCtx := conn.CloseRead(context.Background())
-		updates, unsubscribe := a.Tasks.Subscribe(8)
+		updates, unsubscribe := h.tasks.Subscribe(8)
 		defer unsubscribe()
 
-		for _, snapshot := range a.Tasks.List() {
+		for _, snapshot := range h.tasks.List() {
 			if err := wsjson.Write(framesCtx, conn, newTaskFrame(snapshot)); err != nil {
 				return
 			}

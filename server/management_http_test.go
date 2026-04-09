@@ -269,7 +269,7 @@ func TestLauncherAdmissionRecyclesOldestSessionWhenMaxSessionsReached(t *testing
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newLimitedAuthManager(t, 1)
+	application.SetAuthManager(newLimitedAuthManager(t, 1))
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	tokenFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-token.yaml"))
 	admissionFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-admission.yaml"))
@@ -329,10 +329,10 @@ func TestLauncherAdmissionRecyclesOldestSessionWhenMaxSessionsReached(t *testing
 		t.Fatalf("expected non-empty session_token from launcher admission")
 	}
 
-	if _, err := application.Auth.Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
+	if _, err := application.AuthManager().Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("expected oldest bootstrap session to be recycled, got %v", err)
 	}
-	if _, err := application.Auth.Validate(sessionToken); err != nil {
+	if _, err := application.AuthManager().Validate(sessionToken); err != nil {
 		t.Fatalf("expected launcher-admitted session to validate, got %v", err)
 	}
 }
@@ -465,7 +465,7 @@ func TestSystemBackupAcceptsTaskAndCreatesArchive(t *testing.T) {
 		t.Fatalf("unexpected system backup body: %#v", body)
 	}
 
-	snapshot := waitForTaskStatus(t, application.Tasks, taskID, "succeeded")
+	snapshot := waitForTaskStatus(t, application.Tasks(), taskID, "succeeded")
 	if snapshot.TaskType != "backup.create" {
 		t.Fatalf("unexpected backup task type: got %q want %q", snapshot.TaskType, "backup.create")
 	}

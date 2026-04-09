@@ -17,34 +17,34 @@ type runtimeStarter interface {
 	Start(context.Context, runtime.Spec, runtime.InitPayload) error
 }
 
-func (a *App) handleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
-	if a == nil {
+func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
+	if s == nil {
 		return
 	}
-	if a.replyTargets != nil {
-		a.replyTargets.Record(event)
+	if s.replyTargets != nil {
+		s.replyTargets.Record(event)
 	}
 
-	if a.pluginLifecycle != nil {
-		a.pluginLifecycle.HandleAdapterEvent(ctx, event)
+	if s.lifecycle != nil {
+		s.lifecycle.HandleAdapterEvent(ctx, event)
 	}
 
-	enriched, allowed := a.applyChatPolicy(ctx, event)
+	enriched, allowed := s.applyChatPolicy(ctx, event)
 	if !allowed {
 		return
 	}
 
-	if a.Bridge != nil {
-		a.Bridge.HandleAdapterEvent(ctx, enriched)
+	if s.bridge != nil {
+		s.bridge.HandleAdapterEvent(ctx, enriched)
 	}
 }
 
-func (a *App) handleAdapterReady(ctx context.Context) {
-	if a == nil || a.pluginLifecycle == nil {
+func (s *eventIngressService) HandleAdapterReady(ctx context.Context) {
+	if s == nil || s.lifecycle == nil {
 		return
 	}
 
-	a.pluginLifecycle.HandleAdapterReady(ctx)
+	s.lifecycle.HandleAdapterReady(ctx)
 }
 
 func newCommandParser(cfg config.Config) *command.Parser {
@@ -75,12 +75,12 @@ func sanitizeCommandPrefixes(prefixes []string) []string {
 	return items
 }
 
-func (a *App) enrichCommandEvent(event adapter.NormalizedEvent) adapter.NormalizedEvent {
-	if a == nil || a.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
+func (s *eventIngressService) enrichCommandEvent(event adapter.NormalizedEvent) adapter.NormalizedEvent {
+	if s == nil || s.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
 		return event
 	}
 
-	parsed := a.commandParser.Parse(event.PlainText)
+	parsed := s.commandParser.Parse(event.PlainText)
 	if !parsed.IsCommand {
 		return event
 	}

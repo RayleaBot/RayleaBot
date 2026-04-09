@@ -17,7 +17,7 @@ func TestTasksWebSocketReplaysCurrentSnapshots(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	taskID, err := application.Tasks.Create("plugin.install", "queued install")
+	taskID, err := application.Tasks().Create("plugin.install", "queued install")
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestTasksWebSocketReplaysCurrentSnapshots(t *testing.T) {
 	status := tasks.StatusRunning
 	progress := 40
 	summary := "安装 Python 依赖"
-	if _, ok := application.Tasks.Update(taskID, tasks.Update{
+	if _, ok := application.Tasks().Update(taskID, tasks.Update{
 		Status:   &status,
 		Progress: &progress,
 		Summary:  &summary,
@@ -77,9 +77,9 @@ func TestTasksWebSocketDeliversLiveUpdates(t *testing.T) {
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/tasks", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForTaskSubscriber(t, application.Tasks)
+	waitForTaskSubscriber(t, application.Tasks())
 
-	taskID, err := application.Tasks.Create("plugin.install", "install plugin from local_directory: weather")
+	taskID, err := application.Tasks().Create("plugin.install", "install plugin from local_directory: weather")
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestTasksWebSocketDeliversLiveUpdates(t *testing.T) {
 	status := tasks.StatusRunning
 	progress := 40
 	summary := "安装 Python 依赖"
-	if _, ok := application.Tasks.Update(taskID, tasks.Update{
+	if _, ok := application.Tasks().Update(taskID, tasks.Update{
 		Status:   &status,
 		Progress: &progress,
 		Summary:  &summary,

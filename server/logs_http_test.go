@@ -23,14 +23,14 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.yaml"))
 
-	application.Logs.Append(logging.Summary{
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_warn_0001",
 		Timestamp: "2026-03-20T09:59:59Z",
 		Level:     "warn",
 		Source:    "runtime",
 		Message:   "ignored warning",
 	})
-	application.Logs.Append(logging.Summary{
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_runtime_0001",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "error",
@@ -39,7 +39,7 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 		PluginID:  "weather",
 		RequestID: "req_plugin_0001",
 	})
-	application.Logs.Append(logging.Summary{
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_adapter_0001",
 		Timestamp: "2026-03-20T10:00:01Z",
 		Level:     "error",
@@ -111,7 +111,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 			Message:   "plugin runtime stderr truncated",
 		},
 	} {
-		application.Logs.Append(summary)
+		application.Logs().Append(summary)
 	}
 
 	server := httptest.NewServer(application.Handler())
@@ -146,7 +146,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.yaml"))
-	application.Logs.Append(logging.Summary{
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_empty_0001",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
@@ -186,7 +186,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.protocol-onebot11.yaml"))
-	application.Logs.Append(logging.Summary{
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_runtime_0002",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
@@ -256,7 +256,7 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	application.Logger.Error(
+	application.Logger().Error(
 		"downstream rejected fixture-only-secret during adapter handshake",
 		"component", "runtime",
 		"plugin_id", "weather",
@@ -323,7 +323,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.log-detail-response.yaml"))
 
-	application.Logs.Append(logging.Summary{
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_bridge_0001",
 		Timestamp: "2026-03-20T10:00:02Z",
 		Level:     "info",
@@ -401,7 +401,7 @@ func TestLogDetailReturnsEmptyObjectForLegacyRows(t *testing.T) {
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.log-detail-legacy-empty-details.yaml"))
 
-	application.Logs.Append(logging.Summary{
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_legacy_0001",
 		Timestamp: "2026-03-20T10:00:01Z",
 		Level:     "warn",
@@ -469,8 +469,8 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 
-	application.LogRepository = &stubMissingLogRepository{}
-	application.Logs.Append(logging.Summary{
+	application.SetLogRepository(&stubMissingLogRepository{})
+	application.Logs().Append(logging.Summary{
 		LogID:     "log_live_only_0001",
 		Timestamp: "2026-04-09T20:51:46Z",
 		Level:     "info",
@@ -577,7 +577,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	}
 	responseA.Body.Close()
 
-	appA.Logger.Error(
+	appA.Logger().Error(
 		"persisted log survives restart",
 		"component", "runtime",
 		"plugin_id", "weather",

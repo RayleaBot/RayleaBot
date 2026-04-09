@@ -23,15 +23,12 @@ func TestPluginDiscoveryContextIncludesBuiltinRoot(t *testing.T) {
 func TestEnrichCommandEventAddsCommandPayload(t *testing.T) {
 	t.Parallel()
 
-	application := &App{
-		appPlugins: appPlugins{
-			commandParser: newCommandParser(config.Config{
-				Command: &config.CommandConfig{
-					Prefixes: []string{"/", "!"},
-				},
-			}),
+	application := newTestAppState(config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/", "!"},
 		},
-	}
+	}, nil)
+	application.setTestEventIngress(nil, nil, nil, nil)
 
 	event := application.enrichCommandEvent(adapter.NormalizedEvent{
 		PlainText: "/weather shanghai now",

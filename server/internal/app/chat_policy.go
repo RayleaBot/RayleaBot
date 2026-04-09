@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -67,25 +69,59 @@ func cooldownReplyEnabled(cfg config.Config) bool {
 	return cfg.Cooldown.CooldownReply
 }
 
-func (a *App) applyChatPolicy(ctx context.Context, event adapter.NormalizedEvent) (adapter.NormalizedEvent, bool) {
-	enriched := a.enrichCommandEvent(event)
-	if a == nil || a.permissionChecker == nil || !shouldEvaluateChatPolicy(enriched) {
+type eventIngressService struct {
+	state             *appRuntimeState
+	plugins           *plugins.Catalog
+	replyTargets      *replyTargetCache
+	outboundSender    outboundActionSender
+	bridge            *bridge.Bridge
+	lifecycle         *pluginLifecycleController
+	commandParser     *command.Parser
+	permissionChecker *permission.Checker
+	blacklistRepo     permission.BlacklistRepository
+}
+
+func newEventIngressService(deps eventIngressDeps) *eventIngressService {
+	service := &eventIngressService{
+		state:          deps.state,
+		plugins:        deps.plugins,
+		replyTargets:   deps.replyTargets,
+		outboundSender: deps.outboundSender,
+		bridge:         deps.bridge,
+		lifecycle:      deps.lifecycle,
+		blacklistRepo:  deps.blacklistRepo,
+	}
+	service.UpdateConfig(deps.state.Config)
+	return service
+}
+
+func (s *eventIngressService) UpdateConfig(cfg config.Config) {
+	if s == nil {
+		return
+	}
+	s.commandParser = newCommandParser(cfg)
+	s.permissionChecker = newPermissionChecker(cfg, s.blacklistRepo)
+}
+
+func (s *eventIngressService) applyChatPolicy(ctx context.Context, event adapter.NormalizedEvent) (adapter.NormalizedEvent, bool) {
+	enriched := s.enrichCommandEvent(event)
+	if s == nil || s.permissionChecker == nil || !shouldEvaluateChatPolicy(enriched) {
 		return enriched, true
 	}
 
-	verdict := a.permissionChecker.Check(
+	verdict := s.permissionChecker.Check(
 		ctx,
 		strings.TrimSpace(enriched.SenderID),
 		strings.TrimSpace(enriched.ActorRole),
 		commandGroupID(enriched),
-		a.commandInfoForEvent(enriched),
+		s.commandInfoForEvent(enriched),
 	)
 	if verdict.Allowed {
 		return enriched, true
 	}
 
-	if (verdict.ErrorCode == "platform.user_rate_limited" || verdict.ErrorCode == "platform.rate_limited") && cooldownReplyEnabled(a.Config) {
-		a.sendCooldownReply(enriched)
+	if (verdict.ErrorCode == "platform.user_rate_limited" || verdict.ErrorCode == "platform.rate_limited") && cooldownReplyEnabled(s.state.Config) {
+		s.sendCooldownReply(enriched)
 	}
 	return enriched, false
 }
@@ -106,7 +142,7 @@ func commandGroupID(event adapter.NormalizedEvent) string {
 	return strings.TrimSpace(event.ConversationID)
 }
 
-func (a *App) commandInfoForEvent(event adapter.NormalizedEvent) *permission.CommandInfo {
+func (s *eventIngressService) commandInfoForEvent(event adapter.NormalizedEvent) *permission.CommandInfo {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -114,8 +150,8 @@ func (a *App) commandInfoForEvent(event adapter.NormalizedEvent) *permission.Com
 
 	requiredLevel := "everyone"
 	matched := false
-	if a != nil && a.Plugins != nil {
-		for _, snapshot := range a.Plugins.List() {
+	if s != nil && s.plugins != nil {
+		for _, snapshot := range s.plugins.List() {
 			if !pluginParticipatesInCommandPolicy(snapshot) {
 				continue
 			}
@@ -124,7 +160,7 @@ func (a *App) commandInfoForEvent(event adapter.NormalizedEvent) *permission.Com
 					continue
 				}
 				matched = true
-				level := effectiveCommandPermissionLevel(command.Permission, a.Config)
+				level := effectiveCommandPermissionLevel(command.Permission, s.state.Config)
 				if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
 					requiredLevel = level
 				}
@@ -192,8 +228,8 @@ func commandPermissionRank(level string) int {
 	}
 }
 
-func (a *App) sendCooldownReply(event adapter.NormalizedEvent) {
-	if a == nil || a.outboundSender == nil {
+func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
+	if s == nil || s.outboundSender == nil {
 		return
 	}
 
@@ -204,7 +240,7 @@ func (a *App) sendCooldownReply(event adapter.NormalizedEvent) {
 	switch strings.TrimSpace(event.ConversationType) {
 	case "group":
 		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
-			_, err = a.outboundSender.SendReply(ctx, adapter.OutboundMessageReply{
+			_, err = s.outboundSender.SendReply(ctx, adapter.OutboundMessageReply{
 				TargetType:       "group",
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
@@ -218,7 +254,7 @@ func (a *App) sendCooldownReply(event adapter.NormalizedEvent) {
 		fallthrough
 	case "private":
 		if targetID := strings.TrimSpace(event.ConversationID); targetID != "" {
-			_, err = a.outboundSender.SendMessage(ctx, adapter.OutboundMessageSend{
+			_, err = s.outboundSender.SendMessage(ctx, adapter.OutboundMessageSend{
 				TargetType: strings.TrimSpace(event.ConversationType),
 				TargetID:   targetID,
 				Segments: []adapter.OutboundMessageSegment{{
@@ -231,8 +267,8 @@ func (a *App) sendCooldownReply(event adapter.NormalizedEvent) {
 		return
 	}
 
-	if err != nil && a.Logger != nil {
-		a.Logger.Warn(
+	if err != nil && s.state != nil && s.state.Logger != nil {
+		s.state.Logger.Warn(
 			"failed to send cooldown reply",
 			"component", "app",
 			"conversation_type", event.ConversationType,

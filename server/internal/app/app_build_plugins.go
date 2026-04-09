@@ -15,23 +15,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
 func buildAppPlugins(
 	state appBuildState,
 	platform appPlatform,
 	renderRunner render.Runner,
-	executeLocalAction func(context.Context, string, string, runtime.Action) (map[string]any, error),
 ) (appPlugins, error) {
 	adapterShell := adapter.New(state.core.Config.OneBot, state.core.Logger)
-	runtimeOptions := runtime.Options{
-		Console:                    platform.Console,
-		RedactText:                 state.managementRedact,
-		StderrRateLimitBytesPerSec: state.core.Config.Runtime.StderrRateLimitBytesPerSec,
-		ExecuteLocalAction:         executeLocalAction,
-	}
-	runtimeRegistry := newRuntimeRegistry(state.core.Logger, runtimeOptions)
 	replyTargets := newReplyTargetCache(defaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(state.core.Logger, adapterShell, replyTargets, state.core.Config.Runtime.MaxPendingEventsPerPlugin)
 	eventBridge := bridge.New(state.core.Logger, eventDispatcher)
@@ -67,7 +58,6 @@ func buildAppPlugins(
 		Adapter:           adapterShell,
 		Bridge:            eventBridge,
 		Dispatcher:        eventDispatcher,
-		Runtimes:          runtimeRegistry,
 		replyTargets:      replyTargets,
 		outboundSender:    adapterShell,
 		PluginInstaller:   pluginInstallService,
@@ -78,10 +68,8 @@ func buildAppPlugins(
 		pluginKV:          pluginKVRepository,
 		grantRepository:   pluginRepository,
 		blacklistRepo:     blacklistRepo,
-		permissionChecker: newPermissionChecker(state.core.Config, blacklistRepo),
 		webhooks:          webhookRegistry,
 		renderer:          renderService,
-		commandParser:     newCommandParser(state.core.Config),
 		pluginLogLimiter:  newPluginLogLimiter(state.core.Config),
 	}, nil
 }

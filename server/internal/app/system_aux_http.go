@@ -18,16 +18,16 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func (a *App) handleSystemBackup() http.HandlerFunc {
+func (h *systemHTTPHandlers) handleSystemBackup() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a == nil || a.taskExecutor == nil {
+		if h == nil || h.system == nil || h.system.taskExecutor == nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		taskID, err := a.taskExecutor.Submit("backup.create", "创建在线备份", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		taskID, err := h.system.taskExecutor.Submit("backup.create", "创建在线备份", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 			progress.Update(10, "准备备份目录")
-			archivePath, err := a.createBackupArchive(ctx, progress)
+			archivePath, err := h.system.createBackupArchive(ctx, progress)
 			if err != nil {
 				return nil, err
 			}
@@ -45,9 +45,9 @@ func (a *App) handleSystemBackup() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleSystemDiagnosticsExport() http.HandlerFunc {
+func (h *systemHTTPHandlers) handleSystemDiagnosticsExport() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		archive, err := a.buildDiagnosticsArchive(r.Context())
+		archive, err := h.system.buildDiagnosticsArchive(r.Context())
 		if err != nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
@@ -60,10 +60,10 @@ func (a *App) handleSystemDiagnosticsExport() http.HandlerFunc {
 	}
 }
 
-func (a *App) createBackupArchive(ctx context.Context, progress tasks.ProgressReporter) (string, error) {
-	repoRoot := a.repoRoot
+func (s *systemService) createBackupArchive(ctx context.Context, progress tasks.ProgressReporter) (string, error) {
+	repoRoot := s.state.repoRoot
 	if repoRoot == "" {
-		repoRoot = filepath.Dir(filepath.Dir(a.Summary.ConfigPath))
+		repoRoot = filepath.Dir(filepath.Dir(s.state.Summary.ConfigPath))
 	}
 
 	backupDir := filepath.Join(repoRoot, "backups")
@@ -86,11 +86,11 @@ func (a *App) createBackupArchive(ctx context.Context, progress tasks.ProgressRe
 	var directories []recovery.BackupManifestDirectory
 
 	progress.Update(30, "写入配置与状态库")
-	if err := addFileToZip(writer, a.Summary.ConfigPath, "config/user.yaml"); err == nil {
+	if err := addFileToZip(writer, s.state.Summary.ConfigPath, "config/user.yaml"); err == nil {
 		directories = append(directories, recovery.Directory("config/user.yaml", "config"))
 	}
 
-	databasePath, err := resolveDatabasePath(a.Summary.ConfigPath, a.Config.Database.Path)
+	databasePath, err := resolveDatabasePath(s.state.Summary.ConfigPath, s.state.Config.Database.Path)
 	if err == nil {
 		archivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(databasePath)))
 		if err := addFileToZip(writer, databasePath, archivePath); err == nil {
@@ -128,43 +128,43 @@ func (a *App) createBackupArchive(ctx context.Context, progress tasks.ProgressRe
 	return archivePath, nil
 }
 
-func (a *App) buildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
+func (s *systemService) buildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	writer := zip.NewWriter(buffer)
 
 	status := systemStatusResponse{
-		Status:          a.systemStatus(),
-		AdapterState:    string(stateOrIdle(a.Adapter.Snapshot().State)),
-		ActivePlugins:   a.activePluginCount(),
-		UptimeSeconds:   a.uptimeSeconds(),
-		RecoverySummary: a.recoverySummarySnapshot(),
+		Status:          s.systemStatus(),
+		AdapterState:    string(stateOrIdle(s.adapter.Snapshot().State)),
+		ActivePlugins:   s.activePluginCount(),
+		UptimeSeconds:   s.uptimeSeconds(),
+		RecoverySummary: s.state.recoverySummarySnapshot(),
 	}
 	if err := addJSONToZip(writer, "system-status.json", status); err != nil {
 		return nil, err
 	}
-	if err := addJSONToZip(writer, "readiness.json", a.currentReadiness()); err != nil {
+	if err := addJSONToZip(writer, "readiness.json", s.CurrentReadiness()); err != nil {
 		return nil, err
 	}
 	doctorReport := cli.BuildDoctorReport(cli.Command{
-		ConfigPath: a.Summary.ConfigPath,
-		SchemaPath: a.Summary.SchemaPath,
+		ConfigPath: s.state.Summary.ConfigPath,
+		SchemaPath: s.state.Summary.SchemaPath,
 	})
 	if err := addJSONToZip(writer, "doctor.json", doctorReport); err != nil {
 		return nil, err
 	}
-	if err := addJSONToZip(writer, "plugins.json", map[string]any{"items": a.Plugins.List()}); err != nil {
+	if err := addJSONToZip(writer, "plugins.json", map[string]any{"items": s.plugins.List()}); err != nil {
 		return nil, err
 	}
-	if err := addJSONToZip(writer, "config-summary.json", a.Summary); err != nil {
+	if err := addJSONToZip(writer, "config-summary.json", s.state.Summary); err != nil {
 		return nil, err
 	}
-	if a.recoverySummary != nil {
-		if err := addJSONToZip(writer, "recovery-summary.json", a.recoverySummary); err != nil {
+	if summary := s.state.recoverySummarySnapshot(); summary != nil {
+		if err := addJSONToZip(writer, "recovery-summary.json", summary); err != nil {
 			return nil, err
 		}
 	}
-	if a.LogRepository != nil {
-		logs, err := a.LogRepository.ListSummaries(ctx, logging.Query{Limit: 100})
+	if s.logRepository != nil {
+		logs, err := s.logRepository.ListSummaries(ctx, logging.Query{Limit: 100})
 		if err != nil {
 			return nil, err
 		}

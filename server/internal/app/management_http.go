@@ -2,7 +2,6 @@ package app
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
@@ -27,22 +26,22 @@ type systemShutdownResponse struct {
 	Accepted bool `json:"accepted"`
 }
 
-func (a *App) handleSetupStatus() http.HandlerFunc {
+func (h *managementHTTPHandlers) handleSetupStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		writeAuthJSON(w, http.StatusOK, setupStatusResponse{
-			Initialized: a.Auth != nil && a.Auth.IsBootstrapped(),
+			Initialized: h.auth != nil && h.auth.IsBootstrapped(),
 		})
 	}
 }
 
-func (a *App) handleSessionLogout() http.HandlerFunc {
+func (h *managementHTTPHandlers) handleSessionLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := ClaimsFromContext(r.Context())
 		if !ok || claims.SessionID == "" {
 			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
-		if err := a.Auth.Revoke(claims.SessionID); err != nil {
+		if err := h.auth.Revoke(claims.SessionID); err != nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -51,18 +50,18 @@ func (a *App) handleSessionLogout() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleLauncherTokenIssue() http.HandlerFunc {
+func (h *managementHTTPHandlers) handleLauncherTokenIssue() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !isLoopbackRequest(r) {
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
-		if a.Auth == nil || !a.Auth.IsBootstrapped() {
+		if h.auth == nil || !h.auth.IsBootstrapped() {
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
 
-		token, err := a.launcherTokens.Issue()
+		token, err := h.launcherTokens.Issue()
 		if err != nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
@@ -72,49 +71,21 @@ func (a *App) handleLauncherTokenIssue() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleSystemStatus() http.HandlerFunc {
+func (h *managementHTTPHandlers) handleSystemStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		writeAuthJSON(w, http.StatusOK, systemStatusResponse{
-			Status:          a.systemStatus(),
-			AdapterState:    string(stateOrIdle(a.Adapter.Snapshot().State)),
-			ActivePlugins:   a.activePluginCount(),
-			UptimeSeconds:   a.uptimeSeconds(),
-			RecoverySummary: a.recoverySummarySnapshot(),
+			Status:          h.system.systemStatus(),
+			AdapterState:    string(stateOrIdle(h.system.adapter.Snapshot().State)),
+			ActivePlugins:   h.system.activePluginCount(),
+			UptimeSeconds:   h.system.uptimeSeconds(),
+			RecoverySummary: h.system.state.recoverySummarySnapshot(),
 		})
 	}
 }
 
-func (a *App) handleSystemShutdown() http.HandlerFunc {
+func (h *managementHTTPHandlers) handleSystemShutdown() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		a.requestShutdown()
+		h.requestShutdown()
 		writeAuthJSON(w, http.StatusAccepted, systemShutdownResponse{Accepted: true})
 	}
-}
-
-func (a *App) activePluginCount() int {
-	if a == nil || a.Runtimes == nil {
-		return 0
-	}
-	return a.Runtimes.ActiveCount()
-}
-
-func (a *App) uptimeSeconds() int64 {
-	if a == nil || a.startedAt.IsZero() {
-		return 0
-	}
-
-	uptime := time.Since(a.startedAt)
-	if uptime < 0 {
-		return 0
-	}
-
-	return int64(uptime / time.Second)
-}
-
-func (a *App) systemStatus() string {
-	if a != nil && a.shuttingDown.Load() {
-		return "shutting_down"
-	}
-
-	return "running"
 }

@@ -5,8 +5,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 const (
@@ -62,30 +69,66 @@ func (l *pluginLogLimiter) Allow(pluginID string) bool {
 	return true
 }
 
-func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
+type localActionService struct {
+	state            *appRuntimeState
+	grants           *pluginGrantView
+	pluginConfig     pluginconfig.Repository
+	pluginFiles      *pluginfile.Service
+	pluginKV         pluginkv.Repository
+	scheduler        *scheduler.Engine
+	dispatcher       *dispatch.Dispatcher
+	renderer         *render.Service
+	adapter          *adapter.Shell
+	webhookGateway   webhookGateway
+	pluginLogLimiter *pluginLogLimiter
+}
+
+func newLocalActionService(deps localActionServiceDeps) *localActionService {
+	return &localActionService{
+		state:            deps.state,
+		grants:           deps.grants,
+		pluginConfig:     deps.pluginConfig,
+		pluginFiles:      deps.pluginFiles,
+		pluginKV:         deps.pluginKV,
+		scheduler:        deps.scheduler,
+		dispatcher:       deps.dispatcher,
+		renderer:         deps.renderer,
+		adapter:          deps.adapter,
+		pluginLogLimiter: deps.pluginLogLimiter,
+	}
+}
+
+func (s *localActionService) SetWebhookGateway(gateway webhookGateway) {
+	if s == nil {
+		return
+	}
+	s.webhookGateway = gateway
+}
+
+func (s *localActionService) Execute(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
 	switch action.Kind {
 	case "logger.write":
-		return a.executeLoggerWrite(ctx, pluginID, requestID, action)
+		return s.executeLoggerWrite(ctx, pluginID, requestID, action)
 	case "storage.kv":
-		return a.executeStorageKV(ctx, pluginID, action)
+		return s.executeStorageKV(ctx, pluginID, action)
 	case "config.read":
-		return a.executeConfigRead(ctx, pluginID, action)
+		return s.executeConfigRead(ctx, pluginID, action)
 	case "config.write":
-		return a.executeConfigWrite(ctx, pluginID, action)
+		return s.executeConfigWrite(ctx, pluginID, action)
 	case "storage.file":
-		return a.executeStorageFile(ctx, pluginID, action)
+		return s.executeStorageFile(ctx, pluginID, action)
 	case "http.request":
-		return a.executeHTTPRequest(ctx, pluginID, action)
+		return s.executeHTTPRequest(ctx, pluginID, action)
 	case "scheduler.create":
-		return a.executeSchedulerCreate(ctx, pluginID, action)
+		return s.executeSchedulerCreate(ctx, pluginID, action)
 	case "event.expose_webhook":
-		return a.executeExposeWebhook(ctx, pluginID, action)
+		return s.executeExposeWebhook(ctx, pluginID, action)
 	case "render.image":
-		return a.executeRenderImage(ctx, pluginID, action)
+		return s.executeRenderImage(ctx, pluginID, action)
 	default:
 		switch {
 		case runtimeIsOneBotLocalAction(action.Kind), runtimeIsProviderExtensionAction(action.Kind):
-			return a.executeOneBotLocalAction(ctx, pluginID, requestID, action)
+			return s.executeOneBotLocalAction(ctx, pluginID, requestID, action)
 		default:
 			return nil, &runtime.Error{
 				Code:    "plugin.protocol_violation",

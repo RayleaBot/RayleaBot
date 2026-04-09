@@ -23,7 +23,7 @@ func TestSetupAdminReturnsSessionToken(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
@@ -56,7 +56,7 @@ func TestSetupAdminRejectsMalformedRequest(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.setup-admin-bad-request.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
@@ -77,7 +77,7 @@ func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 	okFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	edgeFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
 
@@ -104,7 +104,7 @@ func TestSetupAdminRejectsNonLoopbackWhenSetupLocalOnlyEnabled(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequestWithRemoteAddr(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "198.51.100.20:3210")
@@ -127,11 +127,11 @@ func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManagerWithRepository(t, &stubAuthRepository{
+	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &stubAuthRepository{
 		saveBootstrapFn: func(context.Context, auth.BootstrapState, auth.Claims) error {
 			return errors.New("disk full")
 		},
-	})
+	}))
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)

@@ -18,9 +18,9 @@ type renderPreviewRequest struct {
 	Data     map[string]any `json:"data"`
 }
 
-func (a *App) handleSystemRenderPreview() http.HandlerFunc {
+func (h *renderHTTPHandlers) handleSystemRenderPreview() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a == nil || a.taskExecutor == nil || a.renderer == nil {
+		if h == nil || h.taskExecutor == nil || h.renderer == nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -31,9 +31,9 @@ func (a *App) handleSystemRenderPreview() http.HandlerFunc {
 			return
 		}
 
-		taskID, err := a.taskExecutor.Submit("render.preview", "生成渲染预览", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		taskID, err := h.taskExecutor.Submit("render.preview", "生成渲染预览", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 			progress.Update(20, "准备渲染模板")
-			result, renderErr := a.renderer.Render(ctx, render.Request{
+			result, renderErr := h.renderer.Render(ctx, render.Request{
 				Template: request.Template,
 				Theme:    request.Theme,
 				Output:   request.Output,
@@ -48,7 +48,7 @@ func (a *App) handleSystemRenderPreview() http.HandlerFunc {
 				Summary: "渲染预览已生成",
 				Details: map[string]any{
 					"artifact_id": result.ArtifactID,
-					"image_url":   a.renderer.ArtifactURL(result.ArtifactID),
+					"image_url":   h.renderer.ArtifactURL(result.ArtifactID),
 					"mime":        result.MIME,
 					"cache_key":   result.CacheKey,
 					"template":    result.Template,
@@ -66,9 +66,9 @@ func (a *App) handleSystemRenderPreview() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleSystemRenderArtifact() http.HandlerFunc {
+func (h *renderHTTPHandlers) handleSystemRenderArtifact() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a == nil || a.renderer == nil {
+		if h == nil || h.renderer == nil {
 			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "render_artifact",
 			})
@@ -76,7 +76,7 @@ func (a *App) handleSystemRenderArtifact() http.HandlerFunc {
 		}
 
 		artifactID := chi.URLParam(r, "artifact_id")
-		artifact, err := a.renderer.LookupArtifact(artifactID)
+		artifact, err := h.renderer.LookupArtifact(artifactID)
 		if err != nil {
 			var renderErr *render.Error
 			if errors.As(err, &renderErr) && renderErr.Code == codeResourceMissing {

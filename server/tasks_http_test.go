@@ -20,13 +20,13 @@ func TestTasksListReturnsFilteredSnapshots(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 
-	taskID, err := application.Tasks.Create("plugin.install", "install weather")
+	taskID, err := application.Tasks().Create("plugin.install", "install weather")
 	if err != nil {
 		t.Fatalf("Create task failed: %v", err)
 	}
 	running := tasks.StatusRunning
 	progress := 25
-	if _, ok := application.Tasks.Update(taskID, tasks.Update{
+	if _, ok := application.Tasks().Update(taskID, tasks.Update{
 		Status:   &running,
 		Progress: &progress,
 	}); !ok {
@@ -76,7 +76,7 @@ func TestTaskDetailMatchesFixtureShape(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	taskID, err := application.Tasks.Create("plugin.install", "install weather")
+	taskID, err := application.Tasks().Create("plugin.install", "install weather")
 	if err != nil {
 		t.Fatalf("Create task failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestTaskCancelAcceptsPendingTasksAndUpdatesSnapshot(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	taskID, err := application.Tasks.Create("plugin.reload", "reload weather")
+	taskID, err := application.Tasks().Create("plugin.reload", "reload weather")
 	if err != nil {
 		t.Fatalf("Create task failed: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestTaskCancelAcceptsPendingTasksAndUpdatesSnapshot(t *testing.T) {
 		t.Fatalf("unexpected task cancel body: %#v", body)
 	}
 
-	snapshot, ok := application.Tasks.Get(taskID)
+	snapshot, ok := application.Tasks().Get(taskID)
 	if !ok {
 		t.Fatalf("expected cancelled task to remain queryable")
 	}
@@ -161,12 +161,12 @@ func TestTaskCancelRejectsNonCancellableState(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	taskID, err := application.Tasks.Create("plugin.reload", "reload weather")
+	taskID, err := application.Tasks().Create("plugin.reload", "reload weather")
 	if err != nil {
 		t.Fatalf("Create task failed: %v", err)
 	}
 	running := tasks.StatusRunning
-	if _, ok := application.Tasks.Update(taskID, tasks.Update{Status: &running}); !ok {
+	if _, ok := application.Tasks().Update(taskID, tasks.Update{Status: &running}); !ok {
 		t.Fatalf("Update task %s failed", taskID)
 	}
 
@@ -223,16 +223,16 @@ func TestTaskCancelAcceptsRunningInstallTaskViaInstaller(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	taskID, err := application.Tasks.Create("plugin.install", "install weather")
+	taskID, err := application.Tasks().Create("plugin.install", "install weather")
 	if err != nil {
 		t.Fatalf("Create task failed: %v", err)
 	}
 	running := tasks.StatusRunning
-	if _, ok := application.Tasks.Update(taskID, tasks.Update{Status: &running}); !ok {
+	if _, ok := application.Tasks().Update(taskID, tasks.Update{Status: &running}); !ok {
 		t.Fatalf("Update task %s failed", taskID)
 	}
 
-	application.PluginInstaller = fakeInstallCoordinator{
+	application.SetPluginInstaller(fakeInstallCoordinator{
 		cancelFunc: func(id string) bool {
 			if id != taskID {
 				return false
@@ -240,14 +240,14 @@ func TestTaskCancelAcceptsRunningInstallTaskViaInstaller(t *testing.T) {
 			cancelled := tasks.StatusCancelled
 			now := time.Now().UTC()
 			summary := "插件安装已取消"
-			_, ok := application.Tasks.Update(taskID, tasks.Update{
+			_, ok := application.Tasks().Update(taskID, tasks.Update{
 				Status:     &cancelled,
 				Summary:    &summary,
 				FinishedAt: &now,
 			})
 			return ok
 		},
-	}
+	})
 
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
@@ -272,7 +272,7 @@ func TestTaskCancelAcceptsRunningInstallTaskViaInstaller(t *testing.T) {
 		t.Fatalf("unexpected task cancel body: %#v", body)
 	}
 
-	snapshot, ok := application.Tasks.Get(taskID)
+	snapshot, ok := application.Tasks().Get(taskID)
 	if !ok {
 		t.Fatalf("expected cancelled task to remain queryable")
 	}
@@ -285,7 +285,7 @@ func TestTaskRoutesRequireAuth(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	taskID, err := application.Tasks.Create("plugin.install", "install weather")
+	taskID, err := application.Tasks().Create("plugin.install", "install weather")
 	if err != nil {
 		t.Fatalf("Create task failed: %v", err)
 	}

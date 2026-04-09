@@ -21,13 +21,14 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	application.Bridge = bridge.New(application.Logger, &eventsDispatchStub{
+	eventBridge := bridge.New(application.Logger(), &eventsDispatchStub{
 		deliverable: true,
 		results: []dispatch.DeliveryResult{{
 			PluginID: "weather",
 			Outcome:  dispatch.OutcomeDelivered,
 		}},
 	})
+	application.SetBridge(eventBridge)
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
@@ -36,10 +37,10 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	conn := dialEventsWebSocket(t, server.URL, token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForObservabilitySubscriber(t, application.Bridge)
+	waitForObservabilitySubscriber(t, eventBridge)
 	readProtocolReplayFrame(t, conn)
 
-	outcome := application.Bridge.HandleAdapterEvent(context.Background(), testBridgeEvent())
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), testBridgeEvent())
 	if outcome != bridge.OutcomeDelivered {
 		t.Fatalf("unexpected bridge outcome: got %q want %q", outcome, bridge.OutcomeDelivered)
 	}
@@ -105,9 +106,10 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	application.Bridge = bridge.New(application.Logger, &eventsDispatchStub{
+	eventBridge := bridge.New(application.Logger(), &eventsDispatchStub{
 		deliverable: true,
 	})
+	application.SetBridge(eventBridge)
 
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
@@ -116,7 +118,7 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	conn := dialEventsWebSocket(t, server.URL, token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForObservabilitySubscriber(t, application.Bridge)
+	waitForObservabilitySubscriber(t, eventBridge)
 	first := readProtocolReplayFrame(t, conn)
 	assertProtocolReplayFrame(t, first, "protocol_snapshot")
 }

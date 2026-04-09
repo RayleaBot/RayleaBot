@@ -8,7 +8,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
-func (a *App) handleEventsWebSocket() http.HandlerFunc {
+func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -24,13 +24,13 @@ func (a *App) handleEventsWebSocket() http.HandlerFunc {
 		}()
 
 		eventsCtx := conn.CloseRead(context.Background())
-		bridgeFrames, unsubscribeBridge := a.Bridge.SubscribeObservability(1)
+		bridgeFrames, unsubscribeBridge := h.bridge.SubscribeObservability(1)
 		defer unsubscribeBridge()
-		protocolFrames, unsubscribeProtocol := a.subscribeProtocolEvents(2)
+		protocolFrames, unsubscribeProtocol := h.protocol.subscribeProtocolEvents(2)
 		defer unsubscribeProtocol()
 
 		for _, frame := range []managementEventFrame{
-			a.protocolSnapshotEvent(),
+			h.protocol.protocolSnapshotEvent(),
 		} {
 			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
 				return

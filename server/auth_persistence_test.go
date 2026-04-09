@@ -32,7 +32,7 @@ func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 	appA := newPersistentTestApp(t, configPath, func() time.Time {
 		return current
 	}, "persist-a")
-	appA.Bridge = newPersistentEventsBridge(appA)
+	appA.SetBridge(newPersistentEventsBridge(appA))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	edgeFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
@@ -49,7 +49,7 @@ func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 		return current
 	}, "persist-b")
 	defer closePersistentTestApp(t, appB)
-	appB.Bridge = newPersistentEventsBridge(appB)
+	appB.SetBridge(newPersistentEventsBridge(appB))
 
 	repeatSetup := performJSONRequest(t, appB, edgeFixture.Request.Method, edgeFixture.Request.Path, edgeFixture.Request.Body)
 	if repeatSetup.Code != edgeFixture.Response.Status {
@@ -77,7 +77,7 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 	appA := newPersistentTestApp(t, configPath, func() time.Time {
 		return current
 	}, "ws-a")
-	appA.Bridge = newPersistentEventsBridge(appA)
+	appA.SetBridge(newPersistentEventsBridge(appA))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
@@ -97,7 +97,7 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 		return current
 	}, "ws-b")
 	defer closePersistentTestApp(t, appB)
-	appB.Bridge = newPersistentEventsBridge(appB)
+	appB.SetBridge(newPersistentEventsBridge(appB))
 
 	server := httptest.NewServer(appB.Handler())
 	defer server.Close()
@@ -105,8 +105,9 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 	conn := dialEventsWebSocket(t, server.URL, loginToken)
 	defer conn.Close(1000, "")
 
-	waitForObservabilitySubscriber(t, appB.Bridge)
-	if outcome := appB.Bridge.HandleAdapterEvent(context.Background(), testBridgeEvent()); outcome != bridge.OutcomeDelivered {
+	eventBridge := appB.Bridge()
+	waitForObservabilitySubscriber(t, eventBridge)
+	if outcome := eventBridge.HandleAdapterEvent(context.Background(), testBridgeEvent()); outcome != bridge.OutcomeDelivered {
 		t.Fatalf("unexpected bridge outcome after restart: got %q want %q", outcome, bridge.OutcomeDelivered)
 	}
 
@@ -239,7 +240,7 @@ func closePersistentTestApp(t *testing.T, application *app.App) {
 }
 
 func newPersistentEventsBridge(application *app.App) *bridge.Bridge {
-	return bridge.New(application.Logger, &eventsDispatchStub{
+	return bridge.New(application.Logger(), &eventsDispatchStub{
 		deliverable: true,
 		results: []dispatch.DeliveryResult{{
 			PluginID: "weather",

@@ -4,38 +4,71 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func (a *App) refreshRecoverySummary() {
-	if a == nil || a.repoRoot == "" {
+type systemService struct {
+	state            *appRuntimeState
+	auth             *auth.Manager
+	adapter          *adapter.Shell
+	plugins          *plugins.Catalog
+	runtimes         *runtimeRegistry
+	renderer         *render.Service
+	pluginRepository plugins.DesiredStateRepository
+	taskExecutor     *tasks.Executor
+	logRepository    logging.Repository
+	shuttingDown     *atomic.Bool
+}
+
+func newSystemService(deps systemServiceDeps) *systemService {
+	return &systemService{
+		state:            deps.state,
+		auth:             deps.auth,
+		adapter:          deps.adapter,
+		plugins:          deps.plugins,
+		runtimes:         deps.runtimes,
+		renderer:         deps.renderer,
+		pluginRepository: deps.pluginRepository,
+		taskExecutor:     deps.taskExecutor,
+		logRepository:    deps.logRepository,
+	}
+}
+
+func (s *systemService) RefreshRecoverySummary() {
+	if s == nil || s.state.repoRoot == "" {
 		return
 	}
 
-	summary, err := recovery.LoadSummary(a.repoRoot)
+	summary, err := recovery.LoadSummary(s.state.repoRoot)
 	if err != nil || summary == nil {
-		a.applyRecoverySummary(summary)
+		s.applyRecoverySummary(summary)
 		return
 	}
 	if summary.RequiresPostStartChecks || recovery.NeedsSummaryNormalization(*summary) {
-		reconciled, reconcileErr := a.reconcileRecoverySummary()
+		reconciled, reconcileErr := s.reconcileRecoverySummary()
 		if reconcileErr == nil && reconciled != nil {
 			summary = reconciled
 		}
 	}
-	a.applyRecoverySummary(summary)
+	s.applyRecoverySummary(summary)
 }
 
-func (a *App) renderDiagnostics() []recovery.CompatibilityIssue {
-	if a == nil || a.renderer == nil {
+func (s *systemService) renderDiagnostics() []recovery.CompatibilityIssue {
+	if s == nil || s.renderer == nil {
 		return nil
 	}
-	diagnostics := a.renderer.Diagnostics()
+	diagnostics := s.renderer.Diagnostics()
 	if len(diagnostics) == 0 {
 		return nil
 	}
@@ -51,8 +84,8 @@ func (a *App) renderDiagnostics() []recovery.CompatibilityIssue {
 	return items
 }
 
-func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	if a == nil || a.repoRoot == "" {
+func (s *systemService) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
+	if s == nil || s.state.repoRoot == "" {
 		return nil
 	}
 	requiredKinds := startupRuntimeKinds()
@@ -60,7 +93,7 @@ func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recove
 		return nil
 	}
 	issues := []recovery.CompatibilityIssue{}
-	manager := deps.NewManager(a.repoRoot)
+	manager := deps.NewManager(s.state.repoRoot)
 	for _, kind := range requiredKinds {
 		inspection, err := manager.Inspect(kind)
 		if err != nil {
@@ -74,7 +107,7 @@ func (a *App) managedRuntimeDiagnostics(pluginsList []plugins.Snapshot) []recove
 		if inspection.PreparedStorePresent {
 			continue
 		}
-		if state, ok := a.startupRuntimeState(kind); ok {
+		if state, ok := s.startupRuntimeState(kind); ok {
 			switch state.Phase {
 			case startupRuntimePending:
 				continue
@@ -118,35 +151,24 @@ func runtimeInspectionIssue(_ string, err error) recovery.CompatibilityIssue {
 	}
 }
 
-func (a *App) platformDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
-	items := a.renderDiagnostics()
-	items = append(items, a.managedRuntimeDiagnostics(pluginsList)...)
+func (s *systemService) platformDiagnostics(pluginsList []plugins.Snapshot) []recovery.CompatibilityIssue {
+	items := s.renderDiagnostics()
+	items = append(items, s.managedRuntimeDiagnostics(pluginsList)...)
 	if len(items) == 0 {
 		return nil
 	}
 	return items
 }
 
-func (a *App) recoverySummarySnapshot() *recovery.CompatibilitySummary {
-	if a == nil || a.recoverySummary == nil {
-		return nil
-	}
-	summary := *a.recoverySummary
-	if summary.UpdatedAt == "" {
-		summary.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	}
-	return &summary
-}
-
-func (a *App) recoveryFinalizeInput() recovery.FinalizeInput {
+func (s *systemService) recoveryFinalizeInput() recovery.FinalizeInput {
 	pluginsList := []plugins.Snapshot(nil)
-	if a != nil && a.Plugins != nil {
-		pluginsList = a.Plugins.List()
+	if s != nil && s.plugins != nil {
+		pluginsList = s.plugins.List()
 	}
-	issues := a.platformDiagnostics(pluginsList)
+	issues := s.platformDiagnostics(pluginsList)
 	return recovery.FinalizeInput{
 		Plugins:          pluginsList,
-		DesiredStateRepo: a.pluginRepository,
+		DesiredStateRepo: s.pluginRepository,
 		Readiness: recovery.RuntimeReadiness{
 			RuntimeReady:  len(issues) == 0,
 			RuntimeIssues: issues,
@@ -154,11 +176,11 @@ func (a *App) recoveryFinalizeInput() recovery.FinalizeInput {
 	}
 }
 
-func (a *App) reconcileRecoverySummary() (*recovery.CompatibilitySummary, error) {
-	if a == nil || a.repoRoot == "" {
+func (s *systemService) reconcileRecoverySummary() (*recovery.CompatibilitySummary, error) {
+	if s == nil || s.state.repoRoot == "" {
 		return nil, nil
 	}
-	summary, err := recovery.LoadSummary(a.repoRoot)
+	summary, err := recovery.LoadSummary(s.state.repoRoot)
 	if err != nil || summary == nil {
 		return summary, err
 	}
@@ -166,20 +188,20 @@ func (a *App) reconcileRecoverySummary() (*recovery.CompatibilitySummary, error)
 		return nil, nil
 	}
 
-	reconciled := recovery.Finalize(*summary, a.recoveryFinalizeInput())
-	if err := recovery.SaveSummary(a.repoRoot, reconciled); err != nil {
+	reconciled := recovery.Finalize(*summary, s.recoveryFinalizeInput())
+	if err := recovery.SaveSummary(s.state.repoRoot, reconciled); err != nil {
 		return nil, err
 	}
-	a.applyRecoverySummary(&reconciled)
+	s.applyRecoverySummary(&reconciled)
 	return &reconciled, nil
 }
 
-func (a *App) reconcileRecoverySummaryBestEffort(trigger string) {
-	if a == nil {
+func (s *systemService) ReconcileRecoverySummaryBestEffort(trigger string) {
+	if s == nil {
 		return
 	}
-	if _, err := a.reconcileRecoverySummary(); err != nil && a.Logger != nil {
-		a.Logger.Warn(
+	if _, err := s.reconcileRecoverySummary(); err != nil && s.state.Logger != nil {
+		s.state.Logger.Warn(
 			"failed to reconcile recovery summary",
 			"component", "app",
 			"trigger", strings.TrimSpace(trigger),
@@ -188,18 +210,45 @@ func (a *App) reconcileRecoverySummaryBestEffort(trigger string) {
 	}
 }
 
-func (a *App) applyRecoverySummary(summary *recovery.CompatibilitySummary) {
-	if a == nil {
+func (s *systemService) applyRecoverySummary(summary *recovery.CompatibilitySummary) {
+	if s == nil {
 		return
 	}
-	if summary != nil && a.Plugins != nil {
+	if summary != nil && s.plugins != nil {
 		for _, skipped := range summary.SkippedPlugins {
-			if snapshot, ok := a.Plugins.Get(skipped.PluginID); ok && snapshot.DesiredState != "disabled" {
-				_, _ = a.Plugins.SetDesiredState(skipped.PluginID, "disabled")
+			if snapshot, ok := s.plugins.Get(skipped.PluginID); ok && snapshot.DesiredState != "disabled" {
+				_, _ = s.plugins.SetDesiredState(skipped.PluginID, "disabled")
 			}
 		}
 	}
-	a.recoverySummary = summary
+	s.state.setRecoverySummary(summary)
+}
+
+func (s *systemService) activePluginCount() int {
+	if s == nil || s.runtimes == nil {
+		return 0
+	}
+	return s.runtimes.ActiveCount()
+}
+
+func (s *systemService) uptimeSeconds() int64 {
+	if s == nil || s.state == nil || s.state.startedAt.IsZero() {
+		return 0
+	}
+
+	uptime := time.Since(s.state.startedAt)
+	if uptime < 0 {
+		return 0
+	}
+
+	return int64(uptime / time.Second)
+}
+
+func (s *systemService) systemStatus() string {
+	if s != nil && s.shuttingDown != nil && s.shuttingDown.Load() {
+		return "shutting_down"
+	}
+	return "running"
 }
 
 func recoveryIssuesToHealth(issues []recovery.CompatibilityIssue) []health.DiagnosticIssue {

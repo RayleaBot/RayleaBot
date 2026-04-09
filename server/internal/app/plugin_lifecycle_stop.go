@@ -11,14 +11,14 @@ import (
 )
 
 func (c *pluginLifecycleController) stopAndResetPlugin(pluginID string) {
-	if c == nil || c.app == nil {
+	if c == nil {
 		return
 	}
 	c.stopPlugin(context.Background(), pluginID, true)
 }
 
 func (c *pluginLifecycleController) stopPluginAsync(pluginID string, remove bool) {
-	if c == nil || c.app == nil {
+	if c == nil {
 		return
 	}
 
@@ -28,15 +28,15 @@ func (c *pluginLifecycleController) stopPluginAsync(pluginID string, remove bool
 }
 
 func (c *pluginLifecycleController) stopPlugin(ctx context.Context, pluginID string, remove bool) {
-	if c == nil || c.app == nil || c.app.Runtimes == nil {
+	if c == nil || c.runtimes == nil {
 		return
 	}
 
-	c.app.Dispatcher.Deregister(pluginID)
+	c.dispatcher.Deregister(pluginID)
 
-	manager, ok := c.app.Runtimes.Get(pluginID)
+	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 		return
 	}
 
@@ -52,39 +52,39 @@ func (c *pluginLifecycleController) stopPlugin(ctx context.Context, pluginID str
 	}
 
 	if remove {
-		c.app.Runtimes.Delete(pluginID)
+		c.runtimes.Delete(pluginID)
 	}
-	if c.app.webhooks != nil {
-		c.app.webhooks.DeletePlugin(pluginID)
+	if c.webhooks != nil {
+		c.webhooks.DeletePlugin(pluginID)
 	}
-	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 }
 
 func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int, _ string) {
-	if c == nil || c.app == nil {
+	if c == nil {
 		return
 	}
-	if c.app.Dispatcher != nil {
-		c.app.Dispatcher.Deregister(pluginID)
+	if c.dispatcher != nil {
+		c.dispatcher.Deregister(pluginID)
 	}
 
-	manager, ok := c.app.Runtimes.Get(pluginID)
+	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
 		return
 	}
 
-	snapshot, ok := c.app.Plugins.Get(pluginID)
+	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
 		manager.SetStopped()
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 		return
 	}
 
 	maxRetries := runtime.DefaultMaxCrashRetries
 	if crashCount >= maxRetries {
 		manager.SetDeadLetterState()
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
-		c.app.Logger.Warn(
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		c.state.Logger.Warn(
 			"plugin entered dead_letter after repeated crashes",
 			"component", "app",
 			"plugin_id", pluginID,
@@ -94,14 +94,14 @@ func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int,
 		return
 	}
 
-	cfg := c.app.Config.Runtime
+	cfg := c.state.Config.Runtime
 	delay := runtime.CrashBackoff(crashCount, cfg.CrashBackoffInitialSeconds, cfg.CrashBackoffMaxSeconds)
 	nextRetry := time.Now().Add(delay)
 
 	manager.SetBackoffState(nextRetry)
-	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateBackoff))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateBackoff))
 
-	c.app.Logger.Info(
+	c.state.Logger.Info(
 		"plugin runtime entering backoff before restart",
 		"component", "app",
 		"plugin_id", pluginID,
@@ -113,22 +113,22 @@ func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int,
 }
 
 func (c *pluginLifecycleController) backoffRestart(pluginID string, delay time.Duration) {
-	if c == nil || c.app == nil {
+	if c == nil {
 		return
 	}
 
 	time.Sleep(delay)
 
-	snapshot, ok := c.app.Plugins.Get(pluginID)
+	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
-		if manager, ok := c.app.Runtimes.Get(pluginID); ok && manager != nil {
+		if manager, ok := c.runtimes.Get(pluginID); ok && manager != nil {
 			manager.SetStopped()
 		}
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 		return
 	}
 
-	manager, ok := c.app.Runtimes.Get(pluginID)
+	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
 		return
 	}
@@ -139,8 +139,8 @@ func (c *pluginLifecycleController) backoffRestart(pluginID string, delay time.D
 	botID := c.currentBotID()
 	if botID == "" {
 		manager.SetDeadLetterState()
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
-		c.app.Logger.Warn(
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		c.state.Logger.Warn(
 			"cannot restart plugin: no bot connection",
 			"component", "app",
 			"plugin_id", pluginID,
@@ -148,29 +148,29 @@ func (c *pluginLifecycleController) backoffRestart(pluginID string, delay time.D
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.app.Config.Runtime))
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.state.Config.Runtime))
 	defer cancel()
 
-	_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))
+	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStarting))
 	if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
 		c.logLifecycleWarn("restart plugin after crash backoff", pluginID, err)
-		_, _ = c.app.Plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateStopped))
 	}
 }
 
 func (c *pluginLifecycleController) currentBotID() string {
-	if c == nil || c.app == nil || c.app.Adapter == nil {
+	if c == nil || c.adapter == nil {
 		return ""
 	}
-	return strings.TrimSpace(c.app.Adapter.Snapshot().BotID)
+	return strings.TrimSpace(c.adapter.Snapshot().BotID)
 }
 
 func (c *pluginLifecycleController) logLifecycleWarn(message, pluginID string, err error) {
-	if c == nil || c.app == nil || c.app.Logger == nil || err == nil {
+	if c == nil || c.state == nil || c.state.Logger == nil || err == nil {
 		return
 	}
 
-	c.app.Logger.Warn(
+	c.state.Logger.Warn(
 		message,
 		"component", "app",
 		"plugin_id", pluginID,
@@ -179,16 +179,16 @@ func (c *pluginLifecycleController) logLifecycleWarn(message, pluginID string, e
 }
 
 func (c *pluginLifecycleController) disablePluginForPermissionLoss(ctx context.Context, pluginID string) {
-	if c == nil || c.app == nil {
+	if c == nil {
 		return
 	}
 
-	if err := c.app.persistPluginDesiredState(ctx, pluginID, "disabled"); err != nil {
+	if err := persistPluginDesiredState(ctx, c.desiredStateRepo, pluginID, "disabled"); err != nil {
 		c.logLifecycleWarn("persist disabled desired_state after permission rejection", pluginID, err)
 	}
-	if _, err := c.app.Plugins.SetDesiredState(pluginID, "disabled"); err != nil && !errors.Is(err, plugins.ErrPluginNotFound) {
+	if _, err := c.plugins.SetDesiredState(pluginID, "disabled"); err != nil && !errors.Is(err, plugins.ErrPluginNotFound) {
 		c.logLifecycleWarn("set disabled desired_state after permission rejection", pluginID, err)
 	}
 	c.stopPlugin(ctx, pluginID, true)
-	c.app.reconcileRecoverySummaryBestEffort("plugin.permission_disable")
+	c.reconcileRecoverySummaryBestEffort("plugin.permission_disable")
 }

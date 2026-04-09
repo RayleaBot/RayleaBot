@@ -14,19 +14,19 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (a *App) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !a.pluginCapabilityGranted(ctx, pluginID, "http.request") {
+func (s *localActionService) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !s.grants.capabilityGranted(ctx, pluginID, "http.request") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "http.request capability is not granted",
 		}
 	}
 
-	scope := a.pluginGrantedScope(ctx, pluginID, "http.request")
+	scope := s.grants.grantedScope(ctx, pluginID, "http.request")
 	client := pluginhttp.New(pluginhttp.Config{
-		Timeout:           currentHTTPTimeout(a.Config),
-		MaxRetries:        currentHTTPMaxRetries(a.Config),
-		AllowPrivateHosts: append([]string(nil), a.Config.HTTP.AllowPrivateHosts...),
+		Timeout:           currentHTTPTimeout(s.state.Config),
+		MaxRetries:        currentHTTPMaxRetries(s.state.Config),
+		AllowPrivateHosts: append([]string(nil), s.state.Config.HTTP.AllowPrivateHosts...),
 	})
 	response, err := client.Do(ctx, pluginhttp.Request{
 		Method:        action.HTTPMethod,
@@ -69,14 +69,14 @@ func (a *App) executeHTTPRequest(ctx context.Context, pluginID string, action ru
 	return result, nil
 }
 
-func (a *App) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !a.pluginCapabilityGranted(ctx, pluginID, "scheduler.create") {
+func (s *localActionService) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !s.grants.capabilityGranted(ctx, pluginID, "scheduler.create") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "scheduler.create capability is not granted",
 		}
 	}
-	if a == nil || a.Scheduler == nil {
+	if s == nil || s.scheduler == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "scheduler engine is not available",
@@ -91,7 +91,7 @@ func (a *App) executeSchedulerCreate(ctx context.Context, pluginID string, actio
 			Err:     err,
 		}
 	}
-	job, err := a.Scheduler.UpsertTask(ctx, pluginID, action.SchedulerTaskID, action.SchedulerCron, payloadBytes)
+	job, err := s.scheduler.UpsertTask(ctx, pluginID, action.SchedulerTaskID, action.SchedulerCron, payloadBytes)
 	if err != nil {
 		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
 	}
@@ -105,57 +105,6 @@ type grantedScope struct {
 	HTTPHosts    []string               `json:"http_hosts"`
 	StorageRoots []string               `json:"storage_roots"`
 	Webhooks     []plugins.WebhookScope `json:"webhooks"`
-}
-
-func (a *App) pluginStorageRootGranted(ctx context.Context, pluginID, root string) bool {
-	if strings.TrimSpace(root) == "" {
-		return false
-	}
-	for _, grantedRoot := range a.pluginGrantedScope(ctx, pluginID, "storage.file").StorageRoots {
-		if strings.TrimSpace(grantedRoot) == root {
-			return true
-		}
-	}
-	return false
-}
-
-func (a *App) pluginGrantedScope(ctx context.Context, pluginID, capability string) grantedScope {
-	autoGranted := false
-	if a != nil {
-		for _, granted := range a.Config.Auth.AutoGrantCapabilities {
-			if strings.TrimSpace(granted) == capability {
-				autoGranted = true
-				break
-			}
-		}
-	}
-
-	if a != nil && a.grantRepository != nil {
-		grants, err := a.grantRepository.LoadGrants(ctx, pluginID)
-		if err == nil {
-			for _, grant := range grants {
-				if strings.TrimSpace(grant.Capability) != capability {
-					continue
-				}
-				scope := parseGrantedScope(grant.ScopeJSON)
-				if len(scope.HTTPHosts) > 0 || len(scope.StorageRoots) > 0 || len(scope.Webhooks) > 0 {
-					return scope
-				}
-			}
-		}
-	}
-
-	if autoGranted && a != nil && a.Plugins != nil {
-		if snapshot, ok := a.Plugins.Get(pluginID); ok {
-			return grantedScope{
-				HTTPHosts:    append([]string(nil), snapshot.ScopeHTTPHosts...),
-				StorageRoots: append([]string(nil), snapshot.ScopeStorageRoots...),
-				Webhooks:     append([]plugins.WebhookScope(nil), snapshot.ScopeWebhooks...),
-			}
-		}
-	}
-
-	return grantedScope{}
 }
 
 func parseGrantedScope(raw string) grantedScope {

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 )
 
@@ -37,9 +38,9 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesStartupManagedRuntimes(t *testing
 		}, nil
 	}
 
-	application := &App{
-		appCore: appCore{repoRoot: t.TempDir()},
-	}
+	application := newTestAppState(config.Config{}, nil)
+	application.state.repoRoot = t.TempDir()
+	application.setTestSystem(nil, nil, nil, nil)
 
 	application.autoPrepareRuntimeEnvironments(context.Background())
 
@@ -90,7 +91,9 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForPrepareResult(t *testing.T) {
 		return &deps.PrepareReport{Kind: kind}, nil
 	}
 
-	application := &App{appCore: appCore{repoRoot: t.TempDir()}}
+	application := newTestAppState(config.Config{}, nil)
+	application.state.repoRoot = t.TempDir()
+	application.setTestSystem(nil, nil, nil, nil)
 
 	finished := make(chan struct{})
 	go func() {
@@ -125,7 +128,9 @@ func TestManagedRuntimeDiagnosticsUsesStartupFailureReason(t *testing.T) {
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "node.exe")
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "npm.cmd")
 
-	application := &App{appCore: appCore{repoRoot: repoRoot}}
+	application := newTestAppState(config.Config{}, nil)
+	application.state.repoRoot = repoRoot
+	application.setTestSystem(nil, nil, nil, nil)
 	issue := startupRuntimeFailureIssue("python-runtime", &deps.BootstrapError{
 		Kind:        "python-runtime",
 		Stage:       "download",
@@ -158,7 +163,9 @@ func TestManagedRuntimeDiagnosticsDoesNotReportPendingStartupRuntime(t *testing.
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "node.exe")
 	writeStartupPreparedRuntime(t, repoRoot, "node-test", "24.14.0", "node", "npm.cmd")
 
-	application := &App{appCore: appCore{repoRoot: repoRoot}}
+	application := newTestAppState(config.Config{}, nil)
+	application.state.repoRoot = repoRoot
+	application.setTestSystem(nil, nil, nil, nil)
 	application.setStartupRuntimeState("python-runtime", startupRuntimePending, nil)
 	application.setStartupRuntimeState("nodejs-runtime", startupRuntimeReady, nil)
 
@@ -171,7 +178,9 @@ func TestManagedRuntimeDiagnosticsStillChecksStartupManagedRuntimesWithoutPlugin
 	repoRoot := t.TempDir()
 	writeStartupRuntimeManifest(t, repoRoot)
 
-	application := &App{appCore: appCore{repoRoot: repoRoot}}
+	application := newTestAppState(config.Config{}, nil)
+	application.state.repoRoot = repoRoot
+	application.setTestSystem(nil, nil, nil, nil)
 
 	issues := application.managedRuntimeDiagnostics(nil)
 	if len(issues) != 2 {

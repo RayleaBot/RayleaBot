@@ -35,10 +35,10 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 		}
 	})
 
-	if _, ok := application.Plugins.Get("raylea.help"); !ok {
+	if _, ok := application.Plugins().Get("raylea.help"); !ok {
 		t.Fatal("expected builtin plugin to be discovered")
 	}
-	if _, ok := application.Plugins.Get("hello-python"); ok {
+	if _, ok := application.Plugins().Get("hello-python"); ok {
 		t.Fatal("examples/plugins must not be discovered by the default application roots")
 	}
 }

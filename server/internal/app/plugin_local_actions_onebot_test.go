@@ -77,17 +77,10 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	shell.Start(ctx)
 	waitForAdapterState(t, shell, adapter.StateConnected, time.Second)
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				OneBot: config.OneBotConfig{Provider: "standard"},
-			},
-			Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		},
-		appPlugins: appPlugins{
-			Adapter: shell,
-		},
-	}
+	application := newTestAppState(config.Config{
+		OneBot: config.OneBotConfig{Provider: "standard"},
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
 	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", runtime.Action{
 		Kind: "message.history.get",
@@ -138,16 +131,10 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 	t.Parallel()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				OneBot: config.OneBotConfig{Provider: "standard"},
-			},
-		},
-		appPlugins: appPlugins{
-			Adapter: &adapter.Shell{},
-		},
-	}
+	application := newTestAppState(config.Config{
+		OneBot: config.OneBotConfig{Provider: "standard"},
+	}, nil)
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adapter.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtime.Action{
 		Kind: "provider.napcat.message_emoji.like.set",

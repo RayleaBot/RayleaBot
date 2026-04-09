@@ -27,7 +27,7 @@ type consoleFrameData struct {
 	Timestamp string `json:"timestamp"`
 }
 
-func (a *App) handlePluginConsoleWebSocket() http.HandlerFunc {
+func (h *consoleWSHandler) handlePluginConsoleWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -39,7 +39,7 @@ func (a *App) handlePluginConsoleWebSocket() http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-		if _, ok := a.Plugins.Get(pluginID); !ok {
+		if _, ok := h.plugins.Get(pluginID); !ok {
 			http.NotFound(w, r)
 			return
 		}
@@ -53,10 +53,10 @@ func (a *App) handlePluginConsoleWebSocket() http.HandlerFunc {
 		}()
 
 		framesCtx := conn.CloseRead(context.Background())
-		entries, unsubscribe := a.Console.Subscribe(pluginID, 8)
+		entries, unsubscribe := h.console.Subscribe(pluginID, 8)
 		defer unsubscribe()
 
-		for _, entry := range a.Console.Snapshot(pluginID) {
+		for _, entry := range h.console.Snapshot(pluginID) {
 			if err := wsjson.Write(framesCtx, conn, newConsoleFrame(entry)); err != nil {
 				return
 			}

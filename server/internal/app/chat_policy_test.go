@@ -18,31 +18,23 @@ import (
 func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 	t.Parallel()
 
-	application := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Auth: config.AuthConfig{DefaultLevel: "group_admin"},
-				Command: &config.CommandConfig{
-					Prefixes: []string{"/"},
-				},
-			},
-		},
-		appPlugins: appPlugins{
-			Plugins: plugins.NewCatalog([]plugins.Snapshot{{
-				PluginID:          "weather",
-				Valid:             true,
-				RegistrationState: "installed",
-				DesiredState:      "enabled",
-				RuntimeState:      "running",
-				Commands: []plugins.Command{{
-					Name: "weather-admin",
-				}},
-			}}),
-			commandParser: newCommandParser(config.Config{
-				Command: &config.CommandConfig{Prefixes: []string{"/"}},
-			}),
+	cfg := config.Config{
+		Auth: config.AuthConfig{DefaultLevel: "group_admin"},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
 		},
 	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name: "weather-admin",
+		}},
+	}}), nil, nil, nil)
 
 	info := application.commandInfoForEvent(application.enrichCommandEvent(adapter.NormalizedEvent{
 		PlainText: "/weather-admin",
@@ -61,14 +53,8 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 	repo := newStubBlacklistRepo()
 	repo.block("user", "bad-user")
 	dispatcherClient := &recordingDispatcherClient{}
-	application := &App{
-		appCore: appCore{Config: config.Config{}},
-		appPlugins: appPlugins{
-			permissionChecker: newPermissionChecker(config.Config{}, repo),
-			commandParser:     newCommandParser(config.Config{}),
-			Bridge:            bridge.New(slog.Default(), dispatcherClient),
-		},
-	}
+	application := newTestAppState(config.Config{}, nil)
+	application.setTestEventIngress(nil, repo, nil, bridge.New(slog.Default(), dispatcherClient))
 
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
@@ -98,38 +84,31 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 			Prefixes: []string{"/"},
 		},
 	}
-	application := &App{
-		appCore: appCore{Config: cfg},
-		appPlugins: appPlugins{
-			permissionChecker: newPermissionChecker(cfg, nil),
-			commandParser:     newCommandParser(cfg),
-			Plugins: plugins.NewCatalog([]plugins.Snapshot{
-				{
-					PluginID:          "weather",
-					Valid:             true,
-					RegistrationState: "installed",
-					DesiredState:      "enabled",
-					RuntimeState:      "running",
-					Commands: []plugins.Command{{
-						Name:       "ops",
-						Permission: "everyone",
-					}},
-				},
-				{
-					PluginID:          "admin",
-					Valid:             true,
-					RegistrationState: "installed",
-					DesiredState:      "enabled",
-					RuntimeState:      "running",
-					Commands: []plugins.Command{{
-						Name:       "ops",
-						Permission: "group_admin",
-					}},
-				},
-			}),
-			Bridge: bridge.New(slog.Default(), dispatcherClient),
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{
+		{
+			PluginID:          "weather",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:       "ops",
+				Permission: "everyone",
+			}},
 		},
-	}
+		{
+			PluginID:          "admin",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:       "ops",
+				Permission: "group_admin",
+			}},
+		},
+	}), nil, nil, bridge.New(slog.Default(), dispatcherClient))
 
 	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
@@ -165,25 +144,18 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 			CooldownReply:         true,
 		},
 	}
-	application := &App{
-		appCore: appCore{Config: cfg},
-		appPlugins: appPlugins{
-			permissionChecker: newPermissionChecker(cfg, nil),
-			commandParser:     newCommandParser(cfg),
-			outboundSender:    sender,
-			Plugins: plugins.NewCatalog([]plugins.Snapshot{{
-				PluginID:          "weather",
-				Valid:             true,
-				RegistrationState: "installed",
-				DesiredState:      "enabled",
-				RuntimeState:      "running",
-				Commands: []plugins.Command{{
-					Name:       "weather",
-					Permission: "everyone",
-				}},
-			}}),
-		},
-	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "weather",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, nil)
 	event := adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
 		EventID:          "evt-weather",
@@ -217,41 +189,34 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	t.Parallel()
 
 	repo := newStubBlacklistRepo()
-	app := &App{
-		appCore: appCore{
-			Config: config.Config{
-				Auth: config.AuthConfig{
-					SuperAdmins:  []string{"1"},
-					DefaultLevel: "everyone",
-				},
-				Command: &config.CommandConfig{
-					Prefixes: []string{"/"},
-				},
-				Cooldown: &config.CooldownConfig{
-					UserCommandRateLimit:  "5/1h",
-					GroupCommandRateLimit: "5/1h",
-					CooldownReply:         false,
-				},
-				Storage: config.StorageConfig{
-					KVValueMaxBytes: 1024,
-					KVTotalLimitMB:  8,
-					FileMaxBytes:    2048,
-					PluginWorkDirMB: 32,
-				},
-				HTTP: config.HTTPConfig{
-					TimeoutSeconds:    10,
-					MaxRetries:        0,
-					AllowPrivateHosts: []string{},
-				},
-				Logging: config.LoggingConfig{Level: "info"},
-			},
+	cfg := config.Config{
+		Auth: config.AuthConfig{
+			SuperAdmins:  []string{"1"},
+			DefaultLevel: "everyone",
 		},
-		appPlugins: appPlugins{
-			blacklistRepo:     repo,
-			permissionChecker: newPermissionChecker(config.Config{Auth: config.AuthConfig{SuperAdmins: []string{"1"}}}, repo),
-			commandParser:     newCommandParser(config.Config{Command: &config.CommandConfig{Prefixes: []string{"/"}}}),
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
 		},
+		Cooldown: &config.CooldownConfig{
+			UserCommandRateLimit:  "5/1h",
+			GroupCommandRateLimit: "5/1h",
+			CooldownReply:         false,
+		},
+		Storage: config.StorageConfig{
+			KVValueMaxBytes: 1024,
+			KVTotalLimitMB:  8,
+			FileMaxBytes:    2048,
+			PluginWorkDirMB: 32,
+		},
+		HTTP: config.HTTPConfig{
+			TimeoutSeconds:    10,
+			MaxRetries:        0,
+			AllowPrivateHosts: []string{},
+		},
+		Logging: config.LoggingConfig{Level: "info"},
 	}
+	app := newTestAppState(cfg, nil)
+	app.setTestEventIngress(nil, repo, nil, nil)
 
 	restartRequired := applyHotReloadableFields(app, config.Config{
 		Auth: config.AuthConfig{
@@ -282,26 +247,26 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if restartRequired {
 		t.Fatal("restartRequired = true, want false for hot-reloadable fields")
 	}
-	if !app.commandParser.Parse("!ping").IsCommand {
+	if !app.eventIngress.commandParser.Parse("!ping").IsCommand {
 		t.Fatal("new command prefix was not applied")
 	}
-	if app.commandParser.Parse("/ping").IsCommand {
+	if app.eventIngress.commandParser.Parse("/ping").IsCommand {
 		t.Fatal("old command prefix should no longer be active")
 	}
-	if verdict := app.permissionChecker.Check(context.Background(), "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
+	if verdict := app.eventIngress.permissionChecker.Check(context.Background(), "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
 		t.Fatalf("new super admin should bypass command checks: %#v", verdict)
 	}
-	if verdict := app.permissionChecker.Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
+	if verdict := app.eventIngress.permissionChecker.Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
 	}
-	if app.Config.Storage.FileMaxBytes != 8192 || app.Config.Storage.PluginWorkDirMB != 64 {
-		t.Fatalf("storage config was not hot reloaded: %+v", app.Config.Storage)
+	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirMB != 64 {
+		t.Fatalf("storage config was not hot reloaded: %+v", app.state.Config.Storage)
 	}
-	if app.Config.HTTP.TimeoutSeconds != 15 || app.Config.HTTP.MaxRetries != 2 {
-		t.Fatalf("http config was not hot reloaded: %+v", app.Config.HTTP)
+	if app.state.Config.HTTP.TimeoutSeconds != 15 || app.state.Config.HTTP.MaxRetries != 2 {
+		t.Fatalf("http config was not hot reloaded: %+v", app.state.Config.HTTP)
 	}
-	if len(app.Config.HTTP.AllowPrivateHosts) != 1 || app.Config.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
-		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", app.Config.HTTP.AllowPrivateHosts)
+	if len(app.state.Config.HTTP.AllowPrivateHosts) != 1 || app.state.Config.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
+		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", app.state.Config.HTTP.AllowPrivateHosts)
 	}
 }
 
@@ -469,25 +434,22 @@ func newLifecycleControllerForGrantTests(t *testing.T, grants []plugins.PluginGr
 		RuntimeState:        "running",
 		RequiredPermissions: []string{"http.request"},
 	}})
-	app := &App{
-		appCore: appCore{
-			Config: config.Config{},
-			Logger: slog.Default(),
-		},
-		appPlugins: appPlugins{
-			Plugins:    catalog,
-			Dispatcher: dispatch.New(slog.Default(), nil, nil, 16),
-			Runtimes:   newRuntimeRegistry(slog.Default(), runtime.Options{}),
-			grantRepository: &stubLifecycleGrantRepository{
-				grants: map[string][]plugins.PluginGrant{
-					"weather": grants,
-				},
+	app := newTestAppState(config.Config{}, slog.Default())
+	app.setTestLifecycle(
+		catalog,
+		nil,
+		&stubLifecycleGrantRepository{
+			grants: map[string][]plugins.PluginGrant{
+				"weather": grants,
 			},
 		},
-	}
-	controller := newPluginLifecycleController(app)
-	app.pluginLifecycle = controller
-	return controller, catalog
+		newRuntimeRegistry(slog.Default(), runtime.Options{}),
+		dispatch.New(slog.Default(), nil, nil, 16),
+		nil,
+		nil,
+		newPluginWebhookRegistry(),
+	)
+	return app.pluginLifecycle, catalog
 }
 
 type stubLifecycleGrantRepository struct {

@@ -14,20 +14,21 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
-func buildAppHTTPServer(application *App) (http.Handler, *http.Server) {
+func buildAppHTTPServer(deps httpServerDeps) (http.Handler, *http.Server) {
 	router := chi.NewRouter()
-	router.Use(httpapi.WithRequestContext(application.Logger))
+	router.Use(httpapi.WithRequestContext(deps.state.Logger))
 
-	registerAppPublicRoutes(router, application)
+	registerAppPublicRoutes(router, deps)
 	router.Group(func(r chi.Router) {
-		r.Use(RequireAuth(application.Auth))
-		registerAppProtectedRoutes(r, application)
+		r.Use(RequireAuth(deps.auth))
+		registerAppProtectedRoutes(r, deps)
 	})
-	router.NotFound(newManagementUIHandler(application.repoRoot))
+	router.NotFound(newManagementUIHandler(deps.state.repoRoot))
 
-	listenAddr := net.JoinHostPort(application.Config.Server.Host, strconv.Itoa(application.Config.Server.Port))
+	listenAddr := net.JoinHostPort(deps.state.Config.Server.Host, strconv.Itoa(deps.state.Config.Server.Port))
 	server := &http.Server{
 		Addr:              listenAddr,
 		Handler:           router,
@@ -38,74 +39,74 @@ func buildAppHTTPServer(application *App) (http.Handler, *http.Server) {
 		MaxHeaderBytes:    1 << 20, // 1 MiB
 	}
 
-	logConfiguredServer(application, listenAddr)
+	logConfiguredServer(deps.state, deps.renderer, listenAddr)
 	return router, server
 }
 
-func registerAppPublicRoutes(router chi.Router, application *App) {
+func registerAppPublicRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/healthz", health.NewLivenessHandler())
 	router.Get("/readyz", health.NewReadinessHandler(func() health.ReadinessReport {
-		return application.currentReadiness()
+		return deps.systemHandler.system.CurrentReadiness()
 	}))
-	router.Post("/api/setup/admin", application.handleSetupAdmin())
-	router.Get("/api/setup/status", application.handleSetupStatus())
-	router.Post("/api/session/login", application.handleSessionLogin())
-	router.Post("/api/session/launcher-token", application.handleLauncherTokenIssue())
-	router.Post("/api/session/launcher-admission", application.handleLauncherAdmission())
-	router.Get("/api/protocols/onebot11/reverse-ws", application.handleProtocolOneBot11ReverseWS())
-	router.Post("/api/protocols/onebot11/webhook", application.handleProtocolOneBot11Webhook())
-	router.Post("/api/webhooks/{plugin_id}/{route}", application.handlePluginWebhook())
+	router.Post("/api/setup/admin", deps.authHandler.handleSetupAdmin())
+	router.Get("/api/setup/status", deps.managementHandler.handleSetupStatus())
+	router.Post("/api/session/login", deps.authHandler.handleSessionLogin())
+	router.Post("/api/session/launcher-token", deps.managementHandler.handleLauncherTokenIssue())
+	router.Post("/api/session/launcher-admission", deps.authHandler.handleLauncherAdmission())
+	router.Get("/api/protocols/onebot11/reverse-ws", deps.protocolHandler.handleProtocolOneBot11ReverseWS())
+	router.Post("/api/protocols/onebot11/webhook", deps.protocolHandler.handleProtocolOneBot11Webhook())
+	router.Post("/api/webhooks/{plugin_id}/{route}", deps.pluginWebhooks.handlePluginWebhook())
 }
 
-func registerAppProtectedRoutes(router chi.Router, application *App) {
-	router.Delete("/api/session", application.handleSessionLogout())
-	router.Get("/api/config", application.handleConfigGet())
-	router.Put("/api/config", application.handleConfigPut())
-	router.Get("/api/protocols/onebot11", application.handleProtocolOneBot11Snapshot())
-	router.Get("/api/logs", application.handleLogsList())
-	router.Get("/api/logs/{log_id}", application.handleLogDetail())
-	router.Get("/api/system/status", application.handleSystemStatus())
-	router.Post("/api/system/shutdown", application.handleSystemShutdown())
-	router.Post("/api/system/backup", application.handleSystemBackup())
-	router.Post("/api/system/recovery/recheck", application.handleSystemRecoveryRecheck())
-	router.Post("/api/system/recovery/confirm", application.handleSystemRecoveryConfirm())
-	router.Post("/api/system/runtime/bootstrap", application.handleSystemRuntimeBootstrap())
-	router.Get("/api/system/diagnostics/export", application.handleSystemDiagnosticsExport())
-	router.Post("/api/system/render/preview", application.handleSystemRenderPreview())
-	router.Get("/api/system/render/artifacts/{artifact_id}", application.handleSystemRenderArtifact())
-	router.Get("/api/tasks", application.handleTaskList())
-	router.Get("/api/tasks/{task_id}", application.handleTaskDetail())
-	router.Post("/api/tasks/{task_id}/cancel", application.handleTaskCancel())
-	router.Get("/ws/events", application.handleEventsWebSocket())
-	router.Get("/ws/tasks", application.handleTasksWebSocket())
-	router.Get("/ws/logs", application.handleLogsWebSocket())
-	router.Get("/ws/plugins/{id}/console", application.handlePluginConsoleWebSocket())
-	plugins.RegisterRoutes(router, application.Plugins, application.Tasks, application.pluginRepository, application.PluginInstaller, application.pluginLifecycle, application.PluginUninstaller, application.grantRepository)
+func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
+	router.Delete("/api/session", deps.managementHandler.handleSessionLogout())
+	router.Get("/api/config", deps.configHandler.handleConfigGet())
+	router.Put("/api/config", deps.configHandler.handleConfigPut())
+	router.Get("/api/protocols/onebot11", deps.protocolHandler.handleProtocolOneBot11Snapshot())
+	router.Get("/api/logs", deps.logHandler.handleLogsList())
+	router.Get("/api/logs/{log_id}", deps.logHandler.handleLogDetail())
+	router.Get("/api/system/status", deps.managementHandler.handleSystemStatus())
+	router.Post("/api/system/shutdown", deps.managementHandler.handleSystemShutdown())
+	router.Post("/api/system/backup", deps.systemHandler.handleSystemBackup())
+	router.Post("/api/system/recovery/recheck", deps.systemHandler.handleSystemRecoveryRecheck())
+	router.Post("/api/system/recovery/confirm", deps.systemHandler.handleSystemRecoveryConfirm())
+	router.Post("/api/system/runtime/bootstrap", deps.systemHandler.handleSystemRuntimeBootstrap())
+	router.Get("/api/system/diagnostics/export", deps.systemHandler.handleSystemDiagnosticsExport())
+	router.Post("/api/system/render/preview", deps.renderHandler.handleSystemRenderPreview())
+	router.Get("/api/system/render/artifacts/{artifact_id}", deps.renderHandler.handleSystemRenderArtifact())
+	router.Get("/api/tasks", deps.taskHandler.handleTaskList())
+	router.Get("/api/tasks/{task_id}", deps.taskHandler.handleTaskDetail())
+	router.Post("/api/tasks/{task_id}/cancel", deps.taskHandler.handleTaskCancel())
+	router.Get("/ws/events", deps.eventsWS.handleEventsWebSocket())
+	router.Get("/ws/tasks", deps.tasksWS.handleTasksWebSocket())
+	router.Get("/ws/logs", deps.logsWS.handleLogsWebSocket())
+	router.Get("/ws/plugins/{id}/console", deps.consoleWS.handlePluginConsoleWebSocket())
+	plugins.RegisterRoutes(router, deps.plugins, deps.tasks, deps.pluginRepository, deps.pluginInstaller, deps.pluginLifecycle, deps.pluginUninstaller, deps.grantRepository)
 }
 
-func logConfiguredServer(application *App, listenAddr string) {
-	application.Logger.Info(
+func logConfiguredServer(state *appRuntimeState, renderer *render.Service, listenAddr string) {
+	state.Logger.Info(
 		"configuration loaded",
 		"component", "config",
-		"config_path", application.Summary.ConfigPath,
-		"schema_path", application.Summary.SchemaPath,
-		"server_host", application.Summary.ServerHost,
-		"server_port", application.Summary.ServerPort,
-		"database_engine", application.Summary.DatabaseEngine,
-		"database_path", application.Summary.DatabasePath,
-		"web_exposure_mode", application.Summary.WebExposureMode,
-		"logging_level", application.Summary.LoggingLevel,
-		"super_admin_count", application.Summary.SuperAdminCount,
-		"onebot_configured", application.Summary.OneBotConfigured,
-		"onebot_endpoint", application.Summary.OneBotEndpoint,
+		"config_path", state.Summary.ConfigPath,
+		"schema_path", state.Summary.SchemaPath,
+		"server_host", state.Summary.ServerHost,
+		"server_port", state.Summary.ServerPort,
+		"database_engine", state.Summary.DatabaseEngine,
+		"database_path", state.Summary.DatabasePath,
+		"web_exposure_mode", state.Summary.WebExposureMode,
+		"logging_level", state.Summary.LoggingLevel,
+		"super_admin_count", state.Summary.SuperAdminCount,
+		"onebot_configured", state.Summary.OneBotConfigured,
+		"onebot_endpoint", state.Summary.OneBotEndpoint,
 	)
-	application.Logger.Info(
+	state.Logger.Info(
 		"http server configured",
 		"component", "app",
 		"listen_addr", listenAddr,
 	)
-	for _, issue := range application.renderer.Diagnostics() {
-		application.Logger.Warn(
+	for _, issue := range renderer.Diagnostics() {
+		state.Logger.Warn(
 			"render resource issue detected",
 			"component", "render",
 			"code", issue.Code,

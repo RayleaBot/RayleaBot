@@ -53,14 +53,14 @@ var prepareManagedRuntimeWithReport = func(ctx context.Context, repoRoot, kind s
 	}, nil
 }
 
-func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
+func (h *systemHTTPHandlers) handleSystemRecoveryRecheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a == nil || a.taskExecutor == nil {
+		if h == nil || h.system == nil || h.system.taskExecutor == nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		summary, err := recovery.LoadSummary(a.repoRoot)
+		summary, err := recovery.LoadSummary(h.system.state.repoRoot)
 		if err != nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
@@ -68,14 +68,14 @@ func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
 		if summary == nil || (!summary.RequiresPostStartChecks && summary.Phase != "post_startup") {
 			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "recovery_summary",
-				"path":          recovery.SummaryPath(a.repoRoot),
+				"path":          recovery.SummaryPath(h.system.state.repoRoot),
 			})
 			return
 		}
 
-		taskID, err := a.taskExecutor.Submit("recovery.recheck", "重新检查恢复摘要", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		taskID, err := h.system.taskExecutor.Submit("recovery.recheck", "重新检查恢复摘要", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 			progress.Update(25, "读取恢复摘要")
-			reconciled, err := a.reconcileRecoverySummary()
+			reconciled, err := h.system.reconcileRecoverySummary()
 			if err != nil {
 				return nil, err
 			}
@@ -85,7 +85,7 @@ func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
 					Message: "恢复摘要不存在或当前不可重新检查",
 					Details: map[string]any{
 						"resource_type": "recovery_summary",
-						"path":          recovery.SummaryPath(a.repoRoot),
+						"path":          recovery.SummaryPath(h.system.state.repoRoot),
 					},
 				}
 			}
@@ -106,9 +106,9 @@ func (a *App) handleSystemRecoveryRecheck() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
+func (h *systemHTTPHandlers) handleSystemRecoveryConfirm() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a == nil || a.taskExecutor == nil {
+		if h == nil || h.system == nil || h.system.taskExecutor == nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -124,7 +124,7 @@ func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
 			return
 		}
 
-		summary, err := recovery.LoadSummary(a.repoRoot)
+		summary, err := recovery.LoadSummary(h.system.state.repoRoot)
 		if err != nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
@@ -132,7 +132,7 @@ func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
 		if summary == nil || summary.Phase != "post_startup" {
 			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "recovery_summary",
-				"path":          recovery.SummaryPath(a.repoRoot),
+				"path":          recovery.SummaryPath(h.system.state.repoRoot),
 			})
 			return
 		}
@@ -157,9 +157,9 @@ func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
 		operatorID := strings.TrimSpace(claims.Subject)
 
 		taskIDCh := make(chan string, 1)
-		taskID, err := a.taskExecutor.Submit("recovery.confirm", "确认恢复处理结果", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		taskID, err := h.system.taskExecutor.Submit("recovery.confirm", "确认恢复处理结果", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 			progress.Update(20, "读取恢复摘要")
-			currentSummary, err := recovery.LoadSummary(a.repoRoot)
+			currentSummary, err := recovery.LoadSummary(h.system.state.repoRoot)
 			if err != nil {
 				return nil, err
 			}
@@ -169,7 +169,7 @@ func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
 					Message: "恢复摘要不存在或当前不可确认",
 					Details: map[string]any{
 						"resource_type": "recovery_summary",
-						"path":          recovery.SummaryPath(a.repoRoot),
+						"path":          recovery.SummaryPath(h.system.state.repoRoot),
 					},
 				}
 			}
@@ -190,10 +190,10 @@ func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
 				return nil, err
 			}
 			progress.Update(85, "写入恢复摘要")
-			if err := recovery.SaveSummary(a.repoRoot, confirmedSummary); err != nil {
+			if err := recovery.SaveSummary(h.system.state.repoRoot, confirmedSummary); err != nil {
 				return nil, err
 			}
-			a.applyRecoverySummary(&confirmedSummary)
+			h.system.applyRecoverySummary(&confirmedSummary)
 
 			summaryText := "所选恢复项已确认"
 			if len(confirmedReviewIDs) == 0 {
@@ -219,9 +219,9 @@ func (a *App) handleSystemRecoveryConfirm() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
+func (h *systemHTTPHandlers) handleSystemRuntimeBootstrap() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a == nil || a.taskExecutor == nil {
+		if h == nil || h.system == nil || h.system.taskExecutor == nil {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
@@ -238,11 +238,11 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 			return
 		}
 
-		taskID, err := a.taskExecutor.Submit("runtime.bootstrap", "准备运行环境", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
+		taskID, err := h.system.taskExecutor.Submit("runtime.bootstrap", "准备运行环境", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 			results := make([]any, 0, len(resources))
 			for index, kind := range resources {
 				progress.Update((index*70)/len(resources), "准备 "+kind)
-				report, err := prepareManagedRuntimeWithReport(ctx, a.repoRoot, kind)
+				report, err := prepareManagedRuntimeWithReport(ctx, h.system.state.repoRoot, kind)
 				if err != nil {
 					var bootstrapErr *deps.BootstrapError
 					if errors.As(err, &bootstrapErr) {
@@ -254,8 +254,8 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 					}
 					return nil, err
 				}
-				if kind == "chromium" && a.renderer != nil && report.PreparedEntrypoint != "" {
-					a.renderer.RefreshBrowserPath(report.PreparedEntrypoint)
+				if kind == "chromium" && h.system.renderer != nil && report.PreparedEntrypoint != "" {
+					h.system.renderer.RefreshBrowserPath(report.PreparedEntrypoint)
 				}
 				results = append(results, map[string]any{
 					"kind":                report.Kind,
@@ -269,8 +269,8 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 			}
 
 			details := map[string]any{"resources": results}
-			if a.recoverySummary != nil {
-				if reconciled, err := a.reconcileRecoverySummary(); err == nil && reconciled != nil {
+			if h.system.state.recoverySummarySnapshot() != nil {
+				if reconciled, err := h.system.reconcileRecoverySummary(); err == nil && reconciled != nil {
 					details["recovery_summary"] = reconciled
 				}
 			}

@@ -22,6 +22,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
 type pluginWebhookRegistration struct {
@@ -84,21 +85,43 @@ func pluginWebhookKey(pluginID, route string) string {
 	return strings.TrimSpace(pluginID) + "\x00" + strings.TrimSpace(route)
 }
 
-func (a *App) executeExposeWebhook(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !a.pluginCapabilityGranted(ctx, pluginID, "event.expose_webhook") {
+type pluginWebhookService struct {
+	state      *appRuntimeState
+	registry   *pluginWebhookRegistry
+	secrets    secrets.Store
+	plugins    *plugins.Catalog
+	dispatcher *dispatch.Dispatcher
+	lifecycle  *pluginLifecycleController
+	grants     *pluginGrantView
+}
+
+func newPluginWebhookService(deps pluginWebhookServiceDeps) *pluginWebhookService {
+	return &pluginWebhookService{
+		state:      deps.state,
+		registry:   deps.registry,
+		secrets:    deps.secrets,
+		plugins:    deps.plugins,
+		dispatcher: deps.dispatcher,
+		lifecycle:  deps.lifecycle,
+		grants:     deps.grants,
+	}
+}
+
+func (s *pluginWebhookService) Expose(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !s.grants.capabilityGranted(ctx, pluginID, "event.expose_webhook") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "event.expose_webhook capability is not granted",
 		}
 	}
-	if a == nil || a.webhooks == nil {
+	if s == nil || s.registry == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "webhook gateway is not available",
 		}
 	}
 
-	scope, ok := a.grantedWebhookScope(ctx, pluginID, action.WebhookRoute)
+	scope, ok := s.grants.grantedWebhookScope(ctx, pluginID, action.WebhookRoute)
 	if !ok {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
@@ -122,8 +145,8 @@ func (a *App) executeExposeWebhook(ctx context.Context, pluginID string, action 
 		}
 	}
 
-	urlValue := a.webhookGatewayURL(pluginID, action.WebhookRoute)
-	a.webhooks.Register(pluginWebhookRegistration{
+	urlValue := s.webhookGatewayURL(pluginID, action.WebhookRoute)
+	s.registry.Register(pluginWebhookRegistration{
 		PluginID:        pluginID,
 		Route:           action.WebhookRoute,
 		Methods:         append([]string(nil), action.WebhookMethods...),
@@ -140,12 +163,12 @@ func (a *App) executeExposeWebhook(ctx context.Context, pluginID string, action 
 	}, nil
 }
 
-func (a *App) handlePluginWebhook() http.HandlerFunc {
+func (h *pluginWebhookHTTPHandlers) handlePluginWebhook() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		route := chi.URLParam(r, "route")
 
-		registration, ok := a.webhooks.Get(pluginID, route)
+		registration, ok := h.webhooks.registry.Get(pluginID, route)
 		if !ok {
 			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "webhook",
@@ -163,7 +186,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 			return
 		}
 
-		snapshot, ok := a.Plugins.Get(pluginID)
+		snapshot, ok := h.webhooks.plugins.Get(pluginID)
 		if !ok || !snapshot.Valid || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
 			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "plugin",
@@ -187,15 +210,15 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		if !a.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), body) {
+		if !h.webhooks.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), body) {
 			writeAppError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied", nil)
 			return
 		}
 
-		if !a.Dispatcher.HasDeliverablePlugin(pluginID) && a.pluginLifecycle != nil {
-			if botID := a.pluginLifecycle.currentBotID(); botID != "" {
-				if err := a.pluginLifecycle.ensurePluginRunning(r.Context(), pluginID, botID); err != nil {
-					a.Logger.Warn(
+		if !h.webhooks.dispatcher.HasDeliverablePlugin(pluginID) && h.webhooks.lifecycle != nil {
+			if botID := h.webhooks.lifecycle.currentBotID(); botID != "" {
+				if err := h.webhooks.lifecycle.ensurePluginRunning(r.Context(), pluginID, botID); err != nil {
+					h.webhooks.state.Logger.Warn(
 						"ensure runtime before webhook dispatch failed",
 						"component", "app",
 						"plugin_id", pluginID,
@@ -205,7 +228,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 			}
 		}
 
-		result := a.Dispatcher.DispatchToPlugin(r.Context(), pluginID, runtime.Event{
+		result := h.webhooks.dispatcher.DispatchToPlugin(r.Context(), pluginID, runtime.Event{
 			EventID:        fmt.Sprintf("webhook-%s-%d", route, time.Now().UnixNano()),
 			SourceProtocol: "webhook",
 			SourceAdapter:  "webhook.gateway",
@@ -220,7 +243,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 				ID:   webhookRemoteIP(r.RemoteAddr),
 				Role: "remote",
 			},
-			RawPayload: a.buildWebhookRawPayload(r, route, body, a.pluginCapabilityGranted(r.Context(), pluginID, "event.raw_payload")),
+			RawPayload: h.webhooks.buildWebhookRawPayload(r, route, body, h.webhooks.grants.capabilityGranted(r.Context(), pluginID, "event.raw_payload")),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
@@ -231,7 +254,7 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 	}
 }
 
-func (a *App) buildWebhookRawPayload(r *http.Request, route string, body []byte, include bool) any {
+func (s *pluginWebhookService) buildWebhookRawPayload(r *http.Request, route string, body []byte, include bool) any {
 	if !include {
 		return nil
 	}
@@ -263,11 +286,11 @@ func (a *App) buildWebhookRawPayload(r *http.Request, route string, body []byte,
 	return payload
 }
 
-func (a *App) validateWebhookAuth(ctx context.Context, registration pluginWebhookRegistration, presented string, body []byte) bool {
-	if a == nil || a.Secrets == nil {
+func (s *pluginWebhookService) validateWebhookAuth(ctx context.Context, registration pluginWebhookRegistration, presented string, body []byte) bool {
+	if s == nil || s.secrets == nil {
 		return false
 	}
-	secretValue, err := a.Secrets.Get(ctx, registration.SecretRef)
+	secretValue, err := s.secrets.Get(ctx, registration.SecretRef)
 	if err != nil {
 		return false
 	}
@@ -285,26 +308,15 @@ func (a *App) validateWebhookAuth(ctx context.Context, registration pluginWebhoo
 	}
 }
 
-func (a *App) grantedWebhookScope(ctx context.Context, pluginID, route string) (plugins.WebhookScope, bool) {
-	scope := a.pluginGrantedScope(ctx, pluginID, "event.expose_webhook")
-	route = strings.TrimSpace(route)
-	for _, item := range scope.Webhooks {
-		if strings.TrimSpace(item.Route) == route {
-			return item, true
-		}
-	}
-	return plugins.WebhookScope{}, false
-}
-
-func (a *App) webhookGatewayURL(pluginID, route string) string {
-	host := strings.TrimSpace(a.Config.Server.Host)
+func (s *pluginWebhookService) webhookGatewayURL(pluginID, route string) string {
+	host := strings.TrimSpace(s.state.Config.Server.Host)
 	switch host {
 	case "", "0.0.0.0", "::":
 		host = "127.0.0.1"
 	}
 	u := &url.URL{
 		Scheme: "http",
-		Host:   net.JoinHostPort(host, fmt.Sprintf("%d", a.Config.Server.Port)),
+		Host:   net.JoinHostPort(host, fmt.Sprintf("%d", s.state.Config.Server.Port)),
 		Path:   fmt.Sprintf("/api/webhooks/%s/%s", pluginID, route),
 	}
 	return u.String()

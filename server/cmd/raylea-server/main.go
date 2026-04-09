@@ -61,7 +61,7 @@ func main() {
 	defer stop()
 
 	if err := application.Run(ctx); err != nil {
-		application.Logger.Error("server exited with error", "component", "main", "err", err.Error())
+		application.Logger().Error("server exited with error", "component", "main", "err", err.Error())
 		os.Exit(1)
 	}
 }

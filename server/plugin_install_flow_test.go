@@ -97,7 +97,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 		t.Fatalf("unexpected install response body: %#v", body)
 	}
 
-	taskSnapshot := waitForTaskStatus(t, application.Tasks, taskID, tasks.StatusSucceeded)
+	taskSnapshot := waitForTaskStatus(t, application.Tasks(), taskID, tasks.StatusSucceeded)
 	if taskSnapshot.TaskType != "plugin.install" {
 		t.Fatalf("unexpected task_type: got %q want %q", taskSnapshot.TaskType, "plugin.install")
 	}
@@ -167,7 +167,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 		manifestHash string
 		packageHash  string
 	)
-	if err := application.Storage.Read.QueryRow(
+	if err := application.Storage().Read.QueryRow(
 		`SELECT source_type, source_ref, version, manifest_hash, package_hash
 		   FROM plugin_packages
 		  WHERE plugin_id = ?`,

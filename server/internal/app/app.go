@@ -11,7 +11,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
@@ -69,7 +68,6 @@ type appPlugins struct {
 	Adapter           *adapter.Shell
 	Bridge            *bridge.Bridge
 	Dispatcher        *dispatch.Dispatcher
-	Runtimes          *runtimeRegistry
 	replyTargets      *replyTargetCache
 	outboundSender    outboundActionSender
 	PluginInstaller   plugins.InstallCoordinator
@@ -80,34 +78,82 @@ type appPlugins struct {
 	pluginKV          pluginkv.Repository
 	grantRepository   plugins.GrantRepository
 	blacklistRepo     permission.BlacklistRepository
-	permissionChecker *permission.Checker
-	pluginLifecycle   *pluginLifecycleController
 	webhooks          *pluginWebhookRegistry
 	renderer          *render.Service
-	commandParser     *command.Parser
 	pluginLogLimiter  *pluginLogLimiter
 }
 
 type appProcessState struct {
+	router       http.Handler
+	server       *http.Server
+	shuttingDown atomic.Bool
+	runCancelMu  sync.Mutex
+	runCancel    context.CancelFunc
+	shutdownOnce sync.Once
+}
+
+type appRuntimeState struct {
+	Config     config.Config
+	Summary    config.Summary
+	Logger     *slog.Logger
+	LogLevel   *logging.LevelController
+	repoRoot   string
+	redactText func(string) string
+	startedAt  time.Time
+
+	recoveryMu           sync.RWMutex
 	recoverySummary      *recovery.CompatibilitySummary
-	router               http.Handler
-	server               *http.Server
-	shuttingDown         atomic.Bool
-	runCancelMu          sync.Mutex
-	runCancel            context.CancelFunc
 	startupRuntimeMu     sync.RWMutex
 	startupRuntimeStates map[string]startupRuntimeState
-	protocolMu           sync.RWMutex
-	nextProtocolSubID    uint64
-	protocolSubscribers  map[uint64]chan managementEventFrame
-	shutdownOnce         sync.Once
 }
 
 type App struct {
-	appCore
-	appPlatform
-	appPlugins
-	appProcessState
+	state   *appRuntimeState
+	process appProcessState
+
+	auth           *auth.Manager
+	storage        *storage.Store
+	secrets        secrets.Store
+	tasks          *tasks.Registry
+	taskExecutor   *tasks.Executor
+	scheduler      *scheduler.Engine
+	logs           *logging.Stream
+	logRepository  logging.Repository
+	console        *console.Stream
+	launcherTokens *launcherTokenStore
+	loginFailures  *loginFailureTracker
+
+	plugins           *plugins.Catalog
+	adapter           *adapter.Shell
+	bridge            *bridge.Bridge
+	dispatcher        *dispatch.Dispatcher
+	runtimes          *runtimeRegistry
+	replyTargets      *replyTargetCache
+	outboundSender    outboundActionSender
+	pluginInstaller   plugins.InstallCoordinator
+	pluginUninstaller plugins.UninstallCoordinator
+	pluginRepository  plugins.DesiredStateRepository
+	pluginConfig      pluginconfig.Repository
+	pluginFiles       *pluginfile.Service
+	pluginKV          pluginkv.Repository
+	grantRepository   plugins.GrantRepository
+	blacklistRepo     permission.BlacklistRepository
+	renderer          *render.Service
+	webhookRegistry   *pluginWebhookRegistry
+	pluginLogLimiter  *pluginLogLimiter
+
+	localActions    *localActionService
+	pluginLifecycle *pluginLifecycleController
+	eventIngress    *eventIngressService
+	protocol        *protocolService
+	pluginWebhooks  *pluginWebhookService
+	logService      *logService
+	systemService   *systemService
+
+	authHandler       *authHTTPHandlers
+	managementHandler *managementHTTPHandlers
+	taskHandler       *taskHTTPHandlers
+	eventsWS          *eventsWSHandler
 }
 
 func New(options Options) (*App, error) {
@@ -116,68 +162,233 @@ func New(options Options) (*App, error) {
 		return nil, err
 	}
 
-	var application *App
-	platformState, err := buildAppPlatform(buildState, func(ctx context.Context, job scheduler.Job) {
-		if application != nil && application.pluginLifecycle != nil {
-			application.pluginLifecycle.HandleSchedulerTrigger(ctx, job)
-		}
-	})
+	schedulerTriggers := newSchedulerTriggerProxy()
+	platformState, err := buildAppPlatform(buildState, schedulerTriggers.Handle)
 	if err != nil {
 		return nil, err
 	}
 
-	pluginState, err := buildAppPlugins(buildState, platformState, options.RenderRunner, func(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-		if application == nil {
-			return nil, &runtime.Error{
-				Code:    "plugin.internal_error",
-				Message: "plugin local action executor is not available",
-			}
-		}
-		return application.executeLocalAction(ctx, pluginID, requestID, action)
-	})
+	pluginState, err := buildAppPlugins(buildState, platformState, options.RenderRunner)
 	if err != nil {
 		return nil, err
 	}
 
-	application = &App{
-		appCore:     buildState.core,
-		appPlatform: platformState,
-		appPlugins:  pluginState,
-		appProcessState: appProcessState{
-			startupRuntimeStates: newStartupRuntimeStates(startupRuntimeKinds()),
-			protocolSubscribers:  make(map[uint64]chan managementEventFrame),
-		},
+	state := &appRuntimeState{
+		Config:               buildState.core.Config,
+		Summary:              buildState.core.Summary,
+		Logger:               buildState.core.Logger,
+		LogLevel:             buildState.core.LogLevel,
+		repoRoot:             buildState.core.repoRoot,
+		redactText:           buildState.core.redactText,
+		startedAt:            buildState.core.startedAt,
+		startupRuntimeStates: newStartupRuntimeStates(nil),
 	}
-	application.pluginLifecycle = newPluginLifecycleController(application)
-	application.refreshRecoverySummary()
+	logService := newLogService(platformState.Logs, platformState.LogRepository)
+	grantView := &pluginGrantView{
+		state:           state,
+		plugins:         pluginState.Plugins,
+		grantRepository: pluginState.grantRepository,
+	}
+	localActions := newLocalActionService(localActionServiceDeps{
+		state:            state,
+		grants:           grantView,
+		pluginConfig:     pluginState.pluginConfig,
+		pluginFiles:      pluginState.pluginFiles,
+		pluginKV:         pluginState.pluginKV,
+		scheduler:        platformState.Scheduler,
+		dispatcher:       pluginState.Dispatcher,
+		renderer:         pluginState.renderer,
+		adapter:          pluginState.Adapter,
+		pluginLogLimiter: pluginState.pluginLogLimiter,
+	})
+	runtimeOptions := runtime.Options{
+		Console:                    platformState.Console,
+		RedactText:                 buildState.managementRedact,
+		StderrRateLimitBytesPerSec: buildState.core.Config.Runtime.StderrRateLimitBytesPerSec,
+		ExecuteLocalAction:         localActions.Execute,
+	}
+	runtimeRegistry := newRuntimeRegistry(state.Logger, runtimeOptions)
+	systemService := newSystemService(systemServiceDeps{
+		state:            state,
+		auth:             platformState.Auth,
+		adapter:          pluginState.Adapter,
+		plugins:          pluginState.Plugins,
+		runtimes:         runtimeRegistry,
+		renderer:         pluginState.renderer,
+		pluginRepository: pluginState.pluginRepository,
+		taskExecutor:     platformState.taskExecutor,
+		logRepository:    platformState.LogRepository,
+	})
+	lifecycle := newPluginLifecycleController(pluginLifecycleDeps{
+		state:            state,
+		plugins:          pluginState.Plugins,
+		desiredStateRepo: pluginState.pluginRepository,
+		grants:           grantView,
+		runtimes:         runtimeRegistry,
+		dispatcher:       pluginState.Dispatcher,
+		pluginConfig:     pluginState.pluginConfig,
+		adapter:          pluginState.Adapter,
+		webhooks:         pluginState.webhooks,
+		onRecoveryChange: systemService.ReconcileRecoverySummaryBestEffort,
+	})
+	eventIngress := newEventIngressService(eventIngressDeps{
+		state:          state,
+		plugins:        pluginState.Plugins,
+		replyTargets:   pluginState.replyTargets,
+		outboundSender: pluginState.outboundSender,
+		bridge:         pluginState.Bridge,
+		lifecycle:      lifecycle,
+		blacklistRepo:  pluginState.blacklistRepo,
+	})
+	protocolService := newProtocolService(state, pluginState.Adapter)
+	pluginWebhooks := newPluginWebhookService(pluginWebhookServiceDeps{
+		state:      state,
+		registry:   pluginState.webhooks,
+		secrets:    platformState.Secrets,
+		plugins:    pluginState.Plugins,
+		dispatcher: pluginState.Dispatcher,
+		lifecycle:  lifecycle,
+		grants:     grantView,
+	})
+	localActions.SetWebhookGateway(pluginWebhooks)
 
-	if installer, ok := application.PluginInstaller.(interface{ SetAfterSuccess(func(string)) }); ok {
+	application := &App{
+		state:             state,
+		auth:              platformState.Auth,
+		storage:           platformState.Storage,
+		secrets:           platformState.Secrets,
+		tasks:             platformState.Tasks,
+		taskExecutor:      platformState.taskExecutor,
+		scheduler:         platformState.Scheduler,
+		logs:              platformState.Logs,
+		logRepository:     platformState.LogRepository,
+		console:           platformState.Console,
+		launcherTokens:    platformState.launcherTokens,
+		loginFailures:     platformState.loginFailures,
+		plugins:           pluginState.Plugins,
+		adapter:           pluginState.Adapter,
+		bridge:            pluginState.Bridge,
+		dispatcher:        pluginState.Dispatcher,
+		runtimes:          runtimeRegistry,
+		replyTargets:      pluginState.replyTargets,
+		outboundSender:    pluginState.outboundSender,
+		pluginInstaller:   pluginState.PluginInstaller,
+		pluginUninstaller: pluginState.PluginUninstaller,
+		pluginRepository:  pluginState.pluginRepository,
+		pluginConfig:      pluginState.pluginConfig,
+		pluginFiles:       pluginState.pluginFiles,
+		pluginKV:          pluginState.pluginKV,
+		grantRepository:   pluginState.grantRepository,
+		blacklistRepo:     pluginState.blacklistRepo,
+		renderer:          pluginState.renderer,
+		webhookRegistry:   pluginState.webhooks,
+		pluginLogLimiter:  pluginState.pluginLogLimiter,
+		localActions:      localActions,
+		pluginLifecycle:   lifecycle,
+		eventIngress:      eventIngress,
+		protocol:          protocolService,
+		pluginWebhooks:    pluginWebhooks,
+		logService:        logService,
+		systemService:     systemService,
+	}
+	systemService.shuttingDown = &application.process.shuttingDown
+	systemService.RefreshRecoverySummary()
+	schedulerTriggers.Set(lifecycle.HandleSchedulerTrigger)
+
+	if installer, ok := application.pluginInstaller.(interface{ SetAfterSuccess(func(string)) }); ok {
 		installer.SetAfterSuccess(func(string) {
-			application.reconcileRecoverySummaryBestEffort("plugin.install")
+			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
 		})
 	}
-	if uninstaller, ok := application.PluginUninstaller.(interface {
+	if uninstaller, ok := application.pluginUninstaller.(interface {
 		SetStopPlugin(plugins.StopPluginFunc)
 		SetAfterSuccess(func(string))
 	}); ok {
-		uninstaller.SetStopPlugin(application.pluginLifecycle.stopAndResetPlugin)
+		uninstaller.SetStopPlugin(lifecycle.stopAndResetPlugin)
 		uninstaller.SetAfterSuccess(func(string) {
-			application.reconcileRecoverySummaryBestEffort("plugin.uninstall")
+			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
 		})
 	}
-	if application.Runtimes != nil {
-		application.Runtimes.SetOnCrash(application.pluginLifecycle.handleCrash)
+	if application.runtimes != nil {
+		application.runtimes.SetOnCrash(lifecycle.handleCrash)
 	}
-	if application.Adapter != nil {
-		application.Adapter.SetEventHandler(application.handleAdapterEvent)
-		application.Adapter.SetReadyHandler(application.handleAdapterReady)
-		application.Adapter.SetStateHandler(func(adapter.Snapshot) {
-			application.publishProtocolSnapshot()
+	if application.adapter != nil {
+		application.adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
+		application.adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
+		application.adapter.SetStateHandler(func(adapter.Snapshot) {
+			protocolService.PublishSnapshot()
 		})
 	}
 
-	router, server := buildAppHTTPServer(application)
-	application.router = router
-	application.server = server
+	configHandler := newConfigHTTPHandlers(configHTTPDeps{
+		state:            state,
+		logs:             platformState.Logs,
+		logRepository:    platformState.LogRepository,
+		renderer:         pluginState.renderer,
+		pluginLogLimiter: pluginState.pluginLogLimiter,
+		protocol:         protocolService,
+		eventIngress:     eventIngress,
+		blacklistRepo:    pluginState.blacklistRepo,
+	})
+	authHandler := newAuthHTTPHandlers(authHTTPDeps{
+		state:          state,
+		auth:           platformState.Auth,
+		loginFailures:  platformState.loginFailures,
+		launcherTokens: platformState.launcherTokens,
+	})
+	managementHandler := newManagementHTTPHandlers(managementHTTPDeps{
+		state:           state,
+		auth:            platformState.Auth,
+		launcherTokens:  platformState.launcherTokens,
+		system:          systemService,
+		requestShutdown: application.requestShutdown,
+	})
+	taskHandler := newTaskHTTPHandlers(platformState.Tasks, platformState.taskExecutor, pluginState.PluginInstaller)
+	logHandler := newLogHTTPHandlers(logService)
+	renderHandler := newRenderHTTPHandlers(pluginState.renderer, platformState.taskExecutor)
+	systemHandler := newSystemHTTPHandlers(systemService)
+	protocolHandler := newProtocolHTTPHandlers(protocolService)
+	eventsWS := newEventsWSHandler(pluginState.Bridge, protocolService)
+	tasksWS := newTasksWSHandler(platformState.Tasks)
+	logsWS := newLogsWSHandler(logService)
+	consoleWS := newConsoleWSHandler(platformState.Console, pluginState.Plugins)
+	pluginWebhookHandlers := newPluginWebhookHTTPHandlers(pluginWebhooks)
+
+	router, server := buildAppHTTPServer(httpServerDeps{
+		state:             state,
+		auth:              platformState.Auth,
+		tasks:             platformState.Tasks,
+		plugins:           pluginState.Plugins,
+		logs:              logService,
+		console:           platformState.Console,
+		pluginInstaller:   pluginState.PluginInstaller,
+		pluginUninstaller: pluginState.PluginUninstaller,
+		pluginRepository:  pluginState.pluginRepository,
+		grantRepository:   pluginState.grantRepository,
+		pluginLifecycle:   lifecycle,
+		taskExecutor:      platformState.taskExecutor,
+		renderer:          pluginState.renderer,
+		launcherTokens:    platformState.launcherTokens,
+		loginFailures:     platformState.loginFailures,
+		configHandler:     configHandler,
+		authHandler:       authHandler,
+		managementHandler: managementHandler,
+		taskHandler:       taskHandler,
+		logHandler:        logHandler,
+		renderHandler:     renderHandler,
+		systemHandler:     systemHandler,
+		protocolHandler:   protocolHandler,
+		eventsWS:          eventsWS,
+		tasksWS:           tasksWS,
+		logsWS:            logsWS,
+		consoleWS:         consoleWS,
+		pluginWebhooks:    pluginWebhookHandlers,
+	})
+	application.process.router = router
+	application.process.server = server
+	application.authHandler = authHandler
+	application.managementHandler = managementHandler
+	application.taskHandler = taskHandler
+	application.eventsWS = eventsWS
 	return application, nil
 }

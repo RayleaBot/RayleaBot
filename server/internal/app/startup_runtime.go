@@ -102,62 +102,62 @@ func newStartupRuntimeStates(requiredKinds []string) map[string]startupRuntimeSt
 	return states
 }
 
-func (a *App) resetStartupRuntimeStates(requiredKinds []string) {
-	if a == nil {
+func (s *systemService) resetStartupRuntimeStates(requiredKinds []string) {
+	if s == nil {
 		return
 	}
-	a.startupRuntimeMu.Lock()
-	defer a.startupRuntimeMu.Unlock()
-	a.startupRuntimeStates = newStartupRuntimeStates(requiredKinds)
+	s.state.startupRuntimeMu.Lock()
+	defer s.state.startupRuntimeMu.Unlock()
+	s.state.startupRuntimeStates = newStartupRuntimeStates(requiredKinds)
 }
 
-func (a *App) setStartupRuntimeState(kind string, phase startupRuntimePhase, issue *recovery.CompatibilityIssue) {
-	if a == nil || strings.TrimSpace(kind) == "" {
+func (s *systemService) setStartupRuntimeState(kind string, phase startupRuntimePhase, issue *recovery.CompatibilityIssue) {
+	if s == nil || strings.TrimSpace(kind) == "" {
 		return
 	}
-	a.startupRuntimeMu.Lock()
-	defer a.startupRuntimeMu.Unlock()
-	if a.startupRuntimeStates == nil {
-		a.startupRuntimeStates = newStartupRuntimeStates(nil)
+	s.state.startupRuntimeMu.Lock()
+	defer s.state.startupRuntimeMu.Unlock()
+	if s.state.startupRuntimeStates == nil {
+		s.state.startupRuntimeStates = newStartupRuntimeStates(nil)
 	}
 	var issueCopy *recovery.CompatibilityIssue
 	if issue != nil {
 		copied := *issue
 		issueCopy = &copied
 	}
-	a.startupRuntimeStates[kind] = startupRuntimeState{
+	s.state.startupRuntimeStates[kind] = startupRuntimeState{
 		Phase: phase,
 		Issue: issueCopy,
 	}
 }
 
-func (a *App) startupRuntimeState(kind string) (startupRuntimeState, bool) {
-	if a == nil {
+func (s *systemService) startupRuntimeState(kind string) (startupRuntimeState, bool) {
+	if s == nil {
 		return startupRuntimeState{}, false
 	}
-	a.startupRuntimeMu.RLock()
-	defer a.startupRuntimeMu.RUnlock()
-	if a.startupRuntimeStates == nil {
+	s.state.startupRuntimeMu.RLock()
+	defer s.state.startupRuntimeMu.RUnlock()
+	if s.state.startupRuntimeStates == nil {
 		return startupRuntimeState{}, false
 	}
-	state, ok := a.startupRuntimeStates[kind]
+	state, ok := s.state.startupRuntimeStates[kind]
 	return state, ok
 }
 
-func (a *App) startupRequiredRuntimeKinds() []string {
-	if a == nil {
+func (s *systemService) startupRequiredRuntimeKinds() []string {
+	if s == nil {
 		return nil
 	}
 	return startupRuntimeKinds()
 }
 
-func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
-	if a == nil || a.repoRoot == "" {
+func (s *systemService) autoPrepareRuntimeEnvironments(ctx context.Context) {
+	if s == nil || s.state.repoRoot == "" {
 		return
 	}
 
-	requiredKinds := a.startupRequiredRuntimeKinds()
-	a.resetStartupRuntimeStates(requiredKinds)
+	requiredKinds := s.startupRequiredRuntimeKinds()
+	s.resetStartupRuntimeStates(requiredKinds)
 	if len(requiredKinds) == 0 {
 		return
 	}
@@ -167,27 +167,27 @@ func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			return
 		}
 
-		inspection, err := inspectStartupRuntime(a.repoRoot, kind)
+		inspection, err := inspectStartupRuntime(s.state.repoRoot, kind)
 		if err != nil {
 			issue := runtimeInspectionIssue(kind, err)
-			a.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			logStartupRuntimeFailure(a.Logger, kind, err)
+			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
+			logStartupRuntimeFailure(s.state.Logger, kind, err)
 			continue
 		}
 		if !inspection.MetadataComplete {
 			issue := runtimeMetadataIssue(kind)
-			a.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
+			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
 			continue
 		}
 		if inspection.PreparedStorePresent {
-			a.setStartupRuntimeState(kind, startupRuntimeReady, nil)
+			s.setStartupRuntimeState(kind, startupRuntimeReady, nil)
 			continue
 		}
 
 		label := startupRuntimeLabel(kind)
-		a.setStartupRuntimeState(kind, startupRuntimePending, nil)
-		if a.Logger != nil {
-			a.Logger.Info(
+		s.setStartupRuntimeState(kind, startupRuntimePending, nil)
+		if s.state.Logger != nil {
+			s.state.Logger.Info(
 				"startup runtime prepare requested",
 				"component", "app",
 				"resource_kind", kind,
@@ -196,17 +196,17 @@ func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			)
 		}
 
-		report, err := prepareStartupRuntime(ctx, a.repoRoot, kind)
+		report, err := prepareStartupRuntime(ctx, s.state.repoRoot, kind)
 		if err != nil {
 			issue := startupRuntimeFailureIssue(kind, err)
-			a.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
-			logStartupRuntimeFailure(a.Logger, kind, err)
+			s.setStartupRuntimeState(kind, startupRuntimeFailed, &issue)
+			logStartupRuntimeFailure(s.state.Logger, kind, err)
 			continue
 		}
 
-		a.setStartupRuntimeState(kind, startupRuntimeReady, nil)
-		if a.Logger != nil {
-			a.Logger.Info(
+		s.setStartupRuntimeState(kind, startupRuntimeReady, nil)
+		if s.state.Logger != nil {
+			s.state.Logger.Info(
 				"startup runtime prepare completed",
 				"component", "app",
 				"resource_kind", kind,
@@ -218,5 +218,5 @@ func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 	}
 
-	a.reconcileRecoverySummaryBestEffort("startup.runtime_prepare")
+	s.ReconcileRecoverySummaryBestEffort("startup.runtime_prepare")
 }

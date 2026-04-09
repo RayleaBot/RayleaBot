@@ -10,21 +10,21 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (a *App) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !a.pluginCapabilityGranted(ctx, pluginID, "render.image") {
+func (s *localActionService) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if !s.grants.capabilityGranted(ctx, pluginID, "render.image") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "render.image capability is not granted",
 		}
 	}
-	if a == nil || a.renderer == nil {
+	if s == nil || s.renderer == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "render.image service is not available",
 		}
 	}
 
-	result, err := a.renderer.Render(ctx, render.Request{
+	result, err := s.renderer.Render(ctx, render.Request{
 		Template: action.RenderTemplate,
 		Theme:    action.RenderTheme,
 		Output:   action.RenderOutput,
@@ -47,12 +47,12 @@ func (a *App) executeRenderImage(ctx context.Context, pluginID string, action ru
 	}, nil
 }
 
-func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
-	if a == nil || a.Dispatcher == nil || !a.Dispatcher.HasDeliverablePlugin(pluginID) {
+func (s *localActionService) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
+	if s == nil || s.dispatcher == nil || !s.dispatcher.HasDeliverablePlugin(pluginID) {
 		return
 	}
 
-	result := a.Dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
+	result := s.dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
 		EventID:        fmt.Sprintf("config-changed-%s-%d", pluginID, time.Now().UnixNano()),
 		SourceProtocol: "platform",
 		SourceAdapter:  "config.internal",
@@ -64,14 +64,24 @@ func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) 
 			Name: pluginID,
 		},
 	})
-	if result.Outcome == dispatch.OutcomeDelivered || a.Logger == nil {
+	if result.Outcome == dispatch.OutcomeDelivered || s.state == nil || s.state.Logger == nil {
 		return
 	}
-	a.Logger.Warn(
+	s.state.Logger.Warn(
 		"config.changed event was not queued for plugin runtime",
 		"component", "app",
 		"plugin_id", pluginID,
 		"outcome", string(result.Outcome),
 		"error_code", result.ErrorCode,
 	)
+}
+
+func (s *localActionService) executeExposeWebhook(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.webhookGateway == nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "webhook gateway is not available",
+		}
+	}
+	return s.webhookGateway.Expose(ctx, pluginID, action)
 }

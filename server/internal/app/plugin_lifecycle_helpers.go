@@ -11,11 +11,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func (a *App) persistPluginDesiredState(ctx context.Context, pluginID, desiredState string) error {
-	if a == nil || a.pluginRepository == nil {
+func persistPluginDesiredState(ctx context.Context, repo plugins.DesiredStateRepository, pluginID, desiredState string) error {
+	if repo == nil {
 		return nil
 	}
-	return a.pluginRepository.SaveDesiredState(ctx, pluginID, desiredState, time.Now().UTC())
+	return repo.SaveDesiredState(ctx, pluginID, desiredState, time.Now().UTC())
 }
 
 func missingCapabilities(required []string, granted []string) []string {
@@ -48,23 +48,6 @@ func dispatchCommands(commands []plugins.Command) []dispatch.CommandDecl {
 	return items
 }
 
-func (c *pluginLifecycleController) grantedCapabilities(ctx context.Context, pluginID string) []string {
-	auto := append([]string(nil), c.app.Config.Auth.AutoGrantCapabilities...)
-	if c.app.grantRepository == nil {
-		return auto
-	}
-	grants, err := c.app.grantRepository.LoadGrants(ctx, pluginID)
-	if err != nil {
-		return auto
-	}
-	for _, g := range grants {
-		if !slices.Contains(auto, g.Capability) {
-			auto = append(auto, g.Capability)
-		}
-	}
-	return auto
-}
-
 func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {
 	seconds := cfg.PluginInitMaxTotalSeconds
 	if seconds <= 0 {
@@ -88,9 +71,16 @@ func scopeChangedSinceGrant(ctx context.Context, repo plugins.GrantRepository, s
 }
 
 func (c *pluginLifecycleController) seedPluginDefaultConfig(ctx context.Context, snapshot plugins.Snapshot) error {
-	if c == nil || c.app == nil || c.app.pluginConfig == nil || len(snapshot.DefaultConfig) == 0 {
+	if c == nil || c.pluginConfig == nil || len(snapshot.DefaultConfig) == 0 {
 		return nil
 	}
-	_, err := c.app.pluginConfig.SeedDefaults(ctx, snapshot.PluginID, snapshot.DefaultConfig)
+	_, err := c.pluginConfig.SeedDefaults(ctx, snapshot.PluginID, snapshot.DefaultConfig)
 	return err
+}
+
+func (c *pluginLifecycleController) reconcileRecoverySummaryBestEffort(trigger string) {
+	if c == nil || c.onRecoveryChange == nil {
+		return
+	}
+	c.onRecoveryChange(trigger)
 }

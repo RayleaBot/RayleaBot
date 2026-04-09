@@ -16,7 +16,7 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	application.Console.Append(console.Entry{
+	application.Console().Append(console.Entry{
 		PluginID:  "raylea.help",
 		Stream:    "stderr",
 		Text:      "Traceback (most recent call last): ...",
@@ -64,8 +64,8 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.help/console", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForConsoleSubscriber(t, application.Console, "raylea.help")
-	application.Console.Append(console.Entry{
+	waitForConsoleSubscriber(t, application.Console(), "raylea.help")
+	application.Console().Append(console.Entry{
 		PluginID:  "raylea.help",
 		Stream:    "system",
 		Text:      "[System] stderr rate limit exceeded, output truncated",

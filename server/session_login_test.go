@@ -16,7 +16,7 @@ func TestSessionLoginReturnsSessionToken(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
@@ -56,7 +56,7 @@ func TestSessionLoginRejectsBadCredentials(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
@@ -84,7 +84,7 @@ func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newLimitedAuthManager(t, 1)
+	application.SetAuthManager(newLimitedAuthManager(t, 1))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.session-login-max-sessions.yaml"))
@@ -118,10 +118,10 @@ func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 		t.Fatalf("unexpected success body: got %#v want %#v", body, expected)
 	}
 
-	if _, err := application.Auth.Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
+	if _, err := application.AuthManager().Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("expected bootstrap token to be recycled, got %v", err)
 	}
-	if _, err := application.Auth.Validate(token); err != nil {
+	if _, err := application.AuthManager().Validate(token); err != nil {
 		t.Fatalf("expected recycled login token to validate, got %v", err)
 	}
 
@@ -135,7 +135,7 @@ func TestSessionLoginRejectsMalformedRequest(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
@@ -165,7 +165,7 @@ func TestSessionLoginRateLimitsAfterRepeatedFailuresFromSameSourceIP(t *testing.
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
@@ -203,7 +203,7 @@ func TestSessionLoginRejectsOversizedBody(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManager(t)
+	application.SetAuthManager(newDeterministicAuthManager(t))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
@@ -232,11 +232,11 @@ func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	application.Auth = newDeterministicAuthManagerWithRepository(t, &stubAuthRepository{
+	application.SetAuthManager(newDeterministicAuthManagerWithRepository(t, &stubAuthRepository{
 		saveSessionFn: func(context.Context, auth.Claims) error {
 			return errors.New("database unavailable")
 		},
-	})
+	}))
 
 	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
 	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))

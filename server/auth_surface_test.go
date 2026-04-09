@@ -10,7 +10,7 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	if application.Auth == nil {
+	if application.AuthManager() == nil {
 		t.Fatalf("expected auth manager to be initialized")
 	}
 

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -26,15 +27,11 @@ func TestSeedPluginDefaultConfigSeedsOnlyOnce(t *testing.T) {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
 
-	application := &App{
-		appCore: appCore{
-			Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
-		},
-		appPlugins: appPlugins{
-			pluginConfig: repo,
-		},
-	}
-	controller := newPluginLifecycleController(application)
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	controller := newPluginLifecycleController(pluginLifecycleDeps{
+		state:        application.state,
+		pluginConfig: repo,
+	})
 
 	snapshot := plugins.Snapshot{
 		PluginID: "weather",

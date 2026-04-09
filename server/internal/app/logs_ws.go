@@ -19,7 +19,7 @@ type logFrame struct {
 	Data      logging.Summary `json:"data"`
 }
 
-func (a *App) handleLogsWebSocket() http.HandlerFunc {
+func (h *logsWSHandler) handleLogsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -35,18 +35,18 @@ func (a *App) handleLogsWebSocket() http.HandlerFunc {
 		}()
 
 		framesCtx := conn.CloseRead(context.Background())
-		summaries, unsubscribe := a.Logs.Subscribe(8)
+		summaries, unsubscribe := h.logs.stream.Subscribe(8)
 		defer unsubscribe()
 
 		replayed := make(map[string]struct{})
-		for _, summary := range a.replayLogSummaries(framesCtx) {
+		for _, summary := range h.logs.replayLogSummaries(framesCtx) {
 			if err := wsjson.Write(framesCtx, conn, newLogFrame(summary)); err != nil {
 				return
 			}
 			replayed[logSummaryKey(summary)] = struct{}{}
 		}
 
-		for _, summary := range a.Logs.Snapshot() {
+		for _, summary := range h.logs.stream.Snapshot() {
 			if _, ok := replayed[logSummaryKey(summary)]; ok {
 				continue
 			}
@@ -71,15 +71,15 @@ func (a *App) handleLogsWebSocket() http.HandlerFunc {
 	}
 }
 
-func (a *App) replayLogSummaries(ctx context.Context) []logging.Summary {
-	if a == nil {
+func (s *logService) replayLogSummaries(ctx context.Context) []logging.Summary {
+	if s == nil {
 		return nil
 	}
 	limit := 32
-	if a.Logs != nil && a.Logs.Limit() > 0 {
-		limit = a.Logs.Limit()
+	if s.stream != nil && s.stream.Limit() > 0 {
+		limit = s.stream.Limit()
 	}
-	items, err := a.listLogSummaries(ctx, logging.Query{Limit: limit})
+	items, err := s.listLogSummaries(ctx, logging.Query{Limit: limit})
 	if err != nil {
 		return nil
 	}
