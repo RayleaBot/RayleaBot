@@ -9,6 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -236,44 +237,71 @@ func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var err error
+	var (
+		attempt outbound.SendAttempt
+		result  outbound.SendResult
+		err     error
+	)
+
 	switch strings.TrimSpace(event.ConversationType) {
 	case "group":
 		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
-			_, err = s.outboundSender.SendReply(ctx, adapter.OutboundMessageReply{
+			segments := []adapter.OutboundMessageSegment{{
+				Type: "text",
+				Data: map[string]any{"text": cooldownReplyText},
+			}}
+			attempt = outbound.SendAttempt{
+				ActionKind: "message.reply",
+				TargetType: "group",
+				TargetID:   strings.TrimSpace(event.ConversationID),
+				Segments:   segments,
+			}
+			sendResult, sendErr := s.outboundSender.SendReply(ctx, adapter.OutboundMessageReply{
 				TargetType:       "group",
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
-				Segments: []adapter.OutboundMessageSegment{{
-					Type: "text",
-					Data: map[string]any{"text": cooldownReplyText},
-				}},
+				Segments:         segments,
 			})
+			result = outbound.SendResult{
+				MessageID:    sendResult.MessageID,
+				DeliveryKind: "message.reply",
+				TargetType:   "group",
+				TargetID:     strings.TrimSpace(event.ConversationID),
+			}
+			err = sendErr
 			break
 		}
 		fallthrough
 	case "private":
 		if targetID := strings.TrimSpace(event.ConversationID); targetID != "" {
-			_, err = s.outboundSender.SendMessage(ctx, adapter.OutboundMessageSend{
+			segments := []adapter.OutboundMessageSegment{{
+				Type: "text",
+				Data: map[string]any{"text": cooldownReplyText},
+			}}
+			attempt = outbound.SendAttempt{
+				ActionKind: "message.send",
 				TargetType: strings.TrimSpace(event.ConversationType),
 				TargetID:   targetID,
-				Segments: []adapter.OutboundMessageSegment{{
-					Type: "text",
-					Data: map[string]any{"text": cooldownReplyText},
-				}},
+				Segments:   segments,
+			}
+			sendResult, sendErr := s.outboundSender.SendMessage(ctx, adapter.OutboundMessageSend{
+				TargetType: strings.TrimSpace(event.ConversationType),
+				TargetID:   targetID,
+				Segments:   segments,
 			})
+			result = outbound.SendResult{
+				MessageID:    sendResult.MessageID,
+				DeliveryKind: "message.send",
+				TargetType:   strings.TrimSpace(event.ConversationType),
+				TargetID:     targetID,
+			}
+			err = sendErr
 		}
 	default:
 		return
 	}
 
-	if err != nil && s.state != nil && s.state.Logger != nil {
-		s.state.Logger.Warn(
-			"failed to send cooldown reply",
-			"component", "app",
-			"conversation_type", event.ConversationType,
-			"conversation_id", event.ConversationID,
-			"err", err.Error(),
-		)
+	if s.state != nil && s.state.Logger != nil && strings.TrimSpace(attempt.ActionKind) != "" {
+		outbound.LogSendOutcome(s.state.Logger, "", "", attempt, result, err)
 	}
 }

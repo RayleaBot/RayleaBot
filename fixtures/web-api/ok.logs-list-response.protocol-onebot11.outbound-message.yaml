@@ -1,0 +1,27 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Log query returns outbound OneBot11 delivery summaries through the protocol filter.
+request:
+  method: GET
+  path: /api/logs?protocol=onebot11&source=adapter.onebot11&limit=10
+response:
+  status: 200
+  body:
+    items:
+      - log_id: log_outbound_delivered_0001
+        timestamp: "2026-04-10T09:18:00Z"
+        level: info
+        source: adapter.onebot11
+        protocol: onebot11
+        message: "platform delivered group message: hello world"
+        plugin_id: weather
+        request_id: req_runtime_delivery_0001
+      - log_id: log_outbound_failed_0001
+        timestamp: "2026-04-10T09:18:01Z"
+        level: warn
+        source: adapter.onebot11
+        protocol: onebot11
+        message: "platform failed to deliver private message: hello world"
+        request_id: req_runtime_delivery_0002
+expect:
+  valid: true

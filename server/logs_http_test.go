@@ -138,6 +138,68 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 	}
 }
 
+func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.protocol-onebot11.outbound-message.yaml"))
+
+	for _, summary := range []logging.Summary{
+		{
+			LogID:     "log_outbound_delivered_0001",
+			Timestamp: "2026-04-10T09:18:00Z",
+			Level:     "info",
+			Source:    "adapter.onebot11",
+			Message:   "platform delivered group message: hello world",
+			PluginID:  "weather",
+			RequestID: "req_runtime_delivery_0001",
+		},
+		{
+			LogID:     "log_outbound_failed_0001",
+			Timestamp: "2026-04-10T09:18:01Z",
+			Level:     "warn",
+			Source:    "adapter.onebot11",
+			Message:   "platform failed to deliver private message: hello world",
+			RequestID: "req_runtime_delivery_0002",
+		},
+		{
+			LogID:     "log_runtime_ignored_0001",
+			Timestamp: "2026-04-10T09:18:02Z",
+			Level:     "warn",
+			Source:    "runtime",
+			Message:   "plugin runtime stderr truncated",
+		},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create outbound protocol logs request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform outbound protocol logs request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected outbound protocol logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, fixture.Response.Body) {
+		t.Fatalf("unexpected outbound protocol logs body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
 func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	t.Parallel()
 
@@ -389,6 +451,64 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 	body := decodeBody(t, readAll(t, response))
 	if !reflect.DeepEqual(body, fixture.Response.Body) {
 		t.Fatalf("unexpected log detail body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
+func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.log-detail-response.outbound-onebot11.yaml"))
+
+	application.Logs().Append(logging.Summary{
+		LogID:     "log_outbound_delivered_0001",
+		Timestamp: "2026-04-10T09:18:00Z",
+		Level:     "info",
+		Source:    "adapter.onebot11",
+		Message:   "platform delivered group message: hello world",
+		PluginID:  "weather",
+		RequestID: "req_runtime_delivery_0001",
+		Details: map[string]any{
+			"direction":     "outbound",
+			"action_kind":   "message.send",
+			"delivery_kind": "message.send",
+			"target_type":   "group",
+			"target_id":     "2001",
+			"plain_text":    "hello world",
+			"message_id":    "966671988",
+			"segments": []any{
+				map[string]any{
+					"type": "text",
+					"data": map[string]any{"text": "hello world"},
+				},
+			},
+		},
+	})
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create outbound log detail request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform outbound log detail request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected outbound log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, fixture.Response.Body) {
+		t.Fatalf("unexpected outbound log detail body: got %#v want %#v", body, fixture.Response.Body)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
@@ -402,7 +403,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					}
 
 					if delivery.Action != nil {
-						d.executeAction(item.ctx, pluginID, item.event, *delivery.Action)
+						d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
 					}
 					completions <- laneCompletion{laneKey: laneKey}
 				}(laneKey, item)
@@ -448,21 +449,38 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 	}
 }
 
-func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, event runtime.Event, action runtime.Action) {
+func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event runtime.Event, action runtime.Action) {
 	if d.sender == nil {
 		return
 	}
 
-	_, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
-
-	if err != nil {
-		d.logger.Warn("outbound action failed",
-			"component", "dispatch",
-			"plugin_id", pluginID,
-			"action_kind", action.Kind,
-			"err", err.Error(),
-		)
+	attempt := outbound.SendAttempt{
+		ActionKind: action.Kind,
+		TargetType: action.TargetType,
+		TargetID:   action.TargetID,
+		Segments:   toOutboundSegments(action.MessageSegments),
 	}
+	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
+	outbound.LogSendOutcome(d.logger, pluginID, requestID, attempt, result, err)
+}
+
+func toOutboundSegments(segments []runtime.ActionSegment) []adapter.OutboundMessageSegment {
+	if len(segments) == 0 {
+		return nil
+	}
+
+	items := make([]adapter.OutboundMessageSegment, 0, len(segments))
+	for _, segment := range segments {
+		data := make(map[string]any, len(segment.Data))
+		for key, value := range segment.Data {
+			data[key] = value
+		}
+		items = append(items, adapter.OutboundMessageSegment{
+			Type: segment.Type,
+			Data: data,
+		})
+	}
+	return items
 }
 
 func laneKeyForEvent(event runtime.Event, fallbackCounter *int) string {

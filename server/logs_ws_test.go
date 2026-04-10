@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -63,6 +65,74 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	}
 	if data["request_id"] != "req_adapter_0001" {
 		t.Fatalf("unexpected request_id: got %#v want %q", data["request_id"], "req_adapter_0001")
+	}
+}
+
+func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
+	t.Parallel()
+
+	rawFixture, err := os.ReadFile(filepath.Join("..", "fixtures", "websocket", "ok.logs-appended.outbound-onebot11.json"))
+	if err != nil {
+		t.Fatalf("read websocket outbound fixture: %v", err)
+	}
+
+	var fixture map[string]any
+	if err := json.Unmarshal(rawFixture, &fixture); err != nil {
+		t.Fatalf("decode websocket outbound fixture: %v", err)
+	}
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	application.Logs().Append(logging.Summary{
+		LogID:     "log_outbound_delivered_0001",
+		Timestamp: "2026-04-10T09:18:00Z",
+		Level:     "info",
+		Source:    "adapter.onebot11",
+		Message:   "platform delivered group message: hello world",
+		PluginID:  "weather",
+		RequestID: "req_runtime_delivery_0001",
+	})
+
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
+		data, ok := frame["data"].(map[string]any)
+		return ok && data["request_id"] == "req_runtime_delivery_0001"
+	})
+
+	expectedFrame, ok := fixture["frame"].(map[string]any)
+	if !ok {
+		t.Fatalf("fixture frame has unexpected shape: %#v", fixture["frame"])
+	}
+	if frame["channel"] != expectedFrame["channel"] {
+		t.Fatalf("unexpected channel: got %#v want %#v", frame["channel"], expectedFrame["channel"])
+	}
+	if frame["type"] != expectedFrame["type"] {
+		t.Fatalf("unexpected frame type: got %#v want %#v", frame["type"], expectedFrame["type"])
+	}
+
+	timestamp, ok := frame["timestamp"].(string)
+	if !ok || strings.TrimSpace(timestamp) == "" {
+		t.Fatalf("expected websocket frame timestamp, got %#v", frame["timestamp"])
+	}
+	if _, err := time.Parse(time.RFC3339, timestamp); err != nil {
+		t.Fatalf("unexpected websocket frame timestamp: %v", err)
+	}
+
+	data, ok := frame["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected websocket frame data: %#v", frame["data"])
+	}
+	expectedData, ok := expectedFrame["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("fixture frame data has unexpected shape: %#v", expectedFrame["data"])
+	}
+	if !reflect.DeepEqual(data, expectedData) {
+		t.Fatalf("unexpected outbound websocket data: got %#v want %#v", data, expectedData)
 	}
 }
 

@@ -26,13 +26,20 @@ type ReplyTarget struct {
 	TargetID   string
 }
 
+type SendResult struct {
+	MessageID    string
+	DeliveryKind string
+	TargetType   string
+	TargetID     string
+}
+
 type ReplyTargetResolver interface {
 	ResolveReplyTarget(eventID string) (ReplyTarget, bool)
 }
 
-func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin runtime.Event, action runtime.Action) (adapter.SendMessageResult, error) {
+func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin runtime.Event, action runtime.Action) (SendResult, error) {
 	if sender == nil {
-		return adapter.SendMessageResult{}, &adapter.Error{
+		return SendResult{DeliveryKind: action.Kind}, &adapter.Error{
 			Code:    codeAdapterSendFailed,
 			Message: "adapter outbound sender is not available",
 		}
@@ -40,25 +47,31 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 
 	switch action.Kind {
 	case "message.send":
-		return sender.SendMessage(ctx, adapter.OutboundMessageSend{
+		result, err := sender.SendMessage(ctx, adapter.OutboundMessageSend{
 			TargetType: action.TargetType,
 			TargetID:   action.TargetID,
 			Segments:   toAdapterSegments(action.MessageSegments),
 		})
+		return SendResult{
+			MessageID:    result.MessageID,
+			DeliveryKind: "message.send",
+			TargetType:   action.TargetType,
+			TargetID:     action.TargetID,
+		}, err
 	case "message.reply":
 		return sendReplyAction(ctx, sender, resolver, origin, action)
 	default:
-		return adapter.SendMessageResult{}, &adapter.Error{
+		return SendResult{DeliveryKind: action.Kind}, &adapter.Error{
 			Code:    codePluginProtocolViolation,
 			Message: "received unsupported outbound action kind",
 		}
 	}
 }
 
-func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ runtime.Event, action runtime.Action) (adapter.SendMessageResult, error) {
+func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ runtime.Event, action runtime.Action) (SendResult, error) {
 	replyTarget, ok := resolveReplyTarget(action, resolver)
 	if !ok {
-		return adapter.SendMessageResult{}, &adapter.Error{
+		return SendResult{DeliveryKind: "message.reply"}, &adapter.Error{
 			Code:    codeAdapterReplyTargetMissing,
 			Message: "reply target is not available in the current event window",
 		}
@@ -72,19 +85,34 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}
 	result, err := sender.SendReply(ctx, replyRequest)
 	if err == nil {
-		return result, nil
+		return SendResult{
+			MessageID:    result.MessageID,
+			DeliveryKind: "message.reply",
+			TargetType:   replyTarget.TargetType,
+			TargetID:     replyTarget.TargetID,
+		}, nil
 	}
 
 	var adapterErr *adapter.Error
 	if !action.FallbackToSendIfMissing || !errors.As(err, &adapterErr) || adapterErr.Code != codeAdapterReplyTargetMissing {
-		return adapter.SendMessageResult{}, err
+		return SendResult{
+			DeliveryKind: "message.reply",
+			TargetType:   replyTarget.TargetType,
+			TargetID:     replyTarget.TargetID,
+		}, err
 	}
 
-	return sender.SendMessage(ctx, adapter.OutboundMessageSend{
+	fallbackResult, fallbackErr := sender.SendMessage(ctx, adapter.OutboundMessageSend{
 		TargetType: replyTarget.TargetType,
 		TargetID:   replyTarget.TargetID,
 		Segments:   stripReplySegments(toAdapterSegments(action.MessageSegments)),
 	})
+	return SendResult{
+		MessageID:    fallbackResult.MessageID,
+		DeliveryKind: "message.send",
+		TargetType:   replyTarget.TargetType,
+		TargetID:     replyTarget.TargetID,
+	}, fallbackErr
 }
 
 func resolveReplyTarget(action runtime.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {

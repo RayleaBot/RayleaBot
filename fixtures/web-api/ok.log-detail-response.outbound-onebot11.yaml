@@ -1,0 +1,31 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Log detail returns the structured outbound delivery detail for one OneBot11 message.
+request:
+  method: GET
+  path: /api/logs/log_outbound_delivered_0001
+response:
+  status: 200
+  body:
+    log_id: log_outbound_delivered_0001
+    timestamp: "2026-04-10T09:18:00Z"
+    level: info
+    source: adapter.onebot11
+    protocol: onebot11
+    message: "platform delivered group message: hello world"
+    plugin_id: weather
+    request_id: req_runtime_delivery_0001
+    details:
+      direction: outbound
+      action_kind: message.send
+      delivery_kind: message.send
+      target_type: group
+      target_id: "2001"
+      plain_text: hello world
+      message_id: "966671988"
+      segments:
+        - type: text
+          data:
+            text: hello world
+expect:
+  valid: true

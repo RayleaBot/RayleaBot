@@ -1,0 +1,22 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "logs",
+    "type": "logs.appended",
+    "timestamp": "2026-04-10T09:18:00Z",
+    "data": {
+      "log_id": "log_outbound_delivered_0001",
+      "timestamp": "2026-04-10T09:18:00Z",
+      "level": "info",
+      "source": "adapter.onebot11",
+      "protocol": "onebot11",
+      "message": "platform delivered group message: hello world",
+      "plugin_id": "weather",
+      "request_id": "req_runtime_delivery_0001"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

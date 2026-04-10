@@ -157,6 +157,63 @@ describe('ProtocolLogsPage', () => {
     expect(wrapper.text()).toContain('您好')
   })
 
+  it('renders outbound delivery detail fields with clear labels', async () => {
+    const logsStore = useProtocolLogsStore()
+
+    logsStore.items = [
+      {
+        log_id: 'log_outbound_failed_0001',
+        timestamp: '2026-04-10T09:18:01Z',
+        level: 'warn',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        request_id: 'req_runtime_delivery_0002',
+        message: 'platform failed to deliver group message: hello world',
+      },
+    ]
+    logsStore.selectedLogId = 'log_outbound_failed_0001'
+    logsStore.currentDetail = {
+      log_id: 'log_outbound_failed_0001',
+      timestamp: '2026-04-10T09:18:01Z',
+      level: 'warn',
+      protocol: 'onebot11',
+      source: 'adapter.onebot11',
+      request_id: 'req_runtime_delivery_0002',
+      message: 'platform failed to deliver group message: hello world',
+      details: {
+        direction: 'outbound',
+        action_kind: 'message.reply',
+        delivery_kind: 'message.send',
+        target_type: 'group',
+        target_id: '2001',
+        plain_text: 'hello world',
+        error_code: 'adapter.send_failed',
+        reason: 'send rejected by upstream',
+      },
+    }
+
+    vi.spyOn(logsStore, 'fetchList').mockResolvedValue(logsStore.items)
+
+    const router = createTestRouter()
+    await router.push('/protocols/logs')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolLogsPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('请求动作')
+    expect(wrapper.text()).toContain('实际发送方式')
+    expect(wrapper.text()).toContain('错误代码')
+    expect(wrapper.text()).toContain('message.reply')
+    expect(wrapper.text()).toContain('message.send')
+    expect(wrapper.text()).toContain('adapter.send_failed')
+  })
+
   it('loads log detail when a terminal line is selected', async () => {
     const logsStore = useProtocolLogsStore()
 

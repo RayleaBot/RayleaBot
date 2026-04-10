@@ -52,6 +52,9 @@ func TestSendActionRoutesMessageSend(t *testing.T) {
 	if result.MessageID != "send-1" {
 		t.Fatalf("message_id = %q, want send-1", result.MessageID)
 	}
+	if result.DeliveryKind != "message.send" {
+		t.Fatalf("delivery_kind = %q, want message.send", result.DeliveryKind)
+	}
 	if sender.sendRequest.TargetID != "10001" {
 		t.Fatalf("target_id = %q, want 10001", sender.sendRequest.TargetID)
 	}
@@ -84,6 +87,9 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 	}
 	if result.MessageID != "send-1" {
 		t.Fatalf("message_id = %q, want send-1", result.MessageID)
+	}
+	if result.DeliveryKind != "message.send" {
+		t.Fatalf("delivery_kind = %q, want message.send", result.DeliveryKind)
 	}
 	if len(sender.sendRequest.Segments) != 1 || sender.sendRequest.Segments[0].Type != "text" {
 		t.Fatalf("unexpected fallback segments: %#v", sender.sendRequest.Segments)

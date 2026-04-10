@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
@@ -185,6 +187,142 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 	}
 }
 
+func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	sender := &recordingOutboundSender{}
+	cfg := config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		Cooldown: &config.CooldownConfig{
+			UserCommandRateLimit:  "1/1h",
+			GroupCommandRateLimit: "5/1h",
+			CooldownReply:         true,
+		},
+	}
+	application := newTestAppState(cfg, logger)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "weather",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, nil)
+
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-weather-log-success",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "30001",
+	}
+
+	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first command should be allowed")
+	}
+	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+		t.Fatal("second command should be rate limited")
+	}
+
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "platform delivered group message: 命令触发冷却，请稍后再试。"
+	})
+	if summary.Source != "adapter.onebot11" {
+		t.Fatalf("unexpected log source: got %q want adapter.onebot11", summary.Source)
+	}
+	if summary.Level != "info" {
+		t.Fatalf("unexpected log level: got %q want info", summary.Level)
+	}
+	if summary.Details["action_kind"] != "message.reply" || summary.Details["delivery_kind"] != "message.reply" {
+		t.Fatalf("unexpected action details: %#v", summary.Details)
+	}
+	if summary.Details["target_type"] != "group" || summary.Details["target_id"] != "20001" {
+		t.Fatalf("unexpected target details: %#v", summary.Details)
+	}
+	if summary.Details["message_id"] != "msg-2" {
+		t.Fatalf("unexpected message_id detail: %#v", summary.Details["message_id"])
+	}
+}
+
+func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	sender := &recordingOutboundSender{
+		replyErr: &adapter.Error{Code: "adapter.send_failed", Message: "cooldown reply blocked"},
+	}
+	cfg := config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		Cooldown: &config.CooldownConfig{
+			UserCommandRateLimit:  "1/1h",
+			GroupCommandRateLimit: "5/1h",
+			CooldownReply:         true,
+		},
+	}
+	application := newTestAppState(cfg, logger)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "weather",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, nil)
+
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-weather-log-failure",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "30001",
+	}
+
+	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first command should be allowed")
+	}
+	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+		t.Fatal("second command should be rate limited")
+	}
+
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "platform failed to deliver group message: 命令触发冷却，请稍后再试。"
+	})
+	if summary.Level != "warn" {
+		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
+	}
+	if summary.Details["error_code"] != "adapter.send_failed" {
+		t.Fatalf("unexpected error_code detail: %#v", summary.Details["error_code"])
+	}
+	if summary.Details["reason"] != "cooldown reply blocked" {
+		t.Fatalf("unexpected reason detail: %#v", summary.Details["reason"])
+	}
+}
+
 func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	t.Parallel()
 
@@ -291,18 +429,20 @@ type recordingOutboundSender struct {
 	lastReplyText   string
 	messageCount    int
 	lastMessageText string
+	replyErr        error
+	messageErr      error
 }
 
 func (s *recordingOutboundSender) SendMessage(_ context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
 	s.messageCount++
 	s.lastMessageText = firstTextSegment(action.Segments)
-	return adapter.SendMessageResult{MessageID: "msg-1"}, nil
+	return adapter.SendMessageResult{MessageID: "msg-1"}, s.messageErr
 }
 
 func (s *recordingOutboundSender) SendReply(_ context.Context, action adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
 	s.replyCount++
 	s.lastReplyText = firstTextSegment(action.Segments)
-	return adapter.SendMessageResult{MessageID: "msg-2"}, nil
+	return adapter.SendMessageResult{MessageID: "msg-2"}, s.replyErr
 }
 
 func firstTextSegment(segments []adapter.OutboundMessageSegment) string {
@@ -315,6 +455,40 @@ func firstTextSegment(segments []adapter.OutboundMessageSegment) string {
 		}
 	}
 	return ""
+}
+
+func newAppTestLogger() (*slog.Logger, *logging.Stream) {
+	stream := logging.NewStream(16)
+	writer := logging.NewSummaryWriter(io.Discard, stream, nil)
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
+			switch attr.Key {
+			case slog.TimeKey:
+				attr.Key = "ts"
+			case slog.MessageKey:
+				attr.Key = "msg"
+			}
+			return attr
+		},
+	}))
+	return logger, stream
+}
+
+func waitForAppLog(t *testing.T, stream *logging.Stream, match func(logging.Summary) bool) logging.Summary {
+	t.Helper()
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		for _, summary := range stream.Snapshot() {
+			if match(summary) {
+				return summary
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatal("timed out waiting for application log")
+	return logging.Summary{}
 }
 
 type stubBlacklistRepo struct {
