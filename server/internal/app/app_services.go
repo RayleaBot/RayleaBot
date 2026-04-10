@@ -96,20 +96,12 @@ type pluginGrantView struct {
 }
 
 func (v *pluginGrantView) grantedCapabilities(ctx context.Context, pluginID string) []string {
-	auto := append([]string(nil), v.state.Config.Auth.AutoGrantCapabilities...)
-	if v == nil || v.grantRepository == nil {
-		return auto
+	effective := v.effectiveGrants(ctx, pluginID)
+	items := make([]string, 0, len(effective))
+	for _, grant := range effective {
+		items = append(items, grant.Capability)
 	}
-	grants, err := v.grantRepository.LoadGrants(ctx, pluginID)
-	if err != nil {
-		return auto
-	}
-	for _, g := range grants {
-		if !containsString(auto, g.Capability) {
-			auto = append(auto, g.Capability)
-		}
-	}
-	return auto
+	return items
 }
 
 func (v *pluginGrantView) capabilityGranted(ctx context.Context, pluginID, capability string) bool {
@@ -122,42 +114,50 @@ func (v *pluginGrantView) capabilityGranted(ctx context.Context, pluginID, capab
 }
 
 func (v *pluginGrantView) grantedScope(ctx context.Context, pluginID, capability string) grantedScope {
-	autoGranted := false
-	if v != nil && v.state != nil {
-		for _, granted := range v.state.Config.Auth.AutoGrantCapabilities {
-			if strings.TrimSpace(granted) == capability {
-				autoGranted = true
-				break
-			}
+	for _, grant := range v.effectiveGrants(ctx, pluginID) {
+		if strings.TrimSpace(grant.Capability) != capability {
+			continue
 		}
-	}
-
-	if v != nil && v.grantRepository != nil {
-		grants, err := v.grantRepository.LoadGrants(ctx, pluginID)
-		if err == nil {
-			for _, grant := range grants {
-				if strings.TrimSpace(grant.Capability) != capability {
-					continue
-				}
-				scope := parseGrantedScope(grant.ScopeJSON)
-				if len(scope.HTTPHosts) > 0 || len(scope.StorageRoots) > 0 || len(scope.Webhooks) > 0 {
-					return scope
-				}
-			}
-		}
-	}
-
-	if autoGranted && v != nil && v.plugins != nil {
-		if snapshot, ok := v.plugins.Get(pluginID); ok {
-			return grantedScope{
-				HTTPHosts:    append([]string(nil), snapshot.ScopeHTTPHosts...),
-				StorageRoots: append([]string(nil), snapshot.ScopeStorageRoots...),
-				Webhooks:     append([]plugins.WebhookScope(nil), snapshot.ScopeWebhooks...),
-			}
+		scope := parseGrantedScope(grant.ScopeJSON)
+		if len(scope.HTTPHosts) > 0 || len(scope.StorageRoots) > 0 || len(scope.Webhooks) > 0 {
+			return scope
 		}
 	}
 
 	return grantedScope{}
+}
+
+func (v *pluginGrantView) effectiveGrants(ctx context.Context, pluginID string) []plugins.EffectiveGrant {
+	if v == nil {
+		return nil
+	}
+
+	snapshot := plugins.Snapshot{PluginID: pluginID}
+	if v.plugins != nil {
+		if current, ok := v.plugins.Get(pluginID); ok {
+			snapshot = current
+		}
+	}
+
+	var persisted []plugins.PluginGrant
+	if v.grantRepository != nil {
+		grants, err := v.grantRepository.LoadGrants(ctx, pluginID)
+		if err == nil {
+			persisted = grants
+		}
+	}
+
+	return plugins.ComputeEffectiveGrants(snapshot, currentAutoGrantCapabilities(v), persisted)
+}
+
+func currentAutoGrantCapabilities(v *pluginGrantView) []string {
+	if v == nil || v.state == nil {
+		return nil
+	}
+	if len(v.state.Config.Permission.AutoGrantCapabilities) > 0 {
+		return append([]string(nil), v.state.Config.Permission.AutoGrantCapabilities...)
+	}
+	return append([]string(nil), v.state.Config.Auth.AutoGrantCapabilities...)
 }
 
 func (v *pluginGrantView) storageRootGranted(ctx context.Context, pluginID, root string) bool {
@@ -425,11 +425,12 @@ func newPluginWebhookHTTPHandlers(webhooks *pluginWebhookService) *pluginWebhook
 
 type eventsWSHandler struct {
 	bridge   *bridge.Bridge
+	plugins  *plugins.Catalog
 	protocol *protocolService
 }
 
-func newEventsWSHandler(bridge *bridge.Bridge, protocol *protocolService) *eventsWSHandler {
-	return &eventsWSHandler{bridge: bridge, protocol: protocol}
+func newEventsWSHandler(bridge *bridge.Bridge, plugins *plugins.Catalog, protocol *protocolService) *eventsWSHandler {
+	return &eventsWSHandler{bridge: bridge, plugins: plugins, protocol: protocol}
 }
 
 type tasksWSHandler struct {

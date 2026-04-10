@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"pgregory.net/rapid"
 )
@@ -183,5 +184,40 @@ func TestSetDesiredState_AlreadyDisabled_Conflict(t *testing.T) {
 	_, err := catalog.SetDesiredState("my_plugin", "disabled")
 	if !errors.Is(err, ErrStateConflict) {
 		t.Fatalf("got err=%v, want ErrStateConflict", err)
+	}
+}
+
+func TestCatalogSubscribePublishesUpdatedSnapshot(t *testing.T) {
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "weather",
+		Name:              "Weather",
+		Valid:             true,
+		Version:           "1.0.0",
+		RegistrationState: "installed",
+		DesiredState:      "disabled",
+		RuntimeState:      "stopped",
+		DisplayState:      "disabled",
+	}})
+
+	updates, unsubscribe := catalog.Subscribe(1)
+	defer unsubscribe()
+
+	if _, err := catalog.SetDesiredState("weather", "enabled"); err != nil {
+		t.Fatalf("SetDesiredState returned error: %v", err)
+	}
+
+	select {
+	case update := <-updates:
+		if update.PluginID != "weather" {
+			t.Fatalf("update.PluginID = %q, want weather", update.PluginID)
+		}
+		if update.DesiredState != "enabled" {
+			t.Fatalf("update.DesiredState = %q, want enabled", update.DesiredState)
+		}
+		if update.DisplayState != "enabled" {
+			t.Fatalf("update.DisplayState = %q, want enabled", update.DisplayState)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for catalog update")
 	}
 }

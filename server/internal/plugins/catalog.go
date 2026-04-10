@@ -77,9 +77,11 @@ type Snapshot struct {
 }
 
 type Catalog struct {
-	mu    sync.RWMutex
-	order []string
-	items map[string]Snapshot
+	mu          sync.RWMutex
+	order       []string
+	items       map[string]Snapshot
+	nextSubID   uint64
+	subscribers map[uint64]chan Snapshot
 }
 
 func NewCatalog(entries []Snapshot) *Catalog {
@@ -99,8 +101,9 @@ func NewCatalog(entries []Snapshot) *Catalog {
 	sort.Strings(order)
 
 	return &Catalog{
-		order: order,
-		items: items,
+		order:       order,
+		items:       items,
+		subscribers: make(map[uint64]chan Snapshot),
 	}
 }
 
@@ -130,42 +133,50 @@ func (c *Catalog) Get(pluginID string) (Snapshot, bool) {
 
 func (c *Catalog) SetDesiredState(pluginID string, desired string) (Snapshot, error) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	entry, ok := c.items[pluginID]
 	if !ok {
+		c.mu.Unlock()
 		return Snapshot{}, ErrPluginNotFound
 	}
 
 	if entry.RegistrationState != "installed" {
+		c.mu.Unlock()
 		return Snapshot{}, ErrStateConflict
 	}
 
 	if entry.DesiredState == desired {
+		c.mu.Unlock()
 		return Snapshot{}, ErrStateConflict
 	}
 
 	entry.DesiredState = desired
 	entry.DisplayState = defaultDisplayState(entry)
 	c.items[pluginID] = entry
+	updated := cloneSnapshot(entry)
+	c.mu.Unlock()
 
-	return cloneSnapshot(entry), nil
+	c.publish(updated)
+	return updated, nil
 }
 
 func (c *Catalog) SetRuntimeState(pluginID string, runtimeState string) (Snapshot, error) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	entry, ok := c.items[pluginID]
 	if !ok {
+		c.mu.Unlock()
 		return Snapshot{}, ErrPluginNotFound
 	}
 
 	entry.RuntimeState = runtimeState
 	entry.DisplayState = defaultDisplayState(entry)
 	c.items[pluginID] = entry
+	updated := cloneSnapshot(entry)
+	c.mu.Unlock()
 
-	return cloneSnapshot(entry), nil
+	c.publish(updated)
+	return updated, nil
 }
 
 func (c *Catalog) ApplyDesiredStates(states map[string]string) {
@@ -174,7 +185,7 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 	}
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	updated := make([]Snapshot, 0, len(states))
 
 	for pluginID, desired := range states {
 		entry, ok := c.items[pluginID]
@@ -191,19 +202,25 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 		entry.DesiredState = desired
 		entry.DisplayState = defaultDisplayState(entry)
 		c.items[pluginID] = entry
+		updated = append(updated, cloneSnapshot(entry))
 	}
+	c.mu.Unlock()
+
+	c.publishMany(updated)
 }
 
 func (c *Catalog) Replace(entries []Snapshot) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	items := make(map[string]Snapshot, len(entries))
 	order := make([]string, 0, len(entries))
 	seen := make(map[string]struct{}, len(entries))
+	updated := make([]Snapshot, 0, len(entries))
 
 	for _, entry := range entries {
-		items[entry.PluginID] = cloneSnapshot(entry)
+		cloned := cloneSnapshot(entry)
+		items[entry.PluginID] = cloned
+		updated = append(updated, cloned)
 		if _, ok := seen[entry.PluginID]; ok {
 			continue
 		}
@@ -214,6 +231,65 @@ func (c *Catalog) Replace(entries []Snapshot) {
 	sort.Strings(order)
 	c.items = items
 	c.order = order
+	c.mu.Unlock()
+
+	c.publishMany(updated)
+}
+
+func (c *Catalog) Subscribe(buffer int) (<-chan Snapshot, func()) {
+	if buffer <= 0 {
+		buffer = 1
+	}
+
+	ch := make(chan Snapshot, buffer)
+	c.mu.Lock()
+	id := c.nextSubID
+	c.nextSubID++
+	c.subscribers[id] = ch
+	c.mu.Unlock()
+
+	return ch, func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		subscriber, ok := c.subscribers[id]
+		if !ok {
+			return
+		}
+		delete(c.subscribers, id)
+		close(subscriber)
+	}
+}
+
+func (c *Catalog) SubscriberCount() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.subscribers)
+}
+
+func (c *Catalog) publish(snapshot Snapshot) {
+	c.publishMany([]Snapshot{snapshot})
+}
+
+func (c *Catalog) publishMany(snapshots []Snapshot) {
+	if len(snapshots) == 0 {
+		return
+	}
+
+	c.mu.RLock()
+	subscribers := make([]chan Snapshot, 0, len(c.subscribers))
+	for _, subscriber := range c.subscribers {
+		subscribers = append(subscribers, subscriber)
+	}
+	c.mu.RUnlock()
+
+	for _, snapshot := range snapshots {
+		for _, subscriber := range subscribers {
+			select {
+			case subscriber <- cloneSnapshot(snapshot):
+			default:
+			}
+		}
+	}
 }
 
 func cloneSnapshot(snapshot Snapshot) Snapshot {

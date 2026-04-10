@@ -18,6 +18,7 @@ type initFrame struct {
 	RequestID       string   `json:"request_id"`
 	Bot             botFrame `json:"bot"`
 	Capabilities    []string `json:"capabilities,omitempty"`
+	CommandPrefixes []string `json:"command_prefixes"`
 }
 
 type botFrame struct {

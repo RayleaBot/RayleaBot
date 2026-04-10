@@ -46,8 +46,8 @@ func setupRouter(entries []Snapshot) (chi.Router, *Catalog, *tasks.Registry, *st
 	repo := &stubDesiredStateRepository{}
 	router := chi.NewRouter()
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, nil))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil))
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil, nil, nil))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil, nil, nil))
 	return router, catalog, taskRegistry, repo
 }
 
@@ -204,8 +204,8 @@ func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 		repo := &stubDesiredStateRepository{}
 		router := chi.NewRouter()
 		router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, nil))
-		router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil))
-		router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil))
+		router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, nil, nil, nil))
+		router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, nil, nil, nil))
 
 		// Pick one of several error-triggering scenarios.
 		scenario := rapid.IntRange(0, 3).Draw(t, "scenario")
@@ -406,6 +406,99 @@ func TestDisableHandler_RuntimeStillStopping(t *testing.T) {
 	}
 }
 
+func TestDetailHandler_ReturnsPermissionSummaries(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{
+		grants: map[string][]PluginGrant{
+			"weather": {{
+				PluginID:   "weather",
+				Capability: "logger.write",
+				GrantedAt:  time.Now().UTC(),
+			}},
+		},
+	}
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:            "weather",
+		Name:                "Weather",
+		Valid:               true,
+		RegistrationState:   "installed",
+		DesiredState:        "enabled",
+		RuntimeState:        "running",
+		OptionalPermissions: []string{"logger.write"},
+		RequiredPermissions: []string{"http.request"},
+	}})
+	router := chi.NewRouter()
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, repo, func() []string {
+		return []string{"http.request"}
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp pluginDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Plugin.Permissions) != 2 {
+		t.Fatalf("len(permissions) = %d, want 2", len(resp.Plugin.Permissions))
+	}
+	if resp.Plugin.Permissions[0].Capability != "http.request" || resp.Plugin.Permissions[0].Source != string(PermissionSourceConfigAuto) {
+		t.Fatalf("unexpected first permission: %#v", resp.Plugin.Permissions[0])
+	}
+	if resp.Plugin.Permissions[1].Capability != "logger.write" || resp.Plugin.Permissions[1].Source != string(PermissionSourcePersisted) {
+		t.Fatalf("unexpected second permission: %#v", resp.Plugin.Permissions[1])
+	}
+}
+
+func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:            "raylea.help",
+		Name:                "Help",
+		Valid:               true,
+		SourceRoot:          "plugins/builtin",
+		RegistrationState:   "installed",
+		DesiredState:        "enabled",
+		RuntimeState:        "running",
+		RequiredPermissions: []string{"plugin.list", "render.image"},
+	}})
+	router := chi.NewRouter()
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/raylea.help", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp pluginDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Plugin.Permissions) != 2 {
+		t.Fatalf("len(permissions) = %d, want 2", len(resp.Plugin.Permissions))
+	}
+	for _, permission := range resp.Plugin.Permissions {
+		if permission.Source != string(PermissionSourceBuiltinAuto) {
+			t.Fatalf("permission source = %q, want %q", permission.Source, PermissionSourceBuiltinAuto)
+		}
+		if permission.Status != string(PermissionStatusGranted) {
+			t.Fatalf("permission status = %q, want %q", permission.Status, PermissionStatusGranted)
+		}
+	}
+}
+
 // TestEnableHandler_AlreadyEnabled_409: enable already-enabled plugin returns 409.
 func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
 	router, _, _, repo := setupRouter([]Snapshot{{
@@ -599,9 +692,15 @@ func (r *stubGrantRepository) DeleteAllGrants(_ context.Context, pluginID string
 }
 
 func grantsRouter(entries []Snapshot, grantRepo GrantRepository) chi.Router {
+	return grantsRouterWithAutoGrants(entries, grantRepo, nil)
+}
+
+func grantsRouterWithAutoGrants(entries []Snapshot, grantRepo GrantRepository, autoGrants []string) chi.Router {
 	catalog := NewCatalog(entries)
 	router := chi.NewRouter()
-	RegisterRoutes(router, catalog, nil, nil, nil, nil, nil, grantRepo)
+	RegisterRoutes(router, catalog, nil, nil, nil, nil, nil, grantRepo, func() []string {
+		return append([]string(nil), autoGrants...)
+	})
 	return router
 }
 
@@ -637,6 +736,12 @@ func TestGrantHandler_ValidCapability(t *testing.T) {
 	}
 	if resp.Capability != "http.request" {
 		t.Fatalf("capability = %q, want http.request", resp.Capability)
+	}
+	if resp.Source != string(GrantSourcePersisted) {
+		t.Fatalf("source = %q, want %q", resp.Source, GrantSourcePersisted)
+	}
+	if resp.GrantedAt == nil || *resp.GrantedAt == "" {
+		t.Fatalf("granted_at = %#v, want populated timestamp", resp.GrantedAt)
 	}
 	if resp.ExpiresAt != nil {
 		t.Fatalf("expires_at = %v, want nil for permanent grant", *resp.ExpiresAt)
@@ -778,6 +883,9 @@ func TestGrantHandler_AcceptsFutureExpiry(t *testing.T) {
 	if resp.ExpiresAt == nil || *resp.ExpiresAt != expiresAt {
 		t.Fatalf("expires_at = %#v, want %q", resp.ExpiresAt, expiresAt)
 	}
+	if resp.Source != string(GrantSourcePersisted) {
+		t.Fatalf("source = %q, want %q", resp.Source, GrantSourcePersisted)
+	}
 }
 
 func TestGrantHandler_RejectsInvalidExpiry(t *testing.T) {
@@ -865,7 +973,97 @@ func TestListGrantsHandler_OmitsExpiredGrant(t *testing.T) {
 	if len(resp.Items) != 2 {
 		t.Fatalf("len(items) = %d, want 2", len(resp.Items))
 	}
+	if resp.Items[0].Source != string(GrantSourcePersisted) || resp.Items[0].GrantedAt == nil {
+		t.Fatalf("unexpected first grant: %#v", resp.Items[0])
+	}
 	if resp.Items[1].ExpiresAt == nil {
 		t.Fatalf("expires_at = nil, want populated expiry")
+	}
+}
+
+func TestListGrantsHandler_ReturnsEffectiveGrantSources(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	repo := &stubGrantRepository{
+		grants: map[string][]PluginGrant{
+			"weather": {{
+				PluginID:   "weather",
+				Capability: "logger.write",
+				GrantedAt:  now,
+			}},
+		},
+	}
+	router := grantsRouterWithAutoGrants([]Snapshot{{
+		PluginID:            "weather",
+		Valid:               true,
+		RegistrationState:   "installed",
+		DesiredState:        "enabled",
+		RuntimeState:        "running",
+		RequiredPermissions: []string{"scheduler.create"},
+		OptionalPermissions: []string{"logger.write"},
+	}}, repo, []string{"scheduler.create"})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather/grants", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp grantsListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Items) != 2 {
+		t.Fatalf("len(items) = %d, want 2", len(resp.Items))
+	}
+	if resp.Items[0].Capability != "logger.write" || resp.Items[0].Source != string(GrantSourcePersisted) {
+		t.Fatalf("unexpected persisted grant: %#v", resp.Items[0])
+	}
+	if resp.Items[1].Capability != "scheduler.create" || resp.Items[1].Source != string(GrantSourceConfigAuto) {
+		t.Fatalf("unexpected config auto grant: %#v", resp.Items[1])
+	}
+	if resp.Items[1].GrantedAt != nil {
+		t.Fatalf("config auto granted_at = %#v, want nil", resp.Items[1].GrantedAt)
+	}
+}
+
+func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
+	t.Parallel()
+
+	router := grantsRouter([]Snapshot{{
+		PluginID:            "raylea.help",
+		Valid:               true,
+		SourceRoot:          "plugins/builtin",
+		RegistrationState:   "installed",
+		DesiredState:        "enabled",
+		RuntimeState:        "running",
+		RequiredPermissions: []string{"plugin.list"},
+	}}, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/raylea.help/grants", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp grantsListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(resp.Items))
+	}
+	if resp.Items[0].Capability != "plugin.list" || resp.Items[0].Source != string(GrantSourceBuiltinAuto) {
+		t.Fatalf("unexpected builtin auto grant: %#v", resp.Items[0])
+	}
+	if resp.Items[0].GrantedAt != nil || resp.Items[0].ExpiresAt != nil {
+		t.Fatalf("builtin auto timestamps should be nil: %#v", resp.Items[0])
 	}
 }

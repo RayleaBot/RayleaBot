@@ -71,8 +71,31 @@ type pluginListResponse struct {
 	Items []pluginSummaryResponse `json:"items"`
 }
 
+type pluginPermissionResponse struct {
+	Capability  string  `json:"capability"`
+	Requirement string  `json:"requirement"`
+	Status      string  `json:"status"`
+	Source      string  `json:"source"`
+	ExpiresAt   *string `json:"expires_at"`
+}
+
+type pluginDetailPluginResponse struct {
+	ID                string                     `json:"id"`
+	Name              string                     `json:"name"`
+	Role              string                     `json:"role"`
+	RegistrationState string                     `json:"registration_state"`
+	DesiredState      string                     `json:"desired_state"`
+	RuntimeState      string                     `json:"runtime_state"`
+	DisplayState      string                     `json:"display_state,omitempty"`
+	Source            pluginSourceResponse       `json:"source"`
+	Trust             pluginTrustResponse        `json:"trust"`
+	Commands          []pluginCommandResponse    `json:"commands"`
+	CommandConflicts  []string                   `json:"command_conflicts"`
+	Permissions       []pluginPermissionResponse `json:"permissions"`
+}
+
 type pluginDetailResponse struct {
-	Plugin pluginSummaryResponse `json:"plugin"`
+	Plugin pluginDetailPluginResponse `json:"plugin"`
 }
 
 type pluginInstallRequest struct {
@@ -132,13 +155,18 @@ func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer
 	}
 }
 
-func newEnableHandler(catalog *Catalog, repo DesiredStateRepository, controller DesiredStateController) http.HandlerFunc {
+func newEnableHandler(catalog *Catalog, repo DesiredStateRepository, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller != nil {
 			snapshot, err := controller.Enable(r.Context(), pluginID)
 			if err == nil {
-				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
+				response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
+				if buildErr != nil {
+					writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+					return
+				}
+				writeJSON(w, http.StatusOK, response)
 				return
 			}
 			writeDesiredStateError(w, r, pluginID, err)
@@ -156,20 +184,30 @@ func newEnableHandler(catalog *Catalog, repo DesiredStateRepository, controller 
 		}
 		snapshot, err := catalog.SetDesiredState(pluginID, "enabled")
 		if err == nil {
-			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
+			response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
+			if buildErr != nil {
+				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				return
+			}
+			writeJSON(w, http.StatusOK, response)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
-func newDisableHandler(catalog *Catalog, repo DesiredStateRepository, controller DesiredStateController) http.HandlerFunc {
+func newDisableHandler(catalog *Catalog, repo DesiredStateRepository, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller != nil {
 			snapshot, err := controller.Disable(r.Context(), pluginID)
 			if err == nil {
-				writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
+				response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
+				if buildErr != nil {
+					writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+					return
+				}
+				writeJSON(w, http.StatusOK, response)
 				return
 			}
 			writeDesiredStateError(w, r, pluginID, err)
@@ -187,14 +225,19 @@ func newDisableHandler(catalog *Catalog, repo DesiredStateRepository, controller
 		}
 		snapshot, err := catalog.SetDesiredState(pluginID, "disabled")
 		if err == nil {
-			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
+			response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
+			if buildErr != nil {
+				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				return
+			}
+			writeJSON(w, http.StatusOK, response)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
-func newReloadHandler(catalog *Catalog, controller DesiredStateController) http.HandlerFunc {
+func newReloadHandler(catalog *Catalog, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
@@ -203,7 +246,12 @@ func newReloadHandler(catalog *Catalog, controller DesiredStateController) http.
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
 		if err == nil {
-			writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
+			response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
+			if buildErr != nil {
+				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				return
+			}
+			writeJSON(w, http.StatusOK, response)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
@@ -247,8 +295,9 @@ type grantRequest struct {
 type grantResponse struct {
 	PluginID   string  `json:"plugin_id"`
 	Capability string  `json:"capability"`
-	GrantedAt  string  `json:"granted_at"`
-	ExpiresAt  *string `json:"expires_at,omitempty"`
+	GrantedAt  *string `json:"granted_at"`
+	Source     string  `json:"source"`
+	ExpiresAt  *string `json:"expires_at"`
 }
 
 type grantsListResponse struct {
@@ -258,36 +307,23 @@ type grantsListResponse struct {
 // capabilityNamePattern matches the capability_name format from contracts/plugin-info.schema.json.
 var capabilityNamePattern = regexp.MustCompile(`^[a-z]+\.[a-z_]+$`)
 
-func newListGrantsHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
+type autoGrantCapabilitiesProvider func() []string
+
+func newListGrantsHandler(catalog *Catalog, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
-		if _, ok := catalog.Get(pluginID); !ok {
+		snapshot, ok := catalog.Get(pluginID)
+		if !ok {
 			writeError(w, r, 404, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 			return
 		}
-		if repo == nil {
-			writeJSON(w, http.StatusOK, grantsListResponse{Items: []grantResponse{}})
-			return
-		}
-		grants, err := repo.LoadGrants(r.Context(), pluginID)
+		persisted, err := loadPersistedGrants(r.Context(), repo, pluginID)
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-		items := make([]grantResponse, 0, len(grants))
-		for _, g := range grants {
-			response := grantResponse{
-				PluginID:   g.PluginID,
-				Capability: g.Capability,
-				GrantedAt:  g.GrantedAt.UTC().Format(time.RFC3339),
-			}
-			if g.ExpiresAt != nil {
-				expiresAt := g.ExpiresAt.UTC().Format(time.RFC3339)
-				response.ExpiresAt = &expiresAt
-			}
-			items = append(items, response)
-		}
-		writeJSON(w, http.StatusOK, grantsListResponse{Items: items})
+		effective := ComputeEffectiveGrants(snapshot, providedAutoGrantCapabilities(autoGrantProvider), persisted)
+		writeJSON(w, http.StatusOK, grantsListResponse{Items: buildGrantResponses(effective)})
 	}
 }
 
@@ -334,10 +370,12 @@ func newGrantHandler(catalog *Catalog, repo GrantRepository) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
+		grantedAt := grant.GrantedAt.UTC().Format(time.RFC3339)
 		response := grantResponse{
 			PluginID:   grant.PluginID,
 			Capability: grant.Capability,
-			GrantedAt:  grant.GrantedAt.Format(time.RFC3339),
+			GrantedAt:  &grantedAt,
+			Source:     string(GrantSourcePersisted),
 		}
 		if grant.ExpiresAt != nil {
 			value := grant.ExpiresAt.UTC().Format(time.RFC3339)
@@ -388,19 +426,19 @@ func parseGrantRequestExpiry(value *string) (*time.Time, error) {
 	return &parsed, nil
 }
 
-func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo GrantRepository) {
+func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Registry, repo DesiredStateRepository, installer InstallCoordinator, controller DesiredStateController, uninstaller UninstallCoordinator, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) {
 	if catalog == nil {
 		catalog = NewCatalog(nil)
 	}
 
 	router.Get("/api/plugins", newListHandler(catalog))
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, grantRepo, autoGrantProvider))
 	router.Post("/api/plugins/install", newInstallHandler(catalog, taskRegistry, installer))
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller))
-	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller))
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
+	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller, grantRepo, autoGrantProvider))
 	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
-	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, grantRepo))
+	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, grantRepo, autoGrantProvider))
 	router.Post("/api/plugins/{plugin_id}/grants", newGrantHandler(catalog, grantRepo))
 	router.Delete("/api/plugins/{plugin_id}/grants/{capability}", newRevokeGrantHandler(catalog, grantRepo))
 }
@@ -459,7 +497,7 @@ func newListHandler(catalog *Catalog) http.HandlerFunc {
 	}
 }
 
-func newDetailHandler(catalog *Catalog) http.HandlerFunc {
+func newDetailHandler(catalog *Catalog, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -505,8 +543,100 @@ func newDetailHandler(catalog *Catalog) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, pluginDetailResponse{Plugin: buildPluginSummary(catalog, snapshot)})
+		response, err := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
 	}
+}
+
+func providedAutoGrantCapabilities(provider autoGrantCapabilitiesProvider) []string {
+	if provider == nil {
+		return nil
+	}
+	return dedupeCapabilities(provider())
+}
+
+func loadPersistedGrants(ctx context.Context, repo GrantRepository, pluginID string) ([]PluginGrant, error) {
+	if repo == nil {
+		return nil, nil
+	}
+	return repo.LoadGrants(ctx, pluginID)
+}
+
+func buildGrantResponses(grants []EffectiveGrant) []grantResponse {
+	if len(grants) == 0 {
+		return []grantResponse{}
+	}
+
+	items := make([]grantResponse, 0, len(grants))
+	for _, grant := range grants {
+		response := grantResponse{
+			PluginID:   grant.PluginID,
+			Capability: grant.Capability,
+			Source:     string(grant.Source),
+		}
+		if grant.GrantedAt != nil {
+			value := grant.GrantedAt.UTC().Format(time.RFC3339)
+			response.GrantedAt = &value
+		}
+		if grant.ExpiresAt != nil {
+			value := grant.ExpiresAt.UTC().Format(time.RFC3339)
+			response.ExpiresAt = &value
+		}
+		items = append(items, response)
+	}
+	return items
+}
+
+func buildPermissionResponses(summaries []PermissionSummary) []pluginPermissionResponse {
+	if len(summaries) == 0 {
+		return []pluginPermissionResponse{}
+	}
+
+	items := make([]pluginPermissionResponse, 0, len(summaries))
+	for _, summary := range summaries {
+		item := pluginPermissionResponse{
+			Capability:  summary.Capability,
+			Requirement: string(summary.Requirement),
+			Status:      string(summary.Status),
+			Source:      string(summary.Source),
+		}
+		if summary.ExpiresAt != nil {
+			value := summary.ExpiresAt.UTC().Format(time.RFC3339)
+			item.ExpiresAt = &value
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot Snapshot, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
+	summary := buildPluginSummary(catalog, snapshot)
+	persisted, err := loadPersistedGrants(ctx, repo, snapshot.PluginID)
+	if err != nil {
+		return pluginDetailResponse{}, err
+	}
+	effective := ComputeEffectiveGrants(snapshot, providedAutoGrantCapabilities(autoGrantProvider), persisted)
+	permissions := BuildPermissionSummaries(snapshot, effective)
+	return pluginDetailResponse{
+		Plugin: pluginDetailPluginResponse{
+			ID:                summary.ID,
+			Name:              summary.Name,
+			Role:              summary.Role,
+			RegistrationState: summary.RegistrationState,
+			DesiredState:      summary.DesiredState,
+			RuntimeState:      summary.RuntimeState,
+			DisplayState:      summary.DisplayState,
+			Source:            summary.Source,
+			Trust:             summary.Trust,
+			Commands:          summary.Commands,
+			CommandConflicts:  summary.CommandConflicts,
+			Permissions:       buildPermissionResponses(permissions),
+		},
+	}, nil
 }
 
 func buildPluginSummary(catalog *Catalog, snapshot Snapshot) pluginSummaryResponse {

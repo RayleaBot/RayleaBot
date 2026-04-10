@@ -175,7 +175,8 @@ func (c *pluginLifecycleController) buildStartInputsWithCapabilities(pluginID, b
 		Bot: runtime.BotInfo{
 			ID: botID,
 		},
-		Capabilities: append([]string(nil), capabilities...),
+		Capabilities:    append([]string(nil), capabilities...),
+		CommandPrefixes: runtimeCommandPrefixes(c.state.Config),
 	}
 	return spec, payload, nil
 }

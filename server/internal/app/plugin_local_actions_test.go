@@ -49,6 +49,69 @@ func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
 	assertRuntimeErrorCode(t, err, "permission.scope_violation")
 }
 
+func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
+	t.Parallel()
+
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{
+		{
+			PluginID:            "raylea.help",
+			Name:                "Help",
+			SourceRoot:          "plugins/builtin",
+			Valid:               true,
+			RegistrationState:   "installed",
+			DesiredState:        "enabled",
+			RuntimeState:        "running",
+			RequiredPermissions: []string{"plugin.list"},
+			Commands: []plugins.Command{{
+				Name:        "help",
+				Description: "显示帮助",
+				Usage:       "/help [目标]",
+			}},
+		},
+		{
+			PluginID:          "raylea.echo",
+			Name:              "Echo",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:        "echo",
+				Description: "复读内容",
+				Usage:       "/echo <内容>",
+			}},
+		},
+	})
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	result, err := application.executeLocalAction(context.Background(), "raylea.help", "req_local_plugin_list_1", runtime.Action{
+		Kind: "plugin.list",
+	})
+	if err != nil {
+		t.Fatalf("plugin.list failed: %v", err)
+	}
+
+	items, ok := result["items"].([]map[string]any)
+	if !ok || len(items) != 2 {
+		t.Fatalf("unexpected plugin list items: %#v", result["items"])
+	}
+	if items[0]["id"] != "raylea.echo" || items[1]["id"] != "raylea.help" {
+		t.Fatalf("unexpected plugin order: %#v", items)
+	}
+}
+
 func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 	t.Parallel()
 

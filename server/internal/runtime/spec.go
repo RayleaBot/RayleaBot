@@ -62,8 +62,9 @@ type BotInfo struct {
 }
 
 type InitPayload struct {
-	Bot          BotInfo
-	Capabilities []string
+	Bot             BotInfo
+	Capabilities    []string
+	CommandPrefixes []string
 }
 
 type Spec struct {

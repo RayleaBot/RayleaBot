@@ -57,9 +57,9 @@ func newManager(logger *slog.Logger, deps managerDeps, options Options) *Manager
 	}
 
 	return &Manager{
-		logger: logger,
-		deps:   deps,
-		opts:   options,
+		logger:        logger,
+		deps:          deps,
+		opts:          options,
 		pendingEvents: make(map[string]*eventSession),
 		pendingPings:  make(map[string]*pingRequest),
 		snap: Snapshot{
@@ -77,6 +77,9 @@ func (m *Manager) Snapshot() Snapshot {
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
 	if payload.Bot.ID == "" {
 		return errorf(codePlatformInvalidRequest, "init payload bot.id is required", nil)
+	}
+	if len(payload.CommandPrefixes) == 0 {
+		return errorf(codePlatformInvalidRequest, "init payload command_prefixes is required", nil)
 	}
 
 	m.mu.Lock()
@@ -157,7 +160,8 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 			ID:       payload.Bot.ID,
 			Nickname: payload.Bot.Nickname,
 		},
-		Capabilities: append([]string(nil), payload.Capabilities...),
+		Capabilities:    append([]string(nil), payload.Capabilities...),
+		CommandPrefixes: append([]string(nil), payload.CommandPrefixes...),
 	}); err != nil {
 		m.cleanupFailedStart(handle, codePluginInternalError, "write init frame", err)
 		return errorf(codePluginInternalError, "write init frame", err)

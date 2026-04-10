@@ -252,6 +252,7 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 				},
 			},
 			"command_conflicts": []any{},
+			"permissions":       []any{},
 		},
 	}
 	if !reflect.DeepEqual(body, want) {
@@ -402,7 +403,7 @@ func pluginRouter(t *testing.T, catalog *plugins.Catalog) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
-	plugins.RegisterRoutes(router, catalog, nil, nil, nil, nil, nil, nil)
+	plugins.RegisterRoutes(router, catalog, nil, nil, nil, nil, nil, nil, nil)
 	return router
 }
 
@@ -410,7 +411,7 @@ func pluginRouterWithController(t *testing.T, catalog *plugins.Catalog, controll
 	t.Helper()
 
 	router := chi.NewRouter()
-	plugins.RegisterRoutes(router, catalog, nil, nil, nil, controller, uninstaller, nil)
+	plugins.RegisterRoutes(router, catalog, nil, nil, nil, controller, uninstaller, nil, nil)
 	return router
 }
 

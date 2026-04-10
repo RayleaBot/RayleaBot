@@ -3,9 +3,12 @@ package app
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
@@ -26,6 +29,12 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 		eventsCtx := conn.CloseRead(context.Background())
 		bridgeFrames, unsubscribeBridge := h.bridge.SubscribeObservability(1)
 		defer unsubscribeBridge()
+		var pluginFrames <-chan plugins.Snapshot
+		unsubscribePlugins := func() {}
+		if h.plugins != nil {
+			pluginFrames, unsubscribePlugins = h.plugins.Subscribe(8)
+		}
+		defer unsubscribePlugins()
 		protocolFrames, unsubscribeProtocol := h.protocol.subscribeProtocolEvents(2)
 		defer unsubscribeProtocol()
 
@@ -48,6 +57,13 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 				if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
 					return
 				}
+			case snapshot, ok := <-pluginFrames:
+				if !ok {
+					return
+				}
+				if err := wsjson.Write(eventsCtx, conn, pluginStateEventFrame(snapshot)); err != nil {
+					return
+				}
 			case frame, ok := <-protocolFrames:
 				if !ok {
 					return
@@ -57,5 +73,20 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 				}
 			}
 		}
+	}
+}
+
+func pluginStateEventFrame(snapshot plugins.Snapshot) managementEventFrame {
+	return managementEventFrame{
+		Channel:   "events",
+		Type:      "events.received",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Data: map[string]any{
+			"plugin_id":          snapshot.PluginID,
+			"registration_state": snapshot.RegistrationState,
+			"desired_state":      snapshot.DesiredState,
+			"runtime_state":      snapshot.RuntimeState,
+			"display_state":      snapshot.DisplayState,
+		},
 	}
 }

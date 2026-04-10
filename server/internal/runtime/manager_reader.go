@@ -191,6 +191,8 @@ func (m *Manager) parseLocalActionFrameLocked(handle *processHandle, line []byte
 		action, parseErr = parseStorageKVAction(frame.Data)
 	case "config.read":
 		action, parseErr = parseConfigReadAction(frame.Data)
+	case "plugin.list":
+		action, parseErr = parsePluginListAction(frame.Data)
 	case "config.write":
 		action, parseErr = parseConfigWriteAction(frame.Data)
 	case "storage.file":

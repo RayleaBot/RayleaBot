@@ -39,6 +39,10 @@ func TestManagerStartInitAckSuccess(t *testing.T) {
 	if frames[0]["type"] != "init" {
 		t.Fatalf("unexpected first frame type: %v", frames[0]["type"])
 	}
+	commandPrefixes, ok := frames[0]["command_prefixes"].([]any)
+	if !ok || len(commandPrefixes) != 2 || commandPrefixes[0] != "!" || commandPrefixes[1] != "/" {
+		t.Fatalf("unexpected init command_prefixes: %#v", frames[0]["command_prefixes"])
+	}
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
@@ -2216,7 +2220,8 @@ func testInitPayload() InitPayload {
 			ID:       "bot-1",
 			Nickname: "RayleaBot",
 		},
-		Capabilities: []string{"event.subscribe"},
+		Capabilities:    []string{"event.subscribe"},
+		CommandPrefixes: []string{"!", "/"},
 	}
 }
 

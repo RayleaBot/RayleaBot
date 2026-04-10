@@ -123,6 +123,57 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	assertProtocolReplayFrame(t, first, "protocol_snapshot")
 }
 
+func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	conn := dialEventsWebSocket(t, server.URL, token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	waitForPluginSubscriber(t, application.Plugins())
+	readProtocolReplayFrame(t, conn)
+
+	snapshots := application.Plugins().List()
+	if len(snapshots) == 0 {
+		t.Fatal("expected at least one plugin snapshot")
+	}
+	pluginID := snapshots[0].PluginID
+	if _, err := application.Plugins().SetRuntimeState(pluginID, "running"); err != nil {
+		t.Fatalf("SetRuntimeState returned error: %v", err)
+	}
+
+	readCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, payload, err := conn.Read(readCtx)
+	if err != nil {
+		t.Fatalf("read websocket frame: %v", err)
+	}
+
+	var frame map[string]any
+	if err := json.Unmarshal(payload, &frame); err != nil {
+		t.Fatalf("unmarshal websocket frame: %v", err)
+	}
+
+	data, ok := frame["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data object, got %#v", frame["data"])
+	}
+	if data["plugin_id"] != pluginID {
+		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], pluginID)
+	}
+	if data["runtime_state"] != "running" {
+		t.Fatalf("unexpected runtime_state: got %#v want %q", data["runtime_state"], "running")
+	}
+	if data["display_state"] != "running" {
+		t.Fatalf("unexpected display_state: got %#v want %q", data["display_state"], "running")
+	}
+}
+
 func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 
@@ -277,4 +328,18 @@ func waitForObservabilitySubscriber(t *testing.T, eventBridge *bridge.Bridge) {
 	}
 
 	t.Fatalf("timed out waiting for websocket subscriber")
+}
+
+func waitForPluginSubscriber(t *testing.T, catalog interface{ SubscriberCount() int }) {
+	t.Helper()
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if catalog.SubscriberCount() > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for plugin subscriber")
 }

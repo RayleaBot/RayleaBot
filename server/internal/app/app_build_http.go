@@ -81,7 +81,19 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/ws/tasks", deps.tasksWS.handleTasksWebSocket())
 	router.Get("/ws/logs", deps.logsWS.handleLogsWebSocket())
 	router.Get("/ws/plugins/{id}/console", deps.consoleWS.handlePluginConsoleWebSocket())
-	plugins.RegisterRoutes(router, deps.plugins, deps.tasks, deps.pluginRepository, deps.pluginInstaller, deps.pluginLifecycle, deps.pluginUninstaller, deps.grantRepository)
+	plugins.RegisterRoutes(router, deps.plugins, deps.tasks, deps.pluginRepository, deps.pluginInstaller, deps.pluginLifecycle, deps.pluginUninstaller, deps.grantRepository, currentPluginAutoGrantCapabilities(deps.state))
+}
+
+func currentPluginAutoGrantCapabilities(state *appRuntimeState) func() []string {
+	return func() []string {
+		if state == nil {
+			return nil
+		}
+		if len(state.Config.Permission.AutoGrantCapabilities) > 0 {
+			return append([]string(nil), state.Config.Permission.AutoGrantCapabilities...)
+		}
+		return append([]string(nil), state.Config.Auth.AutoGrantCapabilities...)
+	}
 }
 
 func logConfiguredServer(state *appRuntimeState, renderer *render.Service, listenAddr string) {

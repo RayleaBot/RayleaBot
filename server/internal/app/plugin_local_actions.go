@@ -113,6 +113,8 @@ func (s *localActionService) Execute(ctx context.Context, pluginID, requestID st
 		return s.executeStorageKV(ctx, pluginID, action)
 	case "config.read":
 		return s.executeConfigRead(ctx, pluginID, action)
+	case "plugin.list":
+		return s.executePluginList(ctx, pluginID)
 	case "config.write":
 		return s.executeConfigWrite(ctx, pluginID, action)
 	case "storage.file":

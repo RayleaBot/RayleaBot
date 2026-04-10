@@ -75,6 +75,13 @@ func sanitizeCommandPrefixes(prefixes []string) []string {
 	return items
 }
 
+func runtimeCommandPrefixes(cfg config.Config) []string {
+	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
+		return sanitizeCommandPrefixes(cfg.Command.Prefixes)
+	}
+	return []string{"/"}
+}
+
 func (s *eventIngressService) enrichCommandEvent(event adapter.NormalizedEvent) adapter.NormalizedEvent {
 	if s == nil || s.commandParser == nil || strings.TrimSpace(event.PlainText) == "" {
 		return event
@@ -105,14 +112,14 @@ func ensureRuntimeStartedForEvent(
 	manager runtimeStarter,
 	catalog *plugins.Catalog,
 	repoRoot string,
-	runtimeConfig config.RuntimeConfig,
+	cfg config.Config,
 	event adapter.NormalizedEvent,
 ) (plugins.Snapshot, bool, error) {
 	if event.BotID == "" {
 		return plugins.Snapshot{}, false, fmt.Errorf("normalized adapter event is missing bot_id")
 	}
 
-	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, runtimeConfig, event.BotID, nil)
+	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, cfg, event.BotID, nil)
 }
 
 func ensureRuntimeStartedForBot(
@@ -120,7 +127,7 @@ func ensureRuntimeStartedForBot(
 	manager runtimeStarter,
 	catalog *plugins.Catalog,
 	repoRoot string,
-	runtimeConfig config.RuntimeConfig,
+	cfg config.Config,
 	botID string,
 	grantedCapabilities []string,
 ) (plugins.Snapshot, bool, error) {
@@ -139,7 +146,7 @@ func ensureRuntimeStartedForBot(
 		return plugins.Snapshot{}, false, nil
 	}
 
-	spec, err := runtime.BuildSpec(snapshot, repoRoot, runtimeConfig)
+	spec, err := runtime.BuildSpec(snapshot, repoRoot, cfg.Runtime)
 	if err != nil {
 		return snapshot, false, err
 	}
@@ -148,7 +155,8 @@ func ensureRuntimeStartedForBot(
 		Bot: runtime.BotInfo{
 			ID: botID,
 		},
-		Capabilities: append([]string(nil), grantedCapabilities...),
+		Capabilities:    append([]string(nil), grantedCapabilities...),
+		CommandPrefixes: runtimeCommandPrefixes(cfg),
 	}
 
 	if err := manager.Start(ctx, spec, payload); err != nil {

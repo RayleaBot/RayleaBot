@@ -55,7 +55,7 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 		manager,
 		catalog,
 		repoRoot,
-		config.RuntimeConfig{},
+		config.Config{Command: &config.CommandConfig{Prefixes: []string{"!", "/"}}},
 		adapter.NormalizedEvent{BotID: "10001"},
 	)
 	if err != nil {
@@ -75,6 +75,9 @@ func TestEnsureRuntimeStartedForEventStartsFirstEnabledInstalledPlugin(t *testin
 	}
 	if manager.startedPayload.Bot.ID != "10001" {
 		t.Fatalf("unexpected bot id: got %q want %q", manager.startedPayload.Bot.ID, "10001")
+	}
+	if len(manager.startedPayload.CommandPrefixes) != 2 || manager.startedPayload.CommandPrefixes[0] != "!" || manager.startedPayload.CommandPrefixes[1] != "/" {
+		t.Fatalf("unexpected command prefixes: %#v", manager.startedPayload.CommandPrefixes)
 	}
 }
 
@@ -101,7 +104,7 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 		manager,
 		catalog,
 		t.TempDir(),
-		config.RuntimeConfig{},
+		config.Config{},
 		adapter.NormalizedEvent{BotID: "10001"},
 	)
 	if err != nil {
@@ -142,7 +145,7 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 		manager,
 		catalog,
 		repoRoot,
-		config.RuntimeConfig{},
+		config.Config{},
 		adapter.NormalizedEvent{},
 	)
 	if err == nil {
@@ -180,7 +183,7 @@ func TestEnsureRuntimeStartedForEventSkipsDisabledPlugin(t *testing.T) {
 		manager,
 		catalog,
 		repoRoot,
-		config.RuntimeConfig{},
+		config.Config{},
 		adapter.NormalizedEvent{BotID: "10001"},
 	)
 	if err != nil {

@@ -160,6 +160,19 @@ func parseConfigReadAction(raw json.RawMessage) (*Action, error) {
 	}, nil
 }
 
+func parsePluginListAction(raw json.RawMessage) (*Action, error) {
+	payload := make(map[string]any)
+	if len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin returned malformed plugin.list data", err)
+		}
+	}
+	if len(payload) > 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid plugin.list data", nil)
+	}
+	return &Action{Kind: "plugin.list"}, nil
+}
+
 func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
 	var frame protocolActionConfigWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {

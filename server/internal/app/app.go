@@ -348,7 +348,7 @@ func New(options Options) (*App, error) {
 	renderHandler := newRenderHTTPHandlers(pluginState.renderer, platformState.taskExecutor)
 	systemHandler := newSystemHTTPHandlers(systemService)
 	protocolHandler := newProtocolHTTPHandlers(protocolService)
-	eventsWS := newEventsWSHandler(pluginState.Bridge, protocolService)
+	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService)
 	tasksWS := newTasksWSHandler(platformState.Tasks)
 	logsWS := newLogsWSHandler(logService)
 	consoleWS := newConsoleWSHandler(platformState.Console, pluginState.Plugins)
