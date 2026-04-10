@@ -357,6 +357,7 @@ class InitFrame:
     request_id: str
     bot: Bot
     capabilities: list[str] = field(default_factory=list)
+    command_prefixes: list[str] = field(default_factory=lambda: ["/"])
     timestamp: int = field(default_factory=_now)
 
     def to_dict(self) -> dict:
@@ -370,6 +371,7 @@ class InitFrame:
         }
         if self.capabilities:
             d["capabilities"] = self.capabilities
+        d["command_prefixes"] = self.command_prefixes or ["/"]
         return d
 
     @classmethod
@@ -379,6 +381,7 @@ class InitFrame:
             request_id=d["request_id"],
             bot=Bot.from_dict(d["bot"]),
             capabilities=d.get("capabilities", []),
+            command_prefixes=d.get("command_prefixes", ["/"]),
             timestamp=d.get("timestamp", _now()),
         )
 

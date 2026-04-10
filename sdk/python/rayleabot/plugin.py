@@ -16,6 +16,7 @@ class RayleaBotPlugin:
         self._plugin_id = ""
         self._bot_id = ""
         self._capabilities = []
+        self._command_prefixes = ["/"]
         self._subscriptions = None
 
     def on_event(self, event_type=None):
@@ -282,6 +283,16 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
+    def plugin_list(self, request_id, timeout_seconds=30):
+        """List installed plugins through plugin.list."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "plugin.list",
+            {},
+            timeout_seconds=timeout_seconds,
+        )
+
     def onebot_action(self, request_id, action, data=None, timeout_seconds=30):
         """Call one frozen OneBot family action through the shared local action path."""
         return protocol.request_local_action(
@@ -370,6 +381,7 @@ class RayleaBotPlugin:
     schedulerCreate = scheduler_create
     exposeWebhook = expose_webhook
     renderImage = render_image
+    pluginList = plugin_list
     onebotAction = onebot_action
     providerAction = provider_action
     messageHistoryGet = message_history_get
@@ -396,6 +408,8 @@ class RayleaBotPlugin:
                 bot = frame.get("bot", {})
                 self._bot_id = bot.get("id", "")
                 self._capabilities = frame.get("capabilities", [])
+                prefixes = [prefix for prefix in frame.get("command_prefixes", ["/"]) if isinstance(prefix, str) and prefix]
+                self._command_prefixes = prefixes or ["/"]
                 protocol.send_init_ack(plugin_id, request_id, self._subscriptions)
 
             elif frame_type == "event":
@@ -458,3 +472,13 @@ class RayleaBotPlugin:
 
         # No handler matched.
         protocol.send_result(plugin_id, request_id, {"handled": False})
+
+    @property
+    def command_prefixes(self):
+        return list(self._command_prefixes)
+
+    @property
+    def primary_command_prefix(self):
+        if self._command_prefixes:
+            return self._command_prefixes[0]
+        return "/"

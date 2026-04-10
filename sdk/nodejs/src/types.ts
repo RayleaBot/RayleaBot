@@ -174,6 +174,7 @@ export interface InitFrame extends FrameCommon {
   type: 'init';
   bot: Bot;
   capabilities?: string[];
+  command_prefixes: string[];
 }
 
 export interface InitProgressFrame extends FrameCommon {

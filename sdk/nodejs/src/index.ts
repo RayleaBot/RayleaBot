@@ -37,6 +37,9 @@ interface ActionOptions {
 }
 
 export interface RayleaBotPlugin {
+  readonly commandPrefixes: string[];
+  readonly primaryCommandPrefix: string;
+
   onEvent(handler: EventHandler): RayleaBotPlugin;
   onEvent(eventType: string, handler: EventHandler): RayleaBotPlugin;
   onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPlugin;
@@ -135,6 +138,7 @@ export interface RayleaBotPlugin {
       fallbackText?: string;
     },
   ): Promise<Record<string, unknown>>;
+  pluginList(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
   onebotAction(
     requestId: string,
     action: string,
@@ -203,9 +207,18 @@ export function createPlugin(): RayleaBotPlugin {
   const activeHandlers = new Set<Promise<void>>();
   let pluginId = '';
   let botId = '';
+  let commandPrefixes = ['/'];
   let subscriptions: string[] | null = null;
 
   const plugin: RayleaBotPlugin = {
+    get commandPrefixes(): string[] {
+      return [...commandPrefixes];
+    },
+
+    get primaryCommandPrefix(): string {
+      return commandPrefixes[0] || '/';
+    },
+
     onEvent(eventTypeOrHandler: string | EventHandler, handler?: EventHandler): RayleaBotPlugin {
       if (typeof eventTypeOrHandler === 'function') {
         eventHandlers.push({ type: null, handler: eventTypeOrHandler });
@@ -561,6 +574,11 @@ export function createPlugin(): RayleaBotPlugin {
       );
     },
 
+    async pluginList(requestId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'plugin.list', {}, { timeoutMs });
+    },
+
     async onebotAction(
       requestId: string,
       action: string,
@@ -683,6 +701,12 @@ export function createPlugin(): RayleaBotPlugin {
           const initFrame = frame as InitFrame;
           pluginId = plugin_id;
           botId = initFrame.bot?.id ?? '';
+          commandPrefixes = (initFrame.command_prefixes ?? []).filter(
+            (value): value is string => typeof value === 'string' && value.length > 0,
+          );
+          if (commandPrefixes.length === 0) {
+            commandPrefixes = ['/'];
+          }
           sendInitAck(pluginId, request_id, subscriptions);
         } else if (type === 'event') {
           const eventFrame = frame as EventFrame;

@@ -7,8 +7,15 @@ export function createPlugin() {
     const activeHandlers = new Set();
     let pluginId = '';
     let botId = '';
+    let commandPrefixes = ['/'];
     let subscriptions = null;
     const plugin = {
+        get commandPrefixes() {
+            return [...commandPrefixes];
+        },
+        get primaryCommandPrefix() {
+            return commandPrefixes[0] || '/';
+        },
         onEvent(eventTypeOrHandler, handler) {
             if (typeof eventTypeOrHandler === 'function') {
                 eventHandlers.push({ type: null, handler: eventTypeOrHandler });
@@ -174,6 +181,10 @@ export function createPlugin() {
             }
             return await requestLocalAction(pluginId, requestId, 'render.image', payload, { timeoutMs });
         },
+        async pluginList(requestId, options = {}) {
+            const { timeoutMs = 30000 } = options;
+            return await requestLocalAction(pluginId, requestId, 'plugin.list', {}, { timeoutMs });
+        },
         async onebotAction(requestId, action, data = {}, options = {}) {
             return await requestOneBotAction(requestId, action, data, options);
         },
@@ -237,6 +248,10 @@ export function createPlugin() {
                     const initFrame = frame;
                     pluginId = plugin_id;
                     botId = initFrame.bot?.id ?? '';
+                    commandPrefixes = (initFrame.command_prefixes ?? []).filter((value) => typeof value === 'string' && value.length > 0);
+                    if (commandPrefixes.length === 0) {
+                        commandPrefixes = ['/'];
+                    }
                     sendInitAck(pluginId, request_id, subscriptions);
                 }
                 else if (type === 'event') {

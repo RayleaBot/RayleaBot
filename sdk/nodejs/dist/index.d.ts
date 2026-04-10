@@ -7,6 +7,8 @@ interface ActionOptions {
     timeoutMs?: number;
 }
 export interface RayleaBotPlugin {
+    readonly commandPrefixes: string[];
+    readonly primaryCommandPrefix: string;
     onEvent(handler: EventHandler): RayleaBotPlugin;
     onEvent(eventType: string, handler: EventHandler): RayleaBotPlugin;
     onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPlugin;
@@ -58,6 +60,7 @@ export interface RayleaBotPlugin {
         output?: string;
         fallbackText?: string;
     }): Promise<Record<string, unknown>>;
+    pluginList(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     onebotAction(requestId: string, action: string, data?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
     providerAction(requestId: string, provider: 'napcat' | 'luckylillia', action: string, data?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
     messageHistoryGet(requestId: string, conversationType: 'group' | 'private', conversationId: string, options?: ActionOptions & {
