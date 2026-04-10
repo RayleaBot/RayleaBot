@@ -21,6 +21,7 @@
 
 - 启动后平台会发送 `ping`，插件返回 `pong` 做保活。
 - 插件异常退出会进入崩溃恢复路径，而不是默默消失。
+- `init.command_prefixes` 提供当前生效的命令前缀列表，至少包含一项。
 
 ## 事件与结果
 
@@ -56,6 +57,7 @@
 - `storage.file`
 - `http.request`
 - `config.read`
+- `plugin.list`
 - `config.write`
 - `scheduler.create`
 - `event.expose_webhook`
@@ -109,6 +111,8 @@
   - `provider.luckylillia.*`
 
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
+
+- `plugin.list` 返回当前已发现插件的只读目录，包括插件状态、命令列表和命令冲突信息。
 
 - 同一事件内允许多个 local action 同时在途。
 - 插件在本地 action 尚未完成时返回事件级 `result` 或 `error`，属于协议违规。

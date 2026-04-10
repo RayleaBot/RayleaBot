@@ -11,9 +11,10 @@
 ## 当前覆盖范围
 
 - 生命周期握手：`init`、`init_progress`、`init_ack`、`ping/pong`、`shutdown`
+- 启动上下文 helper：当前 bot 信息、已授予 capabilities、`init.command_prefixes`
 - 事件接收与结果回传
 - 消息能力：`sendMessage` / `sendReply` 与 Python 对应 helper
-- 本地 action helper：日志、KV、文件、HTTP、配置、调度、Webhook、渲染
+- 本地 action helper：日志、KV、文件、HTTP、配置、插件目录、调度、Webhook、渲染
 - OneBot family helper：history、group manage、file、reaction / poke
 - provider helper：`provider.napcat.*` 与 `provider.luckylillia.*`
 - 扩展消息段 helper：`markdown`、`file`、`keyboard` 与通用 passthrough segment builder
@@ -25,6 +26,8 @@
 - Node.js SDK 的 `run()` 会持续收帧，并允许不同事件处理器并发执行。
 - Python SDK 的 `run()` 使用线程并发处理事件。
 - 使用 SDK 时，事件处理函数需要满足可重入要求。
+- Python SDK 提供 `command_prefixes`、`primary_command_prefix` 和 `plugin_list()` helper。
+- Node.js SDK 提供 `commandPrefixes`、`primaryCommandPrefix` 和 `pluginList()` helper。
 
 ## 相关文档
 

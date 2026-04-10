@@ -36,11 +36,14 @@
 | `scheduler.create` | 注册调度任务 |
 | `event.expose_webhook` | 注册 Webhook 路由 |
 | `render.image` | 使用平台渲染能力 |
+| `plugin.list` | 读取当前插件目录与命令列表 |
 
 ## 授权与作用域
 
 - 插件通过 `permissions.required` 和 `permissions.optional` 声明能力需求。
+- 官方内置插件的声明权限会自动生效，并在授权来源中显示为 `builtin_auto`。
 - 平台按 capability grant 模型保存授权结果，并在启用、重载、恢复和崩溃恢复前重新过滤时效窗口。
+- 当前授权列表会合并内置自动授权、配置自动授权和持久化授权。
 - 作用域约束通过 `permissions.scopes` 声明，当前重点包括 `http_hosts`、`storage_roots` 和 `webhooks`。
 - `storage_roots` 当前正式范围固定在 `plugin_data`。
 - 新增高敏权限时，平台需要显式重新确认，不静默沿用历史授权。
