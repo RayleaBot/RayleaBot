@@ -38,6 +38,9 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 	if _, ok := application.Plugins().Get("raylea.help"); !ok {
 		t.Fatal("expected builtin plugin to be discovered")
 	}
+	if _, ok := application.Plugins().Get("raylea.echo"); !ok {
+		t.Fatal("expected builtin echo plugin to be discovered")
+	}
 	if _, ok := application.Plugins().Get("hello-python"); ok {
 		t.Fatal("examples/plugins must not be discovered by the default application roots")
 	}
@@ -242,21 +245,29 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 	}
 
 	catalog := plugins.NewCatalog(snapshots)
-	snapshot, ok := catalog.Get("raylea.help")
-	if !ok {
-		t.Fatal("expected builtin help plugin to be discovered")
-	}
-	if snapshot.DesiredState != "enabled" {
-		t.Fatalf("unexpected desired_state: got %q want enabled", snapshot.DesiredState)
-	}
-	if snapshot.Role != "builtin" {
-		t.Fatalf("unexpected role: got %q want builtin", snapshot.Role)
-	}
-	if len(snapshot.Commands) != 1 {
-		t.Fatalf("unexpected builtin command count: got %d want 1", len(snapshot.Commands))
-	}
-	if snapshot.Commands[0].Name != "help" {
-		t.Fatalf("unexpected builtin command name: got %q want help", snapshot.Commands[0].Name)
+	for _, tc := range []struct {
+		pluginID    string
+		commandName string
+	}{
+		{pluginID: "raylea.help", commandName: "help"},
+		{pluginID: "raylea.echo", commandName: "echo"},
+	} {
+		snapshot, ok := catalog.Get(tc.pluginID)
+		if !ok {
+			t.Fatalf("expected builtin plugin %q to be discovered", tc.pluginID)
+		}
+		if snapshot.DesiredState != "enabled" {
+			t.Fatalf("unexpected desired_state for %s: got %q want enabled", tc.pluginID, snapshot.DesiredState)
+		}
+		if snapshot.Role != "builtin" {
+			t.Fatalf("unexpected role for %s: got %q want builtin", tc.pluginID, snapshot.Role)
+		}
+		if len(snapshot.Commands) != 1 {
+			t.Fatalf("unexpected builtin command count for %s: got %d want 1", tc.pluginID, len(snapshot.Commands))
+		}
+		if snapshot.Commands[0].Name != tc.commandName {
+			t.Fatalf("unexpected builtin command name for %s: got %q want %q", tc.pluginID, snapshot.Commands[0].Name, tc.commandName)
+		}
 	}
 }
 

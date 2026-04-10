@@ -1,0 +1,21 @@
+{
+  "id": "raylea.echo",
+  "name": "Echo",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Built-in test echo command",
+  "author": "raylea",
+  "commands": [
+    {
+      "name": "echo",
+      "description": "复读收到的内容",
+      "usage": "/echo <内容>",
+      "permission": "everyone"
+    }
+  ]
+}
