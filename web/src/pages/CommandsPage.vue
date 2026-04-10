@@ -5,13 +5,26 @@ import { storeToRefs } from 'pinia'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { flattenPluginCommands, type PluginCommandAvailability } from '@/lib/plugin-commands'
+import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginCommandSummary, PluginSummary } from '@/types/api'
 
 const pluginsStore = usePluginsStore()
+const configStore = useConfigStore()
 const { error, items, loading } = storeToRefs(pluginsStore)
+const { document: configDocument } = storeToRefs(configStore)
 
 const selectedPluginIds = ref<string[]>([])
+const commandPrefix = computed(() => {
+  const prefixes = configDocument.value?.command?.prefixes ?? []
+  for (const prefix of prefixes) {
+    const trimmed = prefix.trim()
+    if (trimmed) {
+      return trimmed
+    }
+  }
+  return '/'
+})
 
 const pluginsWithCommands = computed(() => (
   [...items.value]
@@ -31,7 +44,10 @@ const commandRows = computed(() => {
 
 async function loadCommands() {
   try {
-    await pluginsStore.fetchList()
+    await Promise.all([
+      pluginsStore.fetchList(),
+      configStore.fetchConfig().catch(() => undefined),
+    ])
   } catch {
     // store error state drives the page
   }
@@ -51,6 +67,28 @@ function getAliasesText(command: PluginCommandSummary) {
 
 function getPermissionText(command: PluginCommandSummary) {
   return command.permission?.trim() || t('plugins.commandPermissionDefault')
+}
+
+function getUsageText(command: PluginCommandSummary) {
+  const commandName = command.name.trim()
+  if (!commandName) {
+    return t('display.empty')
+  }
+
+  const usage = command.usage?.trim()
+  const trigger = `${commandPrefix.value}${commandName}`
+  if (!usage) {
+    return trigger
+  }
+
+  const [head, ...rest] = usage.split(/\s+/)
+  const normalizedHead = head.replace(/^[^0-9A-Za-z\u4e00-\u9fa5_-]+/u, '')
+  if (normalizedHead === commandName) {
+    const tail = rest.join(' ').trim()
+    return tail ? `${trigger} ${tail}` : trigger
+  }
+
+  return usage
 }
 
 function getStatusLabel(status: PluginCommandAvailability) {
@@ -151,7 +189,7 @@ onMounted(() => {
 
       <el-table-column :label="t('commands.fields.usage')" min-width="220">
         <template #default="{ row }">
-          <span>{{ row.command.usage || t('display.empty') }}</span>
+          <span>{{ getUsageText(row.command) }}</span>
         </template>
       </el-table-column>
 
