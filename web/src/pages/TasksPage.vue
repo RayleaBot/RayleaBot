@@ -20,9 +20,11 @@ const tasksStore = useTasksStore()
 const { cancelPending, currentTask, detailLoading, error, loading, sortedItems } = storeToRefs(tasksStore)
 const detailVisible = ref(false)
 const previewImageSrc = ref('')
+const hasRequestedTasks = ref(false)
 let previewImageLoadVersion = 0
 
 async function loadTasks() {
+  hasRequestedTasks.value = true
   try {
     await tasksStore.fetchList()
   } catch {
@@ -186,6 +188,14 @@ watch(
 
     <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
+    <el-card v-else-if="(!hasRequestedTasks || loading) && sortedItems.length === 0" class="tasks-empty-card" shadow="never">
+      <el-skeleton animated :rows="4" />
+    </el-card>
+
+    <el-card v-else-if="sortedItems.length === 0" class="tasks-empty-card" shadow="never">
+      <el-empty :description="t('display.empty')" />
+    </el-card>
+
     <el-table
       v-else
       :data="sortedItems"
@@ -315,6 +325,17 @@ watch(
 </template>
 
 <style lang="scss" scoped>
+.tasks-empty-card {
+  border-radius: 22px;
+  border: 1px solid rgba(22, 33, 39, 0.08);
+  box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
+  background: rgba(247, 250, 246, 0.88);
+
+  :deep(.el-card__body) {
+    padding: 28px 24px;
+  }
+}
+
 .tasks-data-table {
   border-radius: 22px;
   overflow: hidden;

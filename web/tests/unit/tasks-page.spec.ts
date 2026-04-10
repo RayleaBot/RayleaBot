@@ -269,4 +269,28 @@ describe('TasksPage', () => {
     expect(wrapper.find('.task-summary-row').exists()).toBe(false)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
+
+  it('renders a compact empty state instead of an empty table header', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/tasks', component: TasksPage }],
+    })
+    await router.push('/tasks')
+    await router.isReady()
+
+    const store = useTasksStore()
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(TasksPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.tasks-empty-card').exists()).toBe(true)
+    expect(wrapper.find('.tasks-data-table').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('任务类型')
+  })
 })
