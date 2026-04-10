@@ -181,6 +181,9 @@ func TestBuildSpecFallsBackToManagedRuntimeStore(t *testing.T) {
 	if spec.Command != managedPython {
 		t.Fatalf("BuildSpec should fall back to managed python, got %q want %q", spec.Command, managedPython)
 	}
+	if !sameStrings(spec.Env, []string{"PYTHONIOENCODING=UTF-8", "PYTHONUTF8=1", "PYTHONUNBUFFERED=1"}) {
+		t.Fatalf("BuildSpec should inject python utf8 env, got %#v", spec.Env)
+	}
 }
 
 func TestBuildSpecUsesManagedNodeAndInjectsNodeOptions(t *testing.T) {
@@ -467,4 +470,16 @@ func assertBuildSpecErrorCode(t *testing.T, err error, want string) {
 	if runtimeErr.Code != want {
 		t.Fatalf("unexpected error code: got %q want %q", runtimeErr.Code, want)
 	}
+}
+
+func sameStrings(got []string, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			return false
+		}
+	}
+	return true
 }

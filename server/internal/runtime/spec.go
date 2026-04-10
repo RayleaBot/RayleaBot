@@ -67,17 +67,17 @@ type InitPayload struct {
 }
 
 type Spec struct {
-	PluginID            string
-	Runtime             string
-	Command             string
-	Args                []string
-	Env                 []string
-	WorkDir             string
-	EntryPath           string
-	InitTimeout         time.Duration
-	InitMaxTotal        time.Duration
-	EventTimeout        time.Duration
-	ShutdownGrace       time.Duration
+	PluginID             string
+	Runtime              string
+	Command              string
+	Args                 []string
+	Env                  []string
+	WorkDir              string
+	EntryPath            string
+	InitTimeout          time.Duration
+	InitMaxTotal         time.Duration
+	EventTimeout         time.Duration
+	ShutdownGrace        time.Duration
 	EffectiveConcurrency int
 }
 
@@ -169,17 +169,17 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	initMaxTotal := durationFromSeconds(runtimeConfig.PluginInitMaxTotalSeconds, 300)
 
 	return Spec{
-		PluginID:            snapshot.PluginID,
-		Runtime:             snapshot.Runtime,
-		Command:             command,
-		Args:                []string{resolvedEntryPath},
-		Env:                 env,
-		WorkDir:             resolvedManifestDir,
-		EntryPath:           resolvedEntryPath,
-		InitTimeout:         initTimeout,
-		InitMaxTotal:        initMaxTotal,
-		EventTimeout:        durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
-		ShutdownGrace:       durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
+		PluginID:             snapshot.PluginID,
+		Runtime:              snapshot.Runtime,
+		Command:              command,
+		Args:                 []string{resolvedEntryPath},
+		Env:                  env,
+		WorkDir:              resolvedManifestDir,
+		EntryPath:            resolvedEntryPath,
+		InitTimeout:          initTimeout,
+		InitMaxTotal:         initMaxTotal,
+		EventTimeout:         durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
+		ShutdownGrace:        durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
 		EffectiveConcurrency: effectivePluginConcurrency(snapshot.Concurrency, runtimeConfig.MaxConcurrentTasksPerPlugin),
 	}, nil
 }
@@ -202,13 +202,13 @@ func runtimeCommand(ctx context.Context, runtimeName string, repoRoot string, ma
 	switch runtimeName {
 	case "python":
 		if venvPython, ok := pythonVirtualenvExecutable(manifestDir); ok {
-			return venvPython, nil, nil
+			return venvPython, pythonRuntimeEnvironment(), nil
 		}
 		command, err := manager.ResolveEntrypoint(ctx, "python-runtime", "python")
 		if err != nil {
 			return "", nil, errorf(codePlatformResourceMissing, "managed Python runtime is not available", err)
 		}
-		return command, nil, nil
+		return command, pythonRuntimeEnvironment(), nil
 	case "nodejs":
 		command, err := manager.ResolveEntrypoint(ctx, "nodejs-runtime", "node")
 		if err != nil {
@@ -218,6 +218,14 @@ func runtimeCommand(ctx context.Context, runtimeName string, repoRoot string, ma
 		return command, env, nil
 	default:
 		return "", nil, errorf(codePlatformInvalidRequest, "plugin runtime is not supported by the minimal runtime manager", nil)
+	}
+}
+
+func pythonRuntimeEnvironment() []string {
+	return []string{
+		"PYTHONIOENCODING=UTF-8",
+		"PYTHONUTF8=1",
+		"PYTHONUNBUFFERED=1",
 	}
 }
 

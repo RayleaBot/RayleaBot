@@ -107,22 +107,28 @@ func TestBuiltinEchoPluginRepliesWithArgs(t *testing.T) {
 	}
 }
 
-type builtinEchoSession struct {
+type builtinPythonPluginSession struct {
 	cmd      *exec.Cmd
+	pluginID string
 	stdin    *bufio.Writer
 	frames   chan map[string]any
 	stderr   bytes.Buffer
 	finished chan error
 }
 
-func startBuiltinEchoPlugin(t *testing.T) *builtinEchoSession {
+func startBuiltinEchoPlugin(t *testing.T) *builtinPythonPluginSession {
 	t.Helper()
 
-	command, args := builtinEchoPythonCommand(t)
-	scriptPath := filepath.Join(repoRootPath(t), "plugins", "builtin", "echo", "main.py")
+	return startBuiltinPythonPlugin(t, "raylea.echo", filepath.Join(repoRootPath(t), "plugins", "builtin", "echo", "main.py"))
+}
+
+func startBuiltinPythonPlugin(t *testing.T, pluginID string, scriptPath string) *builtinPythonPluginSession {
+	t.Helper()
+
+	command, args := builtinPythonCommand(t)
 	cmd := exec.Command(command, append(args, scriptPath)...)
 	cmd.Dir = repoRootPath(t)
-	cmd.Env = append(cmd.Environ(), "PYTHONIOENCODING=UTF-8", "PYTHONUTF8=1")
+	cmd.Env = append(cmd.Environ(), "PYTHONIOENCODING=UTF-8", "PYTHONUTF8=1", "PYTHONUNBUFFERED=1")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -133,8 +139,9 @@ func startBuiltinEchoPlugin(t *testing.T) *builtinEchoSession {
 		t.Fatalf("stdin pipe: %v", err)
 	}
 
-	session := &builtinEchoSession{
+	session := &builtinPythonPluginSession{
 		cmd:      cmd,
+		pluginID: pluginID,
 		stdin:    bufio.NewWriter(stdin),
 		frames:   make(chan map[string]any, 8),
 		finished: make(chan error, 1),
@@ -166,7 +173,7 @@ func startBuiltinEchoPlugin(t *testing.T) *builtinEchoSession {
 		"protocol_version": "1",
 		"type":             "init",
 		"timestamp":        time.Now().Unix(),
-		"plugin_id":        "raylea.echo",
+		"plugin_id":        pluginID,
 		"request_id":       "init-1",
 		"bot": map[string]any{
 			"id":       "bot-1",
@@ -178,7 +185,7 @@ func startBuiltinEchoPlugin(t *testing.T) *builtinEchoSession {
 	return session
 }
 
-func builtinEchoPythonCommand(t *testing.T) (string, []string) {
+func builtinPythonCommand(t *testing.T) (string, []string) {
 	t.Helper()
 
 	candidates := []struct {
@@ -199,7 +206,7 @@ func builtinEchoPythonCommand(t *testing.T) (string, []string) {
 	return "", nil
 }
 
-func (s *builtinEchoSession) writeFrame(t *testing.T, frame map[string]any) {
+func (s *builtinPythonPluginSession) writeFrame(t *testing.T, frame map[string]any) {
 	t.Helper()
 
 	line, err := json.Marshal(frame)
@@ -214,7 +221,7 @@ func (s *builtinEchoSession) writeFrame(t *testing.T, frame map[string]any) {
 	}
 }
 
-func (s *builtinEchoSession) readFrame(t *testing.T) map[string]any {
+func (s *builtinPythonPluginSession) readFrame(t *testing.T) map[string]any {
 	t.Helper()
 
 	select {
@@ -228,7 +235,7 @@ func (s *builtinEchoSession) readFrame(t *testing.T) map[string]any {
 	return nil
 }
 
-func (s *builtinEchoSession) close(t *testing.T) {
+func (s *builtinPythonPluginSession) close(t *testing.T) {
 	t.Helper()
 
 	if s.cmd.Process == nil {
@@ -239,7 +246,7 @@ func (s *builtinEchoSession) close(t *testing.T) {
 		"protocol_version": "1",
 		"type":             "shutdown",
 		"timestamp":        time.Now().Unix(),
-		"plugin_id":        "raylea.echo",
+		"plugin_id":        s.pluginID,
 		"request_id":       "shutdown-1",
 		"reason":           "test complete",
 	})
@@ -247,12 +254,12 @@ func (s *builtinEchoSession) close(t *testing.T) {
 	select {
 	case err := <-s.finished:
 		if err != nil {
-			t.Fatalf("echo plugin exit error: %v stderr=%s", err, strings.TrimSpace(s.stderr.String()))
+			t.Fatalf("builtin python plugin exit error: %v stderr=%s", err, strings.TrimSpace(s.stderr.String()))
 		}
 	case <-time.After(3 * time.Second):
 		if err := s.cmd.Process.Kill(); err != nil {
-			t.Fatalf("kill echo plugin after timeout: %v", err)
+			t.Fatalf("kill builtin python plugin after timeout: %v", err)
 		}
-		t.Fatalf("timed out waiting for echo plugin shutdown; stderr=%s", strings.TrimSpace(s.stderr.String()))
+		t.Fatalf("timed out waiting for builtin python plugin shutdown; stderr=%s", strings.TrimSpace(s.stderr.String()))
 	}
 }

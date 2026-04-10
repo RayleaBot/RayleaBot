@@ -36,7 +36,11 @@ def _reader_loop():
         line = line.strip()
         if not line:
             continue
-        frame = json.loads(line)
+        try:
+            frame = json.loads(line)
+        except json.JSONDecodeError as exc:
+            _close_stream(ProtocolError(f"received malformed protocol json: {exc.msg}"))
+            return
         _dispatch_frame(frame)
 
 
