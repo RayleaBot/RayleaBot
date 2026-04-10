@@ -37,6 +37,12 @@
 | `plugins/installed/` | 用户安装插件 |
 | `.deps/` | 运行环境资源与展开目录 |
 
+## 日志目录
+
+- `logs/launcher.log` 保存 Launcher 自身诊断和服务进程编排信息。
+- `logs/server.log` 保存 `raylea-server` 的文本输出镜像。
+- `logs/recovery-summary.json` 保存恢复与兼容摘要。
+
 ## 运行根目录
 
 - 发行包根目录同时是默认运行根目录。

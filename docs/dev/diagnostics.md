@@ -12,6 +12,8 @@
 | `raylea doctor` | 执行本地环境与资源检查 |
 | `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看管理日志摘要、单条日志详情与增量日志 |
 | `/ws/plugins/{id}/console` | 查看插件 stderr |
+| `logs/launcher.log` | 查看 Launcher 自身诊断和进程编排错误 |
+| `logs/server.log` | 查看 `raylea-server` 的文本输出镜像 |
 | `logs/recovery-summary.json` | 查看恢复与兼容处理摘要 |
 
 ## 诊断信息范围

@@ -95,7 +95,8 @@ export class ServerProcessController {
     await this.fileSystem.mkdir(settings.workdir, { recursive: true });
     this.logDirectory = path.join(settings.workdir, "logs");
     await this.fileSystem.mkdir(this.logDirectory, { recursive: true });
-    const logPath = path.join(this.logDirectory, "launcher.log");
+    const launcherLogPath = this.getLauncherLogPath();
+    const serverLogPath = this.getServerLogPath();
     const schemaPath = await resolveConfigSchemaPath(settings);
 
     const child = this.spawnProcess(settings.serverExecutablePath, ["-config", settings.configPath, "-config-schema", schemaPath], {
@@ -107,13 +108,13 @@ export class ServerProcessController {
 
     child.stdout.on("data", (chunk) => {
       const text = String(chunk);
-      this.queueLogWrite(logPath, "stdout", text);
+      this.queueLogWrite(serverLogPath, "stdout", text);
       this.recordStdoutDiagnostics(text);
     });
 
     child.stderr.on("data", (chunk) => {
       const text = String(chunk);
-      this.queueLogWrite(logPath, "stderr", text);
+      this.queueLogWrite(serverLogPath, "stderr", text);
       this.recordStderr(text);
     });
 
@@ -130,7 +131,7 @@ export class ServerProcessController {
         code !== null && code !== undefined
           ? `服务进程已退出，退出码 ${code}。`
           : `服务进程已退出，信号 ${signal ?? "unknown"}。`;
-      this.recordLauncherDiagnostic(logPath, detail);
+      this.recordLauncherDiagnostic(launcherLogPath, detail);
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -156,7 +157,7 @@ export class ServerProcessController {
 
       child.once("error", (error) => {
         this.recordStderr(error.message);
-        this.queueLogWrite(logPath, "launcher", `spawn error: ${error.message}\n`);
+        this.queueLogWrite(launcherLogPath, "launcher", `spawn error: ${error.message}\n`);
         if (this.process === child) {
           this.process = null;
         }
@@ -192,7 +193,7 @@ export class ServerProcessController {
         child.kill();
       } catch (error) {
         this.recordLauncherDiagnostic(
-          path.join(this.logDirectory, "launcher.log"),
+          this.getLauncherLogPath(),
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -205,7 +206,7 @@ export class ServerProcessController {
         child.kill("SIGKILL");
       } catch (error) {
         this.recordLauncherDiagnostic(
-          path.join(this.logDirectory, "launcher.log"),
+          this.getLauncherLogPath(),
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -254,6 +255,14 @@ export class ServerProcessController {
   private recordLauncherDiagnostic(logPath: string, text: string) {
     this.recordStderr(text);
     this.queueLogWrite(logPath, "launcher", `${text}\n`);
+  }
+
+  private getLauncherLogPath() {
+    return path.join(this.logDirectory, "launcher.log");
+  }
+
+  private getServerLogPath() {
+    return path.join(this.logDirectory, "server.log");
   }
 
   private async waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number) {
