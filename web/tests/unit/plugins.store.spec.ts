@@ -79,9 +79,29 @@ describe('plugins store', () => {
   it('keeps grants sorted, merges outbound console logs, and clears both buffers', async () => {
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(jsonResponse({
+        plugin_id: 'weather',
         capability: 'render.image',
-        state: 'granted',
-        source: 'manual',
+        granted_at: '2026-04-05T00:01:00Z',
+        source: 'persisted',
+        expires_at: null,
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            plugin_id: 'weather',
+            capability: 'render.image',
+            granted_at: '2026-04-05T00:01:00Z',
+            source: 'persisted',
+            expires_at: null,
+          },
+          {
+            plugin_id: 'weather',
+            capability: 'scheduler.run',
+            granted_at: '2026-04-05T00:00:00Z',
+            source: 'persisted',
+            expires_at: null,
+          },
+        ],
       }))
       .mockResolvedValueOnce(jsonResponse({
         items: [
@@ -101,7 +121,7 @@ describe('plugins store', () => {
     const store = usePluginsStore()
     store.grants = {
       weather: [
-        { capability: 'scheduler.run', state: 'granted', source: 'manual' },
+        { plugin_id: 'weather', capability: 'scheduler.run', granted_at: '2026-04-05T00:00:00Z', source: 'persisted', expires_at: null },
       ],
     }
 

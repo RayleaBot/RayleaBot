@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import RetryPanel from '@/components/RetryPanel.vue'
+import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { flattenPluginCommands, type PluginCommandAvailability } from '@/lib/plugin-commands'
 import { useConfigStore } from '@/stores/config'
@@ -16,14 +17,7 @@ const { document: configDocument } = storeToRefs(configStore)
 
 const selectedPluginIds = ref<string[]>([])
 const commandPrefix = computed(() => {
-  const prefixes = configDocument.value?.command?.prefixes ?? []
-  for (const prefix of prefixes) {
-    const trimmed = prefix.trim()
-    if (trimmed) {
-      return trimmed
-    }
-  }
-  return '/'
+  return getPrimaryCommandPrefix(configDocument.value?.command?.prefixes)
 })
 
 const pluginsWithCommands = computed(() => (
@@ -70,25 +64,7 @@ function getPermissionText(command: PluginCommandSummary) {
 }
 
 function getUsageText(command: PluginCommandSummary) {
-  const commandName = command.name.trim()
-  if (!commandName) {
-    return t('display.empty')
-  }
-
-  const usage = command.usage?.trim()
-  const trigger = `${commandPrefix.value}${commandName}`
-  if (!usage) {
-    return trigger
-  }
-
-  const [head, ...rest] = usage.split(/\s+/)
-  const normalizedHead = head.replace(/^[^0-9A-Za-z\u4e00-\u9fa5_-]+/u, '')
-  if (normalizedHead === commandName) {
-    const tail = rest.join(' ').trim()
-    return tail ? `${trigger} ${tail}` : trigger
-  }
-
-  return usage
+  return formatCommandUsage(command, commandPrefix.value) || t('display.empty')
 }
 
 function getStatusLabel(status: PluginCommandAvailability) {

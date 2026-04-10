@@ -95,6 +95,28 @@ describe('socket store', () => {
         display_state: 'running',
       },
     })
+    MockManagedSocket.instances[0].emitFrame({
+      timestamp: '2026-04-05T08:00:00Z',
+      data: {
+        summary: 'plugin state changed',
+        plugin_id: 'weather',
+        registration_state: 'installed',
+        desired_state: 'disabled',
+        runtime_state: 'stopping',
+        display_state: 'disabling',
+      },
+    })
+    MockManagedSocket.instances[0].emitFrame({
+      timestamp: '2026-04-05T08:00:01Z',
+      data: {
+        summary: 'plugin state changed',
+        plugin_id: 'weather',
+        registration_state: 'installed',
+        desired_state: 'disabled',
+        runtime_state: 'stopped',
+        display_state: 'disabled',
+      },
+    })
     MockManagedSocket.instances[1].emitFrame({
       type: 'tasks.updated',
       data: {
@@ -138,8 +160,10 @@ describe('socket store', () => {
       },
     })
 
-    expect(systemStore.recentEvents).toHaveLength(1)
+    expect(systemStore.recentEvents).toHaveLength(3)
     expect(pluginsStore.items[0].id).toBe('weather')
+    expect(pluginsStore.items[0].runtime_state).toBe('stopped')
+    expect(pluginsStore.items[0].display_state).toBe('disabled')
     expect(tasksStore.items[0].task_id).toBe('task_1')
     expect(logsStore.items.map((item) => item.message)).toEqual([
       'runtime line',

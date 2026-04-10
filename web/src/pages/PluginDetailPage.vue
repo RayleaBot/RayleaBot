@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import {
   getConnectionStatusLabel,
   getPluginDisplayStateLabel,
@@ -16,32 +17,47 @@ import {
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
+import { ApiError } from '@/lib/http'
 import { t } from '@/i18n'
+import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import type { ConsoleFrame } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
+import type { PluginPermissionSummary } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
 const pluginsStore = usePluginsStore()
 const socketStore = useSocketStore()
+const configStore = useConfigStore()
 
 const { actionPending, current, detailLoading, grantsLoading } = storeToRefs(pluginsStore)
+const { document: configDocument } = storeToRefs(configStore)
 
 const pluginId = computed(() => String(route.params.id))
 const consoleFrames = computed(() => pluginsStore.getConsole(pluginId.value))
 const currentGrants = computed(() => pluginsStore.getGrants(pluginId.value))
+const currentPermissions = computed(() => current.value?.permissions ?? [])
 const consoleSnapshot = computed(() => socketStore.snapshots.pluginConsole)
 const grantBusy = computed(() => grantsLoading.value[pluginId.value] ?? false)
 const loadError = ref<string | null>(null)
 const operationError = ref<string | null>(null)
 const consoleScroller = ref<HTMLElement | null>(null)
-const grantDialogVisible = ref(false)
+const permissionDialogVisible = ref(false)
 const uninstallDialogVisible = ref(false)
-const grantForm = reactive({
-  capability: '',
-  expires_at: '',
-})
+const selectedCapabilities = ref<string[]>([])
+const resumeEnableAfterGrant = ref(false)
+
+const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
+const isBuiltinPlugin = computed(() => current.value?.role === 'builtin')
+const permissionCandidates = computed(() => currentPermissions.value.filter((permission) => permission.status === 'not_granted'))
+const missingRequiredPermissions = computed(() => currentPermissions.value.filter((permission) => permission.requirement === 'required' && permission.status === 'not_granted'))
+const grantRecordsByCapability = computed(() => new Map(currentGrants.value.map((grant) => [grant.capability, grant])))
+const permissionDialogTitle = computed(() => (
+  resumeEnableAfterGrant.value
+    ? t('plugins.permissionDialogPendingTitle')
+    : t('plugins.permissionDialogTitle')
+))
 
 async function loadDetail() {
   loadError.value = null
@@ -50,6 +66,7 @@ async function loadDetail() {
       pluginsStore.fetchDetail(pluginId.value),
       pluginsStore.fetchGrants(pluginId.value),
       pluginsStore.fetchOutboundConsoleHistory(pluginId.value).catch(() => []),
+      configStore.fetchConfig().catch(() => undefined),
     ])
     socketStore.setConsolePlugin(pluginId.value)
   } catch (error) {
@@ -63,21 +80,44 @@ async function runAction(action: 'enable' | 'disable' | 'reload') {
     await pluginsStore.executeAction(pluginId.value, action)
     ElMessage.success(t('plugins.actionAccepted'))
   } catch (error) {
+    if (action === 'enable' && error instanceof ApiError && error.code === 'plugin.permission_pending') {
+      openPermissionDialog(extractMissingCapabilities(error), true)
+      return
+    }
     operationError.value = getDisplayErrorMessage(error)
   }
 }
 
-async function submitGrant() {
+function extractMissingCapabilities(error: ApiError) {
+  const raw = error.details?.missing_capabilities
+  return Array.isArray(raw)
+    ? raw.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+}
+
+function openPermissionDialog(prefill: string[] = [], resumeEnable = false) {
+  const available = new Set(permissionCandidates.value.map((permission) => permission.capability))
+  const recommended = (prefill.length > 0 ? prefill : Array.from(available))
+    .filter((capability) => available.has(capability))
+  selectedCapabilities.value = recommended
+  resumeEnableAfterGrant.value = resumeEnable
+  permissionDialogVisible.value = true
+}
+
+async function submitPermissionDialog() {
   operationError.value = null
   try {
-    await pluginsStore.grantCapability(pluginId.value, {
-      capability: grantForm.capability,
-      expires_at: grantForm.expires_at || undefined,
-    })
-    grantDialogVisible.value = false
-    grantForm.capability = ''
-    grantForm.expires_at = ''
+    for (const capability of selectedCapabilities.value) {
+      await pluginsStore.grantCapability(pluginId.value, { capability })
+    }
+    permissionDialogVisible.value = false
+    const shouldResumeEnable = resumeEnableAfterGrant.value
+    selectedCapabilities.value = []
+    resumeEnableAfterGrant.value = false
     ElMessage.success(t('plugins.grantSaved'))
+    if (shouldResumeEnable) {
+      await runAction('enable')
+    }
   } catch (error) {
     operationError.value = getDisplayErrorMessage(error)
   }
@@ -113,12 +153,35 @@ function getConsoleFrameKey(frame: ConsoleFrame, index: number) {
   if (frame.stream === 'outbound') {
     return frame.log_id
   }
-
   return `${frame.plugin_id}-${frame.stream}-${frame.timestamp}-${index}`
 }
 
 function getConsoleLevel(frame: ConsoleFrame) {
   return frame.stream === 'outbound' ? frame.level : ''
+}
+
+function getPermissionRequirementLabel(requirement: PluginPermissionSummary['requirement']) {
+  return t(`plugins.permissionRequirement.${requirement}`)
+}
+
+function getPermissionStatusLabel(status: PluginPermissionSummary['status']) {
+  return t(`plugins.permissionStatus.${status}`)
+}
+
+function getPermissionSourceLabel(source: PluginPermissionSummary['source']) {
+  return t(`plugins.permissionSource.${source}`)
+}
+
+function canGrantPermission(permission: PluginPermissionSummary) {
+  return !isBuiltinPlugin.value && permission.status === 'not_granted' && permission.source === 'none'
+}
+
+function canRevokePermission(permission: PluginPermissionSummary) {
+  return !isBuiltinPlugin.value && permission.status === 'granted' && permission.source === 'persisted'
+}
+
+function getGrantedAt(capability: string) {
+  return grantRecordsByCapability.value.get(capability)?.granted_at ?? undefined
 }
 
 watch(
@@ -229,26 +292,77 @@ async function scrollConsoleToBottom() {
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>{{ t('plugins.sections.grants') }}</span>
+            <span>{{ t('plugins.sections.permissions') }}</span>
             <div class="table-actions">
-              <el-tag size="small">{{ currentGrants.length }}</el-tag>
-              <el-button size="small" type="primary" @click="grantDialogVisible = true">{{ t('plugins.actions.addGrant') }}</el-button>
+              <el-tag size="small">{{ currentPermissions.length }}</el-tag>
+              <el-button
+                v-if="!isBuiltinPlugin && permissionCandidates.length > 0"
+                size="small"
+                type="primary"
+                @click="openPermissionDialog()"
+              >
+                {{ t('plugins.actions.reviewPermissions') }}
+              </el-button>
             </div>
           </div>
         </template>
 
-        <el-skeleton :loading="grantBusy" animated>
-          <el-empty v-if="currentGrants.length === 0" :description="t('plugins.empty.grants')" />
+        <el-alert
+          v-if="isBuiltinPlugin"
+          :title="t('plugins.builtinAutoGrantTitle')"
+          type="success"
+          :description="t('plugins.builtinAutoGrantBody')"
+          show-icon
+          class="section-gap"
+        />
 
-          <div v-else class="grant-list">
-            <div v-for="grant in currentGrants" :key="`${grant.capability}-${grant.granted_at}`" class="grant-item">
-              <div>
-                <strong>{{ grant.capability }}</strong>
-                <small>{{ t('plugins.fields.grantedAt') }}：{{ formatDateTime(grant.granted_at) }}</small>
-                <small>{{ t('plugins.fields.expiresAt') }}：{{ formatDateTime(grant.expires_at ?? undefined) }}</small>
+        <el-alert
+          v-else-if="missingRequiredPermissions.length > 0"
+          :title="t('plugins.permissionPendingTitle')"
+          type="warning"
+          :description="t('plugins.permissionPendingBody', { count: missingRequiredPermissions.length })"
+          show-icon
+          class="section-gap"
+        />
+
+        <el-skeleton :loading="grantBusy" animated>
+          <el-empty v-if="currentPermissions.length === 0" :description="t('plugins.empty.permissions')" />
+
+          <div v-else class="permission-list">
+            <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
+              <div class="permission-item__main">
+                <div class="permission-item__title">
+                  <strong>{{ permission.capability }}</strong>
+                  <div class="table-actions">
+                    <el-tag size="small" type="info">{{ getPermissionRequirementLabel(permission.requirement) }}</el-tag>
+                    <el-tag size="small" :type="permission.status === 'granted' ? 'success' : 'warning'">{{ getPermissionStatusLabel(permission.status) }}</el-tag>
+                    <el-tag size="small" effect="plain">{{ getPermissionSourceLabel(permission.source) }}</el-tag>
+                  </div>
+                </div>
+                <small>{{ t('plugins.fields.grantedAt') }}：{{ formatDateTime(getGrantedAt(permission.capability)) }}</small>
+                <small>{{ t('plugins.fields.expiresAt') }}：{{ formatDateTime(permission.expires_at ?? undefined) }}</small>
               </div>
-              <el-button size="small" type="danger" plain @click="revokeGrant(grant.capability)">{{ t('plugins.actions.revokeGrant') }}</el-button>
-            </div>
+
+              <div class="table-actions">
+                <el-button
+                  v-if="canGrantPermission(permission)"
+                  size="small"
+                  type="primary"
+                  @click="openPermissionDialog([permission.capability])"
+                >
+                  {{ t('plugins.actions.grantPermission') }}
+                </el-button>
+                <el-button
+                  v-if="canRevokePermission(permission)"
+                  size="small"
+                  type="danger"
+                  plain
+                  @click="revokeGrant(permission.capability)"
+                >
+                  {{ t('plugins.actions.revokeGrant') }}
+                </el-button>
+              </div>
+            </article>
           </div>
         </el-skeleton>
       </el-card>
@@ -265,6 +379,7 @@ async function scrollConsoleToBottom() {
       <PluginCommandsPanel
         :commands="current?.commands ?? []"
         :command-conflicts="current?.command_conflicts ?? []"
+        :command-prefix="commandPrefix"
       />
     </el-card>
 
@@ -307,21 +422,48 @@ async function scrollConsoleToBottom() {
     </el-card>
   </div>
 
-  <el-dialog v-model="grantDialogVisible" :title="t('plugins.grantDialogTitle')" width="440px">
-    <el-form label-position="top">
-      <el-form-item :label="t('plugins.fields.capability')">
-        <el-input v-model="grantForm.capability" placeholder="http.request" />
-      </el-form-item>
-      <el-form-item :label="t('plugins.grantExpiry')">
-        <el-input v-model="grantForm.expires_at" placeholder="2026-03-23T10:05:00Z" />
-      </el-form-item>
-    </el-form>
+  <el-dialog v-model="permissionDialogVisible" :title="permissionDialogTitle" width="480px">
+    <el-alert
+      v-if="resumeEnableAfterGrant"
+      :title="t('plugins.permissionPendingTitle')"
+      type="warning"
+      :description="t('plugins.permissionDialogPendingBody')"
+      show-icon
+      class="section-gap"
+    />
+
+    <el-empty
+      v-if="permissionCandidates.length === 0"
+      :description="t('plugins.empty.permissions')"
+    />
+
+    <el-checkbox-group v-else v-model="selectedCapabilities" class="permission-dialog-list">
+      <el-checkbox
+        v-for="permission in permissionCandidates"
+        :key="permission.capability"
+        :label="permission.capability"
+        :value="permission.capability"
+      >
+        <div class="permission-dialog-item">
+          <strong>{{ permission.capability }}</strong>
+          <small>
+            {{ getPermissionRequirementLabel(permission.requirement) }} ·
+            {{ getPermissionStatusLabel(permission.status) }}
+          </small>
+        </div>
+      </el-checkbox>
+    </el-checkbox-group>
 
     <template #footer>
       <div class="table-actions">
-        <el-button @click="grantDialogVisible = false">{{ t('dashboard.previewCancel') }}</el-button>
-        <el-button type="primary" :loading="grantBusy" :disabled="!grantForm.capability" @click="submitGrant">
-          {{ t('plugins.actions.saveGrant') }}
+        <el-button @click="permissionDialogVisible = false">{{ t('dashboard.previewCancel') }}</el-button>
+        <el-button
+          type="primary"
+          :loading="grantBusy"
+          :disabled="selectedCapabilities.length === 0"
+          @click="submitPermissionDialog"
+        >
+          {{ t('plugins.actions.grantSelected') }}
         </el-button>
       </div>
     </template>
@@ -342,6 +484,52 @@ async function scrollConsoleToBottom() {
 </template>
 
 <style scoped lang="scss">
+.permission-list {
+  display: grid;
+  gap: 12px;
+}
+
+.permission-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(247, 250, 246, 0.88);
+  border: 1px solid rgba(22, 33, 39, 0.08);
+  flex-wrap: wrap;
+}
+
+.permission-item__main {
+  display: grid;
+  gap: 8px;
+}
+
+.permission-item__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.permission-item small {
+  color: var(--muted);
+}
+
+.permission-dialog-list {
+  display: grid;
+  gap: 12px;
+}
+
+.permission-dialog-item {
+  display: grid;
+  gap: 4px;
+}
+
+.permission-dialog-item small {
+  color: var(--muted);
+}
+
 .console-terminal {
   min-height: 320px;
   max-height: 560px;

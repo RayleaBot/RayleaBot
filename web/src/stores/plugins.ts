@@ -6,6 +6,7 @@ import { apiRequest } from '@/lib/http'
 import type {
   LogListResponse,
   LogSummary,
+  PluginDetail,
   PluginDetailResponse,
   PluginGrantListResponse,
   PluginGrantRequest,
@@ -39,7 +40,7 @@ export type ConsoleFrame = ProcessConsoleFrame | OutboundConsoleFrame
 
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
-  const current = ref<PluginSummary | null>(null)
+  const current = ref<PluginDetail | null>(null)
   const grants = ref<Record<string, PluginGrantSummary[]>>({})
   const processConsoleFrames = ref<Record<string, ProcessConsoleFrame[]>>({})
   const outboundConsoleFrames = ref<Record<string, OutboundConsoleFrame[]>>({})
@@ -102,7 +103,10 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
 
     if (current.value?.id === plugin.id) {
-      current.value = nextPlugin
+      current.value = {
+        ...current.value,
+        ...nextPlugin,
+      }
     }
   }
 
@@ -126,6 +130,9 @@ export const usePluginsStore = defineStore('plugins', () => {
       const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}/${action}`, {
         method: 'POST',
       })
+      if (current.value?.id === pluginId) {
+        current.value = response.plugin
+      }
       upsert(response.plugin)
       return response.plugin
     } finally {
@@ -177,11 +184,7 @@ export const usePluginsStore = defineStore('plugins', () => {
         method: 'POST',
         body: payload,
       })
-      const nextItems = [...(grants.value[pluginId] ?? []).filter((item) => item.capability !== response.capability), response]
-      grants.value = {
-        ...grants.value,
-        [pluginId]: nextItems.sort((left, right) => left.capability.localeCompare(right.capability)),
-      }
+      await syncPermissionState(pluginId)
       return response
     } finally {
       setGrantsLoading(pluginId, false)
@@ -194,10 +197,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       await apiRequest<void>(`/api/plugins/${pluginId}/grants/${encodeURIComponent(capability)}`, {
         method: 'DELETE',
       })
-      grants.value = {
-        ...grants.value,
-        [pluginId]: (grants.value[pluginId] ?? []).filter((item) => item.capability !== capability),
-      }
+      await syncPermissionState(pluginId)
     } finally {
       setGrantsLoading(pluginId, false)
     }
@@ -286,6 +286,13 @@ export const usePluginsStore = defineStore('plugins', () => {
     outboundConsoleFrames.value = {
       ...outboundConsoleFrames.value,
       [normalizedPluginId]: [],
+    }
+  }
+
+  async function syncPermissionState(pluginId: string) {
+    await fetchGrants(pluginId)
+    if (current.value?.id === pluginId) {
+      await fetchDetail(pluginId)
     }
   }
 

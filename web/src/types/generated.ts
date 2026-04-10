@@ -914,8 +914,27 @@ export interface components {
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
         };
+        /** @enum {string} */
+        PluginPermissionRequirement: "required" | "optional";
+        /** @enum {string} */
+        PluginPermissionStatus: "granted" | "not_granted";
+        /** @enum {string} */
+        PluginGrantSource: "builtin_auto" | "config_auto" | "persisted";
+        /** @enum {string} */
+        PluginPermissionSource: "builtin_auto" | "config_auto" | "persisted" | "none";
+        PluginPermissionSummary: {
+            capability: string;
+            requirement: components["schemas"]["PluginPermissionRequirement"];
+            status: components["schemas"]["PluginPermissionStatus"];
+            source: components["schemas"]["PluginPermissionSource"];
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        PluginDetail: components["schemas"]["PluginSummary"] & {
+            permissions: components["schemas"]["PluginPermissionSummary"][];
+        };
         PluginDetailResponse: {
-            plugin: components["schemas"]["PluginSummary"];
+            plugin: components["schemas"]["PluginDetail"];
         };
         PluginGrantRequest: {
             capability: string;
@@ -929,7 +948,8 @@ export interface components {
             plugin_id: string;
             capability: string;
             /** Format: date-time */
-            granted_at: string;
+            granted_at?: string | null;
+            source: components["schemas"]["PluginGrantSource"];
             /** Format: date-time */
             expires_at?: string | null;
         };
@@ -1071,7 +1091,10 @@ export interface components {
                 ipc_action_burst_limit: components["schemas"]["rateLimit"];
                 /** @default 262144 */
                 stderr_rate_limit_bytes_per_second: number;
-                /** @default 4 */
+                /**
+                 * @description Upper bound for one plugin's concurrent event sessions. The runtime applies min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin) with a floor of 1.
+                 * @default 4
+                 */
                 max_concurrent_tasks_per_plugin: number;
                 /** @default 2 */
                 crash_backoff_initial_seconds: number;

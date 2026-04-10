@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatCommandUsage } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { isPluginCommandConflicted } from '@/lib/plugin-commands'
 import type { PluginCommandSummary } from '@/types/api'
@@ -6,8 +7,10 @@ import type { PluginCommandSummary } from '@/types/api'
 const props = withDefaults(defineProps<{
   commands: PluginCommandSummary[]
   commandConflicts?: string[]
+  commandPrefix?: string
 }>(), {
   commandConflicts: () => [],
+  commandPrefix: '/',
 })
 
 function getText(value?: string) {
@@ -20,6 +23,10 @@ function getAliasesText(command: PluginCommandSummary) {
 
 function getPermissionText(command: PluginCommandSummary) {
   return command.permission?.trim() || t('plugins.commandPermissionDefault')
+}
+
+function getUsageText(command: PluginCommandSummary) {
+  return formatCommandUsage(command, props.commandPrefix) || t('display.empty')
 }
 
 function isConflicted(command: PluginCommandSummary) {
@@ -59,7 +66,7 @@ function isConflicted(command: PluginCommandSummary) {
         </div>
         <div>
           <dt>{{ t('plugins.commandUsage') }}</dt>
-          <dd>{{ getText(command.usage) }}</dd>
+          <dd>{{ getUsageText(command) }}</dd>
         </div>
       </dl>
     </article>

@@ -52,6 +52,15 @@ describe('PluginDetailPage', () => {
         },
       ],
       command_conflicts: ['weather'],
+      permissions: [
+        {
+          capability: 'http.request',
+          requirement: 'required',
+          status: 'granted',
+          source: 'persisted',
+          expires_at: null,
+        },
+      ],
     }
     pluginsStore.grants = {
       weather: [
@@ -59,6 +68,8 @@ describe('PluginDetailPage', () => {
           plugin_id: 'weather',
           capability: 'http.request',
           granted_at: '2026-03-22T10:00:00Z',
+          source: 'persisted',
+          expires_at: null,
         },
       ],
     }
@@ -98,9 +109,10 @@ describe('PluginDetailPage', () => {
 
     expect(wrapper.text()).toContain('当前状态')
     expect(wrapper.text()).toContain('已注册指令')
-    expect(wrapper.text()).toContain('当前授权')
+    expect(wrapper.text()).toContain('权限与授权')
     expect(wrapper.text()).toContain('实时控制台')
     expect(wrapper.text()).toContain('http.request')
+    expect(wrapper.text()).toContain('手动授权')
     expect(wrapper.text()).toContain('查询天气')
     expect(wrapper.text()).toContain('member')
     expect(wrapper.text()).toContain('Traceback (most recent call last): ...')
