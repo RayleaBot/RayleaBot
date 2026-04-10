@@ -7,18 +7,15 @@ import (
 	"time"
 )
 
-func TestBuiltinHelpPluginRepliesWithStructuredMessage(t *testing.T) {
+func TestBuiltinHelpPluginRendersRootMenuFromPluginList(t *testing.T) {
 	t.Parallel()
 
 	session := startBuiltinPythonPlugin(t, "raylea.help", filepath.Join(repoRootPath(t), "plugins", "builtin", "help", "main.py"))
 	defer session.close(t)
 
 	initAck := session.readFrame(t)
-	if initAck["type"] != "init_ack" {
-		t.Fatalf("unexpected init frame type: %#v", initAck)
-	}
-	if initAck["status"] != "ready" {
-		t.Fatalf("unexpected init status: %#v", initAck)
+	if initAck["type"] != "init_ack" || initAck["status"] != "ready" {
+		t.Fatalf("unexpected init ack: %#v", initAck)
 	}
 
 	session.writeFrame(t, map[string]any{
@@ -44,44 +41,238 @@ func TestBuiltinHelpPluginRepliesWithStructuredMessage(t *testing.T) {
 		},
 	})
 
-	action := session.readFrame(t)
-	if action["type"] != "action" {
-		t.Fatalf("unexpected action frame: %#v", action)
+	pluginList := session.readFrame(t)
+	if pluginList["type"] != "action" || pluginList["action"] != "plugin.list" {
+		t.Fatalf("unexpected plugin.list action: %#v", pluginList)
 	}
-	if action["action"] != "message.send" {
-		t.Fatalf("unexpected action kind: %#v", action)
+	if pluginList["parent_request_id"] != "event-1" {
+		t.Fatalf("unexpected parent_request_id: %#v", pluginList["parent_request_id"])
 	}
+	session.writeFrame(t, map[string]any{
+		"protocol_version": "1",
+		"type":             "result",
+		"timestamp":        time.Now().Unix(),
+		"plugin_id":        "raylea.help",
+		"request_id":       pluginList["request_id"],
+		"status":           "success",
+		"data": map[string]any{
+			"items": []map[string]any{
+				{
+					"id":                 "raylea.echo",
+					"name":               "Echo",
+					"description":        "Built-in test echo command",
+					"role":               "builtin",
+					"registration_state": "installed",
+					"desired_state":      "enabled",
+					"runtime_state":      "running",
+					"display_state":      "running",
+					"commands": []map[string]any{
+						{
+							"name":        "echo",
+							"description": "复读收到的内容",
+							"usage":       "/echo <内容>",
+							"permission":  "everyone",
+						},
+					},
+					"command_conflicts": []string{},
+				},
+			},
+		},
+	})
 
-	data, ok := action["data"].(map[string]any)
+	renderAction := session.readFrame(t)
+	if renderAction["type"] != "action" || renderAction["action"] != "render.image" {
+		t.Fatalf("unexpected render.image action: %#v", renderAction)
+	}
+	renderData, ok := renderAction["data"].(map[string]any)
 	if !ok {
-		t.Fatalf("unexpected action data: %#v", action["data"])
+		t.Fatalf("unexpected render action data: %#v", renderAction["data"])
 	}
-	if data["target_type"] != "group" || data["target_id"] != "2001" {
-		t.Fatalf("unexpected action target: %#v", data)
+	if renderData["template"] != "help.menu" {
+		t.Fatalf("unexpected render template: %#v", renderData["template"])
 	}
+	payload, ok := renderData["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected render payload: %#v", renderData["data"])
+	}
+	items, ok := payload["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("unexpected render items: %#v", payload["items"])
+	}
+	firstItem, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected render item: %#v", items[0])
+	}
+	if firstItem["usage"] != "/help echo" {
+		t.Fatalf("unexpected root help usage: %#v", firstItem["usage"])
+	}
+	session.writeFrame(t, map[string]any{
+		"protocol_version": "1",
+		"type":             "result",
+		"timestamp":        time.Now().Unix(),
+		"plugin_id":        "raylea.help",
+		"request_id":       renderAction["request_id"],
+		"status":           "success",
+		"data": map[string]any{
+			"image_path": "file://cache/help-menu.png",
+		},
+	})
 
+	messageAction := session.readFrame(t)
+	if messageAction["type"] != "action" || messageAction["action"] != "message.send" {
+		t.Fatalf("unexpected outbound action: %#v", messageAction)
+	}
+	data, ok := messageAction["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected outbound data: %#v", messageAction["data"])
+	}
 	message, ok := data["message"].(map[string]any)
 	if !ok {
-		t.Fatalf("unexpected action message: %#v", data["message"])
+		t.Fatalf("unexpected outbound message: %#v", data["message"])
 	}
 	segments, ok := message["segments"].([]any)
 	if !ok || len(segments) != 1 {
-		t.Fatalf("unexpected message segments: %#v", message["segments"])
+		t.Fatalf("unexpected outbound segments: %#v", message["segments"])
 	}
 	segment, ok := segments[0].(map[string]any)
 	if !ok {
-		t.Fatalf("unexpected segment: %#v", segments[0])
+		t.Fatalf("unexpected outbound segment: %#v", segments[0])
 	}
-	if segment["type"] != "text" {
-		t.Fatalf("unexpected segment type: %#v", segment)
+	segmentData, ok := segment["data"].(map[string]any)
+	if !ok || segment["type"] != "image" || segmentData["file"] != "file://cache/help-menu.png" {
+		t.Fatalf("unexpected image segment: %#v", segment)
+	}
+}
+
+func TestBuiltinHelpPluginFallsBackToTextForPluginDetail(t *testing.T) {
+	t.Parallel()
+
+	session := startBuiltinPythonPluginWithPrefixes(t, "raylea.help", filepath.Join(repoRootPath(t), "plugins", "builtin", "help", "main.py"), []string{"!"})
+	defer session.close(t)
+
+	initAck := session.readFrame(t)
+	if initAck["type"] != "init_ack" || initAck["status"] != "ready" {
+		t.Fatalf("unexpected init ack: %#v", initAck)
+	}
+
+	session.writeFrame(t, map[string]any{
+		"protocol_version": "1",
+		"type":             "event",
+		"timestamp":        time.Now().Unix(),
+		"plugin_id":        "raylea.help",
+		"request_id":       "event-2",
+		"event": map[string]any{
+			"event_id":        "event-2",
+			"source_protocol": "onebot11",
+			"source_adapter":  "test",
+			"event_type":      "message.group",
+			"timestamp":       time.Now().Unix(),
+			"target": map[string]any{
+				"type": "group",
+				"id":   "2002",
+			},
+			"payload": map[string]any{
+				"command": "help",
+				"args":    []string{"echo"},
+			},
+		},
+	})
+
+	pluginList := session.readFrame(t)
+	if pluginList["type"] != "action" || pluginList["action"] != "plugin.list" {
+		t.Fatalf("unexpected plugin.list action: %#v", pluginList)
+	}
+	session.writeFrame(t, map[string]any{
+		"protocol_version": "1",
+		"type":             "result",
+		"timestamp":        time.Now().Unix(),
+		"plugin_id":        "raylea.help",
+		"request_id":       pluginList["request_id"],
+		"status":           "success",
+		"data": map[string]any{
+			"items": []map[string]any{
+				{
+					"id":                 "raylea.echo",
+					"name":               "Echo",
+					"description":        "Built-in test echo command",
+					"role":               "builtin",
+					"registration_state": "installed",
+					"desired_state":      "enabled",
+					"runtime_state":      "running",
+					"display_state":      "running",
+					"commands": []map[string]any{
+						{
+							"name":        "echo",
+							"description": "复读收到的内容",
+							"usage":       "/echo <内容>",
+							"permission":  "everyone",
+						},
+					},
+					"command_conflicts": []string{},
+				},
+			},
+		},
+	})
+
+	renderAction := session.readFrame(t)
+	if renderAction["type"] != "action" || renderAction["action"] != "render.image" {
+		t.Fatalf("unexpected render.image action: %#v", renderAction)
+	}
+	renderData, ok := renderAction["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected render action data: %#v", renderAction["data"])
+	}
+	payload, ok := renderData["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected detail render payload: %#v", renderData["data"])
+	}
+	items, ok := payload["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("unexpected detail render items: %#v", payload["items"])
+	}
+	firstItem, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected detail render item: %#v", items[0])
+	}
+	if firstItem["usage"] != "!echo <内容>" {
+		t.Fatalf("unexpected normalized command usage: %#v", firstItem["usage"])
+	}
+	session.writeFrame(t, map[string]any{
+		"protocol_version": "1",
+		"type":             "error",
+		"timestamp":        time.Now().Unix(),
+		"plugin_id":        "raylea.help",
+		"request_id":       renderAction["request_id"],
+		"code":             "plugin.internal_error",
+		"message":          "render failed",
+	})
+
+	messageAction := session.readFrame(t)
+	if messageAction["type"] != "action" || messageAction["action"] != "message.send" {
+		t.Fatalf("unexpected outbound action: %#v", messageAction)
+	}
+	data, ok := messageAction["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected outbound data: %#v", messageAction["data"])
+	}
+	message, ok := data["message"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected outbound message: %#v", data["message"])
+	}
+	segments, ok := message["segments"].([]any)
+	if !ok || len(segments) != 1 {
+		t.Fatalf("unexpected outbound segments: %#v", message["segments"])
+	}
+	segment, ok := segments[0].(map[string]any)
+	if !ok || segment["type"] != "text" {
+		t.Fatalf("unexpected outbound text segment: %#v", segments[0])
 	}
 	segmentData, ok := segment["data"].(map[string]any)
 	if !ok {
-		t.Fatalf("unexpected segment data: %#v", segment["data"])
+		t.Fatalf("unexpected text segment data: %#v", segment["data"])
 	}
-
 	text, _ := segmentData["text"].(string)
-	if !strings.Contains(text, "/help - 显示所有可用命令") {
-		t.Fatalf("unexpected help text: %#v", segmentData["text"])
+	if !strings.Contains(text, "Echo") || !strings.Contains(text, "!echo <内容>") {
+		t.Fatalf("unexpected help detail text: %q", text)
 	}
 }

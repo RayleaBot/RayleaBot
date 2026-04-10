@@ -8,14 +8,25 @@
   "runtime": "python",
   "entry": "main.py",
   "license": "MIT",
-  "description": "Built-in help command that lists registered commands",
+  "description": "Built-in help command that lists loaded plugins and commands",
   "author": "raylea",
+  "capabilities": [
+    "plugin.list",
+    "render.image"
+  ],
+  "permissions": {
+    "required": [
+      "plugin.list",
+      "render.image"
+    ],
+    "optional": []
+  },
   "commands": [
     {
       "name": "help",
       "aliases": ["commands"],
-      "description": "显示所有可用命令",
-      "usage": "/help [命令名]",
+      "description": "显示插件菜单或插件指令说明",
+      "usage": "/help [插件名或命令名]",
       "permission": "everyone"
     }
   ]

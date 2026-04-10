@@ -123,6 +123,10 @@ func startBuiltinEchoPlugin(t *testing.T) *builtinPythonPluginSession {
 }
 
 func startBuiltinPythonPlugin(t *testing.T, pluginID string, scriptPath string) *builtinPythonPluginSession {
+	return startBuiltinPythonPluginWithPrefixes(t, pluginID, scriptPath, []string{"/"})
+}
+
+func startBuiltinPythonPluginWithPrefixes(t *testing.T, pluginID string, scriptPath string, commandPrefixes []string) *builtinPythonPluginSession {
 	t.Helper()
 
 	command, args := builtinPythonCommand(t)
@@ -179,7 +183,8 @@ func startBuiltinPythonPlugin(t *testing.T, pluginID string, scriptPath string) 
 			"id":       "bot-1",
 			"nickname": "RayleaBot",
 		},
-		"capabilities": []string{"event.subscribe"},
+		"capabilities":     []string{"event.subscribe"},
+		"command_prefixes": commandPrefixes,
 	})
 
 	return session
