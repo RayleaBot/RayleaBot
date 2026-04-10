@@ -124,7 +124,7 @@
     },
     "capabilities": {
       "type": "array",
-      "description": "Platform capabilities the plugin intends to use.",
+      "description": "Platform capabilities the plugin intends to use. The current formal capability set includes message.send, message.reply, logger.write, storage.kv, storage.file, http.request, config.read, config.write, scheduler.create, event.expose_webhook, render.image, and plugin.list.",
       "items": {
         "$ref": "#/$defs/capability_name"
       },
@@ -332,5 +332,5 @@
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
     "fixtures/plugin-info/invalid.concurrency-zero.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, default plugin config seeding, migration boundaries, and opt-in event concurrency. Icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support remain outside this frozen surface."
+  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, default plugin config seeding, migration boundaries, and opt-in event concurrency. The current formal capability set includes message.send, message.reply, logger.write, storage.kv, storage.file, http.request, config.read, config.write, scheduler.create, event.expose_webhook, render.image, and plugin.list. Icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support remain outside this frozen surface."
 }

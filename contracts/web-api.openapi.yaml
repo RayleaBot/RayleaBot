@@ -1733,13 +1733,60 @@ components:
           items:
             $ref: '#/components/schemas/PluginSummary'
 
+    PluginPermissionRequirement:
+      type: string
+      enum: [required, optional]
+
+    PluginPermissionStatus:
+      type: string
+      enum: [granted, not_granted]
+
+    PluginGrantSource:
+      type: string
+      enum: [builtin_auto, config_auto, persisted]
+
+    PluginPermissionSource:
+      type: string
+      enum: [builtin_auto, config_auto, persisted, none]
+
+    PluginPermissionSummary:
+      type: object
+      additionalProperties: false
+      required: [capability, requirement, status, source]
+      properties:
+        capability:
+          type: string
+          pattern: '^[a-z]+\.[a-z_]+$'
+        requirement:
+          $ref: '#/components/schemas/PluginPermissionRequirement'
+        status:
+          $ref: '#/components/schemas/PluginPermissionStatus'
+        source:
+          $ref: '#/components/schemas/PluginPermissionSource'
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PluginDetail:
+      allOf:
+        - $ref: '#/components/schemas/PluginSummary'
+        - type: object
+          additionalProperties: false
+          required: [permissions]
+          properties:
+            permissions:
+              type: array
+              items:
+                $ref: '#/components/schemas/PluginPermissionSummary'
+
     PluginDetailResponse:
       type: object
       additionalProperties: false
       required: [plugin]
       properties:
         plugin:
-          $ref: '#/components/schemas/PluginSummary'
+          $ref: '#/components/schemas/PluginDetail'
 
     PluginGrantRequest:
       type: object
@@ -1757,7 +1804,7 @@ components:
     PluginGrantSummary:
       type: object
       additionalProperties: false
-      required: [plugin_id, capability, granted_at]
+      required: [plugin_id, capability, source]
       properties:
         plugin_id:
           type: string
@@ -1767,6 +1814,9 @@ components:
         granted_at:
           type: string
           format: date-time
+          nullable: true
+        source:
+          $ref: '#/components/schemas/PluginGrantSource'
         expires_at:
           type: string
           format: date-time

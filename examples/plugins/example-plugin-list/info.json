@@ -1,0 +1,32 @@
+{
+  "id": "example-plugin-list",
+  "name": "Example Plugin List",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Python example plugin demonstrating plugin.list.",
+  "author": "raylea",
+  "role": "example",
+  "capabilities": [
+    "event.subscribe",
+    "plugin.list",
+    "message.send"
+  ],
+  "permissions": {
+    "required": [
+      "plugin.list"
+    ],
+    "optional": []
+  },
+  "commands": [
+    {
+      "name": "plugins_demo",
+      "description": "List loaded plugin names through plugin.list.",
+      "usage": "/plugins_demo"
+    }
+  ]
+}

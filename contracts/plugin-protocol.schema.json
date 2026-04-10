@@ -76,7 +76,8 @@
           "type": "object",
           "required": [
             "type",
-            "bot"
+            "bot",
+            "command_prefixes"
           ],
           "properties": {
             "type": {
@@ -104,6 +105,15 @@
               "items": {
                 "type": "string",
                 "pattern": "^[a-z]+\\.[a-z_]+$"
+              },
+              "uniqueItems": true
+            },
+            "command_prefixes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
               },
               "uniqueItems": true
             }
@@ -893,6 +903,9 @@
         },
         {
           "$ref": "#/$defs/action_config_read"
+        },
+        {
+          "$ref": "#/$defs/action_plugin_list"
         },
         {
           "$ref": "#/$defs/action_config_write"
@@ -1840,6 +1853,11 @@
         }
       }
     },
+    "action_plugin_list_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0
+    },
     "action_config_read": {
       "allOf": [
         {
@@ -1866,6 +1884,38 @@
             },
             "data": {
               "$ref": "#/$defs/action_config_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_plugin_list": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "plugin.list"
+            },
+            "data": {
+              "$ref": "#/$defs/action_plugin_list_data"
             }
           }
         }
@@ -2012,7 +2062,8 @@
         "timestamp",
         "plugin_id",
         "request_id",
-        "bot"
+        "bot",
+        "command_prefixes"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.init-init-ack.yaml"
     },
@@ -2140,6 +2191,23 @@
         "data"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.action-config-read.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "plugin.list",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-plugin-list.yaml"
     },
     {
       "type": "action",
@@ -2361,6 +2429,7 @@
     "fixtures/plugin-protocol/ok.action-storage-kv-delete.yaml",
     "fixtures/plugin-protocol/ok.action-storage-kv-list.yaml",
     "fixtures/plugin-protocol/ok.action-config-read.yaml",
+    "fixtures/plugin-protocol/ok.action-plugin-list.yaml",
     "fixtures/plugin-protocol/ok.action-config-write.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-read.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-write-text.yaml",
@@ -2387,6 +2456,7 @@
     "fixtures/plugin-protocol/edge.action-storage-file-read-result.yaml",
     "fixtures/plugin-protocol/edge.action-http-request-result.yaml",
     "fixtures/plugin-protocol/edge.action-config-read-result.yaml",
+    "fixtures/plugin-protocol/edge.action-plugin-list-result.yaml",
     "fixtures/plugin-protocol/edge.action-config-write-result.yaml",
     "fixtures/plugin-protocol/edge.action-scheduler-create-result.yaml",
     "fixtures/plugin-protocol/edge.action-event-expose-webhook-result.yaml",
@@ -2419,5 +2489,5 @@
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. message.* uses the shared outbound segment model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* uses the shared outbound segment model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

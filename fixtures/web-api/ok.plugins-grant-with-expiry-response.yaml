@@ -13,6 +13,7 @@ response:
     plugin_id: weather
     capability: logger.write
     granted_at: "2026-03-22T10:05:00Z"
+    source: persisted
     expires_at: "2026-03-23T10:05:00Z"
 expect:
   valid: true

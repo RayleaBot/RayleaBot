@@ -33,5 +33,21 @@ response:
           permission: member
       command_conflicts:
         - weather
+      permissions:
+        - capability: http.request
+          requirement: required
+          status: granted
+          source: persisted
+          expires_at: null
+        - capability: logger.write
+          requirement: optional
+          status: granted
+          source: config_auto
+          expires_at: null
+        - capability: render.image
+          requirement: optional
+          status: not_granted
+          source: none
+          expires_at: null
 expect:
   valid: true

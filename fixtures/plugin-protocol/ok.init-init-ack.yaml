@@ -12,6 +12,9 @@ frames:
     capabilities:
       - message.send
       - event.subscribe
+    command_prefixes:
+      - /
+      - "!"
   - protocol_version: "1"
     type: init_ack
     timestamp: 1710000001
