@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { formatDateTime } from '@/lib/format'
 import ProtocolLogsPage from '@/pages/ProtocolLogsPage.vue'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
 
@@ -240,6 +241,39 @@ describe('ProtocolLogsPage', () => {
     expect(HTMLElement.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({
       behavior: 'smooth',
     }))
+  })
+
+  it('formats scientific-notation timestamps in the protocol terminal stream', async () => {
+    const logsStore = useProtocolLogsStore()
+
+    logsStore.items = [
+      {
+        log_id: 'log_bridge_scientific_0001',
+        timestamp: '1.775762955e+09',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'bridge',
+        request_id: 'req_bridge_scientific_0001',
+        message: 'runtime bridge queued for dispatcher private message: 6',
+      },
+    ]
+    logsStore.selectedLogId = 'log_bridge_scientific_0001'
+
+    vi.spyOn(logsStore, 'fetchList').mockResolvedValue(logsStore.items)
+
+    const router = createTestRouter()
+    await router.push('/protocols/logs')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolLogsPage, {
+      global: {
+        plugins: [ElementPlus, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.meta-time').text()).toContain(formatDateTime('1.775762955e+09'))
   })
 
   it('keeps the protocol log layout visible when a live log carries invalid time fields', async () => {

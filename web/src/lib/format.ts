@@ -72,12 +72,67 @@ function toValidDate(value?: string | number | Date | null) {
     return null
   }
 
-  const date = value instanceof Date ? value : new Date(value)
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value
+  }
+
+  if (typeof value === 'number') {
+    return toDateFromTimestampNumber(value)
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return null
+    }
+
+    if (isNumericTimestampString(trimmed)) {
+      const timestamp = Number(trimmed)
+      const date = toDateFromTimestampNumber(timestamp)
+      if (date) {
+        return date
+      }
+    }
+
+    const date = new Date(trimmed)
+    return Number.isNaN(date.getTime()) ? null : date
+  }
+
+  const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
     return null
   }
 
   return date
+}
+
+function toDateFromTimestampNumber(value: number) {
+  if (!Number.isFinite(value)) {
+    return null
+  }
+
+  const normalized = normalizeUnixTimestamp(value)
+  if (normalized === null) {
+    return null
+  }
+
+  const date = new Date(normalized)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function normalizeUnixTimestamp(value: number) {
+  const absolute = Math.abs(value)
+  if (absolute >= 1_000_000_000 && absolute < 1_000_000_000_000) {
+    return value * 1000
+  }
+  if (absolute >= 1_000_000_000_000 && absolute <= 8_640_000_000_000_000) {
+    return value
+  }
+  return null
+}
+
+function isNumericTimestampString(value: string) {
+  return /^[+-]?(?:\d+\.?\d*|\d*\.?\d+)(?:e[+-]?\d+)?$/i.test(value)
 }
 
 function formatFallbackValue(value?: string | number | Date | null) {

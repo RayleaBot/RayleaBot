@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { formatDateTime } from '@/lib/format'
 import LogsPage from '@/pages/LogsPage.vue'
 import { useLogsStore } from '@/stores/logs'
 
@@ -40,5 +41,30 @@ describe('LogsPage', () => {
     expect(wrapper.find('.log-cell-source').exists()).toBe(true)
     expect(wrapper.find('.log-message-text').exists()).toBe(true)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
+  })
+
+  it('formats scientific-notation timestamps in the logs table', async () => {
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_warn_0002',
+        timestamp: '1.775762955e+09',
+        level: 'warn',
+        source: 'bridge',
+        message: 'runtime bridge queued for dispatcher private message: 6',
+      },
+    ]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(LogsPage, {
+      global: {
+        plugins: [ElementPlus],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.log-time-display').text()).toBe(formatDateTime('1.775762955e+09'))
   })
 })
