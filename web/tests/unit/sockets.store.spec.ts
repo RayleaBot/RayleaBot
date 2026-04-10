@@ -117,6 +117,19 @@ describe('socket store', () => {
     MockManagedSocket.instances[2].emitFrame({
       type: 'logs.appended',
       data: {
+        log_id: 'log_plugin_outbound_0001',
+        timestamp: '2026-04-05T08:00:01Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        plugin_id: 'weather',
+        request_id: 'req_runtime_delivery_0001',
+        message: 'plugin weather command echo delivered group message: hello',
+      },
+    })
+    MockManagedSocket.instances[2].emitFrame({
+      type: 'logs.appended',
+      data: {
         log_id: 'log_runtime_0001',
         timestamp: '2026-04-05T08:00:02Z',
         level: 'info',
@@ -128,8 +141,16 @@ describe('socket store', () => {
     expect(systemStore.recentEvents).toHaveLength(1)
     expect(pluginsStore.items[0].id).toBe('weather')
     expect(tasksStore.items[0].task_id).toBe('task_1')
-    expect(logsStore.items.map((item) => item.message)).toEqual(['runtime line', 'log line'])
-    expect(protocolLogsStore.items.map((item) => item.message)).toEqual(['log line'])
+    expect(logsStore.items.map((item) => item.message)).toEqual([
+      'runtime line',
+      'plugin weather command echo delivered group message: hello',
+      'log line',
+    ])
+    expect(protocolLogsStore.items.map((item) => item.message)).toEqual([
+      'log line',
+      'plugin weather command echo delivered group message: hello',
+    ])
+    expect(pluginsStore.getConsole('weather').filter((item) => item.stream === 'outbound')).toHaveLength(1)
     expect(protocolLogsStore.active).toBe(false)
   })
 

@@ -302,6 +302,6 @@ func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
 	}
 
 	if s.state != nil && s.state.Logger != nil && strings.TrimSpace(attempt.ActionKind) != "" {
-		outbound.LogSendOutcome(s.state.Logger, "", "", attempt, result, err)
+		outbound.LogSendOutcome(s.state.Logger, outbound.SendLogContext{}, attempt, result, err)
 	}
 }

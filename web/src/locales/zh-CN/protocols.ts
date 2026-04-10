@@ -84,6 +84,7 @@ export const protocols = {
     target_id: '目标 ID',
     action_kind: '请求动作',
     delivery_kind: '实际发送方式',
+    command_name: '触发指令',
     frame_type: '帧类型',
     error_code: '错误代码',
     reason: '原因',

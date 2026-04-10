@@ -101,6 +101,14 @@ func testEvent() runtime.Event {
 	}
 }
 
+func testEventWithCommand(commandName string) runtime.Event {
+	event := testEvent()
+	event.PayloadFields = map[string]any{
+		"command": commandName,
+	}
+	return event
+}
+
 func testEventWithTarget(targetID string) runtime.Event {
 	event := testEvent()
 	event.EventID = "test-evt-" + targetID
@@ -571,7 +579,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	}}
 	d.Register("action-plugin", rt, nil, nil, 1)
 
-	d.Dispatch(context.Background(), testEvent(), "")
+	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_0001"
@@ -585,7 +593,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	if summary.Protocol != logging.ProtocolOneBot11 {
 		t.Fatalf("unexpected protocol: got %q want %q", summary.Protocol, logging.ProtocolOneBot11)
 	}
-	if summary.Message != "platform delivered group message: hello dispatch" {
+	if summary.Message != "plugin action-plugin command echo delivered group message: hello dispatch" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
 	}
 	if summary.PluginID != "action-plugin" {
@@ -596,6 +604,9 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	}
 	if summary.Details["action_kind"] != "message.send" || summary.Details["delivery_kind"] != "message.send" {
 		t.Fatalf("unexpected delivery details: %#v", summary.Details)
+	}
+	if summary.Details["command_name"] != "echo" {
+		t.Fatalf("unexpected command_name detail: %#v", summary.Details["command_name"])
 	}
 	if summary.Details["target_type"] != "group" || summary.Details["target_id"] != "200" {
 		t.Fatalf("unexpected target details: %#v", summary.Details)
@@ -632,7 +643,7 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 	}}
 	d.Register("action-plugin", rt, nil, nil, 1)
 
-	d.Dispatch(context.Background(), testEvent(), "")
+	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_0002"
@@ -640,8 +651,11 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
 	}
-	if summary.Message != "platform failed to deliver group message: hello dispatch" {
+	if summary.Message != "plugin action-plugin command echo failed to deliver group message: hello dispatch" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
+	}
+	if summary.Details["command_name"] != "echo" {
+		t.Fatalf("unexpected command_name detail: %#v", summary.Details["command_name"])
 	}
 	if summary.Details["error_code"] != "adapter.send_failed" {
 		t.Fatalf("unexpected error_code detail: %#v", summary.Details["error_code"])
@@ -683,7 +697,7 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	}}
 	d.Register("action-plugin", rt, nil, nil, 1)
 
-	d.Dispatch(context.Background(), testEvent(), "")
+	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_0003"
@@ -697,10 +711,50 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	if summary.Details["delivery_kind"] != "message.send" {
 		t.Fatalf("unexpected delivery_kind detail: %#v", summary.Details["delivery_kind"])
 	}
+	if summary.Details["command_name"] != "echo" {
+		t.Fatalf("unexpected command_name detail: %#v", summary.Details["command_name"])
+	}
 	if summary.Details["target_type"] != "group" || summary.Details["target_id"] != "200" {
 		t.Fatalf("unexpected fallback target details: %#v", summary.Details)
 	}
 	if summary.Details["message_id"] != "send-200" {
 		t.Fatalf("unexpected fallback message_id detail: %#v", summary.Details["message_id"])
+	}
+}
+
+func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newDispatchTestLogger()
+	sender := &fakeSender{
+		sendResult: adapter.SendMessageResult{MessageID: "send-300"},
+	}
+	d := New(logger, sender, nil, 16)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{
+		RequestID: "req_runtime_delivery_0004",
+		Action: &runtime.Action{
+			Kind:       "message.send",
+			TargetType: "group",
+			TargetID:   "200",
+			MessageSegments: []runtime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "hello dispatch"},
+			}},
+		},
+	}}
+	d.Register("action-plugin", rt, nil, nil, 1)
+
+	d.Dispatch(context.Background(), testEvent(), "")
+
+	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
+		return summary.RequestID == "req_runtime_delivery_0004"
+	})
+	if summary.Message != "plugin action-plugin delivered group message: hello dispatch" {
+		t.Fatalf("unexpected log message: got %q", summary.Message)
+	}
+	if _, ok := summary.Details["command_name"]; ok {
+		t.Fatalf("unexpected command_name detail: %#v", summary.Details["command_name"])
 	}
 }

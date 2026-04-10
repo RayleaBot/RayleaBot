@@ -454,6 +454,7 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		return
 	}
 
+	commandName := commandNameForEvent(event)
 	attempt := outbound.SendAttempt{
 		ActionKind: action.Kind,
 		TargetType: action.TargetType,
@@ -461,7 +462,11 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		Segments:   toOutboundSegments(action.MessageSegments),
 	}
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
-	outbound.LogSendOutcome(d.logger, pluginID, requestID, attempt, result, err)
+	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
+		PluginID:    pluginID,
+		RequestID:   requestID,
+		CommandName: commandName,
+	}, attempt, result, err)
 }
 
 func toOutboundSegments(segments []runtime.ActionSegment) []adapter.OutboundMessageSegment {
@@ -493,6 +498,19 @@ func laneKeyForEvent(event runtime.Event, fallbackCounter *int) string {
 	}
 	*fallbackCounter = *fallbackCounter + 1
 	return fmt.Sprintf("fallback:%d", *fallbackCounter)
+}
+
+func commandNameForEvent(event runtime.Event) string {
+	if event.PayloadFields == nil {
+		return ""
+	}
+
+	commandName, ok := event.PayloadFields["command"].(string)
+	if !ok {
+		return ""
+	}
+
+	return strings.TrimSpace(commandName)
 }
 
 // Close deregisters all plugins and stops all workers.

@@ -15,7 +15,13 @@ type SendAttempt struct {
 	Segments   []adapter.OutboundMessageSegment
 }
 
-func LogSendOutcome(logger *slog.Logger, pluginID, requestID string, attempt SendAttempt, result SendResult, err error) {
+type SendLogContext struct {
+	PluginID    string
+	RequestID   string
+	CommandName string
+}
+
+func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAttempt, result SendResult, err error) {
 	if logger == nil {
 		return
 	}
@@ -40,6 +46,10 @@ func LogSendOutcome(logger *slog.Logger, pluginID, requestID string, attempt Sen
 		plainText = "[empty message]"
 	}
 
+	pluginID := strings.TrimSpace(context.PluginID)
+	requestID := strings.TrimSpace(context.RequestID)
+	commandName := strings.TrimSpace(context.CommandName)
+
 	fields := []any{
 		"component", "adapter.onebot11",
 		"direction", "outbound",
@@ -50,11 +60,14 @@ func LogSendOutcome(logger *slog.Logger, pluginID, requestID string, attempt Sen
 		"plain_text", plainText,
 		"segments", cloneOutboundSegments(attempt.Segments),
 	}
-	if pluginID = strings.TrimSpace(pluginID); pluginID != "" {
+	if pluginID != "" {
 		fields = append(fields, "plugin_id", pluginID)
 	}
-	if requestID = strings.TrimSpace(requestID); requestID != "" {
+	if requestID != "" {
 		fields = append(fields, "request_id", requestID)
+	}
+	if commandName != "" {
+		fields = append(fields, "command_name", commandName)
 	}
 
 	if err == nil {
@@ -62,7 +75,7 @@ func LogSendOutcome(logger *slog.Logger, pluginID, requestID string, attempt Sen
 			fields = append(fields, "message_id", messageID)
 		}
 		logger.Info(
-			sendSummary("platform delivered", targetType, plainText),
+			sendSummary(summaryPrefix(pluginID, commandName, false), targetType, plainText),
 			fields...,
 		)
 		return
@@ -74,9 +87,30 @@ func LogSendOutcome(logger *slog.Logger, pluginID, requestID string, attempt Sen
 	}
 	fields = append(fields, "reason", reason)
 	logger.Warn(
-		sendSummary("platform failed to deliver", targetType, plainText),
+		sendSummary(summaryPrefix(pluginID, commandName, true), targetType, plainText),
 		fields...,
 	)
+}
+
+func summaryPrefix(pluginID, commandName string, failed bool) string {
+	if pluginID == "" {
+		if failed {
+			return "platform failed to deliver"
+		}
+		return "platform delivered"
+	}
+
+	if commandName != "" {
+		if failed {
+			return "plugin " + pluginID + " command " + commandName + " failed to deliver"
+		}
+		return "plugin " + pluginID + " command " + commandName + " delivered"
+	}
+
+	if failed {
+		return "plugin " + pluginID + " failed to deliver"
+	}
+	return "plugin " + pluginID + " delivered"
 }
 
 func sendSummary(prefix, targetType, plainText string) string {

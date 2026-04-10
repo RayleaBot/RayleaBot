@@ -68,9 +68,20 @@ describe('PluginDetailPage', () => {
       text: 'Traceback (most recent call last): ...',
       timestamp: '2026-03-22T10:00:01Z',
     })
+    pluginsStore.appendOutboundLog({
+      log_id: 'log_weather_outbound_0001',
+      timestamp: '2026-03-22T10:00:02Z',
+      level: 'info',
+      protocol: 'onebot11',
+      source: 'adapter.onebot11',
+      plugin_id: 'weather',
+      request_id: 'req_runtime_delivery_0001',
+      message: 'plugin weather command weather delivered group message: 杭州晴',
+    })
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
     vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue(pluginsStore.grants.weather)
+    const historySpy = vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     const reconnectSpy = vi.spyOn(socketStore, 'reconnectConsole').mockImplementation(() => undefined)
 
@@ -93,6 +104,9 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('查询天气')
     expect(wrapper.text()).toContain('member')
     expect(wrapper.text()).toContain('Traceback (most recent call last): ...')
+    expect(wrapper.text()).toContain('plugin weather command weather delivered group message: 杭州晴')
+    expect(wrapper.text()).toContain('outbound')
+    expect(wrapper.text()).toContain('info')
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
@@ -105,6 +119,7 @@ describe('PluginDetailPage', () => {
     expect(reconnectButton).toBeTruthy()
     await reconnectButton!.trigger('click')
 
+    expect(historySpy).toHaveBeenCalledWith('weather')
     expect(reconnectSpy).toHaveBeenCalledTimes(1)
   })
 })

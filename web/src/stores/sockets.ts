@@ -94,6 +94,7 @@ export const useSocketStore = defineStore('sockets', () => {
     onFrame: (frame: WebSocketFrame<LogSummary>) => {
       if (frame.type === 'logs.appended') {
         logsStore.append(frame.data)
+        pluginsStore.appendOutboundLog(frame.data)
         void protocolLogsStore.appendLive(frame.data)
       }
     },

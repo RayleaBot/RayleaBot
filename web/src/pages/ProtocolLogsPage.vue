@@ -37,6 +37,7 @@ const protocolDetailFieldKeys = [
   'target_id',
   'action_kind',
   'delivery_kind',
+  'command_name',
   'frame_type',
   'error_code',
   'reason',
@@ -324,6 +325,7 @@ function getLevelPillClass(level: string) {
                 <span class="meta-level">[{{ getLogLevelLabel(log.level) }}]</span>
                 <span class="meta-protocol">[{{ getLogProtocolLabel(log.protocol) }}]</span>
                 <span class="meta-source">{{ log.source }}</span>
+                <span v-if="log.plugin_id" class="meta-plugin">plugin: {{ log.plugin_id }}</span>
               </div>
               <div class="terminal-line__message">
                 {{ log.message }}
@@ -364,6 +366,7 @@ function getLevelPillClass(level: string) {
                 <div class="detail-summary-card__meta">
                   <span>[{{ formatDateTime(selectedSummary.timestamp) }}]</span>
                   <span>{{ selectedSummary.source }}</span>
+                  <span v-if="selectedSummary.plugin_id">plugin: {{ selectedSummary.plugin_id }}</span>
                   <span>{{ selectedSummary.request_id || t('protocols.noRequestId') }}</span>
                   <span class="mono-id">ID: {{ selectedSummary.log_id }}</span>
                 </div>

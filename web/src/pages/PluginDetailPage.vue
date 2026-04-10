@@ -18,6 +18,7 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { t } from '@/i18n'
 import { usePluginsStore } from '@/stores/plugins'
+import type { ConsoleFrame } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 
 const route = useRoute()
@@ -48,6 +49,7 @@ async function loadDetail() {
     await Promise.all([
       pluginsStore.fetchDetail(pluginId.value),
       pluginsStore.fetchGrants(pluginId.value),
+      pluginsStore.fetchOutboundConsoleHistory(pluginId.value).catch(() => []),
     ])
     socketStore.setConsolePlugin(pluginId.value)
   } catch (error) {
@@ -105,6 +107,18 @@ async function uninstallPlugin() {
 
 function clearConsole() {
   pluginsStore.clearConsole(pluginId.value)
+}
+
+function getConsoleFrameKey(frame: ConsoleFrame, index: number) {
+  if (frame.stream === 'outbound') {
+    return frame.log_id
+  }
+
+  return `${frame.plugin_id}-${frame.stream}-${frame.timestamp}-${index}`
+}
+
+function getConsoleLevel(frame: ConsoleFrame) {
+  return frame.stream === 'outbound' ? frame.level : ''
 }
 
 watch(
@@ -279,11 +293,14 @@ async function scrollConsoleToBottom() {
 
       <div v-else ref="consoleScroller" class="console-terminal" aria-label="插件实时控制台">
         <div
-          v-for="frame in consoleFrames"
-          :key="`${frame.timestamp}-${frame.text}`"
-          :class="['console-terminal-line', `is-${frame.stream}`]"
+          v-for="(frame, index) in consoleFrames"
+          :key="getConsoleFrameKey(frame, index)"
+          :class="['console-terminal-line', `is-${frame.stream}`, frame.stream === 'outbound' ? `is-${getConsoleLevel(frame)}` : null]"
         >
-          <span class="console-meta">{{ formatDateTime(frame.timestamp) }} · {{ frame.stream }}</span>
+          <span class="console-meta">
+            {{ formatDateTime(frame.timestamp) }} · {{ frame.stream }}
+            <template v-if="frame.stream === 'outbound'"> · {{ getConsoleLevel(frame) }}</template>
+          </span>
           <pre>{{ frame.text }}</pre>
         </div>
       </div>
@@ -356,6 +373,19 @@ async function scrollConsoleToBottom() {
 
 .console-terminal-line.is-system {
   box-shadow: inset 2px 0 0 rgba(255, 187, 74, 0.68);
+}
+
+.console-terminal-line.is-outbound {
+  background: rgba(80, 200, 120, 0.06);
+}
+
+.console-terminal-line.is-outbound.is-info {
+  box-shadow: inset 2px 0 0 rgba(95, 214, 132, 0.76);
+}
+
+.console-terminal-line.is-outbound.is-warn,
+.console-terminal-line.is-outbound.is-error {
+  box-shadow: inset 2px 0 0 rgba(255, 187, 74, 0.72);
 }
 
 .console-meta {
