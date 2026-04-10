@@ -43,7 +43,7 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
     error.value = null
     try {
       const response = await apiRequest<LogListResponse>(buildProtocolLogListPath(filters.value))
-      items.value = normalizeBuffer(response.items, filters.value.limit ?? protocolLogBufferLimit)
+      items.value = mergeBuffer(response.items, items.value, filters.value.limit ?? protocolLogBufferLimit)
       await ensureSelectionAfterRefresh()
       return items.value
     } catch (err) {
@@ -99,11 +99,15 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
   }
 
   async function appendLive(log: LogSummary) {
-    if (!active.value || !matchesRealtimeFilters(log, filters.value)) {
+    if (!matchesRealtimeFilters(log, filters.value)) {
       return false
     }
 
     items.value = appendToBuffer(items.value, log, filters.value.limit ?? protocolLogBufferLimit)
+    if (!active.value) {
+      return true
+    }
+
     if (autoFollow.value) {
       try {
         await selectLog(log.log_id, { preferCache: false })
@@ -231,17 +235,22 @@ export function buildProtocolLogListPath(filters: ProtocolLogFilters) {
 }
 
 function normalizeBuffer(items: LogSummary[], limit: number) {
-  const nextItems = new Map<string, LogSummary>()
-  for (const item of items) {
-    nextItems.set(item.log_id, item)
-  }
-  return Array.from(nextItems.values()).slice(-normalizeLimit(limit))
+  return mergeBuffer(items, [], limit)
 }
 
 function appendToBuffer(existing: LogSummary[], incoming: LogSummary, limit: number) {
-  const nextItems = existing.filter((item) => item.log_id !== incoming.log_id)
-  nextItems.push(incoming)
-  return nextItems.slice(-normalizeLimit(limit))
+  return mergeBuffer(existing, [incoming], limit)
+}
+
+function mergeBuffer(primary: LogSummary[], secondary: LogSummary[], limit: number) {
+  const nextItems = new Map<string, LogSummary>()
+  for (const item of [...primary, ...secondary]) {
+    if (nextItems.has(item.log_id)) {
+      nextItems.delete(item.log_id)
+    }
+    nextItems.set(item.log_id, item)
+  }
+  return Array.from(nextItems.values()).slice(-normalizeLimit(limit))
 }
 
 function matchesRealtimeFilters(log: LogSummary, filters: ProtocolLogFilters) {

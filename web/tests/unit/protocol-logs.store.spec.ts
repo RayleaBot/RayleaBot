@@ -69,7 +69,7 @@ describe('protocol logs store', () => {
     expect(store.currentDetail?.details.reason).toBe('api response echo must be a non-empty string')
   })
 
-  it('only accepts matching live protocol logs while active', async () => {
+  it('keeps matching live protocol logs even before the page activates', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       log_id: 'log_protocol_live_0001',
       timestamp: '2026-04-08T10:17:00Z',
@@ -85,8 +85,6 @@ describe('protocol logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useProtocolLogsStore()
-    store.activate()
-    store.pauseAutoFollow()
     store.filters = {
       level: 'warn',
       source: 'adapter.onebot11',
@@ -115,7 +113,103 @@ describe('protocol logs store', () => {
     expect(accepted).toBe(true)
     expect(rejected).toBe(false)
     expect(store.items.map((item) => item.log_id)).toEqual(['log_protocol_live_0001'])
+    expect(store.selectedLogId).toBeNull()
+    expect(store.currentDetail).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('loads live protocol log details while active and auto-following', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      log_id: 'log_protocol_live_0001',
+      timestamp: '2026-04-08T10:17:00Z',
+      level: 'warn',
+      protocol: 'onebot11',
+      source: 'adapter.onebot11',
+      message: 'ignored OneBot API response with unsupported echo',
+      request_id: 'req_live_1',
+      details: {
+        echo_value_type: 'number',
+      },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useProtocolLogsStore()
+    store.activate()
+
+    const accepted = await store.appendLive({
+      log_id: 'log_protocol_live_0001',
+      timestamp: '2026-04-08T10:17:00Z',
+      level: 'warn',
+      protocol: 'onebot11',
+      source: 'adapter.onebot11',
+      message: 'ignored OneBot API response with unsupported echo',
+      request_id: 'req_live_1',
+    })
+
+    expect(accepted).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/logs/log_protocol_live_0001',
+      expect.any(Object),
+    )
+    expect(store.selectedLogId).toBe('log_protocol_live_0001')
+    expect(store.currentDetail?.details.echo_value_type).toBe('number')
+  })
+
+  it('keeps buffered live logs after the page refreshes history again', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            log_id: 'log_protocol_history_0001',
+            timestamp: '2026-04-08T10:16:00Z',
+            level: 'info',
+            protocol: 'onebot11',
+            source: 'adapter.onebot11',
+            message: 'adapter connected',
+            request_id: 'req_history_1',
+          },
+        ],
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        log_id: 'log_protocol_live_0001',
+        timestamp: '2026-04-08T10:17:00Z',
+        level: 'warn',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        message: 'ignored OneBot API response with unsupported echo',
+        request_id: 'req_live_1',
+        details: {
+          reason: 'api response echo must be a non-empty string',
+        },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useProtocolLogsStore()
+    store.activate()
+    store.pauseAutoFollow()
+    store.filters = {
+      source: 'adapter.onebot11',
+      limit: 200,
+    }
+
+    await store.appendLive({
+      log_id: 'log_protocol_live_0001',
+      timestamp: '2026-04-08T10:17:00Z',
+      level: 'warn',
+      protocol: 'onebot11',
+      source: 'adapter.onebot11',
+      message: 'ignored OneBot API response with unsupported echo',
+      request_id: 'req_live_1',
+    })
+
+    await store.fetchList()
+
+    expect(store.items.map((item) => item.log_id)).toEqual([
+      'log_protocol_history_0001',
+      'log_protocol_live_0001',
+    ])
+    expect(store.selectedLogId).toBe('log_protocol_live_0001')
+    expect(store.currentDetail?.details.reason).toBe('api response echo must be a non-empty string')
   })
 
   it('exposes the fixed protocol path helper', () => {

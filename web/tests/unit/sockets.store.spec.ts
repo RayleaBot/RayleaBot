@@ -68,7 +68,6 @@ describe('socket store', () => {
     const tasksStore = useTasksStore()
     const logsStore = useLogsStore()
     const protocolLogsStore = useProtocolLogsStore()
-    protocolLogsStore.activate()
     protocolLogsStore.pauseAutoFollow()
     const pluginsStore = usePluginsStore()
     const store = useSocketStore()
@@ -131,6 +130,7 @@ describe('socket store', () => {
     expect(tasksStore.items[0].task_id).toBe('task_1')
     expect(logsStore.items.map((item) => item.message)).toEqual(['runtime line', 'log line'])
     expect(protocolLogsStore.items.map((item) => item.message)).toEqual(['log line'])
+    expect(protocolLogsStore.active).toBe(false)
   })
 
   it('manages the console socket separately and disconnects all sockets', () => {
