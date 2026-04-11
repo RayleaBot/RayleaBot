@@ -7,13 +7,14 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore } from '@/stores/system'
+import { useUiShellStore } from '@/stores/ui-shell'
 
 describe('BasicLayout', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
 
-  it('renders a chinese shell without the legacy english chrome or duplicate menu button', async () => {
+  it('renders a compact shell header with theme-aware sider styling', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -56,6 +57,8 @@ describe('BasicLayout', () => {
     socketStore.snapshots.tasks.status = 'authenticated'
     socketStore.snapshots.logs.status = 'authenticated'
     socketStore.snapshots.pluginConsole.status = 'disconnected'
+    const uiShellStore = useUiShellStore()
+    uiShellStore.setThemeMode('light')
 
     const wrapper = mount(BasicLayout, {
       global: {
@@ -65,14 +68,18 @@ describe('BasicLayout', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('管理控制台')
+    expect(wrapper.get('[data-testid="app-sider"]').classes()).toContain('ant-layout-sider-light')
+    expect(wrapper.get('[data-testid="theme-toggle"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="header-search"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="app-header"]').text()).not.toContain('事件流')
+    expect(wrapper.get('[data-testid="app-header"]').text()).not.toContain('保持正式契约')
     expect(wrapper.text()).toContain('系统状态')
-    expect(wrapper.text()).toContain('事件流')
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).toContain('运维')
     expect(wrapper.text()).toContain('协议')
     expect(wrapper.text()).toContain('系统')
+    expect(wrapper.text()).not.toContain('管理控制台')
     expect(wrapper.text()).not.toContain('Management Surface')
     expect(wrapper.text()).not.toContain('Control Plane')
   })

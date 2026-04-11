@@ -11,7 +11,7 @@ describe('ConnectionStatusStrip', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders only management channels and suppresses duplicate connection noise', () => {
+  it('renders the dashboard connection card with only management channels', () => {
     const socketStore = useSocketStore()
     socketStore.snapshots.events.status = 'authenticated'
     socketStore.snapshots.tasks.status = 'reconnecting'
@@ -25,6 +25,9 @@ describe('ConnectionStatusStrip', () => {
       },
     })
 
+    expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('连接状态')
+    expect(wrapper.text()).toContain('事件、任务和日志连接')
     expect(wrapper.text()).toContain('事件流')
     expect(wrapper.text()).toContain('已认证')
     expect(wrapper.text()).toContain('任务流')
@@ -33,6 +36,6 @@ describe('ConnectionStatusStrip', () => {
     expect(wrapper.text()).not.toContain('控制台')
     expect(wrapper.text()).not.toContain('pluginConsole')
     expect(wrapper.text()).not.toContain('tasks 连接异常')
-    expect(wrapper.text()).toContain('全部重连')
+    expect(wrapper.text()).toContain('重新连接')
   })
 })

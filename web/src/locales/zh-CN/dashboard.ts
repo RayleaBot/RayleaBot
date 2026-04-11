@@ -32,6 +32,8 @@ export const dashboard = {
   reasonCodes: '原因代码',
   expandIssues: '展开剩余 {count} 项',
   collapseIssues: '收起',
+  connectionStatus: '连接状态',
+  connectionStatusHint: '事件、任务和日志连接',
   alertFailed: '系统异常',
   alertDegraded: '运行条件受限',
   alertProtocolWarning: '协议连接警告',
@@ -49,5 +51,6 @@ export const dashboard = {
   recoveryReviewedAt: '确认时间',
   recoveryAudit: '最近确认记录',
   recoveryAuditEmpty: '当前没有确认记录。',
+  reconnect: '重新连接',
   runtimeBootstrap: '准备运行环境',
 } as const

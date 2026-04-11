@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { getConnectionChannelLabel, getConnectionStatusLabel } from '@/lib/display'
 import { t } from '@/i18n'
 import { useSocketStore } from '@/stores/sockets'
+import type { ConnectionStatus } from '@/types/api'
 
 const socketStore = useSocketStore()
 const { snapshots } = storeToRefs(socketStore)
@@ -27,27 +28,54 @@ const channelStates = computed(() =>
 const needsReconnect = computed(() =>
   channelStates.value.some(({ snapshot }) => snapshot.status !== 'authenticated'),
 )
+
+function resolveBadgeStatus(status: ConnectionStatus) {
+  switch (status) {
+    case 'authenticated':
+      return 'success'
+    case 'connecting':
+    case 'reconnecting':
+      return 'processing'
+    case 'connected':
+      return 'warning'
+    case 'auth_failed':
+      return 'error'
+    default:
+      return 'default'
+  }
+}
 </script>
 
 <template>
-  <div class="connection-strip-wrap">
-    <div class="connection-strip">
-      <div
+  <a-card :bordered="false" class="app-view-card connection-card" data-testid="dashboard-connection-card">
+    <template #title>
+      <div class="card-header">
+        <div>
+          <span>{{ t('dashboard.connectionStatus') }}</span>
+          <p>{{ t('dashboard.connectionStatusHint') }}</p>
+        </div>
+      </div>
+    </template>
+
+    <template #extra>
+      <a-button v-if="needsReconnect" size="small" @click="socketStore.reconnectAll()">
+        {{ t('dashboard.reconnect') }}
+      </a-button>
+    </template>
+
+    <div class="connection-card__grid">
+      <section
         v-for="{ channel, snapshot, secondary } in channelStates"
         :key="channel"
-        class="connection-pill"
-        :class="`is-${snapshot.status}`"
+        class="connection-card__item"
+        :data-testid="`connection-card-${channel}`"
       >
-        <div>
-          <span>{{ getConnectionChannelLabel(channel) }}</span>
-          <strong>{{ getConnectionStatusLabel(snapshot.status) }}</strong>
+        <div class="connection-card__row">
+          <span class="connection-card__label">{{ getConnectionChannelLabel(channel) }}</span>
+          <a-badge :status="resolveBadgeStatus(snapshot.status)" :text="getConnectionStatusLabel(snapshot.status)" />
         </div>
-        <small v-if="secondary">{{ secondary }}</small>
-      </div>
+        <small v-if="secondary" class="connection-card__meta">{{ secondary }}</small>
+      </section>
     </div>
-
-    <a-button v-if="needsReconnect" size="small" @click="socketStore.reconnectAll()">
-      {{ t('shell.reconnectAll') }}
-    </a-button>
-  </div>
+  </a-card>
 </template>

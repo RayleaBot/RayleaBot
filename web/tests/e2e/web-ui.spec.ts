@@ -52,6 +52,14 @@ function logScroller(page: import('@playwright/test').Page) {
   return page.locator('.logs-data-table .ant-table-container')
 }
 
+function appHeader(page: import('@playwright/test').Page) {
+  return page.getByTestId('app-header')
+}
+
+function dashboardConnectionCard(page: import('@playwright/test').Page) {
+  return page.getByTestId('dashboard-connection-card')
+}
+
 test('setup flow reaches protected shell and shows websocket statuses', async ({ page, request }) => {
   await resetBackend(request, false)
 
@@ -62,10 +70,16 @@ test('setup flow reaches protected shell and shows websocket statuses', async ({
   await page.getByRole('button', { name: '创建并进入管理界面' }).click()
 
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
-  await expect(page.getByText('管理控制台')).toBeVisible()
-  await expect(page.locator('.connection-pill').filter({ hasText: '事件流' })).toContainText('已认证')
-  await expect(page.locator('.connection-pill').filter({ hasText: '任务流' })).toContainText('已认证')
-  await expect(page.locator('.connection-pill').filter({ hasText: '日志流' })).toContainText('已认证')
+  await expect(appHeader(page)).not.toContainText('保持正式契约')
+  await expect(appHeader(page)).not.toContainText('事件流')
+  await expect(appHeader(page)).not.toContainText('任务流')
+  await expect(appHeader(page)).not.toContainText('日志流')
+  await expect(dashboardConnectionCard(page)).toContainText('事件流')
+  await expect(dashboardConnectionCard(page)).toContainText('任务流')
+  await expect(dashboardConnectionCard(page)).toContainText('日志流')
+  await expect(page.getByTestId('connection-card-events')).toContainText('已认证')
+  await expect(page.getByTestId('connection-card-tasks')).toContainText('已认证')
+  await expect(page.getByTestId('connection-card-logs')).toContainText('已认证')
 })
 
 test('launcher token query admits a session and clears the URL token', async ({ page, request }) => {
@@ -296,10 +310,23 @@ test('command center shows all declared commands and filters by plugin selection
   const pluginSelector = page.locator('.commands-filter-toolbar .ant-select').first()
   await expect(pluginSelector).toBeVisible()
   await pluginSelector.click()
-  await page.locator('.ant-select-dropdown').getByText('Weather（weather）').click({ force: true })
+  await page.keyboard.type('Weather')
+  await page.keyboard.press('Enter')
 
   await expect(page.locator('.commands-data-table')).toContainText('查询天气')
   await expect(page.locator('.commands-data-table')).not.toContainText('查看帮助菜单')
+})
+
+test('light theme uses a light sider and keeps the header clean', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.getByTestId('theme-toggle').click()
+
+  const sider = page.getByTestId('app-sider')
+  await expect(sider).toHaveClass(/ant-layout-sider-light/)
+  await expect(appHeader(page)).not.toContainText('事件流')
+  await expect(appHeader(page)).not.toContainText('保持正式契约')
 })
 
 test('login keeps the protected shell after reload', async ({ page, request }) => {
@@ -307,12 +334,15 @@ test('login keeps the protected shell after reload', async ({ page, request }) =
 
   await login(page)
   await expect(page).not.toHaveURL(/\/login$/)
-  await expect(page.locator('.connection-pill').filter({ hasText: '事件流' })).toContainText('已认证')
+  await expect(appHeader(page)).not.toContainText('事件流')
+  await expect(page.getByTestId('connection-card-events')).toContainText('已认证')
 
   await page.reload()
 
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
   await expect(page).not.toHaveURL(/\/login$/)
+  await expect(appHeader(page)).not.toContainText('事件流')
+  await expect(page.getByTestId('connection-card-events')).toContainText('已认证')
 })
 
 test('error recovery covers retry and uninstall failure', async ({ page, request }) => {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
 import DashboardRecentEventsCard from '@/components/DashboardRecentEventsCard.vue'
 import DashboardReadinessCard from '@/components/DashboardReadinessCard.vue'
 import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
@@ -11,7 +12,6 @@ import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 
 const {
-  AUTO_REFRESH_INTERVAL,
   adapterDetailText,
   adapterStatusType,
   adapterValueText,
@@ -56,7 +56,6 @@ const {
   runtimeBootstrapPending,
   selectedRecoveryReviewCountLabel,
   selectedRecoveryReviewIds,
-  statusBadgeConfig,
   submitRenderPreview,
   system,
   systemDetailText,
@@ -70,41 +69,30 @@ const {
 <template>
   <AppPage :title="t('dashboard.title')">
     <template #extra>
-      <div class="table-actions">
+      <div class="dashboard-page__actions">
+        <span v-if="lastRefreshed || autoRefresh" class="dashboard-page__refresh-meta">
+          <template v-if="lastRefreshed">
+            {{ `${t('dashboard.lastRefreshed')}: ${formatRelativeTime(lastRefreshed)}` }}
+          </template>
+          <template v-if="autoRefresh">
+            <span v-if="lastRefreshed"> · </span>
+            {{ `${t('dashboard.autoRefresh')}: ${countdown}s` }}
+          </template>
+        </span>
+        <div class="dashboard-page__refresh-controls">
+          <label class="dashboard-page__refresh-toggle">
+            <span>{{ t('dashboard.autoRefresh') }}</span>
+            <a-switch
+              :checked="autoRefresh"
+              size="small"
+              @change="toggleAutoRefresh"
+            />
+          </label>
+        </div>
         <a-button :loading="loading" @click="refreshState()">
           {{ t('dashboard.refresh') }}
         </a-button>
       </div>
-    </template>
-
-    <template #toolbar>
-      <a-card :bordered="false" class="app-view-card dashboard-hero-card">
-        <div class="dashboard-hero-card__main">
-          <div class="dashboard-hero-card__status">
-            <div :class="['status-badge', `status-badge--${statusBadgeConfig.type}`]">
-              <span class="status-badge__icon">{{ statusBadgeConfig.icon }}</span>
-              <span>{{ statusBadgeConfig.label }}</span>
-            </div>
-            <div v-if="lastRefreshed" class="hero-meta__time">
-              {{ `${t('dashboard.lastRefreshed')}: ${formatRelativeTime(lastRefreshed)}` }}
-              <template v-if="autoRefresh"> · {{ countdown }}s</template>
-            </div>
-          </div>
-          <div class="dashboard-hero-card__actions">
-            <div class="hero-auto-refresh">
-              <span>{{ t('dashboard.autoRefresh') }}</span>
-              <a-switch
-                :checked="autoRefresh"
-                size="small"
-                @change="toggleAutoRefresh"
-              />
-            </div>
-          </div>
-        </div>
-        <div v-if="autoRefresh" class="auto-refresh-bar">
-          <div class="auto-refresh-bar__fill" :style="{ width: `${(countdown / AUTO_REFRESH_INTERVAL) * 100}%` }" />
-        </div>
-      </a-card>
     </template>
 
     <a-alert
@@ -149,6 +137,8 @@ const {
       :uptime-text="formatDurationSeconds(system?.uptime_seconds)"
     />
 
+    <ConnectionStatusStrip />
+
     <div class="content-grid">
       <DashboardReadinessCard
         :section-title="t('dashboard.readinessSection')"
@@ -180,16 +170,16 @@ const {
       />
 
       <DashboardRecentEventsCard :recent-events="recentEvents" />
-    </div>
 
-    <DashboardToolsPanel
-      :backup-pending="backupPending"
-      :diagnostics-pending="diagnosticsPending"
-      :preview-pending="previewPending"
-      @create-backup="createBackup"
-      @export-diagnostics="exportDiagnostics"
-      @open-preview="previewVisible = true"
-    />
+      <DashboardToolsPanel
+        :backup-pending="backupPending"
+        :diagnostics-pending="diagnosticsPending"
+        :preview-pending="previewPending"
+        @create-backup="createBackup"
+        @export-diagnostics="exportDiagnostics"
+        @open-preview="previewVisible = true"
+      />
+    </div>
 
     <a-modal
       v-model:open="previewVisible"
@@ -226,27 +216,35 @@ const {
 </template>
 
 <style scoped lang="scss">
-.dashboard-hero-card {
-  display: grid;
-  gap: 14px;
-}
-
-.dashboard-hero-card__main {
+.dashboard-page__actions {
   display: flex;
-  justify-content: space-between;
-  gap: 18px;
   align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.dashboard-hero-card__status {
-  display: grid;
-  gap: 12px;
+.dashboard-page__refresh-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
-.dashboard-hero-card__actions {
+.dashboard-page__refresh-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+}
+
+.dashboard-page__refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 720px) {
+  .dashboard-page__actions {
+    justify-content: flex-start;
+  }
 }
 </style>

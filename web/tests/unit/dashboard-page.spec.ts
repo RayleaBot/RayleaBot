@@ -12,7 +12,7 @@ describe('DashboardPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('moves backup and diagnostics into the tools section', async () => {
+  it('renders a compact status page without the legacy hero card', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: DashboardPage }],
@@ -48,6 +48,10 @@ describe('DashboardPage', () => {
     expect(backupButton).toBeTruthy()
     expect(diagnosticsButton).toBeTruthy()
     expect(wrapper.text()).toContain('系统工具')
+    expect(wrapper.text()).toContain('连接状态')
+    expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
+    expect(wrapper.find('.dashboard-hero-card').exists()).toBe(false)
+    expect(wrapper.find('.status-badge').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('聚合 health、ready、system status')
 
     await backupButton!.trigger('click')

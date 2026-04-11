@@ -1,6 +1,5 @@
 export const app = {
   brand: 'RayleaBot',
-  consoleName: '管理控制台',
   skipToMain: '跳到主内容',
 } as const
 
@@ -24,11 +23,16 @@ export const routes = {
 export const shell = {
   account: '账号',
   cancel: '取消',
-  headerSubtitle: '保持正式契约不变的后台工作台',
-  systemStatus: '系统状态',
-  readyStatus: '就绪状态',
-  reconnectAll: '全部重连',
+  enterFullscreen: '进入全屏',
+  exitFullscreen: '退出全屏',
+  featurePending: '{feature}暂未开放',
+  fullscreenUnsupported: '当前环境不支持全屏',
+  language: '语言',
   logout: '退出登录',
+  notifications: '通知',
+  openMenu: '打开菜单',
+  search: '搜索',
+  settings: '设置',
   shutdown: '关闭服务',
   shutdownConfirmTitle: '确认关闭服务',
   shutdownConfirmBody: '关闭服务后，管理界面连接会中断。',
@@ -37,4 +41,7 @@ export const shell = {
   shutdownRequestedTitle: '服务正在停止',
   shutdownRequestedDescription: '服务正在停止，管理界面连接断开属于预期行为。',
   shutdownRequestedLive: '服务已收到关闭请求，连接断开属于预期行为。',
+  switchDarkTheme: '切换到暗色主题',
+  switchLightTheme: '切换到亮色主题',
+  toggleSidebar: '折叠侧栏',
 } as const

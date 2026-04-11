@@ -1,21 +1,27 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type RouteRecordRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
+  BellOutlined,
   BulbOutlined,
   DownOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuOutlined,
   MenuUnfoldOutlined,
   PoweroffOutlined,
+  SearchOutlined,
+  SettingOutlined,
+  TranslationOutlined,
+  UserOutlined,
 } from '@ant-design/icons-vue'
 
 import { resolveMenuIcon } from '@/access/icons'
 import { buildMenuItems, getMatchedBreadcrumbs, resolveRouteTitle, type AppMenuItem } from '@/access/menu'
-import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
-import { notifyError, notifySuccess } from '@/adapter/feedback'
+import { notifyError, notifyInfo, notifySuccess } from '@/adapter/feedback'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { adminRoutes } from '@/router/routes/modules/admin'
@@ -32,8 +38,16 @@ const uiShellStore = useUiShellStore()
 const { mobileMenuOpen, preferences, siderCollapsed, tabs } = storeToRefs(uiShellStore)
 const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
 const shutdownDialogVisible = ref(false)
+const isFullscreen = ref(false)
 const menuItems = computed(() => buildMenuItems(adminRoutes[0]?.children ?? [], ''))
 const breadcrumbItems = computed(() => getMatchedBreadcrumbs(route.matched))
+const siderTheme = computed(() => (preferences.value.themeMode === 'dark' ? 'dark' : 'light'))
+const themeToggleLabel = computed(() => (
+  preferences.value.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
+))
+const fullscreenLabel = computed(() => (
+  isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
+))
 
 function joinRoutePath(parentPath: string, childPath: string) {
   if (!childPath) {
@@ -135,7 +149,6 @@ watch(
   { immediate: true },
 )
 
-const headerTitle = computed(() => resolveCurrentTabTitle() || t('app.consoleName'))
 const tabItems = computed(() => tabs.value.map((item) => ({
   closable: !item.affix,
   key: item.path,
@@ -178,6 +191,38 @@ function onTabEdit(targetKey: string | MouseEvent, action: 'add' | 'remove') {
   closeTab(targetKey)
 }
 
+function syncFullscreenState() {
+  if (typeof document === 'undefined') {
+    isFullscreen.value = false
+    return
+  }
+
+  isFullscreen.value = Boolean(document.fullscreenElement)
+}
+
+function notifyFeaturePending(feature: string) {
+  notifyInfo(t('shell.featurePending', { feature }))
+}
+
+async function toggleFullscreen() {
+  if (typeof document === 'undefined' || typeof document.documentElement.requestFullscreen !== 'function') {
+    notifyInfo(t('shell.fullscreenUnsupported'))
+    return
+  }
+
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+    } else {
+      await document.documentElement.requestFullscreen()
+    }
+  } catch (error) {
+    notifyError(getDisplayErrorMessage(error))
+  } finally {
+    syncFullscreenState()
+  }
+}
+
 async function handleLogout() {
   await sessionStore.logout()
   await router.push({ name: 'login' })
@@ -192,6 +237,19 @@ async function confirmShutdown() {
     notifyError(getDisplayErrorMessage(error))
   }
 }
+
+onMounted(() => {
+  syncFullscreenState()
+  if (typeof document !== 'undefined') {
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('fullscreenchange', syncFullscreenState)
+  }
+})
 </script>
 
 <template>
@@ -204,14 +262,14 @@ async function confirmShutdown() {
       :collapsed="siderCollapsed"
       :collapsed-width="88"
       :trigger="null"
-      theme="dark"
+      :theme="siderTheme"
       width="264"
+      data-testid="app-sider"
     >
       <button type="button" class="admin-layout__brand" @click="navigateTo('/')">
         <span class="admin-layout__brand-mark">R</span>
         <span v-if="!siderCollapsed" class="admin-layout__brand-copy">
           <strong>RayleaBot</strong>
-          <small>{{ t('app.consoleName') }}</small>
         </span>
       </button>
 
@@ -264,7 +322,6 @@ async function confirmShutdown() {
     >
       <div class="admin-layout__mobile-brand">
         <strong>RayleaBot</strong>
-        <small>{{ t('app.consoleName') }}</small>
       </div>
 
       <a-menu mode="inline" :selected-keys="selectedMenuKeys">
@@ -299,41 +356,125 @@ async function confirmShutdown() {
     </a-drawer>
 
     <a-layout>
-      <a-layout-header class="admin-layout__header">
+      <a-layout-header class="admin-layout__header" data-testid="app-header">
         <div class="admin-layout__header-main">
           <div class="admin-layout__header-left">
-            <a-button class="admin-layout__icon-button desktop-only" type="text" @click="uiShellStore.toggleSider()">
+            <a-button
+              class="admin-layout__icon-button desktop-only"
+              type="text"
+              :aria-label="t('shell.toggleSidebar')"
+              @click="uiShellStore.toggleSider()"
+            >
               <template #icon>
                 <MenuUnfoldOutlined v-if="siderCollapsed" />
                 <MenuFoldOutlined v-else />
               </template>
             </a-button>
-            <a-button class="admin-layout__icon-button mobile-only" type="text" @click="uiShellStore.setMobileMenuOpen(true)">
+            <a-button
+              class="admin-layout__icon-button mobile-only"
+              type="text"
+              :aria-label="t('shell.openMenu')"
+              @click="uiShellStore.setMobileMenuOpen(true)"
+            >
               <template #icon>
                 <MenuOutlined />
               </template>
             </a-button>
-
-            <div class="admin-layout__title-block">
-              <strong>{{ headerTitle }}</strong>
-              <small>{{ t('shell.headerSubtitle') }}</small>
-            </div>
           </div>
 
           <div class="admin-layout__header-right">
-            <ConnectionStatusStrip />
-            <a-button class="admin-layout__icon-button" type="text" @click="uiShellStore.toggleThemeMode()">
-              <template #icon>
-                <BulbOutlined />
-              </template>
-            </a-button>
-            <a-button danger @click="shutdownDialogVisible = true">
+            <div class="admin-layout__header-tools desktop-only">
+              <a-tooltip :title="t('shell.search')">
+                <a-button
+                  class="admin-layout__icon-button"
+                  type="text"
+                  :aria-label="t('shell.search')"
+                  data-testid="header-search"
+                  @click="notifyFeaturePending(t('shell.search'))"
+                >
+                  <template #icon>
+                    <SearchOutlined />
+                  </template>
+                </a-button>
+              </a-tooltip>
+              <a-tooltip :title="t('shell.settings')">
+                <a-button
+                  class="admin-layout__icon-button"
+                  type="text"
+                  :aria-label="t('shell.settings')"
+                  data-testid="header-settings"
+                  @click="notifyFeaturePending(t('shell.settings'))"
+                >
+                  <template #icon>
+                    <SettingOutlined />
+                  </template>
+                </a-button>
+              </a-tooltip>
+              <a-tooltip :title="t('shell.language')">
+                <a-button
+                  class="admin-layout__icon-button"
+                  type="text"
+                  :aria-label="t('shell.language')"
+                  data-testid="header-language"
+                  @click="notifyFeaturePending(t('shell.language'))"
+                >
+                  <template #icon>
+                    <TranslationOutlined />
+                  </template>
+                </a-button>
+              </a-tooltip>
+              <a-tooltip :title="t('shell.notifications')">
+                <a-button
+                  class="admin-layout__icon-button"
+                  type="text"
+                  :aria-label="t('shell.notifications')"
+                  data-testid="header-notifications"
+                  @click="notifyFeaturePending(t('shell.notifications'))"
+                >
+                  <template #icon>
+                    <BellOutlined />
+                  </template>
+                </a-button>
+              </a-tooltip>
+              <a-tooltip :title="fullscreenLabel">
+                <a-button
+                  class="admin-layout__icon-button"
+                  type="text"
+                  :aria-label="fullscreenLabel"
+                  data-testid="header-fullscreen"
+                  @click="toggleFullscreen"
+                >
+                  <template #icon>
+                    <FullscreenExitOutlined v-if="isFullscreen" />
+                    <FullscreenOutlined v-else />
+                  </template>
+                </a-button>
+              </a-tooltip>
+            </div>
+
+            <a-tooltip :title="themeToggleLabel">
+              <a-button
+                class="admin-layout__icon-button"
+                type="text"
+                :aria-label="themeToggleLabel"
+                data-testid="theme-toggle"
+                @click="uiShellStore.toggleThemeMode()"
+              >
+                <template #icon>
+                  <BulbOutlined />
+                </template>
+              </a-button>
+            </a-tooltip>
+
+            <a-button class="admin-layout__shutdown-button" danger @click="shutdownDialogVisible = true">
               <template #icon><PoweroffOutlined /></template>
-              {{ t('shell.shutdown') }}
+              <span class="desktop-only">{{ t('shell.shutdown') }}</span>
             </a-button>
-            <a-dropdown>
-              <a-button>
-                {{ t('shell.account') }}
+
+            <a-dropdown placement="bottomRight">
+              <a-button class="admin-layout__account-button">
+                <UserOutlined />
+                <span class="desktop-only">{{ t('shell.account') }}</span>
                 <DownOutlined />
               </a-button>
 
