@@ -4,6 +4,7 @@ const configureApiRuntime = vi.fn()
 const createAppRouter = vi.fn()
 const createApp = vi.fn()
 const createPinia = vi.fn()
+const useUiShellStore = vi.fn()
 const watch = vi.fn()
 const sessionStoreFactory = vi.fn()
 const socketStoreFactory = vi.fn()
@@ -15,7 +16,6 @@ vi.mock('@/App.vue', () => ({
 vi.mock('ant-design-vue/dist/reset.css', () => ({}))
 vi.mock('@/styles/tailwind.css', () => ({}))
 vi.mock('@/styles/main.scss', () => ({}))
-vi.mock('@/styles/minimal-protocol-theme.scss', () => ({}))
 
 vi.mock('ant-design-vue', () => ({
   default: {},
@@ -23,6 +23,10 @@ vi.mock('ant-design-vue', () => ({
 
 vi.mock('pinia', () => ({
   createPinia,
+}))
+
+vi.mock('@/stores/ui-shell', () => ({
+  useUiShellStore,
 }))
 
 vi.mock('vue', () => ({
@@ -34,7 +38,7 @@ vi.mock('@/router', () => ({
   createAppRouter,
 }))
 
-vi.mock('@/lib/http', () => ({
+vi.mock('@/request/http', () => ({
   configureApiRuntime,
 }))
 
@@ -94,6 +98,8 @@ describe('web bootstrap', () => {
       ensureManagementSockets: vi.fn(),
       disconnectAll: vi.fn(),
     })
+
+    useUiShellStore.mockReturnValue({})
   })
 
   afterEach(() => {

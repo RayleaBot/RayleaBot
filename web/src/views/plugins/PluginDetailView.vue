@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import { notifySuccess } from '@/adapter/feedback'
+import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
@@ -224,19 +225,15 @@ async function scrollConsoleToBottom() {
 </script>
 
 <template>
-  <div class="page-grid">
-    <section class="hero-panel">
-      <div>
-        <h1>{{ pluginId }}</h1>
-      </div>
-
+  <AppPage :title="pluginId">
+    <template #extra>
       <div class="table-actions">
         <a-button type="primary" :loading="actionPending[pluginId] === 'enable'" @click="runAction('enable')">{{ t('plugins.actions.enable') }}</a-button>
         <a-button :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</a-button>
         <a-button danger :loading="actionPending[pluginId] === 'disable'" @click="runAction('disable')">{{ t('plugins.actions.disable') }}</a-button>
         <a-button danger :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true">{{ t('plugins.actions.uninstall') }}</a-button>
       </div>
-    </section>
+    </template>
 
     <RetryPanel
       v-if="loadError && !current"
@@ -426,7 +423,7 @@ async function scrollConsoleToBottom() {
         </div>
       </div>
     </a-card>
-  </div>
+  </AppPage>
 
   <a-modal
     v-model:open="permissionDialogVisible"

@@ -39,36 +39,42 @@ async function submit() {
 </script>
 
 <template>
-  <div class="auth-page">
-    <a-card class="auth-card" :bordered="false">
-      <div class="auth-copy">
-        <div class="page-eyebrow">{{ t('auth.surface') }}</div>
-        <h1>{{ t('auth.setupTitle') }}</h1>
-        <p>{{ t('auth.setupBody') }}</p>
-      </div>
+  <a-card class="auth-panel-card" :bordered="false">
+    <div class="auth-panel-card__copy">
+      <div class="page-eyebrow">{{ t('auth.surface') }}</div>
+      <h1>{{ t('auth.setupTitle') }}</h1>
+      <p>{{ t('auth.setupBody') }}</p>
+    </div>
 
-      <a-alert
-        v-if="submitError"
-        message="创建管理员账号未完成"
-        type="error"
-        :description="submitError"
-        show-icon
-        class="section-gap"
-      />
+    <a-alert
+      v-if="submitError"
+      message="创建管理员账号未完成"
+      type="error"
+      :description="submitError"
+      show-icon
+      class="section-gap"
+    />
 
-      <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
-        <a-form-item :label="t('auth.identifier')" name="identifier">
-          <a-input v-model:value="form.identifier" autocomplete="username" />
-        </a-form-item>
+    <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
+      <a-form-item :label="t('auth.identifier')" name="identifier">
+        <a-input v-model:value="form.identifier" autocomplete="username" />
+      </a-form-item>
 
-        <a-form-item :label="t('auth.secret')" name="secret">
-          <a-input-password v-model:value="form.secret" autocomplete="new-password" />
-        </a-form-item>
+      <a-form-item :label="t('auth.secret')" name="secret">
+        <a-input-password v-model:value="form.secret" autocomplete="new-password" />
+      </a-form-item>
 
-        <a-button type="primary" class="auth-submit" :loading="sessionStore.loginPending" @click="submit">
-          {{ t('auth.setupSubmit') }}
-        </a-button>
-      </a-form>
-    </a-card>
-  </div>
+      <a-button type="primary" class="auth-submit" :loading="sessionStore.loginPending" @click="submit">
+        {{ t('auth.setupSubmit') }}
+      </a-button>
+    </a-form>
+  </a-card>
 </template>
+
+<style scoped lang="scss">
+.auth-panel-card__copy {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+</style>

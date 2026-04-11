@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 
-import PluginsPage from '@/pages/PluginsPage.vue'
+import PluginsPage from '@/views/plugins/PluginsView.vue'
 import { usePluginsStore } from '@/stores/plugins'
 
 describe('PluginsPage', () => {

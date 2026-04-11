@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 
-import { AUTO_REFRESH_INTERVAL } from '@/pages/dashboard/constants'
+import { AUTO_REFRESH_INTERVAL } from '@/views/dashboard/constants'
 
 type DashboardRefreshInput = {
   recoveryConfirmNote: Ref<string>

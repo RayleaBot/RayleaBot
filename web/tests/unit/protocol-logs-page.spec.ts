@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { formatDateTime } from '@/lib/format'
-import ProtocolLogsPage from '@/pages/ProtocolLogsPage.vue'
+import ProtocolLogsPage from '@/views/protocols/ProtocolLogsView.vue'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
 
 describe('ProtocolLogsPage', () => {
@@ -81,9 +81,9 @@ describe('ProtocolLogsPage', () => {
       behavior: 'auto',
     }))
     expect(wrapper.find('.protocol-logs-workspace').exists()).toBe(true)
-    expect(wrapper.find('.logs-sidebar .sidebar-palette').exists()).toBe(true)
+    expect(wrapper.find('.logs-sidebar .sidebar-card').exists()).toBe(true)
     expect(wrapper.text()).toContain('协议日志')
-    expect(wrapper.find('.terminal-container').exists()).toBe(true)
+    expect(wrapper.find('.terminal-card').exists()).toBe(true)
     expect(wrapper.findAll('.terminal-line')).toHaveLength(1)
     expect(wrapper.text()).toContain('ignored OneBot API response with unsupported echo')
     expect(wrapper.text()).toContain('消息详情')

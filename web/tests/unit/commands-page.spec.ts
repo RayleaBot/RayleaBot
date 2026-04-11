@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import CommandsPage from '@/pages/CommandsPage.vue'
+import CommandsPage from '@/views/operations/CommandsView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import type { ConfigDocument } from '@/types/api'

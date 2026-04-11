@@ -100,7 +100,7 @@ test('plugin management flow covers install, grants and console recovery', async
   await resetBackend(request, true)
   await login(page)
 
-  await page.locator('.shell-nav').getByRole('link', { name: '插件' }).click()
+  await page.goto('/plugins')
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
   await expect(pluginRows(page).first()).toBeVisible()
   await expect(page.locator('.plugins-data-table')).toContainText('help')
@@ -272,9 +272,9 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
     },
   })
 
-  const liveLine = terminal.getByText('ignored OneBot API response with unsupported echo').last()
+  const liveLine = terminal.locator('.terminal-line').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).last()
   await expect(liveLine).toBeVisible()
-  await liveLine.click()
+  await liveLine.click({ force: true })
   await expect(page.getByText('api.response.ignored')).toBeVisible()
   await expect(page.locator('.json-content')).toContainText('"echo": 123')
 
@@ -288,7 +288,7 @@ test('command center shows all declared commands and filters by plugin selection
   await resetBackend(request, true)
   await login(page)
 
-  await page.locator('.shell-nav').getByRole('link', { name: '指令中心' }).click()
+  await page.goto('/commands')
   await expect(page.locator('#app-main').getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
   await expect(page.locator('.commands-data-table')).toContainText('help')
   await expect(page.locator('.commands-data-table')).toContainText('weather')
@@ -323,7 +323,7 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
   })
   await login(page)
 
-  await page.locator('.shell-nav').getByRole('link', { name: '插件' }).click()
+  await page.goto('/plugins')
   await expect(page.getByText('读取未完成，请稍后重试。').first()).toBeVisible()
   await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByText('weather').first()).toBeVisible()
@@ -356,7 +356,8 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
 
   await login(page)
 
-  await page.getByRole('link', { name: '插件' }).click()
+  await page.locator('.admin-layout__icon-button.mobile-only').first().click()
+  await page.locator('.ant-drawer-content').getByRole('menuitem', { name: '插件' }).click()
   await expect(pluginRows(page).first()).toBeVisible()
 
   await page.goto('/logs')

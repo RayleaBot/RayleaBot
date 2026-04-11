@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import TasksPage from '@/pages/TasksPage.vue'
+import TasksPage from '@/views/operations/TasksView.vue'
 import { apiDownload } from '@/lib/http'
 import { useTasksStore } from '@/stores/tasks'
 

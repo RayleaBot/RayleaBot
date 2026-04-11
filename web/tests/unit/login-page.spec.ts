@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { ApiError } from '@/lib/http'
-import LoginPage from '@/pages/LoginPage.vue'
+import LoginPage from '@/views/auth/LoginView.vue'
 import { useSessionStore } from '@/stores/session'
 
 vi.mock('@/adapter/feedback', () => ({

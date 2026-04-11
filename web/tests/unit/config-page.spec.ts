@@ -2,7 +2,7 @@ import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import ConfigPage from '@/pages/ConfigPage.vue'
+import ConfigPage from '@/views/system/ConfigView.vue'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
@@ -144,7 +144,7 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.config-page-wrapper').exists()).toBe(true)
+    expect(wrapper.find('.app-page').exists()).toBe(true)
     expect(wrapper.find('.config-layout').exists()).toBe(true)
     expect(wrapper.find('.nav-viewport-outer').exists()).toBe(true)
     expect(wrapper.find('.config-editor-panel').exists()).toBe(true)

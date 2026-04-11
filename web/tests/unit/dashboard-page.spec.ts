@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import DashboardPage from '@/pages/DashboardPage.vue'
+import DashboardPage from '@/views/dashboard/DashboardView.vue'
 import { useSystemStore } from '@/stores/system'
 
 describe('DashboardPage', () => {

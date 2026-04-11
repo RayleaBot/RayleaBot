@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
+import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { t } from '@/i18n'
@@ -94,37 +95,39 @@ function getStatusColor(status: PluginCommandAvailability) {
   }
 }
 
+function getSelectPopupContainer(triggerNode: HTMLElement) {
+  return triggerNode.parentElement ?? triggerNode
+}
+
 onMounted(() => {
   void loadCommands()
 })
 </script>
 
 <template>
-  <div class="page-grid page-grid--viewport">
-    <section class="hero-panel">
-      <div>
-        <h1>{{ t('commands.title') }}</h1>
-        <p>{{ t('commands.subtitle') }}</p>
-      </div>
-
+  <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" full-height>
+    <template #extra>
       <a-button :loading="loading" @click="loadCommands()">
         {{ t('commands.refresh') }}
       </a-button>
-    </section>
+    </template>
 
-    <a-card :bordered="false" class="commands-filter-toolbar">
-      <a-form layout="vertical">
-        <a-form-item :label="t('commands.filters.plugins')">
-          <a-select
-            v-model:value="selectedPluginIds"
-            mode="multiple"
-            allow-clear
-            :options="pluginOptions"
-            :placeholder="t('commands.filters.allPlugins')"
-          />
-        </a-form-item>
-      </a-form>
-    </a-card>
+    <template #toolbar>
+      <a-card :bordered="false" class="app-view-card commands-filter-toolbar">
+        <a-form layout="vertical">
+          <a-form-item :label="t('commands.filters.plugins')">
+            <a-select
+              v-model:value="selectedPluginIds"
+              mode="multiple"
+              allow-clear
+              :get-popup-container="getSelectPopupContainer"
+              :options="pluginOptions"
+              :placeholder="t('commands.filters.allPlugins')"
+            />
+          </a-form-item>
+        </a-form>
+      </a-card>
+    </template>
 
     <RetryPanel
       v-if="error && commandRows.length === 0"
@@ -138,7 +141,7 @@ onMounted(() => {
 
     <a-table
       v-else
-      class="commands-data-table"
+      class="commands-data-table app-data-table"
       :columns="tableColumns"
       :data-source="commandRows"
       :pagination="false"
@@ -186,7 +189,7 @@ onMounted(() => {
         </template>
       </template>
     </a-table>
-  </div>
+  </AppPage>
 </template>
 
 <style scoped lang="scss">

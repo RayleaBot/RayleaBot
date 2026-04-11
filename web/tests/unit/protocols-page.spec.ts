@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import ProtocolsPage from '@/pages/ProtocolsPage.vue'
+import ProtocolsPage from '@/views/protocols/ProtocolsView.vue'
 import { useConfigStore } from '@/stores/config'
 import { useProtocolsStore } from '@/stores/protocols'
 import type { ConfigDocument } from '@/types/api'

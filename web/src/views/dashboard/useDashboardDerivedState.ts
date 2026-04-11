@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 
-import { useDashboardReadinessState } from '@/pages/dashboard/useDashboardReadinessState'
-import { useDashboardRecoveryState } from '@/pages/dashboard/useDashboardRecoveryState'
+import { useDashboardReadinessState } from '@/views/dashboard/useDashboardReadinessState'
+import { useDashboardRecoveryState } from '@/views/dashboard/useDashboardRecoveryState'
 
 type DerivedStateInput = {
   health: Ref<any>

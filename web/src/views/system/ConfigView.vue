@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifySuccess } from '@/adapter/feedback'
+import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { cloneConfig, getConfigSections, getValueByPath, setValueByPath } from '@/lib/config-form'
@@ -83,24 +84,31 @@ async function save() {
 </script>
 
 <template>
-  <div class="config-page-wrapper">
-    <header class="hero-panel">
-      <div class="hero-title-group">
-        <h1>{{ t('config.title') }}</h1>
-        <div v-if="restartRequired !== null" class="restart-indicator">
-          <a-tag :color="restartRequired ? 'warning' : 'success'">
-            {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
-          </a-tag>
-        </div>
-      </div>
-
-      <div class="hero-actions">
+  <AppPage :title="t('config.title')" full-height>
+    <template #extra>
+      <div class="table-actions">
         <a-button type="primary" :disabled="!canSave" :loading="saving" @click="save">
           {{ t('config.save') }}
         </a-button>
         <a-button :loading="loading" @click="loadConfig">{{ t('dashboard.refresh') }}</a-button>
       </div>
-    </header>
+    </template>
+
+    <template #toolbar>
+      <a-card :bordered="false" class="app-view-card config-summary-card">
+        <div class="config-summary-card__main">
+          <div class="config-summary-card__title">
+            <strong>{{ currentSection?.title }}</strong>
+            <small>{{ currentSection?.description }}</small>
+          </div>
+          <div v-if="restartRequired !== null" class="restart-indicator">
+            <a-tag :color="restartRequired ? 'warning' : 'success'">
+              {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
+            </a-tag>
+          </div>
+        </div>
+      </a-card>
+    </template>
 
     <div v-if="error || redactedFields.length > 0" class="config-alerts-container">
       <a-alert v-if="error" :message="t('errors.common.actionFailed')" type="error" :description="error" show-icon />
@@ -230,45 +238,29 @@ async function save() {
         </main>
       </div>
     </div>
-  </div>
+  </AppPage>
 </template>
 
 <style lang="scss" scoped>
-.config-page-wrapper {
-  height: calc(100vh - 100px);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow: visible;
-}
-
-.hero-panel {
-  flex-shrink: 0;
-  padding: 20px 28px;
-  border-radius: 28px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 247, 0.88));
-  border: 1px solid rgba(22, 33, 39, 0.08);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+.config-summary-card__main {
   display: flex;
   justify-content: space-between;
+  gap: 18px;
   align-items: center;
-  z-index: 10;
+  flex-wrap: wrap;
 }
 
-.hero-title-group {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.config-summary-card__title {
+  display: grid;
+  gap: 6px;
 
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
+  strong {
+    font-size: 1rem;
   }
-}
 
-.hero-actions {
-  display: flex;
-  gap: 12px;
+  small {
+    color: var(--muted);
+  }
 }
 
 .config-alerts-container {

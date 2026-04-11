@@ -8,17 +8,23 @@ export const routes = {
   status: '系统状态',
   plugins: '插件',
   pluginDetail: '插件详情',
+  operations: '运维',
   commands: '指令中心',
   tasks: '任务',
   logs: '日志',
+  protocolGroup: '协议',
   protocols: '协议中心',
   protocolLogs: '协议日志',
+  system: '系统',
   config: '配置',
   login: '登录',
   setup: '创建管理员账号',
 } as const
 
 export const shell = {
+  account: '账号',
+  cancel: '取消',
+  headerSubtitle: '保持正式契约不变的后台工作台',
   systemStatus: '系统状态',
   readyStatus: '就绪状态',
   reconnectAll: '全部重连',

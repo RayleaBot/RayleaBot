@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
+import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
@@ -48,37 +49,35 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-grid page-grid--viewport">
-    <section class="hero-panel">
-      <div>
-        <h1>{{ t('logs.title') }}</h1>
-      </div>
-
+  <AppPage :title="t('logs.title')" full-height>
+    <template #extra>
       <a-button :loading="loading" @click="loadLogs()">
         {{ t('logs.refresh') }}
       </a-button>
-    </section>
+    </template>
 
-    <a-card :bordered="false" class="logs-filter-toolbar">
-      <a-form layout="vertical" class="logs-filter-grid">
-        <a-form-item :label="t('logs.filters.level')">
-          <a-select v-model:value="filters.level" allow-clear :options="levelOptions()" :placeholder="t('logs.filters.all')" />
-        </a-form-item>
-        <a-form-item :label="t('logs.filters.source')">
-          <a-input v-model:value="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
-        </a-form-item>
-        <a-form-item :label="t('logs.filters.plugin')">
-          <a-input v-model:value="filters.pluginId" :placeholder="t('logs.filters.pluginPlaceholder')" />
-        </a-form-item>
-        <a-form-item :label="t('logs.filters.requestId')">
-          <a-input v-model:value="filters.requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
-        </a-form-item>
-      </a-form>
+    <template #toolbar>
+      <a-card :bordered="false" class="app-view-card logs-filter-toolbar">
+        <a-form layout="vertical" class="logs-filter-grid">
+          <a-form-item :label="t('logs.filters.level')">
+            <a-select v-model:value="filters.level" allow-clear :options="levelOptions()" :placeholder="t('logs.filters.all')" />
+          </a-form-item>
+          <a-form-item :label="t('logs.filters.source')">
+            <a-input v-model:value="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
+          </a-form-item>
+          <a-form-item :label="t('logs.filters.plugin')">
+            <a-input v-model:value="filters.pluginId" :placeholder="t('logs.filters.pluginPlaceholder')" />
+          </a-form-item>
+          <a-form-item :label="t('logs.filters.requestId')">
+            <a-input v-model:value="filters.requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
+          </a-form-item>
+        </a-form>
 
-      <div class="logs-filter-actions">
-        <a-button type="primary" @click="loadLogs()">{{ t('logs.filters.apply') }}</a-button>
-      </div>
-    </a-card>
+        <div class="logs-filter-actions">
+          <a-button type="primary" @click="loadLogs()">{{ t('logs.filters.apply') }}</a-button>
+        </div>
+      </a-card>
+    </template>
 
     <RetryPanel
       v-if="error && items.length === 0"
@@ -92,7 +91,7 @@ onMounted(() => {
 
     <a-table
       v-else
-      class="logs-data-table"
+      class="logs-data-table app-data-table"
       :columns="tableColumns"
       :data-source="items"
       :pagination="false"
@@ -129,7 +128,7 @@ onMounted(() => {
         </template>
       </template>
     </a-table>
-  </div>
+  </AppPage>
 </template>
 
 <style lang="scss" scoped>

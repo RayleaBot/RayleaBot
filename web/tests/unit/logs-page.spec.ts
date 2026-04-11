@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { formatDateTime } from '@/lib/format'
-import LogsPage from '@/pages/LogsPage.vue'
+import LogsPage from '@/views/operations/LogsView.vue'
 import { useLogsStore } from '@/stores/logs'
 
 describe('LogsPage', () => {

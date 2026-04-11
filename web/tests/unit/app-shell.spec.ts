@@ -4,11 +4,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import AppShell from '@/components/AppShell.vue'
+import BasicLayout from '@/layouts/BasicLayout.vue'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore } from '@/stores/system'
 
-describe('AppShell', () => {
+describe('BasicLayout', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
@@ -19,7 +19,7 @@ describe('AppShell', () => {
       routes: [
         {
           path: '/',
-          component: AppShell,
+          component: BasicLayout,
           children: [
             {
               path: '',
@@ -57,7 +57,7 @@ describe('AppShell', () => {
     socketStore.snapshots.logs.status = 'authenticated'
     socketStore.snapshots.pluginConsole.status = 'disconnected'
 
-    const wrapper = mount(AppShell, {
+    const wrapper = mount(BasicLayout, {
       global: {
         plugins: [Antd, router],
       },
@@ -67,15 +67,14 @@ describe('AppShell', () => {
 
     expect(wrapper.text()).toContain('管理控制台')
     expect(wrapper.text()).toContain('系统状态')
-    expect(wrapper.text()).toContain('就绪状态')
+    expect(wrapper.text()).toContain('事件流')
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('指令中心')
-    expect(wrapper.text()).not.toContain('协议日志')
+    expect(wrapper.text()).toContain('运维')
+    expect(wrapper.text()).toContain('协议')
+    expect(wrapper.text()).toContain('系统')
     expect(wrapper.text()).not.toContain('Management Surface')
     expect(wrapper.text()).not.toContain('Control Plane')
-    expect(wrapper.text()).not.toContain('导航')
-    expect(wrapper.text()).not.toContain('菜单')
-    expect(wrapper.find('.mobile-menu-button').exists()).toBe(false)
   })
 
   it('expands protocol navigation for the protocol log route', async () => {
@@ -84,7 +83,7 @@ describe('AppShell', () => {
       routes: [
         {
           path: '/',
-          component: AppShell,
+          component: BasicLayout,
           children: [
             { path: '', component: { template: '<div>内容</div>' } },
             { path: 'protocols', component: { template: '<div>协议中心</div>' } },
@@ -107,7 +106,7 @@ describe('AppShell', () => {
       status: 'ready',
     }
 
-    const wrapper = mount(AppShell, {
+    const wrapper = mount(BasicLayout, {
       global: {
         plugins: [Antd, router],
       },
@@ -115,7 +114,7 @@ describe('AppShell', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.shell-subnav').exists()).toBe(true)
+    expect(wrapper.find('.ant-menu-submenu-open').exists()).toBe(true)
     expect(wrapper.text()).toContain('协议日志')
   })
 })

@@ -10,10 +10,10 @@ import { configureApiRuntime } from '@/request/http'
 import { createAppRouter } from '@/router'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
+import { useUiShellStore } from '@/stores/ui-shell'
 import 'ant-design-vue/dist/reset.css'
 import '@/styles/tailwind.css'
 import '@/styles/main.scss'
-import '@/styles/minimal-protocol-theme.scss'
 
 const initialLauncherToken = typeof window === 'undefined'
   ? null
@@ -82,6 +82,7 @@ async function bootstrap() {
 
   const sessionStore = useSessionStore(pinia)
   const socketStore = useSocketStore(pinia)
+  useUiShellStore(pinia)
 
   configureApiRuntime({
     getToken: () => sessionStore.token,

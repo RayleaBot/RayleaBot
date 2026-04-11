@@ -2,10 +2,10 @@ import { reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
-import { AUTO_REFRESH_INTERVAL } from '@/pages/dashboard/constants'
+import { AUTO_REFRESH_INTERVAL } from '@/views/dashboard/constants'
 import { useSystemStore } from '@/stores/system'
-import { useDashboardDerivedState } from '@/pages/dashboard/useDashboardDerivedState'
-import { useDashboardRefresh } from '@/pages/dashboard/useDashboardRefresh'
+import { useDashboardDerivedState } from '@/views/dashboard/useDashboardDerivedState'
+import { useDashboardRefresh } from '@/views/dashboard/useDashboardRefresh'
 
 export function useDashboardState() {
   const router = useRouter()

@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import DashboardHeroPanel from '@/components/DashboardHeroPanel.vue'
 import DashboardRecentEventsCard from '@/components/DashboardRecentEventsCard.vue'
 import DashboardReadinessCard from '@/components/DashboardReadinessCard.vue'
 import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
 import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
 import DashboardToolsPanel from '@/components/DashboardToolsPanel.vue'
+import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
 import { t } from '@/i18n'
-import { useDashboardPage } from '@/pages/dashboard/useDashboardPage'
+import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 
 const {
   AUTO_REFRESH_INTERVAL,
@@ -68,18 +68,44 @@ const {
 </script>
 
 <template>
-  <div class="page-grid">
-    <DashboardHeroPanel
-      :title="t('dashboard.title')"
-      :status-badge="statusBadgeConfig"
-      :last-refreshed-label="lastRefreshed ? `${t('dashboard.lastRefreshed')}: ${formatRelativeTime(lastRefreshed)}` : null"
-      :auto-refresh="autoRefresh"
-      :countdown="countdown"
-      :auto-refresh-interval="AUTO_REFRESH_INTERVAL"
-      :loading="loading"
-      @refresh="refreshState()"
-      @toggle-auto-refresh="toggleAutoRefresh"
-    />
+  <AppPage :title="t('dashboard.title')">
+    <template #extra>
+      <div class="table-actions">
+        <a-button :loading="loading" @click="refreshState()">
+          {{ t('dashboard.refresh') }}
+        </a-button>
+      </div>
+    </template>
+
+    <template #toolbar>
+      <a-card :bordered="false" class="app-view-card dashboard-hero-card">
+        <div class="dashboard-hero-card__main">
+          <div class="dashboard-hero-card__status">
+            <div :class="['status-badge', `status-badge--${statusBadgeConfig.type}`]">
+              <span class="status-badge__icon">{{ statusBadgeConfig.icon }}</span>
+              <span>{{ statusBadgeConfig.label }}</span>
+            </div>
+            <div v-if="lastRefreshed" class="hero-meta__time">
+              {{ `${t('dashboard.lastRefreshed')}: ${formatRelativeTime(lastRefreshed)}` }}
+              <template v-if="autoRefresh"> · {{ countdown }}s</template>
+            </div>
+          </div>
+          <div class="dashboard-hero-card__actions">
+            <div class="hero-auto-refresh">
+              <span>{{ t('dashboard.autoRefresh') }}</span>
+              <a-switch
+                :checked="autoRefresh"
+                size="small"
+                @change="toggleAutoRefresh"
+              />
+            </div>
+          </div>
+        </div>
+        <div v-if="autoRefresh" class="auto-refresh-bar">
+          <div class="auto-refresh-bar__fill" :style="{ width: `${(countdown / AUTO_REFRESH_INTERVAL) * 100}%` }" />
+        </div>
+      </a-card>
+    </template>
 
     <a-alert
       v-if="alertBannerType"
@@ -196,5 +222,31 @@ const {
         </a-form-item>
       </a-form>
     </a-modal>
-  </div>
+  </AppPage>
 </template>
+
+<style scoped lang="scss">
+.dashboard-hero-card {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-hero-card__main {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dashboard-hero-card__status {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-hero-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+</style>

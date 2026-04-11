@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
+import AppPage from '@/components/page/AppPage.vue'
 import RecoverySummaryDetails from '@/components/RecoverySummaryDetails.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -181,16 +182,12 @@ function getStatusColor(status: string) {
 </script>
 
 <template>
-  <div class="page-grid page-grid--viewport">
-    <section class="hero-panel">
-      <div>
-        <h1>{{ t('tasks.title') }}</h1>
-      </div>
-
+  <AppPage :title="t('tasks.title')" full-height>
+    <template #extra>
       <a-button :loading="loading" @click="loadTasks()">
         {{ t('tasks.refresh') }}
       </a-button>
-    </section>
+    </template>
 
     <RetryPanel
       v-if="error && sortedItems.length === 0"
@@ -212,7 +209,7 @@ function getStatusColor(status: string) {
 
     <a-table
       v-else
-      class="tasks-data-table"
+      class="tasks-data-table app-data-table"
       :columns="tableColumns"
       :data-source="sortedItems"
       :pagination="false"
@@ -339,7 +336,7 @@ function getStatusColor(status: string) {
         </template>
       </a-skeleton>
     </a-drawer>
-  </div>
+  </AppPage>
 </template>
 
 <style lang="scss" scoped>

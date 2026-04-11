@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
 import { notifySuccess } from '@/adapter/feedback'
+import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
@@ -145,12 +146,8 @@ async function submitInstall() {
 </script>
 
 <template>
-  <div class="page-grid page-grid--viewport">
-    <section class="hero-panel">
-      <div>
-        <h1>{{ t('plugins.title') }}</h1>
-      </div>
-
+  <AppPage :title="t('plugins.title')" full-height>
+    <template #extra>
       <div class="table-actions">
         <a-button type="primary" @click="installDialogVisible = true">
           {{ t('plugins.install') }}
@@ -159,7 +156,7 @@ async function submitInstall() {
           {{ t('plugins.refresh') }}
         </a-button>
       </div>
-    </section>
+    </template>
 
     <RetryPanel
       v-if="error && sortedItems.length === 0"
@@ -175,7 +172,7 @@ async function submitInstall() {
 
     <a-table
       v-else
-      class="plugins-data-table"
+      class="plugins-data-table app-data-table"
       :columns="tableColumns"
       :data-source="sortedItems"
       :pagination="false"
@@ -281,7 +278,7 @@ async function submitInstall() {
         </template>
       </template>
     </a-table>
-  </div>
+  </AppPage>
 
   <a-modal
     v-model:open="installDialogVisible"
