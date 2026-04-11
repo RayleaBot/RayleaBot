@@ -65,6 +65,9 @@ const {
 } = storeToRefs(protocolLogsStore)
 
 const terminalScroller = ref<HTMLElement | null>(null)
+const pageRoot = ref<HTMLElement | null>(null)
+const workspaceRoot = ref<HTMLElement | null>(null)
+const workspaceHeight = ref<number | null>(null)
 const selectedSummary = computed(() => currentDetail.value ?? selectedItem.value ?? null)
 const detailEntries = computed(() => {
   const details = toDetailRecord(currentDetail.value?.details)
@@ -82,6 +85,12 @@ const detailJson = computed(() => safeJsonStringify(toDetailRecord(currentDetail
 const terminalStatusLabel = computed(() => (
   autoFollow.value ? t('protocols.logsFollowing') : t('protocols.logsPaused')
 ))
+const workspaceStyle = computed(() => (
+  workspaceHeight.value && workspaceHeight.value > 0
+    ? { height: `${workspaceHeight.value}px` }
+    : undefined
+))
+let layoutObserver: ResizeObserver | null = null
 
 watch(
   () => [items.value.length, autoFollow.value, selectedLogId.value] as const,
@@ -97,6 +106,7 @@ watch(
 async function loadPage() {
   try {
     await protocolLogsStore.fetchList()
+    updateWorkspaceHeight()
     await scrollTerminalToBottom('auto')
   } catch {
     // store error state drives the page
@@ -105,16 +115,20 @@ async function loadPage() {
 
 onMounted(() => {
   protocolLogsStore.activate()
+  startLayoutObserver()
   void loadPage()
+  updateWorkspaceHeight()
 })
 
 onUnmounted(() => {
   protocolLogsStore.deactivate()
+  stopLayoutObserver()
 })
 
 async function refreshLogs() {
   try {
     await protocolLogsStore.fetchList()
+    updateWorkspaceHeight()
     await scrollTerminalToBottom('auto')
   } catch {
     // store error state drives the page
@@ -152,6 +166,66 @@ async function scrollTerminalToBottom(behavior: ScrollBehavior = 'smooth') {
     top: terminalScroller.value.scrollHeight,
     behavior,
   })
+}
+
+function updateWorkspaceHeight() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  void nextTick(() => {
+    const mobileQuery = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 900px)')
+      : null
+
+    if (mobileQuery?.matches) {
+      workspaceHeight.value = null
+      return
+    }
+
+    const root = pageRoot.value
+    const workspace = workspaceRoot.value
+    const shellMain = root?.closest('.shell-main') as HTMLElement | null
+    if (!root || !workspace) {
+      return
+    }
+
+    const workspaceRect = workspace.getBoundingClientRect()
+    const rootStyles = window.getComputedStyle(root)
+    const shellMainStyles = shellMain ? window.getComputedStyle(shellMain) : null
+    const paddingBottom = Number.parseFloat(rootStyles.paddingBottom || '0') || 0
+    const shellPaddingBottom = Number.parseFloat(shellMainStyles?.paddingBottom || '0') || 0
+    const containerBottom = shellMain?.getBoundingClientRect().bottom ?? window.innerHeight
+    const availableHeight = Math.floor(containerBottom - workspaceRect.top - shellPaddingBottom - paddingBottom)
+
+    workspaceHeight.value = availableHeight > 0 ? availableHeight : null
+  })
+}
+
+function startLayoutObserver() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const root = pageRoot.value
+  const shellMain = root?.closest('.shell-main') as HTMLElement | null
+  if (!root || typeof window.ResizeObserver !== 'function') {
+    return
+  }
+
+  layoutObserver = new window.ResizeObserver(() => {
+    updateWorkspaceHeight()
+  })
+
+  layoutObserver.observe(root)
+  if (shellMain) {
+    layoutObserver.observe(shellMain)
+  }
+}
+
+function stopLayoutObserver() {
+  layoutObserver?.disconnect()
+  layoutObserver = null
 }
 
 function formatDetailValue(key: ProtocolDetailFieldKey, value: unknown) {
@@ -238,7 +312,7 @@ function getLevelColor(level: string) {
 </script>
 
 <template>
-  <div class="page-grid minimal-protocol-theme">
+  <div ref="pageRoot" class="page-grid page-grid--viewport minimal-protocol-theme protocol-logs-page">
     <section class="hero-panel">
       <div class="hero-text">
         <h1 class="main-title">{{ t('protocols.logsPageTitle') }}</h1>
@@ -246,7 +320,7 @@ function getLevelColor(level: string) {
       </div>
 
       <div class="hero-actions">
-        <button class="minimal-btn outline" @click="router.push('/protocols')">
+        <button class="minimal-btn text" @click="router.push('/protocols')">
           {{ t('protocols.openSettings') }}
         </button>
         <button class="minimal-btn primary" :disabled="logsLoading" @click="refreshLogs">
@@ -256,10 +330,10 @@ function getLevelColor(level: string) {
       </div>
     </section>
 
-    <div class="protocol-logs-workspace">
+    <div ref="workspaceRoot" class="protocol-logs-workspace" :style="workspaceStyle">
       <aside class="logs-sidebar">
-        <div class="minimal-card sidebar-card">
-          <div class="card-header">
+        <div class="sidebar-palette">
+          <div class="palette-header">
             <strong>{{ t('protocols.filters.apply') }}</strong>
           </div>
           <el-form label-position="top" class="sidebar-filter-form" @submit.prevent>
@@ -285,21 +359,20 @@ function getLevelColor(level: string) {
           </el-form>
         </div>
 
-        <div class="minimal-card sidebar-card control-card">
-          <div class="card-header">
+        <div class="sidebar-palette">
+          <div class="palette-header">
             <strong>{{ t('dashboard.refresh') }}</strong>
+            <span class="buffer-info">{{ items.length }} / 200</span>
           </div>
           <div class="sidebar-controls">
-            <div class="follow-status">
-              <span class="minimal-badge" :class="autoFollow ? 'success' : 'warning'">
-                {{ terminalStatusLabel }}
-              </span>
-              <span class="buffer-info">{{ t('protocols.bufferCount', { count: items.length }) }}</span>
+            <div class="follow-status-pill" :class="autoFollow ? 'is-following' : 'is-paused'">
+              <span class="status-dot"></span>
+              {{ terminalStatusLabel }}
             </div>
             <button class="minimal-btn outline" v-if="autoFollow" @click="pauseAutoFollow">
               {{ t('protocols.logsPause') }}
             </button>
-            <button class="minimal-btn outline" v-else @click="resumeAutoFollow">
+            <button class="minimal-btn primary" v-else @click="resumeAutoFollow">
               {{ t('protocols.logsResume') }}
             </button>
           </div>
@@ -319,13 +392,15 @@ function getLevelColor(level: string) {
 
         <div v-else class="logs-display-grid">
           <div class="minimal-card terminal-container">
-            <div class="card-header">
-              <strong>{{ t('protocols.logsStreamTitle') }}</strong>
-              <span class="terminal-hint">{{ t('protocols.logsStreamHint') }}</span>
+            <div class="terminal-header">
+              <div class="terminal-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <strong class="terminal-title">{{ t('protocols.logsStreamTitle') }}</strong>
             </div>
 
             <div v-if="items.length === 0" class="term-empty-state">
-              <div class="empty-icon">!</div>
+              <div class="empty-icon">~</div>
               <p>{{ t('protocols.logsEmpty') }}</p>
             </div>
 
@@ -342,18 +417,11 @@ function getLevelColor(level: string) {
                   <div class="line-level-indicator" :class="getLevelColor(log.level)"></div>
                   <div class="line-content-wrap">
                     <div class="line-meta">
-                      <span class="line-time">[{{ formatDateTime(log.timestamp) }}]</span>
-                      <span class="line-level">[{{ getLogLevelLabel(log.level) }}]</span>
-                      <span class="line-protocol">[{{ getLogProtocolLabel(log.protocol) }}]</span>
+                      <span class="line-time">{{ formatDateTime(log.timestamp).split(' ')[1] }}</span>
                       <span class="line-source">{{ log.source }}</span>
-                      <span v-if="log.plugin_id" class="line-plugin">@{{ log.plugin_id }}</span>
                     </div>
                     <div class="line-body">
-                      <span class="line-prompt">></span>
                       <span class="line-text">{{ log.message }}</span>
-                    </div>
-                    <div class="line-request" v-if="log.request_id">
-                      ID: {{ log.request_id }}
                     </div>
                   </div>
                 </button>
@@ -390,20 +458,12 @@ function getLevelColor(level: string) {
                   <h3 class="detail-hero-message">{{ selectedSummary.message }}</h3>
                   <div class="detail-hero-meta">
                     <div class="meta-row">
-                      <span class="mono-label">{{ t('protocols.fields.timestamp') }}:</span>
+                      <span class="mono-label">{{ t('protocols.fields.timestamp') }}</span>
                       <span class="mono-value">{{ formatDateTime(selectedSummary.timestamp) }}</span>
                     </div>
                     <div class="meta-row">
-                      <span class="mono-label">{{ t('protocols.fields.source') }}:</span>
+                      <span class="mono-label">{{ t('protocols.fields.source') }}</span>
                       <span class="mono-value">{{ selectedSummary.source }} <template v-if="selectedSummary.plugin_id">(@{{ selectedSummary.plugin_id }})</template></span>
-                    </div>
-                    <div class="meta-row" v-if="selectedSummary.request_id">
-                      <span class="mono-label">{{ t('protocols.fields.requestId') }}:</span>
-                      <span class="mono-value">{{ selectedSummary.request_id }}</span>
-                    </div>
-                    <div class="meta-row">
-                      <span class="mono-label">LOG_ID:</span>
-                      <span class="mono-value">{{ selectedSummary.log_id }}</span>
                     </div>
                   </div>
                 </header>
@@ -433,24 +493,87 @@ function getLevelColor(level: string) {
 </template>
 
 <style lang="scss" scoped>
+.protocol-logs-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.protocol-logs-page > .hero-panel {
+  margin-bottom: 0;
+}
+
 .protocol-logs-workspace {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-xl);
   align-items: stretch;
-  height: calc(100vh - 220px);
-  min-height: 600px;
+  align-content: stretch;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .logs-sidebar {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-lg);
+  height: 100%;
   overflow-y: auto;
+  padding-right: 8px;
+  min-height: 0;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+  }
+  
+  &:hover::-webkit-scrollbar-thumb,
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
+  }
 }
 
-.sidebar-card {
-  margin-bottom: 0;
+.sidebar-palette {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+}
+
+.palette-header {
+  padding: var(--space-md) var(--space-lg);
+  background: var(--theme-surface-soft);
+  border-bottom: 1px solid var(--theme-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  strong {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--theme-text);
+  }
+
+  .buffer-info {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--theme-text-muted);
+  }
 }
 
 .sidebar-filter-form {
@@ -468,7 +591,7 @@ function getLevelColor(level: string) {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  margin-top: var(--space-xs);
   
   .minimal-btn {
     width: 100%;
@@ -486,149 +609,235 @@ function getLevelColor(level: string) {
   }
 }
 
-.follow-status {
+.follow-status-pill {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-}
-
-.buffer-info {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  gap: var(--space-sm);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--theme-text-muted);
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-border);
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--theme-text-muted);
+  }
+
+  &.is-following {
+    border-color: oklch(70% 0.15 150 / 30%);
+    background: oklch(70% 0.15 150 / 5%);
+    color: var(--theme-success);
+    .status-dot {
+      background: var(--theme-success);
+      box-shadow: 0 0 0 3px oklch(70% 0.15 150 / 15%);
+    }
+  }
+
+  &.is-paused {
+    color: var(--theme-text-muted);
+  }
 }
 
 .logs-main-content {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .logs-display-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: var(--space-xl);
+  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-content: stretch;
   flex: 1;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .terminal-container, .detail-container {
   display: flex;
   flex-direction: column;
-  margin-bottom: 0;
   height: 100%;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
 }
 
-.terminal-hint {
-  font-size: 0.8rem;
-  color: var(--theme-text-muted);
-  font-weight: normal;
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px 16px;
+  background: oklch(12% 0.02 235);
+  border-bottom: 1px solid oklch(20% 0.02 235);
+  border-radius: 16px 16px 0 0;
+
+  .terminal-title {
+    color: oklch(70% 0.02 235);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 6px;
+    span {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: oklch(30% 0.02 235);
+      
+      &:nth-child(1) { background: oklch(65% 0.18 25); }
+      &:nth-child(2) { background: oklch(75% 0.15 70); }
+      &:nth-child(3) { background: oklch(70% 0.15 150); }
+    }
+  }
 }
 
-/* Terminal View */
 .terminal-view-scroller {
-  flex: 1;
+  flex: 1 1 0;
+  height: 0;
+  min-height: 0;
   overflow-y: auto;
-  background: oklch(18% 0.01 235);
-  padding: var(--space-sm) 0;
-  border-radius: 0 0 12px 12px;
+  background: oklch(15% 0.02 235);
+  border-radius: 0 0 16px 16px;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    background: oklch(15% 0.02 235);
+    border-radius: 0 0 16px 0;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 10px;
+    border: 3px solid oklch(15% 0.02 235);
+  }
+  
+  &:hover::-webkit-scrollbar-thumb,
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+  }
 }
 
 .terminal-content {
   display: flex;
   flex-direction: column;
+  padding: var(--space-sm) 0;
 }
 
 .terminal-line {
   width: 100%;
   background: transparent;
   border: none;
-  padding: var(--space-sm) var(--space-md);
+  padding: 6px var(--space-md);
   color: oklch(85% 0.01 235);
   font-family: var(--font-mono);
   text-align: left;
   cursor: pointer;
-  transition: background-color 0.15s ease;
   display: flex;
-  gap: var(--space-sm);
+  gap: var(--space-md);
+  align-items: flex-start;
+  transition: none;
 
   &:hover {
-    background: oklch(22% 0.01 235);
-    color: #fff;
+    background: oklch(22% 0.02 235);
   }
 
   &.is-selected {
     background: oklch(25% 0.04 235);
-    color: #fff;
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--theme-accent);
+    }
   }
-
-  &.is-debug { color: oklch(65% 0.01 235); }
 }
 
 .line-level-indicator {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  margin-top: 6px;
+  margin-top: 5px;
   flex-shrink: 0;
-  background: oklch(60% 0.01 235); /* debug */
+  background: oklch(60% 0.01 235);
 
-  &.success { background: var(--theme-success); }
-  &.warning { background: var(--theme-warning); }
-  &.danger { background: var(--theme-danger); }
+  &.success { background: var(--theme-success); box-shadow: 0 0 8px var(--theme-success); }
+  &.warning { background: var(--theme-warning); box-shadow: 0 0 8px var(--theme-warning); }
+  &.danger { background: var(--theme-danger); box-shadow: 0 0 8px var(--theme-danger); }
 }
 
 .line-content-wrap {
   display: flex;
-  flex-direction: column;
   flex: 1;
   min-width: 0;
+  gap: var(--space-md);
 }
 
 .line-meta {
   display: flex;
-  gap: var(--space-md);
-  font-size: 0.75rem;
-  opacity: 0.7;
-  margin-bottom: var(--space-xs);
-  flex-wrap: wrap;
+  gap: var(--space-sm);
+  font-size: 0.8rem;
+  opacity: 0.6;
+  width: 160px;
+  flex-shrink: 0;
+}
+
+.line-time {
+  color: oklch(60% 0.02 235);
+}
+
+.line-source {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .line-body {
   display: flex;
-  gap: var(--space-sm);
+  flex: 1;
   font-size: 0.85rem;
   line-height: 1.4;
-}
-
-.line-prompt {
-  color: var(--theme-accent);
-  font-weight: bold;
-}
-
-.line-text {
   word-break: break-all;
   white-space: pre-wrap;
 }
 
-.line-request {
-  font-size: 0.7rem;
-  opacity: 0.5;
-  margin-top: var(--space-xs);
-}
-
 /* Detail View */
 .detail-view-content {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 auto;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .detail-hero {
-  padding: var(--space-xl);
-  background: var(--theme-bg);
+  padding: var(--space-lg);
+  background: var(--theme-surface-soft);
   border-bottom: 1px solid var(--theme-border);
 }
 
@@ -640,54 +849,57 @@ function getLevelColor(level: string) {
 
 .detail-hero-message {
   font-family: var(--font-sans);
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin: 0 0 var(--space-md);
-  line-height: 1.3;
+  line-height: 1.4;
   color: var(--theme-text);
+  word-break: break-word;
 }
 
 .detail-hero-meta {
-  display: grid;
-  gap: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .meta-row {
   display: flex;
-  gap: var(--space-md);
-  font-size: 0.85rem;
+  gap: var(--space-sm);
+  font-size: 0.8rem;
   
-  .mono-label { width: 120px; flex-shrink: 0; }
+  .mono-label { width: 80px; flex-shrink: 0; }
 }
 
 .detail-fields-section {
-  padding: var(--space-xl);
+  padding: var(--space-lg);
   border-bottom: 1px solid var(--theme-border);
 }
 
 .detail-fields-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-md);
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
 }
 
 .detail-field-box {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-md);
+  align-items: baseline;
+  padding: var(--space-xs) 0;
 
   .field-label {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--theme-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
     font-family: var(--font-sans);
+    width: 120px;
+    flex-shrink: 0;
   }
 
   .field-value {
     font-family: var(--font-mono);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     color: var(--theme-text);
     word-break: break-all;
@@ -695,8 +907,10 @@ function getLevelColor(level: string) {
 }
 
 .detail-json-section {
-  padding: var(--space-xl);
+  padding: var(--space-lg);
   background: var(--theme-surface);
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .json-header {
@@ -704,6 +918,7 @@ function getLevelColor(level: string) {
   strong {
     font-family: var(--font-sans);
     font-weight: 600;
+    font-size: 0.9rem;
     color: var(--theme-text);
   }
 }
@@ -711,14 +926,24 @@ function getLevelColor(level: string) {
 .json-content {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--theme-text-muted);
-  background: var(--theme-bg);
+  background: oklch(98% 0.005 235);
   padding: var(--space-md);
   border-radius: 8px;
   border: 1px solid var(--theme-border);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.02);
+  overflow: visible;
+}
+
+:deep(.detail-container .el-skeleton),
+:deep(.detail-container .el-skeleton__content) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Empty States */
@@ -737,35 +962,71 @@ function getLevelColor(level: string) {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: var(--space-md);
-    opacity: 0.2;
+    opacity: 0.3;
   }
 }
 
+.term-empty-state {
+  background: oklch(15% 0.02 235);
+  border-radius: 0 0 16px 16px;
+  .empty-icon { opacity: 0.1; }
+}
+
 .detail-empty-state {
-  background: var(--theme-bg);
+  background: var(--theme-surface-soft);
 }
 
 @media (max-width: 1200px) {
+  .logs-display-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .terminal-container {
+    height: 500px;
+  }
+  
+  .detail-container {
+    height: 400px;
+  }
+}
+
+@media (max-width: 900px) {
+  .protocol-logs-page {
+    gap: var(--space-xl);
+    height: auto;
+    overflow: visible;
+  }
+
   .protocol-logs-workspace {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     height: auto;
+    overflow: visible;
   }
   
   .logs-sidebar {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    height: auto;
   }
-  
-  .logs-display-grid {
-    grid-template-columns: 1fr;
+
+  .logs-main-content,
+  .logs-display-grid,
+  .terminal-container,
+  .detail-container {
+    height: auto;
+    overflow: visible;
   }
-  
-  .terminal-container, .detail-container {
-    height: 600px;
+
+  .terminal-view-scroller,
+  .detail-view-content {
+    flex: none;
+    height: auto;
+    overflow: visible;
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 600px) {
   .logs-sidebar {
     grid-template-columns: 1fr;
   }

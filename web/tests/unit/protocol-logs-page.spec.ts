@@ -81,14 +81,14 @@ describe('ProtocolLogsPage', () => {
       behavior: 'auto',
     }))
     expect(wrapper.find('.protocol-logs-workspace').exists()).toBe(true)
-    expect(wrapper.find('.logs-filter-toolbar').exists()).toBe(true)
+    expect(wrapper.find('.logs-sidebar .sidebar-palette').exists()).toBe(true)
     expect(wrapper.text()).toContain('协议日志')
-    expect(wrapper.find('.protocol-terminal').exists()).toBe(true)
-    expect(wrapper.findAll('.protocol-terminal-line')).toHaveLength(1)
+    expect(wrapper.find('.terminal-container').exists()).toBe(true)
+    expect(wrapper.findAll('.terminal-line')).toHaveLength(1)
     expect(wrapper.text()).toContain('ignored OneBot API response with unsupported echo')
     expect(wrapper.text()).toContain('消息详情')
     expect(wrapper.text()).toContain('api.response.ignored')
-    expect(wrapper.find('.detail-json-block').text()).toContain('"echo": 123')
+    expect(wrapper.find('.json-content').text()).toContain('"echo": 123')
   })
 
   it('renders OneBot message detail fields with clear labels', async () => {
@@ -252,7 +252,7 @@ describe('ProtocolLogsPage', () => {
 
     await flushPromises()
 
-    await wrapper.find('.protocol-terminal-line').trigger('click')
+    await wrapper.find('.terminal-line').trigger('click')
     expect(selectSpy).toHaveBeenCalledWith('log_bridge_0001')
   })
 
@@ -338,7 +338,7 @@ describe('ProtocolLogsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.meta-time').text()).toContain(formatDateTime('1.775762955e+09'))
+    expect(wrapper.find('.line-time').text()).toContain(formatDateTime('1.775762955e+09').split(' ')[1])
   })
 
   it('keeps the protocol log layout visible when a live log carries invalid time fields', async () => {
@@ -412,7 +412,7 @@ describe('ProtocolLogsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.protocol-log-layout').exists()).toBe(true)
+    expect(wrapper.find('.logs-display-grid').exists()).toBe(true)
     expect(wrapper.text()).toContain('runtime bridge delivered sent group message: 您好')
     expect(wrapper.text()).toContain('not-a-date')
   })

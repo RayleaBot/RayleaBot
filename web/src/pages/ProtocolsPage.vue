@@ -174,77 +174,77 @@ async function save() {
       </div>
     </section>
 
-    <div class="protocol-overview-layout">
-      <div class="minimal-card protocol-main-status">
-        <div class="card-header">
-          <strong>{{ t('protocols.overviewTitle') }}</strong>
-          <span class="minimal-badge">{{ t('protocols.fixedProtocolLabel') }}: {{ ONEBOT11_PROTOCOL_NAME }}</span>
+    <!-- V2 Dashboard Metrics Grid -->
+    <div class="dashboard-metrics-grid">
+      <div class="minimal-card metric-card">
+        <div class="metric-header">
+          <span class="mono-label">{{ t('protocols.overviewTitle') }}</span>
+          <span class="minimal-badge">{{ ONEBOT11_PROTOCOL_NAME }}</span>
         </div>
-        
-        <div class="protocol-status-display">
-          <div class="status-main-info">
-            <div class="status-indicator-wrap">
-              <div class="status-indicator-ring" :class="protocolStatusType"></div>
-              <div class="status-indicator-label" :class="`text-${protocolStatusType}`">{{ protocolStatusLabel }}</div>
-            </div>
-            <div class="status-summary-text">
-              <small class="mono-label">{{ t('protocols.protocolSummaryLabel') }}</small>
-              <div class="status-summary-value">{{ protocolSummary }}</div>
-            </div>
+        <div class="metric-body">
+          <div class="status-indicator-wrap">
+            <div class="status-indicator-ring" :class="protocolStatusType"></div>
+            <div class="status-indicator-label" :class="`text-${protocolStatusType}`">{{ protocolStatusLabel }}</div>
           </div>
-          
-          <div class="status-meta-grid">
-            <div class="status-meta-item">
-              <small class="mono-label">{{ t('protocols.providerLabel') }}</small>
-              <strong class="mono-value">{{ snapshot?.provider || t('display.empty') }}</strong>
-            </div>
-            <div class="status-meta-item">
-              <small class="mono-label">{{ t('protocols.readinessLabel') }}</small>
-              <span class="minimal-badge" :class="readinessType">{{ readinessLabel }}</span>
-            </div>
-            <div class="status-meta-item">
-              <small class="mono-label">{{ t('protocols.configuredTransportLabel') }}</small>
-              <strong class="mono-value">{{ configuredTransportsText }}</strong>
-            </div>
-            <div class="status-meta-item">
-              <small class="mono-label">{{ t('protocols.activeTransportLabel') }}</small>
-              <strong class="mono-value">{{ activeTransportText }}</strong>
-            </div>
-          </div>
+          <div class="status-summary-value">{{ protocolSummary }}</div>
         </div>
       </div>
 
-      <div class="minimal-card transport-status-section">
-        <div class="card-header">
-          <strong>{{ t('protocols.transportStatusTitle') }}</strong>
+      <div class="minimal-card metric-card">
+        <div class="metric-header">
+          <span class="mono-label">{{ t('protocols.providerLabel') }}</span>
+          <span class="minimal-badge" :class="readinessType">{{ readinessLabel }}</span>
         </div>
-        <div class="transport-list-container">
-          <div
-            v-for="item in transportStatusItems"
-            :key="item.transport"
-            class="transport-line-item"
-          >
-            <div class="transport-line-header">
-              <div class="transport-line-identity">
-                <span class="transport-line-dot" :class="item.stateType"></span>
-                <strong>{{ item.label }}</strong>
-              </div>
-              <span class="minimal-badge" :class="item.stateType">{{ item.stateLabel }}</span>
-            </div>
-            <div class="transport-line-content">
-              <div class="transport-endpoint">
-                <small class="mono-label">{{ t('protocols.fields.endpoint') }}</small>
-                <code class="endpoint-code">{{ item.endpointText }}</code>
-              </div>
-              <div class="transport-summary">
-                <small class="mono-label">{{ t('protocols.protocolSummaryLabel') }}</small>
-                <div class="transport-summary-text">{{ item.summary }}</div>
-              </div>
-            </div>
+        <div class="metric-body centered-metric">
+          <div class="metric-big-value">{{ snapshot?.provider || t('display.empty') }}</div>
+        </div>
+      </div>
+
+      <div class="minimal-card metric-card">
+        <div class="metric-header">
+          <span class="mono-label">Transports</span>
+        </div>
+        <div class="metric-body transport-counts">
+          <div class="transport-count">
+            <div class="count-value">{{ snapshot?.configured_transports.length || 0 }}</div>
+            <div class="count-label">{{ t('protocols.configuredTransportLabel') }}</div>
+          </div>
+          <div class="transport-count-divider"></div>
+          <div class="transport-count active">
+            <div class="count-value text-success">{{ snapshot?.active_transports.length || 0 }}</div>
+            <div class="count-label">{{ t('protocols.activeTransportLabel') }}</div>
           </div>
         </div>
-        <div class="card-footer-hint">
-          {{ t('transportStatusHint') }}
+      </div>
+    </div>
+
+    <!-- V2 Transport Cards Grid -->
+    <div class="transport-cards-section">
+      <div class="section-heading">
+        <div>
+          <h2>{{ t('protocols.transportStatusTitle') }}</h2>
+          <p class="subtitle">{{ t('transportStatusHint') }}</p>
+        </div>
+      </div>
+      <div class="transport-cards-grid">
+        <div
+          v-for="item in transportStatusItems"
+          :key="item.transport"
+          class="minimal-card transport-card"
+        >
+          <div class="transport-card-header">
+            <div class="transport-identity">
+              <span class="transport-line-dot" :class="item.stateType"></span>
+              <strong>{{ item.label }}</strong>
+            </div>
+            <span class="minimal-badge" :class="item.stateType">{{ item.stateLabel }}</span>
+          </div>
+          <div class="transport-card-body">
+            <div class="transport-endpoint">
+              <code class="endpoint-code">{{ item.endpointText }}</code>
+            </div>
+            <div class="transport-summary-text">{{ item.summary }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -283,7 +283,7 @@ async function save() {
 
       <div v-if="draft" class="protocol-settings-layout">
         <div v-for="section in configSections" :key="section.key" class="minimal-card protocol-config-card">
-          <div class="card-header">
+          <div class="card-header config-card-header">
             <strong>{{ section.title }}</strong>
             <span class="field-count-badge">{{ section.fields.length }} {{ t('config.fieldCount') }}</span>
           </div>
@@ -363,31 +363,47 @@ async function save() {
 </template>
 
 <style lang="scss" scoped>
-.protocol-overview-layout {
+
+.dashboard-metrics-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 480px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-lg);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-2xl);
 }
 
-.protocol-main-status {
-  flex-direction: column;
-}
-
-.protocol-status-display {
-  padding: var(--space-xl);
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: var(--space-2xl);
-  flex: 1;
-}
-
-.status-main-info {
+.metric-card {
+  padding: var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
-  border-right: 1px solid var(--theme-border);
-  padding-right: var(--space-2xl);
+  gap: var(--space-md);
+  min-height: 160px;
+}
+
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  flex: 1;
+  justify-content: center;
+}
+
+.centered-metric {
+  align-items: center;
+  text-align: center;
+}
+
+.metric-big-value {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: var(--font-sans);
+  color: var(--theme-text);
+  letter-spacing: -0.02em;
 }
 
 .status-indicator-wrap {
@@ -420,70 +436,83 @@ async function save() {
 }
 
 .status-summary-value {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
   line-height: 1.5;
   margin-top: var(--space-xs);
-  color: var(--theme-text);
+  color: var(--theme-text-muted);
 }
 
-.status-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-lg);
-  align-content: start;
+.transport-counts {
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
 }
 
-.status-meta-item {
+.transport-count {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-xs);
+  text-align: center;
 }
 
-/* Transport List */
-.transport-status-section {
-  display: flex;
-  flex-direction: column;
+.transport-count-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--theme-border);
 }
 
-.transport-list-container {
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  flex: 1;
-}
-
-.transport-line-item {
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  background: var(--theme-bg);
-  padding: var(--space-md);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-
-  &:hover {
-    background: var(--theme-surface);
-    border-color: var(--theme-border-strong);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+.count-value {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: var(--font-sans);
+  line-height: 1;
+  color: var(--theme-text);
+  
+  &.text-success {
+    color: var(--theme-success);
   }
 }
 
-.transport-line-header {
+.count-label {
+  font-size: 0.75rem;
+  color: var(--theme-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.transport-cards-section {
+  margin-bottom: var(--space-2xl);
+}
+
+.transport-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: var(--space-md);
+}
+
+.transport-card {
+  padding: var(--space-md) var(--space-lg);
+  gap: var(--space-md);
+}
+
+.transport-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-sm);
+  border-bottom: 1px dashed var(--theme-border);
+  padding-bottom: var(--space-sm);
 }
 
-.transport-line-identity {
+.transport-identity {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-family: var(--font-sans);
   font-weight: 600;
   font-size: 0.95rem;
-  color: var(--theme-text);
+  font-family: var(--font-sans);
 }
 
 .transport-line-dot {
@@ -497,34 +526,28 @@ async function save() {
   &.warning { background: var(--theme-warning); }
 }
 
-.transport-line-content {
+.transport-card-body {
   display: grid;
   gap: var(--space-xs);
-  padding-left: var(--space-lg);
 }
 
 .endpoint-code {
-  background: var(--theme-surface-hover);
+  display: inline-block;
+  background: var(--theme-surface-soft);
   border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  padding: 2px 6px;
+  border-radius: 6px;
+  padding: 4px 8px;
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--theme-text-muted);
+  word-break: break-all;
 }
 
 .transport-summary-text {
   font-size: 0.9rem;
   color: var(--theme-text-muted);
   line-height: 1.4;
-}
-
-.card-footer-hint {
-  padding: var(--space-sm) var(--space-lg);
-  font-size: 0.8rem;
-  color: var(--theme-text-muted);
-  background: var(--theme-bg);
-  border-top: 1px solid var(--theme-border);
+  margin-top: var(--space-xs);
 }
 
 /* Settings Layout */
@@ -536,6 +559,15 @@ async function save() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
   gap: var(--space-lg);
+}
+
+.protocol-config-card {
+  background: var(--theme-surface);
+}
+
+.config-card-header {
+  background: var(--theme-surface-soft);
+  border-bottom: 1px solid var(--theme-border);
 }
 
 .protocol-settings-form {
@@ -579,18 +611,17 @@ async function save() {
   font-weight: 500;
 }
 
-@media (max-width: 1280px) {
-  .protocol-overview-layout {
+@media (max-width: 768px) {
+  .dashboard-metrics-grid {
     grid-template-columns: 1fr;
   }
-  .protocol-status-display {
+  
+  .protocol-settings-layout {
     grid-template-columns: 1fr;
   }
-  .status-main-info {
-    border-right: none;
-    border-bottom: 1px solid var(--theme-border);
-    padding-right: 0;
-    padding-bottom: var(--space-lg);
+  
+  .transport-cards-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

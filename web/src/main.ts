@@ -10,9 +10,9 @@ import { configureApiRuntime } from '@/lib/http'
 import { createAppRouter } from '@/router'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
+import 'element-plus/dist/index.css'
 import '@/styles/main.scss'
 import '@/styles/minimal-protocol-theme.scss'
-import 'element-plus/dist/index.css'
 
 const initialLauncherToken = typeof window === 'undefined'
   ? null
