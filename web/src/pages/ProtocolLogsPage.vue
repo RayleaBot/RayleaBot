@@ -223,53 +223,48 @@ function getLogRowClass(logId: string) {
   }
 }
 
-function getLevelPillClass(level: string) {
+function getLevelClass(level: string) {
   return `is-${level}`
+}
+
+function getLevelColor(level: string) {
+  switch (level) {
+    case 'error': return 'danger';
+    case 'warn': return 'warning';
+    case 'info': return 'success';
+    default: return 'debug';
+  }
 }
 </script>
 
 <template>
-  <div class="page-grid industrial-theme">
+  <div class="page-grid minimal-protocol-theme">
     <section class="hero-panel">
       <div class="hero-text">
-        <h1 class="glitch-title">{{ t('protocols.logsPageTitle') }}</h1>
-        <p class="subtitle">>> {{ t('protocols.logsSubtitle') }}</p>
+        <h1 class="main-title">{{ t('protocols.logsPageTitle') }}</h1>
+        <p class="subtitle">{{ t('protocols.logsSubtitle') }}</p>
       </div>
 
       <div class="hero-actions">
-        <el-button class="industrial-btn outline" @click="router.push('/protocols')">
-          [ {{ t('protocols.openSettings') }} ]
-        </el-button>
-        <el-button class="industrial-btn primary" :loading="logsLoading" @click="refreshLogs">
-          [ {{ t('protocols.logsRefresh') }} ]
-        </el-button>
+        <button class="minimal-btn outline" @click="router.push('/protocols')">
+          {{ t('protocols.openSettings') }}
+        </button>
+        <button class="minimal-btn primary" :disabled="logsLoading" @click="refreshLogs">
+          <span v-if="logsLoading">{{ t('protocols.logsRefresh') }}...</span>
+          <span v-else>{{ t('protocols.logsRefresh') }}</span>
+        </button>
       </div>
     </section>
 
-    <section class="protocol-logs-section">
-      <div class="section-heading">
-        <div>
-          <h2>{{ t('protocols.logsTitle') }}</h2>
-          <p class="subtitle">>> {{ t('protocols.logsStreamHint') }}</p>
-        </div>
-        <div class="terminal-header-actions">
-          <span class="industrial-badge" :class="autoFollow ? 'success' : 'warning'">
-            {{ terminalStatusLabel }}
-          </span>
-          <span class="industrial-badge">
-            [{{ t('protocols.bufferCount', { count: items.length }) }}]
-          </span>
-        </div>
-      </div>
-
-      <div class="protocol-logs-workspace">
-        <div class="industrial-card logs-filter-toolbar">
+    <div class="protocol-logs-workspace">
+      <aside class="logs-sidebar">
+        <div class="minimal-card sidebar-card">
           <div class="card-header">
-            <strong>> {{ t('protocols.filters.apply') }}</strong>
+            <strong>{{ t('protocols.filters.apply') }}</strong>
           </div>
-          <el-form label-position="top" class="logs-filter-grid protocol-form-grid">
+          <el-form label-position="top" class="sidebar-filter-form" @submit.prevent>
             <el-form-item :label="t('protocols.filters.level')">
-              <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')" class="refined-input">
+              <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')" class="refined-input" popper-class="minimal-popper">
                 <el-option :label="t('display.logLevels.debug')" value="debug" />
                 <el-option :label="t('display.logLevels.info')" value="info" />
                 <el-option :label="t('display.logLevels.warn')" value="warn" />
@@ -282,571 +277,497 @@ function getLevelPillClass(level: string) {
             <el-form-item :label="t('protocols.filters.requestId')">
               <el-input v-model="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
             </el-form-item>
+            
+            <div class="sidebar-actions">
+              <button class="minimal-btn outline" @click="clearBuffer">{{ t('protocols.logsClear') }}</button>
+              <button class="minimal-btn primary" @click="refreshLogs">{{ t('protocols.filters.apply') }}</button>
+            </div>
           </el-form>
-
-          <div class="logs-filter-actions">
-            <el-button class="industrial-btn primary" @click="refreshLogs">[ {{ t('protocols.filters.apply') }} ]</el-button>
-            <el-button class="industrial-btn" v-if="autoFollow" @click="pauseAutoFollow">[ {{ t('protocols.logsPause') }} ]</el-button>
-            <el-button class="industrial-btn" v-else @click="resumeAutoFollow">[ {{ t('protocols.logsResume') }} ]</el-button>
-            <el-button class="industrial-btn outline" @click="clearBuffer">[ {{ t('protocols.logsClear') }} ]</el-button>
-          </div>
         </div>
 
-        <div class="protocol-logs-content">
-          <RetryPanel
-            v-if="logsError && items.length === 0"
-            :title="t('errors.common.loadFailed')"
-            :description="logsError"
-            :loading="logsLoading"
-            @retry="refreshLogs"
-          />
+        <div class="minimal-card sidebar-card control-card">
+          <div class="card-header">
+            <strong>{{ t('dashboard.refresh') }}</strong>
+          </div>
+          <div class="sidebar-controls">
+            <div class="follow-status">
+              <span class="minimal-badge" :class="autoFollow ? 'success' : 'warning'">
+                {{ terminalStatusLabel }}
+              </span>
+              <span class="buffer-info">{{ t('protocols.bufferCount', { count: items.length }) }}</span>
+            </div>
+            <button class="minimal-btn outline" v-if="autoFollow" @click="pauseAutoFollow">
+              {{ t('protocols.logsPause') }}
+            </button>
+            <button class="minimal-btn outline" v-else @click="resumeAutoFollow">
+              {{ t('protocols.logsResume') }}
+            </button>
+          </div>
+        </div>
+      </aside>
 
-          <el-alert v-else-if="logsError" :title="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon />
+      <main class="logs-main-content">
+        <RetryPanel
+          v-if="logsError && items.length === 0"
+          :title="t('errors.common.loadFailed')"
+          :description="logsError"
+          :loading="logsLoading"
+          @retry="refreshLogs"
+        />
 
-          <div v-else class="protocol-log-layout">
-            <div class="industrial-card terminal-stream-panel">
-              <div class="card-header">
-                <strong>> {{ t('protocols.logsStreamTitle') }}</strong>
-              </div>
+        <el-alert v-else-if="logsError" :title="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon class="error-alert" />
 
-              <div v-if="items.length === 0" class="term-empty">
-                [{{ t('protocols.logsEmpty') }}]
-              </div>
+        <div v-else class="logs-display-grid">
+          <div class="minimal-card terminal-container">
+            <div class="card-header">
+              <strong>{{ t('protocols.logsStreamTitle') }}</strong>
+              <span class="terminal-hint">{{ t('protocols.logsStreamHint') }}</span>
+            </div>
 
-              <div v-else ref="terminalScroller" class="protocol-terminal" aria-label="协议日志终端流">
+            <div v-if="items.length === 0" class="term-empty-state">
+              <div class="empty-icon">!</div>
+              <p>{{ t('protocols.logsEmpty') }}</p>
+            </div>
+
+            <div v-else ref="terminalScroller" class="terminal-view-scroller">
+              <div class="terminal-content">
                 <button
                   v-for="log in items"
                   :key="log.log_id"
                   type="button"
-                  class="protocol-terminal-line"
-                  :class="[getLogRowClass(log.log_id), getLevelPillClass(log.level)]"
+                  class="terminal-line"
+                  :class="[getLogRowClass(log.log_id), getLevelClass(log.level)]"
                   @click="handleLogSelection(log.log_id)"
                 >
-                  <div class="terminal-line__meta">
-                    <span class="meta-time">[{{ formatDateTime(log.timestamp) }}]</span>
-                    <span class="meta-level">[{{ getLogLevelLabel(log.level) }}]</span>
-                    <span class="meta-protocol">[{{ getLogProtocolLabel(log.protocol) }}]</span>
-                    <span class="meta-source">{{ log.source }}</span>
-                    <span v-if="log.plugin_id" class="meta-plugin">plugin: {{ log.plugin_id }}</span>
+                  <div class="line-level-indicator" :class="getLevelColor(log.level)"></div>
+                  <div class="line-content-wrap">
+                    <div class="line-meta">
+                      <span class="line-time">[{{ formatDateTime(log.timestamp) }}]</span>
+                      <span class="line-level">[{{ getLogLevelLabel(log.level) }}]</span>
+                      <span class="line-protocol">[{{ getLogProtocolLabel(log.protocol) }}]</span>
+                      <span class="line-source">{{ log.source }}</span>
+                      <span v-if="log.plugin_id" class="line-plugin">@{{ log.plugin_id }}</span>
+                    </div>
+                    <div class="line-body">
+                      <span class="line-prompt">></span>
+                      <span class="line-text">{{ log.message }}</span>
+                    </div>
+                    <div class="line-request" v-if="log.request_id">
+                      ID: {{ log.request_id }}
+                    </div>
                   </div>
-                  <div class="terminal-line__message">
-                    {{ log.message }}
-                  </div>
-                  <small class="terminal-line__request">
-                    ID: {{ log.request_id || t('protocols.noRequestId') }}
-                  </small>
                 </button>
               </div>
             </div>
+          </div>
 
-            <div class="industrial-card protocol-log-detail-panel">
-              <div class="card-header">
-                <strong>> {{ t('protocols.logsDetailTitle') }}</strong>
-              </div>
+          <div class="minimal-card detail-container">
+            <div class="card-header">
+              <strong>{{ t('protocols.logsDetailTitle') }}</strong>
+            </div>
 
-              <div v-if="!selectedSummary && !detailLoading" class="term-empty">
-                [{{ t('protocols.logsDetailEmpty') }}]
-              </div>
+            <div v-if="!selectedSummary && !detailLoading" class="detail-empty-state">
+              <div class="empty-icon">?</div>
+              <p>{{ t('protocols.logsDetailEmpty') }}</p>
+            </div>
 
-              <el-skeleton v-else :loading="detailLoading && !currentDetail" animated>
-                <div v-if="selectedSummary" class="protocol-log-detail">
-                  <el-alert
-                    v-if="detailError"
-                    :title="t('errors.common.loadFailed')"
-                    type="error"
-                    :description="detailError"
-                    show-icon
-                    class="section-gap"
-                  />
+            <el-skeleton v-else :loading="detailLoading && !currentDetail" animated>
+              <div v-if="selectedSummary" class="detail-view-content">
+                <el-alert
+                  v-if="detailError"
+                  :title="t('errors.common.loadFailed')"
+                  type="error"
+                  :description="detailError"
+                  show-icon
+                  class="detail-error"
+                />
 
-                  <div class="detail-summary-card">
-                    <div class="detail-summary-card__top">
-                      <span class="industrial-badge">{{ getLogLevelLabel(selectedSummary.level) }}</span>
-                      <span class="industrial-badge">{{ getLogProtocolLabel(selectedSummary.protocol) }}</span>
+                <header class="detail-hero">
+                  <div class="detail-hero-top">
+                    <span class="minimal-badge" :class="getLevelColor(selectedSummary.level)">{{ getLogLevelLabel(selectedSummary.level) }}</span>
+                    <span class="minimal-badge info">{{ getLogProtocolLabel(selectedSummary.protocol) }}</span>
+                  </div>
+                  <h3 class="detail-hero-message">{{ selectedSummary.message }}</h3>
+                  <div class="detail-hero-meta">
+                    <div class="meta-row">
+                      <span class="mono-label">{{ t('protocols.fields.timestamp') }}:</span>
+                      <span class="mono-value">{{ formatDateTime(selectedSummary.timestamp) }}</span>
                     </div>
-                    <strong class="detail-message">> {{ selectedSummary.message }}</strong>
-                    <div class="detail-summary-card__meta">
-                      <span>[{{ formatDateTime(selectedSummary.timestamp) }}]</span>
-                      <span>{{ selectedSummary.source }}</span>
-                      <span v-if="selectedSummary.plugin_id">plugin: {{ selectedSummary.plugin_id }}</span>
-                      <span>{{ selectedSummary.request_id || t('protocols.noRequestId') }}</span>
-                      <span class="mono-id">ID: {{ selectedSummary.log_id }}</span>
+                    <div class="meta-row">
+                      <span class="mono-label">{{ t('protocols.fields.source') }}:</span>
+                      <span class="mono-value">{{ selectedSummary.source }} <template v-if="selectedSummary.plugin_id">(@{{ selectedSummary.plugin_id }})</template></span>
+                    </div>
+                    <div class="meta-row" v-if="selectedSummary.request_id">
+                      <span class="mono-label">{{ t('protocols.fields.requestId') }}:</span>
+                      <span class="mono-value">{{ selectedSummary.request_id }}</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="mono-label">LOG_ID:</span>
+                      <span class="mono-value">{{ selectedSummary.log_id }}</span>
                     </div>
                   </div>
+                </header>
 
-                  <div v-if="detailEntries.length > 0" class="detail-key-grid">
-                    <div v-for="entry in detailEntries" :key="entry.key" class="detail-key-card">
-                      <small class="mono-label">[{{ entry.label }}]</small>
-                      <strong class="mono-value">{{ entry.value }}</strong>
+                <div v-if="detailEntries.length > 0" class="detail-fields-section">
+                  <div class="detail-fields-grid">
+                    <div v-for="entry in detailEntries" :key="entry.key" class="detail-field-box">
+                      <label class="field-label">{{ entry.label }}</label>
+                      <div class="field-value">{{ entry.value }}</div>
                     </div>
-                  </div>
-
-                  <div class="detail-json-block">
-                    <div class="detail-json-block__header">
-                      <strong>> {{ t('protocols.logsDetailJson') }}</strong>
-                    </div>
-                    <pre>{{ detailJson }}</pre>
                   </div>
                 </div>
-              </el-skeleton>
-            </div>
+
+                <div class="detail-json-section">
+                  <div class="json-header">
+                    <strong>{{ t('protocols.logsDetailJson') }}</strong>
+                  </div>
+                  <pre class="json-content">{{ detailJson }}</pre>
+                </div>
+              </div>
+            </el-skeleton>
           </div>
         </div>
-      </div>
-    </section>
+      </main>
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.industrial-theme {
-  --protocol-page-width: min(1840px, calc(100vw - 320px));
-  --protocol-panel-height: clamp(760px, calc(100vh - 280px), 920px);
-  --bg-color: #f4f4f0;
-  --border-color: #111111;
-  --text-main: #111111;
-  --text-muted: #555555;
-  --accent-color: #ff4500;
-  --accent-hover: #e03c00;
-  --card-bg: #ffffff;
+.protocol-logs-workspace {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: stretch;
+  height: calc(100vh - 220px);
+  min-height: 600px;
+}
+
+.logs-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  overflow-y: auto;
+}
+
+.sidebar-card {
+  margin-bottom: 0;
+}
+
+.sidebar-filter-form {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+
+  :deep(.el-form-item) {
+    margin-bottom: 0;
+  }
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
   
-  color: var(--text-main);
-  background-color: var(--bg-color);
-  background-image: 
-    linear-gradient(rgba(17, 17, 17, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 17, 17, 0.05) 1px, transparent 1px);
-  background-size: 20px 20px;
-  padding: 24px;
-  min-height: 100%;
-  width: 100%;
-  max-width: none;
+  .minimal-btn {
+    width: 100%;
+  }
 }
 
-.hero-panel {
+.sidebar-controls {
+  padding: var(--space-lg);
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 32px;
-  border-bottom: 4px solid var(--border-color);
-  padding-bottom: 16px;
+  flex-direction: column;
+  gap: var(--space-md);
+
+  .minimal-btn {
+    width: 100%;
+  }
 }
 
-.hero-text h1 {
-  font-size: 2.5rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  margin: 0;
-  letter-spacing: -0.05em;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-.hero-text .subtitle, .section-heading .subtitle {
-  font-family: "Cascadia Mono", monospace;
-  color: var(--accent-color);
-  margin: 8px 0 0;
-  font-weight: bold;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 12px;
-}
-
-/* Industrial Buttons */
-.industrial-btn {
-  border: 2px solid var(--border-color) !important;
-  background: var(--card-bg) !important;
-  color: var(--text-main) !important;
-  font-family: "Cascadia Mono", monospace !important;
-  font-weight: bold !important;
-  border-radius: 0 !important;
-  padding: 8px 16px !important;
-  text-transform: uppercase;
-  box-shadow: 4px 4px 0px var(--border-color) !important;
-  transition: transform 0.1s, box-shadow 0.1s !important;
-}
-.industrial-btn:hover:not(:disabled) {
-  transform: translate(2px, 2px) !important;
-  box-shadow: 2px 2px 0px var(--border-color) !important;
-}
-.industrial-btn.primary {
-  background: var(--accent-color) !important;
-  color: #fff !important;
-}
-.industrial-btn.outline {
-  background: transparent !important;
-}
-
-/* Cards */
-.industrial-card {
-  background: var(--card-bg);
-  border: 3px solid var(--border-color);
-  box-shadow: 6px 6px 0px var(--border-color);
-  margin-bottom: 32px;
-}
-
-.card-header {
-  background: var(--border-color);
-  color: #fff;
-  padding: 12px 16px;
+.follow-status {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: "Cascadia Mono", monospace;
-  text-transform: uppercase;
 }
 
-.industrial-badge {
-  background: var(--card-bg);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  padding: 4px 8px;
+.buffer-info {
+  font-family: var(--font-mono);
   font-size: 0.8rem;
-  font-weight: bold;
-  font-family: "Cascadia Mono", monospace;
-}
-.industrial-badge.success { border-color: #00a86b; color: #00a86b; }
-.industrial-badge.danger { border-color: #ff4500; color: #ff4500; }
-.industrial-badge.warning { border-color: #ffb000; color: #ffb000; }
-
-.mono-label {
-  font-family: "Cascadia Mono", monospace;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--theme-text-muted);
 }
 
-.mono-value {
-  font-family: "Cascadia Mono", monospace;
-  font-size: 1.1rem;
-  font-weight: bold;
-  word-break: break-all;
-}
-
-/* Section Heading */
-.section-heading {
+.logs-main-content {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 24px;
-  border-bottom: 3px solid var(--border-color);
-  padding-bottom: 8px;
-}
-.section-heading h2 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  margin: 0;
-  text-transform: uppercase;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-.terminal-header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-/* Filter */
-.protocol-logs-workspace {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.protocol-logs-content {
-  min-width: 0;
+  flex-direction: column;
   min-height: 0;
 }
 
-.logs-filter-toolbar {
+.logs-display-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--space-xl);
+  flex: 1;
+  min-height: 0;
+}
+
+.terminal-container, .detail-container {
+  display: flex;
+  flex-direction: column;
   margin-bottom: 0;
-  position: sticky;
-  top: 12px;
-}
-
-.protocol-form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
-  padding: 20px 20px 14px;
-}
-
-:deep(.el-form-item__label) {
-  font-family: "Cascadia Mono", monospace;
-  font-weight: bold;
-  color: var(--text-main);
-}
-
-.refined-input {
-  :deep(.el-input__wrapper) {
-    border-radius: 0;
-    border: 2px solid var(--border-color);
-    background: #fff;
-    box-shadow: none !important;
-    font-family: "Cascadia Mono", monospace;
-    transition: all 0.2s;
-
-    &:hover, &.is-focus {
-      border-color: var(--accent-color);
-      box-shadow: 4px 4px 0px var(--border-color) !important;
-      transform: translate(-2px, -2px);
-    }
-  }
-}
-
-.logs-filter-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0 20px 20px;
-}
-
-.logs-filter-actions > * {
-  width: 100%;
-}
-
-/* Layout */
-.protocol-log-layout {
-  display: grid;
-  grid-template-columns: minmax(900px, 1.42fr) minmax(560px, 1fr);
-  gap: 24px;
-  align-items: stretch;
-  min-height: var(--protocol-panel-height);
-}
-
-.terminal-stream-panel,
-.protocol-log-detail-panel {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: var(--protocol-panel-height);
-  height: var(--protocol-panel-height);
-  overflow: hidden;
-}
-
-.terminal-stream-panel :deep(.el-skeleton),
-.protocol-log-detail-panel :deep(.el-skeleton) {
-  min-height: 0;
   height: 100%;
 }
 
-.terminal-stream-panel :deep(.el-skeleton__content),
-.protocol-log-detail-panel :deep(.el-skeleton__content) {
-  min-height: 0;
-  height: 100%;
+.terminal-hint {
+  font-size: 0.8rem;
+  color: var(--theme-text-muted);
+  font-weight: normal;
 }
 
-/* Terminal Stream */
-.protocol-terminal {
-  min-height: 0;
-  height: 100%;
-  max-height: none;
+/* Terminal View */
+.terminal-view-scroller {
+  flex: 1;
   overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: rgba(17, 17, 17, 0.02);
+  background: oklch(18% 0.01 235);
+  padding: var(--space-sm) 0;
+  border-radius: 0 0 12px 12px;
 }
 
-.protocol-terminal-line {
+.terminal-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-line {
   width: 100%;
-  border: 0;
-  border-left: 4px solid transparent;
-  padding: 8px 12px;
-  background: #fff;
-  border: 1px solid var(--border-color);
-  font-family: "Cascadia Mono", monospace;
-  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: var(--space-sm) var(--space-md);
+  color: oklch(85% 0.01 235);
+  font-family: var(--font-mono);
   text-align: left;
-  display: grid;
-  gap: 6px;
-  transition: all 0.1s;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  display: flex;
+  gap: var(--space-sm);
 
   &:hover {
-    transform: translateX(4px);
-    box-shadow: -4px 0 0 var(--accent-color);
+    background: oklch(22% 0.01 235);
+    color: #fff;
   }
 
   &.is-selected {
-    background: var(--border-color);
+    background: oklch(25% 0.04 235);
     color: #fff;
-    box-shadow: -4px 0 0 var(--accent-color);
   }
+
+  &.is-debug { color: oklch(65% 0.01 235); }
 }
 
-.terminal-line__meta {
+.line-level-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+  background: oklch(60% 0.01 235); /* debug */
+
+  &.success { background: var(--theme-success); }
+  &.warning { background: var(--theme-warning); }
+  &.danger { background: var(--theme-danger); }
+}
+
+.line-content-wrap {
   display: flex;
-  gap: 12px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.line-meta {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-bottom: var(--space-xs);
   flex-wrap: wrap;
 }
-.protocol-terminal-line.is-selected .terminal-line__meta {
-  color: rgba(255, 255, 255, 0.7);
-}
 
-.terminal-line__message {
-  font-weight: bold;
+.line-body {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
   line-height: 1.4;
+}
+
+.line-prompt {
+  color: var(--theme-accent);
+  font-weight: bold;
+}
+
+.line-text {
+  word-break: break-all;
   white-space: pre-wrap;
-  word-break: break-word;
 }
 
-.terminal-line__request {
-  font-size: 0.75rem;
-  opacity: 0.6;
+.line-request {
+  font-size: 0.7rem;
+  opacity: 0.5;
+  margin-top: var(--space-xs);
 }
 
-.term-empty {
-  min-height: 100%;
-  padding: 40px;
-  text-align: center;
-  font-family: "Cascadia Mono", monospace;
-  color: var(--text-muted);
-}
-
-/* Detail Panel */
-.protocol-log-detail {
-  min-height: 0;
-  height: 100%;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-height: none;
+/* Detail View */
+.detail-view-content {
+  flex: 1;
   overflow-y: auto;
-}
-
-.detail-summary-card {
-  border: 2px solid var(--border-color);
-  padding: 16px;
-  background: rgba(17, 17, 17, 0.03);
-  display: grid;
-  gap: 12px;
-}
-
-.detail-summary-card__top {
-  display: flex;
-  gap: 8px;
-}
-
-.detail-message {
-  font-size: 1.2rem;
-  word-break: break-word;
-}
-
-.detail-summary-card__meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-family: "Cascadia Mono", monospace;
+}
+
+.detail-hero {
+  padding: var(--space-xl);
+  background: var(--theme-bg);
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.detail-hero-top {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.detail-hero-message {
+  font-family: var(--font-sans);
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 var(--space-md);
+  line-height: 1.3;
+  color: var(--theme-text);
+}
+
+.detail-hero-meta {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.meta-row {
+  display: flex;
+  gap: var(--space-md);
   font-size: 0.85rem;
-  color: var(--text-muted);
+  
+  .mono-label { width: 120px; flex-shrink: 0; }
 }
 
-.detail-key-grid {
+.detail-fields-section {
+  padding: var(--space-xl);
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.detail-fields-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-md);
 }
 
-.detail-key-card {
-  border: 2px dashed var(--border-color);
-  padding: 12px;
-  display: grid;
-  gap: 6px;
+.detail-field-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+
+  .field-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--theme-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-family: var(--font-sans);
+  }
+
+  .field-value {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--theme-text);
+    word-break: break-all;
+  }
 }
 
-.detail-json-block {
-  border: 2px solid var(--border-color);
-  background: var(--border-color);
-  color: #fff;
-  padding: 16px;
-  box-shadow: 4px 4px 0 var(--accent-color);
+.detail-json-section {
+  padding: var(--space-xl);
+  background: var(--theme-surface);
 }
-.detail-json-block__header {
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
+
+.json-header {
+  margin-bottom: var(--space-md);
+  strong {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--theme-text);
+  }
 }
-.detail-json-block pre {
+
+.json-content {
   margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: "Cascadia Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--theme-text-muted);
+  background: var(--theme-bg);
+  padding: var(--space-md);
+  border-radius: 8px;
+  border: 1px solid var(--theme-border);
 }
 
-.is-info { border-left-color: #00a2ff; }
-.is-warn { border-left-color: #ffb000; }
-.is-error { border-left-color: #ff4500; }
+/* Empty States */
+.term-empty-state, .detail-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--theme-text-muted);
+  font-family: var(--font-sans);
+  text-align: center;
 
-@media (max-width: 1024px) {
-  .protocol-log-layout {
-    grid-template-columns: 1fr;
+  .empty-icon {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: var(--space-md);
+    opacity: 0.2;
   }
+}
 
+.detail-empty-state {
+  background: var(--theme-bg);
+}
+
+@media (max-width: 1200px) {
   .protocol-logs-workspace {
     grid-template-columns: 1fr;
-  }
-
-  .logs-filter-toolbar {
-    position: static;
-  }
-
-  .terminal-stream-panel,
-  .protocol-log-detail-panel {
-    min-height: 0;
-    height: auto;
-    overflow: visible;
-  }
-
-  .protocol-terminal {
-    min-height: 560px;
     height: auto;
   }
-
-  .protocol-log-detail {
-    min-height: 560px;
-    height: auto;
+  
+  .logs-sidebar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
-
-  .hero-panel {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
-}
-
-@media (min-width: 1540px) {
-  .industrial-theme {
-    width: var(--protocol-page-width);
-    margin-left: calc((100% - var(--protocol-page-width)) / 2);
-  }
-}
-
-@media (max-width: 1480px) {
-  .protocol-logs-workspace {
+  
+  .logs-display-grid {
     grid-template-columns: 1fr;
   }
-
-  .logs-filter-toolbar {
-    position: static;
+  
+  .terminal-container, .detail-container {
+    height: 600px;
   }
+}
 
-  .protocol-form-grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
-
-  .protocol-log-layout {
-    grid-template-columns: minmax(0, 1.22fr) minmax(420px, 0.98fr);
-  }
-
-  .logs-filter-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .logs-filter-actions > * {
-    width: auto;
+@media (max-width: 768px) {
+  .logs-sidebar {
+    grid-template-columns: 1fr;
   }
 }
 </style>

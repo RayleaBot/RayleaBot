@@ -11,6 +11,7 @@ import { createAppRouter } from '@/router'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
 import '@/styles/main.scss'
+import '@/styles/minimal-protocol-theme.scss'
 import 'element-plus/dist/index.css'
 
 const initialLauncherToken = typeof window === 'undefined'

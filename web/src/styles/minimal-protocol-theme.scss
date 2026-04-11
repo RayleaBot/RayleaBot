@@ -1,0 +1,294 @@
+/* Minimal Protocol Theme */
+
+/* Typography Scale (Geist/Switzer inspired) */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap');
+
+.minimal-protocol-theme {
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Tinted slightly towards the cyan hue (235) */
+  --theme-bg: oklch(99% 0.005 235);
+  --theme-surface: oklch(100% 0 0);
+  --theme-surface-hover: oklch(97% 0.01 235);
+  --theme-border: oklch(92% 0.01 235);
+  --theme-border-strong: oklch(85% 0.02 235);
+  
+  --theme-text: oklch(25% 0.02 235);
+  --theme-text-muted: oklch(55% 0.02 235);
+  
+  --theme-accent: oklch(79% 0.12 235); /* ~#66CCFF */
+  --theme-accent-hover: oklch(72% 0.14 235);
+  --theme-accent-surface: oklch(96% 0.04 235);
+
+  /* Status Colors */
+  --theme-success: oklch(70% 0.15 150);
+  --theme-warning: oklch(75% 0.15 70);
+  --theme-danger: oklch(65% 0.18 25);
+
+  --font-sans: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'Geist Mono', "Cascadia Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  font-family: var(--font-sans);
+  color: var(--theme-text);
+  background-color: var(--theme-bg);
+  min-height: 100%;
+  width: 100%;
+  padding: var(--space-xl);
+  box-sizing: border-box;
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Global Hero Panel */
+  .hero-panel {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: var(--space-2xl);
+    padding-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--theme-border);
+
+    .hero-text {
+      h1 {
+        font-family: var(--font-sans);
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin: 0;
+        line-height: 1.1;
+        color: var(--theme-text);
+      }
+      
+      .subtitle {
+        font-family: var(--font-mono);
+        color: var(--theme-text-muted);
+        margin: var(--space-sm) 0 0;
+        font-size: 0.95rem;
+        font-weight: 500;
+      }
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: var(--space-md);
+    }
+  }
+
+  /* Minimal Buttons */
+  .minimal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--theme-border-strong) !important;
+    background: var(--theme-surface) !important;
+    color: var(--theme-text) !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    border-radius: 6px !important;
+    padding: 0 var(--space-md) !important;
+    height: 38px !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--theme-surface-hover) !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0) !important;
+      box-shadow: none !important;
+    }
+
+    &.primary {
+      background: var(--theme-accent) !important;
+      color: oklch(20% 0.05 235) !important;
+      border-color: transparent !important;
+      
+      &:hover:not(:disabled) {
+        background: var(--theme-accent-hover) !important;
+        box-shadow: 0 4px 16px oklch(79% 0.12 235 / 30%) !important;
+      }
+    }
+
+    &.outline {
+      background: transparent !important;
+      border-color: transparent !important;
+      color: var(--theme-text-muted) !important;
+
+      &:hover:not(:disabled) {
+        background: var(--theme-surface-hover) !important;
+        color: var(--theme-text) !important;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+  }
+
+  /* Cards */
+  .minimal-card {
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-border);
+    border-radius: 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+
+    &:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.02);
+    }
+  }
+
+  .card-header {
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--theme-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--theme-bg);
+
+    strong {
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--theme-text);
+      letter-spacing: -0.01em;
+    }
+
+    span {
+      font-size: 0.8rem;
+      color: var(--theme-text-muted);
+    }
+  }
+
+  /* Badges */
+  .minimal-badge {
+    display: inline-flex;
+    align-items: center;
+    background: var(--theme-surface);
+    color: var(--theme-text-muted);
+    border: 1px solid var(--theme-border-strong);
+    padding: 2px var(--space-sm);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+
+    &.success { border-color: var(--theme-success); color: var(--theme-success); background: oklch(70% 0.15 150 / 8%); }
+    &.danger { border-color: var(--theme-danger); color: var(--theme-danger); background: oklch(65% 0.18 25 / 8%); }
+    &.warning { border-color: var(--theme-warning); color: var(--theme-warning); background: oklch(75% 0.15 70 / 8%); }
+    &.info { border-color: var(--theme-accent); color: oklch(40% 0.1 235); background: var(--theme-accent-surface); }
+  }
+
+  /* Typography Utilities */
+  .mono-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--theme-text-muted);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .mono-value {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--theme-text);
+    word-break: break-all;
+  }
+
+  /* Section Headings */
+  .section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--theme-border);
+    padding-bottom: var(--space-sm);
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.02em;
+      color: var(--theme-text);
+    }
+    
+    .subtitle {
+      font-family: var(--font-mono);
+      color: var(--theme-text-muted);
+      margin: var(--space-xs) 0 0;
+      font-size: 0.85rem;
+    }
+  }
+
+  /* Form Overrides */
+  .refined-input {
+    .el-input__wrapper,
+    .el-textarea__inner,
+    .el-select__wrapper {
+      border-radius: 6px;
+      border: 1px solid var(--theme-border-strong);
+      background: var(--theme-surface);
+      box-shadow: none !important;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: var(--space-xs) var(--space-sm);
+
+      &:hover {
+        border-color: oklch(70% 0.05 235);
+      }
+
+      &.is-focus, &:focus {
+        border-color: var(--theme-accent);
+        box-shadow: 0 0 0 3px var(--theme-accent-surface) !important;
+      }
+    }
+  }
+
+  .refined-number-input {
+    .el-input__wrapper {
+      border-radius: 6px;
+      border: 1px solid var(--theme-border-strong);
+      box-shadow: none !important;
+      font-family: var(--font-mono);
+      height: 38px;
+      
+      &:hover {
+        border-color: oklch(70% 0.05 235);
+      }
+      
+      &.is-focus {
+        border-color: var(--theme-accent);
+        box-shadow: 0 0 0 3px var(--theme-accent-surface) !important;
+      }
+    }
+    .el-input-number__increase,
+    .el-input-number__decrease {
+      border-radius: 0;
+      background: transparent;
+      border-left: 1px solid var(--theme-border);
+      
+      &:hover {
+        color: var(--theme-accent);
+      }
+    }
+  }
+}
