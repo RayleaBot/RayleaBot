@@ -152,11 +152,14 @@ func (c *Catalog) SetDesiredState(pluginID string, desired string) (Snapshot, er
 
 	entry.DesiredState = desired
 	entry.DisplayState = defaultDisplayState(entry)
+	changed := pluginStateChanged(c.items[pluginID], entry)
 	c.items[pluginID] = entry
 	updated := cloneSnapshot(entry)
 	c.mu.Unlock()
 
-	c.publish(updated)
+	if changed {
+		c.publish(updated)
+	}
 	return updated, nil
 }
 
@@ -169,13 +172,16 @@ func (c *Catalog) SetRuntimeState(pluginID string, runtimeState string) (Snapsho
 		return Snapshot{}, ErrPluginNotFound
 	}
 
+	current := entry
 	entry.RuntimeState = runtimeState
 	entry.DisplayState = defaultDisplayState(entry)
 	c.items[pluginID] = entry
 	updated := cloneSnapshot(entry)
 	c.mu.Unlock()
 
-	c.publish(updated)
+	if pluginStateChanged(current, entry) {
+		c.publish(updated)
+	}
 	return updated, nil
 }
 
@@ -199,10 +205,13 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 			continue
 		}
 
+		current := entry
 		entry.DesiredState = desired
 		entry.DisplayState = defaultDisplayState(entry)
 		c.items[pluginID] = entry
-		updated = append(updated, cloneSnapshot(entry))
+		if pluginStateChanged(current, entry) {
+			updated = append(updated, cloneSnapshot(entry))
+		}
 	}
 	c.mu.Unlock()
 
@@ -220,7 +229,9 @@ func (c *Catalog) Replace(entries []Snapshot) {
 	for _, entry := range entries {
 		cloned := cloneSnapshot(entry)
 		items[entry.PluginID] = cloned
-		updated = append(updated, cloned)
+		if current, ok := c.items[entry.PluginID]; !ok || pluginStateChanged(current, cloned) {
+			updated = append(updated, cloned)
+		}
 		if _, ok := seen[entry.PluginID]; ok {
 			continue
 		}
@@ -384,4 +395,11 @@ func defaultDisplayState(snapshot Snapshot) string {
 		return "enabled"
 	}
 	return "disabled"
+}
+
+func pluginStateChanged(current Snapshot, next Snapshot) bool {
+	return current.RegistrationState != next.RegistrationState ||
+		current.DesiredState != next.DesiredState ||
+		current.RuntimeState != next.RuntimeState ||
+		current.DisplayState != next.DisplayState
 }

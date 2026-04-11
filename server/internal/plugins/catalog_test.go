@@ -221,3 +221,29 @@ func TestCatalogSubscribePublishesUpdatedSnapshot(t *testing.T) {
 		t.Fatal("timed out waiting for catalog update")
 	}
 }
+
+func TestCatalogSubscribeSkipsUnchangedRuntimeState(t *testing.T) {
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "weather",
+		Name:              "Weather",
+		Valid:             true,
+		Version:           "1.0.0",
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		DisplayState:      "running",
+	}})
+
+	updates, unsubscribe := catalog.Subscribe(1)
+	defer unsubscribe()
+
+	if _, err := catalog.SetRuntimeState("weather", "running"); err != nil {
+		t.Fatalf("SetRuntimeState returned error: %v", err)
+	}
+
+	select {
+	case update := <-updates:
+		t.Fatalf("unexpected update: %#v", update)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
