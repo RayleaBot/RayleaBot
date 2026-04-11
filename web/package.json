@@ -18,6 +18,10 @@
     "generate:types": "openapi-typescript ../contracts/web-api.openapi.yaml -o src/types/generated.ts"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild"
+    ],
     "overrides": {
       "picomatch": "4.0.4"
     }
