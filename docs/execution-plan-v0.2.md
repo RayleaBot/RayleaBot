@@ -34,6 +34,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 - 在线模板编辑器
 - 更强的可视化管理与编辑体验
+- Web 管理面技术栈迁移（Ant Design Vue + Vue Vben Admin 对齐）
 - 更宽 `action family`
 - OneBot11 剩余兼容面
 - OneBot11 正向 WebSocket、HTTP、Webhook
@@ -61,7 +62,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
 | Phase 6 | 在线模板编辑器 / Render 可视化 | 🟡 | 提供模板编辑、校验、预览、保存、回退与渲染结果可视化 |
 | Phase 7 | Plugin Platform / Manifest / Config / Governance | 🟡 | 完成生命周期状态同步、配置迁移、manifest 元数据与治理读取面收口 |
-| Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置与协议日志主线已完成，模板编辑、跨页面联动与其余可视化仍待继续 |
+| Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置与协议日志主线已完成，模板编辑、跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
 | Phase 9 | Launcher / 本地运维入口 | ◐ | 启动失败诊断与端口占用识别已补强，环境诊断与深链引导仍待继续 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
 
@@ -262,10 +263,16 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | --- | --- | --- |
 | 协议 transport 可视化 | ◐ | 协议中心已展示当前 provider、当前状态、连接设置、失败原因与调试摘要 |
 | OneBot 兼容矩阵可视化 | 🟡 | 兼容信息保留在文档与正式边界，不进入协议中心页面 |
+| 前端技术栈迁移 | 🟡 | Web 工程基线收口到 Ant Design Vue + Vue Vben Admin 对齐方案；当前阶段先完成文档冻结、迁移方案与治理口径，formal contract 保持不变 |
 | 模板编辑与预览界面 | 🟡 | 把模板编辑器与 artifact、任务、日志联动到同一管理流 |
 | 协议中心增强 | ◐ | 协议中心已具备连接设置、协议日志终端流、日志详情与独立日志子页，剩余管理联动仍待继续 |
 | 任务 / 日志 / 协议 / 插件联动钻取 | 🟡 | 提供从命令、插件、协议、日志、任务之间的联动查看路径 |
 | 诊断与恢复增强 | ◐ | 协议日志详情、OneBot ignored response 观测、部分启动失败诊断已完成，统一诊断口径仍待继续 |
+
+补充约束：
+
+- 前端技术栈迁移不改变 `contracts/`、OpenAPI、WebSocket 事件、错误码或配置 schema。
+- Vben 对齐方案在现有 `web/` 单应用内实施，不扩展为官方整仓 `monorepo` / `turbo` 结构。
 
 ---
 

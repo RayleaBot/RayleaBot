@@ -31,11 +31,13 @@
 | Server | Go `1.25.8` |
 | Web / Node runtime | Node.js `24.14.0` |
 | JS package manager | `pnpm 10.32.1` |
-| Web UI | Vue `3.5.30` + Vite `8.0.0` + Element Plus `2.13.6` + Vue Router `5.0.4` + Pinia `3.0.4` |
+| Web UI | Vue `3.5.30` + Vite `8.0.0` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.0.4` + Pinia `3.0.4` |
 | Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `@vitejs/plugin-react 6.0.1` + `electron-builder 26.8.1` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |
 | Render | `chromedp 0.14.2` + Chromium 浏览环境 |
+
+Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式目标基线。依赖锁定、目录重排和样式入口切换按 [`web-antdv-vben-migration-plan.md`](./web-antdv-vben-migration-plan.md) 执行，在迁移完成前继续沿用现有默认命令与仓库目录边界。
 
 ## 固定工程选型
 
@@ -47,10 +49,10 @@
 | 配置解析 | `gopkg.in/yaml.v3` |
 | 数据访问 | `database/sql` + repository / service 分层 + 手写 SQL |
 | Web 路由 | Vue Router `5.x` |
-| Web 全局状态 | Pinia `3.x` |
-| Web HTTP | 原生 `fetch` + 薄封装 |
-| Web 实时通信 | 原生 `WebSocket` + 薄封装 |
-| Web 样式 | Element Plus + Vue SFC `lang="scss"` + CSS Variables |
+| Web 全局状态 | Pinia `3.x` + Vben stores 对齐组织 |
+| Web HTTP | Vben request 风格封装 + RayleaBot 鉴权 / 错误语义适配 |
+| Web 实时通信 | 原生 `WebSocket` + 受控连接封装 |
+| Web 样式 | Ant Design Vue Tokens + Vue Vben Admin 样式体系 + Vue SFC `lang="scss"` + Tailwind CSS `4.x` + CSS Variables |
 | Launcher 主进程 | Electron `main` + typed service layer |
 | Launcher 桌面桥接 | `preload` 暴露受限 IPC API |
 | Launcher 渲染层 | React 18 + Fluent UI React v9 + Vite 单页面桌面壳 |
