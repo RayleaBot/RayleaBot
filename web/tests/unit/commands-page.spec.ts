@@ -1,4 +1,4 @@
-import ElementPlus from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -144,7 +144,7 @@ describe('CommandsPage', () => {
 
     const wrapper = mount(CommandsPage, {
       global: {
-        plugins: [ElementPlus],
+        plugins: [Antd],
       },
     })
 
@@ -159,8 +159,8 @@ describe('CommandsPage', () => {
     expect(wrapper.text()).toContain('已停用')
     expect(wrapper.find('.commands-data-table').exists()).toBe(true)
 
-    const select = wrapper.findComponent({ name: 'ElSelect' })
-    await select.vm.$emit('update:modelValue', ['weather'])
+    const select = wrapper.findComponent({ name: 'ASelect' })
+    await select.vm.$emit('update:value', ['weather'])
     await flushPromises()
 
     expect(wrapper.text()).toContain('weather')

@@ -1,4 +1,4 @@
-import ElementPlus, { ElMessage } from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,10 +8,15 @@ import { ApiError } from '@/lib/http'
 import SetupPage from '@/pages/SetupPage.vue'
 import { useSessionStore } from '@/stores/session'
 
+vi.mock('@/adapter/feedback', () => ({
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyInfo: vi.fn(),
+}))
+
 describe('SetupPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.spyOn(ElMessage, 'error').mockImplementation(() => undefined as never)
   })
 
   it('shows a visible chinese error when setup fails', async () => {
@@ -29,7 +34,7 @@ describe('SetupPage', () => {
 
     const wrapper = mount(SetupPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 

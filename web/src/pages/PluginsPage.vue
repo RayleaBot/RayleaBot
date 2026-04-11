@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
+import { notifySuccess } from '@/adapter/feedback'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
@@ -37,7 +37,15 @@ const installForm = reactive<PluginInstallRequest>({
   source_type: 'local_zip',
   source: '',
 })
+
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
+const tableColumns = computed(() => [
+  { title: t('plugins.title'), key: 'title', dataIndex: 'name', width: 260 },
+  { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220 },
+  { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 280 },
+  { title: t('plugins.fields.runtime'), key: 'runtime', dataIndex: 'runtime_state', width: 300 },
+  { title: '', key: 'actions', dataIndex: 'actions', width: 420 },
+])
 
 function getConflictNotice(count: number) {
   return t('plugins.health.commandConflicts', { count })
@@ -86,6 +94,19 @@ function isConflictedCommand(command: PluginCommandSummary, conflicts?: string[]
   return isPluginCommandConflicted(command, conflicts)
 }
 
+function getTagColor(tone: HealthNoticeTone) {
+  if (tone === 'danger') return 'error'
+  if (tone === 'warning') return 'warning'
+  if (tone === 'info') return 'blue'
+  return 'default'
+}
+
+function getRuntimeColor(state?: string) {
+  if (state === 'running') return 'success'
+  if (state === 'stopped') return 'default'
+  return 'error'
+}
+
 async function loadPlugins() {
   try {
     await pluginsStore.fetchList()
@@ -115,7 +136,7 @@ async function submitInstall() {
     installForm.source_type = 'local_zip'
     installForm.source = ''
     delete installForm.allow_install_scripts
-    ElMessage.success(t('plugins.installAccepted'))
+    notifySuccess(t('plugins.installAccepted'))
     await router.push({ name: 'tasks', query: { task_id: response.task_id } })
   } catch (error) {
     installError.value = getDisplayErrorMessage(error)
@@ -131,12 +152,12 @@ async function submitInstall() {
       </div>
 
       <div class="table-actions">
-        <el-button type="primary" @click="installDialogVisible = true">
+        <a-button type="primary" @click="installDialogVisible = true">
           {{ t('plugins.install') }}
-        </el-button>
-        <el-button :loading="loading" @click="loadPlugins()">
+        </a-button>
+        <a-button :loading="loading" @click="loadPlugins()">
           {{ t('plugins.refresh') }}
-        </el-button>
+        </a-button>
       </div>
     </section>
 
@@ -148,169 +169,163 @@ async function submitInstall() {
       @retry="loadPlugins()"
     />
 
-    <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
+    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <el-alert v-if="installError" :title="t('errors.common.actionFailed')" type="error" :description="installError" show-icon />
+    <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon />
 
-    <el-table
+    <a-table
       v-else
-      :data="sortedItems"
-      style="width: 100%;"
       class="plugins-data-table"
-      :empty-text="t('display.empty')"
+      :columns="tableColumns"
+      :data-source="sortedItems"
+      :pagination="false"
+      :row-key="(row) => row.id"
+      :scroll="{ x: 1520 }"
     >
-      <el-table-column :label="t('plugins.title')" min-width="260">
-        <template #default="{ row }">
+      <template #emptyText>
+        {{ t('display.empty') }}
+      </template>
+
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'title'">
           <div class="plugin-cell-identity">
-            <strong class="plugin-name">{{ row.name }}</strong>
-            <small class="plugin-id">{{ row.id }}</small>
+            <strong class="plugin-name">{{ record.name }}</strong>
+            <small class="plugin-id">{{ record.id }}</small>
           </div>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('plugins.fields.source')" min-width="200">
-        <template #default="{ row }">
+        <template v-else-if="column.key === 'source'">
           <div class="plugin-cell-source">
-            <div class="plugin-source-root" :title="row.source?.root ?? t('display.empty')">
-              {{ row.source?.root ?? t('display.empty') }}
+            <div class="plugin-source-root" :title="record.source?.root ?? t('display.empty')">
+              {{ record.source?.root ?? t('display.empty') }}
             </div>
             <div class="plugin-trust-label">
-              {{ row.trust?.label ?? t('display.empty') }}
+              {{ record.trust?.label ?? t('display.empty') }}
             </div>
           </div>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('plugins.fields.commands')" min-width="250">
-        <template #default="{ row }">
-          <div v-if="row.commands.length > 0" class="plugin-cell-commands">
+        <template v-else-if="column.key === 'commands'">
+          <div v-if="record.commands.length > 0" class="plugin-cell-commands">
             <div
-              v-for="command in getVisibleCommands(row.commands)"
-              :key="`${row.id}-${command.name}`"
+              v-for="command in getVisibleCommands(record.commands)"
+              :key="`${record.id}-${command.name}`"
               class="plugin-command-chip"
             >
-              <el-tag
-                size="small"
-                effect="plain"
-                :type="isConflictedCommand(command, row.command_conflicts) ? 'warning' : 'success'"
-              >
+              <a-tag :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'">
                 {{ command.name }}
-              </el-tag>
-              <el-tooltip
-                v-if="command.aliases?.length"
-                :content="getCommandAliasesText(command)"
-                placement="top"
-              >
+              </a-tag>
+              <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
                 <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
-              </el-tooltip>
+              </a-tooltip>
             </div>
-            <small v-if="getOverflowCommandCount(row.commands) > 0" class="plugin-command-overflow">
-              {{ t('plugins.commandOverflow', { count: getOverflowCommandCount(row.commands) }) }}
+            <small v-if="getOverflowCommandCount(record.commands) > 0" class="plugin-command-overflow">
+              {{ t('plugins.commandOverflow', { count: getOverflowCommandCount(record.commands) }) }}
             </small>
           </div>
           <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('plugins.fields.runtime')" min-width="300">
-        <template #default="{ row }">
+        <template v-else-if="column.key === 'runtime'">
           <div class="plugin-cell-status">
             <div class="plugin-status-badges">
-              <el-tag size="small" type="info" effect="plain">{{ getPluginDesiredStateLabel(row.desired_state) }}</el-tag>
-              <el-tag size="small" :type="row.runtime_state === 'running' ? 'success' : (row.runtime_state === 'stopped' ? 'info' : 'danger')" effect="light">{{ getPluginRuntimeStateLabel(row.runtime_state) }}</el-tag>
+              <a-tag color="blue">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
+              <a-tag :color="getRuntimeColor(record.runtime_state)">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
             </div>
-            <div v-if="getPluginHealthNotices(row).length > 0" class="plugin-health-notices">
-              <el-tag
-                v-for="notice in getPluginHealthNotices(row)"
+            <div v-if="getPluginHealthNotices(record).length > 0" class="plugin-health-notices">
+              <a-tag
+                v-for="notice in getPluginHealthNotices(record)"
                 :key="notice.label"
-                size="small"
-                effect="plain"
-                :type="notice.tone"
+                :color="getTagColor(notice.tone)"
               >
                 {{ notice.label }}
-              </el-tag>
+              </a-tag>
             </div>
           </div>
         </template>
-      </el-table-column>
 
-      <el-table-column fixed="right" min-width="420" align="right">
-        <template #default="{ row }">
+        <template v-else-if="column.key === 'actions'">
           <div class="plugin-cell-actions">
-            <el-button size="small" plain @click="openSummary(row.id)">{{ t('plugins.actions.summary') }}</el-button>
-            <el-button size="small" plain @click="openDetail(row.id)">{{ t('plugins.actions.detail') }}</el-button>
-            
-            <el-divider direction="vertical" />
+            <a-button size="small" @click="openSummary(record.id)">{{ t('plugins.actions.summary') }}</a-button>
+            <a-button size="small" @click="openDetail(record.id)">{{ t('plugins.actions.detail') }}</a-button>
 
-            <el-button 
-              size="small" 
-              type="success" 
-              plain 
-              :loading="actionPending[row.id] === 'enable'" 
-              :disabled="row.desired_state === 'enabled'"
-              @click="pluginsStore.executeAction(row.id, 'enable')"
+            <a-divider type="vertical" />
+
+            <a-button
+              size="small"
+              type="primary"
+              :data-testid="`plugin-enable-button-${record.id}`"
+              :loading="actionPending[record.id] === 'enable'"
+              :disabled="record.desired_state === 'enabled'"
+              @click="pluginsStore.executeAction(record.id, 'enable')"
             >
               {{ t('plugins.actions.enable') }}
-            </el-button>
-            <el-button 
-              size="small" 
-              type="warning" 
-              plain 
-              :loading="actionPending[row.id] === 'reload'" 
-              @click="pluginsStore.executeAction(row.id, 'reload')"
+            </a-button>
+            <a-button
+              size="small"
+              :loading="actionPending[record.id] === 'reload'"
+              @click="pluginsStore.executeAction(record.id, 'reload')"
             >
               {{ t('plugins.actions.reload') }}
-            </el-button>
-            <el-button 
-              size="small" 
-              type="danger" 
-              plain 
-              :loading="actionPending[row.id] === 'disable'" 
-              :disabled="row.desired_state === 'disabled'"
-              @click="pluginsStore.executeAction(row.id, 'disable')"
+            </a-button>
+            <a-button
+              size="small"
+              danger
+              :loading="actionPending[record.id] === 'disable'"
+              :disabled="record.desired_state === 'disabled'"
+              @click="pluginsStore.executeAction(record.id, 'disable')"
             >
               {{ t('plugins.actions.disable') }}
-            </el-button>
+            </a-button>
           </div>
         </template>
-      </el-table-column>
-    </el-table>
+      </template>
+    </a-table>
   </div>
 
-  <el-dialog v-model="installDialogVisible" :title="t('plugins.installDialogTitle')" width="520px">
-    <el-form label-position="top">
-      <el-alert v-if="installError" :title="t('errors.common.actionFailed')" type="error" :description="installError" show-icon class="section-gap" />
+  <a-modal
+    v-model:open="installDialogVisible"
+    :get-container="false"
+    :title="t('plugins.installDialogTitle')"
+    :confirm-loading="installPending"
+    :ok-text="t('plugins.installSubmit')"
+    :cancel-text="t('dashboard.previewCancel')"
+    :ok-button-props="{ disabled: !installForm.source }"
+    @ok="submitInstall"
+  >
+    <a-form layout="vertical">
+      <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon class="section-gap" />
 
-      <el-form-item :label="t('plugins.sourceType')">
-        <el-select v-model="installForm.source_type">
-          <el-option :label="t('plugins.localZip')" value="local_zip" />
-          <el-option :label="t('plugins.localDirectory')" value="local_directory" />
-          <el-option :label="t('plugins.remoteUrl')" value="remote_url" />
-        </el-select>
-      </el-form-item>
+      <a-form-item :label="t('plugins.sourceType')">
+        <a-select
+          v-model:value="installForm.source_type"
+          :options="[
+            { label: t('plugins.localZip'), value: 'local_zip' },
+            { label: t('plugins.localDirectory'), value: 'local_directory' },
+            { label: t('plugins.remoteUrl'), value: 'remote_url' },
+          ]"
+        />
+      </a-form-item>
 
-      <el-form-item :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
-        <el-input v-model="installForm.source" />
-      </el-form-item>
+      <a-form-item :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
+        <a-input v-model:value="installForm.source" />
+      </a-form-item>
 
-      <el-form-item>
-        <el-checkbox v-model="installForm.allow_install_scripts">
+      <a-form-item>
+        <a-checkbox v-model:checked="installForm.allow_install_scripts">
           {{ t('plugins.allowScripts') }}
-        </el-checkbox>
-      </el-form-item>
-    </el-form>
+        </a-checkbox>
+      </a-form-item>
+    </a-form>
+  </a-modal>
 
-    <template #footer>
-      <div class="table-actions">
-        <el-button @click="installDialogVisible = false">{{ t('dashboard.previewCancel') }}</el-button>
-        <el-button type="primary" :loading="installPending" :disabled="!installForm.source" @click="submitInstall">
-          {{ t('plugins.installSubmit') }}
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
-
-  <el-dialog v-model="summaryDrawerVisible" :title="t('plugins.actions.summary')" width="min(560px, 92vw)">
+  <a-modal
+    v-model:open="summaryDrawerVisible"
+    :get-container="false"
+    :title="t('plugins.actions.summary')"
+    :footer="null"
+    width="min(560px, 92vw)"
+  >
     <template v-if="summaryPlugin">
       <div class="drawer-section drawer-section--dense">
         <div class="mono-list">
@@ -319,41 +334,41 @@ async function submitInstall() {
         </div>
       </div>
 
-      <el-descriptions :column="1" border>
-        <el-descriptions-item :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.registration')">{{ getPluginRegistrationStateLabel(summaryPlugin.registration_state) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.desired')">{{ getPluginDesiredStateLabel(summaryPlugin.desired_state) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.runtime')">{{ getPluginRuntimeStateLabel(summaryPlugin.runtime_state) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.display')">
+      <a-descriptions :column="1" bordered size="small">
+        <a-descriptions-item :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.registration')">{{ getPluginRegistrationStateLabel(summaryPlugin.registration_state) }}</a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.desired')">{{ getPluginDesiredStateLabel(summaryPlugin.desired_state) }}</a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.runtime')">{{ getPluginRuntimeStateLabel(summaryPlugin.runtime_state) }}</a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.display')">
           {{ getPluginDisplayStateLabel(summaryPlugin.display_state) }}
           <small v-if="summaryPlugin.display_state"> · {{ summaryPlugin.display_state }}</small>
-        </el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.sourceRef')">
+        </a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.sourceRef')">
           {{ summaryPlugin.source?.package_source_ref ?? summaryPlugin.source?.package_source_type ?? t('display.empty') }}
-        </el-descriptions-item>
-        <el-descriptions-item :label="t('plugins.fields.conflicts')">
+        </a-descriptions-item>
+        <a-descriptions-item :label="t('plugins.fields.conflicts')">
           <div v-if="summaryPlugin.command_conflicts?.length" class="table-actions">
-            <el-tag v-for="command in summaryPlugin.command_conflicts" :key="command" size="small" type="warning">
+            <a-tag v-for="command in summaryPlugin.command_conflicts" :key="command" color="warning">
               {{ command }}
-            </el-tag>
+            </a-tag>
           </div>
           <span v-else>{{ t('display.empty') }}</span>
-        </el-descriptions-item>
-      </el-descriptions>
+        </a-descriptions-item>
+      </a-descriptions>
 
-      <el-card class="plugin-command-summary-card section-gap">
-        <template #header>
+      <a-card :bordered="false" class="plugin-command-summary-card section-gap">
+        <template #title>
           <strong>{{ t('plugins.sections.commands') }}</strong>
         </template>
         <PluginCommandsPanel
           :commands="summaryPlugin.commands"
           :command-conflicts="summaryPlugin.command_conflicts"
         />
-      </el-card>
+      </a-card>
     </template>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <style lang="scss" scoped>
@@ -362,78 +377,44 @@ async function submitInstall() {
   overflow: hidden;
   box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
   border: 1px solid rgba(22, 33, 39, 0.08);
-
-  :deep(.el-table__inner-wrapper) {
-    background: rgba(247, 250, 246, 0.88);
-  }
-  
-  :deep(.el-table__header-wrapper th) {
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(22, 33, 39, 0.08);
-    color: var(--muted);
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 16px 8px;
-  }
-
-  :deep(.el-table__row) {
-    background-color: transparent;
-    transition: background-color 150ms ease;
-    
-    td {
-      border-bottom: 1px solid rgba(22, 33, 39, 0.04);
-      padding: 12px 8px;
-    }
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.6);
-      td {
-        background-color: transparent !important;
-      }
-    }
-  }
-
-  :deep(.el-table__body-wrapper) {
-    background-color: transparent;
-  }
 }
 
 .plugin-cell-identity {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  
-  .plugin-name {
-    font-size: 0.98rem;
-    color: var(--text);
-    font-weight: 600;
-  }
-  
-  .plugin-id {
-    font-family: "Cascadia Mono", "Consolas", monospace;
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
+}
+
+.plugin-name {
+  font-size: 0.98rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.plugin-id {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .plugin-cell-source {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  
-  .plugin-source-root {
-    font-size: 0.9rem;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
+}
 
-  .plugin-trust-label {
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
+.plugin-source-root {
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.plugin-trust-label {
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .plugin-cell-status {
@@ -441,18 +422,13 @@ async function submitInstall() {
   flex-direction: column;
   gap: 8px;
   align-items: flex-start;
+}
 
-  .plugin-status-badges {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .plugin-health-notices {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
+.plugin-status-badges,
+.plugin-health-notices {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .plugin-cell-commands {
@@ -486,15 +462,6 @@ async function submitInstall() {
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  
-  .el-button {
-    margin: 0;
-  }
-  
-  .plugin-more-btn {
-    padding: 6px;
-    font-weight: bold;
-    letter-spacing: 2px;
-  }
+  flex-wrap: wrap;
 }
 </style>

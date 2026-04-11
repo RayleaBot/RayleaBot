@@ -81,10 +81,10 @@ const {
       @toggle-auto-refresh="toggleAutoRefresh"
     />
 
-    <el-alert
+    <a-alert
       v-if="alertBannerType"
       :type="alertBannerType"
-      :title="alertBannerTitle"
+      :message="alertBannerTitle"
       :description="alertBannerMessage"
       show-icon
       :closable="false"
@@ -98,7 +98,7 @@ const {
       @retry="refreshState()"
     />
 
-    <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
+    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
     <DashboardStatusGrid
       :health-status-type="healthStatusType"
@@ -165,40 +165,36 @@ const {
       @open-preview="previewVisible = true"
     />
 
-    <el-dialog v-model="previewVisible" :title="t('dashboard.previewTitle')" width="min(720px, 92vw)">
-      <el-form label-position="top">
-        <el-form-item :label="t('dashboard.previewTemplate')">
-          <el-input v-model="previewForm.template" placeholder="help.menu" />
-        </el-form-item>
-        <el-form-item :label="t('dashboard.previewTheme')">
-          <el-input v-model="previewForm.theme" placeholder="default" />
-        </el-form-item>
-        <el-form-item :label="t('dashboard.previewOutput')">
-          <el-radio-group v-model="previewForm.output">
-            <el-radio-button label="png" value="png" />
-            <el-radio-button label="jpeg" value="jpeg" />
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item :label="t('dashboard.previewData')">
-          <el-input
-            v-model="previewForm.dataText"
-            type="textarea"
+    <a-modal
+      v-model:open="previewVisible"
+      :get-container="false"
+      :title="t('dashboard.previewTitle')"
+      :confirm-loading="previewPending"
+      :ok-text="t('dashboard.previewSubmit')"
+      :cancel-text="t('dashboard.previewCancel')"
+      @ok="submitRenderPreview"
+    >
+      <a-form layout="vertical">
+        <a-form-item :label="t('dashboard.previewTemplate')">
+          <a-input v-model:value="previewForm.template" placeholder="help.menu" />
+        </a-form-item>
+        <a-form-item :label="t('dashboard.previewTheme')">
+          <a-input v-model:value="previewForm.theme" placeholder="default" />
+        </a-form-item>
+        <a-form-item :label="t('dashboard.previewOutput')">
+          <a-radio-group v-model:value="previewForm.output" button-style="solid">
+            <a-radio-button value="png">png</a-radio-button>
+            <a-radio-button value="jpeg">jpeg</a-radio-button>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item :label="t('dashboard.previewData')">
+          <a-textarea
+            v-model:value="previewForm.dataText"
             :rows="10"
             placeholder="{&quot;title&quot;:&quot;帮助菜单&quot;}"
           />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <div class="table-actions">
-          <el-button @click="previewVisible = false">
-            {{ t('dashboard.previewCancel') }}
-          </el-button>
-          <el-button type="primary" :loading="previewPending" @click="submitRenderPreview">
-            {{ t('dashboard.previewSubmit') }}
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>

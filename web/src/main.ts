@@ -1,16 +1,17 @@
 import { watch } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createApp } from 'vue'
 
 import App from '@/App.vue'
 import { i18n } from '@/i18n'
 import { toLauncherAdmissionHint } from '@/lib/auth-feedback'
-import { configureApiRuntime } from '@/lib/http'
+import { configureApiRuntime } from '@/request/http'
 import { createAppRouter } from '@/router'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
-import 'element-plus/dist/index.css'
+import 'ant-design-vue/dist/reset.css'
+import '@/styles/tailwind.css'
 import '@/styles/main.scss'
 import '@/styles/minimal-protocol-theme.scss'
 
@@ -76,7 +77,7 @@ async function bootstrap() {
   const pinia = createPinia()
 
   app.use(pinia)
-  app.use(ElementPlus)
+  app.use(Antd)
   app.use(i18n)
 
   const sessionStore = useSessionStore(pinia)

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import type { FormInstance, Rule } from 'ant-design-vue/es/form'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 
+import { notifyError, notifySuccess } from '@/adapter/feedback'
 import { toLoginErrorMessage } from '@/lib/auth-feedback'
 import { t } from '@/i18n'
 import { useSessionStore } from '@/stores/session'
@@ -15,7 +16,11 @@ const form = reactive({
   identifier: 'admin',
   secret: '',
 })
-const formRef = ref()
+const formRef = ref<FormInstance>()
+const rules: Record<string, Rule[]> = {
+  identifier: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
+  secret: [{ required: true, message: '请输入管理员密钥', trigger: 'blur' }],
+}
 
 async function submit() {
   submitError.value = null
@@ -23,65 +28,65 @@ async function submit() {
   try {
     await formRef.value?.validate()
     await sessionStore.login(form)
-    ElMessage.success('已登录')
+    notifySuccess('已登录')
     await router.push({ name: 'status' })
   } catch (error) {
     const message = toLoginErrorMessage(error)
     submitError.value = message
-    ElMessage.error(message)
+    notifyError(message)
   }
 }
 </script>
 
 <template>
   <div class="auth-page">
-    <el-card class="auth-card">
+    <a-card class="auth-card" :bordered="false">
       <div class="auth-copy">
         <div class="page-eyebrow">{{ t('auth.surface') }}</div>
         <h1>{{ t('auth.loginTitle') }}</h1>
         <p>{{ t('auth.loginBody') }}</p>
       </div>
 
-      <el-alert
+      <a-alert
         v-if="sessionStore.bootstrapError"
-        title="暂时无法进入管理界面"
+        message="暂时无法进入管理界面"
         type="warning"
         :description="sessionStore.bootstrapError"
         show-icon
         class="section-gap"
       />
 
-      <el-alert
+      <a-alert
         v-if="sessionStore.launcherAdmissionHint"
-        title="请手动登录"
+        message="请手动登录"
         type="warning"
         :description="sessionStore.launcherAdmissionHint"
         show-icon
         class="section-gap"
       />
 
-      <el-alert
+      <a-alert
         v-if="submitError"
-        title="登录未完成"
+        message="登录未完成"
         type="error"
         :description="submitError"
         show-icon
         class="section-gap"
       />
 
-      <el-form ref="formRef" :model="form" label-position="top">
-        <el-form-item :label="t('auth.identifier')" prop="identifier" :rules="[{ required: true, message: '请输入管理员账号' }]">
-          <el-input v-model="form.identifier" autocomplete="username" />
-        </el-form-item>
+      <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
+        <a-form-item :label="t('auth.identifier')" name="identifier">
+          <a-input v-model:value="form.identifier" autocomplete="username" />
+        </a-form-item>
 
-        <el-form-item :label="t('auth.secret')" prop="secret" :rules="[{ required: true, message: '请输入管理员密钥' }]">
-          <el-input v-model="form.secret" type="password" show-password autocomplete="current-password" />
-        </el-form-item>
+        <a-form-item :label="t('auth.secret')" name="secret">
+          <a-input-password v-model:value="form.secret" autocomplete="current-password" />
+        </a-form-item>
 
-        <el-button type="primary" class="auth-submit" :loading="sessionStore.loginPending" @click="submit">
+        <a-button type="primary" class="auth-submit" :loading="sessionStore.loginPending" @click="submit">
           {{ t('auth.loginSubmit') }}
-        </el-button>
-      </el-form>
-    </el-card>
+        </a-button>
+      </a-form>
+    </a-card>
   </div>
 </template>

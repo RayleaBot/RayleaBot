@@ -1,4 +1,4 @@
-import ElementPlus from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -21,7 +21,7 @@ describe('ConnectionStatusStrip', () => {
 
     const wrapper = mount(ConnectionStatusStrip, {
       global: {
-        plugins: [ElementPlus],
+        plugins: [Antd],
       },
     })
 

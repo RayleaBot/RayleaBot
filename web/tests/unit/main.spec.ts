@@ -12,7 +12,12 @@ vi.mock('@/App.vue', () => ({
   default: {},
 }))
 
-vi.mock('element-plus', () => ({
+vi.mock('ant-design-vue/dist/reset.css', () => ({}))
+vi.mock('@/styles/tailwind.css', () => ({}))
+vi.mock('@/styles/main.scss', () => ({}))
+vi.mock('@/styles/minimal-protocol-theme.scss', () => ({}))
+
+vi.mock('ant-design-vue', () => ({
   default: {},
 }))
 

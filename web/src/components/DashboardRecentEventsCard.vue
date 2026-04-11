@@ -24,14 +24,14 @@ function getEventSeverityClass(severity?: string): string {
 </script>
 
 <template>
-  <el-card>
-    <template #header>
+  <a-card :bordered="false">
+    <template #title>
       <div class="card-header">
         <span>{{ t('dashboard.recentEvents') }}</span>
       </div>
     </template>
 
-    <el-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
+    <a-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
     <div v-else class="events-section">
       <div
@@ -46,5 +46,5 @@ function getEventSeverityClass(severity?: string): string {
         >{{ formatRelativeTime(event.timestamp) }}</span>
       </div>
     </div>
-  </el-card>
+  </a-card>
 </template>

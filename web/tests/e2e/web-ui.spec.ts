@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test'
 
 const backendUrl = 'http://127.0.0.1:4010'
-const futureGrantExpiry = '2099-03-30T10:05:00Z'
 
 async function resetBackend(
   request: import('@playwright/test').APIRequestContext,
@@ -25,32 +24,32 @@ async function closeSocket(
 async function login(page: import('@playwright/test').Page) {
   await page.goto('/login')
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByRole('button', { name: /登\s*录/ }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 }
 
 function pluginRows(page: import('@playwright/test').Page) {
-  return page.locator('.plugins-data-table .el-table__body tbody tr')
+  return page.locator('.plugins-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
 }
 
 function taskRows(page: import('@playwright/test').Page) {
-  return page.locator('.tasks-data-table .el-table__body tbody tr')
+  return page.locator('.tasks-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
 }
 
 function logRows(page: import('@playwright/test').Page) {
-  return page.locator('.logs-data-table .el-table__body tbody tr')
+  return page.locator('.logs-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
 }
 
 function pluginScroller(page: import('@playwright/test').Page) {
-  return page.locator('.plugins-data-table .el-table__body-wrapper')
+  return page.locator('.plugins-data-table .ant-table-container')
 }
 
 function taskScroller(page: import('@playwright/test').Page) {
-  return page.locator('.tasks-data-table .el-table__body-wrapper')
+  return page.locator('.tasks-data-table .ant-table-container')
 }
 
 function logScroller(page: import('@playwright/test').Page) {
-  return page.locator('.logs-data-table .el-table__body-wrapper')
+  return page.locator('.logs-data-table .ant-table-container')
 }
 
 test('setup flow reaches protected shell and shows websocket statuses', async ({ page, request }) => {
@@ -101,15 +100,17 @@ test('plugin management flow covers install, grants and console recovery', async
   await resetBackend(request, true)
   await login(page)
 
-  await page.getByRole('link', { name: '插件' }).click()
+  await page.locator('.shell-nav').getByRole('link', { name: '插件' }).click()
   await expect(page.locator('#app-main').getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
   await expect(pluginRows(page).first()).toBeVisible()
   await expect(page.locator('.plugins-data-table')).toContainText('help')
   await expect(page.locator('.plugins-data-table')).toContainText('weather')
 
   await page.getByRole('button', { name: '安装插件' }).click()
-  await page.getByLabel('服务器路径').fill('C:/plugins/weather.zip')
-  await page.getByRole('button', { name: '开始安装' }).click()
+  const installDialog = page.getByRole('dialog', { name: '安装插件' })
+  await expect(installDialog).toBeVisible()
+  await installDialog.getByRole('textbox').fill('C:/plugins/weather.zip')
+  await installDialog.getByRole('button', { name: '开始安装' }).click()
 
   await expect(page.locator('#app-main').getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
   await expect(page.getByText('task_plugin_install_0001').first()).toBeVisible()
@@ -118,18 +119,23 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
   await expect(page.getByText('未验证来源')).toBeVisible()
   await expect(page.getByText('plugins/installed')).toBeVisible()
-  await expect(page.getByRole('article').getByText('命令冲突')).toBeVisible()
+  await expect(page.locator('.ant-descriptions').getByText('命令冲突')).toBeVisible()
   await expect(page.getByText('已注册指令')).toBeVisible()
   await expect(page.getByText('查询天气')).toBeVisible()
 
-  await page.getByRole('button', { name: '新增授权' }).click()
-  await page.getByLabel('能力标识').fill('storage.file')
-  await page.getByLabel('过期时间（UTC RFC3339）').fill(futureGrantExpiry)
-  await page.getByRole('button', { name: '保存授权' }).click()
-  await expect(page.getByText('storage.file')).toBeVisible()
+  await page.getByRole('button', { name: '处理权限' }).click()
+  await page.getByRole('checkbox', { name: /render\.image/ }).check()
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && response.url().includes('/api/plugins/weather/grants')
+    )),
+    page.getByRole('button', { name: '授权选中项' }).click(),
+  ])
 
-  await page.getByRole('button', { name: '撤销' }).last().click()
-  await expect(page.getByText('storage.file')).toHaveCount(0)
+  const renderPermission = page.locator('.permission-item').filter({ hasText: 'render.image' })
+  await expect(renderPermission).toContainText('已授权')
+  await expect(renderPermission).toContainText('手动授权')
 
   await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
   await page.getByRole('button', { name: '清空输出' }).click()
@@ -225,7 +231,7 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   await expect(page.getByText('当前正式支持协议：OneBot11')).toBeVisible()
   await expect(page.getByText('OneBot11 主动连接已就绪')).toBeVisible()
-  await expect(page.locator('.transport-status-grid')).toContainText('主动连接 WebSocket')
+  await expect(page.locator('.transport-cards-grid')).toContainText('主动连接 WebSocket')
 
   await page.getByLabel('回连地址').fill('wss://bot.example.com/reverse/onebot')
   await page.getByLabel('连接超时（秒）').fill('18')
@@ -235,7 +241,7 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await page.getByRole('button', { name: '查看协议日志' }).click()
   await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
 
-  const terminal = page.locator('.protocol-terminal')
+  const terminal = page.locator('.terminal-view-scroller')
   await expect(terminal).toBeVisible()
   await expect(terminal.getByText('reverse websocket connection lost')).toBeVisible()
   await expect(terminal.getByText('plugin runtime stderr truncated')).toHaveCount(0)
@@ -270,7 +276,7 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await expect(liveLine).toBeVisible()
   await liveLine.click()
   await expect(page.getByText('api.response.ignored')).toBeVisible()
-  await expect(page.locator('.detail-json-block')).toContainText('"echo": 123')
+  await expect(page.locator('.json-content')).toContainText('"echo": 123')
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
@@ -282,17 +288,15 @@ test('command center shows all declared commands and filters by plugin selection
   await resetBackend(request, true)
   await login(page)
 
-  await page.getByRole('link', { name: '指令中心' }).click()
+  await page.locator('.shell-nav').getByRole('link', { name: '指令中心' }).click()
   await expect(page.locator('#app-main').getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
   await expect(page.locator('.commands-data-table')).toContainText('help')
   await expect(page.locator('.commands-data-table')).toContainText('weather')
 
-  const pluginSelector = page.locator('.commands-filter-toolbar .el-select').first()
-  const pluginSelectorInput = page.locator('.commands-filter-toolbar input[readonly]').first()
-  await expect(pluginSelectorInput).toBeVisible()
-  await expect(pluginSelectorInput).toHaveAttribute('readonly', '')
+  const pluginSelector = page.locator('.commands-filter-toolbar .ant-select').first()
+  await expect(pluginSelector).toBeVisible()
   await pluginSelector.click()
-  await page.getByText('Weather（weather）').click()
+  await page.locator('.ant-select-dropdown').getByText('Weather（weather）').click({ force: true })
 
   await expect(page.locator('.commands-data-table')).toContainText('查询天气')
   await expect(page.locator('.commands-data-table')).not.toContainText('查看帮助菜单')
@@ -311,28 +315,27 @@ test('login keeps the protected shell after reload', async ({ page, request }) =
   await expect(page).not.toHaveURL(/\/login$/)
 })
 
-test('error recovery covers retry, invalid grant expiry and uninstall failure', async ({ page, request }) => {
+test('error recovery covers retry and uninstall failure', async ({ page, request }) => {
   await resetBackend(request, true, {
     failPluginsListOnce: true,
+    failPluginDetailOnce: true,
     failUninstallOnce: true,
   })
   await login(page)
 
-  await page.getByRole('link', { name: '插件' }).click()
+  await page.locator('.shell-nav').getByRole('link', { name: '插件' }).click()
   await expect(page.getByText('读取未完成，请稍后重试。').first()).toBeVisible()
-  await page.locator('.retry-panel').getByRole('button', { name: '重试' }).click({ force: true })
+  await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByText('weather').first()).toBeVisible()
 
-  await page.getByRole('button', { name: '查看详情' }).first().click()
-  await page.getByRole('button', { name: '新增授权' }).click()
-  await page.getByLabel('能力标识').fill('http.request')
-  await page.getByLabel('过期时间（UTC RFC3339）').fill('not-a-timestamp')
-  await page.getByRole('button', { name: '保存授权' }).click()
-  await expect(page.getByText('请求参数不正确，请检查后重试。')).toBeVisible()
-  await page.getByRole('button', { name: '取消' }).click()
+  const weatherRow = pluginRows(page).filter({ hasText: 'Weather' })
+  await weatherRow.getByRole('button', { name: '查看详情' }).click()
+  await expect(page.getByText('读取未完成，请稍后重试。').first()).toBeVisible()
+  await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
+  await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
 
-  await page.getByRole('button', { name: '卸载' }).click()
-  await page.getByRole('button', { name: '确认卸载' }).click()
+  await page.getByRole('button', { name: /卸\s*载/ }).click()
+  await page.getByRole('button', { name: /确认卸载/ }).click()
   await expect(page.getByText('缺少必要资源')).toBeVisible()
 })
 

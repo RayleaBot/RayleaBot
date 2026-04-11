@@ -27,33 +27,33 @@ defineProps<{
 
 <template>
   <div class="stats-grid">
-    <el-card :class="['stat-card', `stat-card--${healthStatusType}`]">
+    <a-card :bordered="false" :class="['stat-card', `stat-card--${healthStatusType}`]">
       <span class="stat-label">{{ healthLabel }}</span>
       <strong>{{ healthValueText }}</strong>
       <small>{{ healthDetailText }}</small>
-    </el-card>
-    <el-card :class="['stat-card', `stat-card--${readinessStatusType}`]">
+    </a-card>
+    <a-card :bordered="false" :class="['stat-card', `stat-card--${readinessStatusType}`]">
       <span class="stat-label">{{ readinessLabel }}</span>
       <strong>{{ readinessValueText }}</strong>
       <small>{{ readinessDetailText }}</small>
-    </el-card>
-    <el-card :class="['stat-card', `stat-card--${systemStatusType}`]">
+    </a-card>
+    <a-card :bordered="false" :class="['stat-card', `stat-card--${systemStatusType}`]">
       <span class="stat-label">{{ systemLabel }}</span>
       <strong>{{ systemValueText }}</strong>
       <small>{{ systemDetailText }}</small>
-    </el-card>
-    <el-card :class="['stat-card', `stat-card--${adapterStatusType}`]">
+    </a-card>
+    <a-card :bordered="false" :class="['stat-card', `stat-card--${adapterStatusType}`]">
       <span class="stat-label">{{ adapterLabel }}</span>
       <strong>{{ adapterValueText }}</strong>
       <small>{{ adapterDetailText }}</small>
-    </el-card>
-    <el-card class="stat-card">
+    </a-card>
+    <a-card :bordered="false" class="stat-card">
       <span class="stat-label">{{ activePluginsLabel }}</span>
       <strong>{{ activePluginsCount }}</strong>
-    </el-card>
-    <el-card class="stat-card">
+    </a-card>
+    <a-card :bordered="false" class="stat-card">
       <span class="stat-label">{{ uptimeLabel }}</span>
       <strong>{{ uptimeText }}</strong>
-    </el-card>
+    </a-card>
   </div>
 </template>

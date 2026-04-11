@@ -1,4 +1,4 @@
-import ElementPlus from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -51,7 +51,7 @@ describe('TasksPage', () => {
 
     mount(TasksPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
@@ -95,7 +95,7 @@ describe('TasksPage', () => {
 
     const wrapper = mount(TasksPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
@@ -210,7 +210,7 @@ describe('TasksPage', () => {
 
     const wrapper = mount(TasksPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
@@ -255,7 +255,7 @@ describe('TasksPage', () => {
 
     const wrapper = mount(TasksPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
@@ -283,7 +283,7 @@ describe('TasksPage', () => {
 
     const wrapper = mount(TasksPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 

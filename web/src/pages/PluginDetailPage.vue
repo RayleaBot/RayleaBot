@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
+import { notifySuccess } from '@/adapter/feedback'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
@@ -78,7 +78,7 @@ async function runAction(action: 'enable' | 'disable' | 'reload') {
   operationError.value = null
   try {
     await pluginsStore.executeAction(pluginId.value, action)
-    ElMessage.success(t('plugins.actionAccepted'))
+    notifySuccess(t('plugins.actionAccepted'))
   } catch (error) {
     if (action === 'enable' && error instanceof ApiError && error.code === 'plugin.permission_pending') {
       openPermissionDialog(extractMissingCapabilities(error), true)
@@ -114,7 +114,7 @@ async function submitPermissionDialog() {
     const shouldResumeEnable = resumeEnableAfterGrant.value
     selectedCapabilities.value = []
     resumeEnableAfterGrant.value = false
-    ElMessage.success(t('plugins.grantSaved'))
+    notifySuccess(t('plugins.grantSaved'))
     if (shouldResumeEnable) {
       await runAction('enable')
     }
@@ -127,7 +127,7 @@ async function revokeGrant(capability: string) {
   operationError.value = null
   try {
     await pluginsStore.revokeGrant(pluginId.value, capability)
-    ElMessage.success(t('plugins.grantRevoked'))
+    notifySuccess(t('plugins.grantRevoked'))
   } catch (error) {
     operationError.value = getDisplayErrorMessage(error)
   }
@@ -138,7 +138,7 @@ async function uninstallPlugin() {
   try {
     const response = await pluginsStore.uninstallPlugin(pluginId.value)
     uninstallDialogVisible.value = false
-    ElMessage.success(t('plugins.uninstallAccepted'))
+    notifySuccess(t('plugins.uninstallAccepted'))
     await router.push({ name: 'tasks', query: { task_id: response.task_id } })
   } catch (error) {
     operationError.value = getDisplayErrorMessage(error)
@@ -184,6 +184,13 @@ function getGrantedAt(capability: string) {
   return grantRecordsByCapability.value.get(capability)?.granted_at ?? undefined
 }
 
+function getConsoleStatusColor(status: string) {
+  if (status === 'authenticated') return 'success'
+  if (status === 'reconnecting' || status === 'connecting') return 'warning'
+  if (status === 'auth_failed') return 'error'
+  return 'default'
+}
+
 watch(
   () => consoleFrames.value.length,
   async () => {
@@ -224,10 +231,10 @@ async function scrollConsoleToBottom() {
       </div>
 
       <div class="table-actions">
-        <el-button type="success" :loading="actionPending[pluginId] === 'enable'" @click="runAction('enable')">{{ t('plugins.actions.enable') }}</el-button>
-        <el-button type="warning" :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</el-button>
-        <el-button type="danger" plain :loading="actionPending[pluginId] === 'disable'" @click="runAction('disable')">{{ t('plugins.actions.disable') }}</el-button>
-        <el-button type="danger" :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true">{{ t('plugins.actions.uninstall') }}</el-button>
+        <a-button type="primary" :loading="actionPending[pluginId] === 'enable'" @click="runAction('enable')">{{ t('plugins.actions.enable') }}</a-button>
+        <a-button :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</a-button>
+        <a-button danger :loading="actionPending[pluginId] === 'disable'" @click="runAction('disable')">{{ t('plugins.actions.disable') }}</a-button>
+        <a-button danger :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true">{{ t('plugins.actions.uninstall') }}</a-button>
       </div>
     </section>
 
@@ -239,94 +246,94 @@ async function scrollConsoleToBottom() {
       @retry="loadDetail()"
     />
 
-    <el-alert v-else-if="loadError" :title="t('errors.common.loadFailed')" type="error" :description="loadError" show-icon />
+    <a-alert v-else-if="loadError" :message="t('errors.common.loadFailed')" type="error" :description="loadError" show-icon />
 
-    <el-alert v-if="operationError" :title="t('errors.common.actionFailed')" type="error" :description="operationError" show-icon />
+    <a-alert v-if="operationError" :message="t('errors.common.actionFailed')" type="error" :description="operationError" show-icon />
 
     <div class="content-grid">
-      <el-card>
-        <template #header>
+      <a-card :bordered="false">
+        <template #title>
           <div class="card-header">
             <span>{{ t('plugins.sections.current') }}</span>
           </div>
         </template>
 
-        <el-skeleton :loading="detailLoading" animated>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item :label="t('plugins.fields.name')">{{ current?.name ?? t('display.empty') }}</el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.role')">
+        <a-skeleton :loading="detailLoading" active>
+          <a-descriptions :column="1" bordered size="small">
+            <a-descriptions-item :label="t('plugins.fields.name')">{{ current?.name ?? t('display.empty') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.role')">
               {{ getPluginRoleLabel(current?.role) }}
               <small v-if="current?.role"> · {{ current.role }}</small>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.registration')">
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.registration')">
               {{ getPluginRegistrationStateLabel(current?.registration_state) }}
               <small v-if="current?.registration_state"> · {{ current.registration_state }}</small>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.desired')">
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.desired')">
               {{ getPluginDesiredStateLabel(current?.desired_state) }}
               <small v-if="current?.desired_state"> · {{ current.desired_state }}</small>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.runtime')">
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.runtime')">
               {{ getPluginRuntimeStateLabel(current?.runtime_state) }}
               <small v-if="current?.runtime_state"> · {{ current.runtime_state }}</small>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.display')">
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.display')">
               {{ getPluginDisplayStateLabel(current?.display_state) }}
               <small v-if="current?.display_state"> · {{ current.display_state }}</small>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.trust')">{{ current?.trust?.label ?? t('display.empty') }}</el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.sourceRoot')">{{ current?.source?.root ?? t('display.empty') }}</el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.sourceRef')">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? t('display.empty') }}</el-descriptions-item>
-            <el-descriptions-item :label="t('plugins.fields.conflicts')">
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.trust')">{{ current?.trust?.label ?? t('display.empty') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.sourceRoot')">{{ current?.source?.root ?? t('display.empty') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.sourceRef')">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? t('display.empty') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.conflicts')">
               <div v-if="current?.command_conflicts?.length" class="table-actions">
-                <el-tag v-for="command in current.command_conflicts" :key="command" size="small" type="warning">
+                <a-tag v-for="command in current.command_conflicts" :key="command" color="warning">
                   {{ command }}
-                </el-tag>
+                </a-tag>
               </div>
               <span v-else>{{ t('display.empty') }}</span>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-skeleton>
-      </el-card>
+            </a-descriptions-item>
+          </a-descriptions>
+        </a-skeleton>
+      </a-card>
 
-      <el-card>
-        <template #header>
+      <a-card :bordered="false">
+        <template #title>
           <div class="card-header">
             <span>{{ t('plugins.sections.permissions') }}</span>
             <div class="table-actions">
-              <el-tag size="small">{{ currentPermissions.length }}</el-tag>
-              <el-button
+              <a-tag>{{ currentPermissions.length }}</a-tag>
+              <a-button
                 v-if="!isBuiltinPlugin && permissionCandidates.length > 0"
                 size="small"
                 type="primary"
                 @click="openPermissionDialog()"
               >
                 {{ t('plugins.actions.reviewPermissions') }}
-              </el-button>
+              </a-button>
             </div>
           </div>
         </template>
 
-        <el-alert
+        <a-alert
           v-if="isBuiltinPlugin"
-          :title="t('plugins.builtinAutoGrantTitle')"
+          :message="t('plugins.builtinAutoGrantTitle')"
           type="success"
           :description="t('plugins.builtinAutoGrantBody')"
           show-icon
           class="section-gap"
         />
 
-        <el-alert
+        <a-alert
           v-else-if="missingRequiredPermissions.length > 0"
-          :title="t('plugins.permissionPendingTitle')"
+          :message="t('plugins.permissionPendingTitle')"
           type="warning"
           :description="t('plugins.permissionPendingBody', { count: missingRequiredPermissions.length })"
           show-icon
           class="section-gap"
         />
 
-        <el-skeleton :loading="grantBusy" animated>
-          <el-empty v-if="currentPermissions.length === 0" :description="t('plugins.empty.permissions')" />
+        <a-skeleton :loading="grantBusy" active>
+          <a-empty v-if="currentPermissions.length === 0" :description="t('plugins.empty.permissions')" />
 
           <div v-else class="permission-list">
             <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
@@ -334,9 +341,9 @@ async function scrollConsoleToBottom() {
                 <div class="permission-item__title">
                   <strong>{{ permission.capability }}</strong>
                   <div class="table-actions">
-                    <el-tag size="small" type="info">{{ getPermissionRequirementLabel(permission.requirement) }}</el-tag>
-                    <el-tag size="small" :type="permission.status === 'granted' ? 'success' : 'warning'">{{ getPermissionStatusLabel(permission.status) }}</el-tag>
-                    <el-tag size="small" effect="plain">{{ getPermissionSourceLabel(permission.source) }}</el-tag>
+                    <a-tag color="blue">{{ getPermissionRequirementLabel(permission.requirement) }}</a-tag>
+                    <a-tag :color="permission.status === 'granted' ? 'success' : 'warning'">{{ getPermissionStatusLabel(permission.status) }}</a-tag>
+                    <a-tag>{{ getPermissionSourceLabel(permission.source) }}</a-tag>
                   </div>
                 </div>
                 <small>{{ t('plugins.fields.grantedAt') }}：{{ formatDateTime(getGrantedAt(permission.capability)) }}</small>
@@ -344,35 +351,34 @@ async function scrollConsoleToBottom() {
               </div>
 
               <div class="table-actions">
-                <el-button
+                <a-button
                   v-if="canGrantPermission(permission)"
                   size="small"
                   type="primary"
                   @click="openPermissionDialog([permission.capability])"
                 >
                   {{ t('plugins.actions.grantPermission') }}
-                </el-button>
-                <el-button
+                </a-button>
+                <a-button
                   v-if="canRevokePermission(permission)"
                   size="small"
-                  type="danger"
-                  plain
+                  danger
                   @click="revokeGrant(permission.capability)"
                 >
                   {{ t('plugins.actions.revokeGrant') }}
-                </el-button>
+                </a-button>
               </div>
             </article>
           </div>
-        </el-skeleton>
-      </el-card>
+        </a-skeleton>
+      </a-card>
     </div>
 
-    <el-card>
-      <template #header>
+    <a-card :bordered="false">
+      <template #title>
         <div class="card-header">
           <span>{{ t('plugins.sections.commands') }}</span>
-          <el-tag size="small">{{ current?.commands?.length ?? 0 }}</el-tag>
+          <a-tag>{{ current?.commands?.length ?? 0 }}</a-tag>
         </div>
       </template>
 
@@ -381,30 +387,30 @@ async function scrollConsoleToBottom() {
         :command-conflicts="current?.command_conflicts ?? []"
         :command-prefix="commandPrefix"
       />
-    </el-card>
+    </a-card>
 
-    <el-card>
-      <template #header>
+    <a-card :bordered="false">
+      <template #title>
         <div class="card-header">
           <span>{{ t('plugins.sections.console') }}</span>
           <div class="table-actions">
-            <el-tag size="small">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</el-tag>
-            <el-button size="small" plain @click="socketStore.reconnectConsole()">{{ t('plugins.actions.reconnectConsole') }}</el-button>
-            <el-button size="small" plain @click="clearConsole">{{ t('plugins.actions.clearConsole') }}</el-button>
+            <a-tag :color="getConsoleStatusColor(consoleSnapshot.status)">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</a-tag>
+            <a-button size="small" @click="socketStore.reconnectConsole()">{{ t('plugins.actions.reconnectConsole') }}</a-button>
+            <a-button size="small" @click="clearConsole">{{ t('plugins.actions.clearConsole') }}</a-button>
           </div>
         </div>
       </template>
 
-      <el-alert
+      <a-alert
         v-if="consoleSnapshot.lastError"
-        :title="t('plugins.consoleUnavailable')"
+        :message="t('plugins.consoleUnavailable')"
         type="warning"
         :description="consoleSnapshot.lastError"
         show-icon
         class="section-gap"
       />
 
-      <el-empty v-if="consoleFrames.length === 0" :description="t('plugins.empty.console')" />
+      <a-empty v-if="consoleFrames.length === 0" :description="t('plugins.empty.console')" />
 
       <div v-else ref="consoleScroller" class="console-terminal" aria-label="插件实时控制台">
         <div
@@ -419,29 +425,37 @@ async function scrollConsoleToBottom() {
           <pre>{{ frame.text }}</pre>
         </div>
       </div>
-    </el-card>
+    </a-card>
   </div>
 
-  <el-dialog v-model="permissionDialogVisible" :title="permissionDialogTitle" width="480px">
-    <el-alert
+  <a-modal
+    v-model:open="permissionDialogVisible"
+    :get-container="false"
+    :title="permissionDialogTitle"
+    :confirm-loading="grantBusy"
+    :ok-text="t('plugins.actions.grantSelected')"
+    :cancel-text="t('dashboard.previewCancel')"
+    :ok-button-props="{ disabled: selectedCapabilities.length === 0 }"
+    @ok="submitPermissionDialog"
+  >
+    <a-alert
       v-if="resumeEnableAfterGrant"
-      :title="t('plugins.permissionPendingTitle')"
+      :message="t('plugins.permissionPendingTitle')"
       type="warning"
       :description="t('plugins.permissionDialogPendingBody')"
       show-icon
       class="section-gap"
     />
 
-    <el-empty
+    <a-empty
       v-if="permissionCandidates.length === 0"
       :description="t('plugins.empty.permissions')"
     />
 
-    <el-checkbox-group v-else v-model="selectedCapabilities" class="permission-dialog-list">
-      <el-checkbox
+    <a-checkbox-group v-else v-model:value="selectedCapabilities" class="permission-dialog-list">
+      <a-checkbox
         v-for="permission in permissionCandidates"
         :key="permission.capability"
-        :label="permission.capability"
         :value="permission.capability"
       >
         <div class="permission-dialog-item">
@@ -451,36 +465,22 @@ async function scrollConsoleToBottom() {
             {{ getPermissionStatusLabel(permission.status) }}
           </small>
         </div>
-      </el-checkbox>
-    </el-checkbox-group>
+      </a-checkbox>
+    </a-checkbox-group>
+  </a-modal>
 
-    <template #footer>
-      <div class="table-actions">
-        <el-button @click="permissionDialogVisible = false">{{ t('dashboard.previewCancel') }}</el-button>
-        <el-button
-          type="primary"
-          :loading="grantBusy"
-          :disabled="selectedCapabilities.length === 0"
-          @click="submitPermissionDialog"
-        >
-          {{ t('plugins.actions.grantSelected') }}
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
-
-  <el-dialog v-model="uninstallDialogVisible" :title="t('plugins.uninstallConfirmTitle')" width="420px">
+  <a-modal
+    v-model:open="uninstallDialogVisible"
+    :get-container="false"
+    :title="t('plugins.uninstallConfirmTitle')"
+    :confirm-loading="actionPending[pluginId] === 'uninstall'"
+    :ok-text="t('plugins.actions.uninstallConfirm')"
+    :cancel-text="t('dashboard.previewCancel')"
+    :ok-button-props="{ danger: true }"
+    @ok="uninstallPlugin"
+  >
     <p>{{ t('plugins.uninstallConfirmBody') }}</p>
-
-    <template #footer>
-      <div class="table-actions">
-        <el-button @click="uninstallDialogVisible = false">{{ t('dashboard.previewCancel') }}</el-button>
-        <el-button type="danger" :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallPlugin">
-          {{ t('plugins.actions.uninstallConfirm') }}
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <style scoped lang="scss">

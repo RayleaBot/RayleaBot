@@ -4,6 +4,7 @@ import { useSessionStore } from '@/stores/session'
 import DashboardPage from '@/pages/DashboardPage.vue'
 import ConfigPage from '@/pages/ConfigPage.vue'
 import CommandsPage from '@/pages/CommandsPage.vue'
+import AppShell from '@/layout/AppShell.vue'
 import LoginPage from '@/pages/LoginPage.vue'
 import LogsPage from '@/pages/LogsPage.vue'
 import PluginDetailPage from '@/pages/PluginDetailPage.vue'
@@ -12,7 +13,6 @@ import ProtocolLogsPage from '@/pages/ProtocolLogsPage.vue'
 import ProtocolsPage from '@/pages/ProtocolsPage.vue'
 import SetupPage from '@/pages/SetupPage.vue'
 import TasksPage from '@/pages/TasksPage.vue'
-import AppShell from '@/components/AppShell.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {

@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 
 class ResizeObserverMock {
   observe() {}
@@ -6,13 +6,15 @@ class ResizeObserverMock {
   disconnect() {}
 }
 
-beforeAll(() => {
+beforeEach(() => {
   Object.defineProperty(window, 'ResizeObserver', {
+    configurable: true,
     writable: true,
     value: ResizeObserverMock,
   })
 
   Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
       matches: false,
@@ -24,6 +26,13 @@ beforeAll(() => {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     })),
+  })
+
+  const nativeGetComputedStyle = globalThis.getComputedStyle.bind(globalThis)
+  Object.defineProperty(window, 'getComputedStyle', {
+    configurable: true,
+    writable: true,
+    value: ((element: Element) => nativeGetComputedStyle(element)) as typeof window.getComputedStyle,
   })
 })
 

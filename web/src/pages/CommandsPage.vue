@@ -16,25 +16,33 @@ const { error, items, loading } = storeToRefs(pluginsStore)
 const { document: configDocument } = storeToRefs(configStore)
 
 const selectedPluginIds = ref<string[]>([])
-const commandPrefix = computed(() => {
-  return getPrimaryCommandPrefix(configDocument.value?.command?.prefixes)
-})
-
+const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const pluginsWithCommands = computed(() => (
   [...items.value]
     .filter((plugin) => (plugin.commands?.length ?? 0) > 0)
     .sort((left, right) => compareByLabel(left.name, right.name) || compareByLabel(left.id, right.id))
 ))
+const pluginOptions = computed(() => pluginsWithCommands.value.map((plugin) => ({
+  label: getPluginLabel(plugin),
+  value: plugin.id,
+})))
 
 const commandRows = computed(() => {
   const selectedIds = new Set(selectedPluginIds.value)
   return flattenPluginCommands(pluginsWithCommands.value)
     .filter((row) => selectedIds.size === 0 || selectedIds.has(row.plugin.id))
-    .sort((left, right) => (
-      compareByLabel(left.command.name, right.command.name)
-      || compareByLabel(left.plugin.id, right.plugin.id)
-    ))
+    .sort((left, right) => compareByLabel(left.command.name, right.command.name) || compareByLabel(left.plugin.id, right.plugin.id))
 })
+
+const tableColumns = computed(() => [
+  { title: t('commands.fields.command'), key: 'command', dataIndex: 'command', width: 180 },
+  { title: t('commands.fields.aliases'), key: 'aliases', dataIndex: 'aliases', width: 180 },
+  { title: t('commands.fields.description'), key: 'description', dataIndex: 'description' },
+  { title: t('commands.fields.usage'), key: 'usage', dataIndex: 'usage' },
+  { title: t('commands.fields.permission'), key: 'permission', dataIndex: 'permission', width: 180 },
+  { title: t('commands.fields.plugin'), key: 'plugin', dataIndex: 'plugin', width: 220 },
+  { title: t('commands.fields.status'), key: 'status', dataIndex: 'status', width: 120 },
+])
 
 async function loadCommands() {
   try {
@@ -71,7 +79,7 @@ function getStatusLabel(status: PluginCommandAvailability) {
   return t(`commands.status.${status}`)
 }
 
-function getStatusType(status: PluginCommandAvailability) {
+function getStatusColor(status: PluginCommandAvailability) {
   switch (status) {
     case 'available':
       return 'success'
@@ -79,10 +87,10 @@ function getStatusType(status: PluginCommandAvailability) {
     case 'switching':
       return 'warning'
     case 'disabled':
-      return 'info'
+      return 'default'
     case 'not_ready':
     default:
-      return ''
+      return 'processing'
   }
 }
 
@@ -99,32 +107,24 @@ onMounted(() => {
         <p>{{ t('commands.subtitle') }}</p>
       </div>
 
-      <el-button :loading="loading" @click="loadCommands()">
+      <a-button :loading="loading" @click="loadCommands()">
         {{ t('commands.refresh') }}
-      </el-button>
+      </a-button>
     </section>
 
-    <el-card class="commands-filter-toolbar">
-      <el-form label-position="top">
-        <el-form-item :label="t('commands.filters.plugins')">
-          <el-select
-            v-model="selectedPluginIds"
-            multiple
-            clearable
-            collapse-tags
-            collapse-tags-tooltip
+    <a-card :bordered="false" class="commands-filter-toolbar">
+      <a-form layout="vertical">
+        <a-form-item :label="t('commands.filters.plugins')">
+          <a-select
+            v-model:value="selectedPluginIds"
+            mode="multiple"
+            allow-clear
+            :options="pluginOptions"
             :placeholder="t('commands.filters.allPlugins')"
-          >
-            <el-option
-              v-for="plugin in pluginsWithCommands"
-              :key="plugin.id"
-              :label="getPluginLabel(plugin)"
-              :value="plugin.id"
-            />
-          </el-select>
-        </el-form-item>
-      </el-form>
-    </el-card>
+          />
+        </a-form-item>
+      </a-form>
+    </a-card>
 
     <RetryPanel
       v-if="error && commandRows.length === 0"
@@ -134,64 +134,58 @@ onMounted(() => {
       @retry="loadCommands()"
     />
 
-    <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
+    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <el-table
+    <a-table
       v-else
-      :data="commandRows"
-      style="width: 100%;"
       class="commands-data-table"
-      :empty-text="t('commands.empty')"
+      :columns="tableColumns"
+      :data-source="commandRows"
+      :pagination="false"
+      :row-key="(row) => `${row.plugin.id}-${row.command.name}`"
+      :scroll="{ x: 1180 }"
     >
-      <el-table-column :label="t('commands.fields.command')" min-width="160">
-        <template #default="{ row }">
-          <el-tag size="small" effect="plain" :type="row.conflicted ? 'warning' : 'info'">
-            {{ row.command.name }}
-          </el-tag>
-        </template>
-      </el-table-column>
+      <template #emptyText>
+        {{ t('commands.empty') }}
+      </template>
 
-      <el-table-column :label="t('commands.fields.aliases')" min-width="180">
-        <template #default="{ row }">
-          <span>{{ getAliasesText(row.command) }}</span>
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'command'">
+          <a-tag :color="record.conflicted ? 'warning' : 'blue'">
+            {{ record.command.name }}
+          </a-tag>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('commands.fields.description')" min-width="220">
-        <template #default="{ row }">
-          <span>{{ row.command.description || t('display.empty') }}</span>
+        <template v-else-if="column.key === 'aliases'">
+          <span>{{ getAliasesText(record.command) }}</span>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('commands.fields.usage')" min-width="220">
-        <template #default="{ row }">
-          <span>{{ getUsageText(row.command) }}</span>
+        <template v-else-if="column.key === 'description'">
+          <span>{{ record.command.description || t('display.empty') }}</span>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('commands.fields.permission')" min-width="160">
-        <template #default="{ row }">
-          <span>{{ getPermissionText(row.command) }}</span>
+        <template v-else-if="column.key === 'usage'">
+          <span>{{ getUsageText(record.command) }}</span>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('commands.fields.plugin')" min-width="220">
-        <template #default="{ row }">
+        <template v-else-if="column.key === 'permission'">
+          <span>{{ getPermissionText(record.command) }}</span>
+        </template>
+
+        <template v-else-if="column.key === 'plugin'">
           <div class="command-plugin-cell">
-            <strong>{{ row.plugin.name }}</strong>
-            <small>{{ row.plugin.id }}</small>
+            <strong>{{ record.plugin.name }}</strong>
+            <small>{{ record.plugin.id }}</small>
           </div>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('commands.fields.status')" width="120">
-        <template #default="{ row }">
-          <el-tag size="small" effect="plain" :type="getStatusType(row.availability)">
-            {{ getStatusLabel(row.availability) }}
-          </el-tag>
+        <template v-else-if="column.key === 'status'">
+          <a-tag :color="getStatusColor(record.availability)">
+            {{ getStatusLabel(record.availability) }}
+          </a-tag>
         </template>
-      </el-table-column>
-    </el-table>
+      </template>
+    </a-table>
   </div>
 </template>
 
@@ -205,37 +199,6 @@ onMounted(() => {
   overflow: hidden;
   box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
   border: 1px solid rgba(22, 33, 39, 0.08);
-
-  :deep(.el-table__inner-wrapper) {
-    background: rgba(247, 250, 246, 0.88);
-  }
-
-  :deep(.el-table__header-wrapper th) {
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(22, 33, 39, 0.08);
-    color: var(--muted);
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 16px 8px;
-  }
-
-  :deep(.el-table__row) {
-    background-color: transparent;
-    transition: background-color 150ms ease;
-
-    td {
-      border-bottom: 1px solid rgba(22, 33, 39, 0.04);
-      padding: 12px 8px;
-    }
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.6);
-
-      td {
-        background-color: transparent !important;
-      }
-    }
-  }
 }
 
 .command-plugin-cell {

@@ -1,6 +1,6 @@
-import { ElMessage } from 'element-plus'
 import type { ComputedRef, Ref } from 'vue'
 
+import { notifyError, notifySuccess } from '@/adapter/feedback'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
 type DashboardActionState = {
@@ -36,19 +36,19 @@ export function useDashboardActions(state: DashboardActionState) {
   async function createBackup() {
     try {
       const response = await state.systemStore.createBackup()
-      ElMessage.success(t('dashboard.backupAccepted'))
+      notifySuccess(t('dashboard.backupAccepted'))
       await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
     } catch (error) {
-      ElMessage.error(getDisplayErrorMessage(error))
+      notifyError(getDisplayErrorMessage(error))
     }
   }
 
   async function exportDiagnostics() {
     try {
       await state.systemStore.exportDiagnostics()
-      ElMessage.success(t('dashboard.diagnosticsAccepted'))
+      notifySuccess(t('dashboard.diagnosticsAccepted'))
     } catch (error) {
-      ElMessage.error(getDisplayErrorMessage(error))
+      notifyError(getDisplayErrorMessage(error))
     }
   }
 
@@ -61,7 +61,7 @@ export function useDashboardActions(state: DashboardActionState) {
       }
       data = parsed as Record<string, unknown>
     } catch (error) {
-      ElMessage.error(getDisplayErrorMessage(error))
+      notifyError(getDisplayErrorMessage(error))
       return
     }
 
@@ -73,20 +73,20 @@ export function useDashboardActions(state: DashboardActionState) {
         data,
       })
       state.previewVisible.value = false
-      ElMessage.success(t('dashboard.previewAccepted'))
+      notifySuccess(t('dashboard.previewAccepted'))
       await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
     } catch (error) {
-      ElMessage.error(getDisplayErrorMessage(error))
+      notifyError(getDisplayErrorMessage(error))
     }
   }
 
   async function recheckRecoverySummary() {
     try {
       const response = await state.systemStore.recheckRecovery()
-      ElMessage.success(t('dashboard.recoveryRecheckAccepted'))
+      notifySuccess(t('dashboard.recoveryRecheckAccepted'))
       await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
     } catch (error) {
-      ElMessage.error(getDisplayErrorMessage(error))
+      notifyError(getDisplayErrorMessage(error))
     }
   }
 
@@ -98,22 +98,22 @@ export function useDashboardActions(state: DashboardActionState) {
         review_ids: [...state.selectedRecoveryReviewIds.value],
         note: state.recoveryConfirmNote.value.trim() || undefined,
       })
-      ElMessage.success(t('dashboard.recoveryConfirmAccepted'))
+      notifySuccess(t('dashboard.recoveryConfirmAccepted'))
       state.selectedRecoveryReviewIds.value = []
       state.recoveryConfirmNote.value = ''
       await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
     } catch (error) {
-      ElMessage.error(getDisplayErrorMessage(error))
+      notifyError(getDisplayErrorMessage(error))
     }
   }
 
   async function bootstrapRuntimeResources() {
     try {
       const response = await state.systemStore.bootstrapManagedRuntime(state.recoveryBootstrapResources.value)
-      ElMessage.success(t('dashboard.runtimeBootstrapAccepted'))
+      notifySuccess(t('dashboard.runtimeBootstrapAccepted'))
       await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
     } catch (error) {
-      ElMessage.error(getDisplayErrorMessage(error))
+      notifyError(getDisplayErrorMessage(error))
     }
   }
 

@@ -1,4 +1,4 @@
-import ElementPlus from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -28,7 +28,7 @@ describe('LogsPage', () => {
 
     const wrapper = mount(LogsPage, {
       global: {
-        plugins: [ElementPlus],
+        plugins: [Antd],
       },
     })
 
@@ -59,7 +59,7 @@ describe('LogsPage', () => {
 
     const wrapper = mount(LogsPage, {
       global: {
-        plugins: [ElementPlus],
+        plugins: [Antd],
       },
     })
 

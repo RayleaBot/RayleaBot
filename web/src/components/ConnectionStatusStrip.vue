@@ -46,8 +46,8 @@ const needsReconnect = computed(() =>
       </div>
     </div>
 
-    <el-button v-if="needsReconnect" plain size="small" @click="socketStore.reconnectAll()">
+    <a-button v-if="needsReconnect" size="small" @click="socketStore.reconnectAll()">
       {{ t('shell.reconnectAll') }}
-    </el-button>
+    </a-button>
   </div>
 </template>

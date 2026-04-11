@@ -259,10 +259,25 @@
   }
 
   /* Form Overrides - V2 Softer Inputs */
-  .refined-input {
-    .el-input__wrapper,
-    .el-textarea__inner,
-    .el-select__wrapper {
+  .refined-input.ant-input,
+  .refined-input.ant-input-affix-wrapper,
+  .refined-input.ant-input-textarea,
+  .refined-input.ant-select .ant-select-selector,
+  .refined-input.ant-picker {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: var(--theme-surface-soft);
+    box-shadow: inset 0 -1px 0 0 var(--theme-border-strong) !important;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .refined-input.ant-input-textarea {
+    padding: 0;
+
+    textarea.ant-input {
       border-radius: 8px;
       border: 1px solid transparent;
       background: var(--theme-surface-soft);
@@ -271,46 +286,61 @@
       font-size: 0.9rem;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       padding: var(--space-xs) var(--space-sm);
-
-      &:hover {
-        background: oklch(96% 0.01 235);
-        box-shadow: inset 0 -1px 0 0 var(--theme-text-muted) !important;
-      }
-
-      &.is-focus, &:focus {
-        background: var(--theme-surface);
-        border-color: var(--theme-accent);
-        box-shadow: 0 0 0 3px var(--theme-accent-surface) !important;
-      }
     }
   }
 
-  .refined-number-input {
-    .el-input__wrapper {
-      border-radius: 8px;
-      border: 1px solid transparent;
-      background: var(--theme-surface-soft);
-      box-shadow: inset 0 -1px 0 0 var(--theme-border-strong) !important;
+  .refined-input.ant-input:hover,
+  .refined-input.ant-input-affix-wrapper:hover,
+  .refined-input.ant-input-textarea textarea.ant-input:hover,
+  .refined-input.ant-select:hover .ant-select-selector,
+  .refined-input.ant-picker:hover {
+    background: oklch(96% 0.01 235);
+    box-shadow: inset 0 -1px 0 0 var(--theme-text-muted) !important;
+  }
+
+  .refined-input.ant-input:focus,
+  .refined-input.ant-input-affix-wrapper.ant-input-affix-wrapper-focused,
+  .refined-input.ant-input-textarea textarea.ant-input:focus,
+  .refined-input.ant-select.ant-select-focused .ant-select-selector,
+  .refined-input.ant-picker.ant-picker-focused {
+    background: var(--theme-surface);
+    border-color: var(--theme-accent);
+    box-shadow: 0 0 0 3px var(--theme-accent-surface) !important;
+  }
+
+  .refined-number-input.ant-input-number {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: var(--theme-surface-soft);
+    box-shadow: inset 0 -1px 0 0 var(--theme-border-strong) !important;
+    font-family: var(--font-mono);
+    height: 38px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    .ant-input-number-input {
       font-family: var(--font-mono);
-      height: 38px;
-      
-      &:hover {
-        background: oklch(96% 0.01 235);
-        box-shadow: inset 0 -1px 0 0 var(--theme-text-muted) !important;
-      }
-      
-      &.is-focus {
-        background: var(--theme-surface);
-        border-color: var(--theme-accent);
-        box-shadow: 0 0 0 3px var(--theme-accent-surface) !important;
-      }
     }
-    .el-input-number__increase,
-    .el-input-number__decrease {
-      border-radius: 0;
+
+    &:hover {
+      background: oklch(96% 0.01 235);
+      box-shadow: inset 0 -1px 0 0 var(--theme-text-muted) !important;
+    }
+
+    &.ant-input-number-focused {
+      background: var(--theme-surface);
+      border-color: var(--theme-accent);
+      box-shadow: 0 0 0 3px var(--theme-accent-surface) !important;
+    }
+
+    .ant-input-number-handler-wrap {
       background: transparent;
       border-left: 1px solid var(--theme-border);
-      
+    }
+
+    .ant-input-number-handler {
+      border: 0;
+      box-shadow: none;
+
       &:hover {
         color: var(--theme-accent);
       }

@@ -336,27 +336,33 @@ function getLevelColor(level: string) {
           <div class="palette-header">
             <strong>{{ t('protocols.filters.apply') }}</strong>
           </div>
-          <el-form label-position="top" class="sidebar-filter-form" @submit.prevent>
-            <el-form-item :label="t('protocols.filters.level')">
-              <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')" class="refined-input" popper-class="minimal-popper">
-                <el-option :label="t('display.logLevels.debug')" value="debug" />
-                <el-option :label="t('display.logLevels.info')" value="info" />
-                <el-option :label="t('display.logLevels.warn')" value="warn" />
-                <el-option :label="t('display.logLevels.error')" value="error" />
-              </el-select>
-            </el-form-item>
-            <el-form-item :label="t('protocols.filters.source')">
-              <el-input v-model="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" class="refined-input" />
-            </el-form-item>
-            <el-form-item :label="t('protocols.filters.requestId')">
-              <el-input v-model="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
-            </el-form-item>
+          <a-form layout="vertical" class="sidebar-filter-form">
+            <a-form-item :label="t('protocols.filters.level')">
+              <a-select
+                v-model:value="filters.level"
+                allow-clear
+                :placeholder="t('protocols.filters.all')"
+                class="refined-input"
+                :options="[
+                  { label: t('display.logLevels.debug'), value: 'debug' },
+                  { label: t('display.logLevels.info'), value: 'info' },
+                  { label: t('display.logLevels.warn'), value: 'warn' },
+                  { label: t('display.logLevels.error'), value: 'error' },
+                ]"
+              />
+            </a-form-item>
+            <a-form-item :label="t('protocols.filters.source')">
+              <a-input v-model:value="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" class="refined-input" />
+            </a-form-item>
+            <a-form-item :label="t('protocols.filters.requestId')">
+              <a-input v-model:value="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
+            </a-form-item>
             
             <div class="sidebar-actions">
               <button class="minimal-btn outline" @click="clearBuffer">{{ t('protocols.logsClear') }}</button>
               <button class="minimal-btn primary" @click="refreshLogs">{{ t('protocols.filters.apply') }}</button>
             </div>
-          </el-form>
+          </a-form>
         </div>
 
         <div class="sidebar-palette">
@@ -388,7 +394,7 @@ function getLevelColor(level: string) {
           @retry="refreshLogs"
         />
 
-        <el-alert v-else-if="logsError" :title="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon class="error-alert" />
+        <a-alert v-else-if="logsError" :message="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon class="error-alert" />
 
         <div v-else class="logs-display-grid">
           <div class="minimal-card terminal-container">
@@ -439,11 +445,11 @@ function getLevelColor(level: string) {
               <p>{{ t('protocols.logsDetailEmpty') }}</p>
             </div>
 
-            <el-skeleton v-else :loading="detailLoading && !currentDetail" animated>
+            <a-skeleton v-else :loading="detailLoading && !currentDetail" active>
               <div v-if="selectedSummary" class="detail-view-content">
-                <el-alert
+                <a-alert
                   v-if="detailError"
-                  :title="t('errors.common.loadFailed')"
+                  :message="t('errors.common.loadFailed')"
                   type="error"
                   :description="detailError"
                   show-icon
@@ -484,7 +490,7 @@ function getLevelColor(level: string) {
                   <pre class="json-content">{{ detailJson }}</pre>
                 </div>
               </div>
-            </el-skeleton>
+            </a-skeleton>
           </div>
         </div>
       </main>
@@ -582,7 +588,7 @@ function getLevelColor(level: string) {
   flex-direction: column;
   gap: var(--space-md);
 
-  :deep(.el-form-item) {
+  :deep(.ant-form-item) {
     margin-bottom: 0;
   }
 }
@@ -938,8 +944,8 @@ function getLevelColor(level: string) {
   overflow: visible;
 }
 
-:deep(.detail-container .el-skeleton),
-:deep(.detail-container .el-skeleton__content) {
+:deep(.detail-container .ant-skeleton),
+:deep(.detail-container .ant-skeleton-content) {
   display: flex;
   flex: 1;
   flex-direction: column;

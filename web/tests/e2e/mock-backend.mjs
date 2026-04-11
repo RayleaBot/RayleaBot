@@ -82,6 +82,7 @@ const sockets = {
 function baseState() {
   const pluginItems = structuredClone(fixtures.pluginList.response.body.items)
   const pluginMap = Object.fromEntries(pluginItems.map((item) => [item.id, item]))
+  pluginMap.weather = structuredClone(fixtures.pluginDetail.response.body.plugin)
   return {
     initialized: false,
     token: null,
@@ -330,6 +331,22 @@ function pluginDetailBody(pluginId) {
   return {
     plugin: state.plugins[pluginId],
   }
+}
+
+function updatePluginPermission(pluginId, capability, nextState) {
+  const plugin = state.plugins[pluginId]
+  if (!plugin?.permissions) {
+    return
+  }
+
+  plugin.permissions = plugin.permissions.map((permission) => (
+    permission.capability === capability
+      ? {
+        ...permission,
+        ...nextState,
+      }
+      : permission
+  ))
 }
 
 function taskSummary(taskId, taskType, summary) {
@@ -926,6 +943,12 @@ const server = http.createServer(async (request, response) => {
       nextGrant,
     ].sort((left, right) => left.capability.localeCompare(right.capability))
 
+    updatePluginPermission(pluginId, payload.capability, {
+      status: 'granted',
+      source: 'persisted',
+      expires_at: payload.expires_at ?? null,
+    })
+
     json(response, 200, nextGrant)
     return
   }
@@ -938,6 +961,11 @@ const server = http.createServer(async (request, response) => {
     const pluginId = pathname.split('/')[3]
     const capability = decodeURIComponent(pathname.split('/')[5])
     state.grants[pluginId] = (state.grants[pluginId] ?? []).filter((item) => item.capability !== capability)
+    updatePluginPermission(pluginId, capability, {
+      status: 'not_granted',
+      source: 'none',
+      expires_at: null,
+    })
     noContent(response)
     return
   }

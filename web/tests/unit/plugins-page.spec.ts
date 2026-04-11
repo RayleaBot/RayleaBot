@@ -1,4 +1,4 @@
-import ElementPlus from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -35,14 +35,14 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
     await flushPromises()
-    const button = wrapper.findAll('button').find((candidate) => candidate.text().includes('启用'))
-    expect(button).toBeTruthy()
-    await button!.trigger('click')
+    const button = wrapper.find('[data-testid="plugin-enable-button-weather"]')
+    expect(button.exists()).toBe(true)
+    await button.trigger('click')
 
     expect(executeSpy).toHaveBeenCalledWith('weather', 'enable')
   })
@@ -89,7 +89,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
@@ -134,7 +134,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 

@@ -35,7 +35,7 @@ function isConflicted(command: PluginCommandSummary) {
 </script>
 
 <template>
-  <el-empty v-if="commands.length === 0" :description="t('plugins.empty.commands')" />
+  <a-empty v-if="commands.length === 0" :description="t('plugins.empty.commands')" />
 
   <div v-else class="plugin-command-panel">
     <article
@@ -45,12 +45,12 @@ function isConflicted(command: PluginCommandSummary) {
     >
       <div class="plugin-command-card__header">
         <div class="plugin-command-card__title">
-          <el-tag size="small" effect="plain" :type="isConflicted(command) ? 'warning' : 'success'">
+          <a-tag :color="isConflicted(command) ? 'warning' : 'success'">
             {{ command.name }}
-          </el-tag>
-          <el-tag v-if="isConflicted(command)" size="small" type="warning">
+          </a-tag>
+          <a-tag v-if="isConflicted(command)" color="warning">
             {{ t('plugins.commandConflictBadge') }}
-          </el-tag>
+          </a-tag>
         </div>
         <small>{{ getPermissionText(command) }}</small>
       </div>
@@ -123,6 +123,7 @@ function isConflicted(command: PluginCommandSummary) {
   word-break: break-word;
   line-height: 1.55;
 }
+
 @media (max-width: 768px) {
   .plugin-command-card {
     padding: 14px 16px;

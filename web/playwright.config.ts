@@ -13,13 +13,13 @@ export default defineConfig({
     {
       command: 'node tests/e2e/mock-backend.mjs',
       url: 'http://127.0.0.1:4010/__test/ping',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       cwd: '.',
     },
     {
       command: 'pnpm dev',
       url: 'http://127.0.0.1:4173/login',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       cwd: '.',
       env: {
         ...process.env,

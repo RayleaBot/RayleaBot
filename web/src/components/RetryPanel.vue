@@ -13,12 +13,12 @@ defineEmits<{
 
 <template>
   <section class="retry-panel" role="alert">
-    <el-result icon="warning" :title="title" :sub-title="description">
+    <a-result status="warning" :title="title" :sub-title="description">
       <template #extra>
-        <el-button type="primary" :loading="loading" @click="$emit('retry')">
+        <a-button type="primary" :loading="loading" @click="$emit('retry')">
           {{ retryLabel ?? '重试' }}
-        </el-button>
+        </a-button>
       </template>
-    </el-result>
+    </a-result>
   </section>
 </template>

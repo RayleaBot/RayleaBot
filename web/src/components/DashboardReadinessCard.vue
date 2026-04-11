@@ -35,8 +35,8 @@ function getCheckIcon(status: StatusType): string {
 </script>
 
 <template>
-  <el-card>
-    <template #header>
+  <a-card :bordered="false">
+    <template #title>
       <div class="card-header">
         <span>{{ sectionTitle }}</span>
       </div>
@@ -56,7 +56,7 @@ function getCheckIcon(status: StatusType): string {
       </div>
     </div>
 
-    <el-empty v-else :description="t('display.empty')" />
+    <a-empty v-else :description="t('display.empty')" />
 
     <div v-if="readinessNoteText" class="readiness-note">
       <small style="color: var(--muted);">
@@ -75,9 +75,9 @@ function getCheckIcon(status: StatusType): string {
         :class="['issue-alert-card', { 'issue-alert-card--warning': issue.severity === 'warning' }]"
       >
         <div class="issue-alert-card__header">
-          <el-tag :type="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'" size="small">
+          <a-tag :color="issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'success'">
             {{ issue.code }}
-          </el-tag>
+          </a-tag>
           <span class="issue-alert-card__summary">{{ issue.summary }}</span>
         </div>
         <div v-if="issue.remediation" class="issue-alert-card__remediation">
@@ -87,11 +87,11 @@ function getCheckIcon(status: StatusType): string {
     </div>
 
     <div v-if="readinessIssues.length > 3" class="issues-toggle">
-      <el-button size="small" text @click="$emit('toggle-issues')">
+      <a-button size="small" type="link" @click="$emit('toggle-issues')">
         {{ issuesExpanded ? collapseIssuesText : expandIssuesText }}
-      </el-button>
+      </a-button>
     </div>
-  </el-card>
+  </a-card>
 </template>
 
 <style scoped lang="scss">

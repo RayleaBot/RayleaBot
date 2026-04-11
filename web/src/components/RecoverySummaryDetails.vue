@@ -70,9 +70,9 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
   <div class="events-section">
     <div class="issue-alert-card" :class="{ 'issue-alert-card--warning': recoverySummary.status !== 'compatible' }">
       <div class="issue-alert-card__header">
-        <el-tag :type="recoverySummary.status === 'blocked' ? 'danger' : recoverySummary.status === 'compatible' ? 'success' : 'warning'" size="small">
+        <a-tag :color="recoverySummary.status === 'blocked' ? 'error' : recoverySummary.status === 'compatible' ? 'success' : 'warning'">
           {{ recoveryStatusLabel }}
-        </el-tag>
+        </a-tag>
         <span class="issue-alert-card__summary">
           {{ recoverySummary.operation }} · {{ recoverySummary.phase }}
         </span>
@@ -89,9 +89,9 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
       :class="{ 'issue-alert-card--warning': issue.severity === 'warning' }"
     >
       <div class="issue-alert-card__header">
-        <el-tag :type="issue.severity === 'error' ? 'danger' : 'warning'" size="small">
+        <a-tag :color="issue.severity === 'error' ? 'error' : 'warning'">
           {{ issue.code }}
-        </el-tag>
+        </a-tag>
         <span class="issue-alert-card__summary">{{ issue.summary }}</span>
       </div>
       <div v-if="issue.remediation" class="issue-alert-card__remediation">
@@ -102,30 +102,30 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
     <div v-if="skippedPlugins.length" class="recovery-summary__toolbar">
       <small class="recovery-summary__section-label">{{ t('display.recoveryItems') }}</small>
       <div class="recovery-summary__filters">
-        <el-button
+        <a-button
           data-testid="recovery-filter-all"
           size="small"
           :type="activeFilter === 'all' ? 'primary' : 'default'"
           @click="activeFilter = 'all'"
         >
           {{ t('display.recoveryFilters.all') }}
-        </el-button>
-        <el-button
+        </a-button>
+        <a-button
           data-testid="recovery-filter-pending"
           size="small"
           :type="activeFilter === 'pending' ? 'primary' : 'default'"
           @click="activeFilter = 'pending'"
         >
           {{ t('display.recoveryFilters.pending') }}
-        </el-button>
-        <el-button
+        </a-button>
+        <a-button
           data-testid="recovery-filter-confirmed"
           size="small"
           :type="activeFilter === 'confirmed' ? 'primary' : 'default'"
           @click="activeFilter = 'confirmed'"
         >
           {{ t('display.recoveryFilters.confirmed') }}
-        </el-button>
+        </a-button>
       </div>
     </div>
 
@@ -136,25 +136,24 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
       class="issue-alert-card issue-alert-card--warning"
     >
       <div class="issue-alert-card__header">
-        <el-tag :type="plugin.review_status === 'confirmed' ? 'success' : 'warning'" size="small">
+        <a-tag :color="plugin.review_status === 'confirmed' ? 'success' : 'warning'">
           {{ plugin.reason_code }}
-        </el-tag>
-        <el-button
+        </a-tag>
+        <a-button
           v-if="showPluginLinks"
-          link
-          type="primary"
+          type="link"
           class="issue-alert-card__summary issue-alert-card__summary--link"
           :data-testid="`recovery-plugin-link-${plugin.plugin_id}`"
           @click="$emit('openPlugin', plugin.plugin_id)"
         >
           {{ plugin.plugin_id }}
-        </el-button>
+        </a-button>
         <span v-else class="issue-alert-card__summary">
           {{ plugin.plugin_id }}
         </span>
-        <el-tag :type="plugin.review_status === 'confirmed' ? 'success' : 'warning'" size="small">
+        <a-tag :color="plugin.review_status === 'confirmed' ? 'success' : 'warning'">
           {{ plugin.review_status === 'confirmed' ? t('dashboard.recoveryConfirmed') : t('dashboard.recoveryPending') }}
-        </el-tag>
+        </a-tag>
       </div>
       <div class="issue-alert-card__remediation">{{ plugin.summary }}</div>
       <div v-if="plugin.manual_action" class="issue-alert-card__remediation">{{ plugin.manual_action }}</div>
@@ -162,12 +161,16 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
         {{ t('dashboard.recoveryReviewedBy') }}：{{ plugin.reviewed_by || t('display.empty') }}
         · {{ t('dashboard.recoveryReviewedAt') }}：{{ plugin.reviewed_at ? formatRelativeTime(plugin.reviewed_at) : t('display.empty') }}
       </div>
-      <div v-else-if="showSelectionControls" class="recovery-summary__checkbox">
-        <el-checkbox-group v-model="selectedRecoveryReviewIds">
-          <el-checkbox :value="plugin.review_id" :data-testid="`recovery-confirm-checkbox-${plugin.review_id}`">
+      <div
+        v-else-if="showSelectionControls"
+        :data-testid="`recovery-confirm-checkbox-${plugin.review_id}`"
+        class="recovery-summary__checkbox"
+      >
+        <a-checkbox-group v-model:value="selectedRecoveryReviewIds">
+          <a-checkbox :value="plugin.review_id">
             {{ t('dashboard.recoveryConfirm') }}
-          </el-checkbox>
-        </el-checkbox-group>
+          </a-checkbox>
+        </a-checkbox-group>
       </div>
     </div>
 
@@ -212,7 +215,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
         class="issue-alert-card"
       >
         <div class="issue-alert-card__header">
-          <el-tag type="info" size="small">{{ entry.operator_id }}</el-tag>
+          <a-tag color="blue">{{ entry.operator_id }}</a-tag>
           <span class="issue-alert-card__summary">{{ formatRelativeTime(entry.created_at) }}</span>
         </div>
         <div class="issue-alert-card__remediation">{{ entry.note || t('display.empty') }}</div>

@@ -39,8 +39,8 @@ defineEmits<{
         </div>
         <div class="hero-auto-refresh">
           <span>自动刷新</span>
-          <el-switch
-            :model-value="autoRefresh"
+          <a-switch
+            :checked="autoRefresh"
             size="small"
             @change="$emit('toggle-auto-refresh', $event)"
           />
@@ -49,9 +49,9 @@ defineEmits<{
     </div>
 
     <div class="table-actions">
-      <el-button :loading="loading" @click="$emit('refresh')">
+      <a-button :loading="loading" @click="$emit('refresh')">
         刷新
-      </el-button>
+      </a-button>
     </div>
   </section>
 </template>

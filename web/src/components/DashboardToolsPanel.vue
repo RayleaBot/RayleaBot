@@ -15,23 +15,23 @@ defineEmits<{
 </script>
 
 <template>
-  <el-card class="tools-panel">
-    <template #header>
+  <a-card :bordered="false" class="tools-panel">
+    <template #title>
       <div class="card-header">
         <span>{{ t('dashboard.tools') }}</span>
       </div>
     </template>
 
     <div class="table-actions">
-      <el-button type="primary" plain :loading="backupPending" @click="$emit('createBackup')">
+      <a-button type="primary" :loading="backupPending" @click="$emit('createBackup')">
         {{ t('dashboard.createBackup') }}
-      </el-button>
-      <el-button type="primary" plain :loading="diagnosticsPending" @click="$emit('exportDiagnostics')">
+      </a-button>
+      <a-button type="primary" :loading="diagnosticsPending" @click="$emit('exportDiagnostics')">
         {{ t('dashboard.exportDiagnostics') }}
-      </el-button>
-      <el-button type="primary" plain :loading="previewPending" @click="$emit('openPreview')">
+      </a-button>
+      <a-button type="primary" :loading="previewPending" @click="$emit('openPreview')">
         {{ t('dashboard.renderPreview') }}
-      </el-button>
+      </a-button>
     </div>
-  </el-card>
+  </a-card>
 </template>

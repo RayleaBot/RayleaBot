@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 
+import { notifySuccess } from '@/adapter/feedback'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   cloneConfig,
@@ -148,7 +148,7 @@ async function save() {
   }
 
   const response = await configStore.saveConfig(draft.value)
-  ElMessage.success(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
+  notifySuccess(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
 }
 </script>
 
@@ -223,7 +223,7 @@ async function save() {
       <div class="section-heading">
         <div>
           <h2>{{ t('protocols.transportStatusTitle') }}</h2>
-          <p class="subtitle">{{ t('transportStatusHint') }}</p>
+          <p class="subtitle">{{ t('protocols.transportStatusHint') }}</p>
         </div>
       </div>
       <div class="transport-cards-grid">
@@ -250,10 +250,10 @@ async function save() {
     </div>
 
     <div class="config-alerts-container" v-if="pageError || redactedFields.length > 0">
-      <el-alert v-if="pageError" :title="t('errors.common.actionFailed')" type="error" :description="pageError" show-icon />
-      <el-alert
+      <a-alert v-if="pageError" :message="t('errors.common.actionFailed')" type="error" :description="pageError" show-icon />
+      <a-alert
         v-if="redactedFields.length > 0"
-        :title="t('config.redactedTitle')"
+        :message="t('config.redactedTitle')"
         type="info"
         :description="redactedFields.join(', ')"
         show-icon
@@ -288,74 +288,64 @@ async function save() {
             <span class="field-count-badge">{{ section.fields.length }} {{ t('config.fieldCount') }}</span>
           </div>
 
-          <el-form label-position="top" class="protocol-settings-form" @submit.prevent>
+          <a-form layout="vertical" class="protocol-settings-form">
             <div v-for="field in section.fields" :key="field.path" class="config-field-item">
-              <el-form-item>
+              <a-form-item>
                 <template #label>
                   <div class="field-label-wrap">
                     <span class="field-label-text">{{ field.label }}</span>
-                    <el-tooltip v-if="field.description" :content="field.description" placement="top">
+                    <a-tooltip v-if="field.description" :title="field.description">
                       <span class="field-info-icon">?</span>
-                    </el-tooltip>
+                    </a-tooltip>
                   </div>
                 </template>
 
-                <el-input
+                <a-input
                   v-if="field.type === 'text'"
-                  :model-value="String(readField(field.path, field.type) ?? '')"
+                  :value="String(readField(field.path, field.type) ?? '')"
                   :aria-label="field.label"
                   class="refined-input"
-                  @update:model-value="(value) => writeField(field.path, field.type, value)"
+                  @update:value="(value) => writeField(field.path, field.type, value)"
                 />
 
-                <el-input-number
+                <a-input-number
                   v-else-if="field.type === 'number'"
-                  :model-value="Number(readField(field.path, field.type) ?? 0)"
+                  :value="Number(readField(field.path, field.type) ?? 0)"
                   :aria-label="field.label"
                   :min="0"
                   :step="1"
-                  controls-position="right"
                   class="refined-number-input"
-                  @update:model-value="(value) => writeField(field.path, field.type, value ?? 0)"
+                  @update:value="(value) => writeField(field.path, field.type, value ?? 0)"
                 />
 
                 <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                  <el-switch
-                    :model-value="Boolean(readField(field.path, field.type))"
+                  <a-switch
+                    :checked="Boolean(readField(field.path, field.type))"
                     :aria-label="field.label"
-                    @update:model-value="(value) => writeField(field.path, field.type, value)"
-                    style="--el-switch-on-color: var(--theme-accent); --el-switch-off-color: var(--theme-border-strong)"
+                    @update:checked="(value) => writeField(field.path, field.type, value)"
                   />
                 </div>
 
-                <el-select
+                <a-select
                   v-else-if="field.type === 'select'"
-                  :model-value="String(readField(field.path, field.type) ?? '')"
+                  :value="String(readField(field.path, field.type) ?? '')"
                   :aria-label="field.label"
                   class="refined-input"
-                  @update:model-value="(value) => writeField(field.path, field.type, value)"
-                  popper-class="minimal-popper"
-                >
-                  <el-option
-                    v-for="option in field.options"
-                    :key="String(option.value)"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-
-                <el-input
-                  v-else
-                  :model-value="String(readField(field.path, field.type) ?? '')"
-                  :aria-label="field.label"
-                  type="textarea"
-                  :autosize="{ minRows: 4, maxRows: 8 }"
-                  class="refined-input"
-                  @update:model-value="(value) => writeField(field.path, field.type, value)"
+                  :options="field.options"
+                  @update:value="(value) => writeField(field.path, field.type, value)"
                 />
-              </el-form-item>
+
+                <a-textarea
+                  v-else
+                  :value="String(readField(field.path, field.type) ?? '')"
+                  :aria-label="field.label"
+                  :auto-size="{ minRows: 4, maxRows: 8 }"
+                  class="refined-input"
+                  @update:value="(value) => writeField(field.path, field.type, value)"
+                />
+              </a-form-item>
             </div>
-          </el-form>
+          </a-form>
         </div>
       </div>
     </section>

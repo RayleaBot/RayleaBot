@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
+import { notifyError, notifySuccess } from '@/adapter/feedback'
 import RecoverySummaryDetails from '@/components/RecoverySummaryDetails.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -23,6 +23,14 @@ const previewImageSrc = ref('')
 const hasRequestedTasks = ref(false)
 let previewImageLoadVersion = 0
 
+const tableColumns = computed(() => [
+  { title: t('tasks.fields.type'), key: 'type', dataIndex: 'task_type', width: 220 },
+  { title: t('tasks.fields.status'), key: 'status', dataIndex: 'status', width: 180 },
+  { title: t('tasks.fields.started'), key: 'started', dataIndex: 'started_at', width: 220 },
+  { title: t('tasks.fields.summary'), key: 'summary', dataIndex: 'summary' },
+  { title: '', key: 'actions', dataIndex: 'actions', width: 120, fixed: 'right' as const },
+])
+
 async function loadTasks() {
   hasRequestedTasks.value = true
   try {
@@ -38,7 +46,7 @@ async function inspect(taskId: string) {
     detailVisible.value = true
     await router.replace({ name: 'tasks', query: { ...route.query, task_id: taskId } })
   } catch (error) {
-    ElMessage.error(getDisplayErrorMessage(error))
+    notifyError(getDisplayErrorMessage(error))
   }
 }
 
@@ -49,9 +57,9 @@ async function cancelCurrent() {
 
   try {
     await tasksStore.cancelTask(currentTask.value.task_id)
-    ElMessage.success(t('tasks.cancelAccepted'))
+    notifySuccess(t('tasks.cancelAccepted'))
   } catch (error) {
-    ElMessage.error(getDisplayErrorMessage(error))
+    notifyError(getDisplayErrorMessage(error))
   }
 }
 
@@ -164,6 +172,12 @@ watch(
   },
   { immediate: true },
 )
+
+function getStatusColor(status: string) {
+  if (status === 'succeeded') return 'success'
+  if (status === 'failed') return 'error'
+  return 'processing'
+}
 </script>
 
 <template>
@@ -173,9 +187,9 @@ watch(
         <h1>{{ t('tasks.title') }}</h1>
       </div>
 
-      <el-button :loading="loading" @click="loadTasks()">
+      <a-button :loading="loading" @click="loadTasks()">
         {{ t('tasks.refresh') }}
-      </el-button>
+      </a-button>
     </section>
 
     <RetryPanel
@@ -186,85 +200,89 @@ watch(
       @retry="loadTasks()"
     />
 
-    <el-alert v-else-if="error" :title="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
+    <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <el-card v-else-if="(!hasRequestedTasks || loading) && sortedItems.length === 0" class="tasks-empty-card" shadow="never">
-      <el-skeleton animated :rows="4" />
-    </el-card>
+    <a-card v-else-if="(!hasRequestedTasks || loading) && sortedItems.length === 0" class="tasks-empty-card" :bordered="false">
+      <a-skeleton active :paragraph="{ rows: 4 }" />
+    </a-card>
 
-    <el-card v-else-if="sortedItems.length === 0" class="tasks-empty-card" shadow="never">
-      <el-empty :description="t('display.empty')" />
-    </el-card>
+    <a-card v-else-if="sortedItems.length === 0" class="tasks-empty-card" :bordered="false">
+      <a-empty :description="t('display.empty')" />
+    </a-card>
 
-    <el-table
+    <a-table
       v-else
-      :data="sortedItems"
-      style="width: 100%;"
       class="tasks-data-table"
-      :empty-text="t('display.empty')"
+      :columns="tableColumns"
+      :data-source="sortedItems"
+      :pagination="false"
+      :row-key="(row) => row.task_id"
+      :scroll="{ x: 980 }"
     >
-      <el-table-column :label="t('tasks.fields.type')" min-width="180">
-        <template #default="{ row }">
+      <template #emptyText>
+        {{ t('display.empty') }}
+      </template>
+
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'type'">
           <div class="task-cell-identity">
-            <strong class="task-type-label">{{ getTaskTypeLabel(row.task_type) }}</strong>
-            <small class="task-type-id">{{ row.task_type }}</small>
+            <strong class="task-type-label">{{ getTaskTypeLabel(record.task_type) }}</strong>
+            <small class="task-type-id">{{ record.task_type }}</small>
           </div>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('tasks.fields.status')" min-width="160">
-        <template #default="{ row }">
+        <template v-else-if="column.key === 'status'">
           <div class="task-cell-status">
-            <el-tag size="small" :type="row.status === 'succeeded' ? 'success' : (row.status === 'failed' ? 'danger' : 'info')" effect="light">
-              {{ getTaskStatusLabel(row.status) }}
-            </el-tag>
-            <strong v-if="row.progress !== undefined" class="task-progress">{{ row.progress }}%</strong>
+            <a-tag :color="getStatusColor(record.status)">
+              {{ getTaskStatusLabel(record.status) }}
+            </a-tag>
+            <strong v-if="record.progress !== undefined" class="task-progress">{{ record.progress }}%</strong>
           </div>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('tasks.fields.started')" min-width="200">
-        <template #default="{ row }">
+        <template v-else-if="column.key === 'started'">
           <div class="task-cell-time">
-            <div class="task-time-display">{{ formatDateTime(row.started_at) }}</div>
-            <small class="task-id-mono">{{ row.task_id }}</small>
+            <div class="task-time-display">{{ formatDateTime(record.started_at) }}</div>
+            <small class="task-id-mono">{{ record.task_id }}</small>
           </div>
         </template>
-      </el-table-column>
 
-      <el-table-column :label="t('tasks.fields.summary')" min-width="300">
-        <template #default="{ row }">
-          <p class="task-summary-text" :title="row.summary">{{ row.summary }}</p>
+        <template v-else-if="column.key === 'summary'">
+          <p class="task-summary-text" :title="record.summary">{{ record.summary }}</p>
         </template>
-      </el-table-column>
 
-      <el-table-column fixed="right" width="120" align="right">
-        <template #default="{ row }">
-          <el-button size="small" plain @click="inspect(row.task_id)">
+        <template v-else-if="column.key === 'actions'">
+          <a-button size="small" @click="inspect(record.task_id)">
             {{ t('tasks.actions.detail') }}
-          </el-button>
+          </a-button>
         </template>
-      </el-table-column>
-    </el-table>
+      </template>
+    </a-table>
 
-    <el-drawer v-model="detailVisible" :title="t('tasks.detailTitle')" size="clamp(320px, 92vw, 720px)" :modal="false">
-      <el-skeleton :loading="detailLoading" animated>
+    <a-drawer
+      v-model:open="detailVisible"
+      :get-container="false"
+      :title="t('tasks.detailTitle')"
+      placement="right"
+      width="min(720px, 92vw)"
+    >
+      <a-skeleton :loading="detailLoading" active>
         <template v-if="currentTask">
-          <el-descriptions :column="1" border>
-            <el-descriptions-item :label="t('tasks.fields.id')">{{ currentTask.task_id }}</el-descriptions-item>
-            <el-descriptions-item :label="t('tasks.fields.type')">
+          <a-descriptions :column="1" bordered size="small">
+            <a-descriptions-item :label="t('tasks.fields.id')">{{ currentTask.task_id }}</a-descriptions-item>
+            <a-descriptions-item :label="t('tasks.fields.type')">
               {{ getTaskTypeLabel(currentTask.task_type) }}
               <small> · {{ currentTask.task_type }}</small>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('tasks.fields.status')">
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('tasks.fields.status')">
               {{ getTaskStatusLabel(currentTask.status) }}
               <small> · {{ currentTask.status }}</small>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('tasks.fields.progress')">{{ currentTask.progress ?? t('display.empty') }}</el-descriptions-item>
-            <el-descriptions-item :label="t('tasks.fields.summary')">{{ currentTask.summary }}</el-descriptions-item>
-            <el-descriptions-item :label="t('tasks.fields.started')">{{ formatDateTime(currentTask.started_at) }}</el-descriptions-item>
-            <el-descriptions-item :label="t('tasks.fields.finished')">{{ formatDateTime(currentTask.finished_at) }}</el-descriptions-item>
-          </el-descriptions>
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('tasks.fields.progress')">{{ currentTask.progress ?? t('display.empty') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('tasks.fields.summary')">{{ currentTask.summary }}</a-descriptions-item>
+            <a-descriptions-item :label="t('tasks.fields.started')">{{ formatDateTime(currentTask.started_at) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('tasks.fields.finished')">{{ formatDateTime(currentTask.finished_at) }}</a-descriptions-item>
+          </a-descriptions>
 
           <div v-if="currentTask.result" class="drawer-section">
             <div class="card-header">
@@ -300,8 +318,8 @@ watch(
             <div class="card-header">
               <span>{{ t('tasks.fields.error') }}</span>
             </div>
-            <el-alert
-              :title="currentTask.error.code"
+            <a-alert
+              :message="currentTask.error.code"
               type="error"
               :description="currentTask.error.message"
               show-icon
@@ -312,15 +330,15 @@ watch(
               </div>
             </div>
           </div>
-        </template>
-      </el-skeleton>
 
-      <template #footer>
-        <el-button type="danger" plain :loading="cancelPending" @click="cancelCurrent">
-          {{ t('tasks.actions.cancel') }}
-        </el-button>
-      </template>
-    </el-drawer>
+          <div class="drawer-section drawer-actions">
+            <a-button danger :loading="cancelPending" @click="cancelCurrent">
+              {{ t('tasks.actions.cancel') }}
+            </a-button>
+          </div>
+        </template>
+      </a-skeleton>
+    </a-drawer>
   </div>
 </template>
 
@@ -330,10 +348,6 @@ watch(
   border: 1px solid rgba(22, 33, 39, 0.08);
   box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
   background: rgba(247, 250, 246, 0.88);
-
-  :deep(.el-card__body) {
-    padding: 28px 24px;
-  }
 }
 
 .tasks-data-table {
@@ -341,86 +355,52 @@ watch(
   overflow: hidden;
   box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
   border: 1px solid rgba(22, 33, 39, 0.08);
-
-  :deep(.el-table__inner-wrapper) {
-    background: rgba(247, 250, 246, 0.88);
-  }
-  
-  :deep(.el-table__header-wrapper th) {
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(22, 33, 39, 0.08);
-    color: var(--muted);
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 16px 8px;
-  }
-
-  :deep(.el-table__row) {
-    background-color: transparent;
-    transition: background-color 150ms ease;
-    
-    td {
-      border-bottom: 1px solid rgba(22, 33, 39, 0.04);
-      padding: 12px 8px;
-    }
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.6);
-      td {
-        background-color: transparent !important;
-      }
-    }
-  }
-
-  :deep(.el-table__body-wrapper) {
-    background-color: transparent;
-  }
 }
 
 .task-cell-identity {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  
-  .task-type-label {
-    font-size: 0.98rem;
-    color: var(--text);
-    font-weight: 600;
-  }
-  
-  .task-type-id {
-    font-family: "Cascadia Mono", "Consolas", monospace;
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
+}
+
+.task-type-label {
+  font-size: 0.98rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.task-type-id {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .task-cell-status {
   display: flex;
   align-items: center;
   gap: 10px;
+}
 
-  .task-progress {
-    font-size: 0.9rem;
-    color: var(--text);
-  }
+.task-progress {
+  font-size: 0.9rem;
+  color: var(--text);
 }
 
 .task-cell-time {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
 
-  .task-time-display {
-    font-size: 0.9rem;
-    color: var(--text);
-  }
+.task-time-display {
+  font-size: 0.9rem;
+  color: var(--text);
+}
 
-  .task-id-mono {
-    font-family: "Cascadia Mono", "Consolas", monospace;
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
+.task-id-mono {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .task-summary-text {
@@ -437,12 +417,17 @@ watch(
   margin-top: 20px;
 }
 
+.drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .task-preview-image {
   display: block;
   width: 100%;
   margin-top: 16px;
   border-radius: 16px;
-  border: 1px solid var(--el-border-color);
-  background: var(--el-bg-color-page);
+  border: 1px solid rgba(22, 33, 39, 0.08);
+  background: rgba(247, 250, 246, 0.88);
 }
 </style>

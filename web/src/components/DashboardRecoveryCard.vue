@@ -28,33 +28,33 @@ defineEmits<{
 </script>
 
 <template>
-  <el-card>
-    <template #header>
+  <a-card :bordered="false">
+    <template #title>
       <div class="card-header">
         <span>恢复兼容性</span>
       </div>
     </template>
 
-    <el-empty v-if="!recoverySummary" :description="t('display.empty')" />
+    <a-empty v-if="!recoverySummary" :description="t('display.empty')" />
 
     <div v-else class="events-section">
       <div class="table-actions" style="justify-content: flex-start; margin-bottom: 12px;">
-        <el-button
+        <a-button
           data-testid="recovery-recheck-button"
           size="small"
           :loading="recoveryRecheckPending"
           @click="$emit('recheck')"
         >
           {{ t('dashboard.recoveryRecheck') }}
-        </el-button>
-        <el-button
+        </a-button>
+        <a-button
           data-testid="runtime-bootstrap-button"
           size="small"
           :loading="runtimeBootstrapPending"
           @click="$emit('bootstrap')"
         >
           {{ t('dashboard.runtimeBootstrap') }}
-        </el-button>
+        </a-button>
       </div>
 
       <RecoverySummaryDetails
@@ -71,16 +71,14 @@ defineEmits<{
               <span class="issue-alert-card__summary">{{ t('dashboard.recoveryConfirmSection') }}</span>
               <small style="color: var(--muted);">{{ selectedRecoveryReviewCountLabel }}</small>
             </div>
-            <el-input
-              v-model="recoveryConfirmNote"
-              type="textarea"
+            <a-textarea
+              v-model:value="recoveryConfirmNote"
               :rows="3"
               :maxlength="500"
-              show-word-limit
               :placeholder="t('dashboard.recoveryConfirmNotePlaceholder')"
             />
             <div class="table-actions" style="justify-content: flex-start; margin-top: 12px;">
-              <el-button
+              <a-button
                 data-testid="recovery-confirm-button"
                 size="small"
                 type="primary"
@@ -89,7 +87,7 @@ defineEmits<{
                 @click="$emit('confirm')"
               >
                 {{ t('dashboard.recoveryConfirm') }}
-              </el-button>
+              </a-button>
             </div>
           </div>
 
@@ -99,7 +97,7 @@ defineEmits<{
         </template>
       </RecoverySummaryDetails>
     </div>
-  </el-card>
+  </a-card>
 </template>
 
 <style scoped lang="scss">

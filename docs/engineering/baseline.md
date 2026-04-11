@@ -37,7 +37,7 @@
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |
 | Render | `chromedp 0.14.2` + Chromium 浏览环境 |
 
-Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式目标基线。依赖锁定、目录重排和样式入口切换按 [`web-antdv-vben-migration-plan.md`](./web-antdv-vben-migration-plan.md) 执行，在迁移完成前继续沿用现有默认命令与仓库目录边界。
+Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式工程基线；相关目录结构、样式入口与测试基线按 [`web-antdv-vben-migration-plan.md`](./web-antdv-vben-migration-plan.md) 约束维护。
 
 ## 固定工程选型
 

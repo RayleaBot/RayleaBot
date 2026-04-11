@@ -1,4 +1,4 @@
-import ElementPlus, { ElMessage } from 'element-plus'
+import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,10 +8,15 @@ import { ApiError } from '@/lib/http'
 import LoginPage from '@/pages/LoginPage.vue'
 import { useSessionStore } from '@/stores/session'
 
+vi.mock('@/adapter/feedback', () => ({
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyInfo: vi.fn(),
+}))
+
 describe('LoginPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.spyOn(ElMessage, 'error').mockImplementation(() => undefined as never)
   })
 
   it('shows a short launcher admission fallback hint when present', async () => {
@@ -27,7 +32,7 @@ describe('LoginPage', () => {
 
     const wrapper = mount(LoginPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
@@ -52,7 +57,7 @@ describe('LoginPage', () => {
 
     const wrapper = mount(LoginPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
@@ -78,7 +83,7 @@ describe('LoginPage', () => {
 
     const wrapper = mount(LoginPage, {
       global: {
-        plugins: [ElementPlus, router],
+        plugins: [Antd, router],
       },
     })
 
