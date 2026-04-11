@@ -80,6 +80,8 @@ describe('ProtocolLogsPage', () => {
     expect(HTMLElement.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({
       behavior: 'auto',
     }))
+    expect(wrapper.find('.protocol-logs-workspace').exists()).toBe(true)
+    expect(wrapper.find('.logs-filter-toolbar').exists()).toBe(true)
     expect(wrapper.text()).toContain('协议日志')
     expect(wrapper.find('.protocol-terminal').exists()).toBe(true)
     expect(wrapper.findAll('.protocol-terminal-line')).toHaveLength(1)

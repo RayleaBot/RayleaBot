@@ -262,131 +262,135 @@ function getLevelPillClass(level: string) {
         </div>
       </div>
 
-      <div class="industrial-card logs-filter-toolbar">
-        <div class="card-header">
-          <strong>> {{ t('protocols.filters.apply') }}</strong>
-        </div>
-        <el-form label-position="top" class="logs-filter-grid protocol-form-grid">
-          <el-form-item :label="t('protocols.filters.level')">
-            <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')" class="refined-input">
-              <el-option :label="t('display.logLevels.debug')" value="debug" />
-              <el-option :label="t('display.logLevels.info')" value="info" />
-              <el-option :label="t('display.logLevels.warn')" value="warn" />
-              <el-option :label="t('display.logLevels.error')" value="error" />
-            </el-select>
-          </el-form-item>
-          <el-form-item :label="t('protocols.filters.source')">
-            <el-input v-model="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" class="refined-input" />
-          </el-form-item>
-          <el-form-item :label="t('protocols.filters.requestId')">
-            <el-input v-model="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
-          </el-form-item>
-        </el-form>
-
-        <div class="logs-filter-actions">
-          <el-button class="industrial-btn primary" @click="refreshLogs">[ {{ t('protocols.filters.apply') }} ]</el-button>
-          <el-button class="industrial-btn" v-if="autoFollow" @click="pauseAutoFollow">[ {{ t('protocols.logsPause') }} ]</el-button>
-          <el-button class="industrial-btn" v-else @click="resumeAutoFollow">[ {{ t('protocols.logsResume') }} ]</el-button>
-          <el-button class="industrial-btn outline" @click="clearBuffer">[ {{ t('protocols.logsClear') }} ]</el-button>
-        </div>
-      </div>
-
-      <RetryPanel
-        v-if="logsError && items.length === 0"
-        :title="t('errors.common.loadFailed')"
-        :description="logsError"
-        :loading="logsLoading"
-        @retry="refreshLogs"
-      />
-
-      <el-alert v-else-if="logsError" :title="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon />
-
-      <div v-else class="protocol-log-layout">
-        <div class="industrial-card terminal-stream-panel">
+      <div class="protocol-logs-workspace">
+        <div class="industrial-card logs-filter-toolbar">
           <div class="card-header">
-            <strong>> {{ t('protocols.logsStreamTitle') }}</strong>
+            <strong>> {{ t('protocols.filters.apply') }}</strong>
           </div>
+          <el-form label-position="top" class="logs-filter-grid protocol-form-grid">
+            <el-form-item :label="t('protocols.filters.level')">
+              <el-select v-model="filters.level" clearable :placeholder="t('protocols.filters.all')" class="refined-input">
+                <el-option :label="t('display.logLevels.debug')" value="debug" />
+                <el-option :label="t('display.logLevels.info')" value="info" />
+                <el-option :label="t('display.logLevels.warn')" value="warn" />
+                <el-option :label="t('display.logLevels.error')" value="error" />
+              </el-select>
+            </el-form-item>
+            <el-form-item :label="t('protocols.filters.source')">
+              <el-input v-model="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" class="refined-input" />
+            </el-form-item>
+            <el-form-item :label="t('protocols.filters.requestId')">
+              <el-input v-model="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
+            </el-form-item>
+          </el-form>
 
-          <div v-if="items.length === 0" class="term-empty">
-            [{{ t('protocols.logsEmpty') }}]
-          </div>
-
-          <div v-else ref="terminalScroller" class="protocol-terminal" aria-label="协议日志终端流">
-            <button
-              v-for="log in items"
-              :key="log.log_id"
-              type="button"
-              class="protocol-terminal-line"
-              :class="[getLogRowClass(log.log_id), getLevelPillClass(log.level)]"
-              @click="handleLogSelection(log.log_id)"
-            >
-              <div class="terminal-line__meta">
-                <span class="meta-time">[{{ formatDateTime(log.timestamp) }}]</span>
-                <span class="meta-level">[{{ getLogLevelLabel(log.level) }}]</span>
-                <span class="meta-protocol">[{{ getLogProtocolLabel(log.protocol) }}]</span>
-                <span class="meta-source">{{ log.source }}</span>
-                <span v-if="log.plugin_id" class="meta-plugin">plugin: {{ log.plugin_id }}</span>
-              </div>
-              <div class="terminal-line__message">
-                {{ log.message }}
-              </div>
-              <small class="terminal-line__request">
-                ID: {{ log.request_id || t('protocols.noRequestId') }}
-              </small>
-            </button>
+          <div class="logs-filter-actions">
+            <el-button class="industrial-btn primary" @click="refreshLogs">[ {{ t('protocols.filters.apply') }} ]</el-button>
+            <el-button class="industrial-btn" v-if="autoFollow" @click="pauseAutoFollow">[ {{ t('protocols.logsPause') }} ]</el-button>
+            <el-button class="industrial-btn" v-else @click="resumeAutoFollow">[ {{ t('protocols.logsResume') }} ]</el-button>
+            <el-button class="industrial-btn outline" @click="clearBuffer">[ {{ t('protocols.logsClear') }} ]</el-button>
           </div>
         </div>
 
-        <div class="industrial-card protocol-log-detail-panel">
-          <div class="card-header">
-            <strong>> {{ t('protocols.logsDetailTitle') }}</strong>
-          </div>
+        <div class="protocol-logs-content">
+          <RetryPanel
+            v-if="logsError && items.length === 0"
+            :title="t('errors.common.loadFailed')"
+            :description="logsError"
+            :loading="logsLoading"
+            @retry="refreshLogs"
+          />
 
-          <div v-if="!selectedSummary && !detailLoading" class="term-empty">
-            [{{ t('protocols.logsDetailEmpty') }}]
-          </div>
+          <el-alert v-else-if="logsError" :title="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon />
 
-          <el-skeleton v-else :loading="detailLoading && !currentDetail" animated>
-            <div v-if="selectedSummary" class="protocol-log-detail">
-              <el-alert
-                v-if="detailError"
-                :title="t('errors.common.loadFailed')"
-                type="error"
-                :description="detailError"
-                show-icon
-                class="section-gap"
-              />
-
-              <div class="detail-summary-card">
-                <div class="detail-summary-card__top">
-                  <span class="industrial-badge">{{ getLogLevelLabel(selectedSummary.level) }}</span>
-                  <span class="industrial-badge">{{ getLogProtocolLabel(selectedSummary.protocol) }}</span>
-                </div>
-                <strong class="detail-message">> {{ selectedSummary.message }}</strong>
-                <div class="detail-summary-card__meta">
-                  <span>[{{ formatDateTime(selectedSummary.timestamp) }}]</span>
-                  <span>{{ selectedSummary.source }}</span>
-                  <span v-if="selectedSummary.plugin_id">plugin: {{ selectedSummary.plugin_id }}</span>
-                  <span>{{ selectedSummary.request_id || t('protocols.noRequestId') }}</span>
-                  <span class="mono-id">ID: {{ selectedSummary.log_id }}</span>
-                </div>
+          <div v-else class="protocol-log-layout">
+            <div class="industrial-card terminal-stream-panel">
+              <div class="card-header">
+                <strong>> {{ t('protocols.logsStreamTitle') }}</strong>
               </div>
 
-              <div v-if="detailEntries.length > 0" class="detail-key-grid">
-                <div v-for="entry in detailEntries" :key="entry.key" class="detail-key-card">
-                  <small class="mono-label">[{{ entry.label }}]</small>
-                  <strong class="mono-value">{{ entry.value }}</strong>
-                </div>
+              <div v-if="items.length === 0" class="term-empty">
+                [{{ t('protocols.logsEmpty') }}]
               </div>
 
-              <div class="detail-json-block">
-                <div class="detail-json-block__header">
-                  <strong>> {{ t('protocols.logsDetailJson') }}</strong>
-                </div>
-                <pre>{{ detailJson }}</pre>
+              <div v-else ref="terminalScroller" class="protocol-terminal" aria-label="协议日志终端流">
+                <button
+                  v-for="log in items"
+                  :key="log.log_id"
+                  type="button"
+                  class="protocol-terminal-line"
+                  :class="[getLogRowClass(log.log_id), getLevelPillClass(log.level)]"
+                  @click="handleLogSelection(log.log_id)"
+                >
+                  <div class="terminal-line__meta">
+                    <span class="meta-time">[{{ formatDateTime(log.timestamp) }}]</span>
+                    <span class="meta-level">[{{ getLogLevelLabel(log.level) }}]</span>
+                    <span class="meta-protocol">[{{ getLogProtocolLabel(log.protocol) }}]</span>
+                    <span class="meta-source">{{ log.source }}</span>
+                    <span v-if="log.plugin_id" class="meta-plugin">plugin: {{ log.plugin_id }}</span>
+                  </div>
+                  <div class="terminal-line__message">
+                    {{ log.message }}
+                  </div>
+                  <small class="terminal-line__request">
+                    ID: {{ log.request_id || t('protocols.noRequestId') }}
+                  </small>
+                </button>
               </div>
             </div>
-          </el-skeleton>
+
+            <div class="industrial-card protocol-log-detail-panel">
+              <div class="card-header">
+                <strong>> {{ t('protocols.logsDetailTitle') }}</strong>
+              </div>
+
+              <div v-if="!selectedSummary && !detailLoading" class="term-empty">
+                [{{ t('protocols.logsDetailEmpty') }}]
+              </div>
+
+              <el-skeleton v-else :loading="detailLoading && !currentDetail" animated>
+                <div v-if="selectedSummary" class="protocol-log-detail">
+                  <el-alert
+                    v-if="detailError"
+                    :title="t('errors.common.loadFailed')"
+                    type="error"
+                    :description="detailError"
+                    show-icon
+                    class="section-gap"
+                  />
+
+                  <div class="detail-summary-card">
+                    <div class="detail-summary-card__top">
+                      <span class="industrial-badge">{{ getLogLevelLabel(selectedSummary.level) }}</span>
+                      <span class="industrial-badge">{{ getLogProtocolLabel(selectedSummary.protocol) }}</span>
+                    </div>
+                    <strong class="detail-message">> {{ selectedSummary.message }}</strong>
+                    <div class="detail-summary-card__meta">
+                      <span>[{{ formatDateTime(selectedSummary.timestamp) }}]</span>
+                      <span>{{ selectedSummary.source }}</span>
+                      <span v-if="selectedSummary.plugin_id">plugin: {{ selectedSummary.plugin_id }}</span>
+                      <span>{{ selectedSummary.request_id || t('protocols.noRequestId') }}</span>
+                      <span class="mono-id">ID: {{ selectedSummary.log_id }}</span>
+                    </div>
+                  </div>
+
+                  <div v-if="detailEntries.length > 0" class="detail-key-grid">
+                    <div v-for="entry in detailEntries" :key="entry.key" class="detail-key-card">
+                      <small class="mono-label">[{{ entry.label }}]</small>
+                      <strong class="mono-value">{{ entry.value }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="detail-json-block">
+                    <div class="detail-json-block__header">
+                      <strong>> {{ t('protocols.logsDetailJson') }}</strong>
+                    </div>
+                    <pre>{{ detailJson }}</pre>
+                  </div>
+                </div>
+              </el-skeleton>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -395,6 +399,8 @@ function getLevelPillClass(level: string) {
 
 <style lang="scss" scoped>
 .industrial-theme {
+  --protocol-page-width: min(1840px, calc(100vw - 320px));
+  --protocol-panel-height: clamp(760px, calc(100vh - 280px), 920px);
   --bg-color: #f4f4f0;
   --border-color: #111111;
   --text-main: #111111;
@@ -411,6 +417,8 @@ function getLevelPillClass(level: string) {
   background-size: 20px 20px;
   padding: 24px;
   min-height: 100%;
+  width: 100%;
+  max-width: none;
 }
 
 .hero-panel {
@@ -536,14 +544,29 @@ function getLevelPillClass(level: string) {
 }
 
 /* Filter */
-.logs-filter-toolbar {
-  margin-bottom: 32px;
+.protocol-logs-workspace {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
 }
+
+.protocol-logs-content {
+  min-width: 0;
+  min-height: 0;
+}
+
+.logs-filter-toolbar {
+  margin-bottom: 0;
+  position: sticky;
+  top: 12px;
+}
+
 .protocol-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 24px;
-  padding: 20px;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  padding: 20px 20px 14px;
 }
 
 :deep(.el-form-item__label) {
@@ -571,22 +594,50 @@ function getLevelPillClass(level: string) {
 
 .logs-filter-actions {
   display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 0 20px 20px;
+}
+
+.logs-filter-actions > * {
+  width: 100%;
 }
 
 /* Layout */
 .protocol-log-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  grid-template-columns: minmax(900px, 1.42fr) minmax(560px, 1fr);
   gap: 24px;
   align-items: stretch;
+  min-height: var(--protocol-panel-height);
+}
+
+.terminal-stream-panel,
+.protocol-log-detail-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: var(--protocol-panel-height);
+  height: var(--protocol-panel-height);
+  overflow: hidden;
+}
+
+.terminal-stream-panel :deep(.el-skeleton),
+.protocol-log-detail-panel :deep(.el-skeleton) {
+  min-height: 0;
+  height: 100%;
+}
+
+.terminal-stream-panel :deep(.el-skeleton__content),
+.protocol-log-detail-panel :deep(.el-skeleton__content) {
+  min-height: 0;
+  height: 100%;
 }
 
 /* Terminal Stream */
 .protocol-terminal {
-  min-height: 520px;
-  max-height: 680px;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
   overflow-y: auto;
   padding: 12px;
   display: flex;
@@ -645,6 +696,7 @@ function getLevelPillClass(level: string) {
 }
 
 .term-empty {
+  min-height: 100%;
   padding: 40px;
   text-align: center;
   font-family: "Cascadia Mono", monospace;
@@ -653,11 +705,13 @@ function getLevelPillClass(level: string) {
 
 /* Detail Panel */
 .protocol-log-detail {
+  min-height: 0;
+  height: 100%;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-height: 680px;
+  max-height: none;
   overflow-y: auto;
 }
 
@@ -729,10 +783,70 @@ function getLevelPillClass(level: string) {
   .protocol-log-layout {
     grid-template-columns: 1fr;
   }
+
+  .protocol-logs-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .logs-filter-toolbar {
+    position: static;
+  }
+
+  .terminal-stream-panel,
+  .protocol-log-detail-panel {
+    min-height: 0;
+    height: auto;
+    overflow: visible;
+  }
+
+  .protocol-terminal {
+    min-height: 560px;
+    height: auto;
+  }
+
+  .protocol-log-detail {
+    min-height: 560px;
+    height: auto;
+  }
+
   .hero-panel {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
+  }
+}
+
+@media (min-width: 1540px) {
+  .industrial-theme {
+    width: var(--protocol-page-width);
+    margin-left: calc((100% - var(--protocol-page-width)) / 2);
+  }
+}
+
+@media (max-width: 1480px) {
+  .protocol-logs-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .logs-filter-toolbar {
+    position: static;
+  }
+
+  .protocol-form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .protocol-log-layout {
+    grid-template-columns: minmax(0, 1.22fr) minmax(420px, 0.98fr);
+  }
+
+  .logs-filter-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .logs-filter-actions > * {
+    width: auto;
   }
 }
 </style>
