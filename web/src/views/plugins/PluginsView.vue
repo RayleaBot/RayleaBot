@@ -316,11 +316,11 @@ async function submitInstall() {
     </a-form>
   </a-modal>
 
-  <a-modal
+  <a-drawer
     v-model:open="summaryDrawerVisible"
     :get-container="false"
     :title="t('plugins.actions.summary')"
-    :footer="null"
+    placement="right"
     width="min(560px, 92vw)"
   >
     <template v-if="summaryPlugin">
@@ -365,12 +365,12 @@ async function submitInstall() {
         />
       </a-card>
     </template>
-  </a-modal>
+  </a-drawer>
 </template>
 
 <style lang="scss" scoped>
 .plugins-data-table {
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -449,7 +449,7 @@ async function submitInstall() {
 
 .plugin-command-summary-card {
   margin-top: 16px;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .plugin-cell-actions {

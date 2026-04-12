@@ -220,13 +220,13 @@ async function save() {
 
 .skeleton-layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 12px;
   flex: 1;
 }
 
 .skeleton-panel {
-  border-radius: 12px;
+  border-radius: 10px;
   min-height: 520px;
   background: linear-gradient(90deg, var(--surface-soft), var(--surface), var(--surface-soft));
   background-size: 200% 100%;
@@ -235,8 +235,8 @@ async function save() {
 
 .config-layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 12px;
   height: 100%;
   min-height: 0;
 }
@@ -246,25 +246,43 @@ async function save() {
   min-height: 0;
 }
 
+:deep(.config-nav-card) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+:deep(.config-nav-card .ant-card-head) {
+  flex-shrink: 0;
+}
+
 :deep(.config-nav-card .ant-card-body) {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
   padding: 12px;
 }
 
 :deep(.config-editor-card .ant-card-head) {
-  min-height: 56px;
+  min-height: 50px;
 }
 
 :deep(.config-editor-card .ant-card-body) {
   min-height: 0;
   overflow: auto;
-  padding: 20px;
+  padding: 16px;
 }
 
 .config-nav-list {
   display: grid;
+  width: 100%;
   gap: 8px;
+  min-height: min-content;
 }
 
 .config-nav-item {
@@ -273,8 +291,8 @@ async function save() {
   background: transparent;
   width: 100%;
   text-align: left;
-  padding: 12px 14px;
-  border-radius: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
   cursor: pointer;
   display: grid;
   gap: 4px;
@@ -328,7 +346,7 @@ async function save() {
 .config-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px 24px;
+  gap: 16px 20px;
 }
 
 .field-label-wrap {

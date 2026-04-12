@@ -491,7 +491,7 @@ async function scrollConsoleToBottom() {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface-soft);
   border: 1px solid var(--border);
   flex-wrap: wrap;
@@ -532,7 +532,7 @@ async function scrollConsoleToBottom() {
   max-height: 560px;
   overflow: auto;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface-soft);
   border: 1px solid var(--border);
   display: grid;

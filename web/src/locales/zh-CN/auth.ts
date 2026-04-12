@@ -1,5 +1,10 @@
 export const auth = {
-  surface: '管理界面',
+  surface: '后台管理',
+  heroTitle: '统一管理机器人、插件与协议',
+  heroBody: '登录后查看系统状态、任务、日志和连接设置。',
+  heroFeatureStatus: '系统状态与恢复',
+  heroFeaturePlugins: '插件、指令与任务',
+  heroFeatureProtocols: '协议设置与实时日志',
   loginTitle: '登录',
   loginBody: '输入管理员账号和密钥后进入管理界面。',
   setupTitle: '创建管理员账号',

@@ -41,7 +41,6 @@ async function submit() {
 <template>
   <a-card class="auth-panel-card" :bordered="false">
     <div class="auth-panel-card__copy">
-      <div class="page-eyebrow">{{ t('auth.surface') }}</div>
       <h1>{{ t('auth.setupTitle') }}</h1>
       <p>{{ t('auth.setupBody') }}</p>
     </div>
@@ -74,7 +73,7 @@ async function submit() {
 <style scoped lang="scss">
 .auth-panel-card__copy {
   display: grid;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 18px;
 }
 </style>

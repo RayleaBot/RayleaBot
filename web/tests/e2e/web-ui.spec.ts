@@ -98,6 +98,8 @@ test('invalid launcher token falls back to login and clears the URL token', asyn
 
   await expect(page.getByRole('heading', { name: '登录', level: 1 })).toBeVisible()
   await expect(page.getByText('自动登录未完成，请手动登录。')).toBeVisible()
+  await expect(page.getByTestId('auth-theme-toggle')).toBeVisible()
+  await expect(page.getByTestId('auth-language')).toBeVisible()
   await expect(page).not.toHaveURL(/token=/)
 })
 
@@ -180,9 +182,10 @@ test('desktop list viewports fill the remaining shell height without overlapping
   await expect(pluginRows(page).first()).not.toContainText('discovered')
 
   await page.getByRole('button', { name: '查看概要' }).nth(1).click()
-  await expect(page.getByRole('dialog')).toContainText('显示状态')
-  await expect(page.getByRole('dialog')).toContainText('运行中')
-  await expect(page.getByRole('dialog')).not.toContainText('discovered')
+  const summarySurface = page.locator('.ant-drawer-content').filter({ hasText: '显示状态' }).last()
+  await expect(summarySurface).toContainText('显示状态')
+  await expect(summarySurface).toContainText('运行中')
+  await expect(summarySurface).not.toContainText('discovered')
   await page.keyboard.press('Escape')
 
   await page.setViewportSize({ width: 1600, height: 900 })
@@ -213,6 +216,9 @@ test('dashboard avoids global page overflow when the content fits', async ({ pag
   const metrics = await page.evaluate(() => {
     const doc = document.scrollingElement ?? document.documentElement
     const main = document.querySelector<HTMLElement>('#app-main')
+    const overviewCards = document.querySelectorAll('.dashboard-overview-grid .stat-card').length
+    const bottomCards = document.querySelectorAll('.dashboard-bottom-grid > .ant-card').length
+    const tabLabels = Array.from(document.querySelectorAll('.dashboard-main-grid .ant-tabs-tab')).map((item) => item.textContent?.trim() ?? '')
 
     return {
       bodyClientHeight: document.body.clientHeight,
@@ -220,12 +226,112 @@ test('dashboard avoids global page overflow when the content fits', async ({ pag
       docClientHeight: doc.clientHeight,
       docScrollHeight: doc.scrollHeight,
       mainClientHeight: main?.clientHeight ?? 0,
+      overviewCards,
+      bottomCards,
+      tabLabels,
     }
   })
 
   expect(metrics.docScrollHeight).toBeLessThanOrEqual(metrics.docClientHeight + 1)
   expect(metrics.bodyScrollHeight).toBeLessThanOrEqual(metrics.bodyClientHeight + 1)
   expect(metrics.mainClientHeight).toBeGreaterThan(0)
+  expect(metrics.overviewCards).toBe(4)
+  expect(metrics.bottomCards).toBe(3)
+  expect(metrics.tabLabels).toContain('近期变化')
+  expect(metrics.tabLabels).toContain('就绪检查')
+})
+
+test('protocol logs keeps terminal and detail panes inside the viewport', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 1600, height: 1200 })
+  await login(page)
+
+  await page.goto('/protocols/logs')
+  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
+
+  const lastLine = page.locator('.terminal-line').last()
+  await expect(lastLine).toBeVisible()
+  await lastLine.click({ force: true })
+
+  const metrics = await page.evaluate(() => {
+    const main = document.querySelector<HTMLElement>('#app-main')
+    const terminalCard = document.querySelector<HTMLElement>('.terminal-card')
+    const terminalBody = document.querySelector<HTMLElement>('.terminal-card .ant-card-body')
+    const detailCard = document.querySelector<HTMLElement>('.detail-card')
+    const detailBody = document.querySelector<HTMLElement>('.detail-card .ant-card-body')
+    const terminalScroller = document.querySelector<HTMLElement>('.terminal-view-scroller')
+    const detailScroller = document.querySelector<HTMLElement>('.detail-view-content')
+    const lastLine = document.querySelector<HTMLElement>('.terminal-line:last-child')
+    const terminalRect = terminalCard?.getBoundingClientRect()
+    const terminalBodyRect = terminalBody?.getBoundingClientRect()
+    const detailRect = detailCard?.getBoundingClientRect()
+    const detailBodyRect = detailBody?.getBoundingClientRect()
+    const scrollerRect = terminalScroller?.getBoundingClientRect()
+    const lastLineRect = lastLine?.getBoundingClientRect()
+
+    return {
+      viewportHeight: window.innerHeight,
+      mainClientHeight: main?.clientHeight ?? 0,
+      mainScrollHeight: main?.scrollHeight ?? 0,
+      terminalBottom: terminalRect?.bottom ?? 0,
+      terminalBodyBottom: terminalBodyRect?.bottom ?? 0,
+      detailBottom: detailRect?.bottom ?? 0,
+      detailBodyBottom: detailBodyRect?.bottom ?? 0,
+      terminalClientHeight: terminalScroller?.clientHeight ?? 0,
+      terminalScrollHeight: terminalScroller?.scrollHeight ?? 0,
+      detailClientHeight: detailScroller?.clientHeight ?? 0,
+      detailScrollHeight: detailScroller?.scrollHeight ?? 0,
+      lastLineBottom: lastLineRect?.bottom ?? 0,
+      terminalLastLineGap: scrollerRect && lastLineRect ? scrollerRect.bottom - lastLineRect.bottom : 0,
+    }
+  })
+
+  expect(metrics.mainScrollHeight).toBeLessThanOrEqual(metrics.mainClientHeight + 1)
+  expect(metrics.terminalBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
+  expect(metrics.terminalBodyBottom).toBeLessThanOrEqual(metrics.terminalBottom + 1)
+  expect(metrics.detailBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
+  expect(metrics.detailBodyBottom).toBeLessThanOrEqual(metrics.detailBottom + 1)
+  expect(metrics.terminalScrollHeight).toBeGreaterThanOrEqual(metrics.terminalClientHeight)
+  expect(metrics.terminalClientHeight).toBeGreaterThan(0)
+  expect(metrics.detailClientHeight).toBeGreaterThan(0)
+  expect(metrics.lastLineBottom).toBeGreaterThan(0)
+  expect(metrics.terminalLastLineGap).toBeGreaterThanOrEqual(8)
+})
+
+test('config keeps the section list scroll inside the card without page overflow', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 1600, height: 1200 })
+  await login(page)
+
+  await page.goto('/config')
+  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
+
+  const metrics = await page.evaluate(() => {
+    const doc = document.scrollingElement ?? document.documentElement
+    const main = document.querySelector<HTMLElement>('#app-main')
+    const navBody = document.querySelector<HTMLElement>('.config-nav-card .ant-card-body')
+    const firstNavItem = document.querySelector<HTMLElement>('.config-nav-item')
+
+    return {
+      bodyClientHeight: document.body.clientHeight,
+      bodyScrollHeight: document.body.scrollHeight,
+      docClientHeight: doc.clientHeight,
+      docScrollHeight: doc.scrollHeight,
+      mainClientHeight: main?.clientHeight ?? 0,
+      mainScrollHeight: main?.scrollHeight ?? 0,
+      navClientHeight: navBody?.clientHeight ?? 0,
+      navScrollHeight: navBody?.scrollHeight ?? 0,
+      navClientWidth: navBody?.clientWidth ?? 0,
+      firstNavItemWidth: firstNavItem?.clientWidth ?? 0,
+    }
+  })
+
+  expect(metrics.docScrollHeight).toBeLessThanOrEqual(metrics.docClientHeight + 1)
+  expect(metrics.bodyScrollHeight).toBeLessThanOrEqual(metrics.bodyClientHeight + 1)
+  expect(metrics.mainScrollHeight).toBeLessThanOrEqual(metrics.mainClientHeight + 1)
+  expect(metrics.navScrollHeight).toBeGreaterThan(metrics.navClientHeight)
+  expect(metrics.navClientHeight).toBeGreaterThan(0)
+  expect(metrics.firstNavItemWidth).toBeGreaterThanOrEqual(metrics.navClientWidth - 40)
 })
 
 test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
@@ -348,6 +454,22 @@ test('light theme uses a light sider and keeps the header clean', async ({ page,
   await expect(sider).toHaveClass(/ant-layout-sider-light/)
   await expect(appHeader(page)).not.toContainText('事件流')
   await expect(appHeader(page)).not.toContainText('保持正式契约')
+
+  const shellMetrics = await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>('[data-testid="app-header"]')
+    const sider = document.querySelector<HTMLElement>('[data-testid="app-sider"]')
+    const headerRect = header?.getBoundingClientRect()
+    const siderRect = sider?.getBoundingClientRect()
+
+    return {
+      headerHeight: headerRect?.height ?? 0,
+      siderWidth: siderRect?.width ?? 0,
+    }
+  })
+
+  expect(shellMetrics.headerHeight).toBeLessThanOrEqual(90)
+  expect(shellMetrics.siderWidth).toBeGreaterThanOrEqual(220)
+  expect(shellMetrics.siderWidth).toBeLessThanOrEqual(228)
 
   await page.getByTestId('theme-toggle').click()
   await expect(sider).toHaveClass(/ant-layout-sider-dark/)

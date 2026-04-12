@@ -12,7 +12,7 @@ describe('DashboardPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders a compact status page without the legacy hero card', async () => {
+  it('renders a compact status page with overview cards, tabs, and bottom workbench cards', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: DashboardPage }],
@@ -49,7 +49,13 @@ describe('DashboardPage', () => {
     expect(diagnosticsButton).toBeTruthy()
     expect(wrapper.text()).toContain('系统工具')
     expect(wrapper.text()).toContain('连接状态')
+    expect(wrapper.text()).toContain('近期变化')
+    expect(wrapper.text()).toContain('就绪检查')
     expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dashboard-overview-grid"]').exists()).toBe(true)
+    expect(wrapper.findAll('.dashboard-overview-grid .stat-card')).toHaveLength(4)
+    expect(wrapper.find('.dashboard-main-grid .ant-tabs').exists()).toBe(true)
+    expect(wrapper.findAll('.dashboard-bottom-grid > .ant-card')).toHaveLength(3)
     expect(wrapper.find('.dashboard-hero-card').exists()).toBe(false)
     expect(wrapper.find('.status-badge').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('聚合 health、ready、system status')

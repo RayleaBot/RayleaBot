@@ -133,7 +133,7 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .logs-data-table {
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
 }
 

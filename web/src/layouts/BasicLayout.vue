@@ -260,10 +260,10 @@ onBeforeUnmount(() => {
       breakpoint="lg"
       class="admin-layout__sider"
       :collapsed="siderCollapsed"
-      :collapsed-width="72"
+      :collapsed-width="64"
       :trigger="null"
       :theme="siderTheme"
-      width="236"
+      width="224"
       data-testid="app-sider"
     >
       <button type="button" class="admin-layout__brand" @click="navigateTo('/')">

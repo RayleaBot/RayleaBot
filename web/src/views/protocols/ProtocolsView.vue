@@ -173,46 +173,35 @@ async function save() {
     </template>
 
     <div class="protocol-settings-page">
-      <div class="dashboard-metrics-grid">
-        <a-card :bordered="false" class="metric-card">
-          <div class="metric-header">
-            <span class="mono-label">{{ t('protocols.overviewTitle') }}</span>
+      <div class="protocol-overview-grid">
+        <a-card :bordered="false" class="protocol-overview-card">
+          <div class="protocol-overview-card__top">
+            <span class="overview-label">{{ t('protocols.overviewTitle') }}</span>
             <a-tag color="blue">{{ ONEBOT11_PROTOCOL_NAME }}</a-tag>
           </div>
-          <div class="metric-body">
-            <div class="status-indicator-wrap">
-              <div class="status-indicator-ring" :class="protocolStatusType"></div>
-              <div class="status-indicator-label" :class="`text-${protocolStatusType}`">{{ protocolStatusLabel }}</div>
-            </div>
-            <div class="status-summary-value">{{ protocolSummary }}</div>
+          <div class="protocol-overview-card__value-row">
+            <strong>{{ protocolStatusLabel }}</strong>
+            <a-tag :color="getStatusTagColor(protocolStatusType)">{{ readinessLabel }}</a-tag>
           </div>
+          <p>{{ protocolSummary }}</p>
         </a-card>
 
-        <a-card :bordered="false" class="metric-card">
-          <div class="metric-header">
-            <span class="mono-label">{{ t('protocols.providerLabel') }}</span>
+        <a-card :bordered="false" class="protocol-overview-card">
+          <div class="protocol-overview-card__top">
+            <span class="overview-label">{{ t('protocols.providerLabel') }}</span>
             <a-tag :color="getStatusTagColor(readinessType)">{{ readinessLabel }}</a-tag>
           </div>
-          <div class="metric-body centered-metric">
-            <div class="metric-big-value">{{ snapshot?.provider || t('display.empty') }}</div>
-          </div>
+          <strong>{{ snapshot?.provider || t('display.empty') }}</strong>
+          <p>{{ protocolStatusLabel }}</p>
         </a-card>
 
-        <a-card :bordered="false" class="metric-card">
-          <div class="metric-header">
-            <span class="mono-label">Transports</span>
+        <a-card :bordered="false" class="protocol-overview-card">
+          <div class="protocol-overview-card__top">
+            <span class="overview-label">{{ t('protocols.activeTransportLabel') }}</span>
+            <a-tag>{{ snapshot?.active_transports.length || 0 }}</a-tag>
           </div>
-          <div class="metric-body transport-counts">
-            <div class="transport-count">
-              <div class="count-value">{{ snapshot?.configured_transports.length || 0 }}</div>
-              <div class="count-label">{{ t('protocols.configuredTransportLabel') }}</div>
-            </div>
-            <div class="transport-count-divider"></div>
-            <div class="transport-count active">
-              <div class="count-value text-success">{{ snapshot?.active_transports.length || 0 }}</div>
-              <div class="count-label">{{ t('protocols.activeTransportLabel') }}</div>
-            </div>
-          </div>
+          <strong>{{ activeTransportText }}</strong>
+          <p>{{ t('protocols.configuredTransportLabel') }}：{{ configuredTransportsText }}</p>
         </a-card>
       </div>
 
@@ -359,21 +348,21 @@ async function save() {
   --space-xl: 20px;
   --font-mono: "Cascadia Mono", "Consolas", monospace;
   display: grid;
-  gap: 16px;
+  gap: 12px;
   color: var(--app-text);
 }
 
-.dashboard-metrics-grid {
+.protocol-overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: var(--space-lg);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.metric-card {
+.protocol-overview-card {
   min-height: 0;
 }
 
-.metric-card :deep(.ant-card-body),
+.protocol-overview-card :deep(.ant-card-body),
 .transport-card :deep(.ant-card-body),
 .protocol-config-card :deep(.ant-card-body) {
   display: flex;
@@ -381,8 +370,8 @@ async function save() {
   gap: var(--space-md);
 }
 
-.metric-card :deep(.ant-card-body) {
-  padding: 16px;
+.protocol-overview-card :deep(.ant-card-body) {
+  padding: 14px;
 }
 
 .transport-card :deep(.ant-card-body) {
@@ -393,105 +382,37 @@ async function save() {
   padding: 0;
 }
 
-.metric-header {
+.protocol-overview-card__top {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
-.metric-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  flex: 1;
-  justify-content: center;
-}
-
-.centered-metric {
-  align-items: center;
-  text-align: center;
-}
-
-.metric-big-value {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: var(--app-text);
-  letter-spacing: -0.02em;
-}
-
-.status-indicator-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.status-indicator-ring {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  position: relative;
-  background: color-mix(in srgb, var(--app-border) 70%, var(--app-primary) 30%);
-
-  &.success { background: var(--app-success); }
-  &.danger { background: var(--app-danger); }
-  &.warning { background: var(--app-warning); }
-}
-
-.status-indicator-label {
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-
-  &.text-success { color: var(--app-success); }
-  &.text-danger { color: var(--app-danger); }
-  &.text-warning { color: var(--app-warning); }
-}
-
-.status-summary-value {
-  font-size: 0.92rem;
-  font-weight: 600;
-  line-height: 1.5;
-  margin-top: var(--space-xs);
+.overview-label {
   color: var(--app-text-secondary);
-}
-
-.transport-counts {
-  flex-direction: row;
-  justify-content: space-around;
-  align-items: center;
-}
-
-.transport-count {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-xs);
-  text-align: center;
-}
-
-.transport-count-divider {
-  width: 1px;
-  height: 40px;
-  background: var(--app-border);
-}
-
-.count-value {
-  font-size: 1.7rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--app-text);
-
-  &.text-success {
-    color: var(--app-success);
-  }
-}
-
-.count-label {
-  font-size: 0.75rem;
-  color: var(--app-text-secondary);
-  font-weight: 600;
-  text-transform: uppercase;
+  font-size: 0.78rem;
   letter-spacing: 0.02em;
+}
+
+.protocol-overview-card__value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.protocol-overview-card strong {
+  font-size: 1.1rem;
+  line-height: 1.35;
+  color: var(--app-text);
+}
+
+.protocol-overview-card p {
+  margin: 0;
+  color: var(--app-text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.5;
 }
 
 .transport-cards-section {
@@ -501,7 +422,7 @@ async function save() {
 
 .transport-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-md);
 }
 
@@ -614,7 +535,7 @@ async function save() {
 }
 
 :deep(.protocol-config-card .ant-card-body),
-:deep(.metric-card .ant-card-body),
+:deep(.protocol-overview-card .ant-card-body),
 :deep(.transport-card .ant-card-body) {
   box-sizing: border-box;
 }
@@ -657,7 +578,7 @@ async function save() {
 }
 
 @media (max-width: 768px) {
-  .dashboard-metrics-grid {
+  .protocol-overview-grid {
     grid-template-columns: 1fr;
   }
   

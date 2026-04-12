@@ -29,7 +29,7 @@ export function resolveThemeConfig(themeMode: ThemeMode): ThemeConfig {
       colorSuccess: '#3fbe73',
       colorWarning: '#e4a11b',
       colorError: '#e15b64',
-      borderRadius: 10,
+      borderRadius: 8,
       wireframe: false,
       fontFamily: '"PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif',
     },
@@ -50,16 +50,16 @@ export function resolveThemeConfig(themeMode: ThemeMode): ThemeConfig {
         borderRadius: 8,
       },
       Button: {
-        controlHeight: 36,
+        controlHeight: 34,
       },
       Input: {
-        controlHeight: 36,
+        controlHeight: 34,
       },
       Select: {
-        controlHeight: 36,
+        controlHeight: 34,
       },
       Card: {
-        borderRadiusLG: 12,
+        borderRadiusLG: 10,
       },
     },
   }

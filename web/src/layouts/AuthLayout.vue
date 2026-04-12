@@ -1,14 +1,72 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { BulbOutlined, TranslationOutlined } from '@ant-design/icons-vue'
+
+import { notifyInfo } from '@/adapter/feedback'
+import { t } from '@/i18n'
+import { useUiShellStore } from '@/stores/ui-shell'
+
+const uiShellStore = useUiShellStore()
+const themeToggleLabel = computed(() => (
+  uiShellStore.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
+))
+
+function notifyFeaturePending(feature: string) {
+  notifyInfo(t('shell.featurePending', { feature }))
+}
+</script>
+
 <template>
   <div class="auth-layout">
     <section class="auth-layout__hero">
+      <div class="auth-layout__toolbar">
+        <a-tooltip :title="t('shell.language')">
+          <a-button
+            class="auth-layout__toolbar-button"
+            type="text"
+            :aria-label="t('shell.language')"
+            data-testid="auth-language"
+            @click="notifyFeaturePending(t('shell.language'))"
+          >
+            <template #icon>
+              <TranslationOutlined />
+            </template>
+          </a-button>
+        </a-tooltip>
+        <a-tooltip :title="themeToggleLabel">
+          <a-button
+            class="auth-layout__toolbar-button"
+            type="text"
+            :aria-label="themeToggleLabel"
+            data-testid="auth-theme-toggle"
+            @click="uiShellStore.toggleThemeMode()"
+          >
+            <template #icon>
+              <BulbOutlined />
+            </template>
+          </a-button>
+        </a-tooltip>
+      </div>
+
       <div class="auth-layout__intro-panel">
-        <span class="auth-layout__brand-badge">R</span>
-        <div class="auth-layout__hero-copy">
-          <div class="page-eyebrow">RayleaBot</div>
-          <h1>RayleaBot</h1>
-          <p>自托管聊天机器人管理界面。</p>
+        <div class="auth-layout__brand">
+          <span class="auth-layout__brand-badge">R</span>
+          <div class="auth-layout__brand-copy">
+            <strong>RayleaBot</strong>
+            <span>{{ t('auth.surface') }}</span>
+          </div>
         </div>
-        <p class="auth-layout__support">登录后可查看系统状态、插件、任务和协议日志。</p>
+
+        <div class="auth-layout__hero-copy">
+          <h1>{{ t('auth.heroTitle') }}</h1>
+          <p>{{ t('auth.heroBody') }}</p>
+        </div>
+
+        <div class="auth-layout__feature-list">
+          <span>{{ t('auth.heroFeatureStatus') }}</span>
+          <span>{{ t('auth.heroFeaturePlugins') }}</span>
+          <span>{{ t('auth.heroFeatureProtocols') }}</span>
+        </div>
       </div>
     </section>
 

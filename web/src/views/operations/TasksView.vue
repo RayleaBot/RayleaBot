@@ -341,11 +341,11 @@ function getStatusColor(status: string) {
 
 <style lang="scss" scoped>
 .tasks-empty-card {
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .tasks-data-table {
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -418,7 +418,7 @@ function getStatusColor(status: string) {
   display: block;
   width: 100%;
   margin-top: 16px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-soft);
 }
