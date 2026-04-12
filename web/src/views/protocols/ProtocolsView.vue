@@ -354,12 +354,12 @@ async function save() {
 .protocol-settings-page {
   --space-xs: 4px;
   --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --space-2xl: 48px;
-  --font-sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
   --font-mono: "Cascadia Mono", "Consolas", monospace;
+  display: grid;
+  gap: 16px;
   color: var(--app-text);
 }
 
@@ -367,11 +367,10 @@ async function save() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-lg);
-  margin-bottom: var(--space-2xl);
 }
 
 .metric-card {
-  min-height: 160px;
+  min-height: 0;
 }
 
 .metric-card :deep(.ant-card-body),
@@ -383,11 +382,11 @@ async function save() {
 }
 
 .metric-card :deep(.ant-card-body) {
-  padding: var(--space-lg);
+  padding: 16px;
 }
 
 .transport-card :deep(.ant-card-body) {
-  padding: var(--space-md) var(--space-lg);
+  padding: 14px 16px;
 }
 
 .protocol-config-card :deep(.ant-card-body) {
@@ -414,9 +413,8 @@ async function save() {
 }
 
 .metric-big-value {
-  font-size: 2rem;
+  font-size: 1.6rem;
   font-weight: 800;
-  font-family: var(--font-sans);
   color: var(--app-text);
   letter-spacing: -0.02em;
 }
@@ -428,30 +426,29 @@ async function save() {
 }
 
 .status-indicator-ring {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   position: relative;
   background: color-mix(in srgb, var(--app-border) 70%, var(--app-primary) 30%);
-  
-  &.success { background: var(--app-success); box-shadow: 0 0 0 4px oklch(70% 0.15 150 / 15%); }
-  &.danger { background: var(--app-danger); box-shadow: 0 0 0 4px oklch(65% 0.18 25 / 15%); }
-  &.warning { background: var(--app-warning); box-shadow: 0 0 0 4px oklch(75% 0.15 70 / 15%); }
+
+  &.success { background: var(--app-success); }
+  &.danger { background: var(--app-danger); }
+  &.warning { background: var(--app-warning); }
 }
 
 .status-indicator-label {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  font-family: var(--font-sans);
-  
+
   &.text-success { color: var(--app-success); }
   &.text-danger { color: var(--app-danger); }
   &.text-warning { color: var(--app-warning); }
 }
 
 .status-summary-value {
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 600;
   line-height: 1.5;
   margin-top: var(--space-xs);
@@ -479,12 +476,11 @@ async function save() {
 }
 
 .count-value {
-  font-size: 2rem;
+  font-size: 1.7rem;
   font-weight: 800;
-  font-family: var(--font-sans);
   line-height: 1;
   color: var(--app-text);
-  
+
   &.text-success {
     color: var(--app-success);
   }
@@ -499,17 +495,13 @@ async function save() {
 }
 
 .transport-cards-section {
-  margin-bottom: var(--space-2xl);
+  display: grid;
+  gap: 12px;
 }
 
 .transport-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: var(--space-md);
-}
-
-.transport-card {
-  padding: var(--space-md) var(--space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-md);
 }
 
@@ -517,7 +509,7 @@ async function save() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px dashed var(--app-border);
+  border-bottom: 1px solid var(--app-border);
   padding-bottom: var(--space-sm);
 }
 
@@ -526,8 +518,7 @@ async function save() {
   align-items: center;
   gap: var(--space-sm);
   font-weight: 600;
-  font-size: 0.95rem;
-  font-family: var(--font-sans);
+  font-size: 0.92rem;
 }
 
 .transport-line-dot {
@@ -548,7 +539,7 @@ async function save() {
 
 .endpoint-code {
   display: inline-block;
-  background: color-mix(in srgb, var(--app-card-bg) 88%, var(--app-border) 12%);
+  background: var(--surface-soft);
   border: 1px solid var(--app-border);
   border-radius: 6px;
   padding: 4px 8px;
@@ -567,26 +558,27 @@ async function save() {
 
 /* Settings Layout */
 .protocol-settings-section {
-  margin-top: var(--space-xl);
+  display: grid;
+  gap: 12px;
 }
 
 .protocol-settings-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: var(--space-lg);
 }
 
 .config-card-header {
-  background: color-mix(in srgb, var(--app-card-bg) 88%, var(--app-border) 12%);
+  background: var(--surface-soft);
   border-bottom: 1px solid var(--app-border);
-  padding: var(--space-md) var(--space-lg);
+  padding: 14px 16px;
 }
 
 .protocol-settings-form {
-  padding: var(--space-lg);
+  padding: 16px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-lg);
+  gap: 16px 20px;
 }
 
 .field-label-wrap {
@@ -599,17 +591,15 @@ async function save() {
   font-weight: 600;
   font-size: 0.85rem;
   color: var(--app-text);
-  font-family: var(--font-sans);
 }
 
 .field-info-icon {
   color: var(--app-text-secondary);
   cursor: help;
-  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: bold;
   opacity: 0.7;
-  
+
   &:hover {
     opacity: 1;
     color: var(--app-primary);
@@ -634,16 +624,16 @@ async function save() {
 :deep(.refined-input.ant-input-textarea textarea.ant-input),
 :deep(.refined-input.ant-select .ant-select-selector) {
   border-radius: 10px;
-  background: color-mix(in srgb, var(--app-card-bg) 88%, var(--app-border) 12%);
-  border-color: transparent;
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--app-border) 70%, var(--app-primary) 30%);
+  background: var(--surface-soft);
+  border-color: var(--app-border);
+  box-shadow: none;
 }
 
 :deep(.refined-input.ant-input:hover),
 :deep(.refined-input.ant-input-affix-wrapper:hover),
 :deep(.refined-input.ant-input-textarea:hover textarea.ant-input),
 :deep(.refined-input.ant-select:hover .ant-select-selector) {
-  border-color: transparent;
+  border-color: color-mix(in srgb, var(--app-primary) 24%, var(--app-border));
 }
 
 :deep(.refined-input.ant-input:focus),
@@ -651,19 +641,19 @@ async function save() {
 :deep(.refined-input.ant-input-textarea textarea.ant-input:focus),
 :deep(.refined-input.ant-select.ant-select-focused .ant-select-selector) {
   border-color: var(--app-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 16%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-primary) 14%, transparent);
 }
 
 :deep(.refined-number-input.ant-input-number) {
   border-radius: 10px;
-  background: color-mix(in srgb, var(--app-card-bg) 88%, var(--app-border) 12%);
-  border-color: transparent;
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--app-border) 70%, var(--app-primary) 30%);
+  background: var(--surface-soft);
+  border-color: var(--app-border);
+  box-shadow: none;
 }
 
 :deep(.refined-number-input.ant-input-number.ant-input-number-focused) {
   border-color: var(--app-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 16%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-primary) 14%, transparent);
 }
 
 @media (max-width: 768px) {

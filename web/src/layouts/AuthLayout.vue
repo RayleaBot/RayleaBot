@@ -1,7 +1,7 @@
 <template>
   <div class="auth-layout">
     <section class="auth-layout__hero">
-      <div class="auth-layout__hero-panel">
+      <div class="auth-layout__intro-panel">
         <span class="auth-layout__brand-badge">R</span>
         <div class="auth-layout__hero-copy">
           <div class="page-eyebrow">RayleaBot</div>

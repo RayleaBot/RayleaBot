@@ -490,10 +490,10 @@ async function scrollConsoleToBottom() {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: rgba(247, 250, 246, 0.88);
-  border: 1px solid rgba(22, 33, 39, 0.08);
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
@@ -531,60 +531,57 @@ async function scrollConsoleToBottom() {
   min-height: 320px;
   max-height: 560px;
   overflow: auto;
-  padding: 14px;
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(14, 20, 25, 0.98), rgba(18, 26, 33, 0.98)),
-    radial-gradient(circle at top right, rgba(86, 198, 255, 0.08), transparent 24%);
-  border: 1px solid rgba(110, 204, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .console-terminal-line {
   display: grid;
   gap: 6px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  color: #e8eff6;
-  box-shadow: inset 2px 0 0 rgba(88, 196, 255, 0.48);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-strong);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 52%, transparent);
 }
 
 .console-terminal-line.is-stderr {
-  box-shadow: inset 2px 0 0 rgba(255, 104, 104, 0.72);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--danger) 70%, transparent);
 }
 
 .console-terminal-line.is-system {
-  box-shadow: inset 2px 0 0 rgba(255, 187, 74, 0.68);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--warning) 70%, transparent);
 }
 
 .console-terminal-line.is-outbound {
-  background: rgba(80, 200, 120, 0.06);
+  background: color-mix(in srgb, var(--success) 6%, var(--surface-strong));
 }
 
 .console-terminal-line.is-outbound.is-info {
-  box-shadow: inset 2px 0 0 rgba(95, 214, 132, 0.76);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--success) 72%, transparent);
 }
 
 .console-terminal-line.is-outbound.is-warn,
 .console-terminal-line.is-outbound.is-error {
-  box-shadow: inset 2px 0 0 rgba(255, 187, 74, 0.72);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--warning) 72%, transparent);
 }
 
 .console-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
-  color: #8ca4b3;
+  color: var(--muted);
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 0.78rem;
 }
 
 .console-terminal-line pre {
   margin: 0;
-  color: #f5f8fb;
+  color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
   font-family: "Cascadia Mono", "Consolas", monospace;

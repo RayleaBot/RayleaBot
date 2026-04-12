@@ -5,7 +5,6 @@ import { storeToRefs } from 'pinia'
 import { notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { cloneConfig, getConfigSections, getValueByPath, setValueByPath } from '@/lib/config-form'
 import { fromMultilineList, toMultilineList } from '@/lib/format'
 import { t } from '@/i18n'
@@ -94,22 +93,6 @@ async function save() {
       </div>
     </template>
 
-    <template #toolbar>
-      <a-card :bordered="false" class="app-view-card config-summary-card">
-        <div class="config-summary-card__main">
-          <div class="config-summary-card__title">
-            <strong>{{ currentSection?.title }}</strong>
-            <small>{{ currentSection?.description }}</small>
-          </div>
-          <div v-if="restartRequired !== null" class="restart-indicator">
-            <a-tag :color="restartRequired ? 'warning' : 'success'">
-              {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
-            </a-tag>
-          </div>
-        </div>
-      </a-card>
-    </template>
-
     <div v-if="error || redactedFields.length > 0" class="config-alerts-container">
       <a-alert v-if="error" :message="t('errors.common.actionFailed')" type="error" :description="error" show-icon />
       <a-alert
@@ -135,134 +118,101 @@ async function save() {
     </div>
 
     <div v-else-if="draft" class="config-layout">
-      <aside class="config-nav-panel">
-        <div class="nav-header">
+      <a-card :bordered="false" class="config-nav-card">
+        <template #title>
           <strong>{{ t('config.sectionList') }}</strong>
-        </div>
+        </template>
 
-        <div class="nav-viewport-outer">
-          <VirtualDataViewport
-            :items="configSections"
-            :item-height="96"
-            viewport-height="100%"
-            :get-item-key="(row) => row.key"
+        <nav class="config-nav-list" aria-label="配置分区">
+          <button
+            v-for="section in configSections"
+            :key="section.key"
+            type="button"
+            class="config-nav-item"
+            :class="{ 'is-active': activeSectionKey === section.key }"
+            @click="activeSectionKey = section.key"
           >
-            <template #default="{ item: section }">
-              <div class="nav-item-wrapper">
-                <button
-                  type="button"
-                  class="config-nav-item-card"
-                  :class="{ 'is-active': activeSectionKey === section.key }"
-                  @click="activeSectionKey = section.key"
-                >
-                  <div class="nav-card-content">
-                    <span class="nav-item-title">{{ section.title }}</span>
-                    <small class="nav-item-meta">{{ section.fields.length }} {{ t('config.fieldCount') }}</small>
-                  </div>
-                  <div class="active-indicator"></div>
-                </button>
-              </div>
-            </template>
-          </VirtualDataViewport>
-        </div>
-      </aside>
+            <span class="config-nav-item__title">{{ section.title }}</span>
+            <small class="config-nav-item__meta">{{ section.fields.length }} {{ t('config.fieldCount') }}</small>
+          </button>
+        </nav>
+      </a-card>
 
-      <div class="config-editor-shadow-box">
-        <main class="config-editor-panel glass-panel">
-          <div class="panel-header">
-            <div class="section-title-wrap">
-              <span class="section-key-badge">{{ activeSectionKey.toUpperCase() }}</span>
+      <a-card :bordered="false" class="config-editor-card">
+        <template #title>
+          <div class="config-editor-card__header">
+            <div class="config-editor-card__title">
               <strong>{{ currentSection?.title }}</strong>
+              <p v-if="currentSection?.description">{{ currentSection.description }}</p>
             </div>
-            <p v-if="currentSection?.description" class="section-desc">{{ currentSection.description }}</p>
+            <div v-if="restartRequired !== null" class="restart-indicator">
+              <a-tag :color="restartRequired ? 'warning' : 'success'">
+                {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
+              </a-tag>
+            </div>
           </div>
+        </template>
 
-          <div class="config-editor-scroll">
-            <a-form
-              v-for="section in configSections"
-              :key="section.key"
-              v-show="section.key === activeSectionKey"
-              layout="vertical"
-              class="config-form-grid"
-            >
-              <div v-for="field in section.fields" :key="field.path" class="config-field-item">
-                <a-form-item>
-                  <template #label>
-                    <div class="field-label-wrap">
-                      <span class="field-label-text">{{ field.label }}</span>
-                      <a-tooltip v-if="field.description" :title="field.description">
-                        <span class="field-info-icon">?</span>
-                      </a-tooltip>
-                    </div>
-                  </template>
+        <a-form
+          v-if="currentSection"
+          layout="vertical"
+          class="config-form-grid"
+        >
+          <div v-for="field in currentSection.fields" :key="field.path" class="config-field-item">
+            <a-form-item>
+              <template #label>
+                <div class="field-label-wrap">
+                  <span class="field-label-text">{{ field.label }}</span>
+                  <a-tooltip v-if="field.description" :title="field.description">
+                    <span class="field-info-icon">?</span>
+                  </a-tooltip>
+                </div>
+              </template>
 
-                  <a-input
-                    v-if="field.type === 'text'"
-                    :value="String(readField(field.path, field.type) ?? '')"
-                    @update:value="(value) => writeField(field.path, field.type, value)"
-                  />
+              <a-input
+                v-if="field.type === 'text'"
+                :value="String(readField(field.path, field.type) ?? '')"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
 
-                  <a-input-number
-                    v-else-if="field.type === 'number'"
-                    class="config-number-input"
-                    :value="Number(readField(field.path, field.type) ?? 0)"
-                    :min="0"
-                    :step="1"
-                    @update:value="(value) => writeField(field.path, field.type, value ?? 0)"
-                  />
+              <a-input-number
+                v-else-if="field.type === 'number'"
+                class="config-number-input"
+                :value="Number(readField(field.path, field.type) ?? 0)"
+                :min="0"
+                :step="1"
+                @update:value="(value) => writeField(field.path, field.type, value ?? 0)"
+              />
 
-                  <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                    <a-switch
-                      :checked="Boolean(readField(field.path, field.type))"
-                      @update:checked="(value) => writeField(field.path, field.type, value)"
-                    />
-                  </div>
-
-                  <a-select
-                    v-else-if="field.type === 'select'"
-                    :value="String(readField(field.path, field.type) ?? '')"
-                    :options="field.options"
-                    @update:value="(value) => writeField(field.path, field.type, value)"
-                  />
-
-                  <a-textarea
-                    v-else
-                    :value="String(readField(field.path, field.type) ?? '')"
-                    :auto-size="{ minRows: 4, maxRows: 8 }"
-                    @update:value="(value) => writeField(field.path, field.type, value)"
-                  />
-                </a-form-item>
+              <div v-else-if="field.type === 'boolean'" class="switch-wrap">
+                <a-switch
+                  :checked="Boolean(readField(field.path, field.type))"
+                  @update:checked="(value) => writeField(field.path, field.type, value)"
+                />
               </div>
-            </a-form>
+
+              <a-select
+                v-else-if="field.type === 'select'"
+                :value="String(readField(field.path, field.type) ?? '')"
+                :options="field.options"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
+
+              <a-textarea
+                v-else
+                :value="String(readField(field.path, field.type) ?? '')"
+                :auto-size="{ minRows: 4, maxRows: 8 }"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
+            </a-form-item>
           </div>
-        </main>
-      </div>
+        </a-form>
+      </a-card>
     </div>
   </AppPage>
 </template>
 
 <style lang="scss" scoped>
-.config-summary-card__main {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.config-summary-card__title {
-  display: grid;
-  gap: 6px;
-
-  strong {
-    font-size: 1rem;
-  }
-
-  small {
-    color: var(--muted);
-  }
-}
-
 .config-alerts-container {
   display: grid;
   gap: 12px;
@@ -270,191 +220,115 @@ async function save() {
 
 .skeleton-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
   flex: 1;
 }
 
 .skeleton-panel {
-  border-radius: 28px;
+  border-radius: 12px;
   min-height: 520px;
-  background: linear-gradient(90deg, rgba(240, 244, 238, 0.92), rgba(255, 255, 255, 0.96), rgba(240, 244, 238, 0.92));
+  background: linear-gradient(90deg, var(--surface-soft), var(--surface), var(--surface-soft));
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
 
 .config-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
   height: 100%;
-  overflow: visible;
-}
-
-.config-nav-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: visible;
-}
-
-.nav-header {
-  padding: 0 16px 12px;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.nav-viewport-outer {
-  flex: 1;
   min-height: 0;
 }
 
-.nav-item-wrapper {
-  padding: 8px 16px;
+.config-nav-card,
+.config-editor-card {
+  min-height: 0;
 }
 
-.config-nav-item-card {
+:deep(.config-nav-card .ant-card-body) {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+:deep(.config-editor-card .ant-card-head) {
+  min-height: 56px;
+}
+
+:deep(.config-editor-card .ant-card-body) {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+.config-nav-list {
+  display: grid;
+  gap: 8px;
+}
+
+.config-nav-item {
   appearance: none;
-  border: 1px solid rgba(22, 33, 39, 0.06);
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border);
+  background: transparent;
   width: 100%;
   text-align: left;
-  padding: 18px 22px;
-  border-radius: 24px;
+  padding: 12px 14px;
+  border-radius: 10px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: var(--text);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
-  position: relative;
-}
-
-.config-nav-item-card:hover {
-  background: #fff;
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.06);
-  border-color: rgba(15, 111, 112, 0.15);
-}
-
-.config-nav-item-card.is-active {
-  background: #fff;
-  border-color: rgba(15, 111, 112, 0.3);
-  box-shadow: 0 16px 36px rgba(15, 111, 112, 0.12);
-}
-
-.config-nav-item-card.is-active .nav-item-title {
-  color: #0f6f70;
-  font-weight: 700;
-}
-
-.config-nav-item-card.is-active .active-indicator {
-  transform: scaleY(1);
-  opacity: 1;
-}
-
-.nav-card-content {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 4px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  color: var(--text);
 }
 
-.nav-item-title {
-  font-size: 1rem;
+.config-nav-item:hover {
+  background: var(--surface-soft);
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
 }
 
-.nav-item-meta {
-  font-size: 0.75rem;
+.config-nav-item.is-active {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+}
+
+.config-nav-item__title {
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.config-nav-item__meta {
+  font-size: 0.78rem;
   color: var(--muted);
 }
 
-.active-indicator {
-  position: absolute;
-  left: 0;
-  top: 25%;
-  bottom: 25%;
-  width: 5px;
-  background: #0f6f70;
-  border-radius: 0 10px 10px 0;
-  transform: scaleY(0);
-  opacity: 0;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.config-editor-shadow-box {
-  flex: 1;
-  min-height: 0;
-  padding: 20px 40px 40px 20px;
-  margin: -20px -40px -40px -20px;
-  overflow: visible;
+.config-editor-card__header {
   display: flex;
-  flex-direction: column;
-}
-
-.config-editor-panel {
-  flex: 1;
-  border-radius: 32px;
-  background: rgba(247, 250, 246, 0.88);
-  border: 1px solid rgba(22, 33, 39, 0.08);
-  box-shadow: 0 20px 60px rgba(18, 32, 38, 0.12);
-  display: flex;
-  flex-direction: column;
-  overflow: visible;
-}
-
-.panel-header {
-  padding: 24px 32px;
-  border-bottom: 1px solid rgba(22, 33, 39, 0.04);
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 32px 32px 0 0;
-  flex-shrink: 0;
-  backdrop-filter: blur(12px);
-  z-index: 5;
-}
-
-.section-title-wrap {
-  display: flex;
-  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  align-items: flex-start;
 }
 
-.section-key-badge {
-  font-size: 10px;
-  font-family: "Cascadia Mono", monospace;
-  background: rgba(15, 111, 112, 0.12);
-  color: #0f6f70;
-  padding: 3px 8px;
-  border-radius: 8px;
-  font-weight: bold;
-}
+.config-editor-card__title {
+  display: grid;
+  gap: 4px;
 
-.panel-header strong {
-  font-size: 1.25rem;
-  color: #1a2a33;
-}
+  strong {
+    font-size: 1rem;
+  }
 
-.section-desc {
-  margin: 8px 0 0;
-  font-size: 0.9rem;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.config-editor-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding: 32px;
-  scroll-behavior: smooth;
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
 }
 
 .config-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 32px 40px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px 24px;
 }
 
 .field-label-wrap {
@@ -464,7 +338,7 @@ async function save() {
 }
 
 .field-label-text {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.85rem;
   color: var(--theme-text, var(--text));
 }
@@ -488,7 +362,7 @@ async function save() {
 
 .switch-wrap {
   display: flex;
-  min-height: 40px;
+  min-height: 36px;
   align-items: center;
 }
 
@@ -506,10 +380,6 @@ async function save() {
   .config-layout,
   .skeleton-layout {
     grid-template-columns: 1fr;
-  }
-
-  .config-nav-panel {
-    display: none;
   }
 }
 </style>

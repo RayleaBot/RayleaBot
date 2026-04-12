@@ -506,14 +506,14 @@ function getLevelTagColor(level: string) {
 .protocol-logs-page {
   --space-xs: 4px;
   --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
   --font-sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   --font-mono: "Cascadia Mono", "Consolas", monospace;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: 12px;
   height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -522,8 +522,8 @@ function getLevelTagColor(level: string) {
 
 .protocol-logs-workspace {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: var(--space-xl);
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-lg);
   flex: 1;
   height: 100%;
   min-height: 0;
@@ -536,18 +536,17 @@ function getLevelTagColor(level: string) {
   gap: var(--space-lg);
   min-height: 0;
   overflow-y: auto;
-  padding-right: 8px;
 }
 
 .sidebar-card :deep(.ant-card-head),
 .terminal-card :deep(.ant-card-head),
 .detail-card :deep(.ant-card-head) {
-  min-height: 56px;
-  padding-inline: 20px;
+  min-height: 48px;
+  padding-inline: 16px;
 }
 
 .sidebar-card :deep(.ant-card-body) {
-  padding: 16px 20px 20px;
+  padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -573,18 +572,18 @@ function getLevelTagColor(level: string) {
 .sidebar-controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .follow-status-pill {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: 10px;
   font-size: 0.85rem;
   font-weight: 600;
-  background: color-mix(in srgb, var(--app-card-bg) 88%, var(--app-border) 12%);
+  background: var(--surface-soft);
   border: 1px solid var(--app-border);
   color: var(--app-text-secondary);
 
@@ -612,7 +611,7 @@ function getLevelTagColor(level: string) {
 
 .logs-display-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: var(--space-lg);
   flex: 1;
   min-height: 0;
@@ -639,24 +638,24 @@ function getLevelTagColor(level: string) {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
-  background: color-mix(in srgb, var(--app-card-bg) 90%, var(--app-border) 10%);
+  background: var(--surface-soft);
   scroll-padding-block: 20px;
 }
 
 .terminal-content {
   display: flex;
   flex-direction: column;
-  padding: 10px 0;
+  padding: 8px 0;
 }
 
 .terminal-line {
   width: 100%;
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
   border: none;
   background: transparent;
-  padding: 8px 18px;
+  padding: 8px 14px;
   text-align: left;
   cursor: pointer;
   color: var(--app-text);
@@ -705,7 +704,7 @@ function getLevelTagColor(level: string) {
 .line-meta {
   display: flex;
   gap: var(--space-sm);
-  width: 160px;
+  width: 148px;
   flex-shrink: 0;
   font-size: 0.8rem;
   color: var(--app-text-secondary);
@@ -732,8 +731,8 @@ function getLevelTagColor(level: string) {
 }
 
 .detail-hero {
-  padding: 20px 24px;
-  background: color-mix(in srgb, var(--app-card-bg) 90%, var(--app-border) 10%);
+  padding: 16px;
+  background: var(--surface-soft);
   border-bottom: 1px solid var(--app-border);
 }
 
@@ -780,7 +779,7 @@ function getLevelTagColor(level: string) {
 }
 
 .detail-fields-section {
-  padding: 20px 24px;
+  padding: 16px;
   border-bottom: 1px solid var(--app-border);
 }
 
@@ -811,7 +810,7 @@ function getLevelTagColor(level: string) {
 }
 
 .detail-json-section {
-  padding: 20px 24px 24px;
+  padding: 16px;
 }
 
 .json-header {
@@ -820,10 +819,10 @@ function getLevelTagColor(level: string) {
 
 .json-content {
   margin: 0;
-  padding: 16px;
+  padding: 14px;
   border-radius: 12px;
   border: 1px solid var(--app-border);
-  background: color-mix(in srgb, var(--app-card-bg) 88%, var(--app-border) 12%);
+  background: var(--surface-soft);
   color: var(--app-text-secondary);
   font-family: var(--font-mono);
   font-size: 0.8rem;
@@ -880,11 +879,11 @@ function getLevelTagColor(level: string) {
 }
 
 .term-empty-state {
-  background: color-mix(in srgb, var(--app-card-bg) 90%, var(--app-border) 10%);
+  background: var(--surface-soft);
 }
 
 .detail-empty-state {
-  background: color-mix(in srgb, var(--app-card-bg) 94%, var(--app-border) 6%);
+  background: color-mix(in srgb, var(--surface-soft) 88%, var(--surface-strong));
 }
 
 @media (max-width: 1200px) {

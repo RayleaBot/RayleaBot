@@ -15,7 +15,7 @@ export const defaultLayoutPreferences: LayoutPreferences = {
   chromeTabbar: true,
   fixedHeader: true,
   layoutMode: 'sidebar-nav',
-  themeMode: 'dark',
+  themeMode: 'light',
 }
 
 export function resolveThemeConfig(themeMode: ThemeMode): ThemeConfig {
@@ -29,7 +29,7 @@ export function resolveThemeConfig(themeMode: ThemeMode): ThemeConfig {
       colorSuccess: '#3fbe73',
       colorWarning: '#e4a11b',
       colorError: '#e15b64',
-      borderRadius: 14,
+      borderRadius: 10,
       wireframe: false,
       fontFamily: '"PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif',
     },
@@ -47,19 +47,19 @@ export function resolveThemeConfig(themeMode: ThemeMode): ThemeConfig {
         itemBg: 'transparent',
         itemSelectedBg: '#e8f1ff',
         itemSelectedColor: '#1668dc',
-        borderRadius: 12,
+        borderRadius: 8,
       },
       Button: {
-        controlHeight: 40,
+        controlHeight: 36,
       },
       Input: {
-        controlHeight: 40,
+        controlHeight: 36,
       },
       Select: {
-        controlHeight: 40,
+        controlHeight: 36,
       },
       Card: {
-        borderRadiusLG: 20,
+        borderRadiusLG: 12,
       },
     },
   }

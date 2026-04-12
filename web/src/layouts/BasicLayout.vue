@@ -260,10 +260,10 @@ onBeforeUnmount(() => {
       breakpoint="lg"
       class="admin-layout__sider"
       :collapsed="siderCollapsed"
-      :collapsed-width="88"
+      :collapsed-width="72"
       :trigger="null"
       :theme="siderTheme"
-      width="264"
+      width="236"
       data-testid="app-sider"
     >
       <button type="button" class="admin-layout__brand" @click="navigateTo('/')">
@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
       :open="mobileMenuOpen"
       class="admin-layout__mobile-drawer"
       placement="left"
-      width="280"
+      width="240"
       @close="uiShellStore.setMobileMenuOpen(false)"
     >
       <div class="admin-layout__mobile-brand">

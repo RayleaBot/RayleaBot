@@ -341,17 +341,12 @@ function getStatusColor(status: string) {
 
 <style lang="scss" scoped>
 .tasks-empty-card {
-  border-radius: 22px;
-  border: 1px solid rgba(22, 33, 39, 0.08);
-  box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
-  background: rgba(247, 250, 246, 0.88);
+  border-radius: 12px;
 }
 
 .tasks-data-table {
-  border-radius: 22px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
-  border: 1px solid rgba(22, 33, 39, 0.08);
 }
 
 .task-cell-identity {
@@ -423,8 +418,8 @@ function getStatusColor(status: string) {
   display: block;
   width: 100%;
   margin-top: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(22, 33, 39, 0.08);
-  background: rgba(247, 250, 246, 0.88);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
 }
 </style>

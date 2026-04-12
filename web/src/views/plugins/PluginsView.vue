@@ -370,10 +370,8 @@ async function submitInstall() {
 
 <style lang="scss" scoped>
 .plugins-data-table {
-  border-radius: 22px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
-  border: 1px solid rgba(22, 33, 39, 0.08);
 }
 
 .plugin-cell-identity {
@@ -451,7 +449,7 @@ async function submitInstall() {
 
 .plugin-command-summary-card {
   margin-top: 16px;
-  border-radius: 20px;
+  border-radius: 12px;
 }
 
 .plugin-cell-actions {

@@ -195,13 +195,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .commands-filter-toolbar,
 .commands-data-table {
-  border-radius: 22px;
-}
-
-.commands-data-table {
-  overflow: hidden;
-  box-shadow: 0 14px 32px rgba(18, 32, 38, 0.06);
-  border: 1px solid rgba(22, 33, 39, 0.08);
+  border-radius: 12px;
 }
 
 .command-plugin-cell {

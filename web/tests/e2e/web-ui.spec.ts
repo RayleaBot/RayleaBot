@@ -321,12 +321,13 @@ test('light theme uses a light sider and keeps the header clean', async ({ page,
   await resetBackend(request, true)
   await login(page)
 
-  await page.getByTestId('theme-toggle').click()
-
   const sider = page.getByTestId('app-sider')
   await expect(sider).toHaveClass(/ant-layout-sider-light/)
   await expect(appHeader(page)).not.toContainText('事件流')
   await expect(appHeader(page)).not.toContainText('保持正式契约')
+
+  await page.getByTestId('theme-toggle').click()
+  await expect(sider).toHaveClass(/ant-layout-sider-dark/)
 })
 
 test('login keeps the protected shell after reload', async ({ page, request }) => {

@@ -146,9 +146,10 @@ describe('ConfigPage', () => {
 
     expect(wrapper.find('.app-page').exists()).toBe(true)
     expect(wrapper.find('.config-layout').exists()).toBe(true)
-    expect(wrapper.find('.nav-viewport-outer').exists()).toBe(true)
-    expect(wrapper.find('.config-editor-panel').exists()).toBe(true)
-    expect(wrapper.find('.config-editor-shadow-box').exists()).toBe(true)
+    expect(wrapper.find('.config-nav-card').exists()).toBe(true)
+    expect(wrapper.find('.config-editor-card').exists()).toBe(true)
+    expect(wrapper.find('.config-nav-list').exists()).toBe(true)
+    expect(wrapper.find('.glass-panel').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('OneBot 连接')
     expect(wrapper.text()).not.toContain('适配器')
   })
