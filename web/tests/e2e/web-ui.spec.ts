@@ -205,6 +205,29 @@ test('desktop list viewports fill the remaining shell height without overlapping
   await expect(logRows(page).first()).toBeVisible()
 })
 
+test('dashboard avoids global page overflow when the content fits', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 1600, height: 1200 })
+  await login(page)
+
+  const metrics = await page.evaluate(() => {
+    const doc = document.scrollingElement ?? document.documentElement
+    const main = document.querySelector<HTMLElement>('#app-main')
+
+    return {
+      bodyClientHeight: document.body.clientHeight,
+      bodyScrollHeight: document.body.scrollHeight,
+      docClientHeight: doc.clientHeight,
+      docScrollHeight: doc.scrollHeight,
+      mainClientHeight: main?.clientHeight ?? 0,
+    }
+  })
+
+  expect(metrics.docScrollHeight).toBeLessThanOrEqual(metrics.docClientHeight + 1)
+  expect(metrics.bodyScrollHeight).toBeLessThanOrEqual(metrics.bodyClientHeight + 1)
+  expect(metrics.mainClientHeight).toBeGreaterThan(0)
+})
+
 test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
