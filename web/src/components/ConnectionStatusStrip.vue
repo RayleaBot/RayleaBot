@@ -44,6 +44,12 @@ function resolveBadgeStatus(status: ConnectionStatus) {
       return 'default'
   }
 }
+
+function getPulseClass(status: ConnectionStatus) {
+  if (status === 'authenticated') return 'status-pulse--success'
+  if (status === 'connecting' || status === 'reconnecting') return 'status-pulse--processing'
+  return ''
+}
 </script>
 
 <template>
@@ -72,7 +78,9 @@ function resolveBadgeStatus(status: ConnectionStatus) {
       >
         <div class="connection-card__row">
           <span class="connection-card__label">{{ getConnectionChannelLabel(channel) }}</span>
-          <a-badge :status="resolveBadgeStatus(snapshot.status)" :text="getConnectionStatusLabel(snapshot.status)" />
+          <span :class="['connection-card__badge-wrap', getPulseClass(snapshot.status)]">
+            <a-badge :status="resolveBadgeStatus(snapshot.status)" :text="getConnectionStatusLabel(snapshot.status)" />
+          </span>
         </div>
         <small v-if="secondary" class="connection-card__meta">{{ secondary }}</small>
       </section>

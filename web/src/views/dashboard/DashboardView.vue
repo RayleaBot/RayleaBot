@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ExclamationCircleOutlined,
+} from '@ant-design/icons-vue'
+
 import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
 import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
 import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
@@ -100,6 +106,13 @@ function getEventSeverityClass(severity?: string) {
   if (severity === 'success') return 'event-item--success'
   return ''
 }
+
+function getEventSeverityIcon(severity?: string) {
+  if (severity === 'error' || severity === 'danger') return CloseCircleOutlined
+  if (severity === 'warning') return ExclamationCircleOutlined
+  if (severity === 'success') return CheckCircleOutlined
+  return undefined
+}
 </script>
 
 <template>
@@ -175,10 +188,18 @@ function getEventSeverityClass(severity?: string) {
                 :key="`${event.timestamp}-${event.summary}`"
                 :class="['event-item', getEventSeverityClass(getEventSeverity(event.payload))]"
               >
-                <strong>{{ event.summary }}</strong>
-                <span class="event-item__time" :data-absolute="event.timestamp">
-                  {{ formatRelativeTime(event.timestamp) }}
-                </span>
+                <component
+                  :is="getEventSeverityIcon(getEventSeverity(event.payload))"
+                  v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
+                  class="event-item__icon"
+                />
+                <span v-else class="event-item__dot" />
+                <div class="event-item__body">
+                  <strong>{{ event.summary }}</strong>
+                  <span class="event-item__time" :data-absolute="event.timestamp">
+                    {{ formatRelativeTime(event.timestamp) }}
+                  </span>
+                </div>
               </div>
             </div>
           </a-tab-pane>
@@ -270,7 +291,7 @@ function getEventSeverityClass(severity?: string) {
           </div>
         </template>
 
-        <div class="dashboard-runtime-list">
+        <div class="dashboard-runtime-grid">
           <div class="dashboard-runtime-item">
             <span>{{ t('dashboard.service') }}</span>
             <strong>{{ systemValueText }}</strong>
@@ -374,9 +395,70 @@ function getEventSeverityClass(severity?: string) {
   }
 }
 
-.dashboard-runtime-list {
+.dashboard-runtime-grid {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .dashboard-runtime-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.event-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.event-item__icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+  margin-top: 2px;
+}
+
+.event-item--success .event-item__icon {
+  color: var(--success);
+}
+
+.event-item--warning .event-item__icon {
+  color: var(--warning);
+}
+
+.event-item--danger .event-item__icon {
+  color: var(--danger);
+}
+
+.event-item__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--muted);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.event-item__body {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.event-item__body strong {
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.event-item__time {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .dashboard-runtime-item {
