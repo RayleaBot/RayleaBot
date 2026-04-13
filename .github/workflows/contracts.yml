@@ -106,7 +106,10 @@ jobs:
               "Python `3.12.13`",
               "Electron `41.1.0`",
               "`127.0.0.1`",
-              "`onebot.ws_url`",
+              "`onebot.reverse_ws.url`",
+              "`onebot.forward_ws.url`",
+              "`onebot.http_api.url`",
+              "`onebot.webhook.url`",
           ]
           for snippet in expected_snippets:
               if snippet not in baseline:
@@ -375,56 +378,79 @@ jobs:
 
           proto_defs = plugin_protocol.get('$defs', {})
           expected_proto_defs = {
-              'common',
-              'init',
-              'init_progress',
-              'init_ack',
-              'event',
-              'outbound_message',
-              'outbound_message_segment',
-              'outbound_message_non_reply_segment',
-              'outbound_message_segment_text',
-              'outbound_message_segment_image',
-              'outbound_message_segment_at',
-              'outbound_message_segment_at_all',
-              'outbound_message_segment_face',
-              'outbound_message_segment_reply',
-              'action_message_send_data',
-              'action_message_reply_data',
-              'action_logger_write_data',
-              'action_storage_kv_get_data',
-              'action_storage_kv_set_data',
-              'action_storage_kv_delete_data',
-              'action_storage_kv_list_data',
+              'action',
+              'action_config_read',
               'action_config_read_data',
+              'action_config_write',
               'action_config_write_data',
-              'action_storage_file_read_data',
-              'action_storage_file_write_text_data',
-              'action_storage_file_write_base64_data',
-              'action_storage_file_delete_data',
-              'action_storage_file_list_data',
+              'action_event_expose_webhook',
+              'action_event_expose_webhook_data',
+              'action_http_request',
+              'action_http_request_base64_body_data',
               'action_http_request_no_body_data',
               'action_http_request_text_body_data',
-              'action_http_request_base64_body_data',
-              'action_scheduler_create_data',
-              'action_event_expose_webhook_data',
-              'action_render_image_data',
-              'action',
-              'action_message_send',
-              'action_message_reply',
               'action_logger_write',
-              'action_storage_kv',
-              'action_config_read',
-              'action_config_write',
-              'action_storage_file',
-              'action_http_request',
-              'action_scheduler_create',
-              'action_event_expose_webhook',
+              'action_logger_write_data',
+              'action_message_reply',
+              'action_message_reply_data',
+              'action_message_send',
+              'action_message_send_data',
+              'action_onebot_family',
+              'action_onebot_family_data',
+              'action_plugin_list',
+              'action_plugin_list_data',
+              'action_provider_extension',
               'action_render_image',
-              'result',
+              'action_render_image_data',
+              'action_scheduler_create',
+              'action_scheduler_create_data',
+              'action_storage_file',
+              'action_storage_file_delete_data',
+              'action_storage_file_list_data',
+              'action_storage_file_read_data',
+              'action_storage_file_write_base64_data',
+              'action_storage_file_write_text_data',
+              'action_storage_kv',
+              'action_storage_kv_delete_data',
+              'action_storage_kv_get_data',
+              'action_storage_kv_list_data',
+              'action_storage_kv_set_data',
+              'common',
               'error',
+              'event',
+              'init',
+              'init_ack',
+              'init_progress',
+              'outbound_message',
+              'outbound_message_non_reply_segment',
+              'outbound_message_segment',
+              'outbound_message_segment_at',
+              'outbound_message_segment_at_all',
+              'outbound_message_segment_contact',
+              'outbound_message_segment_dice',
+              'outbound_message_segment_face',
+              'outbound_message_segment_file',
+              'outbound_message_segment_forward',
+              'outbound_message_segment_image',
+              'outbound_message_segment_json',
+              'outbound_message_segment_keyboard',
+              'outbound_message_segment_markdown',
+              'outbound_message_segment_mface',
+              'outbound_message_segment_music',
+              'outbound_message_segment_node',
+              'outbound_message_segment_passthrough_media',
+              'outbound_message_segment_passthrough_payload',
+              'outbound_message_segment_poke',
+              'outbound_message_segment_record',
+              'outbound_message_segment_reply',
+              'outbound_message_segment_rps',
+              'outbound_message_segment_shake',
+              'outbound_message_segment_text',
+              'outbound_message_segment_video',
+              'outbound_message_segment_xml',
               'ping',
               'pong',
+              'result',
               'shutdown',
           }
           if set(proto_defs.keys()) != expected_proto_defs:
@@ -439,38 +465,73 @@ jobs:
           action_oneOf = plugin_protocol['$defs']['action'].get('oneOf', [])
           action_refs = {item.get('$ref', '').split('/')[-1] for item in action_oneOf}
           expected_action_refs = {
-              'action_message_send',
-              'action_message_reply',
-              'action_logger_write',
-              'action_storage_kv',
               'action_config_read',
               'action_config_write',
-              'action_storage_file',
-              'action_http_request',
-              'action_scheduler_create',
               'action_event_expose_webhook',
+              'action_http_request',
+              'action_logger_write',
+              'action_message_reply',
+              'action_message_send',
+              'action_onebot_family',
+              'action_plugin_list',
+              'action_provider_extension',
               'action_render_image',
+              'action_scheduler_create',
+              'action_storage_file',
+              'action_storage_kv',
           }
           if action_refs != expected_action_refs:
               raise SystemExit(f'plugin-protocol.schema.json action oneOf must reference {sorted(expected_action_refs)}; got {sorted(action_refs)}')
           outbound_segment_refs = {item.get('$ref', '').split('/')[-1] for item in plugin_protocol['$defs']['outbound_message_segment'].get('oneOf', [])}
           expected_outbound_segment_refs = {
-              'outbound_message_segment_text',
-              'outbound_message_segment_image',
               'outbound_message_segment_at',
               'outbound_message_segment_at_all',
+              'outbound_message_segment_contact',
+              'outbound_message_segment_dice',
               'outbound_message_segment_face',
+              'outbound_message_segment_file',
+              'outbound_message_segment_forward',
+              'outbound_message_segment_image',
+              'outbound_message_segment_json',
+              'outbound_message_segment_keyboard',
+              'outbound_message_segment_markdown',
+              'outbound_message_segment_mface',
+              'outbound_message_segment_music',
+              'outbound_message_segment_node',
+              'outbound_message_segment_poke',
+              'outbound_message_segment_record',
               'outbound_message_segment_reply',
+              'outbound_message_segment_rps',
+              'outbound_message_segment_shake',
+              'outbound_message_segment_text',
+              'outbound_message_segment_video',
+              'outbound_message_segment_xml',
           }
           if outbound_segment_refs != expected_outbound_segment_refs:
               raise SystemExit(f'plugin-protocol.schema.json outbound_message_segment oneOf must reference {sorted(expected_outbound_segment_refs)}; got {sorted(outbound_segment_refs)}')
           non_reply_refs = {item.get('$ref', '').split('/')[-1] for item in plugin_protocol['$defs']['outbound_message_non_reply_segment'].get('oneOf', [])}
           expected_non_reply_refs = {
-              'outbound_message_segment_text',
-              'outbound_message_segment_image',
               'outbound_message_segment_at',
               'outbound_message_segment_at_all',
+              'outbound_message_segment_contact',
+              'outbound_message_segment_dice',
               'outbound_message_segment_face',
+              'outbound_message_segment_file',
+              'outbound_message_segment_forward',
+              'outbound_message_segment_image',
+              'outbound_message_segment_json',
+              'outbound_message_segment_keyboard',
+              'outbound_message_segment_markdown',
+              'outbound_message_segment_mface',
+              'outbound_message_segment_music',
+              'outbound_message_segment_node',
+              'outbound_message_segment_poke',
+              'outbound_message_segment_record',
+              'outbound_message_segment_rps',
+              'outbound_message_segment_shake',
+              'outbound_message_segment_text',
+              'outbound_message_segment_video',
+              'outbound_message_segment_xml',
           }
           if non_reply_refs != expected_non_reply_refs:
               raise SystemExit(f'plugin-protocol.schema.json outbound_message_non_reply_segment oneOf must reference {sorted(expected_non_reply_refs)}; got {sorted(non_reply_refs)}')
@@ -532,8 +593,19 @@ jobs:
                   raise SystemExit(f'config.user.schema.json must not expose legacy top-level property: {legacy}')
           if props['server']['properties']['host'].get('default') != '127.0.0.1':
               raise SystemExit('config.user.schema.json server.host default must be 127.0.0.1')
-          if 'ws_url' not in props['onebot']['properties']:
-              raise SystemExit('config.user.schema.json must use onebot.ws_url')
+          expected_onebot_props = {'provider', 'access_token', 'reverse_ws', 'forward_ws', 'http_api', 'webhook'}
+          actual_onebot_props = set(props['onebot']['properties'].keys())
+          if actual_onebot_props != expected_onebot_props:
+              raise SystemExit(
+                  'config.user.schema.json onebot properties must exactly match '
+                  f'{sorted(expected_onebot_props)}; got {sorted(actual_onebot_props)}'
+              )
+          required_onebot_props = set(props['onebot'].get('required', []))
+          if required_onebot_props != expected_onebot_props:
+              raise SystemExit(
+                  'config.user.schema.json onebot required fields must exactly match '
+                  f'{sorted(expected_onebot_props)}; got {sorted(required_onebot_props)}'
+              )
           if props['database']['properties']['engine'].get('const') != 'sqlite':
               raise SystemExit('config.user.schema.json database.engine must be fixed to sqlite')
           if 'path' not in props['database']['properties']:
@@ -582,6 +654,10 @@ jobs:
               '/api/system/runtime/bootstrap',
               '/api/system/diagnostics/export',
               '/api/logs',
+              '/api/logs/{log_id}',
+              '/api/protocols/onebot11',
+              '/api/protocols/onebot11/reverse-ws',
+              '/api/protocols/onebot11/webhook',
               '/api/tasks',
               '/api/tasks/{task_id}',
               '/api/tasks/{task_id}/cancel',
