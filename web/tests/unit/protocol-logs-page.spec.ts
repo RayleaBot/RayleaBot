@@ -1,3 +1,4 @@
+import { defineComponent, ref } from 'vue'
 import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
@@ -421,5 +422,51 @@ describe('ProtocolLogsPage', () => {
     expect(wrapper.find('.logs-display-grid').exists()).toBe(true)
     expect(wrapper.text()).toContain('runtime bridge delivered sent group message: 您好')
     expect(wrapper.text()).toContain('not-a-date')
+  })
+
+  it('toggles the protocol log stream activity when the cached page deactivates and reactivates', async () => {
+    const logsStore = useProtocolLogsStore()
+
+    vi.spyOn(logsStore, 'fetchList').mockResolvedValue([])
+
+    const router = createTestRouter()
+    await router.push('/protocols/logs')
+    await router.isReady()
+
+    const KeepAliveHarness = defineComponent({
+      components: {
+        PlaceholderView: { template: '<div>占位页</div>' },
+        ProtocolLogsPage,
+      },
+      setup() {
+        const currentView = ref<'logs' | 'placeholder'>('logs')
+        return {
+          currentView,
+        }
+      },
+      template: `
+        <KeepAlive>
+          <component :is="currentView === 'logs' ? 'ProtocolLogsPage' : 'PlaceholderView'" />
+        </KeepAlive>
+      `,
+    })
+
+    const wrapper = mount(KeepAliveHarness, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    expect(logsStore.active).toBe(true)
+
+    wrapper.vm.currentView = 'placeholder'
+    await flushPromises()
+    expect(logsStore.active).toBe(false)
+
+    wrapper.vm.currentView = 'logs'
+    await flushPromises()
+    expect(logsStore.active).toBe(true)
   })
 })

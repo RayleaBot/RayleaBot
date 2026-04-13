@@ -27,7 +27,7 @@ export function createLogsState(initialFilters: LogFilters = {}) {
     error.value = null
     try {
       const response = await apiRequest<LogListResponse>(buildLogListPath(filters.value))
-      items.value = mergeLogs(items.value, response.items, filters.value.limit ?? 50)
+      items.value = dedupeLogs(response.items, filters.value.limit ?? 50)
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
@@ -37,7 +37,11 @@ export function createLogsState(initialFilters: LogFilters = {}) {
   }
 
   function append(log: LogSummary) {
-    items.value = mergeLogs([log], items.value, filters.value.limit ?? 50)
+    if (!matchesLogFilters(log, filters.value)) {
+      return
+    }
+
+    items.value = dedupeLogs([log, ...items.value], filters.value.limit ?? 50)
   }
 
   return {
@@ -73,10 +77,34 @@ export function buildLogListPath(filters: LogFilters) {
 }
 
 function mergeLogs(primary: LogSummary[], secondary: LogSummary[], limit: number) {
+  return dedupeLogs([...primary, ...secondary], limit)
+}
+
+export function matchesLogFilters(log: LogSummary, filters: LogFilters) {
+  if (filters.level && log.level !== filters.level) {
+    return false
+  }
+  if (filters.source && log.source !== filters.source) {
+    return false
+  }
+  if (filters.protocol && log.protocol !== filters.protocol) {
+    return false
+  }
+  if (filters.pluginId && log.plugin_id !== filters.pluginId) {
+    return false
+  }
+  if (filters.requestId && log.request_id !== filters.requestId) {
+    return false
+  }
+
+  return true
+}
+
+function dedupeLogs(logs: LogSummary[], limit: number) {
   const merged: LogSummary[] = []
   const seen = new Set<string>()
 
-  for (const log of [...primary, ...secondary]) {
+  for (const log of logs) {
     const key = log.log_id || [
       log.timestamp,
       log.level,

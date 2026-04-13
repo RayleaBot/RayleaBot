@@ -180,11 +180,30 @@ describe('ProtocolsPage', () => {
     }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+    const refreshSpy = vi.spyOn(protocolsStore, 'refresh')
+      .mockResolvedValueOnce({ snapshot: protocolsStore.snapshot! })
+      .mockImplementationOnce(async () => {
+        protocolsStore.snapshot = {
+          protocol: 'onebot11',
+          provider: 'standard',
+          configured_transports: ['reverse_ws', 'forward_ws'],
+          active_transports: ['forward_ws'],
+          transport_status: [
+            { transport: 'reverse_ws', enabled: false, configured: true, endpoint: 'wss://bot.example.com/reverse/onebot', state: 'idle', summary: '未启用' },
+            { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'connected', summary: '主动连接已建立' },
+            { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+            { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+          ],
+          readiness_status: 'degraded',
+          summary: 'OneBot11 等待回连',
+          recent_transport_issues: [],
+        }
+        return { snapshot: protocolsStore.snapshot! }
+      })
     const saveSpy = vi.spyOn(configStore, 'saveConfig').mockResolvedValue({
       config: configStore.document,
       redacted_fields: [],
-      restart_required: true,
+      restart_required: false,
     })
 
     const router = createTestRouter()
@@ -208,7 +227,9 @@ describe('ProtocolsPage', () => {
     await saveButton!.trigger('click')
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(refreshSpy).toHaveBeenCalledTimes(2)
     expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('wss://bot.example.com/reverse/onebot')
     expect(saveSpy.mock.calls[0][0].server.host).toBe('127.0.0.1')
+    expect(wrapper.text()).toContain('未启用')
   })
 })

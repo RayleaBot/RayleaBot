@@ -2,11 +2,13 @@ import type { Component } from 'vue'
 import {
   AppstoreOutlined,
   BarsOutlined,
+  ControlOutlined,
   DashboardOutlined,
   DisconnectOutlined,
   FileSearchOutlined,
   HddOutlined,
   LoginOutlined,
+  ProfileOutlined,
   SettingOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
@@ -14,12 +16,15 @@ import {
 const iconMap: Record<string, Component> = {
   appstore: AppstoreOutlined,
   commands: BarsOutlined,
+  config: SettingOutlined,
   dashboard: DashboardOutlined,
   login: LoginOutlined,
   logs: FileSearchOutlined,
+  'protocol-logs': ControlOutlined,
   protocols: DisconnectOutlined,
   setting: SettingOutlined,
   system: HddOutlined,
+  tasks: ProfileOutlined,
   toolbox: ToolOutlined,
 }
 

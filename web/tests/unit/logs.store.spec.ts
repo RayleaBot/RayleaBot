@@ -15,7 +15,7 @@ describe('logs store', () => {
     setActivePinia(createPinia())
   })
 
-  it('builds filtered log queries and merges duplicates', async () => {
+  it('builds filtered log queries and only keeps the latest filtered response', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       items: [
         {
@@ -41,6 +41,15 @@ describe('logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_old_0001',
+        timestamp: '2026-04-05T07:59:00Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'stale item',
+      },
+    ]
     store.filters = {
       level: 'warn',
       source: 'adapter',
@@ -56,6 +65,7 @@ describe('logs store', () => {
       expect.any(Object),
     )
     expect(store.items).toHaveLength(1)
+    expect(store.items[0]?.log_id).toBe('log_warn_0001')
   })
 
   it('prepends appended logs and respects the current limit', () => {
@@ -69,6 +79,37 @@ describe('logs store', () => {
     store.append({ log_id: 'log_error_0001', timestamp: '2026-04-05T08:00:02Z', level: 'error', source: 'system', message: 'latest' })
 
     expect(store.items.map((item) => item.message)).toEqual(['latest', 'older'])
+  })
+
+  it('ignores live logs that do not match the active filters', () => {
+    const store = useLogsStore()
+    store.filters = {
+      level: 'warn',
+      source: 'adapter',
+      pluginId: 'weather',
+      limit: 5,
+    }
+    store.items = [
+      {
+        log_id: 'log_warn_0001',
+        timestamp: '2026-04-05T08:00:00Z',
+        level: 'warn',
+        source: 'adapter',
+        plugin_id: 'weather',
+        message: 'kept',
+      },
+    ]
+
+    store.append({
+      log_id: 'log_error_0002',
+      timestamp: '2026-04-05T08:00:03Z',
+      level: 'error',
+      source: 'runtime',
+      plugin_id: 'other',
+      message: 'should be ignored',
+    })
+
+    expect(store.items.map((item) => item.message)).toEqual(['kept'])
   })
 
   it('stores a visible error when loading fails', async () => {

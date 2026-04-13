@@ -124,11 +124,11 @@ function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
 
   snapshot.provider = onebot.provider ?? 'standard'
   snapshot.transport_status = transports.map(([transport, entry]) => {
-    const configured = Boolean(entry.enabled && entry.url)
+    const configured = Boolean(entry.url)
     let state = 'idle'
     let summary = '未启用'
 
-    if (configured) {
+    if (entry.enabled && configured) {
       if (transport === 'forward_ws') {
         state = 'connected'
         summary = '主动连接已建立'
@@ -154,7 +154,7 @@ function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
     }
   })
   snapshot.configured_transports = transports
-    .filter(([, entry]) => Boolean(entry.enabled && entry.url))
+    .filter(([, entry]) => Boolean(entry.url))
     .map(([name]) => name)
 
   if (forwardWs.enabled && forwardWs.url) {
@@ -183,6 +183,54 @@ function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
     snapshot.summary = 'OneBot11 尚未配置连接'
   }
   return snapshot
+}
+
+function normalizeTransport(entry = {}) {
+  return {
+    enabled: Boolean(entry.enabled),
+    url: String(entry.url ?? ''),
+  }
+}
+
+function pickOneBotHotState(config) {
+  const onebot = config.onebot ?? {}
+  const adapter = config.adapter ?? {}
+
+  return {
+    adapter: {
+      connect_timeout_seconds: adapter.connect_timeout_seconds ?? 0,
+      reconnect_initial_seconds: adapter.reconnect_initial_seconds ?? 0,
+      reconnect_multiplier: adapter.reconnect_multiplier ?? 0,
+      reconnect_max_seconds: adapter.reconnect_max_seconds ?? 0,
+      reconnect_jitter_ratio: adapter.reconnect_jitter_ratio ?? 0,
+    },
+    onebot: {
+      provider: onebot.provider ?? 'standard',
+      access_token: onebot.access_token ?? '',
+      reverse_ws: normalizeTransport(onebot.reverse_ws),
+      forward_ws: normalizeTransport(onebot.forward_ws),
+      http_api: normalizeTransport(onebot.http_api),
+      webhook: normalizeTransport(onebot.webhook),
+    },
+  }
+}
+
+function computeRestartRequiredForConfig(prevConfig, nextConfig) {
+  const prevHotState = JSON.stringify(pickOneBotHotState(prevConfig))
+  const nextHotState = JSON.stringify(pickOneBotHotState(nextConfig))
+
+  if (prevHotState === nextHotState) {
+    return JSON.stringify(prevConfig) !== JSON.stringify(nextConfig)
+  }
+
+  const prevWithoutHot = structuredClone(prevConfig)
+  const nextWithoutHot = structuredClone(nextConfig)
+  delete prevWithoutHot.onebot
+  delete prevWithoutHot.adapter
+  delete nextWithoutHot.onebot
+  delete nextWithoutHot.adapter
+
+  return JSON.stringify(prevWithoutHot) !== JSON.stringify(nextWithoutHot)
 }
 
 function createLogDetailMap() {
@@ -679,12 +727,22 @@ const server = http.createServer(async (request, response) => {
     }
 
     const payload = await parseBody(request)
+    const previousConfig = structuredClone(state.config)
     state.config = payload
     state.protocolSnapshot = computeProtocolSnapshotFromConfig(state.config, state.protocolSnapshot)
+    broadcast('events', {
+      channel: 'events',
+      type: 'events.received',
+      timestamp: new Date().toISOString(),
+      data: {
+        protocol: 'onebot11',
+        protocol_snapshot: structuredClone(state.protocolSnapshot),
+      },
+    })
     json(response, 200, {
       config: state.config,
       redacted_fields: ['onebot.access_token'],
-      restart_required: true,
+      restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
     })
     return
   }

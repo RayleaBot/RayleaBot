@@ -27,6 +27,7 @@ export const adminRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/plugins/PluginsView.vue'),
         meta: {
           icon: 'appstore',
+          keepAlive: true,
           order: 2,
           requiresAuth: true,
           titleKey: 'routes.plugins',
@@ -60,6 +61,8 @@ export const adminRoutes: RouteRecordRaw[] = [
             name: 'commands',
             component: () => import('@/views/operations/CommandsView.vue'),
             meta: {
+              icon: 'commands',
+              keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.commands',
             },
@@ -69,6 +72,8 @@ export const adminRoutes: RouteRecordRaw[] = [
             name: 'tasks',
             component: () => import('@/views/operations/TasksView.vue'),
             meta: {
+              icon: 'tasks',
+              keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.tasks',
             },
@@ -78,6 +83,8 @@ export const adminRoutes: RouteRecordRaw[] = [
             name: 'logs',
             component: () => import('@/views/operations/LogsView.vue'),
             meta: {
+              icon: 'logs',
+              keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.logs',
             },
@@ -101,6 +108,8 @@ export const adminRoutes: RouteRecordRaw[] = [
             name: 'protocols',
             component: () => import('@/views/protocols/ProtocolsView.vue'),
             meta: {
+              icon: 'protocols',
+              keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.protocols',
             },
@@ -110,6 +119,8 @@ export const adminRoutes: RouteRecordRaw[] = [
             name: 'protocol-logs',
             component: () => import('@/views/protocols/ProtocolLogsView.vue'),
             meta: {
+              icon: 'protocol-logs',
+              keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.protocolLogs',
             },
@@ -133,6 +144,8 @@ export const adminRoutes: RouteRecordRaw[] = [
             name: 'config',
             component: () => import('@/views/system/ConfigView.vue'),
             meta: {
+              icon: 'config',
+              keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.config',
             },

@@ -2,6 +2,17 @@ import { expect, test } from '@playwright/test'
 
 const backendUrl = 'http://127.0.0.1:4010'
 
+interface TransitionStageSample {
+  className: string
+  opacity: number
+}
+
+interface TransitionSample {
+  heading: string
+  label: string
+  stageNodes: TransitionStageSample[]
+}
+
 async function resetBackend(
   request: import('@playwright/test').APIRequestContext,
   initialized: boolean,
@@ -58,6 +69,127 @@ function appHeader(page: import('@playwright/test').Page) {
 
 function dashboardConnectionCard(page: import('@playwright/test').Page) {
   return page.getByTestId('dashboard-connection-card')
+}
+
+async function readTabLabels(page: import('@playwright/test').Page) {
+  return page.locator('.admin-layout__tabbar .ant-tabs-tab-btn').evaluateAll((nodes) => (
+    nodes
+      .map((node) => node.textContent?.trim() ?? '')
+      .filter(Boolean)
+  ))
+}
+
+async function readActiveTabLabel(page: import('@playwright/test').Page) {
+  return page.locator('.admin-layout__tabbar .ant-tabs-tab-active .ant-tabs-tab-btn').evaluate((node) => (
+    node.textContent?.trim() ?? ''
+  ))
+}
+
+async function readTabIconKeys(page: import('@playwright/test').Page) {
+  return page.locator('.admin-layout__tabbar .admin-layout__tab-label').evaluateAll((nodes) => (
+    nodes
+      .map((node) => node.getAttribute('data-icon') ?? '')
+      .filter(Boolean)
+  ))
+}
+
+async function navigateThroughMenu(
+  page: import('@playwright/test').Page,
+  item: string,
+  group?: string,
+) {
+  const targetItem = page.getByRole('menuitem', { name: item })
+
+  if (group && !await targetItem.isVisible().catch(() => false)) {
+    await page.locator('.ant-menu-submenu-title', { hasText: group }).click()
+    await expect(targetItem).toBeVisible()
+  }
+
+  await targetItem.click()
+}
+
+async function startTransitionSampling(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    type BrowserTransitionStageSample = {
+      className: string
+      opacity: number
+    }
+
+    type BrowserTransitionSample = {
+      heading: string
+      label: string
+      stageNodes: BrowserTransitionStageSample[]
+    }
+
+    const win = window as Window & { __transitionSamples?: BrowserTransitionSample[] }
+    const samples: BrowserTransitionSample[] = []
+    win.__transitionSamples = samples
+
+    const sample = (label: string) => {
+      const heading = document.querySelector('#app-main h1')?.textContent?.trim() ?? ''
+      const stageNodes = Array.from(document.querySelectorAll<HTMLElement>('.admin-layout__route-stage')).map((node) => ({
+        className: node.className,
+        opacity: Number.parseFloat(window.getComputedStyle(node).opacity) || 0,
+      }))
+
+      samples.push({
+        heading,
+        label,
+        stageNodes,
+      })
+    }
+
+    sample('before')
+    let count = 0
+    const tick = () => {
+      sample(`frame-${count}`)
+      count += 1
+      if (count < 50) {
+        requestAnimationFrame(tick)
+      }
+    }
+
+    requestAnimationFrame(tick)
+  })
+}
+
+async function collectTransitionSamples(page: import('@playwright/test').Page) {
+  await page.waitForTimeout(900)
+  return page.evaluate(() => {
+    type BrowserTransitionSample = {
+      heading: string
+      label: string
+      stageNodes: Array<{
+        className: string
+        opacity: number
+      }>
+    }
+
+    const win = window as Window & { __transitionSamples?: BrowserTransitionSample[] }
+    return win.__transitionSamples ?? []
+  }) as Promise<TransitionSample[]>
+}
+
+function expectSingleEnterTransition(samples: TransitionSample[], heading: string) {
+  const firstEnterIndex = samples.findIndex((sample) => (
+    sample.heading === heading
+    && sample.stageNodes.some((node) => /route-fade(?:-slide)?-enter/.test(node.className))
+  ))
+  expect(firstEnterIndex).toBeGreaterThanOrEqual(0)
+
+  const firstEnter = samples[firstEnterIndex]!
+  const firstEnterNode = firstEnter.stageNodes.find((node) => /route-fade(?:-slide)?-enter/.test(node.className))
+  expect(firstEnter.stageNodes).toHaveLength(1)
+  expect(firstEnterNode).toBeDefined()
+  expect(firstEnterNode!.opacity).toBeLessThan(1)
+
+  const showedFullyVisibleBeforeEnter = samples
+    .slice(0, firstEnterIndex)
+    .some((sample) => sample.heading === heading && sample.stageNodes.some((node) => (
+      node.opacity >= 0.99 && !/route-fade(?:-slide)?-enter/.test(node.className)
+    )))
+
+  expect(showedFullyVisibleBeforeEnter).toBe(false)
 }
 
 test('setup flow reaches protected shell and shows websocket statuses', async ({ page, request }) => {
@@ -376,10 +508,22 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await expect(page.getByText('OneBot11 主动连接已就绪')).toBeVisible()
   await expect(page.locator('.transport-cards-grid')).toContainText('主动连接 WebSocket')
 
+  const reverseSettingsCard = page.locator('.protocol-settings-layout .protocol-config-card').filter({ hasText: '回连 WebSocket' })
+  const reverseStatusCard = page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })
   await page.getByLabel('回连地址').fill('wss://bot.example.com/reverse/onebot')
   await page.getByLabel('连接超时（秒）').fill('18')
   await page.getByRole('button', { name: '保存协议设置' }).click()
-  await expect(page.getByText('配置已保存，重启后生效')).toBeVisible()
+  await expect(page.getByText('配置已保存并已生效')).toBeVisible()
+  await expect(reverseStatusCard).toContainText('未启用')
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
+  await expect(page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })).toContainText('未启用')
+
+  await reverseSettingsCard.getByRole('switch', { name: '启用' }).click()
+  await page.getByRole('button', { name: '保存协议设置' }).click()
+  await expect(page.getByText('配置已保存并已生效')).toBeVisible()
+  await expect(page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })).toContainText('等待 OneBot 回连')
 
   await page.getByRole('button', { name: '查看协议日志' }).click()
   await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
@@ -438,6 +582,66 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await expect(page.locator('.logs-filter-toolbar').getByText('协议')).toHaveCount(0)
 })
 
+test('logs page filters both history and live log appends', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  await page.locator('.logs-filter-toolbar .ant-form-item').filter({ hasText: '来源' }).locator('input').fill('runtime')
+  await page.getByRole('button', { name: '应用筛选' }).click()
+
+  const logsTable = page.locator('.logs-data-table')
+  await expect(logsTable).toContainText('plugin runtime stderr truncated')
+  await expect(logsTable).not.toContainText('reverse websocket connection lost')
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_runtime_filtered_out_0001',
+        timestamp: '2026-04-08T10:28:00Z',
+        level: 'warn',
+        source: 'adapter.onebot11',
+        protocol: 'onebot11',
+        message: 'live adapter log filtered out',
+        request_id: 'req_adapter_filtered_out_0001',
+      },
+      detail: {
+        details: {
+          direction: 'inbound',
+          frame_type: 'socket.close',
+          reason: 'live adapter log filtered out',
+        },
+      },
+    },
+  })
+
+  await page.waitForTimeout(200)
+  await expect(logsTable).not.toContainText('live adapter log filtered out')
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_runtime_kept_0001',
+        timestamp: '2026-04-08T10:29:00Z',
+        level: 'error',
+        source: 'runtime',
+        message: 'live runtime log kept',
+        plugin_id: 'weather',
+        request_id: 'req_runtime_kept_0001',
+      },
+      detail: {
+        details: {
+          direction: 'internal',
+          reason: 'live runtime log kept',
+        },
+      },
+    },
+  })
+
+  await expect(logsTable).toContainText('live runtime log kept')
+})
+
 test('command center shows all declared commands and filters by plugin selection', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -455,6 +659,231 @@ test('command center shows all declared commands and filters by plugin selection
 
   await expect(page.locator('.commands-data-table')).toContainText('查询天气')
   await expect(page.locator('.commands-data-table')).not.toContainText('查看帮助菜单')
+})
+
+test('breadcrumb and tabbar track leaf pages instead of hidden route groups', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await expect(page.locator('.admin-layout__header-breadcrumb')).toHaveClass(/admin-layout__header-breadcrumb--single/)
+  await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-link')).toHaveCount(0)
+  await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-current')).toHaveText('系统状态')
+
+  await page.goto('/commands')
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expect(page.locator('.admin-layout__header-breadcrumb')).toHaveClass(/admin-layout__header-breadcrumb--multi/)
+  await expect(page.locator('.admin-layout__header-breadcrumb').getByRole('link', { name: '运维' })).toHaveAttribute('href', '/commands')
+  await expect(page.locator('.admin-layout__breadcrumb-current')).toHaveText('指令中心')
+  await expect(page.getByRole('tab', { name: '指令中心' })).toBeVisible()
+
+  let tabLabels = await readTabLabels(page)
+  expect(tabLabels).toEqual(['系统状态', '指令中心'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands'])
+  expect(await readActiveTabLabel(page)).toBe('指令中心')
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
+
+  await page.goto('/tasks')
+  await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
+  tabLabels = await readTabLabels(page)
+  expect(tabLabels).toEqual(['系统状态', '指令中心', '任务'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks'])
+  expect(await readActiveTabLabel(page)).toBe('任务')
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  tabLabels = await readTabLabels(page)
+  expect(tabLabels).toEqual(['系统状态', '指令中心', '任务', '日志'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs'])
+  expect(await readActiveTabLabel(page)).toBe('日志')
+  await expect(page.getByRole('tab', { name: '指令中心' })).toBeVisible()
+  await page.locator('.admin-layout__breadcrumb-item--ancestor .ant-breadcrumb-link').hover()
+
+  const breadcrumbMetrics = await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>('[data-testid="app-header"]')
+    const toggle = document.querySelector<HTMLElement>('.admin-layout__header-left .admin-layout__nav-trigger')
+    const toggleIcon = toggle?.querySelector<HTMLElement>('.anticon')
+    const breadcrumb = document.querySelector<HTMLElement>('.admin-layout__header-breadcrumb')
+    const account = document.querySelector<HTMLElement>('.admin-layout__account-button')
+    const ancestorOuter = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--ancestor > .ant-breadcrumb-link')
+    const link = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--ancestor .admin-layout__breadcrumb-link')
+    const linkText = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--ancestor .admin-layout__breadcrumb-link-text')
+    const currentOuter = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--current > .ant-breadcrumb-link')
+    const current = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--current .admin-layout__breadcrumb-current')
+    const currentText = document.querySelector<HTMLElement>('.admin-layout__breadcrumb-item--current .admin-layout__breadcrumb-current-text')
+    const separator = document.querySelector<HTMLElement>('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-separator')
+    const headerRect = header?.getBoundingClientRect()
+    const toggleRect = toggle?.getBoundingClientRect()
+    const breadcrumbRect = breadcrumb?.getBoundingClientRect()
+    const accountRect = account?.getBoundingClientRect()
+    const ancestorOuterRect = ancestorOuter?.getBoundingClientRect()
+    const linkRect = link?.getBoundingClientRect()
+    const linkTextRect = linkText?.getBoundingClientRect()
+    const currentOuterRect = currentOuter?.getBoundingClientRect()
+    const currentRect = current?.getBoundingClientRect()
+    const currentTextRect = currentText?.getBoundingClientRect()
+    const separatorRect = separator?.getBoundingClientRect()
+    const ancestorOuterStyles = ancestorOuter ? window.getComputedStyle(ancestorOuter) : null
+    const linkStyles = link ? window.getComputedStyle(link) : null
+    const currentOuterStyles = currentOuter ? window.getComputedStyle(currentOuter) : null
+    const currentStyles = current ? window.getComputedStyle(current) : null
+
+    return {
+      accountRightGap: headerRect && accountRect ? headerRect.right - accountRect.right : 0,
+      ancestorInnerFitsOuter: Boolean(
+        ancestorOuterRect
+        && linkRect
+        && linkRect.left >= ancestorOuterRect.left - 0.5
+        && linkRect.right <= ancestorOuterRect.right + 0.5
+        && linkRect.top >= ancestorOuterRect.top - 0.5
+        && linkRect.bottom <= ancestorOuterRect.bottom + 0.5,
+      ),
+      ancestorTextFitsOuter: Boolean(
+        ancestorOuterRect
+        && linkTextRect
+        && linkTextRect.left >= ancestorOuterRect.left - 0.5
+        && linkTextRect.right <= ancestorOuterRect.right + 0.5
+        && linkTextRect.top >= ancestorOuterRect.top - 0.5
+        && linkTextRect.bottom <= ancestorOuterRect.bottom + 0.5,
+      ),
+      ancestorOuterHeight: ancestorOuterRect?.height ?? 0,
+      ancestorOuterHoverHasVisibleBackground: ancestorOuterStyles
+        ? !['rgba(0, 0, 0, 0)', 'transparent'].includes(ancestorOuterStyles.backgroundColor)
+        : false,
+      ancestorOuterHoverHasVisibleBorder: ancestorOuterStyles
+        ? Number.parseFloat(ancestorOuterStyles.borderTopWidth) > 0
+          && !['rgba(0, 0, 0, 0)', 'transparent'].includes(ancestorOuterStyles.borderTopColor)
+        : false,
+      ancestorTextNotClipped: Boolean(
+        linkText
+        && linkText.scrollWidth <= linkText.clientWidth + 1,
+      ),
+      breadcrumbHeight: breadcrumbRect?.height ?? 0,
+      breadcrumbIsMulti: breadcrumb?.classList.contains('admin-layout__header-breadcrumb--multi') ?? false,
+      breadcrumbLeft: breadcrumbRect?.left ?? 0,
+      breadcrumbMid: breadcrumbRect ? breadcrumbRect.top + breadcrumbRect.height / 2 : 0,
+      currentOuterHeight: currentOuterRect?.height ?? 0,
+      currentMid: currentRect ? currentRect.top + currentRect.height / 2 : 0,
+      fontSize: link ? Number.parseFloat(window.getComputedStyle(link).fontSize) : 0,
+      headerLeftGap: headerRect && toggleRect ? toggleRect.left - headerRect.left : 0,
+      linkDisplay: linkStyles?.display ?? '',
+      linkPaddingLeft: linkStyles ? Number.parseFloat(linkStyles.paddingLeft) || 0 : 0,
+      linkPaddingRight: linkStyles ? Number.parseFloat(linkStyles.paddingRight) || 0 : 0,
+      linkMid: linkRect ? linkRect.top + linkRect.height / 2 : 0,
+      linkFontWeight: linkStyles ? Number.parseFloat(linkStyles.fontWeight) || 0 : 0,
+      currentDisplay: currentStyles?.display ?? '',
+      currentHasVisibleBackground: currentOuterStyles
+        ? !['rgba(0, 0, 0, 0)', 'transparent'].includes(currentOuterStyles.backgroundColor)
+        : false,
+      currentHasVisibleBorder: currentOuterStyles
+        ? Number.parseFloat(currentOuterStyles.borderTopWidth) > 0
+          && !['rgba(0, 0, 0, 0)', 'transparent'].includes(currentOuterStyles.borderTopColor)
+        : false,
+      currentFontWeight: currentStyles ? Number.parseFloat(currentStyles.fontWeight) || 0 : 0,
+      separatorMid: separatorRect ? separatorRect.top + separatorRect.height / 2 : 0,
+      standaloneRowExists: Boolean(document.querySelector('.admin-layout__breadcrumb-row')),
+      toggleIconCenterDeltaX: toggleRect && toggleIcon
+        ? Math.abs((toggleRect.left + toggleRect.width / 2) - (
+          toggleIcon.getBoundingClientRect().left + toggleIcon.getBoundingClientRect().width / 2
+        ))
+        : Number.POSITIVE_INFINITY,
+      toggleIconCenterDeltaY: toggleRect && toggleIcon
+        ? Math.abs((toggleRect.top + toggleRect.height / 2) - (
+          toggleIcon.getBoundingClientRect().top + toggleIcon.getBoundingClientRect().height / 2
+        ))
+        : Number.POSITIVE_INFINITY,
+      toggleMid: toggleRect ? toggleRect.top + toggleRect.height / 2 : 0,
+      toggleRight: toggleRect?.right ?? 0,
+    }
+  })
+
+  expect(breadcrumbMetrics.fontSize).toBeGreaterThanOrEqual(13)
+  expect(breadcrumbMetrics.breadcrumbHeight).toBeGreaterThanOrEqual(28)
+  expect(breadcrumbMetrics.breadcrumbIsMulti).toBe(true)
+  expect(breadcrumbMetrics.standaloneRowExists).toBe(false)
+  expect(breadcrumbMetrics.headerLeftGap).toBeGreaterThanOrEqual(8)
+  expect(breadcrumbMetrics.headerLeftGap).toBeLessThanOrEqual(12)
+  expect(breadcrumbMetrics.accountRightGap).toBeLessThanOrEqual(4)
+  expect(breadcrumbMetrics.breadcrumbLeft).toBeGreaterThan(breadcrumbMetrics.toggleRight)
+  expect(breadcrumbMetrics.breadcrumbLeft - breadcrumbMetrics.toggleRight).toBeLessThanOrEqual(12)
+  expect(breadcrumbMetrics.ancestorInnerFitsOuter).toBe(true)
+  expect(breadcrumbMetrics.ancestorTextFitsOuter).toBe(true)
+  expect(breadcrumbMetrics.ancestorTextNotClipped).toBe(true)
+  expect(breadcrumbMetrics.ancestorOuterHoverHasVisibleBackground).toBe(true)
+  expect(breadcrumbMetrics.ancestorOuterHoverHasVisibleBorder).toBe(true)
+  expect(breadcrumbMetrics.ancestorOuterHeight).toBeGreaterThan(0)
+  expect(Math.abs(breadcrumbMetrics.ancestorOuterHeight - breadcrumbMetrics.currentOuterHeight)).toBeLessThanOrEqual(1)
+  expect(breadcrumbMetrics.toggleIconCenterDeltaX).toBeLessThanOrEqual(1)
+  expect(breadcrumbMetrics.toggleIconCenterDeltaY).toBeLessThanOrEqual(1)
+  expect(Math.abs(breadcrumbMetrics.toggleMid - breadcrumbMetrics.breadcrumbMid)).toBeLessThanOrEqual(8)
+  expect(Math.abs(breadcrumbMetrics.linkMid - breadcrumbMetrics.separatorMid)).toBeLessThanOrEqual(4)
+  expect(Math.abs(breadcrumbMetrics.currentMid - breadcrumbMetrics.separatorMid)).toBeLessThanOrEqual(4)
+  expect(['flex', 'inline-flex']).toContain(breadcrumbMetrics.linkDisplay)
+  expect(breadcrumbMetrics.linkPaddingLeft).toBeGreaterThanOrEqual(6)
+  expect(breadcrumbMetrics.linkPaddingLeft).toBeLessThanOrEqual(8.5)
+  expect(breadcrumbMetrics.linkPaddingRight).toBeGreaterThanOrEqual(6)
+  expect(breadcrumbMetrics.linkPaddingRight).toBeLessThanOrEqual(8.5)
+  expect(['flex', 'inline-flex']).toContain(breadcrumbMetrics.currentDisplay)
+  expect(breadcrumbMetrics.currentHasVisibleBackground).toBe(true)
+  expect(breadcrumbMetrics.currentHasVisibleBorder).toBe(true)
+  expect(breadcrumbMetrics.currentFontWeight).toBeGreaterThanOrEqual(breadcrumbMetrics.linkFontWeight)
+
+  await page.goto('/protocols')
+  await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
+  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '日志', '协议中心'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols'])
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
+
+  await page.goto('/config')
+  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
+  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '日志', '协议中心', '配置'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols', 'config'])
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(1)
+  await expect(page.locator('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon')).toHaveCount(1)
+
+  await page.getByRole('tab', { name: '指令中心' }).click()
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/\/commands$/)
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '日志', '协议中心', '配置'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols', 'config'])
+
+  await page.goto('/plugins/weather')
+  await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
+  expect(await readActiveTabLabel(page)).toBe('weather')
+  expect(await readTabLabels(page)).toContain('weather')
+  expect(await readTabIconKeys(page)).toContain('appstore')
+})
+
+test('nested admin pages animate only once when entering grouped routes', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await startTransitionSampling(page)
+  await navigateThroughMenu(page, '协议中心', '协议')
+  await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '协议中心')
+
+  await startTransitionSampling(page)
+  await navigateThroughMenu(page, '插件')
+  await expect(page.getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '插件')
+
+  await startTransitionSampling(page)
+  await navigateThroughMenu(page, '协议日志', '协议')
+  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '协议日志')
+
+  await startTransitionSampling(page)
+  await navigateThroughMenu(page, '指令中心', '运维')
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '指令中心')
+
+  await startTransitionSampling(page)
+  await navigateThroughMenu(page, '系统状态')
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '系统状态')
 })
 
 test('light theme uses a light sider and keeps the header clean', async ({ page, request }) => {
@@ -478,7 +907,7 @@ test('light theme uses a light sider and keeps the header clean', async ({ page,
     }
   })
 
-  expect(shellMetrics.headerHeight).toBeLessThanOrEqual(90)
+  expect(shellMetrics.headerHeight).toBeLessThanOrEqual(120)
   expect(shellMetrics.siderWidth).toBeGreaterThanOrEqual(220)
   expect(shellMetrics.siderWidth).toBeLessThanOrEqual(228)
 
@@ -542,6 +971,27 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await page.setViewportSize({ width: 390, height: 844 })
 
   await login(page)
+
+  const headerMetrics = await page.evaluate(() => {
+    const breadcrumb = document.querySelector<HTMLElement>('.admin-layout__header-breadcrumb')
+    const headerLeft = document.querySelector<HTMLElement>('.admin-layout__header-left')
+    const headerRight = document.querySelector<HTMLElement>('.admin-layout__header-right')
+    const tabbarMain = document.querySelector<HTMLElement>('.admin-layout__tabbar-main')
+    const headerLeftRect = headerLeft?.getBoundingClientRect()
+    const headerRightRect = headerRight?.getBoundingClientRect()
+    const tabbarRect = tabbarMain?.getBoundingClientRect()
+
+    return {
+      breadcrumbWidth: breadcrumb?.getBoundingClientRect().width ?? 0,
+      leftTop: headerLeftRect?.top ?? 0,
+      rightTop: headerRightRect?.top ?? 0,
+      tabbarHeight: tabbarRect?.height ?? 0,
+    }
+  })
+
+  expect(headerMetrics.breadcrumbWidth).toBeGreaterThan(0)
+  expect(Math.abs(headerMetrics.leftTop - headerMetrics.rightTop)).toBeLessThanOrEqual(8)
+  expect(headerMetrics.tabbarHeight).toBeLessThanOrEqual(44)
 
   await page.locator('.admin-layout__icon-button.mobile-only').first().click()
   await page.locator('.ant-drawer-content').getByRole('menuitem', { name: '插件' }).click()

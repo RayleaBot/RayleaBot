@@ -156,6 +156,11 @@ async function save() {
   }
 
   const response = await configStore.saveConfig(draft.value)
+  try {
+    await protocolsStore.refresh()
+  } catch {
+    // store error state drives the page
+  }
   notifySuccess(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
 }
 </script>

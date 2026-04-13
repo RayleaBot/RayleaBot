@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
@@ -92,6 +92,8 @@ const workspaceStyle = computed(() => (
     : undefined
 ))
 const desktopWorkspaceBottomGap = 12
+const skipNextActivation = ref(false)
+const initialHistoryLoaded = ref(false)
 let layoutObserver: ResizeObserver | null = null
 
 watch(
@@ -108,6 +110,7 @@ watch(
 async function loadPage() {
   try {
     await protocolLogsStore.fetchList()
+    initialHistoryLoaded.value = true
     updateWorkspaceHeight()
     await scrollTerminalToBottom('auto')
   } catch {
@@ -115,11 +118,35 @@ async function loadPage() {
   }
 }
 
-onMounted(() => {
+async function activatePage() {
   protocolLogsStore.activate()
   startLayoutObserver()
-  void loadPage()
   updateWorkspaceHeight()
+  if (!initialHistoryLoaded.value || items.value.length === 0) {
+    await loadPage()
+    return
+  }
+
+  await scrollTerminalToBottom('auto')
+}
+
+onMounted(() => {
+  skipNextActivation.value = true
+  void activatePage()
+})
+
+onActivated(() => {
+  if (skipNextActivation.value) {
+    skipNextActivation.value = false
+    return
+  }
+
+  void activatePage()
+})
+
+onDeactivated(() => {
+  protocolLogsStore.deactivate()
+  stopLayoutObserver()
 })
 
 onUnmounted(() => {
