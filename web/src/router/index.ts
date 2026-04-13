@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type Router, type RouterHistory, type RouteRecordRaw } from 'vue-router'
 
 import { useSessionStore } from '@/stores/session'
+import { useUiShellStore } from '@/stores/ui-shell'
 import { publicRoutes } from '@/router/routes/core'
 import { adminRoutes } from '@/router/routes/modules/admin'
 
@@ -8,6 +9,8 @@ declare module 'vue-router' {
   interface RouteMeta {
     activePath?: string
     affixTab?: boolean
+    affixTabOrder?: number
+    hideInBreadcrumb?: boolean
     hideInMenu?: boolean
     hideInTab?: boolean
     icon?: string
@@ -29,8 +32,20 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
 }
 
 function installRouteGuards(router: Router) {
+  let loadingTimer: number | null = null
+
   router.beforeEach(async (to) => {
     const sessionStore = useSessionStore()
+    const uiShellStore = useUiShellStore()
+
+    if (typeof window !== 'undefined' && loadingTimer) {
+      window.clearTimeout(loadingTimer)
+      loadingTimer = null
+    }
+
+    if (to.fullPath !== router.currentRoute.value.fullPath && uiShellStore.preferences.pageLoading) {
+      uiShellStore.setRouteLoading(true)
+    }
 
     if (!sessionStore.isBootstrapped) {
       try {
@@ -59,5 +74,24 @@ function installRouteGuards(router: Router) {
     }
 
     return true
+  })
+
+  router.afterEach(() => {
+    const uiShellStore = useUiShellStore()
+
+    if (!uiShellStore.preferences.pageLoading) {
+      uiShellStore.setRouteLoading(false)
+      return
+    }
+
+    if (typeof window === 'undefined') {
+      uiShellStore.setRouteLoading(false)
+      return
+    }
+
+    loadingTimer = window.setTimeout(() => {
+      uiShellStore.setRouteLoading(false)
+      loadingTimer = null
+    }, 160)
   })
 }

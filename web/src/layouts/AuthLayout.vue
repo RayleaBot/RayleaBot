@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { BulbOutlined, TranslationOutlined } from '@ant-design/icons-vue'
 
-import { notifyInfo } from '@/adapter/feedback'
 import { t } from '@/i18n'
 import { useUiShellStore } from '@/stores/ui-shell'
 
@@ -10,29 +9,28 @@ const uiShellStore = useUiShellStore()
 const themeToggleLabel = computed(() => (
   uiShellStore.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
 ))
-
-function notifyFeaturePending(feature: string) {
-  notifyInfo(t('shell.featurePending', { feature }))
-}
 </script>
 
 <template>
   <div class="auth-layout">
     <section class="auth-layout__hero">
       <div class="auth-layout__toolbar">
-        <a-tooltip :title="t('shell.language')">
+        <a-popover placement="bottom" trigger="click">
+          <template #content>
+            <div class="auth-layout__pending-panel">{{ t('shell.languagePending') }}</div>
+          </template>
+
           <a-button
             class="auth-layout__toolbar-button"
             type="text"
             :aria-label="t('shell.language')"
             data-testid="auth-language"
-            @click="notifyFeaturePending(t('shell.language'))"
           >
             <template #icon>
               <TranslationOutlined />
             </template>
           </a-button>
-        </a-tooltip>
+        </a-popover>
         <a-tooltip :title="themeToggleLabel">
           <a-button
             class="auth-layout__toolbar-button"
@@ -62,7 +60,7 @@ function notifyFeaturePending(feature: string) {
           <p>{{ t('auth.heroBody') }}</p>
         </div>
 
-        <div class="auth-layout__feature-list">
+        <div class="auth-layout__highlights">
           <span>{{ t('auth.heroFeatureStatus') }}</span>
           <span>{{ t('auth.heroFeaturePlugins') }}</span>
           <span>{{ t('auth.heroFeatureProtocols') }}</span>

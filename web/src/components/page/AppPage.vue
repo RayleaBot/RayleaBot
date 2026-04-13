@@ -1,4 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
+import { useUiShellStore } from '@/stores/ui-shell'
+
+const uiShellStore = useUiShellStore()
+
+const pageClasses = computed(() => ({
+  'app-page--fixed-width': uiShellStore.preferences.contentWidth === 'fixed',
+}))
+
 defineProps<{
   description?: string
   fullHeight?: boolean
@@ -7,7 +17,7 @@ defineProps<{
 </script>
 
 <template>
-  <div :class="['app-page', { 'app-page--full-height': fullHeight }]">
+  <div :class="['app-page', pageClasses, { 'app-page--full-height': fullHeight }]">
     <header class="app-page__header">
       <div class="app-page__heading">
         <h1>{{ title }}</h1>

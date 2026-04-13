@@ -1,4 +1,4 @@
-import type { RouteLocationMatched, RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 
 import { t } from '@/i18n'
 
@@ -18,6 +18,13 @@ declare module 'vue-router' {
 
 export interface AppMenuItem {
   children?: AppMenuItem[]
+  icon?: string
+  key: string
+  path: string
+  title: string
+}
+
+export interface AppNavigationItem {
   icon?: string
   key: string
   path: string
@@ -71,25 +78,20 @@ export function buildMenuItems(routes: RouteRecordRaw[], parentPath = ''): AppMe
     .map(({ order: _order, ...route }) => route)
 }
 
-export function getMatchedBreadcrumbs(matched: RouteLocationMatched[]) {
-  const seen = new Set<string>()
+export function collectNavigationItems(routes: RouteRecordRaw[], parentPath = ''): AppNavigationItem[] {
+  return routes.flatMap((route) => {
+    const path = joinRoutePath(parentPath, route.path)
+    const title = resolveRouteTitle(route.meta)
+    const children = route.children ? collectNavigationItems(route.children, path) : []
+    const current = title && !route.meta?.hideInMenu
+      ? [{
+        icon: route.meta?.icon,
+        key: String(route.name ?? `nav:${path}:${title}`),
+        path,
+        title,
+      }]
+      : []
 
-  return matched
-    .map((record) => ({
-      path: record.path,
-      title: resolveRouteTitle(record.meta),
-    }))
-    .filter((item) => {
-      if (!item.title) {
-        return false
-      }
-
-      const key = `${item.path}:${item.title}`
-      if (seen.has(key)) {
-        return false
-      }
-
-      seen.add(key)
-      return true
-    })
+    return [...current, ...children]
+  })
 }

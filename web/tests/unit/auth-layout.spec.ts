@@ -47,7 +47,7 @@ describe('AuthLayout', () => {
     expect(wrapper.find('.auth-layout__panel').exists()).toBe(true)
     expect(wrapper.get('[data-testid="auth-language"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="auth-theme-toggle"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('统一管理机器人、插件与协议')
+    expect(wrapper.text()).toContain('统一管理机器人与连接能力')
     expect(wrapper.text()).toContain('登录')
 
     await wrapper.get('[data-testid="auth-theme-toggle"]').trigger('click')
