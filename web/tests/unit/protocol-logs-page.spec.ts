@@ -121,20 +121,18 @@ describe('ProtocolLogsPage', () => {
         post_type: 'message_sent',
         message_type: 'group',
         event_timestamp: 1729679125,
-        time: 1729679125,
         conversation_type: 'group',
         conversation_id: '860105388',
-        group_id: '860105388',
-        sender_id: '721011692',
-        sender_nickname: '--',
-        sender_role: 'owner',
         message_id: '966671988',
-        real_id: '966671988',
-        message_seq: '966671988',
         raw_message: '您好',
         message_format: 'array',
         font: 14,
         plain_text: '您好',
+        sender: {
+          user_id: '721011692',
+          nickname: '--',
+          role: 'owner',
+        },
       },
     }
 
@@ -153,10 +151,18 @@ describe('ProtocolLogsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('会话 ID（群号或私聊对象）')
-    expect(wrapper.text()).toContain('群号')
     expect(wrapper.text()).toContain('发送者昵称')
+    expect(wrapper.text()).toContain('发送者 ID')
     expect(wrapper.text()).toContain('消息 ID')
     expect(wrapper.text()).toContain('您好')
+    expect(wrapper.findAll('.field-label').some((node) => node.text() === '群号')).toBe(false)
+    const detailJson = wrapper.find('.json-content').text()
+    expect(detailJson).toContain('"sender"')
+    expect(detailJson).not.toContain('sender_id')
+    expect(detailJson).not.toContain('sender_nickname')
+    expect(detailJson).not.toContain('"group_id"')
+    expect(detailJson).not.toContain('"time"')
+    expect(detailJson).not.toContain('"message_seq"')
   })
 
   it('renders outbound delivery detail fields with clear labels', async () => {

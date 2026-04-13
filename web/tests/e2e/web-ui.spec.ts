@@ -400,12 +400,18 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
         message: 'ignored OneBot API response with unsupported echo',
         request_id: 'req_adapter_ignored_0002',
       },
-      details: {
+      detail: {
         details: {
           direction: 'inbound',
           frame_type: 'api.response.ignored',
+          sender: {
+            user_id: '3001',
+            nickname: 'Alice',
+            role: 'admin',
+          },
           reason: 'api response echo must be a non-empty string',
           echo_value_type: 'number',
+          plain_text: 'hello bridge',
           payload_preview: {
             echo: 123,
             status: 'ok',
@@ -418,8 +424,13 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   const liveLine = terminal.locator('.terminal-line').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).last()
   await expect(liveLine).toBeVisible()
   await liveLine.click({ force: true })
-  await expect(page.getByText('api.response.ignored')).toBeVisible()
+  await expect(page.locator('.detail-fields-grid').getByText('api.response.ignored', { exact: true })).toBeVisible()
+  await expect(page.getByText('发送者昵称')).toBeVisible()
+  await expect(page.locator('.detail-fields-grid').getByText('Alice', { exact: true })).toBeVisible()
   await expect(page.locator('.json-content')).toContainText('"echo": 123')
+  await expect(page.locator('.json-content')).toContainText('"sender"')
+  await expect(page.locator('.json-content')).not.toContainText('sender_id')
+  await expect(page.locator('.json-content')).not.toContainText('sender_nickname')
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()

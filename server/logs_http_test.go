@@ -604,6 +604,7 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 			"event_type":      "message.group",
 			"conversation_id": "860105388",
 			"group_id":        "860105388",
+			"sender_id":       "3001",
 			"sender_nickname": "Alice",
 			"plain_text":      "装修臭头大",
 		},
@@ -637,6 +638,19 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 	}
 	if details["plain_text"] != "装修臭头大" {
 		t.Fatalf("unexpected fallback details: %#v", details)
+	}
+	if _, ok := details["group_id"]; ok {
+		t.Fatalf("group_id should be omitted from compacted fallback detail: %#v", details)
+	}
+	if _, ok := details["sender_nickname"]; ok {
+		t.Fatalf("sender_nickname should be omitted from compacted fallback detail: %#v", details)
+	}
+	sender, ok := details["sender"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected compacted sender map, got %#v", details["sender"])
+	}
+	if sender["user_id"] != "3001" || sender["nickname"] != "Alice" {
+		t.Fatalf("unexpected compacted sender details: %#v", sender)
 	}
 }
 

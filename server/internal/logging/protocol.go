@@ -12,7 +12,6 @@ func NormalizeSummary(summary Summary) Summary {
 	summary.PluginID = strings.TrimSpace(summary.PluginID)
 	summary.RequestID = strings.TrimSpace(summary.RequestID)
 	summary.Protocol = strings.TrimSpace(summary.Protocol)
-	summary.Details = sanitizeDetailsMap(cloneDetailsMap(summary.Details))
 
 	if summary.LogID == "" {
 		summary.LogID = generateLogID()
@@ -24,6 +23,7 @@ func NormalizeSummary(summary Summary) Summary {
 	if summary.Protocol == "" {
 		summary.Protocol = protocolFromSource(summary.Source)
 	}
+	summary.Details = normalizeProtocolDetails(summary.Protocol, summary.Details)
 
 	return summary
 }

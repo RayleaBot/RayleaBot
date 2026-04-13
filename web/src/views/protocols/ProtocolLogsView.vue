@@ -73,11 +73,11 @@ const selectedSummary = computed(() => currentDetail.value ?? selectedItem.value
 const detailEntries = computed(() => {
   const details = toDetailRecord(currentDetail.value?.details)
   return protocolDetailFieldKeys.flatMap((key) => (
-    key in details
+    hasDetailFieldValue(resolveDetailFieldValue(key, details))
       ? [{
         key,
         label: t(`protocols.detailFields.${key}`),
-        value: formatDetailValue(key, details[key]),
+        value: formatDetailValue(key, resolveDetailFieldValue(key, details)),
       }]
       : []
   ))
@@ -290,6 +290,31 @@ function toDetailRecord(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>
+}
+
+function resolveDetailFieldValue(key: ProtocolDetailFieldKey, details: Record<string, unknown>) {
+  switch (key) {
+    case 'sender_id':
+      return getSenderDetailValue(details, 'user_id')
+    case 'sender_nickname':
+      return getSenderDetailValue(details, 'nickname')
+    case 'sender_card':
+      return getSenderDetailValue(details, 'card')
+    case 'sender_role':
+      return getSenderDetailValue(details, 'role')
+    case 'sender_title':
+      return getSenderDetailValue(details, 'title')
+    default:
+      return details[key]
+  }
+}
+
+function getSenderDetailValue(details: Record<string, unknown>, key: string) {
+  return toDetailRecord(details.sender)[key]
+}
+
+function hasDetailFieldValue(value: unknown) {
+  return value !== null && value !== undefined && value !== ''
 }
 
 function safeJsonStringify(value: unknown) {

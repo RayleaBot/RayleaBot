@@ -718,6 +718,7 @@ export interface components {
             items: components["schemas"]["LogSummary"][];
         };
         LogDetailResponse: components["schemas"]["LogSummary"] & {
+            /** @description Redacted structured detail payload. OneBot11 log details keep the canonical structured form and may omit protocol-native mirror fields when the value can be derived directly from retained fields such as sender, event_timestamp, conversation_id, or message_id. */
             details: {
                 [key: string]: unknown;
             };

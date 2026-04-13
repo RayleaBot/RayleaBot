@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -158,6 +159,55 @@ func TestSQLiteRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
 	}
 	if _, ok := item.Details["token"]; ok {
 		t.Fatalf("sensitive detail key should be removed: %#v", item.Details)
+	}
+}
+
+func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+		LogID:   "log_detail_0002",
+		Ts:      "2026-03-20T10:00:01Z",
+		Level:   "info",
+		Source:  "bridge",
+		Message: "runtime bridge delivered adapter event",
+		DetailsJson: `{
+			"event_timestamp":1711015202,
+			"time":1711015202,
+			"conversation_id":"2001",
+			"group_id":"2001",
+			"message_id":"1001",
+			"real_id":"1001",
+			"message_seq":"1001",
+			"sender_id":"3001",
+			"sender_nickname":"Alice",
+			"sender_role":"admin",
+			"sender":{"user_id":"3001"}
+		}`,
+	}); err != nil {
+		t.Fatalf("insert raw detail summary: %v", err)
+	}
+
+	item, err := repository.GetSummary(ctx, "log_detail_0002")
+	if err != nil {
+		t.Fatalf("get detail summary: %v", err)
+	}
+
+	for _, key := range []string{"time", "group_id", "real_id", "message_seq", "sender_id", "sender_nickname", "sender_role"} {
+		if _, ok := item.Details[key]; ok {
+			t.Fatalf("detail key %q should be omitted: %#v", key, item.Details)
+		}
+	}
+
+	sender, ok := item.Details["sender"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected sender map, got %#v", item.Details["sender"])
+	}
+	if sender["user_id"] != "3001" || sender["nickname"] != "Alice" || sender["role"] != "admin" {
+		t.Fatalf("unexpected sender details: %#v", sender)
 	}
 }
 
