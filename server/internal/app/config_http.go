@@ -41,13 +41,14 @@ func (h *configHTTPHandlers) handleConfigPut() http.HandlerFunc {
 		}
 
 		resolved := resolveRedactedConfigValues(request, h.state.Config)
-		newCfg, _, err := internalconfig.SaveDocument(h.state.Summary.ConfigPath, h.state.Summary.SchemaPath, resolved)
+		newCfg, newSummary, err := internalconfig.SaveDocument(h.state.Summary.ConfigPath, h.state.Summary.SchemaPath, resolved)
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", nil)
 			return
 		}
 
 		restartRequired := h.applyHotReloadableFields(newCfg)
+		h.state.Summary = newSummary
 
 		document, redactedFields := sanitizeConfigDocument(resolved)
 		writeAuthJSON(w, http.StatusOK, configUpdateResponse{
@@ -64,6 +65,7 @@ func (h *configHTTPHandlers) handleConfigPut() http.HandlerFunc {
 func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Config) bool {
 	oldCfg := h.state.Config
 	restartRequired := false
+	oneBotHotChanged := oneBotHotReloadChanged(oldCfg, newCfg)
 
 	// logging.level — immediate effect via LevelController.
 	if newCfg.Logging.Level != oldCfg.Logging.Level {
@@ -102,20 +104,6 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 		newCfg.Database.Path != oldCfg.Database.Path {
 		restartRequired = true
 	}
-	if newCfg.OneBot.WSURL != oldCfg.OneBot.WSURL ||
-		newCfg.OneBot.Provider != oldCfg.OneBot.Provider ||
-		newCfg.OneBot.AccessToken != oldCfg.OneBot.AccessToken ||
-		newCfg.OneBot.ReverseWS != oldCfg.OneBot.ReverseWS ||
-		newCfg.OneBot.ForwardWS != oldCfg.OneBot.ForwardWS ||
-		newCfg.OneBot.HTTPAPI != oldCfg.OneBot.HTTPAPI ||
-		newCfg.OneBot.Webhook != oldCfg.OneBot.Webhook ||
-		newCfg.OneBot.ConnectTimeoutSeconds != oldCfg.OneBot.ConnectTimeoutSeconds ||
-		newCfg.OneBot.ReconnectInitialSeconds != oldCfg.OneBot.ReconnectInitialSeconds ||
-		newCfg.OneBot.ReconnectMultiplier != oldCfg.OneBot.ReconnectMultiplier ||
-		newCfg.OneBot.ReconnectMaxSeconds != oldCfg.OneBot.ReconnectMaxSeconds ||
-		newCfg.OneBot.ReconnectJitterRatio != oldCfg.OneBot.ReconnectJitterRatio {
-		restartRequired = true
-	}
 	if newCfg.Auth.SessionTTLDays != oldCfg.Auth.SessionTTLDays ||
 		newCfg.Auth.SlidingRenewal != oldCfg.Auth.SlidingRenewal ||
 		newCfg.Auth.MaxSessions != oldCfg.Auth.MaxSessions {
@@ -135,6 +123,15 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 	h.state.Config = newCfg
 	if h.eventIngress != nil {
 		h.eventIngress.UpdateConfig(newCfg)
+	}
+	if oneBotHotChanged && h.protocol != nil && h.protocol.adapter != nil {
+		if err := h.protocol.adapter.Reload(newCfg.OneBot); err != nil {
+			restartRequired = true
+			h.state.Logger.Warn("adapter shell hot reload failed",
+				"component", "config",
+				"err", err.Error(),
+			)
+		}
 	}
 	if h.protocol != nil {
 		h.protocol.PublishSnapshot()
@@ -185,4 +182,18 @@ func resolveRedactedConfigValues(document map[string]any, current internalconfig
 	}
 
 	return cloned
+}
+
+func oneBotHotReloadChanged(oldCfg internalconfig.Config, newCfg internalconfig.Config) bool {
+	return newCfg.OneBot.Provider != oldCfg.OneBot.Provider ||
+		newCfg.OneBot.AccessToken != oldCfg.OneBot.AccessToken ||
+		newCfg.OneBot.ReverseWS != oldCfg.OneBot.ReverseWS ||
+		newCfg.OneBot.ForwardWS != oldCfg.OneBot.ForwardWS ||
+		newCfg.OneBot.HTTPAPI != oldCfg.OneBot.HTTPAPI ||
+		newCfg.OneBot.Webhook != oldCfg.OneBot.Webhook ||
+		newCfg.Adapter.ConnectTimeoutSeconds != oldCfg.Adapter.ConnectTimeoutSeconds ||
+		newCfg.Adapter.ReconnectInitialSeconds != oldCfg.Adapter.ReconnectInitialSeconds ||
+		newCfg.Adapter.ReconnectMultiplier != oldCfg.Adapter.ReconnectMultiplier ||
+		newCfg.Adapter.ReconnectMaxSeconds != oldCfg.Adapter.ReconnectMaxSeconds ||
+		newCfg.Adapter.ReconnectJitterRatio != oldCfg.Adapter.ReconnectJitterRatio
 }

@@ -20,29 +20,33 @@ func newTransportSnapshot(cfg config.OneBotConfig) Snapshot {
 	if forwardURL == "" {
 		forwardURL = strings.TrimSpace(cfg.WSURL)
 	}
+	forwardEnabled := cfg.ForwardWS.Enabled
+	if strings.TrimSpace(cfg.ForwardWS.URL) == "" && strings.TrimSpace(cfg.WSURL) != "" {
+		forwardEnabled = true
+	}
 
 	snapshot := Snapshot{
 		State: StateIdle,
 		ForwardWS: TransportSnapshot{
-			Enabled:    cfg.ForwardWS.Enabled || forwardURL != "",
+			Enabled:    forwardEnabled,
 			Configured: forwardURL != "",
 			Endpoint:   sanitizeWSURL(forwardURL),
 			State:      TransportStateIdle,
 		},
 		ReverseWS: TransportSnapshot{
-			Enabled:    cfg.ReverseWS.Enabled || strings.TrimSpace(cfg.ReverseWS.URL) != "",
+			Enabled:    cfg.ReverseWS.Enabled,
 			Configured: strings.TrimSpace(cfg.ReverseWS.URL) != "",
 			Endpoint:   sanitizeWSURL(cfg.ReverseWS.URL),
 			State:      TransportStateIdle,
 		},
 		HTTPAPI: TransportSnapshot{
-			Enabled:    cfg.HTTPAPI.Enabled || strings.TrimSpace(cfg.HTTPAPI.URL) != "",
+			Enabled:    cfg.HTTPAPI.Enabled,
 			Configured: strings.TrimSpace(cfg.HTTPAPI.URL) != "",
 			Endpoint:   sanitizeHTTPURL(cfg.HTTPAPI.URL),
 			State:      TransportStateIdle,
 		},
 		Webhook: TransportSnapshot{
-			Enabled:    cfg.Webhook.Enabled || strings.TrimSpace(cfg.Webhook.URL) != "",
+			Enabled:    cfg.Webhook.Enabled,
 			Configured: strings.TrimSpace(cfg.Webhook.URL) != "",
 			Endpoint:   sanitizeHTTPURL(cfg.Webhook.URL),
 			State:      TransportStateIdle,
@@ -302,8 +306,9 @@ func (s *Shell) currentWSConn() (*websocket.Conn, TransportKey, Snapshot) {
 }
 
 func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (apiResponse, error) {
+	snapshot := s.Snapshot()
 	endpoint := strings.TrimSpace(s.cfg.HTTPAPI.URL)
-	if endpoint == "" || !s.cfg.HTTPAPI.Enabled {
+	if endpoint == "" || !snapshot.HTTPAPI.Enabled || !snapshot.HTTPAPI.Configured {
 		return apiResponse{}, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
 	}
 
@@ -334,11 +339,11 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (a
 	}
 
 	var decoded struct {
-		Status  any `json:"status"`
-		RetCode int `json:"retcode"`
+		Status  any    `json:"status"`
+		RetCode int    `json:"retcode"`
 		Wording string `json:"wording"`
-		Data    any `json:"data"`
-		Echo    any `json:"echo"`
+		Data    any    `json:"data"`
+		Echo    any    `json:"echo"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIInvalidResponse, err)
@@ -350,7 +355,7 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (a
 	s.snapshot.HTTPAPI.LastErrorCode = ""
 	s.snapshot.HTTPAPI.LastErrorMessage = ""
 	s.refreshAggregateStateLocked()
-	snapshot := cloneSnapshot(s.snapshot)
+	snapshot = cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()
 	s.emitStateSnapshot(handler, snapshot)

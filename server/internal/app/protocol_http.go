@@ -73,6 +73,10 @@ func (h *protocolHTTPHandlers) handleProtocolOneBot11ReverseWS() http.HandlerFun
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口不可用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
 			return
 		}
+		if !h.protocol.transportIngressEnabled(adapter.TransportReverseWS) {
+			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口未启用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
+			return
+		}
 		if strings.TrimSpace(h.protocol.state.Config.OneBot.AccessToken) == "" {
 			h.protocol.state.Logger.Warn("onebot reverse websocket ingress accepted without access token", "component", "adapter", "transport", "reverse_ws")
 		}
@@ -94,6 +98,10 @@ func (h *protocolHTTPHandlers) handleProtocolOneBot11Webhook() http.HandlerFunc 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.protocol.adapter == nil {
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 不可用", "errors.adapter.transport_webhook_invalid_payload", nil)
+			return
+		}
+		if !h.protocol.transportIngressEnabled(adapter.TransportWebhook) {
+			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 入口未启用", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
 		if strings.TrimSpace(h.protocol.state.Config.OneBot.AccessToken) == "" {
@@ -182,6 +190,22 @@ func (s *protocolService) protocolSnapshotEvent() managementEventFrame {
 
 func (s *protocolService) PublishSnapshot() {
 	s.publishProtocolEvent(s.protocolSnapshotEvent())
+}
+
+func (s *protocolService) transportIngressEnabled(transport adapter.TransportKey) bool {
+	if s == nil || s.adapter == nil {
+		return false
+	}
+
+	snapshot := s.adapter.Snapshot()
+	switch transport {
+	case adapter.TransportReverseWS:
+		return snapshot.ReverseWS.Enabled && snapshot.ReverseWS.Configured
+	case adapter.TransportWebhook:
+		return snapshot.Webhook.Enabled && snapshot.Webhook.Configured
+	default:
+		return false
+	}
 }
 
 func (s *protocolService) publishProtocolEvent(frame managementEventFrame) {

@@ -18,20 +18,20 @@ import (
 )
 
 const (
-	errorCodeAuthFailed              = "adapter.auth_failed"
-	errorCodeConnectionFail          = "adapter.connection_failed"
-	errorCodeConnectionLost          = "adapter.connection_lost"
-	errorCodeForwardWSConnectFail    = "adapter.transport_forward_ws_connection_failed"
-	errorCodeForwardWSSessionLost    = "adapter.transport_forward_ws_session_lost"
-	errorCodeReverseWSAuthFailed     = "adapter.transport_reverse_ws_auth_failed"
-	errorCodeHTTPAPIRequestFailed    = "adapter.transport_http_api_request_failed"
-	errorCodeHTTPAPIAuthFailed       = "adapter.transport_http_api_auth_failed"
-	errorCodeHTTPAPIInvalidResponse  = "adapter.transport_http_api_invalid_response"
-	errorCodeWebhookAuthFailed       = "adapter.transport_webhook_auth_failed"
-	errorCodeWebhookInvalidPayload   = "adapter.transport_webhook_invalid_payload"
-	errorCodeWebhookDuplicateEvent   = "adapter.transport_webhook_duplicate_event"
-	defaultConnectedReadTimeout      = 2 * time.Minute
-	recentEventDedupRetention        = 2 * time.Minute
+	errorCodeAuthFailed             = "adapter.auth_failed"
+	errorCodeConnectionFail         = "adapter.connection_failed"
+	errorCodeConnectionLost         = "adapter.connection_lost"
+	errorCodeForwardWSConnectFail   = "adapter.transport_forward_ws_connection_failed"
+	errorCodeForwardWSSessionLost   = "adapter.transport_forward_ws_session_lost"
+	errorCodeReverseWSAuthFailed    = "adapter.transport_reverse_ws_auth_failed"
+	errorCodeHTTPAPIRequestFailed   = "adapter.transport_http_api_request_failed"
+	errorCodeHTTPAPIAuthFailed      = "adapter.transport_http_api_auth_failed"
+	errorCodeHTTPAPIInvalidResponse = "adapter.transport_http_api_invalid_response"
+	errorCodeWebhookAuthFailed      = "adapter.transport_webhook_auth_failed"
+	errorCodeWebhookInvalidPayload  = "adapter.transport_webhook_invalid_payload"
+	errorCodeWebhookDuplicateEvent  = "adapter.transport_webhook_duplicate_event"
+	defaultConnectedReadTimeout     = 2 * time.Minute
+	recentEventDedupRetention       = 2 * time.Minute
 )
 
 type dialFunc func(context.Context, string, *websocket.DialOptions) (*websocket.Conn, *http.Response, error)
@@ -58,6 +58,7 @@ type Shell struct {
 	cancel           context.CancelFunc
 	done             chan struct{}
 	started          bool
+	supervisorCtx    context.Context
 	eventHandler     func(context.Context, NormalizedEvent)
 	readyHandler     func(context.Context)
 	stateHandler     func(Snapshot)
@@ -99,9 +100,9 @@ func newShell(cfg config.OneBotConfig, logger *slog.Logger, deps shellDeps) *She
 	}
 
 	return &Shell{
-		cfg:    cfg,
-		logger: logger,
-		deps:   deps,
+		cfg:              cfg,
+		logger:           logger,
+		deps:             deps,
 		snapshot:         newTransportSnapshot(cfg),
 		eventQueue:       make(chan NormalizedEvent, 16),
 		pendingResponses: make(map[string]chan apiResponse),
@@ -123,6 +124,7 @@ func (s *Shell) Start(ctx context.Context) {
 	s.cancel = cancel
 	s.done = make(chan struct{})
 	s.started = true
+	s.supervisorCtx = ctx
 	s.mu.Unlock()
 
 	s.logger.Info(
@@ -184,6 +186,40 @@ func (s *Shell) Stop(ctx context.Context) error {
 	}
 }
 
+func (s *Shell) Reload(nextCfg config.OneBotConfig) error {
+	if s == nil {
+		return nil
+	}
+
+	s.mu.RLock()
+	started := s.started
+	supervisorCtx := s.supervisorCtx
+	previousCfg := s.cfg
+	s.mu.RUnlock()
+
+	if started {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.Stop(stopCtx); err != nil && !errors.Is(err, context.Canceled) {
+			return err
+		}
+	}
+
+	s.applyConfig(nextCfg, previousCfg)
+	if !started {
+		return nil
+	}
+	if supervisorCtx == nil {
+		supervisorCtx = context.Background()
+	}
+	if err := supervisorCtx.Err(); err != nil {
+		return err
+	}
+
+	s.Start(supervisorCtx)
+	return nil
+}
+
 func (s *Shell) Snapshot() Snapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -229,7 +265,8 @@ func (s *Shell) run(ctx context.Context) {
 		s.mu.Unlock()
 	}()
 
-	if strings.TrimSpace(s.forwardWSURL()) == "" {
+	snapshot := s.Snapshot()
+	if !snapshot.ForwardWS.Enabled || !snapshot.ForwardWS.Configured {
 		s.logger.Info(
 			"adapter forward websocket is idle",
 			"component", "adapter",
@@ -269,6 +306,58 @@ func (s *Shell) run(ctx context.Context) {
 
 		retryAttempt++
 	}
+}
+
+func (s *Shell) applyConfig(nextCfg config.OneBotConfig, previousCfg config.OneBotConfig) {
+	s.mu.Lock()
+	s.cfg = nextCfg
+	s.deps.connectTimeout = nextConnectTimeout(previousCfg, nextCfg, s.deps.connectTimeout)
+	s.deps.backoff = nextBackoff(previousCfg, nextCfg, s.deps.backoff)
+	s.httpClient = &http.Client{
+		Timeout: s.deps.connectTimeout,
+	}
+	s.snapshot = newTransportSnapshot(nextCfg)
+	s.pendingResponses = make(map[string]chan apiResponse)
+	s.recentEventIDs = make(map[string]time.Time)
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func nextConnectTimeout(previousCfg config.OneBotConfig, nextCfg config.OneBotConfig, current time.Duration) time.Duration {
+	if nextCfg.ConnectTimeoutSeconds == previousCfg.ConnectTimeoutSeconds && current > 0 {
+		return current
+	}
+
+	return time.Duration(maxInt(nextCfg.ConnectTimeoutSeconds, 1)) * time.Second
+}
+
+func nextBackoff(previousCfg config.OneBotConfig, nextCfg config.OneBotConfig, current *Backoff) *Backoff {
+	if reconnectSettingsEqual(previousCfg, nextCfg) && current != nil {
+		return current
+	}
+
+	var randFloat func() float64
+	if current != nil {
+		randFloat = current.randFloat
+	}
+
+	return NewBackoff(
+		nextCfg.ReconnectInitialSeconds,
+		nextCfg.ReconnectMultiplier,
+		nextCfg.ReconnectMaxSeconds,
+		nextCfg.ReconnectJitterRatio,
+		randFloat,
+	)
+}
+
+func reconnectSettingsEqual(left config.OneBotConfig, right config.OneBotConfig) bool {
+	return left.ReconnectInitialSeconds == right.ReconnectInitialSeconds &&
+		left.ReconnectMultiplier == right.ReconnectMultiplier &&
+		left.ReconnectMaxSeconds == right.ReconnectMaxSeconds &&
+		left.ReconnectJitterRatio == right.ReconnectJitterRatio
 }
 
 func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {

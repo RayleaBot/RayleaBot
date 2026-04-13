@@ -214,16 +214,11 @@ func normalizeOneBotSection(document map[string]any) {
 	}
 	if stringValue(forwardWS["url"]) == "" && wsURL != "" {
 		forwardWS["url"] = wsURL
-	}
-	if strings.TrimSpace(stringValue(forwardWS["url"])) != "" {
 		forwardWS["enabled"] = true
 	}
 	if wsURL != "" && stringValue(reverseWS["url"]) == wsURL {
 		reverseWS["url"] = ""
 		reverseWS["enabled"] = false
-	}
-	if strings.TrimSpace(stringValue(reverseWS["url"])) != "" {
-		reverseWS["enabled"] = true
 	}
 
 	delete(onebot, "ws_url")
@@ -802,19 +797,13 @@ func configOneBotProvider(cfg Config) string {
 }
 
 func configOneBotReverseWS(cfg Config) OneBotTransportConfig {
-	transport := cfg.OneBot.ReverseWS
-	if transport.URL != "" {
-		transport.Enabled = true
-	}
-	return transport
+	return cfg.OneBot.ReverseWS
 }
 
 func configOneBotForwardWS(cfg Config) OneBotTransportConfig {
 	transport := cfg.OneBot.ForwardWS
 	if transport.URL == "" && cfg.OneBot.WSURL != "" {
 		transport.URL = cfg.OneBot.WSURL
-	}
-	if transport.URL != "" {
 		transport.Enabled = true
 	}
 	return transport

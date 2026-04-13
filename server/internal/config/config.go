@@ -323,12 +323,7 @@ func (cfg *Config) hydrateCompatibility() {
 	}
 	if cfg.OneBot.ForwardWS.URL == "" && cfg.OneBot.WSURL != "" {
 		cfg.OneBot.ForwardWS.URL = cfg.OneBot.WSURL
-	}
-	if cfg.OneBot.ForwardWS.URL != "" {
 		cfg.OneBot.ForwardWS.Enabled = true
-	}
-	if cfg.OneBot.ReverseWS.URL != "" {
-		cfg.OneBot.ReverseWS.Enabled = true
 	}
 
 	if len(cfg.Auth.SuperAdmins) == 0 && len(cfg.Admin.SuperAdmins) > 0 {
@@ -375,12 +370,7 @@ func (cfg *Config) hydrateCompatibility() {
 	}
 	if cfg.OneBot.ForwardWS.URL == "" && cfg.OneBot.WSURL != "" {
 		cfg.OneBot.ForwardWS.URL = cfg.OneBot.WSURL
-	}
-	if cfg.OneBot.ForwardWS.URL != "" {
 		cfg.OneBot.ForwardWS.Enabled = true
-	}
-	if cfg.OneBot.ReverseWS.URL != "" {
-		cfg.OneBot.ReverseWS.Enabled = true
 	}
 }
 

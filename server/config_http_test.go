@@ -196,6 +196,228 @@ func TestConfigPutNormalizesShorthandOneBotURL(t *testing.T) {
 	}
 }
 
+func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, nil, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	payload := map[string]any{
+		"schema_version": "2",
+		"server": map[string]any{
+			"host": "127.0.0.1",
+			"port": 8080,
+		},
+		"onebot": map[string]any{
+			"provider":     "standard",
+			"access_token": "",
+			"reverse_ws": map[string]any{
+				"enabled": false,
+				"url":     "wss://bot.example.com/reverse",
+			},
+			"forward_ws": map[string]any{
+				"enabled": false,
+				"url":     "ws://127.0.0.1:2658",
+			},
+			"http_api": map[string]any{
+				"enabled": false,
+				"url":     "",
+			},
+			"webhook": map[string]any{
+				"enabled": false,
+				"url":     "https://bot.example.com/webhook",
+			},
+		},
+		"database": map[string]any{
+			"engine": "sqlite",
+			"path":   "data/rayleabot.db",
+		},
+		"command": map[string]any{
+			"prefixes": []string{"/"},
+		},
+		"admin": map[string]any{
+			"super_admins":              []any{},
+			"session_ttl_days":          7,
+			"sliding_renewal":           true,
+			"max_sessions":              3,
+			"login_fail_limit":          5,
+			"login_fail_window_seconds": 300,
+		},
+		"permission": map[string]any{
+			"default_level":           "everyone",
+			"auto_grant_capabilities": []any{},
+		},
+		"render": map[string]any{
+			"worker_count":               1,
+			"browser_args":               []any{"--disable-gpu"},
+			"browser_path":               "",
+			"timeout_seconds":            30,
+			"queue_wait_timeout_seconds": 15,
+			"queue_max_length":           32,
+		},
+		"scheduler": map[string]any{
+			"timezone": "",
+		},
+		"runtime": map[string]any{
+			"plugin_init_timeout_seconds":           30,
+			"plugin_init_max_total_seconds":         300,
+			"plugin_event_timeout_seconds":          60,
+			"max_pending_events_per_plugin":         16,
+			"max_pending_control_events_per_plugin": 4,
+			"nodejs_max_old_space_size_mb":          256,
+			"dependency_install_timeout_seconds":    900,
+			"max_concurrent_dependency_installs":    1,
+			"ipc_pending_actions_max":               256,
+			"ipc_action_burst_limit":                "100/1s",
+			"stderr_rate_limit_bytes_per_second":    262144,
+			"max_concurrent_tasks_per_plugin":       4,
+			"crash_backoff_initial_seconds":         2,
+			"crash_backoff_max_seconds":             60,
+			"shutdown_grace_seconds":                10,
+			"ipc_message_max_bytes":                 8388608,
+		},
+		"storage": map[string]any{
+			"kv_value_max_bytes":           65536,
+			"kv_total_limit_mb":            16,
+			"file_max_bytes":               10485760,
+			"plugin_workdir_soft_limit_mb": 256,
+		},
+		"data": map[string]any{
+			"audit_logs_retention_days":     90,
+			"event_records_retention_days":  7,
+			"download_cache_retention_days": 15,
+		},
+		"log": map[string]any{
+			"level":                 "info",
+			"retention_days":        7,
+			"rate_limit_per_plugin": "200/10s",
+		},
+		"message": map[string]any{
+			"rate_limit_per_plugin":   "20/10s",
+			"rate_limit_per_target":   "5/5s",
+			"circuit_breaker_seconds": 30,
+		},
+		"user": map[string]any{
+			"command_rate_limit": "10/60s",
+			"cooldown_reply":     true,
+		},
+		"group": map[string]any{
+			"command_rate_limit": "30/60s",
+		},
+		"adapter": map[string]any{
+			"connect_timeout_seconds":   18,
+			"reconnect_initial_seconds": 2,
+			"reconnect_multiplier":      2,
+			"reconnect_max_seconds":     120,
+			"reconnect_jitter_ratio":    0.2,
+		},
+		"http": map[string]any{
+			"timeout_seconds":     10,
+			"max_retries":         2,
+			"allow_private_hosts": []any{},
+		},
+		"web": map[string]any{
+			"exposure_mode":    "localhost_only",
+			"setup_local_only": true,
+		},
+		"backup": map[string]any{
+			"default_consistency": "offline",
+		},
+	}
+
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal config update request: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodPut, server.URL+"/api/config", bytes.NewReader(encoded))
+	if err != nil {
+		t.Fatalf("create config update request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform config update request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected config update status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if body["restart_required"] != false {
+		t.Fatalf("unexpected restart_required: %#v", body["restart_required"])
+	}
+
+	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11", nil)
+	if err != nil {
+		t.Fatalf("create protocol snapshot request: %v", err)
+	}
+	snapshotReq.Header.Set("Authorization", "Bearer "+token)
+	snapshotResp, err := server.Client().Do(snapshotReq)
+	if err != nil {
+		t.Fatalf("perform protocol snapshot request: %v", err)
+	}
+	defer snapshotResp.Body.Close()
+
+	snapshotBody := decodeBody(t, readAll(t, snapshotResp))
+	transports, ok := snapshotBody["transport_status"].([]any)
+	if !ok {
+		t.Fatalf("unexpected transport_status: %#v", snapshotBody["transport_status"])
+	}
+
+	statusByTransport := make(map[string]map[string]any, len(transports))
+	for _, item := range transports {
+		statusItem, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected transport status item: %#v", item)
+		}
+		statusByTransport[statusItem["transport"].(string)] = statusItem
+	}
+
+	if statusByTransport["forward_ws"]["enabled"] != false || statusByTransport["forward_ws"]["configured"] != true {
+		t.Fatalf("unexpected forward_ws snapshot: %#v", statusByTransport["forward_ws"])
+	}
+	if statusByTransport["reverse_ws"]["enabled"] != false || statusByTransport["reverse_ws"]["configured"] != true {
+		t.Fatalf("unexpected reverse_ws snapshot: %#v", statusByTransport["reverse_ws"])
+	}
+	if statusByTransport["webhook"]["enabled"] != false || statusByTransport["webhook"]["configured"] != true {
+		t.Fatalf("unexpected webhook snapshot: %#v", statusByTransport["webhook"])
+	}
+
+	reverseReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/reverse-ws", nil)
+	if err != nil {
+		t.Fatalf("create reverse websocket request: %v", err)
+	}
+	reverseReq.Header.Set("Authorization", "Bearer "+token)
+	reverseResp, err := server.Client().Do(reverseReq)
+	if err != nil {
+		t.Fatalf("perform reverse websocket request: %v", err)
+	}
+	defer reverseResp.Body.Close()
+	if reverseResp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("unexpected reverse websocket status: got %d want 503", reverseResp.StatusCode)
+	}
+
+	webhookReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/protocols/onebot11/webhook", bytes.NewReader([]byte(`{}`)))
+	if err != nil {
+		t.Fatalf("create webhook request: %v", err)
+	}
+	webhookReq.Header.Set("Authorization", "Bearer "+token)
+	webhookReq.Header.Set("Content-Type", "application/json")
+	webhookResp, err := server.Client().Do(webhookReq)
+	if err != nil {
+		t.Fatalf("perform webhook request: %v", err)
+	}
+	defer webhookResp.Body.Close()
+	if webhookResp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("unexpected webhook status: got %d want 503", webhookResp.StatusCode)
+	}
+}
+
 func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), authOptions ...auth.Option) (*internalapp.App, string, string) {
 	t.Helper()
 

@@ -243,6 +243,40 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	}
 }
 
+func TestSaveDocumentPreservesDisabledConfiguredOneBotTransports(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	document := newPlanningConfigDocument()
+	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["enabled"] = false
+	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["url"] = "ws://127.0.0.1:2658"
+	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["enabled"] = false
+	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["url"] = "wss://example.com/reverse"
+
+	cfg, _, err := SaveDocument(configPath, schemaPath, document)
+	if err != nil {
+		t.Fatalf("SaveDocument() error = %v", err)
+	}
+	if cfg.OneBot.ForwardWS.Enabled {
+		t.Fatal("OneBot.ForwardWS.Enabled = true, want false")
+	}
+	if cfg.OneBot.ReverseWS.Enabled {
+		t.Fatal("OneBot.ReverseWS.Enabled = true, want false")
+	}
+
+	saved, err := LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("LoadDocument() error = %v", err)
+	}
+	if got := nestedString(t, saved, "onebot", "forward_ws", "enabled"); got != "false" {
+		t.Fatalf("saved onebot.forward_ws.enabled = %q, want false", got)
+	}
+	if got := nestedString(t, saved, "onebot", "reverse_ws", "enabled"); got != "false" {
+		t.Fatalf("saved onebot.reverse_ws.enabled = %q, want false", got)
+	}
+}
+
 func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
 	t.Parallel()
 

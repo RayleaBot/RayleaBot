@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -126,6 +127,179 @@ func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 	}
 }
 
+func TestShellDoesNotConnectDisabledConfiguredForwardTransport(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		ForwardWS: config.OneBotTransportConfig{
+			Enabled: false,
+			URL:     wsURL(server.URL),
+		},
+	}, shellDeps{
+		connectTimeout: 50 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	time.Sleep(120 * time.Millisecond)
+
+	snapshot := shell.Snapshot()
+	if attempts.Load() != 0 {
+		t.Fatalf("unexpected websocket dial attempts: got %d want 0", attempts.Load())
+	}
+	if snapshot.ForwardWS.Enabled {
+		t.Fatal("forward transport enabled = true, want false")
+	}
+	if !snapshot.ForwardWS.Configured {
+		t.Fatal("forward transport configured = false, want true")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testing.T) {
+	t.Parallel()
+
+	var firstServerConnections atomic.Int64
+	firstServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		firstServerConnections.Add(1)
+
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer firstServer.Close()
+
+	requests := make(chan map[string]any, 1)
+	secondServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+		requests <- request
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"message_id": 67890,
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer secondServer.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(firstServer.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+	if firstServerConnections.Load() != 1 {
+		t.Fatalf("unexpected initial connection count: got %d want 1", firstServerConnections.Load())
+	}
+
+	if err := shell.Reload(config.OneBotConfig{
+		WSURL: wsURL(secondServer.URL),
+	}); err != nil {
+		t.Fatalf("Reload failed: %v", err)
+	}
+
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	result, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+		TargetType: "group",
+		TargetID:   "2001",
+		Segments: []OutboundMessageSegment{{
+			Type: "text",
+			Data: map[string]any{"text": "hello after reload"},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("SendMessage failed after reload: %v", err)
+	}
+	if result.MessageID != "67890" {
+		t.Fatalf("unexpected message id after reload: got %q want %q", result.MessageID, "67890")
+	}
+
+	var request map[string]any
+	select {
+	case request = <-requests:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for send_msg request after reload")
+	}
+
+	if request["action"] != "send_msg" {
+		t.Fatalf("unexpected request action after reload: %#v", request["action"])
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
 func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 	t.Parallel()
 
@@ -181,7 +355,7 @@ func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 	shell := newTestShell(config.OneBotConfig{
 		WSURL: wsURL(server.URL),
 	}, shellDeps{
-		connectTimeout: 50 * time.Millisecond,
+		connectTimeout: 150 * time.Millisecond,
 		sleep:          blockingSleep,
 	})
 
