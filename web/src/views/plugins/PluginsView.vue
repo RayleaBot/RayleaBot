@@ -209,7 +209,7 @@ async function submitInstall() {
               :key="`${record.id}-${command.name}`"
               class="plugin-command-chip"
             >
-              <a-tag :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'">
+              <a-tag size="small" :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'">
                 {{ command.name }}
               </a-tag>
               <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
@@ -226,13 +226,14 @@ async function submitInstall() {
         <template v-else-if="column.key === 'runtime'">
           <div class="plugin-cell-status">
             <div class="plugin-status-badges">
-              <a-tag color="blue">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
-              <a-tag :color="getRuntimeColor(record.runtime_state)">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
+              <a-tag size="small" color="blue">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
+              <a-tag size="small" :color="getRuntimeColor(record.runtime_state)">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
             </div>
             <div v-if="getPluginHealthNotices(record).length > 0" class="plugin-health-notices">
               <a-tag
                 v-for="notice in getPluginHealthNotices(record)"
                 :key="notice.label"
+                size="small"
                 :color="getTagColor(notice.tone)"
               >
                 {{ notice.label }}
@@ -347,7 +348,7 @@ async function submitInstall() {
         </a-descriptions-item>
         <a-descriptions-item :label="t('plugins.fields.conflicts')">
           <div v-if="summaryPlugin.command_conflicts?.length" class="table-actions">
-            <a-tag v-for="command in summaryPlugin.command_conflicts" :key="command" color="warning">
+            <a-tag v-for="command in summaryPlugin.command_conflicts" :key="command" size="small" color="warning">
               {{ command }}
             </a-tag>
           </div>

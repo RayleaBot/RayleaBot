@@ -11,6 +11,7 @@ const pageClasses = computed(() => ({
 
 defineProps<{
   description?: string
+  eyebrow?: string
   fullHeight?: boolean
   title: string
 }>()
@@ -20,6 +21,7 @@ defineProps<{
   <div :class="['app-page', pageClasses, { 'app-page--full-height': fullHeight }]">
     <header class="app-page__header">
       <div class="app-page__heading">
+        <span v-if="eyebrow" class="page-eyebrow">{{ eyebrow }}</span>
         <h1>{{ title }}</h1>
         <p v-if="description">{{ description }}</p>
       </div>

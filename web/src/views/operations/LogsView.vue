@@ -111,7 +111,7 @@ onMounted(() => {
         </template>
 
         <template v-else-if="column.key === 'level'">
-          <a-tag :color="getLevelColor(record.level)">
+          <a-tag size="small" :color="getLevelColor(record.level)">
             {{ getLogLevelLabel(record.level) }}
           </a-tag>
         </template>

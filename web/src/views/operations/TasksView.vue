@@ -230,7 +230,7 @@ function getStatusColor(status: string) {
 
         <template v-else-if="column.key === 'status'">
           <div class="task-cell-status">
-            <a-tag :color="getStatusColor(record.status)">
+            <a-tag size="small" :color="getStatusColor(record.status)">
               {{ getTaskStatusLabel(record.status) }}
             </a-tag>
             <strong v-if="record.progress !== undefined" class="task-progress">{{ record.progress }}%</strong>

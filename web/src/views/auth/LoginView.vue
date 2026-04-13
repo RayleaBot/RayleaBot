@@ -94,4 +94,20 @@ async function submit() {
   gap: 8px;
   margin-bottom: 18px;
 }
+
+:deep(.ant-input),
+:deep(.ant-input-password) {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+:deep(.ant-input:focus),
+:deep(.ant-input-password .ant-input:focus),
+:deep(.ant-input-focused) {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.auth-panel-card {
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--surface-strong) 92%, transparent) !important;
+}
 </style>
