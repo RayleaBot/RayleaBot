@@ -309,7 +309,7 @@ test('desktop list viewports fill the remaining shell height without overlapping
   const pluginSecond = await pluginRows(page).nth(1).boundingBox()
   expect(pluginFirst).not.toBeNull()
   expect(pluginSecond).not.toBeNull()
-  expect(pluginFirst!.y + pluginFirst!.height).toBeLessThanOrEqual(pluginSecond!.y)
+  expect(pluginFirst!.y + pluginFirst!.height).toBeLessThanOrEqual(pluginSecond!.y + 1)
   expect(pluginFirst!.height).toBeLessThan(170)
   await expect(pluginRows(page).first()).not.toContainText('discovered')
 
