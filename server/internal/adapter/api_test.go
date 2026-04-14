@@ -255,6 +255,83 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 	}
 }
 
+func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"role":     "member",
+				"nickname": "Alice\u2066",
+				"card":     "群星怒\u202e~喵",
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	info, err := shell.GetGroupMemberInfo(context.Background(), "1001", "2001")
+	if err != nil {
+		t.Fatalf("GetGroupMemberInfo failed: %v", err)
+	}
+	if info.Nickname != "Alice" {
+		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "Alice")
+	}
+	if info.Card != "群星怒~喵" {
+		t.Fatalf("unexpected sanitized card: got %q want %q", info.Card, "群星怒~喵")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
 func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 	t.Parallel()
 
@@ -331,6 +408,78 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 	}
 }
 
+func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"group_name": "Test\u2028Group",
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	info, err := shell.GetGroupInfo(context.Background(), "1001")
+	if err != nil {
+		t.Fatalf("GetGroupInfo failed: %v", err)
+	}
+	if info.Name != "Test\nGroup" {
+		t.Fatalf("unexpected sanitized group name: got %q want %q", info.Name, "Test\nGroup")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
 func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 	t.Parallel()
 
@@ -398,6 +547,78 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 	}
 	if info.Nickname != "Stranger Bob" {
 		t.Fatalf("unexpected Nickname: got %q want %q", info.Nickname, "Stranger Bob")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"nickname": "Stranger\u007fBob",
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	info, err := shell.GetStrangerInfo(context.Background(), "9999")
+	if err != nil {
+		t.Fatalf("GetStrangerInfo failed: %v", err)
+	}
+	if info.Nickname != "StrangerBob" {
+		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "StrangerBob")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

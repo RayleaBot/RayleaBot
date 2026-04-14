@@ -11,6 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
 const (
@@ -487,14 +488,11 @@ func bridgeEventSummary(action string, event adapter.NormalizedEvent) string {
 }
 
 func summarizeBridgeText(text string) string {
-	text = strings.TrimSpace(text)
+	text = strings.TrimSpace(textsafe.SanitizeString(text))
 	if text == "" {
 		return ""
 	}
-	if len(text) > 72 {
-		return text[:72] + "..."
-	}
-	return text
+	return textsafe.TruncateRunes(text, 72, "...")
 }
 
 func bridgeEventLogAttrs(event adapter.NormalizedEvent) []any {

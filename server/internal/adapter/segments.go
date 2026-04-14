@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
 // MessageSegment represents a structured message segment from the OneBot11
@@ -27,7 +29,7 @@ func parseCQString(raw string) []MessageSegment {
 	for len(remaining) > 0 {
 		idx := strings.Index(remaining, "[CQ:")
 		if idx < 0 {
-			text := unescapeCQ(remaining)
+			text := textsafe.SanitizeString(unescapeCQ(remaining))
 			if text != "" {
 				segments = append(segments, MessageSegment{
 					Type: "text",
@@ -38,7 +40,7 @@ func parseCQString(raw string) []MessageSegment {
 		}
 
 		if idx > 0 {
-			text := unescapeCQ(remaining[:idx])
+			text := textsafe.SanitizeString(unescapeCQ(remaining[:idx]))
 			if text != "" {
 				segments = append(segments, MessageSegment{
 					Type: "text",
@@ -50,7 +52,7 @@ func parseCQString(raw string) []MessageSegment {
 		remaining = remaining[idx:]
 		end := strings.Index(remaining, "]")
 		if end < 0 {
-			text := unescapeCQ(remaining)
+			text := textsafe.SanitizeString(unescapeCQ(remaining))
 			if text != "" {
 				segments = append(segments, MessageSegment{
 					Type: "text",
@@ -90,7 +92,7 @@ func parseCQCode(content string) MessageSegment {
 			continue
 		}
 		key := strings.TrimSpace(kv[0])
-		value := unescapeCQ(strings.TrimSpace(kv[1]))
+		value := textsafe.SanitizeString(unescapeCQ(strings.TrimSpace(kv[1])))
 		seg.Data[normalizeCQKey(cqType, key)] = value
 	}
 
@@ -225,7 +227,7 @@ func parseMessageArray(raw json.RawMessage) ([]MessageSegment, error) {
 			Data: make(map[string]any),
 		}
 		for k, v := range item.Data {
-			seg.Data[normalizeCQKey(item.Type, k)] = v
+			seg.Data[normalizeCQKey(item.Type, k)] = textsafe.SanitizeAny(v)
 		}
 		// Normalize at with qq=all.
 		if seg.Type == "at" {
@@ -333,7 +335,7 @@ func segmentLabel(data map[string]any, preferredKey string, fallbackKey string, 
 func anyToString(v any) string {
 	switch val := v.(type) {
 	case string:
-		return val
+		return textsafe.SanitizeString(val)
 	case float64:
 		if val == float64(int64(val)) {
 			return fmt.Sprintf("%d", int64(val))
@@ -343,6 +345,6 @@ func anyToString(v any) string {
 		return val.String()
 	default:
 		b, _ := json.Marshal(v)
-		return string(b)
+		return textsafe.SanitizeString(string(b))
 	}
 }

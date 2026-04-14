@@ -211,6 +211,42 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+		LogID:   "log_detail_0003",
+		Ts:      "2026-03-20T10:00:02Z",
+		Level:   "info",
+		Source:  "bridge",
+		Message: "runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
+		DetailsJson: `{
+			"plain_text":"hello\u202eworld",
+			"sender":{"card":"群星怒\u2066~喵"}
+		}`,
+	}); err != nil {
+		t.Fatalf("insert raw detail summary: %v", err)
+	}
+
+	item, err := repository.GetSummary(ctx, "log_detail_0003")
+	if err != nil {
+		t.Fatalf("get detail summary: %v", err)
+	}
+	if item.Message != "runtime bridge queued for dispatcher group message: 群星怒~喵" {
+		t.Fatalf("unexpected sanitized message: %#v", item.Message)
+	}
+	if got := item.Details["plain_text"]; got != "helloworld" {
+		t.Fatalf("unexpected sanitized plain_text detail: %#v", got)
+	}
+	sender := item.Details["sender"].(map[string]any)
+	if got := sender["card"]; got != "群星怒~喵" {
+		t.Fatalf("unexpected sanitized sender card: %#v", got)
+	}
+}
+
 func TestSQLiteRepositoryReturnsNotFoundForMissingLogID(t *testing.T) {
 	t.Parallel()
 

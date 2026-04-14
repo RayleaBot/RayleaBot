@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
 type SendAttempt struct {
@@ -126,10 +127,7 @@ func summarizePlainText(plainText string) string {
 	if plainText == "" {
 		return "[empty message]"
 	}
-	if len(plainText) > 72 {
-		return plainText[:72] + "..."
-	}
-	return plainText
+	return textsafe.TruncateRunes(plainText, 72, "...")
 }
 
 func errorDetails(err error) (string, string) {

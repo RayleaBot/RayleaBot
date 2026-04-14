@@ -154,6 +154,20 @@ func TestParseMessageArrayAtAll(t *testing.T) {
 	}
 }
 
+func TestParseMessageArraySanitizesUnsafeStringValues(t *testing.T) {
+	raw := json.RawMessage(`[{"type":"text","data":{"text":"hello\u2066world"}},{"type":"image","data":{"file":"https://example.com/\u202ebad.png"}}]`)
+	segments, err := parseMessageArray(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := segments[0].Data["text"]; got != "helloworld" {
+		t.Fatalf("unexpected sanitized text segment: %#v", got)
+	}
+	if got := segments[1].Data["file"]; got != "https://example.com/bad.png" {
+		t.Fatalf("unexpected sanitized image file: %#v", got)
+	}
+}
+
 func TestSegmentsToPlainText(t *testing.T) {
 	segments := []MessageSegment{
 		{Type: "reply", Data: map[string]any{"message_id": "100"}},

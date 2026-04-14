@@ -85,3 +85,30 @@ func TestNormalizeSummaryCompactsRepeatedOneBotDetailFields(t *testing.T) {
 		t.Fatalf("unexpected sender details: %#v", sender)
 	}
 }
+
+func TestNormalizeSummarySanitizesOneBotMessageAndDetails(t *testing.T) {
+	t.Parallel()
+
+	summary := NormalizeSummary(Summary{
+		Source:  "bridge",
+		Message: "runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
+		Level:   "info",
+		Details: map[string]any{
+			"plain_text": "hello\u202eworld",
+			"sender": map[string]any{
+				"card": "群星怒\u2066~喵",
+			},
+		},
+	})
+
+	if summary.Message != "runtime bridge queued for dispatcher group message: 群星怒~喵" {
+		t.Fatalf("unexpected sanitized summary message: %#v", summary.Message)
+	}
+	if got := summary.Details["plain_text"]; got != "helloworld" {
+		t.Fatalf("unexpected sanitized plain_text detail: %#v", got)
+	}
+	sender := summary.Details["sender"].(map[string]any)
+	if got := sender["card"]; got != "群星怒~喵" {
+		t.Fatalf("unexpected sanitized sender card: %#v", got)
+	}
+}

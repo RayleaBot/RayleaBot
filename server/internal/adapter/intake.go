@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
 type FrameCategory string
@@ -207,12 +209,12 @@ func previewFramePayload(payload []byte) any {
 
 	var decoded any
 	if err := json.Unmarshal(trimmed, &decoded); err == nil {
-		return decoded
+		return textsafe.SanitizeAny(decoded)
 	}
 
-	text := string(trimmed)
-	if len(text) > 256 {
-		return text[:256] + "...(truncated)"
+	text := textsafe.SanitizeString(string(trimmed))
+	if utf8SafeText := textsafe.TruncateRunes(text, 256, "...(truncated)"); utf8SafeText != text {
+		return utf8SafeText
 	}
 	return text
 }
@@ -327,7 +329,7 @@ func normalizeMessageLikeEvent(frame oneBotFrame, observedAt time.Time, sent boo
 	segments := parseFrameMessage(frame)
 	plainText := strings.TrimSpace(segmentsToPlainText(segments))
 	if plainText == "" {
-		plainText = strings.TrimSpace(frame.RawMessage)
+		plainText = strings.TrimSpace(textsafe.SanitizeString(frame.RawMessage))
 	}
 	if plainText == "" && len(segments) == 0 {
 		return NormalizedEvent{}, false
@@ -335,11 +337,11 @@ func normalizeMessageLikeEvent(frame oneBotFrame, observedAt time.Time, sent boo
 
 	var actorNickname, actorRole string
 	if frame.Sender != nil {
-		actorNickname = frame.Sender.Card
+		actorNickname = textsafe.SanitizeString(frame.Sender.Card)
 		if actorNickname == "" {
-			actorNickname = frame.Sender.Nickname
+			actorNickname = textsafe.SanitizeString(frame.Sender.Nickname)
 		}
-		actorRole = frame.Sender.Role
+		actorRole = strings.TrimSpace(textsafe.SanitizeString(frame.Sender.Role))
 	}
 
 	var messageID string
@@ -580,10 +582,10 @@ func normalizeRequestEvent(frame oneBotFrame, observedAt time.Time) (NormalizedE
 
 	eventID := fmt.Sprintf("onebot11-request-%s-%d-%d", strings.ReplaceAll(frame.RequestType, "_", "-"), timestamp, frame.UserID)
 	payloadFields := buildCommonPayloadFields(frame)
-	if comment := strings.TrimSpace(frame.Comment); comment != "" {
+	if comment := strings.TrimSpace(textsafe.SanitizeString(frame.Comment)); comment != "" {
 		payloadFields["comment"] = comment
 	}
-	if flag := strings.TrimSpace(frame.Flag); flag != "" {
+	if flag := strings.TrimSpace(textsafe.SanitizeString(frame.Flag)); flag != "" {
 		payloadFields["flag"] = flag
 	}
 
@@ -639,20 +641,20 @@ func buildSenderPayload(sender *senderObject) map[string]any {
 	if sender.UserID > 0 {
 		payload["user_id"] = fmt.Sprintf("%d", sender.UserID)
 	}
-	if sender.Nickname != "" {
-		payload["nickname"] = sender.Nickname
+	if nickname := textsafe.SanitizeString(sender.Nickname); nickname != "" {
+		payload["nickname"] = nickname
 	}
-	if sender.Card != "" {
-		payload["card"] = sender.Card
+	if card := textsafe.SanitizeString(sender.Card); card != "" {
+		payload["card"] = card
 	}
-	if sender.Role != "" {
-		payload["role"] = sender.Role
+	if role := strings.TrimSpace(textsafe.SanitizeString(sender.Role)); role != "" {
+		payload["role"] = role
 	}
-	if sender.Title != "" {
-		payload["title"] = sender.Title
+	if title := textsafe.SanitizeString(sender.Title); title != "" {
+		payload["title"] = title
 	}
-	if sender.Sex != "" {
-		payload["sex"] = sender.Sex
+	if sex := strings.TrimSpace(textsafe.SanitizeString(sender.Sex)); sex != "" {
+		payload["sex"] = sex
 	}
 	if sender.Age > 0 {
 		payload["age"] = sender.Age
@@ -701,23 +703,23 @@ func buildOneBotPayload(frame oneBotFrame) map[string]any {
 	if frame.MessageSeq > 0 {
 		payload["message_seq"] = fmt.Sprintf("%d", frame.MessageSeq)
 	}
-	if frame.RawMessage != "" {
-		payload["raw_message"] = frame.RawMessage
+	if rawMessage := textsafe.SanitizeString(frame.RawMessage); rawMessage != "" {
+		payload["raw_message"] = rawMessage
 	}
 	if frame.Font > 0 {
 		payload["font"] = frame.Font
 	}
-	if frame.MessageFormat != "" {
-		payload["message_format"] = frame.MessageFormat
+	if messageFormat := strings.TrimSpace(textsafe.SanitizeString(frame.MessageFormat)); messageFormat != "" {
+		payload["message_format"] = messageFormat
 	}
 	if sender := buildSenderPayload(frame.Sender); len(sender) > 0 {
 		payload["sender"] = sender
 	}
-	if frame.Comment != "" {
-		payload["comment"] = frame.Comment
+	if comment := strings.TrimSpace(textsafe.SanitizeString(frame.Comment)); comment != "" {
+		payload["comment"] = comment
 	}
-	if frame.Flag != "" {
-		payload["flag"] = frame.Flag
+	if flag := strings.TrimSpace(textsafe.SanitizeString(frame.Flag)); flag != "" {
+		payload["flag"] = flag
 	}
 	return payload
 }
@@ -729,7 +731,7 @@ func buildDataPayload(raw any) map[string]any {
 	}
 	payload := make(map[string]any, len(decoded))
 	for key, value := range decoded {
-		payload[key] = value
+		payload[key] = textsafe.SanitizeAny(value)
 	}
 	return payload
 }

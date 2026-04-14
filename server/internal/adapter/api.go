@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
 const errorCodeAPICallFailed = "adapter.api_call_failed"
@@ -173,11 +175,11 @@ func extractStringField(data map[string]any, key string) string {
 
 	switch value := data[key].(type) {
 	case string:
-		return strings.TrimSpace(value)
+		return strings.TrimSpace(textsafe.SanitizeString(value))
 	case float64:
 		return strconv.FormatInt(int64(value), 10)
 	default:
-		return fmt.Sprint(value)
+		return textsafe.SanitizeString(fmt.Sprint(value))
 	}
 }
 
@@ -210,6 +212,8 @@ func normalizeAPIResult(value any) any {
 
 func normalizeScalarValue(value any) any {
 	switch typed := value.(type) {
+	case string:
+		return textsafe.SanitizeString(typed)
 	case json.Number:
 		return typed.String()
 	case float64:
@@ -225,7 +229,7 @@ func normalizeScalarValue(value any) any {
 func extractStringValue(value any) string {
 	switch typed := value.(type) {
 	case string:
-		return strings.TrimSpace(typed)
+		return strings.TrimSpace(textsafe.SanitizeString(typed))
 	case json.Number:
 		return typed.String()
 	case float64:
@@ -234,7 +238,7 @@ func extractStringValue(value any) string {
 		}
 		return strconv.FormatFloat(typed, 'f', -1, 64)
 	default:
-		return strings.TrimSpace(fmt.Sprint(typed))
+		return strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(typed)))
 	}
 }
 

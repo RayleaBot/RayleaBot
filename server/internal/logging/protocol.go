@@ -1,6 +1,10 @@
 package logging
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
+)
 
 const ProtocolOneBot11 = "onebot11"
 
@@ -22,6 +26,9 @@ func NormalizeSummary(summary Summary) Summary {
 	}
 	if summary.Protocol == "" {
 		summary.Protocol = protocolFromSource(summary.Source)
+	}
+	if summary.Protocol == ProtocolOneBot11 {
+		summary.Message = strings.TrimSpace(textsafe.SanitizeString(summary.Message))
 	}
 	summary.Details = normalizeProtocolDetails(summary.Protocol, summary.Details)
 

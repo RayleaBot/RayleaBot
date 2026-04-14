@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
 
 var logIDSequence atomic.Uint64
@@ -68,6 +70,14 @@ func sanitizeDetailValue(value any) any {
 			items = append(items, sanitizeDetailValue(item))
 		}
 		return items
+	case []string:
+		items := make([]string, 0, len(typed))
+		for _, item := range typed {
+			items = append(items, textsafe.SanitizeString(item))
+		}
+		return items
+	case string:
+		return textsafe.SanitizeString(typed)
 	default:
 		return typed
 	}

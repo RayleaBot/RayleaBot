@@ -654,6 +654,69 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 	}
 }
 
+func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+
+	application.SetLogRepository(&stubMissingLogRepository{})
+	application.Logs().Append(logging.Summary{
+		LogID:     "log_live_only_unsafe_0001",
+		Timestamp: "2026-04-09T20:51:46Z",
+		Level:     "info",
+		Source:    "bridge",
+		Message:   "runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
+		RequestID: "dispatch_1775739204056693801",
+		Details: map[string]any{
+			"direction":       "inbound",
+			"event_type":      "message.group",
+			"conversation_id": "860105388",
+			"sender_nickname": "群星怒\u2066~喵",
+			"plain_text":      "hello\u202eworld",
+		},
+	})
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs/log_live_only_unsafe_0001", nil)
+	if err != nil {
+		t.Fatalf("create live stream fallback request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform live stream fallback request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected live stream fallback status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if body["message"] != "runtime bridge queued for dispatcher group message: 群星怒~喵" {
+		t.Fatalf("unexpected sanitized fallback message: %#v", body["message"])
+	}
+	details, ok := body["details"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected fallback details map, got %#v", body["details"])
+	}
+	if details["plain_text"] != "helloworld" {
+		t.Fatalf("unexpected sanitized fallback details: %#v", details)
+	}
+	sender, ok := details["sender"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected compacted sender map, got %#v", details["sender"])
+	}
+	if sender["nickname"] != "群星怒~喵" {
+		t.Fatalf("unexpected sanitized fallback sender: %#v", sender)
+	}
+}
+
 func TestLogsRouteRequiresAuth(t *testing.T) {
 	t.Parallel()
 
