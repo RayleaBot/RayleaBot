@@ -7,6 +7,20 @@ import { formatDateTime } from '@/lib/format'
 import LogsPage from '@/views/operations/LogsView.vue'
 import { useLogsStore } from '@/stores/logs'
 
+function createRect(top: number, height: number, width = 1200) {
+  return {
+    x: 0,
+    y: top,
+    top,
+    left: 0,
+    right: width,
+    bottom: top + height,
+    width,
+    height,
+    toJSON: () => ({}),
+  }
+}
+
 describe('LogsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -95,5 +109,55 @@ describe('LogsPage', () => {
     expect(message).toContain('\\u202e')
     expect(message).not.toContain('\u2066')
     expect(message).not.toContain('\u202e')
+  })
+
+  it('keeps the logs table scrollable inside the page viewport', async () => {
+    const store = useLogsStore()
+    store.items = Array.from({ length: 80 }, (_, index) => ({
+      log_id: `log_scroll_${index}`,
+      timestamp: '2026-04-15T10:00:00Z',
+      level: 'info',
+      source: 'runtime',
+      message: `row ${index}`,
+    }))
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+      matches: false,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      disconnect() {}
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      writable: true,
+      value: 900,
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function(this: HTMLElement) {
+      if (this.classList.contains('logs-page')) {
+        return createRect(180, 520) as DOMRect
+      }
+      return createRect(0, 0) as DOMRect
+    })
+
+    const wrapper = mount(LogsPage, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const tableBody = wrapper.find('.logs-data-table .ant-table-body')
+    expect(tableBody.exists()).toBe(true)
+    expect(tableBody.attributes('style')).toContain('708px')
+
+    wrapper.unmount()
   })
 })

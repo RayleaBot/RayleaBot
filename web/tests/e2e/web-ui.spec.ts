@@ -711,6 +711,66 @@ test('logs page filters both history and live log appends', async ({ page, reque
   await expect(logsTable).toContainText('live runtime log kept')
 })
 
+test('logs page keeps older history reachable inside the table scroller', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+
+  await Promise.all(Array.from({ length: 36 }, (_, index) => (
+    request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_runtime_scroll_${index}`,
+          timestamp: `2026-04-15T10:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}Z`,
+          level: 'info',
+          source: 'runtime',
+          message: `scroll history row ${index}`,
+          request_id: `req_runtime_scroll_${index}`,
+        },
+        detail: {
+          details: {
+            direction: 'internal',
+            reason: `scroll history row ${index}`,
+          },
+        },
+      },
+    })
+  )))
+
+  await expect(page.locator('.logs-data-table')).toContainText('scroll history row 35')
+
+  const metrics = await page.evaluate(() => {
+    const doc = document.scrollingElement ?? document.documentElement
+    const tableBody = document.querySelector<HTMLElement>('.logs-data-table .ant-table-body')
+    if (!tableBody) {
+      return {
+        hasTableBody: false,
+        pageOverflow: doc.scrollHeight - doc.clientHeight,
+        scrollHeight: 0,
+        clientHeight: 0,
+        scrollTop: 0,
+      }
+    }
+
+    tableBody.scrollTop = tableBody.scrollHeight
+
+    return {
+      hasTableBody: true,
+      pageOverflow: doc.scrollHeight - doc.clientHeight,
+      scrollHeight: tableBody.scrollHeight,
+      clientHeight: tableBody.clientHeight,
+      scrollTop: tableBody.scrollTop,
+    }
+  })
+
+  expect(metrics.hasTableBody).toBe(true)
+  expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
+  expect(metrics.scrollTop).toBeGreaterThan(0)
+  expect(metrics.pageOverflow).toBeLessThanOrEqual(2)
+})
+
 test('command center shows all declared commands and filters by plugin selection', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
