@@ -232,13 +232,14 @@ func New(options Options) (*App, error) {
 		onRecoveryChange: systemService.ReconcileRecoverySummaryBestEffort,
 	})
 	eventIngress := newEventIngressService(eventIngressDeps{
-		state:          state,
-		plugins:        pluginState.Plugins,
-		replyTargets:   pluginState.replyTargets,
-		outboundSender: pluginState.outboundSender,
-		bridge:         pluginState.Bridge,
-		lifecycle:      lifecycle,
-		blacklistRepo:  pluginState.blacklistRepo,
+		state:            state,
+		plugins:          pluginState.Plugins,
+		replyTargets:     pluginState.replyTargets,
+		outboundSender:   pluginState.outboundSender,
+		bridge:           pluginState.Bridge,
+		lifecycle:        lifecycle,
+		metadataEnricher: pluginState.Adapter,
+		blacklistRepo:    pluginState.blacklistRepo,
 	})
 	protocolService := newProtocolService(state, pluginState.Adapter)
 	pluginWebhooks := newPluginWebhookService(pluginWebhookServiceDeps{

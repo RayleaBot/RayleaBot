@@ -443,7 +443,7 @@ test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({
         source: 'bridge',
         protocol: 'onebot11',
         request_id: 'req_bridge_unsafe_0001',
-        message: 'runtime bridge queued for dispatcher group message: 群星怒\u2066，大明云玩家\u202e~喵\u2069',
+        message: '721011692: [760384342]群星怒\u2066，大明云玩家\u202e~喵\u2069/没错，是魔法！(2896109796): 除了战猎这种抓不到加费就完全没法打的角色',
       },
       detail: {
         log_id: 'log_bridge_unsafe_0001',
@@ -452,11 +452,13 @@ test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({
         source: 'bridge',
         protocol: 'onebot11',
         request_id: 'req_bridge_unsafe_0001',
-        message: 'runtime bridge queued for dispatcher group message: 群星怒\u2066，大明云玩家\u202e~喵\u2069',
+        message: '721011692: [760384342]群星怒\u2066，大明云玩家\u202e~喵\u2069/没错，是魔法！(2896109796): 除了战猎这种抓不到加费就完全没法打的角色',
         details: {
           direction: 'inbound',
+          self_id: '721011692',
           conversation_id: '760384342',
           conversation_type: 'group',
+          group_name: '测试群',
           sender: {
             user_id: '2896109796',
             nickname: '没错，是魔法！',
@@ -473,6 +475,7 @@ test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({
   await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
   const unsafeTerminalLine = page.locator('.terminal-line', { hasText: '\\u2066' }).last()
   await expect(unsafeTerminalLine.locator('.line-text')).toContainText('\\u2066')
+  await expect(unsafeTerminalLine.locator('.line-source')).toHaveText('bridge · onebot11')
   await unsafeTerminalLine.click()
   await expect(page.locator('.detail-hero-message')).toContainText('\\u2066')
   await expect(page.locator('.field-value').filter({ hasText: '\\u2066' }).first()).toBeVisible()

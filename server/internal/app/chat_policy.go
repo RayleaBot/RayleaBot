@@ -77,6 +77,7 @@ type eventIngressService struct {
 	outboundSender    outboundActionSender
 	bridge            *bridge.Bridge
 	lifecycle         *pluginLifecycleController
+	metadataEnricher  eventMetadataEnricher
 	commandParser     *command.Parser
 	permissionChecker *permission.Checker
 	blacklistRepo     permission.BlacklistRepository
@@ -84,13 +85,14 @@ type eventIngressService struct {
 
 func newEventIngressService(deps eventIngressDeps) *eventIngressService {
 	service := &eventIngressService{
-		state:          deps.state,
-		plugins:        deps.plugins,
-		replyTargets:   deps.replyTargets,
-		outboundSender: deps.outboundSender,
-		bridge:         deps.bridge,
-		lifecycle:      deps.lifecycle,
-		blacklistRepo:  deps.blacklistRepo,
+		state:            deps.state,
+		plugins:          deps.plugins,
+		replyTargets:     deps.replyTargets,
+		outboundSender:   deps.outboundSender,
+		bridge:           deps.bridge,
+		lifecycle:        deps.lifecycle,
+		metadataEnricher: deps.metadataEnricher,
+		blacklistRepo:    deps.blacklistRepo,
 	}
 	service.UpdateConfig(deps.state.Config)
 	return service

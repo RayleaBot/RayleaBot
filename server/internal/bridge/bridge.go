@@ -432,6 +432,10 @@ func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) 
 }
 
 func bridgeEventSummary(action string, event adapter.NormalizedEvent) string {
+	if summary, ok := formattedBridgeInboundMessageSummary(event); ok {
+		return summary
+	}
+
 	base := "adapter event"
 	switch event.EventType {
 	case "message.group":
@@ -492,7 +496,93 @@ func summarizeBridgeText(text string) string {
 	if text == "" {
 		return ""
 	}
-	return textsafe.TruncateRunes(text, 72, "...")
+	return textsafe.TruncateRunes(text, 160, "...")
+}
+
+func formattedBridgeInboundMessageSummary(event adapter.NormalizedEvent) (string, bool) {
+	if strings.TrimSpace(event.SourceProtocol) != "onebot11" {
+		return "", false
+	}
+
+	messageText := summarizeBridgeText(event.PlainText)
+	if messageText == "" {
+		return "", false
+	}
+
+	botID := strings.TrimSpace(event.BotID)
+	if botID == "" {
+		return "", false
+	}
+
+	senderID := strings.TrimSpace(event.SenderID)
+	if senderID == "" {
+		return "", false
+	}
+
+	senderDisplay := bridgeSenderDisplay(event)
+	if senderDisplay == "" {
+		senderDisplay = senderID
+	}
+
+	switch strings.TrimSpace(event.EventType) {
+	case "message.group":
+		return fmt.Sprintf("%s: %s%s%s(%s): %s",
+			botID,
+			bridgeGroupDisplay(event),
+			bridgeSenderTitle(event),
+			senderDisplay,
+			senderID,
+			messageText,
+		), true
+	case "message.private":
+		return fmt.Sprintf("%s: %s(%s): %s", botID, senderDisplay, senderID, messageText), true
+	default:
+		return "", false
+	}
+}
+
+func bridgeGroupDisplay(event adapter.NormalizedEvent) string {
+	groupID := strings.TrimSpace(event.ConversationID)
+	groupName := strings.TrimSpace(textsafe.SanitizeString(event.TargetName))
+	if groupName == "" {
+		return fmt.Sprintf("[%s]", groupID)
+	}
+	return fmt.Sprintf("[%s(%s)]", groupName, groupID)
+}
+
+func bridgeSenderTitle(event adapter.NormalizedEvent) string {
+	onebot := bridgeEventOneBotPayload(event)
+	if sender, ok := onebot["sender"].(map[string]any); ok {
+		if title := strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(sender["title"]))); title != "" && title != "<nil>" {
+			return fmt.Sprintf("[%s]", title)
+		}
+	}
+	return ""
+}
+
+func bridgeSenderDisplay(event adapter.NormalizedEvent) string {
+	onebot := bridgeEventOneBotPayload(event)
+	if sender, ok := onebot["sender"].(map[string]any); ok {
+		card := strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(sender["card"])))
+		if card == "<nil>" {
+			card = ""
+		}
+		nickname := strings.TrimSpace(textsafe.SanitizeString(fmt.Sprint(sender["nickname"])))
+		if nickname == "<nil>" {
+			nickname = ""
+		}
+
+		switch {
+		case card != "" && nickname != "" && card != nickname:
+			return card + "/" + nickname
+		case card != "":
+			return card
+		case nickname != "":
+			return nickname
+		}
+	}
+
+	return strings.TrimSpace(textsafe.SanitizeString(event.ActorNickname))
 }
 
 func bridgeEventLogAttrs(event adapter.NormalizedEvent) []any {
@@ -504,6 +594,12 @@ func bridgeEventLogAttrs(event adapter.NormalizedEvent) []any {
 		"conversation_type", event.ConversationType,
 		"conversation_id", event.ConversationID,
 		"sender_id", event.SenderID,
+	}
+	if event.BotID != "" {
+		attrs = append(attrs, "self_id", event.BotID)
+	}
+	if event.TargetName != "" && event.ConversationType == "group" {
+		attrs = append(attrs, "group_name", textsafe.SanitizeString(event.TargetName))
 	}
 	if event.MessageID != "" {
 		attrs = append(attrs, "message_id", event.MessageID)

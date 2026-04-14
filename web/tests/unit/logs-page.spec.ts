@@ -51,7 +51,7 @@ describe('LogsPage', () => {
         timestamp: '1.775762955e+09',
         level: 'warn',
         source: 'bridge',
-        message: 'runtime bridge queued for dispatcher private message: 6',
+        message: '10001: 乔温迪乔斯达(3599026669): 6',
       },
     ]
 
@@ -76,7 +76,7 @@ describe('LogsPage', () => {
         timestamp: '2026-04-14T02:49:45Z',
         level: 'warn',
         source: 'bridge',
-        message: 'runtime bridge queued for dispatcher group message: 群星怒\u2066，大明云玩家\u202e~喵\u2069',
+        message: '721011692: [760384342]群星怒\u2066，大明云玩家\u202e~喵\u2069(2896109796): 除了战猎这种抓不到加费就完全没法打的角色',
       },
     ]
 

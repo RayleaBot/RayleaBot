@@ -238,6 +238,93 @@ func TestBridgeDeliversMessageSentEvent(t *testing.T) {
 	}
 }
 
+func TestBridgeEventSummaryFormatsGroupMessageContext(t *testing.T) {
+	t.Parallel()
+
+	summary := bridgeEventSummary("queued for dispatcher", adapter.NormalizedEvent{
+		BotID:            "1145141919",
+		SourceProtocol:   "onebot11",
+		EventType:        "message.group",
+		ConversationType: "group",
+		ConversationID:   "553855023",
+		SenderID:         "1358252269",
+		TargetName:       "终末地摸鱼群",
+		PlainText:        "除了战猎这种抓不到加费就完全没法打的角色",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"sender": map[string]any{
+					"nickname": "没错，是魔法！",
+					"card":     "群星怒",
+					"title":    "管理员",
+				},
+			},
+		},
+	})
+
+	if summary != "1145141919: [终末地摸鱼群(553855023)][管理员]群星怒/没错，是魔法！(1358252269): 除了战猎这种抓不到加费就完全没法打的角色" {
+		t.Fatalf("unexpected group summary: %#v", summary)
+	}
+}
+
+func TestBridgeEventSummaryFormatsPrivateMessageContext(t *testing.T) {
+	t.Parallel()
+
+	summary := bridgeEventSummary("queued for dispatcher", adapter.NormalizedEvent{
+		BotID:          "1145141919",
+		SourceProtocol: "onebot11",
+		EventType:      "message.private",
+		SenderID:       "3599026669",
+		PlainText:      "你好",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"sender": map[string]any{
+					"nickname": "乔温迪乔斯达",
+				},
+			},
+		},
+	})
+
+	if summary != "1145141919: 乔温迪乔斯达(3599026669): 你好" {
+		t.Fatalf("unexpected private summary: %#v", summary)
+	}
+}
+
+func TestBridgeEventLogAttrsIncludeBotIDAndGroupName(t *testing.T) {
+	t.Parallel()
+
+	attrs := bridgeEventLogAttrs(adapter.NormalizedEvent{
+		BotID:            "1145141919",
+		SourceProtocol:   "onebot11",
+		EventType:        "message.group",
+		ConversationType: "group",
+		ConversationID:   "553855023",
+		SenderID:         "1358252269",
+		TargetName:       "终末地摸鱼群",
+		PlainText:        "hello bridge",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"self_id": "1145141919",
+				"sender": map[string]any{
+					"nickname": "Alice",
+				},
+			},
+		},
+	})
+
+	attrMap := make(map[string]any, len(attrs)/2)
+	for index := 0; index+1 < len(attrs); index += 2 {
+		key, _ := attrs[index].(string)
+		attrMap[key] = attrs[index+1]
+	}
+
+	if attrMap["self_id"] != "1145141919" {
+		t.Fatalf("unexpected self_id attr: %#v", attrMap["self_id"])
+	}
+	if attrMap["group_name"] != "终末地摸鱼群" {
+		t.Fatalf("unexpected group_name attr: %#v", attrMap["group_name"])
+	}
+}
+
 type recordingDispatcher struct {
 	deliverable bool
 	results     []dispatch.DeliveryResult

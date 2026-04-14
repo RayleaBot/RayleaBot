@@ -209,14 +209,19 @@ type pluginLifecycleDeps struct {
 	onRecoveryChange func(string)
 }
 
+type eventMetadataEnricher interface {
+	EnrichEventMetadata(context.Context, adapter.NormalizedEvent) adapter.NormalizedEvent
+}
+
 type eventIngressDeps struct {
-	state          *appRuntimeState
-	plugins        *plugins.Catalog
-	replyTargets   *replyTargetCache
-	outboundSender outboundActionSender
-	bridge         *bridge.Bridge
-	lifecycle      *pluginLifecycleController
-	blacklistRepo  permission.BlacklistRepository
+	state            *appRuntimeState
+	plugins          *plugins.Catalog
+	replyTargets     *replyTargetCache
+	outboundSender   outboundActionSender
+	bridge           *bridge.Bridge
+	lifecycle        *pluginLifecycleController
+	metadataEnricher eventMetadataEnricher
+	blacklistRepo    permission.BlacklistRepository
 }
 
 type pluginWebhookServiceDeps struct {

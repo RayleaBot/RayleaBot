@@ -26,7 +26,7 @@ response:
         level: info
         source: bridge
         protocol: onebot11
-        message: runtime bridge delivered adapter event
+        message: "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge"
         request_id: req_bridge_0001
 expect:
   valid: true

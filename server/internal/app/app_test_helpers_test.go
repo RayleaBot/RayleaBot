@@ -47,11 +47,12 @@ func (a *App) setTestEventIngress(catalog *plugins.Catalog, blacklistRepo permis
 	a.outboundSender = sender
 	a.bridge = eventBridge
 	a.eventIngress = newEventIngressService(eventIngressDeps{
-		state:          a.state,
-		plugins:        catalog,
-		outboundSender: sender,
-		bridge:         eventBridge,
-		blacklistRepo:  blacklistRepo,
+		state:            a.state,
+		plugins:          catalog,
+		outboundSender:   sender,
+		bridge:           eventBridge,
+		metadataEnricher: a.adapter,
+		blacklistRepo:    blacklistRepo,
 	})
 }
 

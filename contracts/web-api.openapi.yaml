@@ -1260,6 +1260,7 @@ components:
           type: string
         message:
           type: string
+          description: OneBot11 bridge inbound message summaries may include bot, conversation, sender, and message preview context.
         protocol:
           $ref: '#/components/schemas/LogProtocol'
         plugin_id:

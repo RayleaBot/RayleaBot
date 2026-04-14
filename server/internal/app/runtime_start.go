@@ -21,6 +21,7 @@ func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adap
 	if s == nil {
 		return
 	}
+	event = s.enrichEventMetadata(ctx, event)
 	if s.replyTargets != nil {
 		s.replyTargets.Record(event)
 	}
@@ -37,6 +38,13 @@ func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adap
 	if s.bridge != nil {
 		s.bridge.HandleAdapterEvent(ctx, enriched)
 	}
+}
+
+func (s *eventIngressService) enrichEventMetadata(ctx context.Context, event adapter.NormalizedEvent) adapter.NormalizedEvent {
+	if s == nil || s.metadataEnricher == nil {
+		return event
+	}
+	return s.metadataEnricher.EnrichEventMetadata(ctx, event)
 }
 
 func (s *eventIngressService) HandleAdapterReady(ctx context.Context) {

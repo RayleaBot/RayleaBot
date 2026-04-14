@@ -6,13 +6,13 @@
     "type": "logs.appended",
     "timestamp": "2026-03-17T09:31:00Z",
     "data": {
-      "log_id": "log_adapter_0001",
+      "log_id": "log_bridge_0001",
       "timestamp": "2026-03-17T09:31:00Z",
-      "level": "warn",
-      "source": "adapter.onebot11",
+      "level": "info",
+      "source": "bridge",
       "protocol": "onebot11",
-      "message": "authentication failed for reverse websocket",
-      "request_id": "req_adapter_0001"
+      "message": "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
+      "request_id": "req_bridge_0001"
     }
   },
   "expect": {

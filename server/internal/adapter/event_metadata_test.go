@@ -1,0 +1,185 @@
+package adapter
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+)
+
+func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
+	t.Parallel()
+
+	var groupInfoCalls atomic.Int32
+	var memberInfoCalls atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		var request apiCallRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+
+		switch request.Action {
+		case "get_group_info":
+			groupInfoCalls.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status":  "ok",
+				"retcode": 0,
+				"data": map[string]any{
+					"group_name": "测试群",
+				},
+			})
+		case "get_group_member_info":
+			memberInfoCalls.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status":  "ok",
+				"retcode": 0,
+				"data": map[string]any{
+					"nickname": "普通昵称",
+					"card":     "群名片",
+					"role":     "member",
+				},
+			})
+		default:
+			t.Fatalf("unexpected action: %s", request.Action)
+		}
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		HTTPAPI: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     server.URL,
+		},
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	event := NormalizedEvent{
+		BotID:            "10001",
+		SourceProtocol:   "onebot11",
+		EventType:        "message.group",
+		ConversationType: "group",
+		ConversationID:   "553855023",
+		SenderID:         "1358252269",
+		PayloadFields: map[string]any{
+			"sender": map[string]any{},
+			"onebot": map[string]any{
+				"self_id":      "10001",
+				"group_id":     "553855023",
+				"user_id":      "1358252269",
+				"message_type": "group",
+				"sender":       map[string]any{},
+			},
+		},
+	}
+
+	enriched := shell.EnrichEventMetadata(context.Background(), event)
+	if enriched.TargetName != "测试群" {
+		t.Fatalf("unexpected target name: %#v", enriched.TargetName)
+	}
+	if enriched.ActorNickname != "群名片" {
+		t.Fatalf("unexpected actor nickname: %#v", enriched.ActorNickname)
+	}
+	if enriched.ActorRole != "member" {
+		t.Fatalf("unexpected actor role: %#v", enriched.ActorRole)
+	}
+
+	sender := enriched.PayloadFields["sender"].(map[string]any)
+	if sender["nickname"] != "普通昵称" || sender["card"] != "群名片" || sender["role"] != "member" {
+		t.Fatalf("unexpected sender payload: %#v", sender)
+	}
+
+	enrichedAgain := shell.EnrichEventMetadata(context.Background(), event)
+	if enrichedAgain.TargetName != "测试群" {
+		t.Fatalf("unexpected cached target name: %#v", enrichedAgain.TargetName)
+	}
+	if groupInfoCalls.Load() != 1 {
+		t.Fatalf("expected one group info lookup, got %d", groupInfoCalls.Load())
+	}
+	if memberInfoCalls.Load() != 1 {
+		t.Fatalf("expected one member info lookup, got %d", memberInfoCalls.Load())
+	}
+}
+
+func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
+	t.Parallel()
+
+	var strangerInfoCalls atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		var request apiCallRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if request.Action != "get_stranger_info" {
+			t.Fatalf("unexpected action: %s", request.Action)
+		}
+
+		strangerInfoCalls.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"nickname": "好友昵称",
+			},
+		})
+	}))
+	defer server.Close()
+
+	shell := newTestShell(config.OneBotConfig{
+		HTTPAPI: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     server.URL,
+		},
+	}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	event := NormalizedEvent{
+		BotID:            "10001",
+		SourceProtocol:   "onebot11",
+		EventType:        "message.private",
+		ConversationType: "private",
+		ConversationID:   "3599026669",
+		SenderID:         "3599026669",
+		PayloadFields: map[string]any{
+			"sender": map[string]any{},
+			"onebot": map[string]any{
+				"self_id":      "10001",
+				"user_id":      "3599026669",
+				"message_type": "private",
+				"sender":       map[string]any{},
+			},
+		},
+	}
+
+	enriched := shell.EnrichEventMetadata(context.Background(), event)
+	if enriched.ActorNickname != "好友昵称" {
+		t.Fatalf("unexpected actor nickname: %#v", enriched.ActorNickname)
+	}
+	if enriched.TargetName != "" {
+		t.Fatalf("private event should not set target name: %#v", enriched.TargetName)
+	}
+
+	sender := enriched.PayloadFields["sender"].(map[string]any)
+	if sender["nickname"] != "好友昵称" {
+		t.Fatalf("unexpected sender payload: %#v", sender)
+	}
+
+	_ = shell.EnrichEventMetadata(context.Background(), event)
+	if strangerInfoCalls.Load() != 1 {
+		t.Fatalf("expected one stranger info lookup, got %d", strangerInfoCalls.Load())
+	}
+}

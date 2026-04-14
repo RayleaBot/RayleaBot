@@ -67,6 +67,7 @@ type Shell struct {
 	pendingResponses map[string]chan apiResponse
 	httpClient       *http.Client
 	recentEventIDs   map[string]time.Time
+	identityCache    *IdentityCache
 }
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
@@ -110,6 +111,7 @@ func newShell(cfg config.OneBotConfig, logger *slog.Logger, deps shellDeps) *She
 			Timeout: deps.connectTimeout,
 		},
 		recentEventIDs: make(map[string]time.Time),
+		identityCache:  NewIdentityCache(defaultIdentityCacheTTL),
 	}
 }
 
@@ -319,6 +321,7 @@ func (s *Shell) applyConfig(nextCfg config.OneBotConfig, previousCfg config.OneB
 	s.snapshot = newTransportSnapshot(nextCfg)
 	s.pendingResponses = make(map[string]chan apiResponse)
 	s.recentEventIDs = make(map[string]time.Time)
+	s.identityCache = NewIdentityCache(defaultIdentityCacheTTL)
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()

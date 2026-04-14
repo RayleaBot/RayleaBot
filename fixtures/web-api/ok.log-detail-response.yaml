@@ -12,7 +12,7 @@ response:
     level: info
     source: bridge
     protocol: onebot11
-    message: runtime bridge delivered adapter event
+    message: "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge"
     request_id: req_bridge_0001
     details:
       direction: inbound
@@ -21,8 +21,10 @@ response:
       post_type: message
       message_type: group
       event_timestamp: 1711015202.0
+      self_id: "721011692"
       conversation_type: group
       conversation_id: "2001"
+      group_name: 测试群
       message_id: "1001"
       raw_message: hello bridge
       message_format: array

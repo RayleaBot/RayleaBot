@@ -18,9 +18,11 @@ const protocolDetailFieldKeys = [
   'post_type',
   'message_type',
   'event_timestamp',
+  'self_id',
   'time',
   'conversation_type',
   'conversation_id',
+  'group_name',
   'group_id',
   'sender_id',
   'user_id',
@@ -376,6 +378,15 @@ function getLevelTagColor(level: string) {
     default: return 'default'
   }
 }
+
+function formatProtocolLogSource(source?: string, protocol?: string) {
+  const nextSource = source?.trim()
+  const nextProtocol = protocol?.trim()
+  if (nextSource && nextProtocol) {
+    return `${nextSource} · ${nextProtocol}`
+  }
+  return nextSource || nextProtocol || t('display.empty')
+}
 </script>
 
 <template>
@@ -483,8 +494,8 @@ function getLevelTagColor(level: string) {
                     <div class="line-level-indicator" :class="getLevelColor(log.level)"></div>
                     <div class="line-content-wrap">
                       <div class="line-meta">
-                        <span class="line-time">{{ formatDateTime(log.timestamp).split(' ')[1] }}</span>
-                        <span class="line-source">{{ log.source }}</span>
+                        <span class="line-time">{{ formatDateTime(log.timestamp) }}</span>
+                        <span class="line-source">{{ formatProtocolLogSource(log.source, log.protocol) }}</span>
                       </div>
                       <div class="line-body">
                         <span class="line-text">{{ escapeUnsafeDisplayText(log.message) }}</span>
@@ -529,7 +540,7 @@ function getLevelTagColor(level: string) {
                       </div>
                       <div class="meta-row">
                         <span class="mono-label">{{ t('protocols.fields.source') }}</span>
-                        <span class="mono-value">{{ selectedSummary.source }} <template v-if="selectedSummary.plugin_id">(@{{ selectedSummary.plugin_id }})</template></span>
+                        <span class="mono-value">{{ formatProtocolLogSource(selectedSummary.source, selectedSummary.protocol) }} <template v-if="selectedSummary.plugin_id">(@{{ selectedSummary.plugin_id }})</template></span>
                       </div>
                     </div>
                   </header>
@@ -773,15 +784,21 @@ function getLevelTagColor(level: string) {
 
 .line-meta {
   display: flex;
-  gap: var(--space-sm);
-  width: 140px;
+  flex-direction: column;
+  gap: 2px;
+  width: 220px;
   flex-shrink: 0;
   font-size: 0.78rem;
   color: var(--app-text-secondary);
   font-family: var(--font-mono);
 }
 
+.line-time {
+  line-height: 1.45;
+}
+
 .line-source {
+  line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

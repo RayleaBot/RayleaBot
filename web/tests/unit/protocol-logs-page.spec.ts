@@ -103,7 +103,7 @@ describe('ProtocolLogsPage', () => {
         protocol: 'onebot11',
         source: 'bridge',
         request_id: 'req_bridge_0002',
-        message: 'runtime bridge delivered sent group message: 您好',
+        message: '721011692: [测试群(860105388)]管理员/Alice(3001): 您好',
       },
     ]
     logsStore.selectedLogId = 'log_bridge_0002'
@@ -114,24 +114,27 @@ describe('ProtocolLogsPage', () => {
       protocol: 'onebot11',
       source: 'bridge',
       request_id: 'req_bridge_0002',
-      message: 'runtime bridge delivered sent group message: 您好',
+      message: '721011692: [测试群(860105388)]管理员/Alice(3001): 您好',
       details: {
         direction: 'inbound',
-        event_kind: 'onebot11.message_sent',
-        event_type: 'message_sent.group',
-        post_type: 'message_sent',
+        event_kind: 'onebot11.message',
+        event_type: 'message.group',
+        post_type: 'message',
         message_type: 'group',
         event_timestamp: 1729679125,
+        self_id: '721011692',
         conversation_type: 'group',
         conversation_id: '860105388',
+        group_name: '测试群',
         message_id: '966671988',
         raw_message: '您好',
         message_format: 'array',
         font: 14,
         plain_text: '您好',
         sender: {
-          user_id: '721011692',
-          nickname: '--',
+          user_id: '3001',
+          nickname: 'Alice',
+          card: '管理员',
           role: 'owner',
         },
       },
@@ -152,12 +155,17 @@ describe('ProtocolLogsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('会话 ID（群号或私聊对象）')
+    expect(wrapper.text()).toContain('机器人 QQ 号')
+    expect(wrapper.text()).toContain('群名称')
     expect(wrapper.text()).toContain('发送者昵称')
     expect(wrapper.text()).toContain('发送者 ID')
     expect(wrapper.text()).toContain('消息 ID')
     expect(wrapper.text()).toContain('您好')
+    expect(wrapper.find('.line-source').text()).toBe('bridge · onebot11')
     expect(wrapper.findAll('.field-label').some((node) => node.text() === '群号')).toBe(false)
     const detailJson = wrapper.find('.json-content').text()
+    expect(detailJson).toContain('"self_id": "721011692"')
+    expect(detailJson).toContain('"group_name": "测试群"')
     expect(detailJson).toContain('"sender"')
     expect(detailJson).not.toContain('sender_id')
     expect(detailJson).not.toContain('sender_nickname')
@@ -169,7 +177,7 @@ describe('ProtocolLogsPage', () => {
   it('escapes directional control characters in protocol detail text and structured JSON', async () => {
     const logsStore = useProtocolLogsStore()
     const unsafeCard = '群星怒\u2066，大明云玩家\u202e~喵\u2069'
-    const unsafeMessage = `runtime bridge queued for dispatcher group message: ${unsafeCard}`
+    const unsafeMessage = `721011692: [760384342]${unsafeCard}/没错，是魔法！(2896109796): 除了战猎这种抓不到加费就完全没法打的角色`
 
     logsStore.items = [
       {
@@ -310,7 +318,7 @@ describe('ProtocolLogsPage', () => {
         protocol: 'onebot11',
         source: 'bridge',
         request_id: 'req_bridge_0001',
-        message: 'runtime bridge delivered adapter event',
+        message: '721011692: [测试群(2001)]管理员/Alice(3001): hello bridge',
       },
     ]
 
@@ -396,7 +404,7 @@ describe('ProtocolLogsPage', () => {
         protocol: 'onebot11',
         source: 'bridge',
         request_id: 'req_bridge_scientific_0001',
-        message: 'runtime bridge queued for dispatcher private message: 6',
+        message: '10001: 乔温迪乔斯达(3599026669): 6',
       },
     ]
     logsStore.selectedLogId = 'log_bridge_scientific_0001'
@@ -415,7 +423,8 @@ describe('ProtocolLogsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.line-time').text()).toContain(formatDateTime('1.775762955e+09').split(' ')[1])
+    expect(wrapper.find('.line-time').text()).toBe(formatDateTime('1.775762955e+09'))
+    expect(wrapper.find('.line-source').text()).toBe('bridge · onebot11')
   })
 
   it('keeps the protocol log layout visible when a live log carries invalid time fields', async () => {
@@ -429,7 +438,7 @@ describe('ProtocolLogsPage', () => {
         protocol: 'onebot11',
         source: 'bridge',
         request_id: 'req_bridge_0003',
-        message: 'runtime bridge delivered group message: 您好',
+        message: '721011692: [测试群(860105388)]管理员/Alice(3001): 您好',
       },
     ]
     logsStore.selectedLogId = 'log_bridge_0003'
@@ -440,7 +449,7 @@ describe('ProtocolLogsPage', () => {
       protocol: 'onebot11',
       source: 'bridge',
       request_id: 'req_bridge_0003',
-      message: 'runtime bridge delivered group message: 您好',
+      message: '721011692: [测试群(860105388)]管理员/Alice(3001): 您好',
       details: {
         time: 'not-a-date',
       },
@@ -469,7 +478,7 @@ describe('ProtocolLogsPage', () => {
         protocol: 'onebot11',
         source: 'bridge',
         request_id: 'req_bridge_0004',
-        message: 'runtime bridge delivered sent group message: 您好',
+        message: '721011692: [测试群(860105388)]管理员/Alice(3001): 您好',
       },
     ]
     logsStore.selectedLogId = 'log_bridge_0004'
@@ -480,7 +489,7 @@ describe('ProtocolLogsPage', () => {
       protocol: 'onebot11',
       source: 'bridge',
       request_id: 'req_bridge_0004',
-      message: 'runtime bridge delivered sent group message: 您好',
+      message: '721011692: [测试群(860105388)]管理员/Alice(3001): 您好',
       details: {
         event_timestamp: Number.MAX_SAFE_INTEGER,
         time: 'not-a-date',
@@ -490,7 +499,7 @@ describe('ProtocolLogsPage', () => {
     await flushPromises()
 
     expect(wrapper.find('.logs-display-grid').exists()).toBe(true)
-    expect(wrapper.text()).toContain('runtime bridge delivered sent group message: 您好')
+    expect(wrapper.text()).toContain('721011692: [测试群(860105388)]管理员/Alice(3001): 您好')
     expect(wrapper.text()).toContain('not-a-date')
   })
 

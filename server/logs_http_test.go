@@ -101,7 +101,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:02Z",
 			Level:     "info",
 			Source:    "bridge",
-			Message:   "runtime bridge delivered adapter event",
+			Message:   "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
 			RequestID: "req_bridge_0001",
 		},
 		{
@@ -391,7 +391,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 		Timestamp: "2026-03-20T10:00:02Z",
 		Level:     "info",
 		Source:    "bridge",
-		Message:   "runtime bridge delivered adapter event",
+		Message:   "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
 		RequestID: "req_bridge_0001",
 		Details: map[string]any{
 			"direction":         "inbound",
@@ -400,9 +400,11 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 			"post_type":         "message",
 			"message_type":      "group",
 			"event_timestamp":   float64(1711015202),
+			"self_id":           "721011692",
 			"time":              float64(1711015202),
 			"conversation_type": "group",
 			"conversation_id":   "2001",
+			"group_name":        "测试群",
 			"group_id":          "2001",
 			"sender_id":         "3001",
 			"user_id":           "3001",
@@ -597,12 +599,14 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 		Timestamp: "2026-04-09T20:51:46Z",
 		Level:     "info",
 		Source:    "bridge",
-		Message:   "runtime bridge delivered group message: 装修臭头大",
+		Message:   "721011692: [测试群(860105388)]Alice(3001): 装修臭头大",
 		RequestID: "dispatch_1775739204056693800",
 		Details: map[string]any{
 			"direction":       "inbound",
 			"event_type":      "message.group",
+			"self_id":         "721011692",
 			"conversation_id": "860105388",
+			"group_name":      "测试群",
 			"group_id":        "860105388",
 			"sender_id":       "3001",
 			"sender_nickname": "Alice",
@@ -639,6 +643,12 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 	if details["plain_text"] != "装修臭头大" {
 		t.Fatalf("unexpected fallback details: %#v", details)
 	}
+	if details["self_id"] != "721011692" {
+		t.Fatalf("unexpected self_id detail: %#v", details["self_id"])
+	}
+	if details["group_name"] != "测试群" {
+		t.Fatalf("unexpected group_name detail: %#v", details["group_name"])
+	}
 	if _, ok := details["group_id"]; ok {
 		t.Fatalf("group_id should be omitted from compacted fallback detail: %#v", details)
 	}
@@ -668,11 +678,12 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 		Timestamp: "2026-04-09T20:51:46Z",
 		Level:     "info",
 		Source:    "bridge",
-		Message:   "runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
+		Message:   "721011692: [860105388]群星怒\u2066~喵(3001): hello\u202eworld",
 		RequestID: "dispatch_1775739204056693801",
 		Details: map[string]any{
 			"direction":       "inbound",
 			"event_type":      "message.group",
+			"self_id":         "721011692",
 			"conversation_id": "860105388",
 			"sender_nickname": "群星怒\u2066~喵",
 			"plain_text":      "hello\u202eworld",
@@ -698,7 +709,7 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if body["message"] != "runtime bridge queued for dispatcher group message: 群星怒~喵" {
+	if body["message"] != "721011692: [860105388]群星怒~喵(3001): helloworld" {
 		t.Fatalf("unexpected sanitized fallback message: %#v", body["message"])
 	}
 	details, ok := body["details"].(map[string]any)
@@ -707,6 +718,9 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	}
 	if details["plain_text"] != "helloworld" {
 		t.Fatalf("unexpected sanitized fallback details: %#v", details)
+	}
+	if details["self_id"] != "721011692" {
+		t.Fatalf("unexpected sanitized self_id detail: %#v", details["self_id"])
 	}
 	sender, ok := details["sender"].(map[string]any)
 	if !ok {
