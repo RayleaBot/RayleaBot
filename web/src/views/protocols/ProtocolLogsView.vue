@@ -7,6 +7,7 @@ import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
+import { escapeUnsafeDisplayText, safeJsonStringify, toSafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
 
@@ -277,17 +278,21 @@ function formatDetailValue(key: ProtocolDetailFieldKey, value: unknown) {
     return t('protocols.segmentCount', { count: value.length })
   }
 
+  if (typeof value === 'string') {
+    return escapeUnsafeDisplayText(value)
+  }
+
   if (typeof value === 'object') {
     const raw = safeJsonStringify(value)
     return raw.length > 140 ? `${raw.slice(0, 140)}...` : raw
   }
 
-  return String(value)
+  return toSafeDisplayText(value)
 }
 
 function formatProtocolEventTime(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return formatDateTime(normalizeUnixTimestamp(value))
+    return escapeUnsafeDisplayText(formatDateTime(normalizeUnixTimestamp(value)))
   }
 
   if (typeof value === 'string') {
@@ -298,13 +303,13 @@ function formatProtocolEventTime(value: unknown) {
 
     const numeric = Number(trimmed)
     if (Number.isFinite(numeric) && numeric > 0) {
-      return formatDateTime(normalizeUnixTimestamp(numeric))
+      return escapeUnsafeDisplayText(formatDateTime(normalizeUnixTimestamp(numeric)))
     }
 
-    return formatDateTime(trimmed)
+    return escapeUnsafeDisplayText(formatDateTime(trimmed))
   }
 
-  return String(value)
+  return toSafeDisplayText(value)
 }
 
 function normalizeUnixTimestamp(value: number) {
@@ -342,14 +347,6 @@ function getSenderDetailValue(details: Record<string, unknown>, key: string) {
 
 function hasDetailFieldValue(value: unknown) {
   return value !== null && value !== undefined && value !== ''
-}
-
-function safeJsonStringify(value: unknown) {
-  try {
-    return JSON.stringify(value ?? {}, null, 2)
-  } catch {
-    return '{}'
-  }
 }
 
 function getLogRowClass(logId: string) {
@@ -490,7 +487,7 @@ function getLevelTagColor(level: string) {
                         <span class="line-source">{{ log.source }}</span>
                       </div>
                       <div class="line-body">
-                        <span class="line-text">{{ log.message }}</span>
+                        <span class="line-text">{{ escapeUnsafeDisplayText(log.message) }}</span>
                       </div>
                     </div>
                   </button>
@@ -524,7 +521,7 @@ function getLevelTagColor(level: string) {
                       <a-tag :color="getLevelTagColor(selectedSummary.level)">{{ getLogLevelLabel(selectedSummary.level) }}</a-tag>
                       <a-tag color="blue">{{ getLogProtocolLabel(selectedSummary.protocol) }}</a-tag>
                     </div>
-                    <h3 class="detail-hero-message">{{ selectedSummary.message }}</h3>
+                    <h3 class="detail-hero-message">{{ escapeUnsafeDisplayText(selectedSummary.message) }}</h3>
                     <div class="detail-hero-meta">
                       <div class="meta-row">
                         <span class="mono-label">{{ t('protocols.fields.timestamp') }}</span>
@@ -796,6 +793,7 @@ function getLevelTagColor(level: string) {
   line-height: 1.5;
   word-break: break-word;
   white-space: pre-wrap;
+  unicode-bidi: plaintext;
 }
 
 .detail-view-content {
@@ -825,6 +823,7 @@ function getLevelTagColor(level: string) {
   line-height: 1.5;
   color: var(--app-text);
   word-break: break-word;
+  unicode-bidi: plaintext;
 }
 
 .detail-hero-meta {
@@ -882,6 +881,7 @@ function getLevelTagColor(level: string) {
   font-size: 0.85rem;
   color: var(--app-text);
   word-break: break-all;
+  unicode-bidi: plaintext;
 }
 
 .detail-json-section {
@@ -904,6 +904,7 @@ function getLevelTagColor(level: string) {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
+  unicode-bidi: plaintext;
 }
 
 :deep(.detail-card .ant-skeleton),

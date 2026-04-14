@@ -166,6 +166,76 @@ describe('ProtocolLogsPage', () => {
     expect(detailJson).not.toContain('"message_seq"')
   })
 
+  it('escapes directional control characters in protocol detail text and structured JSON', async () => {
+    const logsStore = useProtocolLogsStore()
+    const unsafeCard = '群星怒\u2066，大明云玩家\u202e~喵\u2069'
+    const unsafeMessage = `runtime bridge queued for dispatcher group message: ${unsafeCard}`
+
+    logsStore.items = [
+      {
+        log_id: 'log_bridge_unsafe_0001',
+        timestamp: '2026-04-14T02:49:45Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'bridge',
+        request_id: 'req_bridge_unsafe_0001',
+        message: unsafeMessage,
+      },
+    ]
+    logsStore.selectedLogId = 'log_bridge_unsafe_0001'
+    logsStore.currentDetail = {
+      log_id: 'log_bridge_unsafe_0001',
+      timestamp: '2026-04-14T02:49:45Z',
+      level: 'info',
+      protocol: 'onebot11',
+      source: 'bridge',
+      request_id: 'req_bridge_unsafe_0001',
+      message: unsafeMessage,
+      details: {
+        direction: 'inbound',
+        conversation_id: '760384342',
+        conversation_type: 'group',
+        sender: {
+          user_id: '2896109796',
+          nickname: '没错，是魔法！',
+          card: unsafeCard,
+          role: 'member',
+        },
+        plain_text: '除了战猎这种抓不到加费就完全没法打的角色',
+      },
+    }
+
+    vi.spyOn(logsStore, 'fetchList').mockResolvedValue(logsStore.items)
+
+    const router = createTestRouter()
+    await router.push('/protocols/logs')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolLogsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    const senderCardField = wrapper.findAll('.detail-field-box').find((node) => (
+      node.find('.field-label').text() === '发送者名片'
+    ))
+
+    expect(senderCardField).toBeTruthy()
+    expect(wrapper.find('.line-text').text()).toContain('\\u2066')
+    expect(wrapper.find('.detail-hero-message').text()).toContain('\\u2066')
+    expect(senderCardField!.find('.field-value').text()).toContain('\\u2066')
+    expect(senderCardField!.find('.field-value').text()).not.toContain('\u2066')
+
+    const detailJson = wrapper.find('.json-content').text()
+    expect(detailJson).toContain('"card": "群星怒\\u2066，大明云玩家\\u202e~喵\\u2069"')
+    expect(detailJson).not.toContain('\u2066')
+    expect(detailJson).not.toContain('\u202e')
+    expect(detailJson).not.toContain('\u2069')
+  })
+
   it('renders outbound delivery detail fields with clear labels', async () => {
     const logsStore = useProtocolLogsStore()
 

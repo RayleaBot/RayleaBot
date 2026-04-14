@@ -6,6 +6,7 @@ import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
+import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useLogsStore } from '@/stores/logs'
 
@@ -124,7 +125,9 @@ onMounted(() => {
         </template>
 
         <template v-else-if="column.key === 'message'">
-          <p class="log-message-text" :title="record.message">{{ record.message }}</p>
+          <p class="log-message-text" :title="escapeUnsafeDisplayText(record.message)">
+            {{ escapeUnsafeDisplayText(record.message) }}
+          </p>
         </template>
       </template>
     </a-table>
@@ -179,5 +182,6 @@ onMounted(() => {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-all;
+  unicode-bidi: plaintext;
 }
 </style>

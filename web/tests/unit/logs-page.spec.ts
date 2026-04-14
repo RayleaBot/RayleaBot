@@ -67,4 +67,33 @@ describe('LogsPage', () => {
 
     expect(wrapper.find('.log-time-display').text()).toBe(formatDateTime('1.775762955e+09'))
   })
+
+  it('escapes directional control characters in log messages', async () => {
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_warn_unsafe_0001',
+        timestamp: '2026-04-14T02:49:45Z',
+        level: 'warn',
+        source: 'bridge',
+        message: 'runtime bridge queued for dispatcher group message: 群星怒\u2066，大明云玩家\u202e~喵\u2069',
+      },
+    ]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(LogsPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const message = wrapper.find('.log-message-text').text()
+    expect(message).toContain('\\u2066')
+    expect(message).toContain('\\u202e')
+    expect(message).not.toContain('\u2066')
+    expect(message).not.toContain('\u202e')
+  })
 })

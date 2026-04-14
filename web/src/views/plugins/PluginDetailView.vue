@@ -19,6 +19,7 @@ import {
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { ApiError } from '@/lib/http'
+import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
@@ -419,7 +420,7 @@ async function scrollConsoleToBottom() {
             {{ formatDateTime(frame.timestamp) }} · {{ frame.stream }}
             <template v-if="frame.stream === 'outbound'"> · {{ getConsoleLevel(frame) }}</template>
           </span>
-          <pre>{{ frame.text }}</pre>
+          <pre>{{ escapeUnsafeDisplayText(frame.text) }}</pre>
         </div>
       </div>
     </a-card>
@@ -586,5 +587,6 @@ async function scrollConsoleToBottom() {
   word-break: break-word;
   font-family: "Cascadia Mono", "Consolas", monospace;
   line-height: 1.55;
+  unicode-bidi: plaintext;
 }
 </style>

@@ -430,6 +430,72 @@ test('protocol logs keeps terminal and detail panes inside the viewport', async 
   expect(metrics.terminalLastLineGap).toBeGreaterThanOrEqual(8)
 })
 
+test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_bridge_unsafe_0001',
+        timestamp: '2026-04-14T02:49:45Z',
+        level: 'info',
+        source: 'bridge',
+        protocol: 'onebot11',
+        request_id: 'req_bridge_unsafe_0001',
+        message: 'runtime bridge queued for dispatcher group message: 群星怒\u2066，大明云玩家\u202e~喵\u2069',
+      },
+      detail: {
+        log_id: 'log_bridge_unsafe_0001',
+        timestamp: '2026-04-14T02:49:45Z',
+        level: 'info',
+        source: 'bridge',
+        protocol: 'onebot11',
+        request_id: 'req_bridge_unsafe_0001',
+        message: 'runtime bridge queued for dispatcher group message: 群星怒\u2066，大明云玩家\u202e~喵\u2069',
+        details: {
+          direction: 'inbound',
+          conversation_id: '760384342',
+          conversation_type: 'group',
+          sender: {
+            user_id: '2896109796',
+            nickname: '没错，是魔法！',
+            card: '群星怒\u2066，大明云玩家\u202e~喵\u2069',
+            role: 'member',
+          },
+          plain_text: '除了战猎这种抓不到加费就完全没法打的角色',
+        },
+      },
+    },
+  })
+
+  await page.goto('/protocols/logs')
+  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
+  const unsafeTerminalLine = page.locator('.terminal-line', { hasText: '\\u2066' }).last()
+  await expect(unsafeTerminalLine.locator('.line-text')).toContainText('\\u2066')
+  await unsafeTerminalLine.click()
+  await expect(page.locator('.detail-hero-message')).toContainText('\\u2066')
+  await expect(page.locator('.field-value').filter({ hasText: '\\u2066' }).first()).toBeVisible()
+  await expect(page.locator('.json-content')).toContainText('\\u2066')
+
+  const protocolTexts = await page.evaluate(() => ({
+    line: document.querySelector('.terminal-line:last-child .line-text')?.textContent ?? '',
+    hero: document.querySelector('.detail-hero-message')?.textContent ?? '',
+    json: document.querySelector('.json-content')?.textContent ?? '',
+  }))
+  expect(protocolTexts.line.includes('\u2066')).toBe(false)
+  expect(protocolTexts.hero.includes('\u2066')).toBe(false)
+  expect(protocolTexts.json.includes('\u2066')).toBe(false)
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  const unsafeLogMessage = page.locator('.log-message-text', { hasText: '群星怒' }).first()
+  await expect(unsafeLogMessage).toContainText('\\u2066')
+
+  const logsText = await unsafeLogMessage.evaluate((node) => node.textContent ?? '')
+  expect(logsText.includes('\u2066')).toBe(false)
+})
+
 test('config keeps the section list scroll inside the card without page overflow', async ({ page, request }) => {
   await resetBackend(request, true)
   await page.setViewportSize({ width: 1600, height: 1200 })
