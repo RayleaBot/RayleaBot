@@ -153,4 +153,35 @@ describe('ConfigPage', () => {
     expect(wrapper.text()).not.toContain('OneBot 连接')
     expect(wrapper.text()).not.toContain('适配器')
   })
+
+  it('keeps cleared numeric fields empty instead of forcing them to 0', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
+      config: store.document,
+      redacted_fields: [],
+      restart_required: false,
+    })
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const portInput = wrapper.find('.config-number-input input')
+    expect(portInput.exists()).toBe(true)
+    await portInput.setValue('')
+
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(saveSpy.mock.calls[0][0].server.port).toBeUndefined()
+  })
 })

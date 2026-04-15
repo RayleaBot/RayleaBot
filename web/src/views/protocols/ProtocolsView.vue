@@ -123,7 +123,11 @@ onMounted(() => {
 
 function readField(path: string, type: ConfigFieldDefinition['type']) {
   if (!draft.value) {
-    return type === 'boolean' ? false : ''
+    if (type === 'boolean') {
+      return false
+    }
+
+    return type === 'number' ? null : ''
   }
 
   const current = getValueByPath(draft.value as unknown as Record<string, unknown>, path)
@@ -140,7 +144,12 @@ function writeField(path: string, type: ConfigFieldDefinition['type'], value: un
 
   let normalized = value
   if (type === 'number') {
-    normalized = Number(value)
+    if (value === null || value === undefined || value === '') {
+      normalized = undefined
+    } else {
+      const nextNumber = Number(value)
+      normalized = Number.isFinite(nextNumber) ? nextNumber : undefined
+    }
   } else if (type === 'list') {
     normalized = fromMultilineList(String(value))
   }
@@ -301,12 +310,12 @@ async function save() {
 
                   <a-input-number
                     v-else-if="field.type === 'number'"
-                    :value="Number(readField(field.path, field.type) ?? 0)"
+                    :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
                     :aria-label="field.label"
                     :min="0"
                     :step="1"
                     class="refined-number-input"
-                    @update:value="(value) => writeField(field.path, field.type, value ?? 0)"
+                    @update:value="(value) => writeField(field.path, field.type, value)"
                   />
 
                   <div v-else-if="field.type === 'boolean'" class="switch-wrap">

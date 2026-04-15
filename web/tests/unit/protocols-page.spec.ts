@@ -232,4 +232,57 @@ describe('ProtocolsPage', () => {
     expect(saveSpy.mock.calls[0][0].server.host).toBe('127.0.0.1')
     expect(wrapper.text()).toContain('未启用')
   })
+
+  it('keeps cleared protocol numeric fields empty instead of forcing them to 0', async () => {
+    const configStore = useConfigStore()
+    const protocolsStore = useProtocolsStore()
+
+    configStore.document = createFixtureConfig()
+    protocolsStore.snapshot = {
+      protocol: 'onebot11',
+      provider: 'standard',
+      configured_transports: ['forward_ws'],
+      active_transports: ['forward_ws'],
+      transport_status: [
+        { transport: 'reverse_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'connected', summary: '主动连接已建立' },
+        { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+      ],
+      readiness_status: 'ready',
+      summary: 'OneBot11 主动连接已就绪',
+      recent_transport_issues: [],
+    }
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+    const saveSpy = vi.spyOn(configStore, 'saveConfig').mockResolvedValue({
+      config: configStore.document,
+      redacted_fields: [],
+      restart_required: false,
+    })
+
+    const router = createTestRouter()
+    await router.push('/protocols')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    const timeoutInput = wrapper.find('input[aria-label="连接超时（秒）"]')
+    expect(timeoutInput.exists()).toBe(true)
+    await timeoutInput.setValue('')
+
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存协议设置'))
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(saveSpy.mock.calls[0][0].adapter.connect_timeout_seconds).toBeUndefined()
+  })
 })
