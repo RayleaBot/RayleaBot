@@ -4,7 +4,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { formatDateTime } from '@/lib/format'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import LogsPage from '@/views/operations/LogsView.vue'
 import { useLogsStore } from '@/stores/logs'
 
@@ -55,7 +54,7 @@ describe('LogsPage', () => {
     expect(wrapper.find('.log-cell-time').exists()).toBe(true)
     expect(wrapper.find('.log-cell-source').exists()).toBe(true)
     expect(wrapper.find('.log-message-text').exists()).toBe(true)
-    expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
+    expect(wrapper.find('.logs-data-table .data-viewport__scroller').exists()).toBe(true)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 

@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
@@ -227,17 +226,13 @@ onUnmounted(() => {
           <span>{{ t('logs.fields.message') }}</span>
         </header>
 
-        <VirtualDataViewport
-          class="logs-data-viewport"
-          :items="items"
-          :item-height="64"
-          dynamic-item-height
-          :overscan="6"
-          :empty-label="t('display.empty')"
-          :get-item-key="(item) => item.log_id"
-        >
-          <template #default="{ item }">
-            <article class="logs-table-row">
+        <div v-if="items.length === 0" class="data-viewport__empty logs-data-empty">
+          {{ t('display.empty') }}
+        </div>
+
+        <div v-else class="logs-data-viewport">
+          <div class="data-viewport__scroller logs-data-scroller">
+            <article v-for="item in items" :key="item.log_id" class="logs-table-row">
               <div class="logs-table-cell log-cell-time">
                 <div class="log-time-display">{{ formatDateTime(item.timestamp) }}</div>
                 <small class="log-request-id">{{ item.request_id ?? t('display.empty') }}</small>
@@ -260,8 +255,8 @@ onUnmounted(() => {
                 </p>
               </div>
             </article>
-          </template>
-        </VirtualDataViewport>
+          </div>
+        </div>
       </section>
     </div>
   </AppPage>
@@ -322,16 +317,25 @@ onUnmounted(() => {
 }
 
 .logs-data-viewport {
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-top-width: 0;
+}
+
+.logs-data-empty {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.logs-data-scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .logs-table-row {
-  min-height: 100%;
-  height: auto;
+  min-height: auto;
   align-items: center;
   padding: 0 16px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
@@ -340,6 +344,7 @@ onUnmounted(() => {
 
 .logs-table-cell {
   min-width: 0;
+  padding-block: 12px;
 }
 
 .log-cell-time,
@@ -409,6 +414,13 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .logs-table-cell {
+    padding-block: 0;
+  }
+
+  .logs-data-scroller {
     padding-block: 12px;
   }
 }

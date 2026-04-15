@@ -5,7 +5,6 @@ import { storeToRefs } from 'pinia'
 
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText, safeJsonStringify, toSafeDisplayText } from '@/lib/text-safety'
@@ -425,18 +424,11 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
                 <p>{{ t('protocols.logsEmpty') }}</p>
               </div>
 
-              <VirtualDataViewport
-                v-else
-                class="terminal-view-scroller"
-                :items="items"
-                :item-height="64"
-                dynamic-item-height
-                :overscan="6"
-                :empty-label="t('protocols.logsEmpty')"
-                :get-item-key="(item) => item.log_id"
-              >
-                <template #default="{ item: log }">
+              <div v-else class="terminal-view-scroller">
+                <div class="data-viewport__scroller terminal-view-scroll-body">
                   <button
+                    v-for="log in items"
+                    :key="log.log_id"
                     type="button"
                     class="terminal-line"
                     :class="[getLogRowClass(log.log_id), getLevelClass(log.level)]"
@@ -453,8 +445,8 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
                       </div>
                     </div>
                   </button>
-                </template>
-              </VirtualDataViewport>
+                </div>
+              </div>
             </a-card>
 
             <a-card :bordered="false" class="detail-card">
@@ -662,17 +654,20 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
 }
 
 .terminal-view-scroller {
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+}
+
+.terminal-view-scroll-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .terminal-line {
   width: 100%;
-  min-height: 100%;
-  height: auto;
   display: flex;
   align-items: flex-start;
   gap: 12px;

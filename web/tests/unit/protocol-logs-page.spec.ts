@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { formatDateTime } from '@/lib/format'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import ProtocolLogsPage from '@/views/protocols/ProtocolLogsView.vue'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
 
@@ -79,7 +78,7 @@ describe('ProtocolLogsPage', () => {
     expect(wrapper.text()).toContain('协议日志')
     expect(wrapper.find('.terminal-card').exists()).toBe(true)
     expect(wrapper.findAll('.terminal-line')).toHaveLength(1)
-    expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
+    expect(wrapper.find('.terminal-view-scroller .data-viewport__scroller').exists()).toBe(true)
     expect(wrapper.text()).toContain('ignored OneBot API response with unsupported echo')
     expect(wrapper.text()).toContain('消息详情')
     expect(wrapper.text()).toContain('api.response.ignored')
