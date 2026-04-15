@@ -7,6 +7,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons-vue'
 
+import AppCard from '@/components/AppCard.vue'
 import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
 import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
 import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
@@ -100,11 +101,11 @@ function getEventSeverity(payload: Record<string, unknown>) {
   return typeof severity === 'string' ? severity : undefined
 }
 
-function getEventSeverityClass(severity?: string) {
-  if (severity === 'error' || severity === 'danger') return 'event-item--danger'
-  if (severity === 'warning') return 'event-item--warning'
-  if (severity === 'success') return 'event-item--success'
-  return ''
+function getEventSeverityColor(severity?: string): 'blue' | 'red' | 'orange' | 'green' | 'gray' {
+  if (severity === 'error' || severity === 'danger') return 'red'
+  if (severity === 'warning') return 'orange'
+  if (severity === 'success') return 'green'
+  return 'blue'
 }
 
 function getEventSeverityIcon(severity?: string) {
@@ -177,31 +178,33 @@ function getEventSeverityIcon(severity?: string) {
     />
 
     <div class="dashboard-main-grid">
-      <a-card :bordered="false" class="dashboard-activity-card">
+      <AppCard borderless class="dashboard-activity-card">
         <a-tabs v-model:activeKey="activeOverviewTab" size="small">
           <a-tab-pane key="events" :tab="t('dashboard.overviewEvents')">
             <a-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
-            <div v-else class="events-section">
-              <div
+            <a-timeline v-else class="events-timeline">
+              <a-timeline-item
                 v-for="event in recentEvents"
                 :key="`${event.timestamp}-${event.summary}`"
-                :class="['event-item', getEventSeverityClass(getEventSeverity(event.payload))]"
+                :color="getEventSeverityColor(getEventSeverity(event.payload))"
               >
-                <component
-                  :is="getEventSeverityIcon(getEventSeverity(event.payload))"
-                  v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
-                  class="event-item__icon"
-                />
-                <span v-else class="event-item__dot" />
-                <div class="event-item__body">
-                  <strong>{{ event.summary }}</strong>
-                  <span class="event-item__time" :data-absolute="event.timestamp">
+                <template #dot>
+                  <component
+                    :is="getEventSeverityIcon(getEventSeverity(event.payload))"
+                    v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
+                    class="events-timeline__dot-icon"
+                  />
+                  <span v-else class="events-timeline__dot" />
+                </template>
+                <div class="events-timeline__item">
+                  <div class="events-timeline__summary">{{ event.summary }}</div>
+                  <div class="events-timeline__time" :data-absolute="event.timestamp">
                     {{ formatRelativeTime(event.timestamp) }}
-                  </span>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </a-timeline-item>
+            </a-timeline>
           </a-tab-pane>
 
           <a-tab-pane key="readiness" :tab="t('dashboard.overviewReadiness')">
@@ -253,7 +256,7 @@ function getEventSeverityIcon(severity?: string) {
             </div>
           </a-tab-pane>
         </a-tabs>
-      </a-card>
+      </AppCard>
 
       <DashboardRecoveryCard
         v-model:selected-recovery-review-ids="selectedRecoveryReviewIds"
@@ -284,13 +287,7 @@ function getEventSeverityIcon(severity?: string) {
         @open-preview="previewVisible = true"
       />
 
-      <a-card :bordered="false" class="dashboard-runtime-card">
-        <template #title>
-          <div class="card-header">
-            <span>{{ t('dashboard.runtimeInfo') }}</span>
-          </div>
-        </template>
-
+      <AppCard :title="t('dashboard.runtimeInfo')" borderless class="dashboard-runtime-card">
         <div class="dashboard-runtime-grid">
           <div class="dashboard-runtime-item">
             <span>{{ t('dashboard.service') }}</span>
@@ -308,7 +305,7 @@ function getEventSeverityIcon(severity?: string) {
             <small>{{ autoRefresh ? `${t('dashboard.autoRefresh')} ${countdown}s` : t('dashboard.refresh') }}</small>
           </div>
         </div>
-      </a-card>
+      </AppCard>
     </div>
 
     <a-modal
@@ -407,41 +404,37 @@ function getEventSeverityIcon(severity?: string) {
   }
 }
 
-.event-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+.events-timeline {
+  padding-top: 4px;
 }
 
-.event-item__icon {
-  flex-shrink: 0;
+.events-timeline :deep(.ant-timeline-item-tail) {
+  inset-inline-start: 9px;
+}
+
+.events-timeline :deep(.ant-timeline-item-head) {
+  inset-inline-start: 0;
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  border: 0;
+}
+
+.events-timeline__dot-icon {
   font-size: 1rem;
-  margin-top: 2px;
+  line-height: 1;
 }
 
-.event-item--success .event-item__icon {
-  color: var(--success);
-}
-
-.event-item--warning .event-item__icon {
-  color: var(--warning);
-}
-
-.event-item--danger .event-item__icon {
-  color: var(--danger);
-}
-
-.event-item__dot {
+.events-timeline__dot {
+  display: block;
   width: 8px;
   height: 8px;
   border-radius: 999px;
   background: var(--muted);
-  flex-shrink: 0;
-  margin-top: 6px;
+  margin: 5px;
 }
 
-.event-item__body {
-  flex: 1 1 auto;
+.events-timeline__item {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -449,16 +442,77 @@ function getEventSeverityIcon(severity?: string) {
   min-width: 0;
 }
 
-.event-item__body strong {
+.events-timeline__summary {
   font-size: 0.92rem;
   line-height: 1.4;
+  color: var(--text);
 }
 
-.event-item__time {
+.events-timeline__time {
   flex-shrink: 0;
   color: var(--muted);
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.issues-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.issues-list--collapsed {
+  max-height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+
+.issues-list--collapsed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 60px;
+  background: linear-gradient(transparent, var(--surface-soft));
+  pointer-events: none;
+}
+
+.issues-toggle {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.issue-alert-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.issue-alert-card--warning {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 6%, transparent);
+}
+
+.issue-alert-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.issue-alert-card__summary {
+  flex: 1;
+  font-weight: 600;
+}
+
+.issue-alert-card__remediation {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .dashboard-runtime-item {

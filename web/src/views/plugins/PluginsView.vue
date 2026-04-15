@@ -3,6 +3,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
+import AppCard from '@/components/AppCard.vue'
+import PluginPowerButton from '@/components/PluginPowerButton.vue'
+import AppTableToolbar from '@/components/AppTableToolbar.vue'
 import { notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
@@ -45,7 +48,7 @@ const tableColumns = computed(() => [
   { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220 },
   { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 280 },
   { title: t('plugins.fields.runtime'), key: 'runtime', dataIndex: 'runtime_state', width: 300 },
-  { title: '', key: 'actions', dataIndex: 'actions', width: 420 },
+  { title: '', key: 'actions', dataIndex: 'actions', width: 396 },
 ])
 
 function getConflictNotice(count: number) {
@@ -129,6 +132,10 @@ function openSummary(id: string) {
   summaryDrawerVisible.value = true
 }
 
+function getToggleAction(desiredState?: string) {
+  return desiredState === 'enabled' ? 'disable' : 'enable'
+}
+
 async function submitInstall() {
   installError.value = null
   try {
@@ -147,17 +154,6 @@ async function submitInstall() {
 
 <template>
   <AppPage :title="t('plugins.title')" full-height>
-    <template #extra>
-      <div class="table-actions">
-        <a-button type="primary" @click="installDialogVisible = true">
-          {{ t('plugins.install') }}
-        </a-button>
-        <a-button :loading="loading" @click="loadPlugins()">
-          {{ t('plugins.refresh') }}
-        </a-button>
-      </div>
-    </template>
-
     <RetryPanel
       v-if="error && sortedItems.length === 0"
       :title="t('errors.common.loadFailed')"
@@ -168,210 +164,232 @@ async function submitInstall() {
 
     <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon />
+    <AppCard v-else borderless class="plugins-card">
+      <AppTableToolbar>
+        <template #right>
+          <a-button type="primary" @click="installDialogVisible = true">
+            {{ t('plugins.install') }}
+          </a-button>
+          <a-button :loading="loading" @click="loadPlugins()">
+            {{ t('plugins.refresh') }}
+          </a-button>
+        </template>
+      </AppTableToolbar>
 
-    <a-table
-      v-else
-      class="plugins-data-table app-data-table"
-      :columns="tableColumns"
-      :data-source="sortedItems"
-      :pagination="false"
-      :row-key="(row) => row.id"
-      :scroll="{ x: 1520 }"
-    >
-      <template #emptyText>
-        {{ t('display.empty') }}
-      </template>
+      <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon class="plugins-alert" />
 
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'title'">
-          <div class="plugin-cell-identity">
-            <strong class="plugin-name">{{ record.name }}</strong>
-            <small class="plugin-id">{{ record.id }}</small>
-          </div>
+      <a-table
+        class="plugins-data-table app-data-table"
+        :columns="tableColumns"
+        :data-source="sortedItems"
+        :pagination="false"
+        :row-key="(row) => row.id"
+        :scroll="{ x: 1520 }"
+      >
+        <template #emptyText>
+          {{ t('display.empty') }}
         </template>
 
-        <template v-else-if="column.key === 'source'">
-          <div class="plugin-cell-source">
-            <div class="plugin-source-root" :title="record.source?.root ?? t('display.empty')">
-              {{ record.source?.root ?? t('display.empty') }}
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'title'">
+            <div class="plugin-cell-identity">
+              <strong class="plugin-name">{{ record.name }}</strong>
+              <small class="plugin-id">{{ record.id }}</small>
             </div>
-            <div class="plugin-trust-label">
-              {{ record.trust?.label ?? t('display.empty') }}
-            </div>
-          </div>
-        </template>
+          </template>
 
-        <template v-else-if="column.key === 'commands'">
-          <div v-if="record.commands.length > 0" class="plugin-cell-commands">
-            <div
-              v-for="command in getVisibleCommands(record.commands)"
-              :key="`${record.id}-${command.name}`"
-              class="plugin-command-chip"
-            >
-              <a-tag size="small" :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'">
-                {{ command.name }}
-              </a-tag>
-              <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
-                <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
-              </a-tooltip>
+          <template v-else-if="column.key === 'source'">
+            <div class="plugin-cell-source">
+              <div class="plugin-source-root" :title="record.source?.root ?? t('display.empty')">
+                {{ record.source?.root ?? t('display.empty') }}
+              </div>
+              <div class="plugin-trust-label">
+                {{ record.trust?.label ?? t('display.empty') }}
+              </div>
             </div>
-            <small v-if="getOverflowCommandCount(record.commands) > 0" class="plugin-command-overflow">
-              {{ t('plugins.commandOverflow', { count: getOverflowCommandCount(record.commands) }) }}
-            </small>
-          </div>
-          <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
-        </template>
+          </template>
 
-        <template v-else-if="column.key === 'runtime'">
-          <div class="plugin-cell-status">
-            <div class="plugin-status-badges">
-              <a-tag size="small" color="blue">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
-              <a-tag size="small" :color="getRuntimeColor(record.runtime_state)">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
-            </div>
-            <div v-if="getPluginHealthNotices(record).length > 0" class="plugin-health-notices">
-              <a-tag
-                v-for="notice in getPluginHealthNotices(record)"
-                :key="notice.label"
-                size="small"
-                :color="getTagColor(notice.tone)"
+          <template v-else-if="column.key === 'commands'">
+            <div v-if="record.commands.length > 0" class="plugin-cell-commands">
+              <div
+                v-for="command in getVisibleCommands(record.commands)"
+                :key="`${record.id}-${command.name}`"
+                class="plugin-command-chip"
               >
-                {{ notice.label }}
-              </a-tag>
+                <a-tag size="small" :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'">
+                  {{ command.name }}
+                </a-tag>
+                <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
+                  <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
+                </a-tooltip>
+              </div>
+              <small v-if="getOverflowCommandCount(record.commands) > 0" class="plugin-command-overflow">
+                {{ t('plugins.commandOverflow', { count: getOverflowCommandCount(record.commands) }) }}
+              </small>
             </div>
-          </div>
+            <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'runtime'">
+            <div class="plugin-cell-status">
+              <div class="plugin-status-badges">
+                <a-tag size="small" color="blue">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
+                <a-tag size="small" :color="getRuntimeColor(record.runtime_state)">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
+              </div>
+              <div v-if="getPluginHealthNotices(record).length > 0" class="plugin-health-notices">
+                <a-tag
+                  v-for="notice in getPluginHealthNotices(record)"
+                  :key="notice.label"
+                  size="small"
+                  :color="getTagColor(notice.tone)"
+                >
+                  {{ notice.label }}
+                </a-tag>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="column.key === 'actions'">
+            <div class="plugin-cell-actions">
+              <a-button size="small" @click="openSummary(record.id)">{{ t('plugins.actions.summary') }}</a-button>
+              <a-button size="small" @click="openDetail(record.id)">{{ t('plugins.actions.detail') }}</a-button>
+
+              <a-divider type="vertical" />
+
+              <PluginPowerButton
+                compact
+                :checked="record.desired_state === 'enabled'"
+                :data-testid="`plugin-enable-button-${record.id}`"
+                :loading="actionPending[record.id] === 'enable' || actionPending[record.id] === 'disable'"
+                :checked-label="t('plugins.actions.enable')"
+                :unchecked-label="t('plugins.actions.disable')"
+                @click="pluginsStore.executeAction(record.id, getToggleAction(record.desired_state))"
+              />
+              <a-button
+                size="small"
+                :loading="actionPending[record.id] === 'reload'"
+                @click="pluginsStore.executeAction(record.id, 'reload')"
+              >
+                {{ t('plugins.actions.reload') }}
+              </a-button>
+            </div>
+          </template>
         </template>
+      </a-table>
+    </AppCard>
 
-        <template v-else-if="column.key === 'actions'">
-          <div class="plugin-cell-actions">
-            <a-button size="small" @click="openSummary(record.id)">{{ t('plugins.actions.summary') }}</a-button>
-            <a-button size="small" @click="openDetail(record.id)">{{ t('plugins.actions.detail') }}</a-button>
+    <a-modal
+      v-model:open="installDialogVisible"
+      :get-container="false"
+      :title="t('plugins.installDialogTitle')"
+      :confirm-loading="installPending"
+      :ok-text="t('plugins.installSubmit')"
+      :cancel-text="t('dashboard.previewCancel')"
+      :ok-button-props="{ disabled: !installForm.source }"
+      @ok="submitInstall"
+    >
+      <a-form layout="vertical">
+        <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon class="plugins-alert" />
 
-            <a-divider type="vertical" />
+        <a-form-item :label="t('plugins.sourceType')">
+          <a-select
+            v-model:value="installForm.source_type"
+            :options="[
+              { label: t('plugins.localZip'), value: 'local_zip' },
+              { label: t('plugins.localDirectory'), value: 'local_directory' },
+              { label: t('plugins.remoteUrl'), value: 'remote_url' },
+            ]"
+          />
+        </a-form-item>
 
-            <a-button
-              size="small"
-              type="primary"
-              :data-testid="`plugin-enable-button-${record.id}`"
-              :loading="actionPending[record.id] === 'enable'"
-              :disabled="record.desired_state === 'enabled'"
-              @click="pluginsStore.executeAction(record.id, 'enable')"
-            >
-              {{ t('plugins.actions.enable') }}
-            </a-button>
-            <a-button
-              size="small"
-              :loading="actionPending[record.id] === 'reload'"
-              @click="pluginsStore.executeAction(record.id, 'reload')"
-            >
-              {{ t('plugins.actions.reload') }}
-            </a-button>
-            <a-button
-              size="small"
-              danger
-              :loading="actionPending[record.id] === 'disable'"
-              :disabled="record.desired_state === 'disabled'"
-              @click="pluginsStore.executeAction(record.id, 'disable')"
-            >
-              {{ t('plugins.actions.disable') }}
-            </a-button>
+        <a-form-item :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
+          <a-input v-model:value="installForm.source" />
+        </a-form-item>
+
+        <a-form-item>
+          <a-checkbox v-model:checked="installForm.allow_install_scripts">
+            {{ t('plugins.allowScripts') }}
+          </a-checkbox>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-drawer
+      v-model:open="summaryDrawerVisible"
+      :get-container="false"
+      :title="t('plugins.actions.summary')"
+      placement="right"
+      width="min(560px, 92vw)"
+    >
+      <template v-if="summaryPlugin">
+        <div class="drawer-section drawer-section--dense">
+          <div class="mono-list">
+            <strong>{{ summaryPlugin.name }}</strong>
+            <small>{{ summaryPlugin.id }}</small>
           </div>
-        </template>
-      </template>
-    </a-table>
-  </AppPage>
-
-  <a-modal
-    v-model:open="installDialogVisible"
-    :get-container="false"
-    :title="t('plugins.installDialogTitle')"
-    :confirm-loading="installPending"
-    :ok-text="t('plugins.installSubmit')"
-    :cancel-text="t('dashboard.previewCancel')"
-    :ok-button-props="{ disabled: !installForm.source }"
-    @ok="submitInstall"
-  >
-    <a-form layout="vertical">
-      <a-alert v-if="installError" :message="t('errors.common.actionFailed')" type="error" :description="installError" show-icon class="section-gap" />
-
-      <a-form-item :label="t('plugins.sourceType')">
-        <a-select
-          v-model:value="installForm.source_type"
-          :options="[
-            { label: t('plugins.localZip'), value: 'local_zip' },
-            { label: t('plugins.localDirectory'), value: 'local_directory' },
-            { label: t('plugins.remoteUrl'), value: 'remote_url' },
-          ]"
-        />
-      </a-form-item>
-
-      <a-form-item :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
-        <a-input v-model:value="installForm.source" />
-      </a-form-item>
-
-      <a-form-item>
-        <a-checkbox v-model:checked="installForm.allow_install_scripts">
-          {{ t('plugins.allowScripts') }}
-        </a-checkbox>
-      </a-form-item>
-    </a-form>
-  </a-modal>
-
-  <a-drawer
-    v-model:open="summaryDrawerVisible"
-    :get-container="false"
-    :title="t('plugins.actions.summary')"
-    placement="right"
-    width="min(560px, 92vw)"
-  >
-    <template v-if="summaryPlugin">
-      <div class="drawer-section drawer-section--dense">
-        <div class="mono-list">
-          <strong>{{ summaryPlugin.name }}</strong>
-          <small>{{ summaryPlugin.id }}</small>
         </div>
-      </div>
 
-      <a-descriptions :column="1" bordered size="small">
-        <a-descriptions-item :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.registration')">{{ getPluginRegistrationStateLabel(summaryPlugin.registration_state) }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.desired')">{{ getPluginDesiredStateLabel(summaryPlugin.desired_state) }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.runtime')">{{ getPluginRuntimeStateLabel(summaryPlugin.runtime_state) }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.display')">
-          {{ getPluginDisplayStateLabel(summaryPlugin.display_state) }}
-          <small v-if="summaryPlugin.display_state"> · {{ summaryPlugin.display_state }}</small>
-        </a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.sourceRef')">
-          {{ summaryPlugin.source?.package_source_ref ?? summaryPlugin.source?.package_source_type ?? t('display.empty') }}
-        </a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.conflicts')">
-          <div v-if="summaryPlugin.command_conflicts?.length" class="table-actions">
-            <a-tag v-for="command in summaryPlugin.command_conflicts" :key="command" size="small" color="warning">
-              {{ command }}
-            </a-tag>
-          </div>
-          <span v-else>{{ t('display.empty') }}</span>
-        </a-descriptions-item>
-      </a-descriptions>
+        <AppCard borderless class="drawer-card">
+          <a-descriptions :column="1" bordered size="small">
+            <a-descriptions-item :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.registration')">{{ getPluginRegistrationStateLabel(summaryPlugin.registration_state) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.desired')">{{ getPluginDesiredStateLabel(summaryPlugin.desired_state) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.runtime')">{{ getPluginRuntimeStateLabel(summaryPlugin.runtime_state) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.display')">
+              {{ getPluginDisplayStateLabel(summaryPlugin.display_state) }}
+              <small v-if="summaryPlugin.display_state"> · {{ summaryPlugin.display_state }}</small>
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.sourceRef')">
+              {{ summaryPlugin.source?.package_source_ref ?? summaryPlugin.source?.package_source_type ?? t('display.empty') }}
+            </a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.conflicts')">
+              <div v-if="summaryPlugin.command_conflicts?.length" class="table-actions">
+                <a-tag v-for="command in summaryPlugin.command_conflicts" :key="command" size="small" color="warning">
+                  {{ command }}
+                </a-tag>
+              </div>
+              <span v-else>{{ t('display.empty') }}</span>
+            </a-descriptions-item>
+          </a-descriptions>
+        </AppCard>
 
-      <a-card :bordered="false" class="plugin-command-summary-card section-gap">
-        <template #title>
-          <strong>{{ t('plugins.sections.commands') }}</strong>
-        </template>
-        <PluginCommandsPanel
-          :commands="summaryPlugin.commands"
-          :command-conflicts="summaryPlugin.command_conflicts"
-        />
-      </a-card>
-    </template>
-  </a-drawer>
+        <AppCard :title="t('plugins.sections.commands')" borderless class="drawer-card">
+          <PluginCommandsPanel
+            :commands="summaryPlugin.commands"
+            :command-conflicts="summaryPlugin.command_conflicts"
+          />
+        </AppCard>
+      </template>
+    </a-drawer>
+  </AppPage>
 </template>
 
 <style lang="scss" scoped>
+.plugins-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.plugins-card :deep(.ant-card-body) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.plugins-alert {
+  margin: 12px 14px 0;
+}
+
 .plugins-data-table {
-  border-radius: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 0 0 var(--app-card-radius) var(--app-card-radius);
   overflow: hidden;
 }
 
@@ -448,16 +466,19 @@ async function submitInstall() {
   font-size: 0.8rem;
 }
 
-.plugin-command-summary-card {
-  margin-top: 16px;
-  border-radius: 10px;
-}
-
 .plugin-cell-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.plugin-cell-actions :deep(.plugin-holo-button) {
+  flex: 0 0 auto;
+}
+
+.drawer-card {
+  margin-top: 12px;
 }
 </style>

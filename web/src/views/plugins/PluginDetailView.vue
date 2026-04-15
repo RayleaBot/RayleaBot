@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
+import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
@@ -105,6 +106,10 @@ async function runAction(action: 'enable' | 'disable' | 'reload') {
     }
     operationError.value = getDisplayErrorMessage(error)
   }
+}
+
+function getToggleAction() {
+  return current.value?.desired_state === 'enabled' ? 'disable' : 'enable'
 }
 
 function extractMissingCapabilities(error: ApiError) {
@@ -247,10 +252,16 @@ async function scrollConsoleToBottom() {
 <template>
   <AppPage :title="pluginId">
     <template #extra>
-      <div class="table-actions">
-        <a-button type="primary" :loading="actionPending[pluginId] === 'enable'" @click="runAction('enable')">{{ t('plugins.actions.enable') }}</a-button>
+      <div class="table-actions plugin-detail-actions">
+        <PluginPowerButton
+          :checked="current?.desired_state === 'enabled'"
+          :loading="actionPending[pluginId] === 'enable' || actionPending[pluginId] === 'disable'"
+          :disabled="!current"
+          :checked-label="t('plugins.actions.enable')"
+          :unchecked-label="t('plugins.actions.disable')"
+          @click="runAction(getToggleAction())"
+        />
         <a-button :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</a-button>
-        <a-button danger :loading="actionPending[pluginId] === 'disable'" @click="runAction('disable')">{{ t('plugins.actions.disable') }}</a-button>
         <a-button danger :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true">{{ t('plugins.actions.uninstall') }}</a-button>
       </div>
     </template>
@@ -501,6 +512,10 @@ async function scrollConsoleToBottom() {
 </template>
 
 <style scoped lang="scss">
+.plugin-detail-actions :deep(.plugin-holo-button) {
+  flex: 0 0 auto;
+}
+
 .permission-list {
   display: grid;
   gap: 12px;

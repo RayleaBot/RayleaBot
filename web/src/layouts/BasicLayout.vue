@@ -5,7 +5,6 @@ import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteReco
 import { storeToRefs } from 'pinia'
 import {
   BellOutlined,
-  BulbOutlined,
   DownOutlined,
   FullscreenExitOutlined,
   FullscreenOutlined,
@@ -33,6 +32,7 @@ import {
 import { notifyError, notifyInfo, notifySuccess } from '@/adapter/feedback'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
+import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { adminRoutes } from '@/router/routes/modules/admin'
@@ -848,17 +848,13 @@ onBeforeUnmount(() => {
             </div>
 
             <a-tooltip :title="themeToggleLabel">
-              <a-button
-                class="admin-layout__icon-button"
-                type="text"
-                :aria-label="themeToggleLabel"
-                data-testid="theme-toggle"
-                @click="uiShellStore.toggleThemeMode()"
-              >
-                <template #icon>
-                  <BulbOutlined />
-                </template>
-              </a-button>
+              <ThemeToggleSwitch
+                class="admin-layout__theme-toggle"
+                :checked="preferences.themeMode === 'dark'"
+                :label="themeToggleLabel"
+                test-id="theme-toggle"
+                @toggle="uiShellStore.toggleThemeMode()"
+              />
             </a-tooltip>
 
             <a-button class="admin-layout__shutdown-button" danger @click="shutdownDialogVisible = true">

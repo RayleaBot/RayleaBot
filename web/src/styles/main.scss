@@ -394,6 +394,10 @@ textarea:focus-visible,
   background: var(--surface-soft) !important;
 }
 
+.admin-layout__theme-toggle {
+  margin-inline: 2px 4px;
+}
+
 .admin-layout__nav-trigger {
   display: inline-flex !important;
   align-items: center !important;
@@ -1122,6 +1126,10 @@ textarea:focus-visible,
 .auth-layout__toolbar-button:hover {
   color: var(--text) !important;
   background: var(--surface-soft) !important;
+}
+
+.auth-layout__theme-toggle {
+  margin-inline-start: 2px;
 }
 
 .auth-layout__intro-panel {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { BulbOutlined, TranslationOutlined } from '@ant-design/icons-vue'
+import { TranslationOutlined } from '@ant-design/icons-vue'
 
+import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
 import { t } from '@/i18n'
 import { useUiShellStore } from '@/stores/ui-shell'
 
@@ -32,17 +33,14 @@ const themeToggleLabel = computed(() => (
           </a-button>
         </a-popover>
         <a-tooltip :title="themeToggleLabel">
-          <a-button
-            class="auth-layout__toolbar-button"
-            type="text"
-            :aria-label="themeToggleLabel"
-            data-testid="auth-theme-toggle"
-            @click="uiShellStore.toggleThemeMode()"
-          >
-            <template #icon>
-              <BulbOutlined />
-            </template>
-          </a-button>
+          <ThemeToggleSwitch
+            class="auth-layout__theme-toggle"
+            :checked="uiShellStore.themeMode === 'dark'"
+            :label="themeToggleLabel"
+            size="default"
+            test-id="auth-theme-toggle"
+            @toggle="uiShellStore.toggleThemeMode()"
+          />
         </a-tooltip>
       </div>
 

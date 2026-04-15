@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
+import AppCard from '@/components/AppCard.vue'
 import { notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -127,11 +128,7 @@ async function save() {
     </div>
 
     <div v-else-if="draft" class="config-layout">
-      <a-card :bordered="false" class="config-nav-card">
-        <template #title>
-          <strong>{{ t('config.sectionList') }}</strong>
-        </template>
-
+      <AppCard :title="t('config.sectionList')" borderless class="config-nav-card">
         <nav class="config-nav-list" aria-label="配置分区">
           <button
             v-for="section in configSections"
@@ -145,9 +142,9 @@ async function save() {
             <small class="config-nav-item__meta">{{ section.fields.length }} {{ t('config.fieldCount') }}</small>
           </button>
         </nav>
-      </a-card>
+      </AppCard>
 
-      <a-card :bordered="false" class="config-editor-card">
+      <AppCard borderless class="config-editor-card">
         <template #title>
           <div class="config-editor-card__header">
             <div class="config-editor-card__title">
@@ -216,7 +213,7 @@ async function save() {
             </a-form-item>
           </div>
         </a-form>
-      </a-card>
+      </AppCard>
     </div>
   </AppPage>
 </template>
@@ -244,7 +241,7 @@ async function save() {
 
 .config-layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 12px;
   height: 100%;
   min-height: 0;
@@ -265,7 +262,7 @@ async function save() {
   flex-shrink: 0;
 }
 
-:deep(.config-nav-card .ant-card-body) {
+.config-nav-card :deep(.ant-card-body) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -277,11 +274,11 @@ async function save() {
   padding: 12px;
 }
 
-:deep(.config-editor-card .ant-card-head) {
+.config-editor-card :deep(.ant-card-head) {
   min-height: 50px;
 }
 
-:deep(.config-editor-card .ant-card-body) {
+.config-editor-card :deep(.ant-card-body) {
   min-height: 0;
   overflow: auto;
   padding: 16px;
@@ -290,13 +287,13 @@ async function save() {
 .config-nav-list {
   display: grid;
   width: 100%;
-  gap: 8px;
+  gap: 6px;
   min-height: min-content;
 }
 
 .config-nav-item {
   appearance: none;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   background: transparent;
   width: 100%;
   text-align: left;
@@ -311,17 +308,18 @@ async function save() {
 
 .config-nav-item:hover {
   background: var(--surface-soft);
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-color: var(--border);
 }
 
 .config-nav-item.is-active {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  font-weight: 600;
 }
 
 .config-nav-item__title {
   font-size: 0.94rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .config-nav-item__meta {
@@ -365,7 +363,7 @@ async function save() {
 }
 
 .field-label-text {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.85rem;
   color: var(--theme-text, var(--text));
 }
@@ -376,11 +374,19 @@ async function save() {
   font-size: 0.8rem;
   font-weight: bold;
   opacity: 0.7;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--border);
 }
 
 .field-info-icon:hover {
   opacity: 1;
   color: var(--accent);
+  border-color: var(--accent);
 }
 
 .config-number-input {
@@ -407,6 +413,10 @@ async function save() {
   .config-layout,
   .skeleton-layout {
     grid-template-columns: 1fr;
+  }
+
+  .config-nav-card :deep(.ant-card-body) {
+    max-height: 200px;
   }
 }
 </style>

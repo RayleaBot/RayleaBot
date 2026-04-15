@@ -42,9 +42,45 @@ describe('PluginsPage', () => {
     await flushPromises()
     const button = wrapper.find('[data-testid="plugin-enable-button-weather"]')
     expect(button.exists()).toBe(true)
+    expect(button.classes()).toContain('plugin-holo-button')
     await button.trigger('click')
 
     expect(executeSpy).toHaveBeenCalledWith('weather', 'enable')
+  })
+
+  it('calls disable action from the same toggle when the plugin is enabled', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [{
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'running',
+      display_state: 'enabled',
+      commands: [],
+      command_conflicts: [],
+    }]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const executeSpy = vi.spyOn(store, 'executeAction').mockResolvedValue(store.items[0])
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    const button = wrapper.find('[data-testid="plugin-enable-button-weather"]')
+    expect(button.attributes('aria-checked')).toBe('true')
+    await button.trigger('click')
+
+    expect(executeSpy).toHaveBeenCalledWith('weather', 'disable')
   })
 
   it('renders source, trust, and command conflict metadata', async () => {

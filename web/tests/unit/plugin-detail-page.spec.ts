@@ -126,6 +126,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('已识别')
     expect(wrapper.text()).toContain('weather')
     expect(wrapper.find('.console-terminal').exists()).toBe(true)
+    expect(wrapper.findAll('.plugin-holo-button')).toHaveLength(1)
     expect(wrapper.findComponent({ name: 'PluginCommandsPanel' }).exists()).toBe(true)
 
     const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新连接'))
