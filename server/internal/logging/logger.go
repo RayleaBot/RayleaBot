@@ -117,7 +117,9 @@ func newLoggerWithLevelVar(writer io.Writer, levelVar *slog.LevelVar) *slog.Logg
 func replaceAttr(_ []string, attr slog.Attr) slog.Attr {
 	switch attr.Key {
 	case slog.TimeKey:
-		attr.Key = "ts"
+		if attr.Value.Kind() == slog.KindTime {
+			attr.Key = "ts"
+		}
 	case slog.MessageKey:
 		attr.Key = "msg"
 	}

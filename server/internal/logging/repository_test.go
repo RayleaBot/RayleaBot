@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -121,6 +120,90 @@ func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	for _, summary := range []Summary{
+		{LogID: "log_page_0001", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "1"},
+		{LogID: "log_page_0002", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "2"},
+		{LogID: "log_page_0003", Timestamp: "2026-03-20T10:00:01Z", Level: "info", Source: "runtime", Message: "3"},
+		{LogID: "log_page_0004", Timestamp: "2026-03-20T10:00:02Z", Level: "info", Source: "runtime", Message: "4"},
+		{LogID: "log_page_0005", Timestamp: "2026-03-20T10:00:03Z", Level: "info", Source: "runtime", Message: "5"},
+	} {
+		if err := repository.SaveSummary(ctx, summary); err != nil {
+			t.Fatalf("save summary: %v", err)
+		}
+	}
+
+	firstPage, err := repository.ListPage(ctx, PageQuery{
+		Source: "runtime",
+		Limit:  2,
+	})
+	if err != nil {
+		t.Fatalf("list first page: %v", err)
+	}
+	if got := []string{firstPage.Items[0].Message, firstPage.Items[1].Message}; !equalStrings(got, []string{"5", "4"}) {
+		t.Fatalf("unexpected first page order: %#v", got)
+	}
+	if !firstPage.Page.HasOlder || firstPage.Page.HasNewer {
+		t.Fatalf("unexpected first page metadata: %#v", firstPage.Page)
+	}
+	if firstPage.Page.OlderCursor == nil || firstPage.Page.NewerCursor != nil {
+		t.Fatalf("unexpected first page cursors: %#v", firstPage.Page)
+	}
+
+	olderPage, err := repository.ListPage(ctx, PageQuery{
+		Source:    "runtime",
+		Limit:     2,
+		Cursor:    *firstPage.Page.OlderCursor,
+		Direction: PageDirectionOlder,
+	})
+	if err != nil {
+		t.Fatalf("list older page: %v", err)
+	}
+	if got := []string{olderPage.Items[0].Message, olderPage.Items[1].Message}; !equalStrings(got, []string{"3", "2"}) {
+		t.Fatalf("unexpected older page order: %#v", got)
+	}
+	if !olderPage.Page.HasOlder || !olderPage.Page.HasNewer {
+		t.Fatalf("unexpected older page metadata: %#v", olderPage.Page)
+	}
+	if olderPage.Page.OlderCursor == nil || olderPage.Page.NewerCursor == nil {
+		t.Fatalf("expected both cursors on middle page: %#v", olderPage.Page)
+	}
+
+	newerPage, err := repository.ListPage(ctx, PageQuery{
+		Source:    "runtime",
+		Limit:     2,
+		Cursor:    *olderPage.Page.NewerCursor,
+		Direction: PageDirectionNewer,
+	})
+	if err != nil {
+		t.Fatalf("list newer page: %v", err)
+	}
+	if got := []string{newerPage.Items[0].Message, newerPage.Items[1].Message}; !equalStrings(got, []string{"5", "4"}) {
+		t.Fatalf("unexpected newer page order: %#v", got)
+	}
+	if !newerPage.Page.HasOlder || newerPage.Page.HasNewer {
+		t.Fatalf("unexpected newer page metadata: %#v", newerPage.Page)
+	}
+}
+
+func TestSQLiteRepositoryRejectsInvalidCursor(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	_, err := repository.ListPage(context.Background(), PageQuery{
+		Limit:  2,
+		Cursor: "not-a-valid-cursor",
+	})
+	if !errors.Is(err, ErrInvalidCursor) {
+		t.Fatalf("expected ErrInvalidCursor, got %v", err)
+	}
+}
+
 func TestSQLiteRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
 	t.Parallel()
 
@@ -168,13 +251,16 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
-		LogID:   "log_detail_0002",
-		Ts:      "2026-03-20T10:00:01Z",
-		Level:   "info",
-		Source:  "bridge",
-		Message: "runtime bridge delivered adapter event",
-		DetailsJson: `{
+	if _, err := repository.write.ExecContext(ctx, `INSERT INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"log_detail_0002",
+		"2026-03-20T10:00:01Z",
+		"info",
+		"bridge",
+		"runtime bridge delivered adapter event",
+		"",
+		"",
+		`{
 			"event_timestamp":1711015202,
 			"time":1711015202,
 			"conversation_id":"2001",
@@ -187,7 +273,7 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 			"sender_role":"admin",
 			"sender":{"user_id":"3001"}
 		}`,
-	}); err != nil {
+	); err != nil {
 		t.Fatalf("insert raw detail summary: %v", err)
 	}
 
@@ -217,17 +303,20 @@ func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
-		LogID:   "log_detail_0003",
-		Ts:      "2026-03-20T10:00:02Z",
-		Level:   "info",
-		Source:  "bridge",
-		Message: "runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
-		DetailsJson: `{
+	if _, err := repository.write.ExecContext(ctx, `INSERT INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"log_detail_0003",
+		"2026-03-20T10:00:02Z",
+		"info",
+		"bridge",
+		"runtime bridge queued for dispatcher group message: 群星怒\u2066~喵",
+		"",
+		"",
+		`{
 			"plain_text":"hello\u202eworld",
 			"sender":{"card":"群星怒\u2066~喵"}
 		}`,
-	}); err != nil {
+	); err != nil {
 		t.Fatalf("insert raw detail summary: %v", err)
 	}
 
@@ -275,4 +364,16 @@ func openLoggingRepository(t *testing.T) *SQLiteRepository {
 		t.Fatalf("create sqlite logging repository: %v", err)
 	}
 	return repository
+}
+
+func equalStrings(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for index := range got {
+		if got[index] != want[index] {
+			return false
+		}
+	}
+	return true
 }

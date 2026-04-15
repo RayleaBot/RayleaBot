@@ -7,10 +7,12 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
@@ -66,7 +68,7 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, fixture.Response.Body) {
+	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
 		t.Fatalf("unexpected logs list body: got %#v want %#v", body, fixture.Response.Body)
 	}
 }
@@ -133,7 +135,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, fixture.Response.Body) {
+	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
 		t.Fatalf("unexpected protocol logs body: got %#v want %#v", body, fixture.Response.Body)
 	}
 }
@@ -196,7 +198,7 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, fixture.Response.Body) {
+	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
 		t.Fatalf("unexpected outbound protocol logs body: got %#v want %#v", body, fixture.Response.Body)
 	}
 }
@@ -236,7 +238,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, fixture.Response.Body) {
+	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
 		t.Fatalf("unexpected empty logs body: got %#v want %#v", body, fixture.Response.Body)
 	}
 }
@@ -276,7 +278,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, fixture.Response.Body) {
+	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
 		t.Fatalf("unexpected empty protocol logs body: got %#v want %#v", body, fixture.Response.Body)
 	}
 }
@@ -308,6 +310,101 @@ func TestLogsListRejectsInvalidFilters(t *testing.T) {
 	errorBody := body["error"].(map[string]any)
 	if errorBody["code"] != "platform.invalid_request" {
 		t.Fatalf("unexpected error code: %#v", errorBody["code"])
+	}
+}
+
+func TestLogsListAcceptsLargeLimitWithoutLegacyCap(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	for index := 0; index < 3; index++ {
+		application.Logs().Append(logging.Summary{
+			LogID:     "log_limit_" + strconv.Itoa(index),
+			Timestamp: time.Date(2026, 4, 10, 9, 0, index, 0, time.UTC).Format(time.RFC3339),
+			Level:     "info",
+			Source:    "runtime",
+			Message:   "limit test",
+		})
+	}
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?limit=500", nil)
+	if err != nil {
+		t.Fatalf("create large limit request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform large limit request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected large limit status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	page := body["page"].(map[string]any)
+	if page["limit"] != float64(500) {
+		t.Fatalf("unexpected page limit: %#v", page["limit"])
+	}
+}
+
+func TestLogsListSupportsCursorPaging(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	for _, summary := range []logging.Summary{
+		{LogID: "log_cursor_0001", Timestamp: "2026-04-10T09:00:00Z", Level: "info", Source: "runtime", Message: "1"},
+		{LogID: "log_cursor_0002", Timestamp: "2026-04-10T09:00:01Z", Level: "info", Source: "runtime", Message: "2"},
+		{LogID: "log_cursor_0003", Timestamp: "2026-04-10T09:00:02Z", Level: "info", Source: "runtime", Message: "3"},
+		{LogID: "log_cursor_0004", Timestamp: "2026-04-10T09:00:03Z", Level: "info", Source: "runtime", Message: "4"},
+		{LogID: "log_cursor_0005", Timestamp: "2026-04-10T09:00:04Z", Level: "info", Source: "runtime", Message: "5"},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	firstPage := doLogsListRequest(t, server.URL, token, "/api/logs?source=runtime&limit=2")
+	firstItems := firstPage["items"].([]any)
+	if firstItems[0].(map[string]any)["message"] != "5" || firstItems[1].(map[string]any)["message"] != "4" {
+		t.Fatalf("unexpected first page items: %#v", firstItems)
+	}
+
+	firstPageInfo := firstPage["page"].(map[string]any)
+	olderCursor, ok := firstPageInfo["older_cursor"].(string)
+	if !ok || olderCursor == "" {
+		t.Fatalf("expected older cursor on first page: %#v", firstPageInfo)
+	}
+	if firstPageInfo["has_newer"] != false || firstPageInfo["has_older"] != true {
+		t.Fatalf("unexpected first page metadata: %#v", firstPageInfo)
+	}
+
+	secondPage := doLogsListRequest(t, server.URL, token, "/api/logs?source=runtime&limit=2&direction=older&cursor="+olderCursor)
+	secondItems := secondPage["items"].([]any)
+	if secondItems[0].(map[string]any)["message"] != "3" || secondItems[1].(map[string]any)["message"] != "2" {
+		t.Fatalf("unexpected second page items: %#v", secondItems)
+	}
+
+	secondPageInfo := secondPage["page"].(map[string]any)
+	newerCursor, ok := secondPageInfo["newer_cursor"].(string)
+	if !ok || newerCursor == "" {
+		t.Fatalf("expected newer cursor on second page: %#v", secondPageInfo)
+	}
+	if secondPageInfo["has_newer"] != true || secondPageInfo["has_older"] != true {
+		t.Fatalf("unexpected second page metadata: %#v", secondPageInfo)
+	}
+
+	thirdPage := doLogsListRequest(t, server.URL, token, "/api/logs?source=runtime&limit=2&direction=newer&cursor="+newerCursor)
+	thirdItems := thirdPage["items"].([]any)
+	if thirdItems[0].(map[string]any)["message"] != "5" || thirdItems[1].(map[string]any)["message"] != "4" {
+		t.Fatalf("unexpected newer page items: %#v", thirdItems)
 	}
 }
 
@@ -753,6 +850,27 @@ func TestLogsRouteRequiresAuth(t *testing.T) {
 	}
 }
 
+func doLogsListRequest(t *testing.T, baseURL, token, requestPath string) map[string]any {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodGet, baseURL+requestPath, nil)
+	if err != nil {
+		t.Fatalf("create logs list request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("perform logs list request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected logs list status: got %d want 200", response.StatusCode)
+	}
+
+	return decodeBody(t, readAll(t, response))
+}
+
 type stubMissingLogRepository struct{}
 
 func (*stubMissingLogRepository) SaveSummary(context.Context, logging.Summary) error {
@@ -761,6 +879,10 @@ func (*stubMissingLogRepository) SaveSummary(context.Context, logging.Summary) e
 
 func (*stubMissingLogRepository) ListSummaries(context.Context, logging.Query) ([]logging.Summary, error) {
 	return nil, nil
+}
+
+func (*stubMissingLogRepository) ListPage(context.Context, logging.PageQuery) (logging.PageResult, error) {
+	return logging.PageResult{}, nil
 }
 
 func (*stubMissingLogRepository) GetSummary(context.Context, string) (logging.Summary, error) {
@@ -835,5 +957,96 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	}
 	if item["plugin_id"] != "weather" || item["request_id"] != "req_persist_1" {
 		t.Fatalf("unexpected persisted log envelope: %#v", item)
+	}
+}
+
+func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
+	t.Parallel()
+
+	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
+	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 4, 15, 3, 0, 0, 0, time.UTC) }, "bridge-a")
+	appA.SetBridge(newPersistentEventsBridge(appA))
+	_ = issueLoginToken(t, appA)
+
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessageText,
+		EventID:          "onebot11-message-899582563",
+		BotID:            "1145141919",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Date(2026, 4, 14, 23, 59, 34, 0, time.FixedZone("CST", 8*3600)).Unix(),
+		ConversationType: "group",
+		ConversationID:   "553855023",
+		SenderID:         "1358252269",
+		PlainText:        "标题: 终末地困困小猫的一天 作者: 半截扣子w#32270458",
+		MessageID:        "899582563",
+		TargetName:       "终末地摸鱼群",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"post_type":      "message",
+				"message_type":   "group",
+				"group_id":       "553855023",
+				"user_id":        "1358252269",
+				"time":           float64(1776009574),
+				"message_id":     "899582563",
+				"real_id":        "899582563",
+				"message_seq":    "1306315",
+				"raw_message":    "标题: 终末地困困小猫的一天 作者: 半截扣子w#32270458",
+				"message_format": "array",
+				"font":           float64(14),
+				"sender": map[string]any{
+					"nickname": "。",
+					"card":     "群星怒，大明云玩家",
+					"role":     "member",
+					"title":    "管理员",
+				},
+			},
+		},
+	}
+
+	appA.Bridge().HandleAdapterEvent(context.Background(), event)
+	closePersistentTestApp(t, appA)
+
+	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 4, 15, 3, 5, 0, 0, time.UTC) }, "bridge-b")
+	defer closePersistentTestApp(t, appB)
+
+	tokenB := issueExistingBootstrapLoginToken(t, appB)
+	serverB := httptest.NewServer(appB.Handler())
+	defer serverB.Close()
+
+	bridgeBody := doLogsListRequest(t, serverB.URL, tokenB, "/api/logs?source=bridge&limit=20")
+	bridgeItems := bridgeBody["items"].([]any)
+	if len(bridgeItems) == 0 {
+		t.Fatalf("expected persisted bridge logs after restart, got none")
+	}
+
+	var bridgeItem map[string]any
+	for _, raw := range bridgeItems {
+		item := raw.(map[string]any)
+		if item["source"] == "bridge" {
+			bridgeItem = item
+			break
+		}
+	}
+	if bridgeItem == nil {
+		t.Fatalf("expected a persisted bridge log after restart, got %#v", bridgeItems)
+	}
+	if !strings.Contains(bridgeItem["message"].(string), "1145141919: [终末地摸鱼群(553855023)][管理员]") {
+		t.Fatalf("unexpected persisted bridge message: %#v", bridgeItem["message"])
+	}
+
+	protocolBody := doLogsListRequest(t, serverB.URL, tokenB, "/api/logs?protocol=onebot11&limit=20")
+	protocolItems := protocolBody["items"].([]any)
+	foundBridge := false
+	for _, raw := range protocolItems {
+		item := raw.(map[string]any)
+		if item["source"] == "bridge" && strings.Contains(item["message"].(string), "1145141919: [终末地摸鱼群(553855023)][管理员]") {
+			foundBridge = true
+			break
+		}
+	}
+	if !foundBridge {
+		t.Fatalf("expected bridge message log in protocol history after restart, got %#v", protocolItems)
 	}
 }

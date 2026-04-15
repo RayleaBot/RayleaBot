@@ -3,6 +3,8 @@ package logging
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +38,43 @@ func TestSummaryWriterRedactsStructuredLogValues(t *testing.T) {
 	}
 	if strings.Contains(summaries[0].Message, "fixture-only-secret") {
 		t.Fatalf("summary message leaked secret: %#v", summaries[0])
+	}
+}
+
+func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T) {
+	t.Parallel()
+
+	stream := NewStream(8)
+	var output bytes.Buffer
+	logger := newLoggerWithWriter(slog.LevelInfo, NewSummaryWriter(&output, stream, nil))
+
+	logger.Info(
+		"1145141919: [测试群(553855023)]Alice(3001): hello bridge",
+		"component", "bridge",
+		"time", int64(1776009574),
+		"message_id", "899582563",
+	)
+
+	var body map[string]any
+	if err := json.Unmarshal(output.Bytes(), &body); err != nil {
+		t.Fatalf("decode structured log line: %v", err)
+	}
+	if _, ok := body["ts"].(string); !ok {
+		t.Fatalf("expected built-in log timestamp string, got %#v", body["ts"])
+	}
+	if body["time"] != float64(1776009574) {
+		t.Fatalf("expected preserved onebot time detail, got %#v", body["time"])
+	}
+
+	summaries := stream.Snapshot()
+	if len(summaries) != 1 {
+		t.Fatalf("unexpected summary count: got %d want 1", len(summaries))
+	}
+	if summaries[0].Timestamp == "1776009574" || summaries[0].Timestamp == "" {
+		t.Fatalf("expected RFC3339 log timestamp, got %#v", summaries[0].Timestamp)
+	}
+	if got := summaries[0].Details["time"]; got != float64(1776009574) {
+		t.Fatalf("expected summary details to keep onebot time, got %#v", got)
 	}
 }
 
@@ -110,6 +149,10 @@ func (r *blockingRepository) SaveSummary(context.Context, Summary) error {
 
 func (*blockingRepository) ListSummaries(context.Context, Query) ([]Summary, error) {
 	return nil, nil
+}
+
+func (*blockingRepository) ListPage(context.Context, PageQuery) (PageResult, error) {
+	return PageResult{}, nil
 }
 
 func (*blockingRepository) GetSummary(context.Context, string) (Summary, error) {

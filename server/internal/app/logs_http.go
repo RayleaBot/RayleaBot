@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 type logListResponse struct {
 	Items []logging.Summary `json:"items"`
+	Page  logging.PageInfo  `json:"page"`
 }
 
 type logDetailResponse struct {
@@ -36,30 +38,45 @@ func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 		}
 		pluginIDFilter := strings.TrimSpace(r.URL.Query().Get("plugin_id"))
 		requestIDFilter := strings.TrimSpace(r.URL.Query().Get("request_id"))
+		cursor := strings.TrimSpace(r.URL.Query().Get("cursor"))
+		direction := logging.PageDirection(strings.TrimSpace(r.URL.Query().Get("direction")))
+		if direction != "" && direction != logging.PageDirectionOlder && direction != logging.PageDirectionNewer {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
 
 		limit := 50
 		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
 			parsed, err := strconv.Atoi(raw)
-			if err != nil || parsed < 1 || parsed > 200 {
+			if err != nil || parsed < 1 {
 				writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 				return
 			}
 			limit = parsed
 		}
 
-		items, err := h.logs.listLogSummaries(r.Context(), logging.Query{
+		result, err := h.logs.listLogPage(r.Context(), logging.PageQuery{
 			Level:     levelFilter,
 			Source:    sourceFilter,
 			Protocol:  protocolFilter,
 			PluginID:  pluginIDFilter,
 			RequestID: requestIDFilter,
 			Limit:     limit,
+			Cursor:    cursor,
+			Direction: direction,
 		})
 		if err != nil {
+			if errors.Is(err, logging.ErrInvalidCursor) {
+				writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+				return
+			}
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-		writeAuthJSON(w, http.StatusOK, logListResponse{Items: items})
+		writeAuthJSON(w, http.StatusOK, logListResponse{
+			Items: result.Items,
+			Page:  result.Page,
+		})
 	}
 }
 
@@ -122,6 +139,38 @@ func (s *logService) listLogSummaries(ctx context.Context, query logging.Query) 
 		items = items[len(items)-query.Limit:]
 	}
 	return items, nil
+}
+
+func (s *logService) listLogPage(ctx context.Context, query logging.PageQuery) (logging.PageResult, error) {
+	if s != nil && s.repository != nil {
+		return s.repository.ListPage(ctx, query)
+	}
+
+	items, err := s.listLogSummaries(ctx, logging.Query{
+		Level:     query.Level,
+		Source:    query.Source,
+		Protocol:  query.Protocol,
+		PluginID:  query.PluginID,
+		RequestID: query.RequestID,
+		Limit:     query.Limit,
+	})
+	if err != nil {
+		return logging.PageResult{}, err
+	}
+	reversed := make([]logging.Summary, 0, len(items))
+	for index := len(items) - 1; index >= 0; index-- {
+		reversed = append(reversed, items[index])
+	}
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	return logging.PageResult{
+		Items: reversed,
+		Page: logging.PageInfo{
+			Limit: limit,
+		},
+	}, nil
 }
 
 func (s *logService) getLogSummary(ctx context.Context, logID string) (logging.Summary, error) {
