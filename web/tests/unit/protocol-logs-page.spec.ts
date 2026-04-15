@@ -528,4 +528,28 @@ describe('ProtocolLogsPage', () => {
     await flushPromises()
     expect(logsStore.active).toBe(true)
   })
+
+  it('deactivates the protocol logs store when the page unmounts outside keep-alive', async () => {
+    const logsStore = useProtocolLogsStore()
+
+    vi.spyOn(logsStore, 'fetchList').mockResolvedValue([])
+    const deactivateSpy = vi.spyOn(logsStore, 'deactivate')
+
+    const router = createTestRouter()
+    await router.push('/protocols/logs')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolLogsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    deactivateSpy.mockClear()
+
+    wrapper.unmount()
+
+    expect(deactivateSpy).toHaveBeenCalledTimes(1)
+  })
 })

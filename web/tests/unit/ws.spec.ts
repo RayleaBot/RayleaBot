@@ -9,14 +9,14 @@ class FakeWebSocket {
 
   readyState = FakeWebSocket.OPEN
   url: string
-  listeners = new Map<string, Array<(event?: MessageEvent) => void>>()
+  listeners = new Map<string, Array<(event?: Event | MessageEvent) => void>>()
 
   constructor(url: string) {
     this.url = url
     FakeWebSocket.instances.push(this)
   }
 
-  addEventListener(type: string, listener: (event?: MessageEvent) => void) {
+  addEventListener(type: string, listener: (event?: Event | MessageEvent) => void) {
     const existing = this.listeners.get(type) ?? []
     this.listeners.set(type, [...existing, listener])
   }
@@ -28,9 +28,12 @@ class FakeWebSocket {
   emit(type: string, data?: unknown) {
     for (const listener of this.listeners.get(type) ?? []) {
       if (type === 'message') {
-        listener({ data: JSON.stringify(data) } as MessageEvent)
+        listener({
+          data: typeof data === 'string' ? data : JSON.stringify(data),
+          target: this,
+        } as MessageEvent)
       } else {
-        listener()
+        listener({ target: this } as Event)
       }
     }
   }
@@ -141,6 +144,55 @@ describe('ManagedSocket', () => {
 
     expect(socket.getStatus()).toBe('reconnecting')
     expect(socket.getLastError()).toBe('events 连接异常')
+
+    vi.advanceTimersByTime(500)
+
+    expect(FakeWebSocket.instances.length).toBe(2)
+  })
+
+  it('ignores stale close events after refresh reconnects', () => {
+    let currentPath = '/ws/events'
+    const socket = new ManagedSocket({
+      name: 'events',
+      path: () => currentPath,
+      runtime: {
+        getToken: () => 'fixture-token',
+        onSessionExpired: vi.fn(),
+      },
+    })
+
+    socket.start()
+    const firstInstance = FakeWebSocket.instances[0]
+    firstInstance.emit('open')
+
+    currentPath = '/ws/events?cursor=new'
+    socket.refresh()
+    const secondInstance = FakeWebSocket.instances[1]
+    secondInstance.emit('open')
+
+    firstInstance.emit('close')
+
+    expect(socket.getStatus()).toBe('connected')
+    expect(FakeWebSocket.instances.length).toBe(2)
+  })
+
+  it('closes the current socket and reconnects when a frame is not valid JSON', () => {
+    const socket = new ManagedSocket({
+      name: 'events',
+      path: () => '/ws/events',
+      runtime: {
+        getToken: () => 'fixture-token',
+        onSessionExpired: vi.fn(),
+      },
+    })
+
+    socket.start()
+    const firstInstance = FakeWebSocket.instances[0]
+    firstInstance.emit('open')
+    firstInstance.emit('message', 'not-json')
+
+    expect(socket.getLastError()).toBe('events 收到无效消息')
+    expect(socket.getStatus()).toBe('reconnecting')
 
     vi.advanceTimersByTime(500)
 

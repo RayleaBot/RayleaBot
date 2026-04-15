@@ -49,6 +49,8 @@ const permissionDialogVisible = ref(false)
 const uninstallDialogVisible = ref(false)
 const selectedCapabilities = ref<string[]>([])
 const resumeEnableAfterGrant = ref(false)
+let detailLoadVersion = 0
+let pageActive = true
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const isBuiltinPlugin = computed(() => current.value?.role === 'builtin')
@@ -62,18 +64,33 @@ const permissionDialogTitle = computed(() => (
 ))
 
 async function loadDetail() {
+  const requestedPluginId = pluginId.value
+  const requestVersion = ++detailLoadVersion
   loadError.value = null
   try {
     await Promise.all([
-      pluginsStore.fetchDetail(pluginId.value),
-      pluginsStore.fetchGrants(pluginId.value),
-      pluginsStore.fetchOutboundConsoleHistory(pluginId.value).catch(() => []),
+      pluginsStore.fetchDetail(requestedPluginId),
+      pluginsStore.fetchGrants(requestedPluginId),
+      pluginsStore.fetchOutboundConsoleHistory(requestedPluginId).catch(() => []),
       configStore.fetchConfig().catch(() => undefined),
     ])
-    socketStore.setConsolePlugin(pluginId.value)
+
+    if (!isCurrentDetailRequest(requestVersion, requestedPluginId)) {
+      return
+    }
+
+    socketStore.setConsolePlugin(requestedPluginId)
   } catch (error) {
+    if (!isCurrentDetailRequest(requestVersion, requestedPluginId)) {
+      return
+    }
+
     loadError.value = getDisplayErrorMessage(error, 'errors.common.loadFailed')
   }
+}
+
+function isCurrentDetailRequest(requestVersion: number, requestedPluginId: string) {
+  return pageActive && requestVersion === detailLoadVersion && pluginId.value === requestedPluginId
 }
 
 async function runAction(action: 'enable' | 'disable' | 'reload') {
@@ -209,6 +226,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  pageActive = false
+  detailLoadVersion += 1
   socketStore.setConsolePlugin(null)
 })
 

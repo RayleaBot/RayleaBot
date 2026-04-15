@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onMounted } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
@@ -192,6 +192,10 @@ onActivated(() => {
 })
 
 onDeactivated(() => {
+  protocolLogsStore.deactivate()
+})
+
+onUnmounted(() => {
   protocolLogsStore.deactivate()
 })
 

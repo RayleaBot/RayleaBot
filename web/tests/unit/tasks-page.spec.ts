@@ -105,10 +105,66 @@ describe('TasksPage', () => {
     expect(wrapper.text()).toContain('图片预览')
     expect(wrapper.text()).toContain('render.preview')
     expect(wrapper.text()).toContain('图片预览已生成')
-    expect(apiDownload).toHaveBeenCalledWith('/api/system/render/artifacts/render_preview_0001.png')
+    expect(apiDownload).toHaveBeenCalledWith(
+      '/api/system/render/artifacts/render_preview_0001.png',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
     const image = wrapper.find('img[alt="图片预览结果"]')
     expect(image.exists()).toBe(true)
     expect(image.attributes('src')).toBe('blob:task-preview')
+  })
+
+  it('does not create a new preview blob url after the page unmounts', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/tasks', component: TasksPage }],
+    })
+    await router.push('/tasks?task_id=task_render_preview_0002')
+    await router.isReady()
+
+    const store = useTasksStore()
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    let resolveDownload: ((value: { blob: Blob; filename: string | null }) => void) | null = null
+    vi.mocked(apiDownload).mockImplementation(() => (
+      new Promise((resolve) => {
+        resolveDownload = resolve
+      })
+    ))
+
+    vi.spyOn(store, 'fetchDetail').mockImplementation(async () => {
+      store.currentTask = {
+        task_id: 'task_render_preview_0002',
+        task_type: 'render.preview',
+        status: 'succeeded',
+        progress: 100,
+        summary: '图片预览已完成',
+        result: {
+          summary: '图片预览已生成',
+          details: {
+            image_url: '/api/system/render/artifacts/render_preview_0002.png',
+          },
+        },
+      }
+      return store.currentTask
+    })
+
+    const wrapper = mount(TasksPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    wrapper.unmount()
+    resolveDownload?.({
+      blob: new Blob(['preview'], { type: 'image/png' }),
+      filename: null,
+    })
+    await flushPromises()
+
+    expect(window.URL.createObjectURL).not.toHaveBeenCalled()
   })
 
   it('renders recovery summaries in task detail without dumping the raw recovery_summary payload', async () => {

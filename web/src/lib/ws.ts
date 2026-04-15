@@ -98,12 +98,27 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
     this.socket = socket
 
     socket.addEventListener('open', () => {
+      if (this.socket !== socket) {
+        return
+      }
+
       this.reconnectAttempts = 0
       this.setStatus('connected')
     })
 
     socket.addEventListener('message', (event) => {
-      const frame = JSON.parse(String(event.data)) as WebSocketFrame<TFrameData> | SessionExpiredFrame
+      if (this.socket !== socket) {
+        return
+      }
+
+      let frame: WebSocketFrame<TFrameData> | SessionExpiredFrame
+      try {
+        frame = JSON.parse(String(event.data)) as WebSocketFrame<TFrameData> | SessionExpiredFrame
+      } catch {
+        this.lastError = `${this.name} 收到无效消息`
+        socket.close()
+        return
+      }
 
       if ('type' in frame && frame.type === 'session_expired') {
         this.setStatus('auth_failed', '会话已失效')
@@ -117,10 +132,18 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
     })
 
     socket.addEventListener('error', () => {
+      if (this.socket !== socket) {
+        return
+      }
+
       this.lastError = `${this.name} 连接异常`
     })
 
     socket.addEventListener('close', () => {
+      if (this.socket !== socket) {
+        return
+      }
+
       this.socket = null
       if (!this.started) {
         this.setStatus('disconnected')

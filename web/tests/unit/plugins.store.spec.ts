@@ -171,4 +171,46 @@ describe('plugins store', () => {
     store.clearConsole('weather')
     expect(store.getConsole('weather')).toEqual([])
   })
+
+  it('ignores stale plugin detail responses when a newer request is already in flight', async () => {
+    const pendingResponses: Array<(response: Response) => void> = []
+
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => (
+      new Promise<Response>((resolve) => {
+        pendingResponses.push(resolve)
+      })
+    )))
+
+    const store = usePluginsStore()
+
+    const firstRequest = store.fetchDetail('weather')
+    const secondRequest = store.fetchDetail('calendar')
+
+    pendingResponses[1]?.(jsonResponse({
+      plugin: {
+        id: 'calendar',
+        name: 'Calendar',
+        role: 'user',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+      },
+    }))
+    await secondRequest
+
+    pendingResponses[0]?.(jsonResponse({
+      plugin: {
+        id: 'weather',
+        name: 'Weather',
+        role: 'user',
+        registration_state: 'installed',
+        desired_state: 'disabled',
+        runtime_state: 'stopped',
+      },
+    }))
+    await firstRequest
+
+    expect(store.current?.id).toBe('calendar')
+    expect(store.current?.name).toBe('Calendar')
+  })
 })

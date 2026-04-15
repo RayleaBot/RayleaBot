@@ -50,6 +50,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   const actionPending = ref<Record<string, string | null>>({})
   const grantsLoading = ref<Record<string, boolean>>({})
   const installPending = ref(false)
+  let detailRequestVersion = 0
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.id.localeCompare(right.id)))
 
@@ -69,13 +70,21 @@ export const usePluginsStore = defineStore('plugins', () => {
 
   async function fetchDetail(pluginId: string) {
     detailLoading.value = true
+    detailRequestVersion += 1
+    const requestVersion = detailRequestVersion
     try {
       const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
+      if (requestVersion !== detailRequestVersion) {
+        return response.plugin
+      }
+
       current.value = response.plugin
       upsert(response.plugin)
       return response.plugin
     } finally {
-      detailLoading.value = false
+      if (requestVersion === detailRequestVersion) {
+        detailLoading.value = false
+      }
     }
   }
 

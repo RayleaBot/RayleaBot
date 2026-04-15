@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onMounted } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import AppPage from '@/components/page/AppPage.vue'
@@ -136,6 +136,10 @@ onActivated(() => {
 })
 
 onDeactivated(() => {
+  logsStore.deactivate()
+})
+
+onUnmounted(() => {
   logsStore.deactivate()
 })
 </script>

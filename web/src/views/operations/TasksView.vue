@@ -23,6 +23,7 @@ const detailVisible = ref(false)
 const previewImageSrc = ref('')
 const hasRequestedTasks = ref(false)
 let previewImageLoadVersion = 0
+let previewWatcherActive = true
 
 const tableColumns = computed(() => [
   { title: t('tasks.fields.type'), key: 'type', dataIndex: 'task_type', width: 220 },
@@ -93,6 +94,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  previewWatcherActive = false
+  previewImageLoadVersion += 1
   resetPreviewImage()
 })
 
@@ -148,8 +151,15 @@ function resetPreviewImage() {
 
 watch(
   [detailVisible, () => previewImageUrl(currentTask.value)],
-  async ([visible, imageUrl]) => {
+  async ([visible, imageUrl], _, onCleanup) => {
     const requestVersion = ++previewImageLoadVersion
+    let cancelled = false
+    const controller = new AbortController()
+
+    onCleanup(() => {
+      cancelled = true
+      controller.abort()
+    })
 
     if (!visible || !imageUrl) {
       resetPreviewImage()
@@ -157,15 +167,21 @@ watch(
     }
 
     try {
-      const { blob } = await apiDownload(imageUrl)
-      if (requestVersion !== previewImageLoadVersion) {
+      const { blob } = await apiDownload(imageUrl, { signal: controller.signal })
+      if (cancelled || !previewWatcherActive || requestVersion !== previewImageLoadVersion) {
+        return
+      }
+
+      const nextPreviewUrl = window.URL.createObjectURL(blob)
+      if (cancelled || !previewWatcherActive || requestVersion !== previewImageLoadVersion) {
+        window.URL.revokeObjectURL(nextPreviewUrl)
         return
       }
 
       resetPreviewImage()
-      previewImageSrc.value = window.URL.createObjectURL(blob)
+      previewImageSrc.value = nextPreviewUrl
     } catch {
-      if (requestVersion !== previewImageLoadVersion) {
+      if (cancelled || requestVersion !== previewImageLoadVersion) {
         return
       }
       resetPreviewImage()

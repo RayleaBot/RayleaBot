@@ -80,13 +80,12 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
     detailError.value = null
 
     const cached = getCachedDetail(nextLogId)
+    currentDetail.value = cached ?? null
     if (cached && options.preferCache !== false) {
-      currentDetail.value = cached
       return cached
     }
 
     if (!active.value) {
-      currentDetail.value = cached ?? null
       return cached ?? null
     }
 

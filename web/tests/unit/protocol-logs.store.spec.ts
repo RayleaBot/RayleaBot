@@ -14,6 +14,20 @@ function readSearchParams(input: string) {
   return new URL(input, 'http://localhost').searchParams
 }
 
+function createDeferredResponse() {
+  let resolve!: (value: Response) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<Response>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+  return {
+    promise,
+    resolve,
+    reject,
+  }
+}
+
 describe('protocol logs store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -413,5 +427,86 @@ describe('protocol logs store', () => {
     expect(params.get('protocol')).toBe('onebot11')
     expect(params.get('limit')).toBe('50')
     expect(params.get('source')).toBe('adapter')
+  })
+
+  it('clears the previous detail immediately when switching to an uncached log', async () => {
+    const deferred = createDeferredResponse()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        log_id: 'log_protocol_detail_A',
+        timestamp: '2026-04-08T10:16:00Z',
+        level: 'warn',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        message: 'detail A',
+        details: {
+          reason: 'cached detail A',
+        },
+      }))
+      .mockImplementationOnce(() => deferred.promise)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useProtocolLogsStore()
+    store.activate()
+
+    await store.selectLog('log_protocol_detail_A')
+    expect(store.currentDetail?.log_id).toBe('log_protocol_detail_A')
+
+    const pendingSelection = store.selectLog('log_protocol_detail_B')
+
+    expect(store.selectedLogId).toBe('log_protocol_detail_B')
+    expect(store.currentDetail).toBeNull()
+
+    deferred.resolve(jsonResponse({
+      log_id: 'log_protocol_detail_B',
+      timestamp: '2026-04-08T10:16:01Z',
+      level: 'info',
+      protocol: 'onebot11',
+      source: 'bridge',
+      message: 'detail B',
+      details: {
+        reason: 'fresh detail B',
+      },
+    }))
+
+    await pendingSelection
+
+    expect(store.currentDetail?.log_id).toBe('log_protocol_detail_B')
+    expect(store.currentDetail?.details.reason).toBe('fresh detail B')
+  })
+
+  it('does not restore the previous detail when the new detail request fails', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        log_id: 'log_protocol_detail_A',
+        timestamp: '2026-04-08T10:16:00Z',
+        level: 'warn',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        message: 'detail A',
+        details: {
+          reason: 'cached detail A',
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        error: {
+          code: 'platform.internal_error',
+          message: '读取详情失败',
+          request_id: 'req_protocol_detail_failed',
+        },
+      }, 500))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useProtocolLogsStore()
+    store.activate()
+
+    await store.selectLog('log_protocol_detail_A')
+    expect(store.currentDetail?.log_id).toBe('log_protocol_detail_A')
+
+    await expect(store.selectLog('log_protocol_detail_B')).rejects.toMatchObject({ message: '读取详情失败' })
+
+    expect(store.selectedLogId).toBe('log_protocol_detail_B')
+    expect(store.currentDetail).toBeNull()
+    expect(store.detailError).toBe('读取详情失败')
   })
 })

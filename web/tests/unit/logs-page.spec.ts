@@ -162,4 +162,23 @@ describe('LogsPage', () => {
 
     wrapper.unmount()
   })
+
+  it('deactivates the logs store when the page unmounts outside keep-alive', async () => {
+    const store = useLogsStore()
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const deactivateSpy = vi.spyOn(store, 'deactivate')
+
+    const wrapper = mount(LogsPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+    deactivateSpy.mockClear()
+
+    wrapper.unmount()
+
+    expect(deactivateSpy).toHaveBeenCalledTimes(1)
+  })
 })

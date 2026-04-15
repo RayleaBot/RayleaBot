@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import PluginDetailPage from '@/views/plugins/PluginDetailView.vue'
+import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 
@@ -196,5 +197,68 @@ describe('PluginDetailPage', () => {
     const consoleText = wrapper.find('.console-terminal-line pre').text()
     expect(consoleText).toContain('\\u2066')
     expect(consoleText).not.toContain('\u2066')
+  })
+
+  it('keeps the console socket closed when an old detail request resolves after unmount', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/plugins/:id', component: PluginDetailPage }],
+    })
+    await router.push('/plugins/weather')
+    await router.isReady()
+
+    const configStore = useConfigStore()
+    const pluginsStore = usePluginsStore()
+    const socketStore = useSocketStore()
+
+    let resolveDetail: (() => void) | null = null
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginsStore, 'fetchDetail').mockImplementation(() => (
+      new Promise((resolve) => {
+        resolveDetail = () => resolve({
+          id: 'weather',
+          name: 'Weather',
+          role: 'user',
+          registration_state: 'installed',
+          desired_state: 'enabled',
+          runtime_state: 'running',
+          display_state: 'discovered',
+          source: {
+            root: 'plugins/installed',
+            package_source_type: 'local_zip',
+            package_source_ref: 'C:/plugins/weather.zip',
+            verified: false,
+          },
+          trust: {
+            level: 'unverified',
+            label: '未验证来源',
+          },
+          commands: [],
+          command_conflicts: [],
+          permissions: [],
+        })
+      })
+    ))
+    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
+    vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    const setConsolePluginSpy = vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
+
+    const wrapper = mount(PluginDetailPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    wrapper.unmount()
+
+    expect(setConsolePluginSpy).toHaveBeenLastCalledWith(null)
+
+    setConsolePluginSpy.mockClear()
+    resolveDetail?.()
+    await flushPromises()
+
+    expect(setConsolePluginSpy).not.toHaveBeenCalled()
   })
 })
