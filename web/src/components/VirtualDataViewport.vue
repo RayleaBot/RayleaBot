@@ -156,6 +156,10 @@ function resolveKey(item: T, index: number) {
   return index
 }
 
+function resolveVisibleKey(item: T, localIndex: number) {
+  return resolveKey(item, startIndex.value + localIndex)
+}
+
 function updateMeasuredRowHeight(key: string | number, nextHeight: number) {
   if (!props.dynamicItemHeight || !Number.isFinite(nextHeight) || nextHeight <= 0) {
     return
@@ -176,17 +180,10 @@ function measureRowElement(key: string | number, element: HTMLElement) {
   updateMeasuredRowHeight(key, nextHeight)
 }
 
-function setMeasuredRowRef(element: Element | null, index: number) {
+function setMeasuredRowRef(key: string | number, element: Element | null) {
   if (!props.dynamicItemHeight) {
     return
   }
-
-  const item = props.items[index]
-  if (!item) {
-    return
-  }
-
-  const key = resolveKey(item, index)
   const previous = rowRefs.get(key)
   if (previous && previous !== element && resizeObserver) {
     resizeObserver.unobserve(previous)
@@ -303,10 +300,10 @@ watch(
         <div class="data-viewport__stack" :style="{ transform: `translateY(${offsetY}px)` }">
           <div
             v-for="(item, localIndex) in visibleItems"
-            :key="resolveKey(item, startIndex + localIndex)"
+            :key="resolveVisibleKey(item, localIndex)"
             class="data-viewport__row"
             :style="rowStyle(startIndex + localIndex)"
-            :ref="dynamicItemHeight ? (element) => setMeasuredRowRef(element, startIndex + localIndex) : undefined"
+            :ref="dynamicItemHeight ? (element) => setMeasuredRowRef(resolveVisibleKey(item, localIndex), element) : undefined"
           >
             <slot :item="item" :index="startIndex + localIndex" />
           </div>

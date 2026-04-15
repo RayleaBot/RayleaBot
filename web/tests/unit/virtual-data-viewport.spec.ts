@@ -1,62 +1,107 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 
+const viewportHeight = 420
+const fallbackRowHeight = 64
+let heightByLabel = new Map<string, number>()
+
+function createRect(height: number, width = 960) {
+  return {
+    width,
+    height,
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    bottom: height,
+    right: width,
+    toJSON: () => ({}),
+  } as DOMRect
+}
+
+function getMeasuredHeight(element: HTMLElement) {
+  if (element.classList.contains('data-viewport__scroller')) {
+    return viewportHeight
+  }
+
+  if (element.classList.contains('data-viewport__row')) {
+    const label = element.textContent?.trim() ?? ''
+    return heightByLabel.get(label) ?? fallbackRowHeight
+  }
+
+  return 0
+}
+
+class ResizeObserverMock {
+  static instances = new Set<ResizeObserverMock>()
+
+  callback: ResizeObserverCallback
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback
+    ResizeObserverMock.instances.add(this)
+  }
+
+  observe(target: Element) {
+    if (!(target instanceof HTMLElement)) {
+      return
+    }
+
+    this.callback([
+      {
+        target,
+        contentRect: createRect(getMeasuredHeight(target)),
+      } as ResizeObserverEntry,
+    ], this as unknown as ResizeObserver)
+  }
+
+  unobserve() {}
+
+  disconnect() {
+    ResizeObserverMock.instances.delete(this)
+  }
+
+  static trigger(target: Element) {
+    if (!(target instanceof HTMLElement)) {
+      return
+    }
+
+    for (const observer of ResizeObserverMock.instances) {
+      observer.callback([
+        {
+          target,
+          contentRect: createRect(getMeasuredHeight(target)),
+        } as ResizeObserverEntry,
+      ], observer as unknown as ResizeObserver)
+    }
+  }
+}
+
+function expectCanvasHeight(wrapper: VueWrapper, expectedHeight: number) {
+  expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain(`height: ${expectedHeight}px;`)
+}
+
 describe('VirtualDataViewport', () => {
   beforeEach(() => {
-    const height = 420
+    heightByLabel = new Map()
     const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
 
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function mockGetBoundingClientRect() {
-      if (this.classList?.contains('data-viewport__scroller')) {
-        return {
-          width: 960,
-          height,
-          x: 0,
-          y: 0,
-          top: 0,
-          left: 0,
-          bottom: height,
-          right: 960,
-          toJSON: () => ({}),
-        } as DOMRect
+      if (this instanceof HTMLElement) {
+        return createRect(getMeasuredHeight(this))
       }
 
       return originalGetBoundingClientRect.call(this)
     })
 
-    class ResizeObserverMock {
-      callback: ResizeObserverCallback
-
-      constructor(callback: ResizeObserverCallback) {
-        this.callback = callback
-      }
-
-      observe(target: Element) {
-        this.callback([
-          {
-            target,
-            contentRect: {
-              width: 960,
-              height,
-              x: 0,
-              y: 0,
-              top: 0,
-              left: 0,
-              bottom: height,
-              right: 960,
-              toJSON: () => ({}),
-            },
-          } as ResizeObserverEntry,
-        ], this as unknown as ResizeObserver)
-      }
-
-      unobserve() {}
-      disconnect() {}
-    }
-
     window.ResizeObserver = ResizeObserverMock as typeof ResizeObserver
+  })
+
+  afterEach(() => {
+    ResizeObserverMock.instances.clear()
+    vi.restoreAllMocks()
   })
 
   it('uses measured container height when viewportHeight is omitted', async () => {
@@ -79,5 +124,47 @@ describe('VirtualDataViewport', () => {
 
     expect(wrapper.find('.data-viewport__scroller').attributes('style') ?? '').not.toContain('560px')
     expect(wrapper.findAll('.data-viewport__row')).toHaveLength(7)
+  })
+
+  it('keeps prepended row measurements stable after ref cleanup and later resize updates', async () => {
+    heightByLabel = new Map([
+      ['A', 120],
+      ['B', 80],
+      ['C', 140],
+    ])
+
+    const wrapper = mount(VirtualDataViewport, {
+      props: {
+        items: [{ id: 'A' }, { id: 'B' }],
+        itemHeight: 60,
+        dynamicItemHeight: true,
+        getItemKey: (item: { id: string }) => item.id,
+      },
+      slots: {
+        default: ({ item }: { item: { id: string } }) => item.id,
+      },
+    })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expectCanvasHeight(wrapper, 200)
+
+    await wrapper.setProps({
+      items: [{ id: 'C' }, { id: 'A' }, { id: 'B' }],
+    })
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expectCanvasHeight(wrapper, 340)
+
+    heightByLabel.set('C', 200)
+    const prependedRow = wrapper.findAll('.data-viewport__row').find((row) => row.text().trim() === 'C')
+    expect(prependedRow).toBeTruthy()
+
+    ResizeObserverMock.trigger(prependedRow!.element)
+    await wrapper.vm.$nextTick()
+
+    expectCanvasHeight(wrapper, 400)
   })
 })
