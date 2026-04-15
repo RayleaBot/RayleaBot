@@ -96,6 +96,18 @@ func (s *systemService) createBackupArchive(ctx context.Context, progress tasks.
 		if err := addFileToZip(writer, databasePath, archivePath); err == nil {
 			directories = append(directories, recovery.Directory(archivePath, "database"))
 		}
+
+		spoolPath := logging.SpoolPathForDatabase(databasePath)
+		spoolArchivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(spoolPath)))
+		if err := addOptionalFileToZip(writer, spoolPath, spoolArchivePath); err == nil {
+			directories = append(directories, recovery.Directory(spoolArchivePath, "database"))
+		}
+
+		quarantinePath := filepath.Join(filepath.Dir(spoolPath), "management-logs.spool.quarantine.jsonl")
+		quarantineArchivePath := filepath.ToSlash(filepath.Join("data", filepath.Base(quarantinePath)))
+		if err := addOptionalFileToZip(writer, quarantinePath, quarantineArchivePath); err == nil {
+			directories = append(directories, recovery.Directory(quarantineArchivePath, "database"))
+		}
 	}
 
 	progress.Update(60, "写入插件目录")
@@ -172,6 +184,16 @@ func (s *systemService) buildDiagnosticsArchive(ctx context.Context) ([]byte, er
 			return nil, err
 		}
 	}
+	if databasePath, err := resolveDatabasePath(s.state.Summary.ConfigPath, s.state.Config.Database.Path); err == nil {
+		spoolPath := logging.SpoolPathForDatabase(databasePath)
+		if err := addOptionalFileToZip(writer, spoolPath, filepath.ToSlash(filepath.Join("data", filepath.Base(spoolPath)))); err != nil {
+			return nil, err
+		}
+		quarantinePath := filepath.Join(filepath.Dir(spoolPath), "management-logs.spool.quarantine.jsonl")
+		if err := addOptionalFileToZip(writer, quarantinePath, filepath.ToSlash(filepath.Join("data", filepath.Base(quarantinePath)))); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := writer.Close(); err != nil {
 		return nil, err
@@ -217,6 +239,16 @@ func addFileToZip(writer *zip.Writer, sourcePath, archivePath string) error {
 	}
 	_, err = io.Copy(entry, file)
 	return err
+}
+
+func addOptionalFileToZip(writer *zip.Writer, sourcePath, archivePath string) error {
+	if _, err := os.Stat(sourcePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return addFileToZip(writer, sourcePath, archivePath)
 }
 
 func addDirToZip(writer *zip.Writer, sourceRoot, archivePrefix string) (int, error) {

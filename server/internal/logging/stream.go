@@ -31,6 +31,16 @@ type Stream struct {
 	subscribers      map[uint64]chan Summary
 	repository       Repository
 	retentionDays    int
+	spool            *SpoolQueue
+	stderr           io.Writer
+	clock            func() time.Time
+	flushTicker      time.Duration
+	flushNotify      chan struct{}
+	flushStop        chan struct{}
+	flushLoopStarted bool
+	flushLoopClosed  bool
+	diagnosticMu     sync.Mutex
+	lastDiagnostic   time.Time
 }
 
 func NewStream(limit int) *Stream {
@@ -41,6 +51,10 @@ func NewStream(limit int) *Stream {
 	return &Stream{
 		limit:       limit,
 		subscribers: map[uint64]chan Summary{},
+		clock:       time.Now,
+		flushTicker: 5 * time.Second,
+		flushNotify: make(chan struct{}, 1),
+		flushStop:   make(chan struct{}),
 	}
 }
 
@@ -64,10 +78,57 @@ func (s *Stream) Limit() int {
 
 func (s *Stream) SetRepository(repository Repository, retentionDays int) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.repository = repository
 	s.retentionDays = retentionDays
+	spool := s.spool
+	s.mu.Unlock()
+
+	if repository != nil && spool != nil && spool.HasEntries() {
+		s.signalFlush()
+	}
+}
+
+func (s *Stream) ConfigureSpool(queue *SpoolQueue, stderr io.Writer) {
+	if s == nil {
+		return
+	}
+
+	s.mu.Lock()
+	s.spool = queue
+	if stderr != nil {
+		s.stderr = stderr
+	}
+	startLoop := queue != nil && !s.flushLoopStarted && !s.flushLoopClosed
+	if startLoop {
+		s.flushLoopStarted = true
+	}
+	s.mu.Unlock()
+
+	if startLoop {
+		go s.flushLoop()
+	}
+	if queue != nil && queue.HasEntries() {
+		s.signalFlush()
+	}
+}
+
+func (s *Stream) FlushSpool(ctx context.Context) error {
+	return s.flushSpool(ctx, true)
+}
+
+func (s *Stream) Close() {
+	if s == nil {
+		return
+	}
+
+	s.mu.Lock()
+	if s.flushLoopClosed {
+		s.mu.Unlock()
+		return
+	}
+	s.flushLoopClosed = true
+	close(s.flushStop)
+	s.mu.Unlock()
 }
 
 func (s *Stream) Append(summary Summary) {
@@ -76,6 +137,7 @@ func (s *Stream) Append(summary Summary) {
 	s.mu.RLock()
 	repository := s.repository
 	retentionDays := s.retentionDays
+	spool := s.spool
 	s.mu.RUnlock()
 
 	if repository == nil {
@@ -85,13 +147,30 @@ func (s *Stream) Append(summary Summary) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = repository.SaveSummary(ctx, summary)
-	if retentionDays > 0 {
-		cutoff := time.Now().AddDate(0, 0, -retentionDays)
-		_ = repository.PruneOlderThan(ctx, cutoff)
+
+	saveErr := repository.SaveSummary(ctx, summary)
+	if saveErr == nil {
+		if retentionDays > 0 {
+			cutoff := s.now().AddDate(0, 0, -retentionDays)
+			_ = repository.PruneOlderThan(ctx, cutoff)
+		}
+		s.appendInMemory(summary)
+		if spool != nil && spool.HasEntries() {
+			s.signalFlush()
+		}
+		return
+	} else if spool != nil {
+		if spoolErr := spool.Append(summary); spoolErr == nil {
+			s.appendInMemory(summary)
+			s.signalFlush()
+			return
+		} else {
+			s.reportPersistenceFailure("drop management log after db and spool persistence failed: db=%v spool=%v", saveErr, spoolErr)
+			return
+		}
 	}
 
-	s.appendInMemory(summary)
+	s.reportPersistenceFailure("drop management log after db persistence failed and no spool is configured: %v", saveErr)
 }
 
 func (s *Stream) appendInMemory(summary Summary) {
@@ -153,6 +232,101 @@ func (s *Stream) SubscriberCount() int {
 	defer s.mu.RUnlock()
 
 	return len(s.subscribers)
+}
+
+func (s *Stream) flushLoop() {
+	ticker := time.NewTicker(s.flushTicker)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.flushStop:
+			return
+		case <-ticker.C:
+		case <-s.flushNotify:
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := s.flushSpool(ctx, false); err != nil {
+			s.reportPersistenceFailure("management log spool flush failed: %v", err)
+		}
+		cancel()
+	}
+}
+
+func (s *Stream) flushSpool(ctx context.Context, reportError bool) error {
+	if s == nil {
+		return nil
+	}
+
+	s.mu.RLock()
+	repository := s.repository
+	retentionDays := s.retentionDays
+	spool := s.spool
+	s.mu.RUnlock()
+
+	if repository == nil || spool == nil || !spool.HasEntries() {
+		return nil
+	}
+
+	result, err := spool.Flush(ctx, repository)
+	if err != nil {
+		if reportError {
+			s.reportPersistenceFailure("management log spool flush failed: %v", err)
+		}
+		return err
+	}
+	if result.Flushed > 0 && retentionDays > 0 {
+		cutoff := s.now().AddDate(0, 0, -retentionDays)
+		if pruneErr := repository.PruneOlderThan(ctx, cutoff); pruneErr != nil {
+			if reportError {
+				s.reportPersistenceFailure("management log prune after spool flush failed: %v", pruneErr)
+			}
+			return pruneErr
+		}
+	}
+	return nil
+}
+
+func (s *Stream) signalFlush() {
+	if s == nil {
+		return
+	}
+	select {
+	case s.flushNotify <- struct{}{}:
+	default:
+	}
+}
+
+func (s *Stream) now() time.Time {
+	if s == nil || s.clock == nil {
+		return time.Now()
+	}
+	return s.clock()
+}
+
+func (s *Stream) reportPersistenceFailure(format string, args ...any) {
+	if s == nil {
+		return
+	}
+
+	s.mu.RLock()
+	stderr := s.stderr
+	s.mu.RUnlock()
+	if stderr == nil {
+		return
+	}
+
+	now := s.now()
+	s.diagnosticMu.Lock()
+	if !s.lastDiagnostic.IsZero() && now.Sub(s.lastDiagnostic) < 10*time.Second {
+		s.diagnosticMu.Unlock()
+		return
+	}
+	s.lastDiagnostic = now
+	s.diagnosticMu.Unlock()
+
+	_, _ = fmt.Fprintf(stderr, "rayleabot logging persistence: "+format+"\n", args...)
 }
 
 type SummaryWriter struct {

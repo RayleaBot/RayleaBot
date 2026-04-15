@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
@@ -94,7 +95,14 @@ func buildAppPlatform(state appBuildState, schedulerTrigger func(context.Context
 	if err != nil {
 		return abort(fmt.Errorf("create logging repository: %w", err))
 	}
+	state.logStream.ConfigureSpool(logging.NewSpoolQueue(logging.SpoolPathForDatabase(databasePath)), os.Stderr)
 	state.logStream.SetRepository(logRepository, state.core.Config.Logging.RetentionDays)
+	if err := state.logStream.FlushSpool(context.Background()); err != nil {
+		state.core.Logger.Warn("management log spool flush failed during startup",
+			"component", "logging",
+			"err", err.Error(),
+		)
+	}
 	if state.core.Config.Logging.RetentionDays > 0 {
 		if err := logRepository.PruneOlderThan(context.Background(), time.Now().AddDate(0, 0, -state.core.Config.Logging.RetentionDays)); err != nil {
 			return abort(fmt.Errorf("prune persisted management logs: %w", err))

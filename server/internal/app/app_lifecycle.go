@@ -52,6 +52,9 @@ func (a *App) Close() error {
 		}
 		a.renderer = nil
 	}
+	if a != nil && a.logs != nil {
+		a.logs.Close()
+	}
 	if err := a.closeStorage(); err != nil {
 		errs = append(errs, err)
 	}
