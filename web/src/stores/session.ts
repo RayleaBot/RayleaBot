@@ -117,7 +117,7 @@ export const useSessionStore = defineStore('session', () => {
   async function logout() {
     if (token.value) {
       try {
-        await apiRequest('/api/session', { method: 'DELETE' })
+        await apiRequest<void>('/api/session', { method: 'DELETE' })
       } catch {
         // local logout still wins
       }

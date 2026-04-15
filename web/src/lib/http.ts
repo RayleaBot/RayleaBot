@@ -84,15 +84,29 @@ function parseDownloadFilename(contentDisposition: string | null) {
 
   const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
   if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1])
+    return decodeFilenamePart(utf8Match[1])
   }
 
   const quotedMatch = contentDisposition.match(/filename=\"([^\"]+)\"/i)
   if (quotedMatch?.[1]) {
-    return quotedMatch[1]
+    return decodeFilenamePart(quotedMatch[1])
+  }
+
+  const plainMatch = contentDisposition.match(/filename=([^;\s]+)/i)
+  if (plainMatch?.[1]) {
+    return decodeFilenamePart(plainMatch[1])
   }
 
   return null
+}
+
+function decodeFilenamePart(value: string) {
+  const trimmed = value.trim()
+  try {
+    return decodeURIComponent(trimmed)
+  } catch {
+    return trimmed
+  }
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {

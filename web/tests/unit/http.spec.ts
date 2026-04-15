@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { apiRequest, configureApiRuntime } from '@/lib/http'
+import { apiDownload, apiRequest, configureApiRuntime } from '@/lib/http'
 
 function unauthorizedResponse() {
   return new Response(
@@ -55,5 +55,31 @@ describe('api runtime', () => {
 
     await expect(request).rejects.toThrow('需要有效的管理会话')
     expect(unauthorizedTokens).toEqual(['stale-token'])
+  })
+
+  it('parses plain content-disposition filenames without quotes', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('fixture', {
+      status: 200,
+      headers: {
+        'Content-Disposition': 'attachment; filename=report.zip',
+      },
+    })))
+
+    const response = await apiDownload('/api/files/report.zip')
+
+    expect(response.filename).toBe('report.zip')
+  })
+
+  it('decodes percent-encoded plain content-disposition filenames', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('fixture', {
+      status: 200,
+      headers: {
+        'Content-Disposition': 'attachment; filename=report%20final.zip',
+      },
+    })))
+
+    const response = await apiDownload('/api/files/report-final.zip')
+
+    expect(response.filename).toBe('report final.zip')
   })
 })
