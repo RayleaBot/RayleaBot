@@ -166,12 +166,49 @@ function updateMeasuredRowHeight(key: string | number, nextHeight: number) {
   }
 
   const roundedHeight = Math.max(1, Math.ceil(nextHeight))
-  if (measuredHeights.get(key) === roundedHeight) {
+  const previousHeight = measuredHeights.get(key) ?? props.itemHeight
+  if (previousHeight === roundedHeight) {
     return
   }
 
+  const itemIndex = findItemIndexByKey(key)
+  const metrics = layoutMetrics.value
+  const rowOffset = itemIndex >= 0
+    ? (metrics.offsets[itemIndex] ?? itemIndex * props.itemHeight)
+    : 0
+
   measuredHeights.set(key, roundedHeight)
   measurementVersion.value += 1
+
+  const heightDelta = roundedHeight - previousHeight
+  if (heightDelta !== 0 && rowOffset + previousHeight <= scrollTop.value) {
+    syncScrollAnchor(heightDelta)
+  }
+}
+
+function findItemIndexByKey(key: string | number) {
+  for (let index = 0; index < props.items.length; index += 1) {
+    if (resolveKey(props.items[index]!, index) === key) {
+      return index
+    }
+  }
+
+  return -1
+}
+
+function syncScrollAnchor(offsetDelta: number) {
+  const scroller = scrollerRef.value
+  if (!scroller) {
+    return
+  }
+
+  const nextScrollTop = Math.max(0, scroller.scrollTop + offsetDelta)
+  if (nextScrollTop === scroller.scrollTop) {
+    return
+  }
+
+  scroller.scrollTop = nextScrollTop
+  scrollTop.value = nextScrollTop
 }
 
 function measureRowElement(key: string | number, element: HTMLElement) {

@@ -167,4 +167,41 @@ describe('VirtualDataViewport', () => {
 
     expectCanvasHeight(wrapper, 400)
   })
+
+  it('keeps the scroll anchor stable when a row above the viewport is remeasured', async () => {
+    heightByLabel = new Map(
+      Array.from({ length: 12 }, (_, index) => [`Row ${index}`, fallbackRowHeight]),
+    )
+
+    const wrapper = mount(VirtualDataViewport, {
+      props: {
+        items: Array.from({ length: 12 }, (_, index) => ({ id: `row-${index}`, label: `Row ${index}` })),
+        itemHeight: fallbackRowHeight,
+        dynamicItemHeight: true,
+        overscan: 3,
+        getItemKey: (item: { id: string }) => item.id,
+      },
+      slots: {
+        default: ({ item }: { item: { label: string } }) => item.label,
+      },
+    })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const scroller = wrapper.get('.data-viewport__scroller').element as HTMLElement
+    scroller.scrollTop = 280
+    await wrapper.get('.data-viewport__scroller').trigger('scroll')
+    await wrapper.vm.$nextTick()
+
+    const rowAboveViewport = wrapper.findAll('.data-viewport__row').find((row) => row.text().trim() === 'Row 1')
+    expect(rowAboveViewport).toBeTruthy()
+
+    heightByLabel.set('Row 1', 120)
+    ResizeObserverMock.trigger(rowAboveViewport!.element)
+    await wrapper.vm.$nextTick()
+
+    expect(scroller.scrollTop).toBe(336)
+    expectCanvasHeight(wrapper, 824)
+  })
 })
