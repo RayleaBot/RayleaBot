@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -313,25 +312,16 @@ func TestLogsListRejectsInvalidFilters(t *testing.T) {
 	}
 }
 
-func TestLogsListAcceptsLargeLimitWithoutLegacyCap(t *testing.T) {
+func TestLogsListRejectsLimitAboveFormalMaximum(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-limit-too-large.yaml"))
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	for index := 0; index < 3; index++ {
-		application.Logs().Append(logging.Summary{
-			LogID:     "log_limit_" + strconv.Itoa(index),
-			Timestamp: time.Date(2026, 4, 10, 9, 0, index, 0, time.UTC).Format(time.RFC3339),
-			Level:     "info",
-			Source:    "runtime",
-			Message:   "limit test",
-		})
-	}
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?limit=500", nil)
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
 	if err != nil {
 		t.Fatalf("create large limit request: %v", err)
 	}
@@ -342,15 +332,11 @@ func TestLogsListAcceptsLargeLimitWithoutLegacyCap(t *testing.T) {
 		t.Fatalf("perform large limit request: %v", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected large limit status: got %d want 200", response.StatusCode)
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected large limit status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
 
-	body := decodeBody(t, readAll(t, response))
-	page := body["page"].(map[string]any)
-	if page["limit"] != float64(500) {
-		t.Fatalf("unexpected page limit: %#v", page["limit"])
-	}
+	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), fixture.Response.Body, "platform.invalid_request")
 }
 
 func TestLogsListSupportsCursorPaging(t *testing.T) {
@@ -405,6 +391,32 @@ func TestLogsListSupportsCursorPaging(t *testing.T) {
 	thirdItems := thirdPage["items"].([]any)
 	if thirdItems[0].(map[string]any)["message"] != "5" || thirdItems[1].(map[string]any)["message"] != "4" {
 		t.Fatalf("unexpected newer page items: %#v", thirdItems)
+	}
+}
+
+func TestLogsListIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	for _, summary := range []logging.Summary{
+		{LogID: "log_cursor_1001", Timestamp: "2026-04-10T09:00:00Z", Level: "info", Source: "runtime", Message: "1"},
+		{LogID: "log_cursor_1002", Timestamp: "2026-04-10T09:00:01Z", Level: "info", Source: "runtime", Message: "2"},
+		{LogID: "log_cursor_1003", Timestamp: "2026-04-10T09:00:02Z", Level: "info", Source: "runtime", Message: "3"},
+		{LogID: "log_cursor_1004", Timestamp: "2026-04-10T09:00:03Z", Level: "info", Source: "runtime", Message: "4"},
+		{LogID: "log_cursor_1005", Timestamp: "2026-04-10T09:00:04Z", Level: "info", Source: "runtime", Message: "5"},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	defaultPage := doLogsListRequest(t, server.URL, token, "/api/logs?source=runtime&limit=2")
+	newerFirstPage := doLogsListRequest(t, server.URL, token, "/api/logs?source=runtime&limit=2&direction=newer")
+
+	if !reflect.DeepEqual(newerFirstPage, defaultPage) {
+		t.Fatalf("unexpected first page for direction=newer without cursor: got %#v want %#v", newerFirstPage, defaultPage)
 	}
 }
 

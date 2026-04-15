@@ -234,4 +234,29 @@ describe('logs store', () => {
     await expect(store.fetchList()).rejects.toMatchObject({ message: '读取日志失败' })
     expect(store.error).toBe('读取日志失败')
   })
+
+  it('caps requested log page size at the formal maximum', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      items: [],
+      page: {
+        limit: 200,
+        has_older: false,
+        has_newer: false,
+        older_cursor: null,
+        newer_cursor: null,
+      },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    store.filters = {
+      limit: 500,
+    }
+
+    await store.fetchList()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/logs?limit=200', expect.any(Object))
+    expect(store.filters.limit).toBe(500)
+    expect(store.page.limit).toBe(200)
+  })
 })

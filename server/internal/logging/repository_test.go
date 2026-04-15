@@ -204,6 +204,58 @@ func TestSQLiteRepositoryRejectsInvalidCursor(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositoryIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	for _, summary := range []Summary{
+		{LogID: "log_page_1001", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "1"},
+		{LogID: "log_page_1002", Timestamp: "2026-03-20T10:00:01Z", Level: "info", Source: "runtime", Message: "2"},
+		{LogID: "log_page_1003", Timestamp: "2026-03-20T10:00:02Z", Level: "info", Source: "runtime", Message: "3"},
+		{LogID: "log_page_1004", Timestamp: "2026-03-20T10:00:03Z", Level: "info", Source: "runtime", Message: "4"},
+		{LogID: "log_page_1005", Timestamp: "2026-03-20T10:00:04Z", Level: "info", Source: "runtime", Message: "5"},
+	} {
+		if err := repository.SaveSummary(ctx, summary); err != nil {
+			t.Fatalf("save summary: %v", err)
+		}
+	}
+
+	defaultPage, err := repository.ListPage(ctx, PageQuery{
+		Source: "runtime",
+		Limit:  2,
+	})
+	if err != nil {
+		t.Fatalf("list default page: %v", err)
+	}
+
+	newerFirstPage, err := repository.ListPage(ctx, PageQuery{
+		Source:    "runtime",
+		Limit:     2,
+		Direction: PageDirectionNewer,
+	})
+	if err != nil {
+		t.Fatalf("list first page with newer direction: %v", err)
+	}
+
+	if got := []string{newerFirstPage.Items[0].Message, newerFirstPage.Items[1].Message}; !equalStrings(got, []string{"5", "4"}) {
+		t.Fatalf("unexpected first page order for direction=newer: %#v", got)
+	}
+	if newerFirstPage.Page.HasOlder != defaultPage.Page.HasOlder || newerFirstPage.Page.HasNewer != defaultPage.Page.HasNewer {
+		t.Fatalf("unexpected first page metadata for direction=newer: %#v", newerFirstPage.Page)
+	}
+	if (newerFirstPage.Page.OlderCursor == nil) != (defaultPage.Page.OlderCursor == nil) || (newerFirstPage.Page.NewerCursor == nil) != (defaultPage.Page.NewerCursor == nil) {
+		t.Fatalf("unexpected cursor presence for direction=newer: got %#v want %#v", newerFirstPage.Page, defaultPage.Page)
+	}
+	if newerFirstPage.Page.OlderCursor != nil && defaultPage.Page.OlderCursor != nil && *newerFirstPage.Page.OlderCursor != *defaultPage.Page.OlderCursor {
+		t.Fatalf("unexpected older cursor for direction=newer: got %q want %q", *newerFirstPage.Page.OlderCursor, *defaultPage.Page.OlderCursor)
+	}
+	if newerFirstPage.Page.NewerCursor != nil && defaultPage.Page.NewerCursor != nil && *newerFirstPage.Page.NewerCursor != *defaultPage.Page.NewerCursor {
+		t.Fatalf("unexpected newer cursor for direction=newer: got %q want %q", *newerFirstPage.Page.NewerCursor, *defaultPage.Page.NewerCursor)
+	}
+}
+
 func TestSQLiteRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
 	t.Parallel()
 

@@ -74,6 +74,7 @@ x-fixtures:
   - fixtures/web-api/invalid.session-launcher-admission-invalid-token.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
   - fixtures/web-api/invalid.system-render-preview-invalid.yaml
+  - fixtures/web-api/invalid.logs-list-limit-too-large.yaml
   - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
@@ -674,6 +675,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 200
             default: 50
         - name: cursor
           in: query
@@ -687,6 +689,7 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/LogPageDirection'
+          description: Pagination direction for a server-issued cursor. When cursor is omitted, the server returns the latest page.
       responses:
         '200':
           description: Bounded log summaries using the same whitelist fields as /ws/logs plus cursor page metadata.

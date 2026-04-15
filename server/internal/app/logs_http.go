@@ -22,6 +22,8 @@ type logDetailResponse struct {
 	Details map[string]any `json:"details"`
 }
 
+const maxLogPageLimit = 200
+
 func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		levelFilter := strings.TrimSpace(r.URL.Query().Get("level"))
@@ -48,7 +50,7 @@ func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 		limit := 50
 		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
 			parsed, err := strconv.Atoi(raw)
-			if err != nil || parsed < 1 {
+			if err != nil || parsed < 1 || parsed > maxLogPageLimit {
 				writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 				return
 			}

@@ -4,7 +4,9 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import type { LogListResponse, LogPage, LogPageDirection, LogProtocol, LogSummary } from '@/types/api'
 
-export const LOG_PAGE_SIZE_OPTIONS = [50, 100, 200, 500] as const
+export const DEFAULT_LOG_PAGE_LIMIT = 50
+export const MAX_LOG_PAGE_LIMIT = 200
+export const LOG_PAGE_SIZE_OPTIONS = [50, 100, 200] as const
 
 export interface LogFilters {
   level?: string
@@ -283,11 +285,16 @@ export function matchesLogFilters(log: LogSummary, filters: LogFilters, fixedFil
   return true
 }
 
-export function normalizeLogLimit(limit: number | undefined, fallback = 50) {
+export function normalizeLogLimit(limit: number | undefined, fallback = DEFAULT_LOG_PAGE_LIMIT) {
+  const normalizedFallback = (
+    Number.isFinite(fallback) && fallback >= 1
+      ? Math.floor(fallback)
+      : DEFAULT_LOG_PAGE_LIMIT
+  )
   if (!limit || !Number.isFinite(limit) || limit < 1) {
-    return fallback
+    return Math.min(MAX_LOG_PAGE_LIMIT, normalizedFallback)
   }
-  return Math.floor(limit)
+  return Math.min(MAX_LOG_PAGE_LIMIT, Math.floor(limit))
 }
 
 export function dedupeLogItems(logs: LogSummary[], limit: number) {

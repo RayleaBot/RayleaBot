@@ -65,7 +65,7 @@ type Repository interface {
 }
 
 type SQLiteRepository struct {
-	read *sql.DB
+	read  *sql.DB
 	write *sql.DB
 }
 
@@ -191,6 +191,9 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 	cursor, err := decodeLogCursor(query.Cursor)
 	if err != nil {
 		return PageResult{}, err
+	}
+	if cursor == nil {
+		direction = PageDirectionOlder
 	}
 	if cursor != nil {
 		switch direction {
