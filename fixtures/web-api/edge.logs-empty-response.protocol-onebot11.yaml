@@ -8,5 +8,11 @@ response:
   status: 200
   body:
     items: []
+    page:
+      limit: 50
+      has_older: false
+      has_newer: false
+      older_cursor: null
+      newer_cursor: null
 expect:
   valid: true

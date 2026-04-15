@@ -8,19 +8,6 @@ response:
   status: 200
   body:
     items:
-      - log_id: log_protocol_0001
-        timestamp: "2026-03-20T10:00:00Z"
-        level: warn
-        source: adapter
-        protocol: onebot11
-        message: adapter reconnect scheduled
-      - log_id: log_protocol_0002
-        timestamp: "2026-03-20T10:00:01Z"
-        level: error
-        source: adapter.onebot11
-        protocol: onebot11
-        message: reverse websocket authentication failed
-        request_id: req_adapter_0002
       - log_id: log_protocol_0003
         timestamp: "2026-03-20T10:00:02Z"
         level: info
@@ -28,5 +15,24 @@ response:
         protocol: onebot11
         message: "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge"
         request_id: req_bridge_0001
+      - log_id: log_protocol_0002
+        timestamp: "2026-03-20T10:00:01Z"
+        level: error
+        source: adapter.onebot11
+        protocol: onebot11
+        message: reverse websocket authentication failed
+        request_id: req_adapter_0002
+      - log_id: log_protocol_0001
+        timestamp: "2026-03-20T10:00:00Z"
+        level: warn
+        source: adapter
+        protocol: onebot11
+        message: adapter reconnect scheduled
+    page:
+      limit: 10
+      has_older: false
+      has_newer: false
+      older_cursor: null
+      newer_cursor: null
 expect:
   valid: true

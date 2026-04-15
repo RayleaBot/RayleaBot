@@ -635,7 +635,7 @@ paths:
 
   /api/logs:
     get:
-      summary: List recent redacted management log summaries.
+      summary: List redacted management log summaries with cursor pagination.
       operationId: listLogs
       security:
         - BearerAuth: []
@@ -674,11 +674,22 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 200
             default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+          description: Opaque cursor issued by the server for log history pagination.
+        - name: direction
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LogPageDirection'
       responses:
         '200':
-          description: Recent bounded log summaries using the same whitelist fields as /ws/logs.
+          description: Bounded log summaries using the same whitelist fields as /ws/logs plus cursor page metadata.
           content:
             application/json:
               schema:
@@ -1271,12 +1282,40 @@ components:
     LogListResponse:
       type: object
       additionalProperties: false
-      required: [items]
+      required: [items, page]
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/LogSummary'
+        page:
+          $ref: '#/components/schemas/LogPage'
+
+    LogPageDirection:
+      type: string
+      enum: [older, newer]
+      default: older
+
+    LogPage:
+      type: object
+      additionalProperties: false
+      required: [limit, has_older, has_newer, older_cursor, newer_cursor]
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        has_older:
+          type: boolean
+        has_newer:
+          type: boolean
+        older_cursor:
+          type: string
+          nullable: true
+          description: Opaque cursor used to request the next older page relative to the current oldest item.
+        newer_cursor:
+          type: string
+          nullable: true
+          description: Opaque cursor used to request the next newer page relative to the current newest item.
 
     LogDetailResponse:
       allOf:

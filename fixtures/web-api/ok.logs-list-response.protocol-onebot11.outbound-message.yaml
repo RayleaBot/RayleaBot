@@ -8,14 +8,6 @@ response:
   status: 200
   body:
     items:
-      - log_id: log_outbound_delivered_0001
-        timestamp: "2026-04-10T09:18:00Z"
-        level: info
-        source: adapter.onebot11
-        protocol: onebot11
-        message: "plugin weather command echo delivered group message: hello world"
-        plugin_id: weather
-        request_id: req_runtime_delivery_0001
       - log_id: log_outbound_failed_0001
         timestamp: "2026-04-10T09:18:01Z"
         level: warn
@@ -24,5 +16,19 @@ response:
         message: "plugin help command help failed to deliver private message: hello world"
         plugin_id: help
         request_id: req_runtime_delivery_0002
+      - log_id: log_outbound_delivered_0001
+        timestamp: "2026-04-10T09:18:00Z"
+        level: info
+        source: adapter.onebot11
+        protocol: onebot11
+        message: "plugin weather command echo delivered group message: hello world"
+        plugin_id: weather
+        request_id: req_runtime_delivery_0001
+    page:
+      limit: 10
+      has_older: false
+      has_newer: false
+      older_cursor: null
+      newer_cursor: null
 expect:
   valid: true

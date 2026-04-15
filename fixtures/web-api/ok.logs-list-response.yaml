@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Log query returns recent redacted management log summaries with whitelist fields only.
+description: Log query returns paged redacted management log summaries with whitelist fields only.
 request:
   method: GET
   path: /api/logs?level=error&limit=2
@@ -8,6 +8,12 @@ response:
   status: 200
   body:
     items:
+      - log_id: log_adapter_0001
+        timestamp: "2026-03-20T10:00:01Z"
+        level: error
+        source: adapter.onebot11
+        protocol: onebot11
+        message: reverse websocket connection lost
       - log_id: log_runtime_0001
         timestamp: "2026-03-20T10:00:00Z"
         level: error
@@ -15,11 +21,11 @@ response:
         message: plugin runtime stderr truncated
         plugin_id: weather
         request_id: req_plugin_0001
-      - log_id: log_adapter_0001
-        timestamp: "2026-03-20T10:00:01Z"
-        level: error
-        source: adapter.onebot11
-        protocol: onebot11
-        message: reverse websocket connection lost
+    page:
+      limit: 2
+      has_older: false
+      has_newer: false
+      older_cursor: null
+      newer_cursor: null
 expect:
   valid: true
