@@ -417,6 +417,121 @@ function appendLogSummary(summary, detail) {
   }
 }
 
+function normalizeSortableTimestamp(value) {
+  if (value === null || value === undefined) {
+    return Number.NEGATIVE_INFINITY
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return normalizeUnixTimestamp(value)
+  }
+
+  const raw = String(value).trim()
+  if (!raw) {
+    return Number.NEGATIVE_INFINITY
+  }
+
+  const numeric = Number(raw)
+  if (Number.isFinite(numeric)) {
+    return normalizeUnixTimestamp(numeric)
+  }
+
+  const parsed = Date.parse(raw)
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY
+}
+
+function normalizeUnixTimestamp(value) {
+  const absolute = Math.abs(value)
+  if (absolute >= 1_000_000_000 && absolute < 1_000_000_000_000) {
+    return value * 1000
+  }
+  return value
+}
+
+function compareLogsDesc(left, right) {
+  const leftTimestamp = normalizeSortableTimestamp(left.timestamp)
+  const rightTimestamp = normalizeSortableTimestamp(right.timestamp)
+
+  if (leftTimestamp !== rightTimestamp) {
+    return rightTimestamp - leftTimestamp
+  }
+
+  return String(right.log_id ?? '').localeCompare(String(left.log_id ?? ''))
+}
+
+function encodeLogCursor(item) {
+  return Buffer.from(JSON.stringify({
+    log_id: item.log_id,
+  }), 'utf8').toString('base64url')
+}
+
+function decodeLogCursor(raw) {
+  if (!raw) {
+    return null
+  }
+
+  try {
+    const decoded = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'))
+    return typeof decoded?.log_id === 'string' ? decoded.log_id : null
+  } catch {
+    return null
+  }
+}
+
+function listLogPage(searchParams) {
+  const level = searchParams.get('level')
+  const source = searchParams.get('source')
+  const protocol = searchParams.get('protocol')
+  const pluginId = searchParams.get('plugin_id')
+  const requestId = searchParams.get('request_id')
+  const limit = Math.max(1, Number(searchParams.get('limit') ?? '50') || 50)
+  const direction = searchParams.get('direction') === 'newer' ? 'newer' : 'older'
+  const cursorLogId = decodeLogCursor(searchParams.get('cursor'))
+
+  const filtered = state.logs
+    .filter((item) => {
+      if (level && item.level !== level) return false
+      if (source && item.source !== source) return false
+      if (protocol && item.protocol !== protocol) return false
+      if (pluginId && item.plugin_id !== pluginId) return false
+      if (requestId && item.request_id !== requestId) return false
+      return true
+    })
+    .slice()
+    .sort(compareLogsDesc)
+
+  let startIndex = 0
+  let endIndex = Math.min(limit, filtered.length)
+  const cursorIndex = cursorLogId
+    ? filtered.findIndex((item) => item.log_id === cursorLogId)
+    : -1
+
+  if (cursorIndex >= 0) {
+    if (direction === 'older') {
+      startIndex = cursorIndex + 1
+      endIndex = Math.min(filtered.length, startIndex + limit)
+    } else {
+      endIndex = cursorIndex
+      startIndex = Math.max(0, endIndex - limit)
+    }
+  }
+
+  const items = filtered.slice(startIndex, endIndex)
+  const hasNewer = startIndex > 0
+  const hasOlder = endIndex < filtered.length
+
+  return {
+    items,
+    page: {
+      limit,
+      has_older: hasOlder,
+      has_newer: hasNewer,
+      older_cursor: hasOlder && items.length > 0 ? encodeLogCursor(items.at(-1)) : null,
+      newer_cursor: hasNewer && items.length > 0 ? encodeLogCursor(items[0]) : null,
+    },
+  }
+}
+
 function defaultProtocolLiveLog() {
   const summary = {
     log_id: 'log_adapter_live_0001',
@@ -766,23 +881,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    const level = searchParams.get('level')
-    const source = searchParams.get('source')
-    const protocol = searchParams.get('protocol')
-    const pluginId = searchParams.get('plugin_id')
-    const requestId = searchParams.get('request_id')
-    const limit = Number(searchParams.get('limit') ?? '50')
-
-    const items = state.logs.filter((item) => {
-      if (level && item.level !== level) return false
-      if (source && item.source !== source) return false
-      if (protocol && item.protocol !== protocol) return false
-      if (pluginId && item.plugin_id !== pluginId) return false
-      if (requestId && item.request_id !== requestId) return false
-      return true
-    }).slice(0, limit)
-
-    json(response, 200, { items })
+    json(response, 200, listLogPage(searchParams))
     return
   }
 

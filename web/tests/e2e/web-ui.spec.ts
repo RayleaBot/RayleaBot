@@ -48,7 +48,7 @@ function taskRows(page: import('@playwright/test').Page) {
 }
 
 function logRows(page: import('@playwright/test').Page) {
-  return page.locator('.logs-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
+  return page.locator('.logs-data-table .logs-table-row')
 }
 
 function pluginScroller(page: import('@playwright/test').Page) {
@@ -60,7 +60,7 @@ function taskScroller(page: import('@playwright/test').Page) {
 }
 
 function logScroller(page: import('@playwright/test').Page) {
-  return page.locator('.logs-data-table .ant-table-container')
+  return page.locator('.logs-data-table .data-viewport__scroller')
 }
 
 function appHeader(page: import('@playwright/test').Page) {
@@ -391,7 +391,7 @@ test('protocol logs keeps terminal and detail panes inside the viewport', async 
     const terminalBody = document.querySelector<HTMLElement>('.terminal-card .ant-card-body')
     const detailCard = document.querySelector<HTMLElement>('.detail-card')
     const detailBody = document.querySelector<HTMLElement>('.detail-card .ant-card-body')
-    const terminalScroller = document.querySelector<HTMLElement>('.terminal-view-scroller')
+    const terminalScroller = document.querySelector<HTMLElement>('.terminal-view-scroller .data-viewport__scroller')
     const detailScroller = document.querySelector<HTMLElement>('.detail-view-content')
     const lastLine = document.querySelector<HTMLElement>('.terminal-line:last-child')
     const terminalRect = terminalCard?.getBoundingClientRect()
@@ -428,6 +428,151 @@ test('protocol logs keeps terminal and detail panes inside the viewport', async 
   expect(metrics.detailClientHeight).toBeGreaterThan(0)
   expect(metrics.lastLineBottom).toBeGreaterThan(0)
   expect(metrics.terminalLastLineGap).toBeGreaterThanOrEqual(8)
+})
+
+test('logs history paging stays stable until returning to latest', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await Promise.all(Array.from({ length: 51 }, (_, index) => (
+    request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_history_e2e_${index}`,
+          timestamp: `2026-04-15T12:00:${String(index).padStart(2, '0')}Z`,
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_logs_history_e2e',
+          message: `history row ${index}`,
+        },
+      },
+    })
+  )))
+
+  await page.goto('/logs')
+  await page.getByPlaceholder('例如 req_*').fill('req_logs_history_e2e')
+  await page.getByRole('button', { name: '应用筛选' }).click()
+
+  await expect(logRows(page).first()).toContainText('history row 50')
+  await page.getByRole('button', { name: '更早记录' }).click()
+  await expect(logRows(page).first()).toContainText('history row 0')
+
+  await page.getByRole('button', { name: '更新记录' }).click()
+  await expect(logRows(page).first()).toContainText('history row 50')
+
+  await page.getByRole('button', { name: '更早记录' }).click()
+  await expect(logRows(page).first()).toContainText('history row 0')
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_history_e2e_latest',
+        timestamp: '2026-04-15T12:01:00Z',
+        level: 'info',
+        source: 'runtime',
+        request_id: 'req_logs_history_e2e',
+        message: 'history row latest',
+      },
+    },
+  })
+
+  await expect(page.getByText('有 1 条新日志可查看')).toBeVisible()
+  await expect(page.locator('.log-message-text', { hasText: 'history row latest' })).toHaveCount(0)
+  await page.getByRole('button', { name: '回到最新' }).click()
+  await expect(logRows(page).first()).toContainText('history row latest')
+})
+
+test('logs page reloads the latest page after hidden updates arrive', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await navigateThroughMenu(page, '日志', '运维')
+  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_logs_reactivate_e2e')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_logs_reactivate_e2e')
+    )),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+  await expect(page.locator('.log-message-text', { hasText: 'reactivate latest row' })).toHaveCount(0)
+
+  await navigateThroughMenu(page, '插件')
+  await expect(page.getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_reactivate_e2e_latest',
+        timestamp: '2026-04-15T12:10:00Z',
+        level: 'info',
+        source: 'runtime',
+        request_id: 'req_logs_reactivate_e2e',
+        message: 'reactivate latest row',
+      },
+    },
+  })
+
+  await navigateThroughMenu(page, '日志', '运维')
+  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  await expect(page.locator('.log-message-text', { hasText: 'reactivate latest row' }).first()).toBeVisible()
+  await expect(page.getByText('正在实时显示最新日志')).toBeVisible()
+})
+
+test('protocol logs reloads the latest page after hidden updates arrive', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await navigateThroughMenu(page, '协议日志', '协议')
+  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_protocol_reactivate_e2e')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_protocol_reactivate_e2e')
+    )),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+  await expect(page.locator('.line-text', { hasText: 'reactivate protocol latest row' })).toHaveCount(0)
+
+  await navigateThroughMenu(page, '插件')
+  await expect(page.getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_protocol_reactivate_e2e_latest',
+        timestamp: '2026-04-15T12:12:00Z',
+        level: 'info',
+        source: 'bridge',
+        protocol: 'onebot11',
+        request_id: 'req_protocol_reactivate_e2e',
+        message: 'reactivate protocol latest row',
+      },
+      detail: {
+        log_id: 'log_protocol_reactivate_e2e_latest',
+        timestamp: '2026-04-15T12:12:00Z',
+        level: 'info',
+        source: 'bridge',
+        protocol: 'onebot11',
+        request_id: 'req_protocol_reactivate_e2e',
+        message: 'reactivate protocol latest row',
+        details: {
+          direction: 'inbound',
+          plain_text: 'reactivate protocol latest row',
+        },
+      },
+    },
+  })
+
+  await navigateThroughMenu(page, '协议日志', '协议')
+  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
+  const latestProtocolLine = page.locator('.terminal-line').filter({ hasText: 'reactivate protocol latest row' }).first()
+  await expect(latestProtocolLine).toBeVisible()
+  await expect(page.locator('.follow-status-pill')).toContainText('最新页')
 })
 
 test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({ page, request }) => {
@@ -599,7 +744,7 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
 
   const terminal = page.locator('.terminal-view-scroller')
   await expect(terminal).toBeVisible()
-  await expect(terminal.getByText('reverse websocket connection lost')).toBeVisible()
+  await expect(terminal.getByText('ignored OneBot API response with unsupported echo')).toBeVisible()
   await expect(terminal.getByText('plugin runtime stderr truncated')).toHaveCount(0)
 
   await request.post(`${backendUrl}/__test/push-log`, {
@@ -634,7 +779,7 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
     },
   })
 
-  const liveLine = terminal.locator('.terminal-line').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).last()
+  const liveLine = terminal.locator('.terminal-line').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()
   await expect(liveLine).toBeVisible()
   await liveLine.click({ force: true })
   await expect(page.locator('.detail-fields-grid').getByText('api.response.ignored', { exact: true })).toBeVisible()
@@ -743,7 +888,7 @@ test('logs page keeps older history reachable inside the table scroller', async 
 
   const metrics = await page.evaluate(() => {
     const doc = document.scrollingElement ?? document.documentElement
-    const tableBody = document.querySelector<HTMLElement>('.logs-data-table .ant-table-body')
+    const tableBody = document.querySelector<HTMLElement>('.logs-data-table .data-viewport__scroller')
     if (!tableBody) {
       return {
         hasTableBody: false,

@@ -428,7 +428,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List recent redacted management log summaries. */
+        /** List redacted management log summaries with cursor pagination. */
         get: operations["listLogs"];
         put?: never;
         post?: never;
@@ -709,6 +709,7 @@ export interface components {
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
+            /** @description OneBot11 bridge inbound message summaries may include bot, conversation, sender, and message preview context. */
             message: string;
             protocol?: components["schemas"]["LogProtocol"];
             plugin_id?: string;
@@ -716,6 +717,21 @@ export interface components {
         };
         LogListResponse: {
             items: components["schemas"]["LogSummary"][];
+            page: components["schemas"]["LogPage"];
+        };
+        /**
+         * @default older
+         * @enum {string}
+         */
+        LogPageDirection: "older" | "newer";
+        LogPage: {
+            limit: number;
+            has_older: boolean;
+            has_newer: boolean;
+            /** @description Opaque cursor used to request the next older page relative to the current oldest item. */
+            older_cursor: string | null;
+            /** @description Opaque cursor used to request the next newer page relative to the current newest item. */
+            newer_cursor: string | null;
         };
         LogDetailResponse: components["schemas"]["LogSummary"] & {
             /** @description Redacted structured detail payload. OneBot11 log details keep the canonical structured form and may omit protocol-native mirror fields when the value can be derived directly from retained fields such as sender, event_timestamp, conversation_id, or message_id. */
@@ -1853,6 +1869,9 @@ export interface operations {
                 plugin_id?: string;
                 request_id?: string;
                 limit?: number;
+                /** @description Opaque cursor issued by the server for log history pagination. */
+                cursor?: string;
+                direction?: components["schemas"]["LogPageDirection"];
             };
             header?: never;
             path?: never;
@@ -1860,7 +1879,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Recent bounded log summaries using the same whitelist fields as /ws/logs. */
+            /** @description Bounded log summaries using the same whitelist fields as /ws/logs plus cursor page metadata. */
             200: {
                 headers: {
                     [name: string]: unknown;

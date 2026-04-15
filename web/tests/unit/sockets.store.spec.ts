@@ -68,7 +68,6 @@ describe('socket store', () => {
     const tasksStore = useTasksStore()
     const logsStore = useLogsStore()
     const protocolLogsStore = useProtocolLogsStore()
-    protocolLogsStore.pauseAutoFollow()
     const pluginsStore = usePluginsStore()
     const store = useSocketStore()
 
@@ -171,8 +170,8 @@ describe('socket store', () => {
       'log line',
     ])
     expect(protocolLogsStore.items.map((item) => item.message)).toEqual([
-      'log line',
       'plugin weather command echo delivered group message: hello',
+      'log line',
     ])
     expect(pluginsStore.getConsole('weather').filter((item) => item.stream === 'outbound')).toHaveLength(1)
     expect(protocolLogsStore.active).toBe(false)

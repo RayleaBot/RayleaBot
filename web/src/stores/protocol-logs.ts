@@ -4,72 +4,90 @@ import { defineStore } from 'pinia'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import { ONEBOT11_PROTOCOL } from '@/lib/protocols'
-import type { LogDetailResponse, LogListResponse, LogSummary } from '@/types/api'
+import {
+  buildLogListPath,
+  createLogsState,
+  normalizeLogLimit,
+  type LogFilters,
+} from '@/stores/log-state'
+import type { LogDetailResponse, LogSummary } from '@/types/api'
 
-const protocolLogBufferLimit = 200
+const protocolDetailCacheLimit = 64
 
-export interface ProtocolLogFilters {
-  level?: string
-  source?: string
-  requestId?: string
-  limit?: number
-}
+export interface ProtocolLogFilters extends Omit<LogFilters, 'protocol'> {}
 
 export const useProtocolLogsStore = defineStore('protocolLogs', () => {
-  const items = ref<LogSummary[]>([])
-  const loading = ref(false)
+  const base = createLogsState({
+    limit: 200,
+  }, {
+    protocol: ONEBOT11_PROTOCOL,
+  })
+
   const detailLoading = ref(false)
-  const error = ref<string | null>(null)
   const detailError = ref<string | null>(null)
   const active = ref(false)
-  const autoFollow = ref(true)
-  const filters = ref<ProtocolLogFilters>({
-    limit: protocolLogBufferLimit,
-  })
   const selectedLogId = ref<string | null>(null)
   const currentDetail = ref<LogDetailResponse | null>(null)
-
   const detailCache = new Map<string, LogDetailResponse>()
   let detailRequestVersion = 0
 
   const selectedItem = computed(() => (
     selectedLogId.value
-      ? items.value.find((item) => item.log_id === selectedLogId.value) ?? null
+      ? base.items.value.find((item) => item.log_id === selectedLogId.value) ?? null
       : null
   ))
 
   async function fetchList() {
-    loading.value = true
-    error.value = null
-    try {
-      const response = await apiRequest<LogListResponse>(buildProtocolLogListPath(filters.value))
-      items.value = mergeBuffer(response.items, items.value, filters.value.limit ?? protocolLogBufferLimit)
-      await ensureSelectionAfterRefresh()
-      return items.value
-    } catch (err) {
-      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-      throw err
-    } finally {
-      loading.value = false
-    }
+    const result = await base.fetchList()
+    await ensureSelectionAfterPageChange()
+    return result
+  }
+
+  async function goToLatestPage() {
+    const result = await base.goToLatestPage()
+    await ensureSelectionAfterPageChange()
+    return result
+  }
+
+  async function restoreLatestPage() {
+    const result = await base.restoreLatestPage()
+    await ensureSelectionAfterPageChange()
+    return result
+  }
+
+  async function goToOlderPage() {
+    const result = await base.goToOlderPage()
+    await ensureSelectionAfterPageChange()
+    return result
+  }
+
+  async function goToNewerPage() {
+    const result = await base.goToNewerPage()
+    await ensureSelectionAfterPageChange()
+    return result
   }
 
   async function selectLog(logId: string, options: { preferCache?: boolean } = {}) {
-    const nextLogID = normalizeFilterValue(logId)
-    if (!nextLogID) {
+    const nextLogId = normalizeFilterValue(logId)
+    if (!nextLogId) {
       selectedLogId.value = null
       currentDetail.value = null
       detailError.value = null
       return null
     }
 
-    selectedLogId.value = nextLogID
+    selectedLogId.value = nextLogId
     detailError.value = null
 
-    const cached = detailCache.get(nextLogID)
+    const cached = getCachedDetail(nextLogId)
     if (cached && options.preferCache !== false) {
       currentDetail.value = cached
       return cached
+    }
+
+    if (!active.value) {
+      currentDetail.value = cached ?? null
+      return cached ?? null
     }
 
     detailLoading.value = true
@@ -77,16 +95,16 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
     const requestVersion = detailRequestVersion
 
     try {
-      const response = await apiRequest<LogDetailResponse>(`/api/logs/${encodeURIComponent(nextLogID)}`)
-      if (requestVersion !== detailRequestVersion || selectedLogId.value !== nextLogID) {
+      const response = await apiRequest<LogDetailResponse>(`/api/logs/${encodeURIComponent(nextLogId)}`)
+      if (requestVersion !== detailRequestVersion || selectedLogId.value !== nextLogId) {
         return response
       }
 
-      detailCache.set(nextLogID, response)
+      setCachedDetail(nextLogId, response)
       currentDetail.value = response
       return response
     } catch (err) {
-      if (requestVersion === detailRequestVersion && selectedLogId.value === nextLogID) {
+      if (requestVersion === detailRequestVersion && selectedLogId.value === nextLogId) {
         detailError.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
         currentDetail.value = null
       }
@@ -99,16 +117,16 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
   }
 
   async function appendLive(log: LogSummary) {
-    if (!matchesRealtimeFilters(log, filters.value)) {
+    const accepted = base.append(log)
+    if (!accepted) {
       return false
     }
 
-    items.value = appendToBuffer(items.value, log, filters.value.limit ?? protocolLogBufferLimit)
     if (!active.value) {
       return true
     }
 
-    if (autoFollow.value) {
+    if (base.isLatestPage.value) {
       try {
         await selectLog(log.log_id, { preferCache: false })
       } catch {
@@ -118,49 +136,23 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
     }
 
     if (selectedLogId.value === log.log_id) {
-      const cached = detailCache.get(log.log_id)
-      if (cached) {
-        currentDetail.value = cached
-      }
+      currentDetail.value = getCachedDetail(log.log_id) ?? null
     }
     return true
   }
 
-  function clearBuffer() {
-    items.value = []
-    selectedLogId.value = null
-    currentDetail.value = null
-    detailError.value = null
-  }
-
   function activate() {
     active.value = true
+    base.activate()
   }
 
   function deactivate() {
     active.value = false
+    base.deactivate()
   }
 
-  async function resumeAutoFollow() {
-    autoFollow.value = true
-    const latest = items.value.at(-1)
-    if (!latest) {
-      return
-    }
-
-    try {
-      await selectLog(latest.log_id)
-    } catch {
-      // detailError exposes the failure on the page
-    }
-  }
-
-  function pauseAutoFollow() {
-    autoFollow.value = false
-  }
-
-  async function ensureSelectionAfterRefresh() {
-    if (items.value.length === 0) {
+  async function ensureSelectionAfterPageChange() {
+    if (base.items.value.length === 0) {
       selectedLogId.value = null
       currentDetail.value = null
       detailError.value = null
@@ -168,12 +160,11 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
     }
 
     const visibleSelection = selectedLogId.value
-      ? items.value.find((item) => item.log_id === selectedLogId.value)
+      ? base.items.value.find((item) => item.log_id === selectedLogId.value)
       : null
-    const fallback = items.value.at(-1) ?? null
-    const nextSelection = autoFollow.value
-      ? fallback
-      : (visibleSelection ?? fallback)
+    const nextSelection = base.isLatestPage.value
+      ? base.items.value[0]
+      : (visibleSelection ?? base.items.value[0])
 
     if (!nextSelection) {
       selectedLogId.value = null
@@ -189,101 +180,74 @@ export const useProtocolLogsStore = defineStore('protocolLogs', () => {
     }
   }
 
+  function getCachedDetail(logId: string) {
+    const cached = detailCache.get(logId)
+    if (!cached) {
+      return null
+    }
+
+    detailCache.delete(logId)
+    detailCache.set(logId, cached)
+    return cached
+  }
+
+  function setCachedDetail(logId: string, detail: LogDetailResponse) {
+    if (detailCache.has(logId)) {
+      detailCache.delete(logId)
+    }
+    detailCache.set(logId, detail)
+
+    while (detailCache.size > protocolDetailCacheLimit) {
+      const oldestKey = detailCache.keys().next().value
+      if (!oldestKey) {
+        break
+      }
+      detailCache.delete(oldestKey)
+    }
+  }
+
   return {
     active,
-    autoFollow,
+    canLoadNewer: base.canLoadNewer,
+    canLoadOlder: base.canLoadOlder,
     currentDetail,
     detailError,
     detailLoading,
-    error,
-    filters,
-    items,
-    loading,
+    error: base.error,
+    filters: base.filters,
+    isLatestPage: base.isLatestPage,
+    items: base.items,
+    loading: base.loading,
+    needsLatestRefresh: base.needsLatestRefresh,
+    page: base.page,
+    pendingNewCount: base.pendingNewCount,
     selectedItem,
     selectedLogId,
     activate,
     appendLive,
-    clearBuffer,
     deactivate,
     fetchList,
-    pauseAutoFollow,
-    resumeAutoFollow,
+    goToLatestPage,
+    restoreLatestPage,
+    goToNewerPage,
+    goToOlderPage,
     selectLog,
   }
 })
 
-export function buildProtocolLogListPath(filters: ProtocolLogFilters) {
-  const params = new URLSearchParams()
-  params.set('protocol', ONEBOT11_PROTOCOL)
-  params.set('limit', String(normalizeLimit(filters.limit)))
-
-  const level = normalizeFilterValue(filters.level)
-  const source = normalizeFilterValue(filters.source)
-  const requestId = normalizeFilterValue(filters.requestId)
-
-  if (level) {
-    params.set('level', level)
-  }
-  if (source) {
-    params.set('source', source)
-  }
-  if (requestId) {
-    params.set('request_id', requestId)
-  }
-
-  return `/api/logs?${params.toString()}`
-}
-
-function normalizeBuffer(items: LogSummary[], limit: number) {
-  return mergeBuffer(items, [], limit)
-}
-
-function appendToBuffer(existing: LogSummary[], incoming: LogSummary, limit: number) {
-  return mergeBuffer(existing, [incoming], limit)
-}
-
-function mergeBuffer(primary: LogSummary[], secondary: LogSummary[], limit: number) {
-  const nextItems = new Map<string, LogSummary>()
-  for (const item of [...primary, ...secondary]) {
-    if (nextItems.has(item.log_id)) {
-      nextItems.delete(item.log_id)
-    }
-    nextItems.set(item.log_id, item)
-  }
-  return Array.from(nextItems.values()).slice(-normalizeLimit(limit))
-}
-
-function matchesRealtimeFilters(log: LogSummary, filters: ProtocolLogFilters) {
-  if (log.protocol !== ONEBOT11_PROTOCOL) {
-    return false
-  }
-
-  const level = normalizeFilterValue(filters.level)
-  if (level && log.level !== level) {
-    return false
-  }
-
-  const source = normalizeFilterValue(filters.source)
-  if (source && log.source !== source) {
-    return false
-  }
-
-  const requestId = normalizeFilterValue(filters.requestId)
-  if (requestId && log.request_id !== requestId) {
-    return false
-  }
-
-  return true
+export function buildProtocolLogListPath(filters: ProtocolLogFilters, pageRequest?: {
+  cursor?: string | null
+  direction?: 'older' | 'newer'
+}) {
+  return buildLogListPath({
+    ...filters,
+    limit: normalizeLogLimit(filters.limit, 200),
+  }, pageRequest, {
+    protocol: ONEBOT11_PROTOCOL,
+  })
 }
 
 function normalizeFilterValue(value: string | undefined | null) {
   const nextValue = value?.trim()
   return nextValue ? nextValue : ''
-}
-
-function normalizeLimit(limit: number | undefined) {
-  if (!limit || limit < 1) {
-    return protocolLogBufferLimit
-  }
-  return Math.min(limit, protocolLogBufferLimit)
 }

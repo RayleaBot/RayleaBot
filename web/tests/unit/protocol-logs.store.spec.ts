@@ -10,6 +10,10 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function readSearchParams(input: string) {
+  return new URL(input, 'http://localhost').searchParams
+}
+
 describe('protocol logs store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -29,6 +33,13 @@ describe('protocol logs store', () => {
             request_id: 'req_adapter_ignored_0001',
           },
         ],
+        page: {
+          limit: 200,
+          has_older: false,
+          has_newer: false,
+          older_cursor: null,
+          newer_cursor: null,
+        },
       }))
       .mockResolvedValueOnce(jsonResponse({
         log_id: 'log_protocol_0001',
@@ -55,11 +66,14 @@ describe('protocol logs store', () => {
 
     await store.fetchList()
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      '/api/logs?protocol=onebot11&limit=200&level=warn&source=adapter.onebot11&request_id=req_adapter_ignored_0001',
-      expect.any(Object),
-    )
+    const listRequest = fetchMock.mock.calls[0]?.[0]
+    expect(typeof listRequest).toBe('string')
+    const params = readSearchParams(listRequest as string)
+    expect(params.get('protocol')).toBe('onebot11')
+    expect(params.get('limit')).toBe('200')
+    expect(params.get('level')).toBe('warn')
+    expect(params.get('source')).toBe('adapter.onebot11')
+    expect(params.get('request_id')).toBe('req_adapter_ignored_0001')
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       '/api/logs/log_protocol_0001',
@@ -118,7 +132,7 @@ describe('protocol logs store', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('loads live protocol log details while active and auto-following', async () => {
+  it('loads live protocol log details while active on the latest page', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       log_id: 'log_protocol_live_0001',
       timestamp: '2026-04-08T10:17:00Z',
@@ -155,42 +169,28 @@ describe('protocol logs store', () => {
     expect(store.currentDetail?.details.echo_value_type).toBe('number')
   })
 
-  it('keeps buffered live logs after the page refreshes history again', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({
-        items: [
-          {
-            log_id: 'log_protocol_history_0001',
-            timestamp: '2026-04-08T10:16:00Z',
-            level: 'info',
-            protocol: 'onebot11',
-            source: 'adapter.onebot11',
-            message: 'adapter connected',
-            request_id: 'req_history_1',
-          },
-        ],
-      }))
-      .mockResolvedValueOnce(jsonResponse({
-        log_id: 'log_protocol_live_0001',
-        timestamp: '2026-04-08T10:17:00Z',
-        level: 'warn',
-        protocol: 'onebot11',
-        source: 'adapter.onebot11',
-        message: 'ignored OneBot API response with unsupported echo',
-        request_id: 'req_live_1',
-        details: {
-          reason: 'api response echo must be a non-empty string',
-        },
-      }))
-    vi.stubGlobal('fetch', fetchMock)
+  it('keeps history pages stable and counts newer live logs separately', async () => {
+    vi.stubGlobal('fetch', vi.fn())
 
     const store = useProtocolLogsStore()
     store.activate()
-    store.pauseAutoFollow()
     store.filters = {
       source: 'adapter.onebot11',
       limit: 200,
     }
+    store.items = [
+      {
+        log_id: 'log_protocol_history_0001',
+        timestamp: '2026-04-08T10:16:00Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        message: 'adapter connected',
+        request_id: 'req_history_1',
+      },
+    ]
+    store.isLatestPage = false
+    store.selectedLogId = 'log_protocol_history_0001'
 
     await store.appendLive({
       log_id: 'log_protocol_live_0001',
@@ -202,20 +202,216 @@ describe('protocol logs store', () => {
       request_id: 'req_live_1',
     })
 
-    await store.fetchList()
+    expect(store.items.map((item) => item.log_id)).toEqual(['log_protocol_history_0001'])
+    expect(store.pendingNewCount).toBe(1)
+    expect(store.selectedLogId).toBe('log_protocol_history_0001')
+  })
 
-    expect(store.items.map((item) => item.log_id)).toEqual([
-      'log_protocol_history_0001',
-      'log_protocol_live_0001',
+  it('marks the latest protocol page for refresh when hidden logs arrive while inactive', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            log_id: 'log_protocol_hidden_0002',
+            timestamp: '2026-04-08T10:18:00Z',
+            level: 'info',
+            protocol: 'onebot11',
+            source: 'bridge',
+            request_id: 'req_protocol_hidden_1',
+            message: 'hidden protocol latest',
+          },
+          {
+            log_id: 'log_protocol_hidden_0001',
+            timestamp: '2026-04-08T10:17:00Z',
+            level: 'info',
+            protocol: 'onebot11',
+            source: 'bridge',
+            request_id: 'req_protocol_hidden_1',
+            message: 'visible protocol row',
+          },
+        ],
+        page: {
+          limit: 200,
+          has_older: false,
+          has_newer: false,
+          older_cursor: null,
+          newer_cursor: null,
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        log_id: 'log_protocol_hidden_0002',
+        timestamp: '2026-04-08T10:18:00Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'bridge',
+        request_id: 'req_protocol_hidden_1',
+        message: 'hidden protocol latest',
+        details: {
+          direction: 'inbound',
+          plain_text: 'hidden protocol latest',
+        },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useProtocolLogsStore()
+    store.items = [
+      {
+        log_id: 'log_protocol_hidden_0001',
+        timestamp: '2026-04-08T10:17:00Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'bridge',
+        request_id: 'req_protocol_hidden_1',
+        message: 'visible protocol row',
+      },
+    ]
+
+    store.deactivate()
+    await store.appendLive({
+      log_id: 'log_protocol_hidden_0002',
+      timestamp: '2026-04-08T10:18:00Z',
+      level: 'info',
+      protocol: 'onebot11',
+      source: 'bridge',
+      request_id: 'req_protocol_hidden_1',
+      message: 'hidden protocol latest',
+    })
+
+    expect(store.items.map((item) => item.message)).toEqual(['visible protocol row'])
+    expect(store.needsLatestRefresh).toBe(true)
+
+    store.activate()
+    await store.goToLatestPage()
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/logs?protocol=onebot11&limit=200',
+      expect.any(Object),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/logs/log_protocol_hidden_0002',
+      expect.any(Object),
+    )
+    expect(store.items.map((item) => item.message)).toEqual(['hidden protocol latest', 'visible protocol row'])
+    expect(store.selectedLogId).toBe('log_protocol_hidden_0002')
+    expect(store.needsLatestRefresh).toBe(false)
+  })
+
+  it('keeps visible live protocol logs when the activation refresh returns a stale latest page', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        log_id: 'log_protocol_visible_0001',
+        timestamp: '2026-04-08T10:17:00Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'bridge',
+        request_id: 'req_protocol_stale_1',
+        message: 'visible protocol row',
+        details: {
+          direction: 'inbound',
+          plain_text: 'visible protocol row',
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            log_id: 'log_protocol_persisted_0001',
+            timestamp: '2026-04-08T10:16:00Z',
+            level: 'info',
+            protocol: 'onebot11',
+            source: 'adapter.onebot11',
+            request_id: 'req_protocol_stale_1',
+            message: 'persisted protocol row',
+          },
+        ],
+        page: {
+          limit: 200,
+          has_older: false,
+          has_newer: false,
+          older_cursor: null,
+          newer_cursor: null,
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        log_id: 'log_protocol_hidden_0003',
+        timestamp: '2026-04-08T10:18:00Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'bridge',
+        request_id: 'req_protocol_stale_1',
+        message: 'hidden protocol row',
+        details: {
+          direction: 'inbound',
+          plain_text: 'hidden protocol row',
+        },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useProtocolLogsStore()
+    store.activate()
+    store.items = [
+      {
+        log_id: 'log_protocol_persisted_0001',
+        timestamp: '2026-04-08T10:16:00Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        request_id: 'req_protocol_stale_1',
+        message: 'persisted protocol row',
+      },
+    ]
+
+    await store.appendLive({
+      log_id: 'log_protocol_visible_0001',
+      timestamp: '2026-04-08T10:17:00Z',
+      level: 'info',
+      protocol: 'onebot11',
+      source: 'bridge',
+      request_id: 'req_protocol_stale_1',
+      message: 'visible protocol row',
+    })
+
+    store.deactivate()
+    await store.appendLive({
+      log_id: 'log_protocol_hidden_0003',
+      timestamp: '2026-04-08T10:18:00Z',
+      level: 'info',
+      protocol: 'onebot11',
+      source: 'bridge',
+      request_id: 'req_protocol_stale_1',
+      message: 'hidden protocol row',
+    })
+
+    store.activate()
+    await store.restoreLatestPage()
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/logs?protocol=onebot11&limit=200',
+      expect.any(Object),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/logs/log_protocol_hidden_0003',
+      expect.any(Object),
+    )
+    expect(store.items.map((item) => item.message)).toEqual([
+      'hidden protocol row',
+      'visible protocol row',
+      'persisted protocol row',
     ])
-    expect(store.selectedLogId).toBe('log_protocol_live_0001')
-    expect(store.currentDetail?.details.reason).toBe('api response echo must be a non-empty string')
+    expect(store.selectedLogId).toBe('log_protocol_hidden_0003')
   })
 
   it('exposes the fixed protocol path helper', () => {
-    expect(buildProtocolLogListPath({
+    const params = readSearchParams(buildProtocolLogListPath({
       source: 'adapter',
       limit: 50,
-    })).toBe('/api/logs?protocol=onebot11&limit=50&source=adapter')
+    }))
+
+    expect(params.get('protocol')).toBe('onebot11')
+    expect(params.get('limit')).toBe('50')
+    expect(params.get('source')).toBe('adapter')
   })
 })

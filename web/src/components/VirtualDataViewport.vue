@@ -1,10 +1,11 @@
 <script setup lang="ts" generic="T">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 interface Props<TItem> {
   items: TItem[]
   itemHeight?: number
   viewportHeight?: number | string
+  dynamicItemHeight?: boolean
   overscan?: number
   emptyLabel?: string
   getItemKey?: (item: TItem, index: number) => string | number
@@ -12,6 +13,7 @@ interface Props<TItem> {
 
 const props = withDefaults(defineProps<Props<T>>(), {
   itemHeight: 160,
+  dynamicItemHeight: false,
   overscan: 3,
   emptyLabel: '暂无数据',
   getItemKey: undefined,
@@ -20,7 +22,10 @@ const props = withDefaults(defineProps<Props<T>>(), {
 const scrollTop = ref(0)
 const scrollerRef = ref<HTMLElement | null>(null)
 const measuredViewportHeight = ref<number | null>(null)
+const measurementVersion = ref(0)
 let resizeObserver: ResizeObserver | null = null
+const measuredHeights = new Map<string | number, number>()
+const rowRefs = new Map<string | number, HTMLElement>()
 
 const viewportStyle = computed(() => {
   if (props.viewportHeight === undefined) {
@@ -51,15 +56,75 @@ const effectiveViewportHeight = computed(() => {
   return 560
 })
 
-const visibleCount = computed(() => {
-  return Math.max(1, Math.ceil(effectiveViewportHeight.value / props.itemHeight) + props.overscan * 2)
+const layoutMetrics = computed(() => {
+  measurementVersion.value
+
+  const heights = new Array<number>(props.items.length)
+  const offsets = new Array<number>(props.items.length)
+  let total = 0
+
+  for (let index = 0; index < props.items.length; index += 1) {
+    const item = props.items[index]
+    const key = resolveKey(item, index)
+    const measuredHeight = props.dynamicItemHeight ? measuredHeights.get(key) : undefined
+    const nextHeight = measuredHeight && measuredHeight > 0 ? measuredHeight : props.itemHeight
+    offsets[index] = total
+    heights[index] = nextHeight
+    total += nextHeight
+  }
+
+  return {
+    heights,
+    offsets,
+    totalHeight: total,
+  }
 })
 
-const startIndex = computed(() => Math.max(0, Math.floor(scrollTop.value / props.itemHeight) - props.overscan))
+const visibleStartIndex = computed(() => {
+  if (!props.dynamicItemHeight) {
+    return Math.min(props.items.length, Math.floor(scrollTop.value / props.itemHeight))
+  }
+
+  const { heights, offsets } = layoutMetrics.value
+  for (let index = 0; index < heights.length; index += 1) {
+    if (offsets[index]! + heights[index]! > scrollTop.value) {
+      return index
+    }
+  }
+  return props.items.length
+})
+
+const visibleCount = computed(() => {
+  if (!props.dynamicItemHeight) {
+    return Math.max(1, Math.ceil(effectiveViewportHeight.value / props.itemHeight) + props.overscan * 2)
+  }
+
+  const { heights, offsets } = layoutMetrics.value
+  const viewportBottom = scrollTop.value + effectiveViewportHeight.value
+  let visibleRows = 0
+  for (let index = visibleStartIndex.value; index < props.items.length; index += 1) {
+    visibleRows += 1
+    if (offsets[index]! + heights[index]! >= viewportBottom) {
+      break
+    }
+  }
+  return Math.max(1, visibleRows + props.overscan * 2)
+})
+
+const startIndex = computed(() => Math.max(0, visibleStartIndex.value - props.overscan))
 const endIndex = computed(() => Math.min(props.items.length, startIndex.value + visibleCount.value))
 const visibleItems = computed(() => props.items.slice(startIndex.value, endIndex.value))
-const offsetY = computed(() => startIndex.value * props.itemHeight)
-const totalHeight = computed(() => props.items.length * props.itemHeight)
+const offsetY = computed(() => {
+  if (!props.dynamicItemHeight) {
+    return startIndex.value * props.itemHeight
+  }
+  return layoutMetrics.value.offsets[startIndex.value] ?? 0
+})
+const totalHeight = computed(() => (
+  props.dynamicItemHeight
+    ? layoutMetrics.value.totalHeight
+    : props.items.length * props.itemHeight
+))
 
 function handleScroll(event: Event) {
   const target = event.target as HTMLElement | null
@@ -91,6 +156,65 @@ function resolveKey(item: T, index: number) {
   return index
 }
 
+function updateMeasuredRowHeight(key: string | number, nextHeight: number) {
+  if (!props.dynamicItemHeight || !Number.isFinite(nextHeight) || nextHeight <= 0) {
+    return
+  }
+
+  const roundedHeight = Math.max(1, Math.ceil(nextHeight))
+  if (measuredHeights.get(key) === roundedHeight) {
+    return
+  }
+
+  measuredHeights.set(key, roundedHeight)
+  measurementVersion.value += 1
+}
+
+function measureRowElement(key: string | number, element: HTMLElement) {
+  const rectHeight = element.getBoundingClientRect().height
+  const nextHeight = rectHeight > 0 ? rectHeight : element.scrollHeight
+  updateMeasuredRowHeight(key, nextHeight)
+}
+
+function setMeasuredRowRef(element: Element | null, index: number) {
+  if (!props.dynamicItemHeight) {
+    return
+  }
+
+  const item = props.items[index]
+  if (!item) {
+    return
+  }
+
+  const key = resolveKey(item, index)
+  const previous = rowRefs.get(key)
+  if (previous && previous !== element && resizeObserver) {
+    resizeObserver.unobserve(previous)
+  }
+
+  if (!(element instanceof HTMLElement)) {
+    if (previous && resizeObserver) {
+      resizeObserver.unobserve(previous)
+    }
+    rowRefs.delete(key)
+    return
+  }
+
+  rowRefs.set(key, element)
+  if (resizeObserver) {
+    resizeObserver.observe(element)
+  }
+  measureRowElement(key, element)
+}
+
+function rowStyle(index: number) {
+  if (!props.dynamicItemHeight) {
+    return { height: `${props.itemHeight}px` }
+  }
+
+  return undefined
+}
+
 onMounted(async () => {
   await nextTick()
   measureViewport()
@@ -100,17 +224,62 @@ onMounted(async () => {
   }
 
   resizeObserver = new window.ResizeObserver((entries) => {
-    const entry = entries[0]
-    updateMeasuredViewportHeight(entry?.contentRect.height)
+    for (const entry of entries) {
+      if (entry.target === scrollerRef.value) {
+        updateMeasuredViewportHeight(entry.contentRect.height)
+        continue
+      }
+
+      if (!props.dynamicItemHeight || !(entry.target instanceof HTMLElement)) {
+        continue
+      }
+
+      for (const [key, element] of rowRefs.entries()) {
+        if (element === entry.target) {
+          updateMeasuredRowHeight(key, entry.contentRect.height)
+          break
+        }
+      }
+    }
   })
 
   resizeObserver.observe(scrollerRef.value)
+  for (const [key, element] of rowRefs.entries()) {
+    resizeObserver.observe(element)
+    measureRowElement(key, element)
+  }
 })
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
 })
+
+watch(
+  () => props.items.map((item, index) => resolveKey(item, index)),
+  (nextKeys) => {
+    const activeKeys = new Set(nextKeys)
+    let changed = false
+
+    for (const key of Array.from(measuredHeights.keys())) {
+      if (!activeKeys.has(key)) {
+        measuredHeights.delete(key)
+        changed = true
+      }
+    }
+
+    for (const [key, element] of Array.from(rowRefs.entries())) {
+      if (!activeKeys.has(key)) {
+        resizeObserver?.unobserve(element)
+        rowRefs.delete(key)
+      }
+    }
+
+    if (changed) {
+      measurementVersion.value += 1
+    }
+  },
+)
 </script>
 
 <template>
@@ -136,7 +305,8 @@ onBeforeUnmount(() => {
             v-for="(item, localIndex) in visibleItems"
             :key="resolveKey(item, startIndex + localIndex)"
             class="data-viewport__row"
-            :style="{ height: `${itemHeight}px` }"
+            :style="rowStyle(startIndex + localIndex)"
+            :ref="dynamicItemHeight ? (element) => setMeasuredRowRef(element, startIndex + localIndex) : undefined"
           >
             <slot :item="item" :index="startIndex + localIndex" />
           </div>

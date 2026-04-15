@@ -6,17 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { formatDateTime } from '@/lib/format'
+import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import ProtocolLogsPage from '@/views/protocols/ProtocolLogsView.vue'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
 
 describe('ProtocolLogsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(),
-    })
   })
 
   function createTestRouter() {
@@ -78,14 +74,12 @@ describe('ProtocolLogsPage', () => {
 
     await flushPromises()
 
-    expect(HTMLElement.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({
-      behavior: 'auto',
-    }))
     expect(wrapper.find('.protocol-logs-workspace').exists()).toBe(true)
     expect(wrapper.find('.logs-sidebar .sidebar-card').exists()).toBe(true)
     expect(wrapper.text()).toContain('协议日志')
     expect(wrapper.find('.terminal-card').exists()).toBe(true)
     expect(wrapper.findAll('.terminal-line')).toHaveLength(1)
+    expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
     expect(wrapper.text()).toContain('ignored OneBot API response with unsupported echo')
     expect(wrapper.text()).toContain('消息详情')
     expect(wrapper.text()).toContain('api.response.ignored')
@@ -341,7 +335,7 @@ describe('ProtocolLogsPage', () => {
     expect(selectSpy).toHaveBeenCalledWith('log_bridge_0001')
   })
 
-  it('uses smooth follow only for live append auto-follow updates', async () => {
+  it('shows a pending-new badge while browsing history pages', async () => {
     const logsStore = useProtocolLogsStore()
 
     logsStore.items = [
@@ -363,34 +357,20 @@ describe('ProtocolLogsPage', () => {
     await router.push('/protocols/logs')
     await router.isReady()
 
-    mount(ProtocolLogsPage, {
+    const wrapper = mount(ProtocolLogsPage, {
       global: {
         plugins: [Antd, router],
       },
     })
 
     await flushPromises()
-    vi.mocked(HTMLElement.prototype.scrollTo).mockClear()
-
-    logsStore.items = [
-      ...logsStore.items,
-      {
-        log_id: 'log_adapter_live_0002',
-        timestamp: '2026-04-08T10:17:00Z',
-        level: 'warn',
-        protocol: 'onebot11',
-        source: 'adapter.onebot11',
-        request_id: 'req_adapter_ignored_0002',
-        message: 'ignored OneBot API response with blank echo',
-      },
-    ]
-    logsStore.selectedLogId = 'log_adapter_live_0002'
+    logsStore.isLatestPage = false
+    logsStore.pendingNewCount = 2
 
     await flushPromises()
 
-    expect(HTMLElement.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({
-      behavior: 'smooth',
-    }))
+    expect(wrapper.text()).toContain('有 2 条新日志')
+    expect(wrapper.text()).toContain('回到最新')
   })
 
   it('formats scientific-notation timestamps in the protocol terminal stream', async () => {

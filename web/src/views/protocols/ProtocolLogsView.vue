@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText, safeJsonStringify, toSafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
+import { LOG_PAGE_SIZE_OPTIONS } from '@/stores/log-state'
 import { useProtocolLogsStore } from '@/stores/protocol-logs'
 
 const protocolDetailFieldKeys = [
@@ -56,22 +58,27 @@ const router = useRouter()
 const protocolLogsStore = useProtocolLogsStore()
 
 const {
-  autoFollow,
+  canLoadNewer,
+  canLoadOlder,
   currentDetail,
   detailError,
   detailLoading,
   error: logsError,
   filters,
+  isLatestPage,
   items,
   loading: logsLoading,
+  needsLatestRefresh,
+  pendingNewCount,
   selectedItem,
   selectedLogId,
 } = storeToRefs(protocolLogsStore)
 
-const terminalScroller = ref<HTMLElement | null>(null)
-const pageRoot = ref<HTMLElement | null>(null)
-const workspaceRoot = ref<HTMLElement | null>(null)
-const workspaceHeight = ref<number | null>(null)
+const pageSizeOptions = LOG_PAGE_SIZE_OPTIONS.map((value) => ({
+  label: t('protocols.page.sizeOption', { count: value }),
+  value,
+}))
+
 const selectedSummary = computed(() => currentDetail.value ?? selectedItem.value ?? null)
 const detailEntries = computed(() => {
   const details = toDetailRecord(currentDetail.value?.details)
@@ -87,97 +94,64 @@ const detailEntries = computed(() => {
 })
 const detailJson = computed(() => safeJsonStringify(toDetailRecord(currentDetail.value?.details)))
 const terminalStatusLabel = computed(() => (
-  autoFollow.value ? t('protocols.logsFollowing') : t('protocols.logsPaused')
+  isLatestPage.value ? t('protocols.logsLatestState') : t('protocols.logsHistoryState')
 ))
-const workspaceStyle = computed(() => (
-  workspaceHeight.value && workspaceHeight.value > 0
-    ? { height: `${workspaceHeight.value}px` }
-    : undefined
-))
-const desktopWorkspaceBottomGap = 12
-const skipNextActivation = ref(false)
-const initialHistoryLoaded = ref(false)
-let layoutObserver: ResizeObserver | null = null
+const terminalNoticeLabel = computed(() => {
+  if (pendingNewCount.value > 0) {
+    return t('protocols.logsPendingNew', { count: pendingNewCount.value })
+  }
 
-watch(
-  () => [items.value.length, autoFollow.value, selectedLogId.value] as const,
-  async ([, followEnabled, logId]) => {
-    const latest = items.value.at(-1)
-    if (!followEnabled || !latest || latest.log_id !== logId) {
-      return
-    }
-    await scrollTerminalToBottom('smooth')
-  },
-)
+  return isLatestPage.value
+    ? t('protocols.logsLiveHint')
+    : t('protocols.logsHistoryHint')
+})
 
-async function loadPage() {
+async function loadLatestLogs() {
   try {
-    await protocolLogsStore.fetchList()
-    initialHistoryLoaded.value = true
-    updateWorkspaceHeight()
-    await scrollTerminalToBottom('auto')
+    await protocolLogsStore.goToLatestPage()
   } catch {
     // store error state drives the page
   }
 }
 
-async function activatePage() {
-  protocolLogsStore.activate()
-  startLayoutObserver()
-  updateWorkspaceHeight()
-  if (!initialHistoryLoaded.value || items.value.length === 0) {
-    await loadPage()
-    return
-  }
-
-  await scrollTerminalToBottom('auto')
-}
-
-onMounted(() => {
-  skipNextActivation.value = true
-  void activatePage()
-})
-
-onActivated(() => {
-  if (skipNextActivation.value) {
-    skipNextActivation.value = false
-    return
-  }
-
-  void activatePage()
-})
-
-onDeactivated(() => {
-  protocolLogsStore.deactivate()
-  stopLayoutObserver()
-})
-
-onUnmounted(() => {
-  protocolLogsStore.deactivate()
-  stopLayoutObserver()
-})
-
-async function refreshLogs() {
+async function restoreLatestLogs() {
   try {
-    await protocolLogsStore.fetchList()
-    updateWorkspaceHeight()
-    await scrollTerminalToBottom('auto')
+    await protocolLogsStore.restoreLatestPage()
   } catch {
     // store error state drives the page
   }
 }
 
-function clearBuffer() {
-  protocolLogsStore.clearBuffer()
+async function applyFilters() {
+  try {
+    await protocolLogsStore.fetchList()
+  } catch {
+    // store error state drives the page
+  }
 }
 
-async function resumeAutoFollow() {
-  await protocolLogsStore.resumeAutoFollow()
-  await scrollTerminalToBottom('auto')
+async function goToOlderPage() {
+  try {
+    await protocolLogsStore.goToOlderPage()
+  } catch {
+    // store error state drives the page
+  }
 }
 
-function pauseAutoFollow() {
-  protocolLogsStore.pauseAutoFollow()
+async function goToNewerPage() {
+  try {
+    await protocolLogsStore.goToNewerPage()
+  } catch {
+    // store error state drives the page
+  }
+}
+
+async function handlePageSizeChange(value: number) {
+  filters.value = {
+    ...filters.value,
+    limit: value,
+  }
+  await loadLatestLogs()
 }
 
 async function handleLogSelection(logId: string) {
@@ -188,84 +162,38 @@ async function handleLogSelection(logId: string) {
   }
 }
 
-async function scrollTerminalToBottom(behavior: ScrollBehavior = 'smooth') {
-  await nextTick()
-  if (!terminalScroller.value) {
+function activatePage() {
+  protocolLogsStore.activate()
+  if (logsLoading.value) {
     return
   }
 
-  terminalScroller.value.scrollTo({
-    top: terminalScroller.value.scrollHeight,
-    behavior,
-  })
-}
-
-function updateWorkspaceHeight() {
-  if (typeof window === 'undefined') {
+  if (items.value.length === 0 && !logsLoading.value) {
+    void applyFilters()
     return
   }
 
-  void nextTick(() => {
-    const mobileQuery = typeof window.matchMedia === 'function'
-      ? window.matchMedia('(max-width: 900px)')
-      : null
-
-    if (mobileQuery?.matches) {
-      workspaceHeight.value = null
-      return
-    }
-
-    const root = pageRoot.value
-    const workspace = workspaceRoot.value
-    const shellMain = root?.closest('.admin-layout__content') as HTMLElement | null
-    if (!root || !workspace) {
-      return
-    }
-
-    const workspaceRect = workspace.getBoundingClientRect()
-    const rootStyles = window.getComputedStyle(root)
-    const shellMainStyles = shellMain ? window.getComputedStyle(shellMain) : null
-    const paddingBottom = Number.parseFloat(rootStyles.paddingBottom || '0') || 0
-    const shellPaddingBottom = Number.parseFloat(shellMainStyles?.paddingBottom || '0') || 0
-    const containerBottom = shellMain?.getBoundingClientRect().bottom ?? window.innerHeight
-    const visibleBottom = Math.min(containerBottom, window.innerHeight)
-    const availableHeight = Math.floor(
-      visibleBottom
-      - workspaceRect.top
-      - shellPaddingBottom
-      - paddingBottom
-      - desktopWorkspaceBottomGap,
-    )
-
-    workspaceHeight.value = availableHeight > 0 ? availableHeight : null
-  })
-}
-
-function startLayoutObserver() {
-  if (typeof window === 'undefined') {
+  if (needsLatestRefresh.value) {
+    void restoreLatestLogs()
     return
   }
 
-  const root = pageRoot.value
-  const shellMain = root?.closest('.admin-layout__content') as HTMLElement | null
-  if (!root || typeof window.ResizeObserver !== 'function') {
-    return
-  }
-
-  layoutObserver = new window.ResizeObserver(() => {
-    updateWorkspaceHeight()
-  })
-
-  layoutObserver.observe(root)
-  if (shellMain) {
-    layoutObserver.observe(shellMain)
+  if (!selectedLogId.value && items.value.length > 0) {
+    void handleLogSelection(items.value[0]!.log_id)
   }
 }
 
-function stopLayoutObserver() {
-  layoutObserver?.disconnect()
-  layoutObserver = null
-}
+onMounted(() => {
+  activatePage()
+})
+
+onActivated(() => {
+  activatePage()
+})
+
+onDeactivated(() => {
+  protocolLogsStore.deactivate()
+})
 
 function formatDetailValue(key: ProtocolDetailFieldKey, value: unknown) {
   if (value === null || value === undefined || value === '') {
@@ -363,10 +291,10 @@ function getLevelClass(level: string) {
 
 function getLevelColor(level: string) {
   switch (level) {
-    case 'error': return 'danger';
-    case 'warn': return 'warning';
-    case 'info': return 'success';
-    default: return 'debug';
+    case 'error': return 'danger'
+    case 'warn': return 'warning'
+    case 'info': return 'success'
+    default: return 'debug'
   }
 }
 
@@ -394,65 +322,77 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
     <template #extra>
       <div class="table-actions">
         <a-button @click="router.push('/protocols')">{{ t('protocols.openSettings') }}</a-button>
-        <a-button type="primary" :loading="logsLoading" @click="refreshLogs">
+        <a-button type="primary" :loading="logsLoading" @click="loadLatestLogs()">
           {{ t('protocols.logsRefresh') }}
         </a-button>
       </div>
     </template>
 
-    <div ref="pageRoot" class="protocol-logs-page">
-      <div ref="workspaceRoot" class="protocol-logs-workspace" :style="workspaceStyle">
+    <div class="protocol-logs-page">
+      <div class="protocol-logs-workspace">
         <aside class="logs-sidebar">
           <a-card :bordered="false" class="sidebar-card">
             <template #title>
               <strong>{{ t('protocols.filters.apply') }}</strong>
             </template>
 
-          <a-form layout="vertical" class="sidebar-filter-form">
-            <a-form-item :label="t('protocols.filters.level')">
-              <a-select
-                v-model:value="filters.level"
-                allow-clear
-                :placeholder="t('protocols.filters.all')"
-                class="refined-input"
-                :options="[
-                  { label: t('display.logLevels.debug'), value: 'debug' },
-                  { label: t('display.logLevels.info'), value: 'info' },
-                  { label: t('display.logLevels.warn'), value: 'warn' },
-                  { label: t('display.logLevels.error'), value: 'error' },
-                ]"
-              />
-            </a-form-item>
-            <a-form-item :label="t('protocols.filters.source')">
-              <a-input v-model:value="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" class="refined-input" />
-            </a-form-item>
-            <a-form-item :label="t('protocols.filters.requestId')">
-              <a-input v-model:value="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
-            </a-form-item>
+            <a-form layout="vertical" class="sidebar-filter-form">
+              <a-form-item :label="t('protocols.filters.level')">
+                <a-select
+                  v-model:value="filters.level"
+                  allow-clear
+                  :placeholder="t('protocols.filters.all')"
+                  class="refined-input"
+                  :options="[
+                    { label: t('display.logLevels.debug'), value: 'debug' },
+                    { label: t('display.logLevels.info'), value: 'info' },
+                    { label: t('display.logLevels.warn'), value: 'warn' },
+                    { label: t('display.logLevels.error'), value: 'error' },
+                  ]"
+                />
+              </a-form-item>
+              <a-form-item :label="t('protocols.filters.source')">
+                <a-input v-model:value="filters.source" :placeholder="t('protocols.filters.sourcePlaceholder')" class="refined-input" />
+              </a-form-item>
+              <a-form-item :label="t('protocols.filters.requestId')">
+                <a-input v-model:value="filters.requestId" :placeholder="t('protocols.filters.requestPlaceholder')" class="refined-input" />
+              </a-form-item>
+              <a-form-item :label="t('protocols.page.sizeLabel')">
+                <a-select
+                  :value="filters.limit"
+                  class="refined-input"
+                  :options="pageSizeOptions"
+                  @change="handlePageSizeChange"
+                />
+              </a-form-item>
 
-            <div class="sidebar-actions">
-              <a-button block @click="clearBuffer">{{ t('protocols.logsClear') }}</a-button>
-              <a-button type="primary" block @click="refreshLogs">{{ t('protocols.filters.apply') }}</a-button>
-            </div>
-          </a-form>
+              <div class="sidebar-actions">
+                <a-button type="primary" block @click="applyFilters">{{ t('protocols.filters.apply') }}</a-button>
+              </div>
+            </a-form>
           </a-card>
 
           <a-card :bordered="false" class="sidebar-card">
             <template #title>
-              <strong>{{ t('dashboard.refresh') }}</strong>
-            </template>
-            <template #extra>
-              <span class="buffer-info">{{ items.length }} / 200</span>
+              <strong>{{ t('protocols.logsHistoryTitle') }}</strong>
             </template>
 
-          <div class="sidebar-controls">
-            <div class="follow-status-pill" :class="autoFollow ? 'is-following' : 'is-paused'">
-              <span class="status-dot"></span>
-              {{ terminalStatusLabel }}
+            <div class="sidebar-controls">
+              <div class="follow-status-pill" :class="isLatestPage ? 'is-following' : 'is-paused'">
+                <span class="status-dot"></span>
+                {{ terminalStatusLabel }}
+              </div>
+              <p class="sidebar-status-text">{{ terminalNoticeLabel }}</p>
+              <a-button :disabled="!canLoadNewer" block @click="goToNewerPage()">
+                {{ t('protocols.logsNewer') }}
+              </a-button>
+              <a-button :disabled="!canLoadOlder" block @click="goToOlderPage()">
+                {{ t('protocols.logsOlder') }}
+              </a-button>
+              <a-button type="primary" ghost :disabled="isLatestPage" block @click="loadLatestLogs()">
+                {{ t('protocols.logsBackToLatest') }}
+              </a-button>
             </div>
-            <a-button v-if="autoFollow" block @click="pauseAutoFollow">{{ t('protocols.logsPause') }}</a-button>
-            <a-button v-else type="primary" block @click="resumeAutoFollow">{{ t('protocols.logsResume') }}</a-button>
-          </div>
           </a-card>
         </aside>
 
@@ -462,7 +402,7 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
             :title="t('errors.common.loadFailed')"
             :description="logsError"
             :loading="logsLoading"
-            @retry="refreshLogs"
+            @retry="applyFilters"
           />
 
           <a-alert v-else-if="logsError" :message="t('errors.common.loadFailed')" type="error" :description="logsError" show-icon class="error-alert" />
@@ -473,7 +413,7 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
                 <strong>{{ t('protocols.logsStreamTitle') }}</strong>
               </template>
               <template #extra>
-                <a-tag :color="autoFollow ? 'success' : 'default'">{{ terminalStatusLabel }}</a-tag>
+                <a-tag :color="isLatestPage ? 'success' : 'default'">{{ terminalStatusLabel }}</a-tag>
               </template>
 
               <div v-if="items.length === 0" class="term-empty-state">
@@ -481,11 +421,18 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
                 <p>{{ t('protocols.logsEmpty') }}</p>
               </div>
 
-              <div v-else ref="terminalScroller" class="terminal-view-scroller">
-                <div class="terminal-content">
+              <VirtualDataViewport
+                v-else
+                class="terminal-view-scroller"
+                :items="items"
+                :item-height="64"
+                dynamic-item-height
+                :overscan="6"
+                :empty-label="t('protocols.logsEmpty')"
+                :get-item-key="(item) => item.log_id"
+              >
+                <template #default="{ item: log }">
                   <button
-                    v-for="log in items"
-                    :key="log.log_id"
                     type="button"
                     class="terminal-line"
                     :class="[getLogRowClass(log.log_id), getLevelClass(log.level)]"
@@ -502,8 +449,8 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
                       </div>
                     </div>
                   </button>
-                </div>
-              </div>
+                </template>
+              </VirtualDataViewport>
             </a-card>
 
             <a-card :bordered="false" class="detail-card">
@@ -580,9 +527,8 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
   --font-sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   --font-mono: "Cascadia Mono", "Consolas", monospace;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 12px;
-  height: 100%;
   min-height: 0;
   overflow: hidden;
   color: var(--app-text);
@@ -593,8 +539,6 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: var(--space-lg);
   flex: 1;
-  height: 100%;
-  max-height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -631,17 +575,18 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
   margin-bottom: 0;
 }
 
-.buffer-info {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--app-text-secondary);
-}
-
 .sidebar-actions,
 .sidebar-controls {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.sidebar-status-text {
+  margin: 0;
+  color: var(--app-text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .follow-status-pill {
@@ -683,7 +628,6 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: var(--space-lg);
   flex: 1;
-  max-height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -693,7 +637,6 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -715,22 +658,17 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
 }
 
 .terminal-view-scroller {
-  flex: 1 1 0;
-  max-height: 100%;
+  flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  background: transparent;
-  scroll-padding-block: 20px 24px;
-}
-
-.terminal-content {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 0 16px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .terminal-line {
   width: 100%;
+  min-height: 100%;
+  height: auto;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -742,7 +680,6 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
   cursor: pointer;
   color: var(--app-text);
   transition: background-color 0.2s ease;
-  scroll-margin-block: 24px;
 
   &:hover {
     background: color-mix(in srgb, var(--app-primary) 6%, transparent);
@@ -815,7 +752,6 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
 
 .detail-view-content {
   flex: 1;
-  max-height: 100%;
   min-height: 0;
   overflow-y: auto;
 }
@@ -1000,7 +936,6 @@ function formatProtocolLogSource(source?: string, protocol?: string) {
   .logs-display-grid,
   .terminal-card,
   .detail-card,
-  .terminal-view-scroller,
   .detail-view-content {
     height: auto;
     min-height: 0;

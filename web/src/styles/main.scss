@@ -1273,6 +1273,7 @@ textarea:focus-visible,
 
 .data-viewport {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
   border-radius: 10px;
@@ -1292,6 +1293,35 @@ textarea:focus-visible,
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.data-viewport__empty {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  color: var(--muted);
+}
+
+.data-viewport__scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.data-viewport__canvas {
+  min-height: 100%;
+}
+
+.data-viewport__stack {
+  position: relative;
+}
+
+.data-viewport__row {
+  box-sizing: border-box;
 }
 
 .tools-panel {

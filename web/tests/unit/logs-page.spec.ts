@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { formatDateTime } from '@/lib/format'
+import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import LogsPage from '@/views/operations/LogsView.vue'
 import { useLogsStore } from '@/stores/logs'
 
@@ -54,6 +55,7 @@ describe('LogsPage', () => {
     expect(wrapper.find('.log-cell-time').exists()).toBe(true)
     expect(wrapper.find('.log-cell-source').exists()).toBe(true)
     expect(wrapper.find('.log-message-text').exists()).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
     expect(wrapper.find('.desktop-table').exists()).toBe(false)
   })
 
@@ -111,7 +113,7 @@ describe('LogsPage', () => {
     expect(message).not.toContain('\u202e')
   })
 
-  it('keeps the logs table scrollable inside the page viewport', async () => {
+  it('keeps the virtualized logs viewport inside the page content area', async () => {
     const store = useLogsStore()
     store.items = Array.from({ length: 80 }, (_, index) => ({
       log_id: `log_scroll_${index}`,
@@ -154,9 +156,9 @@ describe('LogsPage', () => {
 
     await flushPromises()
 
-    const tableBody = wrapper.find('.logs-data-table .ant-table-body')
-    expect(tableBody.exists()).toBe(true)
-    expect(tableBody.attributes('style')).toContain('708px')
+    const viewport = wrapper.find('.logs-data-table .data-viewport__scroller')
+    expect(viewport.exists()).toBe(true)
+    expect(wrapper.findAll('.logs-table-row').length).toBeGreaterThan(1)
 
     wrapper.unmount()
   })

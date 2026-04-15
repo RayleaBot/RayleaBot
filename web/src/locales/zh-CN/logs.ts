@@ -1,6 +1,8 @@
 export const logs = {
   title: '日志',
   refresh: '刷新日志',
+  latest: '最新',
+  history: '历史',
   filters: {
     level: '级别',
     source: '来源',
@@ -19,5 +21,17 @@ export const logs = {
     plugin: '插件',
     requestId: '请求 ID',
     message: '内容',
+  },
+  page: {
+    sizeLabel: '每页条数',
+    sizeOption: '{count} 条',
+    older: '更早记录',
+    newer: '更新记录',
+    backToLatest: '回到最新',
+    latestState: '最新页',
+    historyState: '历史页',
+    latestHint: '正在实时显示最新日志',
+    historyHint: '当前页面保持稳定，可逐页浏览历史',
+    newLogsNotice: '有 {count} 条新日志可查看',
   },
 } as const

@@ -1,42 +1,97 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
+import { LOG_PAGE_SIZE_OPTIONS } from '@/stores/log-state'
 import { useLogsStore } from '@/stores/logs'
 
 const logsStore = useLogsStore()
-const { error, filters, items, loading } = storeToRefs(logsStore)
-const pageRoot = ref<HTMLElement | null>(null)
-const tableScrollY = ref<number>()
-const desktopTableBottomGap = 12
-let layoutObserver: ResizeObserver | null = null
+const {
+  canLoadNewer,
+  canLoadOlder,
+  error,
+  filters,
+  isLatestPage,
+  items,
+  loading,
+  needsLatestRefresh,
+  pendingNewCount,
+} = storeToRefs(logsStore)
 
-const tableColumns = computed(() => [
-  { title: t('logs.fields.timestamp'), key: 'timestamp', dataIndex: 'timestamp', width: 200 },
-  { title: t('logs.fields.level'), key: 'level', dataIndex: 'level', width: 110 },
-  { title: t('logs.fields.source'), key: 'source', dataIndex: 'source', width: 180 },
-  { title: t('logs.fields.message'), key: 'message', dataIndex: 'message' },
-])
-const tableScroll = computed(() => (
-  tableScrollY.value && tableScrollY.value > 0
-    ? { x: 980, y: tableScrollY.value }
-    : { x: 980 }
+const pageSizeOptions = LOG_PAGE_SIZE_OPTIONS.map((value) => ({
+  label: t('logs.page.sizeOption', { count: value }),
+  value,
+}))
+
+const pageStateLabel = computed(() => (
+  isLatestPage.value
+    ? t('logs.page.latestState')
+    : t('logs.page.historyState')
 ))
 
-async function loadLogs() {
+const pageNoticeLabel = computed(() => {
+  if (pendingNewCount.value > 0) {
+    return t('logs.page.newLogsNotice', { count: pendingNewCount.value })
+  }
+
+  return isLatestPage.value
+    ? t('logs.page.latestHint')
+    : t('logs.page.historyHint')
+})
+
+async function loadLatestLogs() {
+  try {
+    await logsStore.goToLatestPage()
+  } catch {
+    // store error state drives the page
+  }
+}
+
+async function restoreLatestLogs() {
+  try {
+    await logsStore.restoreLatestPage()
+  } catch {
+    // store error state drives the page
+  }
+}
+
+async function applyFilters() {
   try {
     await logsStore.fetchList()
   } catch {
     // store error state drives the page
   }
-  updateTableScrollHeight()
-  startLayoutObserver()
+}
+
+async function handlePageSizeChange(value: number) {
+  filters.value = {
+    ...filters.value,
+    limit: value,
+  }
+  await loadLatestLogs()
+}
+
+async function goToOlderPage() {
+  try {
+    await logsStore.goToOlderPage()
+  } catch {
+    // store error state drives the page
+  }
+}
+
+async function goToNewerPage() {
+  try {
+    await logsStore.goToNewerPage()
+  } catch {
+    // store error state drives the page
+  }
 }
 
 function levelOptions() {
@@ -55,98 +110,40 @@ function getLevelColor(level: string) {
   return 'default'
 }
 
+function activatePage() {
+  logsStore.activate()
+
+  if (loading.value) {
+    return
+  }
+
+  if (items.value.length === 0) {
+    void applyFilters()
+    return
+  }
+
+  if (needsLatestRefresh.value) {
+    void restoreLatestLogs()
+  }
+}
+
 onMounted(() => {
-  updateTableScrollHeight()
-  startLayoutObserver()
-  void loadLogs()
+  activatePage()
 })
 
 onActivated(() => {
-  updateTableScrollHeight()
-  startLayoutObserver()
+  activatePage()
 })
 
 onDeactivated(() => {
-  stopLayoutObserver()
+  logsStore.deactivate()
 })
-
-onUnmounted(() => {
-  stopLayoutObserver()
-})
-
-function updateTableScrollHeight() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  void nextTick(() => {
-    const root = pageRoot.value
-    if (!root) {
-      tableScrollY.value = undefined
-      return
-    }
-
-    const mobileQuery = typeof window.matchMedia === 'function'
-      ? window.matchMedia('(max-width: 900px)')
-      : null
-    if (mobileQuery?.matches) {
-      tableScrollY.value = undefined
-      return
-    }
-
-    const shellMain = root.closest('.admin-layout__content') as HTMLElement | null
-    const rootRect = root.getBoundingClientRect()
-    const shellRect = shellMain?.getBoundingClientRect()
-    const rootStyles = window.getComputedStyle(root)
-    const shellStyles = shellMain ? window.getComputedStyle(shellMain) : null
-    const visibleBottom = Math.min(shellRect?.bottom ?? window.innerHeight, window.innerHeight)
-    const availableHeight = Math.floor(
-      visibleBottom
-      - rootRect.top
-      - getInsetValue(rootStyles.paddingBottom)
-      - getInsetValue(shellStyles?.paddingBottom)
-      - desktopTableBottomGap
-    )
-
-    tableScrollY.value = availableHeight > 180 ? availableHeight : undefined
-  })
-}
-
-function startLayoutObserver() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  const root = pageRoot.value
-  const shellMain = root?.closest('.admin-layout__content') as HTMLElement | null
-  if (!root || typeof window.ResizeObserver !== 'function' || layoutObserver) {
-    return
-  }
-
-  layoutObserver = new window.ResizeObserver(() => {
-    updateTableScrollHeight()
-  })
-
-  layoutObserver.observe(root)
-  if (shellMain) {
-    layoutObserver.observe(shellMain)
-  }
-}
-
-function stopLayoutObserver() {
-  layoutObserver?.disconnect()
-  layoutObserver = null
-}
-
-function getInsetValue(value?: string) {
-  return Number.parseFloat(value || '0') || 0
-}
 </script>
 
 <template>
   <AppPage :title="t('logs.title')" full-height>
     <template #extra>
-      <a-button :loading="loading" @click="loadLogs()">
+      <a-button :loading="loading" @click="loadLatestLogs()">
         {{ t('logs.refresh') }}
       </a-button>
     </template>
@@ -155,7 +152,12 @@ function getInsetValue(value?: string) {
       <a-card :bordered="false" class="app-view-card logs-filter-toolbar">
         <a-form layout="vertical" class="logs-filter-grid">
           <a-form-item :label="t('logs.filters.level')">
-            <a-select v-model:value="filters.level" allow-clear :options="levelOptions()" :placeholder="t('logs.filters.all')" />
+            <a-select
+              v-model:value="filters.level"
+              allow-clear
+              :options="levelOptions()"
+              :placeholder="t('logs.filters.all')"
+            />
           </a-form-item>
           <a-form-item :label="t('logs.filters.source')">
             <a-input v-model:value="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
@@ -169,7 +171,7 @@ function getInsetValue(value?: string) {
         </a-form>
 
         <div class="logs-filter-actions">
-          <a-button type="primary" @click="loadLogs()">{{ t('logs.filters.apply') }}</a-button>
+          <a-button type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
         </div>
       </a-card>
     </template>
@@ -179,52 +181,84 @@ function getInsetValue(value?: string) {
       :title="t('errors.common.loadFailed')"
       :description="error"
       :loading="loading"
-      @retry="loadLogs()"
+      @retry="applyFilters()"
     />
 
     <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <div v-else ref="pageRoot" class="logs-page">
-      <a-table
-        class="logs-data-table app-data-table"
-        :columns="tableColumns"
-        :data-source="items"
-        :pagination="false"
-        :row-key="(row) => row.log_id"
-        :scroll="tableScroll"
-      >
-        <template #emptyText>
-          {{ t('display.empty') }}
-        </template>
+    <div v-else class="logs-page">
+      <section class="app-view-card logs-history-toolbar">
+        <div class="logs-history-toolbar__meta">
+          <a-tag :color="isLatestPage ? 'success' : 'default'">{{ pageStateLabel }}</a-tag>
+          <span class="logs-history-toolbar__hint">{{ pageNoticeLabel }}</span>
+        </div>
 
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'timestamp'">
-            <div class="log-cell-time">
-              <div class="log-time-display">{{ formatDateTime(record.timestamp) }}</div>
-              <small class="log-request-id">{{ record.request_id ?? t('display.empty') }}</small>
-            </div>
-          </template>
+        <div class="logs-history-toolbar__actions">
+          <div class="logs-history-toolbar__size">
+            <span>{{ t('logs.page.sizeLabel') }}</span>
+            <a-select
+              :value="filters.limit"
+              class="logs-page-size-select"
+              :options="pageSizeOptions"
+              @change="handlePageSizeChange"
+            />
+          </div>
+          <a-button :disabled="!canLoadNewer" @click="goToNewerPage()">
+            {{ t('logs.page.newer') }}
+          </a-button>
+          <a-button :disabled="!canLoadOlder" @click="goToOlderPage()">
+            {{ t('logs.page.older') }}
+          </a-button>
+          <a-button type="primary" ghost :disabled="isLatestPage" @click="loadLatestLogs()">
+            {{ t('logs.page.backToLatest') }}
+          </a-button>
+        </div>
+      </section>
 
-          <template v-else-if="column.key === 'level'">
-            <a-tag size="small" :color="getLevelColor(record.level)">
-              {{ getLogLevelLabel(record.level) }}
-            </a-tag>
-          </template>
+      <section class="logs-data-table">
+        <header class="logs-table-header data-panel-header">
+          <span>{{ t('logs.fields.timestamp') }}</span>
+          <span>{{ t('logs.fields.level') }}</span>
+          <span>{{ t('logs.fields.source') }}</span>
+          <span>{{ t('logs.fields.message') }}</span>
+        </header>
 
-          <template v-else-if="column.key === 'source'">
-            <div class="log-cell-source">
-              <div class="log-source-text">{{ record.source }}</div>
-              <small v-if="record.plugin_id" class="log-plugin-id">{{ record.plugin_id }}</small>
-            </div>
-          </template>
+        <VirtualDataViewport
+          class="logs-data-viewport"
+          :items="items"
+          :item-height="64"
+          dynamic-item-height
+          :overscan="6"
+          :empty-label="t('display.empty')"
+          :get-item-key="(item) => item.log_id"
+        >
+          <template #default="{ item }">
+            <article class="logs-table-row">
+              <div class="logs-table-cell log-cell-time">
+                <div class="log-time-display">{{ formatDateTime(item.timestamp) }}</div>
+                <small class="log-request-id">{{ item.request_id ?? t('display.empty') }}</small>
+              </div>
 
-          <template v-else-if="column.key === 'message'">
-            <p class="log-message-text" :title="escapeUnsafeDisplayText(record.message)">
-              {{ escapeUnsafeDisplayText(record.message) }}
-            </p>
+              <div class="logs-table-cell">
+                <a-tag size="small" :color="getLevelColor(item.level)">
+                  {{ getLogLevelLabel(item.level) }}
+                </a-tag>
+              </div>
+
+              <div class="logs-table-cell log-cell-source">
+                <div class="log-source-text">{{ item.source }}</div>
+                <small v-if="item.plugin_id" class="log-plugin-id">{{ item.plugin_id }}</small>
+              </div>
+
+              <div class="logs-table-cell">
+                <p class="log-message-text" :title="escapeUnsafeDisplayText(item.message)">
+                  {{ escapeUnsafeDisplayText(item.message) }}
+                </p>
+              </div>
+            </article>
           </template>
-        </template>
-      </a-table>
+        </VirtualDataViewport>
+      </section>
     </div>
   </AppPage>
 </template>
@@ -233,66 +267,95 @@ function getInsetValue(value?: string) {
 .logs-page {
   display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  gap: 12px;
+}
+
+.logs-history-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.logs-history-toolbar__meta,
+.logs-history-toolbar__actions,
+.logs-history-toolbar__size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logs-history-toolbar__meta {
+  min-width: 0;
+}
+
+.logs-history-toolbar__hint {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.logs-page-size-select {
+  min-width: 132px;
 }
 
 .logs-data-table {
-  flex: 1 1 auto;
-  min-height: 0;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.logs-data-table :deep(.ant-spin-nested-loading),
-.logs-data-table :deep(.ant-spin-container),
-.logs-data-table :deep(.ant-table-wrapper),
-.logs-data-table :deep(.ant-table),
-.logs-data-table :deep(.ant-table-container) {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
 }
 
-.logs-data-table :deep(.ant-table-header),
-.logs-data-table :deep(.ant-table-body) {
-  flex-shrink: 0;
+.logs-table-header,
+.logs-table-row {
+  display: grid;
+  grid-template-columns: 190px 100px 180px minmax(0, 1fr);
+  gap: 12px;
 }
 
-.logs-data-table :deep(.ant-table-body) {
-  overscroll-behavior: contain;
+.logs-data-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top-width: 0;
 }
 
-.log-cell-time {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.logs-table-row {
+  min-height: 100%;
+  height: auto;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: var(--surface-strong);
 }
 
-.log-time-display {
-  font-size: 0.9rem;
-  color: var(--text);
+.logs-table-cell {
+  min-width: 0;
 }
 
-.log-request-id {
-  font-family: "Cascadia Mono", "Consolas", monospace;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
+.log-cell-time,
 .log-cell-source {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
+.log-time-display,
 .log-source-text {
   font-size: 0.9rem;
   color: var(--text);
+}
+
+.log-source-text {
   font-weight: 600;
 }
 
+.log-request-id,
 .log-plugin-id {
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 0.75rem;
@@ -309,13 +372,40 @@ function getInsetValue(value?: string) {
   unicode-bidi: plaintext;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
+  .logs-history-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .logs-history-toolbar__actions {
+    flex-wrap: wrap;
+  }
+
+  .logs-table-header,
+  .logs-table-row {
+    grid-template-columns: 170px 90px 150px minmax(220px, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
   .logs-page {
     overflow: auto;
   }
 
   .logs-data-table {
-    flex: 0 0 auto;
+    min-height: 520px;
+  }
+
+  .logs-table-header {
+    display: none;
+  }
+
+  .logs-table-row {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    gap: 8px;
+    padding-block: 12px;
   }
 }
 </style>

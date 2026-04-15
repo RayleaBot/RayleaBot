@@ -81,6 +81,115 @@ describe('logs store', () => {
     expect(store.items.map((item) => item.message)).toEqual(['latest', 'older'])
   })
 
+  it('marks the latest page for refresh when hidden logs arrive while the page is inactive', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      items: [
+        {
+          log_id: 'log_hidden_0002',
+          timestamp: '2026-04-05T08:00:02Z',
+          level: 'info',
+          source: 'runtime',
+          message: 'hidden latest',
+        },
+        {
+          log_id: 'log_hidden_0001',
+          timestamp: '2026-04-05T08:00:01Z',
+          level: 'info',
+          source: 'runtime',
+          message: 'visible row',
+        },
+      ],
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_hidden_0001',
+        timestamp: '2026-04-05T08:00:01Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'visible row',
+      },
+    ]
+
+    store.deactivate()
+    store.append({
+      log_id: 'log_hidden_0002',
+      timestamp: '2026-04-05T08:00:02Z',
+      level: 'info',
+      source: 'runtime',
+      message: 'hidden latest',
+    })
+
+    expect(store.items.map((item) => item.message)).toEqual(['visible row'])
+    expect(store.needsLatestRefresh).toBe(true)
+
+    store.activate()
+    await store.goToLatestPage()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/logs?limit=50', expect.any(Object))
+    expect(store.items.map((item) => item.message)).toEqual(['hidden latest', 'visible row'])
+    expect(store.needsLatestRefresh).toBe(false)
+  })
+
+  it('keeps visible live logs when the activation refresh returns a stale latest page', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      items: [
+        {
+          log_id: 'log_stale_older_0001',
+          timestamp: '2026-04-05T08:00:00Z',
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_logs_stale_1',
+          message: 'older persisted row',
+        },
+      ],
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_stale_older_0001',
+        timestamp: '2026-04-05T08:00:00Z',
+        level: 'info',
+        source: 'runtime',
+        request_id: 'req_logs_stale_1',
+        message: 'older persisted row',
+      },
+    ]
+
+    store.append({
+      log_id: 'log_stale_visible_0001',
+      timestamp: '2026-04-05T08:00:01Z',
+      level: 'info',
+      source: 'bridge',
+      request_id: 'req_logs_stale_1',
+      message: 'visible live row',
+    })
+
+    store.deactivate()
+    store.append({
+      log_id: 'log_stale_hidden_0001',
+      timestamp: '2026-04-05T08:00:02Z',
+      level: 'info',
+      source: 'bridge',
+      request_id: 'req_logs_stale_1',
+      message: 'hidden live row',
+    })
+
+    store.activate()
+    await store.restoreLatestPage()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/logs?limit=50', expect.any(Object))
+    expect(store.items.map((item) => item.message)).toEqual([
+      'hidden live row',
+      'visible live row',
+      'older persisted row',
+    ])
+  })
+
   it('ignores live logs that do not match the active filters', () => {
     const store = useLogsStore()
     store.filters = {
