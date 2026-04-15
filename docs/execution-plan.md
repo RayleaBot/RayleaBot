@@ -222,7 +222,7 @@
 
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
-| `web/package.json` 与 baseline | ✅ | Vite 8 + Vue 3 + Element Plus + Vue Router + Pinia + TypeScript 工程已落地 |
+| `web/package.json` 与 baseline | ✅ | Vite 8 + Vue 3 + Ant Design Vue 4.2.6 + Vue Router + Pinia + TypeScript 工程已落地；Dashboard、Plugins、Config 等核心页面已完成 Vben 设计对齐与通用组件提取 |
 | auth/session shell | ✅ | `setup/login/session`、路由守卫、`sessionStorage` token 与未授权回退已落地 |
 | 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志页、配置页，以及固定侧栏、内容区内部滚动摘要视图与响应式布局已落地 |
 | HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |

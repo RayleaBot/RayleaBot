@@ -26,19 +26,19 @@
 
 ## 当前基线
 
-- `web/src` 与 `web/tests/unit` 当前共有 38 个文件直接引用 `Element Plus`。
-- 当前代码中约有 549 处 `Element Plus` 相关引用，覆盖布局、按钮、表单、消息提示、表格、弹窗、抽屉、空态、标签和骨架屏。
-- 当前 `web/` 已存在稳定的路由、Pinia、认证、HTTP、WebSocket 和页面分层，这些能力迁移时继续保留业务语义，不重定义后端 contract。
+- `web/src` 与 `web/tests/unit` 中 `Element Plus` 引用已清零。
+- 组件层已统一为 `Ant Design Vue 4.2.6`；布局、按钮、表单、表格、弹窗、抽屉、空态、标签和骨架屏均使用 Ant Design Vue 组件。
+- `web/` 已存在稳定的路由、Pinia、认证、HTTP、WebSocket 和页面分层，这些能力继续保留业务语义，不重定义后端 contract。
+- Dashboard、Plugins、Config 等核心页面已完成 Vben 风格设计对齐，并提取了 `AppCard`、`AppTableToolbar`、`AppStatCard` 等通用业务组件。
 
 ## 来源策略
 
 ### 直接纳入并锁版本的依赖
 
 - `ant-design-vue@4.2.6`
-- `@vben/request@1.0.1`
-- `@vben/layouts@1.0.1`
-- `@vben/stores@1.0.1`
 - `tailwindcss@4.x`
+
+说明：`npm` 上 `@vben/*@1.0.1` 对应 Vben 早期版本（基于 `naive-ui` / Vue 3.3.x），与当前 `Ant Design Vue 4.2.6 + Vue 3.5.x` 栈不兼容，因此不纳入该系列包。Vben 5.7.0 的设计能力按官方源码参考在仓库内自行实现。
 
 ### 作为官方骨架参考并移植到仓库维护的能力
 
