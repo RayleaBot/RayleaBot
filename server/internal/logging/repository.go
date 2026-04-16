@@ -19,6 +19,9 @@ type Query struct {
 	Protocol  string
 	PluginID  string
 	RequestID string
+	BootID    string
+	StartAt   string
+	EndAt     string
 	Limit     int
 }
 
@@ -35,6 +38,9 @@ type PageQuery struct {
 	Protocol  string
 	PluginID  string
 	RequestID string
+	BootID    string
+	StartAt   string
+	EndAt     string
 	Limit     int
 	Cursor    string
 	Direction PageDirection
@@ -88,9 +94,10 @@ func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary Summary) err
 
 	if _, err := r.write.ExecContext(
 		ctx,
-		`INSERT OR IGNORE INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT OR IGNORE INTO management_logs (log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		summary.LogID,
+		summary.BootID,
 		summary.Timestamp,
 		strings.ToLower(strings.TrimSpace(summary.Level)),
 		strings.TrimSpace(summary.Source),
@@ -117,6 +124,9 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
 		RequestID: query.RequestID,
+		BootID:    query.BootID,
+		StartAt:   query.StartAt,
+		EndAt:     query.EndAt,
 	})
 	if err != nil {
 		return nil, err
@@ -125,7 +135,7 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 
 	rows, err := r.read.QueryContext(
 		ctx,
-		`SELECT id, log_id, ts, level, source, message, plugin_id, request_id
+		`SELECT id, log_id, boot_id, ts, level, source, message, plugin_id, request_id
 		 FROM management_logs
 		 WHERE `+strings.Join(clauses, " AND ")+`
 		 ORDER BY ts DESC, id DESC
@@ -144,6 +154,7 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 		if err := rows.Scan(
 			&rowID,
 			&summary.LogID,
+			&summary.BootID,
 			&summary.Timestamp,
 			&summary.Level,
 			&summary.Source,
@@ -183,6 +194,9 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
 		RequestID: query.RequestID,
+		BootID:    query.BootID,
+		StartAt:   query.StartAt,
+		EndAt:     query.EndAt,
 	})
 	if err != nil {
 		return PageResult{}, err
@@ -198,25 +212,25 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 	if cursor != nil {
 		switch direction {
 		case PageDirectionOlder:
-			clauses = append(clauses, "(ts < ? OR (ts = ? AND id < ?))")
+			clauses = append(clauses, "("+logTimestampExpr+" < julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id < ?))")
 			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
 		case PageDirectionNewer:
-			clauses = append(clauses, "(ts > ? OR (ts = ? AND id > ?))")
+			clauses = append(clauses, "("+logTimestampExpr+" > julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id > ?))")
 			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
 		default:
 			return PageResult{}, fmt.Errorf("%w: unsupported direction %q", ErrInvalidCursor, direction)
 		}
 	}
 
-	orderClause := "ORDER BY ts DESC, id DESC"
+	orderClause := "ORDER BY " + logTimestampExpr + " DESC, id DESC"
 	if direction == PageDirectionNewer {
-		orderClause = "ORDER BY ts ASC, id ASC"
+		orderClause = "ORDER BY " + logTimestampExpr + " ASC, id ASC"
 	}
 	args = append(args, limit+1)
 
 	rows, err := r.read.QueryContext(
 		ctx,
-		`SELECT id, log_id, ts, level, source, message, plugin_id, request_id
+		`SELECT id, log_id, boot_id, ts, level, source, message, plugin_id, request_id
 		 FROM management_logs
 		 WHERE `+strings.Join(clauses, " AND ")+`
 		 `+orderClause+`
@@ -272,6 +286,9 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
 		RequestID: query.RequestID,
+		BootID:    query.BootID,
+		StartAt:   query.StartAt,
+		EndAt:     query.EndAt,
 	}, logBoundaryOlder, oldest.marker())
 	if err != nil {
 		return PageResult{}, err
@@ -282,6 +299,9 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
 		RequestID: query.RequestID,
+		BootID:    query.BootID,
+		StartAt:   query.StartAt,
+		EndAt:     query.EndAt,
 	}, logBoundaryNewer, newest.marker())
 	if err != nil {
 		return PageResult{}, err
@@ -304,7 +324,7 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summary, error) {
 	row := r.read.QueryRowContext(
 		ctx,
-		`SELECT log_id, ts, level, source, message, plugin_id, request_id, details_json
+		`SELECT log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json
 		 FROM management_logs
 		 WHERE log_id = ?
 		 LIMIT 1`,
@@ -312,6 +332,7 @@ func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summar
 	)
 	var item struct {
 		LogID      string
+		BootID     string
 		Timestamp  string
 		Level      string
 		Source     string
@@ -322,6 +343,7 @@ func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summar
 	}
 	if err := row.Scan(
 		&item.LogID,
+		&item.BootID,
 		&item.Timestamp,
 		&item.Level,
 		&item.Source,
@@ -342,6 +364,7 @@ func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summar
 	}
 
 	return NormalizeSummary(Summary{
+		BootID:    item.BootID,
 		LogID:     item.LogID,
 		Timestamp: item.Timestamp,
 		Level:     item.Level,
@@ -358,7 +381,7 @@ func (r *SQLiteRepository) PruneOlderThan(ctx context.Context, cutoff time.Time)
 		return nil
 	}
 
-	if _, err := r.write.ExecContext(ctx, `DELETE FROM management_logs WHERE ts < ?`, cutoff.UTC().Format(time.RFC3339)); err != nil {
+	if _, err := r.write.ExecContext(ctx, `DELETE FROM management_logs WHERE `+logTimestampExpr+` < julianday(?)`, cutoff.UTC().Format(time.RFC3339)); err != nil {
 		return fmt.Errorf("prune management log summaries: %w", err)
 	}
 	return nil
@@ -370,6 +393,9 @@ type filterSpec struct {
 	Protocol  string
 	PluginID  string
 	RequestID string
+	BootID    string
+	StartAt   string
+	EndAt     string
 }
 
 type pagedSummary struct {
@@ -396,6 +422,8 @@ const (
 	logBoundaryOlder logBoundary = "older"
 	logBoundaryNewer logBoundary = "newer"
 )
+
+const logTimestampExpr = "julianday(ts)"
 
 func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 	clauses := []string{"1 = 1"}
@@ -428,6 +456,18 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 		clauses = append(clauses, "request_id = ?")
 		args = append(args, strings.TrimSpace(spec.RequestID))
 	}
+	if spec.BootID != "" {
+		clauses = append(clauses, "boot_id = ?")
+		args = append(args, strings.TrimSpace(spec.BootID))
+	}
+	if spec.StartAt != "" {
+		clauses = append(clauses, logTimestampExpr+" >= julianday(?)")
+		args = append(args, strings.TrimSpace(spec.StartAt))
+	}
+	if spec.EndAt != "" {
+		clauses = append(clauses, logTimestampExpr+" <= julianday(?)")
+		args = append(args, strings.TrimSpace(spec.EndAt))
+	}
 	return clauses, args, nil
 }
 
@@ -436,6 +476,7 @@ func scanPagedSummary(scanner interface{ Scan(...any) error }) (pagedSummary, er
 	if err := scanner.Scan(
 		&entry.RowID,
 		&entry.Summary.LogID,
+		&entry.Summary.BootID,
 		&entry.Summary.Timestamp,
 		&entry.Summary.Level,
 		&entry.Summary.Source,
@@ -456,9 +497,9 @@ func (r *SQLiteRepository) hasRows(ctx context.Context, spec filterSpec, boundar
 	}
 	switch boundary {
 	case logBoundaryOlder:
-		clauses = append(clauses, "(ts < ? OR (ts = ? AND id < ?))")
+		clauses = append(clauses, "("+logTimestampExpr+" < julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id < ?))")
 	case logBoundaryNewer:
-		clauses = append(clauses, "(ts > ? OR (ts = ? AND id > ?))")
+		clauses = append(clauses, "("+logTimestampExpr+" > julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id > ?))")
 	default:
 		return false, fmt.Errorf("unsupported log boundary %q", boundary)
 	}

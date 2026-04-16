@@ -15,6 +15,7 @@ func TestSpoolQueueFlushesRecordsAndQuarantinesBadLines(t *testing.T) {
 
 	queue := NewSpoolQueue(filepath.Join(t.TempDir(), "management-logs.spool.jsonl"))
 	if err := queue.Append(Summary{
+		BootID:    "boot_old",
 		LogID:     "log_spool_0001",
 		Timestamp: "2026-04-15T00:00:01Z",
 		Level:     "info",
@@ -53,6 +54,9 @@ func TestSpoolQueueFlushesRecordsAndQuarantinesBadLines(t *testing.T) {
 	}
 	if len(repository.saved) != 2 {
 		t.Fatalf("unexpected saved summaries: %#v", repository.saved)
+	}
+	if repository.saved[0].BootID != "boot_old" {
+		t.Fatalf("expected flushed spool record to keep boot id: %#v", repository.saved[0])
 	}
 	if queue.HasEntries() {
 		t.Fatalf("spool queue should be empty after flush")

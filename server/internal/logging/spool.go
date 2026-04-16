@@ -31,6 +31,7 @@ type SpoolFlushResult struct {
 }
 
 type spoolRecord struct {
+	BootID    string         `json:"boot_id,omitempty"`
 	LogID     string         `json:"log_id"`
 	Timestamp string         `json:"timestamp"`
 	Level     string         `json:"level"`
@@ -262,6 +263,7 @@ func (q *SpoolQueue) appendQuarantine(line []byte) error {
 func spoolRecordFromSummary(summary Summary) spoolRecord {
 	normalized := NormalizeSummary(summary)
 	return spoolRecord{
+		BootID:    normalized.BootID,
 		LogID:     normalized.LogID,
 		Timestamp: normalized.Timestamp,
 		Level:     normalized.Level,
@@ -280,6 +282,7 @@ func decodeSpoolRecord(line []byte) (Summary, error) {
 		return Summary{}, fmt.Errorf("decode spool record: %w", err)
 	}
 	return NormalizeSummary(Summary{
+		BootID:    record.BootID,
 		LogID:     record.LogID,
 		Timestamp: record.Timestamp,
 		Level:     record.Level,

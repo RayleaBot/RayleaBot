@@ -133,6 +133,29 @@ func TestStreamAppendsAfterSavingRepositoryDetail(t *testing.T) {
 	}
 }
 
+func TestStreamAppendInjectsCurrentBootID(t *testing.T) {
+	t.Parallel()
+
+	stream := NewStream(8)
+	stream.SetBootID("boot_current")
+
+	stream.Append(Summary{
+		LogID:     "log_boot_stream_0001",
+		Timestamp: "2026-04-09T20:42:01Z",
+		Level:     "info",
+		Source:    "runtime",
+		Message:   "boot-aware summary",
+	})
+
+	summaries := stream.Snapshot()
+	if len(summaries) != 1 {
+		t.Fatalf("unexpected summary count: got %d want 1", len(summaries))
+	}
+	if summaries[0].BootID != "boot_current" {
+		t.Fatalf("unexpected boot id: %#v", summaries[0])
+	}
+}
+
 type blockingRepository struct {
 	saveStarted chan struct{}
 	releaseSave chan struct{}

@@ -10,7 +10,7 @@ import (
 )
 
 const getLogSummary = `-- name: GetLogSummary :one
-SELECT log_id, ts, level, source, message, plugin_id, request_id, details_json
+SELECT log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json
 FROM management_logs
 WHERE log_id = ?
 LIMIT 1
@@ -18,6 +18,7 @@ LIMIT 1
 
 type GetLogSummaryRow struct {
 	LogID       string
+	BootID      string
 	Ts          string
 	Level       string
 	Source      string
@@ -32,6 +33,7 @@ func (q *Queries) GetLogSummary(ctx context.Context, logID string) (GetLogSummar
 	var i GetLogSummaryRow
 	err := row.Scan(
 		&i.LogID,
+		&i.BootID,
 		&i.Ts,
 		&i.Level,
 		&i.Source,
@@ -44,12 +46,13 @@ func (q *Queries) GetLogSummary(ctx context.Context, logID string) (GetLogSummar
 }
 
 const insertLogSummary = `-- name: InsertLogSummary :exec
-INSERT INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO management_logs (log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertLogSummaryParams struct {
 	LogID       string
+	BootID      string
 	Ts          string
 	Level       string
 	Source      string
@@ -62,6 +65,7 @@ type InsertLogSummaryParams struct {
 func (q *Queries) InsertLogSummary(ctx context.Context, arg InsertLogSummaryParams) error {
 	_, err := q.db.ExecContext(ctx, insertLogSummary,
 		arg.LogID,
+		arg.BootID,
 		arg.Ts,
 		arg.Level,
 		arg.Source,

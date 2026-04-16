@@ -339,6 +339,295 @@ func TestLogsListRejectsLimitAboveFormalMaximum(t *testing.T) {
 	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), fixture.Response.Body, "platform.invalid_request")
 }
 
+func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+
+	for _, summary := range []logging.Summary{
+		{
+			LogID:     "log_current_session_0001",
+			Timestamp: "2026-03-20T10:00:00Z",
+			Level:     "warn",
+			Source:    "adapter.onebot11",
+			Message:   "reverse websocket connection lost",
+			RequestID: "req_current_scope",
+		},
+		{
+			LogID:     "log_current_session_0002",
+			Timestamp: "2026-03-20T10:00:01Z",
+			Level:     "error",
+			Source:    "runtime",
+			Message:   "plugin runtime stderr truncated",
+			PluginID:  "weather",
+			RequestID: "req_current_scope",
+		},
+		{
+			LogID:     "log_current_session_0003",
+			Timestamp: "2026-03-20T10:00:02Z",
+			Level:     "info",
+			Source:    "bridge",
+			Message:   "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
+			RequestID: "req_current_scope",
+		},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?scope=current_session&request_id=req_current_scope&limit=3", nil)
+	if err != nil {
+		t.Fatalf("create current session logs request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform current session logs request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected current session logs status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	items := body["items"].([]any)
+	if len(items) != 3 {
+		t.Fatalf("unexpected current session logs count: %#v", items)
+	}
+	if items[0].(map[string]any)["message"] != "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge" {
+		t.Fatalf("unexpected first current session item: %#v", items[0])
+	}
+	if items[1].(map[string]any)["message"] != "plugin runtime stderr truncated" {
+		t.Fatalf("unexpected second current session item: %#v", items[1])
+	}
+	if items[2].(map[string]any)["message"] != "reverse websocket connection lost" {
+		t.Fatalf("unexpected third current session item: %#v", items[2])
+	}
+
+	page := body["page"].(map[string]any)
+	if page["has_older"] != false || page["has_newer"] != false {
+		t.Fatalf("unexpected current session page info: %#v", page)
+	}
+}
+
+func TestLogsListReturnsHistoryRange(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.history-range.yaml"))
+
+	for _, summary := range []logging.Summary{
+		{
+			LogID:     "log_history_range_ignored_0001",
+			Timestamp: "2026-03-19T23:59:59Z",
+			Level:     "info",
+			Source:    "runtime",
+			Message:   "too early",
+		},
+		{
+			LogID:     "log_history_range_0001",
+			Timestamp: "2026-03-20T00:05:00Z",
+			Level:     "warn",
+			Source:    "adapter.onebot11",
+			Message:   "reverse websocket authentication failed",
+			RequestID: "req_adapter_0002",
+		},
+		{
+			LogID:     "log_history_range_0002",
+			Timestamp: "2026-03-20T10:00:01Z",
+			Level:     "error",
+			Source:    "runtime",
+			Message:   "plugin runtime stderr truncated",
+			PluginID:  "weather",
+			RequestID: "req_plugin_0001",
+		},
+		{
+			LogID:     "log_history_range_0003",
+			Timestamp: "2026-03-20T20:12:00Z",
+			Level:     "info",
+			Source:    "runtime",
+			Message:   "recovery summary refreshed",
+		},
+		{
+			LogID:     "log_history_range_ignored_0002",
+			Timestamp: "2026-03-21T00:00:00Z",
+			Level:     "info",
+			Source:    "runtime",
+			Message:   "too late",
+		},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create history range request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform history range request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected history range status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
+		t.Fatalf("unexpected history range body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
+func TestLogsListReturnsHistoryRangeForOffsetTimestamps(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+
+	for _, summary := range []logging.Summary{
+		{
+			LogID:     "log_history_offset_0001",
+			Timestamp: "2026-04-17T02:02:41+08:00",
+			Level:     "info",
+			Source:    "runtime",
+			Message:   "offset row stays visible in history",
+		},
+		{
+			LogID:     "log_history_offset_0002",
+			Timestamp: "2026-04-17T02:05:01+08:00",
+			Level:     "info",
+			Source:    "runtime",
+			Message:   "outside offset range",
+		},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?scope=history&start_at=2026-04-16T18:00:00Z&end_at=2026-04-16T18:04:00Z&limit=10", nil)
+	if err != nil {
+		t.Fatalf("create offset history range request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform offset history range request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected offset history range status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	items := body["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("unexpected offset history item count: %#v", items)
+	}
+	if items[0].(map[string]any)["message"] != "offset row stays visible in history" {
+		t.Fatalf("unexpected offset history item: %#v", items[0])
+	}
+}
+
+func TestLogsListRejectsInvalidScope(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-invalid-scope.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create invalid scope request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform invalid scope request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected invalid scope status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), fixture.Response.Body, "platform.invalid_request")
+}
+
+func TestLogsListRejectsStartAfterEnd(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-start-after-end.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create start-after-end request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform start-after-end request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected start-after-end status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), fixture.Response.Body, "platform.invalid_request")
+}
+
+func TestLogsListRejectsCurrentSessionTimeRange(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-current-session-with-time-range.yaml"))
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create current-session-with-time-range request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform current-session-with-time-range request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected current-session-with-time-range status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), fixture.Response.Body, "platform.invalid_request")
+}
+
 func TestLogsListSupportsCursorPaging(t *testing.T) {
 	t.Parallel()
 
@@ -969,6 +1258,52 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	}
 	if item["plugin_id"] != "weather" || item["request_id"] != "req_persist_1" {
 		t.Fatalf("unexpected persisted log envelope: %#v", item)
+	}
+}
+
+func TestLogsListCurrentSessionDoesNotCrossRestartBoundary(t *testing.T) {
+	t.Parallel()
+
+	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
+	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-current-a")
+	_ = issueLoginToken(t, appA)
+	appA.Logger().Error(
+		"old boot log should stay out of current session",
+		"component", "runtime",
+		"request_id", "req_current_old",
+	)
+	closePersistentTestApp(t, appA)
+
+	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 5, 0, 0, time.UTC) }, "logs-current-b")
+	defer closePersistentTestApp(t, appB)
+	tokenB := issueExistingBootstrapLoginToken(t, appB)
+	appB.Logger().Error(
+		"current boot log is visible",
+		"component", "runtime",
+		"request_id", "req_current_new",
+	)
+
+	serverB := httptest.NewServer(appB.Handler())
+	defer serverB.Close()
+
+	body := doLogsListRequest(t, serverB.URL, tokenB, "/api/logs?scope=current_session&limit=20")
+	items := body["items"].([]any)
+	if len(items) == 0 {
+		t.Fatalf("expected current session logs, got none")
+	}
+
+	foundCurrent := false
+	for _, raw := range items {
+		item := raw.(map[string]any)
+		if item["request_id"] == "req_current_old" {
+			t.Fatalf("old boot log leaked into current session: %#v", item)
+		}
+		if item["request_id"] == "req_current_new" {
+			foundCurrent = true
+		}
+	}
+	if !foundCurrent {
+		t.Fatalf("expected current boot log in current session response, got %#v", items)
 	}
 }
 

@@ -12,14 +12,15 @@ import (
 )
 
 type Summary struct {
+	BootID    string         `json:"-"`
 	LogID     string         `json:"log_id"`
-	Timestamp string `json:"timestamp"`
-	Level     string `json:"level"`
-	Source    string `json:"source"`
-	Message   string `json:"message"`
-	Protocol  string `json:"protocol,omitempty"`
-	PluginID  string `json:"plugin_id,omitempty"`
-	RequestID string `json:"request_id,omitempty"`
+	Timestamp string         `json:"timestamp"`
+	Level     string         `json:"level"`
+	Source    string         `json:"source"`
+	Message   string         `json:"message"`
+	Protocol  string         `json:"protocol,omitempty"`
+	PluginID  string         `json:"plugin_id,omitempty"`
+	RequestID string         `json:"request_id,omitempty"`
 	Details   map[string]any `json:"-"`
 }
 
@@ -27,6 +28,7 @@ type Stream struct {
 	mu               sync.RWMutex
 	history          []Summary
 	limit            int
+	bootID           string
 	nextSubscriberID uint64
 	subscribers      map[uint64]chan Summary
 	repository       Repository
@@ -74,6 +76,22 @@ func (s *Stream) Limit() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.limit
+}
+
+func (s *Stream) BootID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.bootID
+}
+
+func (s *Stream) SetBootID(bootID string) {
+	if s == nil {
+		return
+	}
+
+	s.mu.Lock()
+	s.bootID = strings.TrimSpace(bootID)
+	s.mu.Unlock()
 }
 
 func (s *Stream) SetRepository(repository Repository, retentionDays int) {
@@ -135,10 +153,16 @@ func (s *Stream) Append(summary Summary) {
 	summary = NormalizeSummary(summary)
 
 	s.mu.RLock()
+	bootID := s.bootID
 	repository := s.repository
 	retentionDays := s.retentionDays
 	spool := s.spool
 	s.mu.RUnlock()
+
+	if summary.BootID == "" {
+		summary.BootID = bootID
+	}
+	summary = NormalizeSummary(summary)
 
 	if repository == nil {
 		s.appendInMemory(summary)

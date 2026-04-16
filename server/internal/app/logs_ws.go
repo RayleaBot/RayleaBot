@@ -79,7 +79,10 @@ func (s *logService) replayLogSummaries(ctx context.Context) []logging.Summary {
 	if s.stream != nil && s.stream.Limit() > 0 {
 		limit = s.stream.Limit()
 	}
-	items, err := s.listLogSummaries(ctx, logging.Query{Limit: limit})
+	items, err := s.listLogSummaries(ctx, logging.Query{
+		BootID: s.currentBootID(),
+		Limit:  limit,
+	})
 	if err != nil {
 		return nil
 	}

@@ -266,7 +266,7 @@ func TestLogsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	}
 }
 
-func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
+func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 	t.Parallel()
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
@@ -281,6 +281,11 @@ func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 10, 0, 0, time.UTC) }, "logs-ws-b")
 	defer closePersistentTestApp(t, appB)
+	appB.Logger().Warn(
+		"current boot websocket replay",
+		"component", "adapter.onebot11",
+		"request_id", "req_ws_current_1",
+	)
 	server := httptest.NewServer(appB.Handler())
 	defer server.Close()
 
@@ -290,10 +295,13 @@ func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
-		return ok && data["request_id"] == "req_ws_persist_1"
+		if ok && data["request_id"] == "req_ws_persist_1" {
+			t.Fatalf("old boot websocket replay leaked into current session: %#v", frame)
+		}
+		return ok && data["request_id"] == "req_ws_current_1"
 	})
 	data := frame["data"].(map[string]any)
-	if data["message"] != "persisted websocket replay" {
+	if data["message"] != "current boot websocket replay" {
 		t.Fatalf("unexpected websocket replay message: %#v", data["message"])
 	}
 	if data["log_id"] == "" {
@@ -305,6 +313,11 @@ func TestLogsWebSocketReplaysPersistedHistoryAcrossRestart(t *testing.T) {
 	if data["protocol"] != "onebot11" {
 		t.Fatalf("unexpected websocket replay protocol: %#v", data["protocol"])
 	}
+
+	assertNoWebSocketFrameWhere(t, conn, 200*time.Millisecond, func(frame map[string]any) bool {
+		data, ok := frame["data"].(map[string]any)
+		return ok && data["request_id"] == "req_ws_persist_1"
+	})
 }
 
 func waitForLogSubscriber(t *testing.T, stream *logging.Stream) {
@@ -384,4 +397,23 @@ func readWebSocketPayloadWhere(t *testing.T, conn *websocket.Conn, match func(ma
 
 	t.Fatal("timed out waiting for matching websocket frame")
 	return nil
+}
+
+func assertNoWebSocketFrameWhere(t *testing.T, conn *websocket.Conn, window time.Duration, match func(map[string]any) bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(window)
+	for time.Now().Before(deadline) {
+		readCtx, cancel := context.WithTimeout(context.Background(), time.Until(deadline))
+		_, payload, err := conn.Read(readCtx)
+		cancel()
+		if err != nil {
+			return
+		}
+
+		frame := decodeBody(t, payload)
+		if match(frame) {
+			t.Fatalf("unexpected websocket frame: %#v", frame)
+		}
+	}
 }

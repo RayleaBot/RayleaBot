@@ -120,6 +120,75 @@ func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositoryFiltersByBootIDAndTimeRange(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	for _, summary := range []Summary{
+		{LogID: "log_boot_0001", BootID: "boot_old", Timestamp: "2026-03-19T23:59:59Z", Level: "info", Source: "runtime", Message: "old boot"},
+		{LogID: "log_boot_0002", BootID: "boot_new", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "new boot first"},
+		{LogID: "log_boot_0003", BootID: "boot_new", Timestamp: "2026-03-20T10:30:00Z", Level: "warn", Source: "runtime", Message: "new boot second"},
+		{LogID: "log_boot_0004", BootID: "boot_new", Timestamp: "2026-03-21T00:00:00Z", Level: "error", Source: "runtime", Message: "out of range"},
+	} {
+		if err := repository.SaveSummary(ctx, summary); err != nil {
+			t.Fatalf("save summary: %v", err)
+		}
+	}
+
+	currentSessionItems, err := repository.ListSummaries(ctx, Query{
+		BootID: "boot_new",
+		Limit:  10,
+	})
+	if err != nil {
+		t.Fatalf("list summaries by boot id: %v", err)
+	}
+	if got := []string{currentSessionItems[0].Message, currentSessionItems[1].Message, currentSessionItems[2].Message}; !equalStrings(got, []string{"new boot first", "new boot second", "out of range"}) {
+		t.Fatalf("unexpected boot-filtered summaries: %#v", got)
+	}
+
+	historyItems, err := repository.ListSummaries(ctx, Query{
+		StartAt: "2026-03-20T00:00:00Z",
+		EndAt:   "2026-03-20T23:59:59Z",
+		Limit:   10,
+	})
+	if err != nil {
+		t.Fatalf("list summaries by time range: %v", err)
+	}
+	if got := []string{historyItems[0].Message, historyItems[1].Message}; !equalStrings(got, []string{"new boot first", "new boot second"}) {
+		t.Fatalf("unexpected range-filtered summaries: %#v", got)
+	}
+}
+
+func TestSQLiteRepositoryFiltersTimeRangeAcrossTimezoneOffsets(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	for _, summary := range []Summary{
+		{LogID: "log_offset_0001", Timestamp: "2026-04-17T02:02:41+08:00", Level: "info", Source: "runtime", Message: "local offset row"},
+		{LogID: "log_offset_0002", Timestamp: "2026-04-17T02:05:01+08:00", Level: "info", Source: "runtime", Message: "outside range"},
+	} {
+		if err := repository.SaveSummary(ctx, summary); err != nil {
+			t.Fatalf("save summary: %v", err)
+		}
+	}
+
+	items, err := repository.ListSummaries(ctx, Query{
+		StartAt: "2026-04-16T18:00:00Z",
+		EndAt:   "2026-04-16T18:04:00Z",
+		Limit:   10,
+	})
+	if err != nil {
+		t.Fatalf("list summaries by UTC range: %v", err)
+	}
+	if got := []string{items[0].Message}; !equalStrings(got, []string{"local offset row"}) {
+		t.Fatalf("unexpected offset-filtered summaries: %#v", got)
+	}
+}
+
 func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
 	t.Parallel()
 
@@ -188,6 +257,54 @@ func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
 	}
 	if !newerPage.Page.HasOlder || newerPage.Page.HasNewer {
 		t.Fatalf("unexpected newer page metadata: %#v", newerPage.Page)
+	}
+}
+
+func TestSQLiteRepositoryPagesWithinBootIDScope(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	for _, summary := range []Summary{
+		{LogID: "log_boot_page_0001", BootID: "boot_old", Timestamp: "2026-03-20T09:59:59Z", Level: "info", Source: "runtime", Message: "old boot"},
+		{LogID: "log_boot_page_0002", BootID: "boot_new", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "1"},
+		{LogID: "log_boot_page_0003", BootID: "boot_new", Timestamp: "2026-03-20T10:00:01Z", Level: "info", Source: "runtime", Message: "2"},
+		{LogID: "log_boot_page_0004", BootID: "boot_new", Timestamp: "2026-03-20T10:00:02Z", Level: "info", Source: "runtime", Message: "3"},
+	} {
+		if err := repository.SaveSummary(ctx, summary); err != nil {
+			t.Fatalf("save summary: %v", err)
+		}
+	}
+
+	firstPage, err := repository.ListPage(ctx, PageQuery{
+		BootID: "boot_new",
+		Limit:  2,
+	})
+	if err != nil {
+		t.Fatalf("list first boot-scoped page: %v", err)
+	}
+	if got := []string{firstPage.Items[0].Message, firstPage.Items[1].Message}; !equalStrings(got, []string{"3", "2"}) {
+		t.Fatalf("unexpected first boot-scoped page: %#v", got)
+	}
+	if !firstPage.Page.HasOlder || firstPage.Page.HasNewer {
+		t.Fatalf("unexpected first boot-scoped page info: %#v", firstPage.Page)
+	}
+
+	secondPage, err := repository.ListPage(ctx, PageQuery{
+		BootID:    "boot_new",
+		Limit:     2,
+		Cursor:    *firstPage.Page.OlderCursor,
+		Direction: PageDirectionOlder,
+	})
+	if err != nil {
+		t.Fatalf("list second boot-scoped page: %v", err)
+	}
+	if got := []string{secondPage.Items[0].Message}; !equalStrings(got, []string{"1"}) {
+		t.Fatalf("unexpected second boot-scoped page: %#v", got)
+	}
+	if secondPage.Page.HasOlder || !secondPage.Page.HasNewer {
+		t.Fatalf("unexpected second boot-scoped page info: %#v", secondPage.Page)
 	}
 }
 
@@ -395,6 +512,50 @@ func TestSQLiteRepositoryReturnsNotFoundForMissingLogID(t *testing.T) {
 	_, err := repository.GetSummary(context.Background(), "log_missing_0001")
 	if !errors.Is(err, ErrLogNotFound) {
 		t.Fatalf("expected ErrLogNotFound, got %v", err)
+	}
+}
+
+func TestSQLiteRepositoryHistoryIncludesLegacyRowsWithoutBootID(t *testing.T) {
+	t.Parallel()
+
+	repository := openLoggingRepository(t)
+	ctx := context.Background()
+
+	if err := repository.SaveSummary(ctx, Summary{
+		LogID:     "log_legacy_boot_0002",
+		BootID:    "boot_new",
+		Timestamp: "2026-03-20T10:00:01Z",
+		Level:     "info",
+		Source:    "runtime",
+		Message:   "current boot",
+	}); err != nil {
+		t.Fatalf("save current boot summary: %v", err)
+	}
+
+	if _, err := repository.write.ExecContext(ctx, `INSERT INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"log_legacy_boot_0001",
+		"2026-03-20T10:00:00Z",
+		"warn",
+		"runtime",
+		"legacy bootless",
+		"",
+		"",
+		"{}",
+	); err != nil {
+		t.Fatalf("insert legacy summary without boot id: %v", err)
+	}
+
+	items, err := repository.ListSummaries(ctx, Query{
+		StartAt: "2026-03-20T00:00:00Z",
+		EndAt:   "2026-03-20T23:59:59Z",
+		Limit:   10,
+	})
+	if err != nil {
+		t.Fatalf("list historical summaries: %v", err)
+	}
+	if got := []string{items[0].Message, items[1].Message}; !equalStrings(got, []string{"legacy bootless", "current boot"}) {
+		t.Fatalf("unexpected historical summaries: %#v", got)
 	}
 }
 

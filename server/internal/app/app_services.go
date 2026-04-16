@@ -370,6 +370,13 @@ func newLogService(stream *logging.Stream, repository logging.Repository) *logSe
 	return &logService{stream: stream, repository: repository}
 }
 
+func (s *logService) currentBootID() string {
+	if s == nil || s.stream == nil {
+		return ""
+	}
+	return s.stream.BootID()
+}
+
 type logHTTPHandlers struct {
 	logs *logService
 }

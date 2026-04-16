@@ -2,6 +2,7 @@ package logging
 
 import (
 	"strings"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/textsafe"
 )
@@ -9,7 +10,9 @@ import (
 const ProtocolOneBot11 = "onebot11"
 
 func NormalizeSummary(summary Summary) Summary {
+	summary.BootID = strings.TrimSpace(summary.BootID)
 	summary.LogID = strings.TrimSpace(summary.LogID)
+	summary.Timestamp = normalizeSummaryTimestamp(summary.Timestamp)
 	summary.Level = strings.ToLower(strings.TrimSpace(summary.Level))
 	summary.Source = strings.TrimSpace(summary.Source)
 	summary.Message = strings.TrimSpace(summary.Message)
@@ -33,6 +36,20 @@ func NormalizeSummary(summary Summary) Summary {
 	summary.Details = normalizeProtocolDetails(summary.Protocol, summary.Details)
 
 	return summary
+}
+
+func normalizeSummaryTimestamp(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+
+	parsed, err := time.Parse(time.RFC3339Nano, trimmed)
+	if err != nil {
+		return trimmed
+	}
+
+	return parsed.UTC().Format(time.RFC3339Nano)
 }
 
 func IsSupportedProtocol(protocol string) bool {

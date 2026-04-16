@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -23,6 +24,13 @@ type logDetailResponse struct {
 }
 
 const maxLogPageLimit = 200
+
+type logScope string
+
+const (
+	logScopeHistory        logScope = "history"
+	logScopeCurrentSession logScope = "current_session"
+)
 
 func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -57,16 +65,34 @@ func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 			limit = parsed
 		}
 
-		result, err := h.logs.listLogPage(r.Context(), logging.PageQuery{
+		scope, err := parseLogScope(r.URL.Query().Get("scope"))
+		if err != nil {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+		startAt, endAt, err := parseLogTimeRange(scope, r.URL.Query().Get("start_at"), r.URL.Query().Get("end_at"))
+		if err != nil {
+			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			return
+		}
+
+		pageQuery := logging.PageQuery{
 			Level:     levelFilter,
 			Source:    sourceFilter,
 			Protocol:  protocolFilter,
 			PluginID:  pluginIDFilter,
 			RequestID: requestIDFilter,
+			StartAt:   startAt,
+			EndAt:     endAt,
 			Limit:     limit,
 			Cursor:    cursor,
 			Direction: direction,
-		})
+		}
+		if scope == logScopeCurrentSession {
+			pageQuery.BootID = h.logs.currentBootID()
+		}
+
+		result, err := h.logs.listLogPage(r.Context(), pageQuery)
 		if err != nil {
 			if errors.Is(err, logging.ErrInvalidCursor) {
 				writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
@@ -120,6 +146,9 @@ func (s *logService) listLogSummaries(ctx context.Context, query logging.Query) 
 		return items, nil
 	}
 	for _, summary := range s.stream.Snapshot() {
+		if query.BootID != "" && summary.BootID != query.BootID {
+			continue
+		}
 		if query.Level != "" && summary.Level != query.Level {
 			continue
 		}
@@ -135,12 +164,88 @@ func (s *logService) listLogSummaries(ctx context.Context, query logging.Query) 
 		if query.RequestID != "" && summary.RequestID != query.RequestID {
 			continue
 		}
+		if !logSummaryMatchesTimeRange(summary, query.StartAt, query.EndAt) {
+			continue
+		}
 		items = append(items, summary)
 	}
 	if query.Limit > 0 && len(items) > query.Limit {
 		items = items[len(items)-query.Limit:]
 	}
 	return items, nil
+}
+
+func parseLogScope(raw string) (logScope, error) {
+	switch strings.TrimSpace(raw) {
+	case "", string(logScopeHistory):
+		return logScopeHistory, nil
+	case string(logScopeCurrentSession):
+		return logScopeCurrentSession, nil
+	default:
+		return "", errors.New("unsupported log scope")
+	}
+}
+
+func parseLogTimeRange(scope logScope, rawStartAt, rawEndAt string) (string, string, error) {
+	startAt := strings.TrimSpace(rawStartAt)
+	endAt := strings.TrimSpace(rawEndAt)
+	if scope == logScopeCurrentSession {
+		if startAt != "" || endAt != "" {
+			return "", "", errors.New("current session scope does not support time range")
+		}
+		return "", "", nil
+	}
+
+	startUTC, err := normalizeLogQueryTime(startAt)
+	if err != nil {
+		return "", "", err
+	}
+	endUTC, err := normalizeLogQueryTime(endAt)
+	if err != nil {
+		return "", "", err
+	}
+	if startUTC != "" && endUTC != "" && startUTC > endUTC {
+		return "", "", errors.New("start_at is later than end_at")
+	}
+	return startUTC, endUTC, nil
+}
+
+func normalizeLogQueryTime(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	parsed, err := time.Parse(time.RFC3339, trimmed)
+	if err != nil {
+		return "", err
+	}
+	return parsed.UTC().Format(time.RFC3339), nil
+}
+
+func logSummaryMatchesTimeRange(summary logging.Summary, startAt, endAt string) bool {
+	if startAt == "" && endAt == "" {
+		return true
+	}
+
+	timestamp, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(summary.Timestamp))
+	if err != nil {
+		return false
+	}
+	normalized := timestamp.UTC()
+	if startAt != "" {
+		start, err := time.Parse(time.RFC3339, startAt)
+		if err != nil || normalized.Before(start.UTC()) {
+			return false
+		}
+	}
+	if endAt != "" {
+		end, err := time.Parse(time.RFC3339, endAt)
+		if err != nil || normalized.After(end.UTC()) {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *logService) listLogPage(ctx context.Context, query logging.PageQuery) (logging.PageResult, error) {

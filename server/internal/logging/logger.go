@@ -66,6 +66,7 @@ func NewWithStreamAndController(levelName string, redactText func(string) string
 	lc.levelVar.Set(level)
 
 	stream := NewStream(32)
+	stream.SetBootID(generateBootID())
 	writer := NewSummaryWriter(os.Stdout, stream, redactText)
 	logger := newLoggerWithLevelVar(writer, &lc.levelVar)
 	return logger, stream, lc, nil
@@ -95,7 +96,7 @@ func newLoggerWithWriter(level slog.Level, writer io.Writer) *slog.Logger {
 		slog.NewJSONHandler(
 			writer,
 			&slog.HandlerOptions{
-				Level: level,
+				Level:       level,
 				ReplaceAttr: replaceAttr,
 			},
 		),
@@ -107,7 +108,7 @@ func newLoggerWithLevelVar(writer io.Writer, levelVar *slog.LevelVar) *slog.Logg
 		slog.NewJSONHandler(
 			writer,
 			&slog.HandlerOptions{
-				Level: levelVar,
+				Level:       levelVar,
 				ReplaceAttr: replaceAttr,
 			},
 		),
