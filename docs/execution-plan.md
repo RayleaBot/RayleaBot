@@ -201,7 +201,7 @@
 | System management | ✅ | `GET /api/system/status`、`POST /api/system/shutdown` |
 | Recovery / runtime task surface | ✅ | `POST /api/system/recovery/recheck`、`POST /api/system/recovery/confirm` 与 `POST /api/system/runtime/bootstrap` 已进入 formal API、任务流、fixtures、examples 与 tests |
 | Config management | ✅ | `GET /api/config`、`PUT /api/config` 已包含 `command` / `cooldown` / `storage` / `http`，并支持对应热更新 |
-| Logs query | ✅ | `GET /api/logs` 与 `/ws/logs` 已提供跨重启的持久化 summary 查询与历史回放 |
+| Logs query | ✅ | `GET /api/logs` 已提供 `current_session` 与 `history` 查询、历史时间范围过滤；`/ws/logs` 只回放并追加本次启动窗口内的日志 |
 | Tasks management | ✅ | `GET /api/tasks`、`GET /api/tasks/{task_id}`、`POST /api/tasks/{task_id}/cancel` |
 | Plugin install | ✅ | `local_directory`、`local_zip`、`remote_url` 安装路径已进入真实路由 |
 | Plugin lifecycle | ✅ | `enable` / `disable` / `reload` / `DELETE` 已接入真实路由 |
@@ -224,7 +224,7 @@
 |--------|------|------|
 | `web/package.json` 与 baseline | ✅ | Vite 8 + Vue 3 + Ant Design Vue 4.2.6 + Vue Router + Pinia + TypeScript 工程已落地；Dashboard、Plugins、Config 等核心页面已完成 Vben 设计对齐与通用组件提取 |
 | auth/session shell | ✅ | `setup/login/session`、路由守卫、`sessionStorage` token 与未授权回退已落地 |
-| 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志页、配置页，以及固定侧栏、内容区内部滚动摘要视图与响应式布局已落地 |
+| 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志中心、协议中心、配置页，以及固定侧栏、内容区内部滚动摘要视图与响应式布局已落地 |
 | HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |
 | 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、恢复摘要操作入口、恢复批量确认、全部 / 待确认 / 已确认筛选、现有 50 条确认历史展示、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
 | 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、Launcher 自动登录失败短提示已接入 |

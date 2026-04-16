@@ -51,7 +51,7 @@
 
 当前基础：
 
-- OneBot11 adapter 已接入 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四条正式 transport，具备协议快照、回连入口、webhook 入口、ready / degraded 语义、重连 backoff、心跳超时、`message` / `message_sent` / 常用 `notice` / `request` 归一化，以及协议日志详情主链。
+- OneBot11 adapter 已接入 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四条正式 transport，具备协议快照、回连入口、webhook 入口、ready / degraded 语义、重连 backoff、心跳超时、`message` / `message_sent` / 常用 `notice` / `request` 归一化，以及管理日志详情主链。
 
 进入本阶段时应继续遵守：
 
@@ -114,7 +114,7 @@
 
 产出物：
 
-- Web UI 当前覆盖登录、系统状态、插件、指令中心、任务、日志、协议中心、协议日志和配置等正式页面。
+- Web UI 当前覆盖登录、系统状态、插件、指令中心、任务、日志中心、协议中心和配置等正式页面。
 
 暂不做什么：
 

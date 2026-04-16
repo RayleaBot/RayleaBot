@@ -10,7 +10,7 @@
 | `/readyz` | 本地控制面与关键资源就绪检查 |
 | `GET /api/system/diagnostics/export` | 导出诊断包 |
 | `raylea doctor` | 执行本地环境与资源检查 |
-| `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看管理日志摘要、单条日志详情与增量日志 |
+| `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看本次服务端启动日志、历史日志、单条日志详情与当前启动窗口内的增量日志 |
 | `/ws/plugins/{id}/console` | 查看插件 stderr |
 | `logs/launcher.log` | 查看 Launcher 自身诊断和进程编排错误 |
 | `logs/server.log` | 查看 `raylea-server` 的文本输出镜像 |
@@ -26,6 +26,7 @@
 - 最近 24 小时的未支持事件类型与未知消息段计数
 - 后台任务结果和错误摘要
 - 恢复摘要、人工处理建议和最近确认记录
+- 本次服务端启动日志与按时间范围筛选的历史日志
 - 脱敏后的协议消息详情、消息段、异常原因、payload preview 和 echo 类型
 
 ## 健康接口语义

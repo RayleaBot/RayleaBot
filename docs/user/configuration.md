@@ -55,7 +55,7 @@
 - 正式配置读写入口是 Web 管理面和受控后端逻辑。
 - 通用配置页承接协议连接设置之外的正式配置项。
 - 协议中心承接 OneBot11 provider、reverse WebSocket 回连地址、forward WebSocket 主动连接地址、HTTP API 地址、webhook 回调地址、访问令牌和 adapter 重连参数，保存继续使用统一配置入口。
-- 协议日志位于协议中心下的独立页面 `/protocols/logs`。
+- 日志中心位于一级菜单下，提供 `/logs` 与 `/logs/history` 两个正式日志页面。
 - 字段级热更新与 `restart_required` 由服务端统一判断。
 - 插件配置读写必须通过正式插件能力，不直接改写平台用户配置文件。
 

@@ -21,9 +21,9 @@
 - OneBot11 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 都能建立受控链路。
 - 鉴权失败进入明确失败状态，而不是静默重试。
 - 群聊或私聊消息能够进入插件处理并返回回复。
-- `message_sent.private` 与 `message_sent.group` 能进入协议日志、桥接链路和插件协议。
+- `message_sent.private` 与 `message_sent.group` 能进入日志中心、桥接链路和插件协议。
 - 协议中心能够显示当前 transport 状态、摘要和最近传输问题。
-- 协议日志能够以终端流方式持续追加，并可查看单条日志详情中的消息文本、消息段、消息 ID、群号、发送者昵称和异常原因。
+- 日志中心能够区分本次服务端启动日志与历史日志，并可查看单条日志详情中的摘要字段与脱敏后的 `details` JSON。
 - 插件列表和指令中心能够直接显示已声明命令，并按插件筛选查看。
 - 插件完成 `init -> init_ack` 握手。
 - 插件崩溃后进入 backoff；超过阈值后进入 `dead_letter`。
