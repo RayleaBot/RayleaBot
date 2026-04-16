@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Current-session log query is rejected when a historical time range is also provided.
+request:
+  method: GET
+  path: /api/logs?scope=current_session&start_at=2026-03-20T00:00:00Z
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数不合法
+      message_key: errors.platform.invalid_request
+      request_id: req_001
+expect:
+  valid: true

@@ -1,0 +1,4 @@
+{
+  "method": "GET",
+  "path": "/api/logs?scope=history&start_at=2026-03-20T00:00:00Z&end_at=2026-03-20T23:59:59Z&limit=100"
+}

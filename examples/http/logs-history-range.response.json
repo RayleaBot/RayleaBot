@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "log_id": "log_history_range_0003",
+      "timestamp": "2026-03-20T20:12:00Z",
+      "level": "info",
+      "source": "runtime",
+      "message": "recovery summary refreshed"
+    },
+    {
+      "log_id": "log_history_range_0002",
+      "timestamp": "2026-03-20T10:00:01Z",
+      "level": "error",
+      "source": "runtime",
+      "message": "plugin runtime stderr truncated",
+      "plugin_id": "weather",
+      "request_id": "req_plugin_0001"
+    }
+  ],
+  "page": {
+    "limit": 100,
+    "has_older": true,
+    "has_newer": false,
+    "older_cursor": "opaque-cursor-for-older-history-items",
+    "newer_cursor": null
+  }
+}

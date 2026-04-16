@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "log_id": "log_current_session_0003",
+      "timestamp": "2026-03-20T10:00:02Z",
+      "level": "info",
+      "source": "bridge",
+      "protocol": "onebot11",
+      "message": "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
+      "request_id": "req_bridge_0001"
+    },
+    {
+      "log_id": "log_current_session_0002",
+      "timestamp": "2026-03-20T10:00:01Z",
+      "level": "error",
+      "source": "runtime",
+      "message": "plugin runtime stderr truncated",
+      "plugin_id": "weather",
+      "request_id": "req_plugin_0001"
+    }
+  ],
+  "page": {
+    "limit": 100,
+    "has_older": true,
+    "has_newer": false,
+    "older_cursor": "opaque-cursor-for-older-current-session-items",
+    "newer_cursor": null
+  }
+}

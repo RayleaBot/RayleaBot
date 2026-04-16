@@ -126,7 +126,7 @@ channels:
     events:
       - event: logs.appended
         channel: logs
-        description: Push a structured log line summary to the management surface. Deep history browsing stays on /api/logs cursor pagination; this channel only replays the recent window and real-time appends.
+        description: Push a structured log line summary to the management surface. Deep history browsing stays on /api/logs cursor loading; this channel only replays the recent window for the current server boot session and real-time appends.
         payload_schema:
           type: object
           additionalProperties: false

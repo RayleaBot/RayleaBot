@@ -1,0 +1,4 @@
+{
+  "method": "GET",
+  "path": "/api/logs?scope=current_session&limit=100"
+}

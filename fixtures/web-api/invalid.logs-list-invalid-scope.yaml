@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Log query is rejected when the requested scope is not formally supported.
+request:
+  method: GET
+  path: /api/logs?scope=live
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数不合法
+      message_key: errors.platform.invalid_request
+      request_id: req_001
+expect:
+  valid: true

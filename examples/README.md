@@ -11,6 +11,10 @@
 - `examples/http/recovery-confirm.request.json`
 - `examples/http/recovery-confirm.accepted.json`
 - `examples/http/recovery-confirm.task-detail.json`
+- `examples/http/logs-current-session.request.json`
+- `examples/http/logs-current-session.response.json`
+- `examples/http/logs-history-range.request.json`
+- `examples/http/logs-history-range.response.json`
 - `examples/http/recovery-recheck.accepted.json`
 - `examples/http/render-preview.request.json`
 - `examples/http/render-preview.accepted.json`

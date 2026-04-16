@@ -29,6 +29,8 @@ x-fixtures:
   - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.logs-list-response.yaml
+  - fixtures/web-api/ok.logs-list-response.current-session.yaml
+  - fixtures/web-api/ok.logs-list-response.history-range.yaml
   - fixtures/web-api/ok.logs-list-response.protocol-onebot11.yaml
   - fixtures/web-api/ok.log-detail-response.yaml
   - fixtures/web-api/ok.tasks-list-response.yaml
@@ -75,6 +77,9 @@ x-fixtures:
   - fixtures/web-api/invalid.config-update-invalid.yaml
   - fixtures/web-api/invalid.system-render-preview-invalid.yaml
   - fixtures/web-api/invalid.logs-list-limit-too-large.yaml
+  - fixtures/web-api/invalid.logs-list-invalid-scope.yaml
+  - fixtures/web-api/invalid.logs-list-start-after-end.yaml
+  - fixtures/web-api/invalid.logs-list-current-session-with-time-range.yaml
   - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
@@ -636,11 +641,20 @@ paths:
 
   /api/logs:
     get:
-      summary: List redacted management log summaries with cursor pagination.
+      summary: List redacted management log summaries for current-session or historical browsing.
       operationId: listLogs
       security:
         - BearerAuth: []
       parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LogScope'
+          description: >
+            Select whether to browse persisted history or only the current
+            server boot session. start_at and end_at are only valid when
+            scope=history.
         - name: level
           in: query
           required: false
@@ -689,10 +703,24 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/LogPageDirection'
-          description: Pagination direction for a server-issued cursor. When cursor is omitted, the server returns the latest page.
+          description: Cursor direction for incremental log loading. When cursor is omitted, the server returns the latest window.
+        - name: start_at
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Inclusive UTC RFC3339 lower time bound. Only valid when scope=history.
+        - name: end_at
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Inclusive UTC RFC3339 upper time bound. Only valid when scope=history.
       responses:
         '200':
-          description: Bounded log summaries using the same whitelist fields as /ws/logs plus cursor page metadata.
+          description: Bounded log summaries using the same whitelist fields as /ws/logs plus cursor window metadata.
           content:
             application/json:
               schema:
@@ -1257,6 +1285,11 @@ components:
     LogProtocol:
       type: string
       enum: [onebot11]
+
+    LogScope:
+      type: string
+      enum: [history, current_session]
+      default: history
 
     LogSummary:
       type: object
