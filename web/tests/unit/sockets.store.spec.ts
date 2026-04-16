@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
-import { useProtocolLogsStore } from '@/stores/protocol-logs'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore } from '@/stores/system'
@@ -47,18 +46,6 @@ describe('socket store', () => {
   beforeEach(() => {
     MockManagedSocket.instances = []
     setActivePinia(createPinia())
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      log_id: 'log_protocol_live_0001',
-      timestamp: '2026-04-05T08:00:01Z',
-      level: 'warn',
-      protocol: 'onebot11',
-      source: 'adapter',
-      message: 'log line',
-      details: {},
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })))
   })
 
   it('starts management sockets, projects statuses, and routes frames to stores', () => {
@@ -67,7 +54,6 @@ describe('socket store', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
     const logsStore = useLogsStore()
-    const protocolLogsStore = useProtocolLogsStore()
     const pluginsStore = usePluginsStore()
     const store = useSocketStore()
 
@@ -165,16 +151,12 @@ describe('socket store', () => {
     expect(pluginsStore.items[0].display_state).toBe('disabled')
     expect(tasksStore.items[0].task_id).toBe('task_1')
     expect(logsStore.items.map((item) => item.message)).toEqual([
+      'plugin weather command echo delivered group message: hello',
+      'log line',
       'runtime line',
-      'plugin weather command echo delivered group message: hello',
-      'log line',
-    ])
-    expect(protocolLogsStore.items.map((item) => item.message)).toEqual([
-      'plugin weather command echo delivered group message: hello',
-      'log line',
     ])
     expect(pluginsStore.getConsole('weather').filter((item) => item.stream === 'outbound')).toHaveLength(1)
-    expect(protocolLogsStore.active).toBe(false)
+    expect(logsStore.pendingNewCount).toBe(3)
   })
 
   it('manages the console socket separately and disconnects all sockets', () => {

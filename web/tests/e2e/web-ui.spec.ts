@@ -48,7 +48,7 @@ function taskRows(page: import('@playwright/test').Page) {
 }
 
 function logRows(page: import('@playwright/test').Page) {
-  return page.locator('.logs-data-table .logs-table-row')
+  return page.locator('.logs-row')
 }
 
 function pluginScroller(page: import('@playwright/test').Page) {
@@ -60,7 +60,7 @@ function taskScroller(page: import('@playwright/test').Page) {
 }
 
 function logScroller(page: import('@playwright/test').Page) {
-  return page.locator('.logs-data-table .data-viewport__scroller')
+  return page.locator('.logs-feed-card .data-viewport__scroller')
 }
 
 function appHeader(page: import('@playwright/test').Page) {
@@ -98,13 +98,21 @@ async function navigateThroughMenu(
   item: string,
   group?: string,
 ) {
-  const targetItem = page.getByRole('menuitem', { name: item })
+  const sider = page.locator('.admin-layout__sider')
 
-  if (group && !await targetItem.isVisible().catch(() => false)) {
-    await page.locator('.ant-menu-submenu-title', { hasText: group }).click()
-    await expect(targetItem).toBeVisible()
+  if (group) {
+    const groupMenu = sider.locator('.ant-menu-submenu').filter({ hasText: group }).first()
+    const targetItem = groupMenu.locator('.ant-menu-item').filter({ hasText: item }).first()
+    if (!await targetItem.isVisible().catch(() => false)) {
+      await groupMenu.locator('.ant-menu-submenu-title').click()
+      await expect(targetItem).toBeVisible()
+    }
+
+    await targetItem.click()
+    return
   }
 
+  const targetItem = sider.locator('.ant-menu-item').filter({ hasText: item }).first()
   await targetItem.click()
 }
 
@@ -373,73 +381,75 @@ test('dashboard avoids global page overflow when the content fits', async ({ pag
   expect(metrics.tabLabels).toContain('就绪检查')
 })
 
-test('protocol logs keeps terminal and detail panes inside the viewport', async ({ page, request }) => {
+test('logs page keeps the feed and detail drawer inside the viewport', async ({ page, request }) => {
   await resetBackend(request, true)
   await page.setViewportSize({ width: 1600, height: 1200 })
   await login(page)
 
-  await page.goto('/protocols/logs')
-  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
 
-  const lastLine = page.locator('.terminal-line').last()
-  await expect(lastLine).toBeVisible()
-  await lastLine.click({ force: true })
+  const lastRow = logRows(page).last()
+  await expect(lastRow).toBeVisible()
+  await lastRow.click({ force: true })
 
   const metrics = await page.evaluate(() => {
     const main = document.querySelector<HTMLElement>('#app-main')
-    const terminalCard = document.querySelector<HTMLElement>('.terminal-card')
-    const terminalBody = document.querySelector<HTMLElement>('.terminal-card .ant-card-body')
-    const detailCard = document.querySelector<HTMLElement>('.detail-card')
-    const detailBody = document.querySelector<HTMLElement>('.detail-card .ant-card-body')
-    const terminalScroller = document.querySelector<HTMLElement>('.terminal-view-scroller .data-viewport__scroller')
-    const detailScroller = document.querySelector<HTMLElement>('.detail-view-content')
-    const lastLine = document.querySelector<HTMLElement>('.terminal-line:last-child')
-    const terminalRect = terminalCard?.getBoundingClientRect()
-    const terminalBodyRect = terminalBody?.getBoundingClientRect()
-    const detailRect = detailCard?.getBoundingClientRect()
-    const detailBodyRect = detailBody?.getBoundingClientRect()
-    const scrollerRect = terminalScroller?.getBoundingClientRect()
-    const lastLineRect = lastLine?.getBoundingClientRect()
+    const feedCard = document.querySelector<HTMLElement>('.logs-feed-card')
+    const feedBody = document.querySelector<HTMLElement>('.logs-feed-card .ant-card-body')
+    const drawer = document.querySelector<HTMLElement>('.ant-drawer')
+    const drawerBody = document.querySelector<HTMLElement>('.ant-drawer-body')
+    const feedScroller = document.querySelector<HTMLElement>('.logs-feed-card .data-viewport__scroller')
+    const detailScroller = document.querySelector<HTMLElement>('.log-detail-json__content')
+    const lastRow = document.querySelector<HTMLElement>('.logs-row:last-child')
+    const feedRect = feedCard?.getBoundingClientRect()
+    const feedBodyRect = feedBody?.getBoundingClientRect()
+    const drawerRect = drawer?.getBoundingClientRect()
+    const drawerBodyRect = drawerBody?.getBoundingClientRect()
+    const scrollerRect = feedScroller?.getBoundingClientRect()
+    const lastRowRect = lastRow?.getBoundingClientRect()
 
     return {
       viewportHeight: window.innerHeight,
       mainClientHeight: main?.clientHeight ?? 0,
       mainScrollHeight: main?.scrollHeight ?? 0,
-      terminalBottom: terminalRect?.bottom ?? 0,
-      terminalBodyBottom: terminalBodyRect?.bottom ?? 0,
-      detailBottom: detailRect?.bottom ?? 0,
-      detailBodyBottom: detailBodyRect?.bottom ?? 0,
-      terminalClientHeight: terminalScroller?.clientHeight ?? 0,
-      terminalScrollHeight: terminalScroller?.scrollHeight ?? 0,
+      feedBottom: feedRect?.bottom ?? 0,
+      feedBodyBottom: feedBodyRect?.bottom ?? 0,
+      drawerBottom: drawerRect?.bottom ?? 0,
+      drawerBodyBottom: drawerBodyRect?.bottom ?? 0,
+      feedClientHeight: feedScroller?.clientHeight ?? 0,
+      feedScrollHeight: feedScroller?.scrollHeight ?? 0,
       detailClientHeight: detailScroller?.clientHeight ?? 0,
       detailScrollHeight: detailScroller?.scrollHeight ?? 0,
-      lastLineBottom: lastLineRect?.bottom ?? 0,
-      terminalLastLineGap: scrollerRect && lastLineRect ? scrollerRect.bottom - lastLineRect.bottom : 0,
+      lastRowBottom: lastRowRect?.bottom ?? 0,
+      feedLastRowGap: scrollerRect && lastRowRect ? scrollerRect.bottom - lastRowRect.bottom : 0,
     }
   })
 
   expect(metrics.mainScrollHeight).toBeLessThanOrEqual(metrics.mainClientHeight + 1)
-  expect(metrics.terminalBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
-  expect(metrics.terminalBodyBottom).toBeLessThanOrEqual(metrics.terminalBottom + 1)
-  expect(metrics.detailBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
-  expect(metrics.detailBodyBottom).toBeLessThanOrEqual(metrics.detailBottom + 1)
-  expect(metrics.terminalScrollHeight).toBeGreaterThanOrEqual(metrics.terminalClientHeight)
-  expect(metrics.terminalClientHeight).toBeGreaterThan(0)
+  expect(metrics.feedBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
+  expect(metrics.feedBodyBottom).toBeLessThanOrEqual(metrics.feedBottom + 1)
+  expect(metrics.drawerBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
+  expect(metrics.drawerBodyBottom).toBeLessThanOrEqual(metrics.drawerBottom + 1)
+  expect(metrics.feedScrollHeight).toBeGreaterThanOrEqual(metrics.feedClientHeight)
+  expect(metrics.feedClientHeight).toBeGreaterThan(0)
   expect(metrics.detailClientHeight).toBeGreaterThan(0)
-  expect(metrics.lastLineBottom).toBeGreaterThan(0)
-  expect(metrics.terminalLastLineGap).toBeGreaterThanOrEqual(8)
+  expect(metrics.lastRowBottom).toBeGreaterThan(0)
+  expect(metrics.feedLastRowGap).toBeGreaterThanOrEqual(8)
 })
 
-test('logs history paging stays stable until returning to latest', async ({ page, request }) => {
+test('history logs stay frozen until the user refreshes the anchor', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
+
+  const baseTimestamp = Date.now() - 60 * 60 * 1000
 
   await Promise.all(Array.from({ length: 51 }, (_, index) => (
     request.post(`${backendUrl}/__test/push-log`, {
       data: {
         summary: {
           log_id: `log_history_e2e_${index}`,
-          timestamp: `2026-04-15T12:00:${String(index).padStart(2, '0')}Z`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
           level: 'info',
           source: 'runtime',
           request_id: 'req_logs_history_e2e',
@@ -449,25 +459,26 @@ test('logs history paging stays stable until returning to latest', async ({ page
     })
   )))
 
-  await page.goto('/logs')
+  await page.goto('/logs/history')
+  await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
   await page.getByPlaceholder('例如 req_*').fill('req_logs_history_e2e')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
-  await expect(logRows(page).first()).toContainText('history row 50')
-  await page.getByRole('button', { name: '更早记录' }).click()
-  await expect(logRows(page).first()).toContainText('history row 0')
+  await expect(page.locator('.logs-row__message', { hasText: 'history row 50' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '更早记录' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '更新记录' })).toHaveCount(0)
 
-  await page.getByRole('button', { name: '更新记录' }).click()
-  await expect(logRows(page).first()).toContainText('history row 50')
-
-  await page.getByRole('button', { name: '更早记录' }).click()
-  await expect(logRows(page).first()).toContainText('history row 0')
+  await logScroller(page).evaluate((node) => {
+    node.scrollTop = 0
+    node.dispatchEvent(new Event('scroll'))
+  })
+  await expect(page.locator('.logs-row__message', { hasText: 'history row 0' })).toBeVisible()
 
   await request.post(`${backendUrl}/__test/push-log`, {
     data: {
       summary: {
         log_id: 'log_history_e2e_latest',
-        timestamp: '2026-04-15T12:01:00Z',
+        timestamp: new Date(baseTimestamp + 60_000).toISOString(),
         level: 'info',
         source: 'runtime',
         request_id: 'req_logs_history_e2e',
@@ -476,18 +487,345 @@ test('logs history paging stays stable until returning to latest', async ({ page
     },
   })
 
-  await expect(page.getByText('有 1 条新日志可查看')).toBeVisible()
-  await expect(page.locator('.log-message-text', { hasText: 'history row latest' })).toHaveCount(0)
-  await page.getByRole('button', { name: '回到最新' }).click()
-  await expect(logRows(page).first()).toContainText('history row latest')
+  await expect(page.locator('.logs-row__message', { hasText: 'history row latest' })).toHaveCount(0)
+  await page.getByRole('button', { name: '刷新到最新时间' }).click()
+  await expect(page.locator('.logs-row__message', { hasText: 'history row latest' })).toBeVisible()
+})
+
+test('current logs reveal older rows after scrolling to the top edge', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
+
+  await Promise.all(Array.from({ length: 151 }, (_, index) => (
+    request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_current_scroll_e2e_${index}`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_logs_current_scroll_e2e',
+          message: `current scroll row ${index}`,
+        },
+      },
+    })
+  )))
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_logs_current_scroll_e2e')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_logs_current_scroll_e2e')
+    )),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+
+  await expect(page.locator('.logs-row__message', { hasText: 'current scroll row 150' })).toBeVisible()
+  await expect(page.locator('.logs-row__message', { hasText: 'current scroll row 0' })).toHaveCount(0)
+
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_logs_current_scroll_e2e')
+      && response.url().includes('direction=older')
+    )),
+    logScroller(page).evaluate((node) => {
+      node.scrollTop = 0
+      node.dispatchEvent(new Event('scroll'))
+    }),
+  ])
+
+  await expect(page.locator('.logs-row__message', { hasText: 'current scroll row 0' })).toBeVisible()
+})
+
+test('current logs keep following new rows while follow mode stays active', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
+
+  await Promise.all(Array.from({ length: 121 }, (_, index) => (
+    request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_live_follow_keep_${index}`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_live_follow_keep',
+          message: `live follow keep seed ${index}`,
+        },
+      },
+    })
+  )))
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_live_follow_keep')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_live_follow_keep')
+    )),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+
+  await expect(page.getByText('跟随最新')).toBeVisible()
+
+  const before = await logScroller(page).evaluate((node) => ({
+    scrollHeight: node.scrollHeight,
+    scrollTop: node.scrollTop,
+    clientHeight: node.clientHeight,
+  }))
+
+  await request.post(`${backendUrl}/__test/push-log`, {
+    data: {
+      summary: {
+        log_id: 'log_live_follow_keep_latest',
+        timestamp: new Date(Date.now() + 90_000).toISOString(),
+        level: 'info',
+        source: 'runtime',
+        request_id: 'req_live_follow_keep',
+        message: `live follow keep latest ${'x'.repeat(480)}`,
+      },
+    },
+  })
+
+  await expect(page.locator('.logs-row__message', { hasText: 'live follow keep latest' })).toBeVisible()
+  await expect(page.getByText('跟随最新')).toBeVisible()
+  await expect(page.getByText('已暂停跟随')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '滚动到最新' })).toHaveCount(0)
+
+  const after = await logScroller(page).evaluate((node) => ({
+    scrollHeight: node.scrollHeight,
+    scrollTop: node.scrollTop,
+    clientHeight: node.clientHeight,
+    distanceToBottom: node.scrollHeight - node.clientHeight - node.scrollTop,
+  }))
+
+  expect(after.scrollHeight).toBeGreaterThan(before.scrollHeight)
+  expect(after.scrollTop).toBeGreaterThanOrEqual(before.scrollTop)
+  expect(after.distanceToBottom).toBeLessThanOrEqual(2)
+})
+
+test('current logs stop following immediately when the user scrolls upward during live appends', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
+
+  await Promise.all(Array.from({ length: 121 }, (_, index) => (
+    request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_live_follow_pause_${index}`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_live_follow_pause',
+          message: `live follow seed ${index}`,
+        },
+      },
+    })
+  )))
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_live_follow_pause')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_live_follow_pause')
+    )),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+
+  await expect(page.getByText('跟随最新')).toBeVisible()
+
+  const bottomBefore = await logScroller(page).evaluate((node) => node.scrollTop)
+
+  await page.evaluate(() => {
+    const state = { index: 121, timer: 0 }
+    state.timer = window.setInterval(() => {
+        state.index += 1
+        const current = state.index
+        void fetch('http://127.0.0.1:4010/__test/push-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            summary: {
+              log_id: `log_live_follow_pause_dyn_${current}`,
+              timestamp: new Date(Date.now() + current * 1000).toISOString(),
+              level: 'info',
+              source: 'runtime',
+              request_id: 'req_live_follow_pause',
+              message: `live follow dyn ${current}`,
+            },
+          }),
+        })
+      }, 120)
+
+    ;(window as Window & { __liveFollowPauseState?: typeof state }).__liveFollowPauseState = state
+  })
+
+  try {
+    await logScroller(page).hover()
+    for (let step = 0; step < 6; step += 1) {
+      await page.mouse.wheel(0, -220)
+      await page.waitForTimeout(80)
+    }
+
+    await expect(page.getByText('已暂停跟随')).toBeVisible()
+    await expect(page.getByRole('button', { name: '滚动到最新' })).toBeVisible()
+
+    await page.waitForTimeout(700)
+
+    const metrics = await logScroller(page).evaluate((node) => ({
+      scrollTop: node.scrollTop,
+      scrollHeight: node.scrollHeight,
+      clientHeight: node.clientHeight,
+    }))
+
+    expect(metrics.scrollTop).toBeLessThan(bottomBefore - 120)
+    await expect(page.locator('.logs-row__message', { hasText: 'live follow dyn' })).toHaveCount(0)
+  } finally {
+    await page.evaluate(() => {
+      const state = (window as Window & {
+        __liveFollowPauseState?: { timer: number }
+      }).__liveFollowPauseState
+      if (state) {
+        window.clearInterval(state.timer)
+      }
+    })
+  }
+})
+
+test('current logs do not snap back to the bottom when scrolling upward without live updates', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
+
+  for (let index = 0; index < 161; index += 1) {
+    await request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_scroll_hold_${index}`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_scroll_hold',
+          message: `scroll hold row ${index} ${'x'.repeat((index % 5 + 1) * 32)}`,
+        },
+      },
+    })
+  }
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_scroll_hold')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_scroll_hold')
+    )),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+
+  const before = await logScroller(page).evaluate((node) => ({
+    scrollTop: node.scrollTop,
+    firstVisibleText: document.querySelector('.logs-row__message')?.textContent?.trim() ?? '',
+  }))
+
+  const afterImmediate = await logScroller(page).evaluate((node) => {
+    node.scrollTop = Math.max(0, node.scrollTop - 260)
+    node.dispatchEvent(new Event('scroll'))
+    return {
+      scrollTop: node.scrollTop,
+      firstVisibleText: document.querySelector('.logs-row__message')?.textContent?.trim() ?? '',
+    }
+  })
+
+  await page.waitForTimeout(250)
+
+  const afterSettled = await logScroller(page).evaluate((node) => ({
+    scrollTop: node.scrollTop,
+    firstVisibleText: document.querySelector('.logs-row__message')?.textContent?.trim() ?? '',
+  }))
+
+  expect(afterImmediate.scrollTop).toBeLessThan(before.scrollTop)
+  expect(afterSettled.scrollTop).toBeLessThan(before.scrollTop - 180)
+  expect(afterSettled.firstVisibleText).not.toBe(before.firstVisibleText)
+  await expect(page.getByText('已暂停跟随')).toBeVisible()
+})
+
+test('history logs reveal older rows after scrolling to the top edge', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const baseTimestamp = Date.now() - 3 * 60 * 60 * 1000
+
+  await Promise.all(Array.from({ length: 151 }, (_, index) => (
+    request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_history_scroll_e2e_${index}`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_logs_history_scroll_e2e',
+          message: `history scroll row ${index}`,
+        },
+      },
+    })
+  )))
+
+  await page.goto('/logs/history')
+  await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_logs_history_scroll_e2e')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_logs_history_scroll_e2e')
+    )),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 150' })).toBeVisible()
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toHaveCount(0)
+
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_logs_history_scroll_e2e')
+      && response.url().includes('direction=older')
+    )),
+    logScroller(page).evaluate((node) => {
+      node.scrollTop = 0
+      node.dispatchEvent(new Event('scroll'))
+    }),
+  ])
+
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toBeVisible()
 })
 
 test('logs page reloads the latest page after hidden updates arrive', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
-  await navigateThroughMenu(page, '日志', '运维')
-  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  await navigateThroughMenu(page, '实时日志', '日志中心')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   await page.getByPlaceholder('例如 req_*').fill('req_logs_reactivate_e2e')
   await Promise.all([
     page.waitForResponse((response) => (
@@ -497,7 +835,7 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
     )),
     page.getByRole('button', { name: '应用筛选' }).click(),
   ])
-  await expect(page.locator('.log-message-text', { hasText: 'reactivate latest row' })).toHaveCount(0)
+  await expect(page.locator('.logs-row__message', { hasText: 'reactivate latest row' })).toHaveCount(0)
 
   await navigateThroughMenu(page, '插件')
   await expect(page.getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
@@ -515,75 +853,22 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
     },
   })
 
-  await navigateThroughMenu(page, '日志', '运维')
-  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
-  await expect(page.locator('.log-message-text', { hasText: 'reactivate latest row' }).first()).toBeVisible()
-  await expect(page.getByText('正在实时显示最新日志')).toBeVisible()
+  await navigateThroughMenu(page, '实时日志', '日志中心')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await expect(page.locator('.logs-row__message', { hasText: 'reactivate latest row' }).first()).toBeVisible()
+  await expect(page.getByText('跟随最新')).toBeVisible()
 })
 
-test('protocol logs reloads the latest page after hidden updates arrive', async ({ page, request }) => {
+test('unsafe OneBot text stays escaped in current logs and history logs', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
-
-  await navigateThroughMenu(page, '协议日志', '协议')
-  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
-  await page.getByPlaceholder('例如 req_*').fill('req_protocol_reactivate_e2e')
-  await Promise.all([
-    page.waitForResponse((response) => (
-      response.request().method() === 'GET'
-      && response.url().includes('/api/logs?')
-      && response.url().includes('request_id=req_protocol_reactivate_e2e')
-    )),
-    page.getByRole('button', { name: '应用筛选' }).click(),
-  ])
-  await expect(page.locator('.line-text', { hasText: 'reactivate protocol latest row' })).toHaveCount(0)
-
-  await navigateThroughMenu(page, '插件')
-  await expect(page.getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
-
-  await request.post(`${backendUrl}/__test/push-log`, {
-    data: {
-      summary: {
-        log_id: 'log_protocol_reactivate_e2e_latest',
-        timestamp: '2026-04-15T12:12:00Z',
-        level: 'info',
-        source: 'bridge',
-        protocol: 'onebot11',
-        request_id: 'req_protocol_reactivate_e2e',
-        message: 'reactivate protocol latest row',
-      },
-      detail: {
-        log_id: 'log_protocol_reactivate_e2e_latest',
-        timestamp: '2026-04-15T12:12:00Z',
-        level: 'info',
-        source: 'bridge',
-        protocol: 'onebot11',
-        request_id: 'req_protocol_reactivate_e2e',
-        message: 'reactivate protocol latest row',
-        details: {
-          direction: 'inbound',
-          plain_text: 'reactivate protocol latest row',
-        },
-      },
-    },
-  })
-
-  await navigateThroughMenu(page, '协议日志', '协议')
-  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
-  const latestProtocolLine = page.locator('.terminal-line').filter({ hasText: 'reactivate protocol latest row' }).first()
-  await expect(latestProtocolLine).toBeVisible()
-  await expect(page.locator('.follow-status-pill')).toContainText('最新页')
-})
-
-test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
+  const unsafeTimestamp = new Date(Date.now() - 5 * 60 * 1000).toISOString()
 
   await request.post(`${backendUrl}/__test/push-log`, {
     data: {
       summary: {
         log_id: 'log_bridge_unsafe_0001',
-        timestamp: '2026-04-14T02:49:45Z',
+        timestamp: unsafeTimestamp,
         level: 'info',
         source: 'bridge',
         protocol: 'onebot11',
@@ -592,7 +877,7 @@ test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({
       },
       detail: {
         log_id: 'log_bridge_unsafe_0001',
-        timestamp: '2026-04-14T02:49:45Z',
+        timestamp: unsafeTimestamp,
         level: 'info',
         source: 'bridge',
         protocol: 'onebot11',
@@ -616,32 +901,36 @@ test('unsafe OneBot text stays escaped in protocol logs and logs list', async ({
     },
   })
 
-  await page.goto('/protocols/logs')
-  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
-  const unsafeTerminalLine = page.locator('.terminal-line', { hasText: '\\u2066' }).last()
-  await expect(unsafeTerminalLine.locator('.line-text')).toContainText('\\u2066')
-  await expect(unsafeTerminalLine.locator('.line-source')).toHaveText('bridge · onebot11')
-  await unsafeTerminalLine.click()
-  await expect(page.locator('.detail-hero-message')).toContainText('\\u2066')
-  await expect(page.locator('.field-value').filter({ hasText: '\\u2066' }).first()).toBeVisible()
-  await expect(page.locator('.json-content')).toContainText('\\u2066')
-
-  const protocolTexts = await page.evaluate(() => ({
-    line: document.querySelector('.terminal-line:last-child .line-text')?.textContent ?? '',
-    hero: document.querySelector('.detail-hero-message')?.textContent ?? '',
-    json: document.querySelector('.json-content')?.textContent ?? '',
-  }))
-  expect(protocolTexts.line.includes('\u2066')).toBe(false)
-  expect(protocolTexts.hero.includes('\u2066')).toBe(false)
-  expect(protocolTexts.json.includes('\u2066')).toBe(false)
-
   await page.goto('/logs')
-  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
-  const unsafeLogMessage = page.locator('.log-message-text', { hasText: '群星怒' }).first()
-  await expect(unsafeLogMessage).toContainText('\\u2066')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_bridge_unsafe_0001')
+  await page.getByRole('button', { name: '应用筛选' }).click()
 
-  const logsText = await unsafeLogMessage.evaluate((node) => node.textContent ?? '')
-  expect(logsText.includes('\u2066')).toBe(false)
+  const unsafeCurrentRow = page.locator('.logs-row').filter({ hasText: '群星怒' }).first()
+  const unsafeCurrentMessage = unsafeCurrentRow.locator('.logs-row__message')
+  await expect(unsafeCurrentMessage).toContainText('\\u2066')
+  await unsafeCurrentRow.click()
+  await expect(page.locator('.log-detail-message')).toContainText('\\u2066')
+  await expect(page.locator('.log-detail-json__content')).toContainText('\\u2066')
+
+  const currentTexts = await page.evaluate(() => ({
+    row: document.querySelector('.logs-row .logs-row__message')?.textContent ?? '',
+    detail: document.querySelector('.log-detail-message')?.textContent ?? '',
+    json: document.querySelector('.log-detail-json__content')?.textContent ?? '',
+  }))
+  expect(currentTexts.row.includes('\u2066')).toBe(false)
+  expect(currentTexts.detail.includes('\u2066')).toBe(false)
+  expect(currentTexts.json.includes('\u2066')).toBe(false)
+
+  await page.goto('/logs/history')
+  await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  await page.getByPlaceholder('例如 req_*').fill('req_bridge_unsafe_0001')
+  await page.getByRole('button', { name: '应用筛选' }).click()
+  const unsafeHistoryMessage = page.locator('.logs-row__message', { hasText: '群星怒' }).first()
+  await expect(unsafeHistoryMessage).toContainText('\\u2066')
+
+  const historyText = await unsafeHistoryMessage.evaluate((node) => node.textContent ?? '')
+  expect(historyText.includes('\u2066')).toBe(false)
 })
 
 test('config keeps the section list scroll inside the card without page overflow', async ({ page, request }) => {
@@ -708,7 +997,7 @@ test('status page can submit render previews and show the artifact', async ({ pa
   await expect(page.getByRole('img', { name: '图片预览结果' })).toBeVisible()
 })
 
-test('protocol center owns OneBot settings and keeps protocol logs scoped to OneBot11', async ({ page, request }) => {
+test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -738,62 +1027,23 @@ test('protocol center owns OneBot settings and keeps protocol logs scoped to One
   await page.getByRole('button', { name: '保存协议设置' }).click()
   await expect(page.getByText('配置已保存并已生效')).toBeVisible()
   await expect(page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })).toContainText('等待 OneBot 回连')
-
-  await page.getByRole('button', { name: '查看协议日志' }).click()
-  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
-
-  const terminal = page.locator('.terminal-view-scroller')
-  await expect(terminal).toBeVisible()
-  await expect(terminal.getByText('ignored OneBot API response with unsupported echo')).toBeVisible()
-  await expect(terminal.getByText('plugin runtime stderr truncated')).toHaveCount(0)
-
-  await request.post(`${backendUrl}/__test/push-log`, {
-    data: {
-      summary: {
-        log_id: 'log_adapter_live_0002',
-        timestamp: '2026-04-08T10:18:00Z',
-        level: 'warn',
-        source: 'adapter.onebot11',
-        protocol: 'onebot11',
-        message: 'ignored OneBot API response with unsupported echo',
-        request_id: 'req_adapter_ignored_0002',
-      },
-      detail: {
-        details: {
-          direction: 'inbound',
-          frame_type: 'api.response.ignored',
-          sender: {
-            user_id: '3001',
-            nickname: 'Alice',
-            role: 'admin',
-          },
-          reason: 'api response echo must be a non-empty string',
-          echo_value_type: 'number',
-          plain_text: 'hello bridge',
-          payload_preview: {
-            echo: 123,
-            status: 'ok',
-          },
-        },
-      },
-    },
-  })
-
-  const liveLine = terminal.locator('.terminal-line').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()
-  await expect(liveLine).toBeVisible()
-  await liveLine.click({ force: true })
-  await expect(page.locator('.detail-fields-grid').getByText('api.response.ignored', { exact: true })).toBeVisible()
-  await expect(page.getByText('发送者昵称')).toBeVisible()
-  await expect(page.locator('.detail-fields-grid').getByText('Alice', { exact: true })).toBeVisible()
-  await expect(page.locator('.json-content')).toContainText('"echo": 123')
-  await expect(page.locator('.json-content')).toContainText('"sender"')
-  await expect(page.locator('.json-content')).not.toContainText('sender_id')
-  await expect(page.locator('.json-content')).not.toContainText('sender_nickname')
+  await expect(page.getByRole('button', { name: '查看协议日志' })).toHaveCount(0)
 
   await page.goto('/logs')
-  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
-  await expect(page.getByText('plugin runtime stderr truncated').first()).toBeVisible()
-  await expect(page.locator('.logs-filter-toolbar').getByText('协议')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await expect(page.locator('.logs-toolbar').getByText('协议')).toHaveCount(1)
+
+  const protocolField = page.locator('.logs-filter-grid .ant-form-item').filter({ hasText: '协议' })
+  await protocolField.locator('.ant-select').click()
+  await page.getByTitle('OneBot11').click()
+  await page.getByRole('button', { name: '应用筛选' }).click()
+
+  await expect(page.getByText('ignored OneBot API response with unsupported echo')).toBeVisible()
+  await expect(page.getByText('plugin runtime stderr truncated')).toHaveCount(0)
+
+  const protocolRow = page.locator('.logs-row').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()
+  await protocolRow.click()
+  await expect(page.locator('.log-detail-json__content')).toContainText('api response echo must be a non-empty string')
 })
 
 test('logs page filters both history and live log appends', async ({ page, request }) => {
@@ -801,11 +1051,11 @@ test('logs page filters both history and live log appends', async ({ page, reque
   await login(page)
 
   await page.goto('/logs')
-  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
-  await page.locator('.logs-filter-toolbar .ant-form-item').filter({ hasText: '来源' }).locator('input').fill('runtime')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.locator('.logs-filter-grid .ant-form-item').filter({ hasText: '来源' }).locator('input').fill('runtime')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
-  const logsTable = page.locator('.logs-data-table')
+  const logsTable = page.locator('.logs-feed-card')
   await expect(logsTable).toContainText('plugin runtime stderr truncated')
   await expect(logsTable).not.toContainText('reverse websocket connection lost')
 
@@ -856,12 +1106,12 @@ test('logs page filters both history and live log appends', async ({ page, reque
   await expect(logsTable).toContainText('live runtime log kept')
 })
 
-test('logs page keeps older history reachable inside the table scroller', async ({ page, request }) => {
+test('logs page keeps older current-session rows reachable inside the table scroller', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
   await page.goto('/logs')
-  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
 
   await Promise.all(Array.from({ length: 36 }, (_, index) => (
     request.post(`${backendUrl}/__test/push-log`, {
@@ -884,11 +1134,15 @@ test('logs page keeps older history reachable inside the table scroller', async 
     })
   )))
 
-  await expect(page.locator('.logs-data-table')).toContainText('scroll history row 35')
+  const jumpToBottomButton = page.getByRole('button', { name: '回到底部' })
+  if (await jumpToBottomButton.isVisible().catch(() => false)) {
+    await jumpToBottomButton.click()
+  }
+  await expect(page.locator('.logs-row__message', { hasText: 'scroll history row 35' })).toBeVisible()
 
   const metrics = await page.evaluate(() => {
     const doc = document.scrollingElement ?? document.documentElement
-    const tableBody = document.querySelector<HTMLElement>('.logs-data-table .data-viewport__scroller')
+    const tableBody = document.querySelector<HTMLElement>('.logs-feed-card .data-viewport__scroller')
     if (!tableBody) {
       return {
         hasTableBody: false,
@@ -954,7 +1208,7 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(['系统状态', '指令中心'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands'])
   expect(await readActiveTabLabel(page)).toBe('指令中心')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
 
   await page.goto('/tasks')
   await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
@@ -964,11 +1218,11 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(await readActiveTabLabel(page)).toBe('任务')
 
   await page.goto('/logs')
-  await expect(page.getByRole('heading', { name: '日志', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(['系统状态', '指令中心', '任务', '日志'])
+  expect(tabLabels).toEqual(['系统状态', '指令中心', '任务', '实时日志'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs'])
-  expect(await readActiveTabLabel(page)).toBe('日志')
+  expect(await readActiveTabLabel(page)).toBe('实时日志')
   await expect(page.getByRole('tab', { name: '指令中心' })).toBeVisible()
   await page.locator('.admin-layout__breadcrumb-item--ancestor .ant-breadcrumb-link').hover()
 
@@ -1103,13 +1357,13 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
 
   await page.goto('/protocols')
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
-  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '日志', '协议中心'])
+  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '实时日志', '协议中心'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols'])
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(1)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '日志', '协议中心', '配置'])
+  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '实时日志', '协议中心', '配置'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols', 'config'])
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(1)
   await expect(page.locator('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon')).toHaveCount(1)
@@ -1120,7 +1374,7 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
 
   await page.reload()
   await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
-  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '日志', '协议中心', '配置'])
+  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '实时日志', '协议中心', '配置'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols', 'config'])
 
   await page.goto('/plugins/weather')
@@ -1145,9 +1399,9 @@ test('nested admin pages animate only once when entering grouped routes', async 
   expectSingleEnterTransition(await collectTransitionSamples(page), '插件')
 
   await startTransitionSampling(page)
-  await navigateThroughMenu(page, '协议日志', '协议')
-  await expect(page.getByRole('heading', { name: '协议日志', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '协议日志')
+  await navigateThroughMenu(page, '历史日志', '日志中心')
+  await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '历史日志')
 
   await startTransitionSampling(page)
   await navigateThroughMenu(page, '指令中心', '运维')

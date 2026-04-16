@@ -80,6 +80,7 @@ const sockets = {
 }
 
 function baseState() {
+  const initialLogs = structuredClone(fixtures.logsList.response.body.items)
   const pluginItems = structuredClone(fixtures.pluginList.response.body.items)
   const pluginMap = Object.fromEntries(pluginItems.map((item) => [item.id, item]))
   pluginMap.weather = structuredClone(fixtures.pluginDetail.response.body.plugin)
@@ -88,7 +89,8 @@ function baseState() {
     token: null,
     plugins: pluginMap,
     tasks: structuredClone(fixtures.tasksList.response.body.items),
-    logs: structuredClone(fixtures.logsList.response.body.items),
+    logs: initialLogs,
+    currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
     protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
@@ -406,11 +408,15 @@ function taskSummary(taskId, taskType, summary) {
   }
 }
 
-function appendLogSummary(summary, detail) {
+function appendLogSummary(summary, detail, options = {}) {
   state.logs = [
     ...state.logs.filter((item) => item.log_id !== summary.log_id),
     structuredClone(summary),
   ]
+
+  if (options.currentSession !== false) {
+    state.currentSessionLogIds.add(summary.log_id)
+  }
 
   if (detail) {
     state.logDetails[summary.log_id] = structuredClone(detail)
@@ -479,6 +485,9 @@ function decodeLogCursor(raw) {
 }
 
 function listLogPage(searchParams) {
+  const scope = searchParams.get('scope') === 'current_session' ? 'current_session' : 'history'
+  const startAt = searchParams.get('start_at')
+  const endAt = searchParams.get('end_at')
   const level = searchParams.get('level')
   const source = searchParams.get('source')
   const protocol = searchParams.get('protocol')
@@ -490,6 +499,10 @@ function listLogPage(searchParams) {
 
   const filtered = state.logs
     .filter((item) => {
+      const timestamp = normalizeSortableTimestamp(item.timestamp)
+      if (scope === 'current_session' && !state.currentSessionLogIds.has(item.log_id)) return false
+      if (scope === 'history' && startAt && timestamp < normalizeSortableTimestamp(startAt)) return false
+      if (scope === 'history' && endAt && timestamp > normalizeSortableTimestamp(endAt)) return false
       if (level && item.level !== level) return false
       if (source && item.source !== source) return false
       if (protocol && item.protocol !== protocol) return false
@@ -635,7 +648,9 @@ const server = http.createServer(async (request, response) => {
       details: structuredClone(payload.detail?.details ?? payload.details ?? seed.detail.details),
     }
 
-    appendLogSummary(summary, detail)
+    appendLogSummary(summary, detail, {
+      currentSession: payload.scope !== 'history',
+    })
     broadcast('logs', {
       channel: 'logs',
       type: 'logs.appended',

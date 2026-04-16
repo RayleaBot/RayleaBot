@@ -155,7 +155,7 @@ function protocolSummary(code: string, ...texts: Array<string | undefined>) {
     raw.includes('partial_warning') ||
     raw.includes('warning')
   ) {
-    return '协议有异常提示，请查看协议日志'
+    return '协议有异常提示，请查看日志中心'
   }
   if (
     raw.includes('connected') ||

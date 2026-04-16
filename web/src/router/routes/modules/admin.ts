@@ -78,6 +78,20 @@ export const adminRoutes: RouteRecordRaw[] = [
               titleKey: 'routes.tasks',
             },
           },
+        ],
+      },
+      {
+        path: '',
+        component: RouteView,
+        redirect: { name: 'logs' },
+        meta: {
+          hideInTab: true,
+          icon: 'logs-center',
+          order: 4,
+          requiresAuth: true,
+          titleKey: 'routes.logsCenter',
+        },
+        children: [
           {
             path: '/logs',
             name: 'logs',
@@ -89,16 +103,27 @@ export const adminRoutes: RouteRecordRaw[] = [
               titleKey: 'routes.logs',
             },
           },
+          {
+            path: '/logs/history',
+            name: 'logs-history',
+            component: () => import('@/views/operations/LogsHistoryView.vue'),
+            meta: {
+              icon: 'history-logs',
+              keepAlive: true,
+              requiresAuth: true,
+              titleKey: 'routes.logsHistory',
+            },
+          },
         ],
       },
       {
         path: '',
         component: RouteView,
-        redirect: { name: 'protocols' },
+        redirect: { name: 'config' },
         meta: {
           hideInTab: true,
           icon: 'protocols',
-          order: 4,
+          order: 5,
           requiresAuth: true,
           titleKey: 'routes.protocolGroup',
         },
@@ -114,17 +139,6 @@ export const adminRoutes: RouteRecordRaw[] = [
               titleKey: 'routes.protocols',
             },
           },
-          {
-            path: '/protocols/logs',
-            name: 'protocol-logs',
-            component: () => import('@/views/protocols/ProtocolLogsView.vue'),
-            meta: {
-              icon: 'protocol-logs',
-              keepAlive: true,
-              requiresAuth: true,
-              titleKey: 'routes.protocolLogs',
-            },
-          },
         ],
       },
       {
@@ -134,7 +148,7 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: {
           hideInTab: true,
           icon: 'system',
-          order: 5,
+          order: 6,
           requiresAuth: true,
           titleKey: 'routes.system',
         },

@@ -6,7 +6,6 @@ import type { ConnectionStatus, EventsPayload, LogSummary, TaskSummary, WebSocke
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
 import { useProtocolsStore } from '@/stores/protocols'
-import { useProtocolLogsStore } from '@/stores/protocol-logs'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
@@ -38,7 +37,6 @@ export const useSocketStore = defineStore('sockets', () => {
   const tasksStore = useTasksStore()
   const logsStore = useLogsStore()
   const protocolsStore = useProtocolsStore()
-  const protocolLogsStore = useProtocolLogsStore()
   const systemStore = useSystemStore()
 
   const eventsSocket = new ManagedSocket<EventsPayload>({
@@ -95,7 +93,6 @@ export const useSocketStore = defineStore('sockets', () => {
       if (frame.type === 'logs.appended') {
         logsStore.append(frame.data)
         pluginsStore.appendOutboundLog(frame.data)
-        void protocolLogsStore.appendLive(frame.data)
       }
     },
   })

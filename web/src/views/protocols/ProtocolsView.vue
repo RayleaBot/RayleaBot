@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 import { notifySuccess } from '@/adapter/feedback'
@@ -21,7 +20,6 @@ import { useConfigStore } from '@/stores/config'
 import { useProtocolsStore } from '@/stores/protocols'
 import type { ConfigDocument } from '@/types/api'
 
-const router = useRouter()
 const configStore = useConfigStore()
 const protocolsStore = useProtocolsStore()
 
@@ -178,7 +176,6 @@ async function save() {
   <AppPage :title="t('protocols.title')" :description="t('protocols.subtitle')">
     <template #extra>
       <div class="table-actions">
-        <a-button @click="router.push('/protocols/logs')">{{ t('protocols.openLogs') }}</a-button>
         <a-button :loading="pageLoading" @click="loadPage">{{ t('dashboard.refresh') }}</a-button>
         <a-button type="primary" :disabled="!canSave" :loading="saving" @click="save">
           {{ t('protocols.save') }}

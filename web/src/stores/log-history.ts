@@ -8,48 +8,67 @@ import {
   mergeLogItemsAsc,
   normalizeLogLimit,
   normalizeLogListResponseItems,
-  matchesLogFilters,
+  type HistoryTimeRange,
   type LogFilters,
 } from '@/stores/log-state'
 import type { LogListResponse, LogSummary } from '@/types/api'
 
-const currentSessionPageLimit = 100
+const historyPageLimit = 100
 
-export const useLogsStore = defineStore('logs', () => {
+export interface HistoryTimeRangeInput {
+  startLocal: string
+  endLocal: string
+}
+
+export const useLogHistoryStore = defineStore('log-history', () => {
   const items = ref<LogSummary[]>([])
   const filters = ref<LogFilters>({})
+  const timeRangeInput = ref<HistoryTimeRangeInput>({
+    startLocal: '',
+    endLocal: '',
+  })
+  const customTimeRange = ref(false)
+  const anchorAt = ref('')
   const loading = ref(false)
   const loadingOlder = ref(false)
   const error = ref<string | null>(null)
   const olderCursor = ref<string | null>(null)
   const hasOlder = ref(false)
-  const pendingNewCount = ref(0)
   const initialized = ref(false)
-  const active = ref(false)
-  const atBottom = ref(true)
 
   let requestVersion = 0
 
-  const pageLimit = computed(() => normalizeLogLimit(currentSessionPageLimit, currentSessionPageLimit))
+  const pageLimit = computed(() => normalizeLogLimit(historyPageLimit, historyPageLimit))
 
-  async function ensureLoaded() {
-    if (initialized.value || loading.value) {
-      return items.value
+  async function refreshAnchor() {
+    anchorAt.value = new Date().toISOString()
+    if (!customTimeRange.value) {
+      const anchorDate = new Date(anchorAt.value)
+      const startDate = new Date(anchorDate.getTime() - 24 * 60 * 60 * 1000)
+      timeRangeInput.value = {
+        startLocal: toLocalDateTimeInput(startDate),
+        endLocal: toLocalDateTimeInput(anchorDate),
+      }
     }
-    return fetchLatest({ replaceItems: false })
-  }
 
-  async function applyFilters() {
     items.value = []
     olderCursor.value = null
     hasOlder.value = false
-    pendingNewCount.value = 0
     initialized.value = false
-    return fetchLatest({ replaceItems: true })
+    return fetchLatest()
   }
 
-  async function refreshLatest() {
-    return fetchLatest({ replaceItems: false })
+  async function applyFilters() {
+    customTimeRange.value = true
+    items.value = []
+    olderCursor.value = null
+    hasOlder.value = false
+    initialized.value = false
+    return fetchLatest()
+  }
+
+  function resetTimeRangeToDefault() {
+    customTimeRange.value = false
   }
 
   async function loadOlder() {
@@ -62,8 +81,9 @@ export const useLogsStore = defineStore('logs', () => {
 
     try {
       const response = await apiRequest<LogListResponse>(buildLogListPath({
-        scope: 'current_session',
+        scope: 'history',
         filters: filters.value,
+        timeRange: currentUtcRange(),
         cursor: olderCursor.value,
         direction: 'older',
         limit: pageLimit.value,
@@ -82,39 +102,7 @@ export const useLogsStore = defineStore('logs', () => {
     }
   }
 
-  function append(log: LogSummary) {
-    if (!matchesLogFilters(log, filters.value)) {
-      return false
-    }
-
-    items.value = mergeLogItemsAsc(items.value, [log])
-    initialized.value = true
-
-    if (active.value && atBottom.value) {
-      pendingNewCount.value = 0
-    } else {
-      pendingNewCount.value += 1
-    }
-
-    return true
-  }
-
-  function setViewportActive(nextValue: boolean) {
-    active.value = nextValue
-  }
-
-  function setViewportAtBottom(nextValue: boolean) {
-    atBottom.value = nextValue
-    if (nextValue) {
-      pendingNewCount.value = 0
-    }
-  }
-
-  function acknowledgePendingNew() {
-    pendingNewCount.value = 0
-  }
-
-  async function fetchLatest(options: { replaceItems: boolean }) {
+  async function fetchLatest() {
     loading.value = true
     error.value = null
     requestVersion += 1
@@ -122,22 +110,18 @@ export const useLogsStore = defineStore('logs', () => {
 
     try {
       const response = await apiRequest<LogListResponse>(buildLogListPath({
-        scope: 'current_session',
+        scope: 'history',
         filters: filters.value,
+        timeRange: currentUtcRange(),
         limit: pageLimit.value,
       }))
       if (currentVersion !== requestVersion) {
         return items.value
       }
 
-      const nextItems = normalizeLogListResponseItems(response)
-      items.value = options.replaceItems ? nextItems : mergeLogItemsAsc(items.value, nextItems)
-      if (options.replaceItems || !olderCursor.value) {
-        olderCursor.value = response.page?.older_cursor ?? null
-      }
-      hasOlder.value = options.replaceItems
-        ? Boolean(response.page?.has_older)
-        : (hasOlder.value || Boolean(response.page?.has_older))
+      items.value = normalizeLogListResponseItems(response)
+      olderCursor.value = response.page?.older_cursor ?? null
+      hasOlder.value = Boolean(response.page?.has_older)
       initialized.value = true
       return items.value
     } catch (err) {
@@ -152,9 +136,16 @@ export const useLogsStore = defineStore('logs', () => {
     }
   }
 
+  function currentUtcRange(): HistoryTimeRange {
+    return {
+      startAt: localDateTimeToUtc(timeRangeInput.value.startLocal),
+      endAt: localDateTimeToUtc(timeRangeInput.value.endLocal),
+    }
+  }
+
   return {
-    active,
-    atBottom,
+    anchorAt,
+    customTimeRange,
     error,
     filters,
     hasOlder,
@@ -162,14 +153,34 @@ export const useLogsStore = defineStore('logs', () => {
     items,
     loading,
     loadingOlder,
-    pendingNewCount,
-    acknowledgePendingNew,
-    append,
+    timeRangeInput,
     applyFilters,
-    ensureLoaded,
+    currentUtcRange,
     loadOlder,
-    refreshLatest,
-    setViewportActive,
-    setViewportAtBottom,
+    refreshAnchor,
+    resetTimeRangeToDefault,
   }
 })
+
+export function toLocalDateTimeInput(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  const hours = String(value.getHours()).padStart(2, '0')
+  const minutes = String(value.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+export function localDateTimeToUtc(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  const parsed = new Date(trimmed)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  return parsed.toISOString().replace(/\.\d{3}Z$/, 'Z')
+}

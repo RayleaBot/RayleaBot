@@ -15,210 +15,251 @@ describe('logs store', () => {
     setActivePinia(createPinia())
   })
 
-  it('builds filtered log queries and only keeps the latest filtered response', async () => {
+  it('loads current session logs in ascending order', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       items: [
         {
-          log_id: 'log_warn_0001',
-          timestamp: '2026-04-05T08:00:00Z',
-          level: 'warn',
-          source: 'adapter',
-          plugin_id: 'weather',
-          request_id: 'req_1',
-          message: 'same message',
-        },
-        {
-          log_id: 'log_warn_0001',
-          timestamp: '2026-04-05T08:00:00Z',
-          level: 'warn',
-          source: 'adapter',
-          plugin_id: 'weather',
-          request_id: 'req_1',
-          message: 'same message',
-        },
-      ],
-    }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    const store = useLogsStore()
-    store.items = [
-      {
-        log_id: 'log_old_0001',
-        timestamp: '2026-04-05T07:59:00Z',
-        level: 'info',
-        source: 'runtime',
-        message: 'stale item',
-      },
-    ]
-    store.filters = {
-      level: 'warn',
-      source: 'adapter',
-      pluginId: 'weather',
-      requestId: 'req_1',
-      limit: 5,
-    }
-
-    await store.fetchList()
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/logs?level=warn&source=adapter&plugin_id=weather&request_id=req_1&limit=5',
-      expect.any(Object),
-    )
-    expect(store.items).toHaveLength(1)
-    expect(store.items[0]?.log_id).toBe('log_warn_0001')
-  })
-
-  it('prepends appended logs and respects the current limit', () => {
-    const store = useLogsStore()
-    store.filters = { limit: 2 }
-    store.items = [
-      { log_id: 'log_info_0002', timestamp: '2026-04-05T08:00:01Z', level: 'info', source: 'system', message: 'older' },
-      { log_id: 'log_info_0001', timestamp: '2026-04-05T08:00:00Z', level: 'info', source: 'system', message: 'oldest' },
-    ]
-
-    store.append({ log_id: 'log_error_0001', timestamp: '2026-04-05T08:00:02Z', level: 'error', source: 'system', message: 'latest' })
-
-    expect(store.items.map((item) => item.message)).toEqual(['latest', 'older'])
-  })
-
-  it('marks the latest page for refresh when hidden logs arrive while the page is inactive', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
-      items: [
-        {
-          log_id: 'log_hidden_0002',
+          log_id: 'log_current_0002',
           timestamp: '2026-04-05T08:00:02Z',
-          level: 'info',
-          source: 'runtime',
-          message: 'hidden latest',
+          level: 'warn',
+          source: 'adapter',
+          message: 'later row',
         },
         {
-          log_id: 'log_hidden_0001',
+          log_id: 'log_current_0001',
           timestamp: '2026-04-05T08:00:01Z',
           level: 'info',
           source: 'runtime',
-          message: 'visible row',
+          message: 'earlier row',
         },
       ],
+      page: {
+        limit: 100,
+        has_older: true,
+        older_cursor: 'cursor-older-1',
+      },
     }))
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
-    store.items = [
-      {
-        log_id: 'log_hidden_0001',
-        timestamp: '2026-04-05T08:00:01Z',
-        level: 'info',
-        source: 'runtime',
-        message: 'visible row',
-      },
-    ]
+    await store.ensureLoaded()
 
-    store.deactivate()
-    store.append({
-      log_id: 'log_hidden_0002',
-      timestamp: '2026-04-05T08:00:02Z',
-      level: 'info',
-      source: 'runtime',
-      message: 'hidden latest',
-    })
-
-    expect(store.items.map((item) => item.message)).toEqual(['visible row'])
-    expect(store.needsLatestRefresh).toBe(true)
-
-    store.activate()
-    await store.goToLatestPage()
-
-    expect(fetchMock).toHaveBeenCalledWith('/api/logs?limit=50', expect.any(Object))
-    expect(store.items.map((item) => item.message)).toEqual(['hidden latest', 'visible row'])
-    expect(store.needsLatestRefresh).toBe(false)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/logs?scope=current_session&limit=100',
+      expect.any(Object),
+    )
+    expect(store.items.map((item) => item.log_id)).toEqual([
+      'log_current_0001',
+      'log_current_0002',
+    ])
+    expect(store.initialized).toBe(true)
+    expect(store.hasOlder).toBe(true)
   })
 
-  it('keeps visible live logs when the activation refresh returns a stale latest page', async () => {
+  it('replaces items and sends current-session filters when applying filters', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       items: [
         {
-          log_id: 'log_stale_older_0001',
+          log_id: 'log_warn_0001',
           timestamp: '2026-04-05T08:00:00Z',
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_logs_stale_1',
-          message: 'older persisted row',
+          level: 'warn',
+          protocol: 'onebot11',
+          source: 'adapter',
+          plugin_id: 'weather',
+          request_id: 'req_1',
+          message: 'filtered row',
         },
       ],
+      page: {
+        limit: 100,
+        has_older: false,
+        older_cursor: null,
+      },
     }))
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
     store.items = [
       {
-        log_id: 'log_stale_older_0001',
-        timestamp: '2026-04-05T08:00:00Z',
+        log_id: 'log_stale_0001',
+        timestamp: '2026-04-05T07:59:00Z',
         level: 'info',
         source: 'runtime',
-        request_id: 'req_logs_stale_1',
-        message: 'older persisted row',
+        message: 'stale row',
       },
     ]
+    store.pendingNewCount = 2
+    store.filters = {
+      level: 'warn',
+      source: 'adapter',
+      protocol: 'onebot11',
+      pluginId: 'weather',
+      requestId: 'req_1',
+    }
 
-    store.append({
-      log_id: 'log_stale_visible_0001',
-      timestamp: '2026-04-05T08:00:01Z',
-      level: 'info',
-      source: 'bridge',
-      request_id: 'req_logs_stale_1',
-      message: 'visible live row',
-    })
+    await store.applyFilters()
 
-    store.deactivate()
-    store.append({
-      log_id: 'log_stale_hidden_0001',
-      timestamp: '2026-04-05T08:00:02Z',
-      level: 'info',
-      source: 'bridge',
-      request_id: 'req_logs_stale_1',
-      message: 'hidden live row',
-    })
-
-    store.activate()
-    await store.restoreLatestPage()
-
-    expect(fetchMock).toHaveBeenCalledWith('/api/logs?limit=50', expect.any(Object))
-    expect(store.items.map((item) => item.message)).toEqual([
-      'hidden live row',
-      'visible live row',
-      'older persisted row',
-    ])
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/logs?scope=current_session&limit=100&level=warn&source=adapter&protocol=onebot11&plugin_id=weather&request_id=req_1',
+      expect.any(Object),
+    )
+    expect(store.items.map((item) => item.log_id)).toEqual(['log_warn_0001'])
+    expect(store.pendingNewCount).toBe(0)
   })
 
-  it('ignores live logs that do not match the active filters', () => {
+  it('loads older current-session rows at the top without breaking ascending order', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            log_id: 'log_current_0002',
+            timestamp: '2026-04-05T08:00:02Z',
+            level: 'warn',
+            source: 'adapter',
+            message: 'later row',
+          },
+          {
+            log_id: 'log_current_0001',
+            timestamp: '2026-04-05T08:00:01Z',
+            level: 'info',
+            source: 'runtime',
+            message: 'earlier row',
+          },
+        ],
+        page: {
+          limit: 100,
+          has_older: true,
+          older_cursor: 'cursor-older-1',
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            log_id: 'log_current_0000',
+            timestamp: '2026-04-05T07:59:59Z',
+            level: 'info',
+            source: 'runtime',
+            message: 'oldest row',
+          },
+        ],
+        page: {
+          limit: 100,
+          has_older: false,
+          older_cursor: null,
+        },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    await store.ensureLoaded()
+    await store.loadOlder()
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/logs?scope=current_session&limit=100&cursor=cursor-older-1&direction=older',
+      expect.any(Object),
+    )
+    expect(store.items.map((item) => item.log_id)).toEqual([
+      'log_current_0000',
+      'log_current_0001',
+      'log_current_0002',
+    ])
+    expect(store.hasOlder).toBe(false)
+  })
+
+  it('tracks pending live rows away from the bottom and ignores mismatched filters', () => {
     const store = useLogsStore()
     store.filters = {
       level: 'warn',
       source: 'adapter',
-      pluginId: 'weather',
-      limit: 5,
     }
-    store.items = [
-      {
-        log_id: 'log_warn_0001',
-        timestamp: '2026-04-05T08:00:00Z',
-        level: 'warn',
-        source: 'adapter',
-        plugin_id: 'weather',
-        message: 'kept',
-      },
-    ]
+    store.setViewportActive(false)
+    store.setViewportAtBottom(false)
 
-    store.append({
-      log_id: 'log_error_0002',
-      timestamp: '2026-04-05T08:00:03Z',
-      level: 'error',
+    const accepted = store.append({
+      log_id: 'log_warn_0001',
+      timestamp: '2026-04-05T08:00:01Z',
+      level: 'warn',
+      source: 'adapter',
+      message: 'matching row',
+    })
+    const rejected = store.append({
+      log_id: 'log_info_0001',
+      timestamp: '2026-04-05T08:00:02Z',
+      level: 'info',
       source: 'runtime',
-      plugin_id: 'other',
-      message: 'should be ignored',
+      message: 'ignored row',
     })
 
-    expect(store.items.map((item) => item.message)).toEqual(['kept'])
+    expect(accepted).toBe(true)
+    expect(rejected).toBe(false)
+    expect(store.items.map((item) => item.log_id)).toEqual(['log_warn_0001'])
+    expect(store.pendingNewCount).toBe(1)
+
+    store.setViewportActive(true)
+    store.setViewportAtBottom(true)
+    store.append({
+      log_id: 'log_warn_0002',
+      timestamp: '2026-04-05T08:00:03Z',
+      level: 'warn',
+      source: 'adapter',
+      message: 'latest row',
+    })
+
+    expect(store.items.map((item) => item.log_id)).toEqual([
+      'log_warn_0001',
+      'log_warn_0002',
+    ])
+    expect(store.pendingNewCount).toBe(0)
+  })
+
+  it('keeps already seen live rows when refreshing latest data', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      items: [
+        {
+          log_id: 'log_persisted_0001',
+          timestamp: '2026-04-05T08:00:00Z',
+          level: 'info',
+          source: 'runtime',
+          message: 'persisted row',
+        },
+      ],
+      page: {
+        limit: 100,
+        has_older: false,
+        older_cursor: null,
+      },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_persisted_0001',
+        timestamp: '2026-04-05T08:00:00Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'persisted row',
+      },
+    ]
+    store.append({
+      log_id: 'log_live_0001',
+      timestamp: '2026-04-05T08:00:01Z',
+      level: 'info',
+      source: 'bridge',
+      message: 'live row',
+    })
+
+    await store.refreshLatest()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/logs?scope=current_session&limit=100',
+      expect.any(Object),
+    )
+    expect(store.items.map((item) => item.log_id)).toEqual([
+      'log_persisted_0001',
+      'log_live_0001',
+    ])
   })
 
   it('stores a visible error when loading fails', async () => {
@@ -231,32 +272,7 @@ describe('logs store', () => {
     }, 500)))
 
     const store = useLogsStore()
-    await expect(store.fetchList()).rejects.toMatchObject({ message: '读取日志失败' })
+    await expect(store.ensureLoaded()).rejects.toMatchObject({ message: '读取日志失败' })
     expect(store.error).toBe('读取日志失败')
-  })
-
-  it('caps requested log page size at the formal maximum', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
-      items: [],
-      page: {
-        limit: 200,
-        has_older: false,
-        has_newer: false,
-        older_cursor: null,
-        newer_cursor: null,
-      },
-    }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    const store = useLogsStore()
-    store.filters = {
-      limit: 500,
-    }
-
-    await store.fetchList()
-
-    expect(fetchMock).toHaveBeenCalledWith('/api/logs?limit=200', expect.any(Object))
-    expect(store.filters.limit).toBe(500)
-    expect(store.page.limit).toBe(200)
   })
 })

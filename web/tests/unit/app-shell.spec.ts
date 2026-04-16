@@ -55,11 +55,25 @@ describe('BasicLayout', () => {
                   component: { template: '<div>任务页</div>' },
                   meta: { icon: 'tasks', keepAlive: true, title: '任务' },
                 },
+              ],
+            },
+            {
+              path: '',
+              component: RouteView,
+              redirect: { name: 'logs' },
+              meta: { hideInTab: true, title: '日志中心' },
+              children: [
                 {
                   path: '/logs',
                   name: 'logs',
-                  component: { template: '<div>日志页</div>' },
-                  meta: { icon: 'logs', keepAlive: true, title: '日志' },
+                  component: { template: '<div>实时日志页</div>' },
+                  meta: { icon: 'logs', keepAlive: true, title: '实时日志' },
+                },
+                {
+                  path: '/logs/history',
+                  name: 'logs-history',
+                  component: { template: '<div>历史日志页</div>' },
+                  meta: { icon: 'history-logs', keepAlive: true, title: '历史日志' },
                 },
               ],
             },
@@ -74,12 +88,6 @@ describe('BasicLayout', () => {
                   name: 'protocols',
                   component: { template: '<div>协议中心页</div>' },
                   meta: { icon: 'protocols', keepAlive: true, title: '协议中心' },
-                },
-                {
-                  path: '/protocols/logs',
-                  name: 'protocol-logs',
-                  component: { template: '<div>协议日志页</div>' },
-                  meta: { icon: 'protocol-logs', keepAlive: true, title: '协议日志' },
                 },
               ],
             },
@@ -203,6 +211,7 @@ describe('BasicLayout', () => {
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).toContain('运维')
+    expect(wrapper.text()).toContain('日志中心')
     expect(wrapper.text()).toContain('协议')
     expect(wrapper.text()).toContain('系统')
   })
@@ -240,12 +249,25 @@ describe('BasicLayout', () => {
       { title: '系统状态', icon: 'dashboard' },
       { title: '指令中心', icon: 'commands' },
       { title: '任务', icon: 'tasks' },
-      { title: '日志', icon: 'logs' },
+      { title: '实时日志', icon: 'logs' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '日志'])
+    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志'])
     expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks', 'logs'])
-    expect(getActiveTabLabel()).toBe('日志')
+    expect(getActiveTabLabel()).toBe('实时日志')
     expect(uiShellStore.tabs.map((item) => item.title)).not.toContain('运维')
+
+    await router.push('/logs/history')
+    await flushPromises()
+    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
+      { title: '系统状态', icon: 'dashboard' },
+      { title: '指令中心', icon: 'commands' },
+      { title: '任务', icon: 'tasks' },
+      { title: '实时日志', icon: 'logs' },
+      { title: '历史日志', icon: 'history-logs' },
+    ])
+    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志', '历史日志'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'history-logs'])
+    expect(getActiveTabLabel()).toBe('历史日志')
   })
 
   it('renders full breadcrumbs with a clickable parent group', async () => {
@@ -298,10 +320,12 @@ describe('BasicLayout', () => {
 
     const menuGroups = wrapper.findAll('.admin-layout__sider .ant-menu-submenu')
     const operationsGroup = menuGroups.find((item) => item.text().includes('运维'))
+    const logsGroup = menuGroups.find((item) => item.text().includes('日志中心'))
     const protocolGroup = menuGroups.find((item) => item.text().includes('协议'))
 
-    expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
-    expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
+    expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
+    expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
+    expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(2)
     expect(wrapper.find('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon').exists()).toBe(true)
   })
 

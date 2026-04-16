@@ -12,29 +12,29 @@ describe('RouteView', () => {
 
   it('does not keep an extra nested cache layer for grouped pages', async () => {
     const mountCounts = {
-      logs: 0,
-      protocols: 0,
+      currentLogs: 0,
+      historyLogs: 0,
     }
 
-    const ProtocolsView = defineComponent({
-      name: 'ProtocolsView',
+    const LogsView = defineComponent({
+      name: 'LogsView',
       setup() {
         onMounted(() => {
-          mountCounts.protocols += 1
+          mountCounts.currentLogs += 1
         })
 
-        return () => h('div', '协议中心')
+        return () => h('div', '实时日志')
       },
     })
 
-    const ProtocolLogsView = defineComponent({
-      name: 'ProtocolLogsView',
+    const LogsHistoryView = defineComponent({
+      name: 'LogsHistoryView',
       setup() {
         onMounted(() => {
-          mountCounts.logs += 1
+          mountCounts.historyLogs += 1
         })
 
-        return () => h('div', '协议日志')
+        return () => h('div', '历史日志')
       },
     })
 
@@ -46,19 +46,19 @@ describe('RouteView', () => {
           component: RouteView,
           children: [
             {
-              path: 'protocols',
-              component: ProtocolsView,
+              path: 'logs',
+              component: LogsView,
             },
             {
-              path: 'protocols/logs',
-              component: ProtocolLogsView,
+              path: 'logs/history',
+              component: LogsHistoryView,
             },
           ],
         },
       ],
     })
 
-    await router.push('/protocols')
+    await router.push('/logs')
     await router.isReady()
 
     mount(RouteView, {
@@ -69,17 +69,17 @@ describe('RouteView', () => {
     })
 
     await flushPromises()
-    expect(mountCounts.protocols).toBe(1)
-    expect(document.body.textContent).toContain('协议中心')
+    expect(mountCounts.currentLogs).toBe(1)
+    expect(document.body.textContent).toContain('实时日志')
 
-    await router.push('/protocols/logs')
+    await router.push('/logs/history')
     await flushPromises()
-    expect(mountCounts.logs).toBe(1)
-    expect(document.body.textContent).toContain('协议日志')
+    expect(mountCounts.historyLogs).toBe(1)
+    expect(document.body.textContent).toContain('历史日志')
 
-    await router.push('/protocols')
+    await router.push('/logs')
     await flushPromises()
-    expect(mountCounts.protocols).toBe(2)
-    expect(document.body.textContent).toContain('协议中心')
+    expect(mountCounts.currentLogs).toBe(2)
+    expect(document.body.textContent).toContain('实时日志')
   })
 })

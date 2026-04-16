@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { DownOutlined } from '@ant-design/icons-vue'
-import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
@@ -11,10 +10,10 @@ import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
-import { useLogsStore } from '@/stores/logs'
+import { useLogHistoryStore } from '@/stores/log-history'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 
-const logsStore = useLogsStore()
+const historyStore = useLogHistoryStore()
 const detailController = useLogDetailController()
 const {
   currentDetail,
@@ -27,9 +26,9 @@ const {
 const viewportRef = ref<{
   scrollToBottom: () => void
 } | null>(null)
+const autoFollowBottom = ref(false)
 
 const {
-  atBottom,
   error,
   filters,
   hasOlder,
@@ -37,8 +36,8 @@ const {
   items,
   loading,
   loadingOlder,
-  pendingNewCount,
-} = storeToRefs(logsStore)
+  timeRangeInput,
+} = storeToRefs(historyStore)
 
 const levelOptions = computed(() => ([
   { label: t('display.logLevels.debug'), value: 'debug' },
@@ -47,43 +46,37 @@ const levelOptions = computed(() => ([
   { label: t('display.logLevels.error'), value: 'error' },
 ]))
 
-const followBottom = computed(() => atBottom.value)
-
-async function activatePage() {
-  logsStore.setViewportActive(true)
+async function refreshHistory() {
+  autoFollowBottom.value = true
   try {
-    await logsStore.ensureLoaded()
-    await nextTick()
-    if (followBottom.value) {
-      logsStore.acknowledgePendingNew()
-      viewportRef.value?.scrollToBottom()
-    }
-  } catch {
-    // store error drives the page
-  }
-}
-
-async function refreshLatest() {
-  try {
-    await logsStore.refreshLatest()
-    await nextTick()
-    if (followBottom.value) {
-      viewportRef.value?.scrollToBottom()
-    }
-  } catch {
-    // store error drives the page
-  }
-}
-
-async function applyFilters() {
-  try {
-    logsStore.setViewportAtBottom(true)
-    await logsStore.applyFilters()
+    await historyStore.refreshAnchor()
     await nextTick()
     viewportRef.value?.scrollToBottom()
   } catch {
     // store error drives the page
+  } finally {
+    await nextTick()
+    autoFollowBottom.value = false
   }
+}
+
+async function applyFilters() {
+  autoFollowBottom.value = true
+  try {
+    await historyStore.applyFilters()
+    await nextTick()
+    viewportRef.value?.scrollToBottom()
+  } catch {
+    // store error drives the page
+  } finally {
+    await nextTick()
+    autoFollowBottom.value = false
+  }
+}
+
+async function useRecentDay() {
+  historyStore.resetTimeRangeToDefault()
+  await refreshHistory()
 }
 
 async function loadOlder() {
@@ -92,21 +85,10 @@ async function loadOlder() {
   }
 
   try {
-    await logsStore.loadOlder()
+    await historyStore.loadOlder()
   } catch {
     // store error drives the page
   }
-}
-
-async function jumpToLatest() {
-  logsStore.acknowledgePendingNew()
-  logsStore.setViewportAtBottom(true)
-  await nextTick()
-  viewportRef.value?.scrollToBottom()
-}
-
-function onViewportBottomChange(value: boolean) {
-  logsStore.setViewportAtBottom(value)
 }
 
 function getLevelColor(level: string) {
@@ -117,27 +99,19 @@ function getLevelColor(level: string) {
 }
 
 onMounted(() => {
-  void activatePage()
+  void refreshHistory()
 })
 
 onActivated(() => {
-  void activatePage()
-})
-
-onDeactivated(() => {
-  logsStore.setViewportActive(false)
-})
-
-onUnmounted(() => {
-  logsStore.setViewportActive(false)
+  void refreshHistory()
 })
 </script>
 
 <template>
-  <AppPage :title="t('logs.currentTitle')" full-height>
+  <AppPage :title="t('logs.historyTitle')" full-height>
     <template #extra>
-      <a-button :loading="loading" @click="refreshLatest">
-        {{ t('logs.refresh') }}
+      <a-button :loading="loading" @click="refreshHistory">
+        {{ t('logs.history.refresh') }}
       </a-button>
     </template>
 
@@ -169,9 +143,16 @@ onUnmounted(() => {
           <a-form-item :label="t('logs.filters.requestId')">
             <a-input v-model:value="filters.requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
           </a-form-item>
+          <a-form-item :label="t('logs.history.startAt')">
+            <a-input v-model:value="timeRangeInput.startLocal" type="datetime-local" />
+          </a-form-item>
+          <a-form-item :label="t('logs.history.endAt')">
+            <a-input v-model:value="timeRangeInput.endLocal" type="datetime-local" />
+          </a-form-item>
         </a-form>
 
         <div class="logs-toolbar__actions">
+          <a-button @click="useRecentDay">{{ t('logs.history.lastDay') }}</a-button>
           <a-button type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
         </div>
       </a-card>
@@ -182,7 +163,7 @@ onUnmounted(() => {
       :title="t('errors.common.loadFailed')"
       :description="error"
       :loading="loading"
-      @retry="activatePage"
+      @retry="refreshHistory"
     />
 
     <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
@@ -191,76 +172,50 @@ onUnmounted(() => {
       <a-card :bordered="false" class="logs-feed-card">
         <template #title>
           <div class="logs-feed-card__title">
-            <span>{{ t('logs.current.streamTitle') }}</span>
-            <a-tag :color="atBottom ? 'success' : 'default'">
-              {{ atBottom ? t('logs.current.following') : t('logs.current.paused') }}
-            </a-tag>
+            <span>{{ t('logs.history.streamTitle') }}</span>
+            <a-tag color="default">{{ t('logs.history.frozen') }}</a-tag>
           </div>
         </template>
 
-        <div class="logs-feed-card__body">
-          <VirtualDataViewport
-            ref="viewportRef"
-            :items="items"
-            :item-height="96"
-            :dynamic-item-height="true"
-            :overscan="6"
-            :follow-bottom="followBottom"
-            :bottom-threshold="0"
-            :empty-label="t('display.empty')"
-            :get-item-key="(item) => item.log_id"
-            @reach-top="loadOlder"
-            @at-bottom-change="onViewportBottomChange"
-          >
-            <template #default="{ item }">
-              <button
-                type="button"
-                class="logs-row"
-                :class="{ 'is-selected': selectedLogId === item.log_id }"
-                @click="detailController.openDetail(item)"
-              >
-                <div class="logs-row__meta">
-                  <div class="logs-row__time">{{ formatDateTime(item.timestamp) }}</div>
-                  <div class="logs-row__source">
-                    <span>{{ item.source }}</span>
-                    <span v-if="item.protocol" class="logs-row__protocol">{{ item.protocol }}</span>
-                  </div>
+        <VirtualDataViewport
+          ref="viewportRef"
+          :items="items"
+          :item-height="96"
+          :dynamic-item-height="true"
+          :overscan="6"
+          :follow-bottom="autoFollowBottom"
+          :empty-label="t('display.empty')"
+          :get-item-key="(item) => item.log_id"
+          @reach-top="loadOlder"
+        >
+          <template #default="{ item }">
+            <button
+              type="button"
+              class="logs-row"
+              :class="{ 'is-selected': selectedLogId === item.log_id }"
+              @click="detailController.openDetail(item)"
+            >
+              <div class="logs-row__meta">
+                <div class="logs-row__time">{{ formatDateTime(item.timestamp) }}</div>
+                <div class="logs-row__source">
+                  <span>{{ item.source }}</span>
+                  <span v-if="item.protocol" class="logs-row__protocol">{{ item.protocol }}</span>
                 </div>
+              </div>
 
-                <div class="logs-row__main">
-                  <div class="logs-row__headline">
-                    <a-tag size="small" :color="getLevelColor(item.level)">
-                      {{ getLogLevelLabel(item.level) }}
-                    </a-tag>
-                    <span v-if="item.plugin_id" class="logs-row__sub">{{ item.plugin_id }}</span>
-                    <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
-                  </div>
-                  <p class="logs-row__message">{{ escapeUnsafeDisplayText(item.message) }}</p>
+              <div class="logs-row__main">
+                <div class="logs-row__headline">
+                  <a-tag size="small" :color="getLevelColor(item.level)">
+                    {{ getLogLevelLabel(item.level) }}
+                  </a-tag>
+                  <span v-if="item.plugin_id" class="logs-row__sub">{{ item.plugin_id }}</span>
+                  <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
                 </div>
-              </button>
-            </template>
-          </VirtualDataViewport>
-
-          <div v-if="!atBottom" class="logs-jump-latest">
-            <a-badge :count="pendingNewCount || undefined" :offset="[-2, 4]">
-              <a-tooltip
-                :title="pendingNewCount > 0 ? t('logs.current.pendingNew', { count: pendingNewCount }) : t('logs.current.jumpToLatest')"
-              >
-                <a-button
-                  type="primary"
-                  shape="circle"
-                  class="logs-jump-latest__button"
-                  :aria-label="t('logs.current.jumpToLatest')"
-                  @click="jumpToLatest"
-                >
-                  <template #icon>
-                    <DownOutlined />
-                  </template>
-                </a-button>
-              </a-tooltip>
-            </a-badge>
-          </div>
-        </div>
+                <p class="logs-row__message">{{ escapeUnsafeDisplayText(item.message) }}</p>
+              </div>
+            </button>
+          </template>
+        </VirtualDataViewport>
       </a-card>
 
       <ManagementLogDetailDrawer
@@ -299,6 +254,8 @@ onUnmounted(() => {
 .logs-toolbar__actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .logs-feed-card,
@@ -309,35 +266,10 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.logs-feed-card__body {
-  position: relative;
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
 .logs-feed-card__title {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.logs-jump-latest {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-
-.logs-jump-latest :deep(.ant-badge) {
-  pointer-events: auto;
-}
-
-.logs-jump-latest__button {
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--app-primary) 24%, transparent);
 }
 
 .logs-row {
@@ -415,11 +347,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 760px) {
-  .logs-jump-latest {
-    right: 14px;
-    bottom: 14px;
-  }
-
   .logs-row {
     grid-template-columns: 1fr;
   }

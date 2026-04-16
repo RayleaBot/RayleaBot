@@ -106,7 +106,6 @@ describe('ProtocolsPage', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/protocols', component: ProtocolsPage },
-        { path: '/protocols/logs', component: { template: '<div>协议日志</div>' } },
       ],
     })
   }
@@ -155,7 +154,7 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('主动连接 WebSocket')
     expect(wrapper.text()).toContain('主动连接鉴权失败')
     expect(wrapper.text()).toContain('连接设置')
-    expect(wrapper.text()).toContain('查看协议日志')
+    expect(wrapper.text()).not.toContain('查看协议日志')
   })
 
   it('submits the full config document while editing protocol fields only', async () => {

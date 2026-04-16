@@ -428,7 +428,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List redacted management log summaries with cursor pagination. */
+        /** List redacted management log summaries for current-session or historical browsing. */
         get: operations["listLogs"];
         put?: never;
         post?: never;
@@ -704,6 +704,11 @@ export interface components {
         LogLevel: "debug" | "info" | "warn" | "error";
         /** @enum {string} */
         LogProtocol: "onebot11";
+        /**
+         * @default history
+         * @enum {string}
+         */
+        LogScope: "history" | "current_session";
         LogSummary: {
             log_id: string;
             timestamp: string;
@@ -1863,6 +1868,9 @@ export interface operations {
     listLogs: {
         parameters: {
             query?: {
+                /** @description Select whether to browse persisted history or only the current server boot session. start_at and end_at are only valid when scope=history.
+                 *      */
+                scope?: components["schemas"]["LogScope"];
                 level?: components["schemas"]["LogLevel"];
                 source?: string;
                 protocol?: components["schemas"]["LogProtocol"];
@@ -1871,7 +1879,12 @@ export interface operations {
                 limit?: number;
                 /** @description Opaque cursor issued by the server for log history pagination. */
                 cursor?: string;
+                /** @description Cursor direction for incremental log loading. When cursor is omitted, the server returns the latest window. */
                 direction?: components["schemas"]["LogPageDirection"];
+                /** @description Inclusive UTC RFC3339 lower time bound. Only valid when scope=history. */
+                start_at?: string;
+                /** @description Inclusive UTC RFC3339 upper time bound. Only valid when scope=history. */
+                end_at?: string;
             };
             header?: never;
             path?: never;
@@ -1879,7 +1892,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Bounded log summaries using the same whitelist fields as /ws/logs plus cursor page metadata. */
+            /** @description Bounded log summaries using the same whitelist fields as /ws/logs plus cursor window metadata. */
             200: {
                 headers: {
                     [name: string]: unknown;

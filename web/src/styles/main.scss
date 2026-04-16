@@ -750,7 +750,9 @@ textarea:focus-visible,
 }
 
 .app-page--full-height {
-  flex: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
 }
 
@@ -798,13 +800,20 @@ textarea:focus-visible,
   width: 100%;
 }
 
+.app-page--full-height .app-page__toolbar {
+  flex: 0 0 auto;
+}
+
 .app-page--full-height .app-page__content {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
 
 .app-page--full-height .app-page__content > * {
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -1318,10 +1327,12 @@ textarea:focus-visible,
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  overflow-anchor: none;
 }
 
 .data-viewport__canvas {
   min-height: 100%;
+  overflow-anchor: none;
 }
 
 .data-viewport__stack {
