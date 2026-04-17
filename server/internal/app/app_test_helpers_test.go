@@ -221,9 +221,9 @@ func (a *App) handlePluginWebhook() http.HandlerFunc {
 	return newPluginWebhookHTTPHandlers(a.pluginWebhooks).handlePluginWebhook()
 }
 
-func applyHotReloadableFields(app *App, newCfg config.Config) bool {
+func applyConfigApplyEffects(app *App, newCfg config.Config) configApplyEffects {
 	if app == nil {
-		return false
+		return newConfigApplyEffects()
 	}
 	return newConfigHTTPHandlers(configHTTPDeps{
 		state:            app.state,
@@ -235,4 +235,8 @@ func applyHotReloadableFields(app *App, newCfg config.Config) bool {
 		eventIngress:     app.eventIngress,
 		blacklistRepo:    app.blacklistRepo,
 	}).applyHotReloadableFields(newCfg)
+}
+
+func applyHotReloadableFields(app *App, newCfg config.Config) bool {
+	return applyConfigApplyEffects(app, newCfg).restartRequired()
 }

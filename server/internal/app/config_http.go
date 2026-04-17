@@ -1,8 +1,11 @@
 package app
 
 import (
+	"maps"
 	"net/http"
+	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -17,9 +20,34 @@ type configResponse struct {
 }
 
 type configUpdateResponse struct {
-	Config          map[string]any `json:"config"`
-	RedactedFields  []string       `json:"redacted_fields,omitempty"`
-	RestartRequired bool           `json:"restart_required"`
+	Config          map[string]any     `json:"config"`
+	RedactedFields  []string           `json:"redacted_fields,omitempty"`
+	RestartRequired bool               `json:"restart_required"`
+	ApplyEffects    configApplyEffects `json:"apply_effects"`
+}
+
+type configApplyEffects struct {
+	AppliedNow            []string `json:"applied_now"`
+	ReloadedNow           []string `json:"reloaded_now"`
+	RestartRequiredFields []string `json:"restart_required_fields"`
+}
+
+func newConfigApplyEffects() configApplyEffects {
+	return configApplyEffects{
+		AppliedNow:            []string{},
+		ReloadedNow:           []string{},
+		RestartRequiredFields: []string{},
+	}
+}
+
+func (e configApplyEffects) restartRequired() bool {
+	return len(e.RestartRequiredFields) > 0
+}
+
+func (e *configApplyEffects) normalize() {
+	e.AppliedNow = normalizeConfigEffectPaths(e.AppliedNow)
+	e.ReloadedNow = normalizeConfigEffectPaths(e.ReloadedNow)
+	e.RestartRequiredFields = normalizeConfigEffectPaths(e.RestartRequiredFields)
 }
 
 func (h *configHTTPHandlers) handleConfigGet() http.HandlerFunc {
@@ -47,25 +75,26 @@ func (h *configHTTPHandlers) handleConfigPut() http.HandlerFunc {
 			return
 		}
 
-		restartRequired := h.applyHotReloadableFields(newCfg)
+		applyEffects := h.applyHotReloadableFields(newCfg)
 		h.state.Summary = newSummary
 
 		document, redactedFields := sanitizeConfigDocument(resolved)
 		writeAuthJSON(w, http.StatusOK, configUpdateResponse{
 			Config:          document,
 			RedactedFields:  redactedFields,
-			RestartRequired: restartRequired,
+			RestartRequired: applyEffects.restartRequired(),
+			ApplyEffects:    applyEffects,
 		})
 	}
 }
 
 // applyHotReloadableFields compares the new config with the current config,
-// applies fields that can take effect immediately, and returns true if any
-// non-hot-reloadable field has changed (requiring a restart).
-func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Config) bool {
+// applies fields that can take effect immediately, and reports how each
+// changed canonical config path is applied.
+func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Config) configApplyEffects {
 	oldCfg := h.state.Config
-	restartRequired := false
-	oneBotHotChanged := oneBotHotReloadChanged(oldCfg, newCfg)
+	effects := classifyConfigApplyEffects(oldCfg, newCfg)
+	oneBotHotChanged := len(effects.ReloadedNow) > 0
 
 	// logging.level — immediate effect via LevelController.
 	if newCfg.Logging.Level != oldCfg.Logging.Level {
@@ -95,30 +124,6 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 		})
 	}
 
-	// Fields that require a restart when changed.
-	if newCfg.Server.Host != oldCfg.Server.Host ||
-		newCfg.Server.Port != oldCfg.Server.Port {
-		restartRequired = true
-	}
-	if newCfg.Database.Engine != oldCfg.Database.Engine ||
-		newCfg.Database.Path != oldCfg.Database.Path {
-		restartRequired = true
-	}
-	if newCfg.Auth.SessionTTLDays != oldCfg.Auth.SessionTTLDays ||
-		newCfg.Auth.SlidingRenewal != oldCfg.Auth.SlidingRenewal ||
-		newCfg.Auth.MaxSessions != oldCfg.Auth.MaxSessions {
-		restartRequired = true
-	}
-	if newCfg.Web.ExposureMode != oldCfg.Web.ExposureMode ||
-		newCfg.Web.SetupLocalOnly != oldCfg.Web.SetupLocalOnly {
-		restartRequired = true
-	}
-	if newCfg.Render.WorkerCount != oldCfg.Render.WorkerCount ||
-		newCfg.Render.BrowserPath != oldCfg.Render.BrowserPath ||
-		!slices.Equal(newCfg.Render.BrowserArgs, oldCfg.Render.BrowserArgs) {
-		restartRequired = true
-	}
-
 	// Update in-memory config to reflect the saved state.
 	h.state.Config = newCfg
 	if h.eventIngress != nil {
@@ -126,7 +131,8 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 	}
 	if oneBotHotChanged && h.protocol != nil && h.protocol.adapter != nil {
 		if err := h.protocol.adapter.Reload(newCfg.OneBot); err != nil {
-			restartRequired = true
+			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
+			effects.ReloadedNow = effects.ReloadedNow[:0]
 			h.state.Logger.Warn("adapter shell hot reload failed",
 				"component", "config",
 				"err", err.Error(),
@@ -137,7 +143,102 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 		h.protocol.PublishSnapshot()
 	}
 
-	return restartRequired
+	effects.normalize()
+	return effects
+}
+
+func classifyConfigApplyEffects(oldCfg internalconfig.Config, newCfg internalconfig.Config) configApplyEffects {
+	effects := newConfigApplyEffects()
+
+	for _, path := range diffConfigDocumentPaths(configDocumentFromTyped(oldCfg), configDocumentFromTyped(newCfg)) {
+		switch {
+		case isConfigReloadPath(path):
+			effects.ReloadedNow = append(effects.ReloadedNow, path)
+		case isConfigRestartPath(path):
+			effects.RestartRequiredFields = append(effects.RestartRequiredFields, path)
+		default:
+			effects.AppliedNow = append(effects.AppliedNow, path)
+		}
+	}
+
+	effects.normalize()
+	return effects
+}
+
+func diffConfigDocumentPaths(current, next map[string]any) []string {
+	paths := make([]string, 0)
+	collectConfigPathChanges("", current, next, &paths)
+	return normalizeConfigEffectPaths(paths)
+}
+
+func collectConfigPathChanges(prefix string, current, next any, paths *[]string) {
+	currentMap, currentIsMap := current.(map[string]any)
+	nextMap, nextIsMap := next.(map[string]any)
+	if currentIsMap && nextIsMap {
+		keys := make(map[string]struct{}, len(currentMap)+len(nextMap))
+		for key := range currentMap {
+			keys[key] = struct{}{}
+		}
+		for key := range nextMap {
+			keys[key] = struct{}{}
+		}
+		sortedKeys := slices.Collect(maps.Keys(keys))
+		slices.Sort(sortedKeys)
+		for _, key := range sortedKeys {
+			collectConfigPathChanges(joinConfigPath(prefix, key), currentMap[key], nextMap[key], paths)
+		}
+		return
+	}
+
+	if reflect.DeepEqual(current, next) || prefix == "" {
+		return
+	}
+
+	*paths = append(*paths, prefix)
+}
+
+func joinConfigPath(prefix string, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "." + key
+}
+
+func isConfigReloadPath(path string) bool {
+	return strings.HasPrefix(path, "onebot.") || strings.HasPrefix(path, "adapter.")
+}
+
+func isConfigRestartPath(path string) bool {
+	switch {
+	case strings.HasPrefix(path, "server."):
+		return true
+	case strings.HasPrefix(path, "database."):
+		return true
+	case strings.HasPrefix(path, "web."):
+		return true
+	}
+
+	switch path {
+	case "admin.session_ttl_days",
+		"admin.sliding_renewal",
+		"admin.max_sessions",
+		"render.worker_count",
+		"render.browser_path",
+		"render.browser_args":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeConfigEffectPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return []string{}
+	}
+
+	normalized := append([]string(nil), paths...)
+	slices.Sort(normalized)
+	return slices.Compact(normalized)
 }
 
 func configDocumentFromTyped(cfg internalconfig.Config) map[string]any {

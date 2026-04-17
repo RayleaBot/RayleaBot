@@ -13,6 +13,7 @@ import (
 
 const (
 	stateInstalled       = "installed"
+	stateRemoved         = "removed"
 	stateDisabled        = "disabled"
 	stateStopped         = "stopped"
 	displayDiscovered    = "discovered"

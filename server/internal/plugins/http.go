@@ -40,7 +40,7 @@ type pluginSummaryResponse struct {
 	RegistrationState string                  `json:"registration_state"`
 	DesiredState      string                  `json:"desired_state"`
 	RuntimeState      string                  `json:"runtime_state"`
-	DisplayState      string                  `json:"display_state,omitempty"`
+	DisplayState      string                  `json:"display_state"`
 	Source            pluginSourceResponse    `json:"source"`
 	Trust             pluginTrustResponse     `json:"trust"`
 	Commands          []pluginCommandResponse `json:"commands"`
@@ -86,7 +86,7 @@ type pluginDetailPluginResponse struct {
 	RegistrationState string                     `json:"registration_state"`
 	DesiredState      string                     `json:"desired_state"`
 	RuntimeState      string                     `json:"runtime_state"`
-	DisplayState      string                     `json:"display_state,omitempty"`
+	DisplayState      string                     `json:"display_state"`
 	Source            pluginSourceResponse       `json:"source"`
 	Trust             pluginTrustResponse        `json:"trust"`
 	Commands          []pluginCommandResponse    `json:"commands"`

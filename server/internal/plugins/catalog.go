@@ -305,6 +305,7 @@ func (c *Catalog) publishMany(snapshots []Snapshot) {
 
 func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned := snapshot
+	cloned.DisplayState = projectDisplayState(snapshot)
 	cloned.DefaultConfig = cloneMap(snapshot.DefaultConfig)
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
@@ -369,32 +370,35 @@ func cloneValue(value any) any {
 }
 
 func defaultDisplayState(snapshot Snapshot) string {
-	if !snapshot.Valid || snapshot.RegistrationState != "installed" {
-		return snapshot.DisplayState
+	if snapshot.RegistrationState == stateRemoved {
+		return displayRemoved
+	}
+	if !snapshot.Valid || snapshot.RegistrationState != stateInstalled {
+		return projectDisplayState(snapshot)
 	}
 
 	switch snapshot.RuntimeState {
 	case "starting":
-		return "enabling"
+		return displayEnabling
 	case "running":
-		return "running"
+		return displayRunning
 	case "stopping":
 		if snapshot.DesiredState == "disabled" {
-			return "disabling"
+			return displayDisabling
 		}
-		return "stopping"
+		return displayStopping
 	case "crashed":
-		return "crashed"
+		return displayCrashed
 	case "backoff":
-		return "backoff"
+		return displayBackoff
 	case "dead_letter":
-		return "dead_letter"
+		return displayDeadLetter
 	}
 
 	if snapshot.DesiredState == "enabled" {
-		return "enabled"
+		return displayEnabled
 	}
-	return "disabled"
+	return displayDisabled
 }
 
 func pluginStateChanged(current Snapshot, next Snapshot) bool {
