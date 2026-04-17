@@ -1,0 +1,34 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Governance command policy exposes default level, cooldown settings, and command-level effective permissions.
+request:
+  method: GET
+  path: /api/governance/command-policy
+response:
+  status: 200
+  body:
+    default_level: everyone
+    cooldown:
+      user_command_rate_limit: 10/60s
+      group_command_rate_limit: 30/60s
+      cooldown_reply: true
+    commands:
+      - plugin_id: weather
+        plugin_name: Weather
+        command: weather
+        aliases:
+          - tq
+          - 天气
+        declared_permission: group_admin
+        effective_permission: group_admin
+        permission_source: declared
+      - plugin_id: hello-python
+        plugin_name: Hello Python
+        command: hello
+        aliases:
+          - hi
+        declared_permission: null
+        effective_permission: everyone
+        permission_source: default_level
+expect:
+  valid: true

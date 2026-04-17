@@ -1,0 +1,29 @@
+{
+  "base_revision_id": "rev_help_menu_0004",
+  "message": "调整标题间距",
+  "source": {
+    "manifest_json": {
+      "id": "help.menu",
+      "version": "1",
+      "entry_html": "template.html",
+      "stylesheet": "styles.css",
+      "input_schema": "input.schema.json",
+      "width": 960,
+      "height": 640
+    },
+    "html": "<section class=\"menu-card\"><h1>{{ .title }}</h1></section>",
+    "stylesheet": ".menu-card { display: grid; gap: 16px; }",
+    "input_schema_json": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

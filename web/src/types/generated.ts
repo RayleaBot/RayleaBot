@@ -166,6 +166,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/governance/blacklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query the current chat-side blacklist snapshot for management review. */
+        get: operations["getGovernanceBlacklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/command-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query the effective command permission and cooldown policy snapshot. */
+        get: operations["getGovernanceCommandPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/status": {
         parameters: {
             query?: never;
@@ -347,6 +381,109 @@ export interface paths {
         get: operations["getRenderArtifact"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/render/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List managed render templates available to the online template editor. */
+        get: operations["listRenderTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/render/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one managed render template detail snapshot. */
+        get: operations["getRenderTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/render/templates/{template_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current source bundle for one managed render template. */
+        get: operations["getRenderTemplateSource"];
+        /** Save a new source bundle revision for one managed render template. */
+        put: operations["updateRenderTemplateSource"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/render/templates/{template_id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate the current or draft source bundle for one managed render template. */
+        post: operations["validateRenderTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/render/templates/{template_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List stored source revisions for one managed render template. */
+        get: operations["listRenderTemplateVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/render/templates/{template_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a new managed render template revision by rolling back to a previous revision. */
+        post: operations["rollbackRenderTemplate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -892,6 +1029,130 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+            draft?: components["schemas"]["RenderTemplateDraft"];
+        };
+        RenderTemplateDraft: {
+            source: components["schemas"]["RenderTemplateSource"];
+        };
+        RenderTemplateFiles: {
+            manifest: string;
+            html: string;
+            stylesheet: string;
+            input_schema: string | null;
+        };
+        RenderTemplateValidationStatus: {
+            valid: boolean;
+            /** Format: date-time */
+            checked_at: string;
+            issue_count: number;
+        };
+        RenderTemplateVersion: {
+            revision_id: string;
+            template_version: string;
+            /** Format: date-time */
+            saved_at: string;
+            /** @enum {string} */
+            kind: "save" | "rollback";
+            message?: string | null;
+        };
+        RenderTemplateSummary: {
+            id: string;
+            version: string;
+            width: number;
+            height: number;
+            has_input_schema: boolean;
+            current_revision_id: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        RenderTemplateListResponse: {
+            items: components["schemas"]["RenderTemplateSummary"][];
+        };
+        RenderTemplateDetail: components["schemas"]["RenderTemplateSummary"] & {
+            files: components["schemas"]["RenderTemplateFiles"];
+            current_revision: components["schemas"]["RenderTemplateVersion"];
+            last_validation: components["schemas"]["RenderTemplateValidationStatus"];
+        };
+        RenderTemplateDetailResponse: {
+            template: components["schemas"]["RenderTemplateDetail"];
+        };
+        RenderTemplateSource: {
+            manifest_json: {
+                [key: string]: unknown;
+            };
+            html: string;
+            stylesheet: string;
+            input_schema_json: {
+                [key: string]: unknown;
+            } | null;
+        };
+        RenderTemplateSourceResponse: {
+            template_id: string;
+            revision_id: string;
+            source: components["schemas"]["RenderTemplateSource"];
+        };
+        RenderTemplateSourceUpdateRequest: {
+            base_revision_id: string;
+            source: components["schemas"]["RenderTemplateSource"];
+            message: string;
+        };
+        RenderTemplateValidationIssue: {
+            code: string;
+            message: string;
+            path?: string;
+        };
+        RenderTemplateValidateRequest: {
+            source?: components["schemas"]["RenderTemplateSource"];
+        };
+        RenderTemplateValidateResponse: {
+            valid: boolean;
+            issues: components["schemas"]["RenderTemplateValidationIssue"][];
+            normalized_manifest: {
+                [key: string]: unknown;
+            };
+        };
+        RenderTemplateVersionListResponse: {
+            items: components["schemas"]["RenderTemplateVersion"][];
+        };
+        RenderTemplateRollbackRequest: {
+            target_revision_id: string;
+            base_revision_id: string;
+            message: string;
+        };
+        BlacklistEntry: {
+            /** @enum {string} */
+            entry_type: "user" | "group";
+            target_id: string;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        GovernanceBlacklistResponse: {
+            user_entries: components["schemas"]["BlacklistEntry"][];
+            group_entries: components["schemas"]["BlacklistEntry"][];
+        };
+        /** @enum {string} */
+        CommandPermissionLevel: "super_admin" | "group_admin" | "everyone";
+        /** @enum {string} */
+        CommandPermissionSource: "declared" | "default_level";
+        GovernanceCommandCooldown: {
+            user_command_rate_limit: string;
+            group_command_rate_limit: string;
+            cooldown_reply: boolean;
+        };
+        GovernanceCommandPolicyEntry: {
+            plugin_id: string;
+            plugin_name: string;
+            command: string;
+            aliases: string[];
+            declared_permission: components["schemas"]["CommandPermissionLevel"];
+            effective_permission: components["schemas"]["CommandPermissionLevel"];
+            permission_source: components["schemas"]["CommandPermissionSource"];
+        };
+        GovernanceCommandPolicyResponse: {
+            default_level: components["schemas"]["CommandPermissionLevel"];
+            cooldown: components["schemas"]["GovernanceCommandCooldown"];
+            commands: components["schemas"]["GovernanceCommandPolicyEntry"][];
         };
         /** @enum {string} */
         PluginRegistrationState: "installed" | "removed";
@@ -901,6 +1162,12 @@ export interface components {
         PluginRuntimeState: "starting" | "running" | "stopping" | "crashed" | "backoff" | "dead_letter" | "stopped";
         /** @enum {string} */
         PluginRole: "builtin" | "user" | "example" | "dev";
+        /** @enum {string} */
+        PluginRuntimeFamily: "python" | "nodejs";
+        /** @enum {string} */
+        PluginPackageType: "managed_runtime" | "dev_source";
+        /** @enum {string} */
+        PluginPlatform: "windows-x64" | "linux-x64";
         PluginTrustSummary: {
             /** @enum {string} */
             level: "official" | "third_party" | "unverified" | "development";
@@ -952,8 +1219,56 @@ export interface components {
             /** Format: date-time */
             expires_at?: string | null;
         };
+        PluginDependencies: {
+            python?: string[];
+            nodejs?: string[];
+        };
+        PluginWebhookScope: {
+            route: string;
+            /** @enum {string} */
+            auth_strategy: "fixed_token" | "hmac_sha256";
+            header: string;
+            secret_ref: string;
+            source_ips?: string[];
+        };
+        PluginScopes: {
+            http_hosts?: string[];
+            storage_roots?: string[];
+            webhooks?: components["schemas"]["PluginWebhookScope"][];
+        };
+        PluginScreenshot: {
+            path: string;
+            alt?: string;
+        };
         PluginDetail: components["schemas"]["PluginSummary"] & {
             permissions: components["schemas"]["PluginPermissionSummary"][];
+            version?: string;
+            runtime?: components["schemas"]["PluginRuntimeFamily"];
+            type?: components["schemas"]["PluginPackageType"];
+            entry?: string;
+            description?: string;
+            author?: string;
+            license?: string;
+            sdk_min_version?: string;
+            runtime_version?: string;
+            min_core_version?: string;
+            data_schema_version?: string;
+            concurrency?: number;
+            platforms?: components["schemas"]["PluginPlatform"][];
+            default_config?: {
+                [key: string]: unknown;
+            };
+            declared_capabilities?: string[];
+            dependencies?: components["schemas"]["PluginDependencies"];
+            scopes?: components["schemas"]["PluginScopes"];
+            icon?: string;
+            /** Format: uri */
+            repo?: string;
+            /** Format: uri */
+            homepage?: string;
+            keywords?: string[];
+            screenshots?: components["schemas"]["PluginScreenshot"][];
+            system_dependencies?: string[];
         };
         PluginDetailResponse: {
             plugin: components["schemas"]["PluginDetail"];
@@ -1242,6 +1557,7 @@ export interface components {
         TaskId: string;
         LogId: string;
         PluginId: string;
+        TemplateId: string;
     };
     requestBodies: never;
     headers: never;
@@ -1491,6 +1807,50 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getGovernanceBlacklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user and group blacklist entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernanceBlacklistResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getGovernanceCommandPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Effective command permission defaults, cooldown configuration, and command-level policy view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernanceCommandPolicyResponse"];
+                };
+            };
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
@@ -1763,6 +2123,195 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listRenderTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Managed render template list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplateListResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getRenderTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Managed render template detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplateDetailResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getRenderTemplateSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current template source bundle. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplateSourceResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateRenderTemplateSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenderTemplateSourceUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Template source stored as a new revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplateDetailResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    validateRenderTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RenderTemplateValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Template validation result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplateValidateResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listRenderTemplateVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template revision history from newest to oldest. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplateVersionListResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    rollbackRenderTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: components["parameters"]["TemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenderTemplateRollbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Rollback stored as a new template revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderTemplateDetailResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

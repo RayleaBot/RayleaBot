@@ -11,6 +11,23 @@
   "description": "Contract-aligned Python example plugin for the minimum init and event/result flow.",
   "author": "raylea",
   "role": "example",
+  "icon": "assets/icon.svg",
+  "repo": "https://github.com/RayleaBot/RayleaBot",
+  "homepage": "https://rayleabot.local/plugins/hello-python",
+  "keywords": [
+    "hello",
+    "example",
+    "python"
+  ],
+  "screenshots": [
+    {
+      "path": "assets/preview.svg",
+      "alt": "Hello Python preview"
+    }
+  ],
+  "system_dependencies": [
+    "OneBot11 connection"
+  ],
   "capabilities": [
     "event.subscribe",
     "logger.write"

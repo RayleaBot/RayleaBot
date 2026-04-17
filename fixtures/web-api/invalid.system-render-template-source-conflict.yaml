@@ -1,0 +1,24 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Saving template source rejects stale base_revision_id values.
+request:
+  method: PUT
+  path: /api/system/render/templates/help.menu/source
+  body:
+    base_revision_id: rev_help_menu_0003
+    message: 覆盖旧版本
+    source:
+      manifest_json:
+        id: help.menu
+        version: '1'
+      html: '<section></section>'
+      stylesheet: '.menu-card {}'
+      input_schema_json: null
+response:
+  status: 409
+  body:
+    error:
+      code: platform.template_revision_conflict
+      message_key: errors.platform.template_revision_conflict
+expect:
+  valid: true

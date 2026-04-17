@@ -1,0 +1,21 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Governance blacklist snapshot returns both user and group entries.
+request:
+  method: GET
+  path: /api/governance/blacklist
+response:
+  status: 200
+  body:
+    user_entries:
+      - entry_type: user
+        target_id: '10001'
+        reason: 反复触发垃圾消息
+        created_at: '2026-04-17T09:00:00Z'
+    group_entries:
+      - entry_type: group
+        target_id: '20002'
+        reason: 风险群已封禁
+        created_at: '2026-04-16T06:30:00Z'
+expect:
+  valid: true

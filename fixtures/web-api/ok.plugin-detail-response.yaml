@@ -11,6 +11,48 @@ response:
       id: weather
       name: Weather
       role: user
+      version: 1.4.2
+      runtime: python
+      type: managed_runtime
+      entry: plugin.py
+      description: 提供当前城市天气与未来天气查询。
+      author: raylea
+      license: MIT
+      sdk_min_version: 1.2.0
+      runtime_version: '>=3.12'
+      min_core_version: 0.2.0
+      data_schema_version: weather-v2
+      concurrency: 3
+      platforms:
+        - windows-x64
+        - linux-x64
+      default_config:
+        unit: metric
+        forecast_days: 3
+      declared_capabilities:
+        - http.request
+        - logger.write
+        - render.image
+      dependencies:
+        python:
+          - httpx==0.28.1
+      scopes:
+        http_hosts:
+          - api.weather.example
+        storage_roots:
+          - plugin_data
+      icon: assets/weather.svg
+      repo: https://github.com/RayleaBot/plugins-weather
+      homepage: https://plugins.rayleabot.local/weather
+      keywords:
+        - weather
+        - forecast
+        - climate
+      screenshots:
+        - path: assets/overview.svg
+          alt: 天气总览卡片
+      system_dependencies:
+        - OneBot11 connection
       registration_state: installed
       desired_state: enabled
       runtime_state: running

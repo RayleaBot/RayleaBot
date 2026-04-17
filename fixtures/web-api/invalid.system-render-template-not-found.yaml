@@ -1,0 +1,14 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Template detail rejects unknown template identifiers.
+request:
+  method: GET
+  path: /api/system/render/templates/missing-template
+response:
+  status: 404
+  body:
+    error:
+      code: platform.template_not_found
+      message_key: errors.platform.template_not_found
+expect:
+  valid: true

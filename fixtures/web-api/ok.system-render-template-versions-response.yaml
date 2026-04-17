@@ -1,0 +1,27 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Template revision history is listed from newest to oldest with save and rollback markers.
+request:
+  method: GET
+  path: /api/system/render/templates/help.menu/versions
+response:
+  status: 200
+  body:
+    items:
+      - revision_id: rev_help_menu_0005
+        template_version: '1'
+        saved_at: '2026-04-18T11:05:00Z'
+        kind: save
+        message: 调整标题间距
+      - revision_id: rev_help_menu_0004
+        template_version: '1'
+        saved_at: '2026-04-18T10:30:00Z'
+        kind: save
+        message: 调整帮助菜单排版
+      - revision_id: rev_help_menu_0003
+        template_version: '1'
+        saved_at: '2026-04-18T08:00:00Z'
+        kind: rollback
+        message: 恢复到已验证版本
+expect:
+  valid: true

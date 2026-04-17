@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">
+  <rect width="320" height="180" rx="18" fill="#0f2744" />
+  <rect x="18" y="18" width="284" height="144" rx="12" fill="#17395f" />
+  <text x="34" y="70" fill="#f4f7fb" font-family="Segoe UI, sans-serif" font-size="28">Hello Python</text>
+  <text x="34" y="108" fill="#b6c9df" font-family="Segoe UI, sans-serif" font-size="16">Example plugin preview asset</text>
+</svg>

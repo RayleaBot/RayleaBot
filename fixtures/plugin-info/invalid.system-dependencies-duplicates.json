@@ -1,0 +1,26 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "weather-duplicate-system-deps",
+    "name": "Weather Duplicate System Dependencies",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "plugin.py",
+    "license": "MIT",
+    "system_dependencies": [
+      "OneBot11 connection",
+      "OneBot11 connection"
+    ],
+    "permissions": {
+      "required": [],
+      "optional": []
+    }
+  },
+  "expect": {
+    "valid": false
+  }
+}

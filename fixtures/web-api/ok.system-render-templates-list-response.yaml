@@ -1,0 +1,26 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Template editor list returns managed templates with revision anchors and sizing metadata.
+request:
+  method: GET
+  path: /api/system/render/templates
+response:
+  status: 200
+  body:
+    items:
+      - id: help.menu
+        version: '1'
+        width: 960
+        height: 640
+        has_input_schema: true
+        current_revision_id: rev_help_menu_0004
+        updated_at: '2026-04-18T10:30:00Z'
+      - id: status.panel
+        version: '1'
+        width: 960
+        height: 640
+        has_input_schema: false
+        current_revision_id: rev_status_panel_0002
+        updated_at: '2026-04-18T09:45:00Z'
+expect:
+  valid: true

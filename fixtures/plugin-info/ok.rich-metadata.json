@@ -1,0 +1,52 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "weather-rich",
+    "name": "Weather Rich",
+    "version": "1.4.2",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "plugin.py",
+    "license": "MIT",
+    "description": "Weather plugin with full management metadata.",
+    "author": "raylea",
+    "role": "user",
+    "icon": "assets/weather.svg",
+    "repo": "https://github.com/RayleaBot/plugins-weather",
+    "homepage": "https://plugins.rayleabot.local/weather",
+    "keywords": [
+      "weather",
+      "forecast",
+      "climate"
+    ],
+    "screenshots": [
+      {
+        "path": "assets/overview.svg",
+        "alt": "天气总览卡片"
+      }
+    ],
+    "system_dependencies": [
+      "OneBot11 connection",
+      "External weather API access"
+    ],
+    "platforms": [
+      "windows-x64",
+      "linux-x64"
+    ],
+    "concurrency": 3,
+    "default_config": {
+      "unit": "metric",
+      "forecast_days": 3
+    },
+    "permissions": {
+      "required": [],
+      "optional": []
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

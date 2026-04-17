@@ -1,0 +1,38 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Rolling back a template creates a new revision and returns the updated template detail.
+request:
+  method: POST
+  path: /api/system/render/templates/help.menu/rollback
+  body:
+    target_revision_id: rev_help_menu_0003
+    base_revision_id: rev_help_menu_0005
+    message: 恢复到已验证版本
+response:
+  status: 200
+  body:
+    template:
+      id: help.menu
+      version: '1'
+      width: 960
+      height: 640
+      has_input_schema: true
+      current_revision_id: rev_help_menu_0006
+      updated_at: '2026-04-18T11:20:00Z'
+      files:
+        manifest: template.json
+        html: template.html
+        stylesheet: styles.css
+        input_schema: input.schema.json
+      current_revision:
+        revision_id: rev_help_menu_0006
+        template_version: '1'
+        saved_at: '2026-04-18T11:20:00Z'
+        kind: rollback
+        message: 恢复到已验证版本
+      last_validation:
+        valid: true
+        checked_at: '2026-04-18T11:20:01Z'
+        issue_count: 0
+expect:
+  valid: true

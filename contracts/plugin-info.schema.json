@@ -122,6 +122,44 @@
       ],
       "description": "Plugin semantic role used for management labeling and source-trust presentation."
     },
+    "icon": {
+      "$ref": "#/$defs/package_relative_path",
+      "description": "Optional relative asset path for the plugin icon inside the package root."
+    },
+    "repo": {
+      "$ref": "#/$defs/https_url",
+      "description": "Optional HTTPS repository URL for management-side source display."
+    },
+    "homepage": {
+      "$ref": "#/$defs/https_url",
+      "description": "Optional HTTPS homepage URL for management-side reference links."
+    },
+    "keywords": {
+      "type": "array",
+      "description": "Optional management-side discovery keywords.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "screenshots": {
+      "type": "array",
+      "description": "Optional management-side preview assets inside the plugin package.",
+      "items": {
+        "$ref": "#/$defs/screenshot_asset"
+      },
+      "uniqueItems": true
+    },
+    "system_dependencies": {
+      "type": "array",
+      "description": "Optional external system prerequisites declared for operator visibility only.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
     "capabilities": {
       "type": "array",
       "description": "Platform capabilities the plugin intends to use. The current formal capability set includes message.send, message.reply, logger.write, storage.kv, storage.file, http.request, config.read, config.write, scheduler.create, event.expose_webhook, render.image, and plugin.list.",
@@ -269,6 +307,15 @@
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
     },
+    "https_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://.+$"
+    },
+    "package_relative_path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+    },
     "capability_name": {
       "type": "string",
       "pattern": "^[a-z]+\\.[a-z_]+$"
@@ -322,6 +369,22 @@
           "uniqueItems": true
         }
       }
+    },
+    "screenshot_asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/package_relative_path"
+        },
+        "alt": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   },
   "x-fixtures": [
@@ -330,7 +393,12 @@
     "fixtures/plugin-info/edge.permission-regrant-and-migration.json",
     "fixtures/plugin-info/ok.plugin-with-commands.json",
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
-    "fixtures/plugin-info/invalid.concurrency-zero.json"
+    "fixtures/plugin-info/ok.rich-metadata.json",
+    "fixtures/plugin-info/invalid.concurrency-zero.json",
+    "fixtures/plugin-info/invalid.icon-absolute-path.json",
+    "fixtures/plugin-info/invalid.metadata-insecure-urls.json",
+    "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
+    "fixtures/plugin-info/invalid.system-dependencies-duplicates.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, default plugin config seeding, migration boundaries, and opt-in event concurrency. The current formal capability set includes message.send, message.reply, logger.write, storage.kv, storage.file, http.request, config.read, config.write, scheduler.create, event.expose_webhook, render.image, and plugin.list. Icon, repo, homepage, keywords, screenshots, system_dependencies, and binary runtime support remain outside this frozen surface."
+  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, source metadata, default plugin config seeding, migration boundaries, and opt-in event concurrency. The current formal capability set includes message.send, message.reply, logger.write, storage.kv, storage.file, http.request, config.read, config.write, scheduler.create, event.expose_webhook, render.image, and plugin.list. Binary runtime support remains outside this frozen surface."
 }
