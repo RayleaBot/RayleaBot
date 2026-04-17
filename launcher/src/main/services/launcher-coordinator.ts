@@ -67,6 +67,7 @@ export interface LauncherResetAdminRunner {
 
 interface LauncherCoordinatorOptions {
   startupTimeoutMs?: number;
+  startupReadinessGraceMs?: number;
   pollIntervalMs?: number;
   shutdownTimeoutMs?: number;
   resetAdminTimeoutMs?: number;
@@ -262,6 +263,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   const listeners = new Set<(snapshot: LauncherSnapshot) => void>();
   const options = {
     startupTimeoutMs: deps.options?.startupTimeoutMs ?? 300000,
+    startupReadinessGraceMs: deps.options?.startupReadinessGraceMs ?? 10000,
     pollIntervalMs: deps.options?.pollIntervalMs ?? 500,
     shutdownTimeoutMs: deps.options?.shutdownTimeoutMs ?? 5000,
     resetAdminTimeoutMs: deps.options?.resetAdminTimeoutMs ?? 30000,
@@ -373,6 +375,36 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     return sessionToken;
   }
 
+  async function buildSnapshotFromReadiness(
+    endpoint: ServerEndpoint,
+    inspection: EnvironmentInspection,
+    readiness: LauncherReadinessSnapshot,
+    forceReauthentication: boolean,
+  ) {
+    if (forceReauthentication) {
+      sessionToken = "";
+    }
+
+    const systemStatus =
+      readiness.status === "ready" || readiness.status === "degraded"
+        ? await tryLoadSystemStatus(endpoint)
+        : null;
+    const contractState = stateFromReadiness(deps.processController.isRunning, readiness, systemStatus);
+    const next = await buildSnapshot(
+      endpoint,
+      inspection,
+      contractState.serviceState,
+      contractState.serviceOwnership,
+      contractState.serviceDetail,
+      contractState.lastError,
+    );
+    next.recoverySummary =
+      systemStatus?.recovery_summary
+      ?? readiness.recovery_summary
+      ?? await tryReadLocalRecoverySummary();
+    return next;
+  }
+
   async function refreshCore(forceReauthentication: boolean) {
     if (forceReauthentication) {
       sessionToken = "";
@@ -431,24 +463,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       return;
     }
 
-    const systemStatus =
-      readiness.status === "ready" || readiness.status === "degraded"
-        ? await tryLoadSystemStatus(endpoint)
-        : null;
-    const contractState = stateFromReadiness(deps.processController.isRunning, readiness, systemStatus);
-    const next = await buildSnapshot(
-      endpoint,
-      inspection,
-      contractState.serviceState,
-      contractState.serviceOwnership,
-      contractState.serviceDetail,
-      contractState.lastError,
-    );
-    next.recoverySummary =
-      systemStatus?.recovery_summary
-      ?? readiness.recovery_summary
-      ?? await tryReadLocalRecoverySummary();
-    await publish(next);
+    await publish(await buildSnapshotFromReadiness(endpoint, inspection, readiness, forceReauthentication));
   }
 
   async function waitForReadinessStatus(
@@ -575,10 +590,31 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       );
 
       const startedAt = Date.now();
+      let firstFailedReadinessAt: number | null = null;
+      let lastFailedReadiness: LauncherReadinessSnapshot | null = null;
       while (Date.now() - startedAt < options.startupTimeoutMs) {
         if (await deps.managementClient.isHealthy(endpoint)) {
-          await refreshCore(true);
-          return;
+          try {
+            const readiness = await deps.managementClient.getReadiness(endpoint);
+            if (readiness.status === "failed") {
+              lastFailedReadiness = readiness;
+              if (firstFailedReadinessAt === null) {
+                firstFailedReadinessAt = Date.now();
+              }
+              if (Date.now() - firstFailedReadinessAt < options.startupReadinessGraceMs) {
+                await delay(options.pollIntervalMs);
+                continue;
+              }
+            } else {
+              firstFailedReadinessAt = null;
+              lastFailedReadiness = null;
+            }
+            await publish(await buildSnapshotFromReadiness(endpoint, inspection, readiness, true));
+            return;
+          } catch {
+            // Keep polling until /readyz becomes readable. A transient healthz success alone
+            // should not lock the launcher into a failed state during restart windows.
+          }
         }
         if (!deps.processController.isRunning) {
           const lastError = deps.processController.getRecentStderr().at(-1) ?? "服务进程在通过健康检查前已退出。";
@@ -603,6 +639,11 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
           return;
         }
         await delay(options.pollIntervalMs);
+      }
+
+      if (lastFailedReadiness) {
+        await publish(await buildSnapshotFromReadiness(endpoint, inspection, lastFailedReadiness, true));
+        return;
       }
 
       await deps.processController.forceKill();

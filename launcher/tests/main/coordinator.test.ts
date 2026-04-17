@@ -619,6 +619,147 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.serviceState).toBe("running");
   });
 
+  test("start waits for /readyz before finalizing a successful startup", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    let healthChecks = 0;
+    let readinessChecks = 0;
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => {
+      healthChecks += 1;
+      return healthChecks >= 3;
+    });
+    managementClient.getReadiness = vi.fn(async () => {
+      readinessChecks += 1;
+      if (readinessChecks === 1) {
+        throw new Error("readyz warming up");
+      }
+      return managementClient.readiness;
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 500,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await coordinator.start();
+
+    expect(processController.startCalls).toBe(1);
+    expect(readinessChecks).toBeGreaterThanOrEqual(2);
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect(coordinator.snapshot.lastError).toBe("");
+  });
+
+  test("start ignores transient failed readiness snapshots until the service settles", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    let healthChecks = 0;
+    let readinessChecks = 0;
+
+    managementClient.health = false;
+    managementClient.isHealthy = vi.fn(async () => {
+      healthChecks += 1;
+      return healthChecks >= 3;
+    });
+    managementClient.getReadiness = vi.fn(async () => {
+      readinessChecks += 1;
+      if (readinessChecks === 1) {
+        return {
+          status: "failed",
+          reason: "服务仍在完成启动。",
+        };
+      }
+      return managementClient.readiness;
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 500,
+        startupReadinessGraceMs: 25,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await coordinator.start();
+
+    expect(processController.startCalls).toBe(1);
+    expect(readinessChecks).toBeGreaterThanOrEqual(2);
+    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect(coordinator.snapshot.lastError).toBe("");
+  });
+
+  test("start preserves setup_required when startup reaches the setup gate", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    let healthChecks = 0;
+
+    managementClient.health = false;
+    managementClient.readiness = {
+      status: "setup_required",
+      reason: "管理员初始化尚未完成。",
+    };
+    managementClient.isHealthy = vi.fn(async () => {
+      healthChecks += 1;
+      return healthChecks >= 3;
+    });
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        pollIntervalMs: 1,
+        startupTimeoutMs: 500,
+        shutdownTimeoutMs: 1,
+      },
+    });
+
+    await coordinator.initialize();
+    await coordinator.start();
+
+    expect(processController.startCalls).toBe(1);
+    expect(coordinator.snapshot.serviceState).toBe("setup_required");
+    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("launcher_managed");
+    expect(coordinator.snapshot.serviceDetail).toContain("管理员初始化");
+  });
+
   test("stop keeps an external service running when the confirmation is declined", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
