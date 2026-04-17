@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifySuccess } from '@/adapter/feedback'
+import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
@@ -27,6 +28,7 @@ const {
   document,
   error: configError,
   loading: configLoading,
+  applyEffects,
   redactedFields,
   restartRequired,
   saving,
@@ -247,8 +249,18 @@ async function save() {
         </div>
       </div>
 
-      <div v-if="pageError || redactedFields.length > 0" class="config-alerts-container">
+      <div v-if="pageError || applyEffects || redactedFields.length > 0" class="config-alerts-container">
         <a-alert v-if="pageError" :message="t('errors.common.actionFailed')" type="error" :description="pageError" show-icon />
+        <a-alert
+          v-if="applyEffects"
+          :message="t('config.applyEffects.title')"
+          :type="restartRequired ? 'warning' : 'success'"
+          show-icon
+        >
+          <template #description>
+            <ConfigApplyEffectsSummary :effects="applyEffects" />
+          </template>
+        </a-alert>
         <a-alert
           v-if="redactedFields.length > 0"
           :message="t('config.redactedTitle')"

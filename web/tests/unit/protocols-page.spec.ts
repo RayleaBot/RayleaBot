@@ -203,6 +203,11 @@ describe('ProtocolsPage', () => {
       config: configStore.document,
       redacted_fields: [],
       restart_required: false,
+      apply_effects: {
+        applied_now: [],
+        reloaded_now: ['onebot.reverse_ws.url'],
+        restart_required_fields: [],
+      },
     })
 
     const router = createTestRouter()
@@ -259,6 +264,11 @@ describe('ProtocolsPage', () => {
       config: configStore.document,
       redacted_fields: [],
       restart_required: false,
+      apply_effects: {
+        applied_now: [],
+        reloaded_now: ['adapter.connect_timeout_seconds'],
+        restart_required_fields: [],
+      },
     })
 
     const router = createTestRouter()
@@ -283,5 +293,54 @@ describe('ProtocolsPage', () => {
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].adapter.connect_timeout_seconds).toBeUndefined()
+  })
+
+  it('renders the apply effect summary on the protocol page', async () => {
+    const configStore = useConfigStore()
+    const protocolsStore = useProtocolsStore()
+
+    configStore.document = createFixtureConfig()
+    configStore.applyEffects = {
+      applied_now: [],
+      reloaded_now: ['onebot.forward_ws.url'],
+      restart_required_fields: ['render.browser_args'],
+    }
+    configStore.restartRequired = true
+    protocolsStore.snapshot = {
+      protocol: 'onebot11',
+      provider: 'standard',
+      configured_transports: ['forward_ws'],
+      active_transports: ['forward_ws'],
+      transport_status: [
+        { transport: 'reverse_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'connected', summary: '主动连接已建立' },
+        { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+      ],
+      readiness_status: 'ready',
+      summary: 'OneBot11 主动连接已就绪',
+      recent_transport_issues: [],
+    }
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+
+    const router = createTestRouter()
+    await router.push('/protocols')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('保存结果')
+    expect(wrapper.text()).toContain('已重载')
+    expect(wrapper.text()).toContain('需重启生效')
+    expect(wrapper.text()).toContain('onebot.forward_ws.url')
+    expect(wrapper.text()).toContain('render.browser_args')
   })
 })

@@ -787,11 +787,17 @@ export interface components {
             config: components["schemas"]["config.user.schema"];
             redacted_fields?: string[];
         };
+        ConfigApplyEffects: {
+            applied_now: string[];
+            reloaded_now: string[];
+            restart_required_fields: string[];
+        };
         ConfigUpdateResponse: {
             config: components["schemas"]["config.user.schema"];
             redacted_fields?: string[];
             /** @description Whether a server restart is required before the new config takes effect. */
             restart_required: boolean;
+            apply_effects: components["schemas"]["ConfigApplyEffects"];
         };
         SystemStatusResponse: {
             /** @enum {string} */
@@ -1161,6 +1167,8 @@ export interface components {
         /** @enum {string} */
         PluginRuntimeState: "starting" | "running" | "stopping" | "crashed" | "backoff" | "dead_letter" | "stopped";
         /** @enum {string} */
+        PluginDisplayState: "discovered" | "invalid_manifest" | "conflict" | "removed" | "enabled" | "enabling" | "running" | "disabling" | "stopping" | "crashed" | "backoff" | "dead_letter" | "disabled";
+        /** @enum {string} */
         PluginRole: "builtin" | "user" | "example" | "dev";
         /** @enum {string} */
         PluginRuntimeFamily: "python" | "nodejs";
@@ -1194,7 +1202,7 @@ export interface components {
             registration_state: components["schemas"]["PluginRegistrationState"];
             desired_state: components["schemas"]["PluginDesiredState"];
             runtime_state: components["schemas"]["PluginRuntimeState"];
-            display_state?: string;
+            display_state: components["schemas"]["PluginDisplayState"];
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];

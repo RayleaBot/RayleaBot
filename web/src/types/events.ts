@@ -1,5 +1,6 @@
 import type {
   PluginDesiredState,
+  PluginDisplayState,
   PluginRegistrationState,
   PluginRuntimeState,
 } from './plugins'
@@ -20,7 +21,7 @@ export type EventsPayload =
       registration_state: PluginRegistrationState
       desired_state: PluginDesiredState
       runtime_state: PluginRuntimeState
-      display_state?: string
+      display_state: PluginDisplayState
     }
   | {
       connection_status: ConnectionStatus

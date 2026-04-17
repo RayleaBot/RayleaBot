@@ -218,21 +218,64 @@ function pickOneBotHotState(config) {
 }
 
 function computeRestartRequiredForConfig(prevConfig, nextConfig) {
-  const prevHotState = JSON.stringify(pickOneBotHotState(prevConfig))
-  const nextHotState = JSON.stringify(pickOneBotHotState(nextConfig))
+  return computeConfigApplyEffects(prevConfig, nextConfig).restart_required_fields.length > 0
+}
 
-  if (prevHotState === nextHotState) {
-    return JSON.stringify(prevConfig) !== JSON.stringify(nextConfig)
+const configRestartRequiredFields = new Set([
+  'admin.max_sessions',
+  'admin.session_ttl_days',
+  'admin.sliding_renewal',
+  'database.engine',
+  'database.path',
+  'render.browser_args',
+  'render.browser_path',
+  'render.worker_count',
+  'server.host',
+  'server.port',
+  'web.exposure_mode',
+  'web.setup_local_only',
+])
+
+function computeConfigApplyEffects(prevConfig, nextConfig) {
+  const changedPaths = []
+  collectChangedConfigPaths('', prevConfig ?? {}, nextConfig ?? {}, changedPaths)
+  changedPaths.sort()
+
+  const effects = {
+    applied_now: [],
+    reloaded_now: [],
+    restart_required_fields: [],
   }
 
-  const prevWithoutHot = structuredClone(prevConfig)
-  const nextWithoutHot = structuredClone(nextConfig)
-  delete prevWithoutHot.onebot
-  delete prevWithoutHot.adapter
-  delete nextWithoutHot.onebot
-  delete nextWithoutHot.adapter
+  for (const path of [...new Set(changedPaths)]) {
+    if (path.startsWith('onebot.') || path.startsWith('adapter.')) {
+      effects.reloaded_now.push(path)
+    } else if (configRestartRequiredFields.has(path) || path.startsWith('database.') || path.startsWith('server.') || path.startsWith('web.')) {
+      effects.restart_required_fields.push(path)
+    } else {
+      effects.applied_now.push(path)
+    }
+  }
 
-  return JSON.stringify(prevWithoutHot) !== JSON.stringify(nextWithoutHot)
+  return effects
+}
+
+function collectChangedConfigPaths(prefix, prevValue, nextValue, changedPaths) {
+  if (isPlainObject(prevValue) && isPlainObject(nextValue)) {
+    const keys = [...new Set([...Object.keys(prevValue), ...Object.keys(nextValue)])].sort()
+    for (const key of keys) {
+      collectChangedConfigPaths(prefix ? `${prefix}.${key}` : key, prevValue[key], nextValue[key], changedPaths)
+    }
+    return
+  }
+
+  if (prefix && JSON.stringify(prevValue) !== JSON.stringify(nextValue)) {
+    changedPaths.push(prefix)
+  }
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function createLogDetailMap() {
@@ -859,6 +902,7 @@ const server = http.createServer(async (request, response) => {
     const payload = await parseBody(request)
     const previousConfig = structuredClone(state.config)
     state.config = payload
+    const applyEffects = computeConfigApplyEffects(previousConfig, state.config)
     state.protocolSnapshot = computeProtocolSnapshotFromConfig(state.config, state.protocolSnapshot)
     broadcast('events', {
       channel: 'events',
@@ -873,6 +917,7 @@ const server = http.createServer(async (request, response) => {
       config: state.config,
       redacted_fields: ['onebot.access_token'],
       restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
+      apply_effects: applyEffects,
     })
     return
   }

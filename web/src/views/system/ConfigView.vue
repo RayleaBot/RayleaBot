@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import AppCard from '@/components/AppCard.vue'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import { notifySuccess } from '@/adapter/feedback'
+import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { cloneConfig, getConfigSections, getValueByPath, setValueByPath } from '@/lib/config-form'
@@ -14,7 +15,7 @@ import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
 const configStore = useConfigStore()
-const { document, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
+const { applyEffects, document, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
 
 const draft = ref<ConfigDocument | null>(null)
 const configSections = computed(() => getConfigSections())
@@ -104,8 +105,18 @@ async function save() {
       </div>
     </template>
 
-    <div v-if="error || redactedFields.length > 0" class="config-alerts-container">
+    <div v-if="error || applyEffects || redactedFields.length > 0" class="config-alerts-container">
       <a-alert v-if="error" :message="t('errors.common.actionFailed')" type="error" :description="error" show-icon />
+      <a-alert
+        v-if="applyEffects"
+        :message="t('config.applyEffects.title')"
+        :type="restartRequired ? 'warning' : 'success'"
+        show-icon
+      >
+        <template #description>
+          <ConfigApplyEffectsSummary :effects="applyEffects" />
+        </template>
+      </a-alert>
       <a-alert
         v-if="redactedFields.length > 0"
         :message="t('config.redactedTitle')"

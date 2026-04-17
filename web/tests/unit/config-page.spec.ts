@@ -108,6 +108,11 @@ describe('ConfigPage', () => {
       config: store.document,
       redacted_fields: store.redactedFields,
       restart_required: true,
+      apply_effects: {
+        applied_now: ['log.level'],
+        reloaded_now: [],
+        restart_required_fields: ['server.port'],
+      },
     })
 
     const wrapper = mount(ConfigPage, {
@@ -163,6 +168,11 @@ describe('ConfigPage', () => {
       config: store.document,
       redacted_fields: [],
       restart_required: false,
+      apply_effects: {
+        applied_now: ['command.prefixes'],
+        reloaded_now: [],
+        restart_required_fields: [],
+      },
     })
 
     const wrapper = mount(ConfigPage, {
@@ -183,5 +193,34 @@ describe('ConfigPage', () => {
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].server.port).toBeUndefined()
+  })
+
+  it('renders the last apply effect summary from the config store', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+    store.applyEffects = {
+      applied_now: ['log.level'],
+      reloaded_now: ['onebot.forward_ws.url'],
+      restart_required_fields: ['server.port'],
+    }
+    store.restartRequired = true
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('保存结果')
+    expect(wrapper.text()).toContain('已即时生效')
+    expect(wrapper.text()).toContain('已重载')
+    expect(wrapper.text()).toContain('需重启生效')
+    expect(wrapper.text()).toContain('log.level')
+    expect(wrapper.text()).toContain('onebot.forward_ws.url')
+    expect(wrapper.text()).toContain('server.port')
   })
 })

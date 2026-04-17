@@ -9,6 +9,13 @@ export const config = {
   redactedTitle: '脱敏字段',
   saveSuccess: '配置已保存并已生效',
   saveRestart: '配置已保存，重启后生效',
+  applyEffects: {
+    title: '保存结果',
+    appliedNow: '已即时生效',
+    reloadedNow: '已重载',
+    restartRequiredFields: '需重启生效',
+    empty: '当前保存没有额外影响摘要。',
+  },
   sections: {
     server: '服务监听',
     onebot: 'OneBot 连接',

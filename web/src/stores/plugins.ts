@@ -17,7 +17,7 @@ import type {
   TaskAcceptedResponse,
 } from '@/types/api'
 
-type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'registration_state' | 'desired_state' | 'runtime_state'>
+type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'registration_state' | 'desired_state' | 'runtime_state' | 'display_state'>
 
 export interface ProcessConsoleFrame {
   plugin_id: string

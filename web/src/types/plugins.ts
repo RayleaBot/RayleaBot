@@ -3,6 +3,7 @@ import type { components } from './generated'
 export type PluginRegistrationState = components['schemas']['PluginRegistrationState']
 export type PluginDesiredState = components['schemas']['PluginDesiredState']
 export type PluginRuntimeState = components['schemas']['PluginRuntimeState']
+export type PluginDisplayState = components['schemas']['PluginDisplayState']
 export type PluginRole = components['schemas']['PluginRole']
 export type PluginTrustLevel = components['schemas']['PluginTrustSummary']['level']
 export type PluginInstallSourceType = components['schemas']['PluginInstallRequest']['source_type']
