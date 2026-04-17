@@ -42,5 +42,8 @@ export const logs = {
     startAt: '开始时间',
     endAt: '结束时间',
     lastDay: '最近一天',
+    lastWeek: '最近一周',
+    lastMonth: '最近一个月',
+    lastHalfYear: '最近半年',
   },
 } as const

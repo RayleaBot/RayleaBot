@@ -80,6 +80,11 @@ async function useRecentDay() {
   await refreshHistory()
 }
 
+async function useRecentDays(days: number) {
+  historyStore.setTimeRange(days)
+  await refreshHistory()
+}
+
 async function loadOlder() {
   if (!hasOlder.value || loadingOlder.value) {
     return
@@ -154,6 +159,9 @@ onActivated(() => {
 
         <div class="logs-toolbar__actions">
           <a-button @click="useRecentDay">{{ t('logs.history.lastDay') }}</a-button>
+          <a-button @click="useRecentDays(7)">{{ t('logs.history.lastWeek') }}</a-button>
+          <a-button @click="useRecentDays(30)">{{ t('logs.history.lastMonth') }}</a-button>
+          <a-button @click="useRecentDays(180)">{{ t('logs.history.lastHalfYear') }}</a-button>
           <a-button type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
         </div>
       </a-card>

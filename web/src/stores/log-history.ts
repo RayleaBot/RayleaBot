@@ -71,6 +71,16 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     customTimeRange.value = false
   }
 
+  function setTimeRange(days: number) {
+    const anchorDate = new Date()
+    const startDate = new Date(anchorDate.getTime() - days * 24 * 60 * 60 * 1000)
+    timeRangeInput.value = {
+      startLocal: toLocalDateTimeInput(startDate),
+      endLocal: toLocalDateTimeInput(anchorDate),
+    }
+    customTimeRange.value = true
+  }
+
   async function loadOlder() {
     if (!olderCursor.value || loadingOlder.value) {
       return items.value
@@ -159,6 +169,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     loadOlder,
     refreshAnchor,
     resetTimeRangeToDefault,
+    setTimeRange,
   }
 })
 
