@@ -215,7 +215,8 @@ function refreshTrayMenu(snapshot: LauncherSnapshot) {
 }
 
 async function createMainWindow() {
-  nativeTheme.themeSource = "dark";
+  nativeTheme.themeSource = "system";
+  const isDark = nativeTheme.shouldUseDarkColors;
   const { preloadPath, rendererPath } = resolveLauncherAssetPaths(app.getAppPath());
 
   mainWindow = new BrowserWindow({
@@ -226,7 +227,7 @@ async function createMainWindow() {
     title: "RayleaBot 启动器",
     frame: false,
     roundedCorners: true,
-    backgroundColor: "#00000000",
+    backgroundColor: isDark ? "#0f172a" : "#f8fafc",
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -237,9 +238,6 @@ async function createMainWindow() {
   });
 
   mainWindow.on("ready-to-show", () => {
-    if (process.platform === "win32") {
-      mainWindow?.setBackgroundMaterial("acrylic");
-    }
     mainWindow?.show();
   });
 

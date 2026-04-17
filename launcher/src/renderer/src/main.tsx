@@ -1,38 +1,43 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { FluentProvider, webDarkTheme } from "@fluentui/react-components";
+import { FluentProvider, webDarkTheme, webLightTheme } from "@fluentui/react-components";
 import { App } from "./App";
 import { LauncherErrorBoundary } from "./LauncherErrorBoundary";
+import { ThemeProvider, useTheme } from "./useTheme";
 import "./style.css";
 
-const launcherTheme = {
-  ...webDarkTheme,
-  colorBrandBackground: "#7dd8ff",
-  colorBrandBackground2: "#17334a",
-  colorBrandBackgroundHover: "#98e3ff",
-  colorBrandBackground2Hover: "#20425d",
-  colorBrandBackgroundPressed: "#68c9f5",
-  colorBrandBackground2Pressed: "#112c3f",
-  colorBrandForeground1: "#e7faff",
-  colorBrandForeground2: "#a7eaff",
-  colorBrandForegroundLink: "#bdeeff",
-  colorBrandStroke1: "#7dd8ff",
-  colorBrandStroke2: "#345b75",
-  colorCompoundBrandBackground: "#7dd8ff",
-  colorCompoundBrandBackgroundHover: "#98e3ff",
-  colorCompoundBrandBackgroundPressed: "#68c9f5",
-  colorCompoundBrandStroke: "rgba(125, 216, 255, 0.64)",
-  colorCompoundBrandStrokeHover: "rgba(152, 227, 255, 0.82)",
-  colorCompoundBrandStrokePressed: "rgba(104, 201, 245, 0.78)",
-  colorNeutralForegroundOnBrand: "#05111c",
-  colorStrokeFocus2: "#9ce6ff",
+const brandTokens = {
+  colorBrandBackground: "#1677ff",
+  colorBrandBackground2: "rgba(22, 119, 255, 0.15)",
+  colorBrandBackgroundHover: "#4096ff",
+  colorBrandBackground2Hover: "rgba(22, 119, 255, 0.22)",
+  colorBrandBackgroundPressed: "#0958d9",
+  colorBrandBackground2Pressed: "rgba(22, 119, 255, 0.10)",
+  colorBrandForeground1: "#1677ff",
+  colorBrandForeground2: "#4096ff",
+  colorBrandForegroundLink: "#1677ff",
+  colorBrandStroke1: "#1677ff",
+  colorBrandStroke2: "rgba(22, 119, 255, 0.30)",
+  colorCompoundBrandBackground: "#1677ff",
+  colorCompoundBrandBackgroundHover: "#4096ff",
+  colorCompoundBrandBackgroundPressed: "#0958d9",
+  colorCompoundBrandStroke: "rgba(22, 119, 255, 0.64)",
+  colorCompoundBrandStrokeHover: "rgba(22, 119, 255, 0.82)",
+  colorCompoundBrandStrokePressed: "rgba(22, 119, 255, 0.78)",
+  colorNeutralForegroundOnBrand: "#ffffff",
+  colorStrokeFocus2: "#1677ff",
 };
 
-const root = createRoot(document.getElementById("app")!);
-root.render(
-  <StrictMode>
+const darkTheme = { ...webDarkTheme, ...brandTokens };
+const lightTheme = { ...webLightTheme, ...brandTokens };
+
+function ThemedApp() {
+  const { effectiveTheme } = useTheme();
+  const theme = effectiveTheme === "light" ? lightTheme : darkTheme;
+
+  return (
     <FluentProvider
-      theme={launcherTheme}
+      theme={theme}
       className="launcher-theme"
       style={{ background: "transparent", minHeight: "100vh" }}
     >
@@ -40,5 +45,14 @@ root.render(
         <App />
       </LauncherErrorBoundary>
     </FluentProvider>
+  );
+}
+
+const root = createRoot(document.getElementById("app")!);
+root.render(
+  <StrictMode>
+    <ThemeProvider>
+      <ThemedApp />
+    </ThemeProvider>
   </StrictMode>,
 );
