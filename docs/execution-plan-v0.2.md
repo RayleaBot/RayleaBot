@@ -26,7 +26,9 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 - ☑️ Pre-Phase 已收口
 - ◐ Phase 1 已完成 Batch A = OneBot 主链冻结
+- ◐ Phase 1 已完成 Batch B = 模板编辑器、治理读取面与插件 metadata 冻结
 - ◐ Phase 2 已完成 Batch A = OneBot 主链 companion updates
+- ◐ Phase 2 已完成 Batch B = 模板编辑器、治理与插件 metadata companion updates
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -55,8 +57,8 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | 阶段 | 名称 | 状态 | 当前目标 |
 | --- | --- | --- | --- |
 | Pre-Phase | 范围重置与前置承接 | ☑️ | v0.2 已作为当前执行计划收口，范围与延后边界已固定 |
-| Phase 1 | Contract / Schema 冻结 | ◐ | Batch A 已完成 OneBot 主链冻结，模板编辑器、治理读取面、manifest 元数据仍待继续 |
-| Phase 2 | Fixtures / Examples / SDK | ◐ | Batch A 已完成 OneBot 主链 companion updates，模板编辑器、治理与 manifest 相关样例仍待继续 |
+| Phase 1 | Contract / Schema 冻结 | ◐ | Batch A 与 Batch B 已完成，剩余 v0.2 surface 随后批次继续 |
+| Phase 2 | Fixtures / Examples / SDK | ◐ | Batch A 与 Batch B 已完成，剩余 v0.2 companion updates 随后批次继续 |
 | Phase 3 | OneBot11 传输模式补齐 | 🟡 | 完成 reverse WS、forward WS、HTTP、webhook 四条接入链路的正式主链 |
 | Phase 4 | OneBot11 事件与消息兼容补齐 | 🟡 | 完成核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵 |
 | Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
@@ -94,18 +96,19 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 ### 当前批次
 
 - ☑️ Batch A = OneBot 主链已完成
-- 后续批次继续覆盖模板编辑器、治理读取面、manifest 元数据与其余 v0.2 surface
+- ☑️ Batch B = 模板编辑器、治理读取面、manifest 元数据已完成
+- 后续批次继续覆盖其余 v0.2 surface
 
 ### 本轮必需冻结的正式边界
 
 | 正式边界 | 状态 | 本轮冻结方向 |
 | --- | --- | --- |
-| `contracts/web-api.openapi.yaml` | ◐ | OneBot transport、协议快照、日志详情与相关主链已冻结；模板编辑器与治理读取面仍待继续 |
-| `contracts/websocket-events.yaml` | ◐ | 协议状态与日志主链已补齐；模板预览与其余实时事件仍待继续 |
-| `contracts/plugin-info.schema.json` | ⚠️ | `default_config`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` |
+| `contracts/web-api.openapi.yaml` | ◐ | OneBot transport、协议快照、日志详情、模板编辑器与治理核心读取面已冻结；其余 v0.2 surface 随后批次继续 |
+| `contracts/websocket-events.yaml` | ◐ | 协议状态与日志主链已补齐；模板编辑器预览继续复用现有 task event 链，不新增预览专用事件 |
+| `contracts/plugin-info.schema.json` | ☑️ | `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies`、`concurrency` |
 | `contracts/plugin-protocol.schema.json` | ◐ | OneBot 主链所需更宽 `action` 与消息段已冻结；剩余 v0.2 范围仍待继续 |
-| `contracts/config.user.schema.json` | ◐ | OneBot 多 transport 配置主模型已冻结；模板与治理可见配置仍待继续 |
-| `contracts/error-codes.yaml` | ◐ | OneBot transport、compatibility 与 provider extension 主链错误码已冻结；模板编辑相关仍待继续 |
+| `contracts/config.user.schema.json` | ◐ | OneBot 多 transport 配置主模型已冻结；治理核心读取面直接投影现有 cooldown 与默认权限配置，其余迁移与热更新读取口径随后批次继续 |
+| `contracts/error-codes.yaml` | ◐ | OneBot transport、compatibility、provider extension 与模板编辑相关错误码已冻结；其余 v0.2 范围随后批次继续 |
 | `contracts/release-manifest.schema.json` | ◐ | OneBot 主链版本与回归声明已纳入；模板编辑器与其余 v0.2 回归声明仍待继续 |
 
 ### 本轮 contract 冻结清单
@@ -115,8 +118,8 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | OneBot11 传输模式 | ☑️ | Batch A 已冻结 reverse WebSocket、forward WebSocket、HTTP 调用、webhook 上报，以及幸运莉莉娅 HTTP / SSE 接收兼容说明 |
 | OneBot11 兼容矩阵 | ☑️ | Batch A 已冻结核心事件、消息段、动作族、历史消息、消息详情、转发消息、文件与 provider 扩展矩阵 |
 | Plugin Protocol 扩展 | ☑️ | Batch A 已冻结更宽 `action family`、更宽消息段、必要的结果数据与结构化错误 |
-| 在线模板编辑器 | ⚠️ | 模板列表、详情、源码编辑、schema 校验、实时预览、保存、历史版本与回退 |
-| 治理与配置读取面 | ⚠️ | blacklist、cooldown、command permission 剩余读取面，以及生命周期状态同步、配置迁移、局部热更新相关读取面 |
+| 在线模板编辑器 | ☑️ | 模板列表、详情、源码编辑、schema 校验、任务式预览、保存、历史版本与回退已进入正式边界 |
+| 治理与配置读取面 | ◐ | blacklist、cooldown、command permission 独立读取面已进入正式边界；生命周期状态同步、配置迁移、局部热更新读取面随后批次继续 |
 
 ### 本轮排除项
 
@@ -136,14 +139,15 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 - ☑️ Batch A = OneBot 主链已完成
 - ☑️ 当前已补齐 protocol snapshot、compatibility matrix、widened actions、provider namespace、SDK helper 与管理面 companion updates
-- 后续批次继续覆盖模板编辑器、治理与 manifest 相关 examples / SDK / docs
+- ☑️ Batch B 已补齐模板编辑器、治理与 manifest 相关 fixtures / examples / docs
+- 后续批次继续覆盖其余 v0.2 examples / SDK / docs
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| transport / event / action fixtures | ◐ | OneBot 主链相关 fixtures 已补齐；模板与治理 surface 仍待继续 |
+| transport / event / action fixtures | ◐ | OneBot 主链、模板编辑器、治理 surface 与 manifest metadata fixtures 已补齐；其余 v0.2 surface 仍待继续 |
 | OneBot11 provider 分层样例 | ☑️ | fixtures 已按标准 OneBot11、NapCat 扩展、幸运莉莉娅扩展三层组织 |
-| examples 同步补齐 | ◐ | OneBot 主链已补现有示例插件与现有 examples；其余 v0.2 样例仍待继续 |
-| SDK 示例与文档同步 | ◐ | OneBot 主链已覆盖 widened actions、消息段与 provider namespace；模板与治理文档仍待继续 |
+| examples 同步补齐 | ◐ | OneBot 主链与模板编辑器 / 治理 / manifest HTTP 样例已补齐；其余 v0.2 样例仍待继续 |
+| SDK 示例与文档同步 | ◐ | OneBot 主链已覆盖 widened actions、消息段与 provider namespace；模板编辑器与治理接口 SDK 样例仍待继续 |
 | Golden 回归基线 | ◐ | OneBot 主链回归样例已建立；template editor 与其余 v0.2 回归基线仍待继续 |
 
 ---
@@ -246,9 +250,9 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | --- | --- | --- |
 | 生命周期状态同步 | 🟡 | 继续收敛 `registration_state`、`desired_state`、`runtime_state`、`display_state` 与任务、恢复摘要之间的一致性 |
 | 配置迁移 | 🟡 | 继续完成迁移结果、保存影响分类、局部热更新与需要重启语义 |
-| manifest 元数据补齐 | 🟡 | 补齐 `icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` |
-| `default_config` / `concurrency` 正式化 | ◐ | `concurrency` 与并发投递语义已进入正式边界；`default_config` 仍待继续收口 |
-| blacklist / cooldown / command permission 可见性 | 🟡 | 补齐治理读取面、管理面展示、配置可见性与诊断可见性 |
+| manifest 元数据补齐 | ◐ | `icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` 已进入正式边界与示例 |
+| `default_config` / `concurrency` 正式化 | ◐ | `default_config` 与 `concurrency` 已进入正式边界；运行链路与管理面验收随后批次继续 |
+| blacklist / cooldown / command permission 可见性 | ◐ | 独立治理读取面已进入正式边界；管理面展示、配置可见性与诊断可见性随后批次继续 |
 | 插件升级与重确认 | 🟡 | 保留现有升级、重确认、恢复后重启与权限扩张裁决主线，并补齐 v0.2 新边界 |
 
 ### 本轮说明

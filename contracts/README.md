@@ -40,6 +40,7 @@
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
+  - 当前已冻结 `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms` 与管理面详情投影所需 metadata
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时回落到 `auth.default_level`
 - `plugin-protocol.schema.json`
@@ -59,14 +60,6 @@
 
 ### Plugin Manifest
 
-- `default_config`
-- `role`
-- `icon`
-- `repo`
-- `homepage`
-- `keywords`
-- `screenshots`
-- `system_dependencies`
 - `binary` 插件形态和 `binary` 运行时
 
 ### Plugin Protocol
@@ -124,10 +117,22 @@
 
 当前已进入 OpenAPI 冻结范围的 render management surface：
 
+- `GET /api/system/render/templates`
+- `GET /api/system/render/templates/{template_id}`
+- `GET /api/system/render/templates/{template_id}/source`
+- `PUT /api/system/render/templates/{template_id}/source`
+- `POST /api/system/render/templates/{template_id}/validate`
+- `GET /api/system/render/templates/{template_id}/versions`
+- `POST /api/system/render/templates/{template_id}/rollback`
 - `POST /api/system/render/preview`
 - `GET /api/system/render/artifacts/{artifact_id}`
 
-其中 `render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
+其中模板编辑器继续使用 `render.preview` 任务链进行预览；`render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
+
+当前已进入 OpenAPI 冻结范围的 governance surface：
+
+- `GET /api/governance/blacklist`
+- `GET /api/governance/command-policy`
 
 当前已进入 OpenAPI 冻结范围的 recovery / runtime task surface：
 

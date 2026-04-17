@@ -311,7 +311,7 @@
 - Web 状态页与任务详情当前已支持恢复项全部 / 待确认 / 已确认筛选，并完整展示当前 `recovery_summary.audit` 保留窗口内的确认历史；对应交互已受 Web 单测覆盖。
 - `contracts`、`server-core`、`web-core`、`launcher-core-linux`、`pr-smoke-light`、`release` 与 `self-host-smoke` 已进入仓库工作流，release metadata / checksum 校验、交付矩阵 smoke、runtime bootstrap 前置条件校验、跨版本 packaged recovery drill、长期自托管 smoke 与恢复摘要长周期观测已有门禁。
 - 共享 `recovery_summary`、`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 已覆盖 API、本地文件、diagnostics、Web、Launcher、packaged drill 与长期自托管 smoke；兼容通过、需要人工处理、批量确认和修复后收敛四类路径已进入回归矩阵；`.deps/manifest.json` 已进入有序来源列表契约，server、release、smoke 与长期自托管巡检共用同一份来源定义。
-- `openapi-typescript` 7.8.0 从 `contracts/web-api.openapi.yaml` 生成 `web/src/types/generated.ts`，覆盖全部 31 个路由；lint CI 包含生成文件一致性检查。
+- `openapi-typescript` 7.8.0 从 `contracts/web-api.openapi.yaml` 生成 `web/src/types/generated.ts`，覆盖当前 43 个路由；lint CI 包含生成文件一致性检查。
 - sqlc v1.29.0 从 `server/internal/sqlcqueries/` 生成 `server/internal/sqlcgen/`，覆盖全部 7 个 SQLiteRepository 的静态查询；lint CI 包含 `sqlc diff` 一致性门禁。
 - Python SDK 提供 `dataclasses` 协议帧类型（`sdk/python/rayleabot/models.py`）；Node.js SDK 以 TypeScript 重写并输出 `.d.ts`（`sdk/nodejs/src/`）。
 
