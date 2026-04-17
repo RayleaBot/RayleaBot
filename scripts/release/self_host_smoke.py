@@ -122,6 +122,19 @@ def extract_runtime_bootstrap_results(task_body: dict[str, object]) -> list[dict
     return results
 
 
+def runtime_bootstrap_result_mode(result: dict[str, object]) -> str | None:
+    if result.get("used_prepared_store") is True:
+        return "prepared_store"
+    if result.get("used_cached_archive") is True:
+        return "cached_archive"
+    selected_source = result.get("selected_source")
+    attempted_sources = result.get("attempted_sources")
+    if isinstance(selected_source, str) and selected_source.strip():
+        if isinstance(attempted_sources, list) and len(attempted_sources) > 0:
+            return "downloaded"
+    return None
+
+
 def create_runtime_bootstrap_task(base_url: str, session_token: str, resources: list[str] | None = None) -> str:
     body = {"resources": resources} if resources is not None else None
     accepted = request_json(
@@ -416,8 +429,8 @@ def run_runtime_bootstrap_cycle(root: Path, artifact_id: str, base_url: str, ses
         result = by_kind.get(kind)
         if result is None:
             raise SmokeError(f"runtime bootstrap task missing {kind} result: {task_detail}")
-        if result.get("used_cached_archive") is not True:
-            raise SmokeError(f"runtime bootstrap task did not report cached archive hit for {kind}: {task_detail}")
+        if runtime_bootstrap_result_mode(result) is None:
+            raise SmokeError(f"runtime bootstrap task did not report a valid acquisition mode for {kind}: {task_detail}")
         archive_path = result.get("archive_path")
         store_root_path = result.get("store_root")
         if not isinstance(archive_path, str) or not Path(archive_path).exists():

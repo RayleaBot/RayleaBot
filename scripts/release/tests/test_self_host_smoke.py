@@ -114,6 +114,45 @@ class SelfHostSmokeTests(unittest.TestCase):
         self.assertEqual("python-runtime", resources[0]["kind"])
         self.assertTrue(resources[0]["used_cached_archive"])
 
+    def test_runtime_bootstrap_result_mode_accepts_prepared_store(self) -> None:
+        mode = self_host_smoke.runtime_bootstrap_result_mode(
+            {
+                "kind": "python-runtime",
+                "used_prepared_store": True,
+                "used_cached_archive": False,
+            }
+        )
+
+        self.assertEqual("prepared_store", mode)
+
+    def test_runtime_bootstrap_result_mode_accepts_downloaded_archive(self) -> None:
+        mode = self_host_smoke.runtime_bootstrap_result_mode(
+            {
+                "kind": "nodejs-runtime",
+                "used_prepared_store": False,
+                "used_cached_archive": False,
+                "selected_source": "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+                "attempted_sources": [
+                    "https://nodejs.org/download/release/v24.14.0/node-v24.14.0-win-x64.zip",
+                ],
+            }
+        )
+
+        self.assertEqual("downloaded", mode)
+
+    def test_runtime_bootstrap_result_mode_rejects_missing_acquisition_path(self) -> None:
+        mode = self_host_smoke.runtime_bootstrap_result_mode(
+            {
+                "kind": "nodejs-runtime",
+                "used_prepared_store": False,
+                "used_cached_archive": False,
+                "selected_source": "",
+                "attempted_sources": [],
+            }
+        )
+
+        self.assertIsNone(mode)
+
     def test_recovery_summary_accepts_absent_compatible_and_degraded(self) -> None:
         self_host_smoke.assert_recovery_summary_acceptable(None)
         self_host_smoke.assert_recovery_summary_acceptable({"status": "compatible", "manual_actions": [], "next_steps": [], "skipped_plugins": []})
