@@ -313,8 +313,22 @@
       "pattern": "^https://.+$"
     },
     "package_relative_path": {
-      "type": "string",
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+      "allOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/-]+$"
+        },
+        {
+          "not": {
+            "pattern": "^/"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(^|/)\\.\\.(/|$)"
+          }
+        }
+      ]
     },
     "capability_name": {
       "type": "string",
@@ -396,6 +410,7 @@
     "fixtures/plugin-info/ok.rich-metadata.json",
     "fixtures/plugin-info/invalid.concurrency-zero.json",
     "fixtures/plugin-info/invalid.icon-absolute-path.json",
+    "fixtures/plugin-info/invalid.icon-parent-path.json",
     "fixtures/plugin-info/invalid.metadata-insecure-urls.json",
     "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
     "fixtures/plugin-info/invalid.system-dependencies-duplicates.json"

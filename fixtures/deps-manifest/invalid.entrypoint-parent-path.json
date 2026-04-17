@@ -1,0 +1,31 @@
+{
+  "contract": "contracts/deps-manifest.schema.json",
+  "case": "invalid",
+  "input": {
+    "manifest_version": 3,
+    "resources": [
+      {
+        "id": "chromium-linux-x64",
+        "kind": "chromium",
+        "version": "147.0.7727.24",
+        "platform": "linux-x64",
+        "sources": [
+          {
+            "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/linux64/chrome-linux64.zip",
+            "kind": "upstream"
+          }
+        ],
+        "sha256": "2623af6b98ab1029e9e752450e905e30c4669774aee14acf2a203ef2ea797ee0",
+        "archive_format": "zip",
+        "entrypoints": {
+          "browser": [
+            "../chrome-linux64/chrome"
+          ]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": false
+  }
+}

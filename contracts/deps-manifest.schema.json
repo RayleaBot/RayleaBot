@@ -72,9 +72,27 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\.\\.(?:/|\\\\))(?!.*\\\\\\.\\.(?:/|\\\\)).+$"
+        "allOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "not": {
+              "pattern": "^[A-Za-z]:"
+            }
+          },
+          {
+            "not": {
+              "pattern": "^[\\\\/]"
+            }
+          },
+          {
+            "not": {
+              "pattern": "(^|[\\\\/])\\.\\.([\\\\/]|$)"
+            }
+          }
+        ]
       }
     },
     "entrypoints": {
@@ -247,6 +265,7 @@
     "fixtures/deps-manifest/invalid.bad-archive-format.json",
     "fixtures/deps-manifest/invalid.missing-sources.json",
     "fixtures/deps-manifest/invalid.empty-sources.json",
+    "fixtures/deps-manifest/invalid.entrypoint-parent-path.json",
     "fixtures/deps-manifest/invalid.duplicate-source-url.json",
     "fixtures/deps-manifest/invalid.unknown-source-kind.json",
     "fixtures/deps-manifest/edge.multi-runtime-matrix.json"
