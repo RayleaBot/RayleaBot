@@ -1,4 +1,8 @@
+import { config } from '@vue/test-utils'
+import { MotionPlugin } from '@vueuse/motion'
 import { afterEach, beforeEach, vi } from 'vitest'
+
+config.global.plugins = [MotionPlugin]
 
 class ResizeObserverMock {
   observe() {}

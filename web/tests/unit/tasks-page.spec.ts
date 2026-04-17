@@ -345,7 +345,7 @@ describe('TasksPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.tasks-empty-card').exists()).toBe(true)
+    expect(wrapper.find('.app-empty-state').exists()).toBe(true)
     expect(wrapper.find('.tasks-data-table').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('任务类型')
   })
