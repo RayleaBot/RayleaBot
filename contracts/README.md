@@ -36,6 +36,8 @@
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
   - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot、plugin lifecycle、plugin grants、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
+  - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
+  - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
@@ -56,11 +58,7 @@
 - `cli-commands.yaml`
   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 的正式命令模型
 
-## 当前仍保留为 TODO 的边界
-
-### Plugin Manifest
-
-- `binary` 插件形态和 `binary` 运行时
+## 当前仍保留为 TODO 的 v0.2 Phase 1 边界
 
 ### Plugin Protocol
 
@@ -80,21 +78,6 @@
 - 增量升级
 - 发布流水线策略
 - `SHA256SUMS.txt` 文件内容结构
-
-### Deps Manifest
-
-- 更宽的资源种类矩阵
-- 资源签名与附加校验文件
-- 显式解压目标目录覆盖
-
-### CLI
-
-- CLI 与 HTTP task 模型的共享执行路径验证
-
-### Recovery Summary
-
-- 更宽的跨版本恢复自动修复策略
-- 更细的插件数据迁移动作族
 
 ## 当前未进入 OpenAPI 的 TODO
 
@@ -133,6 +116,12 @@
 
 - `GET /api/governance/blacklist`
 - `GET /api/governance/command-policy`
+
+当前已进入正式边界的 config / lifecycle semantics：
+
+- `PUT /api/config` response 使用 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
+- `restart_required` 与 `apply_effects.restart_required_fields` 保持一致
+- `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload 响应与 `/ws/events` 插件生命周期分支统一使用正式 `display_state` 枚举
 
 当前已进入 OpenAPI 冻结范围的 recovery / runtime task surface：
 

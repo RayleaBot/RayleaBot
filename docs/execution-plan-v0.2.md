@@ -27,8 +27,10 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Pre-Phase 已收口
 - ◐ Phase 1 已完成 Batch A = OneBot 主链冻结
 - ◐ Phase 1 已完成 Batch B = 模板编辑器、治理读取面与插件 metadata 冻结
+- ◐ Phase 1 已完成 Batch C = 生命周期 `display_state` 与配置保存 `apply_effects` 冻结
 - ◐ Phase 2 已完成 Batch A = OneBot 主链 companion updates
 - ◐ Phase 2 已完成 Batch B = 模板编辑器、治理与插件 metadata companion updates
+- ◐ Phase 2 已完成 Batch C = 生命周期与配置 companion updates
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -57,13 +59,13 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | 阶段 | 名称 | 状态 | 当前目标 |
 | --- | --- | --- | --- |
 | Pre-Phase | 范围重置与前置承接 | ☑️ | v0.2 已作为当前执行计划收口，范围与延后边界已固定 |
-| Phase 1 | Contract / Schema 冻结 | ◐ | Batch A 与 Batch B 已完成，剩余 v0.2 surface 随后批次继续 |
-| Phase 2 | Fixtures / Examples / SDK | ◐ | Batch A 与 Batch B 已完成，剩余 v0.2 companion updates 随后批次继续 |
+| Phase 1 | Contract / Schema 冻结 | ◐ | Batch A、Batch B、Batch C 已完成，剩余 release metadata 与 plugin protocol backlog 随后批次继续 |
+| Phase 2 | Fixtures / Examples / SDK | ◐ | Batch A、Batch B、Batch C 已完成，剩余 release metadata 与 plugin protocol companion updates 随后批次继续 |
 | Phase 3 | OneBot11 传输模式补齐 | 🟡 | 完成 reverse WS、forward WS、HTTP、webhook 四条接入链路的正式主链 |
 | Phase 4 | OneBot11 事件与消息兼容补齐 | 🟡 | 完成核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵 |
 | Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
 | Phase 6 | 在线模板编辑器 / Render 可视化 | 🟡 | 提供模板编辑、校验、预览、保存、回退与渲染结果可视化 |
-| Phase 7 | Plugin Platform / Manifest / Config / Governance | 🟡 | 完成生命周期状态同步、配置迁移、manifest 元数据与治理读取面收口 |
+| Phase 7 | Plugin Platform / Manifest / Config / Governance | ◐ | 生命周期 `display_state`、配置保存 `apply_effects`、manifest 元数据与治理读取面已进入正式边界，剩余管理可见性与运行链路验收随后批次继续 |
 | Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置、日志中心主线与统一日志详情已完成，模板编辑、跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
 | Phase 9 | Launcher / 本地运维入口 | ◐ | 启动失败诊断与端口占用识别已补强，环境诊断与深链引导仍待继续 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
@@ -97,14 +99,15 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 - ☑️ Batch A = OneBot 主链已完成
 - ☑️ Batch B = 模板编辑器、治理读取面、manifest 元数据已完成
-- 后续批次继续覆盖其余 v0.2 surface
+- ☑️ Batch C = 生命周期 `display_state` 与配置保存 `apply_effects` 已完成
+- 剩余批次聚焦 release metadata 与 plugin protocol backlog
 
 ### 本轮必需冻结的正式边界
 
 | 正式边界 | 状态 | 本轮冻结方向 |
 | --- | --- | --- |
-| `contracts/web-api.openapi.yaml` | ◐ | OneBot transport、协议快照、日志详情、模板编辑器与治理核心读取面已冻结；其余 v0.2 surface 随后批次继续 |
-| `contracts/websocket-events.yaml` | ◐ | 协议状态与日志主链已补齐；模板编辑器预览继续复用现有 task event 链，不新增预览专用事件 |
+| `contracts/web-api.openapi.yaml` | ◐ | OneBot transport、协议快照、日志详情、模板编辑器、治理核心读取面、plugin `display_state` 正式枚举与 `PUT /api/config` `apply_effects` 已冻结；其余 v0.2 surface 随后批次继续 |
+| `contracts/websocket-events.yaml` | ◐ | 协议状态、日志主链与插件生命周期 `display_state` 已补齐；模板编辑器预览继续复用现有 task event 链，不新增预览专用事件 |
 | `contracts/plugin-info.schema.json` | ☑️ | `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies`、`concurrency` |
 | `contracts/plugin-protocol.schema.json` | ◐ | OneBot 主链所需更宽 `action` 与消息段已冻结；剩余 v0.2 范围仍待继续 |
 | `contracts/config.user.schema.json` | ◐ | OneBot 多 transport 配置主模型已冻结；治理核心读取面直接投影现有 cooldown 与默认权限配置，其余迁移与热更新读取口径随后批次继续 |
@@ -119,7 +122,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | OneBot11 兼容矩阵 | ☑️ | Batch A 已冻结核心事件、消息段、动作族、历史消息、消息详情、转发消息、文件与 provider 扩展矩阵 |
 | Plugin Protocol 扩展 | ☑️ | Batch A 已冻结更宽 `action family`、更宽消息段、必要的结果数据与结构化错误 |
 | 在线模板编辑器 | ☑️ | 模板列表、详情、源码编辑、schema 校验、任务式预览、保存、历史版本与回退已进入正式边界 |
-| 治理与配置读取面 | ◐ | blacklist、cooldown、command permission 独立读取面已进入正式边界；生命周期状态同步、配置迁移、局部热更新读取面随后批次继续 |
+| 治理与配置语义 | ☑️ | blacklist / command-policy 读取面、plugin `display_state` 正式枚举与 `PUT /api/config` `apply_effects` 已进入正式边界 |
 
 ### 本轮排除项
 
@@ -140,13 +143,14 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Batch A = OneBot 主链已完成
 - ☑️ 当前已补齐 protocol snapshot、compatibility matrix、widened actions、provider namespace、SDK helper 与管理面 companion updates
 - ☑️ Batch B 已补齐模板编辑器、治理与 manifest 相关 fixtures / examples / docs
-- 后续批次继续覆盖其余 v0.2 examples / SDK / docs
+- ☑️ Batch C 已补齐生命周期 `display_state`、配置保存 `apply_effects` 与管理面 companion updates
+- 剩余批次聚焦 release metadata 与 plugin protocol companion updates
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| transport / event / action fixtures | ◐ | OneBot 主链、模板编辑器、治理 surface 与 manifest metadata fixtures 已补齐；其余 v0.2 surface 仍待继续 |
+| transport / event / action fixtures | ◐ | OneBot 主链、模板编辑器、治理 surface、lifecycle `display_state`、config `apply_effects` 与 manifest metadata fixtures 已补齐；其余 v0.2 surface 仍待继续 |
 | OneBot11 provider 分层样例 | ☑️ | fixtures 已按标准 OneBot11、NapCat 扩展、幸运莉莉娅扩展三层组织 |
-| examples 同步补齐 | ◐ | OneBot 主链与模板编辑器 / 治理 / manifest HTTP 样例已补齐；其余 v0.2 样例仍待继续 |
+| examples 同步补齐 | ◐ | OneBot 主链、模板编辑器、治理、config `apply_effects` 与 manifest HTTP 样例已补齐；其余 v0.2 样例仍待继续 |
 | SDK 示例与文档同步 | ◐ | OneBot 主链已覆盖 widened actions、消息段与 provider namespace；模板编辑器与治理接口 SDK 样例仍待继续 |
 | Golden 回归基线 | ◐ | OneBot 主链回归样例已建立；template editor 与其余 v0.2 回归基线仍待继续 |
 
@@ -248,8 +252,8 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| 生命周期状态同步 | 🟡 | 继续收敛 `registration_state`、`desired_state`、`runtime_state`、`display_state` 与任务、恢复摘要之间的一致性 |
-| 配置迁移 | 🟡 | 继续完成迁移结果、保存影响分类、局部热更新与需要重启语义 |
+| 生命周期状态同步 | ☑️ | `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload 响应与 `/ws/events` 插件生命周期分支统一使用正式 `display_state` 枚举 |
+| 配置迁移 | ◐ | `PUT /api/config` 返回正式 `apply_effects` 分类；`config.migrate` 继续保持现有 task 类型，不新增独立管理路由 |
 | manifest 元数据补齐 | ◐ | `icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` 已进入正式边界与示例 |
 | `default_config` / `concurrency` 正式化 | ◐ | `default_config` 与 `concurrency` 已进入正式边界；运行链路与管理面验收随后批次继续 |
 | blacklist / cooldown / command permission 可见性 | ◐ | 独立治理读取面已进入正式边界；管理面展示、配置可见性与诊断可见性随后批次继续 |
@@ -356,7 +360,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | OneBot11 事件与消息兼容 | 剩余核心事件、消息段、历史消息、详情读取进入正式兼容矩阵与回归范围 |
 | Wider Action Family | plugin protocol、SDK、fixtures、examples、运行链路保持一致 |
 | 在线模板编辑器 | 支持编辑、校验、预览、保存和回退 |
-| 生命周期 / 配置 / 诊断 | 生命周期状态同步、配置迁移、局部热更新、诊断与恢复继续完成原 v0.2 目标 |
+| 生命周期 / 配置 / 诊断 | `display_state` 与 `apply_effects` 保持跨 surface 一致，诊断与恢复继续完成原 v0.2 目标 |
 | 治理读取面 | blacklist / cooldown / permission 的剩余管理可见性在 Web 管理面可验证 |
 | 管理面联动 | 协议中心、日志、任务、模板编辑器、指令中心之间的跳转与摘要口径一致 |
 | Launcher 职责 | Launcher 只验证本地壳职责、诊断深链与打开 Web，不承担 Web 业务回归 |
