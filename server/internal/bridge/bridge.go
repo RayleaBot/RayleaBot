@@ -148,11 +148,11 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 	}
 
 	if b.dispatcher == nil || !b.dispatcher.HasDeliverablePlugins() {
-		b.recordRejected(event, now, codePlatformInvalidRequest, "no deliverable plugin runtime is registered")
+		b.recordIgnored(event, now)
 		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
-		attrs = append(attrs, "error_code", codePlatformInvalidRequest)
-		b.logger.Warn(bridgeEventSummary("rejected", event), attrs...)
-		return OutcomeRejected
+		attrs = append(attrs, "reason", "no deliverable plugin runtime is registered")
+		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
+		return OutcomeIgnored
 	}
 
 	runtimeEvent := runtime.Event{
@@ -191,14 +191,14 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 	commandName := bridgeCommandName(runtimeEvent)
 	results := b.dispatcher.Dispatch(ctx, runtimeEvent, commandName)
 	if len(results) == 0 {
-		b.recordRejected(event, now, codePlatformInvalidRequest, "no deliverable plugin runtime accepted the event")
+		b.recordIgnored(event, now)
 		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
-		attrs = append(attrs, "error_code", codePlatformInvalidRequest)
+		attrs = append(attrs, "reason", "no plugin subscription accepted the event")
 		if commandName != "" {
 			attrs = append(attrs, "command_name", commandName)
 		}
-		b.logger.Warn(bridgeEventSummary("rejected", event), attrs...)
-		return OutcomeRejected
+		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
+		return OutcomeIgnored
 	}
 
 	if bridgeDispatchDelivered(results) {
@@ -347,6 +347,8 @@ func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Ti
 	b.snapshot.LastEventType = event.EventType
 	b.snapshot.LastEventKind = event.Kind
 	b.snapshot.LastOutcome = OutcomeIgnored
+	b.snapshot.LastErrorCode = ""
+	b.snapshot.LastErrorText = ""
 	b.snapshot.LastEventAt = &observedAt
 }
 

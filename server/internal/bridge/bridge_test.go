@@ -9,6 +9,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
@@ -98,38 +99,107 @@ func TestBridgeIgnoresUnsupportedAdapterEventShape(t *testing.T) {
 	}
 }
 
-func TestBridgeRejectsEventWhenNoDeliverableRuntimeExists(t *testing.T) {
+func TestBridgeIgnoresEventWhenNoDeliverableRuntimeExists(t *testing.T) {
 	t.Parallel()
 
 	fakeDispatcher := &recordingDispatcher{deliverable: false}
 	eventBridge := testBridge(fakeDispatcher)
 
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeRejected {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeRejected)
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent())
+	if outcome != OutcomeIgnored {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
 	}
 	if len(fakeDispatcher.events) != 0 {
 		t.Fatalf("dispatcher should not receive event when nothing is deliverable")
 	}
 
 	snapshot := eventBridge.Snapshot()
-	if snapshot.RejectedCount != 1 {
-		t.Fatalf("unexpected rejected count: %+v", snapshot)
+	if snapshot.IgnoredCount != 1 || snapshot.RejectedCount != 0 {
+		t.Fatalf("unexpected ignored/rejected counts: %+v", snapshot)
+	}
+	if snapshot.LastErrorCode != "" || snapshot.LastErrorText != "" {
+		t.Fatalf("ignored outcome should clear last error fields: %+v", snapshot)
 	}
 }
 
-func TestBridgeRejectsEventWhenNoTargetAccepts(t *testing.T) {
+func TestBridgeIgnoresEventWhenNoTargetAccepts(t *testing.T) {
 	t.Parallel()
 
 	fakeDispatcher := &recordingDispatcher{deliverable: true}
 	eventBridge := testBridge(fakeDispatcher)
 
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeRejected {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeRejected)
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent())
+	if outcome != OutcomeIgnored {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
 	}
 	if len(fakeDispatcher.events) != 1 {
 		t.Fatalf("dispatcher should inspect the event once, got %d", len(fakeDispatcher.events))
+	}
+
+	snapshot := eventBridge.Snapshot()
+	if snapshot.IgnoredCount != 1 || snapshot.RejectedCount != 0 {
+		t.Fatalf("unexpected ignored/rejected counts: %+v", snapshot)
+	}
+}
+
+func TestBridgeLogsUnmatchedNoticeAsDebugIgnored(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newBridgeTestLogger()
+	fakeDispatcher := &recordingDispatcher{deliverable: true}
+	eventBridge := New(logger, fakeDispatcher)
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent())
+	if outcome != OutcomeIgnored {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
+	}
+
+	summaries := stream.Snapshot()
+	if len(summaries) != 1 {
+		t.Fatalf("expected one bridge log summary, got %d", len(summaries))
+	}
+	summary := summaries[0]
+	if summary.Level != "debug" {
+		t.Fatalf("unexpected log level: got %q want debug", summary.Level)
+	}
+	if summary.Message != "runtime bridge ignored group recall notice" {
+		t.Fatalf("unexpected log message: got %q", summary.Message)
+	}
+	if summary.Details["reason"] != "no plugin subscription accepted the event" {
+		t.Fatalf("unexpected ignore reason: %#v", summary.Details)
+	}
+	if _, ok := summary.Details["error_code"]; ok {
+		t.Fatalf("ignored event should not carry error_code: %#v", summary.Details)
+	}
+}
+
+func TestBridgeIgnoredEventClearsPreviousErrorState(t *testing.T) {
+	t.Parallel()
+
+	fakeDispatcher := &recordingDispatcher{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{
+			{PluginID: "weather", Outcome: dispatch.OutcomeDropped},
+			{PluginID: "echo", Outcome: dispatch.OutcomeError, ErrorCode: "platform.invalid_request"},
+		},
+	}
+	eventBridge := testBridge(fakeDispatcher)
+
+	if outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != OutcomeError {
+		t.Fatalf("unexpected first outcome: got %q want %q", outcome, OutcomeError)
+	}
+
+	fakeDispatcher.results = nil
+	if outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent()); outcome != OutcomeIgnored {
+		t.Fatalf("unexpected second outcome: got %q want %q", outcome, OutcomeIgnored)
+	}
+
+	snapshot := eventBridge.Snapshot()
+	if snapshot.LastOutcome != OutcomeIgnored {
+		t.Fatalf("unexpected last outcome: got %q want %q", snapshot.LastOutcome, OutcomeIgnored)
+	}
+	if snapshot.LastErrorCode != "" || snapshot.LastErrorText != "" {
+		t.Fatalf("ignored event should clear stale error state: %+v", snapshot)
 	}
 }
 
@@ -347,6 +417,24 @@ func testBridge(dispatcher dispatcherClient) *Bridge {
 	return New(logger, dispatcher)
 }
 
+func newBridgeTestLogger() (*slog.Logger, *logging.Stream) {
+	stream := logging.NewStream(16)
+	writer := logging.NewSummaryWriter(io.Discard, stream, nil)
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
+			switch attr.Key {
+			case slog.TimeKey:
+				attr.Key = "ts"
+			case slog.MessageKey:
+				attr.Key = "msg"
+			}
+			return attr
+		},
+	}))
+	return logger, stream
+}
+
 func supportedAdapterEvent() adapter.NormalizedEvent {
 	return adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessageText,
@@ -378,6 +466,35 @@ func supportedAdapterEvent() adapter.NormalizedEvent {
 					"card":     "管理员",
 					"role":     "admin",
 				},
+			},
+		},
+	}
+}
+
+func supportedGroupRecallNoticeEvent() adapter.NormalizedEvent {
+	return adapter.NormalizedEvent{
+		Kind:             adapter.EventKindNotice,
+		EventID:          "onebot11-notice-group-recall-1001",
+		BotID:            "10001",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "notice.group_recall",
+		Timestamp:        time.Unix(1_700_000_223, 0).Unix(),
+		ConversationType: "group",
+		ConversationID:   "2001",
+		SenderID:         "3001",
+		MessageID:        "1001",
+		PayloadFields: map[string]any{
+			"operator_id": "3002",
+			"onebot": map[string]any{
+				"post_type":    "notice",
+				"notice_type":  "group_recall",
+				"group_id":     "2001",
+				"user_id":      "3001",
+				"operator_id":  "3002",
+				"message_id":   "1001",
+				"time":         int64(1_700_000_223),
+				"message_type": "group",
 			},
 		},
 	}
