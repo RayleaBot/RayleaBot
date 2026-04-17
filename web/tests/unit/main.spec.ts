@@ -162,4 +162,31 @@ describe('web bootstrap', () => {
     expect(sessionStore.admitLauncherToken).toHaveBeenCalledWith('launcher_token_fixture_0001')
     expect(router.push).not.toHaveBeenCalledWith({ name: 'login' })
   })
+
+  it('prefers a fresh launcher token over an existing stale session token', async () => {
+    const sessionStore = {
+      token: 'stale-session-token',
+      isAuthenticated: true,
+      isBootstrapped: true,
+      requiresSetup: false,
+      setupInitialized: true,
+      bootstrap: vi.fn().mockResolvedValue(undefined),
+      admitLauncherToken: vi.fn().mockImplementation(async () => {
+        sessionStore.token = 'launcher-session-token'
+      }),
+      clearSession: vi.fn(),
+      handleSessionExpired: vi.fn(),
+      setLauncherAdmissionHint: vi.fn(),
+    }
+
+    sessionStoreFactory.mockReturnValue(sessionStore)
+    window.history.replaceState({}, '', '/?token=launcher_token_fixture_0001')
+
+    await import('@/main')
+    await flushBootstrap()
+
+    expect(sessionStore.admitLauncherToken).toHaveBeenCalledWith('launcher_token_fixture_0001')
+    expect(sessionStore.token).toBe('launcher-session-token')
+    expect(sessionStore.clearSession).not.toHaveBeenCalled()
+  })
 })

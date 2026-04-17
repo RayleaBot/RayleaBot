@@ -235,6 +235,18 @@ test('launcher token query admits a session and clears the URL token', async ({ 
   await expect(page).not.toHaveURL(/token=/)
 })
 
+test('launcher token query replaces a stale stored session and clears the URL token', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem('rayleabot.session_token', 'stale-session-token')
+  })
+
+  await page.goto('/?token=launcher_token_fixture_0001')
+
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  await expect(page).not.toHaveURL(/token=/)
+})
+
 test('invalid launcher token falls back to login and clears the URL token', async ({ page, request }) => {
   await resetBackend(request, true)
 

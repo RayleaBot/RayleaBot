@@ -47,6 +47,30 @@ describe('system store', () => {
     expect(store.system?.status).toBe('shutting_down')
   })
 
+  it('accepts readiness payloads that come back with 503 during startup transitions', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ status: 'ok' }))
+        .mockResolvedValueOnce(jsonResponse({ status: 'failed', reason: '服务仍在完成启动。' }, 503))
+        .mockResolvedValueOnce(jsonResponse({
+          status: 'running',
+          adapter_state: 'idle',
+          active_plugins: 0,
+          uptime_seconds: 3,
+        })),
+    )
+
+    const store = useSystemStore()
+    await store.refresh()
+
+    expect(store.health?.status).toBe('ok')
+    expect(store.readiness?.status).toBe('failed')
+    expect(store.readiness?.reason).toBe('服务仍在完成启动。')
+    expect(store.system?.status).toBe('running')
+    expect(store.error).toBeNull()
+  })
+
   it('formats protocol and plugin events into readable chinese summaries', () => {
     const store = useSystemStore()
 

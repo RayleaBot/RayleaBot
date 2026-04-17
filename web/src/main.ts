@@ -32,7 +32,7 @@ async function consumeLauncherTokenQuery(
   currentUrl.searchParams.delete('token')
   window.history.replaceState({}, '', currentUrl.pathname + currentUrl.search + currentUrl.hash)
 
-  if (sessionStore.setupInitialized === true && !sessionStore.isAuthenticated) {
+  if (sessionStore.setupInitialized === true) {
     try {
       await sessionStore.admitLauncherToken(launcherToken)
     } catch {
