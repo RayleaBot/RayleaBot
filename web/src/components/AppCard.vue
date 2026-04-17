@@ -5,13 +5,18 @@ defineProps<{
   loading?: boolean
   shadow?: 'sm' | 'md' | 'lg' | 'none'
   title?: string
+  variant?: 'default' | 'stat' | 'highlight' | 'flat'
 }>()
 </script>
 
 <template>
   <a-card
     :bordered="!borderless"
-    :class="['app-card', shadow ? `app-card--shadow-${shadow}` : '']"
+    :class="[
+      'app-card',
+      shadow ? `app-card--shadow-${shadow}` : '',
+      variant ? `app-card--${variant}` : '',
+    ]"
   >
     <template v-if="title || $slots.extra" #title>
       <div class="app-card__header">
@@ -55,6 +60,45 @@ defineProps<{
 
 .app-card--shadow-none:hover {
   box-shadow: none;
+}
+
+/* Variant: stat — metric cards with top accent bar */
+.app-card--stat {
+  position: relative;
+  overflow: hidden;
+}
+
+.app-card--stat::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: color-mix(in srgb, var(--muted) 26%, transparent);
+}
+
+.app-card--stat:hover::before {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* Variant: highlight — stronger border and subtle glow on hover */
+.app-card--highlight {
+  border-color: color-mix(in srgb, var(--accent) 12%, var(--border));
+}
+
+.app-card--highlight:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent), var(--shadow-lg);
+}
+
+/* Variant: flat — no lift, minimal hover */
+.app-card--flat {
+  box-shadow: none;
+}
+
+.app-card--flat:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border-strong);
 }
 
 .app-card__header {

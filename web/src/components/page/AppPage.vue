@@ -35,7 +35,13 @@ defineProps<{
       <slot name="toolbar" />
     </div>
 
-    <div class="app-page__content">
+    <div
+      v-motion="{
+        initial: { opacity: 0 },
+        enter: { opacity: 1, transition: { duration: 280, ease: 'easeOut' } },
+      }"
+      class="app-page__content"
+    >
       <slot />
     </div>
   </div>
