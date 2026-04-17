@@ -17,7 +17,9 @@ x-fixtures:
   - fixtures/websocket/edge.tasks-updated-failed-install.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
+  - fixtures/websocket/edge.events-received-plugin-crashed.json
   - fixtures/websocket/edge.session-expired.json
+  - fixtures/websocket/invalid.events-received-plugin-invalid-display-state.json
   - fixtures/websocket/invalid.events-received-raw-chat.json
   - fixtures/websocket/invalid.events-received-bridge-runtime-raw-leak.json
 
@@ -187,7 +189,7 @@ channels:
                     type: string
             - type: object
               additionalProperties: false
-              required: [plugin_id, registration_state, desired_state, runtime_state]
+              required: [plugin_id, registration_state, desired_state, runtime_state, display_state]
               properties:
                 plugin_id:
                   type: string
@@ -202,6 +204,20 @@ channels:
                   enum: [starting, running, stopping, crashed, backoff, dead_letter, stopped]
                 display_state:
                   type: string
+                  enum:
+                    - discovered
+                    - invalid_manifest
+                    - conflict
+                    - removed
+                    - enabled
+                    - enabling
+                    - running
+                    - disabling
+                    - stopping
+                    - crashed
+                    - backoff
+                    - dead_letter
+                    - disabled
             - type: object
               additionalProperties: false
               required: [connection_status, summary]

@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
-case: ok
-description: Config update persists a validated snapshot, reports redacted fields, and summarizes apply effects.
+case: edge
+description: Config update falls back to restart-required fields when OneBot hot reload fails.
 request:
   method: PUT
   path: /api/config
@@ -8,16 +8,16 @@ request:
     schema_version: "2"
     server:
       host: 127.0.0.1
-      port: 8081
+      port: 8080
     onebot:
       provider: standard
-      access_token: __REDACTED__
+      access_token: ""
       reverse_ws:
         enabled: false
         url: ""
       forward_ws:
-        enabled: false
-        url: ""
+        enabled: true
+        url: ws://127.0.0.1:2658
       http_api:
         enabled: false
         url: ""
@@ -77,7 +77,7 @@ request:
       event_records_retention_days: 7
       download_cache_retention_days: 15
     log:
-      level: debug
+      level: info
       retention_days: 7
       rate_limit_per_plugin: 200/10s
     message:
@@ -111,16 +111,16 @@ response:
       schema_version: "2"
       server:
         host: 127.0.0.1
-        port: 8081
+        port: 8080
       onebot:
         provider: standard
-        access_token: __REDACTED__
+        access_token: ""
         reverse_ws:
           enabled: false
           url: ""
         forward_ws:
-          enabled: false
-          url: ""
+          enabled: true
+          url: ws://127.0.0.1:2658
         http_api:
           enabled: false
           url: ""
@@ -180,7 +180,7 @@ response:
         event_records_retention_days: 7
         download_cache_retention_days: 15
       log:
-        level: debug
+        level: info
         retention_days: 7
         rate_limit_per_plugin: 200/10s
       message:
@@ -207,14 +207,13 @@ response:
         setup_local_only: true
       backup:
         default_consistency: offline
-    redacted_fields:
-      - onebot.access_token
+    redacted_fields: []
     restart_required: true
     apply_effects:
-      applied_now:
-        - log.level
+      applied_now: []
       reloaded_now: []
       restart_required_fields:
-        - server.port
+        - onebot.forward_ws.enabled
+        - onebot.forward_ws.url
 expect:
   valid: true

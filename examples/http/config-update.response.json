@@ -1,0 +1,41 @@
+{
+  "config": {
+    "schema_version": "2",
+    "server": {
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    "onebot": {
+      "provider": "standard",
+      "access_token": "__REDACTED__",
+      "reverse_ws": {
+        "enabled": false,
+        "url": ""
+      },
+      "forward_ws": {
+        "enabled": true,
+        "url": "ws://127.0.0.1:2658"
+      },
+      "http_api": {
+        "enabled": false,
+        "url": ""
+      },
+      "webhook": {
+        "enabled": false,
+        "url": ""
+      }
+    }
+  },
+  "redacted_fields": [
+    "onebot.access_token"
+  ],
+  "restart_required": false,
+  "apply_effects": {
+    "applied_now": [],
+    "reloaded_now": [
+      "onebot.forward_ws.enabled",
+      "onebot.forward_ws.url"
+    ],
+    "restart_required_fields": []
+  }
+}

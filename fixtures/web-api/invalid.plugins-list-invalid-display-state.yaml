@@ -1,0 +1,21 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Plugin list rejects display_state values outside the formal enum.
+request:
+  method: GET
+  path: /api/plugins
+response:
+  status: 200
+  body:
+    items:
+      - id: weather
+        name: Weather
+        role: user
+        registration_state: installed
+        desired_state: enabled
+        runtime_state: running
+        display_state: paused
+        commands: []
+expect:
+  valid: false
+  reason: display_state must stay within the formal PluginDisplayState enum.

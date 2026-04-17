@@ -16,6 +16,7 @@ x-fixtures:
   - fixtures/web-api/ok.session-launcher-admission.yaml
   - fixtures/web-api/ok.config-get-response.yaml
   - fixtures/web-api/ok.config-update-response.yaml
+  - fixtures/web-api/edge.config-update-response.adapter-reload-fallback.yaml
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.protocol-onebot11-snapshot.yaml
   - fixtures/web-api/ok.protocol-onebot11-reverse-ws-upgrade.yaml
@@ -95,6 +96,7 @@ x-fixtures:
   - fixtures/web-api/invalid.logs-list-invalid-scope.yaml
   - fixtures/web-api/invalid.logs-list-start-after-end.yaml
   - fixtures/web-api/invalid.logs-list-current-session-with-time-range.yaml
+  - fixtures/web-api/invalid.plugins-list-invalid-display-state.yaml
   - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
@@ -1391,10 +1393,28 @@ components:
           items:
             type: string
 
+    ConfigApplyEffects:
+      type: object
+      additionalProperties: false
+      required: [applied_now, reloaded_now, restart_required_fields]
+      properties:
+        applied_now:
+          type: array
+          items:
+            type: string
+        reloaded_now:
+          type: array
+          items:
+            type: string
+        restart_required_fields:
+          type: array
+          items:
+            type: string
+
     ConfigUpdateResponse:
       type: object
       additionalProperties: false
-      required: [config, restart_required]
+      required: [config, restart_required, apply_effects]
       properties:
         config:
           $ref: '#/components/schemas/ConfigDocument'
@@ -1405,6 +1425,8 @@ components:
         restart_required:
           type: boolean
           description: Whether a server restart is required before the new config takes effect.
+        apply_effects:
+          $ref: '#/components/schemas/ConfigApplyEffects'
 
     SystemStatusResponse:
       type: object
@@ -2275,6 +2297,23 @@ components:
       type: string
       enum: [starting, running, stopping, crashed, backoff, dead_letter, stopped]
 
+    PluginDisplayState:
+      type: string
+      enum:
+        - discovered
+        - invalid_manifest
+        - conflict
+        - removed
+        - enabled
+        - enabling
+        - running
+        - disabling
+        - stopping
+        - crashed
+        - backoff
+        - dead_letter
+        - disabled
+
     PluginRole:
       type: string
       enum: [builtin, user, example, dev]
@@ -2338,7 +2377,7 @@ components:
     PluginSummary:
       type: object
       additionalProperties: false
-      required: [id, name, role, registration_state, desired_state, runtime_state, commands]
+      required: [id, name, role, registration_state, desired_state, runtime_state, display_state, commands]
       properties:
         id:
           type: string
@@ -2353,7 +2392,7 @@ components:
         runtime_state:
           $ref: '#/components/schemas/PluginRuntimeState'
         display_state:
-          type: string
+          $ref: '#/components/schemas/PluginDisplayState'
         source:
           $ref: '#/components/schemas/PluginSourceSummary'
         trust:
