@@ -57,6 +57,10 @@ func newTransportSnapshot(cfg config.OneBotConfig) Snapshot {
 
 func (s *Shell) markTransportPrimed() {
 	s.mu.Lock()
+	s.snapshot = newTransportSnapshot(s.cfg)
+	s.pendingResponses = make(map[string]chan apiResponse)
+	s.recentEventIDs = make(map[string]time.Time)
+	s.identityCache = NewIdentityCache(defaultIdentityCacheTTL)
 	if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
 		s.snapshot.ReverseWS.State = TransportStateListening
 	}
@@ -140,10 +144,13 @@ func (s *Shell) refreshAggregateStateLocked() {
 		s.snapshot.HTTPAPI.State == TransportStateAuthFailed ||
 		s.snapshot.Webhook.State == TransportStateAuthFailed:
 		s.snapshot.State = StateAuthFailed
-	case len(active) > 0:
-		s.snapshot.State = StateIdle
-	default:
+	case s.snapshot.ForwardWS.State == TransportStateStopped ||
+		s.snapshot.ReverseWS.State == TransportStateStopped ||
+		s.snapshot.HTTPAPI.State == TransportStateStopped ||
+		s.snapshot.Webhook.State == TransportStateStopped:
 		s.snapshot.State = StateStopped
+	default:
+		s.snapshot.State = StateIdle
 	}
 }
 

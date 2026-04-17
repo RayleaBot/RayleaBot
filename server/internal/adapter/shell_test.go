@@ -1203,6 +1203,47 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 	}
 }
 
+func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T) {
+	t.Parallel()
+
+	shell := newTestShell(config.OneBotConfig{}, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateIdle, 200*time.Millisecond)
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("first Stop failed: %v", err)
+	}
+	if shell.Snapshot().State != StateStopped {
+		t.Fatalf("expected stopped state after first stop, got %s", shell.Snapshot().State)
+	}
+
+	shell.Start(ctx)
+	snapshot := waitForSnapshot(t, shell, 200*time.Millisecond, func(snapshot Snapshot) bool {
+		return snapshot.State == StateIdle
+	})
+	if snapshot.ForwardWS.State != TransportStateIdle {
+		t.Fatalf("expected idle forward transport after restart, got %s", snapshot.ForwardWS.State)
+	}
+	if snapshot.LastErrorCode != "" {
+		t.Fatalf("expected cleared adapter error after restart, got %q", snapshot.LastErrorCode)
+	}
+
+	secondStopCtx, secondStopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer secondStopCancel()
+	if err := shell.Stop(secondStopCtx); err != nil {
+		t.Fatalf("second Stop failed: %v", err)
+	}
+}
+
 func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 	t.Parallel()
 
