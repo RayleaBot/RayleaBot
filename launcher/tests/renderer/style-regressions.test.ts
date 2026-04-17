@@ -50,7 +50,7 @@ describe("renderer style regressions", () => {
   test("keeps the diagnostics and settings comparison surfaces", () => {
     expect(styleSheet).toMatch(/\.diagnostics-context-grid\s*{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/s);
     expect(styleSheet).toMatch(/\.settings-compare-strip\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
-    expect(styleSheet).toMatch(/\.settings-surface-tag--resolved\s*{[^}]*background:\s*rgba\(159,\s*230,\s*255,\s*0\.1\);/s);
+    expect(styleSheet).toMatch(/\.settings-surface-tag--resolved\s*{[^}]*background:\s*var\(--accent-subtle\);/s);
   });
 
   test("keeps the homepage overflow safety", () => {
