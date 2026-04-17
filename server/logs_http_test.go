@@ -631,7 +631,9 @@ func TestLogsListRejectsCurrentSessionTimeRange(t *testing.T) {
 func TestLogsListSupportsCursorPaging(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t, deterministicAuthOptions()...)
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
