@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
@@ -149,7 +150,11 @@ onMounted(() => {
       :scroll="{ x: 1180 }"
     >
       <template #emptyText>
-        {{ t('commands.empty') }}
+        <AppEmptyState
+          icon="command"
+          :title="t('commands.empty.title')"
+          :description="t('commands.empty.description')"
+        />
       </template>
 
       <template #bodyCell="{ column, record }">

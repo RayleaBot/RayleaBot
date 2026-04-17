@@ -6,7 +6,10 @@ export const commands = {
     plugins: '按插件筛选',
     allPlugins: '全部插件',
   },
-  empty: '当前没有可展示的指令。',
+  empty: {
+    title: '暂无指令',
+    description: '当前没有插件声明可用指令',
+  },
   fields: {
     command: '命令',
     aliases: '别名',

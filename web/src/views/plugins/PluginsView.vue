@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
 import AppCard from '@/components/AppCard.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
 import { notifySuccess } from '@/adapter/feedback'
@@ -187,7 +188,13 @@ async function submitInstall() {
         :scroll="{ x: 1520 }"
       >
         <template #emptyText>
-          {{ t('display.empty') }}
+          <AppEmptyState
+            icon="plugin"
+            :title="t('plugins.empty.title')"
+            :description="t('plugins.empty.description')"
+            :action-label="t('plugins.install')"
+            @action="installDialogVisible = true"
+          />
         </template>
 
         <template #bodyCell="{ column, record }">

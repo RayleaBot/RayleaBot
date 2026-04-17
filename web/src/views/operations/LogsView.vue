@@ -369,7 +369,8 @@ onUnmounted(() => {
 }
 
 .logs-row.is-selected {
-  box-shadow: inset 2px 0 0 var(--app-primary);
+  box-shadow: inset 3px 0 0 var(--app-primary);
+  background: color-mix(in srgb, var(--app-primary) 5%, var(--surface-soft)) !important;
 }
 
 .logs-row__meta,

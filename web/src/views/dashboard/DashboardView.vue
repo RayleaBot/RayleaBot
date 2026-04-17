@@ -367,13 +367,13 @@ function getEventSeverityIcon(severity?: string) {
 .dashboard-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.12fr) minmax(340px, 0.88fr);
-  gap: 12px;
+  gap: var(--app-layout-gap);
 }
 
 .dashboard-bottom-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--app-layout-gap);
 }
 
 .dashboard-activity-card :deep(.ant-card-body) {
@@ -395,7 +395,7 @@ function getEventSeverityIcon(severity?: string) {
 .dashboard-runtime-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--app-layout-gap);
 }
 
 @media (max-width: 720px) {
@@ -487,15 +487,28 @@ function getEventSeverityIcon(severity?: string) {
   display: grid;
   gap: 10px;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--danger);
   background: color-mix(in srgb, var(--danger) 6%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+
+.issue-alert-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--danger);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .issue-alert-card--warning {
-  border-left-color: var(--warning);
   background: color-mix(in srgb, var(--warning) 6%, transparent);
+}
+
+.issue-alert-card--warning::before {
+  background: var(--warning);
 }
 
 .issue-alert-card__header {

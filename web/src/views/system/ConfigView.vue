@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import AppCard from '@/components/AppCard.vue'
+import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import { notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -123,8 +124,8 @@ async function save() {
     />
 
     <div v-else-if="loading && !draft" class="skeleton-layout">
-      <div class="skeleton-panel"></div>
-      <div class="skeleton-panel"></div>
+      <AppSkeletonCard show-header :rows="6" />
+      <AppSkeletonCard show-header :rows="8" />
     </div>
 
     <div v-else-if="draft" class="config-layout">

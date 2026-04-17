@@ -39,7 +39,14 @@ async function submit() {
 </script>
 
 <template>
-  <a-card class="auth-panel-card" :bordered="false">
+  <a-card
+    v-motion="{
+      initial: { opacity: 0, y: 12 },
+      enter: { opacity: 1, y: 0, transition: { duration: 350, ease: 'easeOut', delay: 120 } },
+    }"
+    class="auth-panel-card"
+    :bordered="false"
+  >
     <div class="auth-panel-card__copy">
       <h1>{{ t('auth.setupTitle') }}</h1>
       <p>{{ t('auth.setupBody') }}</p>
@@ -55,15 +62,38 @@ async function submit() {
     />
 
     <a-form ref="formRef" layout="vertical" :model="form" :rules="rules">
-      <a-form-item :label="t('auth.identifier')" name="identifier">
+      <a-form-item
+        v-motion="{
+          initial: { opacity: 0, y: 8 },
+          enter: { opacity: 1, y: 0, transition: { duration: 300, ease: 'easeOut', delay: 200 } },
+        }"
+        :label="t('auth.identifier')"
+        name="identifier"
+      >
         <a-input v-model:value="form.identifier" autocomplete="username" />
       </a-form-item>
 
-      <a-form-item :label="t('auth.secret')" name="secret">
+      <a-form-item
+        v-motion="{
+          initial: { opacity: 0, y: 8 },
+          enter: { opacity: 1, y: 0, transition: { duration: 300, ease: 'easeOut', delay: 280 } },
+        }"
+        :label="t('auth.secret')"
+        name="secret"
+      >
         <a-input-password v-model:value="form.secret" autocomplete="new-password" />
       </a-form-item>
 
-      <a-button type="primary" class="auth-submit" :loading="sessionStore.loginPending" @click="submit">
+      <a-button
+        v-motion="{
+          initial: { opacity: 0, y: 8 },
+          enter: { opacity: 1, y: 0, transition: { duration: 300, ease: 'easeOut', delay: 360 } },
+        }"
+        type="primary"
+        class="auth-submit"
+        :loading="sessionStore.loginPending"
+        @click="submit"
+      >
         {{ t('auth.setupSubmit') }}
       </a-button>
     </a-form>

@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RecoverySummaryDetails from '@/components/RecoverySummaryDetails.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -219,9 +220,12 @@ function getStatusColor(status: string) {
       <a-skeleton active :paragraph="{ rows: 4 }" />
     </a-card>
 
-    <a-card v-else-if="sortedItems.length === 0" class="tasks-empty-card" :bordered="false">
-      <a-empty :description="t('display.empty')" />
-    </a-card>
+    <AppEmptyState
+      v-else-if="sortedItems.length === 0"
+      icon="box"
+      :title="t('tasks.empty.title')"
+      :description="t('tasks.empty.description')"
+    />
 
     <a-table
       v-else

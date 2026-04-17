@@ -352,14 +352,9 @@ async function save() {
 
 <style lang="scss" scoped>
 .protocol-settings-page {
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 20px;
   --font-mono: "Cascadia Mono", "Consolas", monospace;
   display: grid;
-  gap: 12px;
+  gap: var(--app-layout-gap);
   color: var(--app-text);
 }
 

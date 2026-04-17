@@ -17,6 +17,10 @@ export const tasks = {
     detail: '查看详情',
     cancel: '请求取消',
   },
+  empty: {
+    title: '暂无任务',
+    description: '当前没有运行或历史任务',
+  },
   previewAlt: '图片预览结果',
   recoverySummary: '恢复摘要',
   cancelAccepted: '取消请求已发送',

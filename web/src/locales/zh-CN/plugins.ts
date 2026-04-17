@@ -58,6 +58,8 @@ export const plugins = {
     console: '实时控制台',
   },
   empty: {
+    title: '暂无插件',
+    description: '安装第一个插件来扩展 RayleaBot 的功能',
     commands: '当前未声明指令',
     permissions: '当前未声明权限',
     console: '等待控制台输出',
