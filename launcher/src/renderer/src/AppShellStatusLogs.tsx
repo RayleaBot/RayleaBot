@@ -1,5 +1,5 @@
 import { Button, Text } from "@fluentui/react-components";
-import { FolderOpen20Filled } from "@fluentui/react-icons";
+import { FolderOpen20Filled, CheckmarkCircle20Regular } from "@fluentui/react-icons";
 
 type AppShellStatusLogsProps = {
   hasRecentStderr: boolean;
@@ -28,8 +28,9 @@ export function AppShellStatusLogs({
         <pre className="log-surface status-log-surface--modern">{logs.join("\n")}</pre>
       ) : (
         <div className="log-empty-state">
+          <CheckmarkCircle20Regular style={{ color: "var(--success)", width: 32, height: 32 }} />
           <div className="log-empty-state__title">当前没有新的异常日志</div>
-          <Text size={200} className="panel-muted">服务输出保持安静，完整日志仍可随时打开。</Text>
+          <Text size={200} className="log-empty-state__detail">服务输出保持安静，完整日志仍可随时打开。</Text>
         </div>
       )}
       <div className="panel-footer-actions">

@@ -5,11 +5,15 @@ import {
   Square20Regular,
   SquareMultiple20Regular,
   Subtract20Regular,
+  WeatherMoon20Regular,
+  WeatherSunny20Regular,
+  Desktop20Regular,
 } from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { sections, statusSummary } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
+import { useTheme, type ThemeMode } from "./useTheme";
 
 type AppShellChromeProps = {
   snapshot: LauncherSnapshot;
@@ -17,6 +21,18 @@ type AppShellChromeProps = {
   isMaximized: boolean;
   onNavigate: (section: SectionId) => void;
   onRefresh: () => void;
+};
+
+const modeIcons: Record<ThemeMode, React.ReactNode> = {
+  light: <WeatherSunny20Regular />,
+  dark: <WeatherMoon20Regular />,
+  system: <Desktop20Regular />,
+};
+
+const modeLabels: Record<ThemeMode, string> = {
+  light: "浅色",
+  dark: "深色",
+  system: "跟随系统",
 };
 
 export function AppShellChrome({
@@ -27,6 +43,7 @@ export function AppShellChrome({
   onRefresh,
 }: AppShellChromeProps) {
   const trayStatus = statusSummary(snapshot.serviceState);
+  const { mode, toggleMode } = useTheme();
 
   return (
     <>
@@ -71,7 +88,13 @@ export function AppShellChrome({
             <Text size={100} className="eyebrow-text">API ENDPOINT</Text>
             <Text size={100} className="sidebar-footer__endpoint">{snapshot.endpoint.baseUrl}</Text>
           </div>
-          <Button appearance="transparent" size="small" onClick={onRefresh} icon={<ArrowClockwise20Regular />} className="frost-button frost-button--ghost frost-button--inline">刷新状态</Button>
+          <div className="sidebar-footer__actions">
+            <button type="button" className="theme-toggle-btn" onClick={toggleMode} title={`当前主题：${modeLabels[mode]}，点击切换`}>
+              {modeIcons[mode]}
+              <span>{modeLabels[mode]}</span>
+            </button>
+            <Button appearance="transparent" size="small" onClick={onRefresh} icon={<ArrowClockwise20Regular />} className="frost-button frost-button--ghost frost-button--inline">刷新状态</Button>
+          </div>
         </div>
       </aside>
     </>
