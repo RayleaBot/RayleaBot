@@ -23,6 +23,7 @@ const {
   selectedLogId,
   selectedSummary,
 } = detailController
+const logsLayoutRef = ref<HTMLElement | null>(null)
 const viewportRef = ref<{
   scrollToBottom: () => void
 } | null>(null)
@@ -168,7 +169,11 @@ onActivated(() => {
 
     <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <section v-else class="logs-layout">
+    <section
+      v-else
+      ref="logsLayoutRef"
+      class="logs-layout"
+    >
       <a-card :bordered="false" class="logs-feed-card">
         <template #title>
           <div class="logs-feed-card__title">
@@ -224,6 +229,8 @@ onActivated(() => {
         :error="detailError"
         :summary="selectedSummary"
         :detail="currentDetail"
+        memory-key="logs-history"
+        :host-element="logsLayoutRef"
         @close="detailController.closeDetail"
       />
     </section>
@@ -232,11 +239,13 @@ onActivated(() => {
 
 <style lang="scss" scoped>
 .logs-layout {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
   gap: 12px;
+  overflow: hidden;
 }
 
 .logs-toolbar {

@@ -24,6 +24,7 @@ const {
   selectedLogId,
   selectedSummary,
 } = detailController
+const logsLayoutRef = ref<HTMLElement | null>(null)
 const viewportRef = ref<{
   scrollToBottom: () => void
 } | null>(null)
@@ -187,7 +188,12 @@ onUnmounted(() => {
 
     <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <section v-else class="logs-layout">
+    <section
+      v-else
+      ref="logsLayoutRef"
+      class="logs-layout"
+      :class="{ 'has-detail-window': detailOpen }"
+    >
       <a-card :bordered="false" class="logs-feed-card">
         <template #title>
           <div class="logs-feed-card__title">
@@ -269,6 +275,8 @@ onUnmounted(() => {
         :error="detailError"
         :summary="selectedSummary"
         :detail="currentDetail"
+        memory-key="logs-current"
+        :host-element="logsLayoutRef"
         @close="detailController.closeDetail"
       />
     </section>
@@ -277,11 +285,13 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .logs-layout {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
   gap: 12px;
+  overflow: hidden;
 }
 
 .logs-toolbar {
@@ -422,6 +432,12 @@ onUnmounted(() => {
 
   .logs-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 961px) {
+  .logs-layout.has-detail-window .logs-jump-latest {
+    right: max(18px, calc(50% - 12px));
   }
 }
 </style>

@@ -25,6 +25,7 @@ export const logs = {
   },
   detail: {
     title: '日志详情',
+    close: '关闭详情',
     detailsJson: '详情 JSON',
   },
   current: {

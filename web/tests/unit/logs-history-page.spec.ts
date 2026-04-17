@@ -14,6 +14,25 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function mockRect(element: Element, width: number, height: number, left = 0, top = 0) {
+  Object.defineProperty(element, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      x: left,
+      y: top,
+      width,
+      height,
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
+      toJSON() {
+        return {}
+      },
+    }),
+  })
+}
+
 describe('LogsHistoryPage', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
@@ -54,7 +73,7 @@ describe('LogsHistoryPage', () => {
     expect(wrapper.find('input[type="datetime-local"]').exists()).toBe(true)
   })
 
-  it('opens the shared detail drawer for a history row', async () => {
+  it('opens the shared detail window for a history row', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       log_id: 'log_history_0001',
       timestamp: '2026-04-02T00:53:16Z',
@@ -87,10 +106,12 @@ describe('LogsHistoryPage', () => {
     })
 
     await flushPromises()
+    mockRect(wrapper.get('.logs-layout').element, 1600, 960)
     await wrapper.get('.logs-row').trigger('click')
     await flushPromises()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/logs/log_history_0001', expect.any(Object))
+    expect(wrapper.find('.log-detail-window').exists()).toBe(true)
     expect(wrapper.text()).toContain('日志详情')
     expect(wrapper.text()).toContain('详情 JSON')
   })

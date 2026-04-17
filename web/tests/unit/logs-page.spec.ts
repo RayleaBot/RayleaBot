@@ -14,13 +14,32 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function mockRect(element: Element, width: number, height: number, left = 0, top = 0) {
+  Object.defineProperty(element, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      x: left,
+      y: top,
+      width,
+      height,
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
+      toJSON() {
+        return {}
+      },
+    }),
+  })
+}
+
 describe('LogsPage', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
     setActivePinia(createPinia())
   })
 
-  it('renders the current-session feed and opens the shared detail drawer', async () => {
+  it('renders the current-session feed and opens the shared detail window', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       log_id: 'log_warn_0001',
       timestamp: '2026-04-02T00:53:16Z',
@@ -56,6 +75,7 @@ describe('LogsPage', () => {
     })
 
     await flushPromises()
+    mockRect(wrapper.get('.logs-layout').element, 1600, 960)
 
     expect(wrapper.text()).toContain('本次服务端启动以来的日志')
     expect(wrapper.text()).toContain('跟随最新')
@@ -67,6 +87,7 @@ describe('LogsPage', () => {
     await flushPromises()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/logs/log_warn_0001', expect.any(Object))
+    expect(wrapper.find('.log-detail-window').exists()).toBe(true)
     expect(wrapper.text()).toContain('日志详情')
     expect(wrapper.text()).toContain('详情 JSON')
     expect(wrapper.text()).toContain('weather')

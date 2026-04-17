@@ -63,6 +63,10 @@ function logScroller(page: import('@playwright/test').Page) {
   return page.locator('.logs-feed-card .data-viewport__scroller')
 }
 
+function logDetailWindow(page: import('@playwright/test').Page) {
+  return page.getByTestId('management-log-detail-window')
+}
+
 function appHeader(page: import('@playwright/test').Page) {
   return page.getByTestId('app-header')
 }
@@ -381,61 +385,126 @@ test('dashboard avoids global page overflow when the content fits', async ({ pag
   expect(metrics.tabLabels).toContain('就绪检查')
 })
 
-test('logs page keeps the feed and detail drawer inside the viewport', async ({ page, request }) => {
+test('logs page keeps the feed and floating detail window inside the viewport', async ({ page, request }) => {
   await resetBackend(request, true)
   await page.setViewportSize({ width: 1600, height: 1200 })
   await login(page)
 
+  const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
+  await Promise.all(Array.from({ length: 96 }, (_, index) => (
+    request.post(`${backendUrl}/__test/push-log`, {
+      data: {
+        summary: {
+          log_id: `log_detail_window_seed_${index}`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_log_detail_window_seed',
+          message: `detail window seed ${index}`,
+        },
+        detail: {
+          log_id: `log_detail_window_seed_${index}`,
+          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+          level: 'info',
+          source: 'runtime',
+          request_id: 'req_log_detail_window_seed',
+          message: `detail window seed ${index}`,
+          details: {
+            branch: 'detail-window-seed',
+            index,
+          },
+        },
+      },
+    })
+  )))
+
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
 
-  const lastRow = logRows(page).last()
-  await expect(lastRow).toBeVisible()
-  await lastRow.click({ force: true })
+  const targetRow = logRows(page).last()
+  await expect(targetRow).toBeVisible()
+  await targetRow.click({ force: true })
+  await expect(logDetailWindow(page)).toBeVisible()
+
+  const initialMessage = (await logDetailWindow(page).locator('.log-detail-card__content--message').textContent())?.trim() ?? ''
+  const header = logDetailWindow(page).locator('.log-detail-window__header')
+  const headerBox = await header.boundingBox()
+  expect(headerBox).not.toBeNull()
+
+  await page.mouse.move(headerBox!.x + 80, headerBox!.y + 18)
+  await page.mouse.down()
+  await page.mouse.move(headerBox!.x - 520, headerBox!.y + 180, { steps: 8 })
+  await page.mouse.up()
+
+  const draggedBox = await logDetailWindow(page).boundingBox()
+  expect(draggedBox).not.toBeNull()
+
+  const alternateRow = page.locator('.logs-row').filter({ hasNotText: initialMessage }).first()
+  await expect(alternateRow).toBeVisible()
+  const alternateMessage = (await alternateRow.locator('.logs-row__message').textContent())?.trim() ?? ''
+  await alternateRow.click({
+    position: { x: 48, y: 28 },
+    force: true,
+  })
+  await expect(logDetailWindow(page)).toBeVisible()
+  await expect(logDetailWindow(page).locator('.log-detail-card__content--message')).toContainText(alternateMessage)
+
+  const switchedMessage = (await logDetailWindow(page).locator('.log-detail-card__content--message').textContent())?.trim() ?? ''
+  const switchedBox = await logDetailWindow(page).boundingBox()
+  expect(switchedBox).not.toBeNull()
+  expect(switchedMessage).not.toBe(initialMessage)
+  expect(Math.abs((switchedBox?.x ?? 0) - (draggedBox?.x ?? 0))).toBeLessThanOrEqual(1)
+  expect(Math.abs((switchedBox?.y ?? 0) - (draggedBox?.y ?? 0))).toBeLessThanOrEqual(1)
+
+  await logScroller(page).evaluate((node) => {
+    node.scrollTop = Math.max(0, node.scrollTop - 260)
+    node.dispatchEvent(new Event('scroll'))
+  })
+  await expect(page.getByRole('button', { name: '滚动到最新' })).toBeVisible()
 
   const metrics = await page.evaluate(() => {
     const main = document.querySelector<HTMLElement>('#app-main')
+    const layout = document.querySelector<HTMLElement>('.logs-layout')
     const feedCard = document.querySelector<HTMLElement>('.logs-feed-card')
     const feedBody = document.querySelector<HTMLElement>('.logs-feed-card .ant-card-body')
-    const drawer = document.querySelector<HTMLElement>('.ant-drawer')
-    const drawerBody = document.querySelector<HTMLElement>('.ant-drawer-body')
+    const floating = document.querySelector<HTMLElement>('[data-testid="management-log-detail-window"]')
     const feedScroller = document.querySelector<HTMLElement>('.logs-feed-card .data-viewport__scroller')
-    const detailScroller = document.querySelector<HTMLElement>('.log-detail-json__content')
-    const lastRow = document.querySelector<HTMLElement>('.logs-row:last-child')
+    const detailScroller = document.querySelector<HTMLElement>('.log-detail-card__content--json')
+    const layoutRect = layout?.getBoundingClientRect()
     const feedRect = feedCard?.getBoundingClientRect()
     const feedBodyRect = feedBody?.getBoundingClientRect()
-    const drawerRect = drawer?.getBoundingClientRect()
-    const drawerBodyRect = drawerBody?.getBoundingClientRect()
-    const scrollerRect = feedScroller?.getBoundingClientRect()
-    const lastRowRect = lastRow?.getBoundingClientRect()
+    const floatingRect = floating?.getBoundingClientRect()
 
     return {
       viewportHeight: window.innerHeight,
       mainClientHeight: main?.clientHeight ?? 0,
       mainScrollHeight: main?.scrollHeight ?? 0,
+      layoutBottom: layoutRect?.bottom ?? 0,
+      feedLeft: feedRect?.left ?? 0,
+      feedWidth: feedRect?.width ?? 0,
       feedBottom: feedRect?.bottom ?? 0,
       feedBodyBottom: feedBodyRect?.bottom ?? 0,
-      drawerBottom: drawerRect?.bottom ?? 0,
-      drawerBodyBottom: drawerBodyRect?.bottom ?? 0,
+      floatingBottom: floatingRect?.bottom ?? 0,
+      floatingLeft: floatingRect?.left ?? 0,
+      floatingRight: floatingRect?.right ?? 0,
+      floatingTop: floatingRect?.top ?? 0,
       feedClientHeight: feedScroller?.clientHeight ?? 0,
       feedScrollHeight: feedScroller?.scrollHeight ?? 0,
       detailClientHeight: detailScroller?.clientHeight ?? 0,
       detailScrollHeight: detailScroller?.scrollHeight ?? 0,
-      lastRowBottom: lastRowRect?.bottom ?? 0,
-      feedLastRowGap: scrollerRect && lastRowRect ? scrollerRect.bottom - lastRowRect.bottom : 0,
     }
   })
 
   expect(metrics.mainScrollHeight).toBeLessThanOrEqual(metrics.mainClientHeight + 1)
   expect(metrics.feedBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
   expect(metrics.feedBodyBottom).toBeLessThanOrEqual(metrics.feedBottom + 1)
-  expect(metrics.drawerBottom).toBeLessThanOrEqual(metrics.viewportHeight + 1)
-  expect(metrics.drawerBodyBottom).toBeLessThanOrEqual(metrics.drawerBottom + 1)
+  expect(metrics.floatingTop).toBeGreaterThanOrEqual(0)
+  expect(metrics.floatingBottom).toBeLessThanOrEqual(metrics.layoutBottom + 1)
+  expect(metrics.floatingLeft).toBeGreaterThanOrEqual(metrics.feedLeft + metrics.feedWidth * 0.4)
+  expect(metrics.floatingRight).toBeLessThanOrEqual(1600)
   expect(metrics.feedScrollHeight).toBeGreaterThanOrEqual(metrics.feedClientHeight)
   expect(metrics.feedClientHeight).toBeGreaterThan(0)
   expect(metrics.detailClientHeight).toBeGreaterThan(0)
-  expect(metrics.lastRowBottom).toBeGreaterThan(0)
-  expect(metrics.feedLastRowGap).toBeGreaterThanOrEqual(8)
 })
 
 test('history logs stay frozen until the user refreshes the anchor', async ({ page, request }) => {
@@ -910,13 +979,13 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
   const unsafeCurrentMessage = unsafeCurrentRow.locator('.logs-row__message')
   await expect(unsafeCurrentMessage).toContainText('\\u2066')
   await unsafeCurrentRow.click()
-  await expect(page.locator('.log-detail-message')).toContainText('\\u2066')
-  await expect(page.locator('.log-detail-json__content')).toContainText('\\u2066')
+  await expect(page.locator('.log-detail-card__content--message')).toContainText('\\u2066')
+  await expect(page.locator('.log-detail-card__content--json')).toContainText('\\u2066')
 
   const currentTexts = await page.evaluate(() => ({
     row: document.querySelector('.logs-row .logs-row__message')?.textContent ?? '',
-    detail: document.querySelector('.log-detail-message')?.textContent ?? '',
-    json: document.querySelector('.log-detail-json__content')?.textContent ?? '',
+    detail: document.querySelector('.log-detail-card__content--message')?.textContent ?? '',
+    json: document.querySelector('.log-detail-card__content--json')?.textContent ?? '',
   }))
   expect(currentTexts.row.includes('\u2066')).toBe(false)
   expect(currentTexts.detail.includes('\u2066')).toBe(false)
@@ -1043,7 +1112,7 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
 
   const protocolRow = page.locator('.logs-row').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()
   await protocolRow.click()
-  await expect(page.locator('.log-detail-json__content')).toContainText('api response echo must be a non-empty string')
+  await expect(page.locator('.log-detail-card__content--json')).toContainText('api response echo must be a non-empty string')
 })
 
 test('logs page filters both history and live log appends', async ({ page, request }) => {
@@ -1527,6 +1596,9 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
 
   await page.goto('/logs')
   await expect(logRows(page).first()).toBeVisible()
+  await logRows(page).first().click({ force: true })
+  await expect(page.locator('.ant-drawer')).toBeVisible()
+  await expect(logDetailWindow(page)).toHaveCount(0)
 })
 
 test('session expiration redirects back to login', async ({ page, request }) => {
