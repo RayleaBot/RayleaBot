@@ -1633,7 +1633,8 @@
             },
             "details": {
               "type": "object",
-              "additionalProperties": true
+              "additionalProperties": true,
+              "description": "Optional structured details shared by terminal plugin failures and platform local action failures."
             }
           }
         }
