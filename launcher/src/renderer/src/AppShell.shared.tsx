@@ -46,7 +46,7 @@ export const sectionContent = {
   environment: {
     eyebrow: "Environment Review",
     title: "环境检查",
-    detail: "汇总本地运行条件、恢复兼容性和运行环境准备情况。",
+    detail: "汇总启动前检查、恢复兼容性和本地访问信息。",
   },
   diagnostics: {
     eyebrow: "Diagnostics",

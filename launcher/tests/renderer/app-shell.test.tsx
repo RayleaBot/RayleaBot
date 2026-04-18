@@ -258,7 +258,7 @@ describe("AppShell", () => {
     expect(screen.getByText("当前没有恢复摘要。")).toBeInTheDocument();
   });
 
-  test("renders environment cards with summary detail and remediation blocks", () => {
+  test("renders preflight checks on the environment page without runtime resource cards", () => {
     const { container } = renderShell({
       activeSection: "environment",
       renderedSection: "environment",
@@ -267,25 +267,37 @@ describe("AppShell", () => {
         launcher: {
           ...snapshot.launcher,
           environmentChecks: [
-          {
-            scope: "advisory",
-            code: "runtime.python_managed_ready",
-            title: "Python 运行环境准备",
-            severity: "ok",
-            summary: "Python 运行环境已纳入启动流程。",
-            detail: "当前平台的 Python 运行环境配置信息完整，启动服务时会自动准备。",
-            remediation: "请联网准备运行环境；离线或受限网络环境可预置已校验归档到 C:\\RayleaBot\\cache\\downloads\\runtime\\python-runtime.tar.gz，或预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13。",
-          },
-        ],
+            {
+              scope: "preflight",
+              code: "workdir.unwritable",
+              title: "工作目录",
+              severity: "error",
+              summary: "工作目录不可写。",
+              detail: "工作目录写入失败。",
+              remediation: "请先选择可写的工作目录，再启动服务。",
+            },
+          ],
+          preflightChecks: [
+            {
+              scope: "preflight",
+              code: "workdir.unwritable",
+              title: "工作目录",
+              severity: "error",
+              summary: "工作目录不可写。",
+              detail: "工作目录写入失败。",
+              remediation: "请先选择可写的工作目录，再启动服务。",
+            },
+          ],
         },
       },
     });
 
     expect(screen.getByRole("heading", { name: "环境检查" })).toBeInTheDocument();
-    expect(screen.getByText("Python 运行环境已纳入启动流程。")).toBeInTheDocument();
-    expect(screen.getByText("当前平台的 Python 运行环境配置信息完整，启动服务时会自动准备。")).toBeInTheDocument();
-    expect(screen.getByText("离线准备")).toBeInTheDocument();
-    expect(screen.getByText(/预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13/)).toBeInTheDocument();
+    expect(screen.getByText("工作目录不可写。")).toBeInTheDocument();
+    expect(screen.getByText("工作目录写入失败。")).toBeInTheDocument();
+    expect(screen.getByText("处理方式")).toBeInTheDocument();
+    expect(screen.getByText("请先选择可写的工作目录，再启动服务。")).toBeInTheDocument();
+    expect(screen.queryByText("Python 运行环境已纳入启动流程。")).toBeNull();
     expect(container.querySelector(".check-item__remediation")).not.toBeNull();
   });
 

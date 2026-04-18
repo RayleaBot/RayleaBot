@@ -41,7 +41,7 @@ export function AppShellStatusSection({
   const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
   const recoverySummary = useMemo(() => resolveRecoverySummary(snapshot), [snapshot]);
   const readiness = snapshot.server.readiness ?? null;
-  const checks = useMemo(() => sortChecks(snapshot.launcher.environmentChecks || []), [snapshot.launcher.environmentChecks]);
+  const checks = useMemo(() => sortChecks(snapshot.launcher.preflightChecks || []), [snapshot.launcher.preflightChecks]);
   const nonOkChecks = useMemo(() => checks.filter((item) => item.severity !== "ok"), [checks]);
   const readinessIssues = readiness?.issues ?? [];
   const readinessReason = readiness?.reason?.trim() ?? "";

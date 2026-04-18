@@ -13,7 +13,7 @@ export function AppShellEnvironmentSection({
   snapshot,
   platformLabel,
 }: EnvironmentSectionProps) {
-  const checks = sortChecks(snapshot.launcher.environmentChecks || []);
+  const checks = sortChecks(snapshot.launcher.preflightChecks || []);
   const groupedChecks = {
     blocking: checks.filter((item) => item.severity === "error"),
     warnings: checks.filter((item) => item.severity === "warning"),
@@ -34,7 +34,7 @@ export function AppShellEnvironmentSection({
       ),
     };
   })();
-  const environmentSummaryLabel = getEnvironmentSummaryLabel(snapshot.launcher.environmentChecks);
+  const environmentSummaryLabel = getEnvironmentSummaryLabel(snapshot.launcher.preflightChecks);
   const environmentReadiness =
     environmentSummaryLabel === "需要处理"
       ? { label: environmentSummaryLabel, detail: "存在阻塞项，启动前需要先解决。" }
@@ -49,7 +49,7 @@ export function AppShellEnvironmentSection({
   return (
     <div className="env-details-flow">
       <article className="panel glass-panel env-overview-card">
-        <div className="brand-eyebrow">运行环境概览</div>
+        <div className="brand-eyebrow">启动前检查</div>
         <div className="env-overview-strip">
           <div className="env-overview-card__lead">
             <span className="env-overview-card__label">当前结论</span>

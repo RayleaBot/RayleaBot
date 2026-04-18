@@ -44,7 +44,7 @@ function getSectionHeaderBadges(
     return (
       <>
         <span className="glass-chip glass-chip--accent">{environmentLabel}</span>
-        <span className="glass-chip glass-chip--muted">{snapshot.launcher.environmentChecks.length} 项检查</span>
+        <span className="glass-chip glass-chip--muted">{snapshot.launcher.preflightChecks.length} 项检查</span>
       </>
     );
   }
@@ -104,7 +104,7 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
   const hasRecentStderr = props.snapshot.launcher.recentStderr.length > 0;
   const canRunRecoveryActions = presentation.canRunRecoveryActions && !props.controlsDisabled;
   const canRecheckRecovery = canRunRecoveryActions && presentation.canRecheckRecovery;
-  const environmentLabel = getEnvironmentSummaryLabel(props.snapshot.launcher.environmentChecks);
+  const environmentLabel = getEnvironmentSummaryLabel(props.snapshot.launcher.preflightChecks);
 
   return (
     <header className="section-header glass-panel glass-panel--subtle">

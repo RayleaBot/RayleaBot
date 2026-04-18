@@ -109,14 +109,14 @@ function failedDetail(readiness: LauncherReadinessSnapshot) {
 function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPresentation, "state" | "detail"> {
   const { health, readiness, systemStatus } = snapshot.server;
   const {
-    environmentChecks,
+    preflightChecks,
     lastLocalError,
     processLifecycle,
     processOwnership,
     statusHint,
   } = snapshot.launcher;
-  const bootstrapConfigAvailable = hasBootstrapConfigAvailable(environmentChecks);
-  const blockingIssue = environmentChecks.some(isBlockingEnvironmentIssue);
+  const bootstrapConfigAvailable = hasBootstrapConfigAvailable(preflightChecks);
+  const blockingIssue = preflightChecks.some(isBlockingEnvironmentIssue);
   const localHint = statusHint.trim();
 
   if (processLifecycle === "starting") {
@@ -181,7 +181,7 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
   if (blockingIssue) {
     return {
       state: "stopped",
-      detail: localHint || buildLocalDetail("服务尚未启动。", environmentChecks),
+      detail: localHint || buildLocalDetail("服务尚未启动。", preflightChecks),
     };
   }
 
