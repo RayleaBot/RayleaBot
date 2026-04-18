@@ -27,13 +27,58 @@ export function replySegment(messageId) {
 export function passthroughSegment(type, data = {}) {
     return { type, data };
 }
-export function markdownSegment(content) {
-    return passthroughSegment('markdown', { content });
+export function recordSegment(data = {}) {
+    return passthroughSegment('record', data);
 }
-export function fileSegment(data) {
+export function videoSegment(data = {}) {
+    return passthroughSegment('video', data);
+}
+export function fileSegment(data = {}) {
     return passthroughSegment('file', data);
 }
-export function keyboardSegment(data) {
+export function flashFileSegment(data = {}) {
+    return passthroughSegment('flash_file', data);
+}
+export function jsonSegment(data = {}) {
+    return passthroughSegment('json', data);
+}
+export function xmlSegment(data = {}) {
+    return passthroughSegment('xml', data);
+}
+export function markdownSegment(contentOrData = {}) {
+    if (typeof contentOrData === 'string') {
+        return passthroughSegment('markdown', { content: contentOrData });
+    }
+    return passthroughSegment('markdown', contentOrData);
+}
+export function musicSegment(data = {}) {
+    return passthroughSegment('music', data);
+}
+export function contactSegment(data = {}) {
+    return passthroughSegment('contact', data);
+}
+export function forwardSegment(data = {}) {
+    return passthroughSegment('forward', data);
+}
+export function nodeSegment(data = {}) {
+    return passthroughSegment('node', data);
+}
+export function pokeSegment(data = {}) {
+    return passthroughSegment('poke', data);
+}
+export function diceSegment(data = {}) {
+    return passthroughSegment('dice', data);
+}
+export function rpsSegment(data = {}) {
+    return passthroughSegment('rps', data);
+}
+export function mfaceSegment(data = {}) {
+    return passthroughSegment('mface', data);
+}
+export function keyboardSegment(data = {}) {
     return passthroughSegment('keyboard', data);
+}
+export function shakeSegment(data = {}) {
+    return passthroughSegment('shake', data);
 }
 //# sourceMappingURL=types.js.map

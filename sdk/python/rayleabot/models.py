@@ -91,9 +91,31 @@ class ReplySegment:
     def to_dict(self) -> dict:
         return {"type": "reply", "data": {"message_id": self.message_id}}
 
+
+PassthroughSegmentType = Literal[
+    "record",
+    "video",
+    "file",
+    "flash_file",
+    "json",
+    "xml",
+    "markdown",
+    "music",
+    "contact",
+    "forward",
+    "node",
+    "poke",
+    "dice",
+    "rps",
+    "mface",
+    "keyboard",
+    "shake",
+]
+
+
 @dataclass(slots=True)
 class PassthroughSegment:
-    segment_type: str
+    segment_type: PassthroughSegmentType
     data: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -120,14 +142,89 @@ def segment_from_dict(d: dict) -> Segment:
             return FaceSegment(face_id=data["face_id"])
         case "reply":
             return ReplySegment(message_id=data["message_id"])
-        case "record" | "video" | "file" | "json" | "xml" | "markdown" | "music" | "contact" | "forward" | "node" | "poke" | "dice" | "rps" | "mface" | "keyboard" | "shake":
+        case "record" | "video" | "file" | "flash_file" | "json" | "xml" | "markdown" | "music" | "contact" | "forward" | "node" | "poke" | "dice" | "rps" | "mface" | "keyboard" | "shake":
             return PassthroughSegment(segment_type=seg_type, data=data)
         case _:
             raise ValueError(f"unknown segment type: {seg_type}")
 
 
-def passthrough_segment(segment_type: str, data: dict[str, Any] | None = None) -> PassthroughSegment:
+def passthrough_segment(
+    segment_type: PassthroughSegmentType,
+    data: dict[str, Any] | None = None,
+) -> PassthroughSegment:
     return PassthroughSegment(segment_type=segment_type, data=data or {})
+
+
+def record_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("record", data)
+
+
+def video_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("video", data)
+
+
+def file_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("file", data)
+
+
+def flash_file_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("flash_file", data)
+
+
+def json_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("json", data)
+
+
+def xml_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("xml", data)
+
+
+def markdown_segment(content_or_data: str | dict[str, Any] | None = None) -> PassthroughSegment:
+    if isinstance(content_or_data, dict):
+        return passthrough_segment("markdown", content_or_data)
+    if content_or_data is None:
+        return passthrough_segment("markdown", {})
+    return passthrough_segment("markdown", {"content": content_or_data})
+
+
+def music_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("music", data)
+
+
+def contact_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("contact", data)
+
+
+def forward_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("forward", data)
+
+
+def node_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("node", data)
+
+
+def poke_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("poke", data)
+
+
+def dice_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("dice", data)
+
+
+def rps_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("rps", data)
+
+
+def mface_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("mface", data)
+
+
+def keyboard_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("keyboard", data)
+
+
+def shake_segment(data: dict[str, Any] | None = None) -> PassthroughSegment:
+    return passthrough_segment("shake", data)
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +301,7 @@ class OneBotSender:
 @dataclass(slots=True)
 class OneBotPayload:
     post_type: str | None = None
+    meta_event_type: str | None = None
     message_type: str | None = None
     request_type: str | None = None
     notice_type: str | None = None
@@ -213,6 +311,7 @@ class OneBotPayload:
     group_id: str | None = None
     target_id: str | None = None
     time: int | None = None
+    interval: int | None = None
     message_id: str | None = None
     real_id: str | None = None
     message_seq: str | None = None
@@ -222,6 +321,7 @@ class OneBotPayload:
     sender: OneBotSender | None = None
     comment: str | None = None
     flag: str | None = None
+    status: dict[str, Any] | None = None
 
     def to_dict(self) -> dict:
         d = _strip_none(asdict(self))
@@ -233,6 +333,7 @@ class OneBotPayload:
     def from_dict(cls, d: dict) -> OneBotPayload:
         return cls(
             post_type=d.get("post_type"),
+            meta_event_type=d.get("meta_event_type"),
             message_type=d.get("message_type"),
             request_type=d.get("request_type"),
             notice_type=d.get("notice_type"),
@@ -242,6 +343,7 @@ class OneBotPayload:
             group_id=d.get("group_id"),
             target_id=d.get("target_id"),
             time=d.get("time"),
+            interval=d.get("interval"),
             message_id=d.get("message_id"),
             real_id=d.get("real_id"),
             message_seq=d.get("message_seq"),
@@ -251,6 +353,7 @@ class OneBotPayload:
             sender=OneBotSender.from_dict(d["sender"]) if "sender" in d else None,
             comment=d.get("comment"),
             flag=d.get("flag"),
+            status=d.get("status"),
         )
 
 

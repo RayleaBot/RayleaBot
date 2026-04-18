@@ -1,5 +1,5 @@
 import { readFrames, requestLocalAction, sendAction, sendError, sendInitAck, sendPong, sendResult, } from './protocol.js';
-export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, passthroughSegment, markdownSegment, fileSegment, keyboardSegment, } from './types.js';
+export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, passthroughSegment, recordSegment, videoSegment, markdownSegment, fileSegment, flashFileSegment, jsonSegment, xmlSegment, musicSegment, contactSegment, forwardSegment, nodeSegment, pokeSegment, diceSegment, rpsSegment, mfaceSegment, keyboardSegment, shakeSegment, } from './types.js';
 export { ActionError } from './protocol.js';
 export function createPlugin() {
     const eventHandlers = [];
@@ -7,9 +7,16 @@ export function createPlugin() {
     const activeHandlers = new Set();
     let pluginId = '';
     let botId = '';
+    let capabilities = [];
     let commandPrefixes = ['/'];
     let subscriptions = null;
     const plugin = {
+        get botId() {
+            return botId;
+        },
+        get capabilities() {
+            return [...capabilities];
+        },
         get commandPrefixes() {
             return [...commandPrefixes];
         },
@@ -189,7 +196,13 @@ export function createPlugin() {
             return await requestOneBotAction(requestId, action, data, options);
         },
         async providerAction(requestId, provider, action, data = {}, options = {}) {
-            return await requestOneBotAction(requestId, `provider.${provider}.${action}`, data, options);
+            return await requestNamedProviderAction(requestId, provider, action, data, options);
+        },
+        async messageGet(requestId, messageId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'message.get', { message_id: messageId }, options);
+        },
+        async messageDelete(requestId, messageId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'message.delete', { message_id: messageId }, options);
         },
         async messageHistoryGet(requestId, conversationType, conversationId, options = {}) {
             const { limit, timeoutMs = 30000 } = options;
@@ -202,44 +215,183 @@ export function createPlugin() {
             }
             return await requestOneBotAction(requestId, 'message.history.get', data, { timeoutMs });
         },
+        async messageForwardGet(requestId, options = {}) {
+            const { messageId, forwardId, timeoutMs = 30000 } = options;
+            if (!messageId && !forwardId) {
+                throw new Error('messageForwardGet requires messageId or forwardId');
+            }
+            const data = {};
+            if (messageId !== undefined) {
+                data.message_id = messageId;
+            }
+            if (forwardId !== undefined) {
+                data.forward_id = forwardId;
+            }
+            return await requestOneBotAction(requestId, 'message.forward.get', data, { timeoutMs });
+        },
+        async messageForwardSend(requestId, targetType, targetId, messages, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'message.forward.send', { target_type: targetType, target_id: targetId, messages }, options);
+        },
+        async messageReadMark(requestId, options = {}) {
+            const { messageId, conversationType, conversationId, timeoutMs = 30000 } = options;
+            if (messageId === undefined && (!conversationType || !conversationId)) {
+                throw new Error('messageReadMark requires messageId or conversationType with conversationId');
+            }
+            const data = {};
+            if (messageId !== undefined) {
+                data.message_id = messageId;
+            }
+            if (conversationType !== undefined) {
+                data.conversation_type = conversationType;
+            }
+            if (conversationId !== undefined) {
+                data.conversation_id = conversationId;
+            }
+            return await requestOneBotAction(requestId, 'message.read.mark', data, { timeoutMs });
+        },
+        async friendRequestHandle(requestId, flag, approve, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'friend.request.handle', { flag, approve }, options);
+        },
+        async friendList(requestId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'friend.list', {}, options);
+        },
+        async friendRemarkSet(requestId, userId, remark, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'friend.remark.set', { user_id: userId, remark }, options);
+        },
+        async userInfoGet(requestId, userId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'user.info.get', { user_id: userId }, options);
+        },
+        async userLikeSend(requestId, userId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'user.like.send', { user_id: userId }, options);
+        },
+        async groupList(requestId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.list', {}, options);
+        },
+        async groupInfoGet(requestId, groupId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.info.get', { group_id: groupId }, options);
+        },
+        async groupMemberGet(requestId, groupId, userId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.member.get', { group_id: groupId, user_id: userId }, options);
+        },
+        async groupMemberList(requestId, groupId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.member.list', { group_id: groupId }, options);
+        },
+        async groupRequestHandle(requestId, flag, approve, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.request.handle', { flag, approve }, options);
+        },
+        async groupLeave(requestId, groupId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.leave', { group_id: groupId }, options);
+        },
+        async groupAdminSet(requestId, groupId, userId, enabled, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.admin.set', { group_id: groupId, user_id: userId, enabled }, options);
+        },
+        async groupBanSet(requestId, groupId, options = {}) {
+            const { userId, durationSeconds, wholeGroup = false, timeoutMs = 30000 } = options;
+            const data = { group_id: groupId, whole_group: wholeGroup };
+            if (userId !== undefined) {
+                data.user_id = userId;
+            }
+            if (durationSeconds !== undefined) {
+                data.duration_seconds = durationSeconds;
+            }
+            return await requestOneBotAction(requestId, 'group.ban.set', data, { timeoutMs });
+        },
+        async groupCardSet(requestId, groupId, userId, card, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.card.set', { group_id: groupId, user_id: userId, card }, options);
+        },
+        async groupTitleSet(requestId, groupId, userId, title, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.title.set', { group_id: groupId, user_id: userId, title }, options);
+        },
+        async groupNameSet(requestId, groupId, name, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.name.set', { group_id: groupId, name }, options);
+        },
+        async groupAnnouncementList(requestId, groupId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.announcement.list', { group_id: groupId }, options);
+        },
         async groupAnnouncementCreate(requestId, groupId, content, options = {}) {
-            return await requestOneBotAction(requestId, 'group.announcement.create', {
-                group_id: groupId,
-                content,
-            }, options);
+            return await requestNamedOneBotAction(requestId, 'group.announcement.create', { group_id: groupId, content }, options);
+        },
+        async groupAnnouncementDelete(requestId, groupId, noticeId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.announcement.delete', { group_id: groupId, notice_id: noticeId }, options);
+        },
+        async groupEssenceList(requestId, groupId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.essence.list', { group_id: groupId }, options);
+        },
+        async groupEssenceSet(requestId, messageId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.essence.set', { message_id: messageId }, options);
+        },
+        async groupEssenceUnset(requestId, messageId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.essence.unset', { message_id: messageId }, options);
+        },
+        async groupHonorGet(requestId, groupId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.honor.get', { group_id: groupId }, options);
+        },
+        async groupTodoSet(requestId, groupId, todo, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'group.todo.set', { group_id: groupId, todo }, options);
+        },
+        async fileGet(requestId, fileId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'file.get', { file_id: fileId }, options);
+        },
+        async fileDownload(requestId, fileId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'file.download', { file_id: fileId }, options);
         },
         async fileGroupUpload(requestId, groupId, fileName, fileUrl, options = {}) {
-            return await requestOneBotAction(requestId, 'file.group.upload', {
-                group_id: groupId,
-                file_name: fileName,
-                file_url: fileUrl,
-            }, options);
+            return await requestNamedOneBotAction(requestId, 'file.group.upload', { group_id: groupId, file_name: fileName, file_url: fileUrl }, options);
+        },
+        async filePrivateUpload(requestId, userId, fileName, fileUrl, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'file.private.upload', { user_id: userId, file_name: fileName, file_url: fileUrl }, options);
+        },
+        async fileGroupUrlGet(requestId, groupId, fileId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'file.group.url.get', { group_id: groupId, file_id: fileId }, options);
+        },
+        async filePrivateUrlGet(requestId, userId, fileId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'file.private.url.get', { user_id: userId, file_id: fileId }, options);
+        },
+        async fileGroupFsInfo(requestId, groupId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'file.group.fs.info', { group_id: groupId }, options);
+        },
+        async fileGroupFsList(requestId, groupId, options = {}) {
+            const { folderId, timeoutMs = 30000 } = options;
+            const data = { group_id: groupId };
+            if (folderId !== undefined) {
+                data.folder_id = folderId;
+            }
+            return await requestOneBotAction(requestId, 'file.group.fs.list', data, { timeoutMs });
+        },
+        async fileGroupFsMkdir(requestId, groupId, name, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'file.group.fs.mkdir', { group_id: groupId, name }, options);
+        },
+        async fileGroupFsDelete(requestId, groupId, options = {}) {
+            const { folderId, fileId, timeoutMs = 30000 } = options;
+            if (folderId === undefined && fileId === undefined) {
+                throw new Error('fileGroupFsDelete requires folderId or fileId');
+            }
+            const data = { group_id: groupId };
+            if (folderId !== undefined) {
+                data.folder_id = folderId;
+            }
+            if (fileId !== undefined) {
+                data.file_id = fileId;
+            }
+            return await requestOneBotAction(requestId, 'file.group.fs.delete', data, { timeoutMs });
         },
         async reactionSet(requestId, messageId, emoji, enabled = true, options = {}) {
-            return await requestOneBotAction(requestId, 'reaction.set', {
-                message_id: messageId,
-                emoji,
-                enabled,
-            }, options);
+            return await requestNamedOneBotAction(requestId, 'reaction.set', { message_id: messageId, emoji, enabled }, options);
+        },
+        async reactionList(requestId, messageId, options = {}) {
+            return await requestNamedOneBotAction(requestId, 'reaction.list', { message_id: messageId }, options);
         },
         async pokeSend(requestId, targetType, targetId, userId, options = {}) {
-            return await requestOneBotAction(requestId, 'poke.send', {
-                target_type: targetType,
-                target_id: targetId,
-                user_id: userId,
-            }, options);
+            return await requestNamedOneBotAction(requestId, 'poke.send', { target_type: targetType, target_id: targetId, user_id: userId }, options);
         },
         async napcatMessageEmojiLikeSet(requestId, messageId, emojiId, enabled = true, options = {}) {
-            return await requestOneBotAction(requestId, 'provider.napcat.message_emoji.like.set', {
-                message_id: messageId,
-                emoji_id: emojiId,
-                enabled,
-            }, options);
+            return await requestNamedProviderAction(requestId, 'napcat', 'message_emoji.like.set', { message_id: messageId, emoji_id: emojiId, enabled }, options);
+        },
+        async napcatGroupSignSet(requestId, groupId, options = {}) {
+            return await requestNamedProviderAction(requestId, 'napcat', 'group.sign.set', { group_id: groupId }, options);
         },
         async luckylilliaFriendGroupsGet(requestId, userId, options = {}) {
-            return await requestOneBotAction(requestId, 'provider.luckylillia.friend_groups.get', {
-                user_id: userId,
-            }, options);
+            return await requestNamedProviderAction(requestId, 'luckylillia', 'friend_groups.get', { user_id: userId }, options);
         },
         async run() {
             for await (const frame of readFrames()) {
@@ -248,6 +400,9 @@ export function createPlugin() {
                     const initFrame = frame;
                     pluginId = plugin_id;
                     botId = initFrame.bot?.id ?? '';
+                    capabilities = Array.isArray(initFrame.capabilities)
+                        ? initFrame.capabilities.filter((value) => typeof value === 'string' && value.length > 0)
+                        : [];
                     commandPrefixes = (initFrame.command_prefixes ?? []).filter((value) => typeof value === 'string' && value.length > 0);
                     if (commandPrefixes.length === 0) {
                         commandPrefixes = ['/'];
@@ -297,6 +452,12 @@ export function createPlugin() {
     async function requestOneBotAction(requestId, action, data, options = {}) {
         const { timeoutMs = 30000 } = options;
         return await requestLocalAction(pluginId, requestId, action, data, { timeoutMs });
+    }
+    async function requestNamedOneBotAction(requestId, action, data, options = {}) {
+        return await requestOneBotAction(requestId, action, data, options);
+    }
+    async function requestNamedProviderAction(requestId, provider, action, data, options = {}) {
+        return await requestOneBotAction(requestId, `provider.${provider}.${action}`, data, options);
     }
     return plugin;
 }

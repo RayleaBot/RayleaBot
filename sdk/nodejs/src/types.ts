@@ -50,24 +50,27 @@ export interface ReplySegment {
   data: { message_id: string };
 }
 
+export type PassthroughSegmentType =
+  | 'record'
+  | 'video'
+  | 'file'
+  | 'flash_file'
+  | 'json'
+  | 'xml'
+  | 'markdown'
+  | 'music'
+  | 'contact'
+  | 'forward'
+  | 'node'
+  | 'poke'
+  | 'dice'
+  | 'rps'
+  | 'mface'
+  | 'keyboard'
+  | 'shake';
+
 export interface PassthroughSegment {
-  type:
-    | 'record'
-    | 'video'
-    | 'file'
-    | 'json'
-    | 'xml'
-    | 'markdown'
-    | 'music'
-    | 'contact'
-    | 'forward'
-    | 'node'
-    | 'poke'
-    | 'dice'
-    | 'rps'
-    | 'mface'
-    | 'keyboard'
-    | 'shake';
+  type: PassthroughSegmentType;
   data?: Record<string, unknown>;
 }
 
@@ -119,6 +122,7 @@ export interface OneBotSender {
 
 export interface OneBotPayload {
   post_type?: string;
+  meta_event_type?: string;
   message_type?: string;
   request_type?: string;
   notice_type?: string;
@@ -128,6 +132,7 @@ export interface OneBotPayload {
   group_id?: string;
   target_id?: string;
   time?: number;
+  interval?: number;
   message_id?: string;
   real_id?: string;
   message_seq?: string;
@@ -137,6 +142,7 @@ export interface OneBotPayload {
   sender?: OneBotSender;
   comment?: string;
   flag?: string;
+  status?: Record<string, unknown>;
 }
 
 export interface EventPayload {
@@ -149,7 +155,7 @@ export interface EventPayload {
 }
 
 export interface EventMessage {
-  segments?: Array<{ type: string; data?: Record<string, unknown> }>;
+  segments?: Segment[];
   plain_text?: string;
 }
 
@@ -267,18 +273,84 @@ export function replySegment(messageId: string): ReplySegment {
   return { type: 'reply', data: { message_id: messageId } };
 }
 
-export function passthroughSegment(type: PassthroughSegment['type'], data: Record<string, unknown> = {}): PassthroughSegment {
+export function passthroughSegment(
+  type: PassthroughSegmentType,
+  data: Record<string, unknown> = {},
+): PassthroughSegment {
   return { type, data };
 }
 
-export function markdownSegment(content: string): PassthroughSegment {
-  return passthroughSegment('markdown', { content });
+export function recordSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('record', data);
 }
 
-export function fileSegment(data: Record<string, unknown>): PassthroughSegment {
+export function videoSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('video', data);
+}
+
+export function fileSegment(data: Record<string, unknown> = {}): PassthroughSegment {
   return passthroughSegment('file', data);
 }
 
-export function keyboardSegment(data: Record<string, unknown>): PassthroughSegment {
+export function flashFileSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('flash_file', data);
+}
+
+export function jsonSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('json', data);
+}
+
+export function xmlSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('xml', data);
+}
+
+export function markdownSegment(content: string): PassthroughSegment;
+export function markdownSegment(data?: Record<string, unknown>): PassthroughSegment;
+export function markdownSegment(
+  contentOrData: string | Record<string, unknown> = {},
+): PassthroughSegment {
+  if (typeof contentOrData === 'string') {
+    return passthroughSegment('markdown', { content: contentOrData });
+  }
+  return passthroughSegment('markdown', contentOrData);
+}
+
+export function musicSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('music', data);
+}
+
+export function contactSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('contact', data);
+}
+
+export function forwardSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('forward', data);
+}
+
+export function nodeSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('node', data);
+}
+
+export function pokeSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('poke', data);
+}
+
+export function diceSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('dice', data);
+}
+
+export function rpsSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('rps', data);
+}
+
+export function mfaceSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('mface', data);
+}
+
+export function keyboardSegment(data: Record<string, unknown> = {}): PassthroughSegment {
   return passthroughSegment('keyboard', data);
+}
+
+export function shakeSegment(data: Record<string, unknown> = {}): PassthroughSegment {
+  return passthroughSegment('shake', data);
 }

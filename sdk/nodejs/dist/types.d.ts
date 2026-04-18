@@ -45,8 +45,9 @@ export interface ReplySegment {
         message_id: string;
     };
 }
+export type PassthroughSegmentType = 'record' | 'video' | 'file' | 'flash_file' | 'json' | 'xml' | 'markdown' | 'music' | 'contact' | 'forward' | 'node' | 'poke' | 'dice' | 'rps' | 'mface' | 'keyboard' | 'shake';
 export interface PassthroughSegment {
-    type: 'record' | 'video' | 'file' | 'json' | 'xml' | 'markdown' | 'music' | 'contact' | 'forward' | 'node' | 'poke' | 'dice' | 'rps' | 'mface' | 'keyboard' | 'shake';
+    type: PassthroughSegmentType;
     data?: Record<string, unknown>;
 }
 export type Segment = TextSegment | ImageSegment | AtSegment | AtAllSegment | FaceSegment | ReplySegment | PassthroughSegment;
@@ -79,6 +80,7 @@ export interface OneBotSender {
 }
 export interface OneBotPayload {
     post_type?: string;
+    meta_event_type?: string;
     message_type?: string;
     request_type?: string;
     notice_type?: string;
@@ -88,6 +90,7 @@ export interface OneBotPayload {
     group_id?: string;
     target_id?: string;
     time?: number;
+    interval?: number;
     message_id?: string;
     real_id?: string;
     message_seq?: string;
@@ -97,6 +100,7 @@ export interface OneBotPayload {
     sender?: OneBotSender;
     comment?: string;
     flag?: string;
+    status?: Record<string, unknown>;
 }
 export interface EventPayload {
     command?: string | null;
@@ -107,10 +111,7 @@ export interface EventPayload {
     onebot?: OneBotPayload;
 }
 export interface EventMessage {
-    segments?: Array<{
-        type: string;
-        data?: Record<string, unknown>;
-    }>;
+    segments?: Segment[];
     plain_text?: string;
 }
 export interface EventBody {
@@ -182,8 +183,23 @@ export declare function atSegment(userId: string): AtSegment;
 export declare function atAllSegment(): AtAllSegment;
 export declare function faceSegment(faceId: string): FaceSegment;
 export declare function replySegment(messageId: string): ReplySegment;
-export declare function passthroughSegment(type: PassthroughSegment['type'], data?: Record<string, unknown>): PassthroughSegment;
+export declare function passthroughSegment(type: PassthroughSegmentType, data?: Record<string, unknown>): PassthroughSegment;
+export declare function recordSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function videoSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function fileSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function flashFileSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function jsonSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function xmlSegment(data?: Record<string, unknown>): PassthroughSegment;
 export declare function markdownSegment(content: string): PassthroughSegment;
-export declare function fileSegment(data: Record<string, unknown>): PassthroughSegment;
-export declare function keyboardSegment(data: Record<string, unknown>): PassthroughSegment;
+export declare function markdownSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function musicSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function contactSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function forwardSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function nodeSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function pokeSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function diceSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function rpsSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function mfaceSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function keyboardSegment(data?: Record<string, unknown>): PassthroughSegment;
+export declare function shakeSegment(data?: Record<string, unknown>): PassthroughSegment;
 //# sourceMappingURL=types.d.ts.map

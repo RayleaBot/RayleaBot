@@ -312,64 +312,214 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
-    def message_history_get(self, request_id, conversation_type, conversation_id, limit=None, timeout_seconds=30):
-        data = {
-            "conversation_type": conversation_type,
-            "conversation_id": conversation_id,
-        }
+    def _named_onebot_action(self, request_id, action, data=None, extra_data=None, timeout_seconds=30):
+        payload = dict(data or {})
+        if extra_data:
+            payload.update(extra_data)
+        return self.onebot_action(request_id, action, payload, timeout_seconds=timeout_seconds)
+
+    def message_get(self, request_id, message_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "message.get", {"message_id": message_id}, extra_data, timeout_seconds)
+
+    def message_delete(self, request_id, message_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "message.delete", {"message_id": message_id}, extra_data, timeout_seconds)
+
+    def message_history_get(self, request_id, conversation_type, conversation_id, limit=None, timeout_seconds=30, extra_data=None):
+        data = {"conversation_type": conversation_type, "conversation_id": conversation_id}
         if limit is not None:
             data["limit"] = limit
-        return self.onebot_action(request_id, "message.history.get", data, timeout_seconds=timeout_seconds)
+        return self._named_onebot_action(request_id, "message.history.get", data, extra_data, timeout_seconds)
 
-    def group_announcement_create(self, request_id, group_id, content, timeout_seconds=30):
-        return self.onebot_action(
+    def message_forward_get(self, request_id, message_id=None, forward_id=None, timeout_seconds=30, extra_data=None):
+        if not message_id and not forward_id:
+            raise ValueError("message_forward_get requires message_id or forward_id")
+        data = {}
+        if message_id is not None:
+            data["message_id"] = message_id
+        if forward_id is not None:
+            data["forward_id"] = forward_id
+        return self._named_onebot_action(request_id, "message.forward.get", data, extra_data, timeout_seconds)
+
+    def message_forward_send(self, request_id, target_type, target_id, messages, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(
             request_id,
-            "group.announcement.create",
-            {"group_id": group_id, "content": content},
-            timeout_seconds=timeout_seconds,
+            "message.forward.send",
+            {"target_type": target_type, "target_id": target_id, "messages": messages},
+            extra_data,
+            timeout_seconds,
         )
 
-    def file_group_upload(self, request_id, group_id, file_name, file_url, timeout_seconds=30):
-        return self.onebot_action(
-            request_id,
-            "file.group.upload",
-            {"group_id": group_id, "file_name": file_name, "file_url": file_url},
-            timeout_seconds=timeout_seconds,
-        )
+    def message_read_mark(self, request_id, message_id=None, conversation_type=None, conversation_id=None, timeout_seconds=30, extra_data=None):
+        if message_id is None and (conversation_type is None or conversation_id is None):
+            raise ValueError("message_read_mark requires message_id or conversation_type with conversation_id")
+        data = {}
+        if message_id is not None:
+            data["message_id"] = message_id
+        if conversation_type is not None:
+            data["conversation_type"] = conversation_type
+        if conversation_id is not None:
+            data["conversation_id"] = conversation_id
+        return self._named_onebot_action(request_id, "message.read.mark", data, extra_data, timeout_seconds)
 
-    def reaction_set(self, request_id, message_id, emoji, enabled=True, timeout_seconds=30):
-        return self.onebot_action(
-            request_id,
-            "reaction.set",
-            {"message_id": message_id, "emoji": emoji, "enabled": enabled},
-            timeout_seconds=timeout_seconds,
-        )
+    def friend_request_handle(self, request_id, flag, approve, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "friend.request.handle", {"flag": flag, "approve": approve}, extra_data, timeout_seconds)
 
-    def poke_send(self, request_id, target_type, target_id, user_id, timeout_seconds=30):
-        return self.onebot_action(
-            request_id,
-            "poke.send",
-            {"target_type": target_type, "target_id": target_id, "user_id": user_id},
-            timeout_seconds=timeout_seconds,
-        )
+    def friend_list(self, request_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "friend.list", {}, extra_data, timeout_seconds)
 
-    def napcat_message_emoji_like_set(self, request_id, message_id, emoji_id, enabled=True, timeout_seconds=30):
+    def friend_remark_set(self, request_id, user_id, remark, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "friend.remark.set", {"user_id": user_id, "remark": remark}, extra_data, timeout_seconds)
+
+    def user_info_get(self, request_id, user_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "user.info.get", {"user_id": user_id}, extra_data, timeout_seconds)
+
+    def user_like_send(self, request_id, user_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "user.like.send", {"user_id": user_id}, extra_data, timeout_seconds)
+
+    def group_list(self, request_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.list", {}, extra_data, timeout_seconds)
+
+    def group_info_get(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.info.get", {"group_id": group_id}, extra_data, timeout_seconds)
+
+    def group_member_get(self, request_id, group_id, user_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.member.get", {"group_id": group_id, "user_id": user_id}, extra_data, timeout_seconds)
+
+    def group_member_list(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.member.list", {"group_id": group_id}, extra_data, timeout_seconds)
+
+    def group_request_handle(self, request_id, flag, approve, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.request.handle", {"flag": flag, "approve": approve}, extra_data, timeout_seconds)
+
+    def group_leave(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.leave", {"group_id": group_id}, extra_data, timeout_seconds)
+
+    def group_admin_set(self, request_id, group_id, user_id, enabled, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.admin.set", {"group_id": group_id, "user_id": user_id, "enabled": enabled}, extra_data, timeout_seconds)
+
+    def group_ban_set(self, request_id, group_id, user_id=None, duration_seconds=None, whole_group=False, timeout_seconds=30, extra_data=None):
+        data = {"group_id": group_id, "whole_group": whole_group}
+        if user_id is not None:
+            data["user_id"] = user_id
+        if duration_seconds is not None:
+            data["duration_seconds"] = duration_seconds
+        return self._named_onebot_action(request_id, "group.ban.set", data, extra_data, timeout_seconds)
+
+    def group_card_set(self, request_id, group_id, user_id, card, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.card.set", {"group_id": group_id, "user_id": user_id, "card": card}, extra_data, timeout_seconds)
+
+    def group_title_set(self, request_id, group_id, user_id, title, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.title.set", {"group_id": group_id, "user_id": user_id, "title": title}, extra_data, timeout_seconds)
+
+    def group_name_set(self, request_id, group_id, name, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.name.set", {"group_id": group_id, "name": name}, extra_data, timeout_seconds)
+
+    def group_announcement_list(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.announcement.list", {"group_id": group_id}, extra_data, timeout_seconds)
+
+    def group_announcement_create(self, request_id, group_id, content, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.announcement.create", {"group_id": group_id, "content": content}, extra_data, timeout_seconds)
+
+    def group_announcement_delete(self, request_id, group_id, notice_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.announcement.delete", {"group_id": group_id, "notice_id": notice_id}, extra_data, timeout_seconds)
+
+    def group_essence_list(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.essence.list", {"group_id": group_id}, extra_data, timeout_seconds)
+
+    def group_essence_set(self, request_id, message_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.essence.set", {"message_id": message_id}, extra_data, timeout_seconds)
+
+    def group_essence_unset(self, request_id, message_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.essence.unset", {"message_id": message_id}, extra_data, timeout_seconds)
+
+    def group_honor_get(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.honor.get", {"group_id": group_id}, extra_data, timeout_seconds)
+
+    def group_todo_set(self, request_id, group_id, todo, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "group.todo.set", {"group_id": group_id, "todo": todo}, extra_data, timeout_seconds)
+
+    def file_get(self, request_id, file_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.get", {"file_id": file_id}, extra_data, timeout_seconds)
+
+    def file_download(self, request_id, file_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.download", {"file_id": file_id}, extra_data, timeout_seconds)
+
+    def file_group_upload(self, request_id, group_id, file_name, file_url, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.group.upload", {"group_id": group_id, "file_name": file_name, "file_url": file_url}, extra_data, timeout_seconds)
+
+    def file_private_upload(self, request_id, user_id, file_name, file_url, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.private.upload", {"user_id": user_id, "file_name": file_name, "file_url": file_url}, extra_data, timeout_seconds)
+
+    def file_group_url_get(self, request_id, group_id, file_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.group.url.get", {"group_id": group_id, "file_id": file_id}, extra_data, timeout_seconds)
+
+    def file_private_url_get(self, request_id, user_id, file_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.private.url.get", {"user_id": user_id, "file_id": file_id}, extra_data, timeout_seconds)
+
+    def file_group_fs_info(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.group.fs.info", {"group_id": group_id}, extra_data, timeout_seconds)
+
+    def file_group_fs_list(self, request_id, group_id, folder_id=None, timeout_seconds=30, extra_data=None):
+        data = {"group_id": group_id}
+        if folder_id is not None:
+            data["folder_id"] = folder_id
+        return self._named_onebot_action(request_id, "file.group.fs.list", data, extra_data, timeout_seconds)
+
+    def file_group_fs_mkdir(self, request_id, group_id, name, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "file.group.fs.mkdir", {"group_id": group_id, "name": name}, extra_data, timeout_seconds)
+
+    def file_group_fs_delete(self, request_id, group_id, folder_id=None, file_id=None, timeout_seconds=30, extra_data=None):
+        if folder_id is None and file_id is None:
+            raise ValueError("file_group_fs_delete requires folder_id or file_id")
+        data = {"group_id": group_id}
+        if folder_id is not None:
+            data["folder_id"] = folder_id
+        if file_id is not None:
+            data["file_id"] = file_id
+        return self._named_onebot_action(request_id, "file.group.fs.delete", data, extra_data, timeout_seconds)
+
+    def reaction_set(self, request_id, message_id, emoji, enabled=True, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "reaction.set", {"message_id": message_id, "emoji": emoji, "enabled": enabled}, extra_data, timeout_seconds)
+
+    def reaction_list(self, request_id, message_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "reaction.list", {"message_id": message_id}, extra_data, timeout_seconds)
+
+    def poke_send(self, request_id, target_type, target_id, user_id, timeout_seconds=30, extra_data=None):
+        return self._named_onebot_action(request_id, "poke.send", {"target_type": target_type, "target_id": target_id, "user_id": user_id}, extra_data, timeout_seconds)
+
+    def napcat_message_emoji_like_set(self, request_id, message_id, emoji_id, enabled=True, timeout_seconds=30, extra_data=None):
         return self.provider_action(
             request_id,
             "napcat",
             "message_emoji.like.set",
-            {"message_id": message_id, "emoji_id": emoji_id, "enabled": enabled},
+            self._named_onebot_action_data({"message_id": message_id, "emoji_id": emoji_id, "enabled": enabled}, extra_data),
             timeout_seconds=timeout_seconds,
         )
 
-    def luckylillia_friend_groups_get(self, request_id, user_id, timeout_seconds=30):
+    def napcat_group_sign_set(self, request_id, group_id, timeout_seconds=30, extra_data=None):
+        return self.provider_action(
+            request_id,
+            "napcat",
+            "group.sign.set",
+            self._named_onebot_action_data({"group_id": group_id}, extra_data),
+            timeout_seconds=timeout_seconds,
+        )
+
+    def luckylillia_friend_groups_get(self, request_id, user_id, timeout_seconds=30, extra_data=None):
         return self.provider_action(
             request_id,
             "luckylillia",
             "friend_groups.get",
-            {"user_id": user_id},
+            self._named_onebot_action_data({"user_id": user_id}, extra_data),
             timeout_seconds=timeout_seconds,
         )
+
+    @staticmethod
+    def _named_onebot_action_data(data=None, extra_data=None):
+        payload = dict(data or {})
+        if extra_data:
+            payload.update(extra_data)
+        return payload
 
     storageFileRead = storage_file_read
     storageFileWrite = storage_file_write
@@ -384,12 +534,51 @@ class RayleaBotPlugin:
     pluginList = plugin_list
     onebotAction = onebot_action
     providerAction = provider_action
+    messageGet = message_get
+    messageDelete = message_delete
     messageHistoryGet = message_history_get
+    messageForwardGet = message_forward_get
+    messageForwardSend = message_forward_send
+    messageReadMark = message_read_mark
+    friendRequestHandle = friend_request_handle
+    friendList = friend_list
+    friendRemarkSet = friend_remark_set
+    userInfoGet = user_info_get
+    userLikeSend = user_like_send
+    groupList = group_list
+    groupInfoGet = group_info_get
+    groupMemberGet = group_member_get
+    groupMemberList = group_member_list
+    groupRequestHandle = group_request_handle
+    groupLeave = group_leave
+    groupAdminSet = group_admin_set
+    groupBanSet = group_ban_set
+    groupCardSet = group_card_set
+    groupTitleSet = group_title_set
+    groupNameSet = group_name_set
+    groupAnnouncementList = group_announcement_list
     groupAnnouncementCreate = group_announcement_create
+    groupAnnouncementDelete = group_announcement_delete
+    groupEssenceList = group_essence_list
+    groupEssenceSet = group_essence_set
+    groupEssenceUnset = group_essence_unset
+    groupHonorGet = group_honor_get
+    groupTodoSet = group_todo_set
+    fileGet = file_get
+    fileDownload = file_download
     fileGroupUpload = file_group_upload
+    filePrivateUpload = file_private_upload
+    fileGroupUrlGet = file_group_url_get
+    filePrivateUrlGet = file_private_url_get
+    fileGroupFsInfo = file_group_fs_info
+    fileGroupFsList = file_group_fs_list
+    fileGroupFsMkdir = file_group_fs_mkdir
+    fileGroupFsDelete = file_group_fs_delete
     reactionSet = reaction_set
+    reactionList = reaction_list
     pokeSend = poke_send
     napcatMessageEmojiLikeSet = napcat_message_emoji_like_set
+    napcatGroupSignSet = napcat_group_sign_set
     luckylilliaFriendGroupsGet = luckylillia_friend_groups_get
 
     def run(self):
@@ -482,3 +671,11 @@ class RayleaBotPlugin:
         if self._command_prefixes:
             return self._command_prefixes[0]
         return "/"
+
+    @property
+    def bot_id(self):
+        return self._bot_id
+
+    @property
+    def capabilities(self):
+        return list(self._capabilities)

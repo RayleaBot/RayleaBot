@@ -24,19 +24,63 @@ export {
   faceSegment,
   replySegment,
   passthroughSegment,
+  recordSegment,
+  videoSegment,
   markdownSegment,
   fileSegment,
+  flashFileSegment,
+  jsonSegment,
+  xmlSegment,
+  musicSegment,
+  contactSegment,
+  forwardSegment,
+  nodeSegment,
+  pokeSegment,
+  diceSegment,
+  rpsSegment,
+  mfaceSegment,
   keyboardSegment,
+  shakeSegment,
 } from './types.js';
 export { ActionError } from './protocol.js';
 
 type EventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
+type ConversationType = 'group' | 'private';
+type ProviderName = 'napcat' | 'luckylillia';
 
 interface ActionOptions {
   timeoutMs?: number;
 }
 
+interface MessageForwardGetOptions extends ActionOptions {
+  messageId?: string;
+  forwardId?: string;
+}
+
+interface MessageReadMarkOptions extends ActionOptions {
+  messageId?: string;
+  conversationType?: ConversationType;
+  conversationId?: string;
+}
+
+interface GroupBanSetOptions extends ActionOptions {
+  userId?: string;
+  durationSeconds?: number;
+  wholeGroup?: boolean;
+}
+
+interface FileGroupFsListOptions extends ActionOptions {
+  folderId?: string;
+}
+
+interface FileGroupFsDeleteOptions extends ActionOptions {
+  folderId?: string;
+  fileId?: string;
+}
+
 export interface RayleaBotPlugin {
+  readonly botId: string;
+  readonly capabilities: string[];
   readonly commandPrefixes: string[];
   readonly primaryCommandPrefix: string;
 
@@ -147,21 +191,156 @@ export interface RayleaBotPlugin {
   ): Promise<Record<string, unknown>>;
   providerAction(
     requestId: string,
-    provider: 'napcat' | 'luckylillia',
+    provider: ProviderName,
     action: string,
     data?: Record<string, unknown>,
     options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
+  messageGet(requestId: string, messageId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+  messageDelete(
+    requestId: string,
+    messageId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
   messageHistoryGet(
     requestId: string,
-    conversationType: 'group' | 'private',
+    conversationType: ConversationType,
     conversationId: string,
     options?: ActionOptions & { limit?: number },
+  ): Promise<Record<string, unknown>>;
+  messageForwardGet(
+    requestId: string,
+    options?: MessageForwardGetOptions,
+  ): Promise<Record<string, unknown>>;
+  messageForwardSend(
+    requestId: string,
+    targetType: ConversationType,
+    targetId: string,
+    messages: Record<string, unknown>[],
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  messageReadMark(
+    requestId: string,
+    options?: MessageReadMarkOptions,
+  ): Promise<Record<string, unknown>>;
+  friendRequestHandle(
+    requestId: string,
+    flag: string,
+    approve: boolean,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  friendList(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+  friendRemarkSet(
+    requestId: string,
+    userId: string,
+    remark: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  userInfoGet(requestId: string, userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+  userLikeSend(requestId: string, userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+  groupList(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+  groupInfoGet(
+    requestId: string,
+    groupId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupMemberGet(
+    requestId: string,
+    groupId: string,
+    userId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupMemberList(
+    requestId: string,
+    groupId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupRequestHandle(
+    requestId: string,
+    flag: string,
+    approve: boolean,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupLeave(requestId: string, groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+  groupAdminSet(
+    requestId: string,
+    groupId: string,
+    userId: string,
+    enabled: boolean,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupBanSet(
+    requestId: string,
+    groupId: string,
+    options?: GroupBanSetOptions,
+  ): Promise<Record<string, unknown>>;
+  groupCardSet(
+    requestId: string,
+    groupId: string,
+    userId: string,
+    card: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupTitleSet(
+    requestId: string,
+    groupId: string,
+    userId: string,
+    title: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupNameSet(
+    requestId: string,
+    groupId: string,
+    name: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupAnnouncementList(
+    requestId: string,
+    groupId: string,
+    options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
   groupAnnouncementCreate(
     requestId: string,
     groupId: string,
     content: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupAnnouncementDelete(
+    requestId: string,
+    groupId: string,
+    noticeId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupEssenceList(
+    requestId: string,
+    groupId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupEssenceSet(
+    requestId: string,
+    messageId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupEssenceUnset(
+    requestId: string,
+    messageId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupHonorGet(
+    requestId: string,
+    groupId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  groupTodoSet(
+    requestId: string,
+    groupId: string,
+    todo: Record<string, unknown>,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  fileGet(requestId: string, fileId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+  fileDownload(
+    requestId: string,
+    fileId: string,
     options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
   fileGroupUpload(
@@ -171,6 +350,46 @@ export interface RayleaBotPlugin {
     fileUrl: string,
     options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
+  filePrivateUpload(
+    requestId: string,
+    userId: string,
+    fileName: string,
+    fileUrl: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  fileGroupUrlGet(
+    requestId: string,
+    groupId: string,
+    fileId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  filePrivateUrlGet(
+    requestId: string,
+    userId: string,
+    fileId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  fileGroupFsInfo(
+    requestId: string,
+    groupId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  fileGroupFsList(
+    requestId: string,
+    groupId: string,
+    options?: FileGroupFsListOptions,
+  ): Promise<Record<string, unknown>>;
+  fileGroupFsMkdir(
+    requestId: string,
+    groupId: string,
+    name: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  fileGroupFsDelete(
+    requestId: string,
+    groupId: string,
+    options?: FileGroupFsDeleteOptions,
+  ): Promise<Record<string, unknown>>;
   reactionSet(
     requestId: string,
     messageId: string,
@@ -178,9 +397,14 @@ export interface RayleaBotPlugin {
     enabled?: boolean,
     options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
+  reactionList(
+    requestId: string,
+    messageId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
   pokeSend(
     requestId: string,
-    targetType: 'group' | 'private',
+    targetType: ConversationType,
     targetId: string,
     userId: string,
     options?: ActionOptions,
@@ -190,6 +414,11 @@ export interface RayleaBotPlugin {
     messageId: string,
     emojiId: string,
     enabled?: boolean,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  napcatGroupSignSet(
+    requestId: string,
+    groupId: string,
     options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
   luckylilliaFriendGroupsGet(
@@ -207,10 +436,19 @@ export function createPlugin(): RayleaBotPlugin {
   const activeHandlers = new Set<Promise<void>>();
   let pluginId = '';
   let botId = '';
+  let capabilities: string[] = [];
   let commandPrefixes = ['/'];
   let subscriptions: string[] | null = null;
 
   const plugin: RayleaBotPlugin = {
+    get botId(): string {
+      return botId;
+    },
+
+    get capabilities(): string[] {
+      return [...capabilities];
+    },
+
     get commandPrefixes(): string[] {
       return [...commandPrefixes];
     },
@@ -590,17 +828,33 @@ export function createPlugin(): RayleaBotPlugin {
 
     async providerAction(
       requestId: string,
-      provider: 'napcat' | 'luckylillia',
+      provider: ProviderName,
       action: string,
       data: Record<string, unknown> = {},
       options: ActionOptions = {},
     ): Promise<Record<string, unknown>> {
-      return await requestOneBotAction(requestId, `provider.${provider}.${action}`, data, options);
+      return await requestNamedProviderAction(requestId, provider, action, data, options);
+    },
+
+    async messageGet(
+      requestId: string,
+      messageId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'message.get', { message_id: messageId }, options);
+    },
+
+    async messageDelete(
+      requestId: string,
+      messageId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'message.delete', { message_id: messageId }, options);
     },
 
     async messageHistoryGet(
       requestId: string,
-      conversationType: 'group' | 'private',
+      conversationType: ConversationType,
       conversationId: string,
       options: ActionOptions & { limit?: number } = {},
     ): Promise<Record<string, unknown>> {
@@ -615,16 +869,310 @@ export function createPlugin(): RayleaBotPlugin {
       return await requestOneBotAction(requestId, 'message.history.get', data, { timeoutMs });
     },
 
+    async messageForwardGet(
+      requestId: string,
+      options: MessageForwardGetOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { messageId, forwardId, timeoutMs = 30000 } = options;
+      if (!messageId && !forwardId) {
+        throw new Error('messageForwardGet requires messageId or forwardId');
+      }
+      const data: Record<string, unknown> = {};
+      if (messageId !== undefined) {
+        data.message_id = messageId;
+      }
+      if (forwardId !== undefined) {
+        data.forward_id = forwardId;
+      }
+      return await requestOneBotAction(requestId, 'message.forward.get', data, { timeoutMs });
+    },
+
+    async messageForwardSend(
+      requestId: string,
+      targetType: ConversationType,
+      targetId: string,
+      messages: Record<string, unknown>[],
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(
+        requestId,
+        'message.forward.send',
+        { target_type: targetType, target_id: targetId, messages },
+        options,
+      );
+    },
+
+    async messageReadMark(
+      requestId: string,
+      options: MessageReadMarkOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { messageId, conversationType, conversationId, timeoutMs = 30000 } = options;
+      if (messageId === undefined && (!conversationType || !conversationId)) {
+        throw new Error('messageReadMark requires messageId or conversationType with conversationId');
+      }
+      const data: Record<string, unknown> = {};
+      if (messageId !== undefined) {
+        data.message_id = messageId;
+      }
+      if (conversationType !== undefined) {
+        data.conversation_type = conversationType;
+      }
+      if (conversationId !== undefined) {
+        data.conversation_id = conversationId;
+      }
+      return await requestOneBotAction(requestId, 'message.read.mark', data, { timeoutMs });
+    },
+
+    async friendRequestHandle(
+      requestId: string,
+      flag: string,
+      approve: boolean,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'friend.request.handle', { flag, approve }, options);
+    },
+
+    async friendList(requestId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'friend.list', {}, options);
+    },
+
+    async friendRemarkSet(
+      requestId: string,
+      userId: string,
+      remark: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(
+        requestId,
+        'friend.remark.set',
+        { user_id: userId, remark },
+        options,
+      );
+    },
+
+    async userInfoGet(
+      requestId: string,
+      userId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'user.info.get', { user_id: userId }, options);
+    },
+
+    async userLikeSend(
+      requestId: string,
+      userId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'user.like.send', { user_id: userId }, options);
+    },
+
+    async groupList(requestId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.list', {}, options);
+    },
+
+    async groupInfoGet(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.info.get', { group_id: groupId }, options);
+    },
+
+    async groupMemberGet(
+      requestId: string,
+      groupId: string,
+      userId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(
+        requestId,
+        'group.member.get',
+        { group_id: groupId, user_id: userId },
+        options,
+      );
+    },
+
+    async groupMemberList(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.member.list', { group_id: groupId }, options);
+    },
+
+    async groupRequestHandle(
+      requestId: string,
+      flag: string,
+      approve: boolean,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.request.handle', { flag, approve }, options);
+    },
+
+    async groupLeave(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.leave', { group_id: groupId }, options);
+    },
+
+    async groupAdminSet(
+      requestId: string,
+      groupId: string,
+      userId: string,
+      enabled: boolean,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(
+        requestId,
+        'group.admin.set',
+        { group_id: groupId, user_id: userId, enabled },
+        options,
+      );
+    },
+
+    async groupBanSet(
+      requestId: string,
+      groupId: string,
+      options: GroupBanSetOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { userId, durationSeconds, wholeGroup = false, timeoutMs = 30000 } = options;
+      const data: Record<string, unknown> = { group_id: groupId, whole_group: wholeGroup };
+      if (userId !== undefined) {
+        data.user_id = userId;
+      }
+      if (durationSeconds !== undefined) {
+        data.duration_seconds = durationSeconds;
+      }
+      return await requestOneBotAction(requestId, 'group.ban.set', data, { timeoutMs });
+    },
+
+    async groupCardSet(
+      requestId: string,
+      groupId: string,
+      userId: string,
+      card: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(
+        requestId,
+        'group.card.set',
+        { group_id: groupId, user_id: userId, card },
+        options,
+      );
+    },
+
+    async groupTitleSet(
+      requestId: string,
+      groupId: string,
+      userId: string,
+      title: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(
+        requestId,
+        'group.title.set',
+        { group_id: groupId, user_id: userId, title },
+        options,
+      );
+    },
+
+    async groupNameSet(
+      requestId: string,
+      groupId: string,
+      name: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.name.set', { group_id: groupId, name }, options);
+    },
+
+    async groupAnnouncementList(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.announcement.list', { group_id: groupId }, options);
+    },
+
     async groupAnnouncementCreate(
       requestId: string,
       groupId: string,
       content: string,
       options: ActionOptions = {},
     ): Promise<Record<string, unknown>> {
-      return await requestOneBotAction(requestId, 'group.announcement.create', {
-        group_id: groupId,
-        content,
-      }, options);
+      return await requestNamedOneBotAction(requestId, 'group.announcement.create', { group_id: groupId, content }, options);
+    },
+
+    async groupAnnouncementDelete(
+      requestId: string,
+      groupId: string,
+      noticeId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(
+        requestId,
+        'group.announcement.delete',
+        { group_id: groupId, notice_id: noticeId },
+        options,
+      );
+    },
+
+    async groupEssenceList(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.essence.list', { group_id: groupId }, options);
+    },
+
+    async groupEssenceSet(
+      requestId: string,
+      messageId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.essence.set', { message_id: messageId }, options);
+    },
+
+    async groupEssenceUnset(
+      requestId: string,
+      messageId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.essence.unset', { message_id: messageId }, options);
+    },
+
+    async groupHonorGet(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.honor.get', { group_id: groupId }, options);
+    },
+
+    async groupTodoSet(
+      requestId: string,
+      groupId: string,
+      todo: Record<string, unknown>,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'group.todo.set', { group_id: groupId, todo }, options);
+    },
+
+    async fileGet(
+      requestId: string,
+      fileId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'file.get', { file_id: fileId }, options);
+    },
+
+    async fileDownload(
+      requestId: string,
+      fileId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'file.download', { file_id: fileId }, options);
     },
 
     async fileGroupUpload(
@@ -634,11 +1182,84 @@ export function createPlugin(): RayleaBotPlugin {
       fileUrl: string,
       options: ActionOptions = {},
     ): Promise<Record<string, unknown>> {
-      return await requestOneBotAction(requestId, 'file.group.upload', {
-        group_id: groupId,
-        file_name: fileName,
-        file_url: fileUrl,
-      }, options);
+      return await requestNamedOneBotAction(requestId, 'file.group.upload', { group_id: groupId, file_name: fileName, file_url: fileUrl }, options);
+    },
+
+    async filePrivateUpload(
+      requestId: string,
+      userId: string,
+      fileName: string,
+      fileUrl: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'file.private.upload', { user_id: userId, file_name: fileName, file_url: fileUrl }, options);
+    },
+
+    async fileGroupUrlGet(
+      requestId: string,
+      groupId: string,
+      fileId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'file.group.url.get', { group_id: groupId, file_id: fileId }, options);
+    },
+
+    async filePrivateUrlGet(
+      requestId: string,
+      userId: string,
+      fileId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'file.private.url.get', { user_id: userId, file_id: fileId }, options);
+    },
+
+    async fileGroupFsInfo(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'file.group.fs.info', { group_id: groupId }, options);
+    },
+
+    async fileGroupFsList(
+      requestId: string,
+      groupId: string,
+      options: FileGroupFsListOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { folderId, timeoutMs = 30000 } = options;
+      const data: Record<string, unknown> = { group_id: groupId };
+      if (folderId !== undefined) {
+        data.folder_id = folderId;
+      }
+      return await requestOneBotAction(requestId, 'file.group.fs.list', data, { timeoutMs });
+    },
+
+    async fileGroupFsMkdir(
+      requestId: string,
+      groupId: string,
+      name: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'file.group.fs.mkdir', { group_id: groupId, name }, options);
+    },
+
+    async fileGroupFsDelete(
+      requestId: string,
+      groupId: string,
+      options: FileGroupFsDeleteOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { folderId, fileId, timeoutMs = 30000 } = options;
+      if (folderId === undefined && fileId === undefined) {
+        throw new Error('fileGroupFsDelete requires folderId or fileId');
+      }
+      const data: Record<string, unknown> = { group_id: groupId };
+      if (folderId !== undefined) {
+        data.folder_id = folderId;
+      }
+      if (fileId !== undefined) {
+        data.file_id = fileId;
+      }
+      return await requestOneBotAction(requestId, 'file.group.fs.delete', data, { timeoutMs });
     },
 
     async reactionSet(
@@ -648,25 +1269,25 @@ export function createPlugin(): RayleaBotPlugin {
       enabled = true,
       options: ActionOptions = {},
     ): Promise<Record<string, unknown>> {
-      return await requestOneBotAction(requestId, 'reaction.set', {
-        message_id: messageId,
-        emoji,
-        enabled,
-      }, options);
+      return await requestNamedOneBotAction(requestId, 'reaction.set', { message_id: messageId, emoji, enabled }, options);
+    },
+
+    async reactionList(
+      requestId: string,
+      messageId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedOneBotAction(requestId, 'reaction.list', { message_id: messageId }, options);
     },
 
     async pokeSend(
       requestId: string,
-      targetType: 'group' | 'private',
+      targetType: ConversationType,
       targetId: string,
       userId: string,
       options: ActionOptions = {},
     ): Promise<Record<string, unknown>> {
-      return await requestOneBotAction(requestId, 'poke.send', {
-        target_type: targetType,
-        target_id: targetId,
-        user_id: userId,
-      }, options);
+      return await requestNamedOneBotAction(requestId, 'poke.send', { target_type: targetType, target_id: targetId, user_id: userId }, options);
     },
 
     async napcatMessageEmojiLikeSet(
@@ -676,11 +1297,15 @@ export function createPlugin(): RayleaBotPlugin {
       enabled = true,
       options: ActionOptions = {},
     ): Promise<Record<string, unknown>> {
-      return await requestOneBotAction(requestId, 'provider.napcat.message_emoji.like.set', {
-        message_id: messageId,
-        emoji_id: emojiId,
-        enabled,
-      }, options);
+      return await requestNamedProviderAction(requestId, 'napcat', 'message_emoji.like.set', { message_id: messageId, emoji_id: emojiId, enabled }, options);
+    },
+
+    async napcatGroupSignSet(
+      requestId: string,
+      groupId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      return await requestNamedProviderAction(requestId, 'napcat', 'group.sign.set', { group_id: groupId }, options);
     },
 
     async luckylilliaFriendGroupsGet(
@@ -688,9 +1313,7 @@ export function createPlugin(): RayleaBotPlugin {
       userId: string,
       options: ActionOptions = {},
     ): Promise<Record<string, unknown>> {
-      return await requestOneBotAction(requestId, 'provider.luckylillia.friend_groups.get', {
-        user_id: userId,
-      }, options);
+      return await requestNamedProviderAction(requestId, 'luckylillia', 'friend_groups.get', { user_id: userId }, options);
     },
 
     async run(): Promise<void> {
@@ -701,6 +1324,11 @@ export function createPlugin(): RayleaBotPlugin {
           const initFrame = frame as InitFrame;
           pluginId = plugin_id;
           botId = initFrame.bot?.id ?? '';
+          capabilities = Array.isArray(initFrame.capabilities)
+            ? initFrame.capabilities.filter(
+                (value): value is string => typeof value === 'string' && value.length > 0,
+              )
+            : [];
           commandPrefixes = (initFrame.command_prefixes ?? []).filter(
             (value): value is string => typeof value === 'string' && value.length > 0,
           );
@@ -764,6 +1392,25 @@ export function createPlugin(): RayleaBotPlugin {
   ): Promise<Record<string, unknown>> {
     const { timeoutMs = 30000 } = options;
     return await requestLocalAction(pluginId, requestId, action, data, { timeoutMs });
+  }
+
+  async function requestNamedOneBotAction(
+    requestId: string,
+    action: string,
+    data: Record<string, unknown>,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return await requestOneBotAction(requestId, action, data, options);
+  }
+
+  async function requestNamedProviderAction(
+    requestId: string,
+    provider: ProviderName,
+    action: string,
+    data: Record<string, unknown>,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return await requestOneBotAction(requestId, `provider.${provider}.${action}`, data, options);
   }
 
   return plugin;
