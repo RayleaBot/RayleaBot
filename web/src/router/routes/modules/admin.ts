@@ -175,6 +175,17 @@ export const adminRoutes: RouteRecordRaw[] = [
               titleKey: 'routes.config',
             },
           },
+          {
+            path: '/render/templates/:templateId?',
+            name: 'render-templates',
+            component: () => import('@/views/system/RenderTemplatesView.vue'),
+            meta: {
+              icon: 'render-templates',
+              keepAlive: true,
+              requiresAuth: true,
+              titleKey: 'routes.renderTemplates',
+            },
+          },
         ],
       },
     ],

@@ -18,6 +18,7 @@ export const routes = {
   protocolCompatibility: '兼容矩阵',
   system: '系统',
   config: '配置',
+  renderTemplates: '模板编辑',
   login: '登录',
   setup: '创建管理员账号',
 } as const

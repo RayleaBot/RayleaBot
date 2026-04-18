@@ -1078,6 +1078,48 @@ test('status page can submit render previews and show the artifact', async ({ pa
   await expect(page.getByRole('img', { name: '图片预览结果' })).toBeVisible()
 })
 
+test('template editor can validate, preview, save and rollback a template', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/render/templates/help.menu')
+  await expect(page.getByRole('heading', { name: '模板编辑', level: 1 })).toBeVisible()
+  await expect(page.getByText('help.menu').first()).toBeVisible()
+  await expect(page.getByText('当前版本', { exact: true })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'HTML' }).click()
+  const editor = page.locator('#render-template-editor-input')
+  await editor.fill([
+    '<section class="menu-card">',
+    '  <h1>{{ .title }}</h1>',
+    '  <p>模板工作台</p>',
+    '</section>',
+  ].join('\n'))
+
+  await page.getByLabel('保存说明').fill('增加模板工作台副标题')
+  await page.getByTestId('render-template-validate-button').click()
+  await expect(page.getByText('当前草稿通过服务端校验。')).toBeVisible()
+
+  await page.getByTestId('render-template-preview-button').click()
+  await expect(page.getByTestId('render-template-preview-result')).toContainText('render_preview_0001.png')
+  await expect(page.getByRole('img', { name: '模板预览结果' })).toBeVisible()
+
+  await page.getByTestId('render-template-save-button').click()
+  await expect(page.getByText('模板已保存。')).toBeVisible()
+  await expect(page.getByText('增加模板工作台副标题')).toHaveCount(2)
+  await expect(page.getByText('rev_help_menu_0005').first()).toBeVisible()
+
+  const rollbackItem = page.locator('.version-item').filter({ hasText: 'rev_help_menu_0004' }).first()
+  await rollbackItem.getByRole('button', { name: '回退到此版本' }).click()
+  await page.getByLabel('回退说明').fill('恢复到初始帮助菜单版本')
+  await page.getByRole('button', { name: '确认回退' }).click()
+
+  await expect(page.getByText('模板已回退。')).toBeVisible()
+  await expect(page.getByText('rev_help_menu_0006').first()).toBeVisible()
+  await expect(page.locator('#render-template-editor-input')).toHaveValue(/{{ \.title }}/)
+  await expect(page.getByText('恢复到初始帮助菜单版本').first()).toBeVisible()
+})
+
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -1440,13 +1482,13 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '实时日志', '协议中心'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols'])
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(1)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
   expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心', '任务', '实时日志', '协议中心', '配置'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'protocols', 'config'])
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(1)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
   await expect(page.locator('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon')).toHaveCount(1)
 
   await page.getByRole('tab', { name: '指令中心' }).click()

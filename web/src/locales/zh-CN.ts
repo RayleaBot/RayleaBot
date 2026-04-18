@@ -6,6 +6,7 @@ import { tasks } from './zh-CN/tasks'
 import { logs } from './zh-CN/logs'
 import { protocols } from './zh-CN/protocols'
 import { config } from './zh-CN/config'
+import { renderTemplates } from './zh-CN/render-templates'
 import { auth } from './zh-CN/auth'
 import { display } from './zh-CN/display'
 import { errors } from './zh-CN/errors'
@@ -21,6 +22,7 @@ export const zhCN = {
   logs,
   protocols,
   config,
+  renderTemplates,
   auth,
   display,
   errors,

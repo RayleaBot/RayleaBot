@@ -19,3 +19,42 @@ export type RecoveryConfirmRequest = components['schemas']['RecoveryConfirmReque
 export type RuntimeBootstrapResource = components['schemas']['RuntimeBootstrapResource']
 export type RuntimeBootstrapRequest = components['schemas']['RuntimeBootstrapRequest']
 export type RenderPreviewRequest = components['schemas']['RenderPreviewRequest']
+export type RenderTemplateDetail = components['schemas']['RenderTemplateDetail']
+export type RenderTemplateDetailResponse = components['schemas']['RenderTemplateDetailResponse']
+export type RenderTemplateDraft = components['schemas']['RenderTemplateDraft']
+export type RenderTemplateListResponse = components['schemas']['RenderTemplateListResponse']
+export type RenderTemplateRollbackRequest = components['schemas']['RenderTemplateRollbackRequest']
+export type RenderTemplateSource = components['schemas']['RenderTemplateSource']
+export type RenderTemplateSourceResponse = components['schemas']['RenderTemplateSourceResponse']
+export type RenderTemplateSourceUpdateRequest = components['schemas']['RenderTemplateSourceUpdateRequest']
+export type RenderTemplateSummary = components['schemas']['RenderTemplateSummary']
+export type RenderTemplateValidateRequest = components['schemas']['RenderTemplateValidateRequest']
+export type RenderTemplateValidateResponse = components['schemas']['RenderTemplateValidateResponse']
+export type RenderTemplateValidationIssue = components['schemas']['RenderTemplateValidationIssue']
+export type RenderTemplateValidationStatus = components['schemas']['RenderTemplateValidationStatus']
+export type RenderTemplateVersion = components['schemas']['RenderTemplateVersion']
+export type RenderTemplateVersionListResponse = components['schemas']['RenderTemplateVersionListResponse']
+
+export type RenderTemplateTextFieldKey = 'manifest_json' | 'html' | 'stylesheet' | 'input_schema_json'
+
+export interface RenderTemplateTextDraft {
+  manifest_json: string
+  html: string
+  stylesheet: string
+  input_schema_json: string
+}
+
+export interface RenderTemplateLocalIssue {
+  field: RenderTemplateTextFieldKey | 'preview_data'
+  message: string
+}
+
+export interface RenderTemplateSchemaNode {
+  key: string
+  path: string
+  label: string
+  type: string
+  required: boolean
+  description: string
+  depth: number
+}

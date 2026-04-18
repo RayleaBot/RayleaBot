@@ -109,6 +109,12 @@ describe('BasicLayout', () => {
                   component: { template: '<div>配置页</div>' },
                   meta: { icon: 'config', keepAlive: true, title: '配置' },
                 },
+                {
+                  path: '/render/templates/:templateId?',
+                  name: 'render-templates',
+                  component: { template: '<div>模板编辑页</div>' },
+                  meta: { icon: 'render-templates', keepAlive: true, title: '模板编辑' },
+                },
               ],
             },
           ],
@@ -220,6 +226,7 @@ describe('BasicLayout', () => {
     expect(wrapper.text()).toContain('日志中心')
     expect(wrapper.text()).toContain('协议')
     expect(wrapper.text()).toContain('系统')
+    expect(wrapper.text()).toContain('模板编辑')
   })
 
   it('creates leaf tabs for grouped pages and keeps the active tab in sync', async () => {

@@ -112,15 +112,19 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  async function fetchDetail(taskId: string) {
+  async function fetchTask(taskId: string, options: { makeCurrent?: boolean } = {}) {
     detailLoading.value = true
     const requestVersion = getTaskVersion(taskId)
     try {
       const response = await apiRequest<TaskDetailResponse>(`/api/tasks/${taskId}`)
-      return writeTask(response.task, { requestVersion, makeCurrent: true })
+      return writeTask(response.task, { requestVersion, makeCurrent: options.makeCurrent ?? true })
     } finally {
       detailLoading.value = false
     }
+  }
+
+  async function fetchDetail(taskId: string) {
+    return fetchTask(taskId, { makeCurrent: true })
   }
 
   async function cancelTask(taskId: string) {
@@ -152,6 +156,7 @@ export const useTasksStore = defineStore('tasks', () => {
     loading,
     sortedItems,
     cancelTask,
+    fetchTask,
     fetchDetail,
     fetchList,
     upsert,
