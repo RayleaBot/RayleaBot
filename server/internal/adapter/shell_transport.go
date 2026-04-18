@@ -223,6 +223,7 @@ func (s *Shell) handleReverseSession(conn *websocket.Conn) {
 	s.snapshot.ReverseWS.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = true
 	s.snapshot.ConnectedAt = cloneTime(&ready.ObservedAt)
+	s.syncLastErrorLocked()
 	s.refreshAggregateStateLocked()
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
@@ -249,6 +250,7 @@ func (s *Shell) AcceptWebhookPayload(ctx context.Context, payload []byte) error 
 	s.snapshot.Webhook.State = TransportStateListening
 	s.snapshot.Webhook.LastErrorCode = ""
 	s.snapshot.Webhook.LastErrorMessage = ""
+	s.syncLastErrorLocked()
 	s.refreshAggregateStateLocked()
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
@@ -295,6 +297,24 @@ func (s *Shell) markTransportFailure(transport TransportKey, fallback TransportS
 	handler := s.stateHandler
 	s.mu.Unlock()
 	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) syncLastErrorLocked() {
+	for _, transport := range []TransportSnapshot{
+		s.snapshot.ForwardWS,
+		s.snapshot.ReverseWS,
+		s.snapshot.HTTPAPI,
+		s.snapshot.Webhook,
+	} {
+		if strings.TrimSpace(transport.LastErrorCode) == "" {
+			continue
+		}
+		s.snapshot.LastErrorCode = transport.LastErrorCode
+		s.snapshot.LastErrorMessage = transport.LastErrorMessage
+		return
+	}
+	s.snapshot.LastErrorCode = ""
+	s.snapshot.LastErrorMessage = ""
 }
 
 func (s *Shell) currentWSConn() (*websocket.Conn, TransportKey, Snapshot) {
@@ -361,6 +381,7 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (a
 	s.snapshot.HTTPAPI.State = TransportStateConnected
 	s.snapshot.HTTPAPI.LastErrorCode = ""
 	s.snapshot.HTTPAPI.LastErrorMessage = ""
+	s.syncLastErrorLocked()
 	s.refreshAggregateStateLocked()
 	snapshot = cloneSnapshot(s.snapshot)
 	handler := s.stateHandler

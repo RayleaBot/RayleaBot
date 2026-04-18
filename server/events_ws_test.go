@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +122,66 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	waitForObservabilitySubscriber(t, eventBridge)
 	first := readProtocolReplayFrame(t, conn)
 	assertProtocolReplayFrame(t, first, "protocol_snapshot")
+}
+
+func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		onebot := input["onebot"].(map[string]any)
+		onebot["access_token"] = "fixture-token"
+		reverseWS := onebot["reverse_ws"].(map[string]any)
+		reverseWS["enabled"] = true
+		reverseWS["url"] = "ws://127.0.0.1:8080/onebot/reverse"
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	unauthorizedReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/reverse-ws", nil)
+	if err != nil {
+		t.Fatalf("create reverse websocket request: %v", err)
+	}
+	unauthorizedResp, err := server.Client().Do(unauthorizedReq)
+	if err != nil {
+		t.Fatalf("perform reverse websocket request: %v", err)
+	}
+	defer unauthorizedResp.Body.Close()
+	if unauthorizedResp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unexpected reverse websocket status: got %d want %d", unauthorizedResp.StatusCode, http.StatusUnauthorized)
+	}
+
+	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11", nil)
+	if err != nil {
+		t.Fatalf("create protocol snapshot request: %v", err)
+	}
+	snapshotReq.Header.Set("Authorization", "Bearer "+token)
+	snapshotResp, err := server.Client().Do(snapshotReq)
+	if err != nil {
+		t.Fatalf("perform protocol snapshot request: %v", err)
+	}
+	defer snapshotResp.Body.Close()
+	if snapshotResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected protocol snapshot status: got %d want %d", snapshotResp.StatusCode, http.StatusOK)
+	}
+	httpSnapshot := decodeBody(t, readAll(t, snapshotResp))
+
+	conn := dialEventsWebSocket(t, server.URL, token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+	first := readProtocolReplayFrame(t, conn)
+	assertProtocolReplayFrame(t, first, "protocol_snapshot")
+
+	data, ok := first["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected websocket data object, got %#v", first["data"])
+	}
+	wsSnapshot, ok := data["protocol_snapshot"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected websocket protocol snapshot object, got %#v", data["protocol_snapshot"])
+	}
+	if !reflect.DeepEqual(wsSnapshot, httpSnapshot) {
+		t.Fatalf("unexpected websocket protocol snapshot: got %#v want %#v", wsSnapshot, httpSnapshot)
+	}
 }
 
 func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
