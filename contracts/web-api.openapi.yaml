@@ -19,6 +19,7 @@ x-fixtures:
   - fixtures/web-api/edge.config-update-response.adapter-reload-fallback.yaml
   - fixtures/web-api/ok.system-status.yaml
   - fixtures/web-api/ok.protocol-onebot11-snapshot.yaml
+  - fixtures/web-api/ok.protocol-onebot11-compatibility.yaml
   - fixtures/web-api/ok.protocol-onebot11-reverse-ws-upgrade.yaml
   - fixtures/web-api/ok.protocol-onebot11-webhook-accepted.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
@@ -82,8 +83,10 @@ x-fixtures:
   - fixtures/web-api/invalid.auth-missing-token.yaml
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
   - fixtures/web-api/invalid.protocol-onebot11-reverse-ws-auth-failed.yaml
+  - fixtures/web-api/invalid.protocol-onebot11-compatibility-invalid-support.yaml
   - fixtures/web-api/invalid.protocol-onebot11-webhook-auth-failed.yaml
   - fixtures/web-api/invalid.protocol-onebot11-webhook-invalid-payload.yaml
+  - fixtures/web-api/edge.protocol-onebot11-compatibility-provider-gaps.yaml
   - fixtures/web-api/invalid.session-launcher-admission-invalid-token.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
   - fixtures/web-api/invalid.system-render-preview-invalid.yaml
@@ -411,6 +414,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/OneBot11ProtocolSnapshotResponse'
         '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/protocols/onebot11/compatibility:
+    get:
+      summary: Query the formal OneBot11 compatibility matrix for standard, NapCat, and LuckyLillia providers.
+      operationId: getOneBot11ProtocolCompatibility
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OneBot11 compatibility matrix.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneBot11ProtocolCompatibilityResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '500':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -1525,6 +1548,71 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProtocolIssue'
+
+    ProtocolCompatibilityCategoryKey:
+      type: string
+      enum: [events, message_segments, read_capabilities, provider_extensions]
+
+    ProtocolCompatibilitySupportStatus:
+      type: string
+      enum: [supported, unsupported]
+
+    ProtocolCompatibilitySupportMap:
+      type: object
+      additionalProperties: false
+      required: [standard, napcat, luckylillia]
+      properties:
+        standard:
+          $ref: '#/components/schemas/ProtocolCompatibilitySupportStatus'
+        napcat:
+          $ref: '#/components/schemas/ProtocolCompatibilitySupportStatus'
+        luckylillia:
+          $ref: '#/components/schemas/ProtocolCompatibilitySupportStatus'
+
+    ProtocolCompatibilityItem:
+      type: object
+      additionalProperties: false
+      required: [key, label, support, summary]
+      properties:
+        key:
+          type: string
+          minLength: 1
+        label:
+          type: string
+          minLength: 1
+        support:
+          $ref: '#/components/schemas/ProtocolCompatibilitySupportMap'
+        summary:
+          type: string
+          minLength: 1
+
+    ProtocolCompatibilityCategory:
+      type: object
+      additionalProperties: false
+      required: [key, title, items]
+      properties:
+        key:
+          $ref: '#/components/schemas/ProtocolCompatibilityCategoryKey'
+        title:
+          type: string
+          minLength: 1
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolCompatibilityItem'
+
+    OneBot11ProtocolCompatibilityResponse:
+      type: object
+      additionalProperties: false
+      required: [protocol, categories]
+      properties:
+        protocol:
+          type: string
+          const: onebot11
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolCompatibilityCategory'
 
     SystemShutdownResponse:
       type: object

@@ -1,0 +1,13 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000210
+    plugin_id: weather
+    request_id: act_message_get_0001
+    action: message.get
+    data:
+      message_id: "12345"
+expect:
+  valid: true

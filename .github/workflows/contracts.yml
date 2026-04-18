@@ -664,6 +664,7 @@ jobs:
               '/api/logs',
               '/api/logs/{log_id}',
               '/api/protocols/onebot11',
+              '/api/protocols/onebot11/compatibility',
               '/api/protocols/onebot11/reverse-ws',
               '/api/protocols/onebot11/webhook',
               '/api/tasks',

@@ -15,6 +15,9 @@ frames:
           - type: text
             data:
               text: 查看扩展消息段
+          - type: flash_file
+            data:
+              file: file:///tmp/flash-demo.bin
           - type: markdown
             data:
               content: "**天气**"

@@ -17,4 +17,4 @@ frames:
               text: "# unsupported"
 expect:
   valid: false
-  reason: only text, image, at, at_all, face, and reply are frozen outbound segment kinds.
+  reason: outbound message segments must stay within the frozen segment enum.

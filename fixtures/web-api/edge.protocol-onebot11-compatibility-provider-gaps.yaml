@@ -1,0 +1,30 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Compatibility matrix keeps unsupported provider-specific gaps explicit instead of omitting them.
+request:
+  method: GET
+  path: /api/protocols/onebot11/compatibility
+response:
+  status: 200
+  body:
+    protocol: onebot11
+    categories:
+      - key: provider_extensions
+        title: Provider 扩展
+        items:
+          - key: notice.group_message_emoji_like
+            label: 群消息表情回应事件
+            support:
+              standard: unsupported
+              napcat: supported
+              luckylillia: unsupported
+            summary: 未支持项会显式返回 unsupported，不会留空。
+          - key: provider.luckylillia.friend_groups.get
+            label: LuckyLillia 好友分组
+            support:
+              standard: unsupported
+              napcat: unsupported
+              luckylillia: supported
+            summary: Provider 扩展按 provider 明确标记支持状态。
+expect:
+  valid: true

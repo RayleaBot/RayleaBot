@@ -1,0 +1,24 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Compatibility matrix rejects support statuses outside the frozen enum.
+request:
+  method: GET
+  path: /api/protocols/onebot11/compatibility
+response:
+  status: 200
+  body:
+    protocol: onebot11
+    categories:
+      - key: events
+        title: 核心事件
+        items:
+          - key: message.group
+            label: 群消息
+            support:
+              standard: partial
+              napcat: supported
+              luckylillia: supported
+            summary: invalid support status
+expect:
+  valid: false
+  reason: provider support status only allows supported or unsupported.

@@ -1,0 +1,13 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000212
+    plugin_id: weather
+    request_id: act_file_get_0001
+    action: file.get
+    data:
+      file_id: "file_12345"
+expect:
+  valid: true

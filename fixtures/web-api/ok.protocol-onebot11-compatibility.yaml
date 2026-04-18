@@ -1,0 +1,214 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: OneBot11 compatibility matrix returns the frozen capability coverage for standard, NapCat, and LuckyLillia providers.
+request:
+  method: GET
+  path: /api/protocols/onebot11/compatibility
+response:
+  status: 200
+  body:
+    protocol: onebot11
+    categories:
+      - key: events
+        title: 核心事件
+        items:
+          - key: message.private
+            label: 私聊消息
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 私聊消息事件进入正式插件事件主链。
+          - key: message.group
+            label: 群消息
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 群消息事件进入正式插件事件主链。
+          - key: message_sent.group
+            label: 群发送回执
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 群发送回执事件进入正式插件事件主链。
+          - key: request.friend
+            label: 好友请求
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 好友请求事件进入正式插件事件主链。
+          - key: request.group
+            label: 群请求
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 群请求事件进入正式插件事件主链。
+          - key: notice.flash_file
+            label: 闪传文件事件
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 闪传文件事件使用正式 notice.flash_file 事件类型。
+          - key: meta.heartbeat
+            label: 心跳事件
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 心跳事件进入正式插件事件主链，同时保持传输状态信号职责。
+          - key: meta.lifecycle
+            label: 生命周期事件
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 生命周期事件进入正式插件事件主链，同时保持传输状态信号职责。
+      - key: message_segments
+        title: 消息段
+        items:
+          - key: text
+            label: 文本
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 文本消息段进入正式入站与出站消息段集合。
+          - key: image
+            label: 图片
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 图片消息段进入正式入站与出站消息段集合。
+          - key: reply
+            label: 回复
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 回复消息段进入正式入站与出站消息段集合。
+          - key: flash_file
+            label: 闪传文件
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 闪传文件消息段进入正式入站与出站消息段集合。
+          - key: keyboard
+            label: 键盘
+            support:
+              standard: unsupported
+              napcat: supported
+              luckylillia: unsupported
+            summary: 键盘消息段作为 provider 扩展能力，由 NapCat 提供支持。
+      - key: read_capabilities
+        title: 读取能力
+        items:
+          - key: message.get
+            label: 读取单条消息
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供单条消息读取能力。
+          - key: message.history.get
+            label: 读取历史消息
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供历史消息读取能力。
+          - key: message.forward.get
+            label: 读取转发消息
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供转发消息详情读取能力。
+          - key: file.get
+            label: 读取文件详情
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供文件详情读取能力。
+          - key: file.group.url.get
+            label: 读取群文件下载地址
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供群文件下载地址读取能力。
+          - key: file.private.url.get
+            label: 读取私聊文件下载地址
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供私聊文件下载地址读取能力。
+          - key: group.announcement.list
+            label: 群公告列表
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供群公告列表读取能力。
+          - key: group.essence.list
+            label: 群精华列表
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供群精华列表读取能力。
+          - key: group.honor.get
+            label: 群荣誉
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供群荣誉读取能力。
+          - key: reaction.list
+            label: 表情回应列表
+            support:
+              standard: supported
+              napcat: supported
+              luckylillia: supported
+            summary: 平台提供消息表情回应读取能力。
+      - key: provider_extensions
+        title: Provider 扩展
+        items:
+          - key: notice.group_message_emoji_like
+            label: 群消息表情回应事件
+            support:
+              standard: unsupported
+              napcat: supported
+              luckylillia: unsupported
+            summary: 群消息表情回应事件属于 NapCat provider 扩展。
+          - key: provider.napcat.message_emoji.like.set
+            label: NapCat 设置消息表情回应
+            support:
+              standard: unsupported
+              napcat: supported
+              luckylillia: unsupported
+            summary: NapCat 提供设置消息表情回应扩展动作。
+          - key: provider.napcat.group.sign.set
+            label: NapCat 群签到
+            support:
+              standard: unsupported
+              napcat: supported
+              luckylillia: unsupported
+            summary: NapCat 提供群签到扩展动作。
+          - key: provider.luckylillia.friend_groups.get
+            label: LuckyLillia 好友分组
+            support:
+              standard: unsupported
+              napcat: unsupported
+              luckylillia: supported
+            summary: LuckyLillia 提供好友分组扩展动作。
+expect:
+  valid: true

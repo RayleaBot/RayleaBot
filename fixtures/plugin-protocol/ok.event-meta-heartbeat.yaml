@@ -1,0 +1,38 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000030
+    plugin_id: echo
+    request_id: evt_meta_heartbeat_001
+    event:
+      event_id: onebot11-meta-heartbeat-1710000030
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: meta.heartbeat
+      timestamp: 1710000030
+      target:
+        type: bot
+        id: "999001"
+        name: RayleaBot
+      payload:
+        onebot:
+          post_type: meta_event
+          meta_event_type: heartbeat
+          self_id: "999001"
+          time: 1710000030
+          interval: 5000
+          status:
+            online: true
+            good: true
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000031
+    plugin_id: echo
+    request_id: evt_meta_heartbeat_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true

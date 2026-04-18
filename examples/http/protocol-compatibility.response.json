@@ -1,0 +1,47 @@
+{
+  "protocol": "onebot11",
+  "categories": [
+    {
+      "key": "events",
+      "title": "核心事件",
+      "items": [
+        {
+          "key": "message.group",
+          "label": "群消息",
+          "support": {
+            "standard": "supported",
+            "napcat": "supported",
+            "luckylillia": "supported"
+          },
+          "summary": "群消息事件进入正式插件事件主链。"
+        },
+        {
+          "key": "meta.heartbeat",
+          "label": "心跳事件",
+          "support": {
+            "standard": "supported",
+            "napcat": "supported",
+            "luckylillia": "supported"
+          },
+          "summary": "心跳事件进入正式插件事件主链，同时保持传输状态信号职责。"
+        }
+      ]
+    },
+    {
+      "key": "provider_extensions",
+      "title": "Provider 扩展",
+      "items": [
+        {
+          "key": "provider.napcat.group.sign.set",
+          "label": "NapCat 群签到",
+          "support": {
+            "standard": "unsupported",
+            "napcat": "supported",
+            "luckylillia": "unsupported"
+          },
+          "summary": "NapCat 提供群签到扩展动作。"
+        }
+      ]
+    }
+  ]
+}

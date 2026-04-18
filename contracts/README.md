@@ -35,7 +35,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot、plugin lifecycle、plugin grants、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
@@ -53,7 +53,9 @@
   - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已冻结 OneBot family / provider namespace 扩展 action，provider-specific namespace 固定为 `provider.napcat.*` 与 `provider.luckylillia.*`
-  - 正式 outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
+  - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`config.changed`、`webhook.received` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
+  - `event.payload.onebot` 正式暴露 `meta_event_type`、`interval`、`status`
+  - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
 - `release-manifest.schema.json`
   - `release_manifest.json` 与 `build_info.json` 的正式字段结构
   - `SHA256SUMS.txt` 继续由 release tool 的生成与校验规则裁决，不作为独立 schema
@@ -77,6 +79,12 @@
 ## 当前未进入 OpenAPI 的 TODO
 
 当前没有额外的管理 HTTP 路由保留在正式 OpenAPI 冻结范围之外。
+
+当前已进入 OpenAPI 冻结范围的 protocol compatibility surface：
+
+- `GET /api/protocols/onebot11/compatibility`
+
+其中 response 固定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类能力矩阵；provider 支持状态固定为 `supported` 或 `unsupported`。
 
 当前已进入 OpenAPI 冻结范围的 plugin grants surface：
 

@@ -1,0 +1,39 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000032
+    plugin_id: echo
+    request_id: evt_meta_lifecycle_001
+    event:
+      event_id: onebot11-meta-lifecycle-1710000032
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: meta.lifecycle
+      timestamp: 1710000032
+      target:
+        type: bot
+        id: "999001"
+        name: RayleaBot
+      payload:
+        sub_type: connect
+        onebot:
+          post_type: meta_event
+          meta_event_type: lifecycle
+          sub_type: connect
+          self_id: "999001"
+          time: 1710000032
+          status:
+            online: true
+            good: true
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000033
+    plugin_id: echo
+    request_id: evt_meta_lifecycle_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true

@@ -224,7 +224,36 @@
                 },
                 "event_type": {
                   "type": "string",
-                  "minLength": 1
+                  "enum": [
+                    "scheduler.trigger",
+                    "config.changed",
+                    "webhook.received",
+                    "message.private",
+                    "message.group",
+                    "message_sent.private",
+                    "message_sent.group",
+                    "notice.member_increase",
+                    "notice.member_decrease",
+                    "notice.group_admin",
+                    "notice.group_ban",
+                    "notice.group_recall",
+                    "notice.group_upload",
+                    "notice.group_card",
+                    "notice.group_title",
+                    "notice.group_essence",
+                    "notice.friend_add",
+                    "notice.friend_recall",
+                    "notice.flash_file",
+                    "notice.poke",
+                    "notice.poke_recall",
+                    "notice.profile_like",
+                    "notice.input_status",
+                    "notice.group_message_emoji_like",
+                    "request.friend",
+                    "request.group",
+                    "meta.heartbeat",
+                    "meta.lifecycle"
+                  ]
                 },
                 "timestamp": {
                   "type": "integer",
@@ -305,6 +334,9 @@
                         "post_type": {
                           "type": "string"
                         },
+                        "meta_event_type": {
+                          "type": "string"
+                        },
                         "message_type": {
                           "type": "string"
                         },
@@ -330,6 +362,10 @@
                           "type": "string"
                         },
                         "time": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "interval": {
                           "type": "integer",
                           "minimum": 0
                         },
@@ -385,6 +421,10 @@
                         },
                         "flag": {
                           "type": "string"
+                        },
+                        "status": {
+                          "type": "object",
+                          "additionalProperties": true
                         }
                       }
                     }
@@ -404,8 +444,32 @@
                         "properties": {
                           "type": {
                             "type": "string",
-                            "minLength": 1,
-                            "description": "Segment kind: text, image, at, at_all, face, reply, or implementation-specific types."
+                            "enum": [
+                              "text",
+                              "image",
+                              "at",
+                              "at_all",
+                              "face",
+                              "reply",
+                              "record",
+                              "video",
+                              "file",
+                              "flash_file",
+                              "json",
+                              "xml",
+                              "markdown",
+                              "music",
+                              "contact",
+                              "forward",
+                              "node",
+                              "poke",
+                              "dice",
+                              "rps",
+                              "mface",
+                              "keyboard",
+                              "shake"
+                            ],
+                            "description": "Frozen inbound segment kind."
                           },
                           "data": {
                             "type": "object",
@@ -818,7 +882,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["record", "video", "file"]
+          "enum": ["record", "video", "file", "flash_file"]
         },
         "data": {
           "type": "object",
@@ -2490,7 +2554,12 @@
     "fixtures/plugin-protocol/ok.event-message-with-segments.yaml",
     "fixtures/plugin-protocol/ok.event-message-sent-group.yaml",
     "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
-    "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml"
+    "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml",
+    "fixtures/plugin-protocol/ok.event-meta-heartbeat.yaml",
+    "fixtures/plugin-protocol/ok.event-meta-lifecycle.yaml",
+    "fixtures/plugin-protocol/ok.action-message-get.yaml",
+    "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
+    "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* uses the shared outbound segment model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }
