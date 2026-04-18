@@ -48,18 +48,26 @@ describe('system store', () => {
   })
 
   it('accepts readiness payloads that come back with 503 during startup transitions', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ status: 'ok' }))
-        .mockResolvedValueOnce(jsonResponse({ status: 'failed', reason: '服务仍在完成启动。' }, 503))
-        .mockResolvedValueOnce(jsonResponse({
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+
+      if (url.endsWith('/healthz')) {
+        return jsonResponse({ status: 'ok' })
+      }
+      if (url.endsWith('/readyz')) {
+        return jsonResponse({ status: 'failed', reason: '服务仍在完成启动。' }, 503)
+      }
+      if (url.endsWith('/api/system/status')) {
+        return jsonResponse({
           status: 'running',
           adapter_state: 'idle',
           active_plugins: 0,
           uptime_seconds: 3,
-        })),
-    )
+        })
+      }
+
+      throw new Error(`unexpected url: ${url}`)
+    }))
 
     const store = useSystemStore()
     await store.refresh()

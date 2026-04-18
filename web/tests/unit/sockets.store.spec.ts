@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
@@ -46,6 +46,11 @@ describe('socket store', () => {
   beforeEach(() => {
     MockManagedSocket.instances = []
     setActivePinia(createPinia())
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('starts management sockets, projects statuses, and routes frames to stores', () => {
@@ -188,5 +193,42 @@ describe('socket store', () => {
     expect(MockManagedSocket.instances[1].stop).toHaveBeenCalledTimes(1)
     expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(1)
     expect(MockManagedSocket.instances[3].stop).toHaveBeenCalledTimes(1)
+  })
+
+  it('debounces service status refreshes while keeping recent events readable', async () => {
+    const sessionStore = useSessionStore()
+    sessionStore.token = 'session-token'
+    const systemStore = useSystemStore()
+    const store = useSocketStore()
+    const refreshStatus = vi.spyOn(systemStore, 'refreshStatus').mockResolvedValue()
+
+    store.ensureManagementSockets()
+
+    MockManagedSocket.instances[0].emitFrame({
+      timestamp: '2026-04-05T08:00:00Z',
+      data: {
+        service_status: 'degraded',
+        summary: '服务运行条件受限',
+        reason: 'OneBot 正在建立连接',
+        reason_codes: ['adapter.connection_pending'],
+      },
+    })
+    MockManagedSocket.instances[0].emitFrame({
+      timestamp: '2026-04-05T08:00:01Z',
+      data: {
+        service_status: 'degraded',
+        summary: '服务运行条件受限',
+        reason: 'OneBot 正在建立连接',
+        reason_codes: ['adapter.connection_pending'],
+      },
+    })
+
+    expect(systemStore.recentEvents).toHaveLength(2)
+    expect(systemStore.recentEvents[0]?.summary).toBe('OneBot 正在建立连接')
+    expect(refreshStatus).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(120)
+
+    expect(refreshStatus).toHaveBeenCalledTimes(1)
   })
 })

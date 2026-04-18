@@ -25,6 +25,8 @@ export const useSocketStore = defineStore('sockets', () => {
 
   let consolePluginId: string | null = null
   let socketsInitialized = false
+  let statusRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
+  let statusRefreshInFlight = false
 
   const sessionStore = useSessionStore()
 
@@ -39,6 +41,39 @@ export const useSocketStore = defineStore('sockets', () => {
   const protocolsStore = useProtocolsStore()
   const systemStore = useSystemStore()
 
+  function clearStatusRefresh() {
+    if (statusRefreshHandle !== null) {
+      window.clearTimeout(statusRefreshHandle)
+      statusRefreshHandle = null
+    }
+  }
+
+  async function runStatusRefresh() {
+    if (statusRefreshInFlight) {
+      return
+    }
+
+    statusRefreshInFlight = true
+    try {
+      await systemStore.refreshStatus()
+    } catch {
+      // dashboard keeps the last good snapshot until the next reconnect or manual refresh
+    } finally {
+      statusRefreshInFlight = false
+    }
+  }
+
+  function scheduleStatusRefresh() {
+    if (statusRefreshHandle !== null || statusRefreshInFlight) {
+      return
+    }
+
+    statusRefreshHandle = window.setTimeout(() => {
+      statusRefreshHandle = null
+      void runStatusRefresh()
+    }, 120)
+  }
+
   const eventsSocket = new ManagedSocket<EventsPayload>({
     name: 'events',
     path: () => '/ws/events',
@@ -49,6 +84,10 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     onFrame: (frame) => {
       systemStore.applyEvent(frame.timestamp, frame.data)
+      if ('service_status' in frame.data) {
+        scheduleStatusRefresh()
+        return
+      }
       if ('plugin_id' in frame.data) {
         pluginsStore.upsert({
           id: frame.data.plugin_id,
@@ -132,6 +171,7 @@ export const useSocketStore = defineStore('sockets', () => {
   }
 
   function disconnectAll() {
+    clearStatusRefresh()
     eventsSocket.stop()
     tasksSocket.stop()
     logsSocket.stop()
@@ -141,6 +181,7 @@ export const useSocketStore = defineStore('sockets', () => {
 
   function reconnectAll() {
     ensureManagementSockets()
+    clearStatusRefresh()
     eventsSocket.refresh()
     tasksSocket.refresh()
     logsSocket.refresh()

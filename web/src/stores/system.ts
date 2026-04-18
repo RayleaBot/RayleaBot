@@ -42,25 +42,49 @@ export const useSystemStore = defineStore('system', () => {
     })
   }
 
-  async function refresh() {
-    loading.value = true
-    error.value = null
+  async function refreshSnapshot(options: { includeHealth: boolean; interactive: boolean }) {
+    if (options.interactive) {
+      loading.value = true
+      error.value = null
+    }
     try {
-      const [nextHealth, nextReadiness, nextSystem] = await Promise.all([
-        apiRequest<LivenessStatusResponse>('/healthz', { auth: false }),
+      const requests = [
         requestReadinessStatus(),
         apiRequest<SystemStatusResponse>('/api/system/status'),
-      ])
+      ] as const
 
-      health.value = nextHealth
+      if (options.includeHealth) {
+        const [nextHealth, nextReadiness, nextSystem] = await Promise.all([
+          apiRequest<LivenessStatusResponse>('/healthz', { auth: false }),
+          ...requests,
+        ])
+        health.value = nextHealth
+        readiness.value = nextReadiness
+        system.value = nextSystem
+        return
+      }
+
+      const [nextReadiness, nextSystem] = await Promise.all(requests)
       readiness.value = nextReadiness
       system.value = nextSystem
     } catch (err) {
-      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
+      if (options.interactive) {
+        error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
+      }
       throw err
     } finally {
-      loading.value = false
+      if (options.interactive) {
+        loading.value = false
+      }
     }
+  }
+
+  async function refreshAll() {
+    await refreshSnapshot({ includeHealth: true, interactive: true })
+  }
+
+  async function refreshStatus() {
+    await refreshSnapshot({ includeHealth: false, interactive: false })
   }
 
   function applyEvent(timestamp: string, payload: EventsPayload) {
@@ -197,7 +221,9 @@ export const useSystemStore = defineStore('system', () => {
     exportDiagnostics,
     previewPending,
     previewRender,
-    refresh,
+    refresh: refreshAll,
+    refreshAll,
+    refreshStatus,
     requestShutdown,
   }
 })

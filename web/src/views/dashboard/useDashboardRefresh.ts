@@ -1,8 +1,10 @@
 import { onMounted, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 
+import type { ConnectionStatus } from '@/types/api'
 import { AUTO_REFRESH_INTERVAL } from '@/views/dashboard/constants'
 
 type DashboardRefreshInput = {
+  eventsSocketStatus: ComputedRef<ConnectionStatus>
   recoveryConfirmNote: Ref<string>
   recoverySummary: ComputedRef<any>
   selectedRecoveryReviewIds: Ref<string[]>
@@ -10,8 +12,12 @@ type DashboardRefreshInput = {
     refresh: () => Promise<unknown>
   }
   systemStore: {
-    refresh: () => Promise<void>
+    refreshAll: () => Promise<void>
   }
+}
+
+export function shouldUseDashboardHttpAutoRefresh(status: ConnectionStatus) {
+  return status !== 'authenticated' && status !== 'connected'
 }
 
 export function useDashboardRefresh(input: DashboardRefreshInput) {
@@ -23,11 +29,28 @@ export function useDashboardRefresh(input: DashboardRefreshInput) {
 
   async function refreshState() {
     try {
-      await input.systemStore.refresh()
+      await input.systemStore.refreshAll()
       try {
         await input.protocolsStore.refresh()
       } catch {
         // protocol store error state is optional on the dashboard
+      }
+      lastRefreshed.value = new Date().toISOString()
+      countdown.value = AUTO_REFRESH_INTERVAL
+    } catch {
+      // store error state drives the page
+    }
+  }
+
+  async function refreshAutoState() {
+    try {
+      if (shouldUseDashboardHttpAutoRefresh(input.eventsSocketStatus.value)) {
+        await input.systemStore.refreshAll()
+        try {
+          await input.protocolsStore.refresh()
+        } catch {
+          // protocol store error state is optional on the dashboard
+        }
       }
       lastRefreshed.value = new Date().toISOString()
       countdown.value = AUTO_REFRESH_INTERVAL
@@ -46,7 +69,7 @@ export function useDashboardRefresh(input: DashboardRefreshInput) {
     }, 1000)
 
     autoRefreshTimer = setInterval(() => {
-      void refreshState()
+      void refreshAutoState()
     }, AUTO_REFRESH_INTERVAL * 1000)
   }
 
