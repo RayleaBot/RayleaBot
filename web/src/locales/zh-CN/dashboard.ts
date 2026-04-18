@@ -56,4 +56,7 @@ export const dashboard = {
   recoveryAuditEmpty: '当前没有确认记录。',
   reconnect: '重新连接',
   runtimeBootstrap: '准备运行环境',
+  protocolAlertTitle: '协议提醒',
+  openProtocols: '查看协议中心',
+  protocolIssueMore: '还有 {count} 条传输异常',
 } as const

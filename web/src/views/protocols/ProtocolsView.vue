@@ -101,6 +101,13 @@ const transportStatusItems = computed(() => (
     endpointText: item.endpoint || t('display.empty'),
   })) ?? []
 ))
+const transportIssues = computed(() => snapshot.value?.recent_transport_issues ?? [])
+
+function getIssueTagColor(severity?: string) {
+  if (severity === 'error') return 'error'
+  if (severity === 'info') return 'processing'
+  return 'warning'
+}
 
 watch(document, (value) => {
   draft.value = value ? cloneConfig(value) : null
@@ -246,6 +253,27 @@ async function save() {
               <div class="transport-summary-text">{{ item.summary }}</div>
             </div>
           </a-card>
+        </div>
+      </div>
+
+      <div v-if="transportIssues.length" class="transport-issues-section" data-testid="protocol-issues">
+        <div class="section-heading">
+          <div>
+            <h2>{{ t('protocols.transportIssuesTitle') }}</h2>
+            <p class="subtitle">{{ t('protocols.transportIssuesHint') }}</p>
+          </div>
+        </div>
+        <div class="transport-issues-list">
+          <section
+            v-for="issue in transportIssues"
+            :key="`${issue.code}-${issue.summary}`"
+            class="transport-issue-card"
+          >
+            <div class="transport-issue-card__header">
+              <a-tag :color="getIssueTagColor(issue.severity)">{{ issue.code }}</a-tag>
+            </div>
+            <p>{{ issue.summary }}</p>
+          </section>
         </div>
       </div>
 
@@ -442,6 +470,37 @@ async function save() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-md);
+}
+
+.transport-issues-section {
+  display: grid;
+  gap: 12px;
+}
+
+.transport-issues-list {
+  display: grid;
+  gap: 12px;
+}
+
+.transport-issue-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--app-border));
+  background: color-mix(in srgb, var(--warning) 7%, transparent);
+}
+
+.transport-issue-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transport-issue-card p {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--app-text);
 }
 
 .transport-card-header {

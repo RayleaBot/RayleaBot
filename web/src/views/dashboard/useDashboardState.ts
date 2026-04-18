@@ -2,6 +2,7 @@ import { reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
+import { useProtocolsStore } from '@/stores/protocols'
 import { AUTO_REFRESH_INTERVAL } from '@/views/dashboard/constants'
 import { useSystemStore } from '@/stores/system'
 import { useDashboardDerivedState } from '@/views/dashboard/useDashboardDerivedState'
@@ -9,6 +10,7 @@ import { useDashboardRefresh } from '@/views/dashboard/useDashboardRefresh'
 
 export function useDashboardState() {
   const router = useRouter()
+  const protocolsStore = useProtocolsStore()
   const systemStore = useSystemStore()
   const {
     backupPending,
@@ -24,6 +26,7 @@ export function useDashboardState() {
     runtimeBootstrapPending,
     system,
   } = storeToRefs(systemStore)
+  const { snapshot: protocolSnapshot } = storeToRefs(protocolsStore)
 
   const previewVisible = ref(false)
   const previewForm = reactive({
@@ -61,6 +64,7 @@ export function useDashboardState() {
     system,
   })
   const refreshState = useDashboardRefresh({
+    protocolsStore,
     recoveryConfirmNote,
     recoverySummary: derivedState.recoverySummary,
     selectedRecoveryReviewIds,
@@ -79,6 +83,8 @@ export function useDashboardState() {
     previewForm,
     previewPending,
     previewVisible,
+    protocolSnapshot,
+    protocolsStore,
     readiness,
     recentEvents,
     recoveryConfirmNote,

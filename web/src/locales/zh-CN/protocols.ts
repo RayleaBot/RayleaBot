@@ -4,6 +4,8 @@ export const protocols = {
   overviewTitle: '协议概览',
   transportStatusTitle: '传输状态',
   transportStatusHint: '显示每条传输链路的地址、状态和摘要。',
+  transportIssuesTitle: '传输异常',
+  transportIssuesHint: '显示最近一次传输异常的错误码与摘要。',
   connectionSettings: '连接设置',
   connectionSettingsHint: '在这里填写 OneBot11 地址、访问令牌和重连参数。',
   protocolNameLabel: '协议名称',

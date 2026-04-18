@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import {
   CheckCircleOutlined,
@@ -14,6 +14,7 @@ import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
 import DashboardToolsPanel from '@/components/DashboardToolsPanel.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import { getReadinessStatusLabel, getStatusType } from '@/lib/display'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
 import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
@@ -48,6 +49,7 @@ const {
   previewForm,
   previewPending,
   previewVisible,
+  protocolSnapshot,
   readinessDetailText,
   readinessIssues,
   readinessStatusType,
@@ -113,6 +115,34 @@ function getEventSeverityIcon(severity?: string) {
   if (severity === 'warning') return ExclamationCircleOutlined
   if (severity === 'success') return CheckCircleOutlined
   return undefined
+}
+
+const protocolIssue = computed(() => {
+  const snapshot = protocolSnapshot.value
+  if (!snapshot) {
+    return null
+  }
+  if (!['degraded', 'failed'].includes(snapshot.readiness_status)) {
+    return null
+  }
+  return snapshot.recent_transport_issues[0] ?? null
+})
+
+const protocolIssueStatusLabel = computed(() => (
+  protocolSnapshot.value ? getReadinessStatusLabel(protocolSnapshot.value.readiness_status) : t('display.empty')
+))
+
+const protocolIssueStatusType = computed(() => getStatusType(protocolSnapshot.value?.readiness_status))
+
+const protocolIssueExtraCount = computed(() => {
+  const count = protocolSnapshot.value?.recent_transport_issues.length ?? 0
+  return count > 0 ? count - 1 : 0
+})
+
+function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) {
+  if (status === 'danger') return 'error'
+  if (status === 'success') return 'success'
+  return 'warning'
 }
 </script>
 
@@ -305,6 +335,28 @@ function getEventSeverityIcon(severity?: string) {
             <small>{{ autoRefresh ? `${t('dashboard.autoRefresh')} ${countdown}s` : t('dashboard.refresh') }}</small>
           </div>
         </div>
+
+        <div v-if="protocolIssue" class="dashboard-protocol-alert" data-testid="dashboard-protocol-alert">
+          <div class="dashboard-protocol-alert__header">
+            <div class="dashboard-protocol-alert__heading">
+              <span>{{ t('dashboard.protocolAlertTitle') }}</span>
+              <strong>{{ protocolIssue.summary }}</strong>
+            </div>
+            <div class="dashboard-protocol-alert__actions">
+              <a-tag :color="getProtocolIssueTagColor(protocolIssueStatusType)">{{ protocolIssueStatusLabel }}</a-tag>
+              <RouterLink class="dashboard-protocol-alert__link" to="/protocols">
+                {{ t('dashboard.openProtocols') }}
+              </RouterLink>
+            </div>
+          </div>
+
+          <div class="dashboard-protocol-alert__meta">
+            <a-tag color="warning">{{ protocolIssue.code }}</a-tag>
+            <small v-if="protocolIssueExtraCount > 0">
+              {{ t('dashboard.protocolIssueMore', { count: protocolIssueExtraCount }) }}
+            </small>
+          </div>
+        </div>
       </AppCard>
     </div>
 
@@ -398,9 +450,76 @@ function getEventSeverityIcon(severity?: string) {
   gap: var(--app-layout-gap);
 }
 
+.dashboard-protocol-alert {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border));
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface-soft));
+}
+
+.dashboard-protocol-alert__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.dashboard-protocol-alert__heading {
+  display: grid;
+  gap: 6px;
+
+  span {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  strong {
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: var(--text);
+  }
+}
+
+.dashboard-protocol-alert__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dashboard-protocol-alert__link {
+  color: var(--primary);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.dashboard-protocol-alert__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+
+  small {
+    color: var(--muted);
+    line-height: 1.4;
+  }
+}
+
 @media (max-width: 720px) {
   .dashboard-runtime-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-protocol-alert__header {
+    flex-direction: column;
+  }
+
+  .dashboard-protocol-alert__actions {
+    justify-content: flex-start;
   }
 }
 

@@ -5,7 +5,35 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import DashboardPage from '@/views/dashboard/DashboardView.vue'
+import { useProtocolsStore } from '@/stores/protocols'
 import { useSystemStore } from '@/stores/system'
+
+function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
+  return {
+    protocol: 'onebot11',
+    provider: 'standard',
+    configured_transports: ['forward_ws'],
+    active_transports: ['forward_ws'],
+    transport_status: [
+      { transport: 'reverse_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+      { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'connected', summary: '主动连接已建立' },
+      { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+      { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+    ],
+    readiness_status: 'ready',
+    summary: 'OneBot11 主动连接已就绪',
+    recent_transport_issues: [],
+    ...overrides,
+  }
+}
+
+function mockDashboardRefreshes() {
+  const systemStore = useSystemStore()
+  const protocolsStore = useProtocolsStore()
+  vi.spyOn(systemStore, 'refresh').mockResolvedValue(undefined)
+  vi.spyOn(protocolsStore, 'refresh').mockImplementation(async () => ({ snapshot: protocolsStore.snapshot }))
+  return { protocolsStore, systemStore }
+}
 
 describe('DashboardPage', () => {
   beforeEach(() => {
@@ -20,7 +48,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const store = useSystemStore()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'ready' }
     store.system = {
@@ -29,8 +57,8 @@ describe('DashboardPage', () => {
       active_plugins: 2,
       uptime_seconds: 120,
     }
+    protocolsStore.snapshot = createProtocolSnapshot()
 
-    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
     const createBackupSpy = vi.spyOn(store as never, 'createBackup').mockResolvedValue({ task_id: 'task_backup_create_0001' })
     const exportDiagnosticsSpy = vi.spyOn(store as never, 'exportDiagnostics').mockResolvedValue(undefined)
 
@@ -56,6 +84,7 @@ describe('DashboardPage', () => {
     expect(wrapper.findAll('.dashboard-overview-grid .stat-card')).toHaveLength(4)
     expect(wrapper.find('.dashboard-main-grid .ant-tabs').exists()).toBe(true)
     expect(wrapper.findAll('.dashboard-bottom-grid > .ant-card')).toHaveLength(3)
+    expect(wrapper.find('[data-testid="dashboard-protocol-alert"]').exists()).toBe(false)
     expect(wrapper.find('.dashboard-hero-card').exists()).toBe(false)
     expect(wrapper.find('.status-badge').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('聚合 health、ready、system status')
@@ -75,7 +104,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const store = useSystemStore()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'ready' }
     store.system = {
@@ -84,8 +113,8 @@ describe('DashboardPage', () => {
       active_plugins: 2,
       uptime_seconds: 120,
     }
+    protocolsStore.snapshot = createProtocolSnapshot()
 
-    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
     const previewSpy = vi.spyOn(store as never, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_0001' })
 
     const wrapper = mount(DashboardPage, {
@@ -111,6 +140,53 @@ describe('DashboardPage', () => {
     expect(previewSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('shows a protocol reminder when the protocol snapshot is degraded with transport issues', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: DashboardPage },
+        { path: '/protocols', component: { template: '<div>protocols</div>' } },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    store.health = { status: 'ok' }
+    store.readiness = { status: 'degraded' }
+    store.system = {
+      status: 'running',
+      adapter_state: 'reconnecting',
+      active_plugins: 2,
+      uptime_seconds: 120,
+    }
+    protocolsStore.snapshot = createProtocolSnapshot({
+      readiness_status: 'degraded',
+      summary: 'OneBot11 传输链路部分可用',
+      recent_transport_issues: [
+        {
+          code: 'adapter.transport_forward_ws_session_lost',
+          severity: 'warning',
+          summary: 'OneBot 主动连接已断开，正在重试。',
+        },
+      ],
+    })
+
+    const wrapper = mount(DashboardPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="dashboard-protocol-alert"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('协议提醒')
+    expect(wrapper.text()).toContain('OneBot 主动连接已断开，正在重试。')
+    expect(wrapper.text()).toContain('adapter.transport_forward_ws_session_lost')
+    expect(wrapper.text()).toContain('查看协议中心')
+  })
+
   it('renders readiness issues instead of legacy checks', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
@@ -119,7 +195,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const store = useSystemStore()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
       status: 'ready',
@@ -138,8 +214,7 @@ describe('DashboardPage', () => {
       active_plugins: 2,
       uptime_seconds: 120,
     }
-
-    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    protocolsStore.snapshot = createProtocolSnapshot()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -166,7 +241,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const store = useSystemStore()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
       status: 'degraded',
@@ -187,8 +262,7 @@ describe('DashboardPage', () => {
       active_plugins: 0,
       uptime_seconds: 17,
     }
-
-    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    protocolsStore.snapshot = createProtocolSnapshot()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -214,7 +288,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const store = useSystemStore()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
       status: 'degraded',
@@ -241,8 +315,7 @@ describe('DashboardPage', () => {
       active_plugins: 0,
       uptime_seconds: 50,
     }
-
-    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    protocolsStore.snapshot = createProtocolSnapshot()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -270,7 +343,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const store = useSystemStore()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'degraded' }
     store.system = {
@@ -356,8 +429,7 @@ describe('DashboardPage', () => {
         ],
       },
     }
-
-    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    protocolsStore.snapshot = createProtocolSnapshot()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -408,7 +480,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const store = useSystemStore()
+    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'degraded' }
     store.system = {
@@ -444,8 +516,7 @@ describe('DashboardPage', () => {
         next_steps: ['通过管理面、Launcher 或 diagnostics 复核 recovery_summary。'],
       },
     }
-
-    vi.spyOn(store, 'refresh').mockResolvedValue(undefined)
+    protocolsStore.snapshot = createProtocolSnapshot()
     const confirmSpy = vi.spyOn(store as never, 'confirmRecovery').mockResolvedValue({ task_id: 'task_recovery_confirm_0001' })
     const recheckSpy = vi.spyOn(store as never, 'recheckRecovery').mockResolvedValue({ task_id: 'task_recovery_recheck_0001' })
     const bootstrapSpy = vi.spyOn(store as never, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'task_runtime_bootstrap_0001' })

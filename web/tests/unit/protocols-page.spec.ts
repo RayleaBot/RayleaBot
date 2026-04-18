@@ -129,7 +129,13 @@ describe('ProtocolsPage', () => {
       ],
       readiness_status: 'degraded',
       summary: 'OneBot11 鉴权失败，请检查访问令牌',
-      recent_transport_issues: [],
+      recent_transport_issues: [
+        {
+          code: 'adapter.transport_forward_ws_connection_failed',
+          severity: 'warning',
+          summary: 'OneBot 主动连接鉴权失败，请检查访问令牌。',
+        },
+      ],
     }
 
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
@@ -151,10 +157,67 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('OneBot11')
     expect(wrapper.text()).toContain('OneBot11 鉴权失败，请检查访问令牌')
     expect(wrapper.text()).toContain('传输状态')
+    expect(wrapper.text()).toContain('传输异常')
     expect(wrapper.text()).toContain('主动连接 WebSocket')
     expect(wrapper.text()).toContain('主动连接鉴权失败')
+    expect(wrapper.text()).toContain('adapter.transport_forward_ws_connection_failed')
+    expect(wrapper.text()).toContain('OneBot 主动连接鉴权失败，请检查访问令牌。')
     expect(wrapper.text()).toContain('连接设置')
     expect(wrapper.text()).not.toContain('查看协议日志')
+  })
+
+  it('hides the transport issue section after the issue list is cleared', async () => {
+    const configStore = useConfigStore()
+    const protocolsStore = useProtocolsStore()
+
+    configStore.document = createFixtureConfig()
+    protocolsStore.snapshot = {
+      protocol: 'onebot11',
+      provider: 'standard',
+      configured_transports: ['forward_ws'],
+      active_transports: ['forward_ws'],
+      transport_status: [
+        { transport: 'reverse_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'reconnecting', summary: '连接已断开，正在重试' },
+        { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+      ],
+      readiness_status: 'degraded',
+      summary: 'OneBot11 传输链路部分可用',
+      recent_transport_issues: [
+        {
+          code: 'adapter.transport_forward_ws_session_lost',
+          severity: 'warning',
+          summary: 'OneBot 主动连接已断开，正在重试。',
+        },
+      ],
+    }
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+
+    const router = createTestRouter()
+    await router.push('/protocols')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="protocol-issues"]').exists()).toBe(true)
+
+    protocolsStore.snapshot = {
+      ...protocolsStore.snapshot!,
+      readiness_status: 'ready',
+      recent_transport_issues: [],
+    }
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="protocol-issues"]').exists()).toBe(false)
   })
 
   it('submits the full config document while editing protocol fields only', async () => {

@@ -6,6 +6,9 @@ type DashboardRefreshInput = {
   recoveryConfirmNote: Ref<string>
   recoverySummary: ComputedRef<any>
   selectedRecoveryReviewIds: Ref<string[]>
+  protocolsStore: {
+    refresh: () => Promise<unknown>
+  }
   systemStore: {
     refresh: () => Promise<void>
   }
@@ -21,6 +24,11 @@ export function useDashboardRefresh(input: DashboardRefreshInput) {
   async function refreshState() {
     try {
       await input.systemStore.refresh()
+      try {
+        await input.protocolsStore.refresh()
+      } catch {
+        // protocol store error state is optional on the dashboard
+      }
       lastRefreshed.value = new Date().toISOString()
       countdown.value = AUTO_REFRESH_INTERVAL
     } catch {
