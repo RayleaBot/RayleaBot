@@ -24,3 +24,18 @@ plugin.file_group_upload(request_id, "123456", "report.txt", "https://example.co
 plugin.reaction_set(request_id, "msg_001", "👍")
 plugin.luckylillia_friend_groups_get(request_id, "10001")
 ```
+
+```python
+from rayleabot import ActionError
+
+try:
+    plugin.http_request(request_id, "GET", "https://api.example.test/v1/data")
+except ActionError as exc:
+    retry_after = exc.details.get("retry_after_seconds")
+    plugin.logger_write(
+        request_id,
+        "warn",
+        "request rejected",
+        {"code": exc.code, "retry_after_seconds": retry_after},
+    )
+```

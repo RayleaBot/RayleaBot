@@ -228,6 +228,7 @@
   "x-fixtures": [
     "fixtures/release-manifest/ok.release-manifest-minimal.json",
     "fixtures/release-manifest/ok.build-info-minimal.json",
+    "fixtures/release-manifest/edge.build-info-with-release-notes.json",
     "fixtures/release-manifest/invalid.artifact-missing-sha256.json",
     "fixtures/release-manifest/edge.multi-artifact-official-matrix.json"
   ],

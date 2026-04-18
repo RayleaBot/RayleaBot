@@ -68,6 +68,9 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertTrue(archive_path.exists())
             with zipfile.ZipFile(archive_path) as zf:
                 names = set(zf.namelist())
+                build_info = json.loads(
+                    zf.read("RayleaBot-v0.1.0-windows-x64-full/build_info.json").decode("utf-8")
+                )
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/build_info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/resources/app.asar", names)
@@ -77,6 +80,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/index.html", names)
+            self.assertEqual("https://example.invalid/releases/v0.1.0", build_info["release_notes_ref"])
 
             manifest_path, checksums_path = release_tool.build_release_metadata(
                 version="0.1.0",
@@ -92,9 +96,11 @@ class ReleaseToolTests(unittest.TestCase):
             )
 
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            checksums = release_tool.parse_checksums(checksums_path)
             self.assertEqual(manifest["artifacts"][0]["artifact_id"], "windows-x64-full")
             self.assertEqual(manifest["artifacts"][0]["smoke_profile"], "windows_full_smoke")
             self.assertIn("release_manifest.json", checksums_path.read_text(encoding="utf-8"))
+            self.assertEqual(release_tool.sha256_file(manifest_path), checksums["release_manifest.json"])
 
             release_tool.verify_release_bundle(manifest_path, checksums_path, output)
 

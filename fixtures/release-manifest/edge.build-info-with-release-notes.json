@@ -1,0 +1,18 @@
+{
+  "contract": "contracts/release-manifest.schema.json",
+  "case": "edge",
+  "document_type": "build_info",
+  "input": {
+    "version": "0.1.0",
+    "git_commit": "a8ee7bb",
+    "artifact_id": "windows-x64-full",
+    "built_at": "2026-03-17T10:00:00Z",
+    "release_notes_ref": "https://example.com/releases/v0.1.0"
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "Packaged builds may keep a release page reference without embedding the published release manifest checksum."
+    ]
+  }
+}
