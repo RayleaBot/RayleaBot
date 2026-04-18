@@ -36,6 +36,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 3 已完成 transport 主链收口与协议异常可见性补齐
 - ☑️ Phase 4 已完成 OneBot11 核心事件、消息段、历史 / 详情读取与兼容矩阵收口
 - ☑️ Phase 5 已完成 Plugin Protocol / Wider Action Family 收口
+- ☑️ Phase 6 已完成在线模板编辑器 / Render 可视化
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -69,9 +70,9 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 3 | OneBot11 传输模式补齐 | ☑️ | reverse WS、forward WS、HTTP、webhook 四条接入链路、协议快照与 transport 异常可见性已收口 |
 | Phase 4 | OneBot11 事件与消息兼容补齐 | ☑️ | 核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵已进入正式边界与管理面 |
 | Phase 5 | Plugin Protocol / Wider Action Family | ☑️ | capability 名称、action kind、运行时授权、SDK helper、示例与文档口径已统一 |
-| Phase 6 | 在线模板编辑器 / Render 可视化 | 🟡 | 提供模板编辑、校验、预览、保存、回退与渲染结果可视化 |
+| Phase 6 | 在线模板编辑器 / Render 可视化 | ☑️ | 模板列表、源码编辑、校验、手动预览、保存、版本历史、回退与渲染结果可视化已进入真实链路 |
 | Phase 7 | Plugin Platform / Manifest / Config / Governance | ◐ | 生命周期 `display_state`、配置保存 `apply_effects`、manifest 元数据与治理读取面已进入正式边界，剩余管理可见性与运行链路验收随后批次继续 |
-| Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置、日志中心主线与统一日志详情已完成，模板编辑、跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
+| Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置、日志中心主线、统一日志详情与模板编辑工作区已完成，跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
 | Phase 9 | Launcher / 本地运维入口 | ◐ | 启动失败诊断与端口占用识别已补强，环境诊断与深链引导仍待继续 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
 
@@ -228,18 +229,18 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 八、Phase 6 — 在线模板编辑器 / Render 可视化 🟡
+## 八、Phase 6 — 在线模板编辑器 / Render 可视化 ☑️
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| 模板列表与详情 | 🟡 | 管理面提供模板列表、模板详情、当前版本与使用范围读取面 |
-| 源码编辑 | 🟡 | 浏览器内编辑模板源码与受控 schema |
-| schema 校验 | 🟡 | 保存前与预览前都可执行结构校验 |
-| 实时预览 | 🟡 | 基于当前模板与输入数据进行连续预览 |
-| 保存与版本回退 | 🟡 | 提供保存、历史版本查看与回退能力 |
-| 输入结构可视化 | 🟡 | 展示模板输入结构、字段说明与校验结果 |
-| 渲染结果可视化 | 🟡 | 展示 artifact、缓存命中、失败定位与任务结果 |
-| 错误定位可视化 | 🟡 | 将模板错误、资源错误、渲染错误以可读方式展示在管理面 |
+| 模板列表与详情 | ☑️ | 管理面提供模板列表、模板详情、当前版本、最后校验状态和版本历史 |
+| 源码编辑 | ☑️ | 浏览器内编辑 `manifest_json`、`html`、`stylesheet` 与 `input_schema_json` |
+| schema 校验 | ☑️ | 保存前与预览前都可执行本地 JSON 解析和服务端结构校验 |
+| 手动预览 | ☑️ | 基于当前版本或未保存草稿发起 `render.preview` 任务式预览 |
+| 保存与版本回退 | ☑️ | 提供保存、历史版本查看与回退能力，使用 `base_revision_id` 防止静默覆盖 |
+| 输入结构可视化 | ☑️ | 展示模板输入结构、字段说明、必填状态和层级信息 |
+| 渲染结果可视化 | ☑️ | 展示 artifact、缓存命中、任务状态、图片结果和任务详情入口 |
+| 错误定位可视化 | ☑️ | 将本地解析错误、服务端校验错误与预览任务错误统一显示在管理面 |
 
 ### 本轮排除项
 
@@ -274,7 +275,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | 协议 transport 可视化 | ◐ | 协议中心已展示当前 provider、当前状态、连接设置、失败原因与调试摘要 |
 | OneBot 兼容矩阵可视化 | ☑️ | 协议中心提供 `/protocols/compatibility` 子页，按 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 展示兼容矩阵 |
 | 前端技术栈迁移 | 🟡 | Web 工程基线收口到 Ant Design Vue + Vue Vben Admin 对齐方案；当前阶段先完成文档冻结、迁移方案与治理口径，formal contract 保持不变 |
-| 模板编辑与预览界面 | 🟡 | 把模板编辑器与 artifact、任务、日志联动到同一管理流 |
+| 模板编辑与预览界面 | ☑️ | 系统分组提供 `/render/templates/:templateId?` 工作区，集成草稿编辑、校验、任务预览和版本回退 |
 | 协议中心增强 | ◐ | 协议中心已具备连接设置；日志中心已提供本次启动日志、历史日志与统一日志详情，剩余管理联动仍待继续 |
 | 任务 / 日志 / 协议 / 插件联动钻取 | 🟡 | 提供从命令、插件、协议、日志、任务之间的联动查看路径 |
 | 诊断与恢复增强 | ◐ | 日志详情、OneBot ignored response 观测、部分启动失败诊断已完成，统一诊断口径仍待继续 |
@@ -387,5 +388,5 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ### 长期边界
 
-- v0.2 结束后，继续优先稳定 OneBot11 兼容矩阵、插件协议、manifest、能力授权、配置迁移、模板编辑与渲染接口。
+- v0.2 结束后，继续优先稳定 OneBot11 兼容矩阵、插件协议、manifest、能力授权、配置迁移、渲染资源诊断与回归门禁。
 - 后续扩展继续遵守 `contracts/` 为正式来源与 companion updates 四件套。
