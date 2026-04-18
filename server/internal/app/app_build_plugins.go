@@ -95,6 +95,7 @@ func buildRenderService(state appBuildState, platform appPlatform, renderRunner 
 	renderService, err := render.NewService(render.Options{
 		RepoRoot:           state.discoverySpec.repoRoot,
 		OutputRoot:         filepath.Join(filepath.Dir(platform.Storage.Path), "render"),
+		Store:              platform.Storage,
 		Runner:             renderRunner,
 		WorkerCount:        state.core.Config.Render.WorkerCount,
 		BrowserArgs:        state.core.Config.Render.BrowserArgs,

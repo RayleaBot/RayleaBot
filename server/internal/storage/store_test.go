@@ -40,9 +40,13 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "management_logs")
 	assertTableExists(t, store.Read, "plugin_kv")
 	assertTableExists(t, store.Read, "system_configs")
+	assertTableExists(t, store.Read, "render_template_revisions")
+	assertTableExists(t, store.Read, "render_template_states")
 	assertColumnExists(t, store.Read, "management_logs", "log_id")
 	assertColumnExists(t, store.Read, "management_logs", "details_json")
 	assertColumnExists(t, store.Read, "management_logs", "boot_id")
+	assertColumnExists(t, store.Read, "render_template_revisions", "source_digest")
+	assertColumnExists(t, store.Read, "render_template_states", "validation_issue_count")
 	assertColumnExists(t, store.Read, "plugin_grants", "expires_at")
 	assertIndexExists(t, store.Read, "idx_management_logs_log_id")
 	assertIndexExists(t, store.Read, "idx_management_logs_boot_ts")
@@ -50,9 +54,11 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_plugin_grants_expires_at")
 	assertIndexExists(t, store.Read, "idx_plugin_kv_plugin_id")
 	assertIndexExists(t, store.Read, "idx_system_configs_namespace")
+	assertIndexExists(t, store.Read, "idx_render_template_revisions_template_saved_at")
+	assertIndexExists(t, store.Read, "idx_render_template_revisions_template_digest")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 14 {
+	if len(tables) != 16 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
 }
@@ -71,8 +77,8 @@ func TestOpenAppliesMigrationsOnlyOnce(t *testing.T) {
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 17 {
-		t.Fatalf("unexpected migration count: got %d want 17", count)
+	if count != 18 {
+		t.Fatalf("unexpected migration count: got %d want 18", count)
 	}
 }
 
@@ -183,8 +189,8 @@ func TestOpenUpgradesExistingAuthDatabaseToPluginStateTables(t *testing.T) {
 	if err := upgraded.Read.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if migrationCount != 17 {
-		t.Fatalf("unexpected migration count after upgrade: got %d want 17", migrationCount)
+	if migrationCount != 18 {
+		t.Fatalf("unexpected migration count after upgrade: got %d want 18", migrationCount)
 	}
 
 	var bootstrapCount int

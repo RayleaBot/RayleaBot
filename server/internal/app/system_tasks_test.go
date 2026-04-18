@@ -19,6 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -256,9 +257,17 @@ func TestHandleSystemRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) 
 	repoRoot := t.TempDir()
 	writeDepsManifest(t, repoRoot)
 	platform := deps.CurrentPlatform()
+	store, err := storage.Open(filepath.Join(repoRoot, "state.db"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	renderer, err := render.NewService(render.Options{
 		RepoRoot:   repoRoot,
 		OutputRoot: filepath.Join(repoRoot, "render-out"),
+		Store:      store,
 	})
 	if err != nil {
 		t.Fatalf("create render service: %v", err)

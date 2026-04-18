@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -13,10 +14,12 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 const (
@@ -28,6 +31,7 @@ const (
 )
 
 var artifactIDPattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
+var revisionCounter uint64
 
 type Runner interface {
 	Render(ctx context.Context, doc Document) ([]byte, error)
@@ -36,6 +40,7 @@ type Runner interface {
 type Options struct {
 	RepoRoot           string
 	OutputRoot         string
+	Store              *storage.Store
 	Runner             Runner
 	WorkerCount        int
 	BrowserArgs        []string
@@ -57,6 +62,7 @@ type Request struct {
 	Theme    string         `json:"theme,omitempty"`
 	Output   string         `json:"output,omitempty"`
 	Data     map[string]any `json:"data"`
+	Draft    *TemplateDraft `json:"draft,omitempty"`
 }
 
 type Document struct {
@@ -129,6 +135,8 @@ type Service struct {
 	runner        Runner
 	workerSem     chan struct{}
 	workerCount   int
+	templateRepo  *sqliteTemplateRepository
+	templateSeeds map[string]templateSeed
 
 	mu                 sync.RWMutex
 	queueMaxLength     int
@@ -136,7 +144,6 @@ type Service struct {
 	renderTimeout      time.Duration
 	maxRenderDataBytes int
 	activeRequests     int
-	templates          map[string]*renderTemplate
 	cache              map[string]Result
 	artifacts          map[string]Artifact
 }
@@ -154,8 +161,13 @@ func NewService(options Options) (*Service, error) {
 		return nil, fmt.Errorf("create render output root %s: %w", outputRoot, err)
 	}
 
+	templateRepo, err := newSQLiteTemplateRepository(options.Store)
+	if err != nil {
+		return nil, fmt.Errorf("create render template repository: %w", err)
+	}
+
 	templatesRoot := filepath.Join(repoRoot, "templates")
-	templates, err := discoverTemplates(templatesRoot)
+	templateSeeds, err := discoverTemplateSeeds(templatesRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -209,9 +221,14 @@ func NewService(options Options) (*Service, error) {
 		queueWaitTimeout:   queueWaitTimeout,
 		renderTimeout:      renderTimeout,
 		maxRenderDataBytes: maxRenderDataBytes,
-		templates:          templates,
+		templateRepo:       templateRepo,
+		templateSeeds:      templateSeeds,
 		cache:              map[string]Result{},
 		artifacts:          map[string]Artifact{},
+	}
+
+	if err := service.seedTemplates(context.Background()); err != nil {
+		return nil, err
 	}
 	if err := service.loadArtifacts(); err != nil {
 		return nil, err
@@ -271,11 +288,11 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		return Result{}, err
 	}
 
-	tpl, err := s.lookupTemplate(normalized.Template)
+	compiled, cacheVersion, cacheDigest, err := s.resolveCompiledTemplate(ctx, normalized)
 	if err != nil {
 		return Result{}, err
 	}
-	cacheKey := buildCacheKey(normalized, tpl.Version, payloadBytes)
+	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, payloadBytes)
 	if cached, ok := s.cachedResult(cacheKey); ok {
 		cached.FromCache = true
 		return cached, nil
@@ -311,7 +328,7 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		return cached, nil
 	}
 
-	html, err := tpl.renderHTML(normalized.Theme, normalized.Data)
+	html, err := compiled.renderHTML(normalized.Theme, normalized.Data)
 	if err != nil {
 		return Result{}, wrapRenderError(err, "render template execution failed")
 	}
@@ -327,8 +344,8 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		Template: normalized.Template,
 		Theme:    normalized.Theme,
 		Output:   normalized.Output,
-		Width:    tpl.Width,
-		Height:   tpl.Height,
+		Width:    compiled.bundle.manifest.Width,
+		Height:   compiled.bundle.manifest.Height,
 		HTML:     html,
 	})
 	if err != nil {
@@ -352,6 +369,191 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 	s.mu.Unlock()
 
 	return result, nil
+}
+
+func (s *Service) ListTemplates(ctx context.Context) ([]TemplateSummary, error) {
+	items, err := s.templateRepo.ListTemplateSummaries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list render templates: %w", err)
+	}
+	return items, nil
+}
+
+func (s *Service) GetTemplate(ctx context.Context, templateID string) (TemplateDetail, error) {
+	detail, err := s.templateRepo.GetTemplateDetail(ctx, strings.TrimSpace(templateID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TemplateDetail{}, &Error{
+				Code:    "platform.template_not_found",
+				Message: "render template was not found",
+			}
+		}
+		return TemplateDetail{}, fmt.Errorf("get render template %s: %w", templateID, err)
+	}
+	return detail, nil
+}
+
+func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (string, TemplateSource, error) {
+	revisionID, source, err := s.templateRepo.GetCurrentSource(ctx, strings.TrimSpace(templateID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", TemplateSource{}, &Error{
+				Code:    "platform.template_not_found",
+				Message: "render template was not found",
+			}
+		}
+		return "", TemplateSource{}, fmt.Errorf("get render template source %s: %w", templateID, err)
+	}
+	return revisionID, source, nil
+}
+
+func (s *Service) ValidateTemplate(ctx context.Context, templateID string, source *TemplateSource) (TemplateValidationResult, error) {
+	templateID = strings.TrimSpace(templateID)
+	if templateID == "" {
+		return TemplateValidationResult{}, &Error{Code: "platform.template_not_found", Message: "render template was not found"}
+	}
+
+	if exists, err := s.templateRepo.templateExists(ctx, templateID); err != nil {
+		return TemplateValidationResult{}, fmt.Errorf("query render template %s: %w", templateID, err)
+	} else if !exists {
+		return TemplateValidationResult{}, &Error{
+			Code:    "platform.template_not_found",
+			Message: "render template was not found",
+		}
+	}
+
+	var sourceValue TemplateSource
+	if source == nil {
+		_, currentSource, err := s.templateRepo.GetCurrentSource(ctx, templateID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return TemplateValidationResult{}, &Error{
+					Code:    "platform.template_not_found",
+					Message: "render template was not found",
+				}
+			}
+			return TemplateValidationResult{}, fmt.Errorf("get render template source %s: %w", templateID, err)
+		}
+		sourceValue = currentSource
+	} else {
+		sourceValue = *source
+	}
+
+	bundle, err := buildTemplateSourceBundle(templateID, sourceValue)
+	if err != nil {
+		_ = s.templateRepo.UpdateValidationStatus(ctx, templateID, newValidationStatus(false, 1))
+		return TemplateValidationResult{}, err
+	}
+
+	_, issues, err := compileTemplateBundle(bundle)
+	if err != nil {
+		return TemplateValidationResult{}, fmt.Errorf("validate render template %s: %w", templateID, err)
+	}
+
+	status := newValidationStatus(len(issues) == 0, len(issues))
+	if err := s.templateRepo.UpdateValidationStatus(ctx, templateID, status); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return TemplateValidationResult{}, fmt.Errorf("update render template validation %s: %w", templateID, err)
+	}
+
+	return TemplateValidationResult{
+		Valid:              len(issues) == 0,
+		Issues:             issuesOrEmpty(issues),
+		NormalizedManifest: bundle.normalizedManifest,
+	}, nil
+}
+
+func (s *Service) ListTemplateVersions(ctx context.Context, templateID string) ([]TemplateVersion, error) {
+	items, err := s.templateRepo.ListTemplateVersions(ctx, strings.TrimSpace(templateID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &Error{
+				Code:    "platform.template_not_found",
+				Message: "render template was not found",
+			}
+		}
+		return nil, fmt.Errorf("list render template versions %s: %w", templateID, err)
+	}
+	return items, nil
+}
+
+func (s *Service) UpdateTemplateSource(ctx context.Context, templateID, baseRevisionID, message string, source TemplateSource) (TemplateDetail, error) {
+	templateID = strings.TrimSpace(templateID)
+	baseRevisionID = strings.TrimSpace(baseRevisionID)
+	message = strings.TrimSpace(message)
+
+	bundle, compiled, validation, err := s.validateTemplateForWrite(ctx, templateID, source)
+	if err != nil {
+		return TemplateDetail{}, err
+	}
+
+	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	revision := newStoredRevision(templateID, newRevisionID(templateID, bundle.digest), compiled, "save", &message, savedAt)
+	if err := s.templateRepo.SaveCurrentRevision(ctx, templateID, baseRevisionID, revision, validation); err != nil {
+		return TemplateDetail{}, s.mapTemplateWriteError(err)
+	}
+
+	return s.GetTemplate(ctx, templateID)
+}
+
+func (s *Service) RollbackTemplate(ctx context.Context, templateID, targetRevisionID, baseRevisionID, message string) (TemplateDetail, error) {
+	templateID = strings.TrimSpace(templateID)
+	targetRevisionID = strings.TrimSpace(targetRevisionID)
+	baseRevisionID = strings.TrimSpace(baseRevisionID)
+	message = strings.TrimSpace(message)
+
+	state, _, err := s.templateRepo.loadCurrentTemplate(ctx, templateID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TemplateDetail{}, &Error{
+				Code:    "platform.template_not_found",
+				Message: "render template was not found",
+			}
+		}
+		return TemplateDetail{}, fmt.Errorf("get render template state %s: %w", templateID, err)
+	}
+	if state.CurrentRevisionID != baseRevisionID {
+		return TemplateDetail{}, &Error{
+			Code:    "platform.template_revision_conflict",
+			Message: "render template revision is stale",
+		}
+	}
+	if targetRevisionID == state.CurrentRevisionID {
+		return TemplateDetail{}, &Error{
+			Code:    "platform.template_rollback_target_invalid",
+			Message: "render template rollback target is invalid",
+		}
+	}
+
+	targetSource, err := s.templateRepo.GetRevisionSource(ctx, templateID, targetRevisionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TemplateDetail{}, &Error{
+				Code:    "platform.template_revision_not_found",
+				Message: "render template revision was not found",
+			}
+		}
+		return TemplateDetail{}, fmt.Errorf("get render template rollback source %s/%s: %w", templateID, targetRevisionID, err)
+	}
+
+	bundle, compiled, validation, err := s.validateTemplateForWrite(ctx, templateID, targetSource)
+	if err != nil {
+		var renderErr *Error
+		if errors.As(err, &renderErr) && renderErr.Code == "platform.template_source_invalid" {
+			return TemplateDetail{}, &Error{
+				Code:    "platform.template_rollback_target_invalid",
+				Message: "render template rollback target is invalid",
+			}
+		}
+		return TemplateDetail{}, err
+	}
+
+	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	revision := newStoredRevision(templateID, newRevisionID(templateID, bundle.digest), compiled, "rollback", &message, savedAt)
+	if err := s.templateRepo.SaveCurrentRevision(ctx, templateID, baseRevisionID, revision, validation); err != nil {
+		return TemplateDetail{}, s.mapTemplateWriteError(err)
+	}
+
+	return s.GetTemplate(ctx, templateID)
 }
 
 func (s *Service) ArtifactURL(artifactID string) string {
@@ -440,7 +642,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 	default:
 		required := []string{"help.menu", "status.panel"}
 		for _, templateID := range required {
-			if _, ok := s.templates[templateID]; ok {
+			if _, ok := s.templateSeeds[templateID]; ok {
 				continue
 			}
 			issues = append(issues, health.DiagnosticIssue{
@@ -540,19 +742,6 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	}
 
 	return request, payloadBytes, nil
-}
-
-func (s *Service) lookupTemplate(templateID string) (*renderTemplate, error) {
-	s.mu.RLock()
-	templateEntry, ok := s.templates[templateID]
-	s.mu.RUnlock()
-	if ok {
-		return templateEntry, nil
-	}
-	return nil, &Error{
-		Code:    "platform.resource_missing",
-		Message: "render template was not found",
-	}
 }
 
 func (s *Service) reserveSlot() error {
@@ -702,9 +891,179 @@ func (s *Service) loadArtifacts() error {
 	return nil
 }
 
-func buildCacheKey(request Request, version string, payloadBytes []byte) string {
+func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) (*compiledTemplate, string, string, error) {
+	if request.Draft != nil {
+		bundle, err := buildTemplateSourceBundle(request.Template, request.Draft.Source)
+		if err != nil {
+			return nil, "", "", err
+		}
+		compiled, issues, err := compileTemplateBundle(bundle)
+		if err != nil {
+			return nil, "", "", err
+		}
+		if len(issues) > 0 {
+			return nil, "", "", &Error{
+				Code:    "platform.template_source_invalid",
+				Message: issues[0].Message,
+			}
+		}
+		return compiled, compiled.bundle.manifest.Version, compiled.bundle.digest, nil
+	}
+
+	_, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", "", &Error{
+				Code:    "platform.resource_missing",
+				Message: "render template was not found",
+			}
+		}
+		return nil, "", "", fmt.Errorf("get current render template %s: %w", request.Template, err)
+	}
+
+	bundle, err := buildTemplateSourceBundle(request.Template, source)
+	if err != nil {
+		return nil, "", "", &Error{
+			Code:    "platform.internal_error",
+			Message: "stored render template is invalid",
+			Err:     err,
+		}
+	}
+	compiled, issues, err := compileTemplateBundle(bundle)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("compile current render template %s: %w", request.Template, err)
+	}
+	if len(issues) > 0 {
+		return nil, "", "", &Error{
+			Code:    "platform.internal_error",
+			Message: "stored render template is invalid",
+		}
+	}
+	return compiled, compiled.bundle.manifest.Version, compiled.bundle.digest, nil
+}
+
+func (s *Service) validateTemplateForWrite(ctx context.Context, templateID string, source TemplateSource) (templateSourceBundle, *compiledTemplate, TemplateValidationStatus, error) {
+	if exists, err := s.templateRepo.templateExists(ctx, templateID); err != nil {
+		return templateSourceBundle{}, nil, TemplateValidationStatus{}, fmt.Errorf("query render template %s: %w", templateID, err)
+	} else if !exists {
+		return templateSourceBundle{}, nil, TemplateValidationStatus{}, &Error{
+			Code:    "platform.template_not_found",
+			Message: "render template was not found",
+		}
+	}
+
+	bundle, err := buildTemplateSourceBundle(templateID, source)
+	if err != nil {
+		_ = s.templateRepo.UpdateValidationStatus(ctx, templateID, newValidationStatus(false, 1))
+		return templateSourceBundle{}, nil, TemplateValidationStatus{}, err
+	}
+
+	compiled, issues, err := compileTemplateBundle(bundle)
+	if err != nil {
+		return templateSourceBundle{}, nil, TemplateValidationStatus{}, fmt.Errorf("compile render template %s: %w", templateID, err)
+	}
+
+	validation := newValidationStatus(len(issues) == 0, len(issues))
+	if err := s.templateRepo.UpdateValidationStatus(ctx, templateID, validation); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return templateSourceBundle{}, nil, TemplateValidationStatus{}, fmt.Errorf("update render template validation %s: %w", templateID, err)
+	}
+	if len(issues) > 0 {
+		return templateSourceBundle{}, nil, TemplateValidationStatus{}, &Error{
+			Code:    "platform.template_source_invalid",
+			Message: issues[0].Message,
+		}
+	}
+
+	return bundle, compiled, validation, nil
+}
+
+func (s *Service) seedTemplates(ctx context.Context) error {
+	for _, templateID := range sortedTemplateIDs(s.templateSeeds) {
+		seed := s.templateSeeds[templateID]
+		savedAt := time.Now().UTC().Format(time.RFC3339Nano)
+		revision := newStoredRevision(
+			templateID,
+			newRevisionID(templateID, seed.compiled.bundle.digest),
+			seed.compiled,
+			"save",
+			nil,
+			savedAt,
+		)
+		if err := s.templateRepo.SeedTemplateIfMissing(ctx, revision, TemplateValidationStatus{
+			Valid:      true,
+			CheckedAt:  savedAt,
+			IssueCount: 0,
+		}); err != nil {
+			return fmt.Errorf("seed render template %s: %w", templateID, err)
+		}
+	}
+	return nil
+}
+
+func (s *Service) mapTemplateWriteError(err error) error {
+	var renderErr *Error
+	if errors.As(err, &renderErr) {
+		return renderErr
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return &Error{
+			Code:    "platform.template_not_found",
+			Message: "render template was not found",
+		}
+	}
+	return fmt.Errorf("write render template revision: %w", err)
+}
+
+func newStoredRevision(templateID, revisionID string, compiled *compiledTemplate, kind string, message *string, savedAt string) storedTemplateRevision {
+	manifestJSON, _ := json.Marshal(compiled.bundle.normalizedManifest)
+	inputSchemaJSON := sql.NullString{}
+	if compiled.bundle.source.InputSchemaJSON != nil {
+		encoded, _ := json.Marshal(compiled.bundle.source.InputSchemaJSON)
+		inputSchemaJSON = sql.NullString{String: string(encoded), Valid: true}
+	}
+
+	return storedTemplateRevision{
+		RevisionID:      revisionID,
+		TemplateID:      templateID,
+		TemplateVersion: compiled.bundle.manifest.Version,
+		Kind:            kind,
+		Message:         message,
+		SavedAt:         savedAt,
+		SourceDigest:    compiled.bundle.digest,
+		ManifestJSON:    string(manifestJSON),
+		HTML:            compiled.bundle.source.HTML,
+		Stylesheet:      compiled.bundle.source.Stylesheet,
+		InputSchemaJSON: inputSchemaJSON,
+	}
+}
+
+func newRevisionID(templateID, digest string) string {
+	templateID = strings.NewReplacer(".", "_", "-", "_", "/", "_").Replace(strings.TrimSpace(templateID))
+	if len(digest) > 8 {
+		digest = digest[:8]
+	}
+	sequence := atomic.AddUint64(&revisionCounter, 1)
+	return fmt.Sprintf("rev_%s_%s_%s_%06d", templateID, time.Now().UTC().Format("20060102T150405000000000"), digest, sequence)
+}
+
+func newValidationStatus(valid bool, issueCount int) TemplateValidationStatus {
+	return TemplateValidationStatus{
+		Valid:      valid,
+		CheckedAt:  time.Now().UTC().Format(time.RFC3339Nano),
+		IssueCount: issueCount,
+	}
+}
+
+func issuesOrEmpty(issues []TemplateValidationIssue) []TemplateValidationIssue {
+	if len(issues) == 0 {
+		return []TemplateValidationIssue{}
+	}
+	return issues
+}
+
+func buildCacheKey(request Request, version string, sourceDigest string, payloadBytes []byte) string {
 	sum := sha256.Sum256(payloadBytes)
-	return fmt.Sprintf("%s:%s:%s:%s:%s", request.Template, version, request.Theme, request.Output, hex.EncodeToString(sum[:12]))
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", request.Template, version, sourceDigest, request.Theme, request.Output, hex.EncodeToString(sum[:12]))
 }
 
 func buildArtifactID(cacheKey string) string {

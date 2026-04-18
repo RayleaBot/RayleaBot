@@ -649,7 +649,7 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newRenderService(renderRoot),
+		newRenderService(t, renderRoot),
 		nil,
 		nil,
 		nil,

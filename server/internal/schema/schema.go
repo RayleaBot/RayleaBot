@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -25,20 +26,16 @@ func Compile(path string) (*Validator, error) {
 		return nil, fmt.Errorf("load schema %s: %w", absolutePath, err)
 	}
 
-	compiler := jsonschema.NewCompiler()
-	if err := compiler.AddResource(absolutePath, document); err != nil {
-		return nil, fmt.Errorf("add schema resource %s: %w", absolutePath, err)
+	return compileDocument(absolutePath, document)
+}
+
+func CompileDocument(name string, document any) (*Validator, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("schema name is required")
 	}
 
-	compiledSchema, err := compiler.Compile(absolutePath)
-	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", absolutePath, err)
-	}
-
-	return &Validator{
-		path:   absolutePath,
-		schema: compiledSchema,
-	}, nil
+	return compileDocument(name, document)
 }
 
 func (v *Validator) Path() string {
@@ -65,4 +62,21 @@ func LoadJSONFile(path string) (any, error) {
 	}
 
 	return document, nil
+}
+
+func compileDocument(name string, document any) (*Validator, error) {
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource(name, document); err != nil {
+		return nil, fmt.Errorf("add schema resource %s: %w", name, err)
+	}
+
+	compiledSchema, err := compiler.Compile(name)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", name, err)
+	}
+
+	return &Validator{
+		path:   name,
+		schema: compiledSchema,
+	}, nil
 }

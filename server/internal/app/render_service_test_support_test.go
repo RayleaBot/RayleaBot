@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 var (
@@ -23,15 +25,26 @@ func (staticRenderRunner) Render(_ context.Context, doc render.Document) ([]byte
 	return append([]byte(nil), testRenderPNGBytes...), nil
 }
 
-func newRenderService(root string) *render.Service {
+func newRenderService(t *testing.T, root string) *render.Service {
+	t.Helper()
+
 	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	if err != nil {
 		panic(err)
 	}
 
+	store, err := storage.Open(filepath.Join(root, "render-state.db"))
+	if err != nil {
+		panic(err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+
 	service, err := render.NewService(render.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         root,
+		Store:              store,
 		Runner:             staticRenderRunner{},
 		WorkerCount:        1,
 		QueueMaxLength:     2,
@@ -42,5 +55,8 @@ func newRenderService(root string) *render.Service {
 	if err != nil {
 		panic(err)
 	}
+	t.Cleanup(func() {
+		_ = service.Close()
+	})
 	return service
 }
