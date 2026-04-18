@@ -2316,3 +2316,162 @@ body {
 .theme-toggle-btn:active {
   transform: translateY(0);
 }
+
+/* Exit Confirm Dialog — theme-matched overlay */
+.exit-confirm-surface {
+  background: var(--surface-bg) !important;
+  border: 1px solid var(--surface-border-strong) !important;
+  border-radius: var(--radius-panel) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35) !important;
+  max-width: 480px;
+  width: min(92vw, 480px);
+  will-change: transform, opacity;
+}
+
+.exit-confirm-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.exit-confirm-title__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-control);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.exit-confirm-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.exit-confirm-lead {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.exit-confirm-detail {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.exit-confirm-checkbox {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: transparent;
+  border: 1px dashed var(--surface-border);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.exit-confirm-checkbox:hover {
+  background: var(--surface-bg-subtle);
+  border-style: solid;
+  border-color: var(--surface-border-strong);
+}
+
+.exit-confirm-checkbox [class*="label"] {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.exit-confirm-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
+.exit-confirm-actions__spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.exit-confirm-btn {
+  border-radius: var(--radius-control) !important;
+  font-weight: 600 !important;
+  transition: transform var(--motion-press-duration) ease, box-shadow var(--motion-switch-duration) ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease !important;
+  white-space: nowrap;
+}
+
+.exit-confirm-btn:hover {
+  transform: translateY(-1px);
+}
+
+.exit-confirm-btn:active {
+  transform: translateY(0);
+}
+
+.exit-confirm-btn--ghost {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.exit-confirm-btn--ghost:hover {
+  color: var(--text-primary) !important;
+  background: var(--surface-hover) !important;
+}
+
+.exit-confirm-btn--accent {
+  color: var(--accent) !important;
+  background: var(--accent-subtle) !important;
+  border-color: var(--accent) !important;
+}
+
+.exit-confirm-btn--accent:hover {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+.exit-confirm-btn--danger {
+  background: var(--error) !important;
+  color: #fff !important;
+  border-color: var(--error) !important;
+}
+
+.exit-confirm-btn--danger:hover {
+  background: #d9363e !important;
+  border-color: #d9363e !important;
+}
+
+@media (max-width: 520px) {
+  .exit-confirm-actions {
+    flex-wrap: wrap;
+  }
+
+  .exit-confirm-actions__spacer {
+    display: none;
+  }
+
+  .exit-confirm-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* Darken Fluent UI Dialog backdrop to match launcher depth */
+[class*="fui-DialogSurface__backdrop"] {
+  background: rgba(0, 0, 0, 0.55) !important;
+}

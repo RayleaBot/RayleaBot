@@ -1,8 +1,9 @@
-import { startTransition, useCallback, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import type { LauncherAdvancedOverrides, LauncherSettings } from "@shared/launcher-models";
 
 import { AppShell } from "./AppShell";
 import { describeLauncherError, type SectionId } from "./AppState.shared";
+import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { useLauncherInitialization } from "./useLauncherInitialization";
 import { useLauncherSectionState } from "./useLauncherSectionState";
 import { useLauncherSettingsState } from "./useLauncherSettingsState";
@@ -10,6 +11,7 @@ import { useLauncherSettingsState } from "./useLauncherSettingsState";
 export function App() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [editingSettings, setEditingSettings] = useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const {
     activeSection,
     renderedSection,
@@ -117,6 +119,25 @@ export function App() {
     });
   }, [editingDraft, runAction, setEditingDraft]);
 
+  const handleExitConfirm = useCallback(
+    (action: "hide" | "exit", setAsDefault: boolean) => {
+      setExitConfirmOpen(false);
+      void window.rayleaLauncher.closeConfirmResponse({ action, setAsDefault });
+    },
+    [],
+  );
+
+  const handleExitConfirmClose = useCallback(() => {
+    setExitConfirmOpen(false);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = window.rayleaLauncher.onShowExitConfirm(() => {
+      setExitConfirmOpen(true);
+    });
+    return unsubscribe;
+  }, []);
+
   const handleBeginEdit = useCallback(() => {
     setEditingDraft({
       ...snapshot.settings,
@@ -172,6 +193,7 @@ export function App() {
   }
 
   return (
+    <>
     <AppShell
       snapshot={snapshot}
       activeSection={activeSection}
@@ -224,5 +246,10 @@ export function App() {
       }}
       onExit={() => window.rayleaLauncher.exitApplication()}
     />
-  );
+    <ExitConfirmDialog
+      open={exitConfirmOpen}
+      onClose={handleExitConfirmClose}
+      onConfirm={handleExitConfirm}
+    />
+  </>);
 }
