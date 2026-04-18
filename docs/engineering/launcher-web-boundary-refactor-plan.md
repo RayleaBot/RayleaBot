@@ -1,83 +1,74 @@
-# Launcher 与 Web 边界收口重构计划
+# Launcher 与 Web 边界收口
 
-## 实际核对结论
+## 实际结论
 
-| 议题 | 结论 | 处理方式 |
+| 议题 | 结论 | 当前边界 |
 | --- | --- | --- |
-| Launcher 复合状态混合服务端与本地壳信息 | 成立 | `LauncherSnapshot` 拆成 `server` 与 `launcher` 两层，Renderer 与 Tray 只消费统一展示推导 |
-| Launcher 与 Web 各自轮询相同端点 | 成立 | 两端继续直连服务端，统一状态解释、错误语义和按钮占用规则 |
-| `recovery.recheck`、`runtime.bootstrap`、`shutdown` 存在双入口 | 部分成立 | 复用现有任务流与 `shutting_down` 语义，优先打开已有任务并禁用重复操作 |
-| Launcher 手工维护契约同构类型 | 成立 | Launcher 改为从 `contracts/web-api.openapi.yaml` 生成类型 |
-| HTTP 客户端与错误解释重复 | 成立 | 对齐 JSON error envelope、纯文本错误、401 和超时的解释语义 |
-| Launcher 内部状态文案存在两套映射 | 成立 | Tray 与 Renderer 共用同一套展示推导函数 |
-| Web 的 Launcher 自动登录链路属于不合理耦合 | 不成立 | 保留 `launcher-token` / `launcher-admission` 正式入口，并补足 `?token=` 深链交接说明 |
-| Launcher 环境检查过厚 | 部分成立 | 启动前阻塞项保留在本地预检，运行环境深层问题交给服务端 readiness、recovery 与 diagnostics |
+| Launcher 复合状态混合服务端与本地壳信息 | 成立 | `LauncherSnapshot` 拆成 `server` 与 `launcher` 两层，服务端状态保留原始契约结构，本地壳状态单独表达 |
+| Launcher 与 Web 会读取同一组服务端状态 | 成立 | 两端继续直连服务端；Web 通过 `/ws/events` 的 `service_status` 事件触发状态刷新，HTTP 读取保留为首次进入、手动刷新和 socket 断线兜底 |
+| `recovery.recheck`、`runtime.bootstrap`、`shutdown` 存在双入口 | 部分成立 | `recovery.recheck` 与 `runtime.bootstrap` 复用现有任务模型与进行中任务检测；`shutdown` 继续由 `shutting_down` 与本地 `processLifecycle=stopping` 共同裁决按钮禁用 |
+| Launcher 手工维护契约同构类型 | 成立 | Launcher 从 `contracts/web-api.openapi.yaml` 生成类型，不再手写服务端契约同构结构 |
+| HTTP 客户端与错误解释重复 | 成立 | Web 与 Launcher 保持同一套 error envelope 解释语义，优先使用服务端 `error.message`、`error.code`、`error.details` |
+| Launcher 内部状态文案存在两套映射 | 成立 | Tray 与 Renderer 共用 `deriveLauncherPresentation()` 和统一状态标签 |
+| Web 的 Launcher 自动登录链路属于不合理耦合 | 不成立 | `launcher-token` / `launcher-admission` 继续作为正式入口，`?token=` 只承担 Launcher 打开 Web 时的一次性深链交接 |
+| Launcher 环境检查过厚 | 成立 | Launcher 本地检查只保留启动前必须立即确认的本地条件，运行时资源和恢复问题统一由服务端 readiness、recovery 与 diagnostics 表达 |
 
-## 目标边界
+## 状态来源
 
-- 服务端是正式状态源，`healthz`、`readyz`、`/api/system/status` 与恢复摘要维持原始契约形状。
-- Launcher 是桌面壳，负责本地进程编排、预检、桌面交互和打开 Web 管理面。
-- Web 与 Launcher 都直接访问服务端，不通过对方代理状态，也不把 Launcher 变成第二个管理后端。
-- `POST /api/session/launcher-token` 与 `POST /api/session/launcher-admission` 保持正式入口。
-- `?token=` 是 Launcher 打开 Web 时的单次深链交接方式，用于把一次性 launcher token 交给 Web，再换成正常管理会话。
+- 服务端是正式状态源，`/healthz`、`/readyz`、`/api/system/status`、恢复摘要和任务信息保持原始契约形状。
+- `/ws/events` 使用现有 `service_status` 分支推送服务状态变化摘要，字段固定为 `service_status`、`summary`、可选 `reason`、可选 `reason_codes`。
+- Web 收到 `service_status` 事件后，更新 recent events，并去抖触发一次 `/readyz` 与 `/api/system/status` 刷新。
+- Dashboard 自动刷新只在管理事件 socket 断开时回退到 HTTP 主拉；socket 正常时不做定时系统状态轮询。
+- Launcher 继续直接读取正式服务端接口，不通过 Web 代理状态。
 
-## 重构批次
+## Launcher 职责
 
-### 批次 1：状态模型拆分
+- Launcher 负责本地进程编排、桌面交互、打开 Web 管理面和本地启动前检查。
+- `launcher.server` 固定承载：
+  - `health`
+  - `readiness`
+  - `systemStatus`
+- `launcher.launcher` 固定承载：
+  - `processLifecycle`
+  - `processOwnership`
+  - `environmentChecks`
+  - `preflightChecks`
+  - `advisoryChecks`
+  - `recentStderr`
+  - `releaseCheck`
+  - `lastLocalError`
+  - `settings`
+  - `resolvedSettings`
+  - `endpoint`
+  - `localRecoverySummary`
+- Renderer 与 Tray 只消费共享展示推导结果，不再自行拼装第二套服务状态名。
 
-- `LauncherSnapshot` 固定包含两组数据：
-  - `server`：`health`、`readiness`、`systemStatus`
-  - `launcher`：`processLifecycle`、`processOwnership`、`environmentChecks`、`preflightChecks`、`advisoryChecks`、`recentStderr`、`releaseCheck`、`lastLocalError`、`settings`、`resolvedSettings`、`endpoint`
-- `server` 保持服务端原始字段名与结构。
-- `launcher` 只承载桌面壳本地观察，不承载正式服务状态名。
-- Tray 与 Renderer 通过共享的 `deriveLauncherPresentation()` 生成标题、摘要、限制原因和操作可用性。
+## 本地启动前检查
 
-### 批次 2：类型来源与错误语义统一
-
-- Launcher 从 `contracts/web-api.openapi.yaml` 生成 `launcher/src/shared/web-api.generated.ts`。
-- `launcher-models.ts` 只保留 Launcher 本地类型与组合快照，不手写服务端契约同构结构。
-- Launcher 管理客户端优先使用服务端 `error.message`、`error.code`、`error.details`。
-- Web 与 Launcher 对以下错误形态采用一致解释规则：
-  - JSON error envelope
-  - 纯文本错误
-  - 401
-  - 超时中断
-
-### 批次 3：系统动作占用与重复入口收口
-
-- `recovery.recheck` 与 `runtime.bootstrap` 继续走现有任务模型。
-- 提交前先检查同类任务是否处于 `pending` 或 `running`。
-- 若已有同类任务，界面直接打开任务详情，并显示“任务进行中”。
-- `shutdown` 继续由服务端 `shutting_down` 与 Launcher 本地 `processLifecycle=stopping` 共同裁决按钮禁用，不额外新增状态接口。
-
-### 批次 4：Launcher 预检边界收口
-
-- 启动前阻塞项只覆盖 Launcher 自己必须知道的本地条件：
-  - 安装根可用
+- Launcher 本地启动前检查只覆盖这些条件：
+  - 安装目录可访问
+  - 启动器设置可解析
   - `raylea-server` 路径有效
-  - `config/user.yaml` 可定位
-  - 工作目录可用
-  - Launcher 设置可解析
-- 以下问题由服务端 readiness、recovery 与 diagnostics 统一裁决：
-  - Chromium、Python、Node.js 运行环境深层有效性
-  - `.deps/manifest.json` 资源一致性
-  - 模板资源与渲染运行态问题
-  - adapter、render、runtime 的运行期异常
+  - `config/user.yaml` 可定位，或可由 `config/default.yaml` 首次生成
+  - 工作目录可写
+- 以下问题统一由服务端 readiness、恢复摘要与诊断结果表达：
+  - `.deps/manifest.json`
+  - Chromium、Python、Node.js 运行时资源完整性
+  - 模板目录与模板文件
+  - 长路径与其他平台运行态问题
+- Launcher 环境页展示本地 `preflightChecks`，不把服务端运行态问题混进本地启动前检查列表。
+
+## 登录交接
+
+- `POST /api/session/launcher-token` 用于申请一次性 launcher token。
+- `POST /api/session/launcher-admission` 用于把一次性 launcher token 换成正常管理会话。
+- `?token=` 是 Launcher 打开 Web 时附带的一次性交接参数。
+- token 失效、admission 失败或服务未完成初始化时，Web 回到普通登录或初始化入口，并显示正式错误提示。
 
 ## 验收标准
 
-- Launcher `snapshot.server` 完整保留 `/healthz`、`/readyz`、`/api/system/status` 的原始结构。
-- Launcher `snapshot.launcher` 只包含本地壳状态，不混入服务端状态名。
-- Tray 与 Renderer 对同一快照输出一致的标题、摘要和限制原因。
-- Launcher 与 Web 对 `recovery.recheck`、`runtime.bootstrap` 的重复触发都能复用现有任务，而不是重复提交。
-- `shutdown` 进入 `shutting_down` 或 `processLifecycle=stopping` 后，两端都不会继续显示可重复触发。
-- `?token=` 自动登录保持可用；token 失效或 admission 失败时，Web 能回到普通登录并显示明确提示。
-- `docs/engineering/launcher-web-boundary-refactor-plan.md`、`docs/user/management-surface.md`、`docs/architecture/platform-runtime.md` 对状态源、桌面壳职责和 Launcher token 深链的描述一致。
-
-## 非目标
-
-- 新增管理 HTTP / WebSocket 路由
-- 让 Web 改从 Launcher IPC 读取管理状态
-- 让 Launcher 代理 Web 的状态轮询或管理请求
-- 删除 Launcher 自动登录链路
-- 引入新的顶层共享 TypeScript 包
+- Launcher `snapshot.server` 完整保留服务端正式返回结构。
+- Launcher `snapshot.launcher` 只承载本地桌面壳状态，不混入服务端状态名。
+- Tray 与 Renderer 对同一快照给出一致的标题、摘要和限制原因。
+- Web 在 `service_status` 事件正常可用时，不依赖定时 HTTP 主拉维持系统状态展示。
+- Launcher 本地检查不再生成 `.deps`、运行时、模板和长路径等深层运行态告警。
