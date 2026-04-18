@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import type { LauncherReadinessSnapshot } from "@shared/launcher-models";
 import {
   createLauncherCoordinator,
   type EnvironmentCheckResult,
@@ -45,7 +46,7 @@ class FakeManagementClient implements LauncherManagementClient {
   issueLauncherTokenCalls = 0;
   admitLauncherTokenCalls = 0;
   systemStatusCalls = 0;
-  readiness = {
+  readiness: LauncherReadinessSnapshot = {
     status: "ready",
   };
   systemStatus = {
@@ -334,7 +335,46 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.serviceState).toBe("running");
-    expect(coordinator.snapshot.serviceDetail).toBe("检测到现有服务。可以直接打开管理界面，或确认后停止它。");
+    expect(coordinator.snapshot.serviceDetail).toBe("OneBot reverse WebSocket is reconnecting");
+    expect(coordinator.snapshot.readiness?.issues?.[0]?.summary).toBe("OneBot reverse WebSocket is reconnecting");
+  });
+
+  test("initialize falls back to the first readiness issue when degraded has no reason", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    managementClient.readiness = {
+      status: "degraded",
+      checks: {
+        adapter: "connecting",
+      },
+      issues: [
+        {
+          code: "adapter.connection_pending",
+          severity: "warning",
+          summary: "OneBot 正在建立连接",
+          remediation: "请稍后重试，或检查上游服务是否可达。",
+        },
+      ],
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController: new FakeProcessController(),
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+    });
+
+    await coordinator.initialize();
+
+    expect(coordinator.snapshot.serviceState).toBe("degraded");
+    expect(coordinator.snapshot.serviceDetail).toBe("OneBot 正在建立连接");
+    expect(coordinator.snapshot.readiness?.issues?.[0]?.code).toBe("adapter.connection_pending");
   });
 
   test("initialize reflects system/status shutting_down state", async () => {
@@ -397,6 +437,7 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(coordinator.snapshot.recoverySummary?.status).toBe("blocked");
+    expect(coordinator.snapshot.readiness).toBeNull();
   });
 
   test("open web ui adds token only when setup is initialized", async () => {

@@ -37,32 +37,61 @@ export function AppShellStatusSection({
   const [statusHighlight, setStatusHighlight] = useState<"none" | "signal" | "alert">("none");
   const [logHighlight, setLogHighlight] = useState<"none" | "fresh">("none");
 
+  const readiness = snapshot.readiness ?? null;
   const checks = useMemo(() => sortChecks(snapshot.environmentChecks || []), [snapshot.environmentChecks]);
   const nonOkChecks = useMemo(() => checks.filter((item) => item.severity !== "ok"), [checks]);
+  const readinessIssues = readiness?.issues ?? [];
+  const readinessReason = readiness?.reason?.trim() ?? "";
+  const readinessReasonCodes = readiness?.reason_codes ?? [];
+  const nonOkReadinessChecks = Object.entries(readiness?.checks ?? {}).filter(([, value]) => value && value !== "ok");
+  const primaryReadinessIssue = readinessIssues[0] ?? null;
   const primaryEnvironmentIssue = nonOkChecks[0] ?? null;
   const recoveryStatusSummary = snapshot.recoverySummary
     ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation}`
     : "当前没有恢复摘要。";
   const hasRecentStderr = snapshot.recentStderr.length > 0;
-  const statusAlert = snapshot.lastError ? "error" : nonOkChecks.length > 0 ? "warning" : "none";
+  const statusAlert =
+    snapshot.lastError
+      ? "error"
+      : primaryReadinessIssue
+        ? primaryReadinessIssue.severity === "error" ? "error" : "warning"
+        : readinessReason
+          ? snapshot.serviceState === "failed" ? "error" : "warning"
+          : nonOkChecks.length > 0
+            ? "warning"
+          : "none";
   const logAlert = hasRecentStderr ? "error" : "none";
   const statusReasonLabel =
-    snapshot.serviceState === "degraded" || snapshot.serviceState === "setup_required"
+    snapshot.serviceState === "degraded"
+      || snapshot.serviceState === "setup_required"
+      || snapshot.serviceState === "failed"
+      || Boolean(readinessReason || primaryReadinessIssue)
       ? "当前限制"
       : "运行说明";
   const statusReasonText =
-    snapshot.serviceState === "degraded" || snapshot.serviceState === "setup_required"
+    readinessReason
+    || primaryReadinessIssue?.summary
+    || (snapshot.serviceState === "degraded" || snapshot.serviceState === "setup_required" || snapshot.serviceState === "failed"
       ? snapshot.serviceDetail
       : primaryEnvironmentIssue
         ? `${primaryEnvironmentIssue.title}：${primaryEnvironmentIssue.summary}`
-        : snapshot.serviceDetail;
-  const statusGuidanceLabel = snapshot.lastError ? "异常提示" : primaryEnvironmentIssue ? "处理提示" : "异常提示";
+        : snapshot.serviceDetail);
+  const statusGuidanceLabel =
+    snapshot.lastError
+      ? "异常提示"
+      : primaryReadinessIssue?.remediation || primaryEnvironmentIssue
+        ? "处理提示"
+        : "异常提示";
   const statusGuidanceText =
     snapshot.lastError
+    || primaryReadinessIssue?.remediation
     || primaryEnvironmentIssue?.remediation
     || primaryEnvironmentIssue?.detail
     || "当前没有阻塞异常。";
-  const hasStatusAlert = Boolean(snapshot.lastError || primaryEnvironmentIssue);
+  const hasStatusAlert = Boolean(snapshot.lastError || readinessReason || primaryReadinessIssue || primaryEnvironmentIssue);
+  const hasReadinessDiagnostics = Boolean(
+    readinessReason || readinessReasonCodes.length || readinessIssues.length || nonOkReadinessChecks.length,
+  );
   const isManagedRunnable =
     (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
     && snapshot.serviceOwnership === "launcher_managed";
@@ -175,6 +204,65 @@ export function AppShellStatusSection({
 
       <div className="status-summary-grid status-grid">
         <div className="status-summary-main status-main-column">
+          {hasReadinessDiagnostics ? (
+            <article className="panel glass-panel glass-panel--subtle status-diagnostics-panel">
+              <div className="brand-eyebrow">服务诊断</div>
+              {readinessReason ? (
+                <div className="status-diagnostics-lead">{readinessReason}</div>
+              ) : null}
+
+              {readinessReasonCodes.length > 0 ? (
+                <div className="status-diagnostics-block">
+                  <span className="status-label">原因代码</span>
+                  <div className="status-diagnostics-codes">
+                    {readinessReasonCodes.map((code) => (
+                      <code key={code} className="glass-chip glass-chip--muted mono">{code}</code>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {readinessIssues.length > 0 ? (
+                <div className="status-diagnostics-block">
+                  <span className="status-label">首要问题</span>
+                  <div className="status-diagnostics-list">
+                    {readinessIssues.slice(0, 3).map((issue) => (
+                      <div
+                        key={`${issue.code}-${issue.summary}`}
+                        className={`status-diagnostics-item status-diagnostics-item--${issue.severity}`}
+                      >
+                        <div className="status-diagnostics-item__header">
+                          <span className="status-diagnostics-item__summary">{issue.summary}</span>
+                          <span className={`status-pill status-pill--${issue.severity === "error" ? "error" : "warning"}`}>
+                            {issue.severity === "error" ? "阻塞" : "警告"}
+                          </span>
+                        </div>
+                        <code className="status-diagnostics-item__code mono">{issue.code}</code>
+                        {issue.remediation ? (
+                          <div className="status-diagnostics-item__remediation">{issue.remediation}</div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {nonOkReadinessChecks.length > 0 ? (
+                <div className="status-diagnostics-block">
+                  <span className="status-label">检查项</span>
+                  <div className="status-diagnostics-checks">
+                    {nonOkReadinessChecks.map(([name, value]) => (
+                      <div key={`${name}-${value}`} className="status-diagnostics-check">
+                        <span className="status-diagnostics-check__name">{name}</span>
+                        <span className="status-diagnostics-check__value mono">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          ) : null}
+
           <AppShellStatusSummary snapshot={snapshot} resolvedSettings={resolvedSettings} />
         </div>
 

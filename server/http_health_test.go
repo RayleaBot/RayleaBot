@@ -162,6 +162,74 @@ func TestReadyzReconnectingStaysReady(t *testing.T) {
 	)
 }
 
+func TestReadyzConnectingIsDegradedWithReason(t *testing.T) {
+	t.Parallel()
+
+	assertReadinessResponse(
+		t,
+		adapter.Snapshot{
+			State: adapter.StateConnecting,
+		},
+		http.StatusOK,
+		map[string]any{
+			"status": "degraded",
+			"reason": "OneBot 正在建立连接",
+			"reason_codes": []any{
+				"adapter.connection_pending",
+			},
+			"checks": map[string]any{
+				"config":   "ok",
+				"database": "ok",
+				"runtime":  "ok",
+				"adapter":  "connecting",
+				"render":   "ok",
+			},
+			"issues": []any{
+				map[string]any{
+					"code":        "adapter.connection_pending",
+					"severity":    "warning",
+					"summary":     "OneBot 正在建立连接",
+					"remediation": "请稍后重试，或检查上游服务是否可达。",
+				},
+			},
+		},
+	)
+}
+
+func TestReadyzFailedStateBackfillsReasonFromFirstIssue(t *testing.T) {
+	t.Parallel()
+
+	assertReadinessResponse(
+		t,
+		adapter.Snapshot{
+			State: adapter.State("unknown_state"),
+		},
+		http.StatusServiceUnavailable,
+		map[string]any{
+			"status": "failed",
+			"reason": "OneBot 传输链路不可用",
+			"reason_codes": []any{
+				"adapter.connection_failed",
+			},
+			"checks": map[string]any{
+				"config":   "ok",
+				"database": "ok",
+				"runtime":  "ok",
+				"adapter":  "failed",
+				"render":   "ok",
+			},
+			"issues": []any{
+				map[string]any{
+					"code":        "adapter.connection_failed",
+					"severity":    "error",
+					"summary":     "OneBot 传输链路不可用",
+					"remediation": "请检查 OneBot 传输配置、访问令牌和上游服务状态。",
+				},
+			},
+		},
+	)
+}
+
 func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 	t.Parallel()
 

@@ -38,6 +38,23 @@ const snapshot: LauncherSnapshot = {
   shutdownRequested: false,
   serviceDetail: "Python 运行环境尚未准备完成。",
   lastError: "",
+  readiness: {
+    status: "degraded",
+    reason: "OneBot 正在建立连接",
+    reason_codes: ["adapter.connection_pending"],
+    checks: {
+      adapter: "connecting",
+      runtime: "ok",
+    },
+    issues: [
+      {
+        code: "adapter.connection_pending",
+        severity: "warning",
+        summary: "OneBot 正在建立连接",
+        remediation: "请稍后重试，或检查上游服务是否可达。",
+      },
+    ],
+  },
   releaseCheck: {
     status: "up_to_date",
     currentVersion: "0.1.0",
@@ -69,12 +86,16 @@ function renderSection(overrides: Partial<LauncherSnapshot> = {}, resolvedSettin
 }
 
 describe("AppShellStatusSection", () => {
-  test("renders degraded status reason, remediation rail, and stderr panel", () => {
+  test("renders readiness reason, diagnostics, and stderr panel for degraded state", () => {
     renderSection();
 
     expect(screen.getByText("当前限制")).toBeInTheDocument();
-    expect(screen.getAllByText("Python 运行环境尚未准备完成。").length).toBeGreaterThan(0);
-    expect(screen.getByText("请联网准备运行环境。")).toBeInTheDocument();
+    expect(screen.getAllByText("OneBot 正在建立连接").length).toBeGreaterThan(0);
+    expect(screen.getByText("服务诊断")).toBeInTheDocument();
+    expect(screen.getByText("原因代码")).toBeInTheDocument();
+    expect(screen.getAllByText("adapter.connection_pending").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("请稍后重试，或检查上游服务是否可达。").length).toBeGreaterThan(0);
+    expect(screen.queryByText("当前没有阻塞异常。")).toBeNull();
     expect(screen.getByText("stderr line")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重启服务" })).toBeInTheDocument();
   });
@@ -85,6 +106,7 @@ describe("AppShellStatusSection", () => {
       serviceDetail: "正在准备运行环境并等待服务就绪。",
       environmentChecks: [],
       recentStderr: [],
+      readiness: null,
     });
 
     expect(screen.getByText("运行说明")).toBeInTheDocument();

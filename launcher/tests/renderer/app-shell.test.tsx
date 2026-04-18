@@ -162,6 +162,22 @@ describe("AppShell", () => {
         serviceState: "degraded",
         serviceOwnership: "launcher_managed",
         serviceDetail: "Python 运行环境尚未准备完成。",
+        readiness: {
+          status: "degraded",
+          reason: "OneBot 正在建立连接",
+          reason_codes: ["adapter.connection_pending"],
+          checks: {
+            adapter: "connecting",
+          },
+          issues: [
+            {
+              code: "adapter.connection_pending",
+              severity: "warning",
+              summary: "OneBot 正在建立连接",
+              remediation: "请稍后重试，或检查上游服务是否可达。",
+            },
+          ],
+        },
         environmentChecks: [
           {
             code: "runtime.python_managed_ready",
@@ -177,9 +193,11 @@ describe("AppShell", () => {
 
     expect(screen.getAllByText("运行条件受限").length).toBeGreaterThan(0);
     expect(screen.getByText("当前限制")).toBeInTheDocument();
-    expect(screen.getAllByText("Python 运行环境尚未准备完成。").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("OneBot 正在建立连接").length).toBeGreaterThan(0);
     expect(screen.getByText("处理提示")).toBeInTheDocument();
-    expect(screen.getByText(/按正式目录结构手动预置资源/)).toBeInTheDocument();
+    expect(screen.getAllByText(/请稍后重试，或检查上游服务是否可达/).length).toBeGreaterThan(0);
+    expect(screen.getByText("服务诊断")).toBeInTheDocument();
+    expect(screen.getAllByText("adapter.connection_pending").length).toBeGreaterThan(0);
   });
 
   test("shows startup preparation detail instead of constrained wording while the service is starting", () => {

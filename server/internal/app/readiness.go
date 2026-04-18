@@ -1,6 +1,8 @@
 package app
 
 import (
+	"strings"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -8,7 +10,7 @@ import (
 
 func (s *systemService) CurrentReadiness() health.ReadinessReport {
 	if s == nil {
-		return health.ReadinessReport{
+		return normalizeReadinessReport(health.ReadinessReport{
 			Status: "failed",
 			Reason: "Management application is unavailable",
 			Checks: map[string]string{
@@ -23,10 +25,10 @@ func (s *systemService) CurrentReadiness() health.ReadinessReport {
 				},
 			},
 			RecoverySummary: nil,
-		}
+		})
 	}
 	if s.auth == nil {
-		return health.ReadinessReport{
+		return normalizeReadinessReport(health.ReadinessReport{
 			Status: "failed",
 			Reason: "Management auth service is unavailable",
 			Checks: map[string]string{
@@ -41,10 +43,10 @@ func (s *systemService) CurrentReadiness() health.ReadinessReport {
 				},
 			},
 			RecoverySummary: s.state.recoverySummarySnapshot(),
-		}
+		})
 	}
 	if !s.auth.IsBootstrapped() {
-		return health.ReadinessReport{
+		return normalizeReadinessReport(health.ReadinessReport{
 			Status: "setup_required",
 			Reason: "Initial admin setup is required",
 			Checks: map[string]string{
@@ -59,10 +61,10 @@ func (s *systemService) CurrentReadiness() health.ReadinessReport {
 				},
 			},
 			RecoverySummary: s.state.recoverySummarySnapshot(),
-		}
+		})
 	}
 	if s.adapter == nil {
-		return health.ReadinessReport{
+		return normalizeReadinessReport(health.ReadinessReport{
 			Status: "failed",
 			Reason: "OneBot adapter is unavailable",
 			Checks: map[string]string{
@@ -77,7 +79,7 @@ func (s *systemService) CurrentReadiness() health.ReadinessReport {
 				},
 			},
 			RecoverySummary: s.state.recoverySummarySnapshot(),
-		}
+		})
 	}
 
 	report := ReadinessReportFromAdapter(s.adapter.Snapshot())
@@ -126,7 +128,7 @@ func (s *systemService) CurrentReadiness() health.ReadinessReport {
 		report.Reason = reason
 		report.ReasonCodes = []string{"platform.resource_missing"}
 	}
-	return report
+	return normalizeReadinessReport(report)
 }
 
 func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessReport {
@@ -167,6 +169,8 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 		})
 	case adapter.StateConnecting:
 		report.Status = "degraded"
+		report.Reason = "OneBot 正在建立连接"
+		report.ReasonCodes = []string{"adapter.connection_pending"}
 		report.Checks["adapter"] = "connecting"
 		report.Issues = append(report.Issues, health.DiagnosticIssue{
 			Code:        "adapter.connection_pending",
@@ -205,6 +209,23 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 	appendIssue(snapshot.HTTPAPI.LastErrorCode, snapshot.HTTPAPI.LastErrorMessage)
 	appendIssue(snapshot.Webhook.LastErrorCode, snapshot.Webhook.LastErrorMessage)
 
+	return normalizeReadinessReport(report)
+}
+
+func normalizeReadinessReport(report health.ReadinessReport) health.ReadinessReport {
+	if report.Status != "degraded" && report.Status != "failed" {
+		return report
+	}
+	if strings.TrimSpace(report.Reason) != "" {
+		return report
+	}
+	if len(report.Issues) == 0 {
+		return report
+	}
+	report.Reason = report.Issues[0].Summary
+	if len(report.ReasonCodes) == 0 && strings.TrimSpace(report.Issues[0].Code) != "" {
+		report.ReasonCodes = []string{report.Issues[0].Code}
+	}
 	return report
 }
 

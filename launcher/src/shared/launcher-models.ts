@@ -20,6 +20,13 @@ export interface RecoveryCompatibilityIssue {
   remediation?: string;
 }
 
+export interface LauncherDiagnosticIssue {
+  code: string;
+  severity: "warning" | "error";
+  summary: string;
+  remediation?: string;
+}
+
 export interface RecoveryCompatibilitySkippedPlugin {
   plugin_id: string;
   version?: string;
@@ -73,6 +80,7 @@ export interface LauncherReadinessSnapshot {
   status: "ready" | "degraded" | "setup_required" | "failed";
   reason?: string;
   reason_codes?: string[];
+  issues?: LauncherDiagnosticIssue[];
   checks?: Partial<Record<"config" | "database" | "runtime" | "adapter" | "render", string>>;
   recovery_summary?: RecoveryCompatibilitySummary | null;
 }
@@ -147,6 +155,7 @@ export interface LauncherSnapshot {
   shutdownRequested: boolean;
   serviceDetail: string;
   lastError: string;
+  readiness?: LauncherReadinessSnapshot | null;
   releaseCheck: ReleaseCheckSnapshot;
   recoverySummary?: RecoveryCompatibilitySummary | null;
 }

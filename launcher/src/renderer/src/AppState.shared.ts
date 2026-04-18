@@ -27,6 +27,7 @@ export const initialSnapshot: LauncherSnapshot = {
   shutdownRequested: false,
   serviceDetail: "服务尚未启动。",
   lastError: "",
+  readiness: null,
   releaseCheck: {
     status: "unavailable",
     currentVersion: "",
@@ -39,6 +40,16 @@ export const initialSnapshot: LauncherSnapshot = {
 };
 
 export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
+  const readinessChecks = Object.entries(snapshot.readiness?.checks ?? {})
+    .filter(([, value]) => value && value !== "ok")
+    .map(([name, value]) => `- ${name}：${value}`)
+    .join("\n");
+  const readinessIssues = (snapshot.readiness?.issues ?? [])
+    .map(
+      (item) =>
+        `- ${item.code}：${item.summary}${item.remediation ? `（${item.remediation}）` : ""}`,
+    )
+    .join("\n");
   const checks = snapshot.environmentChecks
     .map(
       (item) =>
@@ -56,6 +67,18 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
     `服务端：${snapshot.resolvedSettings.serverExecutablePath || "未设置"}`,
     `配置文件：${snapshot.resolvedSettings.configPath || "未设置"}`,
     `运行目录：${snapshot.resolvedSettings.workdir || "未设置"}`,
+    "服务就绪：",
+    snapshot.readiness
+      ? [
+        `状态：${snapshot.readiness.status}`,
+        `原因：${snapshot.readiness.reason || "—"}`,
+        `原因代码：${snapshot.readiness.reason_codes?.length ? snapshot.readiness.reason_codes.join(", ") : "—"}`,
+        "问题：",
+        readinessIssues || "- 当前没有 readiness 问题。",
+        "检查：",
+        readinessChecks || "- 当前没有非正常检查项。",
+      ].join("\n")
+      : "当前没有 readiness 摘要。",
     "环境检查：",
     checks || "- 当前没有检查项。",
     "恢复兼容性：",

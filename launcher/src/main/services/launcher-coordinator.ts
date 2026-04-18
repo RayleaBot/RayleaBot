@@ -132,6 +132,7 @@ function defaultSnapshot(settings: LauncherSettings, resolvedSettings: LauncherR
     shutdownRequested: false,
     serviceDetail: "服务尚未启动。",
     lastError: "",
+    readiness: null,
     releaseCheck: createReleaseUnavailable(),
     recoverySummary: null,
   };
@@ -181,8 +182,12 @@ function releaseChecksEqual(left: ReleaseCheckSnapshot, right: ReleaseCheckSnaps
     && left.updateAvailable === right.updateAvailable;
 }
 
+function primaryReadinessIssue(readiness: LauncherReadinessSnapshot) {
+  return readiness.issues?.[0] ?? null;
+}
+
 function detailFromReadiness(readiness: LauncherReadinessSnapshot, fallback: string) {
-  return readiness.reason?.trim() || fallback;
+  return readiness.reason?.trim() || primaryReadinessIssue(readiness)?.summary || fallback;
 }
 
 function startingDetail(canBootstrapUserConfig: boolean) {
@@ -254,7 +259,7 @@ function stateFromReadiness(
         serviceState: "failed" satisfies LauncherServiceState,
         serviceOwnership,
         serviceDetail: detailFromReadiness(readiness, "服务已运行，但尚未达到就绪状态。"),
-        lastError: readiness.reason?.trim() || "服务尚未就绪。",
+        lastError: detailFromReadiness(readiness, "服务尚未就绪。"),
       };
   }
 }
@@ -326,7 +331,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     serviceOwnership: LauncherServiceOwnership,
     serviceDetail: string,
     lastError = "",
-  ) {
+  ): Promise<LauncherSnapshot> {
     const settings = ensureSettings();
     const resolvedSettings = ensureResolvedSettings();
     return {
@@ -341,6 +346,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       shutdownRequested: serviceState === "stopping",
       serviceDetail,
       lastError,
+      readiness: null,
       releaseCheck: snapshot.releaseCheck,
       recoverySummary: snapshot.recoverySummary ?? null,
     } satisfies LauncherSnapshot;
@@ -398,6 +404,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
       contractState.serviceDetail,
       contractState.lastError,
     );
+    next.readiness = readiness;
     next.recoverySummary =
       systemStatus?.recovery_summary
       ?? readiness.recovery_summary
