@@ -1,0 +1,29 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "unknown-provider-capability",
+    "name": "Unknown Provider Capability",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "nodejs",
+    "entry": "index.js",
+    "license": "MIT",
+    "description": "Manifest using an unfrozen provider extension capability.",
+    "author": "raylea",
+    "capabilities": [
+      "provider.napcat.group.member.kick"
+    ],
+    "permissions": {
+      "required": [
+        "provider.napcat.group.member.kick"
+      ],
+      "optional": []
+    }
+  },
+  "expect": {
+    "valid": false
+  }
+}

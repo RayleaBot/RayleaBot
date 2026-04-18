@@ -3,12 +3,13 @@ case: invalid
 frames:
   - protocol_version: "1"
     type: action
-    timestamp: 1710000207
+    timestamp: 1710000208
     plugin_id: weather
-    request_id: act_invalid_provider_0001
-    action: provider.custom.unsupported
+    request_id: act_invalid_provider_0002
+    action: provider.napcat.group.member.kick
     data:
-      foo: bar
+      group_id: "20001"
+      user_id: "30001"
 expect:
   valid: false
   reason: provider-specific action names only accept the frozen NapCat and LuckyLillia extensions.

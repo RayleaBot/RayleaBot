@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Fixture-ready schema for the RayleaBot platform-runtime JSONL protocol. This contract freezes startup, startup progress, shared outbound segment payloads, the initial OneBot11 wider action family surface, local config/logger/storage/http/scheduler/webhook/render action RPC, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
+  "description": "Fixture-ready schema for the RayleaBot platform-runtime JSONL protocol. This contract freezes startup, startup progress, shared outbound segment payloads, shared local actions, frozen OneBot single-action capabilities, current provider extension actions, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -67,6 +67,95 @@
         }
       }
     },
+    "base_capability_name": {
+      "type": "string",
+      "enum": [
+        "event.subscribe",
+        "event.raw_payload",
+        "message.send",
+        "message.reply",
+        "logger.write",
+        "storage.kv",
+        "storage.file",
+        "http.request",
+        "config.read",
+        "config.write",
+        "scheduler.create",
+        "event.expose_webhook",
+        "render.image",
+        "plugin.list"
+      ]
+    },
+    "onebot_action_kind": {
+      "type": "string",
+      "enum": [
+        "message.get",
+        "message.delete",
+        "message.history.get",
+        "message.forward.get",
+        "message.forward.send",
+        "message.read.mark",
+        "friend.request.handle",
+        "friend.list",
+        "friend.remark.set",
+        "user.info.get",
+        "user.like.send",
+        "group.list",
+        "group.info.get",
+        "group.member.get",
+        "group.member.list",
+        "group.request.handle",
+        "group.leave",
+        "group.admin.set",
+        "group.ban.set",
+        "group.card.set",
+        "group.title.set",
+        "group.name.set",
+        "group.announcement.list",
+        "group.announcement.create",
+        "group.announcement.delete",
+        "group.essence.list",
+        "group.essence.set",
+        "group.essence.unset",
+        "group.honor.get",
+        "group.todo.set",
+        "file.get",
+        "file.download",
+        "file.group.upload",
+        "file.private.upload",
+        "file.group.url.get",
+        "file.private.url.get",
+        "file.group.fs.info",
+        "file.group.fs.list",
+        "file.group.fs.mkdir",
+        "file.group.fs.delete",
+        "reaction.set",
+        "reaction.list",
+        "poke.send"
+      ]
+    },
+    "provider_extension_action_kind": {
+      "type": "string",
+      "enum": [
+        "provider.napcat.message_emoji.like.set",
+        "provider.napcat.group.sign.set",
+        "provider.luckylillia.friend_groups.get"
+      ]
+    },
+    "capability_name": {
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/base_capability_name"
+        },
+        {
+          "$ref": "#/$defs/onebot_action_kind"
+        },
+        {
+          "$ref": "#/$defs/provider_extension_action_kind"
+        }
+      ]
+    },
     "init": {
       "allOf": [
         {
@@ -103,8 +192,7 @@
             "capabilities": {
               "type": "array",
               "items": {
-                "type": "string",
-                "pattern": "^[a-z]+\\.[a-z_]+$"
+                "$ref": "#/$defs/capability_name"
               },
               "uniqueItems": true
             },
@@ -1018,52 +1106,7 @@
               "minLength": 1
             },
             "action": {
-              "type": "string",
-              "enum": [
-                "message.get",
-                "message.delete",
-                "message.history.get",
-                "message.forward.get",
-                "message.forward.send",
-                "message.read.mark",
-                "friend.request.handle",
-                "friend.list",
-                "friend.remark.set",
-                "user.info.get",
-                "user.like.send",
-                "group.list",
-                "group.info.get",
-                "group.member.get",
-                "group.member.list",
-                "group.request.handle",
-                "group.leave",
-                "group.admin.set",
-                "group.ban.set",
-                "group.card.set",
-                "group.title.set",
-                "group.name.set",
-                "group.announcement.list",
-                "group.announcement.create",
-                "group.announcement.delete",
-                "group.essence.list",
-                "group.essence.set",
-                "group.essence.unset",
-                "group.honor.get",
-                "group.todo.set",
-                "file.get",
-                "file.download",
-                "file.group.upload",
-                "file.private.upload",
-                "file.group.url.get",
-                "file.private.url.get",
-                "file.group.fs.info",
-                "file.group.fs.list",
-                "file.group.fs.mkdir",
-                "file.group.fs.delete",
-                "reaction.set",
-                "reaction.list",
-                "poke.send"
-              ]
+              "$ref": "#/$defs/onebot_action_kind"
             },
             "data": {
               "$ref": "#/$defs/action_onebot_family_data"
@@ -1090,8 +1133,7 @@
               "minLength": 1
             },
             "action": {
-              "type": "string",
-              "pattern": "^provider\\.(napcat|luckylillia)\\.[a-z0-9_.]+$"
+              "$ref": "#/$defs/provider_extension_action_kind"
             },
             "data": {
               "type": "object",
@@ -2546,6 +2588,7 @@
     "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
     "fixtures/plugin-protocol/invalid.action-provider-invalid-namespace.yaml",
+    "fixtures/plugin-protocol/invalid.action-provider-unsupported-action.yaml",
     "fixtures/plugin-protocol/invalid.action-onebot-family-non-object-data.yaml",
     "fixtures/plugin-protocol/invalid.action-http-request-missing-parent-request-id.yaml",
     "fixtures/plugin-protocol/edge.action-logger-write-result.yaml",
@@ -2561,5 +2604,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the initial OneBot11 wider action family, and provider.* namespaces for NapCat and LuckyLillia extensions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

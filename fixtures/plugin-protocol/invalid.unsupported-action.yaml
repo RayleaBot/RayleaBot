@@ -13,4 +13,4 @@ frames:
       user_id: "789"
 expect:
   valid: false
-  reason: only message.send, message.reply, logger.write, storage.kv, storage.file, and http.request are frozen action kinds; other action kinds remain out of scope.
+  reason: action names must stay inside the frozen shared local actions, OneBot single-action capabilities, and current provider extensions.

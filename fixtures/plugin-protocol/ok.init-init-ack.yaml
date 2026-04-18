@@ -12,6 +12,8 @@ frames:
     capabilities:
       - message.send
       - event.subscribe
+      - message.history.get
+      - provider.napcat.group.sign.set
     command_prefixes:
       - /
       - "!"

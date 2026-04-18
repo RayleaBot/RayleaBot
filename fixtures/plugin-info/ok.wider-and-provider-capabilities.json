@@ -1,0 +1,36 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "onebot-capability-sample",
+    "name": "OneBot Capability Sample",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "plugin.py",
+    "license": "MIT",
+    "description": "Manifest sample declaring frozen OneBot and provider capabilities.",
+    "author": "raylea",
+    "role": "example",
+    "capabilities": [
+      "event.subscribe",
+      "message.history.get",
+      "group.member.list",
+      "provider.napcat.group.sign.set"
+    ],
+    "permissions": {
+      "required": [
+        "message.history.get",
+        "group.member.list"
+      ],
+      "optional": [
+        "provider.napcat.group.sign.set"
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

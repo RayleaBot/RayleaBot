@@ -162,7 +162,7 @@
     },
     "capabilities": {
       "type": "array",
-      "description": "Platform capabilities the plugin intends to use. The current formal capability set includes message.send, message.reply, logger.write, storage.kv, storage.file, http.request, config.read, config.write, scheduler.create, event.expose_webhook, render.image, and plugin.list.",
+      "description": "Platform capabilities the plugin intends to use. Formal values cover event subscription and raw payload access, shared local actions, frozen OneBot single-action capabilities, and the current provider extension actions.",
       "items": {
         "$ref": "#/$defs/capability_name"
       },
@@ -330,9 +330,94 @@
         }
       ]
     },
+    "base_capability_name": {
+      "type": "string",
+      "enum": [
+        "event.subscribe",
+        "event.raw_payload",
+        "message.send",
+        "message.reply",
+        "logger.write",
+        "storage.kv",
+        "storage.file",
+        "http.request",
+        "config.read",
+        "config.write",
+        "scheduler.create",
+        "event.expose_webhook",
+        "render.image",
+        "plugin.list"
+      ]
+    },
+    "onebot_action_capability_name": {
+      "type": "string",
+      "enum": [
+        "message.get",
+        "message.delete",
+        "message.history.get",
+        "message.forward.get",
+        "message.forward.send",
+        "message.read.mark",
+        "friend.request.handle",
+        "friend.list",
+        "friend.remark.set",
+        "user.info.get",
+        "user.like.send",
+        "group.list",
+        "group.info.get",
+        "group.member.get",
+        "group.member.list",
+        "group.request.handle",
+        "group.leave",
+        "group.admin.set",
+        "group.ban.set",
+        "group.card.set",
+        "group.title.set",
+        "group.name.set",
+        "group.announcement.list",
+        "group.announcement.create",
+        "group.announcement.delete",
+        "group.essence.list",
+        "group.essence.set",
+        "group.essence.unset",
+        "group.honor.get",
+        "group.todo.set",
+        "file.get",
+        "file.download",
+        "file.group.upload",
+        "file.private.upload",
+        "file.group.url.get",
+        "file.private.url.get",
+        "file.group.fs.info",
+        "file.group.fs.list",
+        "file.group.fs.mkdir",
+        "file.group.fs.delete",
+        "reaction.set",
+        "reaction.list",
+        "poke.send"
+      ]
+    },
+    "provider_extension_capability_name": {
+      "type": "string",
+      "enum": [
+        "provider.napcat.message_emoji.like.set",
+        "provider.napcat.group.sign.set",
+        "provider.luckylillia.friend_groups.get"
+      ]
+    },
     "capability_name": {
       "type": "string",
-      "pattern": "^[a-z]+\\.[a-z_]+$"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/base_capability_name"
+        },
+        {
+          "$ref": "#/$defs/onebot_action_capability_name"
+        },
+        {
+          "$ref": "#/$defs/provider_extension_capability_name"
+        }
+      ]
     },
     "host_name": {
       "type": "string",
@@ -403,17 +488,20 @@
   },
   "x-fixtures": [
     "fixtures/plugin-info/ok.minimal-python.json",
+    "fixtures/plugin-info/ok.wider-and-provider-capabilities.json",
     "fixtures/plugin-info/invalid.unsupported-binary-runtime.json",
     "fixtures/plugin-info/edge.permission-regrant-and-migration.json",
     "fixtures/plugin-info/ok.plugin-with-commands.json",
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
     "fixtures/plugin-info/ok.rich-metadata.json",
     "fixtures/plugin-info/invalid.concurrency-zero.json",
+    "fixtures/plugin-info/invalid.unknown-capability.json",
+    "fixtures/plugin-info/invalid.unknown-provider-capability.json",
     "fixtures/plugin-info/invalid.icon-absolute-path.json",
     "fixtures/plugin-info/invalid.icon-parent-path.json",
     "fixtures/plugin-info/invalid.metadata-insecure-urls.json",
     "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
     "fixtures/plugin-info/invalid.system-dependencies-duplicates.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, source metadata, default plugin config seeding, migration boundaries, and opt-in event concurrency. The current formal capability set includes message.send, message.reply, logger.write, storage.kv, storage.file, http.request, config.read, config.write, scheduler.create, event.expose_webhook, render.image, and plugin.list. Binary runtime support remains outside this frozen surface."
+  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, source metadata, default plugin config seeding, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
 }
