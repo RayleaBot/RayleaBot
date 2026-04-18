@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeTheme } from "electron";
 import type { LauncherSettings, LauncherSnapshot, TrayMenuEntry, TrayMenuState } from "../shared/launcher-models";
+import { deriveLauncherPresentation } from "../shared/launcher-presentation";
 import { launcherCopy } from "../shared/launcher-copy";
 import { launcherEventChannels, launcherInvokeChannels } from "../shared/launcher-ipc";
 import {
@@ -70,24 +71,14 @@ const appExitManager = createApplicationExitManager({
 });
 
 function trayStateFromSnapshot(snapshot: LauncherSnapshot): TrayMenuState {
-  const canOpenWebUi =
-    snapshot.serviceState === "running"
-    || snapshot.serviceState === "degraded"
-    || snapshot.serviceState === "setup_required";
-  const canStopService =
-    (
-      snapshot.serviceState === "running"
-      || snapshot.serviceState === "degraded"
-      || snapshot.serviceState === "failed"
-      || snapshot.serviceState === "setup_required"
-    ) && snapshot.serviceOwnership !== "none";
+  const presentation = deriveLauncherPresentation(snapshot);
 
   return {
-    trayStatusSummary: launcherCopy.statusSummary(snapshot.serviceState),
-    canOpenWebUi,
-    trayServiceAction: canStopService ? "stop" : "start",
-    trayServiceActionLabel: canStopService ? "停止服务" : "启动服务",
-    canRunTrayServiceAction: snapshot.serviceState !== "starting" && snapshot.serviceState !== "stopping",
+    trayStatusSummary: launcherCopy.statusSummary(presentation.state),
+    canOpenWebUi: presentation.canOpenWebUi,
+    trayServiceAction: presentation.canStopService ? "stop" : "start",
+    trayServiceActionLabel: presentation.canStopService ? "停止服务" : "启动服务",
+    canRunTrayServiceAction: presentation.canRunServiceAction,
   };
 }
 
@@ -127,12 +118,12 @@ async function chooseWorkdir() {
 
 async function handleCloseRequest() {
   const snapshot = coordinator.snapshot;
-  if (snapshot.settings.closeBehavior === "hide_to_tray") {
+  if (snapshot.launcher.settings.closeBehavior === "hide_to_tray") {
     mainWindow?.hide();
     return;
   }
 
-  if (snapshot.settings.closeBehavior === "exit_application") {
+  if (snapshot.launcher.settings.closeBehavior === "exit_application") {
     await appExitManager.requestExit();
     return;
   }
@@ -183,7 +174,8 @@ function refreshTrayMenu(snapshot: LauncherSnapshot) {
       };
     }),
   );
-  tray.setToolTip(`RayleaBot 启动器 · ${launcherCopy.statusSummary(snapshot.serviceState)}`);
+  const presentation = deriveLauncherPresentation(snapshot);
+  tray.setToolTip(`RayleaBot 启动器 · ${launcherCopy.statusSummary(presentation.state)}`);
   tray.setContextMenu(menu);
 }
 
@@ -287,7 +279,7 @@ function wireIpc() {
     if (response.setAsDefault) {
       const nextBehavior = response.action === "hide" ? "hide_to_tray" : "exit_application";
       await coordinator.saveSettings({
-        ...snapshot.settings,
+        ...snapshot.launcher.settings,
         closeBehavior: nextBehavior,
       } satisfies LauncherSettings);
     }

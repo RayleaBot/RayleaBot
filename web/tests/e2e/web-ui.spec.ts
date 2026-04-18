@@ -32,6 +32,22 @@ async function closeSocket(
   })
 }
 
+async function pushLogsInBatches(
+  request: import('@playwright/test').APIRequestContext,
+  count: number,
+  buildPayload: (index: number) => Record<string, unknown>,
+  batchSize = 24,
+) {
+  for (let start = 0; start < count; start += batchSize) {
+    const end = Math.min(start + batchSize, count)
+    await Promise.all(Array.from({ length: end - start }, (_, offset) => (
+      request.post(`${backendUrl}/__test/push-log`, {
+        data: buildPayload(start + offset),
+      })
+    )))
+  }
+}
+
 async function login(page: import('@playwright/test').Page) {
   await page.goto('/login')
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
@@ -403,32 +419,28 @@ test('logs page keeps the feed and floating detail window inside the viewport', 
   await login(page)
 
   const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
-  await Promise.all(Array.from({ length: 96 }, (_, index) => (
-    request.post(`${backendUrl}/__test/push-log`, {
-      data: {
-        summary: {
-          log_id: `log_detail_window_seed_${index}`,
-          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_log_detail_window_seed',
-          message: `detail window seed ${index}`,
-        },
-        detail: {
-          log_id: `log_detail_window_seed_${index}`,
-          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_log_detail_window_seed',
-          message: `detail window seed ${index}`,
-          details: {
-            branch: 'detail-window-seed',
-            index,
-          },
-        },
+  await pushLogsInBatches(request, 96, (index) => ({
+    summary: {
+      log_id: `log_detail_window_seed_${index}`,
+      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+      level: 'info',
+      source: 'runtime',
+      request_id: 'req_log_detail_window_seed',
+      message: `detail window seed ${index}`,
+    },
+    detail: {
+      log_id: `log_detail_window_seed_${index}`,
+      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+      level: 'info',
+      source: 'runtime',
+      request_id: 'req_log_detail_window_seed',
+      message: `detail window seed ${index}`,
+      details: {
+        branch: 'detail-window-seed',
+        index,
       },
-    })
-  )))
+    },
+  }))
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -525,20 +537,16 @@ test('history logs stay frozen until the user refreshes the anchor', async ({ pa
 
   const baseTimestamp = Date.now() - 60 * 60 * 1000
 
-  await Promise.all(Array.from({ length: 51 }, (_, index) => (
-    request.post(`${backendUrl}/__test/push-log`, {
-      data: {
-        summary: {
-          log_id: `log_history_e2e_${index}`,
-          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_logs_history_e2e',
-          message: `history row ${index}`,
-        },
-      },
-    })
-  )))
+  await pushLogsInBatches(request, 51, (index) => ({
+    summary: {
+      log_id: `log_history_e2e_${index}`,
+      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+      level: 'info',
+      source: 'runtime',
+      request_id: 'req_logs_history_e2e',
+      message: `history row ${index}`,
+    },
+  }))
 
   await page.goto('/logs/history')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
@@ -579,20 +587,16 @@ test('current logs reveal older rows after scrolling to the top edge', async ({ 
 
   const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
 
-  await Promise.all(Array.from({ length: 151 }, (_, index) => (
-    request.post(`${backendUrl}/__test/push-log`, {
-      data: {
-        summary: {
-          log_id: `log_current_scroll_e2e_${index}`,
-          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_logs_current_scroll_e2e',
-          message: `current scroll row ${index}`,
-        },
-      },
-    })
-  )))
+  await pushLogsInBatches(request, 151, (index) => ({
+    summary: {
+      log_id: `log_current_scroll_e2e_${index}`,
+      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+      level: 'info',
+      source: 'runtime',
+      request_id: 'req_logs_current_scroll_e2e',
+      message: `current scroll row ${index}`,
+    },
+  }))
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -631,20 +635,16 @@ test('current logs keep following new rows while follow mode stays active', asyn
 
   const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
 
-  await Promise.all(Array.from({ length: 121 }, (_, index) => (
-    request.post(`${backendUrl}/__test/push-log`, {
-      data: {
-        summary: {
-          log_id: `log_live_follow_keep_${index}`,
-          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_live_follow_keep',
-          message: `live follow keep seed ${index}`,
-        },
-      },
-    })
-  )))
+  await pushLogsInBatches(request, 121, (index) => ({
+    summary: {
+      log_id: `log_live_follow_keep_${index}`,
+      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+      level: 'info',
+      source: 'runtime',
+      request_id: 'req_live_follow_keep',
+      message: `live follow keep seed ${index}`,
+    },
+  }))
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -702,20 +702,16 @@ test('current logs stop following immediately when the user scrolls upward durin
 
   const baseTimestamp = Date.now() - 2 * 60 * 60 * 1000
 
-  await Promise.all(Array.from({ length: 121 }, (_, index) => (
-    request.post(`${backendUrl}/__test/push-log`, {
-      data: {
-        summary: {
-          log_id: `log_live_follow_pause_${index}`,
-          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_live_follow_pause',
-          message: `live follow seed ${index}`,
-        },
-      },
-    })
-  )))
+  await pushLogsInBatches(request, 121, (index) => ({
+    summary: {
+      log_id: `log_live_follow_pause_${index}`,
+      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+      level: 'info',
+      source: 'runtime',
+      request_id: 'req_live_follow_pause',
+      message: `live follow seed ${index}`,
+    },
+  }))
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -855,20 +851,16 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
 
   const baseTimestamp = Date.now() - 3 * 60 * 60 * 1000
 
-  await Promise.all(Array.from({ length: 151 }, (_, index) => (
-    request.post(`${backendUrl}/__test/push-log`, {
-      data: {
-        summary: {
-          log_id: `log_history_scroll_e2e_${index}`,
-          timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
-          level: 'info',
-          source: 'runtime',
-          request_id: 'req_logs_history_scroll_e2e',
-          message: `history scroll row ${index}`,
-        },
-      },
-    })
-  )))
+  await pushLogsInBatches(request, 151, (index) => ({
+    summary: {
+      log_id: `log_history_scroll_e2e_${index}`,
+      timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
+      level: 'info',
+      source: 'runtime',
+      request_id: 'req_logs_history_scroll_e2e',
+      message: `history scroll row ${index}`,
+    },
+  }))
 
   await page.goto('/logs/history')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
@@ -1263,26 +1255,22 @@ test('logs page keeps older current-session rows reachable inside the table scro
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
 
-  await Promise.all(Array.from({ length: 36 }, (_, index) => (
-    request.post(`${backendUrl}/__test/push-log`, {
-      data: {
-        summary: {
-          log_id: `log_runtime_scroll_${index}`,
-          timestamp: `2026-04-15T10:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}Z`,
-          level: 'info',
-          source: 'runtime',
-          message: `scroll history row ${index}`,
-          request_id: `req_runtime_scroll_${index}`,
-        },
-        detail: {
-          details: {
-            direction: 'internal',
-            reason: `scroll history row ${index}`,
-          },
-        },
+  await pushLogsInBatches(request, 36, (index) => ({
+    summary: {
+      log_id: `log_runtime_scroll_${index}`,
+      timestamp: `2026-04-15T10:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}Z`,
+      level: 'info',
+      source: 'runtime',
+      message: `scroll history row ${index}`,
+      request_id: `req_runtime_scroll_${index}`,
+    },
+    detail: {
+      details: {
+        direction: 'internal',
+        reason: `scroll history row ${index}`,
       },
-    })
-  )))
+    },
+  }))
 
   const jumpToBottomButton = page.getByRole('button', { name: '回到底部' })
   if (await jumpToBottomButton.isVisible().catch(() => false)) {

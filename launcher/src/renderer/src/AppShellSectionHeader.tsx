@@ -1,5 +1,6 @@
 import { Button } from "@fluentui/react-components";
 import { ArrowClockwise20Regular, FolderOpen20Filled } from "@fluentui/react-icons";
+import { deriveLauncherPresentation, getEnvironmentSummaryLabel } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import type { ReactNode } from "react";
 
@@ -29,10 +30,12 @@ function getSectionHeaderBadges(
   environmentLabel: string,
   hasRecentStderr: boolean,
 ): ReactNode {
+  const presentation = deriveLauncherPresentation(snapshot);
+
   if (renderedSection === "status") {
     return (
       <>
-        <span className="glass-chip glass-chip--accent">{serviceStateConfig[snapshot.serviceState]?.label ?? "未知"}</span>
+        <span className="glass-chip glass-chip--accent">{serviceStateConfig[presentation.state]?.label ?? "未知"}</span>
         {busyAction && <span className="glass-chip glass-chip--muted">{busyActionLabels[busyAction] ?? "正在执行操作"}</span>}
       </>
     );
@@ -41,7 +44,7 @@ function getSectionHeaderBadges(
     return (
       <>
         <span className="glass-chip glass-chip--accent">{environmentLabel}</span>
-        <span className="glass-chip glass-chip--muted">{(snapshot.environmentChecks || []).length} 项检查</span>
+        <span className="glass-chip glass-chip--muted">{snapshot.launcher.environmentChecks.length} 项检查</span>
       </>
     );
   }
@@ -51,7 +54,7 @@ function getSectionHeaderBadges(
         <span className={`glass-chip ${hasRecentStderr ? "glass-chip--danger" : "glass-chip--muted"}`}>
           {hasRecentStderr ? "检测到异常输出" : "当前安静"}
         </span>
-        <span className="glass-chip glass-chip--muted">{snapshot.endpoint.baseUrl}</span>
+        <span className="glass-chip glass-chip--muted">{snapshot.launcher.endpoint.baseUrl}</span>
       </>
     );
   }
@@ -97,18 +100,11 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
 
 export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
   const sectionMeta = sectionContent[props.renderedSection];
-  const hasRecentStderr = props.snapshot.recentStderr.length > 0;
-  const canRunRecoveryActions =
-    (props.snapshot.serviceState === "running" || props.snapshot.serviceState === "degraded")
-    && !props.controlsDisabled;
-  const canRecheckRecovery = canRunRecoveryActions && Boolean(props.snapshot.recoverySummary);
-  const environmentChecks = props.snapshot.environmentChecks || [];
-  const environmentLabel =
-    environmentChecks.some((item) => item.severity === "error")
-      ? "需要处理"
-      : environmentChecks.some((item) => item.severity === "warning")
-        ? "可继续，但有警告"
-        : "可以启动";
+  const presentation = deriveLauncherPresentation(props.snapshot);
+  const hasRecentStderr = props.snapshot.launcher.recentStderr.length > 0;
+  const canRunRecoveryActions = presentation.canRunRecoveryActions && !props.controlsDisabled;
+  const canRecheckRecovery = canRunRecoveryActions && presentation.canRecheckRecovery;
+  const environmentLabel = getEnvironmentSummaryLabel(props.snapshot.launcher.environmentChecks);
 
   return (
     <header className="section-header glass-panel glass-panel--subtle">

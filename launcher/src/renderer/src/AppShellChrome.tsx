@@ -9,6 +9,7 @@ import {
   WeatherSunny20Regular,
   Desktop20Regular,
 } from "@fluentui/react-icons";
+import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { sections, statusSummary } from "./AppShell.shared";
@@ -42,7 +43,7 @@ export function AppShellChrome({
   onNavigate,
   onRefresh,
 }: AppShellChromeProps) {
-  const trayStatus = statusSummary(snapshot.serviceState);
+  const trayStatus = statusSummary(deriveLauncherPresentation(snapshot).state);
   const { mode, toggleMode } = useTheme();
 
   return (
@@ -61,7 +62,7 @@ export function AppShellChrome({
           <div className="brand-eyebrow">RayleaBot</div>
           <div className="brand-headline">
             <h1>RayleaLauncher</h1>
-            {snapshot.releaseCheck.currentVersion && <span className="glass-chip">v{snapshot.releaseCheck.currentVersion}</span>}
+            {snapshot.launcher.releaseCheck.currentVersion && <span className="glass-chip">v{snapshot.launcher.releaseCheck.currentVersion}</span>}
           </div>
         </div>
 
@@ -86,7 +87,7 @@ export function AppShellChrome({
           </div>
           <div className="sidebar-footer__group">
             <Text size={100} className="eyebrow-text">API ENDPOINT</Text>
-            <Text size={100} className="sidebar-footer__endpoint">{snapshot.endpoint.baseUrl}</Text>
+            <Text size={100} className="sidebar-footer__endpoint">{snapshot.launcher.endpoint.baseUrl}</Text>
           </div>
           <div className="sidebar-footer__actions">
             <button type="button" className="theme-toggle-btn" onClick={toggleMode} title={`当前主题：${modeLabels[mode]}，点击切换`}>

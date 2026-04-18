@@ -1,4 +1,5 @@
-import type { CheckSeverity, LauncherCloseBehavior, LauncherServiceState } from "./launcher-models";
+import { getLauncherStateLabel, type LauncherPresentationState } from "./launcher-presentation";
+import type { CheckSeverity, LauncherCloseBehavior } from "./launcher-models";
 
 export const launcherCopy = {
   trayTitleLabel: "RayleaBot 启动器",
@@ -6,25 +7,8 @@ export const launcherCopy = {
   openWebUiLabel: "打开管理界面",
   trayOpenLogsLabel: "日志目录",
   exitAppLabel: "完全退出",
-  statusSummary(state: LauncherServiceState) {
-    switch (state) {
-      case "stopped":
-        return "未启动";
-      case "starting":
-        return "启动中";
-      case "running":
-        return "运行中";
-      case "degraded":
-        return "运行条件受限";
-      case "setup_required":
-        return "需要设置";
-      case "stopping":
-        return "停止中";
-      case "failed":
-        return "启动失败";
-      default:
-        return "未知状态";
-    }
+  statusSummary(state: LauncherPresentationState) {
+    return getLauncherStateLabel(state);
   },
   severityLabel(severity: CheckSeverity) {
     switch (severity) {

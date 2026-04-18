@@ -1,97 +1,27 @@
+import type { components } from "./web-api.generated";
+
 export type LauncherCloseBehavior = "ask_every_time" | "hide_to_tray" | "exit_application";
+export type LauncherProcessLifecycle = "stopped" | "starting" | "running" | "stopping";
+export type LauncherProcessOwnership = "none" | "launcher_managed" | "external";
 
-export type LauncherServiceState =
-  | "stopped"
-  | "starting"
-  | "running"
-  | "degraded"
-  | "setup_required"
-  | "stopping"
-  | "failed";
+export type ErrorEnvelope = components["schemas"]["ErrorEnvelope"];
+export type LivenessStatusResponse = components["schemas"]["LivenessStatusResponse"];
+export type LauncherAdmissionRequest = components["schemas"]["LauncherAdmissionRequest"];
+export type LauncherDiagnosticIssue = components["schemas"]["DiagnosticIssue"];
+export type LauncherReadinessSnapshot = components["schemas"]["ReadinessStatusResponse"];
+export type LauncherSystemStatusSnapshot = components["schemas"]["SystemStatusResponse"];
+export type LauncherTokenResponse = components["schemas"]["LauncherTokenResponse"];
+export type RecoveryCompatibilityAuditEntry = components["schemas"]["RecoveryCompatibilityAuditEntry"];
+export type RecoveryCompatibilityAuditItem = components["schemas"]["RecoveryCompatibilityAuditItem"];
+export type RecoveryCompatibilityIssue = components["schemas"]["RecoveryCompatibilityIssue"];
+export type RecoveryCompatibilitySkippedPlugin = components["schemas"]["RecoveryCompatibilitySkippedPlugin"];
+export type RecoveryCompatibilitySummary = components["schemas"]["RecoveryCompatibilitySummary"];
+export type TaskAcceptedResponse = components["schemas"]["TaskAcceptedResponse"];
+export type TaskListResponse = components["schemas"]["TaskListResponse"];
+export type TaskSummary = components["schemas"]["TaskSummary"];
 
-export type LauncherServiceOwnership = "none" | "launcher_managed" | "external";
-
-export type CheckSeverity = "ok" | "warning" | "error";
-
-export interface RecoveryCompatibilityIssue {
-  code: string;
-  severity: "warning" | "error";
-  summary: string;
-  remediation?: string;
-}
-
-export interface LauncherDiagnosticIssue {
-  code: string;
-  severity: "warning" | "error";
-  summary: string;
-  remediation?: string;
-}
-
-export interface RecoveryCompatibilitySkippedPlugin {
-  plugin_id: string;
-  version?: string;
-  reason_code: string;
-  summary: string;
-  review_id: string;
-  review_status: "pending" | "confirmed";
-  reviewed_at?: string;
-  reviewed_by?: string;
-  manual_action?: string;
-  manifest_path?: string;
-}
-
-export interface RecoveryCompatibilityAuditItem {
-  review_id: string;
-  plugin_id: string;
-  reason_code: string;
-  summary: string;
-  version?: string;
-}
-
-export interface RecoveryCompatibilityAuditEntry {
-  task_id: string;
-  created_at: string;
-  operator_id: string;
-  note: string;
-  items: RecoveryCompatibilityAuditItem[];
-}
-
-export interface RecoveryCompatibilitySummary {
-  status: "pending" | "compatible" | "degraded" | "blocked";
-  phase: "pre_restore" | "post_startup";
-  operation: "restore" | "upgrade" | "rollback";
-  created_at: string;
-  updated_at: string;
-  source_core_version?: string;
-  target_core_version?: string;
-  source_config_schema_version?: string;
-  target_config_schema_version?: string;
-  source_db_schema_version?: string;
-  target_db_schema_version?: string;
-  requires_post_start_checks?: boolean;
-  issues?: RecoveryCompatibilityIssue[];
-  skipped_plugins?: RecoveryCompatibilitySkippedPlugin[];
-  manual_actions?: string[];
-  next_steps?: string[];
-  audit?: RecoveryCompatibilityAuditEntry[];
-}
-
-export interface LauncherReadinessSnapshot {
-  status: "ready" | "degraded" | "setup_required" | "failed";
-  reason?: string;
-  reason_codes?: string[];
-  issues?: LauncherDiagnosticIssue[];
-  checks?: Partial<Record<"config" | "database" | "runtime" | "adapter" | "render", string>>;
-  recovery_summary?: RecoveryCompatibilitySummary | null;
-}
-
-export interface LauncherSystemStatusSnapshot {
-  status: "running" | "shutting_down";
-  adapter_state?: string;
-  active_plugins?: number;
-  uptime_seconds?: number;
-  recovery_summary?: RecoveryCompatibilitySummary | null;
-}
+export type CheckSeverity = LauncherDiagnosticIssue["severity"];
+export type EnvironmentCheckScope = "preflight" | "advisory";
 
 export interface LauncherAdvancedOverrides {
   serverExecutablePath?: string;
@@ -119,6 +49,7 @@ export interface ServerEndpoint {
 }
 
 export interface EnvironmentCheckResult {
+  scope: EnvironmentCheckScope;
   code: string;
   title: string;
   severity: CheckSeverity;
@@ -129,6 +60,8 @@ export interface EnvironmentCheckResult {
 
 export interface EnvironmentInspection {
   checks: EnvironmentCheckResult[];
+  preflightChecks: EnvironmentCheckResult[];
+  advisoryChecks: EnvironmentCheckResult[];
   hasBlockingIssues: boolean;
   canBootstrapUserConfig: boolean;
 }
@@ -143,21 +76,32 @@ export interface ReleaseCheckSnapshot {
   updateAvailable: boolean;
 }
 
-export interface LauncherSnapshot {
+export interface LauncherServerSnapshot {
+  health: LivenessStatusResponse | null;
+  readiness: LauncherReadinessSnapshot | null;
+  systemStatus: LauncherSystemStatusSnapshot | null;
+}
+
+export interface LauncherLocalSnapshot {
+  processId: number | null;
+  processLifecycle: LauncherProcessLifecycle;
+  processOwnership: LauncherProcessOwnership;
+  environmentChecks: EnvironmentCheckResult[];
+  preflightChecks: EnvironmentCheckResult[];
+  advisoryChecks: EnvironmentCheckResult[];
+  recentStderr: string[];
+  releaseCheck: ReleaseCheckSnapshot;
+  lastLocalError: string;
+  statusHint: string;
   settings: LauncherSettings;
   resolvedSettings: LauncherResolvedSettings;
   endpoint: ServerEndpoint;
-  environmentChecks: EnvironmentCheckResult[];
-  recentStderr: string[];
-  processId: number | null;
-  serviceState: LauncherServiceState;
-  serviceOwnership: LauncherServiceOwnership;
-  shutdownRequested: boolean;
-  serviceDetail: string;
-  lastError: string;
-  readiness?: LauncherReadinessSnapshot | null;
-  releaseCheck: ReleaseCheckSnapshot;
-  recoverySummary?: RecoveryCompatibilitySummary | null;
+  localRecoverySummary: RecoveryCompatibilitySummary | null;
+}
+
+export interface LauncherSnapshot {
+  server: LauncherServerSnapshot;
+  launcher: LauncherLocalSnapshot;
 }
 
 export interface TrayMenuEntry {

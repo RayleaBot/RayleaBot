@@ -21,8 +21,11 @@ export function useLauncherInitialization() {
       .catch((error: unknown) => {
         setSnapshot((prev) => ({
           ...prev,
-          lastError: describeLauncherError(error, "启动器初始化失败。"),
-          serviceDetail: "启动器初始化失败。",
+          launcher: {
+            ...prev.launcher,
+            lastLocalError: describeLauncherError(error, "启动器初始化失败。"),
+            statusHint: "启动器初始化失败。",
+          },
         }));
       })
       .finally(() => {

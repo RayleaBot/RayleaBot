@@ -35,6 +35,7 @@ type ManagedRuntimeState = {
   archivePath?: string;
   storeRoot?: string;
 };
+type EnvironmentCheckDraft = Omit<EnvironmentCheckResult, "scope">;
 type DepsManifestResource = {
   id?: string;
   platform?: string;
@@ -193,6 +194,13 @@ function runtimeBootstrapRemediation(kind: ManagedRuntimeKind, archivePath?: str
   return `请联网准备运行环境；离线或受限网络环境可${fallbacks}`;
 }
 
+function resolveEnvironmentCheckScope(code: string): EnvironmentCheckResult["scope"] {
+  if (code.startsWith("server.") || code.startsWith("config.") || code.startsWith("workdir.")) {
+    return "preflight";
+  }
+  return "advisory";
+}
+
 function resolveManagedRuntimeState(
   probe: EnvironmentProbeInput,
   resource: DepsManifestResource | undefined,
@@ -223,7 +231,7 @@ function bootstrapStateIssue(
   onDemandDetail: string,
   warningDetail: string,
   metadataRemediation: string,
-): EnvironmentCheckResult {
+): EnvironmentCheckDraft {
   if (!state.metadataComplete) {
     return {
       code,
@@ -306,7 +314,7 @@ export async function detectWindowsLongPathsStatus(
 }
 
 export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): Promise<EnvironmentInspection> {
-  const checks: EnvironmentCheckResult[] = [];
+  const checks: EnvironmentCheckDraft[] = [];
 
   checks.push(
     probe.serverExecutableExists
@@ -619,10 +627,19 @@ export async function inspectLauncherEnvironment(probe: EnvironmentProbeInput): 
       break;
   }
 
+  const scopedChecks = checks.map((item) => ({
+    ...item,
+    scope: resolveEnvironmentCheckScope(item.code),
+  }));
+  const preflightChecks = scopedChecks.filter((item) => item.scope === "preflight");
+  const advisoryChecks = scopedChecks.filter((item) => item.scope === "advisory");
+
   return {
-    checks,
-    hasBlockingIssues: checks.some((item) => item.severity === "error"),
-    canBootstrapUserConfig: checks.some((item) => item.code === "config.bootstrap_available"),
+    checks: scopedChecks,
+    preflightChecks,
+    advisoryChecks,
+    hasBlockingIssues: preflightChecks.some((item) => item.severity === "error"),
+    canBootstrapUserConfig: scopedChecks.some((item) => item.code === "config.bootstrap_available"),
   };
 }
 

@@ -7,6 +7,7 @@ import {
   Warning20Filled,
 } from "@fluentui/react-icons";
 import { useEffect, useState } from "react";
+import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type {
   LauncherAdvancedOverrides,
   LauncherResolvedSettings,
@@ -52,6 +53,7 @@ export function AppShellSettingsSection({
   onExit,
 }: SettingsSectionProps) {
   const [showAdvancedOverrides, setShowAdvancedOverrides] = useState(false);
+  const presentation = deriveLauncherPresentation(snapshot);
 
   const hasAdvancedOverrides = Boolean(
     settingsDraft.advancedOverrides?.serverExecutablePath
@@ -196,7 +198,7 @@ export function AppShellSettingsSection({
                     <Text size={200} className="maintenance-action-card__detail">清除本地管理凭据，下次启动时重新完成初始化。</Text>
                   </div>
                 </div>
-                <Button appearance="transparent" size="small" className="frost-button frost-button--danger maintenance-action-card__button" onClick={onResetAdmin} disabled={controlsDisabled || snapshot.serviceState === "starting" || snapshot.serviceState === "stopping"}>立即重置</Button>
+                <Button appearance="transparent" size="small" className="frost-button frost-button--danger maintenance-action-card__button" onClick={onResetAdmin} disabled={controlsDisabled || presentation.state === "starting" || presentation.state === "stopping"}>立即重置</Button>
               </div>
               <div className="maintenance-action-card maintenance-action-card--soft">
                 <div className="maintenance-action-card__lead">

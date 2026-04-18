@@ -17,6 +17,9 @@ type DashboardActionState = {
     confirmRecovery: (payload: { review_ids: string[]; note?: string }) => Promise<{ task_id: string }>
     bootstrapManagedRuntime: (resources: string[]) => Promise<{ task_id: string }>
   }
+  tasksStore: {
+    findInProgressTaskByType: (taskType: string) => Promise<{ task_id: string } | null>
+  }
   router: {
     push: (location: unknown) => Promise<unknown>
   }
@@ -33,6 +36,17 @@ type DashboardActionState = {
 }
 
 export function useDashboardActions(state: DashboardActionState) {
+  async function openExistingTask(taskType: 'recovery.recheck' | 'runtime.bootstrap') {
+    const existingTask = await state.tasksStore.findInProgressTaskByType(taskType)
+    if (!existingTask) {
+      return null
+    }
+
+    notifySuccess(t('dashboard.taskInProgress'))
+    await state.router.push({ name: 'tasks', query: { task_id: existingTask.task_id } })
+    return existingTask
+  }
+
   async function createBackup() {
     try {
       const response = await state.systemStore.createBackup()
@@ -82,6 +96,9 @@ export function useDashboardActions(state: DashboardActionState) {
 
   async function recheckRecoverySummary() {
     try {
+      if (await openExistingTask('recovery.recheck')) {
+        return
+      }
       const response = await state.systemStore.recheckRecovery()
       notifySuccess(t('dashboard.recoveryRecheckAccepted'))
       await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
@@ -109,6 +126,9 @@ export function useDashboardActions(state: DashboardActionState) {
 
   async function bootstrapRuntimeResources() {
     try {
+      if (await openExistingTask('runtime.bootstrap')) {
+        return
+      }
       const response = await state.systemStore.bootstrapManagedRuntime(state.recoveryBootstrapResources.value)
       notifySuccess(t('dashboard.runtimeBootstrapAccepted'))
       await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })

@@ -49,6 +49,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   auth?: boolean
   body?: unknown
   timeoutMs?: number
+  acceptStatuses?: number[]
 }
 
 export interface ApiDownloadResult {
@@ -109,8 +110,50 @@ function decodeFilenamePart(value: string) {
   }
 }
 
+function normalizeRequestError(error: unknown, callerAborted: boolean) {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return new ApiError(callerAborted ? '请求已取消。' : '请求超时。', 0)
+  }
+
+  if (error instanceof Error) {
+    return error
+  }
+
+  return new ApiError('请求失败。', 0)
+}
+
+async function readResponsePayload(response: Response) {
+  if (response.status === 204) {
+    return undefined
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+  const isJson = contentType.includes('application/json')
+  return isJson ? await response.json() : await response.text()
+}
+
+function readErrorEnvelope(payload: unknown) {
+  return typeof payload === 'object' && payload !== null && 'error' in payload
+    ? (payload as ErrorEnvelope)
+    : undefined
+}
+
+function createApiError(response: Response, payload: unknown) {
+  const errorEnvelope = readErrorEnvelope(payload)
+
+  return new ApiError(
+    errorEnvelope?.error.message
+      ?? (typeof payload === 'string' && payload.trim() ? payload.trim() : response.statusText),
+    response.status,
+    errorEnvelope?.error.code,
+    errorEnvelope?.error.request_id,
+    errorEnvelope?.error.details,
+    errorEnvelope?.error.message_key,
+  )
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, ...rest } = options
+  const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, acceptStatuses = [], ...rest } = options
   const tokenSnapshot = auth ? runtime.getToken() : null
   const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, tokenSnapshot)
 
@@ -126,35 +169,24 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       headers: requestHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+  } catch (error) {
+    throw normalizeRequestError(error, Boolean(callerSignal?.aborted))
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 
-  if (response.status === 204) {
-    return undefined as T
-  }
+  const payload = await readResponsePayload(response)
 
-  const contentType = response.headers.get('content-type') ?? ''
-  const isJson = contentType.includes('application/json')
-  const payload = isJson ? await response.json() : await response.text()
-
-  if (!response.ok) {
-    const errorEnvelope = typeof payload === 'object' && payload !== null && 'error' in payload
-      ? (payload as ErrorEnvelope)
-      : undefined
-
+  if (!response.ok && !acceptStatuses.includes(response.status)) {
     if (response.status === 401 && auth) {
       runtime.onUnauthorized(tokenSnapshot)
     }
 
-    throw new ApiError(
-      errorEnvelope?.error.message ?? response.statusText,
-      response.status,
-      errorEnvelope?.error.code,
-      errorEnvelope?.error.request_id,
-      errorEnvelope?.error.details,
-      errorEnvelope?.error.message_key,
-    )
+    throw createApiError(response, payload)
+  }
+
+  if (response.status === 204) {
+    return undefined as T
   }
 
   return payload as T
@@ -177,30 +209,20 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
       headers: requestHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+  } catch (error) {
+    throw normalizeRequestError(error, Boolean(callerSignal?.aborted))
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 
   if (!response.ok) {
-    const contentType = response.headers.get('content-type') ?? ''
-    const isJson = contentType.includes('application/json')
-    const payload = isJson ? await response.json() : await response.text()
-    const errorEnvelope = typeof payload === 'object' && payload !== null && 'error' in payload
-      ? (payload as ErrorEnvelope)
-      : undefined
+    const payload = await readResponsePayload(response)
 
     if (response.status === 401 && auth) {
       runtime.onUnauthorized(tokenSnapshot)
     }
 
-    throw new ApiError(
-      errorEnvelope?.error.message ?? response.statusText,
-      response.status,
-      errorEnvelope?.error.code,
-      errorEnvelope?.error.request_id,
-      errorEnvelope?.error.details,
-      errorEnvelope?.error.message_key,
-    )
+    throw createApiError(response, payload)
   }
 
   return {

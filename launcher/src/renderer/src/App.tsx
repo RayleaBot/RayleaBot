@@ -1,4 +1,5 @@
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherAdvancedOverrides, LauncherSettings } from "@shared/launcher-models";
 
 import { AppShell } from "./AppShell";
@@ -32,6 +33,7 @@ export function App() {
     setEditingDraft,
     settingsDraft,
   } = useLauncherSettingsState(snapshot, editingSettings);
+  const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
 
   const controlsDisabled = useMemo(
     () => initializing || busyAction === "initialize",
@@ -46,13 +48,16 @@ export function App() {
       } catch (error) {
         setSnapshot((prev) => ({
           ...prev,
-          lastError: describeLauncherError(error, "启动器操作失败。"),
-          serviceDetail:
-            action === "restart"
-              ? "重启服务失败。"
-              : action === "start"
-                ? "启动服务失败。"
-                : prev.serviceDetail,
+          launcher: {
+            ...prev.launcher,
+            lastLocalError: describeLauncherError(error, "启动器操作失败。"),
+            statusHint:
+              action === "restart"
+                ? "重启服务失败。"
+                : action === "start"
+                  ? "启动服务失败。"
+                  : prev.launcher.statusHint,
+          },
         }));
       } finally {
         setBusyAction(null);
@@ -64,9 +69,9 @@ export function App() {
   const handleUpdateSettings = useCallback(
     (update: (current: LauncherSettings) => LauncherSettings) => {
       if (!editingSettings) return;
-      setEditingDraft((prev) => update(prev ?? snapshot.settings));
+      setEditingDraft((prev) => update(prev ?? snapshot.launcher.settings));
     },
-    [editingSettings, setEditingDraft, snapshot.settings],
+    [editingSettings, setEditingDraft, snapshot.launcher.settings],
   );
 
   const handleUpdateInstallationRoot = useCallback(
@@ -139,14 +144,14 @@ export function App() {
   }, []);
 
   const handleBeginEdit = useCallback(() => {
-    setEditingDraft({
-      ...snapshot.settings,
-      advancedOverrides: snapshot.settings.advancedOverrides
-        ? { ...snapshot.settings.advancedOverrides }
+      setEditingDraft({
+      ...snapshot.launcher.settings,
+      advancedOverrides: snapshot.launcher.settings.advancedOverrides
+        ? { ...snapshot.launcher.settings.advancedOverrides }
         : undefined,
     });
     setEditingSettings(true);
-  }, [setEditingDraft, snapshot.settings]);
+  }, [setEditingDraft, snapshot.launcher.settings]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingSettings(false);
@@ -154,21 +159,20 @@ export function App() {
   }, [setEditingDraft]);
 
   const handlePrimaryServiceAction = useCallback(() => {
-    const isManagedRunnable =
-      (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
-      && snapshot.serviceOwnership === "launcher_managed";
-
-    if (isManagedRunnable) {
+    if (
+      (presentation.state === "running" || presentation.state === "degraded")
+      && snapshot.launcher.processOwnership === "launcher_managed"
+    ) {
       return runAction("restart", async () => {
         await window.rayleaLauncher.stop();
         await window.rayleaLauncher.start();
       });
     }
-    if (snapshot.serviceState === "setup_required") {
+    if (presentation.state === "setup_required") {
       return runAction("open-web", () => window.rayleaLauncher.openWebUi());
     }
     return runAction("start", () => window.rayleaLauncher.start());
-  }, [runAction, snapshot.serviceOwnership, snapshot.serviceState]);
+  }, [presentation.state, runAction, snapshot.launcher.processOwnership]);
 
   const handleNavigate = useCallback(
     (section: SectionId) => {
@@ -201,7 +205,7 @@ export function App() {
       sectionTransitionState={sectionTransitionState}
       platformLabel={platformLabel}
       settingsDraft={settingsDraft}
-      resolvedSettings={editingSettings ? previewResolvedSettings : snapshot.resolvedSettings}
+      resolvedSettings={editingSettings ? previewResolvedSettings : snapshot.launcher.resolvedSettings}
       editingSettings={editingSettings}
       diagnosticsSummary={diagnosticsSummary}
       busyAction={busyAction}

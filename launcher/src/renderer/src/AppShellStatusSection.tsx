@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/launcher-presentation";
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
 import { busyActionLabels, sortChecks } from "./AppShell.shared";
@@ -37,8 +38,10 @@ export function AppShellStatusSection({
   const [statusHighlight, setStatusHighlight] = useState<"none" | "signal" | "alert">("none");
   const [logHighlight, setLogHighlight] = useState<"none" | "fresh">("none");
 
-  const readiness = snapshot.readiness ?? null;
-  const checks = useMemo(() => sortChecks(snapshot.environmentChecks || []), [snapshot.environmentChecks]);
+  const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
+  const recoverySummary = useMemo(() => resolveRecoverySummary(snapshot), [snapshot]);
+  const readiness = snapshot.server.readiness ?? null;
+  const checks = useMemo(() => sortChecks(snapshot.launcher.environmentChecks || []), [snapshot.launcher.environmentChecks]);
   const nonOkChecks = useMemo(() => checks.filter((item) => item.severity !== "ok"), [checks]);
   const readinessIssues = readiness?.issues ?? [];
   const readinessReason = readiness?.reason?.trim() ?? "";
@@ -46,109 +49,91 @@ export function AppShellStatusSection({
   const nonOkReadinessChecks = Object.entries(readiness?.checks ?? {}).filter(([, value]) => value && value !== "ok");
   const primaryReadinessIssue = readinessIssues[0] ?? null;
   const primaryEnvironmentIssue = nonOkChecks[0] ?? null;
-  const recoveryStatusSummary = snapshot.recoverySummary
-    ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation}`
+  const recoveryStatusSummary = recoverySummary
+    ? `${recoverySummary.status} · ${recoverySummary.operation}`
     : "当前没有恢复摘要。";
-  const hasRecentStderr = snapshot.recentStderr.length > 0;
+  const hasRecentStderr = snapshot.launcher.recentStderr.length > 0;
   const statusAlert =
-    snapshot.lastError
+    snapshot.launcher.lastLocalError
       ? "error"
       : primaryReadinessIssue
         ? primaryReadinessIssue.severity === "error" ? "error" : "warning"
         : readinessReason
-          ? snapshot.serviceState === "failed" ? "error" : "warning"
+          ? presentation.state === "failed" ? "error" : "warning"
           : nonOkChecks.length > 0
             ? "warning"
           : "none";
   const logAlert = hasRecentStderr ? "error" : "none";
   const statusReasonLabel =
-    snapshot.serviceState === "degraded"
-      || snapshot.serviceState === "setup_required"
-      || snapshot.serviceState === "failed"
+    presentation.state === "degraded"
+      || presentation.state === "setup_required"
+      || presentation.state === "failed"
       || Boolean(readinessReason || primaryReadinessIssue)
       ? "当前限制"
       : "运行说明";
   const statusReasonText =
     readinessReason
     || primaryReadinessIssue?.summary
-    || (snapshot.serviceState === "degraded" || snapshot.serviceState === "setup_required" || snapshot.serviceState === "failed"
-      ? snapshot.serviceDetail
+    || (presentation.state === "degraded" || presentation.state === "setup_required" || presentation.state === "failed"
+      ? presentation.detail
       : primaryEnvironmentIssue
         ? `${primaryEnvironmentIssue.title}：${primaryEnvironmentIssue.summary}`
-        : snapshot.serviceDetail);
+        : presentation.detail);
   const statusGuidanceLabel =
-    snapshot.lastError
+    snapshot.launcher.lastLocalError
       ? "异常提示"
       : primaryReadinessIssue?.remediation || primaryEnvironmentIssue
         ? "处理提示"
         : "异常提示";
   const statusGuidanceText =
-    snapshot.lastError
+    snapshot.launcher.lastLocalError
     || primaryReadinessIssue?.remediation
     || primaryEnvironmentIssue?.remediation
     || primaryEnvironmentIssue?.detail
     || "当前没有阻塞异常。";
-  const hasStatusAlert = Boolean(snapshot.lastError || readinessReason || primaryReadinessIssue || primaryEnvironmentIssue);
+  const hasStatusAlert = Boolean(snapshot.launcher.lastLocalError || readinessReason || primaryReadinessIssue || primaryEnvironmentIssue);
   const hasReadinessDiagnostics = Boolean(
     readinessReason || readinessReasonCodes.length || readinessIssues.length || nonOkReadinessChecks.length,
   );
-  const isManagedRunnable =
-    (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
-    && snapshot.serviceOwnership === "launcher_managed";
-  const isExternalRunnable =
-    (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
-    && snapshot.serviceOwnership === "external";
-  const canOpenWebUi =
-    snapshot.serviceState === "running"
-    || snapshot.serviceState === "degraded"
-    || snapshot.serviceState === "setup_required";
-  const canRunRecoveryActions =
-    (snapshot.serviceState === "running" || snapshot.serviceState === "degraded")
-    && !controlsDisabled;
-  const canRecheckRecovery = canRunRecoveryActions && Boolean(snapshot.recoverySummary);
-  const primaryActionLabel =
-    isExternalRunnable
-      ? "检测到现有服务"
-      : isManagedRunnable
-        ? "重启服务"
-        : snapshot.serviceState === "setup_required"
-          ? "打开初始化"
-          : "启动 RayleaBot";
+  const canOpenWebUi = presentation.canOpenWebUi;
+  const canRunRecoveryActions = presentation.canRunRecoveryActions && !controlsDisabled;
+  const canRecheckRecovery = canRunRecoveryActions && presentation.canRecheckRecovery;
   const startDisabled =
     controlsDisabled
     || busyAction === "start"
     || busyAction === "restart"
     || busyAction === "stop"
     || busyAction === "open-web"
-    || isExternalRunnable
-    || snapshot.serviceState === "starting"
-    || snapshot.serviceState === "stopping";
+    || ((presentation.state === "running" || presentation.state === "degraded")
+      && snapshot.launcher.processOwnership === "external")
+    || presentation.state === "starting"
+    || presentation.state === "stopping";
   const stopDisabled =
     controlsDisabled
     || busyAction === "restart"
     || busyAction === "stop"
-    || snapshot.serviceState === "starting"
-    || snapshot.serviceState === "stopping"
-    || snapshot.serviceOwnership === "none";
+    || presentation.state === "starting"
+    || presentation.state === "stopping"
+    || snapshot.launcher.processOwnership === "none";
   const busyLabel = busyAction ? (busyActionLabels[busyAction] ?? "正在执行操作") : "";
 
   const previousStatusRef = useRef({
-    serviceState: snapshot.serviceState,
+    serviceState: presentation.state,
     busyAction,
-    lastError: snapshot.lastError,
+    lastError: snapshot.launcher.lastLocalError,
   });
-  const previousLogsRef = useRef(snapshot.recentStderr.join("\n"));
+  const previousLogsRef = useRef(snapshot.launcher.recentStderr.join("\n"));
 
   useEffect(() => {
     const previous = previousStatusRef.current;
-    const serviceStateChanged = previous.serviceState !== snapshot.serviceState;
+    const serviceStateChanged = previous.serviceState !== presentation.state;
     const actionChanged = previous.busyAction !== busyAction && busyAction !== null;
-    const errorChanged = previous.lastError !== snapshot.lastError && Boolean(snapshot.lastError);
+    const errorChanged = previous.lastError !== snapshot.launcher.lastLocalError && Boolean(snapshot.launcher.lastLocalError);
 
     previousStatusRef.current = {
-      serviceState: snapshot.serviceState,
+      serviceState: presentation.state,
       busyAction,
-      lastError: snapshot.lastError,
+      lastError: snapshot.launcher.lastLocalError,
     };
 
     if (!(serviceStateChanged || actionChanged || errorChanged)) {
@@ -161,10 +146,10 @@ export function AppShellStatusSection({
     }, 1200);
 
     return () => window.clearTimeout(timeoutId);
-  }, [snapshot.serviceState, snapshot.lastError, busyAction]);
+  }, [presentation.state, snapshot.launcher.lastLocalError, busyAction]);
 
   useEffect(() => {
-    const nextLogState = snapshot.recentStderr.join("\n");
+    const nextLogState = snapshot.launcher.recentStderr.join("\n");
     const hadLogs = previousLogsRef.current.length > 0;
     const hasLogsNow = nextLogState.length > 0;
     previousLogsRef.current = nextLogState;
@@ -179,10 +164,10 @@ export function AppShellStatusSection({
     }, 1600);
 
     return () => window.clearTimeout(timeoutId);
-  }, [snapshot.recentStderr]);
+  }, [snapshot.launcher.recentStderr]);
 
   return (
-    <div className="status-homepage status-view-flow" data-state={snapshot.serviceState} data-busy={busyAction ?? "idle"} data-alert={statusAlert}>
+    <div className="status-homepage status-view-flow" data-state={presentation.state} data-busy={busyAction ?? "idle"} data-alert={statusAlert}>
       <AppShellStatusHero
         busyLabel={busyLabel}
         canOpenWebUi={canOpenWebUi}
@@ -191,8 +176,12 @@ export function AppShellStatusSection({
         onOpenWeb={onOpenWeb}
         onStart={onStart}
         onStop={onStop}
-        primaryActionLabel={primaryActionLabel}
-        snapshot={snapshot}
+        primaryActionLabel={presentation.primaryActionLabel}
+        snapshot={{
+          lastError: snapshot.launcher.lastLocalError,
+          serviceDetail: presentation.detail,
+          serviceState: presentation.state,
+        }}
         startDisabled={startDisabled}
         statusGuidanceLabel={statusGuidanceLabel}
         statusGuidanceText={statusGuidanceText}
@@ -274,7 +263,7 @@ export function AppShellStatusSection({
           onRecoveryRecheck={onRecoveryRecheck}
           onRuntimeBootstrap={onRuntimeBootstrap}
           recoveryStatusSummary={recoveryStatusSummary}
-          releaseSummary={snapshot.releaseCheck.summary}
+          releaseSummary={snapshot.launcher.releaseCheck.summary}
         />
       </div>
 
@@ -282,7 +271,7 @@ export function AppShellStatusSection({
         hasRecentStderr={hasRecentStderr}
         logAlert={logAlert}
         logHighlight={logHighlight}
-        logs={snapshot.recentStderr}
+        logs={snapshot.launcher.recentStderr}
         onOpenLogs={onOpenLogs}
       />
     </div>

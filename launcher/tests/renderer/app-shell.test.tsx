@@ -3,77 +3,86 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@renderer/AppShell";
 import type { LauncherSnapshot } from "@shared/launcher-models";
+import { createLauncherSnapshot } from "../helpers/snapshot";
 import type { ComponentProps } from "react";
 
-const snapshot: LauncherSnapshot = {
-  settings: {
-    installationRoot: "C:\\RayleaBot",
-    closeBehavior: "ask_every_time",
-  },
-  resolvedSettings: {
-    installationRoot: "C:\\RayleaBot",
-    serverExecutablePath: "C:\\RayleaBot\\raylea-server.exe",
-    configPath: "C:\\RayleaBot\\config\\user.yaml",
-    workdir: "C:\\RayleaBot",
-  },
-  endpoint: {
-    host: "127.0.0.1",
-    port: 8080,
-    baseUrl: "http://127.0.0.1:8080/",
-  },
-  environmentChecks: [
-    {
-      code: "config.bootstrap_available",
-      title: "用户配置",
-      severity: "warning",
-      summary: "首次启动时会自动生成用户配置。",
-      detail: "缺少用户配置文件。",
-      remediation: "启动服务后会基于 default.yaml 生成首份用户配置。",
+const snapshot: LauncherSnapshot = createLauncherSnapshot({
+  launcher: {
+    settings: {
+      installationRoot: "C:\\RayleaBot",
+      closeBehavior: "ask_every_time",
     },
-  ],
-  recentStderr: ["stderr line"],
-  processId: null,
-  serviceState: "stopped",
-  serviceOwnership: "none",
-  shutdownRequested: false,
-  serviceDetail: "服务尚未启动。",
-  lastError: "",
-  releaseCheck: {
-    status: "up_to_date",
-    currentVersion: "0.1.0",
-    latestVersion: "0.1.0",
-    summary: "当前版本 0.1.0 已是最新。",
-    detail: "",
-    releasePageUrl: "https://example.invalid/releases/v0.1.0",
-    updateAvailable: false,
-  },
-  recoverySummary: {
-    status: "degraded",
-    phase: "post_startup",
-    operation: "upgrade",
-    created_at: "2026-04-02T08:00:00Z",
-    updated_at: "2026-04-02T08:01:00Z",
-    issues: [
+    resolvedSettings: {
+      installationRoot: "C:\\RayleaBot",
+      serverExecutablePath: "C:\\RayleaBot\\raylea-server.exe",
+      configPath: "C:\\RayleaBot\\config\\user.yaml",
+      workdir: "C:\\RayleaBot",
+    },
+    endpoint: {
+      host: "127.0.0.1",
+      port: 8080,
+      baseUrl: "http://127.0.0.1:8080/",
+    },
+    environmentChecks: [
       {
-        code: "recovery.plugin_min_core_version",
+        scope: "preflight",
+        code: "config.bootstrap_available",
+        title: "用户配置",
         severity: "warning",
-        summary: "插件 weather-pro 需要更高版本的 RayleaBot core。",
-        remediation: "升级程序或重新安装兼容插件。",
+        summary: "首次启动时会自动生成用户配置。",
+        detail: "缺少用户配置文件。",
+        remediation: "启动服务后会基于 default.yaml 生成首份用户配置。",
       },
     ],
-    skipped_plugins: [
+    preflightChecks: [
       {
-        plugin_id: "weather-pro",
-        reason_code: "plugin.min_core_version",
-        summary: "插件最低 core 版本要求不满足。",
-        review_id: "review_weather_pro",
-        review_status: "pending",
+        scope: "preflight",
+        code: "config.bootstrap_available",
+        title: "用户配置",
+        severity: "warning",
+        summary: "首次启动时会自动生成用户配置。",
+        detail: "缺少用户配置文件。",
+        remediation: "启动服务后会基于 default.yaml 生成首份用户配置。",
       },
     ],
-    manual_actions: ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],
-    next_steps: ["查看管理面中的恢复摘要并处理跳过插件。", "通过管理面、Launcher 或 diagnostics 复核 recovery_summary。"],
+    recentStderr: ["stderr line"],
+    releaseCheck: {
+      status: "up_to_date",
+      currentVersion: "0.1.0",
+      latestVersion: "0.1.0",
+      summary: "当前版本 0.1.0 已是最新。",
+      detail: "",
+      releasePageUrl: "https://example.invalid/releases/v0.1.0",
+      updateAvailable: false,
+    },
+    localRecoverySummary: {
+      status: "degraded",
+      phase: "post_startup",
+      operation: "upgrade",
+      created_at: "2026-04-02T08:00:00Z",
+      updated_at: "2026-04-02T08:01:00Z",
+      issues: [
+        {
+          code: "recovery.plugin_min_core_version",
+          severity: "warning",
+          summary: "插件 weather-pro 需要更高版本的 RayleaBot core。",
+          remediation: "升级程序或重新安装兼容插件。",
+        },
+      ],
+      skipped_plugins: [
+        {
+          plugin_id: "weather-pro",
+          reason_code: "plugin.min_core_version",
+          summary: "插件最低 core 版本要求不满足。",
+          review_id: "review_weather_pro",
+          review_status: "pending",
+        },
+      ],
+      manual_actions: ["处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。"],
+      next_steps: ["查看管理面中的恢复摘要并处理跳过插件。", "通过管理面、Launcher 或 diagnostics 复核 recovery_summary。"],
+    },
   },
-};
+});
 
 function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
   return render(
@@ -83,8 +92,8 @@ function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
       renderedSection="status"
       sectionTransitionState="idle"
       platformLabel="win32-x64"
-      settingsDraft={snapshot.settings}
-      resolvedSettings={snapshot.resolvedSettings}
+      settingsDraft={snapshot.launcher.settings}
+      resolvedSettings={snapshot.launcher.resolvedSettings}
       editingSettings={false}
       diagnosticsSummary=""
       busyAction={null}
@@ -159,10 +168,10 @@ describe("AppShell", () => {
     renderShell({
       snapshot: {
         ...snapshot,
-        serviceState: "degraded",
-        serviceOwnership: "launcher_managed",
-        serviceDetail: "Python 运行环境尚未准备完成。",
-        readiness: {
+        server: {
+          ...snapshot.server,
+          health: { status: "ok" },
+          readiness: {
           status: "degraded",
           reason: "OneBot 正在建立连接",
           reason_codes: ["adapter.connection_pending"],
@@ -178,8 +187,14 @@ describe("AppShell", () => {
             },
           ],
         },
-        environmentChecks: [
+        },
+        launcher: {
+          ...snapshot.launcher,
+          processLifecycle: "running",
+          processOwnership: "launcher_managed",
+          environmentChecks: [
           {
+            scope: "advisory",
             code: "runtime.python_managed_ready",
             title: "Python 运行环境准备",
             severity: "warning",
@@ -188,6 +203,7 @@ describe("AppShell", () => {
             remediation: "请联网准备运行环境，或按正式目录结构手动预置资源。",
           },
         ],
+        },
       },
     });
 
@@ -204,9 +220,12 @@ describe("AppShell", () => {
     renderShell({
       snapshot: {
         ...snapshot,
-        serviceState: "starting",
-        serviceOwnership: "launcher_managed",
-        serviceDetail: "正在准备运行环境并等待服务就绪。",
+        launcher: {
+          ...snapshot.launcher,
+          processLifecycle: "starting",
+          processOwnership: "launcher_managed",
+          statusHint: "正在准备运行环境并等待服务就绪。",
+        },
       },
     });
 
@@ -219,9 +238,17 @@ describe("AppShell", () => {
     renderShell({
       snapshot: {
         ...snapshot,
-        serviceState: "running",
-        serviceOwnership: "launcher_managed",
-        recoverySummary: null,
+        server: {
+          ...snapshot.server,
+          health: { status: "ok" },
+          readiness: { status: "ready" },
+        },
+        launcher: {
+          ...snapshot.launcher,
+          processLifecycle: "running",
+          processOwnership: "launcher_managed",
+          localRecoverySummary: null,
+        },
       },
     });
 
@@ -237,8 +264,11 @@ describe("AppShell", () => {
       renderedSection: "environment",
       snapshot: {
         ...snapshot,
-        environmentChecks: [
+        launcher: {
+          ...snapshot.launcher,
+          environmentChecks: [
           {
+            scope: "advisory",
             code: "runtime.python_managed_ready",
             title: "Python 运行环境准备",
             severity: "ok",
@@ -247,6 +277,7 @@ describe("AppShell", () => {
             remediation: "请联网准备运行环境；离线或受限网络环境可预置已校验归档到 C:\\RayleaBot\\cache\\downloads\\runtime\\python-runtime.tar.gz，或预展开到 C:\\RayleaBot\\.deps\\store\\python-runtime\\3.12.13。",
           },
         ],
+        },
       },
     });
 
@@ -264,7 +295,7 @@ describe("AppShell", () => {
       renderedSection: "settings",
       editingSettings: true,
       settingsDraft: {
-        ...snapshot.settings,
+        ...snapshot.launcher.settings,
         advancedOverrides: {
           serverExecutablePath: "D:\\Portable\\server\\raylea-server.exe",
           configPath: "D:\\Portable\\config\\user.yaml",
@@ -294,7 +325,10 @@ describe("AppShell", () => {
       diagnosticsSummary: "服务状态：稳定",
       snapshot: {
         ...snapshot,
-        recentStderr: [],
+        launcher: {
+          ...snapshot.launcher,
+          recentStderr: [],
+        },
       },
     });
 

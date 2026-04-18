@@ -2,79 +2,64 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "@renderer/App";
+import { createLauncherSnapshot } from "../helpers/snapshot";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
-const blankSnapshot: LauncherSnapshot = {
-  settings: {
-    installationRoot: "",
-    closeBehavior: "ask_every_time",
-  },
-  resolvedSettings: {
-    installationRoot: "",
-    serverExecutablePath: "",
-    configPath: "",
-    workdir: "",
-  },
-  endpoint: {
-    host: "127.0.0.1",
-    port: 8080,
-    baseUrl: "http://127.0.0.1:8080/",
-  },
-  environmentChecks: [],
-  recentStderr: [],
-  processId: null,
-  serviceState: "stopped",
-  serviceOwnership: "none",
-  shutdownRequested: false,
-  serviceDetail: "服务尚未启动。",
-  lastError: "",
-  releaseCheck: {
-    status: "unavailable",
-    currentVersion: "",
-    latestVersion: "",
-    summary: "版本信息不可用",
-    detail: "",
-    releasePageUrl: "",
-    updateAvailable: false,
-  },
-};
+const blankSnapshot: LauncherSnapshot = createLauncherSnapshot();
 
-const loadedSnapshot: LauncherSnapshot = {
-  ...blankSnapshot,
-  settings: {
-    installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
-    closeBehavior: "ask_every_time",
+const loadedSnapshot: LauncherSnapshot = createLauncherSnapshot({
+  launcher: {
+    settings: {
+      installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
+      closeBehavior: "ask_every_time",
+    },
+    resolvedSettings: {
+      installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
+      serverExecutablePath: "C:\\Users\\26789\\Desktop\\RayleaBot\\server\\raylea-server.exe",
+      configPath: "C:\\Users\\26789\\Desktop\\RayleaBot\\config\\user.yaml",
+      workdir: "C:\\Users\\26789\\Desktop\\RayleaBot",
+    },
   },
-  resolvedSettings: {
-    installationRoot: "C:\\Users\\26789\\Desktop\\RayleaBot",
-    serverExecutablePath: "C:\\Users\\26789\\Desktop\\RayleaBot\\server\\raylea-server.exe",
-    configPath: "C:\\Users\\26789\\Desktop\\RayleaBot\\config\\user.yaml",
-    workdir: "C:\\Users\\26789\\Desktop\\RayleaBot",
+});
+
+const runningManagedSnapshot = createLauncherSnapshot({
+  server: {
+    health: { status: "ok" },
+    readiness: { status: "ready" },
   },
-  serviceDetail: "服务尚未启动。",
-};
+  launcher: {
+    ...loadedSnapshot.launcher,
+    processId: 4242,
+    processLifecycle: "running",
+    processOwnership: "launcher_managed",
+  },
+});
 
-const runningManagedSnapshot = Object.assign({}, loadedSnapshot, {
-  processId: 4242,
-  serviceState: "running",
-  serviceOwnership: "launcher_managed",
-  serviceDetail: "服务正在运行。",
-}) as LauncherSnapshot;
+const runningExternalSnapshot = createLauncherSnapshot({
+  server: {
+    health: { status: "ok" },
+    readiness: { status: "ready" },
+  },
+  launcher: {
+    ...loadedSnapshot.launcher,
+    processId: null,
+    processOwnership: "external",
+  },
+});
 
-const runningExternalSnapshot = Object.assign({}, loadedSnapshot, {
-  processId: null,
-  serviceState: "running",
-  serviceOwnership: "external",
-  serviceDetail: "检测到现有服务。",
-}) as LauncherSnapshot;
-
-const setupRequiredSnapshot = Object.assign({}, loadedSnapshot, {
-  processId: 4242,
-  serviceState: "setup_required",
-  serviceOwnership: "launcher_managed",
-  serviceDetail: "管理员初始化尚未完成。",
-}) as LauncherSnapshot;
+const setupRequiredSnapshot = createLauncherSnapshot({
+  server: {
+    health: { status: "ok" },
+    readiness: { status: "setup_required", reason: "管理员初始化尚未完成。" },
+  },
+  launcher: {
+    ...loadedSnapshot.launcher,
+    processId: 4242,
+    processLifecycle: "running",
+    processOwnership: "launcher_managed",
+  },
+});
 
 function installDesktopApi(api: LauncherDesktopApi) {
   Object.defineProperty(window, "rayleaLauncher", {
@@ -83,7 +68,7 @@ function installDesktopApi(api: LauncherDesktopApi) {
   });
 }
 
-function previewSettings(settings: LauncherSnapshot["settings"]) {
+function previewSettings(settings: LauncherSnapshot["launcher"]["settings"]) {
   return {
     installationRoot: settings.installationRoot,
     serverExecutablePath: settings.installationRoot ? `${settings.installationRoot}\\server\\raylea-server.exe` : "",
@@ -380,7 +365,7 @@ describe("App", () => {
 
   test("previews derived settings while editing the installation root", async () => {
     let initialized = false;
-    const previewResolvedSettings = vi.fn(async (settings: LauncherSnapshot["settings"]) => ({
+    const previewResolvedSettings = vi.fn(async (settings: LauncherSnapshot["launcher"]["settings"]) => ({
       installationRoot: settings.installationRoot,
       serverExecutablePath: `${settings.installationRoot}\\server\\raylea-server.exe`,
       configPath: `${settings.installationRoot}\\config\\user.yaml`,

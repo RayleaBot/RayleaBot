@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { ApiError, apiDownload, apiRequest } from '@/lib/http'
+import { apiDownload, apiRequest } from '@/lib/http'
 import { formatDashboardEventSummary } from '@/lib/management-summary'
 import type {
   EventsPayload,
@@ -36,25 +36,10 @@ export const useSystemStore = defineStore('system', () => {
   const isHealthy = computed(() => health.value?.status === 'ok')
 
   async function requestReadinessStatus() {
-    const response = await fetch('/readyz')
-    if (response.status === 200 || response.status === 503) {
-      return await response.json() as ReadinessStatusResponse
-    }
-
-    const contentType = response.headers.get('content-type') ?? ''
-    const payload = contentType.includes('application/json') ? await response.json() : await response.text()
-    const errorEnvelope = typeof payload === 'object' && payload !== null && 'error' in payload
-      ? payload as { error?: { code?: string; message?: string; request_id?: string; details?: Record<string, unknown>; message_key?: string } }
-      : undefined
-
-    throw new ApiError(
-      errorEnvelope?.error?.message ?? response.statusText,
-      response.status,
-      errorEnvelope?.error?.code,
-      errorEnvelope?.error?.request_id,
-      errorEnvelope?.error?.details,
-      errorEnvelope?.error?.message_key,
-    )
+    return await apiRequest<ReadinessStatusResponse>('/readyz', {
+      auth: false,
+      acceptStatuses: [503],
+    })
   }
 
   async function refresh() {

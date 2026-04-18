@@ -25,10 +25,28 @@
 
 ## Launcher 与 Server 控制面
 
-- Launcher 通过受控进程编排启动 `raylea-server`，并优先复用 `healthz`、`readyz`、`setup/status`、`session/launcher-token`、`session/launcher-admission`、`system/status` 和 `system/shutdown`。
+- 服务端是正式状态源，`healthz`、`readyz`、`setup/status`、`session/launcher-token`、`session/launcher-admission`、`system/status` 和 `system/shutdown` 保持原始契约。
+- Launcher 通过受控进程编排启动 `raylea-server`，并直接调用这些正式入口。
+- Launcher 快照分成两组数据：
+  - `server`：`health`、`readiness`、`systemStatus`
+  - `launcher`：`processLifecycle`、`processOwnership`、环境检查、最近 stderr、版本提示、设置与本地错误
+- Tray 与 Renderer 共用同一套展示推导函数，由同一份 `server` 与 `launcher` 快照生成标题、摘要和操作可用性。
 - 若本机已经存在健康服务，但并非 Launcher 当前持有的子进程，Launcher 会明确标示为“检测到现有服务”。
 - 启动失败摘要来自健康探测、stderr 和日志尾部，不要求用户自行拼接多处信息。
 - 优雅停机优先走正式 shutdown 路径，再回退到操作系统级回收。
+- Web 与 Launcher 都直接访问服务端，不通过对方代理状态或管理请求。
+- Launcher 打开 Web 时，可通过 `launcher-token` 与 `launcher-admission` 交接一次性登录；Web 在 `?token=` 深链中消费该 token 后换成正常管理会话。
+
+## Launcher 预检边界
+
+- Launcher 启动前阻塞项只覆盖本地必须立即确认的条件：
+  - 安装根可用
+  - `raylea-server` 路径有效
+  - `config/user.yaml` 可定位
+  - 工作目录可用
+  - Launcher 设置可解析
+- Chromium、Python、Node.js、模板资源和运行态问题由服务端 readiness、恢复摘要与 diagnostics 统一裁决。
+- Launcher 可以展示这些问题，但不单独发明第二套运行态语义。
 
 ## 兼容与演进边界
 

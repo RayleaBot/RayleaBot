@@ -5,6 +5,8 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import type { TaskAcceptedResponse, TaskDetailResponse, TaskListResponse, TaskSummary } from '@/types/api'
 
+const IN_PROGRESS_TASK_STATUSES = new Set(['pending', 'running'])
+
 export const useTasksStore = defineStore('tasks', () => {
   const items = ref<TaskSummary[]>([])
   const currentTask = ref<TaskSummary | null>(null)
@@ -32,6 +34,18 @@ export const useTasksStore = defineStore('tasks', () => {
     }
 
     return items.value.find((item) => item.task_id === taskId) ?? null
+  }
+
+  function isInProgressTask(task: TaskSummary) {
+    return IN_PROGRESS_TASK_STATUSES.has(task.status)
+  }
+
+  function findInProgressTaskByTypeFromItems(taskType: string) {
+    if (currentTask.value?.task_type === taskType && isInProgressTask(currentTask.value)) {
+      return currentTask.value
+    }
+
+    return items.value.find((item) => item.task_type === taskType && isInProgressTask(item)) ?? null
   }
 
   function mergeTask(existing: TaskSummary | null, incoming: TaskSummary) {
@@ -146,6 +160,22 @@ export const useTasksStore = defineStore('tasks', () => {
     currentTask.value = null
   }
 
+  async function findInProgressTaskByType(taskType: string, options: { refresh?: boolean } = {}) {
+    const existing = findInProgressTaskByTypeFromItems(taskType)
+    if (existing || options.refresh === false) {
+      return existing
+    }
+
+    const params = new URLSearchParams()
+    params.set('task_type', taskType)
+    const response = await apiRequest<TaskListResponse>(`/api/tasks?${params}`)
+    for (const task of response.items) {
+      writeTask(task)
+    }
+
+    return response.items.find((task) => isInProgressTask(task)) ?? null
+  }
+
   return {
     cancelPending,
     clearCurrentTask,
@@ -159,6 +189,7 @@ export const useTasksStore = defineStore('tasks', () => {
     fetchTask,
     fetchDetail,
     fetchList,
+    findInProgressTaskByType,
     upsert,
   }
 })

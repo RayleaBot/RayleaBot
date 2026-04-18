@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import type { LauncherReadinessSnapshot } from "@shared/launcher-models";
+import type { LauncherReadinessSnapshot, LauncherSnapshot, TaskSummary } from "@shared/launcher-models";
+import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/launcher-presentation";
 import {
   createLauncherCoordinator,
   type EnvironmentCheckResult,
@@ -54,6 +55,7 @@ class FakeManagementClient implements LauncherManagementClient {
     recovery_summary: null as RecoveryCompatibilitySummary | null,
   };
   recoverySummary: RecoveryCompatibilitySummary | null = null;
+  inProgressTask: TaskSummary | null = null;
 
   async isHealthy() {
     return this.health;
@@ -83,6 +85,10 @@ class FakeManagementClient implements LauncherManagementClient {
       ...this.systemStatus,
       recovery_summary: this.recoverySummary ?? this.systemStatus.recovery_summary,
     };
+  }
+
+  async findInProgressTask() {
+    return this.inProgressTask;
   }
 
   async createRecoveryRecheck() {
@@ -165,6 +171,7 @@ class FakeResetAdminRunner implements LauncherResetAdminRunner {
 function okInspection(overrides: Partial<EnvironmentInspection> = {}): EnvironmentInspection {
   const checks: EnvironmentCheckResult[] = [
     {
+      scope: "preflight",
       code: "server.executable",
       title: "服务端可执行文件",
       severity: "ok",
@@ -173,6 +180,7 @@ function okInspection(overrides: Partial<EnvironmentInspection> = {}): Environme
       remediation: "",
     },
     {
+      scope: "preflight",
       code: "config.file",
       title: "用户配置",
       severity: "ok",
@@ -184,10 +192,16 @@ function okInspection(overrides: Partial<EnvironmentInspection> = {}): Environme
 
   return {
     checks,
+    preflightChecks: checks,
+    advisoryChecks: [],
     hasBlockingIssues: false,
     canBootstrapUserConfig: false,
     ...overrides,
   };
+}
+
+function presentationState(snapshot: LauncherSnapshot) {
+  return deriveLauncherPresentation(snapshot);
 }
 
 describe("launcher coordinator", () => {
@@ -213,11 +227,11 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
     expect(managementClient.issueLauncherTokenCalls).toBe(1);
     expect(managementClient.admitLauncherTokenCalls).toBe(1);
-    expect(coordinator.snapshot.releaseCheck.status).toBe("up_to_date");
+    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("up_to_date");
   });
 
   test("initialize reports launcher-managed running service with separate ownership metadata", async () => {
@@ -241,8 +255,8 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("launcher_managed");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("launcher_managed");
   });
 
   test("initialize supports async endpoint resolution", async () => {
@@ -268,7 +282,7 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.endpoint.baseUrl).toBe("http://127.0.0.1:8080/");
+    expect(coordinator.snapshot.launcher.endpoint.baseUrl).toBe("http://127.0.0.1:8080/");
   });
 
   test("initialize loads recovery summary from management api when service is healthy", async () => {
@@ -297,8 +311,8 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.recoverySummary?.status).toBe("degraded");
-    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect(resolveRecoverySummary(coordinator.snapshot)?.status).toBe("degraded");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
   });
 
   test("initialize keeps the launcher in running state when /readyz only carries adapter warnings", async () => {
@@ -334,9 +348,9 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect(coordinator.snapshot.serviceDetail).toBe("OneBot reverse WebSocket is reconnecting");
-    expect(coordinator.snapshot.readiness?.issues?.[0]?.summary).toBe("OneBot reverse WebSocket is reconnecting");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(presentationState(coordinator.snapshot).detail).toBe("OneBot reverse WebSocket is reconnecting");
+    expect(coordinator.snapshot.server.readiness?.issues?.[0]?.summary).toBe("OneBot reverse WebSocket is reconnecting");
   });
 
   test("initialize falls back to the first readiness issue when degraded has no reason", async () => {
@@ -372,9 +386,9 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("degraded");
-    expect(coordinator.snapshot.serviceDetail).toBe("OneBot 正在建立连接");
-    expect(coordinator.snapshot.readiness?.issues?.[0]?.code).toBe("adapter.connection_pending");
+    expect(presentationState(coordinator.snapshot).state).toBe("degraded");
+    expect(presentationState(coordinator.snapshot).detail).toBe("OneBot 正在建立连接");
+    expect(coordinator.snapshot.server.readiness?.issues?.[0]?.code).toBe("adapter.connection_pending");
   });
 
   test("initialize reflects system/status shutting_down state", async () => {
@@ -400,7 +414,7 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("stopping");
+    expect(presentationState(coordinator.snapshot).state).toBe("stopping");
   });
 
   test("initialize falls back to local recovery summary when api path is unavailable", async () => {
@@ -436,8 +450,8 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.recoverySummary?.status).toBe("blocked");
-    expect(coordinator.snapshot.readiness).toBeNull();
+    expect(resolveRecoverySummary(coordinator.snapshot)?.status).toBe("blocked");
+    expect(coordinator.snapshot.server.readiness).toBeNull();
   });
 
   test("open web ui adds token only when setup is initialized", async () => {
@@ -460,12 +474,12 @@ describe("launcher coordinator", () => {
     });
 
     await coordinator.initialize();
-    const detailBeforeOpen = coordinator.snapshot.serviceDetail;
+    const detailBeforeOpen = presentationState(coordinator.snapshot).detail;
     await coordinator.openWebUi("/tasks?task_id=task_fixture_0001");
 
     expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_fixture_0001");
     expect(externalOpener.openedUris.at(-1)).toContain("&token=");
-    expect(coordinator.snapshot.serviceDetail).toBe(detailBeforeOpen);
+    expect(presentationState(coordinator.snapshot).detail).toBe(detailBeforeOpen);
 
     managementClient.setupInitialized = false;
     await coordinator.openWebUi();
@@ -615,8 +629,8 @@ describe("launcher coordinator", () => {
     await coordinator.start();
 
     expect(processController.startCalls).toBe(0);
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
   });
 
   test("start keeps the launcher in starting state while runtime preparation is still in progress", async () => {
@@ -651,13 +665,13 @@ describe("launcher coordinator", () => {
     const startPromise = coordinator.start();
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(coordinator.snapshot.serviceState).toBe("starting");
-    expect(coordinator.snapshot.serviceDetail).toContain("正在准备运行环境并等待服务就绪");
+    expect(presentationState(coordinator.snapshot).state).toBe("starting");
+    expect(presentationState(coordinator.snapshot).detail).toContain("正在准备运行环境并等待服务就绪");
 
     ready = true;
     await startPromise;
 
-    expect(coordinator.snapshot.serviceState).toBe("running");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
   });
 
   test("start waits for /readyz before finalizing a successful startup", async () => {
@@ -703,8 +717,8 @@ describe("launcher coordinator", () => {
 
     expect(processController.startCalls).toBe(1);
     expect(readinessChecks).toBeGreaterThanOrEqual(2);
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect(coordinator.snapshot.lastError).toBe("");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.lastLocalError).toBe("");
   });
 
   test("start ignores transient failed readiness snapshots until the service settles", async () => {
@@ -754,8 +768,8 @@ describe("launcher coordinator", () => {
 
     expect(processController.startCalls).toBe(1);
     expect(readinessChecks).toBeGreaterThanOrEqual(2);
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect(coordinator.snapshot.lastError).toBe("");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.lastLocalError).toBe("");
   });
 
   test("start preserves setup_required when startup reaches the setup gate", async () => {
@@ -796,9 +810,9 @@ describe("launcher coordinator", () => {
     await coordinator.start();
 
     expect(processController.startCalls).toBe(1);
-    expect(coordinator.snapshot.serviceState).toBe("setup_required");
-    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("launcher_managed");
-    expect(coordinator.snapshot.serviceDetail).toContain("管理员初始化");
+    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("launcher_managed");
+    expect(presentationState(coordinator.snapshot).detail).toContain("管理员初始化");
   });
 
   test("stop keeps an external service running when the confirmation is declined", async () => {
@@ -828,8 +842,8 @@ describe("launcher coordinator", () => {
     expect(managementClient.shutdown).not.toHaveBeenCalled();
     expect(processController.forceKillCalls).toBe(0);
     expect(tryStopEndpointProcess).not.toHaveBeenCalled();
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
   });
 
   test("stop surfaces external shutdown admission failures without force killing the foreign process", async () => {
@@ -865,8 +879,8 @@ describe("launcher coordinator", () => {
 
     expect(processController.forceKillCalls).toBe(0);
     expect(tryStopEndpointProcess).not.toHaveBeenCalled();
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect(coordinator.snapshot.lastError).toContain("token issue failed");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.lastLocalError).toContain("token issue failed");
   });
 
   test("stop waits for the managed process to exit before reporting final state", async () => {
@@ -904,7 +918,7 @@ describe("launcher coordinator", () => {
     await coordinator.stop();
 
     expect(processController.forceKillCalls).toBe(1);
-    expect(coordinator.snapshot.serviceState).toBe("stopped");
+    expect(presentationState(coordinator.snapshot).state).toBe("stopped");
   });
 
   test("stop falls back to force kill when launcher session bootstrap fails", async () => {
@@ -943,7 +957,7 @@ describe("launcher coordinator", () => {
     await coordinator.stop();
 
     expect(processController.forceKillCalls).toBe(1);
-    expect(coordinator.snapshot.serviceState).toBe("stopped");
+    expect(presentationState(coordinator.snapshot).state).toBe("stopped");
   });
 
   test("start fails early when the managed process exits before health checks recover", async () => {
@@ -980,8 +994,8 @@ describe("launcher coordinator", () => {
     await coordinator.start();
 
     expect(processController.forceKillCalls).toBe(0);
-    expect(coordinator.snapshot.serviceState).toBe("failed");
-    expect(coordinator.snapshot.lastError).toContain("config validation failed");
+    expect(presentationState(coordinator.snapshot).state).toBe("failed");
+    expect(coordinator.snapshot.launcher.lastLocalError).toContain("config validation failed");
   });
 
   test("start treats a post-exit healthy endpoint as an existing running service", async () => {
@@ -1025,8 +1039,8 @@ describe("launcher coordinator", () => {
     await coordinator.start();
 
     expect(processController.startCalls).toBe(1);
-    expect(coordinator.snapshot.serviceState).toBe("running");
-    expect((coordinator.snapshot as { serviceOwnership?: string }).serviceOwnership).toBe("external");
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
   });
 
   test("start reports port occupation when the child exits and another process is still listening", async () => {
@@ -1065,9 +1079,9 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
     await coordinator.start();
 
-    expect(coordinator.snapshot.serviceState).toBe("failed");
-    expect(coordinator.snapshot.serviceDetail).toContain("目标端口已被现有进程占用");
-    expect(coordinator.snapshot.lastError).toContain("bind: address already in use");
+    expect(presentationState(coordinator.snapshot).state).toBe("failed");
+    expect(presentationState(coordinator.snapshot).detail).toContain("目标端口已被现有进程占用");
+    expect(coordinator.snapshot.launcher.lastLocalError).toContain("bind: address already in use");
   });
 
   test("initialize reports setup_required when /readyz says setup is still required", async () => {
@@ -1095,8 +1109,8 @@ describe("launcher coordinator", () => {
 
     await coordinator.initialize();
 
-    expect(coordinator.snapshot.serviceState).toBe("setup_required");
-    expect(coordinator.snapshot.serviceDetail).toContain("管理员初始化");
+    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
+    expect(presentationState(coordinator.snapshot).detail).toContain("管理员初始化");
   });
 
   test("initialize does not block on slow release checks", async () => {
@@ -1140,7 +1154,7 @@ describe("launcher coordinator", () => {
     ]);
 
     expect(result).toBe("resolved");
-    expect(coordinator.snapshot.releaseCheck.status).toBe("unavailable");
+    expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("unavailable");
 
     resolveRelease?.(releaseSnapshot);
   });
@@ -1190,7 +1204,7 @@ describe("launcher coordinator", () => {
     expect(resetAdminRunner.calls).toBe(1);
     expect(processController.startCalls).toBe(1);
     expect(managementClient.getReadiness).toHaveBeenCalled();
-    expect(coordinator.snapshot.serviceState).toBe("setup_required");
+    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
     expect(externalOpener.openedUris.at(-1)).toBe("http://127.0.0.1:8080/");
   });
 
@@ -1228,8 +1242,8 @@ describe("launcher coordinator", () => {
     await coordinator.resetAdmin();
 
     expect(resetAdminRunner.calls).toBe(1);
-    expect(coordinator.snapshot.serviceState).toBe("failed");
-    expect(coordinator.snapshot.lastError).toContain("spawn ENOENT");
-    expect(coordinator.snapshot.serviceDetail).toContain("管理员凭据已重置");
+    expect(presentationState(coordinator.snapshot).state).toBe("failed");
+    expect(coordinator.snapshot.launcher.lastLocalError).toContain("spawn ENOENT");
+    expect(presentationState(coordinator.snapshot).detail).toContain("管理员凭据已重置");
   });
 });

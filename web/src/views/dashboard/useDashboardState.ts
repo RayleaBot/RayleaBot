@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
 import { useProtocolsStore } from '@/stores/protocols'
+import { useTasksStore } from '@/stores/tasks'
 import { AUTO_REFRESH_INTERVAL } from '@/views/dashboard/constants'
 import { useSystemStore } from '@/stores/system'
 import { useDashboardDerivedState } from '@/views/dashboard/useDashboardDerivedState'
@@ -12,6 +13,7 @@ export function useDashboardState() {
   const router = useRouter()
   const protocolsStore = useProtocolsStore()
   const systemStore = useSystemStore()
+  const tasksStore = useTasksStore()
   const {
     backupPending,
     diagnosticsPending,
@@ -95,5 +97,6 @@ export function useDashboardState() {
     selectedRecoveryReviewIds,
     system,
     systemStore,
+    tasksStore,
   }
 }

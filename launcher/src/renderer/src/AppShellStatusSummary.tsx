@@ -16,21 +16,21 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
           <div className="status-item-modern__icon"><Status20Filled /></div>
           <div className="status-item-modern__content">
             <span className="status-label">进程 ID</span>
-            <code className="status-value status-value--highlight">{snapshot.processId ?? "—"}</code>
+            <code className="status-value status-value--highlight">{snapshot.launcher.processId ?? "—"}</code>
           </div>
         </div>
         <div className="status-item-modern">
           <div className="status-item-modern__icon"><Globe20Filled /></div>
           <div className="status-item-modern__content">
             <span className="status-label">本地访问地址</span>
-            <span className="status-value mono">{snapshot.endpoint.baseUrl}</span>
+            <span className="status-value mono">{snapshot.launcher.endpoint.baseUrl}</span>
           </div>
         </div>
         <div className="status-item-modern status-item-modern--full">
           <div className="status-item-modern__icon"><FolderOpen20Filled /></div>
           <div className="status-item-modern__content">
             <span className="status-label">安装目录</span>
-            <span className="status-value mono" title={snapshot.settings.installationRoot}>{snapshot.settings.installationRoot || "—"}</span>
+            <span className="status-value mono" title={snapshot.launcher.settings.installationRoot}>{snapshot.launcher.settings.installationRoot || "—"}</span>
           </div>
         </div>
         <div className="status-item-modern status-item-modern--full">

@@ -3,43 +3,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
+import { createLauncherSnapshot } from "../helpers/snapshot";
 
 import { useLauncherInitialization } from "@renderer/useLauncherInitialization";
 
-const blankSnapshot: LauncherSnapshot = {
-  settings: {
-    installationRoot: "",
-    closeBehavior: "ask_every_time",
-  },
-  resolvedSettings: {
-    installationRoot: "",
-    serverExecutablePath: "",
-    configPath: "",
-    workdir: "",
-  },
-  endpoint: {
-    host: "127.0.0.1",
-    port: 8080,
-    baseUrl: "http://127.0.0.1:8080/",
-  },
-  environmentChecks: [],
-  recentStderr: [],
-  processId: null,
-  serviceState: "stopped",
-  serviceOwnership: "none",
-  shutdownRequested: false,
-  serviceDetail: "服务尚未启动。",
-  lastError: "",
-  releaseCheck: {
-    status: "unavailable",
-    currentVersion: "",
-    latestVersion: "",
-    summary: "版本信息不可用",
-    detail: "",
-    releasePageUrl: "",
-    updateAvailable: false,
-  },
-};
+const blankSnapshot: LauncherSnapshot = createLauncherSnapshot();
 
 function installDesktopApi(api: LauncherDesktopApi) {
   Object.defineProperty(window, "rayleaLauncher", {
@@ -67,7 +35,7 @@ describe("useLauncherInitialization", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
-      previewResolvedSettings: vi.fn(async () => blankSnapshot.resolvedSettings),
+      previewResolvedSettings: vi.fn(async () => blankSnapshot.launcher.resolvedSettings),
       chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
@@ -95,13 +63,21 @@ describe("useLauncherInitialization", () => {
     act(() => {
       snapshotListener?.({
         ...blankSnapshot,
-        serviceState: "running",
-        serviceDetail: "服务正在运行。",
+        server: {
+          ...blankSnapshot.server,
+          health: { status: "ok" },
+          readiness: { status: "ready" },
+        },
+        launcher: {
+          ...blankSnapshot.launcher,
+          processLifecycle: "running",
+          processOwnership: "launcher_managed",
+        },
       });
     });
 
-    expect(result.current.snapshot.serviceState).toBe("running");
-    expect(result.current.snapshot.serviceDetail).toBe("服务正在运行。");
+    expect(result.current.snapshot.server.readiness?.status).toBe("ready");
+    expect(result.current.snapshot.launcher.processLifecycle).toBe("running");
   });
 
   test("projects initialization failures into snapshot error state", async () => {
@@ -119,7 +95,7 @@ describe("useLauncherInitialization", () => {
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
-      previewResolvedSettings: vi.fn(async () => blankSnapshot.resolvedSettings),
+      previewResolvedSettings: vi.fn(async () => blankSnapshot.launcher.resolvedSettings),
       chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),
@@ -137,8 +113,8 @@ describe("useLauncherInitialization", () => {
 
     await waitFor(() => {
       expect(result.current.initializing).toBe(false);
-      expect(result.current.snapshot.lastError).toBe("启动器初始化失败");
-      expect(result.current.snapshot.serviceDetail).toBe("启动器初始化失败。");
+      expect(result.current.snapshot.launcher.lastLocalError).toBe("启动器初始化失败");
+      expect(result.current.snapshot.launcher.statusHint).toBe("启动器初始化失败。");
     });
   });
 });

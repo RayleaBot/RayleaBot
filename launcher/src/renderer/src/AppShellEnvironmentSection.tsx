@@ -1,4 +1,5 @@
 import { Text } from "@fluentui/react-components";
+import { getEnvironmentSummaryLabel, resolveRecoverySummary } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { severityConfig, sortChecks } from "./AppShell.shared";
@@ -12,7 +13,7 @@ export function AppShellEnvironmentSection({
   snapshot,
   platformLabel,
 }: EnvironmentSectionProps) {
-  const checks = sortChecks(snapshot.environmentChecks || []);
+  const checks = sortChecks(snapshot.launcher.environmentChecks || []);
   const groupedChecks = {
     blocking: checks.filter((item) => item.severity === "error"),
     warnings: checks.filter((item) => item.severity === "warning"),
@@ -33,14 +34,16 @@ export function AppShellEnvironmentSection({
       ),
     };
   })();
+  const environmentSummaryLabel = getEnvironmentSummaryLabel(snapshot.launcher.environmentChecks);
   const environmentReadiness =
-    groupedChecks.blocking.length > 0
-      ? { label: "需要处理", detail: "存在阻塞项，启动前需要先解决。" }
-      : groupedChecks.warnings.length > 0
-        ? { label: "可继续，但有警告", detail: "核心能力可用，建议先检查告警项。" }
-        : { label: "可以启动", detail: "当前未发现阻塞或告警项。" };
-  const recoveryStatusSummary = snapshot.recoverySummary
-    ? `${snapshot.recoverySummary.status} · ${snapshot.recoverySummary.operation}`
+    environmentSummaryLabel === "需要处理"
+      ? { label: environmentSummaryLabel, detail: "存在阻塞项，启动前需要先解决。" }
+      : environmentSummaryLabel === "可继续，但有警告"
+        ? { label: environmentSummaryLabel, detail: "核心能力可用，建议先检查告警项。" }
+        : { label: environmentSummaryLabel, detail: "当前未发现阻塞或告警项。" };
+  const recoverySummary = resolveRecoverySummary(snapshot);
+  const recoveryStatusSummary = recoverySummary
+    ? `${recoverySummary.status} · ${recoverySummary.operation}`
     : "当前没有恢复摘要。";
 
   return (
@@ -61,10 +64,10 @@ export function AppShellEnvironmentSection({
           </div>
         </div>
         <div className="status-list env-status-grid">
-          <div className="status-item"><span className="status-label">核心版本</span><span className="status-value">{snapshot.releaseCheck.currentVersion || "—"}</span></div>
-          <div className="status-item"><span className="status-label">安装路径</span><span className="status-value mono">{snapshot.settings.installationRoot || "—"}</span></div>
+          <div className="status-item"><span className="status-label">核心版本</span><span className="status-value">{snapshot.launcher.releaseCheck.currentVersion || "—"}</span></div>
+          <div className="status-item"><span className="status-label">安装路径</span><span className="status-value mono">{snapshot.launcher.settings.installationRoot || "—"}</span></div>
           <div className="status-item"><span className="status-label">恢复兼容性</span><span className="status-value">{recoveryStatusSummary}</span></div>
-          <div className="status-item"><span className="status-label">本地访问地址</span><span className="status-value mono">{snapshot.endpoint.baseUrl}</span></div>
+          <div className="status-item"><span className="status-label">本地访问地址</span><span className="status-value mono">{snapshot.launcher.endpoint.baseUrl}</span></div>
         </div>
       </article>
 

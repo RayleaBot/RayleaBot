@@ -5,19 +5,19 @@ import { buildDiagnosticsSummary, initialSnapshot } from "./AppState.shared";
 
 export function useLauncherSettingsState(snapshot: LauncherSnapshot, editingSettings: boolean) {
   const [editingDraft, setEditingDraft] = useState<LauncherSettings | null>(null);
-  const [previewResolvedSettings, setPreviewResolvedSettings] = useState<LauncherResolvedSettings>(initialSnapshot.resolvedSettings);
-  const settingsDraft = editingDraft ?? snapshot.settings;
+  const [previewResolvedSettings, setPreviewResolvedSettings] = useState<LauncherResolvedSettings>(initialSnapshot.launcher.resolvedSettings);
+  const settingsDraft = editingDraft ?? snapshot.launcher.settings;
   const deferredSettingsDraft = useDeferredValue(settingsDraft);
 
   useEffect(() => {
     if (!editingSettings && editingDraft !== null) {
       setEditingDraft(null);
     }
-  }, [snapshot.settings, editingSettings, editingDraft]);
+  }, [snapshot.launcher.settings, editingSettings, editingDraft]);
 
   useEffect(() => {
     if (!editingSettings) {
-      setPreviewResolvedSettings(snapshot.resolvedSettings);
+      setPreviewResolvedSettings(snapshot.launcher.resolvedSettings);
       return;
     }
     let cancelled = false;
@@ -29,14 +29,14 @@ export function useLauncherSettingsState(snapshot: LauncherSnapshot, editingSett
       })
       .catch(() => {
         if (!cancelled) {
-          setPreviewResolvedSettings(snapshot.resolvedSettings);
+          setPreviewResolvedSettings(snapshot.launcher.resolvedSettings);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [editingSettings, deferredSettingsDraft, snapshot.resolvedSettings]);
+  }, [editingSettings, deferredSettingsDraft, snapshot.launcher.resolvedSettings]);
 
   return {
     diagnosticsSummary: buildDiagnosticsSummary(snapshot),

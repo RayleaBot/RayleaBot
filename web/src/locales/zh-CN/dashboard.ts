@@ -27,6 +27,7 @@ export const dashboard = {
   backupAccepted: '备份任务已提交',
   diagnosticsAccepted: '诊断包导出已开始',
   previewAccepted: '图片预览任务已提交',
+  taskInProgress: '任务进行中，已打开任务详情',
   recoveryRecheckAccepted: '恢复摘要重新检查任务已提交',
   recoveryConfirmAccepted: '恢复项确认任务已提交',
   runtimeBootstrapAccepted: '运行环境准备任务已提交',

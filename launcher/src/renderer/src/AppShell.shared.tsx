@@ -8,22 +8,20 @@ import {
   Warning20Filled,
 } from "@fluentui/react-icons";
 
-import type {
-  LauncherServiceState,
-  LauncherSettings,
-} from "@shared/launcher-models";
+import { getLauncherStateLabel, type LauncherPresentationState } from "@shared/launcher-presentation";
+import type { LauncherSettings } from "@shared/launcher-models";
 
 export type SectionId = "status" | "environment" | "diagnostics" | "settings";
 export type SectionTransitionState = "idle" | "exiting" | "entering";
 
-export const serviceStateConfig: Record<LauncherServiceState, { status: PresenceBadgeStatus; label: string }> = {
-  stopped: { status: "offline", label: "已停止" },
-  starting: { status: "busy", label: "启动中" },
-  running: { status: "available", label: "运行中" },
-  degraded: { status: "busy", label: "运行条件受限" },
-  setup_required: { status: "blocked", label: "需要设置" },
-  stopping: { status: "busy", label: "停止中" },
-  failed: { status: "blocked", label: "启动失败" },
+export const serviceStateConfig: Record<LauncherPresentationState, { status: PresenceBadgeStatus; label: string }> = {
+  stopped: { status: "offline", label: getLauncherStateLabel("stopped") },
+  starting: { status: "busy", label: getLauncherStateLabel("starting") },
+  running: { status: "available", label: getLauncherStateLabel("running") },
+  degraded: { status: "busy", label: getLauncherStateLabel("degraded") },
+  setup_required: { status: "blocked", label: getLauncherStateLabel("setup_required") },
+  stopping: { status: "busy", label: getLauncherStateLabel("stopping") },
+  failed: { status: "blocked", label: getLauncherStateLabel("failed") },
 };
 
 export const severityConfig = {
@@ -94,25 +92,8 @@ export const closeBehaviorOptions: Array<{
   { value: "exit_application", label: "完全退出", detail: "直接结束启动器窗口与托盘进程。" },
 ];
 
-export function statusSummary(state: LauncherServiceState): string {
-  switch (state) {
-    case "stopped":
-      return "已停止";
-    case "starting":
-      return "正在启动";
-    case "running":
-      return "正在运行";
-    case "degraded":
-      return "运行条件受限";
-    case "setup_required":
-      return "需要设置";
-    case "stopping":
-      return "正在停止";
-    case "failed":
-      return "启动失败";
-    default:
-      return "未知状态";
-  }
+export function statusSummary(state: LauncherPresentationState): string {
+  return getLauncherStateLabel(state);
 }
 
 export function sortChecks<T extends { severity: "ok" | "warning" | "error"; title: string }>(items: T[]): T[] {
