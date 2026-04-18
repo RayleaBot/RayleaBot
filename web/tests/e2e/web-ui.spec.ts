@@ -1082,12 +1082,34 @@ test('template editor can validate, preview, save and rollback a template', asyn
   await resetBackend(request, true)
   await login(page)
 
-  await page.goto('/render/templates/help.menu')
+  await navigateThroughMenu(page, '模板编辑', '系统')
   await expect(page.getByRole('heading', { name: '模板编辑', level: 1 })).toBeVisible()
-  await expect(page.getByText('help.menu').first()).toBeVisible()
+  await expect(page.getByText('模板不存在。')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/render\/templates\/.+/)
   await expect(page.getByText('当前版本', { exact: true })).toBeVisible()
+  expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
 
-  await page.getByRole('tab', { name: 'HTML' }).click()
+  await page.locator('.template-nav-item').filter({ hasText: 'help.menu' }).first().click()
+  await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
+  expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
+
+  await page.locator('.template-nav-item').filter({ hasText: 'status.panel' }).first().click()
+  await expect(page).toHaveURL(/\/render\/templates\/status\.panel$/)
+  expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
+
+  const editorCard = page.locator('.render-templates-card--editor')
+  const schemaCard = page.locator('.render-templates-bottom-grid .render-templates-card').first()
+  const editorBox = await editorCard.boundingBox()
+  const schemaBox = await schemaCard.boundingBox()
+  expect(editorBox).not.toBeNull()
+  expect(schemaBox).not.toBeNull()
+  expect((editorBox?.y ?? 0) + (editorBox?.height ?? 0)).toBeLessThanOrEqual((schemaBox?.y ?? 0) + 1)
+
+  await page.locator('.template-nav-item').filter({ hasText: 'help.menu' }).first().click()
+  await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
+
+  await page.getByRole('tab', { name: 'HTML' }).focus()
+  await page.getByRole('tab', { name: 'HTML' }).press('Enter')
   const editor = page.locator('#render-template-editor-input')
   await editor.fill([
     '<section class="menu-card">',
@@ -1118,6 +1140,11 @@ test('template editor can validate, preview, save and rollback a template', asyn
   await expect(page.getByText('rev_help_menu_0006').first()).toBeVisible()
   await expect(page.locator('#render-template-editor-input')).toHaveValue(/{{ \.title }}/)
   await expect(page.getByText('恢复到初始帮助菜单版本').first()).toBeVisible()
+
+  await navigateThroughMenu(page, '任务', '运维')
+  await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
+  await expect.poll(() => page.url()).toContain('/tasks')
+  expect(await readActiveTabLabel(page)).toBe('任务')
 })
 
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {

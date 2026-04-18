@@ -180,10 +180,13 @@ export const adminRoutes: RouteRecordRaw[] = [
             name: 'render-templates',
             component: () => import('@/views/system/RenderTemplatesView.vue'),
             meta: {
+              activePath: '/render/templates',
+              entryPath: '/render/templates',
               icon: 'render-templates',
               keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.renderTemplates',
+              viewKey: 'render-templates',
             },
           },
         ],

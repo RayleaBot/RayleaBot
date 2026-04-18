@@ -113,7 +113,14 @@ describe('BasicLayout', () => {
                   path: '/render/templates/:templateId?',
                   name: 'render-templates',
                   component: { template: '<div>模板编辑页</div>' },
-                  meta: { icon: 'render-templates', keepAlive: true, title: '模板编辑' },
+                  meta: {
+                    activePath: '/render/templates',
+                    entryPath: '/render/templates',
+                    icon: 'render-templates',
+                    keepAlive: true,
+                    title: '模板编辑',
+                    viewKey: 'render-templates',
+                  },
                 },
               ],
             },
@@ -281,6 +288,32 @@ describe('BasicLayout', () => {
     expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志', '历史日志'])
     expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'history-logs'])
     expect(getActiveTabLabel()).toBe('历史日志')
+
+    await router.push('/render/templates/help.menu')
+    await flushPromises()
+    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon, path: item.path, fullPath: item.fullPath }))).toEqual([
+      { title: '系统状态', icon: 'dashboard', path: '/', fullPath: '/' },
+      { title: '指令中心', icon: 'commands', path: '/commands', fullPath: '/commands' },
+      { title: '任务', icon: 'tasks', path: '/tasks', fullPath: '/tasks' },
+      { title: '实时日志', icon: 'logs', path: '/logs', fullPath: '/logs' },
+      { title: '历史日志', icon: 'history-logs', path: '/logs/history', fullPath: '/logs/history' },
+      { title: '模板编辑', icon: 'render-templates', path: '/render/templates', fullPath: '/render/templates/help.menu' },
+    ])
+    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'history-logs', 'render-templates'])
+    expect(getActiveTabLabel()).toBe('模板编辑')
+
+    await router.push('/render/templates/status.panel')
+    await flushPromises()
+    expect(uiShellStore.tabs.filter((item) => item.name === 'render-templates')).toEqual([
+      expect.objectContaining({
+        fullPath: '/render/templates/status.panel',
+        path: '/render/templates',
+        title: '模板编辑',
+      }),
+    ])
+    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
+    expect(getActiveTabLabel()).toBe('模板编辑')
   })
 
   it('renders full breadcrumbs with a clickable parent group', async () => {
@@ -382,6 +415,39 @@ describe('BasicLayout', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/plugins')
+    expect(uiShellStore.searchOpen).toBe(false)
+  })
+
+  it('uses the stable template editor entry path for menu and route search', async () => {
+    const { wrapper, router, uiShellStore } = await mountShell('/')
+
+    const systemGroup = wrapper.findAll('.admin-layout__sider .ant-menu-submenu').find((item) => item.text().includes('系统'))
+    expect(systemGroup).toBeDefined()
+
+    const templateMenuItem = systemGroup!.findAll('.ant-menu-item').find((item) => item.text().includes('模板编辑'))
+    expect(templateMenuItem).toBeDefined()
+    await templateMenuItem!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.fullPath).toBe('/render/templates')
+
+    await wrapper.get('[data-testid="header-search"]').trigger('click')
+    await flushPromises()
+
+    const input = document.body.querySelector<HTMLInputElement>('.route-search-panel input')
+    expect(input).not.toBeNull()
+    input!.value = '模板编辑'
+    input!.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+
+    const templateItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.route-search-panel__result')).find(
+      (node) => node.textContent?.includes('/render/templates'),
+    )
+    expect(templateItem?.textContent).not.toContain('/render/templates/:templateId?')
+    templateItem?.click()
+    await flushPromises()
+
+    expect(router.currentRoute.value.fullPath).toBe('/render/templates')
     expect(uiShellStore.searchOpen).toBe(false)
   })
 })

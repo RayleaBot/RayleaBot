@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -51,6 +51,7 @@ const { previewPending } = storeToRefs(systemStore)
 
 const activeFile = ref<RenderTemplateTextFieldKey>('manifest_json')
 const hasRequestedList = ref(false)
+const pageActive = ref(true)
 const previewDataByTemplate = ref<Record<string, string>>({})
 const previewThemeByTemplate = ref<Record<string, string>>({})
 const previewOutputByTemplate = ref<Record<string, 'png' | 'jpeg'>>({})
@@ -70,8 +71,11 @@ const fileTitleMap: Record<RenderTemplateTextFieldKey, string> = {
   input_schema_json: t('renderTemplates.inputFileInputSchema'),
 }
 
+const isTemplateRoute = computed(() => route.name === 'render-templates')
+const isActiveTemplateRoute = computed(() => pageActive.value && isTemplateRoute.value)
+
 const activeTemplateId = computed(() => (
-  typeof route.params.templateId === 'string' && route.params.templateId
+  isTemplateRoute.value && typeof route.params.templateId === 'string' && route.params.templateId
     ? route.params.templateId
     : ''
 ))
@@ -246,6 +250,7 @@ async function loadTemplateList() {
 
 async function loadTemplateWorkspace(templateId: string, options: { force?: boolean; resetDraft?: boolean } = {}) {
   if (!options.force && detailById.value[templateId] && draftById.value[templateId] && versionsById.value[templateId]) {
+    renderTemplatesStore.clearError()
     return
   }
 
@@ -280,6 +285,10 @@ function ensurePreviewDefaults(templateId: string) {
 }
 
 async function syncRouteTemplate() {
+  if (!isActiveTemplateRoute.value) {
+    return
+  }
+
   if (items.value.length === 0) {
     return
   }
@@ -303,7 +312,7 @@ async function selectTemplate(templateId: string) {
     return
   }
 
-  await router.push({
+  await router.replace({
     name: 'render-templates',
     params: {
       templateId,
@@ -469,7 +478,7 @@ function formatVersionKind(kind?: string) {
   return t('renderTemplates.versionKind.save')
 }
 
-watch([items, () => route.params.templateId], () => {
+watch([items, isActiveTemplateRoute, () => route.params.templateId], () => {
   void syncRouteTemplate()
 }, { immediate: true })
 
@@ -526,6 +535,14 @@ watch(previewImageUrl, async (imageUrl, _, onCleanup) => {
 
 onMounted(() => {
   void loadTemplateList()
+})
+
+onActivated(() => {
+  pageActive.value = true
+})
+
+onDeactivated(() => {
+  pageActive.value = false
 })
 
 onBeforeUnmount(() => {
@@ -966,19 +983,24 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 12px;
+  flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
 }
 
-.render-templates-layout__sidebar,
-.render-templates-layout__main {
+.render-templates-layout__sidebar {
   display: grid;
   gap: 12px;
   min-height: 0;
 }
 
 .render-templates-layout__main {
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .render-templates-card {
@@ -992,30 +1014,59 @@ onBeforeUnmount(() => {
 
 .render-templates-card--nav,
 .render-templates-card--history {
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.render-templates-card--nav :deep(.ant-card-head),
+.render-templates-card--history :deep(.ant-card-head),
+.render-templates-card--editor :deep(.ant-card-head) {
+  flex-shrink: 0;
 }
 
 .render-templates-card--editor {
-  position: relative;
-  z-index: 1;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-height: clamp(520px, 62vh, 760px);
+  overflow: hidden;
+}
+
+.render-templates-card--editor:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 .render-templates-card--nav :deep(.ant-card-body) {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px;
 }
 
 .render-templates-card--history :deep(.ant-card-body) {
-  max-height: 420px;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.render-templates-card--editor :deep(.ant-card-body) {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .template-nav-list {
   display: grid;
   gap: 8px;
-  overflow: auto;
+  min-height: min-content;
 }
 
 .template-nav-item {
@@ -1155,7 +1206,32 @@ onBeforeUnmount(() => {
 
 .editor-workspace {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 12px;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.editor-tabs {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.editor-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.editor-tabs :deep(.ant-tabs-tab-btn) {
+  position: relative;
+  z-index: 3;
+}
+
+.editor-tabs :deep(.ant-tabs-content-holder) {
+  display: none;
 }
 
 .editor-surface {
@@ -1163,10 +1239,25 @@ onBeforeUnmount(() => {
   border-radius: 16px;
   overflow: hidden;
   background: radial-gradient(circle at top, rgba(15, 23, 42, 0.04), transparent 55%), #f8fafc;
+  min-height: 0;
+  position: relative;
+  z-index: 0;
+}
+
+.render-template-textarea {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+}
+
+.render-template-textarea :deep(.ant-input-textarea),
+.render-template-textarea :deep(.ant-input-textarea-show-count) {
+  height: 100%;
 }
 
 .render-template-textarea :deep(textarea.ant-input) {
-  min-height: 520px;
+  min-height: 100%;
+  height: 100%;
   border: 0;
   border-radius: 0;
   padding: 18px 20px;
@@ -1175,6 +1266,8 @@ onBeforeUnmount(() => {
   font-size: 13px;
   line-height: 1.65;
   color: #0f172a;
+  resize: none;
+  overflow: auto;
 }
 
 .editor-actions-grid {
@@ -1198,7 +1291,9 @@ onBeforeUnmount(() => {
 .render-templates-bottom-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex: 0 0 auto;
   gap: 12px;
+  min-height: 0;
 }
 
 .schema-list,

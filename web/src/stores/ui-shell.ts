@@ -229,6 +229,21 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     persist()
   }
 
+  function removeTabsByName(name: string, options: { exceptPath?: string } = {}) {
+    tabs.value = tabs.value.filter((item) => {
+      if (item.affix) {
+        return true
+      }
+
+      if (item.name !== name) {
+        return true
+      }
+
+      return item.path === options.exceptPath
+    })
+    persist()
+  }
+
   function closeOtherTabs(path: string) {
     tabs.value = tabs.value.filter((item) => item.affix || item.path === path)
     persist()
@@ -317,6 +332,7 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     closeSearch,
     closeSettings,
     removeTab,
+    removeTabsByName,
     setMobileMenuOpen,
     setRouteLoading,
     setThemeMode,

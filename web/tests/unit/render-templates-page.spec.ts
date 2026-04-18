@@ -277,4 +277,89 @@ describe('RenderTemplatesView', () => {
     expect(validateSpy).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('本地解析错误')
   })
+
+  it('auto-selects the first template once and does not pull other routes back', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+
+    renderTemplatesStore.items = [
+      {
+        id: 'help.menu',
+        version: '1',
+        width: 960,
+        height: 640,
+        has_input_schema: true,
+        current_revision_id: 'rev_help_menu_0004',
+        updated_at: '2026-04-18T10:30:00Z',
+      },
+      {
+        id: 'status.panel',
+        version: '1',
+        width: 960,
+        height: 540,
+        has_input_schema: true,
+        current_revision_id: 'rev_status_panel_0001',
+        updated_at: '2026-04-18T10:31:00Z',
+      },
+    ]
+    renderTemplatesStore.detailById = {
+      'help.menu': createTemplateDetail(),
+    }
+    renderTemplatesStore.draftById = {
+      'help.menu': createDraft(),
+    }
+    renderTemplatesStore.baseDraftById = {
+      'help.menu': createDraft(),
+    }
+    renderTemplatesStore.versionsById = {
+      'help.menu': [],
+    }
+    renderTemplatesStore.sourceMetaById = {
+      'help.menu': {
+        template_id: 'help.menu',
+        revision_id: 'rev_help_menu_0004',
+      },
+    }
+    renderTemplatesStore.error = '模板不存在。'
+
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    const fetchWorkspaceSpy = vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue({
+      detail: renderTemplatesStore.detailById['help.menu'],
+      source: {
+        manifest_json: { id: 'help.menu', version: '1' },
+        html: createDraft().html,
+        stylesheet: createDraft().stylesheet,
+        input_schema_json: { type: 'object' },
+      },
+      versions: [],
+    })
+
+    const router = createRouterForPage()
+    const replaceSpy = vi.spyOn(router, 'replace')
+    await router.push('/render/templates')
+    await router.isReady()
+
+    mount(RenderTemplatesView, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(router.currentRoute.value.fullPath).toBe('/render/templates/help.menu')
+    expect(replaceSpy).toHaveBeenCalledWith({
+      name: 'render-templates',
+      params: {
+        templateId: 'help.menu',
+      },
+    })
+    expect(fetchWorkspaceSpy).not.toHaveBeenCalled()
+    expect(renderTemplatesStore.error).toBeNull()
+
+    await router.push('/tasks')
+    await flushPromises()
+
+    expect(router.currentRoute.value.fullPath).toBe('/tasks')
+    expect(replaceSpy).toHaveBeenCalledTimes(1)
+  })
 })

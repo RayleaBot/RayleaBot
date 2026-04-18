@@ -10,6 +10,7 @@ declare module 'vue-router' {
     activePath?: string
     affixTab?: boolean
     affixTabOrder?: number
+    entryPath?: string
     hideInBreadcrumb?: boolean
     hideInMenu?: boolean
     hideInTab?: boolean
@@ -20,6 +21,7 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     title?: string
     titleKey?: string
+    viewKey?: string
   }
 }
 

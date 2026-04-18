@@ -26,6 +26,7 @@ import { resolveMenuIcon } from '@/access/icons'
 import {
   buildMenuItems,
   collectNavigationItems,
+  resolveRouteEntryPath,
   resolveRouteTitle,
   type AppMenuItem,
 } from '@/access/menu'
@@ -108,7 +109,7 @@ const effectiveTransitionName = computed(() => {
 
   return preferences.value.pageTransition === 'fade' ? 'route-fade' : 'route-fade-slide'
 })
-const currentRouteViewName = computed(() => String(route.name ?? route.path))
+const currentRouteViewName = computed(() => resolveRouteViewIdentity(route))
 const routeStageRegistry = new Map<string, VueComponent>()
 const breadcrumbItems = computed<AppBreadcrumbItem[]>(() => {
   const seen = new Set<string>()
@@ -170,6 +171,15 @@ function getRouteStageComponent(viewRoute: RouteLocationNormalizedLoaded) {
 
   routeStageRegistry.set(stageName, stageComponent)
   return stageComponent
+}
+
+function resolveRouteViewIdentity(viewRoute: Pick<RouteLocationNormalizedLoaded, 'matched' | 'name' | 'path'>) {
+  const leafMeta = viewRoute.matched.at(-1)?.meta ?? null
+  if (typeof leafMeta?.viewKey === 'string' && leafMeta.viewKey) {
+    return leafMeta.viewKey
+  }
+
+  return String(viewRoute.name ?? viewRoute.path)
 }
 
 function joinRoutePath(parentPath: string, childPath: string) {
@@ -240,7 +250,7 @@ function resolveLeafRouteComponent(viewRoute: RouteLocationNormalizedLoaded) {
 }
 
 function resolveTabPath(viewRoute: RouteLocationNormalizedLoaded) {
-  return viewRoute.path
+  return resolveRouteEntryPath(getLeafRouteMeta(viewRoute), viewRoute.path)
 }
 
 function resolveBreadcrumbPath(record: RouteLocationNormalizedLoaded['matched'][number]) {
@@ -257,9 +267,10 @@ function resolveBreadcrumbPath(record: RouteLocationNormalizedLoaded['matched'][
 
 function collectAffixTabs(items: RouteRecordRaw[], parentPath = ''): ShellTabItem[] {
   return items.flatMap((item) => {
-    const path = joinRoutePath(parentPath, item.path)
+    const routePath = joinRoutePath(parentPath, item.path)
+    const path = resolveRouteEntryPath(item.meta, routePath)
     const title = resolveRouteTitle(item.meta)
-    const children = item.children ? collectAffixTabs(item.children, path) : []
+    const children = item.children ? collectAffixTabs(item.children, routePath) : []
     const current = item.meta?.affixTab && title && item.name
       ? [{
         affix: true,
@@ -338,6 +349,10 @@ watch(
       return
     }
 
+    if (typeof leafMeta?.viewKey === 'string' && leafMeta.viewKey) {
+      uiShellStore.removeTabsByName(String(route.name), { exceptPath: resolveTabPath(route) })
+    }
+
     uiShellStore.upsertTab({
       affix: Boolean(leafMeta?.affixTab),
       fullPath: route.fullPath,
@@ -361,7 +376,8 @@ function handleOpenChange(keys: string[]) {
 }
 
 function onTabChange(targetKey: string) {
-  void router.push(targetKey)
+  const targetTab = tabs.value.find((item) => item.path === targetKey)
+  void router.push(targetTab?.fullPath ?? targetKey)
 }
 
 function closeTab(targetPath: string) {
@@ -376,7 +392,7 @@ function closeTab(targetPath: string) {
   uiShellStore.removeTab(targetPath)
 
   if (closingCurrent && fallback) {
-    void router.push(fallback.path)
+    void router.push(fallback.fullPath)
   }
 }
 
@@ -559,8 +575,12 @@ function handleReducedMotionPreference(event?: MediaQueryList | MediaQueryListEv
 }
 
 function getRouteViewKey(viewRoute: RouteLocationNormalizedLoaded) {
-  const viewName = String(viewRoute.name ?? viewRoute.path)
-  return `${viewName}:${viewRoute.fullPath}:${uiShellStore.getRefreshKey(viewName)}`
+  const viewIdentity = resolveRouteViewIdentity(viewRoute)
+  if (typeof getLeafRouteMeta(viewRoute)?.viewKey === 'string' && getLeafRouteMeta(viewRoute)?.viewKey) {
+    return `${viewIdentity}:${uiShellStore.getRefreshKey(viewIdentity)}`
+  }
+
+  return `${viewIdentity}:${viewRoute.fullPath}:${uiShellStore.getRefreshKey(viewIdentity)}`
 }
 
 onMounted(() => {

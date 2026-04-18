@@ -166,6 +166,10 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
     }
   }
 
+  function clearError() {
+    error.value = null
+  }
+
   function replaceDraft(templateId: string, draft: RenderTemplateTextDraft) {
     draftById.value = {
       ...draftById.value,
@@ -314,6 +318,7 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
     detailById,
     draftById,
     error,
+    clearError,
     getBaseRevisionId,
     getDraft,
     isDraftDirty,

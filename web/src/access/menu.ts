@@ -6,6 +6,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     activePath?: string
     affixTab?: boolean
+    entryPath?: string
     hideInMenu?: boolean
     hideInTab?: boolean
     icon?: string
@@ -13,6 +14,7 @@ declare module 'vue-router' {
     order?: number
     title?: string
     titleKey?: string
+    viewKey?: string
   }
 }
 
@@ -56,12 +58,21 @@ export function resolveRouteTitle(meta?: Record<string, unknown> | null) {
   return typeof meta.title === 'string' ? meta.title : ''
 }
 
+export function resolveRouteEntryPath(meta: Record<string, unknown> | null | undefined, fallbackPath: string) {
+  if (typeof meta?.entryPath === 'string' && meta.entryPath) {
+    return meta.entryPath
+  }
+
+  return fallbackPath
+}
+
 export function buildMenuItems(routes: RouteRecordRaw[], parentPath = ''): AppMenuItem[] {
   return routes
     .filter((route) => !route.meta?.hideInMenu)
     .map((route) => {
-      const path = joinRoutePath(parentPath, route.path)
-      const children = route.children ? buildMenuItems(route.children, path) : []
+      const routePath = joinRoutePath(parentPath, route.path)
+      const path = resolveRouteEntryPath(route.meta, routePath)
+      const children = route.children ? buildMenuItems(route.children, routePath) : []
       const title = resolveRouteTitle(route.meta)
 
       return {
@@ -80,9 +91,10 @@ export function buildMenuItems(routes: RouteRecordRaw[], parentPath = ''): AppMe
 
 export function collectNavigationItems(routes: RouteRecordRaw[], parentPath = ''): AppNavigationItem[] {
   return routes.flatMap((route) => {
-    const path = joinRoutePath(parentPath, route.path)
+    const routePath = joinRoutePath(parentPath, route.path)
+    const path = resolveRouteEntryPath(route.meta, routePath)
     const title = resolveRouteTitle(route.meta)
-    const children = route.children ? collectNavigationItems(route.children, path) : []
+    const children = route.children ? collectNavigationItems(route.children, routePath) : []
     const current = title && !route.meta?.hideInMenu
       ? [{
         icon: route.meta?.icon,
