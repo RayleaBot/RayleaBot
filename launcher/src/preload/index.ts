@@ -27,6 +27,7 @@ const api: LauncherDesktopApi = {
   minimize: () => ipcRenderer.invoke(launcherInvokeChannels.minimize),
   maximize: () => ipcRenderer.invoke(launcherInvokeChannels.maximize),
   close: () => ipcRenderer.invoke(launcherInvokeChannels.close),
+  closeConfirmResponse: (response) => ipcRenderer.invoke(launcherInvokeChannels.closeConfirmResponse, response),
   isMaximized: () => ipcRenderer.invoke(launcherInvokeChannels.isMaximized),
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void) {
     const handler = (_event: unknown, snapshot: LauncherSnapshot) => listener(snapshot);
@@ -40,6 +41,13 @@ const api: LauncherDesktopApi = {
     ipcRenderer.on(launcherEventChannels.maximizedChange, handler);
     return () => {
       ipcRenderer.off(launcherEventChannels.maximizedChange, handler);
+    };
+  },
+  onShowExitConfirm(listener: () => void) {
+    const handler = () => listener();
+    ipcRenderer.on(launcherEventChannels.showExitConfirm, handler);
+    return () => {
+      ipcRenderer.off(launcherEventChannels.showExitConfirm, handler);
     };
   },
 };

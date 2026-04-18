@@ -19,6 +19,7 @@ export const launcherInvokeChannels = {
   chooseConfig: "launcher:choose-config",
   chooseWorkdir: "launcher:choose-workdir",
   exit: "launcher:exit",
+  closeConfirmResponse: "launcher:close-confirm-response",
   minimize: "launcher:minimize",
   maximize: "launcher:maximize",
   close: "launcher:close",
@@ -28,4 +29,5 @@ export const launcherInvokeChannels = {
 export const launcherEventChannels = {
   snapshot: "launcher:snapshot",
   maximizedChange: "launcher:maximized-change",
+  showExitConfirm: "launcher:show-exit-confirm",
 } as const;

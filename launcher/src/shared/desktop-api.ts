@@ -24,7 +24,9 @@ export interface LauncherDesktopApi {
   minimize(): Promise<void>;
   maximize(): Promise<void>;
   close(): Promise<void>;
+  closeConfirmResponse(response: { action: "hide" | "exit" | "cancel"; setAsDefault: boolean }): Promise<void>;
   isMaximized(): Promise<boolean>;
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void): () => void;
   onMaximizedChange(listener: (maximized: boolean) => void): () => void;
+  onShowExitConfirm(listener: () => void): () => void;
 }
