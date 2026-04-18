@@ -42,6 +42,8 @@
 - `build_info.json`
 - `SHA256SUMS.txt`
 
+正式 JSON metadata 只包括 `release_manifest.json` 与 `build_info.json`。`SHA256SUMS.txt` 用于发布包校验。
+
 元数据用于校验：
 
 - 版本号与提交哈希
@@ -60,6 +62,7 @@
 | `config_schema_version` | 配置 schema 版本 |
 | `db_schema_version` | 数据库 schema 版本 |
 | `plugin_protocol_version` | 插件协议版本 |
+| `onebot_matrix` | 可选 OneBot11 验证矩阵版本 |
 | `artifacts` | 产物列表，含 `artifact_id`、文件名、平台、摘要、大小、`support_level`、`deps_manifest_sha256` 与 `smoke_profile` |
 | `release_notes_ref` | 对应版本说明或 Release 地址 |
 
@@ -71,7 +74,9 @@
 | `git_commit` | 构建提交哈希 |
 | `artifact_id` | 当前包的产物标识 |
 | `built_at` | 构建时间 |
-| `release_manifest_sha256` | 对应 `release_manifest.json` 的摘要 |
+| `release_notes_ref` | 可选版本说明或 Release 地址 |
+| `release_manifest_sha256` | 可选 `release_manifest.json` 摘要 |
+| `onebot_matrix` | 可选 OneBot11 验证矩阵版本 |
 
 ## 升级与回滚
 

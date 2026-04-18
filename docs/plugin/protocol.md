@@ -36,6 +36,7 @@
 - manifest 省略 `concurrency` 时，插件按串行事件处理；显式声明后，不同 `event.target` 可并发，同一 `event.target` 保持顺序。
 - 并发插件发起本地 action 时必须提供 `parent_request_id`。
 - 事件方向和 action 方向共用 `result` / `error` 语义。
+- `error` 固定返回 `code`、`message`，可选 `details` 用于补充结构化失败上下文。
 
 ### 事件字段
 
@@ -150,7 +151,7 @@
 
 ## 当前边界
 
-- 当前协议不包含复杂流式回传、额外调试流或未冻结 action。
+- 当前协议不包含批量消息、复杂流式回传、额外调试流或未冻结 action。
 - 协议扩展先更新 contract，再更新 SDK、fixtures、示例和运行时实现。
 
 ## 相关文档

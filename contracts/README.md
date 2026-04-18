@@ -48,6 +48,7 @@
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
+  - `error` 帧由插件终态失败与平台 local action 失败共用，固定包含 `code`、`message`，可选 `details`
   - `message.send`、`message.reply` 使用 shared `message.segments` payload
   - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
@@ -55,29 +56,23 @@
   - 正式 outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
 - `release-manifest.schema.json`
   - `release_manifest.json` 与 `build_info.json` 的正式字段结构
+  - `SHA256SUMS.txt` 继续由 release tool 的生成与校验规则裁决，不作为独立 schema
 - `cli-commands.yaml`
   - `reset-admin`、`backup`、`restore`、`doctor`、`migrate`、`cleanup` 的正式命令模型
 
-## 当前仍保留为 TODO 的 v0.2 Phase 1 边界
+## 当前延后到后续版本的边界
 
 ### Plugin Protocol
 
 - 调试流
 - 批量消息
 - 复杂流式回传
-- 更宽的平台到插件方向 `error` 语义
 
 ### Release Metadata
 
-- `manifest_version`
-- `project_name`
-- 独立 `target_platform` / `target_arch`
-- 显式 `bundled_runtimes` 列表
-- `compatible_core_range`
 - 签名服务
 - 增量升级
 - 发布流水线策略
-- `SHA256SUMS.txt` 文件内容结构
 
 ## 当前未进入 OpenAPI 的 TODO
 

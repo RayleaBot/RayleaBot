@@ -25,12 +25,14 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 当前已完成：
 
 - ☑️ Pre-Phase 已收口
-- ◐ Phase 1 已完成 Batch A = OneBot 主链冻结
-- ◐ Phase 1 已完成 Batch B = 模板编辑器、治理读取面与插件 metadata 冻结
-- ◐ Phase 1 已完成 Batch C = 生命周期 `display_state` 与配置保存 `apply_effects` 冻结
-- ◐ Phase 2 已完成 Batch A = OneBot 主链 companion updates
-- ◐ Phase 2 已完成 Batch B = 模板编辑器、治理与插件 metadata companion updates
-- ◐ Phase 2 已完成 Batch C = 生命周期与配置 companion updates
+- ☑️ Phase 1 已完成 Batch A = OneBot 主链冻结
+- ☑️ Phase 1 已完成 Batch B = 模板编辑器、治理读取面与插件 metadata 冻结
+- ☑️ Phase 1 已完成 Batch C = 生命周期 `display_state` 与配置保存 `apply_effects` 冻结
+- ☑️ Phase 1 已完成 Batch D = Plugin Protocol 与 release metadata 收口
+- ☑️ Phase 2 已完成 Batch A = OneBot 主链 companion updates
+- ☑️ Phase 2 已完成 Batch B = 模板编辑器、治理与插件 metadata companion updates
+- ☑️ Phase 2 已完成 Batch C = 生命周期与配置 companion updates
+- ☑️ Phase 2 已完成 Batch D = Plugin Protocol 与 release metadata companion updates
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -59,8 +61,8 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | 阶段 | 名称 | 状态 | 当前目标 |
 | --- | --- | --- | --- |
 | Pre-Phase | 范围重置与前置承接 | ☑️ | v0.2 已作为当前执行计划收口，范围与延后边界已固定 |
-| Phase 1 | Contract / Schema 冻结 | ◐ | Batch A、Batch B、Batch C 已完成，剩余 release metadata 与 plugin protocol backlog 随后批次继续 |
-| Phase 2 | Fixtures / Examples / SDK | ◐ | Batch A、Batch B、Batch C 已完成，剩余 release metadata 与 plugin protocol companion updates 随后批次继续 |
+| Phase 1 | Contract / Schema 冻结 | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，v0.2 正式边界已冻结 |
+| Phase 2 | Fixtures / Examples / SDK | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，已冻结边界的 companion updates 已补齐 |
 | Phase 3 | OneBot11 传输模式补齐 | 🟡 | 完成 reverse WS、forward WS、HTTP、webhook 四条接入链路的正式主链 |
 | Phase 4 | OneBot11 事件与消息兼容补齐 | 🟡 | 完成核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵 |
 | Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
@@ -100,7 +102,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Batch A = OneBot 主链已完成
 - ☑️ Batch B = 模板编辑器、治理读取面、manifest 元数据已完成
 - ☑️ Batch C = 生命周期 `display_state` 与配置保存 `apply_effects` 已完成
-- 剩余批次聚焦 release metadata 与 plugin protocol backlog
+- ☑️ Batch D = Plugin Protocol 与 release metadata 已完成
 
 ### 本轮必需冻结的正式边界
 
@@ -109,10 +111,10 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | `contracts/web-api.openapi.yaml` | ◐ | OneBot transport、协议快照、日志详情、模板编辑器、治理核心读取面、plugin `display_state` 正式枚举与 `PUT /api/config` `apply_effects` 已冻结；其余 v0.2 surface 随后批次继续 |
 | `contracts/websocket-events.yaml` | ◐ | 协议状态、日志主链与插件生命周期 `display_state` 已补齐；模板编辑器预览继续复用现有 task event 链，不新增预览专用事件 |
 | `contracts/plugin-info.schema.json` | ☑️ | `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies`、`concurrency` |
-| `contracts/plugin-protocol.schema.json` | ◐ | OneBot 主链所需更宽 `action` 与消息段已冻结；剩余 v0.2 范围仍待继续 |
+| `contracts/plugin-protocol.schema.json` | ☑️ | OneBot 主链所需更宽 `action`、消息段与共享 `error.details` 语义已冻结 |
 | `contracts/config.user.schema.json` | ◐ | OneBot 多 transport 配置主模型已冻结；治理核心读取面直接投影现有 cooldown 与默认权限配置，其余迁移与热更新读取口径随后批次继续 |
 | `contracts/error-codes.yaml` | ◐ | OneBot transport、compatibility、provider extension 与模板编辑相关错误码已冻结；其余 v0.2 范围随后批次继续 |
-| `contracts/release-manifest.schema.json` | ◐ | OneBot 主链版本与回归声明已纳入；模板编辑器与其余 v0.2 回归声明仍待继续 |
+| `contracts/release-manifest.schema.json` | ☑️ | `release_manifest.json` 与 `build_info.json` 的最小 metadata surface 已冻结，`SHA256SUMS.txt` 保持在 release tool 校验边界 |
 
 ### 本轮 contract 冻结清单
 
@@ -120,9 +122,10 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | --- | --- | --- |
 | OneBot11 传输模式 | ☑️ | Batch A 已冻结 reverse WebSocket、forward WebSocket、HTTP 调用、webhook 上报，以及幸运莉莉娅 HTTP / SSE 接收兼容说明 |
 | OneBot11 兼容矩阵 | ☑️ | Batch A 已冻结核心事件、消息段、动作族、历史消息、消息详情、转发消息、文件与 provider 扩展矩阵 |
-| Plugin Protocol 扩展 | ☑️ | Batch A 已冻结更宽 `action family`、更宽消息段、必要的结果数据与结构化错误 |
+| Plugin Protocol 扩展 | ☑️ | Batch A 与 Batch D 已冻结更宽 `action family`、更宽消息段、共享 `error` 帧语义与结构化错误 |
 | 在线模板编辑器 | ☑️ | 模板列表、详情、源码编辑、schema 校验、任务式预览、保存、历史版本与回退已进入正式边界 |
 | 治理与配置语义 | ☑️ | blacklist / command-policy 读取面、plugin `display_state` 正式枚举与 `PUT /api/config` `apply_effects` 已进入正式边界 |
+| Release Metadata | ☑️ | `release_manifest.json`、`build_info.json` 与 release 校验边界已进入正式范围 |
 
 ### 本轮排除项
 
@@ -144,15 +147,15 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ 当前已补齐 protocol snapshot、compatibility matrix、widened actions、provider namespace、SDK helper 与管理面 companion updates
 - ☑️ Batch B 已补齐模板编辑器、治理与 manifest 相关 fixtures / examples / docs
 - ☑️ Batch C 已补齐生命周期 `display_state`、配置保存 `apply_effects` 与管理面 companion updates
-- 剩余批次聚焦 release metadata 与 plugin protocol companion updates
+- ☑️ Batch D 已补齐 Plugin Protocol 与 release metadata companion updates
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| transport / event / action fixtures | ◐ | OneBot 主链、模板编辑器、治理 surface、lifecycle `display_state`、config `apply_effects` 与 manifest metadata fixtures 已补齐；其余 v0.2 surface 仍待继续 |
+| transport / event / action fixtures | ☑️ | OneBot 主链、模板编辑器、治理 surface、lifecycle `display_state`、config `apply_effects`、共享 `error` 帧语义与 release metadata fixtures 已补齐 |
 | OneBot11 provider 分层样例 | ☑️ | fixtures 已按标准 OneBot11、NapCat 扩展、幸运莉莉娅扩展三层组织 |
-| examples 同步补齐 | ◐ | OneBot 主链、模板编辑器、治理、config `apply_effects` 与 manifest HTTP 样例已补齐；其余 v0.2 样例仍待继续 |
-| SDK 示例与文档同步 | ◐ | OneBot 主链已覆盖 widened actions、消息段与 provider namespace；模板编辑器与治理接口 SDK 样例仍待继续 |
-| Golden 回归基线 | ◐ | OneBot 主链回归样例已建立；template editor 与其余 v0.2 回归基线仍待继续 |
+| examples 同步补齐 | ☑️ | OneBot 主链、模板编辑器、治理、config `apply_effects`、release metadata 与共享错误语义示例已补齐 |
+| SDK 示例与文档同步 | ☑️ | OneBot 主链已覆盖 widened actions、消息段、provider namespace 与 `ActionError.details` 用法 |
+| Golden 回归基线 | ☑️ | OneBot 主链、template editor、治理、lifecycle/config、release metadata 与共享错误语义回归样例已建立 |
 
 ---
 
@@ -220,7 +223,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| 复杂流式协议 | ❌ | 流式回传与独立调试流不进入 v0.2 |
+| 复杂流式协议 | ❌ | 批量消息、流式回传与独立调试流不进入 v0.2 |
 | 插件间依赖 | ❌ | 保持在 v0.3+ |
 | 额外托管运行时语言 | ❌ | Go / Rust 官方托管运行时不进入本轮 |
 
@@ -313,7 +316,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | template editor 门禁 | 🟡 | 建立模板编辑、校验、预览、保存、回退回归门禁 |
 | wider action family 门禁 | 🟡 | 建立扩展 action family 的 contract、SDK、Server、Web 联合回归 |
 | self-host upgrade / rollback | 🟡 | 将 v0.2 新能力纳入打包回归、升级回滚与长期自托管验证 |
-| 发布元数据补齐 | 🟡 | release metadata 明确声明 transport、compatibility 与 plugin protocol 版本信息 |
+| 发布元数据与校验门禁 | 🟡 | 围绕 `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt` 与交付 smoke 建立发布门禁 |
 
 ### 本轮排除项
 
