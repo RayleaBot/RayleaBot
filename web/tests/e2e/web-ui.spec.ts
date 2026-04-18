@@ -1098,12 +1098,12 @@ test('template editor can validate, preview, save and rollback a template', asyn
   expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
 
   const editorCard = page.locator('.render-templates-card--editor')
-  const schemaCard = page.locator('.render-templates-bottom-grid .render-templates-card').first()
+  const bottomWorkspace = page.locator('.render-templates-card--bottom-workspace')
   const editorBox = await editorCard.boundingBox()
-  const schemaBox = await schemaCard.boundingBox()
+  const bottomBox = await bottomWorkspace.boundingBox()
   expect(editorBox).not.toBeNull()
-  expect(schemaBox).not.toBeNull()
-  expect((editorBox?.y ?? 0) + (editorBox?.height ?? 0)).toBeLessThanOrEqual((schemaBox?.y ?? 0) + 1)
+  expect(bottomBox).not.toBeNull()
+  expect((editorBox?.y ?? 0) + (editorBox?.height ?? 0)).toBeLessThanOrEqual((bottomBox?.y ?? 0) + 1)
 
   await page.locator('.template-nav-item').filter({ hasText: 'help.menu' }).first().click()
   await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)

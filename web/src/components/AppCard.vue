@@ -4,6 +4,7 @@ defineProps<{
   description?: string
   loading?: boolean
   shadow?: 'sm' | 'md' | 'lg' | 'none'
+  size?: 'default' | 'small'
   title?: string
   variant?: 'default' | 'stat' | 'highlight' | 'flat'
 }>()
@@ -17,6 +18,7 @@ defineProps<{
       shadow ? `app-card--shadow-${shadow}` : '',
       variant ? `app-card--${variant}` : '',
     ]"
+    :size="size"
   >
     <template v-if="title || $slots.extra" #title>
       <div class="app-card__header">
