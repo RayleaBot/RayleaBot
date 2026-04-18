@@ -137,34 +137,7 @@ async function handleCloseRequest() {
     return;
   }
 
-  const result = await dialog.showMessageBox(mainWindow!, {
-    type: "question",
-    title: "关闭窗口",
-    message: "关闭窗口时，选择保留到托盘或直接退出。",
-    detail: "隐藏到托盘后，服务与常用操作仍可从系统托盘继续访问。",
-    buttons: ["隐藏到托盘", "完全退出", "取消"],
-    cancelId: 2,
-    defaultId: 0,
-    checkboxLabel: "将本次选择设为默认行为",
-  });
-
-  if (result.response === 2) {
-    return;
-  }
-
-  if (result.checkboxChecked) {
-    const nextBehavior = result.response === 0 ? "hide_to_tray" : "exit_application";
-    await coordinator.saveSettings({
-      ...snapshot.settings,
-      closeBehavior: nextBehavior,
-    } satisfies LauncherSettings);
-  }
-
-  if (result.response === 0) {
-    mainWindow?.hide();
-  } else {
-    await appExitManager.requestExit();
-  }
+  mainWindow?.webContents.send(launcherEventChannels.showExitConfirm);
 }
 
 async function runTrayAction(action: TrayMenuEntry["action"]) {
@@ -305,6 +278,26 @@ function wireIpc() {
   ipcMain.handle(launcherInvokeChannels.chooseServer, async () => chooseServerExecutable());
   ipcMain.handle(launcherInvokeChannels.chooseConfig, async () => chooseConfigFile());
   ipcMain.handle(launcherInvokeChannels.chooseWorkdir, async () => chooseWorkdir());
+  ipcMain.handle(launcherInvokeChannels.closeConfirmResponse, async (_event, response: { action: "hide" | "exit" | "cancel"; setAsDefault: boolean }) => {
+    if (response.action === "cancel") {
+      return;
+    }
+
+    const snapshot = coordinator.snapshot;
+    if (response.setAsDefault) {
+      const nextBehavior = response.action === "hide" ? "hide_to_tray" : "exit_application";
+      await coordinator.saveSettings({
+        ...snapshot.settings,
+        closeBehavior: nextBehavior,
+      } satisfies LauncherSettings);
+    }
+
+    if (response.action === "hide") {
+      mainWindow?.hide();
+    } else {
+      await appExitManager.requestExit();
+    }
+  });
   ipcMain.handle(launcherInvokeChannels.exit, async () => appExitManager.requestExit());
 }
 
