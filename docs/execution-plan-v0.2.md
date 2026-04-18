@@ -33,6 +33,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 2 已完成 Batch B = 模板编辑器、治理与插件 metadata companion updates
 - ☑️ Phase 2 已完成 Batch C = 生命周期与配置 companion updates
 - ☑️ Phase 2 已完成 Batch D = Plugin Protocol 与 release metadata companion updates
+- ☑️ Phase 3 已完成 transport 主链收口与协议异常可见性补齐
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -63,7 +64,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Pre-Phase | 范围重置与前置承接 | ☑️ | v0.2 已作为当前执行计划收口，范围与延后边界已固定 |
 | Phase 1 | Contract / Schema 冻结 | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，v0.2 正式边界已冻结 |
 | Phase 2 | Fixtures / Examples / SDK | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，已冻结边界的 companion updates 已补齐 |
-| Phase 3 | OneBot11 传输模式补齐 | 🟡 | 完成 reverse WS、forward WS、HTTP、webhook 四条接入链路的正式主链 |
+| Phase 3 | OneBot11 传输模式补齐 | ☑️ | reverse WS、forward WS、HTTP、webhook 四条接入链路、协议快照与 transport 异常可见性已收口 |
 | Phase 4 | OneBot11 事件与消息兼容补齐 | 🟡 | 完成核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵 |
 | Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
 | Phase 6 | 在线模板编辑器 / Render 可视化 | 🟡 | 提供模板编辑、校验、预览、保存、回退与渲染结果可视化 |
@@ -159,16 +160,16 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 五、Phase 3 — OneBot11 传输模式补齐 🟡
+## 五、Phase 3 — OneBot11 传输模式补齐 ☑️
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| reverse WebSocket 收口 | 🟡 | 保留既有主链，并统一鉴权、ready、degraded、reconnect 与错误摘要 |
-| forward WebSocket | 🟡 | 纳入正式主链，管理面与诊断面展示连接状态与失败原因 |
-| HTTP API 调用 | 🟡 | 纳入 OneBot11 HTTP 调用主链，与 WS 模式共享鉴权、错误与状态语义 |
-| webhook 事件上报 | 🟡 | 纳入正式接入模式，与 transport 状态和调试面统一 |
-| 幸运莉莉娅 HTTP / SSE 兼容 | 🟡 | 作为 provider-specific 兼容矩阵中的正式条目处理 |
-| 单实例约束 | 🟡 | 保持单实例、单活跃 OneBot 连接模型，不引入多 bot / 多实例并行管理 |
+| reverse WebSocket 收口 | ☑️ | 回连入口、鉴权、ready、degraded、reconnect 与错误摘要已进入统一协议快照 |
+| forward WebSocket | ☑️ | 主动连接主链、错误摘要与管理面可见性已进入正式运行路径 |
+| HTTP API 调用 | ☑️ | HTTP 调用主链与 WS 模式共享鉴权、错误与状态语义 |
+| webhook 事件上报 | ☑️ | webhook 接入、transport 状态与协议异常摘要已进入正式运行路径 |
+| 幸运莉莉娅 HTTP / SSE 兼容 | ☑️ | 兼容说明固定在 provider 级边界，`SSE` 不进入正式 transport 枚举、配置模型或协议中心 |
+| 单实例约束 | ☑️ | 单实例、单活跃 OneBot 连接模型继续作为正式边界 |
 
 ---
 
@@ -311,7 +312,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| transport matrix 门禁 | 🟡 | 建立 reverse WS、forward WS、HTTP、webhook 回归门禁 |
+| transport matrix 门禁 | 🟡 | 围绕已完成的 reverse WS、forward WS、HTTP、webhook 主链建立回归门禁 |
 | compatibility matrix 门禁 | 🟡 | 建立标准 OneBot11、NapCat、幸运莉莉娅兼容门禁 |
 | template editor 门禁 | 🟡 | 建立模板编辑、校验、预览、保存、回退回归门禁 |
 | wider action family 门禁 | 🟡 | 建立扩展 action family 的 contract、SDK、Server、Web 联合回归 |
