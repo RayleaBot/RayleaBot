@@ -7,8 +7,8 @@
     "timestamp": "2026-03-17T09:33:00Z",
     "data": {
       "service_status": "degraded",
-      "summary": "Recovery compatibility checks require attention",
-      "reason": "Recovery compatibility checks require attention",
+      "summary": "服务运行条件受限",
+      "reason": "恢复兼容性检查需要处理",
       "reason_codes": ["recovery.degraded"]
     }
   },

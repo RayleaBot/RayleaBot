@@ -436,13 +436,14 @@ func newPluginWebhookHTTPHandlers(webhooks *pluginWebhookService) *pluginWebhook
 }
 
 type eventsWSHandler struct {
-	bridge   *bridge.Bridge
-	plugins  *plugins.Catalog
-	protocol *protocolService
+	bridge        *bridge.Bridge
+	plugins       *plugins.Catalog
+	protocol      *protocolService
+	serviceStatus *serviceStatusService
 }
 
-func newEventsWSHandler(bridge *bridge.Bridge, plugins *plugins.Catalog, protocol *protocolService) *eventsWSHandler {
-	return &eventsWSHandler{bridge: bridge, plugins: plugins, protocol: protocol}
+func newEventsWSHandler(bridge *bridge.Bridge, plugins *plugins.Catalog, protocol *protocolService, serviceStatus *serviceStatusService) *eventsWSHandler {
+	return &eventsWSHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus}
 }
 
 type tasksWSHandler struct {

@@ -1,0 +1,17 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-04-19T08:01:00Z",
+    "data": {
+      "service_status": "stopping",
+      "summary": "服务正在停止",
+      "reason": "服务正在停止"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

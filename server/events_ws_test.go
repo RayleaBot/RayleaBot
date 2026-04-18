@@ -120,8 +120,25 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	waitForObservabilitySubscriber(t, eventBridge)
+	firstStatus := readServiceStatusReplayFrame(t, conn)
+	assertServiceStatusReplayFrame(t, firstStatus, "running")
 	first := readProtocolReplayFrame(t, conn)
 	assertProtocolReplayFrame(t, first, "protocol_snapshot")
+}
+
+func TestEventsWebSocketReplaysServiceStatusOnConnect(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	conn := dialEventsWebSocket(t, server.URL, token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	frame := readServiceStatusReplayFrame(t, conn)
+	assertServiceStatusReplayFrame(t, frame, "running")
 }
 
 func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
@@ -168,6 +185,7 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 
 	conn := dialEventsWebSocket(t, server.URL, token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
+	readServiceStatusReplayFrame(t, conn)
 	first := readProtocolReplayFrame(t, conn)
 	assertProtocolReplayFrame(t, first, "protocol_snapshot")
 
@@ -196,6 +214,7 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	waitForPluginSubscriber(t, application.Plugins())
+	readServiceStatusReplayFrame(t, conn)
 	readProtocolReplayFrame(t, conn)
 
 	snapshots := application.Plugins().List()
@@ -233,6 +252,39 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 	if data["display_state"] != "running" {
 		t.Fatalf("unexpected display_state: got %#v want %q", data["display_state"], "running")
 	}
+}
+
+func TestEventsWebSocketPublishesStoppingServiceStatusAfterShutdownRequest(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	conn := dialEventsWebSocket(t, server.URL, token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	readServiceStatusReplayFrame(t, conn)
+	readProtocolReplayFrame(t, conn)
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/system/shutdown", nil)
+	if err != nil {
+		t.Fatalf("create shutdown request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform shutdown request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusAccepted {
+		t.Fatalf("unexpected shutdown status: got %d want %d", response.StatusCode, http.StatusAccepted)
+	}
+
+	frame := readServiceStatusReplayFrame(t, conn)
+	assertServiceStatusReplayFrame(t, frame, "stopping")
 }
 
 func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
@@ -339,21 +391,40 @@ func testBridgeEvent() adapter.NormalizedEvent {
 }
 
 func readProtocolReplayFrame(t *testing.T, conn *websocket.Conn) map[string]any {
+	return readEventsReplayFrameByKey(t, conn, "protocol_snapshot")
+}
+
+func readServiceStatusReplayFrame(t *testing.T, conn *websocket.Conn) map[string]any {
+	return readEventsReplayFrameByKey(t, conn, "service_status")
+}
+
+func readEventsReplayFrameByKey(t *testing.T, conn *websocket.Conn, key string) map[string]any {
 	t.Helper()
 
-	readCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		readCtx, cancel := context.WithTimeout(context.Background(), time.Until(deadline))
+		_, payload, err := conn.Read(readCtx)
+		cancel()
+		if err != nil {
+			t.Fatalf("read websocket frame: %v", err)
+		}
 
-	_, payload, err := conn.Read(readCtx)
-	if err != nil {
-		t.Fatalf("read websocket frame: %v", err)
+		var frame map[string]any
+		if err := json.Unmarshal(payload, &frame); err != nil {
+			t.Fatalf("unmarshal websocket frame: %v", err)
+		}
+		data, ok := frame["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected data object, got %#v", frame["data"])
+		}
+		if _, ok := data[key]; ok {
+			return frame
+		}
 	}
 
-	var frame map[string]any
-	if err := json.Unmarshal(payload, &frame); err != nil {
-		t.Fatalf("unmarshal websocket frame: %v", err)
-	}
-	return frame
+	t.Fatalf("timed out waiting for %s replay frame", key)
+	return nil
 }
 
 func assertProtocolReplayFrame(t *testing.T, frame map[string]any, key string) {
@@ -374,6 +445,27 @@ func assertProtocolReplayFrame(t *testing.T, frame map[string]any, key string) {
 	}
 	if _, ok := data[key]; !ok {
 		t.Fatalf("expected %s in replay payload: %#v", key, data)
+	}
+}
+
+func assertServiceStatusReplayFrame(t *testing.T, frame map[string]any, wantStatus string) {
+	t.Helper()
+
+	if frame["channel"] != "events" {
+		t.Fatalf("unexpected channel: %#v", frame["channel"])
+	}
+	if frame["type"] != "events.received" {
+		t.Fatalf("unexpected type: %#v", frame["type"])
+	}
+	data, ok := frame["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data object, got %#v", frame["data"])
+	}
+	if data["service_status"] != wantStatus {
+		t.Fatalf("unexpected service_status: got %#v want %q", data["service_status"], wantStatus)
+	}
+	if summary, ok := data["summary"].(string); !ok || summary == "" {
+		t.Fatalf("expected non-empty summary, got %#v", data["summary"])
 	}
 }
 

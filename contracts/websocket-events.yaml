@@ -14,6 +14,8 @@ x-fixtures:
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
   - fixtures/websocket/ok.events-received-protocol-snapshot.json
+  - fixtures/websocket/ok.events-received-service-running.json
+  - fixtures/websocket/ok.events-received-service-stopping.json
   - fixtures/websocket/edge.tasks-updated-failed-install.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json

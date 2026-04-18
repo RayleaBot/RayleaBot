@@ -29,6 +29,7 @@ type systemService struct {
 	taskExecutor     *tasks.Executor
 	logRepository    logging.Repository
 	shuttingDown     *atomic.Bool
+	statusPublisher  *serviceStatusService
 }
 
 func newSystemService(deps systemServiceDeps) *systemService {
@@ -222,6 +223,7 @@ func (s *systemService) applyRecoverySummary(summary *recovery.CompatibilitySumm
 		}
 	}
 	s.state.setRecoverySummary(summary)
+	s.publishStatusSnapshot()
 }
 
 func (s *systemService) activePluginCount() int {
@@ -249,6 +251,13 @@ func (s *systemService) systemStatus() string {
 		return "shutting_down"
 	}
 	return "running"
+}
+
+func (s *systemService) publishStatusSnapshot() {
+	if s == nil || s.statusPublisher == nil {
+		return
+	}
+	s.statusPublisher.PublishSnapshot()
 }
 
 func recoveryIssuesToHealth(issues []recovery.CompatibilityIssue) []health.DiagnosticIssue {

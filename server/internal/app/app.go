@@ -220,6 +220,8 @@ func New(options Options) (*App, error) {
 		taskExecutor:     platformState.taskExecutor,
 		logRepository:    platformState.LogRepository,
 	})
+	serviceStatusService := newServiceStatusService(systemService)
+	systemService.statusPublisher = serviceStatusService
 	lifecycle := newPluginLifecycleController(pluginLifecycleDeps{
 		state:            state,
 		plugins:          pluginState.Plugins,
@@ -318,6 +320,7 @@ func New(options Options) (*App, error) {
 		application.adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
 		application.adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
 		application.adapter.SetStateHandler(func(adapter.Snapshot) {
+			systemService.publishStatusSnapshot()
 			protocolService.PublishSnapshot()
 		})
 	}
@@ -350,7 +353,7 @@ func New(options Options) (*App, error) {
 	renderHandler := newRenderHTTPHandlers(pluginState.renderer, platformState.taskExecutor)
 	systemHandler := newSystemHTTPHandlers(systemService)
 	protocolHandler := newProtocolHTTPHandlers(protocolService)
-	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService)
+	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService, serviceStatusService)
 	tasksWS := newTasksWSHandler(platformState.Tasks)
 	logsWS := newLogsWSHandler(logService)
 	consoleWS := newConsoleWSHandler(platformState.Console, pluginState.Plugins)

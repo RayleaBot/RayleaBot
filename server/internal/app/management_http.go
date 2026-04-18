@@ -86,6 +86,7 @@ func (h *managementHTTPHandlers) handleSystemStatus() http.HandlerFunc {
 func (h *managementHTTPHandlers) handleSystemShutdown() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		h.requestShutdown()
+		h.system.publishStatusSnapshot()
 		writeAuthJSON(w, http.StatusAccepted, systemShutdownResponse{Accepted: true})
 	}
 }
