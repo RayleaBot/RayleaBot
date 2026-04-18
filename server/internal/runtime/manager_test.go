@@ -302,6 +302,35 @@ func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
 	}
 }
 
+func TestManagerDeliverEventReturnsPluginErrorDetails(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	spec := helperSpec(t, "event-error-with-details", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	assertRuntimeErrorCode(t, err, codePluginNotHandled)
+	if got, ok := delivery.ErrorDetails["reason"].(string); !ok || got != "policy_skip" {
+		t.Fatalf("unexpected delivery error details: %#v", delivery.ErrorDetails)
+	}
+
+	var runtimeErr *Error
+	if !errors.As(err, &runtimeErr) {
+		t.Fatalf("expected runtime error, got %T", err)
+	}
+	if got, ok := runtimeErr.Details["reason"].(string); !ok || got != "policy_skip" {
+		t.Fatalf("unexpected runtime error details: %#v", runtimeErr.Details)
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
 func TestManagerDeliverEventReturnsAction(t *testing.T) {
 	t.Parallel()
 
@@ -535,6 +564,47 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	}
 	if got, _ := delivery.Result["local_error_code"].(string); got != "permission.scope_violation" {
 		t.Fatalf("local_error_code = %q, want %q", got, "permission.scope_violation")
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing.T) {
+	t.Parallel()
+
+	manager := testManagerWithOptions(Options{
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action) (map[string]any, error) {
+			if action.Kind != "logger.write" {
+				t.Fatalf("unexpected local action: %#v", action)
+			}
+			return nil, &Error{
+				Code:    "permission.scope_violation",
+				Message: "capability not granted",
+				Details: map[string]any{
+					"missing_capability": "logger.write",
+					"scope":              "management.logs:write",
+				},
+			}
+		},
+	})
+	spec := helperSpec(t, "event-local-action-error-then-result", "")
+
+	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+
+	delivery, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
+	if err != nil {
+		t.Fatalf("deliver event: %v", err)
+	}
+	details, ok := delivery.Result["local_error_details"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected local_error_details map, got %#v", delivery.Result["local_error_details"])
+	}
+	if details["missing_capability"] != "logger.write" {
+		t.Fatalf("unexpected local error details: %#v", details)
 	}
 
 	if err := manager.Stop(context.Background()); err != nil {
@@ -1236,6 +1306,55 @@ func TestHelperProcessRuntime(t *testing.T) {
 			}
 		}
 		os.Exit(0)
+	case "event-error-with-details":
+		if !scanner.Scan() {
+			os.Exit(2)
+		}
+		line := append([]byte(nil), scanner.Bytes()...)
+		var initFrame map[string]any
+		if err := json.Unmarshal(line, &initFrame); err != nil {
+			os.Exit(3)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "init_ack",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        initFrame["plugin_id"],
+			"request_id":       initFrame["request_id"],
+			"status":           "ready",
+		})
+		if !scanner.Scan() {
+			os.Exit(4)
+		}
+		line = append([]byte(nil), scanner.Bytes()...)
+		var eventFrame map[string]any
+		if err := json.Unmarshal(line, &eventFrame); err != nil {
+			os.Exit(5)
+		}
+		writeHelperFrame(map[string]any{
+			"protocol_version": "1",
+			"type":             "error",
+			"timestamp":        time.Now().Unix(),
+			"plugin_id":        eventFrame["plugin_id"],
+			"request_id":       eventFrame["request_id"],
+			"code":             "plugin.not_handled",
+			"message":          "plugin chose not to handle this event",
+			"details": map[string]any{
+				"reason": "policy_skip",
+				"source": "command_filter",
+			},
+		})
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			var frame map[string]any
+			if err := json.Unmarshal(line, &frame); err != nil {
+				os.Exit(6)
+			}
+			if frame["type"] == "shutdown" {
+				os.Exit(0)
+			}
+		}
+		os.Exit(0)
 	case "event-result":
 		if !scanner.Scan() {
 			os.Exit(2)
@@ -1597,6 +1716,7 @@ func TestHelperProcessRuntime(t *testing.T) {
 			},
 		})
 		localError := helperExpectFrameType(scanner, "local_logger_2", "error", 5)
+		localErrorDetails, _ := localError["details"].(map[string]any)
 		writeHelperFrame(map[string]any{
 			"protocol_version": "1",
 			"type":             "result",
@@ -1605,8 +1725,9 @@ func TestHelperProcessRuntime(t *testing.T) {
 			"request_id":       eventFrame["request_id"],
 			"status":           "success",
 			"data": map[string]any{
-				"handled":          true,
-				"local_error_code": localError["code"],
+				"handled":             true,
+				"local_error_code":    localError["code"],
+				"local_error_details": localErrorDetails,
 			},
 		})
 		helperConsumeShutdown(scanner, 6)

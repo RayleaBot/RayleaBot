@@ -28,6 +28,7 @@ const (
 type Error struct {
 	Code    string
 	Message string
+	Details map[string]any
 	Err     error
 }
 
@@ -54,6 +55,26 @@ func errorf(code, message string, err error) *Error {
 		Message: message,
 		Err:     err,
 	}
+}
+
+func errorWithDetails(code, message string, details map[string]any, err error) *Error {
+	return &Error{
+		Code:    code,
+		Message: message,
+		Details: cloneDetails(details),
+		Err:     err,
+	}
+}
+
+func cloneDetails(details map[string]any) map[string]any {
+	if len(details) == 0 {
+		return nil
+	}
+	cloned := make(map[string]any, len(details))
+	for key, value := range details {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 type BotInfo struct {

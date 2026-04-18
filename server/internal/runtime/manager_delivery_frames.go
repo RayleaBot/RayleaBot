@@ -353,6 +353,7 @@ func decodeTerminalError(eventRequestID string, line []byte) (Delivery, bool, er
 		RequestID:    eventRequestID,
 		ErrorCode:    frame.Code,
 		ErrorMessage: frame.Message,
+		ErrorDetails: cloneDetails(frame.Details),
 	}
-	return delivery, true, errorf(frame.Code, frame.Message, nil)
+	return delivery, true, errorWithDetails(frame.Code, frame.Message, frame.Details, nil)
 }

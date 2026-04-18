@@ -64,7 +64,7 @@ func isProviderExtensionAction(kind string) bool {
 
 func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle, parentRequestID string, requestID string, action Action) {
 	if m.opts.ExecuteLocalAction == nil {
-		if err := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action executor is not available"); err != nil {
+		if err := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action executor is not available", nil); err != nil {
 			m.failRuntime(handle, err.Code, err.Message, err.Err)
 		}
 		return
@@ -74,12 +74,12 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle,
 	if err != nil {
 		var runtimeErr *Error
 		if errors.As(err, &runtimeErr) {
-			if writeErr := m.writeLocalError(handle, parentRequestID, requestID, runtimeErr.Code, runtimeErr.Message); writeErr != nil {
+			if writeErr := m.writeLocalError(handle, parentRequestID, requestID, runtimeErr.Code, runtimeErr.Message, runtimeErr.Details); writeErr != nil {
 				m.failRuntime(handle, writeErr.Code, writeErr.Message, writeErr.Err)
 			}
 			return
 		}
-		if writeErr := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action failed"); writeErr != nil {
+		if writeErr := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action failed", nil); writeErr != nil {
 			m.failRuntime(handle, writeErr.Code, writeErr.Message, writeErr.Err)
 		}
 		return
@@ -106,7 +106,7 @@ func (m *Manager) writeLocalResult(handle *processHandle, parentRequestID string
 	return m.writeLocalResponse(handle, parentRequestID, frame)
 }
 
-func (m *Manager) writeLocalError(handle *processHandle, parentRequestID string, requestID string, code string, message string) *Error {
+func (m *Manager) writeLocalError(handle *processHandle, parentRequestID string, requestID string, code string, message string, details map[string]any) *Error {
 	frame := map[string]any{
 		"protocol_version": "1",
 		"type":             "error",
@@ -115,6 +115,9 @@ func (m *Manager) writeLocalError(handle *processHandle, parentRequestID string,
 		"request_id":       requestID,
 		"code":             code,
 		"message":          message,
+	}
+	if len(details) > 0 {
+		frame["details"] = cloneDetails(details)
 	}
 	return m.writeLocalResponse(handle, parentRequestID, frame)
 }

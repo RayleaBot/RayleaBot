@@ -128,6 +128,7 @@ type Delivery struct {
 	Result       map[string]any
 	ErrorCode    string
 	ErrorMessage string
+	ErrorDetails map[string]any
 }
 
 type managerDeps struct {

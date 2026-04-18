@@ -119,7 +119,7 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 		if frame.Code == "" || frame.Message == "" {
 			return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
 		}
-		return initResponseWait, nil, errorf(frame.Code, frame.Message, nil)
+		return initResponseWait, nil, errorWithDetails(frame.Code, frame.Message, frame.Details, nil)
 	default:
 		return initResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during init", nil)
 	}

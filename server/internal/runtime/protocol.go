@@ -241,6 +241,7 @@ type errorFrame struct {
 	RequestID string `json:"request_id"`
 	Code      string `json:"code"`
 	Message   string `json:"message"`
+	Details   map[string]any `json:"details,omitempty"`
 }
 
 type resultFrame struct {
