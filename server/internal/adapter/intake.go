@@ -36,6 +36,7 @@ const (
 	EventKindMessageSent = "onebot11.message_sent"
 	EventKindNotice      = "onebot11.notice"
 	EventKindRequest     = "onebot11.request"
+	EventKindMeta        = "onebot11.meta"
 )
 
 type NormalizedEvent struct {
@@ -49,6 +50,8 @@ type NormalizedEvent struct {
 	ConversationType string
 	ConversationID   string
 	SenderID         string
+	TargetType       string
+	TargetID         string
 	PlainText        string
 	Segments         []MessageSegment
 	MessageID        string
@@ -265,6 +268,8 @@ func normalizeSupportedEvent(frame oneBotFrame, observedAt time.Time) (Normalize
 		return normalizeNoticeEvent(frame, observedAt)
 	case "request":
 		return normalizeRequestEvent(frame, observedAt)
+	case "meta_event":
+		return normalizeMetaEvent(frame, observedAt)
 	default:
 		return NormalizedEvent{}, false
 	}
@@ -604,6 +609,49 @@ func normalizeRequestEvent(frame oneBotFrame, observedAt time.Time) (NormalizedE
 	}, true
 }
 
+func normalizeMetaEvent(frame oneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+	if frame.SelfID <= 0 {
+		return NormalizedEvent{}, false
+	}
+
+	var eventType string
+	switch frame.MetaEventType {
+	case "heartbeat":
+		eventType = "meta.heartbeat"
+	case "lifecycle":
+		eventType = "meta.lifecycle"
+	default:
+		return NormalizedEvent{}, false
+	}
+
+	timestamp := frame.Time
+	if timestamp <= 0 {
+		timestamp = observedAt.Unix()
+	}
+
+	eventID := fmt.Sprintf("onebot11-meta-%s-%d", strings.ReplaceAll(frame.MetaEventType, "_", "-"), timestamp)
+	if subType := strings.TrimSpace(frame.SubType); subType != "" {
+		eventID = fmt.Sprintf("onebot11-meta-%s-%s-%d", strings.ReplaceAll(frame.MetaEventType, "_", "-"), strings.ReplaceAll(subType, "_", "-"), timestamp)
+	}
+
+	botID := fmt.Sprintf("%d", frame.SelfID)
+	return NormalizedEvent{
+		Kind:             EventKindMeta,
+		EventID:          eventID,
+		BotID:            botID,
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        eventType,
+		Timestamp:        timestamp,
+		ConversationType: "system",
+		ConversationID:   "bot:" + botID,
+		SenderID:         botID,
+		TargetType:       "bot",
+		TargetID:         botID,
+		PayloadFields:    buildCommonPayloadFields(frame),
+	}, true
+}
+
 func buildCommonPayloadFields(frame oneBotFrame) map[string]any {
 	payloadFields := map[string]any{}
 	if frame.SubType != "" {
@@ -676,6 +724,9 @@ func buildOneBotPayload(frame oneBotFrame) map[string]any {
 	if frame.NoticeType != "" {
 		payload["notice_type"] = frame.NoticeType
 	}
+	if frame.MetaEventType != "" {
+		payload["meta_event_type"] = frame.MetaEventType
+	}
 	if frame.SubType != "" {
 		payload["sub_type"] = frame.SubType
 	}
@@ -693,6 +744,9 @@ func buildOneBotPayload(frame oneBotFrame) map[string]any {
 	}
 	if frame.Time > 0 {
 		payload["time"] = frame.Time
+	}
+	if frame.Interval > 0 {
+		payload["interval"] = frame.Interval
 	}
 	if frame.MessageID > 0 {
 		payload["message_id"] = fmt.Sprintf("%d", frame.MessageID)
@@ -720,6 +774,9 @@ func buildOneBotPayload(frame oneBotFrame) map[string]any {
 	}
 	if flag := strings.TrimSpace(textsafe.SanitizeString(frame.Flag)); flag != "" {
 		payload["flag"] = flag
+	}
+	if status := buildDataPayload(frame.Status); len(status) > 0 {
+		payload["status"] = status
 	}
 	return payload
 }

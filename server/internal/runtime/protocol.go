@@ -90,6 +90,7 @@ type protocolPayloadFrame struct {
 
 type protocolOneBotPayloadFrame struct {
 	PostType      string                     `json:"post_type,omitempty"`
+	MetaEventType string                     `json:"meta_event_type,omitempty"`
 	MessageType   string                     `json:"message_type,omitempty"`
 	RequestType   string                     `json:"request_type,omitempty"`
 	NoticeType    string                     `json:"notice_type,omitempty"`
@@ -99,6 +100,7 @@ type protocolOneBotPayloadFrame struct {
 	GroupID       string                     `json:"group_id,omitempty"`
 	TargetID      string                     `json:"target_id,omitempty"`
 	Time          int64                      `json:"time,omitempty"`
+	Interval      int                        `json:"interval,omitempty"`
 	MessageID     string                     `json:"message_id,omitempty"`
 	RealID        string                     `json:"real_id,omitempty"`
 	MessageSeq    string                     `json:"message_seq,omitempty"`
@@ -108,6 +110,7 @@ type protocolOneBotPayloadFrame struct {
 	Sender        *protocolOneBotSenderFrame `json:"sender,omitempty"`
 	Comment       string                     `json:"comment,omitempty"`
 	Flag          string                     `json:"flag,omitempty"`
+	Status        map[string]any             `json:"status,omitempty"`
 }
 
 type protocolOneBotSenderFrame struct {
@@ -237,10 +240,10 @@ type initAckFrame struct {
 }
 
 type errorFrame struct {
-	Type      string `json:"type"`
-	RequestID string `json:"request_id"`
-	Code      string `json:"code"`
-	Message   string `json:"message"`
+	Type      string         `json:"type"`
+	RequestID string         `json:"request_id"`
+	Code      string         `json:"code"`
+	Message   string         `json:"message"`
 	Details   map[string]any `json:"details,omitempty"`
 }
 

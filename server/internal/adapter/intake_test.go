@@ -278,3 +278,49 @@ func TestNormalizeSupportedEventFriendRequestSanitizesCommentAndFlag(t *testing.
 		t.Fatalf("unexpected sanitized flag payload: %#v", got)
 	}
 }
+
+func TestNormalizeSupportedEventMetaHeartbeatProjectsSystemConversation(t *testing.T) {
+	event, ok := normalizeSupportedEvent(oneBotFrame{
+		PostType:      "meta_event",
+		MetaEventType: "heartbeat",
+		SelfID:        10001,
+		Time:          1710000003,
+		Interval:      5000,
+		Status: map[string]any{
+			"online": true,
+			"good":   true,
+		},
+	}, time.Unix(1710000003, 0))
+	if !ok {
+		t.Fatal("expected meta heartbeat to normalize")
+	}
+	if event.Kind != EventKindMeta {
+		t.Fatalf("unexpected kind: %q", event.Kind)
+	}
+	if event.EventType != "meta.heartbeat" {
+		t.Fatalf("unexpected event type: %q", event.EventType)
+	}
+	if event.ConversationType != "system" || event.ConversationID != "bot:10001" {
+		t.Fatalf("unexpected system conversation: %#v", event)
+	}
+	if event.TargetType != "bot" || event.TargetID != "10001" {
+		t.Fatalf("unexpected target projection: %#v", event)
+	}
+	onebot, ok := event.PayloadFields["onebot"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing onebot payload: %#v", event.PayloadFields)
+	}
+	if got := onebot["meta_event_type"]; got != "heartbeat" {
+		t.Fatalf("unexpected meta_event_type: %#v", got)
+	}
+	if got := onebot["interval"]; got != 5000 {
+		t.Fatalf("unexpected interval: %#v", got)
+	}
+	status, ok := onebot["status"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing status payload: %#v", onebot["status"])
+	}
+	if got := status["online"]; got != true {
+		t.Fatalf("unexpected status.online: %#v", got)
+	}
+}

@@ -550,7 +550,7 @@ func parseOutboundActionSegment(segment protocolSegmentFrame, index int) (Action
 			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid reply segment", nil)
 		}
 		data["message_id"] = messageID
-	case "record", "video", "file", "json", "xml", "markdown", "music", "contact", "forward", "node", "poke", "dice", "rps", "mface", "keyboard", "shake":
+	case "record", "video", "file", "flash_file", "json", "xml", "markdown", "music", "contact", "forward", "node", "poke", "dice", "rps", "mface", "keyboard", "shake":
 		if data == nil {
 			data = map[string]any{}
 		}

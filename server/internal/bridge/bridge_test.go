@@ -245,6 +245,62 @@ func TestBridgeDeliversFriendRequestEvent(t *testing.T) {
 	}
 }
 
+func TestBridgeDeliversMetaHeartbeatEvent(t *testing.T) {
+	t.Parallel()
+
+	fakeDispatcher := &recordingDispatcher{
+		deliverable: true,
+		results: []dispatch.DeliveryResult{{
+			PluginID: "heartbeat-monitor",
+			Outcome:  dispatch.OutcomeDelivered,
+		}},
+	}
+	eventBridge := testBridge(fakeDispatcher)
+
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMeta,
+		EventID:          "onebot11-meta-heartbeat-1710000456",
+		BotID:            "10001",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "meta.heartbeat",
+		Timestamp:        time.Unix(1_700_000_456, 0).Unix(),
+		ConversationType: "system",
+		ConversationID:   "bot:10001",
+		SenderID:         "10001",
+		TargetType:       "bot",
+		TargetID:         "10001",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"post_type":       "meta_event",
+				"meta_event_type": "heartbeat",
+				"self_id":         "10001",
+				"time":            int64(1_700_000_456),
+				"interval":        5000,
+				"status": map[string]any{
+					"online": true,
+				},
+			},
+		},
+	})
+	if outcome != OutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	}
+	if len(fakeDispatcher.events) != 1 {
+		t.Fatalf("unexpected dispatcher delivery count: got %d want 1", len(fakeDispatcher.events))
+	}
+	delivered := fakeDispatcher.events[0]
+	if delivered.EventType != "meta.heartbeat" {
+		t.Fatalf("unexpected delivered event type: %q", delivered.EventType)
+	}
+	if delivered.Target == nil || delivered.Target.Type != "bot" || delivered.Target.ID != "10001" {
+		t.Fatalf("unexpected target projection: %#v", delivered.Target)
+	}
+	if delivered.Message != nil {
+		t.Fatalf("meta event should not carry a message payload: %#v", delivered.Message)
+	}
+}
+
 func TestBridgeDeliversMessageSentEvent(t *testing.T) {
 	t.Parallel()
 

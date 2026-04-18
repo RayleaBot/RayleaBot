@@ -150,3 +150,48 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 		t.Fatalf("unexpected event projection: got %#v want %#v", projected, snapshot)
 	}
 }
+
+func TestProtocolCompatibilityProjectionKeepsUnsupportedGapsVisible(t *testing.T) {
+	t.Parallel()
+
+	service := newProtocolService(&appRuntimeState{
+		Config: config.Config{
+			OneBot: config.OneBotConfig{
+				Provider: "napcat",
+			},
+		},
+	}, nil)
+
+	response, err := service.currentOneBot11ProtocolCompatibility()
+	if err != nil {
+		t.Fatalf("unexpected compatibility projection error: %v", err)
+	}
+	if response.Protocol != "onebot11" {
+		t.Fatalf("unexpected protocol: got %q want %q", response.Protocol, "onebot11")
+	}
+	if len(response.Categories) != 4 {
+		t.Fatalf("unexpected category count: got %d want 4", len(response.Categories))
+	}
+
+	var foundProviderExtension bool
+	for _, category := range response.Categories {
+		if category.Key != "provider_extensions" {
+			continue
+		}
+		for _, item := range category.Items {
+			if item.Key != "provider.napcat.group.sign.set" {
+				continue
+			}
+			foundProviderExtension = true
+			if item.Support.NapCat != "supported" {
+				t.Fatalf("unexpected NapCat support: %#v", item.Support)
+			}
+			if item.Support.Standard != "unsupported" || item.Support.LuckyLillia != "unsupported" {
+				t.Fatalf("unsupported provider gaps should remain explicit: %#v", item.Support)
+			}
+		}
+	}
+	if !foundProviderExtension {
+		t.Fatal("expected napcat provider extension item in compatibility matrix")
+	}
+}

@@ -167,8 +167,8 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 			Role:     event.ActorRole,
 		},
 		Target: &runtime.EventTarget{
-			Type: event.ConversationType,
-			ID:   event.ConversationID,
+			Type: bridgeTargetType(event),
+			ID:   bridgeTargetID(event),
 			Name: event.TargetName,
 		},
 		PayloadFields: event.PayloadFields,
@@ -294,7 +294,7 @@ func isSupportedEvent(event adapter.NormalizedEvent) bool {
 
 func isSupportedEventKind(kind string) bool {
 	switch kind {
-	case adapter.EventKindMessageText, adapter.EventKindMessage, adapter.EventKindMessageSent, adapter.EventKindNotice, adapter.EventKindRequest:
+	case adapter.EventKindMessageText, adapter.EventKindMessage, adapter.EventKindMessageSent, adapter.EventKindNotice, adapter.EventKindRequest, adapter.EventKindMeta:
 		return true
 	default:
 		return false
@@ -334,6 +334,8 @@ func isSupportedEventType(event adapter.NormalizedEvent) bool {
 		return event.ConversationType == "private"
 	case "request.group":
 		return event.ConversationType == "group"
+	case "meta.heartbeat", "meta.lifecycle":
+		return event.ConversationType == "system"
 	default:
 		return false
 	}
@@ -484,6 +486,10 @@ func bridgeEventSummary(action string, event adapter.NormalizedEvent) string {
 		base = "friend request"
 	case "request.group":
 		base = "group request"
+	case "meta.heartbeat":
+		base = "heartbeat event"
+	case "meta.lifecycle":
+		base = "lifecycle event"
 	}
 
 	summary := fmt.Sprintf("runtime bridge %s %s", action, base)
@@ -600,6 +606,12 @@ func bridgeEventLogAttrs(event adapter.NormalizedEvent) []any {
 	if event.BotID != "" {
 		attrs = append(attrs, "self_id", event.BotID)
 	}
+	if event.TargetType != "" {
+		attrs = append(attrs, "target_type", event.TargetType)
+	}
+	if event.TargetID != "" {
+		attrs = append(attrs, "target_id", event.TargetID)
+	}
 	if event.TargetName != "" && event.ConversationType == "group" {
 		attrs = append(attrs, "group_name", textsafe.SanitizeString(event.TargetName))
 	}
@@ -660,6 +672,20 @@ func bridgeEventLogAttrs(event adapter.NormalizedEvent) []any {
 		}
 	}
 	return attrs
+}
+
+func bridgeTargetType(event adapter.NormalizedEvent) string {
+	if strings.TrimSpace(event.TargetType) != "" {
+		return event.TargetType
+	}
+	return event.ConversationType
+}
+
+func bridgeTargetID(event adapter.NormalizedEvent) string {
+	if strings.TrimSpace(event.TargetID) != "" {
+		return event.TargetID
+	}
+	return event.ConversationID
 }
 
 func bridgeEventOneBotPayload(event adapter.NormalizedEvent) map[string]any {

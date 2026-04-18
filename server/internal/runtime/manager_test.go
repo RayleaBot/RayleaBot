@@ -281,6 +281,50 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 	}
 }
 
+func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
+	t.Parallel()
+
+	frame := buildEventFrame(Event{
+		EventID:        "evt-onebot-meta-1",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "adapter.onebot11",
+		EventType:      "meta.heartbeat",
+		Timestamp:      1_729_679_130,
+		Actor: &EventActor{
+			ID: "721011692",
+		},
+		Target: &EventTarget{
+			Type: "bot",
+			ID:   "721011692",
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"post_type":       "meta_event",
+				"meta_event_type": "heartbeat",
+				"self_id":         "721011692",
+				"time":            int64(1_729_679_130),
+				"interval":        5000,
+				"status": map[string]any{
+					"online": true,
+				},
+			},
+		},
+	}, "echo", "req_evt_onebot_meta", 1_729_679_131)
+
+	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
+		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
+	}
+	if frame.Event.Payload.OneBot.MetaEventType != "heartbeat" {
+		t.Fatalf("unexpected meta_event_type: %#v", frame.Event.Payload.OneBot)
+	}
+	if frame.Event.Payload.OneBot.Interval != 5000 {
+		t.Fatalf("unexpected interval: %#v", frame.Event.Payload.OneBot)
+	}
+	if got := frame.Event.Payload.OneBot.Status["online"]; got != true {
+		t.Fatalf("unexpected status payload: %#v", frame.Event.Payload.OneBot.Status)
+	}
+}
+
 func TestManagerDeliverEventReturnsPluginError(t *testing.T) {
 	t.Parallel()
 

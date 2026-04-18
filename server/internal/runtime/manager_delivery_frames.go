@@ -97,6 +97,10 @@ func buildProtocolOneBotPayload(fields map[string]any) (*protocolOneBotPayloadFr
 		payload.PostType = v
 		hasPayload = true
 	}
+	if v, ok := payloadString(raw, "meta_event_type"); ok {
+		payload.MetaEventType = v
+		hasPayload = true
+	}
 	if v, ok := payloadString(raw, "message_type"); ok {
 		payload.MessageType = v
 		hasPayload = true
@@ -133,6 +137,10 @@ func buildProtocolOneBotPayload(fields map[string]any) (*protocolOneBotPayloadFr
 		payload.Time = v
 		hasPayload = true
 	}
+	if v, ok := payloadInt(raw, "interval"); ok {
+		payload.Interval = v
+		hasPayload = true
+	}
 	if v, ok := payloadString(raw, "message_id"); ok {
 		payload.MessageID = v
 		hasPayload = true
@@ -163,6 +171,10 @@ func buildProtocolOneBotPayload(fields map[string]any) (*protocolOneBotPayloadFr
 	}
 	if v, ok := payloadString(raw, "flag"); ok {
 		payload.Flag = v
+		hasPayload = true
+	}
+	if v, ok := payloadMap(raw, "status"); ok {
+		payload.Status = v
 		hasPayload = true
 	}
 	if sender, ok := buildProtocolOneBotSender(raw); ok {
@@ -267,6 +279,18 @@ func payloadInt(values map[string]any, key string) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func payloadMap(values map[string]any, key string) (map[string]any, bool) {
+	raw, ok := values[key].(map[string]any)
+	if !ok || len(raw) == 0 {
+		return nil, false
+	}
+	cloned := make(map[string]any, len(raw))
+	for mapKey, value := range raw {
+		cloned[mapKey] = value
+	}
+	return cloned, true
 }
 
 func parseEventEnvelope(line []byte, pluginID string) (frameEnvelope, error) {
