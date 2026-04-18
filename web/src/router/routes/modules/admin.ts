@@ -119,7 +119,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: '',
         component: RouteView,
-        redirect: { name: 'config' },
+        redirect: { name: 'protocols' },
         meta: {
           hideInTab: true,
           icon: 'protocols',
@@ -137,6 +137,17 @@ export const adminRoutes: RouteRecordRaw[] = [
               keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.protocols',
+            },
+          },
+          {
+            path: '/protocols/compatibility',
+            name: 'protocols-compatibility',
+            component: () => import('@/views/protocols/ProtocolCompatibilityView.vue'),
+            meta: {
+              icon: 'protocols',
+              keepAlive: true,
+              requiresAuth: true,
+              titleKey: 'routes.protocolCompatibility',
             },
           },
         ],

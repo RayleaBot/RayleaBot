@@ -10,3 +10,4 @@ export type { components } from './generated'
 import type { components } from './generated'
 
 export type OneBot11ProtocolSnapshotResponse = components['schemas']['OneBot11ProtocolSnapshotResponse']
+export type OneBot11ProtocolCompatibilityResponse = components['schemas']['OneBot11ProtocolCompatibilityResponse']

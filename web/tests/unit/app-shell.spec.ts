@@ -89,6 +89,12 @@ describe('BasicLayout', () => {
                   component: { template: '<div>协议中心页</div>' },
                   meta: { icon: 'protocols', keepAlive: true, title: '协议中心' },
                 },
+                {
+                  path: '/protocols/compatibility',
+                  name: 'protocols-compatibility',
+                  component: { template: '<div>兼容矩阵页</div>' },
+                  meta: { icon: 'protocols', keepAlive: true, title: '兼容矩阵' },
+                },
               ],
             },
             {
@@ -325,7 +331,7 @@ describe('BasicLayout', () => {
 
     expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
-    expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(2)
+    expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(wrapper.find('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon').exists()).toBe(true)
   })
 
