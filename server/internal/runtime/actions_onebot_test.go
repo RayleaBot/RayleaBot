@@ -44,3 +44,14 @@ func TestParseOutboundActionSegmentAcceptsExtendedSegmentTypes(t *testing.T) {
 		t.Fatalf("unexpected segment data: %#v", segment.Data)
 	}
 }
+
+func TestIsProviderExtensionActionUsesFrozenSet(t *testing.T) {
+	t.Parallel()
+
+	if !isProviderExtensionAction("provider.napcat.group.sign.set") {
+		t.Fatal("expected frozen provider action to be accepted")
+	}
+	if isProviderExtensionAction("provider.napcat.group.member.kick") {
+		t.Fatal("expected unfrozen provider action to be rejected")
+	}
+}

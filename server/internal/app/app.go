@@ -189,6 +189,7 @@ func New(options Options) (*App, error) {
 		plugins:         pluginState.Plugins,
 		grantRepository: pluginState.grantRepository,
 	}
+	pluginState.Dispatcher.SetCapabilityChecker(grantView.capabilityGranted)
 	localActions := newLocalActionService(localActionServiceDeps{
 		state:            state,
 		grants:           grantView,

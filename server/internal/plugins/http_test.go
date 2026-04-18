@@ -748,6 +748,57 @@ func TestGrantHandler_ValidCapability(t *testing.T) {
 	}
 }
 
+func TestGrantHandler_AcceptsMultiSegmentCapability(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:             "weather",
+		Valid:                true,
+		RegistrationState:    "installed",
+		DesiredState:         "disabled",
+		RuntimeState:         "stopped",
+		DeclaredCapabilities: []string{"message.history.get"},
+		RequiredPermissions:  []string{"message.history.get"},
+	}}, repo)
+
+	body, _ := json.Marshal(grantRequest{Capability: "message.history.get"})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGrantHandler_AcceptsProviderCapability(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubGrantRepository{}
+	router := grantsRouter([]Snapshot{{
+		PluginID:            "weather",
+		Valid:               true,
+		RegistrationState:   "installed",
+		DesiredState:        "disabled",
+		RuntimeState:        "stopped",
+		OptionalPermissions: []string{"provider.napcat.group.sign.set"},
+	}}, repo)
+
+	body, _ := json.Marshal(grantRequest{Capability: "provider.napcat.group.sign.set"})
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/grants", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestGrantHandler_RejectsInvalidCapabilityFormat(t *testing.T) {
 	t.Parallel()
 

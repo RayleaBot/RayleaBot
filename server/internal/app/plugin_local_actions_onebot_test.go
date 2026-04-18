@@ -79,6 +79,9 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 
 	application := newTestAppState(config.Config{
 		OneBot: config.OneBotConfig{Provider: "standard"},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"message.history.get"},
+		},
 	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
@@ -133,6 +136,9 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 
 	application := newTestAppState(config.Config{
 		OneBot: config.OneBotConfig{Provider: "standard"},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"provider.napcat.message_emoji.like.set"},
+		},
 	}, nil)
 	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adapter.Shell{}, nil, nil)
 
@@ -145,6 +151,24 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 		},
 	})
 	assertRuntimeErrorCode(t, err, "adapter.provider_extension_not_supported")
+}
+
+func TestExecuteOneBotLocalActionRejectsMissingCapability(t *testing.T) {
+	t.Parallel()
+
+	application := newTestAppState(config.Config{
+		OneBot: config.OneBotConfig{Provider: "standard"},
+	}, nil)
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adapter.Shell{}, nil, nil)
+
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", runtime.Action{
+		Kind: "message.history.get",
+		RawData: map[string]any{
+			"conversation_type": "group",
+			"conversation_id":   "456",
+		},
+	})
+	assertRuntimeErrorCode(t, err, "permission.scope_violation")
 }
 
 func waitForAdapterState(t *testing.T, shell *adapter.Shell, want adapter.State, timeout time.Duration) {

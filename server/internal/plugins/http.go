@@ -304,8 +304,8 @@ type grantsListResponse struct {
 	Items []grantResponse `json:"items"`
 }
 
-// capabilityNamePattern matches the capability_name format from contracts/plugin-info.schema.json.
-var capabilityNamePattern = regexp.MustCompile(`^[a-z]+\.[a-z_]+$`)
+// capabilityNamePattern matches the frozen multi-segment capability_name format from contracts/plugin-info.schema.json.
+var capabilityNamePattern = regexp.MustCompile(`^[a-z]+(?:\.[a-z_]+)+$`)
 
 type autoGrantCapabilitiesProvider func() []string
 

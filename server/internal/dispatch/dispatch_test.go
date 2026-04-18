@@ -56,6 +56,7 @@ func (f *fakeDeliverer) eventCount() int {
 type fakeSender struct {
 	mu          sync.Mutex
 	messages    []adapter.OutboundMessageSend
+	replies     []adapter.OutboundMessageReply
 	sendResult  adapter.SendMessageResult
 	replyResult adapter.SendMessageResult
 	sendErr     error
@@ -73,7 +74,10 @@ func (f *fakeSender) SendMessage(_ context.Context, msg adapter.OutboundMessageS
 	return result, f.sendErr
 }
 
-func (f *fakeSender) SendReply(_ context.Context, _ adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
+func (f *fakeSender) SendReply(_ context.Context, reply adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
+	f.mu.Lock()
+	f.replies = append(f.replies, reply)
+	f.mu.Unlock()
 	result := f.replyResult
 	if result.MessageID == "" {
 		result.MessageID = "reply-1"
@@ -552,6 +556,99 @@ func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 	}
 	if len(sender.messages[0].Segments) != 2 {
 		t.Fatalf("unexpected rich segments: %#v", sender.messages[0])
+	}
+}
+
+func TestDispatchActionExecutionRejectsMissingMessageSendCapability(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newDispatchTestLogger()
+	sender := &fakeSender{}
+	d := New(logger, sender, nil, 16)
+	d.SetCapabilityChecker(func(_ context.Context, pluginID, capability string) bool {
+		return false
+	})
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{
+		RequestID: "req_runtime_delivery_permission_send",
+		Action: &runtime.Action{
+			Kind:       "message.send",
+			TargetType: "group",
+			TargetID:   "200",
+			MessageSegments: []runtime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "should be denied"},
+			}},
+		},
+	}}
+	d.Register("action-plugin", rt, nil, nil, 1)
+
+	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+
+	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
+		return summary.RequestID == "req_runtime_delivery_permission_send"
+	})
+	if summary.Details["error_code"] != "permission.scope_violation" {
+		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
+	}
+
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	if len(sender.messages) != 0 {
+		t.Fatalf("unexpected outbound sends: %#v", sender.messages)
+	}
+	if len(sender.replies) != 0 {
+		t.Fatalf("unexpected outbound replies: %#v", sender.replies)
+	}
+}
+
+func TestDispatchActionExecutionRejectsMissingMessageReplyCapability(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newDispatchTestLogger()
+	sender := &fakeSender{}
+	d := New(logger, sender, fakeReplyTargets{
+		"evt_reply_target": {
+			MessageID:  "msg-1",
+			TargetType: "group",
+			TargetID:   "200",
+		},
+	}, 16)
+	d.SetCapabilityChecker(func(_ context.Context, pluginID, capability string) bool {
+		return false
+	})
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{
+		RequestID: "req_runtime_delivery_permission_reply",
+		Action: &runtime.Action{
+			Kind:           "message.reply",
+			ReplyToEventID: "evt_reply_target",
+			MessageSegments: []runtime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "reply denied"},
+			}},
+		},
+	}}
+	d.Register("action-plugin", rt, nil, nil, 1)
+
+	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+
+	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
+		return summary.RequestID == "req_runtime_delivery_permission_reply"
+	})
+	if summary.Details["error_code"] != "permission.scope_violation" {
+		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
+	}
+
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	if len(sender.messages) != 0 {
+		t.Fatalf("unexpected outbound sends: %#v", sender.messages)
+	}
+	if len(sender.replies) != 0 {
+		t.Fatalf("unexpected outbound replies: %#v", sender.replies)
 	}
 }
 

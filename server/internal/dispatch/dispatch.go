@@ -55,14 +55,17 @@ type pluginSlot struct {
 	done          chan struct{}
 }
 
+type CapabilityChecker func(context.Context, string, string) bool
+
 // Dispatcher manages per-plugin event queues and fan-out delivery.
 type Dispatcher struct {
-	logger    *slog.Logger
-	sender    outbound.ActionSender
-	resolver  outbound.ReplyTargetResolver
-	queueSize int
-	mu        sync.RWMutex
-	slots     map[string]*pluginSlot
+	logger            *slog.Logger
+	sender            outbound.ActionSender
+	resolver          outbound.ReplyTargetResolver
+	queueSize         int
+	mu                sync.RWMutex
+	slots             map[string]*pluginSlot
+	capabilityChecker CapabilityChecker
 }
 
 // New creates a Dispatcher.
@@ -80,6 +83,15 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 		queueSize: queueSize,
 		slots:     make(map[string]*pluginSlot),
 	}
+}
+
+func (d *Dispatcher) SetCapabilityChecker(checker CapabilityChecker) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.capabilityChecker = checker
 }
 
 // Register adds a plugin runtime to the dispatch registry and starts its
@@ -455,11 +467,36 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 	}
 
 	commandName := commandNameForEvent(event)
+	targetType := action.TargetType
+	targetID := action.TargetID
+	if event.Target != nil {
+		if strings.TrimSpace(targetType) == "" {
+			targetType = event.Target.Type
+		}
+		if strings.TrimSpace(targetID) == "" {
+			targetID = event.Target.ID
+		}
+	}
 	attempt := outbound.SendAttempt{
 		ActionKind: action.Kind,
-		TargetType: action.TargetType,
-		TargetID:   action.TargetID,
+		TargetType: targetType,
+		TargetID:   targetID,
 		Segments:   toOutboundSegments(action.MessageSegments),
+	}
+	if !d.capabilityGranted(ctx, pluginID, action.Kind) {
+		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
+			PluginID:    pluginID,
+			RequestID:   requestID,
+			CommandName: commandName,
+		}, attempt, outbound.SendResult{
+			DeliveryKind: action.Kind,
+			TargetType:   targetType,
+			TargetID:     targetID,
+		}, &adapter.Error{
+			Code:    "permission.scope_violation",
+			Message: action.Kind + " capability is not granted",
+		})
+		return
 	}
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
@@ -467,6 +504,19 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		RequestID:   requestID,
 		CommandName: commandName,
 	}, attempt, result, err)
+}
+
+func (d *Dispatcher) capabilityGranted(ctx context.Context, pluginID string, capability string) bool {
+	if d == nil {
+		return false
+	}
+	d.mu.RLock()
+	checker := d.capabilityChecker
+	d.mu.RUnlock()
+	if checker == nil {
+		return true
+	}
+	return checker(ctx, pluginID, capability)
 }
 
 func toOutboundSegments(segments []runtime.ActionSegment) []adapter.OutboundMessageSegment {

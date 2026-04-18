@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"errors"
-	"strings"
 )
 
 func isOneBotFamilyAction(kind string) bool {
@@ -59,7 +58,15 @@ func isOneBotFamilyAction(kind string) bool {
 }
 
 func isProviderExtensionAction(kind string) bool {
-	return strings.HasPrefix(kind, "provider.napcat.") || strings.HasPrefix(kind, "provider.luckylillia.")
+	switch kind {
+	case
+		"provider.napcat.message_emoji.like.set",
+		"provider.napcat.group.sign.set",
+		"provider.luckylillia.friend_groups.get":
+		return true
+	default:
+		return false
+	}
 }
 
 func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle, parentRequestID string, requestID string, action Action) {

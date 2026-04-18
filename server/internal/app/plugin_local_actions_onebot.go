@@ -62,10 +62,25 @@ func runtimeIsOneBotLocalAction(kind string) bool {
 }
 
 func runtimeIsProviderExtensionAction(kind string) bool {
-	return strings.HasPrefix(kind, "provider.napcat.") || strings.HasPrefix(kind, "provider.luckylillia.")
+	switch kind {
+	case
+		"provider.napcat.message_emoji.like.set",
+		"provider.napcat.group.sign.set",
+		"provider.luckylillia.friend_groups.get":
+		return true
+	default:
+		return false
+	}
 }
 
-func (s *localActionService) executeOneBotLocalAction(ctx context.Context, _ string, _ string, action runtime.Action) (map[string]any, error) {
+func (s *localActionService) executeOneBotLocalAction(ctx context.Context, pluginID string, _ string, action runtime.Action) (map[string]any, error) {
+	if !s.grants.capabilityGranted(ctx, pluginID, action.Kind) {
+		return nil, &runtime.Error{
+			Code:    "permission.scope_violation",
+			Message: action.Kind + " capability is not granted",
+		}
+	}
+
 	if s.adapter == nil {
 		return nil, &runtime.Error{
 			Code:    "adapter.transport_not_implemented",
