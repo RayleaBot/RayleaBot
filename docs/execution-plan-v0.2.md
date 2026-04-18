@@ -34,6 +34,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 2 已完成 Batch C = 生命周期与配置 companion updates
 - ☑️ Phase 2 已完成 Batch D = Plugin Protocol 与 release metadata companion updates
 - ☑️ Phase 3 已完成 transport 主链收口与协议异常可见性补齐
+- ☑️ Phase 4 已完成 OneBot11 核心事件、消息段、历史 / 详情读取与兼容矩阵收口
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -65,7 +66,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 1 | Contract / Schema 冻结 | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，v0.2 正式边界已冻结 |
 | Phase 2 | Fixtures / Examples / SDK | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，已冻结边界的 companion updates 已补齐 |
 | Phase 3 | OneBot11 传输模式补齐 | ☑️ | reverse WS、forward WS、HTTP、webhook 四条接入链路、协议快照与 transport 异常可见性已收口 |
-| Phase 4 | OneBot11 事件与消息兼容补齐 | 🟡 | 完成核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵 |
+| Phase 4 | OneBot11 事件与消息兼容补齐 | ☑️ | 核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵已进入正式边界与管理面 |
 | Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
 | Phase 6 | 在线模板编辑器 / Render 可视化 | 🟡 | 提供模板编辑、校验、预览、保存、回退与渲染结果可视化 |
 | Phase 7 | Plugin Platform / Manifest / Config / Governance | ◐ | 生命周期 `display_state`、配置保存 `apply_effects`、manifest 元数据与治理读取面已进入正式边界，剩余管理可见性与运行链路验收随后批次继续 |
@@ -73,15 +74,13 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 9 | Launcher / 本地运维入口 | ◐ | 启动失败诊断与端口占用识别已补强，环境诊断与深链引导仍待继续 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
 
-### 已冻结内容与当前实现偏差
+### 当前边界说明
 
-以下条目保留原计划语义，只标记当前实现现状：
-
-| 已冻结条目 | 当前实现现状 |
+| 边界 | 当前说明 |
 | --- | --- |
-| Batch A 中的 compatibility matrix 管理面读取面 | 当前正式管理面只保留 OneBot 协议快照；`/api/protocols/onebot11/compatibility` 不在正式 API 内，协议中心也不展示兼容矩阵 |
+| OneBot 兼容矩阵读取面 | 正式管理面包含 `GET /api/protocols/onebot11/compatibility`，协议中心提供 `/protocols/compatibility` 子页展示 `events`、`message_segments`、`read_capabilities`、`provider_extensions` |
 | LuckyLillia 的 HTTP / SSE 接收兼容说明 | 当前正式 transport 只包含 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`；`SSE` 不在正式配置模型、协议快照枚举和协议中心范围内 |
-| Phase 2 中“protocol snapshot、compatibility matrix、管理面 companion updates 已补齐” | 当前已补齐协议快照、日志主链、widened actions 与部分 companion updates；兼容矩阵相关内容保留在文档、fixtures 和测试口径中 |
+| OneBot companion updates | 协议快照、兼容矩阵、fixtures、examples、tests、管理面与类型生成保持一致 |
 
 ---
 
@@ -173,32 +172,32 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 六、Phase 4 — OneBot11 事件与消息兼容补齐 🟡
+## 六、Phase 4 — OneBot11 事件与消息兼容补齐 ☑️
 
 ### 核心事件兼容
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| message / notice / request / meta 完整矩阵 | 🟡 | 补齐 friend、group request、recall、admin、ban、poke、like、essence、upload、flash file 等事件 |
-| 历史与详情读取 | 🟡 | 补齐历史消息、消息详情、转发消息详情、文件详情等读取面 |
-| provider 扩展事件 | 🟡 | NapCat 与幸运莉莉娅已公开的 OneBot 扩展事件进入兼容矩阵 |
-| 不兼容项明示 | 🟡 | 以 provider 级兼容矩阵记录缺口，避免模糊 TODO 口径 |
+| message / notice / request / meta 完整矩阵 | ☑️ | friend、group request、recall、admin、ban、poke、like、essence、upload、flash_file、heartbeat 与 lifecycle 已进入正式事件集合 |
+| 历史与详情读取 | ☑️ | `message.get`、`message.history.get`、`message.forward.get`、`file.get` 等读取能力已进入正式边界与回归样例 |
+| provider 扩展事件 | ☑️ | NapCat 与幸运莉莉娅已公开的 OneBot 扩展事件进入正式兼容矩阵 |
+| 不兼容项明示 | ☑️ | provider 级兼容矩阵固定返回 `supported` 或 `unsupported` |
 
 ### 消息段兼容矩阵
 
 | 类型组 | 状态 | 范围 |
 | --- | --- | --- |
-| 基础消息段 | 🟡 | `text`、`image`、`at`、`reply`、`face` |
-| 媒体与文件 | 🟡 | `record`、`video`、`file`、`flash file` |
-| 富文本与卡片 | 🟡 | `json`、`xml`、`markdown`、`music`、`contact` |
-| 组合与转发 | 🟡 | `forward`、`node` |
-| 互动消息段 | 🟡 | `poke`、`dice`、`rps`、reaction / emoji-like |
-| provider 扩展消息段 | 🟡 | `mface`、`keyboard`、`shake` 及 NapCat / 幸运莉莉娅已公开段类型 |
+| 基础消息段 | ☑️ | `text`、`image`、`at`、`at_all`、`reply`、`face` |
+| 媒体与文件 | ☑️ | `record`、`video`、`file`、`flash_file` |
+| 富文本与卡片 | ☑️ | `json`、`xml`、`markdown`、`music`、`contact` |
+| 组合与转发 | ☑️ | `forward`、`node` |
+| 互动消息段 | ☑️ | `poke`、`dice`、`rps` |
+| provider 扩展消息段 | ☑️ | `mface`、`keyboard`、`shake` 进入正式消息段集合，并在兼容矩阵中区分 provider 支持状态 |
 
 ### 本轮要求
 
-- 未支持消息段统计从“调试摘要”升级为“兼容补齐清单”。
-- 管理面需能展示当前 provider、当前 transport 与当前能力覆盖情况。
+- 管理面通过协议中心子页展示当前 provider、当前 transport 与当前能力覆盖情况。
+- 未支持能力在兼容矩阵中明确显示为 `unsupported`。
 
 ---
 
@@ -274,7 +273,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
 | 协议 transport 可视化 | ◐ | 协议中心已展示当前 provider、当前状态、连接设置、失败原因与调试摘要 |
-| OneBot 兼容矩阵可视化 | 🟡 | 兼容信息保留在文档与正式边界，不进入协议中心页面 |
+| OneBot 兼容矩阵可视化 | ☑️ | 协议中心提供 `/protocols/compatibility` 子页，按 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 展示兼容矩阵 |
 | 前端技术栈迁移 | 🟡 | Web 工程基线收口到 Ant Design Vue + Vue Vben Admin 对齐方案；当前阶段先完成文档冻结、迁移方案与治理口径，formal contract 保持不变 |
 | 模板编辑与预览界面 | 🟡 | 把模板编辑器与 artifact、任务、日志联动到同一管理流 |
 | 协议中心增强 | ◐ | 协议中心已具备连接设置；日志中心已提供本次启动日志、历史日志与统一日志详情，剩余管理联动仍待继续 |
@@ -361,7 +360,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | --- | --- |
 | OneBot11 全传输模式 | reverse WS、forward WS、HTTP、webhook 四种接入路径都能建立受控链路 |
 | Provider 扩展兼容 | NapCat 与幸运莉莉娅至少形成可核验的兼容矩阵与回归样例 |
-| OneBot11 事件与消息兼容 | 剩余核心事件、消息段、历史消息、详情读取进入正式兼容矩阵与回归范围 |
+| OneBot11 事件与消息兼容 | 核心事件、消息段、历史消息与详情读取进入正式兼容矩阵与回归范围 |
 | Wider Action Family | plugin protocol、SDK、fixtures、examples、运行链路保持一致 |
 | 在线模板编辑器 | 支持编辑、校验、预览、保存和回退 |
 | 生命周期 / 配置 / 诊断 | `display_state` 与 `apply_effects` 保持跨 surface 一致，诊断与恢复继续完成原 v0.2 目标 |

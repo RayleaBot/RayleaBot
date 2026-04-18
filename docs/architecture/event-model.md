@@ -43,11 +43,12 @@
 | `post_type=meta_event, meta_event_type=heartbeat` | `meta.heartbeat` |
 | `post_type=meta_event, meta_event_type=lifecycle` | `meta.lifecycle` |
 
-- 生命周期与心跳继续作为 adapter 连接状态信号，不进入插件事件投递主链。
+- 生命周期与心跳既作为 adapter 连接状态信号，也作为正式 `event` 投递进入插件主链。
 - 未进入正式范围的事件不会伪装成已支持能力。
 - Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、按会话 lane 排队和执行插件返回的动作。
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
-- OneBot 原生字段通过 `event.payload.onebot` 正式暴露，插件和管理面都可以直接读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message` 和 `sender` 等字段。
+- OneBot 原生字段通过 `event.payload.onebot` 正式暴露，插件和管理面都可以直接读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。
+- `meta.*` 事件使用 `conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
 
 ### 归一化链路
 

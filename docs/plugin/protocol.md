@@ -30,6 +30,7 @@
 | `event` | 平台向插件投递统一事件 |
 | `result` | 插件对事件或 action 的成功响应 |
 | `error` | 插件对事件或 action 的失败响应 |
+| `action` | 插件发起本地 action 请求；平台返回 `result` 或 `error` |
 
 - 事件投递使用独立 `request_id`。
 - 本地 action 使用自己的 `request_id`，并通过 `parent_request_id` 归属到对应事件。
@@ -40,12 +41,20 @@
 
 ### 事件字段
 
+- 当前正式 `event_type` 集合包括：
+  - 平台事件：`scheduler.trigger`、`config.changed`、`webhook.received`
+  - OneBot 消息事件：`message.private`、`message.group`、`message_sent.private`、`message_sent.group`
+  - OneBot notice 事件：`notice.member_increase`、`notice.member_decrease`、`notice.group_admin`、`notice.group_ban`、`notice.group_recall`、`notice.group_upload`、`notice.group_card`、`notice.group_title`、`notice.group_essence`、`notice.friend_add`、`notice.friend_recall`、`notice.flash_file`、`notice.poke`、`notice.poke_recall`、`notice.profile_like`、`notice.input_status`、`notice.group_message_emoji_like`
+  - OneBot request 事件：`request.friend`、`request.group`
+  - OneBot meta 事件：`meta.heartbeat`、`meta.lifecycle`
 - `event.message.plain_text` 提供统一纯文本摘要。
 - `event.message.segments` 保留结构化消息段。
+- `event.message.segments[].type` 正式类型为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`。
 - `event.payload.message_id` 表示单条消息编号。
 - `event.target.id` 与 `event.payload.onebot.group_id` / `event.payload.onebot.user_id` 一起用于定位会话。
-- `event.payload.onebot` 保留 OneBot11 原生字段，包括 `post_type`、`message_type`、`group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`message_format`、`font` 和 `sender`。
+- `event.payload.onebot` 保留 OneBot11 原生字段，包括 `post_type`、`message_type`、`group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`message_format`、`font`、`sender`、`meta_event_type`、`interval` 和 `status`。
 - `message_sent.private` 与 `message_sent.group` 作为独立事件类型进入插件协议，不并入普通 `message.*`。
+- `meta.*` 事件使用系统会话：`conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
 
 ## Local Action RPC
 
@@ -148,6 +157,8 @@
 - `shake`
 
 平台负责把 shared `message.segments` 投影到当前适配器支持的消息格式。
+
+管理面兼容矩阵通过 `GET /api/protocols/onebot11/compatibility` 提供正式读取面，固定覆盖 `events`、`message_segments`、`read_capabilities` 和 `provider_extensions` 四类能力。
 
 ## 当前边界
 
