@@ -122,9 +122,11 @@ describe("App", () => {
       minimize: vi.fn(async () => undefined),
       maximize: vi.fn(async () => undefined),
       close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
       isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
     });
 
     render(<App />);
@@ -162,9 +164,11 @@ describe("App", () => {
       minimize: vi.fn(async () => undefined),
       maximize: vi.fn(async () => undefined),
       close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
       isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
     });
 
     render(<App />);
@@ -204,9 +208,11 @@ describe("App", () => {
       minimize: vi.fn(async () => undefined),
       maximize: vi.fn(async () => undefined),
       close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
       isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
     });
 
     render(<App />);
@@ -270,9 +276,11 @@ describe("App", () => {
       minimize: vi.fn(async () => undefined),
       maximize: vi.fn(async () => undefined),
       close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
       isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
     });
 
     render(<App />);
@@ -313,9 +321,11 @@ describe("App", () => {
       minimize: vi.fn(async () => undefined),
       maximize: vi.fn(async () => undefined),
       close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
       isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
     } as LauncherDesktopApi);
 
     render(<App />);
@@ -354,9 +364,11 @@ describe("App", () => {
       minimize: vi.fn(async () => undefined),
       maximize: vi.fn(async () => undefined),
       close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
       isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
     } as LauncherDesktopApi);
 
     render(<App />);
@@ -401,6 +413,7 @@ describe("App", () => {
       isMaximized: vi.fn(async () => false),
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
       previewResolvedSettings,
     } as LauncherDesktopApi);
 
