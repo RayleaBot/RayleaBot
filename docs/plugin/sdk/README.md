@@ -1,41 +1,45 @@
 # Plugin SDK Docs
 
-本目录说明 RayleaBot 官方 Python / Node.js SDK 的当前使用边界。
+本目录说明 RayleaBot 官方 Python / Node.js SDK 的正式能力范围。
 
-## 当前角色
-
-- SDK 为正式插件协议提供便利封装。
-- SDK 服务于已落地的 runtime 主链路和示例插件。
-- SDK 不单独裁决协议语义，所有正式字段仍以 `contracts/plugin-protocol.schema.json` 为准。
+正式协议与字段以 `contracts/plugin-protocol.schema.json` 为准。
 
 ## 当前覆盖范围
 
-- 生命周期握手：`init`、`init_progress`、`init_ack`、`ping/pong`、`shutdown`
-- 启动上下文 helper：当前 bot 信息、已授予 capabilities、`init.command_prefixes`
+- 生命周期握手：`init`、`init_progress`、`init_ack`、`ping`、`pong`、`shutdown`
+- 启动上下文 helper：
+  - Python：`bot_id`、`capabilities`、`command_prefixes`、`primary_command_prefix`
+  - Node.js：`botId`、`capabilities`、`commandPrefixes`、`primaryCommandPrefix`
 - 事件接收与结果回传
-- 消息能力：`sendMessage` / `sendReply` 与 Python 对应 helper
-- 本地 action helper：日志、KV、文件、HTTP、配置、插件目录、调度、Webhook、渲染
-- OneBot family helper：history、group manage、file、reaction / poke
-- provider helper：`provider.napcat.*` 与 `provider.luckylillia.*`
-- 扩展消息段 helper：`markdown`、`file`、`keyboard` 与通用 passthrough segment builder
+- 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`
+- OneBot 单动作 helper：正式 capability 名称与 action kind 一一对应，helper 直接复用同一组动作名
+- provider helper：`provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set`、`provider.luckylillia.friend_groups.get`
+- 通用回退入口：`onebot_action` / `onebotAction` 与 `provider_action` / `providerAction`
+- 结构化错误：`ActionError.code`、`ActionError.message`、`ActionError.details`
+
+## 消息段 builder
+
+官方 builder 覆盖当前正式消息段集合：
+
+- 基础段：`text`、`image`、`at`、`at_all`、`face`、`reply`
+- 媒体与文件：`record`、`video`、`file`、`flash_file`
+- 富文本与卡片：`json`、`xml`、`markdown`、`music`、`contact`
+- 组合与转发：`forward`、`node`
+- 互动段：`poke`、`dice`、`rps`
+- provider 扩展段：`mface`、`keyboard`、`shake`
+
+Python 使用 snake_case builder，例如 `flash_file_segment()`、`keyboard_segment()`；Node.js 使用 camelCase builder，例如 `flashFileSegment()`、`keyboardSegment()`。两套 SDK 都保留 `passthrough_segment()` / `passthroughSegment()` 作为通用构造入口。
 
 ## 并发与请求归属
 
-- 本地 action helper 会自动生成独立 `request_id` 并附带 `parent_request_id`。
-- SDK 按 `request_id` 路由等待结果，不依赖“下一帧就是我的返回”。
-- Node.js SDK 的 `run()` 会持续收帧，并允许不同事件处理器并发执行。
-- Python SDK 的 `run()` 使用线程并发处理事件。
-- 使用 SDK 时，事件处理函数需要满足可重入要求。
-- Python SDK 提供 `command_prefixes`、`primary_command_prefix` 和 `plugin_list()` helper。
-- Node.js SDK 提供 `commandPrefixes`、`primaryCommandPrefix` 和 `pluginList()` helper。
+- 本地 action helper 会自动生成独立 `request_id`，并附带 `parent_request_id`
+- SDK 按 `request_id` 路由返回结果，不依赖帧到达顺序
+- Node.js SDK 的 `run()` 允许不同事件处理器并发执行
+- Python SDK 的 `run()` 使用线程并发处理事件
+- 事件处理函数需要满足可重入要求
 
 ## 相关文档
 
 - [Plugin Lifecycle](../lifecycle.md)
 - [Capabilities and Manifest](../capabilities-and-manifest.md)
 - [Protocol](../protocol.md)
-
-## 当前边界
-
-- SDK 只覆盖当前已冻结协议与已落地 action。
-- 更宽的调试流、复杂流式回传和未冻结 action 不属于当前正式范围。

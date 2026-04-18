@@ -90,7 +90,7 @@ OneBot11 上报帧
 
 - 平台基础动作包括 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook` 和 `render.image`。
 - OneBot generic action 覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke 等家族。
-- Provider 扩展动作使用 `provider.napcat.*` 和 `provider.luckylillia.*` 命名空间。
+- Provider 扩展动作固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 和 `provider.luckylillia.friend_groups.get`。
 
 ### 当前正式消息段
 

@@ -43,6 +43,7 @@
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
   - 当前已冻结 `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms` 与管理面详情投影所需 metadata
+  - `capabilities`、`permissions.required` 与 `permissions.optional` 共用同一套正式 capability 集合，覆盖基础 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时回落到 `auth.default_level`
 - `plugin-protocol.schema.json`
@@ -52,7 +53,7 @@
   - `message.send`、`message.reply` 使用 shared `message.segments` payload
   - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
-  - 当前已冻结 OneBot family / provider namespace 扩展 action，provider-specific namespace 固定为 `provider.napcat.*` 与 `provider.luckylillia.*`
+  - 当前已冻结 OneBot 单动作 surface，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`config.changed`、`webhook.received` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
   - `event.payload.onebot` 正式暴露 `meta_event_type`、`interval`、`status`
   - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`

@@ -35,6 +35,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 2 已完成 Batch D = Plugin Protocol 与 release metadata companion updates
 - ☑️ Phase 3 已完成 transport 主链收口与协议异常可见性补齐
 - ☑️ Phase 4 已完成 OneBot11 核心事件、消息段、历史 / 详情读取与兼容矩阵收口
+- ☑️ Phase 5 已完成 Plugin Protocol / Wider Action Family 收口
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -67,7 +68,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 2 | Fixtures / Examples / SDK | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，已冻结边界的 companion updates 已补齐 |
 | Phase 3 | OneBot11 传输模式补齐 | ☑️ | reverse WS、forward WS、HTTP、webhook 四条接入链路、协议快照与 transport 异常可见性已收口 |
 | Phase 4 | OneBot11 事件与消息兼容补齐 | ☑️ | 核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵已进入正式边界与管理面 |
-| Phase 5 | Plugin Protocol / Wider Action Family | 🟡 | 扩展 plugin protocol、SDK 与权限模型，完成更宽动作族接线 |
+| Phase 5 | Plugin Protocol / Wider Action Family | ☑️ | capability 名称、action kind、运行时授权、SDK helper、示例与文档口径已统一 |
 | Phase 6 | 在线模板编辑器 / Render 可视化 | 🟡 | 提供模板编辑、校验、预览、保存、回退与渲染结果可视化 |
 | Phase 7 | Plugin Platform / Manifest / Config / Governance | ◐ | 生命周期 `display_state`、配置保存 `apply_effects`、manifest 元数据与治理读取面已进入正式边界，剩余管理可见性与运行链路验收随后批次继续 |
 | Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置、日志中心主线与统一日志详情已完成，模板编辑、跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
@@ -201,23 +202,21 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 七、Phase 5 — Plugin Protocol / Wider Action Family 🟡
+## 七、Phase 5 — Plugin Protocol / Wider Action Family ☑️
 
-| 动作家族 | 状态 | 本轮目标 |
+| 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| message / media send family | 🟡 | 扩展文本、图片、语音、视频、文件、音乐卡片、转发、戳一戳等发送能力 |
-| message manage / query family | 🟡 | 补齐撤回、已读、历史消息、消息详情、转发表现与读取类能力 |
-| friend / user family | 🟡 | 补齐点赞、好友处理、备注、陌生人信息与相关扩展能力 |
-| group manage family | 🟡 | 补齐群管理、群成员、群请求、公告、禁言、头衔、卡片等能力 |
-| announcement / essence / honor family | 🟡 | 补齐精华、荣誉、公告、待办等群扩展能力 |
-| file transfer / file system family | 🟡 | 补齐上传、下载、目录、转永久、闪传与在线文件相关能力 |
-| reaction / poke / read-state family | 🟡 | 补齐表情回应、戳一戳、已读状态与相关互动能力 |
-| provider-specific extension family | 🟡 | 纳入 NapCat 与幸运莉莉娅已公开且用户侧价值明确的 OneBot 扩展能力 |
+| capability 与 action kind 对齐 | ☑️ | `capabilities`、`permissions.required`、`permissions.optional` 与正式 OneBot / provider 动作名保持一一对应 |
+| 运行时授权校验 | ☑️ | wider action family、provider action、`message.send` 与 `message.reply` 在执行前统一走 grant 检查 |
+| SDK helper 完整覆盖 | ☑️ | Python / Node.js SDK 覆盖当前正式 OneBot 单动作、3 个 provider 扩展动作与完整消息段 builder |
+| 类型与模型同步 | ☑️ | `flash_file`、`meta_event_type`、`interval`、`status` 与声明文件保持一致 |
+| companion updates | ☑️ | fixtures、示例、文档与执行计划口径一致 |
 
-### 本轮要求
+### 当前结果
 
-- plugin protocol、SDK、fixtures、examples、权限模型与错误码同步更新。
-- 继续保持 Python / Node.js 作为正式托管运行时。
+- capability 粒度固定为单动作能力
+- generic fallback 继续保留 `onebotAction` / `providerAction`
+- Python / Node.js 继续作为正式托管运行时
 
 ### 本轮排除项
 

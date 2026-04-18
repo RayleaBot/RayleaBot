@@ -117,10 +117,13 @@
   - `reaction.list`
   - `poke.send`
 - Provider extension actions:
-  - `provider.napcat.*`
-  - `provider.luckylillia.*`
+  - `provider.napcat.message_emoji.like.set`
+  - `provider.napcat.group.sign.set`
+  - `provider.luckylillia.friend_groups.get`
 
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
+
+OneBot 单动作 capability 名称与 action kind 保持一致，provider capability 只包含上面三项正式扩展动作。
 
 - `plugin.list` 返回当前已发现插件的只读目录，包括插件状态、命令列表和命令冲突信息。
 
