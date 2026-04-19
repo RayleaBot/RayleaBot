@@ -14,6 +14,7 @@ export const governance = {
   summary: {
     description: '默认权限与冷却通过配置页维护，这里展示当前实际生效结果。',
     defaultPermission: '默认权限',
+    defaultPermissionMeta: '当前默认生效的权限级别',
     userCooldown: '用户冷却',
     groupCooldown: '群冷却',
     cooldownReplyEnabled: '会发送提示',

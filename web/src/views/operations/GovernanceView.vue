@@ -93,7 +93,7 @@ const summaryItems = computed(() => [
     label: t('governance.summary.defaultPermission'),
     tone: 'accent',
     value: getCommandPermissionLabel(commandPolicy.value?.default_level),
-    meta: t('governance.summary.description'),
+    meta: t('governance.summary.defaultPermissionMeta'),
   },
   {
     key: 'user-cooldown',
