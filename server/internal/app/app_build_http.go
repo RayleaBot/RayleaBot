@@ -64,6 +64,8 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Put("/api/config", deps.configHandler.handleConfigPut())
 	router.Get("/api/protocols/onebot11", deps.protocolHandler.handleProtocolOneBot11Snapshot())
 	router.Get("/api/protocols/onebot11/compatibility", deps.protocolHandler.handleProtocolOneBot11Compatibility())
+	router.Get("/api/governance/blacklist", deps.governanceHandler.handleGovernanceBlacklist())
+	router.Get("/api/governance/command-policy", deps.governanceHandler.handleGovernanceCommandPolicy())
 	router.Get("/api/logs", deps.logHandler.handleLogsList())
 	router.Get("/api/logs/{log_id}", deps.logHandler.handleLogDetail())
 	router.Get("/api/system/status", deps.managementHandler.handleSystemStatus())

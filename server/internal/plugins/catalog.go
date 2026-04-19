@@ -38,11 +38,20 @@ type WebhookScope struct {
 	SourceIPs       []string `json:"source_ips,omitempty"`
 }
 
+type Screenshot struct {
+	Path string `json:"path"`
+	Alt  string `json:"alt,omitempty"`
+}
+
 type Snapshot struct {
 	PluginID              string
 	Name                  string
 	Role                  string
 	Version               string
+	Author                string
+	License               string
+	SDKMinVersion         string
+	RuntimeVersion        string
 	MinCoreVersion        string
 	DataSchemaVersion     string
 	Concurrency           int
@@ -51,6 +60,12 @@ type Snapshot struct {
 	Entry                 string
 	Type                  string
 	Description           string
+	Icon                  string
+	Repo                  string
+	Homepage              string
+	Keywords              []string
+	Screenshots           []Screenshot
+	SystemDependencies    []string
 	DefaultConfig         map[string]any
 	ManifestPath          string
 	SourceRoot            string
@@ -310,6 +325,8 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
 	cloned.Platforms = append([]string(nil), snapshot.Platforms...)
+	cloned.Keywords = append([]string(nil), snapshot.Keywords...)
+	cloned.SystemDependencies = append([]string(nil), snapshot.SystemDependencies...)
 	cloned.RequiredPermissions = append([]string(nil), snapshot.RequiredPermissions...)
 	cloned.OptionalPermissions = append([]string(nil), snapshot.OptionalPermissions...)
 	cloned.DeclaredCapabilities = append([]string(nil), snapshot.DeclaredCapabilities...)
@@ -323,6 +340,12 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 			copied := scope
 			copied.SourceIPs = append([]string(nil), scope.SourceIPs...)
 			cloned.ScopeWebhooks = append(cloned.ScopeWebhooks, copied)
+		}
+	}
+	if len(snapshot.Screenshots) > 0 {
+		cloned.Screenshots = make([]Screenshot, 0, len(snapshot.Screenshots))
+		for _, screenshot := range snapshot.Screenshots {
+			cloned.Screenshots = append(cloned.Screenshots, screenshot)
 		}
 	}
 	if len(snapshot.Commands) > 0 {

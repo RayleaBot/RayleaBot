@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -322,6 +323,68 @@ func TestDiscoverManifestDefaultConfigAndRole(t *testing.T) {
 	}
 	if got := snapshot.DefaultConfig["unit"]; got != "celsius" {
 		t.Fatalf("unexpected default_config.unit: got %#v want celsius", got)
+	}
+}
+
+func TestDiscoverManifestRichMetadata(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.rich-metadata.json"))
+	pluginDir := filepath.Join(rootDir, "plugins", "weather-rich")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if snapshot.Author != "raylea" {
+		t.Fatalf("unexpected author: got %q want raylea", snapshot.Author)
+	}
+	if snapshot.License != "MIT" {
+		t.Fatalf("unexpected license: got %q want MIT", snapshot.License)
+	}
+	if snapshot.Icon != "assets/weather.svg" {
+		t.Fatalf("unexpected icon: got %q want assets/weather.svg", snapshot.Icon)
+	}
+	if snapshot.Repo != "https://github.com/RayleaBot/plugins-weather" {
+		t.Fatalf("unexpected repo: got %q", snapshot.Repo)
+	}
+	if snapshot.Homepage != "https://plugins.rayleabot.local/weather" {
+		t.Fatalf("unexpected homepage: got %q", snapshot.Homepage)
+	}
+	if !reflect.DeepEqual(snapshot.Keywords, []string{"weather", "forecast", "climate"}) {
+		t.Fatalf("unexpected keywords: %#v", snapshot.Keywords)
+	}
+	if len(snapshot.Screenshots) != 1 || snapshot.Screenshots[0].Path != "assets/overview.svg" || snapshot.Screenshots[0].Alt != "天气总览卡片" {
+		t.Fatalf("unexpected screenshots: %#v", snapshot.Screenshots)
+	}
+	if !reflect.DeepEqual(snapshot.SystemDependencies, []string{"OneBot11 connection", "External weather API access"}) {
+		t.Fatalf("unexpected system dependencies: %#v", snapshot.SystemDependencies)
+	}
+	if snapshot.Concurrency != 3 {
+		t.Fatalf("unexpected concurrency: got %d want 3", snapshot.Concurrency)
+	}
+	if got := snapshot.DefaultConfig["forecast_days"]; got != float64(3) {
+		t.Fatalf("unexpected default_config.forecast_days: got %#v want 3", got)
 	}
 }
 

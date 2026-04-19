@@ -348,6 +348,11 @@ func New(options Options) (*App, error) {
 		system:          systemService,
 		requestShutdown: application.requestShutdown,
 	})
+	governanceHandler := newGovernanceHTTPHandlers(governanceHTTPDeps{
+		state:         state,
+		plugins:       pluginState.Plugins,
+		blacklistRepo: pluginState.blacklistRepo,
+	})
 	taskHandler := newTaskHTTPHandlers(platformState.Tasks, platformState.taskExecutor, pluginState.PluginInstaller)
 	logHandler := newLogHTTPHandlers(logService)
 	renderHandler := newRenderHTTPHandlers(pluginState.renderer, platformState.taskExecutor)
@@ -378,6 +383,7 @@ func New(options Options) (*App, error) {
 		configHandler:     configHandler,
 		authHandler:       authHandler,
 		managementHandler: managementHandler,
+		governanceHandler: governanceHandler,
 		taskHandler:       taskHandler,
 		logHandler:        logHandler,
 		renderHandler:     renderHandler,

@@ -27,6 +27,8 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodDelete, path: "/api/session", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/config", want: http.StatusUnauthorized},
 		{method: http.MethodPut, path: "/api/config", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/governance/blacklist", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/governance/command-policy", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/system/status", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/system/shutdown", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/logs", want: http.StatusUnauthorized},

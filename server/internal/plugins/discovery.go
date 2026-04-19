@@ -223,25 +223,35 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	}
 
 	snapshot := Snapshot{
-		PluginID:          pluginID,
-		Name:              stringField(manifest, "name"),
-		Role:              manifestRole(manifest, sourceRoot),
-		Version:           stringField(manifest, "version"),
-		MinCoreVersion:    stringField(manifest, "min_core_version"),
-		DataSchemaVersion: stringField(manifest, "data_schema_version"),
-		Concurrency:       manifestConcurrency(manifest),
-		Platforms:         stringListField(manifest, "platforms"),
-		Type:              stringField(manifest, "type"),
-		Runtime:           stringField(manifest, "runtime"),
-		Entry:             stringField(manifest, "entry"),
-		Description:       stringField(manifest, "description"),
-		DefaultConfig:     manifestObjectField(manifest, "default_config"),
-		ManifestPath:      displayPath(repoRoot, infoPath),
-		SourceRoot:        sourceRoot,
-		SourceRoots:       []string{sourceRoot},
-		RegistrationState: stateInstalled,
-		DesiredState:      defaultDesiredStateForSourceRoot(sourceRoot),
-		RuntimeState:      stateStopped,
+		PluginID:           pluginID,
+		Name:               stringField(manifest, "name"),
+		Role:               manifestRole(manifest, sourceRoot),
+		Version:            stringField(manifest, "version"),
+		Author:             stringField(manifest, "author"),
+		License:            stringField(manifest, "license"),
+		SDKMinVersion:      stringField(manifest, "sdk_min_version"),
+		RuntimeVersion:     stringField(manifest, "runtime_version"),
+		MinCoreVersion:     stringField(manifest, "min_core_version"),
+		DataSchemaVersion:  stringField(manifest, "data_schema_version"),
+		Concurrency:        manifestConcurrency(manifest),
+		Platforms:          stringListField(manifest, "platforms"),
+		Type:               stringField(manifest, "type"),
+		Runtime:            stringField(manifest, "runtime"),
+		Entry:              stringField(manifest, "entry"),
+		Description:        stringField(manifest, "description"),
+		Icon:               stringField(manifest, "icon"),
+		Repo:               stringField(manifest, "repo"),
+		Homepage:           stringField(manifest, "homepage"),
+		Keywords:           stringListField(manifest, "keywords"),
+		Screenshots:        manifestScreenshots(manifest),
+		SystemDependencies: stringListField(manifest, "system_dependencies"),
+		DefaultConfig:      manifestObjectField(manifest, "default_config"),
+		ManifestPath:       displayPath(repoRoot, infoPath),
+		SourceRoot:         sourceRoot,
+		SourceRoots:        []string{sourceRoot},
+		RegistrationState:  stateInstalled,
+		DesiredState:       defaultDesiredStateForSourceRoot(sourceRoot),
+		RuntimeState:       stateStopped,
 	}
 	snapshot.RequiredPermissions = manifestPermissionList(manifest, "required")
 	snapshot.OptionalPermissions = manifestPermissionList(manifest, "optional")
@@ -459,6 +469,30 @@ func manifestWebhookScopes(document map[string]any) []WebhookScope {
 			continue
 		}
 		items = append(items, scope)
+	}
+	return items
+}
+
+func manifestScreenshots(document map[string]any) []Screenshot {
+	values, ok := document["screenshots"].([]any)
+	if !ok {
+		return nil
+	}
+
+	items := make([]Screenshot, 0, len(values))
+	for _, value := range values {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		path := stringField(item, "path")
+		if path == "" {
+			continue
+		}
+		items = append(items, Screenshot{
+			Path: path,
+			Alt:  stringField(item, "alt"),
+		})
 	}
 	return items
 }

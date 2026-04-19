@@ -69,6 +69,7 @@ x-fixtures:
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.plugins-command-conflict-response.yaml
   - fixtures/web-api/edge.plugins-enable-permission-pending-expired-grant.yaml
+  - fixtures/web-api/edge.plugins-enable-permission-pending-scope-changed.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
   - fixtures/web-api/edge.readyz-setup-required-response.yaml
   - fixtures/web-api/edge.logs-empty-response.yaml

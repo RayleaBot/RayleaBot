@@ -3,16 +3,21 @@ package server
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestSetupStatusReportsBootstrapState(t *testing.T) {
@@ -466,6 +471,172 @@ func TestProtocolCompatibilityHandler(t *testing.T) {
 	categories, ok := body["categories"].([]any)
 	if !ok || len(categories) == 0 {
 		t.Fatalf("expected compatibility categories, got %#v", body["categories"])
+	}
+}
+
+func TestGovernanceBlacklistHandler(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	repo := permission.NewSQLiteBlacklistRepository(application.Storage().Read, application.Storage().Write)
+	if err := repo.Add(context.Background(), "user", "10001", "反复触发垃圾消息"); err != nil {
+		t.Fatalf("seed user blacklist entry: %v", err)
+	}
+	if err := repo.Add(context.Background(), "group", "20002", "风险群已封禁"); err != nil {
+		t.Fatalf("seed group blacklist entry: %v", err)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/governance/blacklist", nil)
+	if err != nil {
+		t.Fatalf("create governance blacklist request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform governance blacklist request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected governance blacklist status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	userEntries, ok := body["user_entries"].([]any)
+	if !ok || len(userEntries) != 1 {
+		t.Fatalf("unexpected user_entries: %#v", body["user_entries"])
+	}
+	groupEntries, ok := body["group_entries"].([]any)
+	if !ok || len(groupEntries) != 1 {
+		t.Fatalf("unexpected group_entries: %#v", body["group_entries"])
+	}
+
+	userEntry := userEntries[0].(map[string]any)
+	if userEntry["entry_type"] != "user" || userEntry["target_id"] != "10001" || userEntry["reason"] != "反复触发垃圾消息" {
+		t.Fatalf("unexpected user entry: %#v", userEntry)
+	}
+	if _, err := time.Parse(time.RFC3339, userEntry["created_at"].(string)); err != nil {
+		t.Fatalf("unexpected user created_at: %v", err)
+	}
+
+	groupEntry := groupEntries[0].(map[string]any)
+	if groupEntry["entry_type"] != "group" || groupEntry["target_id"] != "20002" || groupEntry["reason"] != "风险群已封禁" {
+		t.Fatalf("unexpected group entry: %#v", groupEntry)
+	}
+	if _, err := time.Parse(time.RFC3339, groupEntry["created_at"].(string)); err != nil {
+		t.Fatalf("unexpected group created_at: %v", err)
+	}
+}
+
+func TestGovernanceCommandPolicyHandler(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	application.Plugins().Replace([]plugins.Snapshot{
+		{
+			PluginID:          "weather",
+			Name:              "Weather",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:       "weather",
+				Aliases:    []string{"tq", "天气"},
+				Permission: "group_admin",
+			}},
+		},
+		{
+			PluginID:          "hello-python",
+			Name:              "Hello Python",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:    "hello",
+				Aliases: []string{"hi"},
+			}},
+		},
+		{
+			PluginID:          "disabled-plugin",
+			Name:              "Disabled Plugin",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "disabled",
+			RuntimeState:      "stopped",
+			Commands: []plugins.Command{{
+				Name: "skip-disabled",
+			}},
+		},
+	})
+
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/governance/command-policy", nil)
+	if err != nil {
+		t.Fatalf("create governance command-policy request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform governance command-policy request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected governance command-policy status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if body["default_level"] != "everyone" {
+		t.Fatalf("unexpected default_level: %#v", body["default_level"])
+	}
+	cooldown, ok := body["cooldown"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected cooldown payload: %#v", body["cooldown"])
+	}
+	if cooldown["user_command_rate_limit"] != "10/60s" || cooldown["group_command_rate_limit"] != "30/60s" || cooldown["cooldown_reply"] != true {
+		t.Fatalf("unexpected cooldown payload: %#v", cooldown)
+	}
+
+	commands, ok := body["commands"].([]any)
+	if !ok || len(commands) != 2 {
+		t.Fatalf("unexpected commands payload: %#v", body["commands"])
+	}
+
+	byPluginID := make(map[string]map[string]any, len(commands))
+	for _, item := range commands {
+		entry := item.(map[string]any)
+		byPluginID[entry["plugin_id"].(string)] = entry
+	}
+
+	weather := byPluginID["weather"]
+	if weather["plugin_name"] != "Weather" || weather["command"] != "weather" {
+		t.Fatalf("unexpected weather command policy entry: %#v", weather)
+	}
+	if !reflect.DeepEqual(weather["aliases"], []any{"tq", "天气"}) {
+		t.Fatalf("unexpected weather aliases: %#v", weather["aliases"])
+	}
+	if weather["declared_permission"] != "group_admin" || weather["effective_permission"] != "group_admin" || weather["permission_source"] != "declared" {
+		t.Fatalf("unexpected weather permission policy: %#v", weather)
+	}
+
+	hello := byPluginID["hello-python"]
+	if hello["plugin_name"] != "Hello Python" || hello["command"] != "hello" {
+		t.Fatalf("unexpected hello command policy entry: %#v", hello)
+	}
+	if !reflect.DeepEqual(hello["aliases"], []any{"hi"}) {
+		t.Fatalf("unexpected hello aliases: %#v", hello["aliases"])
+	}
+	if hello["declared_permission"] != nil || hello["effective_permission"] != "everyone" || hello["permission_source"] != "default_level" {
+		t.Fatalf("unexpected hello permission policy: %#v", hello)
 	}
 }
 

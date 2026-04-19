@@ -272,6 +272,12 @@ type configHTTPDeps struct {
 	blacklistRepo    permission.BlacklistRepository
 }
 
+type governanceHTTPDeps struct {
+	state         *appRuntimeState
+	plugins       *plugins.Catalog
+	blacklistRepo permission.BlacklistRepository
+}
+
 type httpServerDeps struct {
 	state             *appRuntimeState
 	auth              *auth.Manager
@@ -291,6 +297,7 @@ type httpServerDeps struct {
 	configHandler     *configHTTPHandlers
 	authHandler       *authHTTPHandlers
 	managementHandler *managementHTTPHandlers
+	governanceHandler *governanceHTTPHandlers
 	taskHandler       *taskHTTPHandlers
 	logHandler        *logHTTPHandlers
 	renderHandler     *renderHTTPHandlers
@@ -358,6 +365,20 @@ func newConfigHTTPHandlers(deps configHTTPDeps) *configHTTPHandlers {
 		protocol:         deps.protocol,
 		eventIngress:     deps.eventIngress,
 		blacklistRepo:    deps.blacklistRepo,
+	}
+}
+
+type governanceHTTPHandlers struct {
+	state         *appRuntimeState
+	plugins       *plugins.Catalog
+	blacklistRepo permission.BlacklistRepository
+}
+
+func newGovernanceHTTPHandlers(deps governanceHTTPDeps) *governanceHTTPHandlers {
+	return &governanceHTTPHandlers{
+		state:         deps.state,
+		plugins:       deps.plugins,
+		blacklistRepo: deps.blacklistRepo,
 	}
 }
 

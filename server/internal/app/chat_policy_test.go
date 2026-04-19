@@ -552,6 +552,40 @@ func TestReloadDisablesPluginWhenGrantExpired(t *testing.T) {
 	}
 }
 
+func TestReloadReturnsPermissionPendingWhenGrantScopeChanged(t *testing.T) {
+	t.Parallel()
+
+	controller, catalog := newLifecycleControllerForGrantTests(t, []plugins.PluginGrant{{
+		PluginID:   "weather",
+		Capability: "http.request",
+		GrantedAt:  time.Now().UTC().Add(-2 * time.Hour),
+		ScopeJSON:  `{"http_hosts":["legacy.example"]}`,
+	}})
+
+	_, err := controller.Reload(context.Background(), "weather")
+	if err == nil {
+		t.Fatal("expected Reload to fail when grant scope changed")
+	}
+	pending, ok := err.(*plugins.PermissionPendingError)
+	if !ok {
+		t.Fatalf("err = %T, want *plugins.PermissionPendingError", err)
+	}
+	if !pending.ScopeChanged {
+		t.Fatalf("ScopeChanged = %v, want true", pending.ScopeChanged)
+	}
+	if len(pending.MissingCapabilities) != 0 {
+		t.Fatalf("MissingCapabilities = %#v, want empty", pending.MissingCapabilities)
+	}
+
+	snapshot, ok := catalog.Get("weather")
+	if !ok {
+		t.Fatal("plugin missing from catalog")
+	}
+	if snapshot.DesiredState != "disabled" {
+		t.Fatalf("desired_state = %q, want disabled", snapshot.DesiredState)
+	}
+}
+
 func TestReconcileRuntimeDisablesPluginWhenGrantExpired(t *testing.T) {
 	t.Parallel()
 

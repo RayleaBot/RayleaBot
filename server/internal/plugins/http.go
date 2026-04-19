@@ -79,19 +79,67 @@ type pluginPermissionResponse struct {
 	ExpiresAt   *string `json:"expires_at"`
 }
 
+type pluginDependenciesResponse struct {
+	Python []string `json:"python,omitempty"`
+	NodeJS []string `json:"nodejs,omitempty"`
+}
+
+type pluginWebhookScopeResponse struct {
+	Route           string   `json:"route"`
+	AuthStrategy    string   `json:"auth_strategy"`
+	Header          string   `json:"header"`
+	SecretRef       string   `json:"secret_ref"`
+	SignaturePrefix string   `json:"signature_prefix,omitempty"`
+	SourceIPs       []string `json:"source_ips,omitempty"`
+}
+
+type pluginScopesResponse struct {
+	HTTPHosts    []string                     `json:"http_hosts,omitempty"`
+	StorageRoots []string                     `json:"storage_roots,omitempty"`
+	Webhooks     []pluginWebhookScopeResponse `json:"webhooks,omitempty"`
+}
+
+type pluginScreenshotResponse struct {
+	Path string `json:"path"`
+	Alt  string `json:"alt,omitempty"`
+}
+
 type pluginDetailPluginResponse struct {
-	ID                string                     `json:"id"`
-	Name              string                     `json:"name"`
-	Role              string                     `json:"role"`
-	RegistrationState string                     `json:"registration_state"`
-	DesiredState      string                     `json:"desired_state"`
-	RuntimeState      string                     `json:"runtime_state"`
-	DisplayState      string                     `json:"display_state"`
-	Source            pluginSourceResponse       `json:"source"`
-	Trust             pluginTrustResponse        `json:"trust"`
-	Commands          []pluginCommandResponse    `json:"commands"`
-	CommandConflicts  []string                   `json:"command_conflicts"`
-	Permissions       []pluginPermissionResponse `json:"permissions"`
+	ID                   string                      `json:"id"`
+	Name                 string                      `json:"name"`
+	Role                 string                      `json:"role"`
+	Version              string                      `json:"version,omitempty"`
+	Runtime              string                      `json:"runtime,omitempty"`
+	Type                 string                      `json:"type,omitempty"`
+	Entry                string                      `json:"entry,omitempty"`
+	Description          string                      `json:"description,omitempty"`
+	Author               string                      `json:"author,omitempty"`
+	License              string                      `json:"license,omitempty"`
+	SDKMinVersion        string                      `json:"sdk_min_version,omitempty"`
+	RuntimeVersion       string                      `json:"runtime_version,omitempty"`
+	MinCoreVersion       string                      `json:"min_core_version,omitempty"`
+	DataSchemaVersion    string                      `json:"data_schema_version,omitempty"`
+	Concurrency          int                         `json:"concurrency,omitempty"`
+	Platforms            []string                    `json:"platforms,omitempty"`
+	DefaultConfig        map[string]any              `json:"default_config,omitempty"`
+	DeclaredCapabilities []string                    `json:"declared_capabilities,omitempty"`
+	Dependencies         *pluginDependenciesResponse `json:"dependencies,omitempty"`
+	Scopes               *pluginScopesResponse       `json:"scopes,omitempty"`
+	Icon                 string                      `json:"icon,omitempty"`
+	Repo                 string                      `json:"repo,omitempty"`
+	Homepage             string                      `json:"homepage,omitempty"`
+	Keywords             []string                    `json:"keywords,omitempty"`
+	Screenshots          []pluginScreenshotResponse  `json:"screenshots,omitempty"`
+	SystemDependencies   []string                    `json:"system_dependencies,omitempty"`
+	RegistrationState    string                      `json:"registration_state"`
+	DesiredState         string                      `json:"desired_state"`
+	RuntimeState         string                      `json:"runtime_state"`
+	DisplayState         string                      `json:"display_state"`
+	Source               pluginSourceResponse        `json:"source"`
+	Trust                pluginTrustResponse         `json:"trust"`
+	Commands             []pluginCommandResponse     `json:"commands"`
+	CommandConflicts     []string                    `json:"command_conflicts"`
+	Permissions          []pluginPermissionResponse  `json:"permissions"`
 }
 
 type pluginDetailResponse struct {
@@ -613,6 +661,64 @@ func buildPermissionResponses(summaries []PermissionSummary) []pluginPermissionR
 	return items
 }
 
+func buildPluginDependencies(snapshot Snapshot) *pluginDependenciesResponse {
+	if len(snapshot.PythonDependencies) == 0 && len(snapshot.NodeDependencies) == 0 {
+		return nil
+	}
+
+	return &pluginDependenciesResponse{
+		Python: normalizeStringList(snapshot.PythonDependencies),
+		NodeJS: normalizeStringList(snapshot.NodeDependencies),
+	}
+}
+
+func buildPluginScopes(snapshot Snapshot) *pluginScopesResponse {
+	if len(snapshot.ScopeHTTPHosts) == 0 && len(snapshot.ScopeStorageRoots) == 0 && len(snapshot.ScopeWebhooks) == 0 {
+		return nil
+	}
+
+	response := &pluginScopesResponse{
+		HTTPHosts:    normalizeStringList(snapshot.ScopeHTTPHosts),
+		StorageRoots: normalizeStringList(snapshot.ScopeStorageRoots),
+	}
+	if len(snapshot.ScopeWebhooks) > 0 {
+		response.Webhooks = make([]pluginWebhookScopeResponse, 0, len(snapshot.ScopeWebhooks))
+		for _, scope := range snapshot.ScopeWebhooks {
+			response.Webhooks = append(response.Webhooks, pluginWebhookScopeResponse{
+				Route:           strings.TrimSpace(scope.Route),
+				AuthStrategy:    strings.TrimSpace(scope.AuthStrategy),
+				Header:          strings.TrimSpace(scope.Header),
+				SecretRef:       strings.TrimSpace(scope.SecretRef),
+				SignaturePrefix: strings.TrimSpace(scope.SignaturePrefix),
+				SourceIPs:       normalizeStringList(scope.SourceIPs),
+			})
+		}
+	}
+	return response
+}
+
+func buildPluginScreenshots(snapshot Snapshot) []pluginScreenshotResponse {
+	if len(snapshot.Screenshots) == 0 {
+		return nil
+	}
+
+	items := make([]pluginScreenshotResponse, 0, len(snapshot.Screenshots))
+	for _, screenshot := range snapshot.Screenshots {
+		path := strings.TrimSpace(screenshot.Path)
+		if path == "" {
+			continue
+		}
+		items = append(items, pluginScreenshotResponse{
+			Path: path,
+			Alt:  strings.TrimSpace(screenshot.Alt),
+		})
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return items
+}
+
 func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot Snapshot, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
 	summary := buildPluginSummary(catalog, snapshot)
 	persisted, err := loadPersistedGrants(ctx, repo, snapshot.PluginID)
@@ -623,18 +729,41 @@ func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot S
 	permissions := BuildPermissionSummaries(snapshot, effective)
 	return pluginDetailResponse{
 		Plugin: pluginDetailPluginResponse{
-			ID:                summary.ID,
-			Name:              summary.Name,
-			Role:              summary.Role,
-			RegistrationState: summary.RegistrationState,
-			DesiredState:      summary.DesiredState,
-			RuntimeState:      summary.RuntimeState,
-			DisplayState:      summary.DisplayState,
-			Source:            summary.Source,
-			Trust:             summary.Trust,
-			Commands:          summary.Commands,
-			CommandConflicts:  summary.CommandConflicts,
-			Permissions:       buildPermissionResponses(permissions),
+			ID:                   summary.ID,
+			Name:                 summary.Name,
+			Role:                 summary.Role,
+			Version:              strings.TrimSpace(snapshot.Version),
+			Runtime:              strings.TrimSpace(snapshot.Runtime),
+			Type:                 strings.TrimSpace(snapshot.Type),
+			Entry:                strings.TrimSpace(snapshot.Entry),
+			Description:          strings.TrimSpace(snapshot.Description),
+			Author:               strings.TrimSpace(snapshot.Author),
+			License:              strings.TrimSpace(snapshot.License),
+			SDKMinVersion:        strings.TrimSpace(snapshot.SDKMinVersion),
+			RuntimeVersion:       strings.TrimSpace(snapshot.RuntimeVersion),
+			MinCoreVersion:       strings.TrimSpace(snapshot.MinCoreVersion),
+			DataSchemaVersion:    strings.TrimSpace(snapshot.DataSchemaVersion),
+			Concurrency:          snapshot.Concurrency,
+			Platforms:            normalizeStringList(snapshot.Platforms),
+			DefaultConfig:        cloneMap(snapshot.DefaultConfig),
+			DeclaredCapabilities: normalizeStringList(snapshot.DeclaredCapabilities),
+			Dependencies:         buildPluginDependencies(snapshot),
+			Scopes:               buildPluginScopes(snapshot),
+			Icon:                 strings.TrimSpace(snapshot.Icon),
+			Repo:                 strings.TrimSpace(snapshot.Repo),
+			Homepage:             strings.TrimSpace(snapshot.Homepage),
+			Keywords:             normalizeStringList(snapshot.Keywords),
+			Screenshots:          buildPluginScreenshots(snapshot),
+			SystemDependencies:   normalizeStringList(snapshot.SystemDependencies),
+			RegistrationState:    summary.RegistrationState,
+			DesiredState:         summary.DesiredState,
+			RuntimeState:         summary.RuntimeState,
+			DisplayState:         summary.DisplayState,
+			Source:               summary.Source,
+			Trust:                summary.Trust,
+			Commands:             summary.Commands,
+			CommandConflicts:     summary.CommandConflicts,
+			Permissions:          buildPermissionResponses(permissions),
 		},
 	}, nil
 }
