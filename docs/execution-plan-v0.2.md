@@ -39,7 +39,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 6 已完成在线模板编辑器 / Render 可视化
 - ☑️ Phase 7 已完成 Plugin Platform / Manifest / Config / Governance 收口
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
-- ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
+- ☑️ Phase 9 已完成状态模型拆分、环境检查收口、WebSocket 事件驱动与深链诊断引导
 
 ### 本轮明确纳入
 
@@ -74,7 +74,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 6 | 在线模板编辑器 / Render 可视化 | ☑️ | 模板列表、源码编辑、校验、手动预览、保存、版本历史、回退与渲染结果可视化已进入真实链路 |
 | Phase 7 | Plugin Platform / Manifest / Config / Governance | ☑️ | rich plugin detail、治理读取面、插件授权重确认与 `config.migrate` task-only 边界已收口 |
 | Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置、日志中心主线、统一日志详情与模板编辑工作区已完成，跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
-| Phase 9 | Launcher / 本地运维入口 | ◐ | 启动失败诊断与端口占用识别已补强，环境诊断与深链引导仍待继续 |
+| Phase 9 | Launcher / 本地运维入口 | ☑️ | 状态模型已拆分、环境检查已收口为本地预检、Web 状态刷新已接入 WebSocket 事件驱动，深链与诊断引导已完成 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
 
 ### 当前边界说明
@@ -284,15 +284,17 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 十一、Phase 9 — Launcher / 本地运维入口 ◐
+## 十一、Phase 9 — Launcher / 本地运维入口 ☑️
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| 启动 / 停止 / 健康检查 | ◐ | 已补强启动失败识别、已有服务探测与端口占用识别，其他运维动作仍按本地服务壳继续完善 |
-| 环境检查与资源诊断 | 🟡 | 检查模板资源、协议资源、运行环境资源与关键目录状态 |
-| 打开 Web 管理面 | 🟡 | 继续作为主要桌面入口，打开 Web 主界面 |
-| Web 页面深链 | 🟡 | 支持打开协议中心、模板编辑器、任务详情等指定 Web 页面 |
-| 错误提示与恢复引导 | ◐ | 启动失败的真实原因、健康服务占用与端口冲突已能直接区分，恢复与环境引导仍待继续 |
+| 启动 / 停止 / 健康检查 | ☑️ | 启动失败识别、已有服务探测与端口占用识别已补强 |
+| 环境检查与资源诊断 | ☑️ | Launcher 本地预检只覆盖安装目录、设置、server 可执行文件、配置与工作目录可写性；运行时资源与深层诊断由服务端 readiness 与 diagnostics 统一裁决 |
+| 打开 Web 管理面 | ☑️ | 作为桌面入口打开 Web 主界面，附带 launcher token 自动登录 |
+| Web 页面深链 | ☑️ | 支持打开协议中心、模板编辑器、任务详情等指定 Web 页面 |
+| 错误提示与恢复引导 | ☑️ | 启动失败、端口冲突、现有服务探测与恢复摘要可直接区分并展示；环境引导由服务端诊断驱动 |
+
+Launcher 与 Web 边界收口细节见 `docs/engineering/launcher-web-boundary-refactor-plan.md`。
 
 ### 本轮排除项
 

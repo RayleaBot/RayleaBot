@@ -193,7 +193,7 @@ CLI 是本地离线恢复与运维入口，不承担常规在线管理职责。
 
 ### 3.13 桌面启动器
 
-Launcher 继续作为 full artifact 的桌面入口，负责本地服务编排、环境检查和打开 Web 管理面。
+Launcher 继续作为 full artifact 的桌面入口，负责本地服务编排、本地启动前预检和打开 Web 管理面。运行时资源诊断由服务端 readiness 与 diagnostics 统一裁决，Launcher 直接展示结果。
 文档：[`user/management-surface.md`](./user/management-surface.md)、[`architecture/platform-runtime.md`](./architecture/platform-runtime.md)
 
 ### 3.14 兼容性与演进策略
