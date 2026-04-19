@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
@@ -41,8 +41,14 @@ const whitelistActionError = ref<string | null>(null)
 const blacklistMutating = ref(false)
 const whitelistMutating = ref(false)
 const whitelistConfirmVisible = ref(false)
-const whitelistScope = ref<GovernanceEntryType>('user')
-const blacklistScope = ref<GovernanceEntryType>('user')
+
+const blacklistScopeFilter = ref<'all' | 'user' | 'group'>('all')
+const whitelistScopeFilter = ref<'all' | 'user' | 'group'>('all')
+const blacklistDraftScope = ref<GovernanceEntryType>('user')
+const whitelistDraftScope = ref<GovernanceEntryType>('user')
+
+const blacklistPagination = reactive({ current: 1, pageSize: 10 })
+const whitelistPagination = reactive({ current: 1, pageSize: 10 })
 
 const blacklistDrafts = reactive<Record<GovernanceEntryType, { reason: string; targetId: string }>>({
   user: { targetId: '', reason: '' },
@@ -75,17 +81,54 @@ const showWhitelistEmptyWarning = computed(() => whitelistEnabled.value && total
 const blacklistRegionError = computed(() => blacklistActionError.value ?? blacklistError.value)
 const whitelistRegionError = computed(() => whitelistActionError.value ?? whitelistError.value)
 
-const blacklistEntries = computed(() => (
-  blacklistScope.value === 'user' ? userBlacklistEntries.value : groupBlacklistEntries.value
-))
-const whitelistEntries = computed(() => (
-  whitelistScope.value === 'user' ? userWhitelistEntries.value : groupWhitelistEntries.value
-))
+function sortEntries(entries: BlacklistEntry[]) {
+  return [...entries].sort((a, b) => {
+    if (!a.created_at || !b.created_at) return 0
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+}
 
-const scopeOptions = computed(() => [
-  { label: t('governance.scopes.user'), value: 'user' },
-  { label: t('governance.scopes.group'), value: 'group' },
-])
+const filteredBlacklistEntries = computed(() => {
+  const entries = blacklistScopeFilter.value === 'all'
+    ? [...userBlacklistEntries.value, ...groupBlacklistEntries.value]
+    : blacklistScopeFilter.value === 'user'
+      ? userBlacklistEntries.value
+      : groupBlacklistEntries.value
+  return sortEntries(entries)
+})
+
+const filteredWhitelistEntries = computed(() => {
+  const entries = whitelistScopeFilter.value === 'all'
+    ? [...userWhitelistEntries.value, ...groupWhitelistEntries.value]
+    : whitelistScopeFilter.value === 'user'
+      ? userWhitelistEntries.value
+      : groupWhitelistEntries.value
+  return sortEntries(entries)
+})
+
+const paginatedBlacklistEntries = computed(() => {
+  const start = (blacklistPagination.current - 1) * blacklistPagination.pageSize
+  return filteredBlacklistEntries.value.slice(start, start + blacklistPagination.pageSize)
+})
+
+const paginatedWhitelistEntries = computed(() => {
+  const start = (whitelistPagination.current - 1) * whitelistPagination.pageSize
+  return filteredWhitelistEntries.value.slice(start, start + whitelistPagination.pageSize)
+})
+
+watch(filteredBlacklistEntries, (entries) => {
+  const maxPage = Math.ceil(entries.length / blacklistPagination.pageSize) || 1
+  if (blacklistPagination.current > maxPage) {
+    blacklistPagination.current = maxPage
+  }
+})
+
+watch(filteredWhitelistEntries, (entries) => {
+  const maxPage = Math.ceil(entries.length / whitelistPagination.pageSize) || 1
+  if (whitelistPagination.current > maxPage) {
+    whitelistPagination.current = maxPage
+  }
+})
 
 const summaryItems = computed(() => [
   {
@@ -138,6 +181,32 @@ const summaryItems = computed(() => [
   },
 ])
 
+const scopeOptions = computed(() => [
+  { label: t('governance.scopes.user'), value: 'user' },
+  { label: t('governance.scopes.group'), value: 'group' },
+])
+
+const scopeFilterOptions = computed(() => [
+  { label: t('governance.filters.all'), value: 'all' },
+  { label: t('governance.scopes.user'), value: 'user' },
+  { label: t('governance.scopes.group'), value: 'group' },
+])
+
+const tableColumns = computed(() => [
+  { title: t('governance.table.columns.type'), key: 'type', dataIndex: 'entry_type', width: 90, align: 'center' as const },
+  { title: t('governance.table.columns.targetId'), key: 'targetId', dataIndex: 'target_id', width: 200 },
+  { title: t('governance.table.columns.reason'), key: 'reason', dataIndex: 'reason' },
+  { title: t('governance.table.columns.createdAt'), key: 'createdAt', dataIndex: 'created_at', width: 170 },
+  { title: t('governance.table.columns.actions'), key: 'actions', width: 90, align: 'center' as const, fixed: 'right' as const },
+])
+
+function cardMotion(delay: number) {
+  return {
+    initial: { opacity: 0, y: 12 },
+    enter: { opacity: 1, y: 0, transition: { duration: 320, delay: delay * 60, ease: 'easeOut' } },
+  }
+}
+
 function getCommandPermissionLabel(level: CommandPermissionLevel | null | undefined) {
   switch (level) {
     case 'everyone':
@@ -149,6 +218,14 @@ function getCommandPermissionLabel(level: CommandPermissionLevel | null | undefi
     default:
       return t('display.empty')
   }
+}
+
+function getEntryTypeLabel(type: GovernanceEntryType) {
+  return type === 'user' ? t('governance.scopes.user') : t('governance.scopes.group')
+}
+
+function getEntryTypeTagColor(type: GovernanceEntryType) {
+  return type === 'user' ? 'blue' : 'purple'
 }
 
 function getEntryDraft(collection: Record<GovernanceEntryType, { reason: string; targetId: string }>, entryType: GovernanceEntryType) {
@@ -184,7 +261,7 @@ async function loadGovernance() {
 }
 
 async function addBlacklistEntry() {
-  const payload = validateEntryDraft(blacklistDrafts, blacklistScope.value)
+  const payload = validateEntryDraft(blacklistDrafts, blacklistDraftScope.value)
   if (!payload) {
     blacklistActionError.value = t('governance.validation.entryRequired')
     return
@@ -194,7 +271,8 @@ async function addBlacklistEntry() {
   blacklistActionError.value = null
   try {
     await governanceStore.addBlacklistEntry(payload)
-    resetEntryDraft(blacklistDrafts, blacklistScope.value)
+    resetEntryDraft(blacklistDrafts, blacklistDraftScope.value)
+    blacklistPagination.current = 1
     notifySuccess(t('governance.feedback.blacklistSaved'))
   } catch (error) {
     blacklistActionError.value = getDisplayErrorMessage(error)
@@ -217,7 +295,7 @@ async function removeBlacklistEntry(entry: BlacklistEntry) {
 }
 
 async function addWhitelistEntry() {
-  const payload = validateEntryDraft(whitelistDrafts, whitelistScope.value)
+  const payload = validateEntryDraft(whitelistDrafts, whitelistDraftScope.value)
   if (!payload) {
     whitelistActionError.value = t('governance.validation.entryRequired')
     return
@@ -227,7 +305,8 @@ async function addWhitelistEntry() {
   whitelistActionError.value = null
   try {
     await governanceStore.addWhitelistEntry(payload)
-    resetEntryDraft(whitelistDrafts, whitelistScope.value)
+    resetEntryDraft(whitelistDrafts, whitelistDraftScope.value)
+    whitelistPagination.current = 1
     notifySuccess(t('governance.feedback.whitelistSaved'))
   } catch (error) {
     whitelistActionError.value = getDisplayErrorMessage(error)
@@ -299,6 +378,7 @@ onMounted(() => {
 
     <div v-else class="governance-page__stack">
       <AppCard
+        v-motion="cardMotion(0)"
         borderless
         class="governance-summary-card"
         data-testid="governance-summary-card"
@@ -353,6 +433,7 @@ onMounted(() => {
       </AppCard>
 
       <AppCard
+        v-motion="cardMotion(1)"
         borderless
         class="governance-panel-card governance-panel-card--whitelist"
         data-testid="governance-whitelist-card"
@@ -395,66 +476,89 @@ onMounted(() => {
           <p>{{ t('governance.whitelist.emptyWarningDescription') }}</p>
         </div>
 
-        <div class="governance-panel-workspace">
-          <div class="governance-panel-workspace__controls">
-            <a-segmented v-model:value="whitelistScope" :options="scopeOptions" />
-            <span class="governance-panel-workspace__count">{{ whitelistEntries.length }}</span>
+        <div class="governance-toolbar">
+          <div class="governance-toolbar__row">
+            <a-select v-model:value="whitelistScopeFilter" :options="scopeFilterOptions" class="governance-toolbar__filter" />
+            <span class="governance-toolbar__count">{{ t('governance.table.total', { total: filteredWhitelistEntries.length }) }}</span>
           </div>
-
-          <a-form
-            layout="vertical"
-            class="governance-entry-form"
-            :data-testid="`governance-whitelist-${whitelistScope}-form`"
-            @submit.prevent="addWhitelistEntry"
-          >
-            <div class="governance-entry-form__grid">
-              <a-form-item :label="t('governance.entryForm.targetId')">
-                <a-input
-                  v-model:value="getEntryDraft(whitelistDrafts, whitelistScope).targetId"
-                  :placeholder="t('governance.entryForm.placeholderTargetId')"
-                />
-              </a-form-item>
-              <a-form-item :label="t('governance.entryForm.reason')">
-                <a-input
-                  v-model:value="getEntryDraft(whitelistDrafts, whitelistScope).reason"
-                  :placeholder="t('governance.entryForm.placeholderReason')"
-                />
-              </a-form-item>
+          <form class="governance-toolbar__form" :data-testid="'governance-whitelist-form'" @submit.prevent="addWhitelistEntry">
+            <div class="governance-form-grid">
+              <a-select v-model:value="whitelistDraftScope" :options="scopeOptions" class="governance-form-select" />
+              <a-input
+                v-model:value="getEntryDraft(whitelistDrafts, whitelistDraftScope).targetId"
+                :placeholder="t('governance.entryForm.placeholderTargetId')"
+                class="governance-form-input"
+              />
+              <a-input
+                v-model:value="getEntryDraft(whitelistDrafts, whitelistDraftScope).reason"
+                :placeholder="t('governance.entryForm.placeholderReason')"
+                class="governance-form-input governance-form-input--wide"
+              />
+              <a-button
+                type="primary"
+                :loading="whitelistMutating"
+                data-testid="governance-whitelist-add"
+                class="governance-form-button"
+                @click="addWhitelistEntry"
+              >
+                {{ t('governance.entryForm.add') }}
+              </a-button>
             </div>
-            <a-button
-              type="primary"
-              :loading="whitelistMutating"
-              :data-testid="`governance-whitelist-add-${whitelistScope}`"
-              @click="addWhitelistEntry"
-            >
-              {{ t('governance.entryForm.add') }}
-            </a-button>
-          </a-form>
+          </form>
+        </div>
 
-          <div v-if="whitelistEntries.length > 0" class="governance-entry-list">
-            <article v-for="entry in whitelistEntries" :key="`${entry.entry_type}-${entry.target_id}`" class="governance-entry">
-              <div class="governance-entry__header">
-                <strong>{{ entry.target_id }}</strong>
-                <a-button type="link" danger size="small" @click="removeWhitelistEntry(entry)">
-                  {{ t('governance.entryForm.remove') }}
-                </a-button>
-              </div>
-              <span>{{ entry.reason }}</span>
-              <small>{{ formatDateTime(entry.created_at) }}</small>
-            </article>
-          </div>
+        <a-table
+          class="governance-data-table app-data-table"
+          :columns="tableColumns"
+          :data-source="paginatedWhitelistEntries"
+          :pagination="false"
+          :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
+          :loading="whitelistLoading && !whitelist"
+        >
+          <template #emptyText>
+            <div class="governance-empty-hint">
+              <p>{{ t('governance.empty.whitelistTitle') }}</p>
+              <span>{{ t('governance.empty.whitelistDescription') }}</span>
+            </div>
+          </template>
 
-          <AppEmptyState
-            v-else
-            icon="command"
-            :title="t('governance.empty.whitelistTitle')"
-            :description="t('governance.empty.whitelistDescription')"
-            compact
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'type'">
+              <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                {{ getEntryTypeLabel(record.entry_type) }}
+              </a-tag>
+            </template>
+
+            <template v-else-if="column.key === 'targetId'">
+              <span class="mono-text">{{ record.target_id }}</span>
+            </template>
+
+            <template v-else-if="column.key === 'createdAt'">
+              <span>{{ formatDateTime(record.created_at) }}</span>
+            </template>
+
+            <template v-else-if="column.key === 'actions'">
+              <a-button type="link" danger size="small" @click="removeWhitelistEntry(record)">
+                {{ t('governance.entryForm.remove') }}
+              </a-button>
+            </template>
+          </template>
+        </a-table>
+
+        <div v-if="filteredWhitelistEntries.length > 0" class="governance-pagination">
+          <a-pagination
+            v-model:current="whitelistPagination.current"
+            v-model:pageSize="whitelistPagination.pageSize"
+            :total="filteredWhitelistEntries.length"
+            show-size-changer
+            :page-size-options="['10', '20', '50']"
+            :show-total="(total: number) => t('governance.table.total', { total })"
           />
         </div>
       </AppCard>
 
       <AppCard
+        v-motion="cardMotion(2)"
         borderless
         class="governance-panel-card governance-panel-card--blacklist"
         data-testid="governance-blacklist-card"
@@ -480,61 +584,83 @@ onMounted(() => {
           class="section-gap"
         />
 
-        <div class="governance-panel-workspace">
-          <div class="governance-panel-workspace__controls">
-            <a-segmented v-model:value="blacklistScope" :options="scopeOptions" />
-            <span class="governance-panel-workspace__count">{{ blacklistEntries.length }}</span>
+        <div class="governance-toolbar">
+          <div class="governance-toolbar__row">
+            <a-select v-model:value="blacklistScopeFilter" :options="scopeFilterOptions" class="governance-toolbar__filter" />
+            <span class="governance-toolbar__count">{{ t('governance.table.total', { total: filteredBlacklistEntries.length }) }}</span>
           </div>
-
-          <a-form
-            layout="vertical"
-            class="governance-entry-form"
-            :data-testid="`governance-blacklist-${blacklistScope}-form`"
-            @submit.prevent="addBlacklistEntry"
-          >
-            <div class="governance-entry-form__grid">
-              <a-form-item :label="t('governance.entryForm.targetId')">
-                <a-input
-                  v-model:value="getEntryDraft(blacklistDrafts, blacklistScope).targetId"
-                  :placeholder="t('governance.entryForm.placeholderTargetId')"
-                />
-              </a-form-item>
-              <a-form-item :label="t('governance.entryForm.reason')">
-                <a-input
-                  v-model:value="getEntryDraft(blacklistDrafts, blacklistScope).reason"
-                  :placeholder="t('governance.entryForm.placeholderReason')"
-                />
-              </a-form-item>
+          <form class="governance-toolbar__form" :data-testid="'governance-blacklist-form'" @submit.prevent="addBlacklistEntry">
+            <div class="governance-form-grid">
+              <a-select v-model:value="blacklistDraftScope" :options="scopeOptions" class="governance-form-select" />
+              <a-input
+                v-model:value="getEntryDraft(blacklistDrafts, blacklistDraftScope).targetId"
+                :placeholder="t('governance.entryForm.placeholderTargetId')"
+                class="governance-form-input"
+              />
+              <a-input
+                v-model:value="getEntryDraft(blacklistDrafts, blacklistDraftScope).reason"
+                :placeholder="t('governance.entryForm.placeholderReason')"
+                class="governance-form-input governance-form-input--wide"
+              />
+              <a-button
+                type="primary"
+                :loading="blacklistMutating"
+                data-testid="governance-blacklist-add"
+                class="governance-form-button"
+                @click="addBlacklistEntry"
+              >
+                {{ t('governance.entryForm.add') }}
+              </a-button>
             </div>
-            <a-button
-              type="primary"
-              :loading="blacklistMutating"
-              :data-testid="`governance-blacklist-add-${blacklistScope}`"
-              @click="addBlacklistEntry"
-            >
-              {{ t('governance.entryForm.add') }}
-            </a-button>
-          </a-form>
+          </form>
+        </div>
 
-          <div v-if="blacklistEntries.length > 0" class="governance-entry-list">
-            <article v-for="entry in blacklistEntries" :key="`${entry.entry_type}-${entry.target_id}`" class="governance-entry">
-              <div class="governance-entry__header">
-                <strong>{{ entry.target_id }}</strong>
-                <a-button type="link" danger size="small" @click="removeBlacklistEntry(entry)">
-                  {{ t('governance.entryForm.remove') }}
-                </a-button>
-              </div>
-              <span>{{ entry.reason }}</span>
-              <small>{{ formatDateTime(entry.created_at) }}</small>
-            </article>
-          </div>
+        <a-table
+          class="governance-data-table app-data-table"
+          :columns="tableColumns"
+          :data-source="paginatedBlacklistEntries"
+          :pagination="false"
+          :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
+          :loading="blacklistLoading && !blacklist"
+        >
+          <template #emptyText>
+            <div class="governance-empty-hint">
+              <p>{{ t('governance.empty.blacklistTitle') }}</p>
+              <span>{{ t('governance.empty.blacklistDescription') }}</span>
+            </div>
+          </template>
 
-          <AppEmptyState
-            v-else
-            icon="command"
-            :title="t('governance.empty.blacklistTitle')"
-            :description="t('governance.empty.blacklistDescription')"
-            compact
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'type'">
+              <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                {{ getEntryTypeLabel(record.entry_type) }}
+              </a-tag>
+            </template>
+
+            <template v-else-if="column.key === 'targetId'">
+              <span class="mono-text">{{ record.target_id }}</span>
+            </template>
+
+            <template v-else-if="column.key === 'createdAt'">
+              <span>{{ formatDateTime(record.created_at) }}</span>
+            </template>
+
+            <template v-else-if="column.key === 'actions'">
+              <a-button type="link" danger size="small" @click="removeBlacklistEntry(record)">
+                {{ t('governance.entryForm.remove') }}
+              </a-button>
+            </template>
+          </template>
+        </a-table>
+
+        <div v-if="filteredBlacklistEntries.length > 0" class="governance-pagination">
+          <a-pagination
+            v-model:current="blacklistPagination.current"
+            v-model:pageSize="blacklistPagination.pageSize"
+            :total="filteredBlacklistEntries.length"
+            show-size-changer
+            :page-size-options="['10', '20', '50']"
+            :show-total="(total: number) => t('governance.table.total', { total })"
           />
         </div>
       </AppCard>
@@ -555,7 +681,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .governance-page__stack {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 
 .governance-summary-card,
@@ -570,7 +696,6 @@ onMounted(() => {
 
 .governance-summary-card__header,
 .governance-panel-header,
-.governance-entry__header,
 .governance-risk-banner__header {
   display: flex;
   align-items: flex-start;
@@ -592,9 +717,7 @@ onMounted(() => {
 
 .governance-summary-card__copy p,
 .governance-panel-header__copy p,
-.governance-risk-banner p,
-.governance-entry span,
-.governance-entry small {
+.governance-risk-banner p {
   margin: 0;
   color: var(--muted);
 }
@@ -618,15 +741,15 @@ onMounted(() => {
 .governance-summary-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   margin-top: 18px;
 }
 
 .governance-summary-tile {
   display: grid;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
-  padding: 16px;
+  padding: 20px;
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
@@ -642,10 +765,14 @@ onMounted(() => {
   font-size: clamp(1.1rem, 2vw, 1.35rem);
   line-height: 1.2;
   color: var(--text);
+  font-weight: 600;
 }
 
 .governance-summary-tile__meta {
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .governance-summary-tile--accent {
@@ -662,7 +789,7 @@ onMounted(() => {
 
 .governance-panel-card {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .governance-panel-card--whitelist {
@@ -673,53 +800,100 @@ onMounted(() => {
   background: color-mix(in srgb, var(--surface) 95%, color-mix(in srgb, var(--warning) 10%, transparent));
 }
 
-.governance-panel-workspace {
+.governance-risk-banner {
+  padding: 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 22%, var(--border));
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
-.governance-panel-workspace__controls {
+.governance-toolbar {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.governance-toolbar__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.governance-panel-workspace__count {
+.governance-toolbar__filter {
+  width: 120px;
+}
+
+.governance-toolbar__count {
   font-size: 0.82rem;
   color: var(--muted);
 }
 
-.governance-entry-form,
-.governance-risk-banner,
-.governance-entry {
-  padding: 14px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 95%, transparent);
-  border: 1px solid var(--border);
-}
-
-.governance-risk-banner {
-  display: grid;
-  gap: 8px;
-  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--warning) 22%, var(--border));
-}
-
-.governance-entry-form__grid {
-  display: grid;
+.governance-form-grid {
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: stretch;
 }
 
-.governance-entry-list {
-  display: grid;
-  gap: 12px;
+.governance-form-select {
+  width: 100px;
+  flex-shrink: 0;
 }
 
-.governance-entry {
-  display: grid;
-  gap: 6px;
+.governance-form-input {
+  flex: 1 1 160px;
+  min-width: 160px;
+}
+
+.governance-form-input--wide {
+  flex: 2 1 200px;
+  min-width: 200px;
+}
+
+.governance-form-button {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.governance-data-table {
+  border-radius: var(--app-card-radius);
+  overflow: hidden;
+}
+
+.governance-data-table :deep(.ant-table-tbody > tr:hover > td) {
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-soft));
+}
+
+.governance-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+.governance-empty-hint {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+}
+
+.governance-empty-hint p {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.governance-empty-hint span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.mono-text {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.88rem;
 }
 
 @media (max-width: 768px) {
@@ -730,17 +904,40 @@ onMounted(() => {
 
   .governance-summary-card__actions,
   .governance-panel-header__meta,
-  .governance-panel-workspace__controls {
+  .governance-toolbar__row {
     width: 100%;
   }
 
-  .governance-panel-workspace__controls {
+  .governance-toolbar__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .governance-toolbar__count {
+    text-align: right;
+    width: 100%;
+  }
+
+  .governance-form-grid {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .governance-panel-workspace__count {
-    text-align: right;
+  .governance-form-select,
+  .governance-form-input,
+  .governance-form-input--wide,
+  .governance-form-button {
+    width: 100%;
+    min-width: auto;
+    flex: 1 1 auto;
+  }
+
+  .governance-form-button :deep(.ant-btn) {
+    width: 100%;
+  }
+
+  .governance-pagination {
+    justify-content: center;
   }
 }
 </style>

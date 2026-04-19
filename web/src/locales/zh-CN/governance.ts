@@ -46,6 +46,20 @@ export const governance = {
     remove: '移除',
     placeholderTargetId: '输入用户 ID 或群 ID',
     placeholderReason: '填写原因',
+    scope: '类型',
+  },
+  table: {
+    columns: {
+      type: '类型',
+      targetId: '目标 ID',
+      reason: '原因',
+      createdAt: '添加时间',
+      actions: '操作',
+    },
+    total: '共 {total} 条',
+  },
+  filters: {
+    all: '全部',
   },
   empty: {
     summaryTitle: '暂无治理快照',
