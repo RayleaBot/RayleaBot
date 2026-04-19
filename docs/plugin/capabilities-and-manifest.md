@@ -65,6 +65,7 @@
 - 官方内置插件的声明权限会自动生效，并在授权来源中显示为 `builtin_auto`
 - 平台按 capability grant 模型保存授权结果，并在启用、重载、恢复和崩溃恢复前重新过滤时效窗口
 - 当前授权列表会合并内置自动授权、配置自动授权和持久化授权
+- manifest 作用域与已保存授权不一致时，启用和重载返回 `plugin.permission_pending`；管理面可对 `persisted` 授权重新确认后继续启用
 - 作用域约束通过 `permissions.scopes` 声明，当前正式范围包括 `http_hosts`、`storage_roots` 和 `webhooks`
 - `storage_roots` 正式范围固定为 `plugin_data`
 - OneBot 单动作 capability 与当前 provider capability 只做 capability 校验，不新增额外 scope 类型
@@ -81,6 +82,7 @@
 - 插件有效并发度取 `min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin)`，最小值为 `1`
 - 同一插件内按 `event.target.type + ":" + event.target.id` 保持同会话顺序；不同会话可并发
 - 没有稳定 `event.target` 的事件使用独立 fallback lane
+- 插件详情页显示 `concurrency`、`default_config`、`declared_capabilities`、`dependencies` 和 `scopes`
 
 ## 依赖与发布边界
 

@@ -37,6 +37,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 4 已完成 OneBot11 核心事件、消息段、历史 / 详情读取与兼容矩阵收口
 - ☑️ Phase 5 已完成 Plugin Protocol / Wider Action Family 收口
 - ☑️ Phase 6 已完成在线模板编辑器 / Render 可视化
+- ☑️ Phase 7 已完成 Plugin Platform / Manifest / Config / Governance 收口
 - ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
 - ◐ Phase 9 已完成启动器启动失败诊断补强与端口占用识别
 
@@ -71,7 +72,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 4 | OneBot11 事件与消息兼容补齐 | ☑️ | 核心事件、消息段、历史消息、详情读取与 provider 扩展兼容矩阵已进入正式边界与管理面 |
 | Phase 5 | Plugin Protocol / Wider Action Family | ☑️ | capability 名称、action kind、运行时授权、SDK helper、示例与文档口径已统一 |
 | Phase 6 | 在线模板编辑器 / Render 可视化 | ☑️ | 模板列表、源码编辑、校验、手动预览、保存、版本历史、回退与渲染结果可视化已进入真实链路 |
-| Phase 7 | Plugin Platform / Manifest / Config / Governance | ◐ | 生命周期 `display_state`、配置保存 `apply_effects`、manifest 元数据与治理读取面已进入正式边界，剩余管理可见性与运行链路验收随后批次继续 |
+| Phase 7 | Plugin Platform / Manifest / Config / Governance | ☑️ | rich plugin detail、治理读取面、插件授权重确认与 `config.migrate` task-only 边界已收口 |
 | Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置、日志中心主线、统一日志详情与模板编辑工作区已完成，跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
 | Phase 9 | Launcher / 本地运维入口 | ◐ | 启动失败诊断与端口占用识别已补强，环境诊断与深链引导仍待继续 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
@@ -251,20 +252,16 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 九、Phase 7 — Plugin Platform / Manifest / Config / Governance 🟡
+## 九、Phase 7 — Plugin Platform / Manifest / Config / Governance ☑️
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
 | 生命周期状态同步 | ☑️ | `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload 响应与 `/ws/events` 插件生命周期分支统一使用正式 `display_state` 枚举 |
-| 配置迁移 | ◐ | `PUT /api/config` 返回正式 `apply_effects` 分类；`config.migrate` 继续保持现有 task 类型，不新增独立管理路由 |
-| manifest 元数据补齐 | ◐ | `icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies` 已进入正式边界与示例 |
-| `default_config` / `concurrency` 正式化 | ◐ | `default_config` 与 `concurrency` 已进入正式边界；运行链路与管理面验收随后批次继续 |
-| blacklist / cooldown / command permission 可见性 | ◐ | 独立治理读取面已进入正式边界；管理面展示、配置可见性与诊断可见性随后批次继续 |
-| 插件升级与重确认 | 🟡 | 保留现有升级、重确认、恢复后重启与权限扩张裁决主线，并补齐 v0.2 新边界 |
-
-### 本轮说明
-
-- blacklist、cooldown、聊天权限的运行内核已存在，本轮聚焦正式边界、管理可见性与验收收口。
+| 配置迁移 | ☑️ | `PUT /api/config` 返回正式 `apply_effects` 分类；`config.migrate` 保持现有 task 类型，不提供独立管理路由 |
+| manifest 元数据补齐 | ☑️ | rich plugin detail 覆盖 `author`、`license`、`sdk_min_version`、`runtime_version`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies` |
+| `default_config` / `concurrency` 正式化 | ☑️ | 插件详情页展示 `default_config`、`concurrency`、`declared_capabilities`、`dependencies` 与 `scopes` |
+| blacklist / cooldown / command permission 可见性 | ☑️ | 指令中心展示默认权限、冷却配置、黑名单与当前生效命令策略 |
+| 插件升级与重确认 | ☑️ | `plugin.permission_pending` 的 `missing_capabilities` 与 `scope_changed` 都可在管理面完成授权后继续启用 |
 
 ---
 
