@@ -35,6 +35,11 @@ const {
 } = detailController
 const logsLayoutRef = ref<HTMLElement | null>(null)
 const viewportRef = ref<{
+  getScrollMetrics?: () => {
+    clientHeight: number
+    scrollHeight: number
+    scrollTop: number
+  }
   scrollToBottom: () => void
 } | null>(null)
 const autoFollowBottom = ref(false)
@@ -77,6 +82,55 @@ function toLocalInput(value: string) {
   }
 
   return toLocalDateTimeInput(parsed)
+}
+
+function currentRouteLogId() {
+  return readLogWorkspaceState(route.query, { history: true }).logId
+}
+
+function shouldSyncViewportToLatest() {
+  return route.name === 'logs-history'
+    && items.value.length > 0
+    && !currentRouteLogId()
+}
+
+function waitForNextFrame() {
+  return new Promise<void>((resolve) => {
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => resolve())
+      return
+    }
+
+    window.setTimeout(resolve, 0)
+  })
+}
+
+async function syncViewportToLatest() {
+  if (!shouldSyncViewportToLatest()) {
+    return
+  }
+
+  autoFollowBottom.value = true
+  try {
+    for (let pass = 0; pass < 3; pass += 1) {
+      await nextTick()
+      await waitForNextFrame()
+      viewportRef.value?.scrollToBottom()
+
+      const metrics = viewportRef.value?.getScrollMetrics?.()
+      if (!metrics || metrics.scrollHeight <= metrics.clientHeight) {
+        continue
+      }
+
+      if (metrics.scrollHeight - metrics.clientHeight - metrics.scrollTop <= 2) {
+        break
+      }
+    }
+  } finally {
+    await nextTick()
+    await waitForNextFrame()
+    autoFollowBottom.value = false
+  }
 }
 
 async function replaceRouteState(nextLogId: string | null = selectedLogId.value) {
@@ -148,8 +202,13 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
+  if (!currentRouteLogId()) {
+    autoFollowBottom.value = true
+  }
+
   try {
     await syncFromRoute()
+    await syncViewportToLatest()
   } catch {
     // store error drives the page
   }
@@ -157,31 +216,25 @@ async function activatePage() {
 
 async function refreshHistory() {
   autoFollowBottom.value = true
+
   try {
     await historyStore.refreshAnchor()
     await replaceRouteState()
-    await nextTick()
-    viewportRef.value?.scrollToBottom()
+    await syncViewportToLatest()
   } catch {
     // store error drives the page
-  } finally {
-    await nextTick()
-    autoFollowBottom.value = false
   }
 }
 
 async function applyFilters() {
   autoFollowBottom.value = true
+
   try {
     await historyStore.applyFilters()
     await replaceRouteState(null)
-    await nextTick()
-    viewportRef.value?.scrollToBottom()
+    await syncViewportToLatest()
   } catch {
     // store error drives the page
-  } finally {
-    await nextTick()
-    autoFollowBottom.value = false
   }
 }
 

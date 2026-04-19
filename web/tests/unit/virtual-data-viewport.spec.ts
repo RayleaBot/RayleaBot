@@ -569,4 +569,52 @@ describe('VirtualDataViewport', () => {
     expect(getFalseBottomChanges()).toBe(falseChangesAfterFollow)
     expect(internalScrollTop).toBeGreaterThanOrEqual(220)
   })
+
+  it('clamps a stale scroll position when the available rows shrink', async () => {
+    const wrapper = mount(VirtualDataViewport, {
+      props: {
+        items: Array.from({ length: 30 }, (_, index) => ({ id: `row-${index}`, label: `Row ${index}` })),
+        itemHeight: fallbackRowHeight,
+        viewportHeight,
+        getItemKey: (item: { id: string }) => item.id,
+      },
+      slots: {
+        default: ({ item }: { item: { label: string } }) => item.label,
+      },
+    })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const scroller = wrapper.get('.data-viewport__scroller').element as HTMLElement
+    let internalScrollTop = 0
+    Object.defineProperty(scroller, 'clientHeight', {
+      configurable: true,
+      value: viewportHeight,
+    })
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => internalScrollTop,
+      set: (value: number) => {
+        internalScrollTop = Math.floor(value)
+      },
+    })
+    Object.defineProperty(scroller, 'scrollHeight', {
+      configurable: true,
+      get: () => (wrapper.props('items') as Array<unknown>).length * fallbackRowHeight,
+    })
+
+    scroller.scrollTop = 1400
+    await wrapper.get('.data-viewport__scroller').trigger('scroll')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.setProps({
+      items: Array.from({ length: 4 }, (_, index) => ({ id: `row-${index}`, label: `Row ${index}` })),
+    })
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(internalScrollTop).toBe(Math.max(0, (4 * fallbackRowHeight) - viewportHeight))
+    expect(wrapper.findAll('.data-viewport__row')).not.toHaveLength(0)
+  })
 })

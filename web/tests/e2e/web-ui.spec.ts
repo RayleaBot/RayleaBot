@@ -738,6 +738,13 @@ test('history logs stay frozen until the user refreshes the anchor', async ({ pa
   await page.getByRole('button', { name: '应用筛选' }).click()
 
   await expect(page.locator('.logs-row__message', { hasText: 'history row 50' })).toBeVisible()
+  const initialMetrics = await logScroller(page).evaluate((node) => ({
+    clientHeight: node.clientHeight,
+    scrollHeight: node.scrollHeight,
+    scrollTop: node.scrollTop,
+  }))
+  expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight)
+  expect(initialMetrics.scrollHeight - initialMetrics.clientHeight - initialMetrics.scrollTop).toBeLessThanOrEqual(4)
   await expect(page.getByRole('button', { name: '更早记录' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '更新记录' })).toHaveCount(0)
 
@@ -762,6 +769,11 @@ test('history logs stay frozen until the user refreshes the anchor', async ({ pa
 
   await expect(page.locator('.logs-row__message', { hasText: 'history row latest' })).toHaveCount(0)
   await page.getByRole('button', { name: '刷新到最新时间' }).click()
+  await expect(page.locator('.logs-row__message', { hasText: 'history row latest' })).toBeVisible()
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.goto('/logs/history?request_id=req_logs_history_e2e')
   await expect(page.locator('.logs-row__message', { hasText: 'history row latest' })).toBeVisible()
 })
 
@@ -1060,6 +1072,11 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
 
   await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 150' })).toBeVisible()
   await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toHaveCount(0)
+  await expect.poll(async () => (
+    logScroller(page).evaluate((node) => (
+      node.scrollHeight - node.clientHeight - node.scrollTop
+    ))
+  )).toBeLessThanOrEqual(4)
 
   await Promise.all([
     page.waitForResponse((response) => (

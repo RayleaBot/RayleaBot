@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T">
-import { computed, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, onUpdated, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onBeforeUpdate, onMounted, onUpdated, ref, watch } from 'vue'
 
 interface Props<TItem> {
   items: TItem[]
@@ -297,6 +297,10 @@ async function syncScrollerLifecycle() {
     return
   }
 
+  if (clampScrollPosition(scroller)) {
+    return
+  }
+
   syncViewportState(scroller)
 }
 
@@ -390,6 +394,21 @@ function scrollToBottom() {
   scrollToOffset(scroller.scrollHeight - scroller.clientHeight)
 }
 
+function clampScrollPosition(scroller: HTMLElement) {
+  if (scroller.clientHeight <= 0 || scroller.scrollHeight <= 0) {
+    return false
+  }
+
+  const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+  const nextScrollTop = Math.min(Math.max(scroller.scrollTop, 0), maxScrollTop)
+  if (Math.abs(nextScrollTop - scroller.scrollTop) <= 1) {
+    return false
+  }
+
+  scrollToOffset(nextScrollTop)
+  return true
+}
+
 function isNearBottom(scroller: HTMLElement) {
   const scrollHeight = Math.max(scroller.scrollHeight, totalHeight.value)
   const clientHeight = Math.max(scroller.clientHeight, effectiveViewportHeight.value)
@@ -475,6 +494,10 @@ function rowStyle(index: number) {
 }
 
 onMounted(() => {
+  void syncScrollerLifecycle()
+})
+
+onActivated(() => {
   void syncScrollerLifecycle()
 })
 
@@ -573,6 +596,10 @@ onUpdated(() => {
       scrollToOffset(anchorTop + snapshot.anchorOffset)
       return
     }
+  }
+
+  if (clampScrollPosition(scroller)) {
+    return
   }
 
   syncViewportState(scroller, { userInitiated: false })

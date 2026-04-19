@@ -1,10 +1,10 @@
 import Antd from 'ant-design-vue'
+import { KeepAlive, defineComponent, h, nextTick, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { useLogHistoryStore } from '@/stores/log-history'
 import LogsHistoryPage from '@/views/operations/LogsHistoryView.vue'
 
@@ -34,10 +34,52 @@ function mockRect(element: Element, width: number, height: number, left = 0, top
   })
 }
 
+const scrollToBottomSpy = vi.fn()
+
+const VirtualDataViewportStub = defineComponent({
+  name: 'VirtualDataViewport',
+  props: {
+    items: {
+      type: Array,
+      default: () => [],
+    },
+    dynamicItemHeight: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ['reach-top'],
+  setup(props, { emit, slots, expose }) {
+    expose({
+      scrollToBottom: scrollToBottomSpy,
+    })
+
+    return () => h('div', { class: 'virtual-data-viewport-stub' }, [
+      h('button', {
+        type: 'button',
+        class: 'virtual-data-viewport-stub__reach-top',
+        onClick: () => emit('reach-top'),
+      }),
+      ...(props.items as Array<unknown>).map((item, index) => (
+        h('div', { class: 'virtual-data-viewport-stub__row', key: index }, slots.default?.({ item, index }))
+      )),
+    ])
+  },
+})
+
 describe('LogsHistoryPage', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
     setActivePinia(createPinia())
+    scrollToBottomSpy.mockReset()
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
+      callback(0)
+      return 0
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   function createTestRouter() {
@@ -77,19 +119,23 @@ describe('LogsHistoryPage', () => {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
+        stubs: {
+          VirtualDataViewport: VirtualDataViewportStub,
+        },
       },
     })
 
     await flushPromises()
 
     expect(refreshSpy).toHaveBeenCalledTimes(1)
+    expect(scrollToBottomSpy).toHaveBeenCalled()
     expect(wrapper.text()).toContain('历史日志')
     expect(wrapper.text()).toContain('固定时间窗口')
     expect(wrapper.text()).toContain('最近一天')
     expect(wrapper.text()).toContain('最近一周')
     expect(wrapper.text()).toContain('最近一个月')
     expect(wrapper.text()).toContain('最近半年')
-    expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewportStub).props('dynamicItemHeight')).toBe(true)
     expect(wrapper.find('input[type="datetime-local"]').exists()).toBe(true)
   })
 
@@ -130,6 +176,9 @@ describe('LogsHistoryPage', () => {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
+        stubs: {
+          VirtualDataViewport: VirtualDataViewportStub,
+        },
       },
     })
 
@@ -173,16 +222,21 @@ describe('LogsHistoryPage', () => {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
+        stubs: {
+          VirtualDataViewport: VirtualDataViewportStub,
+        },
       },
     })
 
     await flushPromises()
     loadOlderSpy.mockClear()
+    scrollToBottomSpy.mockClear()
     resetSpy.mockClear()
-    wrapper.findComponent(VirtualDataViewport).vm.$emit('reach-top')
+    await wrapper.get('.virtual-data-viewport-stub__reach-top').trigger('click')
     await flushPromises()
 
     expect(loadOlderSpy).toHaveBeenCalledTimes(1)
+    expect(scrollToBottomSpy).not.toHaveBeenCalled()
 
     const buttons = wrapper.findAll('button')
     const recentDayButton = buttons.find((candidate) => candidate.text().includes('最近一天'))
@@ -211,5 +265,70 @@ describe('LogsHistoryPage', () => {
     await halfYearButton!.trigger('click')
     await flushPromises()
     expect(setTimeRangeSpy).toHaveBeenCalledWith(180)
+    expect(scrollToBottomSpy).toHaveBeenCalled()
+  })
+
+  it('keeps the same page instance and re-syncs to latest after keep-alive reactivation', async () => {
+    const router = createTestRouter()
+    await router.push('/logs/history')
+    await router.isReady()
+
+    const store = useLogHistoryStore()
+    store.items = [
+      {
+        log_id: 'log_history_0001',
+        timestamp: '2026-04-02T00:53:16Z',
+        level: 'warn',
+        source: 'adapter',
+        message: 'history row',
+      },
+    ]
+    vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
+
+    const Host = defineComponent({
+      components: {
+        KeepAlive,
+        LogsHistoryPage,
+        OtherPane: defineComponent({
+          name: 'OtherPane',
+          setup() {
+            return () => h('div', 'other')
+          },
+        }),
+      },
+      setup() {
+        const current = ref<'history' | 'other'>('history')
+        return {
+          current,
+        }
+      },
+      template: `
+        <KeepAlive>
+          <component :is="current === 'history' ? 'LogsHistoryPage' : 'OtherPane'" />
+        </KeepAlive>
+      `,
+    })
+
+    const wrapper = mount(Host, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd, router],
+        stubs: {
+          VirtualDataViewport: VirtualDataViewportStub,
+        },
+      },
+    })
+
+    await flushPromises()
+    scrollToBottomSpy.mockClear()
+
+    ;(wrapper.vm as { current: 'history' | 'other' }).current = 'other'
+    await nextTick()
+    await flushPromises()
+    ;(wrapper.vm as { current: 'history' | 'other' }).current = 'history'
+    await nextTick()
+    await flushPromises()
+
+    expect(scrollToBottomSpy).toHaveBeenCalled()
   })
 })
