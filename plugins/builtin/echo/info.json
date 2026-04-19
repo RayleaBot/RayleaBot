@@ -10,6 +10,16 @@
   "license": "MIT",
   "description": "Built-in test echo command",
   "author": "raylea",
+  "capabilities": [
+    "event.subscribe",
+    "message.send"
+  ],
+  "permissions": {
+    "required": [
+      "message.send"
+    ],
+    "optional": []
+  },
   "commands": [
     {
       "name": "echo",

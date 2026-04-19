@@ -17,11 +17,14 @@
   },
   "capabilities": [
     "event.subscribe",
-    "logger.write"
+    "http.request",
+    "logger.write",
+    "storage.file"
   ],
   "permissions": {
     "required": [
       "http.request",
+      "logger.write",
       "storage.file"
     ],
     "optional": [],

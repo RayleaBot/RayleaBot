@@ -16,7 +16,10 @@
     "storage.kv"
   ],
   "permissions": {
-    "required": [],
+    "required": [
+      "logger.write",
+      "storage.kv"
+    ],
     "optional": []
   }
 }

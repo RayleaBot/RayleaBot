@@ -11,11 +11,14 @@
   "description": "Built-in help command that lists loaded plugins and commands",
   "author": "raylea",
   "capabilities": [
+    "event.subscribe",
+    "message.send",
     "plugin.list",
     "render.image"
   ],
   "permissions": {
     "required": [
+      "message.send",
       "plugin.list",
       "render.image"
     ],

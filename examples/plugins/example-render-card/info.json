@@ -13,10 +13,12 @@
   "role": "example",
   "capabilities": [
     "event.subscribe",
+    "message.send",
     "render.image"
   ],
   "permissions": {
     "required": [
+      "message.send",
       "render.image"
     ],
     "optional": []

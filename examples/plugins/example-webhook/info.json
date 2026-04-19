@@ -19,7 +19,8 @@
   ],
   "permissions": {
     "required": [
-      "event.expose_webhook"
+      "event.expose_webhook",
+      "logger.write"
     ],
     "optional": [
       "event.raw_payload"

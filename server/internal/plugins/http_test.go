@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1196,36 +1197,66 @@ func TestListGrantsHandler_ReturnsEffectiveGrantSources(t *testing.T) {
 func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 	t.Parallel()
 
-	router := grantsRouter([]Snapshot{{
-		PluginID:            "raylea.help",
-		Valid:               true,
-		SourceRoot:          "plugins/builtin",
-		RegistrationState:   "installed",
-		DesiredState:        "enabled",
-		RuntimeState:        "running",
-		RequiredPermissions: []string{"plugin.list"},
-	}}, nil)
+	for _, tc := range []struct {
+		name                string
+		pluginID            string
+		requiredPermissions []string
+		wantCapabilities    []string
+	}{
+		{
+			name:                "echo",
+			pluginID:            "raylea.echo",
+			requiredPermissions: []string{"message.send"},
+			wantCapabilities:    []string{"message.send"},
+		},
+		{
+			name:                "help",
+			pluginID:            "raylea.help",
+			requiredPermissions: []string{"message.send", "plugin.list", "render.image"},
+			wantCapabilities:    []string{"message.send", "plugin.list", "render.image"},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/plugins/raylea.help/grants", nil)
-	rec := httptest.NewRecorder()
+			router := grantsRouter([]Snapshot{{
+				PluginID:            tc.pluginID,
+				Valid:               true,
+				SourceRoot:          "plugins/builtin",
+				RegistrationState:   "installed",
+				DesiredState:        "enabled",
+				RuntimeState:        "running",
+				RequiredPermissions: tc.requiredPermissions,
+			}}, nil)
 
-	router.ServeHTTP(rec, req)
+			req := httptest.NewRequest(http.MethodGet, "/api/plugins/"+tc.pluginID+"/grants", nil)
+			rec := httptest.NewRecorder()
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
-	}
+			router.ServeHTTP(rec, req)
 
-	var resp grantsListResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(resp.Items) != 1 {
-		t.Fatalf("len(items) = %d, want 1", len(resp.Items))
-	}
-	if resp.Items[0].Capability != "plugin.list" || resp.Items[0].Source != string(GrantSourceBuiltinAuto) {
-		t.Fatalf("unexpected builtin auto grant: %#v", resp.Items[0])
-	}
-	if resp.Items[0].GrantedAt != nil || resp.Items[0].ExpiresAt != nil {
-		t.Fatalf("builtin auto timestamps should be nil: %#v", resp.Items[0])
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+			}
+
+			var resp grantsListResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+
+			gotCapabilities := make([]string, 0, len(resp.Items))
+			for _, item := range resp.Items {
+				if item.Source != string(GrantSourceBuiltinAuto) {
+					t.Fatalf("unexpected builtin auto grant source: %#v", item)
+				}
+				if item.GrantedAt != nil || item.ExpiresAt != nil {
+					t.Fatalf("builtin auto timestamps should be nil: %#v", item)
+				}
+				gotCapabilities = append(gotCapabilities, item.Capability)
+			}
+			if !reflect.DeepEqual(gotCapabilities, tc.wantCapabilities) {
+				t.Fatalf("builtin auto capabilities = %#v, want %#v", gotCapabilities, tc.wantCapabilities)
+			}
+		})
 	}
 }
