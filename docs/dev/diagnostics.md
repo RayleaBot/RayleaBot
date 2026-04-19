@@ -10,7 +10,7 @@
 | `/readyz` | 本地控制面与关键资源就绪检查 |
 | `GET /api/system/diagnostics/export` | 导出诊断包 |
 | `raylea doctor` | 执行本地环境与资源检查 |
-| `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看本次服务端启动日志、历史日志、单条日志详情与当前启动窗口内的增量日志 |
+| `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看实时日志、历史日志、日志详情与当前启动窗口增量日志 |
 | `/ws/plugins/{id}/console` | 查看插件 stderr |
 | `logs/launcher.log` | 查看 Launcher 自身诊断和进程编排错误 |
 | `logs/server.log` | 查看 `raylea-server` 的文本输出镜像 |
@@ -23,11 +23,19 @@
 - Adapter 与渲染资源可用性
 - 服务运行时长、插件总数、启用数与运行数
 - 最近错误摘要、最近任务失败与渲染异常
-- 最近 24 小时的未支持事件类型与未知消息段计数
 - 后台任务结果和错误摘要
 - 恢复摘要、人工处理建议和最近确认记录
 - 本次服务端启动日志与按时间范围筛选的历史日志
 - 脱敏后的协议消息详情、消息段、异常原因、payload preview 和 echo 类型
+
+## 管理面诊断路径
+
+- 系统状态页展示 readiness、reason code、checks、恢复摘要和近期变化，并提供到任务、协议中心、日志中心和插件详情的入口。
+- 协议中心展示当前 provider、活跃 transport、异常摘要，并提供兼容矩阵和相关日志入口。
+- 实时日志与历史日志支持按 `level`、`source`、`protocol`、`plugin_id`、`request_id` 和 `log_id` 查询；历史日志额外支持 `start_at` 与 `end_at`。
+- 日志详情会根据稳定字段提供插件详情、协议中心和请求 ID 对应日志页入口。
+- 任务详情会根据稳定字段提供插件详情、协议中心、请求历史日志和模板编辑器入口。
+- 模板编辑页的预览结果提供任务详情入口，`render.preview` 任务详情提供返回模板编辑器的入口。
 
 ## 健康接口语义
 
@@ -54,9 +62,9 @@
 
 ## 使用原则
 
-- Web 管理面、CLI、Launcher 和导出诊断包尽量复用同一份结构化摘要。
+- Web 管理面、CLI、Launcher 和导出诊断包复用同一套结构化摘要。
 - 排障优先使用正式诊断入口，而不是依赖临时日志拼接。
-- 高风险问题需要在多个入口保持同一份 `code`、`severity`、`summary` 和 `remediation` 口径。
+- 高风险问题在多个入口保持同一份 `code`、`severity`、`summary` 和 `remediation` 口径。
 - OneBot API response 的 `echo` 缺失、空值或非字符串时，诊断面记录 warning 与结构化详情；真实 JSON 解析错误、读超时和连接错误继续按断链处理。
 
 ## 敏感信息边界

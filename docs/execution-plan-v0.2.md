@@ -38,7 +38,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 5 已完成 Plugin Protocol / Wider Action Family 收口
 - ☑️ Phase 6 已完成在线模板编辑器 / Render 可视化
 - ☑️ Phase 7 已完成 Plugin Platform / Manifest / Config / Governance 收口
-- ◐ Phase 8 已完成协议中心连接设置、日志中心主线、统一日志详情抽屉与部分管理面联动
+- ☑️ Phase 8 已完成管理面跨页钻取、诊断入口与 Web 基线收口
 - ☑️ Phase 9 已完成状态模型拆分、环境检查收口、WebSocket 事件驱动与深链诊断引导
 
 ### 本轮明确纳入
@@ -73,7 +73,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 5 | Plugin Protocol / Wider Action Family | ☑️ | capability 名称、action kind、运行时授权、SDK helper、示例与文档口径已统一 |
 | Phase 6 | 在线模板编辑器 / Render 可视化 | ☑️ | 模板列表、源码编辑、校验、手动预览、保存、版本历史、回退与渲染结果可视化已进入真实链路 |
 | Phase 7 | Plugin Platform / Manifest / Config / Governance | ☑️ | rich plugin detail、治理读取面、插件授权重确认与 `config.migrate` task-only 边界已收口 |
-| Phase 8 | Diagnostics / Web API / Web UI | ◐ | 协议中心连接设置、日志中心主线、统一日志详情与模板编辑工作区已完成，跨页面联动、前端技术栈迁移与其余可视化仍待继续 |
+| Phase 8 | Diagnostics / Web API / Web UI | ☑️ | 协议中心、日志中心、任务、插件、模板编辑器和指令中心的跨页钻取、诊断入口与前端工作区基线已收口 |
 | Phase 9 | Launcher / 本地运维入口 | ☑️ | 状态模型已拆分、环境检查已收口为本地预检、Web 状态刷新已接入 WebSocket 事件驱动，深链与诊断引导已完成 |
 | Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
 
@@ -265,17 +265,17 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 ---
 
-## 十、Phase 8 — Diagnostics / Web API / Web UI ◐
+## 十、Phase 8 — Diagnostics / Web API / Web UI ☑️
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| 协议 transport 可视化 | ◐ | 协议中心已展示当前 provider、当前状态、连接设置、失败原因与调试摘要 |
+| 协议 transport 可视化 | ☑️ | 协议中心展示当前 provider、当前状态、连接设置、传输摘要、兼容矩阵入口与相关日志入口 |
 | OneBot 兼容矩阵可视化 | ☑️ | 协议中心提供 `/protocols/compatibility` 子页，按 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 展示兼容矩阵 |
-| 前端技术栈迁移 | 🟡 | Web 工程基线收口到 Ant Design Vue + Vue Vben Admin 对齐方案；当前阶段先完成文档冻结、迁移方案与治理口径，formal contract 保持不变 |
+| 前端技术栈迁移 | ☑️ | Web 工程基线固定为 Ant Design Vue + Vue Vben Admin 对齐方案，继续保持单应用结构与既有 formal contract |
 | 模板编辑与预览界面 | ☑️ | 系统分组提供 `/render/templates/:templateId?` 工作区，集成草稿编辑、校验、任务预览和版本回退 |
-| 协议中心增强 | ◐ | 协议中心已具备连接设置；日志中心已提供本次启动日志、历史日志与统一日志详情，剩余管理联动仍待继续 |
-| 任务 / 日志 / 协议 / 插件联动钻取 | 🟡 | 提供从命令、插件、协议、日志、任务之间的联动查看路径 |
-| 诊断与恢复增强 | ◐ | 日志详情、OneBot ignored response 观测、部分启动失败诊断已完成，统一诊断口径仍待继续 |
+| 协议中心增强 | ☑️ | 协议中心、兼容矩阵、日志中心与仪表盘之间提供稳定入口，协议异常可直接进入相关页面 |
+| 任务 / 日志 / 协议 / 插件联动钻取 | ☑️ | 命令、插件、协议、日志、任务和模板编辑器之间的跳转统一使用稳定标识与工作区 query |
+| 诊断与恢复增强 | ☑️ | 仪表盘、协议中心、日志详情与任务详情统一复用 readiness、transport issue、recovery summary 与结构化详情摘要 |
 
 补充约束：
 
