@@ -76,6 +76,8 @@ export const plugins = {
     reconnectConsole: '重新连接',
     clearConsole: '清空输出',
     uninstallConfirm: '确认卸载',
+    openPluginCommands: '当前插件指令',
+    openPluginLogs: '当前插件日志',
   },
   sections: {
     current: '当前状态',

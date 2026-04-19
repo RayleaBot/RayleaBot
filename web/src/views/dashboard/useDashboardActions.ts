@@ -2,6 +2,7 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import { getDisplayErrorMessage } from '@/lib/error-text'
+import { buildPluginDetailLocation, buildTaskLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 type DashboardActionState = {
   systemStore: {
@@ -43,7 +44,7 @@ export function useDashboardActions(state: DashboardActionState) {
     }
 
     notifySuccess(t('dashboard.taskInProgress'))
-    await state.router.push({ name: 'tasks', query: { task_id: existingTask.task_id } })
+    await state.router.push(buildTaskLocation(existingTask.task_id))
     return existingTask
   }
 
@@ -51,7 +52,7 @@ export function useDashboardActions(state: DashboardActionState) {
     try {
       const response = await state.systemStore.createBackup()
       notifySuccess(t('dashboard.backupAccepted'))
-      await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
+      await state.router.push(buildTaskLocation(response.task_id))
     } catch (error) {
       notifyError(getDisplayErrorMessage(error))
     }
@@ -88,7 +89,7 @@ export function useDashboardActions(state: DashboardActionState) {
       })
       state.previewVisible.value = false
       notifySuccess(t('dashboard.previewAccepted'))
-      await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
+      await state.router.push(buildTaskLocation(response.task_id))
     } catch (error) {
       notifyError(getDisplayErrorMessage(error))
     }
@@ -101,7 +102,7 @@ export function useDashboardActions(state: DashboardActionState) {
       }
       const response = await state.systemStore.recheckRecovery()
       notifySuccess(t('dashboard.recoveryRecheckAccepted'))
-      await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
+      await state.router.push(buildTaskLocation(response.task_id))
     } catch (error) {
       notifyError(getDisplayErrorMessage(error))
     }
@@ -118,7 +119,7 @@ export function useDashboardActions(state: DashboardActionState) {
       notifySuccess(t('dashboard.recoveryConfirmAccepted'))
       state.selectedRecoveryReviewIds.value = []
       state.recoveryConfirmNote.value = ''
-      await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
+      await state.router.push(buildTaskLocation(response.task_id))
     } catch (error) {
       notifyError(getDisplayErrorMessage(error))
     }
@@ -131,14 +132,14 @@ export function useDashboardActions(state: DashboardActionState) {
       }
       const response = await state.systemStore.bootstrapManagedRuntime(state.recoveryBootstrapResources.value)
       notifySuccess(t('dashboard.runtimeBootstrapAccepted'))
-      await state.router.push({ name: 'tasks', query: { task_id: response.task_id } })
+      await state.router.push(buildTaskLocation(response.task_id))
     } catch (error) {
       notifyError(getDisplayErrorMessage(error))
     }
   }
 
   async function openRecoveryPlugin(pluginID: string) {
-    await state.router.push({ name: 'plugin-detail', params: { id: pluginID } })
+    await state.router.push(buildPluginDetailLocation(pluginID))
   }
 
   return {

@@ -2,6 +2,7 @@ import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import CommandsPage from '@/views/operations/CommandsView.vue'
 import { useConfigStore } from '@/stores/config'
@@ -102,6 +103,16 @@ describe('CommandsPage', () => {
   })
 
   it('renders flattened command rows and filters them by plugin selection', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/commands', name: 'commands', component: CommandsPage },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+      ],
+    })
+    await router.push('/commands?plugin_id=weather')
+    await router.isReady()
+
     const store = usePluginsStore()
     const configStore = useConfigStore()
     const governanceStore = useGovernanceStore()
@@ -198,7 +209,7 @@ describe('CommandsPage', () => {
 
     const wrapper = mount(CommandsPage, {
       global: {
-        plugins: [Antd],
+        plugins: [Antd, router],
       },
     })
 
@@ -218,19 +229,21 @@ describe('CommandsPage', () => {
     expect(wrapper.text()).toContain('群管理员')
     expect(wrapper.text()).toContain('命令声明')
     expect(wrapper.text()).toContain('weather')
-    expect(wrapper.text()).toContain('help')
     expect(wrapper.text()).toContain('!weather <城市>')
-    expect(wrapper.text()).toContain('!help')
     expect(wrapper.text()).toContain('当前可用')
-    expect(wrapper.text()).toContain('已停用')
     expect(wrapper.find('.commands-data-table').exists()).toBe(true)
+    expect(router.currentRoute.value.fullPath).toContain('plugin_id=weather')
 
     const select = wrapper.findComponent({ name: 'ASelect' })
-    await select.vm.$emit('update:value', ['weather'])
+    await select.vm.$emit('update:value', ['help'])
     await flushPromises()
 
-    expect(wrapper.text()).toContain('weather')
-    expect(wrapper.text()).not.toContain('Help')
-    expect(wrapper.text()).not.toContain('查看帮助')
-  })
+    expect(router.currentRoute.value.fullPath).toContain('plugin_id=help')
+    expect(wrapper.text()).toContain('help')
+    expect(wrapper.text()).toContain('查看帮助')
+    expect(wrapper.text()).not.toContain('查询天气')
+
+    const pluginLink = wrapper.find('.command-plugin-link')
+    expect(pluginLink.attributes('href')).toBe('/plugins/help')
+  }, 15000)
 })

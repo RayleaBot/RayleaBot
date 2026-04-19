@@ -16,6 +16,11 @@ export const tasks = {
   actions: {
     detail: '查看详情',
     cancel: '请求取消',
+    related: '相关页面',
+    openPlugin: '查看插件',
+    openProtocol: '查看协议',
+    openRequestHistory: '相关历史日志',
+    openTemplate: '打开模板编辑',
   },
   empty: {
     title: '暂无任务',

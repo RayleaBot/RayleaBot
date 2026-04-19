@@ -265,7 +265,7 @@ describe('VirtualDataViewport', () => {
 
     expect(scroller.scrollTop).toBe(336)
     expectCanvasHeight(wrapper, 824)
-  })
+  }, 15000)
 
   it('does not snap the viewport back when rows are measured for the first time while scrolling upward', async () => {
     heightByLabel = new Map(

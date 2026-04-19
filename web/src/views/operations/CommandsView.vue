@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRoute, useRouter } from 'vue-router'
 
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -8,6 +9,12 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { getBooleanLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
+import {
+  areLocationQueriesEqual,
+  buildCommandsLocation,
+  buildPluginDetailLocation,
+  readCommandsPluginIds,
+} from '@/lib/management-links'
 import { t } from '@/i18n'
 import { flattenPluginCommands, type PluginCommandAvailability } from '@/lib/plugin-commands'
 import { useConfigStore } from '@/stores/config'
@@ -15,6 +22,8 @@ import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import type { BlacklistEntry, CommandPermissionLevel, CommandPermissionSource, PluginCommandSummary, PluginSummary } from '@/types/api'
 
+const route = useRoute()
+const router = useRouter()
 const pluginsStore = usePluginsStore()
 const configStore = useConfigStore()
 const governanceStore = useGovernanceStore()
@@ -83,6 +92,10 @@ const policyTableColumns = computed(() => [
   { title: t('commands.fields.permissionSource'), key: 'permission_source', dataIndex: 'permission_source', width: 160 },
   { title: t('commands.fields.plugin'), key: 'plugin', dataIndex: 'plugin', width: 220 },
 ])
+
+function samePluginIds(left: string[], right: string[]) {
+  return left.length === right.length && left.every((item, index) => item === right[index])
+}
 
 async function loadCommands() {
   await Promise.allSettled([
@@ -155,6 +168,38 @@ function getSelectPopupContainer(triggerNode: HTMLElement) {
 function getBlacklistTitle(entryType: BlacklistEntry['entry_type']) {
   return entryType === 'group' ? t('commands.blacklist.groupTitle') : t('commands.blacklist.userTitle')
 }
+
+watch(
+  () => route.query,
+  (query) => {
+    if (route.name !== 'commands') {
+      return
+    }
+
+    const nextPluginIds = readCommandsPluginIds(query)
+    if (!samePluginIds(selectedPluginIds.value, nextPluginIds)) {
+      selectedPluginIds.value = nextPluginIds
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  selectedPluginIds,
+  async (nextPluginIds) => {
+    if (route.name !== 'commands') {
+      return
+    }
+
+    const target = buildCommandsLocation(nextPluginIds)
+    if (areLocationQueriesEqual(route.query, target.query ?? {})) {
+      return
+    }
+
+    await router.replace(target)
+  },
+  { deep: true },
+)
 
 onMounted(() => {
   void loadCommands()
@@ -377,7 +422,9 @@ onMounted(() => {
 
             <template v-else-if="column.key === 'plugin'">
               <div class="command-plugin-cell">
-                <strong>{{ record.plugin_name }}</strong>
+                <RouterLink class="command-plugin-link" :to="buildPluginDetailLocation(record.plugin_id)">
+                  {{ record.plugin_name }}
+                </RouterLink>
                 <small>{{ record.plugin_id }}</small>
               </div>
             </template>
@@ -434,7 +481,9 @@ onMounted(() => {
 
             <template v-else-if="column.key === 'plugin'">
               <div class="command-plugin-cell">
-                <strong>{{ record.plugin.name }}</strong>
+                <RouterLink class="command-plugin-link" :to="buildPluginDetailLocation(record.plugin.id)">
+                  {{ record.plugin.name }}
+                </RouterLink>
                 <small>{{ record.plugin.id }}</small>
               </div>
             </template>
@@ -502,6 +551,11 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.command-plugin-link {
+  color: var(--app-primary);
+  font-weight: 600;
 }
 
 .command-plugin-cell small {

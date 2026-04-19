@@ -28,6 +28,12 @@ export const logs = {
     close: '关闭详情',
     detailsJson: '详情 JSON',
   },
+  actions: {
+    openPlugin: '查看插件',
+    openProtocol: '查看协议',
+    openRequestLogs: '相关实时日志',
+    openRequestHistory: '相关历史日志',
+  },
   current: {
     streamTitle: '本次服务端启动以来的日志',
     following: '跟随最新',

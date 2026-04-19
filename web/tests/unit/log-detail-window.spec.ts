@@ -2,6 +2,7 @@ import Antd from 'ant-design-vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
 import { clearLogDetailWindowPositionMemory } from '@/components/logs/log-detail-window-memory'
@@ -93,7 +94,20 @@ async function mountFloatingDrawer(options: {
   summary?: LogSummary
   detail?: LogDetailResponse | null
   open?: boolean
+  scope?: 'current_session' | 'history'
 }) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
+      { path: '/logs/history', name: 'logs-history', component: { template: '<div>history</div>' } },
+      { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+      { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
+    ],
+  })
+  await router.push(options.scope === 'history' ? '/logs/history' : '/logs')
+  await router.isReady()
+
   const hostElement = document.createElement('div')
   document.body.appendChild(hostElement)
   mockElementRect(hostElement, options.hostWidth ?? 1600, options.hostHeight ?? 900)
@@ -106,11 +120,12 @@ async function mountFloatingDrawer(options: {
       error: null,
       summary: options.summary ?? createSummary(),
       detail: options.detail ?? createDetail(),
+      scope: options.scope ?? 'current_session',
       memoryKey: options.memoryKey,
       hostElement,
     },
     global: {
-      plugins: [Antd],
+      plugins: [Antd, router],
     },
   })
 
@@ -184,6 +199,7 @@ describe('ManagementLogDetailDrawer', () => {
     expect(wrapper.text()).toContain('日志详情')
     expect(wrapper.text()).toContain('详情 JSON')
     expect(wrapper.text()).toContain('weather')
+    expect(wrapper.text()).toContain('相关实时日志')
   })
 
   it('falls back to the drawer on narrow screens', async () => {
@@ -261,6 +277,21 @@ describe('ManagementLogDetailDrawer', () => {
       hostHeight: 900,
     })
     expect(readWindowPosition(reopenedCurrent.wrapper)).toEqual(currentPosition)
+  })
+
+  it('switches request links with the log scope', async () => {
+    const current = await mountFloatingDrawer({
+      memoryKey: 'logs-current',
+      scope: 'current_session',
+    })
+    expect(current.wrapper.text()).toContain('相关实时日志')
+    current.wrapper.unmount()
+
+    const history = await mountFloatingDrawer({
+      memoryKey: 'logs-history',
+      scope: 'history',
+    })
+    expect(history.wrapper.text()).toContain('相关历史日志')
   })
 
   it('updates the content in place when a different log is selected', async () => {

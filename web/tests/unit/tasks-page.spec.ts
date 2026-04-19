@@ -14,6 +14,19 @@ vi.mock('@/lib/http', async (importOriginal) => ({
 }))
 
 describe('TasksPage', () => {
+  function createTasksRouter() {
+    return createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/tasks', name: 'tasks', component: TasksPage },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+        { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
+        { path: '/logs/history', name: 'logs-history', component: { template: '<div>logs-history</div>' } },
+        { path: '/render/templates/:templateId?', name: 'render-templates', component: { template: '<div>template</div>' } },
+      ],
+    })
+  }
+
   beforeEach(() => {
     setActivePinia(createPinia())
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -32,10 +45,7 @@ describe('TasksPage', () => {
   })
 
   it('loads task detail from the route query', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/tasks', component: TasksPage }],
-    })
+    const router = createTasksRouter()
     await router.push('/tasks?task_id=task_plugin_install_0001')
     await router.isReady()
 
@@ -61,10 +71,7 @@ describe('TasksPage', () => {
   })
 
   it('renders render preview task results including the preview image', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/tasks', component: TasksPage }],
-    })
+    const router = createTasksRouter()
     await router.push('/tasks?task_id=task_render_preview_0001')
     await router.isReady()
 
@@ -112,13 +119,19 @@ describe('TasksPage', () => {
     const image = wrapper.find('img[alt="图片预览结果"]')
     expect(image.exists()).toBe(true)
     expect(image.attributes('src')).toBe('blob:task-preview')
+    expect(wrapper.text()).toContain('打开模板编辑')
+
+    const templateButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('打开模板编辑'))
+    expect(templateButton).toBeTruthy()
+    await templateButton!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('render-templates')
+    expect(router.currentRoute.value.params.templateId).toBe('help.menu')
   })
 
   it('does not create a new preview blob url after the page unmounts', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/tasks', component: TasksPage }],
-    })
+    const router = createTasksRouter()
     await router.push('/tasks?task_id=task_render_preview_0002')
     await router.isReady()
 
@@ -168,13 +181,7 @@ describe('TasksPage', () => {
   })
 
   it('renders recovery summaries in task detail without dumping the raw recovery_summary payload', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/tasks', component: TasksPage },
-        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
-      ],
-    })
+    const router = createTasksRouter()
     await router.push('/tasks?task_id=task_recovery_confirm_0001')
     await router.isReady()
 
@@ -289,10 +296,7 @@ describe('TasksPage', () => {
   })
 
   it('renders the task list inside a compact desktop table', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/tasks', component: TasksPage }],
-    })
+    const router = createTasksRouter()
     await router.push('/tasks')
     await router.isReady()
 
@@ -327,10 +331,7 @@ describe('TasksPage', () => {
   })
 
   it('renders a compact empty state instead of an empty table header', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/tasks', component: TasksPage }],
-    })
+    const router = createTasksRouter()
     await router.push('/tasks')
     await router.isReady()
 

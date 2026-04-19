@@ -105,7 +105,9 @@ describe('ProtocolsPage', () => {
     return createRouter({
       history: createMemoryHistory(),
       routes: [
-        { path: '/protocols', component: ProtocolsPage },
+        { path: '/protocols', name: 'protocols', component: ProtocolsPage },
+        { path: '/protocols/compatibility', name: 'protocols-compatibility', component: { template: '<div>compatibility</div>' } },
+        { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
       ],
     })
   }
@@ -163,7 +165,17 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('adapter.transport_forward_ws_connection_failed')
     expect(wrapper.text()).toContain('OneBot 主动连接鉴权失败，请检查访问令牌。')
     expect(wrapper.text()).toContain('连接设置')
+    expect(wrapper.text()).toContain('兼容矩阵')
+    expect(wrapper.text()).toContain('相关日志')
     expect(wrapper.text()).not.toContain('查看协议日志')
+
+    const protocolLogsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('相关日志'))
+    expect(protocolLogsButton).toBeTruthy()
+    await protocolLogsButton!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('logs')
+    expect(router.currentRoute.value.query.protocol).toBe('onebot11')
   })
 
   it('hides the transport issue section after the issue list is cleared', async () => {

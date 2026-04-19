@@ -47,13 +47,13 @@ describe('BasicLayout', () => {
                   path: '/commands',
                   name: 'commands',
                   component: { template: '<div>指令中心页</div>' },
-                  meta: { icon: 'commands', keepAlive: true, title: '指令中心' },
+                  meta: { icon: 'commands', keepAlive: true, title: '指令中心', viewKey: 'commands' },
                 },
                 {
                   path: '/tasks',
                   name: 'tasks',
                   component: { template: '<div>任务页</div>' },
-                  meta: { icon: 'tasks', keepAlive: true, title: '任务' },
+                  meta: { icon: 'tasks', keepAlive: true, title: '任务', viewKey: 'tasks' },
                 },
               ],
             },
@@ -67,13 +67,13 @@ describe('BasicLayout', () => {
                   path: '/logs',
                   name: 'logs',
                   component: { template: '<div>实时日志页</div>' },
-                  meta: { icon: 'logs', keepAlive: true, title: '实时日志' },
+                  meta: { icon: 'logs', keepAlive: true, title: '实时日志', viewKey: 'logs' },
                 },
                 {
                   path: '/logs/history',
                   name: 'logs-history',
                   component: { template: '<div>历史日志页</div>' },
-                  meta: { icon: 'history-logs', keepAlive: true, title: '历史日志' },
+                  meta: { icon: 'history-logs', keepAlive: true, title: '历史日志', viewKey: 'logs-history' },
                 },
               ],
             },
@@ -343,6 +343,31 @@ describe('BasicLayout', () => {
     expect(current.classes()).toContain('admin-layout__breadcrumb-current')
     expect(currentText.text()).toBe('任务')
     expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
+  })
+
+  it('keeps a single workspace tab when only query state changes', async () => {
+    const { router, uiShellStore } = await mountShell('/commands')
+
+    await router.push('/commands?plugin_id=weather')
+    await flushPromises()
+    await router.push('/commands?plugin_id=help')
+    await flushPromises()
+    expect(uiShellStore.tabs.filter((item) => item.name === 'commands')).toHaveLength(1)
+    expect(getActiveTabLabel()).toBe('指令中心')
+
+    await router.push('/logs?protocol=onebot11')
+    await flushPromises()
+    await router.push('/logs?protocol=onebot11&request_id=req_1&log_id=log_1')
+    await flushPromises()
+    expect(uiShellStore.tabs.filter((item) => item.name === 'logs')).toHaveLength(1)
+    expect(getActiveTabLabel()).toBe('实时日志')
+
+    await router.push('/tasks?task_id=task_render_preview_0001')
+    await flushPromises()
+    await router.push('/tasks?task_id=task_render_preview_0002')
+    await flushPromises()
+    expect(uiShellStore.tabs.filter((item) => item.name === 'tasks')).toHaveLength(1)
+    expect(getActiveTabLabel()).toBe('任务')
   })
 
   it('creates a closable detail tab for plugin pages', async () => {

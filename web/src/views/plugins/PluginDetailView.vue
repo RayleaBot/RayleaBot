@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
+import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -20,6 +21,7 @@ import {
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { ApiError } from '@/lib/http'
+import { buildPluginWorkbenchActions, buildTaskLocation } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -96,6 +98,7 @@ const permissionDialogOkText = computed(() => (
     ? t('plugins.actions.reconfirmSelected')
     : t('plugins.actions.grantSelected')
 ))
+const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
 
 async function loadDetail() {
   const requestedPluginId = pluginId.value
@@ -248,7 +251,7 @@ async function uninstallPlugin() {
     const response = await pluginsStore.uninstallPlugin(pluginId.value)
     uninstallDialogVisible.value = false
     notifySuccess(t('plugins.uninstallAccepted'))
-    await router.push({ name: 'tasks', query: { task_id: response.task_id } })
+    await router.push(buildTaskLocation(response.task_id))
   } catch (error) {
     operationError.value = getDisplayErrorMessage(error)
   }
@@ -388,6 +391,7 @@ async function scrollConsoleToBottom() {
         <template #title>
           <div class="card-header">
             <span>{{ t('plugins.sections.current') }}</span>
+            <ManagementContextActions :actions="pluginWorkbenchActions" />
           </div>
         </template>
 

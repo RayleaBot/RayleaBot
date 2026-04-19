@@ -11,15 +11,24 @@ import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 
 describe('PluginDetailPage', () => {
+  function createPluginRouter() {
+    return createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/plugins/:id', name: 'plugin-detail', component: PluginDetailPage },
+        { path: '/commands', name: 'commands', component: { template: '<div>commands</div>' } },
+        { path: '/logs/history', name: 'logs-history', component: { template: '<div>logs-history</div>' } },
+        { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
+      ],
+    })
+  }
+
   beforeEach(() => {
     setActivePinia(createPinia())
   })
 
   it('renders grants and reconnects the console stream', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/plugins/:id', component: PluginDetailPage }],
-    })
+    const router = createPluginRouter()
     await router.push('/plugins/weather')
     await router.isReady()
 
@@ -174,6 +183,8 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('plugin weather command weather delivered group message: 杭州晴')
     expect(wrapper.text()).toContain('outbound')
     expect(wrapper.text()).toContain('info')
+    expect(wrapper.text()).toContain('当前插件指令')
+    expect(wrapper.text()).toContain('当前插件日志')
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
@@ -192,10 +203,7 @@ describe('PluginDetailPage', () => {
   })
 
   it('reconfirms persisted grants when enabling requires scope review', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/plugins/:id', component: PluginDetailPage }],
-    })
+    const router = createPluginRouter()
     await router.push('/plugins/weather')
     await router.isReady()
 
@@ -309,10 +317,7 @@ describe('PluginDetailPage', () => {
   })
 
   it('escapes unsafe control characters in console output', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/plugins/:id', component: PluginDetailPage }],
-    })
+    const router = createPluginRouter()
     await router.push('/plugins/weather')
     await router.isReady()
 
@@ -372,10 +377,7 @@ describe('PluginDetailPage', () => {
   })
 
   it('keeps the console socket closed when an old detail request resolves after unmount', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/plugins/:id', component: PluginDetailPage }],
-    })
+    const router = createPluginRouter()
     await router.push('/plugins/weather')
     await router.isReady()
 

@@ -65,6 +65,7 @@ export const adminRoutes: RouteRecordRaw[] = [
               keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.commands',
+              viewKey: 'commands',
             },
           },
           {
@@ -76,6 +77,7 @@ export const adminRoutes: RouteRecordRaw[] = [
               keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.tasks',
+              viewKey: 'tasks',
             },
           },
         ],
@@ -101,6 +103,7 @@ export const adminRoutes: RouteRecordRaw[] = [
               keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.logs',
+              viewKey: 'logs',
             },
           },
           {
@@ -112,6 +115,7 @@ export const adminRoutes: RouteRecordRaw[] = [
               keepAlive: true,
               requiresAuth: true,
               titleKey: 'routes.logsHistory',
+              viewKey: 'logs-history',
             },
           },
         ],

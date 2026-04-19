@@ -37,16 +37,27 @@ function mockDashboardRefreshes() {
   return { protocolsStore, systemStore, tasksStore }
 }
 
+function createDashboardRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'status', component: DashboardPage },
+      { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
+      { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
+      { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
+      { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+      { path: '/render/templates/:templateId?', name: 'render-templates', component: { template: '<div>template</div>' } },
+    ],
+  })
+}
+
 describe('DashboardPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
 
   it('renders a compact status page with overview cards, tabs, and bottom workbench cards', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: DashboardPage }],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -99,10 +110,7 @@ describe('DashboardPage', () => {
   })
 
   it('submits render preview requests from the tools section', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: DashboardPage }],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -143,13 +151,7 @@ describe('DashboardPage', () => {
   })
 
   it('shows a protocol reminder when the protocol snapshot is degraded with transport issues', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/', component: DashboardPage },
-        { path: '/protocols', component: { template: '<div>protocols</div>' } },
-      ],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -187,13 +189,19 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('OneBot 主动连接已断开，正在重试。')
     expect(wrapper.text()).toContain('adapter.transport_forward_ws_session_lost')
     expect(wrapper.text()).toContain('查看协议中心')
+    expect(wrapper.text()).toContain('相关日志')
+
+    const protocolLogsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('相关日志'))
+    expect(protocolLogsButton).toBeTruthy()
+    await protocolLogsButton!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('logs')
+    expect(router.currentRoute.value.query.protocol).toBe('onebot11')
   })
 
   it('renders readiness issues instead of legacy checks', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: DashboardPage }],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -236,10 +244,7 @@ describe('DashboardPage', () => {
   })
 
   it('shows degraded readiness without the old explanatory note', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: DashboardPage }],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -283,10 +288,7 @@ describe('DashboardPage', () => {
   })
 
   it('deduplicates readiness issue codes already represented by issue cards', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: DashboardPage }],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -334,14 +336,7 @@ describe('DashboardPage', () => {
   })
 
   it('renders recovery summary as a dedicated dashboard block', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/', component: DashboardPage },
-        { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
-        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
-      ],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -471,14 +466,7 @@ describe('DashboardPage', () => {
   })
 
   it('submits recovery confirm, recovery recheck, and runtime bootstrap tasks from the recovery block', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/', component: DashboardPage },
-        { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
-        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
-      ],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 
@@ -585,13 +573,7 @@ describe('DashboardPage', () => {
   })
 
   it('opens the existing task instead of submitting duplicate recovery work', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
-        { path: '/', component: DashboardPage },
-        { path: '/tasks', name: 'tasks', component: { template: '<div>tasks</div>' } },
-      ],
-    })
+    const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
 

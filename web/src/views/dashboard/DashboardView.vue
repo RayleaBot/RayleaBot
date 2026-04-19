@@ -12,10 +12,12 @@ import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
 import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
 import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
 import DashboardToolsPanel from '@/components/DashboardToolsPanel.vue'
+import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getReadinessStatusLabel, getStatusType } from '@/lib/display'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
+import { buildDashboardEventActions, buildDashboardProtocolActions } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 
@@ -138,6 +140,7 @@ const protocolIssueExtraCount = computed(() => {
   const count = protocolSnapshot.value?.recent_transport_issues.length ?? 0
   return count > 0 ? count - 1 : 0
 })
+const protocolAlertActions = computed(() => buildDashboardProtocolActions(protocolSnapshot.value))
 
 function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) {
   if (status === 'danger') return 'error'
@@ -232,6 +235,10 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
                   <div class="events-timeline__time" :data-absolute="event.timestamp">
                     {{ formatRelativeTime(event.timestamp) }}
                   </div>
+                  <ManagementContextActions
+                    :actions="buildDashboardEventActions(event.payload)"
+                    class="events-timeline__actions"
+                  />
                 </div>
               </a-timeline-item>
             </a-timeline>
@@ -344,9 +351,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
             </div>
             <div class="dashboard-protocol-alert__actions">
               <a-tag :color="getProtocolIssueTagColor(protocolIssueStatusType)">{{ protocolIssueStatusLabel }}</a-tag>
-              <RouterLink class="dashboard-protocol-alert__link" to="/protocols">
-                {{ t('dashboard.openProtocols') }}
-              </RouterLink>
+              <ManagementContextActions :actions="protocolAlertActions" />
             </div>
           </div>
 
@@ -491,12 +496,6 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   justify-content: flex-end;
 }
 
-.dashboard-protocol-alert__link {
-  color: var(--primary);
-  font-size: 0.86rem;
-  font-weight: 600;
-}
-
 .dashboard-protocol-alert__meta {
   display: flex;
   align-items: center;
@@ -554,10 +553,8 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 }
 
 .events-timeline__item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  display: grid;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -572,6 +569,10 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   color: var(--muted);
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.events-timeline__actions {
+  margin-top: 2px;
 }
 
 .issues-list {

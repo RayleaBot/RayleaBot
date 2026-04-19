@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifySuccess } from '@/adapter/feedback'
+import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -15,6 +16,7 @@ import {
 } from '@/lib/config-form'
 import { getAdapterStateLabel, getReadinessStatusLabel, getStatusType } from '@/lib/display'
 import { fromMultilineList, toMultilineList } from '@/lib/format'
+import { buildProtocolWorkbenchActions } from '@/lib/management-links'
 import { ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -102,6 +104,7 @@ const transportStatusItems = computed(() => (
   })) ?? []
 ))
 const transportIssues = computed(() => snapshot.value?.recent_transport_issues ?? [])
+const protocolWorkbenchActions = computed(() => buildProtocolWorkbenchActions(snapshot.value))
 
 function getIssueTagColor(severity?: string) {
   if (severity === 'error') return 'error'
@@ -197,7 +200,10 @@ async function save() {
         <a-card :bordered="false" class="protocol-overview-card">
           <div class="protocol-overview-card__top">
             <span class="overview-label">{{ t('protocols.overviewTitle') }}</span>
-            <a-tag color="blue">{{ ONEBOT11_PROTOCOL_NAME }}</a-tag>
+            <div class="table-actions">
+              <a-tag color="blue">{{ ONEBOT11_PROTOCOL_NAME }}</a-tag>
+              <ManagementContextActions :actions="protocolWorkbenchActions" />
+            </div>
           </div>
           <div class="protocol-overview-card__value-row">
             <strong>{{ protocolStatusLabel }}</strong>

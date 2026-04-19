@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onMounted, ref } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRoute, useRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -8,11 +9,20 @@ import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
+import {
+  areLocationQueriesEqual,
+  buildLogsLocation,
+  readLogWorkspaceState,
+} from '@/lib/management-links'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
-import { useLogHistoryStore } from '@/stores/log-history'
+import { toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
+import type { LogFilters } from '@/stores/log-state'
+import type { LogSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 
+const route = useRoute()
+const router = useRouter()
 const historyStore = useLogHistoryStore()
 const detailController = useLogDetailController()
 const {
@@ -28,6 +38,7 @@ const viewportRef = ref<{
   scrollToBottom: () => void
 } | null>(null)
 const autoFollowBottom = ref(false)
+const routeSyncing = ref(false)
 
 const {
   error,
@@ -47,10 +58,108 @@ const levelOptions = computed(() => ([
   { label: t('display.logLevels.error'), value: 'error' },
 ]))
 
+function sameLogFilters(left: LogFilters, right: LogFilters) {
+  return (left.level ?? '') === (right.level ?? '')
+    && (left.source ?? '') === (right.source ?? '')
+    && (left.protocol ?? '') === (right.protocol ?? '')
+    && (left.pluginId ?? '') === (right.pluginId ?? '')
+    && (left.requestId ?? '') === (right.requestId ?? '')
+}
+
+function toLocalInput(value: string) {
+  if (!value) {
+    return ''
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  return toLocalDateTimeInput(parsed)
+}
+
+async function replaceRouteState(nextLogId: string | null = selectedLogId.value) {
+  const timeRange = historyStore.currentUtcRange()
+  const target = buildLogsLocation({
+    history: true,
+    filters: filters.value,
+    logId: nextLogId,
+    startAt: timeRange.startAt ?? '',
+    endAt: timeRange.endAt ?? '',
+  })
+
+  if (areLocationQueriesEqual(route.query, target.query ?? {})) {
+    return
+  }
+
+  routeSyncing.value = true
+  try {
+    await router.replace(target)
+  } finally {
+    routeSyncing.value = false
+  }
+}
+
+async function syncFromRoute() {
+  if (route.name !== 'logs-history') {
+    return
+  }
+
+  const routeState = readLogWorkspaceState(route.query, { history: true })
+  const filtersChanged = !sameLogFilters(filters.value, routeState.filters)
+  const nextStartLocal = toLocalInput(routeState.startAt)
+  const nextEndLocal = toLocalInput(routeState.endAt)
+  const hasExplicitTimeRange = Boolean(routeState.startAt && routeState.endAt)
+  const timeRangeChanged = timeRangeInput.value.startLocal !== nextStartLocal
+    || timeRangeInput.value.endLocal !== nextEndLocal
+
+  if (filtersChanged) {
+    filters.value = { ...routeState.filters }
+  }
+
+  if (hasExplicitTimeRange) {
+    if (timeRangeChanged) {
+      timeRangeInput.value = {
+        startLocal: nextStartLocal,
+        endLocal: nextEndLocal,
+      }
+    }
+    if (filtersChanged || timeRangeChanged || !initialized.value) {
+      await historyStore.applyFilters()
+    }
+  } else if (filtersChanged || !initialized.value) {
+    historyStore.resetTimeRangeToDefault()
+    await historyStore.refreshAnchor()
+    await replaceRouteState(routeState.logId)
+  }
+
+  if (routeState.logId) {
+    const targetSummary = items.value.find((item) => item.log_id === routeState.logId) ?? null
+    if (targetSummary && selectedLogId.value !== routeState.logId) {
+      await detailController.openDetail(targetSummary)
+    }
+    return
+  }
+
+  if (detailOpen.value) {
+    detailController.closeDetail()
+  }
+}
+
+async function activatePage() {
+  try {
+    await syncFromRoute()
+  } catch {
+    // store error drives the page
+  }
+}
+
 async function refreshHistory() {
   autoFollowBottom.value = true
   try {
     await historyStore.refreshAnchor()
+    await replaceRouteState()
     await nextTick()
     viewportRef.value?.scrollToBottom()
   } catch {
@@ -65,6 +174,7 @@ async function applyFilters() {
   autoFollowBottom.value = true
   try {
     await historyStore.applyFilters()
+    await replaceRouteState(null)
     await nextTick()
     viewportRef.value?.scrollToBottom()
   } catch {
@@ -104,12 +214,33 @@ function getLevelColor(level: string) {
   return 'default'
 }
 
+async function openLogDetail(item: LogSummary) {
+  await detailController.openDetail(item)
+  await replaceRouteState(item.log_id)
+}
+
+async function closeLogDetail() {
+  detailController.closeDetail()
+  await replaceRouteState(null)
+}
+
+watch(
+  () => route.query,
+  () => {
+    if (routeSyncing.value || route.name !== 'logs-history') {
+      return
+    }
+
+    void syncFromRoute()
+  },
+)
+
 onMounted(() => {
-  void refreshHistory()
+  void activatePage()
 })
 
 onActivated(() => {
-  void refreshHistory()
+  void activatePage()
 })
 </script>
 
@@ -202,12 +333,12 @@ onActivated(() => {
           @reach-top="loadOlder"
         >
           <template #default="{ item }">
-            <button
-              type="button"
-              class="logs-row"
-              :class="{ 'is-selected': selectedLogId === item.log_id }"
-              @click="detailController.openDetail(item)"
-            >
+              <button
+                type="button"
+                class="logs-row"
+                :class="{ 'is-selected': selectedLogId === item.log_id }"
+                @click="openLogDetail(item)"
+              >
               <div class="logs-row__meta">
                 <div class="logs-row__time">{{ formatDateTime(item.timestamp) }}</div>
                 <div class="logs-row__source">
@@ -238,8 +369,9 @@ onActivated(() => {
         :summary="selectedSummary"
         :detail="currentDetail"
         memory-key="logs-history"
+        scope="history"
         :host-element="logsLayoutRef"
-        @close="detailController.closeDetail"
+        @close="closeLogDetail"
       />
     </section>
   </AppPage>

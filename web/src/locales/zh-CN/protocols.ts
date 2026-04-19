@@ -28,6 +28,10 @@ export const protocols = {
   save: '保存协议设置',
   fixedProtocolLabel: '当前正式支持协议',
   openSettings: '查看连接设置',
+  actions: {
+    openCompatibility: '兼容矩阵',
+    openFilteredLogs: '相关日志',
+  },
   fields: {
     protocol: '协议',
     transport: '传输',

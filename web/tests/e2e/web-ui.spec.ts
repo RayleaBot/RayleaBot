@@ -1264,6 +1264,53 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await expect(page.locator('.log-detail-card__content--json')).toContainText('api response echo must be a non-empty string')
 })
 
+test('management links connect protocol, logs, plugin, commands, and template workspaces', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/logs?protocol=onebot11')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+
+  const protocolLog = page.locator('.logs-row').filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()
+  await protocolLog.click()
+  await expect(logDetailWindow(page)).toBeVisible()
+
+  await logDetailWindow(page).getByRole('button', { name: '查看协议' }).click()
+  await expect.poll(() => page.url()).toContain('/protocols')
+  await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
+
+  await page.getByRole('button', { name: '兼容矩阵' }).click()
+  await expect.poll(() => page.url()).toContain('/protocols/compatibility')
+  await expect(page.getByRole('heading', { name: '协议兼容矩阵', level: 1 })).toBeVisible()
+
+  await page.goto('/protocols')
+  await page.getByRole('button', { name: '相关日志' }).click()
+  await expect.poll(() => page.url()).toContain('/logs')
+  await expect(page.url()).toContain('protocol=onebot11')
+
+  await page.goto('/logs?plugin_id=weather')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.locator('.logs-row').filter({ hasText: 'plugin runtime stderr truncated' }).first().click()
+  await expect(logDetailWindow(page)).toBeVisible()
+  await logDetailWindow(page).getByRole('button', { name: '查看插件' }).click()
+  await expect.poll(() => page.url()).toContain('/plugins/weather')
+  await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
+
+  await page.getByRole('button', { name: '当前插件指令' }).click()
+  await expect.poll(() => page.url()).toContain('/commands')
+  await expect(page.url()).toContain('plugin_id=weather')
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expect(page.locator('.commands-section-card').filter({ hasText: '全部声明命令' })).toContainText('weather')
+  await expect((await readTabLabels(page)).filter((label) => label === '指令中心')).toHaveLength(1)
+
+  await page.goto('/tasks?task_id=task_render_preview_0001')
+  await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: '打开模板编辑' }).click()
+  await expect.poll(() => page.url()).toContain('/render/templates/help.menu')
+  await expect(page.getByRole('heading', { name: '模板编辑', level: 1 })).toBeVisible()
+  await expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
+})
+
 test('logs page filters both history and live log appends', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)

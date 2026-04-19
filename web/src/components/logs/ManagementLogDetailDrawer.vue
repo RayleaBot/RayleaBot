@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { t } from '@/i18n'
+import type { LogScope } from '@/stores/log-state'
 import type { LogDetailResponse, LogSummary } from '@/types/api'
 
 import ManagementLogDetailContent from './ManagementLogDetailContent.vue'
@@ -34,6 +35,7 @@ const props = defineProps<{
   error: string | null
   summary: LogSummary | null
   detail: LogDetailResponse | null
+  scope: LogScope
   memoryKey: string
   hostElement?: HTMLElement | null
 }>()
@@ -487,6 +489,7 @@ onBeforeUnmount(() => {
       :error="error"
       :summary="summary"
       :detail="detail"
+      :scope="scope"
     />
   </a-drawer>
 
@@ -553,6 +556,7 @@ onBeforeUnmount(() => {
               :error="error"
               :summary="summary"
               :detail="detail"
+              :scope="scope"
             />
           </div>
         </Transition>

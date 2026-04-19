@@ -60,4 +60,9 @@ export const dashboard = {
   protocolAlertTitle: '协议提醒',
   openProtocols: '查看协议中心',
   protocolIssueMore: '还有 {count} 条传输异常',
+  actions: {
+    openPlugin: '查看插件',
+    openProtocols: '查看协议中心',
+    openProtocolLogs: '相关日志',
+  },
 } as const

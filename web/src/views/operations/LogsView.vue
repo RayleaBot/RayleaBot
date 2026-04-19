@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { DownOutlined } from '@ant-design/icons-vue'
-import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRoute, useRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -9,11 +10,20 @@ import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
+import {
+  areLocationQueriesEqual,
+  buildLogsLocation,
+  readLogWorkspaceState,
+} from '@/lib/management-links'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useLogsStore } from '@/stores/logs'
+import type { LogFilters } from '@/stores/log-state'
+import type { LogSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 
+const route = useRoute()
+const router = useRouter()
 const logsStore = useLogsStore()
 const detailController = useLogDetailController()
 const {
@@ -28,6 +38,7 @@ const logsLayoutRef = ref<HTMLElement | null>(null)
 const viewportRef = ref<{
   scrollToBottom: () => void
 } | null>(null)
+const routeSyncing = ref(false)
 
 const {
   atBottom,
@@ -50,10 +61,67 @@ const levelOptions = computed(() => ([
 
 const followBottom = computed(() => atBottom.value)
 
+function sameLogFilters(left: LogFilters, right: LogFilters) {
+  return (left.level ?? '') === (right.level ?? '')
+    && (left.source ?? '') === (right.source ?? '')
+    && (left.protocol ?? '') === (right.protocol ?? '')
+    && (left.pluginId ?? '') === (right.pluginId ?? '')
+    && (left.requestId ?? '') === (right.requestId ?? '')
+}
+
+async function replaceRouteState(nextLogId: string | null = selectedLogId.value) {
+  const target = buildLogsLocation({
+    filters: filters.value,
+    logId: nextLogId,
+  })
+
+  if (areLocationQueriesEqual(route.query, target.query ?? {})) {
+    return
+  }
+
+  routeSyncing.value = true
+  try {
+    await router.replace(target)
+  } finally {
+    routeSyncing.value = false
+  }
+}
+
+async function syncFromRoute() {
+  if (route.name !== 'logs') {
+    return
+  }
+
+  const routeState = readLogWorkspaceState(route.query)
+  const filtersChanged = !sameLogFilters(filters.value, routeState.filters)
+
+  if (filtersChanged) {
+    filters.value = { ...routeState.filters }
+  }
+
+  if (filtersChanged) {
+    await logsStore.applyFilters()
+  } else {
+    await logsStore.ensureLoaded()
+  }
+
+  if (routeState.logId) {
+    const targetSummary = items.value.find((item) => item.log_id === routeState.logId) ?? null
+    if (targetSummary && selectedLogId.value !== routeState.logId) {
+      await detailController.openDetail(targetSummary)
+    }
+    return
+  }
+
+  if (detailOpen.value) {
+    detailController.closeDetail()
+  }
+}
+
 async function activatePage() {
   logsStore.setViewportActive(true)
   try {
-    await logsStore.ensureLoaded()
+    await syncFromRoute()
     await nextTick()
     if (followBottom.value) {
       logsStore.acknowledgePendingNew()
@@ -67,6 +135,7 @@ async function activatePage() {
 async function refreshLatest() {
   try {
     await logsStore.refreshLatest()
+    await replaceRouteState()
     await nextTick()
     if (followBottom.value) {
       viewportRef.value?.scrollToBottom()
@@ -80,6 +149,7 @@ async function applyFilters() {
   try {
     logsStore.setViewportAtBottom(true)
     await logsStore.applyFilters()
+    await replaceRouteState(null)
     await nextTick()
     viewportRef.value?.scrollToBottom()
   } catch {
@@ -116,6 +186,27 @@ function getLevelColor(level: string) {
   if (level === 'info') return 'blue'
   return 'default'
 }
+
+async function openLogDetail(item: LogSummary) {
+  await detailController.openDetail(item)
+  await replaceRouteState(item.log_id)
+}
+
+async function closeLogDetail() {
+  detailController.closeDetail()
+  await replaceRouteState(null)
+}
+
+watch(
+  () => route.query,
+  () => {
+    if (routeSyncing.value || route.name !== 'logs') {
+      return
+    }
+
+    void syncFromRoute()
+  },
+)
 
 onMounted(() => {
   void activatePage()
@@ -223,7 +314,7 @@ onUnmounted(() => {
                 type="button"
                 class="logs-row"
                 :class="{ 'is-selected': selectedLogId === item.log_id }"
-                @click="detailController.openDetail(item)"
+                @click="openLogDetail(item)"
               >
                 <div class="logs-row__meta">
                   <div class="logs-row__time">{{ formatDateTime(item.timestamp) }}</div>
@@ -276,8 +367,9 @@ onUnmounted(() => {
         :summary="selectedSummary"
         :detail="currentDetail"
         memory-key="logs-current"
+        scope="current_session"
         :host-element="logsLayoutRef"
-        @close="detailController.closeDetail"
+        @close="closeLogDetail"
       />
     </section>
   </AppPage>

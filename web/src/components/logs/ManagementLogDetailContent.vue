@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
+import { buildLogContextActions } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
+import type { LogScope } from '@/stores/log-state'
 import type { LogDetailResponse, LogSummary } from '@/types/api'
 
 const props = defineProps<{
@@ -12,9 +15,13 @@ const props = defineProps<{
   error: string | null
   summary: LogSummary | null
   detail: LogDetailResponse | null
+  scope: LogScope
 }>()
 
 const detailJson = computed(() => safeJsonStringify(props.detail?.details ?? {}))
+const contextActions = computed(() => (
+  props.summary ? buildLogContextActions(props.summary, props.scope) : []
+))
 
 const summaryFields = computed(() => {
   if (!props.summary) {
@@ -81,6 +88,12 @@ const summaryFields = computed(() => {
         </div>
       </section>
 
+      <ManagementContextActions
+        v-if="contextActions.length"
+        :actions="contextActions"
+        class="log-detail-content__actions"
+      />
+
       <section class="log-detail-card">
         <header class="log-detail-card__header">
           <span>{{ t('logs.fields.message') }}</span>
@@ -107,6 +120,10 @@ const summaryFields = computed(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.log-detail-content__actions {
+  margin-top: 16px;
 }
 
 .log-detail-content__field {

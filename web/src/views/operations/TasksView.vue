@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RecoverySummaryDetails from '@/components/RecoverySummaryDetails.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -12,6 +13,7 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { getRecoveryStatusLabel, getTaskStatusLabel, getTaskTypeLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { apiDownload } from '@/lib/http'
+import { buildPluginDetailLocation, buildTaskContextActions, buildTaskLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import type { RecoveryCompatibilitySummary, TaskSummary } from '@/types/api'
 import { useTasksStore } from '@/stores/tasks'
@@ -47,7 +49,7 @@ async function inspect(taskId: string) {
   try {
     await tasksStore.fetchDetail(taskId)
     detailVisible.value = true
-    await router.replace({ name: 'tasks', query: { ...route.query, task_id: taskId } })
+    await router.replace(buildTaskLocation(taskId))
   } catch (error) {
     notifyError(getDisplayErrorMessage(error))
   }
@@ -73,14 +75,18 @@ watch(detailVisible, async (visible) => {
 
   resetPreviewImage()
   tasksStore.clearCurrentTask()
-  if (route.query.task_id) {
-    await router.replace({ name: 'tasks', query: { ...route.query, task_id: undefined } })
+  if (route.name === 'tasks' && route.query.task_id) {
+    await router.replace(buildTaskLocation(null))
   }
 })
 
 watch(
   () => route.query.task_id,
   async (taskId) => {
+    if (route.name !== 'tasks') {
+      return
+    }
+
     if (typeof taskId === 'string' && taskId) {
       await inspect(taskId)
     } else {
@@ -136,9 +142,12 @@ const taskRecoverySummary = computed<RecoveryCompatibilitySummary | null>(() => 
 })
 
 const taskRecoveryStatusLabel = computed(() => getRecoveryStatusLabel(taskRecoverySummary.value?.status))
+const currentTaskActions = computed(() => (
+  currentTask.value ? buildTaskContextActions(currentTask.value) : []
+))
 
 async function openRecoveryPlugin(pluginId: string) {
-  await router.push({ name: 'plugin-detail', params: { id: pluginId } })
+  await router.push(buildPluginDetailLocation(pluginId))
 }
 
 function resetPreviewImage() {
@@ -300,6 +309,13 @@ function getStatusColor(status: string) {
             <a-descriptions-item :label="t('tasks.fields.started')">{{ formatDateTime(currentTask.started_at) }}</a-descriptions-item>
             <a-descriptions-item :label="t('tasks.fields.finished')">{{ formatDateTime(currentTask.finished_at) }}</a-descriptions-item>
           </a-descriptions>
+
+          <div v-if="currentTaskActions.length" class="drawer-section">
+            <div class="card-header">
+              <span>{{ t('tasks.actions.related') }}</span>
+            </div>
+            <ManagementContextActions :actions="currentTaskActions" />
+          </div>
 
           <div v-if="currentTask.result" class="drawer-section">
             <div class="card-header">

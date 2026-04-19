@@ -2,6 +2,7 @@ import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { useLogHistoryStore } from '@/stores/log-history'
@@ -39,7 +40,23 @@ describe('LogsHistoryPage', () => {
     setActivePinia(createPinia())
   })
 
+  function createTestRouter() {
+    return createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/logs/history', name: 'logs-history', component: LogsHistoryPage },
+        { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+        { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
+      ],
+    })
+  }
+
   it('renders the history toolbar and refreshes to a new anchor on mount', async () => {
+    const router = createTestRouter()
+    await router.push('/logs/history')
+    await router.isReady()
+
     const store = useLogHistoryStore()
     store.items = [
       {
@@ -59,7 +76,7 @@ describe('LogsHistoryPage', () => {
     const wrapper = mount(LogsHistoryPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd],
+        plugins: [Antd, router],
       },
     })
 
@@ -77,6 +94,10 @@ describe('LogsHistoryPage', () => {
   })
 
   it('opens the shared detail window for a history row', async () => {
+    const router = createTestRouter()
+    await router.push('/logs/history?plugin_id=weather&protocol=onebot11&request_id=req_history_1&start_at=2026-04-01T00:00:00Z&end_at=2026-04-02T00:00:00Z')
+    await router.isReady()
+
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       log_id: 'log_history_0001',
       timestamp: '2026-04-02T00:53:16Z',
@@ -95,16 +116,20 @@ describe('LogsHistoryPage', () => {
         log_id: 'log_history_0001',
         timestamp: '2026-04-02T00:53:16Z',
         level: 'warn',
-        source: 'adapter',
+        source: 'adapter.onebot11',
+        protocol: 'onebot11',
+        plugin_id: 'weather',
+        request_id: 'req_history_1',
         message: 'history row',
       },
     ]
+    vi.spyOn(store, 'applyFilters').mockResolvedValue(store.items)
     vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
 
     const wrapper = mount(LogsHistoryPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd],
+        plugins: [Antd, router],
       },
     })
 
@@ -114,12 +139,20 @@ describe('LogsHistoryPage', () => {
     await flushPromises()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/logs/log_history_0001', expect.any(Object))
+    expect(router.currentRoute.value.query.log_id).toBe('log_history_0001')
     expect(wrapper.find('.log-detail-window').exists()).toBe(true)
     expect(wrapper.text()).toContain('日志详情')
     expect(wrapper.text()).toContain('详情 JSON')
+    expect(wrapper.text()).toContain('查看插件')
+    expect(wrapper.text()).toContain('查看协议')
+    expect(wrapper.text()).toContain('相关历史日志')
   })
 
   it('requests older history rows from the top and reuses the recent-day shortcut', async () => {
+    const router = createTestRouter()
+    await router.push('/logs/history')
+    await router.isReady()
+
     const store = useLogHistoryStore()
     store.items = [
       {
@@ -139,12 +172,13 @@ describe('LogsHistoryPage', () => {
     const wrapper = mount(LogsHistoryPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd],
+        plugins: [Antd, router],
       },
     })
 
     await flushPromises()
     loadOlderSpy.mockClear()
+    resetSpy.mockClear()
     wrapper.findComponent(VirtualDataViewport).vm.$emit('reach-top')
     await flushPromises()
 

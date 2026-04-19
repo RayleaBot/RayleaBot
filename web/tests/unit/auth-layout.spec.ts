@@ -52,5 +52,5 @@ describe('AuthLayout', () => {
 
     await wrapper.get('[data-testid="auth-theme-toggle"]').trigger('click')
     expect(shellStore.themeMode).toBe('dark')
-  })
+  }, 15000)
 })

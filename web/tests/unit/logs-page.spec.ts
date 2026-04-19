@@ -2,6 +2,7 @@ import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { useLogsStore } from '@/stores/logs'
@@ -39,7 +40,23 @@ describe('LogsPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders the current-session feed and opens the shared detail window', async () => {
+  function createTestRouter() {
+    return createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/logs', name: 'logs', component: LogsPage },
+        { path: '/logs/history', name: 'logs-history', component: { template: '<div>history</div>' } },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+        { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
+      ],
+    })
+  }
+
+  it('reads query filters and opens detail with related links', async () => {
+    const router = createTestRouter()
+    await router.push('/logs?plugin_id=weather&protocol=onebot11&request_id=req_1')
+    await router.isReady()
+
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       log_id: 'log_warn_0001',
       timestamp: '2026-04-02T00:53:16Z',
@@ -65,12 +82,13 @@ describe('LogsPage', () => {
         message: 'adapter reconnect scheduled',
       },
     ]
+    vi.spyOn(store, 'applyFilters').mockResolvedValue(store.items)
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
 
     const wrapper = mount(LogsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd],
+        plugins: [Antd, router],
       },
     })
 
@@ -82,15 +100,21 @@ describe('LogsPage', () => {
     expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
     expect(wrapper.findComponent(VirtualDataViewport).props('bottomThreshold')).toBe(0)
     expect(wrapper.findAll('.logs-row')).toHaveLength(1)
+    expect((wrapper.get('input[placeholder="例如 weather"]').element as HTMLInputElement).value).toBe('weather')
+    expect(router.currentRoute.value.query.request_id).toBe('req_1')
 
     await wrapper.get('.logs-row').trigger('click')
     await flushPromises()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/logs/log_warn_0001', expect.any(Object))
+    expect(router.currentRoute.value.query.log_id).toBe('log_warn_0001')
     expect(wrapper.find('.log-detail-window').exists()).toBe(true)
     expect(wrapper.text()).toContain('日志详情')
     expect(wrapper.text()).toContain('详情 JSON')
     expect(wrapper.text()).toContain('weather')
+    expect(wrapper.text()).toContain('查看插件')
+    expect(wrapper.text()).toContain('查看协议')
+    expect(wrapper.text()).toContain('相关实时日志')
   })
 
   it('shows pending live rows away from the bottom and jumps back to latest', async () => {
@@ -110,11 +134,14 @@ describe('LogsPage', () => {
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
     const acknowledgeSpy = vi.spyOn(store, 'acknowledgePendingNew')
     const bottomSpy = vi.spyOn(store, 'setViewportAtBottom')
+    const router = createTestRouter()
+    await router.push('/logs')
+    await router.isReady()
 
     const wrapper = mount(LogsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd],
+        plugins: [Antd, router],
       },
     })
 
@@ -147,11 +174,14 @@ describe('LogsPage', () => {
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
     const loadOlderSpy = vi.spyOn(store, 'loadOlder').mockResolvedValue(store.items)
     const activeSpy = vi.spyOn(store, 'setViewportActive')
+    const router = createTestRouter()
+    await router.push('/logs')
+    await router.isReady()
 
     const wrapper = mount(LogsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd],
+        plugins: [Antd, router],
       },
     })
 
