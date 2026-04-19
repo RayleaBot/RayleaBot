@@ -38,6 +38,21 @@ DIAGNOSTICS_REQUIRED_ENTRIES = {"system-status.json", "readiness.json", "doctor.
 STARTUP_READY_STATUSES = {"ready", "degraded", "setup_required"}
 MANAGED_READY_STATUSES = {"ready", "degraded"}
 NON_BLOCKING_RECOVERY_STATUSES = {"compatible", "degraded"}
+EXPECTED_PROTOCOL_TRANSPORTS = {"reverse_ws", "forward_ws", "http_api", "webhook"}
+EXPECTED_PROTOCOL_PROVIDERS = {"standard", "napcat", "luckylillia"}
+EXPECTED_PROTOCOL_READINESS_STATUSES = {"setup_required", "ready", "degraded", "failed"}
+EXPECTED_COMPATIBILITY_CATEGORIES = {"events", "message_segments", "read_capabilities", "provider_extensions"}
+EXPECTED_COMPATIBILITY_ITEMS = {
+    "notice.flash_file",
+    "flash_file",
+    "message.history.get",
+    "provider.napcat.group.sign.set",
+    "provider.luckylillia.friend_groups.get",
+}
+EXPECTED_COMPATIBILITY_SUPPORT_VALUES = {"supported", "unsupported"}
+DEFAULT_TEMPLATE_ID = "help.menu"
+DEFAULT_PREVIEW_THEME = "default"
+DEFAULT_PREVIEW_OUTPUT = "png"
 
 
 class SmokeError(RuntimeError):
@@ -133,6 +148,376 @@ def runtime_bootstrap_result_mode(result: dict[str, object]) -> str | None:
         if isinstance(attempted_sources, list) and len(attempted_sources) > 0:
             return "downloaded"
     return None
+
+
+def require_non_empty_string(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise SmokeError(f"{label} must be a non-empty string")
+    return value.strip()
+
+
+def validate_protocol_snapshot(snapshot: dict[str, object]) -> None:
+    if str(snapshot.get("protocol", "")) != "onebot11":
+        raise SmokeError(f"unexpected protocol snapshot payload: {snapshot}")
+    provider = require_non_empty_string(snapshot.get("provider"), "protocol snapshot provider")
+    if provider not in EXPECTED_PROTOCOL_PROVIDERS:
+        raise SmokeError(f"unexpected protocol snapshot provider: {snapshot}")
+    readiness_status = require_non_empty_string(snapshot.get("readiness_status"), "protocol snapshot readiness_status")
+    if readiness_status not in EXPECTED_PROTOCOL_READINESS_STATUSES:
+        raise SmokeError(f"unexpected protocol snapshot readiness_status: {snapshot}")
+    require_non_empty_string(snapshot.get("summary"), "protocol snapshot summary")
+
+    transport_status = snapshot.get("transport_status")
+    if not isinstance(transport_status, list):
+        raise SmokeError(f"protocol snapshot transport_status must be a list: {snapshot}")
+
+    observed: set[str] = set()
+    for item in transport_status:
+        if not isinstance(item, dict):
+            raise SmokeError(f"protocol snapshot transport_status item must be an object: {snapshot}")
+        transport = require_non_empty_string(item.get("transport"), "protocol snapshot transport")
+        observed.add(transport)
+        require_non_empty_string(item.get("state"), f"{transport} state")
+        require_non_empty_string(item.get("summary"), f"{transport} summary")
+        if not isinstance(item.get("enabled"), bool) or not isinstance(item.get("configured"), bool):
+            raise SmokeError(f"protocol snapshot transport flags must be boolean: {item}")
+    if observed != EXPECTED_PROTOCOL_TRANSPORTS:
+        raise SmokeError(f"protocol snapshot transport set mismatch: expected {sorted(EXPECTED_PROTOCOL_TRANSPORTS)} got {sorted(observed)}")
+
+    for key in ("configured_transports", "active_transports"):
+        transports = snapshot.get(key)
+        if not isinstance(transports, list):
+            raise SmokeError(f"protocol snapshot {key} must be a list: {snapshot}")
+        unknown = {str(item) for item in transports} - EXPECTED_PROTOCOL_TRANSPORTS
+        if unknown:
+            raise SmokeError(f"protocol snapshot {key} contains unknown transports: {sorted(unknown)}")
+
+
+def validate_protocol_compatibility(payload: dict[str, object]) -> None:
+    if str(payload.get("protocol", "")) != "onebot11":
+        raise SmokeError(f"unexpected protocol compatibility payload: {payload}")
+
+    categories = payload.get("categories")
+    if not isinstance(categories, list):
+        raise SmokeError(f"protocol compatibility categories must be a list: {payload}")
+
+    observed_categories: set[str] = set()
+    observed_items: set[str] = set()
+    for category in categories:
+        if not isinstance(category, dict):
+            raise SmokeError(f"protocol compatibility category must be an object: {payload}")
+        key = require_non_empty_string(category.get("key"), "protocol compatibility category key")
+        observed_categories.add(key)
+        require_non_empty_string(category.get("title"), f"protocol compatibility category {key} title")
+        items = category.get("items")
+        if not isinstance(items, list):
+            raise SmokeError(f"protocol compatibility category items must be a list: {category}")
+        for item in items:
+            if not isinstance(item, dict):
+                raise SmokeError(f"protocol compatibility item must be an object: {category}")
+            item_key = require_non_empty_string(item.get("key"), "protocol compatibility item key")
+            observed_items.add(item_key)
+            require_non_empty_string(item.get("label"), f"protocol compatibility item {item_key} label")
+            require_non_empty_string(item.get("summary"), f"protocol compatibility item {item_key} summary")
+            support = item.get("support")
+            if not isinstance(support, dict):
+                raise SmokeError(f"protocol compatibility support must be an object: {item}")
+            for provider_key in ("standard", "napcat", "luckylillia"):
+                value = require_non_empty_string(support.get(provider_key), f"{item_key} support {provider_key}")
+                if value not in EXPECTED_COMPATIBILITY_SUPPORT_VALUES:
+                    raise SmokeError(f"protocol compatibility support must stay within frozen values: {item}")
+
+    if observed_categories != EXPECTED_COMPATIBILITY_CATEGORIES:
+        raise SmokeError(
+            f"protocol compatibility category set mismatch: expected {sorted(EXPECTED_COMPATIBILITY_CATEGORIES)} got {sorted(observed_categories)}"
+        )
+    missing_items = sorted(EXPECTED_COMPATIBILITY_ITEMS - observed_items)
+    if missing_items:
+        raise SmokeError(f"protocol compatibility missing representative items: {missing_items}")
+
+
+def select_template_id(list_payload: dict[str, object]) -> str:
+    items = list_payload.get("items")
+    if not isinstance(items, list) or len(items) == 0:
+        raise SmokeError(f"render template list must contain items: {list_payload}")
+
+    selected = ""
+    available: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise SmokeError(f"render template list item must be an object: {list_payload}")
+        template_id = require_non_empty_string(item.get("id"), "render template id")
+        available.add(template_id)
+        require_non_empty_string(item.get("version"), f"render template {template_id} version")
+        require_non_empty_string(item.get("current_revision_id"), f"render template {template_id} current_revision_id")
+        updated_at = item.get("updated_at")
+        if updated_at is not None:
+            require_non_empty_string(updated_at, f"render template {template_id} updated_at")
+        if not isinstance(item.get("width"), int) or not isinstance(item.get("height"), int):
+            raise SmokeError(f"render template dimensions must be integers: {item}")
+        if not isinstance(item.get("has_input_schema"), bool):
+            raise SmokeError(f"render template has_input_schema must be boolean: {item}")
+        if template_id == DEFAULT_TEMPLATE_ID:
+            selected = template_id
+
+    if not selected:
+        raise SmokeError(f"render template list is missing required packaged template {DEFAULT_TEMPLATE_ID}: {sorted(available)}")
+    return selected
+
+
+def validate_render_template_source(payload: dict[str, object], template_id: str) -> str:
+    if str(payload.get("template_id", "")) != template_id:
+        raise SmokeError(f"unexpected render template source payload: {payload}")
+    revision_id = require_non_empty_string(payload.get("revision_id"), f"{template_id} revision_id")
+    source = payload.get("source")
+    if not isinstance(source, dict):
+        raise SmokeError(f"render template source must be an object: {payload}")
+    manifest = source.get("manifest_json")
+    if not isinstance(manifest, dict):
+        raise SmokeError(f"render template manifest_json must be an object: {payload}")
+    if str(manifest.get("id", "")) != template_id:
+        raise SmokeError(f"render template manifest id must match path template_id: {payload}")
+    require_non_empty_string(source.get("html"), f"{template_id} html")
+    require_non_empty_string(source.get("stylesheet"), f"{template_id} stylesheet")
+    return revision_id
+
+
+def validate_render_template_validation(payload: dict[str, object], template_id: str) -> None:
+    if payload.get("valid") is not True:
+        raise SmokeError(f"render template validation must succeed in packaged smoke: {payload}")
+    issues = payload.get("issues")
+    if not isinstance(issues, list):
+        raise SmokeError(f"render template validation issues must be a list: {payload}")
+    normalized_manifest = payload.get("normalized_manifest")
+    if not isinstance(normalized_manifest, dict):
+        raise SmokeError(f"render template validation must return normalized_manifest: {payload}")
+    if str(normalized_manifest.get("id", "")) != template_id:
+        raise SmokeError(f"render template validation manifest id mismatch: {payload}")
+
+
+def validate_render_template_detail(payload: dict[str, object], template_id: str, *, expected_kind: str | None = None) -> str:
+    template = payload.get("template")
+    if not isinstance(template, dict):
+        raise SmokeError(f"render template detail must contain template object: {payload}")
+    if str(template.get("id", "")) != template_id:
+        raise SmokeError(f"render template detail template_id mismatch: {payload}")
+    current_revision_id = require_non_empty_string(template.get("current_revision_id"), f"{template_id} current_revision_id")
+    current_revision = template.get("current_revision")
+    if not isinstance(current_revision, dict):
+        raise SmokeError(f"render template detail must contain current_revision: {payload}")
+    revision_id = require_non_empty_string(current_revision.get("revision_id"), f"{template_id} current_revision.revision_id")
+    if revision_id != current_revision_id:
+        raise SmokeError(f"render template detail current revision mismatch: {payload}")
+    revision_kind = require_non_empty_string(current_revision.get("kind"), f"{template_id} current_revision.kind")
+    if expected_kind is not None and revision_kind != expected_kind:
+        raise SmokeError(f"render template detail revision kind mismatch: expected {expected_kind} got {revision_kind}")
+    last_validation = template.get("last_validation")
+    if not isinstance(last_validation, dict):
+        raise SmokeError(f"render template detail must contain last_validation: {payload}")
+    if "valid" not in last_validation or "issue_count" not in last_validation:
+        raise SmokeError(f"render template detail last_validation missing required fields: {payload}")
+    return current_revision_id
+
+
+def validate_render_template_versions(
+    payload: dict[str, object],
+    *,
+    expected_top_revision_id: str | None = None,
+    expected_top_kind: str | None = None,
+) -> list[str]:
+    items = payload.get("items")
+    if not isinstance(items, list) or len(items) == 0:
+        raise SmokeError(f"render template versions must contain items: {payload}")
+
+    revision_ids: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise SmokeError(f"render template version item must be an object: {payload}")
+        revision_id = require_non_empty_string(item.get("revision_id"), "render template version revision_id")
+        revision_ids.append(revision_id)
+        require_non_empty_string(item.get("template_version"), f"{revision_id} template_version")
+        require_non_empty_string(item.get("saved_at"), f"{revision_id} saved_at")
+        kind = require_non_empty_string(item.get("kind"), f"{revision_id} kind")
+        if kind not in {"save", "rollback"}:
+            raise SmokeError(f"render template version kind must stay within frozen values: {item}")
+    if expected_top_revision_id is not None and revision_ids[0] != expected_top_revision_id:
+        raise SmokeError(f"render template versions top revision mismatch: expected {expected_top_revision_id} got {revision_ids[0]}")
+    if expected_top_kind is not None and str(items[0].get("kind", "")) != expected_top_kind:
+        raise SmokeError(f"render template versions top kind mismatch: expected {expected_top_kind} got {items[0]}")
+    return revision_ids
+
+
+def build_render_preview_request(template_id: str) -> dict[str, object]:
+    if template_id != DEFAULT_TEMPLATE_ID:
+        raise SmokeError(f"no packaged smoke preview payload configured for template {template_id}")
+    return {
+        "template": template_id,
+        "theme": DEFAULT_PREVIEW_THEME,
+        "output": DEFAULT_PREVIEW_OUTPUT,
+        "data": {
+            "title": "帮助菜单",
+            "subtitle": "自托管冒烟验证",
+            "items": [
+                {
+                    "name": "health",
+                    "description": "查看当前服务状态",
+                    "usage": "/health",
+                }
+            ],
+        },
+    }
+
+
+def validate_render_preview_details(details: dict[str, object], template_id: str) -> tuple[str, str]:
+    artifact_id = require_non_empty_string(details.get("artifact_id"), "render preview artifact_id")
+    image_url = require_non_empty_string(details.get("image_url"), "render preview image_url")
+    if str(details.get("template", "")) != template_id:
+        raise SmokeError(f"render preview result must point back to template {template_id}: {details}")
+    if str(details.get("theme", "")) != DEFAULT_PREVIEW_THEME:
+        raise SmokeError(f"render preview result theme mismatch: {details}")
+    if str(details.get("mime", "")) not in {"image/png", "image/jpeg"}:
+        raise SmokeError(f"render preview result mime must be an image: {details}")
+    require_non_empty_string(details.get("cache_key"), "render preview cache_key")
+    if not isinstance(details.get("from_cache"), bool):
+        raise SmokeError(f"render preview from_cache must be boolean: {details}")
+    return artifact_id, image_url
+
+
+def exercise_packaged_protocol_and_template_workflows(base_url: str, session_token: str) -> tuple[str, str]:
+    protocol_snapshot = request_json(f"{base_url}api/protocols/onebot11", headers=bearer_headers(session_token))
+    validate_protocol_snapshot(protocol_snapshot)
+
+    protocol_compatibility = request_json(
+        f"{base_url}api/protocols/onebot11/compatibility",
+        headers=bearer_headers(session_token),
+    )
+    validate_protocol_compatibility(protocol_compatibility)
+
+    template_list = request_json(f"{base_url}api/system/render/templates", headers=bearer_headers(session_token))
+    template_id = select_template_id(template_list)
+
+    source_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/source",
+        headers=bearer_headers(session_token),
+    )
+    base_revision_id = validate_render_template_source(source_body, template_id)
+    source_bundle = source_body["source"]
+    if not isinstance(source_bundle, dict):
+        raise SmokeError(f"render template source bundle must be an object: {source_body}")
+
+    validation_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/validate",
+        method="POST",
+        body={"source": source_bundle},
+        headers=bearer_headers(session_token),
+    )
+    validate_render_template_validation(validation_body, template_id)
+
+    preview_accepted = request_json(
+        f"{base_url}api/system/render/preview",
+        method="POST",
+        body=build_render_preview_request(template_id),
+        headers=bearer_headers(session_token),
+        expected_status=202,
+        timeout=15,
+    )
+    preview_task_id = extract_task_id(preview_accepted, "system/render/preview")
+    preview_task = poll_task(
+        base_url,
+        session_token,
+        preview_task_id,
+        expected_task_type="render.preview",
+        timeout_seconds=180,
+    )
+    preview_details = extract_task_details(preview_task, "render.preview")
+    _, image_url = validate_render_preview_details(preview_details, template_id)
+    artifact_bytes = request_bytes(
+        f"{base_url}{image_url.lstrip('/')}",
+        headers=bearer_headers(session_token),
+        timeout=30,
+    )
+    if not artifact_bytes:
+        raise SmokeError("render preview artifact response must not be empty")
+
+    updated_source = json.loads(json.dumps(source_bundle))
+    if not isinstance(updated_source, dict):
+        raise SmokeError("render template source bundle clone failed")
+    html = require_non_empty_string(updated_source.get("html"), f"{template_id} html")
+    updated_source["html"] = f"{html}\n<!-- self-host smoke save -->"
+
+    save_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/source",
+        method="PUT",
+        body={
+            "base_revision_id": base_revision_id,
+            "message": "Self-host smoke save",
+            "source": updated_source,
+        },
+        headers=bearer_headers(session_token),
+    )
+    save_revision_id = validate_render_template_detail(save_body, template_id, expected_kind="save")
+    if save_revision_id == base_revision_id:
+        raise SmokeError("render template save must create a new revision")
+
+    versions_after_save = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/versions",
+        headers=bearer_headers(session_token),
+    )
+    revision_ids_after_save = validate_render_template_versions(
+        versions_after_save,
+        expected_top_revision_id=save_revision_id,
+        expected_top_kind="save",
+    )
+    if base_revision_id not in revision_ids_after_save:
+        raise SmokeError(f"render template versions must retain base revision after save: {versions_after_save}")
+
+    rollback_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/rollback",
+        method="POST",
+        body={
+            "target_revision_id": base_revision_id,
+            "base_revision_id": save_revision_id,
+            "message": "Self-host smoke rollback",
+        },
+        headers=bearer_headers(session_token),
+    )
+    rollback_revision_id = validate_render_template_detail(rollback_body, template_id, expected_kind="rollback")
+    if rollback_revision_id in {base_revision_id, save_revision_id}:
+        raise SmokeError("render template rollback must create a distinct rollback revision")
+
+    versions_after_rollback = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/versions",
+        headers=bearer_headers(session_token),
+    )
+    revision_ids_after_rollback = validate_render_template_versions(
+        versions_after_rollback,
+        expected_top_revision_id=rollback_revision_id,
+        expected_top_kind="rollback",
+    )
+    if save_revision_id not in revision_ids_after_rollback or base_revision_id not in revision_ids_after_rollback:
+        raise SmokeError(f"render template versions must retain save and target revisions after rollback: {versions_after_rollback}")
+    return template_id, rollback_revision_id
+
+
+def verify_render_template_after_restart(base_url: str, session_token: str, template_id: str, expected_revision_id: str) -> None:
+    detail_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}",
+        headers=bearer_headers(session_token),
+    )
+    current_revision_id = validate_render_template_detail(detail_body, template_id)
+    if current_revision_id != expected_revision_id:
+        raise SmokeError(
+            f"render template current revision changed after restart: expected {expected_revision_id} got {current_revision_id}"
+        )
+    source_body = request_json(
+        f"{base_url}api/system/render/templates/{template_id}/source",
+        headers=bearer_headers(session_token),
+    )
+    source_revision_id = validate_render_template_source(source_body, template_id)
+    if source_revision_id != expected_revision_id:
+        raise SmokeError(
+            f"render template source revision changed after restart: expected {expected_revision_id} got {source_revision_id}"
+        )
 
 
 def create_runtime_bootstrap_task(base_url: str, session_token: str, resources: list[str] | None = None) -> str:
@@ -349,10 +734,10 @@ def poll_task(
         status = str(task.get("status", ""))
         if status == "succeeded":
             if not seen_in_list:
-                raise SmokeError(f"backup task {task_id} never appeared in /api/tasks")
+                raise SmokeError(f"task {task_id} never appeared in /api/tasks")
             return task_detail
         if status in {"failed", "cancelled", "interrupted"}:
-            raise SmokeError(f"backup task {task_id} ended in blocking state: {task_detail}")
+            raise SmokeError(f"task {task_id} ended in blocking state: {task_detail}")
         time.sleep(1)
     raise SmokeError(f"timed out waiting for task {task_id}")
 
@@ -460,6 +845,10 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
             bootstrap_admin(base_url)
             session_token = login(base_url)
             run_runtime_bootstrap_cycle(release_root, artifact_id, base_url, session_token)
+            template_id, expected_revision_id = exercise_packaged_protocol_and_template_workflows(
+                base_url,
+                session_token,
+            )
 
             previous_uptime: int | None = None
             stalled_polls = 0
@@ -500,6 +889,7 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
             wait_for_management_state(release_root, restarted, base_url, allowed_ready_statuses=MANAGED_READY_STATUSES)
             restart_session_token = login(base_url)
             validate_managed_status(base_url, restart_session_token, None, 0)
+            verify_render_template_after_restart(base_url, restart_session_token, template_id, expected_revision_id)
             run_diagnostics_export(base_url, restart_session_token)
         finally:
             if restarted.poll() is None:

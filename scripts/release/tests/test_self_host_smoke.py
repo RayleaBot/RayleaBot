@@ -192,6 +192,169 @@ class SelfHostSmokeTests(unittest.TestCase):
 
         self.assertEqual("setup_required", body["status"])
 
+    def test_validate_protocol_snapshot_requires_frozen_transport_matrix(self) -> None:
+        payload = {
+            "protocol": "onebot11",
+            "provider": "standard",
+            "configured_transports": ["forward_ws"],
+            "active_transports": [],
+            "transport_status": [
+                {"transport": "reverse_ws", "enabled": False, "configured": False, "endpoint": "", "state": "idle", "summary": "未启用"},
+                {"transport": "forward_ws", "enabled": True, "configured": True, "endpoint": "ws://127.0.0.1:8089", "state": "connecting", "summary": "正在主动连接"},
+                {"transport": "http_api", "enabled": False, "configured": False, "endpoint": "", "state": "idle", "summary": "未启用"},
+                {"transport": "webhook", "enabled": False, "configured": False, "endpoint": "", "state": "idle", "summary": "未启用"},
+            ],
+            "readiness_status": "setup_required",
+            "summary": "OneBot11 尚未配置连接",
+            "recent_transport_issues": [],
+        }
+
+        self_host_smoke.validate_protocol_snapshot(payload)
+
+        payload["transport_status"] = payload["transport_status"][:-1]
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.validate_protocol_snapshot(payload)
+
+    def test_validate_protocol_compatibility_requires_categories_and_representative_items(self) -> None:
+        payload = {
+            "protocol": "onebot11",
+            "categories": [
+                {
+                    "key": "events",
+                    "title": "核心事件",
+                    "items": [
+                        {
+                            "key": "notice.flash_file",
+                            "label": "闪传文件事件",
+                            "summary": "ok",
+                            "support": {"standard": "supported", "napcat": "supported", "luckylillia": "supported"},
+                        }
+                    ],
+                },
+                {
+                    "key": "message_segments",
+                    "title": "消息段",
+                    "items": [
+                        {
+                            "key": "flash_file",
+                            "label": "闪传文件",
+                            "summary": "ok",
+                            "support": {"standard": "supported", "napcat": "supported", "luckylillia": "supported"},
+                        }
+                    ],
+                },
+                {
+                    "key": "read_capabilities",
+                    "title": "读取能力",
+                    "items": [
+                        {
+                            "key": "message.history.get",
+                            "label": "读取历史消息",
+                            "summary": "ok",
+                            "support": {"standard": "supported", "napcat": "supported", "luckylillia": "supported"},
+                        }
+                    ],
+                },
+                {
+                    "key": "provider_extensions",
+                    "title": "Provider 扩展",
+                    "items": [
+                        {
+                            "key": "provider.napcat.group.sign.set",
+                            "label": "NapCat 群签到",
+                            "summary": "ok",
+                            "support": {"standard": "unsupported", "napcat": "supported", "luckylillia": "unsupported"},
+                        },
+                        {
+                            "key": "provider.luckylillia.friend_groups.get",
+                            "label": "LuckyLillia 好友分组",
+                            "summary": "ok",
+                            "support": {"standard": "unsupported", "napcat": "unsupported", "luckylillia": "supported"},
+                        },
+                    ],
+                },
+            ],
+        }
+
+        self_host_smoke.validate_protocol_compatibility(payload)
+
+        payload["categories"][3]["items"] = payload["categories"][3]["items"][:-1]
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.validate_protocol_compatibility(payload)
+
+    def test_select_template_id_requires_packaged_help_menu_template(self) -> None:
+        payload = {
+            "items": [
+                {
+                    "id": "help.menu",
+                    "version": "1",
+                    "width": 960,
+                    "height": 640,
+                    "has_input_schema": True,
+                    "current_revision_id": "rev_help_menu_0001",
+                    "updated_at": "2026-04-18T10:30:00Z",
+                }
+            ]
+        }
+
+        self.assertEqual("help.menu", self_host_smoke.select_template_id(payload))
+
+        payload["items"][0]["id"] = "status.panel"
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.select_template_id(payload)
+
+    def test_validate_render_preview_details_requires_artifact_fields(self) -> None:
+        details = {
+            "artifact_id": "render_preview_0001.png",
+            "image_url": "/api/system/render/artifacts/render_preview_0001.png",
+            "mime": "image/png",
+            "cache_key": "help.menu:v1:default:abc12345",
+            "template": "help.menu",
+            "theme": "default",
+            "from_cache": False,
+        }
+
+        artifact_id, image_url = self_host_smoke.validate_render_preview_details(details, "help.menu")
+
+        self.assertEqual("render_preview_0001.png", artifact_id)
+        self.assertEqual("/api/system/render/artifacts/render_preview_0001.png", image_url)
+
+        details["artifact_id"] = ""
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.validate_render_preview_details(details, "help.menu")
+
+    def test_validate_render_template_versions_checks_save_and_rollback_order(self) -> None:
+        payload = {
+            "items": [
+                {
+                    "revision_id": "rev_help_menu_0003",
+                    "template_version": "1",
+                    "saved_at": "2026-04-18T11:20:00Z",
+                    "kind": "rollback",
+                    "message": "rollback",
+                },
+                {
+                    "revision_id": "rev_help_menu_0002",
+                    "template_version": "1",
+                    "saved_at": "2026-04-18T11:05:00Z",
+                    "kind": "save",
+                    "message": "save",
+                },
+            ]
+        }
+
+        revision_ids = self_host_smoke.validate_render_template_versions(
+            payload,
+            expected_top_revision_id="rev_help_menu_0003",
+            expected_top_kind="rollback",
+        )
+
+        self.assertEqual(["rev_help_menu_0003", "rev_help_menu_0002"], revision_ids)
+
+        payload["items"][0]["kind"] = "draft"
+        with self.assertRaises(self_host_smoke.SmokeError):
+            self_host_smoke.validate_render_template_versions(payload)
+
 
 if __name__ == "__main__":
     unittest.main()
