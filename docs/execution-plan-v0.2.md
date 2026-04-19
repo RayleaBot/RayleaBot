@@ -1,6 +1,6 @@
 # RayleaBot v0.2 执行计划
 
-> `docs/execution-plan-v0.2.md` 作为当前最新执行计划使用。  
+> `docs/execution-plan-v0.2.md` 记录 v0.2 已完成基线与收口结果。  
 > `docs/execution-plan.md` 保留 v0.1 已完成基线与历史对照。  
 > 本文档记录 v0.2 的正式范围、完成结果和延后边界，不重复展开 v0.1 已完成项。
 >
@@ -66,7 +66,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 | 阶段 | 名称 | 状态 | 当前目标 |
 | --- | --- | --- | --- |
-| Pre-Phase | 范围重置与前置承接 | ☑️ | v0.2 已作为当前执行计划收口，范围与延后边界已固定 |
+| Pre-Phase | 范围重置与前置承接 | ☑️ | v0.2 范围与延后边界已固定，并作为已完成基线保留 |
 | Phase 1 | Contract / Schema 冻结 | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，v0.2 正式边界已冻结 |
 | Phase 2 | Fixtures / Examples / SDK | ☑️ | Batch A、Batch B、Batch C、Batch D 已完成，已冻结边界的 companion updates 已补齐 |
 | Phase 3 | OneBot11 传输模式补齐 | ☑️ | reverse WS、forward WS、HTTP、webhook 四条接入链路、协议快照与 transport 异常可见性已收口 |
@@ -92,7 +92,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 
 | 任务项 | 状态 | 说明 |
 | --- | --- | --- |
-| v0.2 文档主入口收口 | ☑️ | `docs/execution-plan-v0.2.md` 作为当前执行计划，`docs/execution-plan.md` 作为 v0.1 基线参考 |
+| v0.2 文档主入口收口 | ☑️ | `docs/execution-plan-v0.2.md` 作为 v0.2 已完成基线保留，`docs/execution-plan.md` 作为 v0.1 基线参考 |
 | v0.1 基线承接 | ☑️ | 单实例、基础 OneBot11 reverse WebSocket、插件运行时、管理面、渲染与恢复链路作为本轮前提 |
 | v0.2 范围冻结 | ☑️ | 在线模板编辑器、可视化、更宽 action family、OneBot11 全传输模式、NapCat 与幸运莉莉娅扩展兼容纳入本轮 |
 | 延后边界冻结 | ☑️ | 插件市场、强沙盒、插件间依赖、自动覆盖更新、非 OneBot 生态多协议继续后置 |

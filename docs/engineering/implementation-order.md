@@ -1,12 +1,12 @@
 # Implementation Order
 
-本文档定义 RayleaBot 的长期实施顺序与阶段边界，用于约束“什么先冻结、什么后接线、进入下一阶段前需要具备什么条件”。当前执行计划见 `../execution-plan-v0.2.md`，v0.1 基线与历史对照见 `../execution-plan.md`。
+本文档定义 RayleaBot 的长期实施顺序与阶段边界，用于约束“什么先冻结、什么后接线、进入下一阶段前需要具备什么条件”。当前执行计划见 `../execution-plan-v0.3.md`，v0.1 基线与历史对照见 `../execution-plan.md`。
 
 ## 1. 契约文件补全
 
 当前基础：
 
-- `contracts/` 已具备 10 份 fixture-ready formal contracts，覆盖配置、错误码、管理 HTTP / WebSocket、插件 manifest、插件协议、release metadata、CLI、backup manifest 与 deps manifest。
+- `contracts/` 已具备 12 份 fixture-ready formal contracts，覆盖配置、错误码、管理 HTTP / WebSocket、插件 manifest、插件管理页桥接与静态路由、插件协议、release metadata、CLI、backup manifest 与 deps manifest。
 
 进入本阶段时应继续遵守：
 
