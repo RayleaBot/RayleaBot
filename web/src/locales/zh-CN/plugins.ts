@@ -79,6 +79,10 @@ export const plugins = {
     openPluginCommands: '当前插件指令',
     openPluginLogs: '当前插件日志',
   },
+  panels: {
+    overview: '概览',
+    managementUi: '内置页面',
+  },
   sections: {
     current: '当前状态',
     package: '包与运行信息',
@@ -87,6 +91,7 @@ export const plugins = {
     commands: '已注册指令',
     permissions: '权限与授权',
     console: '实时控制台',
+    managementUi: '插件管理页',
   },
   empty: {
     title: '暂无插件',
@@ -120,6 +125,17 @@ export const plugins = {
   grantSaved: '授权已保存',
   grantRevoked: '授权已撤销',
   actionAccepted: '操作已提交',
+  managementUi: {
+    loading: '正在载入插件页面',
+    saving: '正在保存设置',
+    loadFailed: '插件页面未打开',
+    loadTimeout: '插件页面未在预期时间内完成初始化，请重试。',
+    invalidBridgeMessage: '插件页面发送了无效消息，当前页面已停止交互。',
+    confirmTitle: '未验证来源需要手动确认',
+    confirmBody: '这个插件页面来自未验证来源。确认后可继续打开当前插件版本对应的内置管理页。',
+    confirmAction: '确认并打开',
+    entryPath: '入口路径',
+  },
   permissionRequirement: {
     required: '必需',
     optional: '可选',

@@ -17,6 +17,7 @@ import (
 type Repository interface {
 	SeedDefaults(ctx context.Context, pluginID string, values map[string]any) (bool, error)
 	Read(ctx context.Context, pluginID string, keys []string) (map[string]any, error)
+	ReadAll(ctx context.Context, pluginID string) (map[string]any, error)
 	Write(ctx context.Context, pluginID string, values map[string]any) ([]string, error)
 }
 
@@ -95,6 +96,37 @@ func (r *SQLiteRepository) Read(ctx context.Context, pluginID string, keys []str
 	rows, err := r.read.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query system configs for %s: %w", pluginID, err)
+	}
+	defer rows.Close()
+
+	values := make(map[string]any)
+	for rows.Next() {
+		var key string
+		var raw string
+		if err := rows.Scan(&key, &raw); err != nil {
+			return nil, fmt.Errorf("scan system config row: %w", err)
+		}
+		var value any
+		if err := json.Unmarshal([]byte(raw), &value); err != nil {
+			return nil, fmt.Errorf("decode system config %s: %w", key, err)
+		}
+		values[key] = value
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate system config rows: %w", err)
+	}
+	return values, nil
+}
+
+func (r *SQLiteRepository) ReadAll(ctx context.Context, pluginID string) (map[string]any, error) {
+	namespace := namespaceForPlugin(pluginID)
+	rows, err := r.read.QueryContext(
+		ctx,
+		`SELECT key, value_json FROM system_configs WHERE namespace = ? ORDER BY key ASC`,
+		namespace,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query all system configs for %s: %w", pluginID, err)
 	}
 	defer rows.Close()
 

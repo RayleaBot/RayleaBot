@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
@@ -130,7 +131,10 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 		h.eventIngress.UpdateConfig(newCfg)
 	}
 	if oneBotHotChanged && h.protocol != nil && h.protocol.adapter != nil {
-		if err := h.protocol.adapter.Reload(newCfg.OneBot); err != nil {
+		if h.protocol.adapter.Snapshot().State == adapter.StateStopped {
+			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
+			effects.ReloadedNow = effects.ReloadedNow[:0]
+		} else if err := h.protocol.adapter.Reload(newCfg.OneBot); err != nil {
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
 			h.state.Logger.Warn("adapter shell hot reload failed",

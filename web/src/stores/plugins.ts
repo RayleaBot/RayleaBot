@@ -13,6 +13,9 @@ import type {
   PluginGrantSummary,
   PluginInstallRequest,
   PluginListResponse,
+  PluginSettingsResponse,
+  PluginSettingsUpdateRequest,
+  PluginSettingsUpdateResponse,
   PluginSummary,
   TaskAcceptedResponse,
 } from '@/types/api'
@@ -44,11 +47,14 @@ export const usePluginsStore = defineStore('plugins', () => {
   const grants = ref<Record<string, PluginGrantSummary[]>>({})
   const processConsoleFrames = ref<Record<string, ProcessConsoleFrame[]>>({})
   const outboundConsoleFrames = ref<Record<string, OutboundConsoleFrame[]>>({})
+  const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
   const loading = ref(false)
   const detailLoading = ref(false)
   const error = ref<string | null>(null)
   const actionPending = ref<Record<string, string | null>>({})
   const grantsLoading = ref<Record<string, boolean>>({})
+  const settingsLoading = ref<Record<string, boolean>>({})
+  const settingsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
   let detailRequestVersion = 0
 
@@ -133,6 +139,20 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
+  function setSettingsLoading(pluginId: string, loadingValue: boolean) {
+    settingsLoading.value = {
+      ...settingsLoading.value,
+      [pluginId]: loadingValue,
+    }
+  }
+
+  function setSettingsSaving(pluginId: string, loadingValue: boolean) {
+    settingsSaving.value = {
+      ...settingsSaving.value,
+      [pluginId]: loadingValue,
+    }
+  }
+
   async function executeAction(pluginId: string, action: 'enable' | 'disable' | 'reload') {
     setPending(pluginId, action)
     try {
@@ -183,6 +203,39 @@ export const usePluginsStore = defineStore('plugins', () => {
       return response.items
     } finally {
       setGrantsLoading(pluginId, false)
+    }
+  }
+
+  async function fetchSettings(pluginId: string) {
+    setSettingsLoading(pluginId, true)
+    try {
+      const response = await apiRequest<PluginSettingsResponse>(`/api/plugins/${pluginId}/settings`)
+      settingsByPluginId.value = {
+        ...settingsByPluginId.value,
+        [pluginId]: response.values,
+      }
+      return response
+    } finally {
+      setSettingsLoading(pluginId, false)
+    }
+  }
+
+  async function updateSettings(pluginId: string, values: PluginSettingsUpdateRequest['values']) {
+    setSettingsSaving(pluginId, true)
+    try {
+      const response = await apiRequest<PluginSettingsUpdateResponse>(`/api/plugins/${pluginId}/settings`, {
+        method: 'PUT',
+        body: {
+          values,
+        } satisfies PluginSettingsUpdateRequest,
+      })
+      settingsByPluginId.value = {
+        ...settingsByPluginId.value,
+        [pluginId]: response.values,
+      }
+      return response
+    } finally {
+      setSettingsSaving(pluginId, false)
     }
   }
 
@@ -282,6 +335,10 @@ export const usePluginsStore = defineStore('plugins', () => {
     return grants.value[pluginId] ?? []
   }
 
+  function getSettings(pluginId: string) {
+    return settingsByPluginId.value[pluginId] ?? {}
+  }
+
   function clearConsole(pluginId: string) {
     const normalizedPluginId = normalizePluginID(pluginId)
     if (!normalizedPluginId) {
@@ -315,21 +372,27 @@ export const usePluginsStore = defineStore('plugins', () => {
     items,
     installPending,
     loading,
+    settingsByPluginId,
+    settingsLoading,
+    settingsSaving,
     sortedItems,
     appendConsole,
     clearConsole,
     executeAction,
     fetchDetail,
+    fetchSettings,
     fetchOutboundConsoleHistory,
     fetchGrants,
     fetchList,
     getConsole,
     getGrants,
+    getSettings,
     grantCapability,
     installPlugin,
     appendOutboundLog,
     revokeGrant,
     uninstallPlugin,
+    updateSettings,
     upsert,
   }
 })

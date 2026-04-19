@@ -6,7 +6,7 @@
 
 ### Fixture-ready 正式契约
 
-当前已有 10 份 fixture-ready formal contracts：
+当前已有 12 份 fixture-ready formal contracts：
 
 - `backup-manifest.schema.json`
 - `config.user.schema.json`
@@ -15,6 +15,8 @@
 - `web-api.openapi.yaml`
 - `websocket-events.yaml`
 - `plugin-info.schema.json`
+- `plugin-management-ui.yaml`
+- `plugin-management-ui-bridge.schema.json`
 - `plugin-protocol.schema.json`
 - `release-manifest.schema.json`
 - `cli-commands.yaml`
@@ -35,17 +37,23 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、governance 读取面、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、governance 读取面、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
-  - 当前已冻结 `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms` 与插件详情页投影所需 metadata
+  - 当前已冻结 `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui` 与插件详情页投影所需 metadata
   - `capabilities`、`permissions.required` 与 `permissions.optional` 共用同一套正式 capability 集合，覆盖基础 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时回落到 `auth.default_level`
+- `plugin-management-ui.yaml`
+  - 插件内置管理页的公共静态资源路由前缀
+  - 当前固定为 `/plugin-ui/{plugin_id}/...`
+- `plugin-management-ui-bridge.schema.json`
+  - Web 宿主页与插件内置 iframe 的正式桥接消息结构
+  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed` 与 `error`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
@@ -94,6 +102,13 @@
 - `DELETE /api/plugins/{plugin_id}/grants/{capability}`
 
 其中 grant request / response / list item 支持可选 `expires_at`，用于表达当前生效授权的时效窗口。
+
+当前已进入 OpenAPI 冻结范围的 plugin settings surface：
+
+- `GET /api/plugins/{plugin_id}/settings`
+- `PUT /api/plugins/{plugin_id}/settings`
+
+其中插件详情 response 会暴露只读 `management_ui` 元数据；插件设置接口只读写插件自己的当前生效配置，不代理其它管理面操作。
 
 当前已进入 OpenAPI 冻结范围的 launcher bootstrap surface：
 

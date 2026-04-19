@@ -244,9 +244,11 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		Homepage:           stringField(manifest, "homepage"),
 		Keywords:           stringListField(manifest, "keywords"),
 		Screenshots:        manifestScreenshots(manifest),
+		ManagementUI:       manifestManagementUI(manifest),
 		SystemDependencies: stringListField(manifest, "system_dependencies"),
 		DefaultConfig:      manifestObjectField(manifest, "default_config"),
 		ManifestPath:       displayPath(repoRoot, infoPath),
+		PackageRootPath:    filepath.Dir(infoPath),
 		SourceRoot:         sourceRoot,
 		SourceRoots:        []string{sourceRoot},
 		RegistrationState:  stateInstalled,
@@ -292,6 +294,7 @@ func buildConflictSnapshot(pluginID string, group []Snapshot) Snapshot {
 	return Snapshot{
 		PluginID:          pluginID,
 		ManifestPath:      "",
+		PackageRootPath:   "",
 		SourceRoot:        "",
 		SourceRoots:       sourceRoots,
 		Valid:             false,
@@ -495,6 +498,23 @@ func manifestScreenshots(document map[string]any) []Screenshot {
 		})
 	}
 	return items
+}
+
+func manifestManagementUI(document map[string]any) *ManagementUI {
+	value, ok := document["management_ui"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	entry := stringField(value, "entry")
+	if entry == "" {
+		return nil
+	}
+
+	return &ManagementUI{
+		Entry: entry,
+		Label: stringField(value, "label"),
+	}
 }
 
 func manifestCommands(document map[string]any) []Command {

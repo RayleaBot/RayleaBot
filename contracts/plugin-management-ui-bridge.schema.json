@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/plugin-management-ui-bridge.schema.json",
+  "title": "RayleaBot Plugin Management UI Bridge",
+  "description": "Fixture-ready schema for postMessage traffic between the protected Web management host and a plugin-local management iframe.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/page_ready"
+    },
+    {
+      "$ref": "#/$defs/host_init"
+    },
+    {
+      "$ref": "#/$defs/settings_reload"
+    },
+    {
+      "$ref": "#/$defs/settings_save"
+    },
+    {
+      "$ref": "#/$defs/settings_changed"
+    },
+    {
+      "$ref": "#/$defs/error_message"
+    }
+  ],
+  "$defs": {
+    "plugin_management_ui_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "display_state"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_state": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "plugin_trust_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "label"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "official",
+            "third_party",
+            "unverified",
+            "development"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "page_ready": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "page.ready"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "host_init": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "management_host"
+        },
+        "type": {
+          "const": "host.init"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plugin_id",
+            "plugin",
+            "trust",
+            "default_config",
+            "settings",
+            "title"
+          ],
+          "properties": {
+            "plugin_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "plugin": {
+              "$ref": "#/$defs/plugin_management_ui_summary"
+            },
+            "trust": {
+              "$ref": "#/$defs/plugin_trust_summary"
+            },
+            "default_config": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "settings": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "settings_reload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "settings.reload"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "settings_save": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "settings.save"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values"
+          ],
+          "properties": {
+            "values": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "settings_changed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "management_host"
+        },
+        "type": {
+          "const": "settings.changed"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values",
+            "changed_keys"
+          ],
+          "properties": {
+            "values": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "changed_keys": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "error_message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "enum": [
+            "management_host",
+            "plugin_management_ui"
+          ]
+        },
+        "type": {
+          "const": "error"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-fixtures": [
+    "fixtures/plugin-management-ui/ok.bridge-host-init.json",
+    "fixtures/plugin-management-ui/ok.bridge-settings-save.json",
+    "fixtures/plugin-management-ui/invalid.bridge-unknown-type.json"
+  ]
+}

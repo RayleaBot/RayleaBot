@@ -43,6 +43,11 @@ type Screenshot struct {
 	Alt  string `json:"alt,omitempty"`
 }
 
+type ManagementUI struct {
+	Entry string `json:"entry"`
+	Label string `json:"label,omitempty"`
+}
+
 type Snapshot struct {
 	PluginID              string
 	Name                  string
@@ -65,9 +70,11 @@ type Snapshot struct {
 	Homepage              string
 	Keywords              []string
 	Screenshots           []Screenshot
+	ManagementUI          *ManagementUI
 	SystemDependencies    []string
 	DefaultConfig         map[string]any
 	ManifestPath          string
+	PackageRootPath       string
 	SourceRoot            string
 	SourceRoots           []string
 	PackageSourceType     string
@@ -347,6 +354,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		for _, screenshot := range snapshot.Screenshots {
 			cloned.Screenshots = append(cloned.Screenshots, screenshot)
 		}
+	}
+	if snapshot.ManagementUI != nil {
+		copied := *snapshot.ManagementUI
+		cloned.ManagementUI = &copied
 	}
 	if len(snapshot.Commands) > 0 {
 		cloned.Commands = make([]Command, 0, len(snapshot.Commands))

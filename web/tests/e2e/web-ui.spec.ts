@@ -409,6 +409,55 @@ test('plugin enable resumes after scope confirmation', async ({ page, request })
   await expect(page.locator('.permission-item').filter({ hasText: 'http.request' })).toContainText('手动授权')
 })
 
+test('plugin management ui reads and saves plugin settings inside the detail page', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/plugins/example-config-panel')
+  await expect(page.getByRole('heading', { name: 'example-config-panel', level: 1 })).toBeVisible()
+  await expect(page.locator('.plugin-detail-panel-switch')).toContainText('概览')
+  await expect(page.locator('.plugin-detail-panel-switch')).toContainText('配置页面')
+
+  await page.locator('.plugin-detail-panel-switch').getByText('配置页面').click()
+  await expect(page).toHaveURL(/panel=management-ui/)
+  await expect(page.getByTestId('plugin-management-ui-confirm')).toBeVisible()
+  await page.getByRole('button', { name: '确认并打开' }).click()
+
+  const pluginFrame = page.frameLocator('[data-testid="plugin-management-ui-frame"]')
+  await expect(pluginFrame.locator('#page-title')).toHaveText('配置页面')
+  await expect(pluginFrame.locator('#plugin-id')).toHaveText('example-config-panel')
+  await expect(pluginFrame.locator('#status-text')).toHaveText('已载入设置')
+  await expect(pluginFrame.locator('#default-city-input')).toHaveValue('上海')
+  await expect(pluginFrame.locator('#unit-select')).toHaveValue('fahrenheit')
+  await expect(pluginFrame.locator('#settings-preview')).toContainText('"default_city": "上海"')
+  await expect(pluginFrame.locator('#settings-preview')).toContainText('"unit": "fahrenheit"')
+
+  await pluginFrame.locator('#default-city-input').fill('广州')
+  await pluginFrame.locator('#unit-select').selectOption('celsius')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'PUT'
+      && response.url().includes('/api/plugins/example-config-panel/settings')
+      && response.status() === 200
+    )),
+    pluginFrame.locator('#save-button').click(),
+  ])
+
+  await expect(pluginFrame.locator('#status-text')).toHaveText('设置已更新')
+  await expect(pluginFrame.locator('#settings-preview')).toContainText('"default_city": "广州"')
+  await expect(pluginFrame.locator('#settings-preview')).toContainText('"unit": "celsius"')
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'example-config-panel', level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/panel=management-ui/)
+  await expect(pluginFrame.locator('#status-text')).toHaveText('已载入设置')
+  await expect(pluginFrame.locator('#default-city-input')).toHaveValue('广州')
+  await expect(pluginFrame.locator('#unit-select')).toHaveValue('celsius')
+
+  const tabLabels = await readTabLabels(page)
+  expect(tabLabels.filter((label) => label === 'example-config-panel')).toHaveLength(1)
+})
+
 test('desktop list viewports fill the remaining shell height without overlapping rows', async ({ page, request }) => {
   await resetBackend(request, true)
   await page.setViewportSize({ width: 1600, height: 1400 })
@@ -429,7 +478,8 @@ test('desktop list viewports fill the remaining shell height without overlapping
   expect(pluginFirst!.height).toBeLessThan(170)
   await expect(pluginRows(page).first()).not.toContainText('discovered')
 
-  await page.getByRole('button', { name: '查看概要' }).nth(1).click()
+  const weatherRow = pluginRows(page).filter({ hasText: 'weather' }).first()
+  await weatherRow.getByRole('button', { name: '查看概要' }).click()
   const summarySurface = page.locator('.ant-drawer-content').filter({ hasText: '显示状态' }).last()
   await expect(summarySurface).toContainText('显示状态')
   await expect(summarySurface).toContainText('运行中')

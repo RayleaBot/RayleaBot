@@ -18,7 +18,7 @@ export default defineConfig({
     port: 4173,
     strictPort: true,
     proxy: {
-      '^/(api|healthz|readyz|ws)': {
+      '^/(api|healthz|readyz|ws|plugin-ui)': {
         target: backendTarget,
         changeOrigin: true,
         ws: true,

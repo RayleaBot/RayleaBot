@@ -34,7 +34,7 @@ describe('BasicLayout', () => {
             {
               path: 'plugins/:id',
               name: 'plugin-detail',
-              component: { template: '<div>插件详情页</div>' },
+              component: { template: '<div data-testid="plugin-detail-page">插件详情页</div>' },
               meta: { activePath: '/plugins', hideInMenu: true, title: '插件详情' },
             },
             {
@@ -384,6 +384,19 @@ describe('BasicLayout', () => {
     expect(getTabLabels()).toEqual(['系统状态', 'weather'])
     expect(getTabIconKeys()).toEqual(['dashboard', 'appstore'])
     expect(getActiveTabLabel()).toBe('weather')
+  })
+
+  it('keeps the same plugin detail page instance when only the panel query changes', async () => {
+    const { router, uiShellStore, wrapper } = await mountShell('/plugins/weather?panel=overview')
+
+    const initialNode = wrapper.get('[data-testid="plugin-detail-page"]').element
+
+    await router.push('/plugins/weather?panel=management-ui')
+    await flushPromises()
+
+    expect(uiShellStore.tabs.filter((item) => item.name === 'plugin-detail')).toHaveLength(1)
+    expect(getActiveTabLabel()).toBe('weather')
+    expect(wrapper.get('[data-testid="plugin-detail-page"]').element).toBe(initialNode)
   })
 
   it('renders child menu icons for grouped pages', async () => {

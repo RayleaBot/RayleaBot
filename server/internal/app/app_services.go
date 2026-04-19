@@ -279,35 +279,36 @@ type governanceHTTPDeps struct {
 }
 
 type httpServerDeps struct {
-	state             *appRuntimeState
-	auth              *auth.Manager
-	tasks             *tasks.Registry
-	plugins           *plugins.Catalog
-	logs              *logService
-	console           *console.Stream
-	pluginInstaller   plugins.InstallCoordinator
-	pluginUninstaller plugins.UninstallCoordinator
-	pluginRepository  plugins.DesiredStateRepository
-	grantRepository   plugins.GrantRepository
-	pluginLifecycle   *pluginLifecycleController
-	taskExecutor      *tasks.Executor
-	renderer          *render.Service
-	launcherTokens    *launcherTokenStore
-	loginFailures     *loginFailureTracker
-	configHandler     *configHTTPHandlers
-	authHandler       *authHTTPHandlers
-	managementHandler *managementHTTPHandlers
-	governanceHandler *governanceHTTPHandlers
-	taskHandler       *taskHTTPHandlers
-	logHandler        *logHTTPHandlers
-	renderHandler     *renderHTTPHandlers
-	systemHandler     *systemHTTPHandlers
-	protocolHandler   *protocolHTTPHandlers
-	eventsWS          *eventsWSHandler
-	tasksWS           *tasksWSHandler
-	logsWS            *logsWSHandler
-	consoleWS         *consoleWSHandler
-	pluginWebhooks    *pluginWebhookHTTPHandlers
+	state              *appRuntimeState
+	auth               *auth.Manager
+	tasks              *tasks.Registry
+	plugins            *plugins.Catalog
+	logs               *logService
+	console            *console.Stream
+	pluginInstaller    plugins.InstallCoordinator
+	pluginUninstaller  plugins.UninstallCoordinator
+	pluginRepository   plugins.DesiredStateRepository
+	grantRepository    plugins.GrantRepository
+	pluginLifecycle    *pluginLifecycleController
+	taskExecutor       *tasks.Executor
+	renderer           *render.Service
+	launcherTokens     *launcherTokenStore
+	loginFailures      *loginFailureTracker
+	configHandler      *configHTTPHandlers
+	authHandler        *authHTTPHandlers
+	managementHandler  *managementHTTPHandlers
+	governanceHandler  *governanceHTTPHandlers
+	taskHandler        *taskHTTPHandlers
+	logHandler         *logHTTPHandlers
+	renderHandler      *renderHTTPHandlers
+	systemHandler      *systemHTTPHandlers
+	protocolHandler    *protocolHTTPHandlers
+	eventsWS           *eventsWSHandler
+	tasksWS            *tasksWSHandler
+	logsWS             *logsWSHandler
+	consoleWS          *consoleWSHandler
+	pluginWebhooks     *pluginWebhookHTTPHandlers
+	pluginManagementUI *pluginManagementUIHTTPHandlers
 }
 
 type authHTTPHandlers struct {

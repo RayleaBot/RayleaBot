@@ -104,6 +104,11 @@ type pluginScreenshotResponse struct {
 	Alt  string `json:"alt,omitempty"`
 }
 
+type pluginManagementUIResponse struct {
+	Entry string `json:"entry"`
+	Label string `json:"label,omitempty"`
+}
+
 type pluginDetailPluginResponse struct {
 	ID                   string                      `json:"id"`
 	Name                 string                      `json:"name"`
@@ -130,6 +135,7 @@ type pluginDetailPluginResponse struct {
 	Homepage             string                      `json:"homepage,omitempty"`
 	Keywords             []string                    `json:"keywords,omitempty"`
 	Screenshots          []pluginScreenshotResponse  `json:"screenshots,omitempty"`
+	ManagementUI         *pluginManagementUIResponse `json:"management_ui,omitempty"`
 	SystemDependencies   []string                    `json:"system_dependencies,omitempty"`
 	RegistrationState    string                      `json:"registration_state"`
 	DesiredState         string                      `json:"desired_state"`
@@ -719,6 +725,22 @@ func buildPluginScreenshots(snapshot Snapshot) []pluginScreenshotResponse {
 	return items
 }
 
+func buildPluginManagementUI(snapshot Snapshot) *pluginManagementUIResponse {
+	if snapshot.ManagementUI == nil {
+		return nil
+	}
+
+	entry := strings.TrimSpace(snapshot.ManagementUI.Entry)
+	if entry == "" {
+		return nil
+	}
+
+	return &pluginManagementUIResponse{
+		Entry: entry,
+		Label: strings.TrimSpace(snapshot.ManagementUI.Label),
+	}
+}
+
 func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot Snapshot, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
 	summary := buildPluginSummary(catalog, snapshot)
 	persisted, err := loadPersistedGrants(ctx, repo, snapshot.PluginID)
@@ -754,6 +776,7 @@ func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot S
 			Homepage:             strings.TrimSpace(snapshot.Homepage),
 			Keywords:             normalizeStringList(snapshot.Keywords),
 			Screenshots:          buildPluginScreenshots(snapshot),
+			ManagementUI:         buildPluginManagementUI(snapshot),
 			SystemDependencies:   normalizeStringList(snapshot.SystemDependencies),
 			RegistrationState:    summary.RegistrationState,
 			DesiredState:         summary.DesiredState,

@@ -9,6 +9,7 @@ import { WebSocketServer } from 'ws'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
+const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel')
 const previewArtifactBytes = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=',
   'base64',
@@ -68,6 +69,9 @@ const fixtures = {
   pluginInstallRemoteUrl: await readFixture('fixtures/web-api/ok.plugins-install-remote-url.yaml'),
   pluginList: await readFixture('fixtures/web-api/ok.plugins-list-response.yaml'),
   pluginDetail: await readFixture('fixtures/web-api/ok.plugin-detail-response.yaml'),
+  pluginDetailManagementUI: await readFixture('fixtures/web-api/ok.plugin-detail-response.management-ui.yaml'),
+  pluginSettings: await readFixture('fixtures/web-api/ok.plugin-settings-response.yaml'),
+  pluginSettingsUpdate: await readFixture('fixtures/web-api/ok.plugin-settings-update-response.yaml'),
   pluginUninstallAccepted: await readFixture('fixtures/web-api/ok.plugins-uninstall-accepted.yaml'),
   pluginGrantsList: await readFixture('fixtures/web-api/ok.plugins-grants-list-response.yaml'),
   pluginGrant: await readFixture('fixtures/web-api/ok.plugins-grant-response.yaml'),
@@ -97,10 +101,14 @@ function baseState() {
   const pluginItems = structuredClone(fixtures.pluginList.response.body.items)
   const pluginMap = Object.fromEntries(pluginItems.map((item) => [item.id, item]))
   pluginMap.weather = structuredClone(fixtures.pluginDetail.response.body.plugin)
+  pluginMap['example-config-panel'] = createExampleConfigPanelPlugin()
   return {
     initialized: false,
     token: null,
     plugins: pluginMap,
+    pluginSettings: {
+      'example-config-panel': structuredClone(fixtures.pluginSettings.response.body.values),
+    },
     tasks: structuredClone(fixtures.tasksList.response.body.items),
     logs: initialLogs,
     currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
@@ -113,6 +121,22 @@ function baseState() {
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
       'builtin-help': [],
+      'example-config-panel': [
+        {
+          plugin_id: 'example-config-panel',
+          capability: 'config.read',
+          granted_at: '2026-04-19T08:00:00Z',
+          source: 'persisted',
+          expires_at: null,
+        },
+        {
+          plugin_id: 'example-config-panel',
+          capability: 'config.write',
+          granted_at: '2026-04-19T08:00:01Z',
+          source: 'persisted',
+          expires_at: null,
+        },
+      ],
     },
     launcherTokens: new Set(['launcher_token_fixture_0001']),
     systemStatus: structuredClone(fixtures.systemStatus.response.body),
@@ -672,15 +696,145 @@ function sessionExpiredFrame(channel = 'events') {
   }
 }
 
+function createExampleConfigPanelPlugin() {
+  const plugin = structuredClone(fixtures.pluginDetailManagementUI.response.body.plugin)
+
+  plugin.source = {
+    ...plugin.source,
+    package_source_type: 'local_zip',
+    package_source_ref: 'examples/plugins/example-config-panel.zip',
+    verified: false,
+  }
+  plugin.trust = {
+    level: 'unverified',
+    label: '未验证来源',
+  }
+
+  return plugin
+}
+
+function toPluginSummary(plugin) {
+  return {
+    id: plugin.id,
+    name: plugin.name,
+    role: plugin.role,
+    registration_state: plugin.registration_state,
+    desired_state: plugin.desired_state,
+    runtime_state: plugin.runtime_state,
+    display_state: plugin.display_state,
+    source: structuredClone(plugin.source),
+    trust: structuredClone(plugin.trust),
+    commands: structuredClone(plugin.commands ?? []),
+    command_conflicts: structuredClone(plugin.command_conflicts ?? []),
+  }
+}
+
 function pluginListBody() {
   return {
-    items: Object.values(state.plugins),
+    items: Object.values(state.plugins).map((plugin) => toPluginSummary(plugin)),
   }
 }
 
 function pluginDetailBody(pluginId) {
   return {
-    plugin: state.plugins[pluginId],
+    plugin: structuredClone(state.plugins[pluginId]),
+  }
+}
+
+function pluginSettingsBody(pluginId) {
+  const plugin = state.plugins[pluginId]
+  if (!plugin) {
+    return null
+  }
+
+  return {
+    plugin_id: pluginId,
+    values: {
+      ...structuredClone(plugin.default_config ?? {}),
+      ...structuredClone(state.pluginSettings[pluginId] ?? {}),
+    },
+  }
+}
+
+function updatePluginSettings(pluginId, patchValues) {
+  const current = pluginSettingsBody(pluginId)
+  if (!current) {
+    return null
+  }
+
+  const mergedValues = {
+    ...current.values,
+    ...structuredClone(patchValues),
+  }
+  const changedKeys = Object.keys(patchValues)
+    .filter((key) => JSON.stringify(current.values[key]) !== JSON.stringify(mergedValues[key]))
+    .sort((left, right) => left.localeCompare(right))
+
+  state.pluginSettings[pluginId] = mergedValues
+
+  return {
+    plugin_id: pluginId,
+    changed_keys: changedKeys,
+    values: structuredClone(mergedValues),
+  }
+}
+
+function isPathInside(parentPath, candidatePath) {
+  const relative = path.relative(parentPath, candidatePath)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+function getPluginManagementUIRoot(pluginId) {
+  if (pluginId === 'example-config-panel') {
+    return exampleConfigPanelRoot
+  }
+
+  return null
+}
+
+function resolvePluginManagementUIFile(pluginId, requestedPath) {
+  const plugin = state.plugins[pluginId]
+  const entry = plugin?.management_ui?.entry
+  const pluginRoot = getPluginManagementUIRoot(pluginId)
+  if (!plugin || typeof entry !== 'string' || !entry.trim() || !pluginRoot) {
+    return null
+  }
+
+  const normalizedRequestPath = requestedPath
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0)
+    .join('/')
+  if (!normalizedRequestPath) {
+    return null
+  }
+
+  const allowedDirectory = path.resolve(pluginRoot, path.dirname(entry))
+  const resolvedFilePath = path.resolve(pluginRoot, normalizedRequestPath)
+  if (!isPathInside(allowedDirectory, resolvedFilePath)) {
+    return null
+  }
+
+  return resolvedFilePath
+}
+
+function getContentType(filePath) {
+  const extension = path.extname(filePath).toLowerCase()
+  switch (extension) {
+    case '.html':
+      return 'text/html; charset=utf-8'
+    case '.js':
+      return 'text/javascript; charset=utf-8'
+    case '.css':
+      return 'text/css; charset=utf-8'
+    case '.json':
+      return 'application/json; charset=utf-8'
+    case '.svg':
+      return 'image/svg+xml'
+    case '.png':
+      return 'image/png'
+    default:
+      return 'application/octet-stream'
   }
 }
 
@@ -997,6 +1151,39 @@ const server = http.createServer(async (request, response) => {
   if (pathname === '/readyz' && request.method === 'GET') {
     json(response, fixtures.readyz.response.status, fixtures.readyz.response.body)
     return
+  }
+
+  if (pathname.startsWith('/plugin-ui/') && (request.method === 'GET' || request.method === 'HEAD')) {
+    const pathSegments = pathname.split('/')
+    const pluginId = decodeURIComponent(pathSegments[2] ?? '')
+    const requestedPath = pathSegments
+      .slice(3)
+      .map((segment) => decodeURIComponent(segment))
+      .join('/')
+    const filePath = resolvePluginManagementUIFile(pluginId, requestedPath)
+
+    if (!filePath) {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_not_found'))
+      return
+    }
+
+    try {
+      const file = await readFile(filePath)
+      response.writeHead(200, {
+        'Content-Type': getContentType(filePath),
+        'Cache-Control': 'no-store',
+      })
+      if (request.method === 'HEAD') {
+        response.end()
+        return
+      }
+
+      response.end(file)
+      return
+    } catch {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_missing'))
+      return
+    }
   }
 
   if (pathname === '/api/setup/status' && request.method === 'GET') {
@@ -1598,6 +1785,44 @@ const server = http.createServer(async (request, response) => {
     const pluginId = pathname.split('/')[3]
     mergePluginState(pluginId, fixtures.pluginReload.response.body.plugin)
     json(response, 200, pluginDetailBody(pluginId))
+    return
+  }
+
+  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/settings') && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const pluginId = pathname.split('/')[3]
+    const settingsBody = pluginSettingsBody(pluginId)
+    if (!settingsBody) {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin settings not found', 'req_plugin_settings_not_found'))
+      return
+    }
+
+    json(response, 200, settingsBody)
+    return
+  }
+
+  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/settings') && request.method === 'PUT') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const pluginId = pathname.split('/')[3]
+    const payload = await parseBody(request)
+    if (!payload || !payload.values || typeof payload.values !== 'object' || Array.isArray(payload.values)) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'plugin settings payload is invalid', 'req_plugin_settings_invalid'))
+      return
+    }
+
+    const updatedBody = updatePluginSettings(pluginId, payload.values)
+    if (!updatedBody) {
+      json(response, 404, errorEnvelope('platform.not_found', 'plugin settings not found', 'req_plugin_settings_not_found'))
+      return
+    }
+
+    json(response, 200, updatedBody)
     return
   }
 

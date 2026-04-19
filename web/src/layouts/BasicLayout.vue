@@ -580,7 +580,7 @@ function getRouteViewKey(viewRoute: RouteLocationNormalizedLoaded) {
     return `${viewIdentity}:${uiShellStore.getRefreshKey(viewIdentity)}`
   }
 
-  return `${viewIdentity}:${viewRoute.fullPath}:${uiShellStore.getRefreshKey(viewIdentity)}`
+  return `${viewIdentity}:${viewRoute.path}:${uiShellStore.getRefreshKey(viewIdentity)}`
 }
 
 onMounted(() => {

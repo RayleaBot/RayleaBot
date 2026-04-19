@@ -56,6 +56,8 @@ func registerAppPublicRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/api/protocols/onebot11/reverse-ws", deps.protocolHandler.handleProtocolOneBot11ReverseWS())
 	router.Post("/api/protocols/onebot11/webhook", deps.protocolHandler.handleProtocolOneBot11Webhook())
 	router.Post("/api/webhooks/{plugin_id}/{route}", deps.pluginWebhooks.handlePluginWebhook())
+	router.Get("/plugin-ui/{plugin_id}/*", deps.pluginManagementUI.handlePluginManagementUIStatic())
+	router.Head("/plugin-ui/{plugin_id}/*", deps.pluginManagementUI.handlePluginManagementUIStatic())
 }
 
 func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
@@ -87,6 +89,8 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/api/tasks", deps.taskHandler.handleTaskList())
 	router.Get("/api/tasks/{task_id}", deps.taskHandler.handleTaskDetail())
 	router.Post("/api/tasks/{task_id}/cancel", deps.taskHandler.handleTaskCancel())
+	router.Get("/api/plugins/{plugin_id}/settings", deps.pluginManagementUI.handlePluginSettingsGet())
+	router.Put("/api/plugins/{plugin_id}/settings", deps.pluginManagementUI.handlePluginSettingsPut())
 	router.Get("/ws/events", deps.eventsWS.handleEventsWebSocket())
 	router.Get("/ws/tasks", deps.tasksWS.handleTasksWebSocket())
 	router.Get("/ws/logs", deps.logsWS.handleLogsWebSocket())

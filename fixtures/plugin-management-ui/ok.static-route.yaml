@@ -1,0 +1,11 @@
+contract: contracts/plugin-management-ui.yaml
+case: ok
+description: A plugin management page entry serves its HTML file and sibling assets from the declared directory.
+request:
+  method: GET
+  path: /plugin-ui/example-config-panel/web/index.html
+response:
+  status: 200
+  content_type: text/html
+expect:
+  valid: true

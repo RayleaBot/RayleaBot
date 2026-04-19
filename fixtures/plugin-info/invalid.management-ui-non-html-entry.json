@@ -1,0 +1,26 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "description": "The management UI entry must point to an HTML file.",
+  "input": {
+    "id": "example-config-panel",
+    "name": "Example Config Panel",
+    "version": "0.1.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "management_ui": {
+      "entry": "web/app.js"
+    },
+    "permissions": {
+      "required": [],
+      "optional": []
+    }
+  },
+  "expect": {
+    "valid": false
+  }
+}

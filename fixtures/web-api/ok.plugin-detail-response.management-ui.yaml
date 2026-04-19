@@ -1,0 +1,56 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin detail may expose one plugin-local management page entry.
+request:
+  method: GET
+  path: /api/plugins/example-config-panel
+response:
+  status: 200
+  body:
+    plugin:
+      id: example-config-panel
+      name: Example Config Panel
+      role: example
+      version: 0.1.0
+      runtime: python
+      type: managed_runtime
+      entry: main.py
+      description: Python example plugin demonstrating config.read and config.write.
+      author: raylea
+      license: MIT
+      default_config:
+        default_city: 北京
+        unit: celsius
+      management_ui:
+        entry: web/index.html
+        label: 配置页面
+      registration_state: installed
+      desired_state: disabled
+      runtime_state: stopped
+      display_state: disabled
+      source:
+        root: examples/plugins
+        package_source_type: local_directory
+        package_source_ref: examples/plugins/example-config-panel
+        verified: true
+      trust:
+        level: third_party
+        label: 示例
+      commands:
+        - name: config_panel
+          description: Read and update plugin-local config values.
+          usage: /config_panel [city]
+      command_conflicts: []
+      permissions:
+        - capability: config.read
+          requirement: required
+          status: granted
+          source: persisted
+          expires_at: null
+        - capability: config.write
+          requirement: required
+          status: granted
+          source: persisted
+          expires_at: null
+expect:
+  valid: true

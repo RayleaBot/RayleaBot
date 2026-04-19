@@ -712,6 +712,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plugins/{plugin_id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query the current effective plugin-local settings snapshot. */
+        get: operations["getPluginSettings"];
+        /** Save plugin-local settings values for one installed plugin. */
+        put: operations["updatePluginSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins/{plugin_id}": {
         parameters: {
             query?: never;
@@ -1290,6 +1308,10 @@ export interface components {
             path: string;
             alt?: string;
         };
+        PluginManagementUISummary: {
+            entry: string;
+            label?: string;
+        };
         PluginDetail: components["schemas"]["PluginSummary"] & {
             permissions: components["schemas"]["PluginPermissionSummary"][];
             version?: string;
@@ -1318,10 +1340,29 @@ export interface components {
             homepage?: string;
             keywords?: string[];
             screenshots?: components["schemas"]["PluginScreenshot"][];
+            management_ui?: components["schemas"]["PluginManagementUISummary"];
             system_dependencies?: string[];
         };
         PluginDetailResponse: {
             plugin: components["schemas"]["PluginDetail"];
+        };
+        PluginSettingsResponse: {
+            plugin_id: string;
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        PluginSettingsUpdateRequest: {
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        PluginSettingsUpdateResponse: {
+            plugin_id: string;
+            changed_keys: string[];
+            values: {
+                [key: string]: unknown;
+            };
         };
         PluginGrantRequest: {
             capability: string;
@@ -2728,6 +2769,63 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getPluginSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current plugin-local settings using default_config as the baseline. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSettingsResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePluginSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginSettingsUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Plugin-local settings saved and echoed back with changed keys. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSettingsUpdateResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

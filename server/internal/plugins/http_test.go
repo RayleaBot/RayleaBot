@@ -567,6 +567,49 @@ func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 	}
 }
 
+func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "example-config-panel",
+		Name:              "Example Config Panel",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "disabled",
+		RuntimeState:      "stopped",
+		DisplayState:      "disabled",
+		ManagementUI: &ManagementUI{
+			Entry: "web/index.html",
+			Label: "配置页面",
+		},
+	}})
+	router := chi.NewRouter()
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/example-config-panel", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp pluginDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Plugin.ManagementUI == nil {
+		t.Fatal("expected management_ui in detail response")
+	}
+	if resp.Plugin.ManagementUI.Entry != "web/index.html" {
+		t.Fatalf("management_ui.entry = %q, want web/index.html", resp.Plugin.ManagementUI.Entry)
+	}
+	if resp.Plugin.ManagementUI.Label != "配置页面" {
+		t.Fatalf("management_ui.label = %q, want 配置页面", resp.Plugin.ManagementUI.Label)
+	}
+}
+
 // TestEnableHandler_AlreadyEnabled_409: enable already-enabled plugin returns 409.
 func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
 	router, _, _, repo := setupRouter([]Snapshot{{

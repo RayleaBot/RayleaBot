@@ -83,4 +83,12 @@ func TestSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
 	if values["default_city"] != "上海" || values["unit"] != "fahrenheit" {
 		t.Fatalf("unexpected updated values: %#v", values)
 	}
+
+	allValues, err := repo.ReadAll(ctx, pluginID)
+	if err != nil {
+		t.Fatalf("ReadAll after Write: %v", err)
+	}
+	if allValues["default_city"] != "上海" || allValues["unit"] != "fahrenheit" {
+		t.Fatalf("unexpected all values: %#v", allValues)
+	}
 }

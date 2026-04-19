@@ -58,6 +58,9 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-install-remote-url.yaml
   - fixtures/web-api/ok.plugins-list-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.yaml
+  - fixtures/web-api/ok.plugin-detail-response.management-ui.yaml
+  - fixtures/web-api/ok.plugin-settings-response.yaml
+  - fixtures/web-api/ok.plugin-settings-update-response.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/ok.plugins-grants-list-response.yaml
   - fixtures/web-api/ok.plugins-grant-response.yaml
@@ -1165,6 +1168,60 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/settings:
+    get:
+      summary: Query the current effective plugin-local settings snapshot.
+      operationId: getPluginSettings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Current plugin-local settings using default_config as the baseline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      summary: Save plugin-local settings values for one installed plugin.
+      operationId: updatePluginSettings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginSettingsUpdateRequest'
+      responses:
+        '200':
+          description: Plugin-local settings saved and echoed back with changed keys.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginSettingsUpdateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -2599,6 +2656,17 @@ components:
         alt:
           type: string
 
+    PluginManagementUISummary:
+      type: object
+      additionalProperties: false
+      required: [entry]
+      properties:
+        entry:
+          type: string
+          pattern: '^[A-Za-z0-9._/-]+\.html$'
+        label:
+          type: string
+
     PluginDetail:
       allOf:
         - $ref: '#/components/schemas/PluginSummary'
@@ -2669,6 +2737,8 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PluginScreenshot'
+            management_ui:
+              $ref: '#/components/schemas/PluginManagementUISummary'
             system_dependencies:
               type: array
               items:
@@ -2681,6 +2751,42 @@ components:
       properties:
         plugin:
           $ref: '#/components/schemas/PluginDetail'
+
+    PluginSettingsResponse:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, values]
+      properties:
+        plugin_id:
+          type: string
+        values:
+          type: object
+          additionalProperties: true
+
+    PluginSettingsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [values]
+      properties:
+        values:
+          type: object
+          additionalProperties: true
+
+    PluginSettingsUpdateResponse:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, changed_keys, values]
+      properties:
+        plugin_id:
+          type: string
+        changed_keys:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        values:
+          type: object
+          additionalProperties: true
 
     PluginGrantRequest:
       type: object

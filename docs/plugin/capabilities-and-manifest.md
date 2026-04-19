@@ -16,6 +16,7 @@
 | `concurrency` | 事件并发度声明；省略时按 `1` 处理 |
 | `role` | `builtin` / `user` / `example` / `dev` |
 | `default_config` | 插件默认配置 |
+| `management_ui` | 插件详情页内置管理页入口 |
 | `permissions` | capability 与作用域声明 |
 | `commands` | 插件命令声明 |
 | `dependencies` | 语言级依赖说明 |
@@ -89,8 +90,19 @@
 - `dependencies` 只覆盖语言级依赖，不覆盖插件间依赖
 - manifest 字段和语义变化先进入 contract，再同步 SDK、fixtures、示例和管理面
 
+## 插件内置管理页
+
+- `management_ui.entry` 指向插件包内的 HTML 入口文件，路径相对于插件根目录。
+- `management_ui.label` 用于插件详情页内工作区标题；省略时管理面使用默认标题。
+- 插件详情页在概览之外提供同一插件的内置管理页工作区，不新增第二个插件一级页面。
+- 插件内置页面通过 `/plugin-ui/{plugin_id}/...` 读取自身静态资源。
+- 插件内置页面只通过正式桥接消息读取和保存插件自己的设置，不直接持有管理会话。
+- 当前设置由 `default_config` 叠加已保存配置得到；保存成功后宿主会同步刷新插件详情中的配置预览。
+- 未验证来源插件首次打开内置管理页需要人工确认；确认记录会随插件版本或来源变化失效。
+
 ## 相关文档
 
 - [Plugin Lifecycle](./lifecycle.md)
+- [Management UI](./management-ui.md)
 - [Protocol](./protocol.md)
 - [Plugin SDK Docs](./sdk/README.md)

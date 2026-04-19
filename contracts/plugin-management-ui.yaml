@@ -1,0 +1,29 @@
+version: 1
+description: >
+  Plugin-local management page contract. The page is served as public readonly
+  static files under the declared plugin package path, while protected data and
+  writes stay inside the management API and the host bridge.
+
+x-fixtures:
+  - fixtures/plugin-management-ui/ok.static-route.yaml
+  - fixtures/plugin-management-ui/invalid.static-route-parent-escape.yaml
+
+static_route:
+  path_template: /plugin-ui/{plugin_id}/{asset_path}
+  methods:
+    - GET
+    - HEAD
+  auth: public_readonly
+  plugin_requirements:
+    valid: true
+    registration_state: installed
+    management_ui_declared: true
+  asset_scope:
+    root: dirname(management_ui.entry)
+    allow_directory_listing: false
+    allow_parent_escape: false
+  denied_behavior:
+    missing_plugin: 404
+    missing_management_ui: 404
+    invalid_asset_path: 404
+    method_not_allowed: 404

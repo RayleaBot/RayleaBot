@@ -1,0 +1,35 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The host initializes the iframe with plugin identity, trust, defaults, and current settings.",
+  "input": {
+    "version": "1",
+    "source": "management_host",
+    "type": "host.init",
+    "payload": {
+      "plugin_id": "example-config-panel",
+      "plugin": {
+        "name": "Example Config Panel",
+        "version": "0.1.0",
+        "description": "Python example plugin demonstrating config.read and config.write.",
+        "display_state": "disabled"
+      },
+      "trust": {
+        "level": "third_party",
+        "label": "示例"
+      },
+      "default_config": {
+        "default_city": "北京",
+        "unit": "celsius"
+      },
+      "settings": {
+        "default_city": "上海",
+        "unit": "fahrenheit"
+      },
+      "title": "配置页面"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

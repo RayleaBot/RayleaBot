@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
+import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -21,7 +22,14 @@ import {
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { ApiError } from '@/lib/http'
-import { buildPluginWorkbenchActions, buildTaskLocation } from '@/lib/management-links'
+import {
+  areLocationQueriesEqual,
+  buildPluginDetailLocation,
+  buildPluginWorkbenchActions,
+  buildTaskLocation,
+  readPluginDetailPanel,
+  type PluginDetailPanel,
+} from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -42,9 +50,10 @@ const { actionPending, current, detailLoading, grantsLoading } = storeToRefs(plu
 const { document: configDocument } = storeToRefs(configStore)
 
 const pluginId = computed(() => String(route.params.id))
+const currentPlugin = computed(() => current.value?.id === pluginId.value ? current.value : null)
 const consoleFrames = computed(() => pluginsStore.getConsole(pluginId.value))
 const currentGrants = computed(() => pluginsStore.getGrants(pluginId.value))
-const currentPermissions = computed(() => current.value?.permissions ?? [])
+const currentPermissions = computed(() => currentPlugin.value?.permissions ?? [])
 const consoleSnapshot = computed(() => socketStore.snapshots.pluginConsole)
 const grantBusy = computed(() => grantsLoading.value[pluginId.value] ?? false)
 const loadError = ref<string | null>(null)
@@ -60,7 +69,30 @@ let detailLoadVersion = 0
 let pageActive = true
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
-const isBuiltinPlugin = computed(() => current.value?.role === 'builtin')
+const requestedPanel = computed(() => readPluginDetailPanel(route.query))
+const isBuiltinPlugin = computed(() => currentPlugin.value?.role === 'builtin')
+const hasManagementUI = computed(() => Boolean(currentPlugin.value?.management_ui?.entry))
+const activePanel = computed<PluginDetailPanel>(() => {
+  if (requestedPanel.value === 'management-ui' && currentPlugin.value && !hasManagementUI.value) {
+    return 'overview'
+  }
+
+  return requestedPanel.value
+})
+const panelOptions = computed(() => {
+  const options = [
+    { label: t('plugins.panels.overview'), value: 'overview' },
+  ]
+
+  if (hasManagementUI.value) {
+    options.push({
+      label: currentPlugin.value?.management_ui?.label?.trim() || t('plugins.panels.managementUi'),
+      value: 'management-ui',
+    })
+  }
+
+  return options
+})
 const permissionCandidates = computed(() => currentPermissions.value.filter((permission) => permission.status === 'not_granted'))
 const reconfirmCandidates = computed(() => currentPermissions.value.filter((permission) => permission.source === 'persisted'))
 const missingRequiredPermissions = computed(() => currentPermissions.value.filter((permission) => permission.requirement === 'required' && permission.status === 'not_granted'))
@@ -99,6 +131,7 @@ const permissionDialogOkText = computed(() => (
     : t('plugins.actions.grantSelected')
 ))
 const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
+const managementPanelTitle = computed(() => currentPlugin.value?.management_ui?.label?.trim() || t('plugins.sections.managementUi'))
 
 async function loadDetail() {
   const requestedPluginId = pluginId.value
@@ -323,6 +356,22 @@ function getConsoleStatusColor(status: string) {
   return 'default'
 }
 
+async function syncPanelQuery(nextPanel: PluginDetailPanel) {
+  const target = buildPluginDetailLocation(pluginId.value, {
+    panel: nextPanel,
+  })
+
+  if (areLocationQueriesEqual(route.query, target.query ?? {})) {
+    return
+  }
+
+  await router.replace(target)
+}
+
+async function setActivePanel(nextPanel: PluginDetailPanel) {
+  await syncPanelQuery(nextPanel)
+}
+
 watch(
   () => consoleFrames.value.length,
   async () => {
@@ -333,6 +382,20 @@ watch(
 watch(pluginId, () => {
   void loadDetail()
 })
+
+watch(
+  [requestedPanel, currentPlugin],
+  ([panel, plugin]) => {
+    if (route.name !== 'plugin-detail') {
+      return
+    }
+
+    if (panel === 'management-ui' && plugin && !plugin.management_ui?.entry) {
+      void syncPanelQuery('overview')
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   void loadDetail()
@@ -386,320 +449,350 @@ async function scrollConsoleToBottom() {
 
     <a-alert v-if="operationError" :message="t('errors.common.actionFailed')" type="error" :description="operationError" show-icon />
 
-    <div class="content-grid">
+    <a-card
+      v-if="panelOptions.length > 1"
+      :bordered="false"
+      class="plugin-detail-panel-switch"
+    >
+      <a-segmented
+        :value="activePanel"
+        :options="panelOptions"
+        @change="setActivePanel($event as PluginDetailPanel)"
+      />
+    </a-card>
+
+    <template v-if="activePanel === 'overview'">
+      <div class="content-grid">
+        <a-card :bordered="false">
+          <template #title>
+            <div class="card-header">
+              <span>{{ t('plugins.sections.current') }}</span>
+              <ManagementContextActions :actions="pluginWorkbenchActions" />
+            </div>
+          </template>
+
+          <a-skeleton :loading="detailLoading" active>
+            <a-descriptions :column="1" bordered size="small">
+              <a-descriptions-item :label="t('plugins.fields.name')">{{ current?.name ?? t('display.empty') }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.role')">
+                {{ getPluginRoleLabel(current?.role) }}
+                <small v-if="current?.role"> · {{ current.role }}</small>
+              </a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.registration')">
+                {{ getPluginRegistrationStateLabel(current?.registration_state) }}
+                <small v-if="current?.registration_state"> · {{ current.registration_state }}</small>
+              </a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.desired')">
+                {{ getPluginDesiredStateLabel(current?.desired_state) }}
+                <small v-if="current?.desired_state"> · {{ current.desired_state }}</small>
+              </a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.runtime')">
+                {{ getPluginRuntimeStateLabel(current?.runtime_state) }}
+                <small v-if="current?.runtime_state"> · {{ current.runtime_state }}</small>
+              </a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.display')">
+                {{ getPluginDisplayStateLabel(current?.display_state) }}
+                <small v-if="current?.display_state"> · {{ current.display_state }}</small>
+              </a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.trust')">{{ current?.trust?.label ?? t('display.empty') }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.sourceRoot')">{{ current?.source?.root ?? t('display.empty') }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.sourceRef')">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? t('display.empty') }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.conflicts')">
+                <div v-if="current?.command_conflicts?.length" class="table-actions">
+                  <a-tag v-for="command in current.command_conflicts" :key="command" color="warning">
+                    {{ command }}
+                  </a-tag>
+                </div>
+                <span v-else>{{ t('display.empty') }}</span>
+              </a-descriptions-item>
+            </a-descriptions>
+          </a-skeleton>
+        </a-card>
+
+        <a-card :bordered="false">
+          <template #title>
+            <div class="card-header">
+              <span>{{ t('plugins.sections.permissions') }}</span>
+              <div class="table-actions">
+                <a-tag>{{ currentPermissions.length }}</a-tag>
+                <a-button
+                  v-if="!isBuiltinPlugin && permissionCandidates.length > 0"
+                  size="small"
+                  type="primary"
+                  @click="openPermissionDialog()"
+                >
+                  {{ t('plugins.actions.reviewPermissions') }}
+                </a-button>
+              </div>
+            </div>
+          </template>
+
+          <a-alert
+            v-if="isBuiltinPlugin"
+            :message="t('plugins.builtinAutoGrantTitle')"
+            type="success"
+            :description="t('plugins.builtinAutoGrantBody')"
+            show-icon
+            class="section-gap"
+          />
+
+          <a-alert
+            v-else-if="missingRequiredPermissions.length > 0"
+            :message="t('plugins.permissionPendingTitle')"
+            type="warning"
+            :description="t('plugins.permissionPendingBody', { count: missingRequiredPermissions.length })"
+            show-icon
+            class="section-gap"
+          />
+
+          <a-skeleton :loading="grantBusy" active>
+            <a-empty v-if="currentPermissions.length === 0" :description="t('plugins.empty.permissions')" />
+
+            <div v-else class="permission-list">
+              <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
+                <div class="permission-item__main">
+                  <div class="permission-item__title">
+                    <strong>{{ permission.capability }}</strong>
+                    <div class="table-actions">
+                      <a-tag color="blue">{{ getPermissionRequirementLabel(permission.requirement) }}</a-tag>
+                      <a-tag :color="permission.status === 'granted' ? 'success' : 'warning'">{{ getPermissionStatusLabel(permission.status) }}</a-tag>
+                      <a-tag>{{ getPermissionSourceLabel(permission.source) }}</a-tag>
+                    </div>
+                  </div>
+                  <small>{{ t('plugins.fields.grantedAt') }}：{{ formatDateTime(getGrantedAt(permission.capability)) }}</small>
+                  <small>{{ t('plugins.fields.expiresAt') }}：{{ formatDateTime(permission.expires_at ?? undefined) }}</small>
+                </div>
+
+                <div class="table-actions">
+                  <a-button
+                    v-if="canGrantPermission(permission)"
+                    size="small"
+                    type="primary"
+                    @click="openPermissionDialog({ available: [permission.capability], prefill: [permission.capability] })"
+                  >
+                    {{ t('plugins.actions.grantPermission') }}
+                  </a-button>
+                  <a-button
+                    v-if="canRevokePermission(permission)"
+                    size="small"
+                    danger
+                    @click="revokeGrant(permission.capability)"
+                  >
+                    {{ t('plugins.actions.revokeGrant') }}
+                  </a-button>
+                </div>
+              </article>
+            </div>
+          </a-skeleton>
+        </a-card>
+      </div>
+
+      <div class="content-grid">
+        <a-card :bordered="false">
+          <template #title>
+            <div class="card-header">
+              <span>{{ t('plugins.sections.package') }}</span>
+            </div>
+          </template>
+
+          <a-skeleton :loading="detailLoading" active>
+            <a-descriptions :column="1" bordered size="small">
+              <a-descriptions-item :label="t('plugins.fields.version')">{{ getMetadataText(current?.version) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.type')">{{ getMetadataText(current?.type) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.runtimeFamily')">{{ getMetadataText(current?.runtime) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.entry')">{{ getMetadataText(current?.entry) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.author')">{{ getMetadataText(current?.author) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.license')">{{ getMetadataText(current?.license) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.sdkMinVersion')">{{ getMetadataText(current?.sdk_min_version) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.runtimeVersion')">{{ getMetadataText(current?.runtime_version) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.minCoreVersion')">{{ getMetadataText(current?.min_core_version) }}</a-descriptions-item>
+              <a-descriptions-item :label="t('plugins.fields.dataSchemaVersion')">{{ getMetadataText(current?.data_schema_version) }}</a-descriptions-item>
+            </a-descriptions>
+          </a-skeleton>
+        </a-card>
+
+        <a-card :bordered="false">
+          <template #title>
+            <div class="card-header">
+              <span>{{ t('plugins.sections.metadata') }}</span>
+            </div>
+          </template>
+
+          <a-skeleton :loading="detailLoading" active>
+            <div class="metadata-stack">
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.description') }}</strong>
+                <p>{{ getMetadataText(current?.description) }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.icon') }}</strong>
+                <p>{{ getMetadataText(current?.icon) }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.repo') }}</strong>
+                <a v-if="current?.repo" :href="current.repo" target="_blank" rel="noreferrer">{{ current.repo }}</a>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.homepage') }}</strong>
+                <a v-if="current?.homepage" :href="current.homepage" target="_blank" rel="noreferrer">{{ current.homepage }}</a>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.keywords') }}</strong>
+                <div v-if="hasItems(current?.keywords)" class="tag-list">
+                  <a-tag v-for="keyword in current?.keywords" :key="keyword">{{ keyword }}</a-tag>
+                </div>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.platforms') }}</strong>
+                <div v-if="hasItems(current?.platforms)" class="tag-list">
+                  <a-tag v-for="platform in current?.platforms" :key="platform">{{ platform }}</a-tag>
+                </div>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.systemDependencies') }}</strong>
+                <div v-if="hasItems(current?.system_dependencies)" class="tag-list">
+                  <a-tag v-for="dependency in current?.system_dependencies" :key="dependency">{{ dependency }}</a-tag>
+                </div>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.screenshots') }}</strong>
+                <div v-if="hasItems(current?.screenshots)" class="screenshot-list">
+                  <article v-for="screenshot in current?.screenshots" :key="screenshot.path" class="screenshot-item">
+                    <span>{{ t('plugins.fields.screenshotPath') }}：{{ screenshot.path }}</span>
+                    <span>{{ t('plugins.fields.screenshotAlt') }}：{{ getScreenshotAlt(screenshot) }}</span>
+                  </article>
+                </div>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+            </div>
+          </a-skeleton>
+        </a-card>
+
+        <a-card :bordered="false">
+          <template #title>
+            <div class="card-header">
+              <span>{{ t('plugins.sections.runtimeConfig') }}</span>
+            </div>
+          </template>
+
+          <a-skeleton :loading="detailLoading" active>
+            <div class="metadata-stack">
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.concurrency') }}</strong>
+                <p>{{ current?.concurrency ?? t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.declaredCapabilities') }}</strong>
+                <div v-if="hasItems(current?.declared_capabilities)" class="tag-list">
+                  <a-tag v-for="capability in current?.declared_capabilities" :key="capability">{{ capability }}</a-tag>
+                </div>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.dependencies') }}</strong>
+                <pre v-if="hasObjectValue(current?.dependencies)" class="metadata-json">{{ getJsonPreview(current?.dependencies) }}</pre>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.scopes') }}</strong>
+                <pre v-if="hasObjectValue(current?.scopes)" class="metadata-json">{{ getJsonPreview(current?.scopes) }}</pre>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+
+              <section class="metadata-section">
+                <strong>{{ t('plugins.fields.defaultConfig') }}</strong>
+                <pre v-if="hasObjectValue(current?.default_config)" class="metadata-json">{{ getJsonPreview(current?.default_config) }}</pre>
+                <p v-else>{{ t('display.empty') }}</p>
+              </section>
+            </div>
+          </a-skeleton>
+        </a-card>
+      </div>
+
       <a-card :bordered="false">
         <template #title>
           <div class="card-header">
-            <span>{{ t('plugins.sections.current') }}</span>
-            <ManagementContextActions :actions="pluginWorkbenchActions" />
+            <span>{{ t('plugins.sections.commands') }}</span>
+            <a-tag>{{ current?.commands?.length ?? 0 }}</a-tag>
           </div>
         </template>
 
-        <a-skeleton :loading="detailLoading" active>
-          <a-descriptions :column="1" bordered size="small">
-            <a-descriptions-item :label="t('plugins.fields.name')">{{ current?.name ?? t('display.empty') }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.role')">
-              {{ getPluginRoleLabel(current?.role) }}
-              <small v-if="current?.role"> · {{ current.role }}</small>
-            </a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.registration')">
-              {{ getPluginRegistrationStateLabel(current?.registration_state) }}
-              <small v-if="current?.registration_state"> · {{ current.registration_state }}</small>
-            </a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.desired')">
-              {{ getPluginDesiredStateLabel(current?.desired_state) }}
-              <small v-if="current?.desired_state"> · {{ current.desired_state }}</small>
-            </a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.runtime')">
-              {{ getPluginRuntimeStateLabel(current?.runtime_state) }}
-              <small v-if="current?.runtime_state"> · {{ current.runtime_state }}</small>
-            </a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.display')">
-              {{ getPluginDisplayStateLabel(current?.display_state) }}
-              <small v-if="current?.display_state"> · {{ current.display_state }}</small>
-            </a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.trust')">{{ current?.trust?.label ?? t('display.empty') }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.sourceRoot')">{{ current?.source?.root ?? t('display.empty') }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.sourceRef')">{{ current?.source?.package_source_ref ?? current?.source?.package_source_type ?? t('display.empty') }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.conflicts')">
-              <div v-if="current?.command_conflicts?.length" class="table-actions">
-                <a-tag v-for="command in current.command_conflicts" :key="command" color="warning">
-                  {{ command }}
-                </a-tag>
-              </div>
-              <span v-else>{{ t('display.empty') }}</span>
-            </a-descriptions-item>
-          </a-descriptions>
-        </a-skeleton>
+        <PluginCommandsPanel
+          :commands="current?.commands ?? []"
+          :command-conflicts="current?.command_conflicts ?? []"
+          :command-prefix="commandPrefix"
+        />
       </a-card>
 
       <a-card :bordered="false">
         <template #title>
           <div class="card-header">
-            <span>{{ t('plugins.sections.permissions') }}</span>
+            <span>{{ t('plugins.sections.console') }}</span>
             <div class="table-actions">
-              <a-tag>{{ currentPermissions.length }}</a-tag>
-              <a-button
-                v-if="!isBuiltinPlugin && permissionCandidates.length > 0"
-                size="small"
-                type="primary"
-                @click="openPermissionDialog()"
-              >
-                {{ t('plugins.actions.reviewPermissions') }}
-              </a-button>
+              <a-tag :color="getConsoleStatusColor(consoleSnapshot.status)">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</a-tag>
+              <a-button size="small" @click="socketStore.reconnectConsole()">{{ t('plugins.actions.reconnectConsole') }}</a-button>
+              <a-button size="small" @click="clearConsole">{{ t('plugins.actions.clearConsole') }}</a-button>
             </div>
           </div>
         </template>
 
         <a-alert
-          v-if="isBuiltinPlugin"
-          :message="t('plugins.builtinAutoGrantTitle')"
-          type="success"
-          :description="t('plugins.builtinAutoGrantBody')"
-          show-icon
-          class="section-gap"
-        />
-
-        <a-alert
-          v-else-if="missingRequiredPermissions.length > 0"
-          :message="t('plugins.permissionPendingTitle')"
+          v-if="consoleSnapshot.lastError"
+          :message="t('plugins.consoleUnavailable')"
           type="warning"
-          :description="t('plugins.permissionPendingBody', { count: missingRequiredPermissions.length })"
+          :description="consoleSnapshot.lastError"
           show-icon
           class="section-gap"
         />
 
-        <a-skeleton :loading="grantBusy" active>
-          <a-empty v-if="currentPermissions.length === 0" :description="t('plugins.empty.permissions')" />
+        <a-empty v-if="consoleFrames.length === 0" :description="t('plugins.empty.console')" />
 
-          <div v-else class="permission-list">
-            <article v-for="permission in currentPermissions" :key="permission.capability" class="permission-item">
-              <div class="permission-item__main">
-                <div class="permission-item__title">
-                  <strong>{{ permission.capability }}</strong>
-                  <div class="table-actions">
-                    <a-tag color="blue">{{ getPermissionRequirementLabel(permission.requirement) }}</a-tag>
-                    <a-tag :color="permission.status === 'granted' ? 'success' : 'warning'">{{ getPermissionStatusLabel(permission.status) }}</a-tag>
-                    <a-tag>{{ getPermissionSourceLabel(permission.source) }}</a-tag>
-                  </div>
-                </div>
-                <small>{{ t('plugins.fields.grantedAt') }}：{{ formatDateTime(getGrantedAt(permission.capability)) }}</small>
-                <small>{{ t('plugins.fields.expiresAt') }}：{{ formatDateTime(permission.expires_at ?? undefined) }}</small>
-              </div>
-
-              <div class="table-actions">
-                <a-button
-                  v-if="canGrantPermission(permission)"
-                  size="small"
-                  type="primary"
-                  @click="openPermissionDialog({ available: [permission.capability], prefill: [permission.capability] })"
-                >
-                  {{ t('plugins.actions.grantPermission') }}
-                </a-button>
-                <a-button
-                  v-if="canRevokePermission(permission)"
-                  size="small"
-                  danger
-                  @click="revokeGrant(permission.capability)"
-                >
-                  {{ t('plugins.actions.revokeGrant') }}
-                </a-button>
-              </div>
-            </article>
+        <div v-else ref="consoleScroller" class="console-terminal" aria-label="插件实时控制台">
+          <div
+            v-for="(frame, index) in consoleFrames"
+            :key="getConsoleFrameKey(frame, index)"
+            :class="['console-terminal-line', `is-${frame.stream}`, frame.stream === 'outbound' ? `is-${getConsoleLevel(frame)}` : null]"
+          >
+            <span class="console-meta">
+              {{ formatDateTime(frame.timestamp) }} · {{ frame.stream }}
+              <template v-if="frame.stream === 'outbound'"> · {{ getConsoleLevel(frame) }}</template>
+            </span>
+            <pre>{{ escapeUnsafeDisplayText(frame.text) }}</pre>
           </div>
-        </a-skeleton>
+        </div>
       </a-card>
-    </div>
+    </template>
 
-    <div class="content-grid">
+    <PluginManagementUIHost
+      v-else-if="currentPlugin?.management_ui"
+      :plugin="currentPlugin"
+      :title="managementPanelTitle"
+    />
+
+    <a-skeleton v-else active :loading="detailLoading">
       <a-card :bordered="false">
         <template #title>
           <div class="card-header">
-            <span>{{ t('plugins.sections.package') }}</span>
+            <span>{{ managementPanelTitle }}</span>
           </div>
         </template>
-
-        <a-skeleton :loading="detailLoading" active>
-          <a-descriptions :column="1" bordered size="small">
-            <a-descriptions-item :label="t('plugins.fields.version')">{{ getMetadataText(current?.version) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.type')">{{ getMetadataText(current?.type) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.runtimeFamily')">{{ getMetadataText(current?.runtime) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.entry')">{{ getMetadataText(current?.entry) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.author')">{{ getMetadataText(current?.author) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.license')">{{ getMetadataText(current?.license) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.sdkMinVersion')">{{ getMetadataText(current?.sdk_min_version) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.runtimeVersion')">{{ getMetadataText(current?.runtime_version) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.minCoreVersion')">{{ getMetadataText(current?.min_core_version) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.dataSchemaVersion')">{{ getMetadataText(current?.data_schema_version) }}</a-descriptions-item>
-          </a-descriptions>
-        </a-skeleton>
       </a-card>
-
-      <a-card :bordered="false">
-        <template #title>
-          <div class="card-header">
-            <span>{{ t('plugins.sections.metadata') }}</span>
-          </div>
-        </template>
-
-        <a-skeleton :loading="detailLoading" active>
-          <div class="metadata-stack">
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.description') }}</strong>
-              <p>{{ getMetadataText(current?.description) }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.icon') }}</strong>
-              <p>{{ getMetadataText(current?.icon) }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.repo') }}</strong>
-              <a v-if="current?.repo" :href="current.repo" target="_blank" rel="noreferrer">{{ current.repo }}</a>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.homepage') }}</strong>
-              <a v-if="current?.homepage" :href="current.homepage" target="_blank" rel="noreferrer">{{ current.homepage }}</a>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.keywords') }}</strong>
-              <div v-if="hasItems(current?.keywords)" class="tag-list">
-                <a-tag v-for="keyword in current?.keywords" :key="keyword">{{ keyword }}</a-tag>
-              </div>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.platforms') }}</strong>
-              <div v-if="hasItems(current?.platforms)" class="tag-list">
-                <a-tag v-for="platform in current?.platforms" :key="platform">{{ platform }}</a-tag>
-              </div>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.systemDependencies') }}</strong>
-              <div v-if="hasItems(current?.system_dependencies)" class="tag-list">
-                <a-tag v-for="dependency in current?.system_dependencies" :key="dependency">{{ dependency }}</a-tag>
-              </div>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.screenshots') }}</strong>
-              <div v-if="hasItems(current?.screenshots)" class="screenshot-list">
-                <article v-for="screenshot in current?.screenshots" :key="screenshot.path" class="screenshot-item">
-                  <span>{{ t('plugins.fields.screenshotPath') }}：{{ screenshot.path }}</span>
-                  <span>{{ t('plugins.fields.screenshotAlt') }}：{{ getScreenshotAlt(screenshot) }}</span>
-                </article>
-              </div>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-          </div>
-        </a-skeleton>
-      </a-card>
-
-      <a-card :bordered="false">
-        <template #title>
-          <div class="card-header">
-            <span>{{ t('plugins.sections.runtimeConfig') }}</span>
-          </div>
-        </template>
-
-        <a-skeleton :loading="detailLoading" active>
-          <div class="metadata-stack">
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.concurrency') }}</strong>
-              <p>{{ current?.concurrency ?? t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.declaredCapabilities') }}</strong>
-              <div v-if="hasItems(current?.declared_capabilities)" class="tag-list">
-                <a-tag v-for="capability in current?.declared_capabilities" :key="capability">{{ capability }}</a-tag>
-              </div>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.dependencies') }}</strong>
-              <pre v-if="hasObjectValue(current?.dependencies)" class="metadata-json">{{ getJsonPreview(current?.dependencies) }}</pre>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.scopes') }}</strong>
-              <pre v-if="hasObjectValue(current?.scopes)" class="metadata-json">{{ getJsonPreview(current?.scopes) }}</pre>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-
-            <section class="metadata-section">
-              <strong>{{ t('plugins.fields.defaultConfig') }}</strong>
-              <pre v-if="hasObjectValue(current?.default_config)" class="metadata-json">{{ getJsonPreview(current?.default_config) }}</pre>
-              <p v-else>{{ t('display.empty') }}</p>
-            </section>
-          </div>
-        </a-skeleton>
-      </a-card>
-    </div>
-
-    <a-card :bordered="false">
-      <template #title>
-        <div class="card-header">
-          <span>{{ t('plugins.sections.commands') }}</span>
-          <a-tag>{{ current?.commands?.length ?? 0 }}</a-tag>
-        </div>
-      </template>
-
-      <PluginCommandsPanel
-        :commands="current?.commands ?? []"
-        :command-conflicts="current?.command_conflicts ?? []"
-        :command-prefix="commandPrefix"
-      />
-    </a-card>
-
-    <a-card :bordered="false">
-      <template #title>
-        <div class="card-header">
-          <span>{{ t('plugins.sections.console') }}</span>
-          <div class="table-actions">
-            <a-tag :color="getConsoleStatusColor(consoleSnapshot.status)">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</a-tag>
-            <a-button size="small" @click="socketStore.reconnectConsole()">{{ t('plugins.actions.reconnectConsole') }}</a-button>
-            <a-button size="small" @click="clearConsole">{{ t('plugins.actions.clearConsole') }}</a-button>
-          </div>
-        </div>
-      </template>
-
-      <a-alert
-        v-if="consoleSnapshot.lastError"
-        :message="t('plugins.consoleUnavailable')"
-        type="warning"
-        :description="consoleSnapshot.lastError"
-        show-icon
-        class="section-gap"
-      />
-
-      <a-empty v-if="consoleFrames.length === 0" :description="t('plugins.empty.console')" />
-
-      <div v-else ref="consoleScroller" class="console-terminal" aria-label="插件实时控制台">
-        <div
-          v-for="(frame, index) in consoleFrames"
-          :key="getConsoleFrameKey(frame, index)"
-          :class="['console-terminal-line', `is-${frame.stream}`, frame.stream === 'outbound' ? `is-${getConsoleLevel(frame)}` : null]"
-        >
-          <span class="console-meta">
-            {{ formatDateTime(frame.timestamp) }} · {{ frame.stream }}
-            <template v-if="frame.stream === 'outbound'"> · {{ getConsoleLevel(frame) }}</template>
-          </span>
-          <pre>{{ escapeUnsafeDisplayText(frame.text) }}</pre>
-        </div>
-      </div>
-    </a-card>
+    </a-skeleton>
   </AppPage>
 
   <a-modal

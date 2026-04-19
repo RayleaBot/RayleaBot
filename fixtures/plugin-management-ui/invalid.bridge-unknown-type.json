@@ -1,0 +1,16 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "invalid",
+  "description": "The bridge only accepts the frozen message types.",
+  "input": {
+    "version": "1",
+    "source": "plugin_management_ui",
+    "type": "settings.delete",
+    "payload": {
+      "values": {}
+    }
+  },
+  "expect": {
+    "valid": false
+  }
+}

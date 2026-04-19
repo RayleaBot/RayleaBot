@@ -435,4 +435,86 @@ describe('PluginDetailPage', () => {
 
     expect(setConsolePluginSpy).not.toHaveBeenCalled()
   })
+
+  it('shows the management panel for plugins that expose a management_ui entry', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/example-config-panel?panel=management-ui')
+    await router.isReady()
+
+    const configStore = useConfigStore()
+    const pluginsStore = usePluginsStore()
+    const socketStore = useSocketStore()
+
+    const detail = {
+      id: 'example-config-panel',
+      name: 'Example Config Panel',
+      role: 'example',
+      registration_state: 'installed',
+      desired_state: 'disabled',
+      runtime_state: 'stopped',
+      display_state: 'disabled',
+      version: '0.1.0',
+      runtime: 'python',
+      type: 'managed_runtime',
+      entry: 'main.py',
+      description: 'Python example plugin demonstrating config.read and config.write.',
+      source: {
+        root: 'examples/plugins',
+        package_source_type: 'local_directory',
+        package_source_ref: 'examples/plugins/example-config-panel',
+        verified: true,
+      },
+      trust: {
+        level: 'third_party',
+        label: '示例',
+      },
+      default_config: {
+        default_city: '北京',
+        unit: 'celsius',
+      },
+      management_ui: {
+        entry: 'web/index.html',
+        label: '配置页面',
+      },
+      commands: [],
+      command_conflicts: [],
+      permissions: [
+        {
+          capability: 'config.read',
+          requirement: 'required',
+          status: 'granted',
+          source: 'persisted',
+          expires_at: null,
+        },
+      ],
+    } as const
+
+    pluginsStore.current = detail
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
+    vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
+    vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
+    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {
+        default_city: '上海',
+        unit: 'fahrenheit',
+      },
+    })
+
+    const wrapper = mount(PluginDetailPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('概览')
+    expect(wrapper.text()).toContain('配置页面')
+    expect(wrapper.find('[data-testid="plugin-management-ui-host"]').exists()).toBe(true)
+    expect(wrapper.find('.console-terminal').exists()).toBe(false)
+  })
 })

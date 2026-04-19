@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Example Config Panel</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <main class="panel-shell">
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Example Config Panel</p>
+        <h1 id="page-title">配置页面</h1>
+        <p id="page-subtitle" class="hero-subtitle">等待宿主页提供插件设置。</p>
+      </div>
+      <div class="hero-badge">
+        <span>Plugin</span>
+        <strong id="plugin-id">--</strong>
+      </div>
+    </section>
+
+    <section class="settings-card">
+      <header class="section-header">
+        <div>
+          <p class="section-label">设置</p>
+          <h2>城市与单位</h2>
+        </div>
+        <div class="section-actions">
+          <button id="reload-button" class="ghost-button" type="button">重新读取</button>
+          <button id="save-button" class="primary-button" type="button">保存设置</button>
+        </div>
+      </header>
+
+      <form id="settings-form" class="settings-grid">
+        <label class="field">
+          <span>默认城市</span>
+          <input id="default-city-input" name="default_city" type="text" autocomplete="off" placeholder="请输入默认城市">
+        </label>
+
+        <label class="field">
+          <span>温度单位</span>
+          <select id="unit-select" name="unit">
+            <option value="celsius">celsius</option>
+            <option value="fahrenheit">fahrenheit</option>
+          </select>
+        </label>
+      </form>
+    </section>
+
+    <section class="status-card">
+      <div class="status-line">
+        <span class="status-label">当前状态</span>
+        <strong id="status-text">等待初始化</strong>
+      </div>
+      <pre id="settings-preview" class="settings-preview">{}</pre>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

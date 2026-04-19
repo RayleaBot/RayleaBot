@@ -20,6 +20,8 @@ export interface ManagementContextAction {
   to: RouteLocationRaw
 }
 
+export type PluginDetailPanel = 'overview' | 'management-ui'
+
 interface LogsLocationOptions {
   filters?: Partial<LogFilters>
   history?: boolean
@@ -149,6 +151,12 @@ export function readCommandsPluginIds(query: LocationQuery) {
   return normalizePluginIds(normalizeQueryValue(query.plugin_id))
 }
 
+export function readPluginDetailPanel(query: LocationQuery) {
+  return normalizeSingleQueryValue(query.panel) === 'management-ui'
+    ? 'management-ui'
+    : 'overview'
+}
+
 export function buildCommandsLocation(pluginIds?: string[] | string | null) {
   const normalizedPluginIds = normalizePluginIds(pluginIds)
 
@@ -204,10 +212,15 @@ export function buildLogsLocation(options: LogsLocationOptions = {}) {
   } satisfies RouteLocationRaw
 }
 
-export function buildPluginDetailLocation(pluginId: string) {
+export function buildPluginDetailLocation(pluginId: string, options: { panel?: PluginDetailPanel | null } = {}) {
+  const panel = options.panel ?? undefined
+
   return {
     name: 'plugin-detail',
     params: { id: pluginId },
+    query: createLocationQuery([
+      ['panel', panel],
+    ]),
   } satisfies RouteLocationRaw
 }
 

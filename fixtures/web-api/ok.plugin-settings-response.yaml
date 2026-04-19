@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin settings reads merge default_config with persisted values.
+request:
+  method: GET
+  path: /api/plugins/example-config-panel/settings
+response:
+  status: 200
+  body:
+    plugin_id: example-config-panel
+    values:
+      default_city: 上海
+      unit: fahrenheit
+expect:
+  valid: true

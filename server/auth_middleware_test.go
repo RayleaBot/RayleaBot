@@ -479,6 +479,7 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 		{http.MethodPost, "/api/session/login"},
 		{http.MethodPost, "/api/session/launcher-token"},
 		{http.MethodPost, "/api/session/launcher-admission"},
+		{http.MethodGet, "/plugin-ui/raylea.help/web/index.html"},
 	}
 
 	client := server.Client()
@@ -532,6 +533,8 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 		{http.MethodGet, "/api/tasks"},
 		{http.MethodGet, "/api/plugins"},
 		{http.MethodGet, "/api/plugins/fake-plugin-id"},
+		{http.MethodGet, "/api/plugins/fake-plugin-id/settings"},
+		{http.MethodPut, "/api/plugins/fake-plugin-id/settings"},
 		{http.MethodGet, "/ws/events"},
 		{http.MethodGet, "/ws/tasks"},
 		{http.MethodGet, "/ws/logs"},

@@ -326,6 +326,50 @@ func TestDiscoverManifestDefaultConfigAndRole(t *testing.T) {
 	}
 }
 
+func TestDiscoverManifestManagementUI(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.management-ui.json"))
+	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
+	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if snapshot.ManagementUI == nil {
+		t.Fatal("expected management_ui to be populated")
+	}
+	if snapshot.ManagementUI.Entry != "web/index.html" {
+		t.Fatalf("unexpected management_ui.entry: got %q want web/index.html", snapshot.ManagementUI.Entry)
+	}
+	if snapshot.ManagementUI.Label != "配置页面" {
+		t.Fatalf("unexpected management_ui.label: got %q want 配置页面", snapshot.ManagementUI.Label)
+	}
+	if snapshot.PackageRootPath != pluginDir {
+		t.Fatalf("unexpected package root path: got %q want %q", snapshot.PackageRootPath, pluginDir)
+	}
+}
+
 func TestDiscoverManifestRichMetadata(t *testing.T) {
 	t.Parallel()
 

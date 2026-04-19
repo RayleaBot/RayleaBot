@@ -1,0 +1,22 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin settings writes return changed keys and the latest effective values.
+request:
+  method: PUT
+  path: /api/plugins/example-config-panel/settings
+  body:
+    values:
+      default_city: 上海
+      unit: fahrenheit
+response:
+  status: 200
+  body:
+    plugin_id: example-config-panel
+    changed_keys:
+      - default_city
+      - unit
+    values:
+      default_city: 上海
+      unit: fahrenheit
+expect:
+  valid: true
