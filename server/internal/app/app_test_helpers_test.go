@@ -39,10 +39,16 @@ func newTestAppState(cfg config.Config, logger *slog.Logger) *App {
 }
 
 func (a *App) setTestEventIngress(catalog *plugins.Catalog, blacklistRepo permission.BlacklistRepository, sender outboundActionSender, eventBridge *bridge.Bridge) {
+	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
+}
+
+func (a *App) setTestEventIngressWithGovernance(catalog *plugins.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender outboundActionSender, eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}
 	a.plugins = catalog
+	a.whitelistRepo = whitelistRepo
+	a.whitelistState = whitelistState
 	a.blacklistRepo = blacklistRepo
 	a.outboundSender = sender
 	a.bridge = eventBridge
@@ -52,6 +58,8 @@ func (a *App) setTestEventIngress(catalog *plugins.Catalog, blacklistRepo permis
 		outboundSender:   sender,
 		bridge:           eventBridge,
 		metadataEnricher: a.adapter,
+		whitelistRepo:    whitelistRepo,
+		whitelistState:   whitelistState,
 		blacklistRepo:    blacklistRepo,
 	})
 }

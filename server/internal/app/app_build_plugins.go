@@ -40,6 +40,8 @@ func buildAppPlugins(
 		return appPlugins{}, err
 	}
 	blacklistRepo := permission.NewSQLiteBlacklistRepository(platform.Storage.Read, platform.Storage.Write)
+	whitelistRepo := permission.NewSQLiteWhitelistRepository(platform.Storage.Read, platform.Storage.Write)
+	whitelistStateRepo := permission.NewSQLiteWhitelistStateRepository(platform.Storage.Read, platform.Storage.Write)
 
 	if err := hydratePluginCatalog(state, pluginRepository); err != nil {
 		_ = platform.Storage.Close()
@@ -68,6 +70,8 @@ func buildAppPlugins(
 		pluginKV:          pluginKVRepository,
 		grantRepository:   pluginRepository,
 		blacklistRepo:     blacklistRepo,
+		whitelistRepo:     whitelistRepo,
+		whitelistState:    whitelistStateRepo,
 		webhooks:          webhookRegistry,
 		renderer:          renderService,
 		pluginLogLimiter:  newPluginLogLimiter(state.core.Config),

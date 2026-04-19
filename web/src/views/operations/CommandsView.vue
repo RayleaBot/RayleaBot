@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
+import { notifySuccess } from '@/adapter/feedback'
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { getBooleanLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
@@ -20,7 +22,14 @@ import { flattenPluginCommands, type PluginCommandAvailability } from '@/lib/plu
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
-import type { BlacklistEntry, CommandPermissionLevel, CommandPermissionSource, PluginCommandSummary, PluginSummary } from '@/types/api'
+import type {
+  BlacklistEntry,
+  CommandPermissionLevel,
+  CommandPermissionSource,
+  GovernanceEntryType,
+  PluginCommandSummary,
+  PluginSummary,
+} from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,14 +42,34 @@ const { document: configDocument } = storeToRefs(configStore)
 const {
   blacklist,
   blacklistError,
+  blacklistLoading,
+  whitelist,
+  whitelistError,
+  whitelistLoading,
   commandPolicy,
   commandPolicyError,
+  commandPolicyLoading,
   error: governanceError,
   hasData: governanceHasData,
   loading: governanceLoading,
 } = storeToRefs(governanceStore)
 
 const selectedPluginIds = ref<string[]>([])
+const blacklistActionError = ref<string | null>(null)
+const whitelistActionError = ref<string | null>(null)
+const blacklistMutating = ref(false)
+const whitelistMutating = ref(false)
+const whitelistConfirmVisible = ref(false)
+
+const blacklistDrafts = reactive<Record<GovernanceEntryType, { reason: string; targetId: string }>>({
+  user: { targetId: '', reason: '' },
+  group: { targetId: '', reason: '' },
+})
+
+const whitelistDrafts = reactive<Record<GovernanceEntryType, { reason: string; targetId: string }>>({
+  user: { targetId: '', reason: '' },
+  group: { targetId: '', reason: '' },
+})
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const pluginsWithCommands = computed(() => (
@@ -70,6 +99,15 @@ const governanceCommandRows = computed(() => {
 const userBlacklistEntries = computed(() => blacklist.value?.user_entries ?? [])
 const groupBlacklistEntries = computed(() => blacklist.value?.group_entries ?? [])
 const totalBlacklistEntries = computed(() => userBlacklistEntries.value.length + groupBlacklistEntries.value.length)
+
+const userWhitelistEntries = computed(() => whitelist.value?.user_entries ?? [])
+const groupWhitelistEntries = computed(() => whitelist.value?.group_entries ?? [])
+const totalWhitelistEntries = computed(() => userWhitelistEntries.value.length + groupWhitelistEntries.value.length)
+const whitelistEnabled = computed(() => whitelist.value?.enabled ?? false)
+const showWhitelistEmptyWarning = computed(() => whitelistEnabled.value && totalWhitelistEntries.value === 0)
+
+const blacklistRegionError = computed(() => blacklistActionError.value ?? blacklistError.value)
+const whitelistRegionError = computed(() => whitelistActionError.value ?? whitelistError.value)
 
 const pageErrorMessage = computed(() => error.value ?? governanceError.value)
 const showFatalError = computed(() => Boolean(pageErrorMessage.value) && commandRows.value.length === 0 && !governanceHasData.value)
@@ -165,8 +203,128 @@ function getSelectPopupContainer(triggerNode: HTMLElement) {
   return triggerNode.parentElement ?? triggerNode
 }
 
-function getBlacklistTitle(entryType: BlacklistEntry['entry_type']) {
+function getBlacklistTitle(entryType: GovernanceEntryType) {
   return entryType === 'group' ? t('commands.blacklist.groupTitle') : t('commands.blacklist.userTitle')
+}
+
+function getWhitelistTitle(entryType: GovernanceEntryType) {
+  return entryType === 'group' ? t('commands.whitelist.groupTitle') : t('commands.whitelist.userTitle')
+}
+
+function getEntryDraft(collection: Record<GovernanceEntryType, { reason: string; targetId: string }>, entryType: GovernanceEntryType) {
+  return collection[entryType]
+}
+
+function resetEntryDraft(collection: Record<GovernanceEntryType, { reason: string; targetId: string }>, entryType: GovernanceEntryType) {
+  collection[entryType].targetId = ''
+  collection[entryType].reason = ''
+}
+
+function validateEntryDraft(collection: Record<GovernanceEntryType, { reason: string; targetId: string }>, entryType: GovernanceEntryType) {
+  const targetId = collection[entryType].targetId.trim()
+  const reason = collection[entryType].reason.trim()
+
+  if (!targetId || !reason) {
+    return null
+  }
+
+  return {
+    entry_type: entryType,
+    target_id: targetId,
+    reason,
+  }
+}
+
+async function addBlacklistEntry(entryType: GovernanceEntryType) {
+  const payload = validateEntryDraft(blacklistDrafts, entryType)
+  if (!payload) {
+    blacklistActionError.value = t('commands.validation.entryRequired')
+    return
+  }
+
+  blacklistMutating.value = true
+  blacklistActionError.value = null
+  try {
+    await governanceStore.addBlacklistEntry(payload)
+    resetEntryDraft(blacklistDrafts, entryType)
+    notifySuccess(t('commands.feedback.blacklistSaved'))
+  } catch (error) {
+    blacklistActionError.value = getDisplayErrorMessage(error)
+  } finally {
+    blacklistMutating.value = false
+  }
+}
+
+async function removeBlacklistEntry(entry: BlacklistEntry) {
+  blacklistMutating.value = true
+  blacklistActionError.value = null
+  try {
+    await governanceStore.removeBlacklistEntry(entry.entry_type, entry.target_id)
+    notifySuccess(t('commands.feedback.blacklistRemoved'))
+  } catch (error) {
+    blacklistActionError.value = getDisplayErrorMessage(error)
+  } finally {
+    blacklistMutating.value = false
+  }
+}
+
+async function applyWhitelistEnabled(enabled: boolean) {
+  whitelistMutating.value = true
+  whitelistActionError.value = null
+  try {
+    await governanceStore.setWhitelistEnabled(enabled)
+    notifySuccess(t(enabled ? 'commands.feedback.whitelistEnabled' : 'commands.feedback.whitelistDisabled'))
+  } catch (error) {
+    whitelistActionError.value = getDisplayErrorMessage(error)
+  } finally {
+    whitelistMutating.value = false
+  }
+}
+
+function handleWhitelistToggle(checked: boolean) {
+  if (checked && !whitelistEnabled.value && totalWhitelistEntries.value === 0) {
+    whitelistConfirmVisible.value = true
+    return
+  }
+  void applyWhitelistEnabled(checked)
+}
+
+async function confirmEmptyWhitelistEnable() {
+  whitelistConfirmVisible.value = false
+  await applyWhitelistEnabled(true)
+}
+
+async function addWhitelistEntry(entryType: GovernanceEntryType) {
+  const payload = validateEntryDraft(whitelistDrafts, entryType)
+  if (!payload) {
+    whitelistActionError.value = t('commands.validation.entryRequired')
+    return
+  }
+
+  whitelistMutating.value = true
+  whitelistActionError.value = null
+  try {
+    await governanceStore.addWhitelistEntry(payload)
+    resetEntryDraft(whitelistDrafts, entryType)
+    notifySuccess(t('commands.feedback.whitelistSaved'))
+  } catch (error) {
+    whitelistActionError.value = getDisplayErrorMessage(error)
+  } finally {
+    whitelistMutating.value = false
+  }
+}
+
+async function removeWhitelistEntry(entry: BlacklistEntry) {
+  whitelistMutating.value = true
+  whitelistActionError.value = null
+  try {
+    await governanceStore.removeWhitelistEntry(entry.entry_type, entry.target_id)
+    notifySuccess(t('commands.feedback.whitelistRemoved'))
+  } catch (error) {
+    whitelistActionError.value = getDisplayErrorMessage(error)
+  } finally {
+    whitelistMutating.value = false
+  }
 }
 
 watch(
@@ -250,7 +408,7 @@ onMounted(() => {
       />
 
       <div class="commands-governance-grid">
-        <a-card :bordered="false" class="app-view-card commands-section-card">
+        <a-card :bordered="false" class="app-view-card commands-section-card" data-testid="commands-summary-card">
           <template #title>
             <div class="card-header">
               <span>{{ t('commands.sections.summary') }}</span>
@@ -294,7 +452,7 @@ onMounted(() => {
           </a-skeleton>
         </a-card>
 
-        <a-card :bordered="false" class="app-view-card commands-section-card">
+        <a-card :bordered="false" class="app-view-card commands-section-card" data-testid="commands-blacklist-card">
           <template #title>
             <div class="card-header">
               <span>{{ t('commands.sections.blacklist') }}</span>
@@ -302,12 +460,12 @@ onMounted(() => {
             </div>
           </template>
 
-          <a-skeleton :loading="governanceLoading && !blacklist" active>
+          <a-skeleton :loading="blacklistLoading && !blacklist" active>
             <a-alert
-              v-if="blacklistError"
-              :message="t('errors.common.loadFailed')"
+              v-if="blacklistRegionError"
+              :message="t('errors.common.actionFailed')"
               type="warning"
-              :description="blacklistError"
+              :description="blacklistRegionError"
               show-icon
               class="section-gap"
             />
@@ -319,6 +477,34 @@ onMounted(() => {
                   <a-tag>{{ userBlacklistEntries.length }}</a-tag>
                 </div>
 
+                <a-form
+                  layout="vertical"
+                  class="entry-form"
+                  data-testid="commands-blacklist-user-form"
+                  @submit.prevent="addBlacklistEntry('user')"
+                >
+                  <a-form-item :label="t('commands.entryForm.targetId')">
+                    <a-input
+                      v-model:value="getEntryDraft(blacklistDrafts, 'user').targetId"
+                      :placeholder="t('commands.entryForm.placeholderTargetId')"
+                    />
+                  </a-form-item>
+                  <a-form-item :label="t('commands.entryForm.reason')">
+                    <a-input
+                      v-model:value="getEntryDraft(blacklistDrafts, 'user').reason"
+                      :placeholder="t('commands.entryForm.placeholderReason')"
+                    />
+                  </a-form-item>
+                  <a-button
+                    type="primary"
+                    :loading="blacklistMutating"
+                    data-testid="commands-blacklist-add-user"
+                    @click="addBlacklistEntry('user')"
+                  >
+                    {{ t('commands.entryForm.add') }}
+                  </a-button>
+                </a-form>
+
                 <AppEmptyState
                   v-if="userBlacklistEntries.length === 0"
                   icon="command"
@@ -328,7 +514,18 @@ onMounted(() => {
                 />
 
                 <article v-for="entry in userBlacklistEntries" :key="`${entry.entry_type}-${entry.target_id}`" class="blacklist-entry">
-                  <strong>{{ entry.target_id }}</strong>
+                  <div class="entry-card__header">
+                    <strong>{{ entry.target_id }}</strong>
+                    <a-button
+                      type="link"
+                      danger
+                      size="small"
+                      data-testid="commands-blacklist-remove-user"
+                      @click="removeBlacklistEntry(entry)"
+                    >
+                      {{ t('commands.entryForm.remove') }}
+                    </a-button>
+                  </div>
                   <span>{{ entry.reason }}</span>
                   <small>{{ formatDateTime(entry.created_at) }}</small>
                 </article>
@@ -340,6 +537,34 @@ onMounted(() => {
                   <a-tag>{{ groupBlacklistEntries.length }}</a-tag>
                 </div>
 
+                <a-form
+                  layout="vertical"
+                  class="entry-form"
+                  data-testid="commands-blacklist-group-form"
+                  @submit.prevent="addBlacklistEntry('group')"
+                >
+                  <a-form-item :label="t('commands.entryForm.targetId')">
+                    <a-input
+                      v-model:value="getEntryDraft(blacklistDrafts, 'group').targetId"
+                      :placeholder="t('commands.entryForm.placeholderTargetId')"
+                    />
+                  </a-form-item>
+                  <a-form-item :label="t('commands.entryForm.reason')">
+                    <a-input
+                      v-model:value="getEntryDraft(blacklistDrafts, 'group').reason"
+                      :placeholder="t('commands.entryForm.placeholderReason')"
+                    />
+                  </a-form-item>
+                  <a-button
+                    type="primary"
+                    :loading="blacklistMutating"
+                    data-testid="commands-blacklist-add-group"
+                    @click="addBlacklistEntry('group')"
+                  >
+                    {{ t('commands.entryForm.add') }}
+                  </a-button>
+                </a-form>
+
                 <AppEmptyState
                   v-if="groupBlacklistEntries.length === 0"
                   icon="command"
@@ -349,7 +574,18 @@ onMounted(() => {
                 />
 
                 <article v-for="entry in groupBlacklistEntries" :key="`${entry.entry_type}-${entry.target_id}`" class="blacklist-entry">
-                  <strong>{{ entry.target_id }}</strong>
+                  <div class="entry-card__header">
+                    <strong>{{ entry.target_id }}</strong>
+                    <a-button
+                      type="link"
+                      danger
+                      size="small"
+                      data-testid="commands-blacklist-remove-group"
+                      @click="removeBlacklistEntry(entry)"
+                    >
+                      {{ t('commands.entryForm.remove') }}
+                    </a-button>
+                  </div>
                   <span>{{ entry.reason }}</span>
                   <small>{{ formatDateTime(entry.created_at) }}</small>
                 </article>
@@ -361,6 +597,179 @@ onMounted(() => {
               icon="command"
               :title="t('commands.empty.blacklistTitle')"
               :description="t('commands.empty.blacklistDescription')"
+            />
+          </a-skeleton>
+        </a-card>
+
+        <a-card :bordered="false" class="app-view-card commands-section-card" data-testid="commands-whitelist-card">
+          <template #title>
+            <div class="card-header">
+              <span>{{ t('commands.sections.whitelist') }}</span>
+              <a-tag>{{ totalWhitelistEntries }}</a-tag>
+            </div>
+          </template>
+
+          <a-skeleton :loading="whitelistLoading && !whitelist" active>
+            <a-alert
+              v-if="whitelistRegionError"
+              :message="t('errors.common.actionFailed')"
+              type="warning"
+              :description="whitelistRegionError"
+              show-icon
+              class="section-gap"
+            />
+
+            <template v-if="whitelist">
+              <div class="whitelist-header-row">
+                <div class="whitelist-header-row__copy">
+                  <strong>{{ t('commands.whitelist.enabled') }}</strong>
+                  <p>{{ t('commands.whitelist.enabledHint') }}</p>
+                </div>
+                <a-switch
+                  :checked="whitelistEnabled"
+                  :loading="whitelistMutating"
+                  data-testid="commands-whitelist-enabled"
+                  @change="handleWhitelistToggle"
+                />
+              </div>
+
+              <a-alert
+                v-if="showWhitelistEmptyWarning"
+                :message="t('commands.whitelist.emptyWarningTitle')"
+                :description="t('commands.whitelist.emptyWarningDescription')"
+                type="warning"
+                show-icon
+                class="section-gap"
+              />
+
+              <div class="commands-blacklist-grid">
+                <section class="blacklist-section">
+                  <div class="blacklist-section__header">
+                    <strong>{{ getWhitelistTitle('user') }}</strong>
+                    <a-tag>{{ userWhitelistEntries.length }}</a-tag>
+                  </div>
+
+                  <a-form
+                    layout="vertical"
+                    class="entry-form"
+                    data-testid="commands-whitelist-user-form"
+                    @submit.prevent="addWhitelistEntry('user')"
+                  >
+                    <a-form-item :label="t('commands.entryForm.targetId')">
+                      <a-input
+                        v-model:value="getEntryDraft(whitelistDrafts, 'user').targetId"
+                        :placeholder="t('commands.entryForm.placeholderTargetId')"
+                      />
+                    </a-form-item>
+                    <a-form-item :label="t('commands.entryForm.reason')">
+                      <a-input
+                        v-model:value="getEntryDraft(whitelistDrafts, 'user').reason"
+                        :placeholder="t('commands.entryForm.placeholderReason')"
+                      />
+                    </a-form-item>
+                    <a-button
+                      type="primary"
+                      :loading="whitelistMutating"
+                      data-testid="commands-whitelist-add-user"
+                      @click="addWhitelistEntry('user')"
+                    >
+                      {{ t('commands.entryForm.add') }}
+                    </a-button>
+                  </a-form>
+
+                  <AppEmptyState
+                    v-if="userWhitelistEntries.length === 0"
+                    icon="command"
+                    :title="t('commands.empty.whitelistTitle')"
+                    :description="t('commands.empty.whitelistDescription')"
+                    compact
+                  />
+
+                  <article v-for="entry in userWhitelistEntries" :key="`${entry.entry_type}-${entry.target_id}`" class="blacklist-entry">
+                    <div class="entry-card__header">
+                      <strong>{{ entry.target_id }}</strong>
+                      <a-button
+                        type="link"
+                        danger
+                        size="small"
+                        data-testid="commands-whitelist-remove-user"
+                        @click="removeWhitelistEntry(entry)"
+                      >
+                        {{ t('commands.entryForm.remove') }}
+                      </a-button>
+                    </div>
+                    <span>{{ entry.reason }}</span>
+                    <small>{{ formatDateTime(entry.created_at) }}</small>
+                  </article>
+                </section>
+
+                <section class="blacklist-section">
+                  <div class="blacklist-section__header">
+                    <strong>{{ getWhitelistTitle('group') }}</strong>
+                    <a-tag>{{ groupWhitelistEntries.length }}</a-tag>
+                  </div>
+
+                  <a-form
+                    layout="vertical"
+                    class="entry-form"
+                    data-testid="commands-whitelist-group-form"
+                    @submit.prevent="addWhitelistEntry('group')"
+                  >
+                    <a-form-item :label="t('commands.entryForm.targetId')">
+                      <a-input
+                        v-model:value="getEntryDraft(whitelistDrafts, 'group').targetId"
+                        :placeholder="t('commands.entryForm.placeholderTargetId')"
+                      />
+                    </a-form-item>
+                    <a-form-item :label="t('commands.entryForm.reason')">
+                      <a-input
+                        v-model:value="getEntryDraft(whitelistDrafts, 'group').reason"
+                        :placeholder="t('commands.entryForm.placeholderReason')"
+                      />
+                    </a-form-item>
+                    <a-button
+                      type="primary"
+                      :loading="whitelistMutating"
+                      data-testid="commands-whitelist-add-group"
+                      @click="addWhitelistEntry('group')"
+                    >
+                      {{ t('commands.entryForm.add') }}
+                    </a-button>
+                  </a-form>
+
+                  <AppEmptyState
+                    v-if="groupWhitelistEntries.length === 0"
+                    icon="command"
+                    :title="t('commands.empty.whitelistTitle')"
+                    :description="t('commands.empty.whitelistDescription')"
+                    compact
+                  />
+
+                  <article v-for="entry in groupWhitelistEntries" :key="`${entry.entry_type}-${entry.target_id}`" class="blacklist-entry">
+                    <div class="entry-card__header">
+                      <strong>{{ entry.target_id }}</strong>
+                      <a-button
+                        type="link"
+                        danger
+                        size="small"
+                        data-testid="commands-whitelist-remove-group"
+                        @click="removeWhitelistEntry(entry)"
+                      >
+                        {{ t('commands.entryForm.remove') }}
+                      </a-button>
+                    </div>
+                    <span>{{ entry.reason }}</span>
+                    <small>{{ formatDateTime(entry.created_at) }}</small>
+                  </article>
+                </section>
+              </div>
+            </template>
+
+            <AppEmptyState
+              v-else
+              icon="command"
+              :title="t('commands.empty.whitelistTitle')"
+              :description="t('commands.empty.whitelistDescription')"
             />
           </a-skeleton>
         </a-card>
@@ -389,6 +798,7 @@ onMounted(() => {
           :data-source="governanceCommandRows"
           :pagination="false"
           :row-key="(row) => `${row.plugin_id}-${row.command}`"
+          :loading="commandPolicyLoading && !commandPolicy"
           :scroll="{ x: 1100 }"
         >
           <template #emptyText>
@@ -498,6 +908,16 @@ onMounted(() => {
       </a-card>
     </template>
   </AppPage>
+
+  <a-modal
+    v-model:open="whitelistConfirmVisible"
+    :title="t('commands.whitelist.enableConfirmTitle')"
+    :ok-text="t('commands.whitelist.enableConfirmAction')"
+    :confirm-loading="whitelistMutating"
+    @ok="confirmEmptyWhitelistEnable"
+  >
+    <p>{{ t('commands.whitelist.enableConfirmDescription') }}</p>
+  </a-modal>
 </template>
 
 <style scoped lang="scss">
@@ -516,7 +936,7 @@ onMounted(() => {
 .commands-blacklist-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .blacklist-section {
@@ -525,11 +945,35 @@ onMounted(() => {
   min-width: 0;
 }
 
-.blacklist-section__header {
+.blacklist-section__header,
+.card-header,
+.entry-card__header,
+.whitelist-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.whitelist-header-row {
+  align-items: flex-start;
+}
+
+.whitelist-header-row__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.whitelist-header-row__copy p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.entry-form {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
 }
 
 .blacklist-entry {
@@ -560,5 +1004,12 @@ onMounted(() => {
 
 .command-plugin-cell small {
   font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+@media (max-width: 768px) {
+  .whitelist-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

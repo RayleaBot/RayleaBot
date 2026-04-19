@@ -25,7 +25,7 @@ type outboundActionSender interface {
 	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
 }
 
-func newPermissionChecker(cfg config.Config, repo permission.BlacklistRepository) *permission.Checker {
+func newPermissionChecker(cfg config.Config, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository) *permission.Checker {
 	userLimit := parseCooldownRateLimit(defaultUserCommandRateLimit)
 	groupLimit := parseCooldownRateLimit(defaultGroupCommandRateLimit)
 	if cfg.Cooldown != nil {
@@ -36,7 +36,7 @@ func newPermissionChecker(cfg config.Config, repo permission.BlacklistRepository
 	return permission.NewChecker(permission.CheckerConfig{
 		SuperAdmins:  append([]string(nil), cfg.Auth.SuperAdmins...),
 		DefaultLevel: commandPermissionDefaultLevel(cfg),
-	}, repo, permission.NewCooldownTracker(userLimit, groupLimit))
+	}, whitelistRepo, whitelistState, blacklistRepo, permission.NewCooldownTracker(userLimit, groupLimit))
 }
 
 func parseCooldownRateLimitWithFallback(raw, fallback string) permission.RateLimit {
@@ -80,6 +80,8 @@ type eventIngressService struct {
 	metadataEnricher  eventMetadataEnricher
 	commandParser     *command.Parser
 	permissionChecker *permission.Checker
+	whitelistRepo     permission.WhitelistRepository
+	whitelistState    permission.WhitelistStateRepository
 	blacklistRepo     permission.BlacklistRepository
 }
 
@@ -92,6 +94,8 @@ func newEventIngressService(deps eventIngressDeps) *eventIngressService {
 		bridge:           deps.bridge,
 		lifecycle:        deps.lifecycle,
 		metadataEnricher: deps.metadataEnricher,
+		whitelistRepo:    deps.whitelistRepo,
+		whitelistState:   deps.whitelistState,
 		blacklistRepo:    deps.blacklistRepo,
 	}
 	service.UpdateConfig(deps.state.Config)
@@ -103,7 +107,7 @@ func (s *eventIngressService) UpdateConfig(cfg config.Config) {
 		return
 	}
 	s.commandParser = newCommandParser(cfg)
-	s.permissionChecker = newPermissionChecker(cfg, s.blacklistRepo)
+	s.permissionChecker = newPermissionChecker(cfg, s.whitelistRepo, s.whitelistState, s.blacklistRepo)
 }
 
 func (s *eventIngressService) applyChatPolicy(ctx context.Context, event adapter.NormalizedEvent) (adapter.NormalizedEvent, bool) {

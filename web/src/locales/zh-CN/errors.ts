@@ -5,6 +5,8 @@ export const errors = {
   },
   permission: {
     denied: '当前会话无权执行该操作。',
+    blacklisted: '当前用户或群处于黑名单中。',
+    notWhitelisted: '当前用户或群不在白名单中。',
   },
   platform: {
     invalidRequest: '请求参数不正确，请检查后重试。',

@@ -1,0 +1,10 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Governance blacklist entry delete removes one existing user or group entry.
+request:
+  method: DELETE
+  path: /api/governance/blacklist/entries/user/10001
+response:
+  status: 204
+expect:
+  valid: true

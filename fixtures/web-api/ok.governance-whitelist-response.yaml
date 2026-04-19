@@ -1,0 +1,22 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Governance whitelist snapshot returns the enable state together with user and group entries.
+request:
+  method: GET
+  path: /api/governance/whitelist
+response:
+  status: 200
+  body:
+    enabled: true
+    user_entries:
+      - entry_type: user
+        target_id: '10001'
+        reason: 值班账号
+        created_at: '2026-04-18T08:30:00Z'
+    group_entries:
+      - entry_type: group
+        target_id: '20002'
+        reason: 核心服务群
+        created_at: '2026-04-18T08:45:00Z'
+expect:
+  valid: true

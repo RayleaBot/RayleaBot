@@ -1,0 +1,14 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Governance whitelist state update returns the latest enable state.
+request:
+  method: PUT
+  path: /api/governance/whitelist/state
+  body:
+    enabled: true
+response:
+  status: 200
+  body:
+    enabled: true
+expect:
+  valid: true

@@ -91,6 +91,22 @@ function dashboardConnectionCard(page: import('@playwright/test').Page) {
   return page.getByTestId('dashboard-connection-card')
 }
 
+async function fillGovernanceEntryForm(
+  form: import('@playwright/test').Locator,
+  targetId: string,
+  reason: string,
+) {
+  await form.locator('input').nth(0).fill(targetId)
+  await form.locator('input').nth(1).fill(reason)
+}
+
+function governanceEntryCard(
+  container: import('@playwright/test').Locator,
+  targetId: string,
+) {
+  return container.locator('.blacklist-entry').filter({ hasText: targetId }).first()
+}
+
 async function readTabLabels(page: import('@playwright/test').Page) {
   return page.locator('.admin-layout__tabbar .ant-tabs-tab-btn').evaluateAll((nodes) => (
     nodes
@@ -338,7 +354,7 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
 })
 
-test('commands page shows governance snapshots', async ({ page, request }) => {
+test('commands page manages blacklist and whitelist entries', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -346,6 +362,7 @@ test('commands page shows governance snapshots', async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
   await expect(page.getByText('治理摘要', { exact: true })).toBeVisible()
   await expect(page.getByText('黑名单', { exact: true })).toBeVisible()
+  await expect(page.getByText('白名单', { exact: true })).toBeVisible()
   await expect(page.getByText('生效命令策略', { exact: true })).toBeVisible()
   await expect(page.getByText('全部声明命令', { exact: true })).toBeVisible()
   await expect(
@@ -353,11 +370,58 @@ test('commands page shows governance snapshots', async ({ page, request }) => {
   ).toBeVisible()
   await expect(page.getByText('10/60s')).toBeVisible()
   await expect(page.getByText('30/60s')).toBeVisible()
-  await expect(page.getByText('10001')).toBeVisible()
-  await expect(page.getByText('20002')).toBeVisible()
+  const blacklistCard = page.getByTestId('commands-blacklist-card')
+  const whitelistCard = page.getByTestId('commands-whitelist-card')
+  await expect(blacklistCard).toContainText('10001')
+  await expect(blacklistCard).toContainText('20002')
+  await expect(whitelistCard).toContainText('10001')
+  await expect(whitelistCard).toContainText('20002')
+  await expect(whitelistCard).toContainText('值班账号')
+  await expect(whitelistCard).toContainText('核心服务群')
   await expect(
     page.locator('.commands-section-card').filter({ hasText: '生效命令策略' }).locator('.commands-data-table'),
   ).toContainText('群管理员')
+
+  await fillGovernanceEntryForm(page.getByTestId('commands-blacklist-user-form'), '30003', '临时封禁')
+  await page.getByTestId('commands-blacklist-add-user').dispatchEvent('click')
+  await expect(blacklistCard).toContainText('30003')
+  await expect(blacklistCard).toContainText('临时封禁')
+
+  await governanceEntryCard(blacklistCard, '30003').getByRole('button', { name: '移除' }).dispatchEvent('click')
+  await expect(blacklistCard).not.toContainText('30003')
+
+  await fillGovernanceEntryForm(page.getByTestId('commands-whitelist-user-form'), '30003', '临时放行')
+  await page.getByTestId('commands-whitelist-add-user').dispatchEvent('click')
+  await expect(whitelistCard).toContainText('30003')
+  await expect(whitelistCard).toContainText('临时放行')
+
+  await page.getByTestId('commands-whitelist-enabled').dispatchEvent('click')
+  await expect(page.getByTestId('commands-whitelist-enabled')).toHaveAttribute('aria-checked', 'false')
+
+  for (const [entryType, targetId] of [
+    ['user', '10001'],
+    ['group', '20002'],
+    ['user', '30003'],
+  ] as const) {
+    await governanceEntryCard(whitelistCard, targetId).getByRole('button', { name: '移除' }).dispatchEvent('click')
+    await expect(whitelistCard).not.toContainText(targetId)
+  }
+
+  await page.getByTestId('commands-whitelist-enabled').dispatchEvent('click')
+  const confirmDialog = page.getByRole('dialog', { name: '确认启用空白名单' })
+  await expect(confirmDialog).toContainText('当前没有任何白名单条目')
+  await expect(confirmDialog).toContainText('除超级管理员外，所有命令都会被挡下')
+
+  await confirmDialog.getByRole('button', { name: '确认启用' }).dispatchEvent('click')
+
+  await expect(page.getByTestId('commands-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
+  await expect(whitelistCard).toContainText('白名单已启用且当前为空')
+  await expect(whitelistCard).toContainText('除超级管理员外，所有命令都会被挡下')
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('commands-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByTestId('commands-whitelist-card')).toContainText('白名单已启用且当前为空')
 })
 
 test('plugin enable resumes after scope confirmation', async ({ page, request }) => {
@@ -591,13 +655,15 @@ test('logs page keeps the feed and floating detail window inside the viewport', 
 
   const alternateRow = page.locator('.logs-row').filter({ hasNotText: initialMessage }).first()
   await expect(alternateRow).toBeVisible()
-  const alternateMessage = (await alternateRow.locator('.logs-row__message').textContent())?.trim() ?? ''
   await alternateRow.click({
     position: { x: 48, y: 28 },
     force: true,
   })
   await expect(logDetailWindow(page)).toBeVisible()
-  await expect(logDetailWindow(page).locator('.log-detail-card__content--message')).toContainText(alternateMessage)
+  const selectedAlternateRow = page.locator('.logs-row.is-selected').first()
+  await expect(selectedAlternateRow).toBeVisible()
+  const selectedAlternateMessage = (await selectedAlternateRow.locator('.logs-row__message').textContent())?.trim() ?? ''
+  await expect(logDetailWindow(page).locator('.log-detail-card__content--message')).toContainText(selectedAlternateMessage)
 
   const switchedMessage = (await logDetailWindow(page).locator('.log-detail-card__content--message').textContent())?.trim() ?? ''
   const switchedBox = await logDetailWindow(page).boundingBox()

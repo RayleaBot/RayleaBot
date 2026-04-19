@@ -221,6 +221,8 @@ type eventIngressDeps struct {
 	bridge           *bridge.Bridge
 	lifecycle        *pluginLifecycleController
 	metadataEnricher eventMetadataEnricher
+	whitelistRepo    permission.WhitelistRepository
+	whitelistState   permission.WhitelistStateRepository
 	blacklistRepo    permission.BlacklistRepository
 }
 
@@ -273,9 +275,11 @@ type configHTTPDeps struct {
 }
 
 type governanceHTTPDeps struct {
-	state         *appRuntimeState
-	plugins       *plugins.Catalog
-	blacklistRepo permission.BlacklistRepository
+	state          *appRuntimeState
+	plugins        *plugins.Catalog
+	blacklistRepo  permission.BlacklistRepository
+	whitelistRepo  permission.WhitelistRepository
+	whitelistState permission.WhitelistStateRepository
 }
 
 type httpServerDeps struct {
@@ -370,16 +374,20 @@ func newConfigHTTPHandlers(deps configHTTPDeps) *configHTTPHandlers {
 }
 
 type governanceHTTPHandlers struct {
-	state         *appRuntimeState
-	plugins       *plugins.Catalog
-	blacklistRepo permission.BlacklistRepository
+	state          *appRuntimeState
+	plugins        *plugins.Catalog
+	blacklistRepo  permission.BlacklistRepository
+	whitelistRepo  permission.WhitelistRepository
+	whitelistState permission.WhitelistStateRepository
 }
 
 func newGovernanceHTTPHandlers(deps governanceHTTPDeps) *governanceHTTPHandlers {
 	return &governanceHTTPHandlers{
-		state:         deps.state,
-		plugins:       deps.plugins,
-		blacklistRepo: deps.blacklistRepo,
+		state:          deps.state,
+		plugins:        deps.plugins,
+		blacklistRepo:  deps.blacklistRepo,
+		whitelistRepo:  deps.whitelistRepo,
+		whitelistState: deps.whitelistState,
 	}
 }
 

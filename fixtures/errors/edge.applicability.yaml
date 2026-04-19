@@ -9,5 +9,8 @@ input:
     - code: plugin.permission_pending
       applies_to: [http, websocket, task]
       example_surface: POST /api/plugins/{plugin_id}/enable
+    - code: permission.not_whitelisted
+      applies_to: [plugin_protocol, logs]
+      example_surface: command dispatch admission with whitelist enabled
 expect:
   valid: true

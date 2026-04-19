@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var ErrGovernanceEntryNotFound = errors.New("governance entry not found")
+
 type BlacklistEntry struct {
 	ID        int64
 	EntryType string
@@ -17,6 +19,7 @@ type BlacklistEntry struct {
 
 type BlacklistRepository interface {
 	IsBlacklisted(ctx context.Context, entryType, targetID string) (bool, error)
+	Get(ctx context.Context, entryType, targetID string) (BlacklistEntry, error)
 	Add(ctx context.Context, entryType, targetID, reason string) error
 	Remove(ctx context.Context, entryType, targetID string) error
 	List(ctx context.Context, entryType string) ([]BlacklistEntry, error)
@@ -50,6 +53,23 @@ func (r *SQLiteBlacklistRepository) Add(ctx context.Context, entryType, targetID
 	return err
 }
 
+func (r *SQLiteBlacklistRepository) Get(ctx context.Context, entryType, targetID string) (BlacklistEntry, error) {
+	var entry BlacklistEntry
+	err := r.read.QueryRowContext(ctx,
+		`SELECT id, entry_type, target_id, reason, created_at
+		 FROM blacklist_entries
+		 WHERE entry_type = ? AND target_id = ?`,
+		entryType, targetID,
+	).Scan(&entry.ID, &entry.EntryType, &entry.TargetID, &entry.Reason, &entry.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return BlacklistEntry{}, ErrGovernanceEntryNotFound
+	}
+	if err != nil {
+		return BlacklistEntry{}, err
+	}
+	return entry, nil
+}
+
 func (r *SQLiteBlacklistRepository) Remove(ctx context.Context, entryType, targetID string) error {
 	result, err := r.write.ExecContext(ctx,
 		"DELETE FROM blacklist_entries WHERE entry_type = ? AND target_id = ?",
@@ -59,7 +79,7 @@ func (r *SQLiteBlacklistRepository) Remove(ctx context.Context, entryType, targe
 	}
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
-		return errors.New("blacklist entry not found")
+		return ErrGovernanceEntryNotFound
 	}
 	return nil
 }

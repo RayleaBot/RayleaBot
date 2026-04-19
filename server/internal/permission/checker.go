@@ -21,16 +21,25 @@ type CommandInfo struct {
 }
 
 type Checker struct {
-	cfg      CheckerConfig
-	repo     BlacklistRepository
-	cooldown *CooldownTracker
+	cfg                CheckerConfig
+	whitelistRepo      WhitelistRepository
+	whitelistStateRepo WhitelistStateRepository
+	blacklistRepo      BlacklistRepository
+	cooldown           *CooldownTracker
 }
 
-func NewChecker(cfg CheckerConfig, repo BlacklistRepository, cooldown *CooldownTracker) *Checker {
-	return &Checker{cfg: cfg, repo: repo, cooldown: cooldown}
+func NewChecker(cfg CheckerConfig, whitelistRepo WhitelistRepository, whitelistStateRepo WhitelistStateRepository, blacklistRepo BlacklistRepository, cooldown *CooldownTracker) *Checker {
+	return &Checker{
+		cfg:                cfg,
+		whitelistRepo:      whitelistRepo,
+		whitelistStateRepo: whitelistStateRepo,
+		blacklistRepo:      blacklistRepo,
+		cooldown:           cooldown,
+	}
 }
 
-// Check runs the permission check sequence: super_admin bypass -> blacklist -> permission level -> cooldown.
+// Check runs the permission check sequence:
+// super_admin bypass -> whitelist command admission -> blacklist -> permission level -> cooldown.
 // actorID is the sender, actorRole is "owner"/"admin"/"member"/""
 // groupID is the conversation group ID (empty for private messages)
 // cmd is non-nil only when the message is a parsed command
@@ -44,13 +53,23 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 		return Verdict{Allowed: true}
 	}
 
+	skipBlacklist := false
+	if cmd != nil && c.whitelistStateRepo != nil {
+		if enabled, err := c.whitelistStateRepo.Enabled(ctx); err == nil && enabled {
+			if !c.matchesWhitelist(ctx, actorID, groupID) {
+				return Verdict{Allowed: false, Reason: "actor is not whitelisted", ErrorCode: "permission.not_whitelisted"}
+			}
+			skipBlacklist = true
+		}
+	}
+
 	// 2. Blacklist check.
-	if c.repo != nil {
-		if blocked, _ := c.repo.IsBlacklisted(ctx, "user", actorID); blocked {
+	if !skipBlacklist && c.blacklistRepo != nil {
+		if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "user", actorID); blocked {
 			return Verdict{Allowed: false, Reason: "user is blacklisted", ErrorCode: "permission.blacklisted"}
 		}
 		if groupID != "" {
-			if blocked, _ := c.repo.IsBlacklisted(ctx, "group", groupID); blocked {
+			if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "group", groupID); blocked {
 				return Verdict{Allowed: false, Reason: "group is blacklisted", ErrorCode: "permission.blacklisted"}
 			}
 		}
@@ -78,6 +97,24 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	}
 
 	return Verdict{Allowed: true}
+}
+
+func (c *Checker) matchesWhitelist(ctx context.Context, actorID, groupID string) bool {
+	if c == nil || c.whitelistRepo == nil {
+		return false
+	}
+
+	matchedUser, err := c.whitelistRepo.IsWhitelisted(ctx, "user", actorID)
+	if err == nil && matchedUser {
+		return true
+	}
+
+	if groupID == "" {
+		return false
+	}
+
+	matchedGroup, err := c.whitelistRepo.IsWhitelisted(ctx, "group", groupID)
+	return err == nil && matchedGroup
 }
 
 // hasPermissionLevel checks if actorRole meets the required permission level.

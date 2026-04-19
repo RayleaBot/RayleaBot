@@ -337,6 +337,16 @@ codes:
     retryable: false
     applies_to: [plugin_protocol, logs]
 
+  permission.not_whitelisted:
+    code: permission.not_whitelisted
+    domain: permission
+    message_key: errors.permission.not_whitelisted
+    message: 当前用户或群不在白名单中
+    description: Command dispatch admission is gated by the whitelist and the current user or group did not match any whitelist entry.
+    http_status: 403
+    retryable: false
+    applies_to: [plugin_protocol, logs]
+
   adapter.connection_failed:
     code: adapter.connection_failed
     domain: adapter

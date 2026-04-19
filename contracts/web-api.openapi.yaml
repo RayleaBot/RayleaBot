@@ -39,7 +39,13 @@ x-fixtures:
   - fixtures/web-api/ok.system-render-template-rollback-response.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.governance-blacklist-response.yaml
+  - fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml
+  - fixtures/web-api/ok.governance-blacklist-entry-delete.yaml
   - fixtures/web-api/ok.governance-command-policy-response.yaml
+  - fixtures/web-api/ok.governance-whitelist-response.yaml
+  - fixtures/web-api/ok.governance-whitelist-state-response.yaml
+  - fixtures/web-api/ok.governance-whitelist-entry-upsert.yaml
+  - fixtures/web-api/ok.governance-whitelist-entry-delete.yaml
   - fixtures/web-api/ok.logs-list-response.yaml
   - fixtures/web-api/ok.logs-list-response.current-session.yaml
   - fixtures/web-api/ok.logs-list-response.history-range.yaml
@@ -93,6 +99,9 @@ x-fixtures:
   - fixtures/web-api/edge.protocol-onebot11-compatibility-provider-gaps.yaml
   - fixtures/web-api/invalid.session-launcher-admission-invalid-token.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
+  - fixtures/web-api/invalid.governance-blacklist-entry-unauthorized.yaml
+  - fixtures/web-api/invalid.governance-whitelist-unauthorized.yaml
+  - fixtures/web-api/invalid.governance-entry-upsert-invalid.yaml
   - fixtures/web-api/invalid.system-render-preview-invalid.yaml
   - fixtures/web-api/invalid.system-render-template-not-found.yaml
   - fixtures/web-api/invalid.system-render-template-source-conflict.yaml
@@ -110,6 +119,7 @@ x-fixtures:
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
   - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
+  - fixtures/web-api/edge.governance-entry-delete-not-found.yaml
 
 paths:
   /healthz:
@@ -328,6 +338,140 @@ paths:
               schema:
                 $ref: '#/components/schemas/GovernanceBlacklistResponse'
         '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/governance/blacklist/entries:
+    post:
+      summary: Upsert one blacklist entry for chat-side governance.
+      operationId: upsertGovernanceBlacklistEntry
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GovernanceEntryUpsertRequest'
+      responses:
+        '200':
+          description: Blacklist entry stored successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GovernanceEntryUpsertResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/governance/blacklist/entries/{entry_type}/{target_id}:
+    delete:
+      summary: Delete one blacklist entry for chat-side governance.
+      operationId: deleteGovernanceBlacklistEntry
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GovernanceEntryType'
+        - $ref: '#/components/parameters/GovernanceTargetId'
+      responses:
+        '204':
+          description: Blacklist entry deleted successfully.
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/governance/whitelist:
+    get:
+      summary: Query the current chat-side whitelist snapshot for management review.
+      operationId: getGovernanceWhitelist
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current whitelist enable state and user/group whitelist entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GovernanceWhitelistResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/governance/whitelist/state:
+    put:
+      summary: Update the whitelist enable state for command dispatch admission.
+      operationId: updateGovernanceWhitelistState
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GovernanceWhitelistStateUpdateRequest'
+      responses:
+        '200':
+          description: Latest whitelist enable state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GovernanceWhitelistStateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/governance/whitelist/entries:
+    post:
+      summary: Upsert one whitelist entry for command dispatch admission.
+      operationId: upsertGovernanceWhitelistEntry
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GovernanceEntryUpsertRequest'
+      responses:
+        '200':
+          description: Whitelist entry stored successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GovernanceEntryUpsertResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/governance/whitelist/entries/{entry_type}/{target_id}:
+    delete:
+      summary: Delete one whitelist entry for command dispatch admission.
+      operationId: deleteGovernanceWhitelistEntry
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GovernanceEntryType'
+        - $ref: '#/components/parameters/GovernanceTargetId'
+      responses:
+        '204':
+          description: Whitelist entry deleted successfully.
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -1369,6 +1513,19 @@ components:
       schema:
         type: string
         minLength: 1
+    GovernanceEntryType:
+      name: entry_type
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/GovernanceEntryType'
+    GovernanceTargetId:
+      name: target_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
     TemplateId:
       name: template_id
       in: path
@@ -2338,22 +2495,48 @@ components:
           type: string
           minLength: 1
 
-    BlacklistEntry:
+    GovernanceEntryType:
+      type: string
+      enum: [user, group]
+
+    GovernanceEntry:
       type: object
       additionalProperties: false
       required: [entry_type, target_id, reason, created_at]
       properties:
         entry_type:
-          type: string
-          enum: [user, group]
+          $ref: '#/components/schemas/GovernanceEntryType'
         target_id:
           type: string
           minLength: 1
         reason:
           type: string
+          minLength: 1
         created_at:
           type: string
           format: date-time
+
+    BlacklistEntry:
+      allOf:
+        - $ref: '#/components/schemas/GovernanceEntry'
+
+    GovernanceEntryUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [entry_type, target_id, reason]
+      properties:
+        entry_type:
+          $ref: '#/components/schemas/GovernanceEntryType'
+        target_id:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          minLength: 1
+
+    GovernanceEntryUpsertResponse:
+      allOf:
+        - $ref: '#/components/schemas/GovernanceEntry'
 
     GovernanceBlacklistResponse:
       type: object
@@ -2363,11 +2546,43 @@ components:
         user_entries:
           type: array
           items:
-            $ref: '#/components/schemas/BlacklistEntry'
+            $ref: '#/components/schemas/GovernanceEntry'
         group_entries:
           type: array
           items:
-            $ref: '#/components/schemas/BlacklistEntry'
+            $ref: '#/components/schemas/GovernanceEntry'
+
+    GovernanceWhitelistStateUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+
+    GovernanceWhitelistStateResponse:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+
+    GovernanceWhitelistResponse:
+      type: object
+      additionalProperties: false
+      required: [enabled, user_entries, group_entries]
+      properties:
+        enabled:
+          type: boolean
+        user_entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/GovernanceEntry'
+        group_entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/GovernanceEntry'
 
     CommandPermissionLevel:
       type: string

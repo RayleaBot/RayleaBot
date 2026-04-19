@@ -134,9 +134,15 @@
 当前已进入 OpenAPI 冻结范围的 governance surface：
 
 - `GET /api/governance/blacklist`
+- `POST /api/governance/blacklist/entries`
+- `DELETE /api/governance/blacklist/entries/{entry_type}/{target_id}`
+- `GET /api/governance/whitelist`
+- `PUT /api/governance/whitelist/state`
+- `POST /api/governance/whitelist/entries`
+- `DELETE /api/governance/whitelist/entries/{entry_type}/{target_id}`
 - `GET /api/governance/command-policy`
 
-当前治理读取面返回当前生效的黑名单、默认权限、冷却配置和命令级权限投影，供指令中心直接展示。
+其中黑白名单条目使用单条 upsert 与单条删除；白名单状态通过独立开关接口表达。`GET /api/governance/command-policy` 继续返回当前生效的默认权限、冷却配置和命令级权限投影，供指令中心直接展示。
 
 当前已进入正式边界的 config / lifecycle semantics：
 

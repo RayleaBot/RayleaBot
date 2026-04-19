@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Governance whitelist entry upsert stores one user or group entry.
+request:
+  method: POST
+  path: /api/governance/whitelist/entries
+  body:
+    entry_type: group
+    target_id: '20002'
+    reason: 核心服务群
+response:
+  status: 200
+  body:
+    entry_type: group
+    target_id: '20002'
+    reason: 核心服务群
+    created_at: '2026-04-18T08:45:00Z'
+expect:
+  valid: true

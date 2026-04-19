@@ -532,6 +532,257 @@ func TestGovernanceBlacklistHandler(t *testing.T) {
 	}
 }
 
+func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	repo := permission.NewSQLiteBlacklistRepository(application.Storage().Read, application.Storage().Write)
+	if err := repo.Add(context.Background(), "user", "10001", "旧原因"); err != nil {
+		t.Fatalf("seed blacklist entry: %v", err)
+	}
+	seeded, err := repo.Get(context.Background(), "user", "10001")
+	if err != nil {
+		t.Fatalf("get seeded blacklist entry: %v", err)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	upsertReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{"entry_type":"user","target_id":"10001","reason":"新原因"}`))
+	if err != nil {
+		t.Fatalf("create blacklist upsert request: %v", err)
+	}
+	upsertReq.Header.Set("Authorization", "Bearer "+token)
+	upsertReq.Header.Set("Content-Type", "application/json")
+
+	upsertResp, err := server.Client().Do(upsertReq)
+	if err != nil {
+		t.Fatalf("perform blacklist upsert request: %v", err)
+	}
+	defer upsertResp.Body.Close()
+	if upsertResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected blacklist upsert status: got %d want 200", upsertResp.StatusCode)
+	}
+
+	upsertBody := decodeBody(t, readAll(t, upsertResp))
+	if upsertBody["reason"] != "新原因" {
+		t.Fatalf("unexpected blacklist upsert body: %#v", upsertBody)
+	}
+	if upsertBody["created_at"] != seeded.CreatedAt {
+		t.Fatalf("created_at = %#v, want %q", upsertBody["created_at"], seeded.CreatedAt)
+	}
+
+	invalidReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{"entry_type":"user","target_id":"10001","reason":""}`))
+	if err != nil {
+		t.Fatalf("create invalid blacklist upsert request: %v", err)
+	}
+	invalidReq.Header.Set("Authorization", "Bearer "+token)
+	invalidReq.Header.Set("Content-Type", "application/json")
+
+	invalidResp, err := server.Client().Do(invalidReq)
+	if err != nil {
+		t.Fatalf("perform invalid blacklist upsert request: %v", err)
+	}
+	defer invalidResp.Body.Close()
+	if invalidResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unexpected invalid blacklist upsert status: got %d want 400", invalidResp.StatusCode)
+	}
+
+	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001", nil)
+	if err != nil {
+		t.Fatalf("create blacklist delete request: %v", err)
+	}
+	deleteReq.Header.Set("Authorization", "Bearer "+token)
+
+	deleteResp, err := server.Client().Do(deleteReq)
+	if err != nil {
+		t.Fatalf("perform blacklist delete request: %v", err)
+	}
+	defer deleteResp.Body.Close()
+	if deleteResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("unexpected blacklist delete status: got %d want 204", deleteResp.StatusCode)
+	}
+
+	missingReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001", nil)
+	if err != nil {
+		t.Fatalf("create missing blacklist delete request: %v", err)
+	}
+	missingReq.Header.Set("Authorization", "Bearer "+token)
+
+	missingResp, err := server.Client().Do(missingReq)
+	if err != nil {
+		t.Fatalf("perform missing blacklist delete request: %v", err)
+	}
+	defer missingResp.Body.Close()
+	if missingResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unexpected missing blacklist delete status: got %d want 404", missingResp.StatusCode)
+	}
+
+	missingBody := decodeBody(t, readAll(t, missingResp))
+	errorBody, ok := missingBody["error"].(map[string]any)
+	if !ok || errorBody["code"] != "platform.resource_missing" {
+		t.Fatalf("unexpected missing blacklist delete body: %#v", missingBody)
+	}
+}
+
+func TestGovernanceWhitelistHandlers(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	entryRepo := permission.NewSQLiteWhitelistRepository(application.Storage().Read, application.Storage().Write)
+	stateRepo := permission.NewSQLiteWhitelistStateRepository(application.Storage().Read, application.Storage().Write)
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	getReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/governance/whitelist", nil)
+	if err != nil {
+		t.Fatalf("create whitelist get request: %v", err)
+	}
+	getReq.Header.Set("Authorization", "Bearer "+token)
+
+	getResp, err := server.Client().Do(getReq)
+	if err != nil {
+		t.Fatalf("perform whitelist get request: %v", err)
+	}
+	defer getResp.Body.Close()
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected whitelist get status: got %d want 200", getResp.StatusCode)
+	}
+
+	initialBody := decodeBody(t, readAll(t, getResp))
+	if initialBody["enabled"] != false {
+		t.Fatalf("unexpected initial whitelist enabled: %#v", initialBody["enabled"])
+	}
+
+	upsertReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/whitelist/entries", strings.NewReader(`{"entry_type":"user","target_id":"10001","reason":"值班账号"}`))
+	if err != nil {
+		t.Fatalf("create whitelist upsert request: %v", err)
+	}
+	upsertReq.Header.Set("Authorization", "Bearer "+token)
+	upsertReq.Header.Set("Content-Type", "application/json")
+
+	upsertResp, err := server.Client().Do(upsertReq)
+	if err != nil {
+		t.Fatalf("perform whitelist upsert request: %v", err)
+	}
+	defer upsertResp.Body.Close()
+	if upsertResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected whitelist upsert status: got %d want 200", upsertResp.StatusCode)
+	}
+	upsertBody := decodeBody(t, readAll(t, upsertResp))
+	if upsertBody["target_id"] != "10001" || upsertBody["reason"] != "值班账号" {
+		t.Fatalf("unexpected whitelist upsert body: %#v", upsertBody)
+	}
+
+	groupReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/whitelist/entries", strings.NewReader(`{"entry_type":"group","target_id":"20002","reason":"核心服务群"}`))
+	if err != nil {
+		t.Fatalf("create group whitelist upsert request: %v", err)
+	}
+	groupReq.Header.Set("Authorization", "Bearer "+token)
+	groupReq.Header.Set("Content-Type", "application/json")
+
+	groupResp, err := server.Client().Do(groupReq)
+	if err != nil {
+		t.Fatalf("perform group whitelist upsert request: %v", err)
+	}
+	defer groupResp.Body.Close()
+	if groupResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected group whitelist upsert status: got %d want 200", groupResp.StatusCode)
+	}
+
+	enableReq, err := http.NewRequest(http.MethodPut, server.URL+"/api/governance/whitelist/state", strings.NewReader(`{"enabled":true}`))
+	if err != nil {
+		t.Fatalf("create whitelist state request: %v", err)
+	}
+	enableReq.Header.Set("Authorization", "Bearer "+token)
+	enableReq.Header.Set("Content-Type", "application/json")
+
+	enableResp, err := server.Client().Do(enableReq)
+	if err != nil {
+		t.Fatalf("perform whitelist state request: %v", err)
+	}
+	defer enableResp.Body.Close()
+	if enableResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected whitelist state status: got %d want 200", enableResp.StatusCode)
+	}
+	enableBody := decodeBody(t, readAll(t, enableResp))
+	if enableBody["enabled"] != true {
+		t.Fatalf("unexpected whitelist state body: %#v", enableBody)
+	}
+
+	enabled, err := stateRepo.Enabled(context.Background())
+	if err != nil {
+		t.Fatalf("read whitelist state repo: %v", err)
+	}
+	if !enabled {
+		t.Fatal("expected whitelist state repo to be enabled")
+	}
+
+	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/governance/whitelist", nil)
+	if err != nil {
+		t.Fatalf("create enabled whitelist get request: %v", err)
+	}
+	snapshotReq.Header.Set("Authorization", "Bearer "+token)
+
+	snapshotResp, err := server.Client().Do(snapshotReq)
+	if err != nil {
+		t.Fatalf("perform enabled whitelist get request: %v", err)
+	}
+	defer snapshotResp.Body.Close()
+	if snapshotResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected enabled whitelist get status: got %d want 200", snapshotResp.StatusCode)
+	}
+
+	snapshotBody := decodeBody(t, readAll(t, snapshotResp))
+	if snapshotBody["enabled"] != true {
+		t.Fatalf("unexpected whitelist enabled snapshot: %#v", snapshotBody["enabled"])
+	}
+	if userEntries, ok := snapshotBody["user_entries"].([]any); !ok || len(userEntries) != 1 {
+		t.Fatalf("unexpected whitelist user entries: %#v", snapshotBody["user_entries"])
+	}
+	if groupEntries, ok := snapshotBody["group_entries"].([]any); !ok || len(groupEntries) != 1 {
+		t.Fatalf("unexpected whitelist group entries: %#v", snapshotBody["group_entries"])
+	}
+
+	invalidReq, err := http.NewRequest(http.MethodPut, server.URL+"/api/governance/whitelist/state", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("create invalid whitelist state request: %v", err)
+	}
+	invalidReq.Header.Set("Authorization", "Bearer "+token)
+	invalidReq.Header.Set("Content-Type", "application/json")
+
+	invalidResp, err := server.Client().Do(invalidReq)
+	if err != nil {
+		t.Fatalf("perform invalid whitelist state request: %v", err)
+	}
+	defer invalidResp.Body.Close()
+	if invalidResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unexpected invalid whitelist state status: got %d want 400", invalidResp.StatusCode)
+	}
+
+	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/whitelist/entries/group/20002", nil)
+	if err != nil {
+		t.Fatalf("create whitelist delete request: %v", err)
+	}
+	deleteReq.Header.Set("Authorization", "Bearer "+token)
+
+	deleteResp, err := server.Client().Do(deleteReq)
+	if err != nil {
+		t.Fatalf("perform whitelist delete request: %v", err)
+	}
+	defer deleteResp.Body.Close()
+	if deleteResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("unexpected whitelist delete status: got %d want 204", deleteResp.StatusCode)
+	}
+
+	if _, err := entryRepo.Get(context.Background(), "group", "20002"); err != permission.ErrGovernanceEntryNotFound {
+		t.Fatalf("group whitelist entry should be removed, got err=%v", err)
+	}
+}
+
 func TestGovernanceCommandPolicyHandler(t *testing.T) {
 	t.Parallel()
 

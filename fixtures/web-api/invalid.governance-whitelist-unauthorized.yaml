@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Governance whitelist snapshot requires a valid management session.
+request:
+  method: GET
+  path: /api/governance/whitelist
+  headers:
+    Authorization: Bearer invalid_token
+response:
+  status: 401
+  body:
+    error:
+      code: permission.denied
+      message: 当前用户无权执行该操作
+      message_key: errors.permission.denied
+      request_id: req_governance_whitelist_unauthorized
+expect:
+  valid: true

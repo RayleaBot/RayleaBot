@@ -76,6 +76,52 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 	}
 }
 
+func TestHandleAdapterEventBlocksCommandWhenNotWhitelistedBeforeBridge(t *testing.T) {
+	t.Parallel()
+
+	dispatcherClient := &recordingDispatcherClient{}
+	cfg := config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngressWithGovernance(
+		plugins.NewCatalog([]plugins.Snapshot{{
+			PluginID:          "weather",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name: "weather",
+			}},
+		}}),
+		newStubWhitelistRepo(),
+		&stubWhitelistStateRepo{enabled: true},
+		nil,
+		nil,
+		bridge.New(slog.Default(), dispatcherClient),
+	)
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-white-1",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "10001",
+		SenderID:         "10001",
+		PlainText:        "/weather",
+	})
+
+	if dispatcherClient.deliverCount != 0 {
+		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
+	}
+}
+
 func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T) {
 	t.Parallel()
 
@@ -513,6 +559,18 @@ func (s *stubBlacklistRepo) IsBlacklisted(_ context.Context, entryType, targetID
 	return false, nil
 }
 
+func (s *stubBlacklistRepo) Get(_ context.Context, entryType, targetID string) (permission.BlacklistEntry, error) {
+	if blocked, _ := s.IsBlacklisted(context.Background(), entryType, targetID); blocked {
+		return permission.BlacklistEntry{
+			EntryType: entryType,
+			TargetID:  targetID,
+			Reason:    "blocked",
+			CreatedAt: "2026-04-19T00:00:00Z",
+		}, nil
+	}
+	return permission.BlacklistEntry{}, permission.ErrGovernanceEntryNotFound
+}
+
 func (s *stubBlacklistRepo) Add(context.Context, string, string, string) error {
 	return nil
 }
@@ -523,6 +581,58 @@ func (s *stubBlacklistRepo) Remove(context.Context, string, string) error {
 
 func (s *stubBlacklistRepo) List(context.Context, string) ([]permission.BlacklistEntry, error) {
 	return nil, nil
+}
+
+type stubWhitelistRepo struct {
+	allowed map[string]map[string]bool
+}
+
+func newStubWhitelistRepo() *stubWhitelistRepo {
+	return &stubWhitelistRepo{allowed: make(map[string]map[string]bool)}
+}
+
+func (s *stubWhitelistRepo) IsWhitelisted(_ context.Context, entryType, targetID string) (bool, error) {
+	if entries, ok := s.allowed[entryType]; ok {
+		return entries[targetID], nil
+	}
+	return false, nil
+}
+
+func (s *stubWhitelistRepo) Get(_ context.Context, entryType, targetID string) (permission.WhitelistEntry, error) {
+	if allowed, _ := s.IsWhitelisted(context.Background(), entryType, targetID); allowed {
+		return permission.WhitelistEntry{
+			EntryType: entryType,
+			TargetID:  targetID,
+			Reason:    "allowed",
+			CreatedAt: "2026-04-19T00:00:00Z",
+		}, nil
+	}
+	return permission.WhitelistEntry{}, permission.ErrGovernanceEntryNotFound
+}
+
+func (s *stubWhitelistRepo) Add(context.Context, string, string, string) error {
+	return nil
+}
+
+func (s *stubWhitelistRepo) Remove(context.Context, string, string) error {
+	return nil
+}
+
+func (s *stubWhitelistRepo) List(context.Context, string) ([]permission.WhitelistEntry, error) {
+	return nil, nil
+}
+
+type stubWhitelistStateRepo struct {
+	enabled bool
+}
+
+func (s *stubWhitelistStateRepo) Enabled(context.Context) (bool, error) {
+	return s.enabled, nil
+}
+
+func (s *stubWhitelistStateRepo) SetEnabled(_ context.Context, enabled bool) error {
+	s.enabled = enabled
+	return nil
 }
 
 func TestReloadDisablesPluginWhenGrantExpired(t *testing.T) {

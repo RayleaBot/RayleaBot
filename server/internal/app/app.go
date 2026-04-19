@@ -78,6 +78,8 @@ type appPlugins struct {
 	pluginKV          pluginkv.Repository
 	grantRepository   plugins.GrantRepository
 	blacklistRepo     permission.BlacklistRepository
+	whitelistRepo     permission.WhitelistRepository
+	whitelistState    permission.WhitelistStateRepository
 	webhooks          *pluginWebhookRegistry
 	renderer          *render.Service
 	pluginLogLimiter  *pluginLogLimiter
@@ -138,6 +140,8 @@ type App struct {
 	pluginKV          pluginkv.Repository
 	grantRepository   plugins.GrantRepository
 	blacklistRepo     permission.BlacklistRepository
+	whitelistRepo     permission.WhitelistRepository
+	whitelistState    permission.WhitelistStateRepository
 	renderer          *render.Service
 	webhookRegistry   *pluginWebhookRegistry
 	pluginLogLimiter  *pluginLogLimiter
@@ -242,6 +246,8 @@ func New(options Options) (*App, error) {
 		bridge:           pluginState.Bridge,
 		lifecycle:        lifecycle,
 		metadataEnricher: pluginState.Adapter,
+		whitelistRepo:    pluginState.whitelistRepo,
+		whitelistState:   pluginState.whitelistState,
 		blacklistRepo:    pluginState.blacklistRepo,
 	})
 	protocolService := newProtocolService(state, pluginState.Adapter)
@@ -284,6 +290,8 @@ func New(options Options) (*App, error) {
 		pluginKV:          pluginState.pluginKV,
 		grantRepository:   pluginState.grantRepository,
 		blacklistRepo:     pluginState.blacklistRepo,
+		whitelistRepo:     pluginState.whitelistRepo,
+		whitelistState:    pluginState.whitelistState,
 		renderer:          pluginState.renderer,
 		webhookRegistry:   pluginState.webhooks,
 		pluginLogLimiter:  pluginState.pluginLogLimiter,
@@ -349,9 +357,11 @@ func New(options Options) (*App, error) {
 		requestShutdown: application.requestShutdown,
 	})
 	governanceHandler := newGovernanceHTTPHandlers(governanceHTTPDeps{
-		state:         state,
-		plugins:       pluginState.Plugins,
-		blacklistRepo: pluginState.blacklistRepo,
+		state:          state,
+		plugins:        pluginState.Plugins,
+		blacklistRepo:  pluginState.blacklistRepo,
+		whitelistRepo:  pluginState.whitelistRepo,
+		whitelistState: pluginState.whitelistState,
 	})
 	taskHandler := newTaskHTTPHandlers(platformState.Tasks, platformState.taskExecutor, pluginState.PluginInstaller)
 	logHandler := newLogHTTPHandlers(logService)

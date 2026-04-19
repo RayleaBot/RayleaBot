@@ -1,0 +1,22 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Governance blacklist entry upsert requires a valid management session.
+request:
+  method: POST
+  path: /api/governance/blacklist/entries
+  headers:
+    Authorization: Bearer invalid_token
+  body:
+    entry_type: user
+    target_id: '10001'
+    reason: 反复触发垃圾消息
+response:
+  status: 401
+  body:
+    error:
+      code: permission.denied
+      message: 当前用户无权执行该操作
+      message_key: errors.permission.denied
+      request_id: req_governance_blacklist_entry_unauthorized
+expect:
+  valid: true

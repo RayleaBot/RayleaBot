@@ -1,0 +1,20 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Governance entry upsert rejects empty reason and unsupported entry_type values.
+request:
+  method: POST
+  path: /api/governance/whitelist/entries
+  body:
+    entry_type: channel
+    target_id: '20002'
+    reason: ''
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数不合法
+      message_key: errors.platform.invalid_request
+      request_id: req_governance_entry_invalid
+expect:
+  valid: true

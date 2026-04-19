@@ -183,6 +183,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/governance/blacklist/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upsert one blacklist entry for chat-side governance. */
+        post: operations["upsertGovernanceBlacklistEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/blacklist/entries/{entry_type}/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one blacklist entry for chat-side governance. */
+        delete: operations["deleteGovernanceBlacklistEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/whitelist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query the current chat-side whitelist snapshot for management review. */
+        get: operations["getGovernanceWhitelist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/whitelist/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update the whitelist enable state for command dispatch admission. */
+        put: operations["updateGovernanceWhitelistState"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/whitelist/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upsert one whitelist entry for command dispatch admission. */
+        post: operations["upsertGovernanceWhitelistEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/whitelist/entries/{entry_type}/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one whitelist entry for command dispatch admission. */
+        delete: operations["deleteGovernanceWhitelistEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/governance/command-policy": {
         parameters: {
             query?: never;
@@ -1185,17 +1287,36 @@ export interface components {
             base_revision_id: string;
             message: string;
         };
-        BlacklistEntry: {
-            /** @enum {string} */
-            entry_type: "user" | "group";
+        /** @enum {string} */
+        GovernanceEntryType: "user" | "group";
+        GovernanceEntry: {
+            entry_type: components["schemas"]["GovernanceEntryType"];
             target_id: string;
             reason: string;
             /** Format: date-time */
             created_at: string;
         };
+        BlacklistEntry: components["schemas"]["GovernanceEntry"];
+        GovernanceEntryUpsertRequest: {
+            entry_type: components["schemas"]["GovernanceEntryType"];
+            target_id: string;
+            reason: string;
+        };
+        GovernanceEntryUpsertResponse: components["schemas"]["GovernanceEntry"];
         GovernanceBlacklistResponse: {
-            user_entries: components["schemas"]["BlacklistEntry"][];
-            group_entries: components["schemas"]["BlacklistEntry"][];
+            user_entries: components["schemas"]["GovernanceEntry"][];
+            group_entries: components["schemas"]["GovernanceEntry"][];
+        };
+        GovernanceWhitelistStateUpdateRequest: {
+            enabled: boolean;
+        };
+        GovernanceWhitelistStateResponse: {
+            enabled: boolean;
+        };
+        GovernanceWhitelistResponse: {
+            enabled: boolean;
+            user_entries: components["schemas"]["GovernanceEntry"][];
+            group_entries: components["schemas"]["GovernanceEntry"][];
         };
         /** @enum {string} */
         CommandPermissionLevel: "super_admin" | "group_admin" | "everyone";
@@ -1648,6 +1769,8 @@ export interface components {
         TaskId: string;
         LogId: string;
         PluginId: string;
+        GovernanceEntryType: components["schemas"]["GovernanceEntryType"];
+        GovernanceTargetId: string;
         TemplateId: string;
     };
     requestBodies: never;
@@ -1921,6 +2044,157 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertGovernanceBlacklistEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernanceEntryUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Blacklist entry stored successfully. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernanceEntryUpsertResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteGovernanceBlacklistEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_type: components["parameters"]["GovernanceEntryType"];
+                target_id: components["parameters"]["GovernanceTargetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Blacklist entry deleted successfully. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getGovernanceWhitelist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current whitelist enable state and user/group whitelist entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernanceWhitelistResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateGovernanceWhitelistState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernanceWhitelistStateUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Latest whitelist enable state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernanceWhitelistStateResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertGovernanceWhitelistEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernanceEntryUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Whitelist entry stored successfully. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernanceEntryUpsertResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteGovernanceWhitelistEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_type: components["parameters"]["GovernanceEntryType"];
+                target_id: components["parameters"]["GovernanceTargetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whitelist entry deleted successfully. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

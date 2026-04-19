@@ -80,6 +80,10 @@ const fixtures = {
   invalidGrantExpiry: await readFixture('fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml'),
   invalidUninstallNotFound: await readFixture('fixtures/web-api/invalid.plugins-uninstall-not-found.yaml'),
   governanceBlacklist: await readFixture('fixtures/web-api/ok.governance-blacklist-response.yaml'),
+  governanceBlacklistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml'),
+  governanceWhitelist: await readFixture('fixtures/web-api/ok.governance-whitelist-response.yaml'),
+  governanceWhitelistState: await readFixture('fixtures/web-api/ok.governance-whitelist-state-response.yaml'),
+  governanceWhitelistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-whitelist-entry-upsert.yaml'),
   governanceCommandPolicy: await readFixture('fixtures/web-api/ok.governance-command-policy-response.yaml'),
   wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
@@ -116,6 +120,7 @@ function baseState() {
     config: structuredClone(fixtures.configGet.response.body.config),
     protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
     governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
+    governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     renderTemplates: createRenderTemplateState(),
     grants: {
@@ -779,6 +784,67 @@ function updatePluginSettings(pluginId, patchValues) {
   }
 }
 
+function normalizeGovernanceEntryPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null
+  }
+
+  const entryType = typeof payload.entry_type === 'string' ? payload.entry_type : ''
+  const targetId = typeof payload.target_id === 'string' ? payload.target_id.trim() : ''
+  const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
+
+  if (!['user', 'group'].includes(entryType) || !targetId || !reason) {
+    return null
+  }
+
+  return {
+    entry_type: entryType,
+    target_id: targetId,
+    reason,
+  }
+}
+
+function governanceEntryCollection(snapshot, entryType) {
+  return entryType === 'group' ? snapshot.group_entries : snapshot.user_entries
+}
+
+function governanceEntryCreatedAt(collectionName) {
+  if (collectionName === 'whitelist') {
+    return fixtures.governanceWhitelistEntryUpsert.response.body.created_at
+  }
+  return fixtures.governanceBlacklistEntryUpsert.response.body.created_at
+}
+
+function upsertGovernanceEntry(snapshot, collectionName, payload) {
+  const collection = governanceEntryCollection(snapshot, payload.entry_type)
+  const existing = collection.find((entry) => entry.target_id === payload.target_id)
+
+  if (existing) {
+    existing.reason = payload.reason
+    return structuredClone(existing)
+  }
+
+  const entry = {
+    entry_type: payload.entry_type,
+    target_id: payload.target_id,
+    reason: payload.reason,
+    created_at: governanceEntryCreatedAt(collectionName),
+  }
+  collection.push(entry)
+  collection.sort((left, right) => left.target_id.localeCompare(right.target_id))
+  return structuredClone(entry)
+}
+
+function removeGovernanceEntry(snapshot, entryType, targetId) {
+  const collection = governanceEntryCollection(snapshot, entryType)
+  const index = collection.findIndex((entry) => entry.target_id === targetId)
+  if (index < 0) {
+    return false
+  }
+  collection.splice(index, 1)
+  return true
+}
+
 function isPathInside(parentPath, candidatePath) {
   const relative = path.relative(parentPath, candidatePath)
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
@@ -1293,6 +1359,103 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, structuredClone(state.governanceBlacklist))
+    return
+  }
+
+  if (pathname === '/api/governance/blacklist/entries' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const payload = normalizeGovernanceEntryPayload(await parseBody(request))
+    if (!payload) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'governance entry payload is invalid', 'req_governance_blacklist_invalid'))
+      return
+    }
+
+    json(response, 200, upsertGovernanceEntry(state.governanceBlacklist, 'blacklist', payload))
+    return
+  }
+
+  if (pathname.startsWith('/api/governance/blacklist/entries/') && request.method === 'DELETE') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const entryType = decodeURIComponent(pathname.split('/')[5] ?? '')
+    const targetId = decodeURIComponent(pathname.split('/')[6] ?? '')
+    if (!['user', 'group'].includes(entryType) || !targetId) {
+      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
+      return
+    }
+
+    if (!removeGovernanceEntry(state.governanceBlacklist, entryType, targetId)) {
+      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
+      return
+    }
+
+    noContent(response)
+    return
+  }
+
+  if (pathname === '/api/governance/whitelist' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, structuredClone(state.governanceWhitelist))
+    return
+  }
+
+  if (pathname === '/api/governance/whitelist/state' && request.method === 'PUT') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const payload = await parseBody(request)
+    if (!payload || typeof payload.enabled !== 'boolean') {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'governance whitelist state payload is invalid', 'req_governance_whitelist_state_invalid'))
+      return
+    }
+
+    state.governanceWhitelist.enabled = payload.enabled
+    json(response, fixtures.governanceWhitelistState.response.status, { enabled: state.governanceWhitelist.enabled })
+    return
+  }
+
+  if (pathname === '/api/governance/whitelist/entries' && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const payload = normalizeGovernanceEntryPayload(await parseBody(request))
+    if (!payload) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'governance entry payload is invalid', 'req_governance_whitelist_invalid'))
+      return
+    }
+
+    json(response, 200, upsertGovernanceEntry(state.governanceWhitelist, 'whitelist', payload))
+    return
+  }
+
+  if (pathname.startsWith('/api/governance/whitelist/entries/') && request.method === 'DELETE') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const entryType = decodeURIComponent(pathname.split('/')[5] ?? '')
+    const targetId = decodeURIComponent(pathname.split('/')[6] ?? '')
+    if (!['user', 'group'].includes(entryType) || !targetId) {
+      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
+      return
+    }
+
+    if (!removeGovernanceEntry(state.governanceWhitelist, entryType, targetId)) {
+      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
+      return
+    }
+
+    noContent(response)
     return
   }
 

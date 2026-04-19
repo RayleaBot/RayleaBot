@@ -13,8 +13,8 @@
 ### v0.3 核对结论
 
 - v0.2 主线已完成。
-- 当前真实缺口集中在“有读取面、无管理闭环”和“有来源展示、无正式可信校验”。
-- 当前正式治理模型没有白名单；白名单属于 v0.3 新增治理概念。
+- 治理工作区已经覆盖黑名单管理、白名单前置裁决和命令治理只读快照。
+- 当前真实缺口集中在“有来源展示、无正式可信校验”和“有版本检查、无完整受控更新引导”。
 - 当前插件来源 `trust` 主要用于展示，不等于正式可信校验结果。
 - 当前发布与桌面入口已具备版本检查、发布页跳转和 release metadata 校验基础，自动覆盖更新仍不在正式范围。
 
@@ -50,7 +50,7 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 | 阶段 | 名称 | 状态 | 当前目标 |
 | --- | --- | --- | --- |
 | Pre-Phase | 真实缺口核对与边界重排 | ☑️ | v0.3 范围已固定为治理闭环、可信来源和受控更新引导 |
-| Phase 1 | Governance / Commands | 🟡 | 补齐黑名单管理链、引入白名单正式模型，并保持默认权限与冷却沿用现有配置模型 |
+| Phase 1 | Governance / Commands | ☑️ | `/commands` 已形成黑白名单管理和命令治理闭环，默认权限与冷却继续沿用现有配置模型 |
 | Phase 2 | Trusted Plugin Sources | 🟡 | 把插件来源 `trust` 从展示信息补成正式可信校验与诊断链 |
 | Phase 3 | Release Trust / Guided Update | 🟡 | 补齐版本查看、发布可信校验、受控下载与升级引导，不进入自动覆盖更新 |
 | Phase 4 | Companion Updates / Acceptance | 🟡 | 固定 contract-first、fixtures、examples、tests、docs 和验收要求 |
@@ -59,9 +59,9 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 
 | 边界 | 当前说明 |
 | --- | --- |
-| 治理读取面 | 现有正式治理接口只有 `GET /api/governance/blacklist` 与 `GET /api/governance/command-policy` |
-| `/commands` 页面职责 | 当前管理面只展示默认权限、冷却配置、黑名单和当前生效命令策略 |
-| 配置入口 | 默认权限与冷却已有配置入口；黑名单没有正式管理入口；白名单当前不存在 formal contract |
+| 治理 surface | 正式治理接口包含黑名单读写、白名单读写与 `GET /api/governance/command-policy` |
+| `/commands` 页面职责 | 当前管理面展示默认权限、冷却配置和当前生效命令策略，并承担黑白名单管理 |
+| 配置入口 | 默认权限与冷却继续通过配置页管理；黑白名单通过 `/commands` 管理 |
 | 插件来源展示 | 插件列表与详情页已有 `source`、`trust`、`package_source_type` 与 `package_source_ref` 展示 |
 | 可信来源校验 | `remote_url`、`local_zip` 与 `local_directory` 当前没有统一正式可信校验模型 |
 | 发布可信基础 | 发布包已包含 `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt`，Launcher 已有版本检查与发布页跳转 |
@@ -83,31 +83,31 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 - v0.3 以真实缺口为范围，不以旧规划标题直接裁决。
 - 当前没有 formal contract 的能力，不写成现有正式能力。
 - v0.3 当前承接治理闭环、可信来源和受控更新引导三条主线。
-- 白名单是 v0.3 新增治理概念，不属于现有正式能力。
+- 白名单作为 v0.3 新治理概念单独冻结对象范围、裁决顺序和错误语义。
 - 新治理写面、可信来源结果和更新引导 surface 后续都先按 contract-first 进入实现主链。
 
 ---
 
-## 三、Phase 1 — Governance / Commands
+## 三、Phase 1 — Governance / Commands ☑️
 
 ### 当前真相
 
 | 项目 | 当前情况 |
 | --- | --- |
-| 正式治理接口 | `GET /api/governance/blacklist`、`GET /api/governance/command-policy` |
-| Web 工作区 | `/commands` 当前只展示治理摘要、黑名单和当前生效命令策略 |
+| 正式治理接口 | `GET /api/governance/blacklist`、`POST /api/governance/blacklist/entries`、`DELETE /api/governance/blacklist/entries/{entry_type}/{target_id}`、`GET /api/governance/whitelist`、`PUT /api/governance/whitelist/state`、`POST /api/governance/whitelist/entries`、`DELETE /api/governance/whitelist/entries/{entry_type}/{target_id}`、`GET /api/governance/command-policy` |
+| Web 工作区 | `/commands` 展示治理摘要、有效命令策略、全部声明命令，并承担黑白名单管理 |
 | 默认权限与冷却 | 已通过现有配置模型管理 |
-| 黑名单 | 已进入聊天侧 live command path，但没有正式管理入口 |
-| 白名单 | 当前不存在 formal contract、正式存储和管理面语义 |
+| 黑名单 | 用户 / 群黑名单已接入聊天侧命令裁决和管理工作区 |
+| 白名单 | 用户 / 群白名单已具备正式 contract、正式存储、启用开关和管理工作区语义 |
 | 命令级人工覆盖 | 当前不存在正式写模型 |
 
 ### 目标边界
 
 - `/commands` 继续作为治理工作区，不新建一级治理页面。
-- 新增黑名单管理链。
-- 新增白名单作为新的正式治理概念。
+- 黑名单和白名单都采用单条 upsert 与单条删除。
 - 白名单固定只作用于“是否进入命令分发”的前置裁决。
 - 白名单优先于黑名单判断，但不绕过命令权限和冷却限制。
+- 白名单支持显式启用开关，群聊采用“用户命中或群命中任一条即可通过”的规则。
 - 默认权限与冷却继续沿用现有配置模型，不新增第二套命令策略编辑器。
 - 不纳入命令级人工权限覆盖。
 
@@ -115,17 +115,16 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 
 | 子任务 | 状态 | 完成定义 |
 | --- | --- | --- |
-| 黑名单管理 | 🟡 | 管理面可新增、删除、查看用户 / 群黑名单，并复用现有聊天裁决链 |
-| 白名单正式化 | 🟡 | formal contract、存储、裁决顺序、管理面展示和操作链一致 |
-| `/commands` 工作区补齐 | 🟡 | 读取、编辑、提交结果、错误提示和空态保持在同一治理工作区内 |
-| 配置边界保持一致 | 🟡 | 默认权限与冷却仍通过现有配置入口管理，治理工作区只补当前缺的正式管理链 |
-| 诊断与日志口径 | 🟡 | 黑白名单命中、权限拒绝和冷却拒绝保持正式错误码与诊断摘要一致 |
+| 黑名单管理 | ☑️ | 管理面可新增、删除、查看用户 / 群黑名单，并复用现有聊天裁决链 |
+| 白名单正式化 | ☑️ | formal contract、存储、裁决顺序、管理面展示和操作链一致 |
+| `/commands` 工作区补齐 | ☑️ | 读取、编辑、提交结果、错误提示和空态保持在同一治理工作区内 |
+| 配置边界保持一致 | ☑️ | 默认权限与冷却继续通过现有配置入口管理，治理工作区只承载黑白名单管理 |
+| 诊断与日志口径 | ☑️ | 黑白名单命中、权限拒绝和冷却拒绝保持正式错误码与诊断摘要一致 |
 
 ### Contract-first 要求
 
-- 新增治理写接口先进入 OpenAPI。
-- 白名单的字段、对象范围、裁决顺序和错误语义先进入 formal contract。
-- fixtures、examples、server、web、docs 和测试在同一轮同步补齐。
+- 治理写接口、白名单对象范围、裁决顺序和错误语义已进入正式 contract。
+- fixtures、examples、server、web、docs 和测试保持同轮更新。
 
 ---
 
@@ -214,8 +213,6 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 
 当前不属于已存在正式能力、需要在 v0.3 新增 formal contract 的 surface：
 
-- 治理写接口
-- 白名单正式模型
 - 插件可信来源校验结果结构
 - 发布可信校验与更新引导所需的正式 surface
 
