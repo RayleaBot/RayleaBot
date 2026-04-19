@@ -2,9 +2,9 @@
 
 > `docs/execution-plan-v0.2.md` 作为当前最新执行计划使用。  
 > `docs/execution-plan.md` 保留 v0.1 已完成基线与历史对照。  
-> 本文档只记录 v0.2 仍需执行的内容，不重复展开 v0.1 已完成项。
+> 本文档记录 v0.2 的正式范围、完成结果和延后边界，不重复展开 v0.1 已完成项。
 >
-> 状态图例：`☑️ 已完成` · `◐ 部分完成` · `⚠️ 需先 contract-first` · `🟡 v0.2 本轮待实施` · `❌ 延后到 v0.3+`
+> 状态图例：`☑️ 已完成` · `❌ 延后到 v0.3+`
 
 ---
 
@@ -42,7 +42,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 9 已完成状态模型拆分、环境检查收口、WebSocket 事件驱动与深链诊断引导
 - ☑️ Phase 10 已完成 Release / Deployment / Quality Gates 收口
 
-### 本轮明确纳入
+### v0.2 正式范围
 
 - 在线模板编辑器
 - 更强的可视化管理与编辑体验
@@ -52,9 +52,9 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - OneBot11 正向 WebSocket、HTTP、Webhook
 - NapCat 扩展兼容
 - 幸运莉莉娅扩展兼容
-- 文档中已写明、但尚未进入当前 v0.2 主线的用户侧关键能力
+- 文档中定义的用户侧关键能力
 
-### 本轮明确延后
+### 延后边界
 
 - 插件市场与远程分发平台
 - 强沙盒与更强资源隔离
@@ -108,16 +108,16 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Batch C = 生命周期 `display_state` 与配置保存 `apply_effects` 已完成
 - ☑️ Batch D = Plugin Protocol 与 release metadata 已完成
 
-### 本轮必需冻结的正式边界
+### 正式 contract 边界
 
 | 正式边界 | 状态 | 本轮冻结方向 |
 | --- | --- | --- |
-| `contracts/web-api.openapi.yaml` | ◐ | OneBot transport、协议快照、日志详情、模板编辑器、治理核心读取面、plugin `display_state` 正式枚举与 `PUT /api/config` `apply_effects` 已冻结；其余 v0.2 surface 随后批次继续 |
-| `contracts/websocket-events.yaml` | ◐ | 协议状态、日志主链与插件生命周期 `display_state` 已补齐；模板编辑器预览继续复用现有 task event 链，不新增预览专用事件 |
+| `contracts/web-api.openapi.yaml` | ☑️ | OneBot transport、协议快照、日志详情、模板编辑器、治理核心读取面、plugin `display_state` 正式枚举与 `PUT /api/config` `apply_effects` 已冻结 |
+| `contracts/websocket-events.yaml` | ☑️ | 协议状态、日志主链与插件生命周期 `display_state` 已补齐；模板编辑器预览继续复用现有 task event 链，不新增预览专用事件 |
 | `contracts/plugin-info.schema.json` | ☑️ | `default_config`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`system_dependencies`、`concurrency` |
 | `contracts/plugin-protocol.schema.json` | ☑️ | OneBot 主链所需更宽 `action`、消息段与共享 `error.details` 语义已冻结 |
-| `contracts/config.user.schema.json` | ◐ | OneBot 多 transport 配置主模型已冻结；治理核心读取面直接投影现有 cooldown 与默认权限配置，其余迁移与热更新读取口径随后批次继续 |
-| `contracts/error-codes.yaml` | ◐ | OneBot transport、compatibility、provider extension 与模板编辑相关错误码已冻结；其余 v0.2 范围随后批次继续 |
+| `contracts/config.user.schema.json` | ☑️ | OneBot 多 transport 配置主模型已冻结；治理核心读取面直接投影现有 cooldown 与默认权限配置，迁移与热更新读取口径已进入正式范围 |
+| `contracts/error-codes.yaml` | ☑️ | OneBot transport、compatibility、provider extension 与模板编辑相关错误码已冻结 |
 | `contracts/release-manifest.schema.json` | ☑️ | `release_manifest.json` 与 `build_info.json` 的最小 metadata surface 已冻结，`SHA256SUMS.txt` 保持在 release tool 校验边界 |
 
 ### 本轮 contract 冻结清单

@@ -1,6 +1,6 @@
 # Contracts
 
-`contracts/` 是 RayleaBot v0.1 对外接口、schema、错误码和发行元数据的唯一正式来源。
+`contracts/` 是 RayleaBot 当前对外接口、schema、错误码和发行元数据的唯一正式来源。
 
 ## 当前状态
 
@@ -77,7 +77,7 @@
 - 增量升级
 - 发布流水线策略
 
-## 当前未进入 OpenAPI 的 TODO
+## OpenAPI 已冻结范围
 
 当前没有额外的管理 HTTP 路由保留在正式 OpenAPI 冻结范围之外。
 
