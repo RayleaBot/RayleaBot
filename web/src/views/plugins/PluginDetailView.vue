@@ -20,13 +20,15 @@ import {
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { ApiError } from '@/lib/http'
-import { escapeUnsafeDisplayText } from '@/lib/text-safety'
+import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import type { ConsoleFrame } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
-import type { PluginPermissionSummary } from '@/types/api'
+import type { PluginDetail, PluginPermissionSummary } from '@/types/api'
+
+type PermissionDialogMode = 'grant' | 'pending' | 'scope_changed'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,6 +51,8 @@ const consoleScroller = ref<HTMLElement | null>(null)
 const permissionDialogVisible = ref(false)
 const uninstallDialogVisible = ref(false)
 const selectedCapabilities = ref<string[]>([])
+const permissionDialogMode = ref<PermissionDialogMode>('grant')
+const permissionDialogAvailableCapabilities = ref<string[]>([])
 const resumeEnableAfterGrant = ref(false)
 let detailLoadVersion = 0
 let pageActive = true
@@ -56,12 +60,41 @@ let pageActive = true
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const isBuiltinPlugin = computed(() => current.value?.role === 'builtin')
 const permissionCandidates = computed(() => currentPermissions.value.filter((permission) => permission.status === 'not_granted'))
+const reconfirmCandidates = computed(() => currentPermissions.value.filter((permission) => permission.source === 'persisted'))
 const missingRequiredPermissions = computed(() => currentPermissions.value.filter((permission) => permission.requirement === 'required' && permission.status === 'not_granted'))
 const grantRecordsByCapability = computed(() => new Map(currentGrants.value.map((grant) => [grant.capability, grant])))
-const permissionDialogTitle = computed(() => (
-  resumeEnableAfterGrant.value
-    ? t('plugins.permissionDialogPendingTitle')
-    : t('plugins.permissionDialogTitle')
+const permissionMap = computed(() => new Map(currentPermissions.value.map((permission) => [permission.capability, permission])))
+const permissionDialogCandidates = computed(() => (
+  permissionDialogAvailableCapabilities.value
+    .map((capability) => permissionMap.value.get(capability))
+    .filter((permission): permission is PluginPermissionSummary => Boolean(permission))
+))
+const permissionDialogTitle = computed(() => {
+  if (permissionDialogMode.value === 'scope_changed') {
+    return t('plugins.permissionDialogScopeChangedTitle')
+  }
+
+  if (resumeEnableAfterGrant.value) {
+    return t('plugins.permissionDialogPendingTitle')
+  }
+
+  return t('plugins.permissionDialogTitle')
+})
+const permissionDialogBody = computed(() => {
+  if (permissionDialogMode.value === 'scope_changed') {
+    return t('plugins.permissionDialogScopeChangedBody')
+  }
+
+  if (resumeEnableAfterGrant.value) {
+    return t('plugins.permissionDialogPendingBody')
+  }
+
+  return ''
+})
+const permissionDialogOkText = computed(() => (
+  permissionDialogMode.value === 'scope_changed'
+    ? t('plugins.actions.reconfirmSelected')
+    : t('plugins.actions.grantSelected')
 ))
 
 async function loadDetail() {
@@ -101,7 +134,20 @@ async function runAction(action: 'enable' | 'disable' | 'reload') {
     notifySuccess(t('plugins.actionAccepted'))
   } catch (error) {
     if (action === 'enable' && error instanceof ApiError && error.code === 'plugin.permission_pending') {
-      openPermissionDialog(extractMissingCapabilities(error), true)
+      const pendingContext = extractPermissionPendingContext(error)
+      const available = pendingContext.scopeChanged
+        ? dedupeCapabilities([
+            ...reconfirmCandidates.value.map((permission) => permission.capability),
+            ...pendingContext.missingCapabilities,
+          ])
+        : dedupeCapabilities(pendingContext.missingCapabilities)
+
+      openPermissionDialog({
+        available,
+        prefill: available,
+        mode: pendingContext.scopeChanged ? 'scope_changed' : 'pending',
+        resumeEnable: true,
+      })
       return
     }
     operationError.value = getDisplayErrorMessage(error)
@@ -119,13 +165,54 @@ function extractMissingCapabilities(error: ApiError) {
     : []
 }
 
-function openPermissionDialog(prefill: string[] = [], resumeEnable = false) {
-  const available = new Set(permissionCandidates.value.map((permission) => permission.capability))
-  const recommended = (prefill.length > 0 ? prefill : Array.from(available))
-    .filter((capability) => available.has(capability))
-  selectedCapabilities.value = recommended
-  resumeEnableAfterGrant.value = resumeEnable
+function extractPermissionPendingContext(error: ApiError) {
+  return {
+    missingCapabilities: extractMissingCapabilities(error),
+    scopeChanged: error.details?.scope_changed === true,
+  }
+}
+
+function dedupeCapabilities(capabilities: string[]) {
+  return Array.from(new Set(
+    capabilities
+      .map((capability) => capability.trim())
+      .filter((capability) => capability.length > 0),
+  ))
+}
+
+function openPermissionDialog(options: {
+  available?: string[]
+  prefill?: string[]
+  mode?: PermissionDialogMode
+  resumeEnable?: boolean
+} = {}) {
+  const available = dedupeCapabilities(
+    options.available ?? permissionCandidates.value.map((permission) => permission.capability),
+  )
+
+  if (available.length === 0) {
+    operationError.value = t('plugins.permissionReconfirmUnavailable')
+    return
+  }
+
+  const recommended = dedupeCapabilities(
+    (options.prefill?.length ? options.prefill : available)
+      .filter((capability) => available.includes(capability)),
+  )
+
+  permissionDialogMode.value = options.mode ?? 'grant'
+  permissionDialogAvailableCapabilities.value = available
+  selectedCapabilities.value = recommended.length > 0 ? recommended : available
+  resumeEnableAfterGrant.value = options.resumeEnable ?? false
   permissionDialogVisible.value = true
+}
+
+function closePermissionDialog() {
+  permissionDialogVisible.value = false
+  selectedCapabilities.value = []
+  permissionDialogMode.value = 'grant'
+  permissionDialogAvailableCapabilities.value = []
+  resumeEnableAfterGrant.value = false
 }
 
 async function submitPermissionDialog() {
@@ -134,10 +221,8 @@ async function submitPermissionDialog() {
     for (const capability of selectedCapabilities.value) {
       await pluginsStore.grantCapability(pluginId.value, { capability })
     }
-    permissionDialogVisible.value = false
     const shouldResumeEnable = resumeEnableAfterGrant.value
-    selectedCapabilities.value = []
-    resumeEnableAfterGrant.value = false
+    closePermissionDialog()
     notifySuccess(t('plugins.grantSaved'))
     if (shouldResumeEnable) {
       await runAction('enable')
@@ -202,6 +287,26 @@ function canGrantPermission(permission: PluginPermissionSummary) {
 
 function canRevokePermission(permission: PluginPermissionSummary) {
   return !isBuiltinPlugin.value && permission.status === 'granted' && permission.source === 'persisted'
+}
+
+function getMetadataText(value?: string | null) {
+  return value?.trim() || t('display.empty')
+}
+
+function hasItems(value?: readonly unknown[] | null) {
+  return Array.isArray(value) && value.length > 0
+}
+
+function hasObjectValue(value: unknown) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0
+}
+
+function getJsonPreview(value: unknown) {
+  return safeJsonStringify(value ?? {})
+}
+
+function getScreenshotAlt(screenshot: NonNullable<PluginDetail['screenshots']>[number]) {
+  return screenshot.alt?.trim() || t('display.empty')
 }
 
 function getGrantedAt(capability: string) {
@@ -383,7 +488,7 @@ async function scrollConsoleToBottom() {
                   v-if="canGrantPermission(permission)"
                   size="small"
                   type="primary"
-                  @click="openPermissionDialog([permission.capability])"
+                  @click="openPermissionDialog({ available: [permission.capability], prefill: [permission.capability] })"
                 >
                   {{ t('plugins.actions.grantPermission') }}
                 </a-button>
@@ -397,6 +502,143 @@ async function scrollConsoleToBottom() {
                 </a-button>
               </div>
             </article>
+          </div>
+        </a-skeleton>
+      </a-card>
+    </div>
+
+    <div class="content-grid">
+      <a-card :bordered="false">
+        <template #title>
+          <div class="card-header">
+            <span>{{ t('plugins.sections.package') }}</span>
+          </div>
+        </template>
+
+        <a-skeleton :loading="detailLoading" active>
+          <a-descriptions :column="1" bordered size="small">
+            <a-descriptions-item :label="t('plugins.fields.version')">{{ getMetadataText(current?.version) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.type')">{{ getMetadataText(current?.type) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.runtimeFamily')">{{ getMetadataText(current?.runtime) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.entry')">{{ getMetadataText(current?.entry) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.author')">{{ getMetadataText(current?.author) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.license')">{{ getMetadataText(current?.license) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.sdkMinVersion')">{{ getMetadataText(current?.sdk_min_version) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.runtimeVersion')">{{ getMetadataText(current?.runtime_version) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.minCoreVersion')">{{ getMetadataText(current?.min_core_version) }}</a-descriptions-item>
+            <a-descriptions-item :label="t('plugins.fields.dataSchemaVersion')">{{ getMetadataText(current?.data_schema_version) }}</a-descriptions-item>
+          </a-descriptions>
+        </a-skeleton>
+      </a-card>
+
+      <a-card :bordered="false">
+        <template #title>
+          <div class="card-header">
+            <span>{{ t('plugins.sections.metadata') }}</span>
+          </div>
+        </template>
+
+        <a-skeleton :loading="detailLoading" active>
+          <div class="metadata-stack">
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.description') }}</strong>
+              <p>{{ getMetadataText(current?.description) }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.icon') }}</strong>
+              <p>{{ getMetadataText(current?.icon) }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.repo') }}</strong>
+              <a v-if="current?.repo" :href="current.repo" target="_blank" rel="noreferrer">{{ current.repo }}</a>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.homepage') }}</strong>
+              <a v-if="current?.homepage" :href="current.homepage" target="_blank" rel="noreferrer">{{ current.homepage }}</a>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.keywords') }}</strong>
+              <div v-if="hasItems(current?.keywords)" class="tag-list">
+                <a-tag v-for="keyword in current?.keywords" :key="keyword">{{ keyword }}</a-tag>
+              </div>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.platforms') }}</strong>
+              <div v-if="hasItems(current?.platforms)" class="tag-list">
+                <a-tag v-for="platform in current?.platforms" :key="platform">{{ platform }}</a-tag>
+              </div>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.systemDependencies') }}</strong>
+              <div v-if="hasItems(current?.system_dependencies)" class="tag-list">
+                <a-tag v-for="dependency in current?.system_dependencies" :key="dependency">{{ dependency }}</a-tag>
+              </div>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.screenshots') }}</strong>
+              <div v-if="hasItems(current?.screenshots)" class="screenshot-list">
+                <article v-for="screenshot in current?.screenshots" :key="screenshot.path" class="screenshot-item">
+                  <span>{{ t('plugins.fields.screenshotPath') }}：{{ screenshot.path }}</span>
+                  <span>{{ t('plugins.fields.screenshotAlt') }}：{{ getScreenshotAlt(screenshot) }}</span>
+                </article>
+              </div>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+          </div>
+        </a-skeleton>
+      </a-card>
+
+      <a-card :bordered="false">
+        <template #title>
+          <div class="card-header">
+            <span>{{ t('plugins.sections.runtimeConfig') }}</span>
+          </div>
+        </template>
+
+        <a-skeleton :loading="detailLoading" active>
+          <div class="metadata-stack">
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.concurrency') }}</strong>
+              <p>{{ current?.concurrency ?? t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.declaredCapabilities') }}</strong>
+              <div v-if="hasItems(current?.declared_capabilities)" class="tag-list">
+                <a-tag v-for="capability in current?.declared_capabilities" :key="capability">{{ capability }}</a-tag>
+              </div>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.dependencies') }}</strong>
+              <pre v-if="hasObjectValue(current?.dependencies)" class="metadata-json">{{ getJsonPreview(current?.dependencies) }}</pre>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.scopes') }}</strong>
+              <pre v-if="hasObjectValue(current?.scopes)" class="metadata-json">{{ getJsonPreview(current?.scopes) }}</pre>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
+
+            <section class="metadata-section">
+              <strong>{{ t('plugins.fields.defaultConfig') }}</strong>
+              <pre v-if="hasObjectValue(current?.default_config)" class="metadata-json">{{ getJsonPreview(current?.default_config) }}</pre>
+              <p v-else>{{ t('display.empty') }}</p>
+            </section>
           </div>
         </a-skeleton>
       </a-card>
@@ -461,28 +703,29 @@ async function scrollConsoleToBottom() {
     :get-container="false"
     :title="permissionDialogTitle"
     :confirm-loading="grantBusy"
-    :ok-text="t('plugins.actions.grantSelected')"
+    :ok-text="permissionDialogOkText"
     :cancel-text="t('dashboard.previewCancel')"
     :ok-button-props="{ disabled: selectedCapabilities.length === 0 }"
+    @cancel="closePermissionDialog"
     @ok="submitPermissionDialog"
   >
     <a-alert
-      v-if="resumeEnableAfterGrant"
-      :message="t('plugins.permissionPendingTitle')"
-      type="warning"
-      :description="t('plugins.permissionDialogPendingBody')"
+      v-if="permissionDialogBody"
+      :message="permissionDialogTitle"
+      :type="permissionDialogMode === 'scope_changed' ? 'info' : 'warning'"
+      :description="permissionDialogBody"
       show-icon
       class="section-gap"
     />
 
     <a-empty
-      v-if="permissionCandidates.length === 0"
+      v-if="permissionDialogCandidates.length === 0"
       :description="t('plugins.empty.permissions')"
     />
 
     <a-checkbox-group v-else v-model:value="selectedCapabilities" class="permission-dialog-list">
       <a-checkbox
-        v-for="permission in permissionCandidates"
+        v-for="permission in permissionDialogCandidates"
         :key="permission.capability"
         :value="permission.capability"
       >
@@ -490,7 +733,8 @@ async function scrollConsoleToBottom() {
           <strong>{{ permission.capability }}</strong>
           <small>
             {{ getPermissionRequirementLabel(permission.requirement) }} ·
-            {{ getPermissionStatusLabel(permission.status) }}
+            {{ getPermissionStatusLabel(permission.status) }} ·
+            {{ getPermissionSourceLabel(permission.source) }}
           </small>
         </div>
       </a-checkbox>
@@ -519,6 +763,60 @@ async function scrollConsoleToBottom() {
 .permission-list {
   display: grid;
   gap: 12px;
+}
+
+.metadata-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.metadata-section {
+  display: grid;
+  gap: 8px;
+}
+
+.metadata-section p,
+.metadata-section a {
+  margin: 0;
+  word-break: break-word;
+}
+
+.metadata-section strong {
+  font-size: 0.95rem;
+}
+
+.metadata-json {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.screenshot-list {
+  display: grid;
+  gap: 10px;
+}
+
+.screenshot-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
 }
 
 .permission-item {

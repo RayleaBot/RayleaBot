@@ -5,6 +5,7 @@ export * from './system'
 export * from './logs'
 export * from './config'
 export * from './events'
+export * from './governance'
 export type { components } from './generated'
 
 import type { components } from './generated'

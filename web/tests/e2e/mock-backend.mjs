@@ -72,8 +72,11 @@ const fixtures = {
   pluginGrantsList: await readFixture('fixtures/web-api/ok.plugins-grants-list-response.yaml'),
   pluginGrant: await readFixture('fixtures/web-api/ok.plugins-grant-response.yaml'),
   pluginGrantWithExpiry: await readFixture('fixtures/web-api/ok.plugins-grant-with-expiry-response.yaml'),
+  pluginEnableScopeChanged: await readFixture('fixtures/web-api/edge.plugins-enable-permission-pending-scope-changed.yaml'),
   invalidGrantExpiry: await readFixture('fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml'),
   invalidUninstallNotFound: await readFixture('fixtures/web-api/invalid.plugins-uninstall-not-found.yaml'),
+  governanceBlacklist: await readFixture('fixtures/web-api/ok.governance-blacklist-response.yaml'),
+  governanceCommandPolicy: await readFixture('fixtures/web-api/ok.governance-command-policy-response.yaml'),
   wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
   wsTasks: await readFixture('fixtures/websocket/ok.tasks-updated-running.json'),
   wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
@@ -104,6 +107,8 @@ function baseState() {
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
     protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
+    governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
+    governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     renderTemplates: createRenderTemplateState(),
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
@@ -117,6 +122,7 @@ function baseState() {
       failLogsOnce: false,
       failSystemStatusOnce: false,
       failUninstallOnce: false,
+      failPluginEnableScopeChangedOnce: false,
     },
   }
 }
@@ -678,6 +684,33 @@ function pluginDetailBody(pluginId) {
   }
 }
 
+function mergePluginPermissions(existingPermissions = [], nextPermissions = []) {
+  const merged = new Map(existingPermissions.map((permission) => [permission.capability, structuredClone(permission)]))
+  for (const permission of nextPermissions) {
+    const previous = merged.get(permission.capability) ?? {}
+    merged.set(permission.capability, {
+      ...previous,
+      ...structuredClone(permission),
+    })
+  }
+
+  return Array.from(merged.values()).sort((left, right) => left.capability.localeCompare(right.capability))
+}
+
+function mergePluginState(pluginId, patch) {
+  const previous = state.plugins[pluginId] ?? {}
+  state.plugins[pluginId] = {
+    ...structuredClone(previous),
+    ...structuredClone(patch),
+    source: structuredClone(patch.source ?? previous.source),
+    trust: structuredClone(patch.trust ?? previous.trust),
+    commands: structuredClone(patch.commands ?? previous.commands ?? []),
+    command_conflicts: structuredClone(patch.command_conflicts ?? previous.command_conflicts ?? []),
+    permissions: mergePluginPermissions(previous.permissions ?? [], patch.permissions ?? []),
+  }
+  return state.plugins[pluginId]
+}
+
 function updatePluginPermission(pluginId, capability, nextState) {
   const plugin = state.plugins[pluginId]
   if (!plugin?.permissions) {
@@ -1064,6 +1097,24 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, fixtures.systemStatus.response.status, state.systemStatus)
+    return
+  }
+
+  if (pathname === '/api/governance/blacklist' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, structuredClone(state.governanceBlacklist))
+    return
+  }
+
+  if (pathname === '/api/governance/command-policy' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    json(response, 200, structuredClone(state.governanceCommandPolicy))
     return
   }
 
@@ -1490,7 +1541,16 @@ const server = http.createServer(async (request, response) => {
     }
 
     const pluginId = pathname.split('/')[3]
-    state.plugins[pluginId] = structuredClone(fixtures.pluginEnable.response.body.plugin)
+    if (takeFailureFlag('failPluginEnableScopeChangedOnce')) {
+      json(
+        response,
+        fixtures.pluginEnableScopeChanged.response.status,
+        fixtures.pluginEnableScopeChanged.response.body,
+      )
+      return
+    }
+
+    mergePluginState(pluginId, fixtures.pluginEnable.response.body.plugin)
     broadcast('events', {
       channel: 'events',
       type: 'events.received',
@@ -1513,7 +1573,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     const pluginId = pathname.split('/')[3]
-    state.plugins[pluginId] = structuredClone(fixtures.pluginDisable.response.body.plugin)
+    mergePluginState(pluginId, fixtures.pluginDisable.response.body.plugin)
     broadcast('events', {
       channel: 'events',
       type: 'events.received',
@@ -1536,10 +1596,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     const pluginId = pathname.split('/')[3]
-    state.plugins[pluginId] = {
-      ...state.plugins[pluginId],
-      ...structuredClone(fixtures.pluginReload.response.body.plugin),
-    }
+    mergePluginState(pluginId, fixtures.pluginReload.response.body.plugin)
     json(response, 200, pluginDetailBody(pluginId))
     return
   }
@@ -1585,6 +1642,7 @@ const server = http.createServer(async (request, response) => {
       plugin_id: pluginId,
       capability: payload.capability,
       granted_at: grantedAt,
+      source: 'persisted',
       ...(payload.expires_at ? { expires_at: payload.expires_at } : {}),
     }
 

@@ -1,6 +1,6 @@
 export const commands = {
   title: '指令中心',
-  subtitle: '集中查看当前插件声明的全部指令与可用状态。',
+  subtitle: '查看当前生效的命令策略、黑名单和插件声明指令。',
   refresh: '刷新列表',
   filters: {
     plugins: '按插件筛选',
@@ -9,6 +9,12 @@ export const commands = {
   empty: {
     title: '暂无指令',
     description: '当前没有插件声明可用指令',
+    governanceTitle: '暂无治理快照',
+    governanceDescription: '当前未读取到命令治理配置。',
+    blacklistTitle: '暂无黑名单',
+    blacklistDescription: '当前没有用户或群黑名单记录。',
+    effectiveTitle: '暂无生效策略',
+    effectiveDescription: '当前没有参与命令裁决的插件指令。',
   },
   fields: {
     command: '命令',
@@ -16,8 +22,28 @@ export const commands = {
     description: '说明',
     usage: '用法',
     permission: '权限',
+    declaredPermission: '声明权限',
+    effectivePermission: '生效权限',
+    permissionSource: '权限来源',
     plugin: '所属插件',
     status: '当前状态',
+  },
+  sections: {
+    summary: '治理摘要',
+    blacklist: '黑名单',
+    effectivePolicies: '生效命令策略',
+    declaredCommands: '全部声明命令',
+  },
+  summary: {
+    defaultPermission: '默认权限',
+    userCooldown: '用户冷却',
+    groupCooldown: '群冷却',
+    cooldownReply: '冷却提示',
+    blacklistCount: '黑名单数量',
+  },
+  blacklist: {
+    userTitle: '用户黑名单',
+    groupTitle: '群黑名单',
   },
   status: {
     available: '当前可用',
@@ -25,5 +51,15 @@ export const commands = {
     switching: '切换中',
     not_ready: '未就绪',
     disabled: '已停用',
+  },
+  permissions: {
+    everyone: '所有成员',
+    groupAdmin: '群管理员',
+    superAdmin: '超级管理员',
+  },
+  permissionDefault: '跟随默认权限',
+  permissionSource: {
+    declared: '命令声明',
+    default_level: '默认权限',
   },
 } as const

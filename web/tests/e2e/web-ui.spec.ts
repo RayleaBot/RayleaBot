@@ -307,6 +307,11 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
   await expect(page.getByText('未验证来源')).toBeVisible()
   await expect(page.getByText('plugins/installed')).toBeVisible()
+  await expect(page.getByText('包与运行信息')).toBeVisible()
+  await expect(page.getByText('Manifest 元数据')).toBeVisible()
+  await expect(page.getByText('运行配置')).toBeVisible()
+  await expect(page.getByText('https://github.com/RayleaBot/plugins-weather')).toBeVisible()
+  await expect(page.getByText('assets/overview.svg')).toBeVisible()
   await expect(page.locator('.ant-descriptions').getByText('命令冲突')).toBeVisible()
   await expect(page.getByText('已注册指令')).toBeVisible()
   await expect(page.getByText('查询天气')).toBeVisible()
@@ -331,6 +336,77 @@ test('plugin management flow covers install, grants and console recovery', async
   await closeSocket(request, 'plugin_console')
   await page.getByRole('button', { name: '重新连接' }).click()
   await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
+})
+
+test('commands page shows governance snapshots', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/commands')
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expect(page.getByText('治理摘要', { exact: true })).toBeVisible()
+  await expect(page.getByText('黑名单', { exact: true })).toBeVisible()
+  await expect(page.getByText('生效命令策略', { exact: true })).toBeVisible()
+  await expect(page.getByText('全部声明命令', { exact: true })).toBeVisible()
+  await expect(
+    page.locator('.commands-section-card').filter({ hasText: '治理摘要' }).getByText('所有成员').first(),
+  ).toBeVisible()
+  await expect(page.getByText('10/60s')).toBeVisible()
+  await expect(page.getByText('30/60s')).toBeVisible()
+  await expect(page.getByText('10001')).toBeVisible()
+  await expect(page.getByText('20002')).toBeVisible()
+  await expect(
+    page.locator('.commands-section-card').filter({ hasText: '生效命令策略' }).locator('.commands-data-table'),
+  ).toContainText('群管理员')
+})
+
+test('plugin enable resumes after scope confirmation', async ({ page, request }) => {
+  await resetBackend(request, true, {
+    failPluginEnableScopeChangedOnce: true,
+  })
+  await login(page)
+
+  await page.goto('/plugins/weather')
+  await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
+  await expect(page.getByText('未验证来源')).toBeVisible()
+  const powerSwitch = page.locator('.plugin-detail-actions .plugin-holo-button')
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && response.url().includes('/api/plugins/weather/disable')
+      && response.status() === 200
+    )),
+    powerSwitch.click(),
+  ])
+
+  const enableSwitch = page.getByRole('switch', { name: '当前停用，点击切换为启用' })
+  await expect(enableSwitch).toBeEnabled()
+
+  await enableSwitch.click()
+
+  const dialog = page.getByRole('dialog', { name: '重新确认插件权限' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('作用域发生变化')
+  await expect(dialog).toContainText('http.request')
+  await expect(dialog).not.toContainText('当前未声明权限')
+
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && response.url().includes('/api/plugins/weather/grants')
+      && response.status() === 200
+    )),
+    page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && response.url().includes('/api/plugins/weather/enable')
+      && response.status() === 200
+    )),
+    dialog.getByRole('button', { name: '重新确认选中项' }).click(),
+  ])
+
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('权限与授权')).toBeVisible()
+  await expect(page.locator('.permission-item').filter({ hasText: 'http.request' })).toContainText('手动授权')
 })
 
 test('desktop list viewports fill the remaining shell height without overlapping rows', async ({ page, request }) => {
@@ -1314,8 +1390,11 @@ test('command center shows all declared commands and filters by plugin selection
 
   await page.goto('/commands')
   await expect(page.locator('#app-main').getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
-  await expect(page.locator('.commands-data-table')).toContainText('help')
-  await expect(page.locator('.commands-data-table')).toContainText('weather')
+  const effectivePoliciesTable = page.locator('.commands-section-card').filter({ hasText: '生效命令策略' }).locator('.commands-data-table')
+  const declaredCommandsTable = page.locator('.commands-section-card').filter({ hasText: '全部声明命令' }).locator('.commands-data-table')
+
+  await expect(effectivePoliciesTable).toContainText('hello')
+  await expect(declaredCommandsTable).toContainText('weather')
 
   const pluginSelector = page.locator('.commands-filter-toolbar .ant-select').first()
   await expect(pluginSelector).toBeVisible()
@@ -1323,8 +1402,10 @@ test('command center shows all declared commands and filters by plugin selection
   await page.keyboard.type('Weather')
   await page.keyboard.press('Enter')
 
-  await expect(page.locator('.commands-data-table')).toContainText('查询天气')
-  await expect(page.locator('.commands-data-table')).not.toContainText('查看帮助菜单')
+  await expect(effectivePoliciesTable).toContainText('weather')
+  await expect(effectivePoliciesTable).not.toContainText('hello')
+  await expect(declaredCommandsTable).toContainText('查询天气')
+  await expect(declaredCommandsTable).not.toContainText('查看帮助')
 })
 
 test('breadcrumb and tabbar track leaf pages instead of hidden route groups', async ({ page, request }) => {

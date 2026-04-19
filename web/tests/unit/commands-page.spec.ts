@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import CommandsPage from '@/views/operations/CommandsView.vue'
 import { useConfigStore } from '@/stores/config'
+import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import type { ConfigDocument } from '@/types/api'
 
@@ -103,6 +104,7 @@ describe('CommandsPage', () => {
   it('renders flattened command rows and filters them by plugin selection', async () => {
     const store = usePluginsStore()
     const configStore = useConfigStore()
+    const governanceStore = useGovernanceStore()
     store.items = [
       {
         id: 'weather',
@@ -111,6 +113,7 @@ describe('CommandsPage', () => {
         registration_state: 'installed',
         desired_state: 'enabled',
         runtime_state: 'running',
+        display_state: 'running',
         commands: [
           {
             name: 'weather',
@@ -128,6 +131,7 @@ describe('CommandsPage', () => {
         registration_state: 'installed',
         desired_state: 'disabled',
         runtime_state: 'stopped',
+        display_state: 'disabled',
         commands: [
           {
             name: 'help',
@@ -138,9 +142,59 @@ describe('CommandsPage', () => {
       },
     ]
     configStore.document = createFixtureConfig(['!'])
+    governanceStore.blacklist = {
+      user_entries: [
+        {
+          entry_type: 'user',
+          target_id: '10001',
+          reason: '反复触发垃圾消息',
+          created_at: '2026-04-17T09:00:00Z',
+        },
+      ],
+      group_entries: [
+        {
+          entry_type: 'group',
+          target_id: '20002',
+          reason: '风险群已封禁',
+          created_at: '2026-04-16T06:30:00Z',
+        },
+      ],
+    }
+    governanceStore.commandPolicy = {
+      default_level: 'everyone',
+      cooldown: {
+        user_command_rate_limit: '10/60s',
+        group_command_rate_limit: '30/60s',
+        cooldown_reply: true,
+      },
+      commands: [
+        {
+          plugin_id: 'weather',
+          plugin_name: 'Weather',
+          command: 'weather',
+          aliases: ['tq'],
+          declared_permission: 'group_admin',
+          effective_permission: 'group_admin',
+          permission_source: 'declared',
+        },
+        {
+          plugin_id: 'help',
+          plugin_name: 'Help',
+          command: 'help',
+          aliases: [],
+          declared_permission: null,
+          effective_permission: 'everyone',
+          permission_source: 'default_level',
+        },
+      ],
+    }
 
     vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(governanceStore, 'refresh').mockResolvedValue({
+      blacklist: governanceStore.blacklist,
+      commandPolicy: governanceStore.commandPolicy,
+    })
 
     const wrapper = mount(CommandsPage, {
       global: {
@@ -151,6 +205,18 @@ describe('CommandsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('指令中心')
+    expect(wrapper.text()).toContain('治理摘要')
+    expect(wrapper.text()).toContain('黑名单')
+    expect(wrapper.text()).toContain('生效命令策略')
+    expect(wrapper.text()).toContain('全部声明命令')
+    expect(wrapper.text()).toContain('默认权限')
+    expect(wrapper.text()).toContain('所有成员')
+    expect(wrapper.text()).toContain('10/60s')
+    expect(wrapper.text()).toContain('30/60s')
+    expect(wrapper.text()).toContain('10001')
+    expect(wrapper.text()).toContain('20002')
+    expect(wrapper.text()).toContain('群管理员')
+    expect(wrapper.text()).toContain('命令声明')
     expect(wrapper.text()).toContain('weather')
     expect(wrapper.text()).toContain('help')
     expect(wrapper.text()).toContain('!weather <城市>')
@@ -164,6 +230,7 @@ describe('CommandsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('weather')
+    expect(wrapper.text()).not.toContain('Help')
     expect(wrapper.text()).not.toContain('查看帮助')
   })
 })
