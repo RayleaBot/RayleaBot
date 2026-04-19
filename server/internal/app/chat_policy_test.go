@@ -23,7 +23,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.Config{
-		Auth: config.AuthConfig{DefaultLevel: "group_admin"},
+		Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
@@ -48,6 +48,47 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 	}
 	if info.Permission != "group_admin" {
 		t.Fatalf("permission = %q, want group_admin", info.Permission)
+	}
+}
+
+func TestResolveChatPolicyConfigPrefersCanonicalFields(t *testing.T) {
+	t.Parallel()
+
+	settings := resolveChatPolicyConfig(config.Config{
+		Admin:      config.AdminConfig{SuperAdmins: []string{"canonical-admin"}},
+		Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
+		User: config.UserConfig{
+			CommandRateLimit: "2/1h",
+			CooldownReply:    false,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "3/1h",
+		},
+		Auth: config.AuthConfig{
+			SuperAdmins:  []string{"legacy-admin"},
+			DefaultLevel: "super_admin",
+		},
+		Cooldown: &config.CooldownConfig{
+			UserCommandRateLimit:  "9/1h",
+			GroupCommandRateLimit: "8/1h",
+			CooldownReply:         true,
+		},
+	})
+
+	if !reflect.DeepEqual(settings.SuperAdmins, []string{"canonical-admin"}) {
+		t.Fatalf("unexpected super admins: %#v", settings.SuperAdmins)
+	}
+	if settings.DefaultLevel != "group_admin" {
+		t.Fatalf("DefaultLevel = %q, want group_admin", settings.DefaultLevel)
+	}
+	if settings.UserCommandRateLimit != "2/1h" {
+		t.Fatalf("UserCommandRateLimit = %q, want 2/1h", settings.UserCommandRateLimit)
+	}
+	if settings.GroupCommandRateLimit != "3/1h" {
+		t.Fatalf("GroupCommandRateLimit = %q, want 3/1h", settings.GroupCommandRateLimit)
+	}
+	if settings.CooldownReplyEnabled {
+		t.Fatal("CooldownReplyEnabled = true, want false")
 	}
 }
 
@@ -505,6 +546,275 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 	}
 }
 
+func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Config{
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
+		},
+	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "help",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name: "help",
+		}},
+	}}), nil, nil, nil)
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-help-private-canonical",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "10001",
+		SenderID:         "10001",
+		PlainText:        "/help",
+		MessageID:        "40001",
+	}
+
+	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first private command should be allowed")
+	}
+	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+		t.Fatal("second private command should be blocked by canonical user cooldown")
+	}
+}
+
+func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Config{
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
+		},
+	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name: "weather",
+		}},
+	}}), nil, nil, nil)
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-weather-group-user-canonical",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "40002",
+	}
+
+	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first group command should be allowed")
+	}
+	deniedEvent := event
+	deniedEvent.MessageID = "40003"
+	if _, allowed := application.applyChatPolicy(context.Background(), deniedEvent); allowed {
+		t.Fatal("second group command should be blocked by canonical user cooldown")
+	}
+}
+
+func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Config{
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		User: config.UserConfig{
+			CommandRateLimit: "5/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "1/1h",
+		},
+	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name: "weather",
+		}},
+	}}), nil, nil, nil)
+	firstEvent := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-weather-group-group-canonical-1",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "40004",
+	}
+	secondEvent := firstEvent
+	secondEvent.EventID = "evt-weather-group-group-canonical-2"
+	secondEvent.SenderID = "10003"
+	secondEvent.MessageID = "40005"
+
+	if _, allowed := application.applyChatPolicy(context.Background(), firstEvent); !allowed {
+		t.Fatal("first group command should be allowed")
+	}
+	if _, allowed := application.applyChatPolicy(context.Background(), secondEvent); allowed {
+		t.Fatal("second sender in same group should be blocked by canonical group cooldown")
+	}
+}
+
+func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	cfg := config.Config{
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    false,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
+		},
+	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name: "weather",
+		}},
+	}}), nil, sender, nil)
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-weather-canonical-reply-flag",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "40006",
+	}
+
+	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first group command should be allowed")
+	}
+	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+		t.Fatal("second group command should be blocked by canonical cooldown")
+	}
+	if sender.replyCount != 0 || sender.messageCount != 0 {
+		t.Fatalf("canonical cooldown reply flag should suppress replies: %+v", sender)
+	}
+}
+
+func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Config{
+		Admin: config.AdminConfig{
+			SuperAdmins: []string{"42"},
+		},
+		Permission: config.PermissionConfig{
+			DefaultLevel: "group_admin",
+		},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		User: config.UserConfig{
+			CommandRateLimit: "5/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
+		},
+	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "ops",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name: "ops",
+		}},
+	}}), nil, nil, nil)
+
+	memberEvent := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-ops-canonical-member",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/ops",
+		MessageID:        "40007",
+	}
+	if _, allowed := application.applyChatPolicy(context.Background(), memberEvent); allowed {
+		t.Fatal("member should be denied when canonical default level is group_admin")
+	}
+
+	superAdminEvent := memberEvent
+	superAdminEvent.EventID = "evt-ops-canonical-super-admin"
+	superAdminEvent.SenderID = "42"
+	superAdminEvent.MessageID = "40008"
+	if _, allowed := application.applyChatPolicy(context.Background(), superAdminEvent); !allowed {
+		t.Fatal("canonical super admin should bypass permission checks")
+	}
+}
+
 func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	t.Parallel()
 
@@ -666,17 +976,21 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 
 	repo := newStubBlacklistRepo()
 	cfg := config.Config{
-		Auth: config.AuthConfig{
-			SuperAdmins:  []string{"1"},
+		Admin: config.AdminConfig{
+			SuperAdmins: []string{"1"},
+		},
+		Permission: config.PermissionConfig{
 			DefaultLevel: "everyone",
 		},
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "5/1h",
-			GroupCommandRateLimit: "5/1h",
-			CooldownReply:         false,
+		User: config.UserConfig{
+			CommandRateLimit: "5/1h",
+			CooldownReply:    false,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "5/1h",
 		},
 		Storage: config.StorageConfig{
 			KVValueMaxBytes: 1024,
@@ -695,17 +1009,21 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	app.setTestEventIngress(nil, repo, nil, nil)
 
 	restartRequired := applyHotReloadableFields(app, config.Config{
-		Auth: config.AuthConfig{
-			SuperAdmins:  []string{"42"},
+		Admin: config.AdminConfig{
+			SuperAdmins: []string{"42"},
+		},
+		Permission: config.PermissionConfig{
 			DefaultLevel: "group_admin",
 		},
 		Command: &config.CommandConfig{
 			Prefixes: []string{"!"},
 		},
-		Cooldown: &config.CooldownConfig{
-			UserCommandRateLimit:  "1/1h",
-			GroupCommandRateLimit: "2/1h",
-			CooldownReply:         true,
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    true,
+		},
+		Group: config.GroupConfig{
+			CommandRateLimit: "2/1h",
 		},
 		Storage: config.StorageConfig{
 			KVValueMaxBytes: 4096,

@@ -25,17 +25,22 @@ type outboundActionSender interface {
 	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
 }
 
+type chatPolicyConfigSnapshot struct {
+	SuperAdmins           []string
+	DefaultLevel          string
+	UserCommandRateLimit  string
+	GroupCommandRateLimit string
+	CooldownReplyEnabled  bool
+}
+
 func newPermissionChecker(cfg config.Config, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository) *permission.Checker {
-	userLimit := parseCooldownRateLimit(defaultUserCommandRateLimit)
-	groupLimit := parseCooldownRateLimit(defaultGroupCommandRateLimit)
-	if cfg.Cooldown != nil {
-		userLimit = parseCooldownRateLimitWithFallback(cfg.Cooldown.UserCommandRateLimit, defaultUserCommandRateLimit)
-		groupLimit = parseCooldownRateLimitWithFallback(cfg.Cooldown.GroupCommandRateLimit, defaultGroupCommandRateLimit)
-	}
+	settings := resolveChatPolicyConfig(cfg)
+	userLimit := parseCooldownRateLimitWithFallback(settings.UserCommandRateLimit, defaultUserCommandRateLimit)
+	groupLimit := parseCooldownRateLimitWithFallback(settings.GroupCommandRateLimit, defaultGroupCommandRateLimit)
 
 	return permission.NewChecker(permission.CheckerConfig{
-		SuperAdmins:  append([]string(nil), cfg.Auth.SuperAdmins...),
-		DefaultLevel: commandPermissionDefaultLevel(cfg),
+		SuperAdmins:  append([]string(nil), settings.SuperAdmins...),
+		DefaultLevel: settings.DefaultLevel,
 	}, whitelistRepo, whitelistState, blacklistRepo, permission.NewCooldownTracker(userLimit, groupLimit))
 }
 
@@ -55,19 +60,72 @@ func parseCooldownRateLimit(raw string) permission.RateLimit {
 }
 
 func commandPermissionDefaultLevel(cfg config.Config) string {
-	switch strings.TrimSpace(cfg.Auth.DefaultLevel) {
+	defaultLevel := strings.TrimSpace(resolveChatPolicyConfig(cfg).DefaultLevel)
+	switch defaultLevel {
 	case "super_admin", "group_admin", "everyone":
-		return strings.TrimSpace(cfg.Auth.DefaultLevel)
+		return defaultLevel
 	default:
 		return "everyone"
 	}
 }
 
 func cooldownReplyEnabled(cfg config.Config) bool {
-	if cfg.Cooldown == nil {
-		return true
+	return resolveChatPolicyConfig(cfg).CooldownReplyEnabled
+}
+
+func resolveChatPolicyConfig(cfg config.Config) chatPolicyConfigSnapshot {
+	settings := chatPolicyConfigSnapshot{
+		SuperAdmins:           append([]string(nil), cfg.Admin.SuperAdmins...),
+		DefaultLevel:          strings.TrimSpace(cfg.Permission.DefaultLevel),
+		UserCommandRateLimit:  strings.TrimSpace(cfg.User.CommandRateLimit),
+		GroupCommandRateLimit: strings.TrimSpace(cfg.Group.CommandRateLimit),
+		CooldownReplyEnabled:  cfg.User.CooldownReply,
 	}
-	return cfg.Cooldown.CooldownReply
+
+	if len(settings.SuperAdmins) == 0 && len(cfg.Auth.SuperAdmins) > 0 {
+		settings.SuperAdmins = append([]string(nil), cfg.Auth.SuperAdmins...)
+	}
+	if settings.DefaultLevel == "" {
+		settings.DefaultLevel = strings.TrimSpace(cfg.Auth.DefaultLevel)
+	}
+	if settings.UserCommandRateLimit == "" && cfg.Cooldown != nil {
+		settings.UserCommandRateLimit = strings.TrimSpace(cfg.Cooldown.UserCommandRateLimit)
+	}
+	if settings.GroupCommandRateLimit == "" && cfg.Cooldown != nil {
+		settings.GroupCommandRateLimit = strings.TrimSpace(cfg.Cooldown.GroupCommandRateLimit)
+	}
+	if canonicalCooldownReplyConfigured(cfg) {
+		settings.CooldownReplyEnabled = cfg.User.CooldownReply
+	} else if cfg.Cooldown != nil && cfg.Cooldown.CooldownReply {
+		settings.CooldownReplyEnabled = true
+	}
+	if settings.UserCommandRateLimit == "" {
+		settings.UserCommandRateLimit = defaultUserCommandRateLimit
+	}
+	if settings.GroupCommandRateLimit == "" {
+		settings.GroupCommandRateLimit = defaultGroupCommandRateLimit
+	}
+	if !settings.CooldownReplyEnabled &&
+		settings.UserCommandRateLimit == defaultUserCommandRateLimit &&
+		settings.GroupCommandRateLimit == defaultGroupCommandRateLimit &&
+		cfg.Cooldown == nil &&
+		len(cfg.Admin.SuperAdmins) == 0 &&
+		len(cfg.Permission.AutoGrantCapabilities) == 0 &&
+		len(cfg.Auth.SuperAdmins) == 0 &&
+		strings.TrimSpace(cfg.Permission.DefaultLevel) == "" &&
+		strings.TrimSpace(cfg.Auth.DefaultLevel) == "" &&
+		strings.TrimSpace(cfg.User.CommandRateLimit) == "" &&
+		strings.TrimSpace(cfg.Group.CommandRateLimit) == "" {
+		settings.CooldownReplyEnabled = true
+	}
+	if settings.DefaultLevel == "" {
+		settings.DefaultLevel = "everyone"
+	}
+	return settings
+}
+
+func canonicalCooldownReplyConfigured(cfg config.Config) bool {
+	return strings.TrimSpace(cfg.User.CommandRateLimit) != "" || cfg.User.CooldownReply || cfg.Cooldown == nil
 }
 
 type eventIngressService struct {
