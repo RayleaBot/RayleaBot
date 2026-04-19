@@ -56,6 +56,24 @@ export function formatDurationSeconds(seconds?: number) {
   return `${hours} 小时 ${minutes} 分钟`
 }
 
+export function formatRateLimit(value?: string | null) {
+  if (value === undefined || value === null) {
+    return t('display.empty')
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return t('display.empty')
+  }
+
+  const parsed = parseRateLimit(trimmed)
+  if (!parsed) {
+    return trimmed
+  }
+
+  return `${parsed.windowLabel}内最多 ${parsed.count} 次`
+}
+
 export function toMultilineList(values: string[]) {
   return values.join('\n')
 }
@@ -146,4 +164,80 @@ function formatFallbackValue(value?: string | number | Date | null) {
   }
 
   return t('display.empty')
+}
+
+function parseRateLimit(raw: string) {
+  const [countText, windowText, hasWindow] = splitRateLimit(raw)
+  if (!hasWindow) {
+    return null
+  }
+
+  const count = Number.parseInt(countText.trim(), 10)
+  if (!Number.isFinite(count) || count <= 0) {
+    return null
+  }
+
+  const windowLabel = formatDurationLabel(windowText.trim())
+  if (!windowLabel) {
+    return null
+  }
+
+  return {
+    count,
+    windowLabel,
+  }
+}
+
+function splitRateLimit(raw: string): [string, string, boolean] {
+  const separatorIndex = raw.indexOf('/')
+  if (separatorIndex === -1) {
+    return ['', '', false]
+  }
+
+  return [
+    raw.slice(0, separatorIndex),
+    raw.slice(separatorIndex + 1),
+    true,
+  ]
+}
+
+function formatDurationLabel(raw: string) {
+  if (!raw) {
+    return null
+  }
+
+  const tokenPattern = /(\d+(?:\.\d+)?)(ms|s|m|h)/g
+  const labels: string[] = []
+  let lastIndex = 0
+
+  for (const match of raw.matchAll(tokenPattern)) {
+    const [token, amount, unit] = match
+    if (match.index !== lastIndex) {
+      return null
+    }
+
+    labels.push(`${amount} ${durationUnitLabel(unit)}`)
+    lastIndex += token.length
+  }
+
+  if (lastIndex !== raw.length || labels.length === 0) {
+    return null
+  }
+
+  return labels.join(' ')
+}
+
+function durationUnitLabel(unit: string) {
+  switch (unit) {
+    case 'ms':
+      return '毫秒'
+    case 's':
+      return '秒'
+    case 'm':
+      return '分钟'
+    case 'h':
+      return '小时'
+    default:
+      return unit
+  }
 }

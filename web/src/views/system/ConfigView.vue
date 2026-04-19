@@ -9,7 +9,7 @@ import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSum
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { cloneConfig, getConfigSections, getValueByPath, setValueByPath } from '@/lib/config-form'
-import { fromMultilineList, toMultilineList } from '@/lib/format'
+import { formatRateLimit, fromMultilineList, toMultilineList } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
@@ -80,6 +80,24 @@ function writeField(path: string, type: 'text' | 'number' | 'boolean' | 'select'
   }
 
   setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
+}
+
+function isRateLimitField(path: string) {
+  return path === 'user.command_rate_limit' || path === 'group.command_rate_limit'
+}
+
+function getRateLimitPreview(path: string) {
+  if (!isRateLimitField(path)) {
+    return null
+  }
+
+  const rawValue = String(readField(path, 'text') ?? '').trim()
+  if (!rawValue) {
+    return null
+  }
+
+  const preview = formatRateLimit(rawValue)
+  return preview !== rawValue ? preview : null
 }
 
 const canSave = computed(() => Boolean(draft.value) && !saving.value)
@@ -222,6 +240,14 @@ async function save() {
                 :auto-size="{ minRows: 4, maxRows: 8 }"
                 @update:value="(value) => writeField(field.path, field.type, value)"
               />
+
+              <div v-if="field.description || getRateLimitPreview(field.path)" class="config-field-note">
+                <p v-if="field.description" class="config-field-note__text">{{ field.description }}</p>
+                <div v-if="getRateLimitPreview(field.path)" class="config-rate-preview">
+                  <span class="config-rate-preview__label">{{ t('config.hints.rateLimitPreview') }}</span>
+                  <strong class="config-rate-preview__value">{{ getRateLimitPreview(field.path) }}</strong>
+                </div>
+              </div>
             </a-form-item>
           </div>
         </a-form>
@@ -409,6 +435,41 @@ async function save() {
   display: flex;
   min-height: 36px;
   align-items: center;
+}
+
+.config-field-note {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.config-field-note__text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.config-rate-preview {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
+}
+
+.config-rate-preview__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.config-rate-preview__value {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 @keyframes shimmer {

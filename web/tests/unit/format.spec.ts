@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { formatDateTime, formatRelativeTime } from '@/lib/format'
+import { formatDateTime, formatRateLimit, formatRelativeTime } from '@/lib/format'
 import { i18n } from '@/i18n'
 
 afterEach(() => {
@@ -38,5 +38,12 @@ describe('format helpers', () => {
 
     expect(formatRelativeTime(scientificUnixSeconds)).toBe('30 秒前')
     expect(formatRelativeTime(thirtySecondsAgo)).toBe('30 秒前')
+  })
+
+  it('formats rate limits into readable chinese text', () => {
+    expect(formatRateLimit('10/60s')).toBe('60 秒内最多 10 次')
+    expect(formatRateLimit('3/1h30m')).toBe('1 小时 30 分钟内最多 3 次')
+    expect(formatRateLimit('')).toBe('—')
+    expect(formatRateLimit('not-a-rate-limit')).toBe('not-a-rate-limit')
   })
 })

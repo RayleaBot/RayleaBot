@@ -136,5 +136,12 @@ export const config = {
     onebotOptional: '地址使用 ws:// 或 wss://，供 OneBot 主动回连。',
     onebotForwardWs: '地址使用 ws:// 或 wss://，由 RayleaBot 主动连接 OneBot。',
     onebotHttpTransport: '地址使用 http:// 或 https://。',
+    userSection: '用户命令频率限制使用“次数/时间窗口”格式，例如 10/60s 表示同一用户 60 秒内最多触发 10 次命令。',
+    groupSection: '群命令频率限制按整个群累计，例如 30/60s 表示同一群 60 秒内最多触发 30 次命令。',
+    rateLimitFormat: '格式使用“次数/时间窗口”，例如 10/60s。',
+    userCommandRateLimit: '同一用户在一个滑动时间窗口内最多触发多少次命令。',
+    groupCommandRateLimit: '同一群在一个滑动时间窗口内合计最多触发多少次命令。',
+    cooldownReply: '开启后，命令因冷却被挡下时会自动回复一条提示消息。',
+    rateLimitPreview: '当前表示',
   },
 } as const

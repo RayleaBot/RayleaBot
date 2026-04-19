@@ -8,9 +8,8 @@ import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { getBooleanLabel } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, formatRateLimit } from '@/lib/format'
 import { buildCommandsLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useGovernanceStore } from '@/stores/governance'
@@ -100,15 +99,28 @@ const summaryItems = computed(() => [
     key: 'user-cooldown',
     label: t('governance.summary.userCooldown'),
     tone: 'neutral',
-    value: commandPolicy.value?.cooldown.user_command_rate_limit ?? t('display.empty'),
-    meta: t('governance.summary.cooldownReply'),
+    value: formatRateLimit(commandPolicy.value?.cooldown.user_command_rate_limit),
+    meta: t('governance.summary.userCooldownMeta', {
+      value: commandPolicy.value?.cooldown.user_command_rate_limit ?? t('display.empty'),
+    }),
   },
   {
     key: 'group-cooldown',
     label: t('governance.summary.groupCooldown'),
     tone: 'neutral',
-    value: commandPolicy.value?.cooldown.group_command_rate_limit ?? t('display.empty'),
-    meta: getBooleanLabel(commandPolicy.value?.cooldown.cooldown_reply),
+    value: formatRateLimit(commandPolicy.value?.cooldown.group_command_rate_limit),
+    meta: t('governance.summary.groupCooldownMeta', {
+      value: commandPolicy.value?.cooldown.group_command_rate_limit ?? t('display.empty'),
+    }),
+  },
+  {
+    key: 'cooldown-reply',
+    label: t('governance.summary.cooldownReply'),
+    tone: commandPolicy.value?.cooldown.cooldown_reply ? 'success' : 'neutral',
+    value: commandPolicy.value?.cooldown.cooldown_reply
+      ? t('governance.summary.cooldownReplyEnabled')
+      : t('governance.summary.cooldownReplyDisabled'),
+    meta: t('governance.summary.cooldownReplyDescription'),
   },
   {
     key: 'blacklist-count',

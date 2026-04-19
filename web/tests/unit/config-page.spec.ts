@@ -223,4 +223,30 @@ describe('ConfigPage', () => {
     expect(wrapper.text()).toContain('onebot.forward_ws.url')
     expect(wrapper.text()).toContain('server.port')
   })
+
+  it('shows rate limit explanations and a readable preview in the user section', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const userNav = wrapper.findAll('.config-nav-item').find((candidate) => candidate.text().includes('用户'))
+    expect(userNav).toBeTruthy()
+    await userNav!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('格式使用“次数/时间窗口”，例如 10/60s。')
+    expect(wrapper.text()).toContain('同一用户在一个滑动时间窗口内最多触发多少次命令。')
+    expect(wrapper.text()).toContain('开启后，命令因冷却被挡下时会自动回复一条提示消息。')
+    expect(wrapper.text()).toContain('当前表示')
+    expect(wrapper.text()).toContain('60 秒内最多 10 次')
+  })
 })

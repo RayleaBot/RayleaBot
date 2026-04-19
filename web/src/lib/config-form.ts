@@ -162,15 +162,32 @@ export function getConfigSections(): ConfigSectionDefinition[] {
     {
       key: 'user',
       title: t('config.sections.user'),
+      description: t('config.hints.userSection'),
       fields: [
-        { path: 'user.command_rate_limit', label: t('config.fields.userCommandRateLimit'), type: 'text' },
-        { path: 'user.cooldown_reply', label: t('config.fields.userCooldownReply'), type: 'boolean' },
+        {
+          path: 'user.command_rate_limit',
+          label: t('config.fields.userCommandRateLimit'),
+          type: 'text',
+          description: `${t('config.hints.rateLimitFormat')} ${t('config.hints.userCommandRateLimit')}`,
+        },
+        {
+          path: 'user.cooldown_reply',
+          label: t('config.fields.userCooldownReply'),
+          type: 'boolean',
+          description: t('config.hints.cooldownReply'),
+        },
       ],
     },
     {
       key: 'group',
       title: t('config.sections.group'),
-      fields: [{ path: 'group.command_rate_limit', label: t('config.fields.groupCommandRateLimit'), type: 'text' }],
+      description: t('config.hints.groupSection'),
+      fields: [{
+        path: 'group.command_rate_limit',
+        label: t('config.fields.groupCommandRateLimit'),
+        type: 'text',
+        description: `${t('config.hints.rateLimitFormat')} ${t('config.hints.groupCommandRateLimit')}`,
+      }],
     },
     {
       key: 'http',
