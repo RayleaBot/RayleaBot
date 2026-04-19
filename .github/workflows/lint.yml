@@ -3,6 +3,10 @@ name: lint
 on:
   pull_request:
     paths:
+      - "contracts/**"
+      - "fixtures/**"
+      - "examples/**"
+      - "sdk/**"
       - "server/**"
       - "web/**"
       - "launcher/**"
@@ -152,6 +156,12 @@ jobs:
         working-directory: launcher
         run: pnpm install --frozen-lockfile
 
+      - name: Check generated types drift
+        working-directory: launcher
+        run: |
+          pnpm generate:types
+          git diff --exit-code src/shared/web-api.generated.ts
+
       - name: Run launcher typecheck
         working-directory: launcher
         run: pnpm run typecheck
@@ -166,12 +176,54 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: pnpm build
 
+  sdk-core:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Node SDK dependencies
+        working-directory: sdk/nodejs
+        run: npm ci
+
+      - name: Build Node SDK
+        working-directory: sdk/nodejs
+        run: npm run build
+
+      - name: Check Node SDK dist drift
+        working-directory: sdk/nodejs
+        run: git diff --exit-code dist
+
+      - name: Run Node SDK typecheck
+        working-directory: sdk/nodejs
+        run: npm run typecheck
+
+      - name: Run Node SDK tests
+        working-directory: sdk/nodejs
+        run: node --test tests/*.test.mjs
+
+      - name: Run Python SDK tests
+        working-directory: sdk/python
+        run: python -m unittest discover -s tests
+
   pr-smoke-light:
     runs-on: ubuntu-latest
     needs:
       - server-core
       - web-core
       - launcher-core-linux
+      - sdk-core
 
     steps:
       - name: Checkout
