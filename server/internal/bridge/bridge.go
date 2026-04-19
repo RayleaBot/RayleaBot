@@ -69,6 +69,16 @@ type dispatcherClient interface {
 	Dispatch(context.Context, runtime.Event, string) []dispatch.DeliveryResult
 }
 
+type CommandPolicyRejection struct {
+	CommandName      string
+	PluginID         string
+	MatchedPluginIDs []string
+	ErrorCode        string
+	Reason           string
+	ReasonSummary    string
+	PolicyStage      string
+}
+
 type Bridge struct {
 	logger     *slog.Logger
 	dispatcher dispatcherClient
@@ -221,6 +231,37 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event adapter.Normalize
 	}
 	b.logger.Warn(bridgeEventSummary("failed to queue for dispatcher", event), attrs...)
 	return OutcomeError
+}
+
+func (b *Bridge) LogCommandPolicyRejected(event adapter.NormalizedEvent, rejection CommandPolicyRejection) {
+	if b == nil {
+		return
+	}
+
+	now := time.Now().UTC()
+	errorCode := strings.TrimSpace(rejection.ErrorCode)
+	reason := strings.TrimSpace(rejection.Reason)
+	b.recordRejected(event, now, errorCode, reason)
+
+	attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+	if pluginID := strings.TrimSpace(rejection.PluginID); pluginID != "" {
+		attrs = append(attrs, "plugin_id", pluginID)
+	}
+	if commandName := strings.TrimSpace(rejection.CommandName); commandName != "" {
+		attrs = append(attrs, "command_name", commandName)
+	}
+	if policyStage := strings.TrimSpace(rejection.PolicyStage); policyStage != "" {
+		attrs = append(attrs, "policy_stage", policyStage)
+	}
+	if errorCode != "" {
+		attrs = append(attrs, "error_code", errorCode)
+	}
+	if reason != "" {
+		attrs = append(attrs, "reason", reason)
+	}
+	attrs = append(attrs, "matched_plugin_ids", cloneStringSlice(rejection.MatchedPluginIDs))
+
+	b.logger.Warn(commandPolicyRejectedSummary(rejection), attrs...)
 }
 
 func bridgeCommandName(event runtime.Event) string {
@@ -499,6 +540,32 @@ func bridgeEventSummary(action string, event adapter.NormalizedEvent) string {
 	return summary
 }
 
+func commandPolicyRejectedSummary(rejection CommandPolicyRejection) string {
+	commandName := strings.TrimSpace(rejection.CommandName)
+	reasonSummary := strings.TrimSpace(rejection.ReasonSummary)
+	if reasonSummary == "" {
+		reasonSummary = strings.TrimSpace(rejection.Reason)
+	}
+
+	switch {
+	case commandName == "" && reasonSummary == "":
+		return "command rejected by command policy"
+	case commandName == "":
+		return fmt.Sprintf("command rejected by command policy: %s", reasonSummary)
+	}
+
+	if pluginID := strings.TrimSpace(rejection.PluginID); pluginID != "" {
+		if reasonSummary == "" {
+			return fmt.Sprintf("plugin %s command %s rejected by command policy", pluginID, commandName)
+		}
+		return fmt.Sprintf("plugin %s command %s rejected by command policy: %s", pluginID, commandName, reasonSummary)
+	}
+	if reasonSummary == "" {
+		return fmt.Sprintf("command %s rejected by command policy", commandName)
+	}
+	return fmt.Sprintf("command %s rejected by command policy: %s", commandName, reasonSummary)
+}
+
 func summarizeBridgeText(text string) string {
 	text = strings.TrimSpace(textsafe.SanitizeString(text))
 	if text == "" {
@@ -720,4 +787,11 @@ func cloneBridgeData(data map[string]any) map[string]any {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func cloneStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	return append([]string(nil), values...)
 }

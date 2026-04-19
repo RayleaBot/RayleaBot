@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
 	"log/slog"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -68,6 +70,13 @@ func (a *App) SetBridge(eventBridge *bridge.Bridge) {
 	if a.eventsWS != nil {
 		a.eventsWS.bridge = eventBridge
 	}
+}
+
+func (a *App) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
+	if a == nil || a.eventIngress == nil {
+		return
+	}
+	a.eventIngress.HandleAdapterEvent(ctx, event)
 }
 
 func (a *App) Logs() *logging.Stream {

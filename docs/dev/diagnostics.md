@@ -26,6 +26,7 @@
 - 后台任务结果和错误摘要
 - 恢复摘要、人工处理建议和最近确认记录
 - 本次服务端启动日志与按时间范围筛选的历史日志
+- 命令策略拒绝记录，包含 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件上下文
 - 脱敏后的协议消息详情、消息段、异常原因、payload preview 和 echo 类型
 
 ## 管理面诊断路径
@@ -33,6 +34,7 @@
 - 系统状态页展示 readiness、reason code、checks、恢复摘要和近期变化，并提供到任务、协议中心、日志中心和插件详情的入口。
 - 协议中心展示当前 provider、活跃 transport、异常摘要，并提供兼容矩阵和相关日志入口。
 - 实时日志与历史日志支持按 `level`、`source`、`protocol`、`plugin_id`、`request_id` 和 `log_id` 查询；历史日志额外支持 `start_at` 与 `end_at`。
+- 命令被白名单、黑名单、权限或冷却拒绝时，日志中心会显示拒绝摘要，并在日志详情中提供 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件列表。
 - 日志详情会根据稳定字段提供插件详情、协议中心和请求 ID 对应日志页入口。
 - 任务详情会根据稳定字段提供插件详情、协议中心、请求历史日志和模板编辑器入口。
 - 模板编辑页的预览结果提供任务详情入口，`render.preview` 任务详情提供返回模板编辑器的入口。

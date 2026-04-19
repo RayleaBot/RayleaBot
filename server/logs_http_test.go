@@ -916,6 +916,74 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 	}
 }
 
+func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	putWhitelistState(t, server.URL, token, true)
+	application.HandleAdapterEvent(context.Background(), commandRejectionEvent())
+
+	listBody := doLogsListRequest(t, server.URL, token, "/api/logs?protocol=onebot11&limit=20")
+	items := listBody["items"].([]any)
+
+	var rejectionSummary map[string]any
+	for _, raw := range items {
+		item := raw.(map[string]any)
+		if item["message"] == "plugin raylea.help command help rejected by command policy: sender is not whitelisted" {
+			rejectionSummary = item
+			break
+		}
+	}
+	if rejectionSummary == nil {
+		t.Fatalf("expected command policy rejection in log list, got %#v", items)
+	}
+	if rejectionSummary["source"] != "bridge" || rejectionSummary["protocol"] != "onebot11" {
+		t.Fatalf("unexpected command rejection summary: %#v", rejectionSummary)
+	}
+	if rejectionSummary["plugin_id"] != "raylea.help" {
+		t.Fatalf("unexpected command rejection plugin_id: %#v", rejectionSummary["plugin_id"])
+	}
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs/"+rejectionSummary["log_id"].(string), nil)
+	if err != nil {
+		t.Fatalf("create command rejection detail request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform command rejection detail request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected command rejection detail status: got %d want 200", response.StatusCode)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if body["plugin_id"] != "raylea.help" {
+		t.Fatalf("unexpected command rejection detail plugin_id: %#v", body["plugin_id"])
+	}
+	details, ok := body["details"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected command rejection details payload: %#v", body["details"])
+	}
+	if details["command_name"] != "help" || details["error_code"] != "permission.not_whitelisted" {
+		t.Fatalf("unexpected command rejection details: %#v", details)
+	}
+	if details["reason"] != "actor is not whitelisted" || details["policy_stage"] != "whitelist" {
+		t.Fatalf("unexpected command rejection details: %#v", details)
+	}
+	if !reflect.DeepEqual(details["matched_plugin_ids"], []any{"raylea.help"}) {
+		t.Fatalf("unexpected matched_plugin_ids detail: %#v", details["matched_plugin_ids"])
+	}
+}
+
 func TestLogDetailReturnsEmptyObjectForLegacyRows(t *testing.T) {
 	t.Parallel()
 
@@ -1172,6 +1240,67 @@ func doLogsListRequest(t *testing.T, baseURL, token, requestPath string) map[str
 	}
 
 	return decodeBody(t, readAll(t, response))
+}
+
+func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {
+	t.Helper()
+
+	body := `{"enabled":false}`
+	if enabled {
+		body = `{"enabled":true}`
+	}
+
+	request, err := http.NewRequest(http.MethodPut, baseURL+"/api/governance/whitelist/state", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("create whitelist state request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("perform whitelist state request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected whitelist state status: got %d want 200", response.StatusCode)
+	}
+}
+
+func commandRejectionEvent() adapter.NormalizedEvent {
+	now := time.Now()
+	return adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-command-rejected-help",
+		BotID:            "10001",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        now.Unix(),
+		ConversationType: "private",
+		ConversationID:   "20001",
+		SenderID:         "30001",
+		MessageID:        "90001",
+		PlainText:        "/help",
+		Segments: []adapter.MessageSegment{{
+			Type: "text",
+			Data: map[string]any{"text": "/help"},
+		}},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"post_type":      "message",
+				"message_type":   "private",
+				"user_id":        "30001",
+				"time":           now.Unix(),
+				"message_id":     "90001",
+				"raw_message":    "/help",
+				"message_format": "array",
+				"sender": map[string]any{
+					"nickname": "Alice",
+				},
+			},
+		},
+	}
 }
 
 type stubMissingLogRepository struct{}

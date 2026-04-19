@@ -85,6 +85,13 @@ type eventIngressService struct {
 	blacklistRepo     permission.BlacklistRepository
 }
 
+type commandPolicyContext struct {
+	CommandName      string
+	PermissionInfo   *permission.CommandInfo
+	MatchedPluginIDs []string
+	PrimaryPluginID  string
+}
+
 func newEventIngressService(deps eventIngressDeps) *eventIngressService {
 	service := &eventIngressService{
 		state:            deps.state,
@@ -115,18 +122,27 @@ func (s *eventIngressService) applyChatPolicy(ctx context.Context, event adapter
 	if s == nil || s.permissionChecker == nil || !shouldEvaluateChatPolicy(enriched) {
 		return enriched, true
 	}
+	commandContext := s.commandPolicyContextForEvent(enriched)
+
+	var permissionInfo *permission.CommandInfo
+	if commandContext != nil {
+		permissionInfo = commandContext.PermissionInfo
+	}
 
 	verdict := s.permissionChecker.Check(
 		ctx,
 		strings.TrimSpace(enriched.SenderID),
 		strings.TrimSpace(enriched.ActorRole),
 		commandGroupID(enriched),
-		s.commandInfoForEvent(enriched),
+		permissionInfo,
 	)
 	if verdict.Allowed {
 		return enriched, true
 	}
 
+	if commandContext != nil {
+		s.logCommandPolicyRejection(enriched, verdict, commandContext)
+	}
 	if (verdict.ErrorCode == "platform.user_rate_limited" || verdict.ErrorCode == "platform.rate_limited") && cooldownReplyEnabled(s.state.Config) {
 		s.sendCooldownReply(enriched)
 	}
@@ -155,8 +171,28 @@ func (s *eventIngressService) commandInfoForEvent(event adapter.NormalizedEvent)
 		return nil
 	}
 
+	commandContext := s.commandPolicyContextForEvent(event)
+	if commandContext == nil {
+		return nil
+	}
+	return commandContext.PermissionInfo
+}
+
+func (s *eventIngressService) commandPolicyContextForEvent(event adapter.NormalizedEvent) *commandPolicyContext {
+	commandName := commandNameFromEvent(event)
+	if commandName == "" {
+		return nil
+	}
+
 	requiredLevel := "everyone"
-	matched := false
+	context := &commandPolicyContext{
+		CommandName:    commandName,
+		PermissionInfo: &permission.CommandInfo{Permission: requiredLevel},
+	}
+	currentConfig := config.Config{}
+	if s != nil && s.state != nil {
+		currentConfig = s.state.Config
+	}
 	if s != nil && s.plugins != nil {
 		for _, snapshot := range s.plugins.List() {
 			if !pluginParticipatesInCommandPolicy(snapshot) {
@@ -166,8 +202,8 @@ func (s *eventIngressService) commandInfoForEvent(event adapter.NormalizedEvent)
 				if !commandMatches(command, commandName) {
 					continue
 				}
-				matched = true
-				level := effectiveCommandPermissionLevel(command.Permission, s.state.Config)
+				context.MatchedPluginIDs = append(context.MatchedPluginIDs, snapshot.PluginID)
+				level := effectiveCommandPermissionLevel(command.Permission, currentConfig)
 				if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
 					requiredLevel = level
 				}
@@ -176,10 +212,11 @@ func (s *eventIngressService) commandInfoForEvent(event adapter.NormalizedEvent)
 		}
 	}
 
-	if !matched {
-		return &permission.CommandInfo{Permission: "everyone"}
+	context.PermissionInfo.Permission = requiredLevel
+	if len(context.MatchedPluginIDs) == 1 {
+		context.PrimaryPluginID = context.MatchedPluginIDs[0]
 	}
-	return &permission.CommandInfo{Permission: requiredLevel}
+	return context
 }
 
 func commandNameFromEvent(event adapter.NormalizedEvent) string {
@@ -232,6 +269,57 @@ func commandPermissionRank(level string) int {
 		return 1
 	default:
 		return 1
+	}
+}
+
+func (s *eventIngressService) logCommandPolicyRejection(event adapter.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
+	if s == nil || s.bridge == nil || commandContext == nil {
+		return
+	}
+
+	s.bridge.LogCommandPolicyRejected(event, bridge.CommandPolicyRejection{
+		CommandName:      commandContext.CommandName,
+		PluginID:         commandContext.PrimaryPluginID,
+		MatchedPluginIDs: commandContext.MatchedPluginIDs,
+		ErrorCode:        verdict.ErrorCode,
+		Reason:           verdict.Reason,
+		ReasonSummary:    commandPolicyReasonSummary(verdict),
+		PolicyStage:      commandPolicyStage(verdict.ErrorCode),
+	})
+}
+
+func commandPolicyStage(errorCode string) string {
+	switch strings.TrimSpace(errorCode) {
+	case "permission.not_whitelisted":
+		return "whitelist"
+	case "permission.blacklisted":
+		return "blacklist"
+	case "permission.denied":
+		return "permission"
+	case "platform.user_rate_limited", "platform.rate_limited":
+		return "cooldown"
+	default:
+		return ""
+	}
+}
+
+func commandPolicyReasonSummary(verdict permission.Verdict) string {
+	switch strings.TrimSpace(verdict.ErrorCode) {
+	case "permission.not_whitelisted":
+		return "sender is not whitelisted"
+	case "permission.blacklisted":
+		if strings.TrimSpace(verdict.Reason) == "group is blacklisted" {
+			return "group is blacklisted"
+		}
+		return "user is blacklisted"
+	case "permission.denied":
+		return "insufficient permission level"
+	case "platform.user_rate_limited":
+		return "user command rate limited"
+	case "platform.rate_limited":
+		return "group command rate limited"
+	default:
+		return strings.TrimSpace(verdict.Reason)
 	}
 }
 

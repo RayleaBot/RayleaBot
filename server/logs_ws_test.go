@@ -136,6 +136,51 @@ func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
 	}
 }
 
+func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	putWhitelistState(t, server.URL, token, true)
+
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	waitForLogSubscriber(t, application.Logs())
+	application.HandleAdapterEvent(context.Background(), commandRejectionEvent())
+
+	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
+		data, ok := frame["data"].(map[string]any)
+		return ok && data["message"] == "plugin raylea.help command help rejected by command policy: sender is not whitelisted"
+	})
+
+	data := frame["data"].(map[string]any)
+	if data["source"] != "bridge" || data["protocol"] != "onebot11" {
+		t.Fatalf("unexpected command rejection websocket summary: %#v", data)
+	}
+	if data["plugin_id"] != "raylea.help" {
+		t.Fatalf("unexpected command rejection websocket plugin_id: %#v", data["plugin_id"])
+	}
+	allowed := map[string]bool{
+		"log_id":     true,
+		"timestamp":  true,
+		"level":      true,
+		"source":     true,
+		"message":    true,
+		"protocol":   true,
+		"plugin_id":  true,
+		"request_id": true,
+	}
+	for key := range data {
+		if !allowed[key] {
+			t.Fatalf("unexpected websocket summary field %q", key)
+		}
+	}
+}
+
 func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	t.Parallel()
 

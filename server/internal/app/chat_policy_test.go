@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -76,6 +78,37 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 	}
 }
 
+func TestHandleAdapterEventKeepsBlacklistedNonCommandMessageSilent(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	repo := newStubBlacklistRepo()
+	repo.block("user", "bad-user")
+	dispatcherClient := &recordingDispatcherClient{}
+	application := newTestAppState(config.Config{}, logger)
+	application.setTestEventIngress(nil, repo, nil, bridge.New(logger, dispatcherClient))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-blacklist-silent-1",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "10001",
+		SenderID:         "bad-user",
+		PlainText:        "hello",
+	})
+
+	if dispatcherClient.deliverCount != 0 {
+		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
+	}
+	if len(stream.Snapshot()) != 0 {
+		t.Fatalf("non-command blacklist rejection should not write logs: %#v", stream.Snapshot())
+	}
+}
+
 func TestHandleAdapterEventBlocksCommandWhenNotWhitelistedBeforeBridge(t *testing.T) {
 	t.Parallel()
 
@@ -119,6 +152,130 @@ func TestHandleAdapterEventBlocksCommandWhenNotWhitelistedBeforeBridge(t *testin
 
 	if dispatcherClient.deliverCount != 0 {
 		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
+	}
+}
+
+func TestHandleAdapterEventLogsWhitelistedCommandRejection(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	dispatcherClient := &recordingDispatcherClient{}
+	cfg := config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+	}
+	application := newTestAppState(cfg, logger)
+	application.setTestEventIngressWithGovernance(
+		plugins.NewCatalog([]plugins.Snapshot{{
+			PluginID:          "weather",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name: "weather",
+			}},
+		}}),
+		newStubWhitelistRepo(),
+		&stubWhitelistStateRepo{enabled: true},
+		nil,
+		nil,
+		bridge.New(logger, dispatcherClient),
+	)
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-white-log-1",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "10001",
+		SenderID:         "10001",
+		MessageID:        "30001",
+		PlainText:        "/weather",
+	})
+
+	if dispatcherClient.deliverCount != 0 {
+		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
+	}
+
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "plugin weather command weather rejected by command policy: sender is not whitelisted"
+	})
+	if summary.Level != "warn" {
+		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
+	}
+	if summary.Source != "bridge" || summary.Protocol != logging.ProtocolOneBot11 {
+		t.Fatalf("unexpected log source/protocol: %+v", summary)
+	}
+	if summary.PluginID != "weather" {
+		t.Fatalf("unexpected plugin_id: got %q want weather", summary.PluginID)
+	}
+	if summary.Details["command_name"] != "weather" || summary.Details["policy_stage"] != "whitelist" {
+		t.Fatalf("unexpected whitelist log details: %#v", summary.Details)
+	}
+	if summary.Details["error_code"] != "permission.not_whitelisted" || summary.Details["reason"] != "actor is not whitelisted" {
+		t.Fatalf("unexpected whitelist log details: %#v", summary.Details)
+	}
+	if !reflect.DeepEqual(summary.Details["matched_plugin_ids"], []any{"weather"}) {
+		t.Fatalf("unexpected matched_plugin_ids: %#v", summary.Details["matched_plugin_ids"])
+	}
+}
+
+func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	repo := newStubBlacklistRepo()
+	repo.block("user", "bad-user")
+	dispatcherClient := &recordingDispatcherClient{}
+	cfg := config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+	}
+	application := newTestAppState(cfg, logger)
+	application.setTestEventIngress(
+		plugins.NewCatalog([]plugins.Snapshot{{
+			PluginID:          "help",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name: "help",
+			}},
+		}}),
+		repo,
+		nil,
+		bridge.New(logger, dispatcherClient),
+	)
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-blacklist-log-1",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "10001",
+		SenderID:         "bad-user",
+		MessageID:        "30002",
+		PlainText:        "/help",
+	})
+
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "plugin help command help rejected by command policy: user is blacklisted"
+	})
+	if summary.Level != "warn" || summary.PluginID != "help" {
+		t.Fatalf("unexpected blacklist summary: %+v", summary)
+	}
+	if summary.Details["policy_stage"] != "blacklist" || summary.Details["error_code"] != "permission.blacklisted" {
+		t.Fatalf("unexpected blacklist details: %#v", summary.Details)
 	}
 }
 
@@ -175,6 +332,121 @@ func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T)
 
 	if dispatcherClient.deliverCount != 0 {
 		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
+	}
+}
+
+func TestHandleAdapterEventLogsPermissionDeniedCommandRejection(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	dispatcherClient := &recordingDispatcherClient{}
+	cfg := config.Config{
+		Auth: config.AuthConfig{DefaultLevel: "everyone"},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+	}
+	application := newTestAppState(cfg, logger)
+	application.setTestEventIngress(
+		plugins.NewCatalog([]plugins.Snapshot{{
+			PluginID:          "admin",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:       "ops",
+				Permission: "group_admin",
+			}},
+		}}),
+		nil,
+		nil,
+		bridge.New(logger, dispatcherClient),
+	)
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-permission-log-1",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		MessageID:        "30003",
+		PlainText:        "/ops",
+	})
+
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "plugin admin command ops rejected by command policy: insufficient permission level"
+	})
+	if summary.Details["policy_stage"] != "permission" || summary.Details["error_code"] != "permission.denied" {
+		t.Fatalf("unexpected permission details: %#v", summary.Details)
+	}
+}
+
+func TestHandleAdapterEventLogsConflictingCommandRejectionWithoutPluginID(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	dispatcherClient := &recordingDispatcherClient{}
+	cfg := config.Config{
+		Auth: config.AuthConfig{DefaultLevel: "everyone"},
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+	}
+	application := newTestAppState(cfg, logger)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{
+		{
+			PluginID:          "weather",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:       "ops",
+				Permission: "everyone",
+			}},
+		},
+		{
+			PluginID:          "admin",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{{
+				Name:       "ops",
+				Permission: "group_admin",
+			}},
+		},
+	}), nil, nil, bridge.New(logger, dispatcherClient))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-conflict-log-1",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		MessageID:        "30004",
+		PlainText:        "/ops",
+	})
+
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "command ops rejected by command policy: insufficient permission level"
+	})
+	if summary.PluginID != "" {
+		t.Fatalf("expected empty plugin_id for conflicting command, got %q", summary.PluginID)
+	}
+	if !sameStringItems(summary.Details["matched_plugin_ids"], []string{"weather", "admin"}) {
+		t.Fatalf("unexpected matched_plugin_ids: %#v", summary.Details["matched_plugin_ids"])
 	}
 }
 
@@ -259,7 +531,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, nil)
+	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 
 	event := adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
@@ -284,6 +556,16 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	}
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "plugin weather command weather rejected by command policy: user command rate limited"
+	})
+	if summary.Level != "warn" || summary.Source != "bridge" {
+		t.Fatalf("unexpected cooldown rejection summary: %+v", summary)
+	}
+	if summary.Details["policy_stage"] != "cooldown" || summary.Details["error_code"] != "platform.user_rate_limited" {
+		t.Fatalf("unexpected cooldown rejection details: %#v", summary.Details)
+	}
+
+	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Message == "platform delivered group message: 命令触发冷却，请稍后再试。"
 	})
 	if summary.Source != "adapter.onebot11" {
@@ -331,7 +613,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, nil)
+	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 
 	event := adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
@@ -356,6 +638,16 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 	}
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Message == "plugin weather command weather rejected by command policy: user command rate limited"
+	})
+	if summary.Level != "warn" {
+		t.Fatalf("unexpected cooldown rejection level: got %q want warn", summary.Level)
+	}
+	if summary.Details["policy_stage"] != "cooldown" || summary.Details["error_code"] != "platform.user_rate_limited" {
+		t.Fatalf("unexpected cooldown rejection details: %#v", summary.Details)
+	}
+
+	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Message == "platform failed to deliver group message: 命令触发冷却，请稍后再试。"
 	})
 	if summary.Level != "warn" {
@@ -811,4 +1103,25 @@ func (r *stubLifecycleGrantRepository) DeleteAllGrants(context.Context, string) 
 
 func timePtr(value time.Time) *time.Time {
 	return &value
+}
+
+func sameStringItems(actual any, expected []string) bool {
+	items, ok := actual.([]any)
+	if !ok {
+		return false
+	}
+
+	got := make([]string, 0, len(items))
+	for _, item := range items {
+		value, ok := item.(string)
+		if !ok {
+			return false
+		}
+		got = append(got, value)
+	}
+
+	slices.Sort(got)
+	expectedCopy := append([]string(nil), expected...)
+	slices.Sort(expectedCopy)
+	return reflect.DeepEqual(got, expectedCopy)
 }

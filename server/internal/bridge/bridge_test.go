@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"reflect"
 	"testing"
 	"time"
 
@@ -200,6 +201,73 @@ func TestBridgeIgnoredEventClearsPreviousErrorState(t *testing.T) {
 	}
 	if snapshot.LastErrorCode != "" || snapshot.LastErrorText != "" {
 		t.Fatalf("ignored event should clear stale error state: %+v", snapshot)
+	}
+}
+
+func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newBridgeTestLogger()
+	eventBridge := New(logger, &recordingDispatcher{deliverable: true})
+	observability, unsubscribe := eventBridge.SubscribeObservability(1)
+	defer unsubscribe()
+
+	event := supportedAdapterEvent()
+	event.PlainText = "/help"
+	event.PayloadFields["command"] = "help"
+
+	eventBridge.LogCommandPolicyRejected(event, CommandPolicyRejection{
+		CommandName:      "help",
+		PluginID:         "raylea.help",
+		MatchedPluginIDs: []string{"raylea.help"},
+		ErrorCode:        "permission.not_whitelisted",
+		Reason:           "actor is not whitelisted",
+		ReasonSummary:    "sender is not whitelisted",
+		PolicyStage:      "whitelist",
+	})
+
+	select {
+	case frame := <-observability:
+		t.Fatalf("unexpected observability frame for rejected command: %#v", frame)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	snapshot := eventBridge.Snapshot()
+	if snapshot.AcceptedCount != 1 || snapshot.RejectedCount != 1 {
+		t.Fatalf("unexpected bridge rejection counters: %+v", snapshot)
+	}
+	if snapshot.LastOutcome != OutcomeRejected {
+		t.Fatalf("unexpected last outcome: got %q want %q", snapshot.LastOutcome, OutcomeRejected)
+	}
+	if snapshot.LastErrorCode != "permission.not_whitelisted" || snapshot.LastErrorText != "actor is not whitelisted" {
+		t.Fatalf("unexpected last rejection details: %+v", snapshot)
+	}
+
+	summaries := stream.Snapshot()
+	if len(summaries) != 1 {
+		t.Fatalf("expected one bridge log summary, got %d", len(summaries))
+	}
+	summary := summaries[0]
+	if summary.Level != "warn" {
+		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
+	}
+	if summary.Source != "bridge" || summary.Protocol != logging.ProtocolOneBot11 {
+		t.Fatalf("unexpected log source/protocol: %+v", summary)
+	}
+	if summary.PluginID != "raylea.help" {
+		t.Fatalf("unexpected plugin_id: got %q want raylea.help", summary.PluginID)
+	}
+	if summary.Message != "plugin raylea.help command help rejected by command policy: sender is not whitelisted" {
+		t.Fatalf("unexpected rejection message: got %q", summary.Message)
+	}
+	if summary.Details["command_name"] != "help" || summary.Details["policy_stage"] != "whitelist" {
+		t.Fatalf("unexpected rejection details: %#v", summary.Details)
+	}
+	if summary.Details["error_code"] != "permission.not_whitelisted" || summary.Details["reason"] != "actor is not whitelisted" {
+		t.Fatalf("unexpected rejection details: %#v", summary.Details)
+	}
+	if !reflect.DeepEqual(summary.Details["matched_plugin_ids"], []any{"raylea.help"}) {
+		t.Fatalf("unexpected matched_plugin_ids detail: %#v", summary.Details["matched_plugin_ids"])
 	}
 }
 
