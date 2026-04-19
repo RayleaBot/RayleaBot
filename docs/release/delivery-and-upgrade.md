@@ -52,6 +52,15 @@
 - 产物摘要与大小
 - 对应 `.deps/manifest.json` 摘要
 
+## 正式交付 smoke
+
+正式 release 与长期自托管巡检会对解包后的产物执行以下探针：
+
+- `/api/protocols/onebot11`：校验 `reverse_ws`、`forward_ws`、`http_api`、`webhook` 四条 transport、provider、readiness 和摘要。
+- `/api/protocols/onebot11/compatibility`：校验 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类矩阵和代表项。
+- 模板编辑器：校验模板列表、源码、校验、预览、artifact、保存、版本历史、回退与重启后的 revision 持久化。
+- 诊断、备份、recovery drill 与长期自托管 smoke：校验恢复与排障闭环。
+
 ### `release_manifest.json`
 
 | 字段 | 作用 |

@@ -20,6 +20,8 @@
 
 - OneBot11 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 都能建立受控链路。
 - 鉴权失败进入明确失败状态，而不是静默重试。
+- packaged `/api/protocols/onebot11` 能稳定返回四条 transport 状态、provider、readiness 和摘要。
+- packaged `/api/protocols/onebot11/compatibility` 能稳定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类矩阵和代表项。
 - 群聊或私聊消息能够进入插件处理并返回回复。
 - `message_sent.private` 与 `message_sent.group` 能进入日志中心、桥接链路和插件协议。
 - 协议中心能够显示当前 transport 状态、摘要和最近传输问题。
@@ -46,6 +48,8 @@
 - 管理员重置后，旧管理会话和一次性 Launcher token 全部失效。
 - 配置或数据库迁移失败时，服务不会进入 `running`。
 - 默认配置下，管理接口以 loopback 为主，API 与 WebSocket 都要求鉴权。
+- packaged 模板编辑器支持列表、源码读取、校验、预览、artifact、保存、版本历史、回退和重启后的 revision 持久化。
+- 正式发布包通过 release metadata 校验、packaged recovery drill 和长期自托管 smoke。
 
 ## 当前边界
 

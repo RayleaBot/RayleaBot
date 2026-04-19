@@ -40,6 +40,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 - ☑️ Phase 7 已完成 Plugin Platform / Manifest / Config / Governance 收口
 - ☑️ Phase 8 已完成管理面跨页钻取、诊断入口与 Web 基线收口
 - ☑️ Phase 9 已完成状态模型拆分、环境检查收口、WebSocket 事件驱动与深链诊断引导
+- ☑️ Phase 10 已完成 Release / Deployment / Quality Gates 收口
 
 ### 本轮明确纳入
 
@@ -75,7 +76,7 @@ v0.1 已提供单实例基线、基础 OneBot11 reverse WebSocket、插件运行
 | Phase 7 | Plugin Platform / Manifest / Config / Governance | ☑️ | rich plugin detail、治理读取面、插件授权重确认与 `config.migrate` task-only 边界已收口 |
 | Phase 8 | Diagnostics / Web API / Web UI | ☑️ | 协议中心、日志中心、任务、插件、模板编辑器和指令中心的跨页钻取、诊断入口与前端工作区基线已收口 |
 | Phase 9 | Launcher / 本地运维入口 | ☑️ | 状态模型已拆分、环境检查已收口为本地预检、Web 状态刷新已接入 WebSocket 事件驱动，深链与诊断引导已完成 |
-| Phase 10 | Release / Deployment / Quality Gates | 🟡 | 建立 v0.2 transport、compatibility、template editor 与 wider actions 门禁 |
+| Phase 10 | Release / Deployment / Quality Gates | ☑️ | PR 门禁、打包 smoke、恢复演练和自托管巡检已覆盖 v0.2 transport、compatibility、template editor 与 wider actions 回归 |
 
 ### 当前边界说明
 
@@ -306,16 +307,16 @@ Launcher 与 Web 边界收口细节见 `docs/engineering/launcher-web-boundary-r
 
 ---
 
-## 十二、Phase 10 — Release / Deployment / Quality Gates 🟡
+## 十二、Phase 10 — Release / Deployment / Quality Gates ☑️
 
 | 子任务 | 状态 | 说明 |
 | --- | --- | --- |
-| transport matrix 门禁 | 🟡 | 围绕已完成的 reverse WS、forward WS、HTTP、webhook 主链建立回归门禁 |
-| compatibility matrix 门禁 | 🟡 | 建立标准 OneBot11、NapCat、幸运莉莉娅兼容门禁 |
-| template editor 门禁 | 🟡 | 建立模板编辑、校验、预览、保存、回退回归门禁 |
-| wider action family 门禁 | 🟡 | 建立扩展 action family 的 contract、SDK、Server、Web 联合回归 |
-| self-host upgrade / rollback | 🟡 | 将 v0.2 新能力纳入打包回归、升级回滚与长期自托管验证 |
-| 发布元数据与校验门禁 | 🟡 | 围绕 `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt` 与交付 smoke 建立发布门禁 |
+| transport matrix 门禁 | ☑️ | 发布与自托管 smoke 会探测 packaged `/api/protocols/onebot11`，校验 `reverse_ws`、`forward_ws`、`http_api`、`webhook` 四条 transport、provider、readiness 和摘要 |
+| compatibility matrix 门禁 | ☑️ | 发布与自托管 smoke 会探测 packaged `/api/protocols/onebot11/compatibility`，校验 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类矩阵与代表项 |
+| template editor 门禁 | ☑️ | 发布与自托管 smoke 覆盖模板列表、源码、校验、预览、artifact、保存、版本历史、回退与重启后 revision 持久化 |
+| wider action family 门禁 | ☑️ | PR 门禁包含 Node / Python SDK 测试、Node SDK `dist` 漂移检查，server / web 继续通过既有测试覆盖 wider action family |
+| self-host upgrade / rollback | ☑️ | release workflow 继续执行 packaged recovery drill 和长期自托管 smoke，同步验证 v0.2 协议与模板能力 |
+| 发布元数据与校验门禁 | ☑️ | `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt` 继续进入正式校验，`onebot_matrix` 保持可选 metadata |
 
 ### 本轮排除项
 
@@ -349,7 +350,7 @@ Launcher 与 Web 边界收口细节见 `docs/engineering/launcher-web-boundary-r
 
 | 层次 | 目标 | 说明 |
 | --- | --- | --- |
-| PR 轻量门禁 | contracts / fixtures / SDK shape、Server / Web / Launcher 核心检查 | 保证可合并性 |
+| PR 轻量门禁 | contracts / fixtures / examples 触发的类型生成漂移、SDK、Server / Web / Launcher 核心检查 | 保证可合并性 |
 | 发布门禁 | transport matrix、compatibility matrix、template editor、wider action family、packaged recovery、self-host smoke | 保证可交付性 |
 | 手动高成本回归 | provider extension 深回归、大样本消息段 / 文件 / 历史消息矩阵、长时间协议稳定性巡检 | 保留独立回归入口 |
 
@@ -366,7 +367,7 @@ Launcher 与 Web 边界收口细节见 `docs/engineering/launcher-web-boundary-r
 | 治理读取面 | blacklist / cooldown / permission 的剩余管理可见性在 Web 管理面可验证 |
 | 管理面联动 | 协议中心、日志、任务、模板编辑器、指令中心之间的跳转与摘要口径一致 |
 | Launcher 职责 | Launcher 只验证本地壳职责、诊断深链与打开 Web，不承担 Web 业务回归 |
-| 发布与回滚 | transport、compatibility、template editor、wider action family 进入交付门禁与升级回滚回归 |
+| 发布与回滚 | packaged smoke、recovery drill 与长期自托管巡检覆盖 transport、compatibility、template editor、wider action family 与 release metadata 校验 |
 
 ### Companion updates 原则
 
