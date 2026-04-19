@@ -168,6 +168,12 @@ export function buildCommandsLocation(pluginIds?: string[] | string | null) {
   } satisfies RouteLocationRaw
 }
 
+export function buildGovernanceLocation() {
+  return {
+    name: 'governance',
+  } satisfies RouteLocationRaw
+}
+
 export function readLogWorkspaceState(query: LocationQuery, options: { history?: boolean } = {}) {
   const filters: LogFilters = {}
   const level = normalizeSingleQueryValue(query.level)

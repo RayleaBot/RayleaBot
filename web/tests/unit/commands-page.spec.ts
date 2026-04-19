@@ -103,11 +103,12 @@ describe('CommandsPage', () => {
     document.body.innerHTML = ''
   })
 
-  it('renders flattened command rows and filters them by plugin selection', async () => {
+  it('renders filtered command tables and keeps governance actions out of the page body', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/commands', name: 'commands', component: CommandsPage },
+        { path: '/governance', name: 'governance', component: { template: '<div>governance</div>' } },
         { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
       ],
     })
@@ -154,36 +155,6 @@ describe('CommandsPage', () => {
       },
     ]
     configStore.document = createFixtureConfig(['!'])
-    governanceStore.blacklist = {
-      user_entries: [
-        {
-          entry_type: 'user',
-          target_id: '10001',
-          reason: '反复触发垃圾消息',
-          created_at: '2026-04-17T09:00:00Z',
-        },
-      ],
-      group_entries: [
-        {
-          entry_type: 'group',
-          target_id: '20002',
-          reason: '风险群已封禁',
-          created_at: '2026-04-16T06:30:00Z',
-        },
-      ],
-    }
-    governanceStore.whitelist = {
-      enabled: false,
-      user_entries: [
-        {
-          entry_type: 'user',
-          target_id: '10003',
-          reason: '值班账号',
-          created_at: '2026-04-18T09:00:00Z',
-        },
-      ],
-      group_entries: [],
-    }
     governanceStore.commandPolicy = {
       default_level: 'everyone',
       cooldown: {
@@ -215,11 +186,7 @@ describe('CommandsPage', () => {
 
     vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(governanceStore, 'refresh').mockResolvedValue({
-      blacklist: governanceStore.blacklist,
-      whitelist: governanceStore.whitelist,
-      commandPolicy: governanceStore.commandPolicy,
-    })
+    vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue(governanceStore.commandPolicy)
 
     const wrapper = mount(CommandsPage, {
       global: {
@@ -230,24 +197,16 @@ describe('CommandsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('指令中心')
-    expect(wrapper.text()).toContain('治理摘要')
-    expect(wrapper.text()).toContain('黑名单')
-    expect(wrapper.text()).toContain('白名单')
     expect(wrapper.text()).toContain('生效命令策略')
     expect(wrapper.text()).toContain('全部声明命令')
-    expect(wrapper.text()).toContain('默认权限')
-    expect(wrapper.text()).toContain('所有成员')
-    expect(wrapper.text()).toContain('10/60s')
-    expect(wrapper.text()).toContain('30/60s')
-    expect(wrapper.text()).toContain('10001')
-    expect(wrapper.text()).toContain('20002')
-    expect(wrapper.text()).toContain('10003')
     expect(wrapper.text()).toContain('群管理员')
-    expect(wrapper.text()).toContain('命令声明')
     expect(wrapper.text()).toContain('weather')
     expect(wrapper.text()).toContain('!weather <城市>')
     expect(wrapper.text()).toContain('当前可用')
-    expect(wrapper.find('.commands-data-table').exists()).toBe(true)
+    expect(wrapper.text()).toContain('权限策略')
+    expect(wrapper.text()).not.toContain('治理摘要')
+    expect(wrapper.text()).not.toContain('黑名单')
+    expect(wrapper.text()).not.toContain('白名单')
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=weather')
 
     const select = wrapper.findComponent({ name: 'ASelect' })
@@ -261,13 +220,18 @@ describe('CommandsPage', () => {
 
     const pluginLink = wrapper.find('.command-plugin-link')
     expect(pluginLink.attributes('href')).toBe('/plugins/help')
+
+    await wrapper.get('[data-testid="commands-open-governance"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('governance')
   }, 15000)
 
-  it('shows empty whitelist confirmation and warning states', async () => {
+  it('shows command empty states without governance panels', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/commands', name: 'commands', component: CommandsPage },
+        { path: '/governance', name: 'governance', component: { template: '<div>governance</div>' } },
         { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
       ],
     })
@@ -280,15 +244,6 @@ describe('CommandsPage', () => {
 
     store.items = []
     configStore.document = createFixtureConfig(['!'])
-    governanceStore.blacklist = {
-      user_entries: [],
-      group_entries: [],
-    }
-    governanceStore.whitelist = {
-      enabled: true,
-      user_entries: [],
-      group_entries: [],
-    }
     governanceStore.commandPolicy = {
       default_level: 'everyone',
       cooldown: {
@@ -301,15 +256,9 @@ describe('CommandsPage', () => {
 
     vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(governanceStore, 'refresh').mockResolvedValue({
-      blacklist: governanceStore.blacklist,
-      whitelist: governanceStore.whitelist,
-      commandPolicy: governanceStore.commandPolicy,
-    })
-    vi.spyOn(governanceStore, 'setWhitelistEnabled').mockResolvedValue(governanceStore.whitelist)
+    vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue(governanceStore.commandPolicy)
 
     const wrapper = mount(CommandsPage, {
-      attachTo: document.body,
       global: {
         plugins: [Antd, router],
       },
@@ -317,23 +266,10 @@ describe('CommandsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('白名单已启用且当前为空')
-    expect(wrapper.text()).toContain('除超级管理员外，所有命令都会被挡下')
-
-    governanceStore.whitelist = {
-      enabled: false,
-      user_entries: [],
-      group_entries: [],
-    }
-    await flushPromises()
-
-    const switchComponent = wrapper.findComponent({ name: 'ASwitch' })
-    await switchComponent.vm.$emit('change', true)
-    await flushPromises()
-
-    expect(document.body.textContent ?? '').toContain('确认启用空白名单')
-    expect(document.body.textContent ?? '').toContain('当前没有任何白名单条目')
-
-    wrapper.unmount()
+    expect(wrapper.text()).toContain('暂无生效策略')
+    expect(wrapper.text()).toContain('暂无指令')
+    expect(wrapper.text()).not.toContain('治理摘要')
+    expect(wrapper.text()).not.toContain('白名单')
+    expect(wrapper.text()).not.toContain('黑名单')
   }, 15000)
 })

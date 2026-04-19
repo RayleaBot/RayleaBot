@@ -10,6 +10,7 @@ import {
   HddOutlined,
   LoginOutlined,
   ProfileOutlined,
+  SafetyCertificateOutlined,
   SettingOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
@@ -19,6 +20,7 @@ const iconMap: Record<string, Component> = {
   commands: BarsOutlined,
   config: SettingOutlined,
   dashboard: DashboardOutlined,
+  governance: SafetyCertificateOutlined,
   'history-logs': ControlOutlined,
   login: LoginOutlined,
   logs: FileSearchOutlined,

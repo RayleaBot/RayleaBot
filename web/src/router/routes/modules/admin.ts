@@ -47,7 +47,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: '',
         component: RouteView,
-        redirect: { name: 'commands' },
+        redirect: { name: 'governance' },
         meta: {
           hideInTab: true,
           icon: 'toolbox',
@@ -56,6 +56,18 @@ export const adminRoutes: RouteRecordRaw[] = [
           titleKey: 'routes.operations',
         },
         children: [
+          {
+            path: '/governance',
+            name: 'governance',
+            component: () => import('@/views/operations/GovernanceView.vue'),
+            meta: {
+              icon: 'governance',
+              keepAlive: true,
+              requiresAuth: true,
+              titleKey: 'routes.governance',
+              viewKey: 'governance',
+            },
+          },
           {
             path: '/commands',
             name: 'commands',

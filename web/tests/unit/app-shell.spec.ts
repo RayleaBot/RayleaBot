@@ -40,9 +40,15 @@ describe('BasicLayout', () => {
             {
               path: '',
               component: RouteView,
-              redirect: { name: 'commands' },
+              redirect: { name: 'governance' },
               meta: { hideInTab: true, title: '运维' },
               children: [
+                {
+                  path: '/governance',
+                  name: 'governance',
+                  component: { template: '<div>权限策略页</div>' },
+                  meta: { icon: 'governance', keepAlive: true, title: '权限策略', viewKey: 'governance' },
+                },
                 {
                   path: '/commands',
                   name: 'commands',
@@ -228,6 +234,7 @@ describe('BasicLayout', () => {
     expect(currentBreadcrumb.text()).toBe('系统状态')
     expect(wrapper.text()).toContain('系统状态')
     expect(wrapper.text()).toContain('协议中心')
+    expect(wrapper.text()).toContain('权限策略')
     expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).toContain('运维')
     expect(wrapper.text()).toContain('日志中心')
@@ -242,37 +249,50 @@ describe('BasicLayout', () => {
     expect(getTabLabels()).toEqual(['系统状态'])
     expect(getTabIconKeys()).toEqual(['dashboard'])
 
+    await router.push('/governance')
+    await flushPromises()
+    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
+      { title: '系统状态', icon: 'dashboard' },
+      { title: '权限策略', icon: 'governance' },
+    ])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'governance'])
+    expect(getActiveTabLabel()).toBe('权限策略')
+
     await router.push('/commands')
     await flushPromises()
     expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
       { title: '系统状态', icon: 'dashboard' },
+      { title: '权限策略', icon: 'governance' },
       { title: '指令中心', icon: 'commands' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'commands'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'governance', 'commands'])
     expect(getActiveTabLabel()).toBe('指令中心')
 
     await router.push('/tasks')
     await flushPromises()
     expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
       { title: '系统状态', icon: 'dashboard' },
+      { title: '权限策略', icon: 'governance' },
       { title: '指令中心', icon: 'commands' },
       { title: '任务', icon: 'tasks' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'governance', 'commands', 'tasks'])
     expect(getActiveTabLabel()).toBe('任务')
 
     await router.push('/logs')
     await flushPromises()
     expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
       { title: '系统状态', icon: 'dashboard' },
+      { title: '权限策略', icon: 'governance' },
       { title: '指令中心', icon: 'commands' },
       { title: '任务', icon: 'tasks' },
       { title: '实时日志', icon: 'logs' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks', 'logs'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs'])
     expect(getActiveTabLabel()).toBe('实时日志')
     expect(uiShellStore.tabs.map((item) => item.title)).not.toContain('运维')
 
@@ -280,27 +300,29 @@ describe('BasicLayout', () => {
     await flushPromises()
     expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
       { title: '系统状态', icon: 'dashboard' },
+      { title: '权限策略', icon: 'governance' },
       { title: '指令中心', icon: 'commands' },
       { title: '任务', icon: 'tasks' },
       { title: '实时日志', icon: 'logs' },
       { title: '历史日志', icon: 'history-logs' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志', '历史日志'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'history-logs'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs', 'history-logs'])
     expect(getActiveTabLabel()).toBe('历史日志')
 
     await router.push('/render/templates/help.menu')
     await flushPromises()
     expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon, path: item.path, fullPath: item.fullPath }))).toEqual([
       { title: '系统状态', icon: 'dashboard', path: '/', fullPath: '/' },
+      { title: '权限策略', icon: 'governance', path: '/governance', fullPath: '/governance' },
       { title: '指令中心', icon: 'commands', path: '/commands', fullPath: '/commands' },
       { title: '任务', icon: 'tasks', path: '/tasks', fullPath: '/tasks' },
       { title: '实时日志', icon: 'logs', path: '/logs', fullPath: '/logs' },
       { title: '历史日志', icon: 'history-logs', path: '/logs/history', fullPath: '/logs/history' },
       { title: '模板编辑', icon: 'render-templates', path: '/render/templates', fullPath: '/render/templates/help.menu' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'commands', 'tasks', 'logs', 'history-logs', 'render-templates'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs', 'history-logs', 'render-templates'])
     expect(getActiveTabLabel()).toBe('模板编辑')
 
     await router.push('/render/templates/status.panel')
@@ -312,7 +334,7 @@ describe('BasicLayout', () => {
         title: '模板编辑',
       }),
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
     expect(getActiveTabLabel()).toBe('模板编辑')
   })
 
@@ -333,7 +355,7 @@ describe('BasicLayout', () => {
     expect(parentItem.classes()).toContain('admin-layout__breadcrumb-item--ancestor')
     expect(parentOuter.exists()).toBe(true)
     expect(parentLink.text()).toBe('运维')
-    expect(parentLink.attributes('href')).toBe('/commands')
+    expect(parentLink.attributes('href')).toBe('/governance')
     expect(parentLink.classes()).toContain('admin-layout__breadcrumb-link')
     expect(parentText.text()).toBe('运维')
     expect(breadcrumb.classes()).toContain('admin-layout__header-breadcrumb--multi')
@@ -346,7 +368,14 @@ describe('BasicLayout', () => {
   })
 
   it('keeps a single workspace tab when only query state changes', async () => {
-    const { router, uiShellStore } = await mountShell('/commands')
+    const { router, uiShellStore } = await mountShell('/governance')
+
+    await router.push('/governance')
+    await flushPromises()
+    await router.push('/governance')
+    await flushPromises()
+    expect(uiShellStore.tabs.filter((item) => item.name === 'governance')).toHaveLength(1)
+    expect(getActiveTabLabel()).toBe('权限策略')
 
     await router.push('/commands?plugin_id=weather')
     await flushPromises()
@@ -400,14 +429,14 @@ describe('BasicLayout', () => {
   })
 
   it('renders child menu icons for grouped pages', async () => {
-    const { wrapper } = await mountShell('/commands')
+    const { wrapper } = await mountShell('/governance')
 
     const menuGroups = wrapper.findAll('.admin-layout__sider .ant-menu-submenu')
     const operationsGroup = menuGroups.find((item) => item.text().includes('运维'))
     const logsGroup = menuGroups.find((item) => item.text().includes('日志中心'))
     const protocolGroup = menuGroups.find((item) => item.text().includes('协议'))
 
-    expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
+    expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
     expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(wrapper.find('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon').exists()).toBe(true)

@@ -8,6 +8,7 @@ export const routes = {
   plugins: '插件',
   pluginDetail: '插件详情',
   operations: '运维',
+  governance: '权限策略',
   commands: '指令中心',
   tasks: '任务',
   logs: '实时日志',
