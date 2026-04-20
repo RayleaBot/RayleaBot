@@ -1,4 +1,4 @@
-package app
+package pluginui
 
 import (
 	"context"
@@ -9,48 +9,65 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/go-chi/chi/v5"
 )
+
+type Deps struct {
+	Plugins            *plugins.Catalog
+	PluginConfig       pluginconfig.Repository
+	NotifyConfigChange func(context.Context, string)
+}
+
+type Handlers struct {
+	plugins            *plugins.Catalog
+	pluginConfig       pluginconfig.Repository
+	notifyConfigChange func(context.Context, string)
+}
+
+func NewHandlers(deps Deps) *Handlers {
+	return &Handlers{
+		plugins:            deps.Plugins,
+		pluginConfig:       deps.PluginConfig,
+		notifyConfigChange: deps.NotifyConfigChange,
+	}
+}
+
+func (h *Handlers) RegisterPublicRoutes(router chi.Router) {
+	if router == nil {
+		return
+	}
+	router.Get("/plugin-ui/{plugin_id}/*", h.HandlePluginManagementUIStatic())
+	router.Head("/plugin-ui/{plugin_id}/*", h.HandlePluginManagementUIStatic())
+}
+
+func (h *Handlers) RegisterProtectedRoutes(router chi.Router) {
+	if router == nil {
+		return
+	}
+	router.Get("/api/plugins/{plugin_id}/settings", h.HandlePluginSettingsGet())
+	router.Put("/api/plugins/{plugin_id}/settings", h.HandlePluginSettingsPut())
+}
 
 type pluginSettingsRequest struct {
 	Values map[string]any `json:"values"`
 }
 
-type pluginSettingsResponse struct {
+type PluginSettingsResponse struct {
 	PluginID string         `json:"plugin_id"`
 	Values   map[string]any `json:"values"`
 }
 
-type pluginSettingsUpdateResponse struct {
+type PluginSettingsUpdateResponse struct {
 	PluginID    string         `json:"plugin_id"`
 	ChangedKeys []string       `json:"changed_keys"`
 	Values      map[string]any `json:"values"`
 }
 
-type pluginManagementUIHTTPDeps struct {
-	plugins            *plugins.Catalog
-	pluginConfig       pluginconfig.Repository
-	notifyConfigChange func(context.Context, string)
-}
-
-type pluginManagementUIHTTPHandlers struct {
-	plugins            *plugins.Catalog
-	pluginConfig       pluginconfig.Repository
-	notifyConfigChange func(context.Context, string)
-}
-
-func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginManagementUIHTTPHandlers {
-	return &pluginManagementUIHTTPHandlers{
-		plugins:            deps.plugins,
-		pluginConfig:       deps.pluginConfig,
-		notifyConfigChange: deps.notifyConfigChange,
-	}
-}
-
-func (h *pluginManagementUIHTTPHandlers) handlePluginManagementUIStatic() http.HandlerFunc {
+func (h *Handlers) HandlePluginManagementUIStatic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.NotFound(w, r)
@@ -98,7 +115,7 @@ func (h *pluginManagementUIHTTPHandlers) handlePluginManagementUIStatic() http.H
 	}
 }
 
-func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsGet() http.HandlerFunc {
+func (h *Handlers) HandlePluginSettingsGet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := h.resolveSettingsSnapshot(w, r)
 		if !ok {
@@ -111,14 +128,14 @@ func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsGet() http.HandlerF
 			return
 		}
 
-		httpapi.WriteJSON(w, http.StatusOK, pluginSettingsResponse{
+		httpapi.WriteJSON(w, http.StatusOK, PluginSettingsResponse{
 			PluginID: snapshot.PluginID,
 			Values:   values,
 		})
 	}
 }
 
-func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsPut() http.HandlerFunc {
+func (h *Handlers) HandlePluginSettingsPut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := h.resolveSettingsSnapshot(w, r)
 		if !ok {
@@ -153,7 +170,7 @@ func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsPut() http.HandlerF
 			return
 		}
 
-		httpapi.WriteJSON(w, http.StatusOK, pluginSettingsUpdateResponse{
+		httpapi.WriteJSON(w, http.StatusOK, PluginSettingsUpdateResponse{
 			PluginID:    snapshot.PluginID,
 			ChangedKeys: changedKeys,
 			Values:      values,
@@ -161,7 +178,7 @@ func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsPut() http.HandlerF
 	}
 }
 
-func (h *pluginManagementUIHTTPHandlers) effectiveSettings(ctx context.Context, snapshot plugins.Snapshot) (map[string]any, error) {
+func (h *Handlers) effectiveSettings(ctx context.Context, snapshot plugins.Snapshot) (map[string]any, error) {
 	values := cloneSettingsMap(snapshot.DefaultConfig)
 	if h.pluginConfig == nil {
 		return ensureSettingsMap(values), nil
@@ -177,7 +194,7 @@ func (h *pluginManagementUIHTTPHandlers) effectiveSettings(ctx context.Context, 
 	return ensureSettingsMap(values), nil
 }
 
-func (h *pluginManagementUIHTTPHandlers) resolvePluginUISnapshot(pluginID string) (plugins.Snapshot, bool) {
+func (h *Handlers) resolvePluginUISnapshot(pluginID string) (plugins.Snapshot, bool) {
 	if h == nil || h.plugins == nil {
 		return plugins.Snapshot{}, false
 	}
@@ -192,7 +209,7 @@ func (h *pluginManagementUIHTTPHandlers) resolvePluginUISnapshot(pluginID string
 	return snapshot, true
 }
 
-func (h *pluginManagementUIHTTPHandlers) resolveSettingsSnapshot(w http.ResponseWriter, r *http.Request) (plugins.Snapshot, bool) {
+func (h *Handlers) resolveSettingsSnapshot(w http.ResponseWriter, r *http.Request) (plugins.Snapshot, bool) {
 	if h == nil || h.plugins == nil {
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 		return plugins.Snapshot{}, false

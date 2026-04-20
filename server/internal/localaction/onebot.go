@@ -1,4 +1,4 @@
-package app
+package localaction
 
 import (
 	"context"
@@ -73,8 +73,8 @@ func runtimeIsProviderExtensionAction(kind string) bool {
 	}
 }
 
-func (s *localActionService) executeOneBotLocalAction(ctx context.Context, pluginID string, _ string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, action.Kind) {
+func (s *Service) executeOneBotLocalAction(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, action.Kind) {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: action.Kind + " capability is not granted",
@@ -104,30 +104,6 @@ func (s *localActionService) executeOneBotLocalAction(ctx context.Context, plugi
 	return projectOneBotActionResult(action.Kind, result), nil
 }
 
-func requiredActionString(data map[string]any, key string) (string, error) {
-	if len(data) == 0 {
-		return "", &runtime.Error{
-			Code:    "plugin.protocol_violation",
-			Message: fmt.Sprintf("onebot action missing %s", key),
-		}
-	}
-	value, ok := data[key]
-	if !ok {
-		return "", &runtime.Error{
-			Code:    "plugin.protocol_violation",
-			Message: fmt.Sprintf("onebot action missing %s", key),
-		}
-	}
-	text := strings.TrimSpace(fmt.Sprint(value))
-	if text == "" || text == "<nil>" {
-		return "", &runtime.Error{
-			Code:    "plugin.protocol_violation",
-			Message: fmt.Sprintf("onebot action missing %s", key),
-		}
-	}
-	return text, nil
-}
-
 func toRuntimeActionError(err error) error {
 	if err == nil {
 		return nil
@@ -144,8 +120,8 @@ func toRuntimeActionError(err error) error {
 	}
 }
 
-func (s *localActionService) executeOneBotProviderAction(ctx context.Context, action runtime.Action) (map[string]any, error) {
-	provider := currentOneBotProvider(s.state.Config.OneBot.Provider)
+func (s *Service) executeOneBotProviderAction(ctx context.Context, action runtime.Action) (map[string]any, error) {
+	provider := currentOneBotProvider(s.config().OneBot.Provider)
 
 	var (
 		requiredProvider string
@@ -481,41 +457,4 @@ func projectOneBotCollectionKey(kind string) string {
 	default:
 		return "items"
 	}
-}
-
-func optionalActionString(data map[string]any, key string) (string, bool) {
-	if len(data) == 0 {
-		return "", false
-	}
-	value, ok := data[key]
-	if !ok {
-		return "", false
-	}
-	text := strings.TrimSpace(fmt.Sprint(value))
-	if text == "" || text == "<nil>" {
-		return "", false
-	}
-	return text, true
-}
-
-func normalizeNumericValue(value any) any {
-	switch typed := value.(type) {
-	case float64:
-		return int64(typed)
-	default:
-		return value
-	}
-}
-
-func oneBotAPIValue(raw string) any {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	for _, char := range raw {
-		if char < '0' || char > '9' {
-			return raw
-		}
-	}
-	return raw
 }

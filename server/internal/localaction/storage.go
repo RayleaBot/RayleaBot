@@ -1,4 +1,4 @@
-package app
+package localaction
 
 import (
 	"context"
@@ -10,14 +10,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (s *localActionService) executeStorageKV(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "storage.kv") {
+func (s *Service) executeStorageKV(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "storage.kv") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "storage.kv capability is not granted",
 		}
 	}
-	if s == nil || s.pluginKV == nil {
+	if s.pluginKV == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "storage.kv repository is not available",
@@ -39,7 +39,7 @@ func (s *localActionService) executeStorageKV(ctx context.Context, pluginID stri
 		}
 		return result, nil
 	case "set":
-		err := s.pluginKV.Set(ctx, pluginID, action.StorageKey, action.StorageValue, currentKVLimits(s.state.Config))
+		err := s.pluginKV.Set(ctx, pluginID, action.StorageKey, action.StorageValue, currentKVLimits(s.config()))
 		if errors.Is(err, pluginkv.ErrValueTooLarge) || errors.Is(err, pluginkv.ErrQuotaExceeded) {
 			return nil, &runtime.Error{Code: "platform.value_too_large", Message: "storage.kv value exceeds configured platform limit"}
 		}
@@ -73,20 +73,20 @@ func (s *localActionService) executeStorageKV(ctx context.Context, pluginID stri
 	}
 }
 
-func (s *localActionService) executeStorageFile(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "storage.file") {
+func (s *Service) executeStorageFile(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "storage.file") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "storage.file capability is not granted",
 		}
 	}
-	if !s.grants.storageRootGranted(ctx, pluginID, action.StorageRoot) {
+	if !s.grants.StorageRootGranted(ctx, pluginID, action.StorageRoot) {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "storage.file root is outside the granted scope",
 		}
 	}
-	if s == nil || s.pluginFiles == nil {
+	if s.pluginFiles == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "storage.file service is not available",
@@ -116,7 +116,7 @@ func (s *localActionService) executeStorageFile(ctx context.Context, pluginID st
 		}
 		return payload, nil
 	case "write":
-		err := s.pluginFiles.Write(pluginID, action.StoragePath, action.StorageContent, currentFileLimits(s.state.Config))
+		err := s.pluginFiles.Write(pluginID, action.StoragePath, action.StorageContent, currentFileLimits(s.config()))
 		if errors.Is(err, pluginfile.ErrInvalidPath) {
 			return nil, &runtime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
 		}

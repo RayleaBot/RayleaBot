@@ -10,6 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
@@ -64,7 +65,7 @@ func (h *configHTTPHandlers) handleConfigGet() http.HandlerFunc {
 func (h *configHTTPHandlers) handleConfigPut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request map[string]any
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -113,7 +114,7 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 		h.logs.SetRepository(h.logRepository, newCfg.Logging.RetentionDays)
 	}
 	if newCfg.Logging.RateLimitPerPlugin != oldCfg.Logging.RateLimitPerPlugin && h.pluginLogLimiter != nil {
-		h.pluginLogLimiter.SetLimit(parsePluginLogRateLimit(newCfg))
+		h.pluginLogLimiter.ApplyConfig(newCfg)
 	}
 	if h.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
 		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||

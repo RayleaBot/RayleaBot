@@ -1,16 +1,16 @@
-package app
+package localaction
 
 import (
 	"context"
-	"sync"
-	"time"
+	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -26,52 +26,38 @@ const (
 	defaultHTTPMaxRetries       = 2
 )
 
-type pluginLogLimiter struct {
-	mu      sync.Mutex
-	now     func() time.Time
-	limit   permission.RateLimit
-	records map[string][]time.Time
+type GrantView interface {
+	CapabilityGranted(context.Context, string, string) bool
+	StorageRootGranted(context.Context, string, string) bool
+	GrantedHTTPHosts(context.Context, string) []string
+	GrantedWebhookScope(context.Context, string, string) (plugins.WebhookScope, bool)
+	ListPluginSnapshots() []plugins.Snapshot
 }
 
-func (l *pluginLogLimiter) SetLimit(limit permission.RateLimit) {
-	if l == nil {
-		return
-	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.limit = limit
-	if len(l.records) == 0 {
-		return
-	}
-	now := l.now().UTC()
-	for pluginID, entries := range l.records {
-		l.records[pluginID] = prunePluginLogEntries(entries, now, l.limit.Window)
-		if len(l.records[pluginID]) == 0 {
-			delete(l.records, pluginID)
-		}
-	}
+type WebhookGateway interface {
+	Expose(context.Context, string, runtime.Action) (map[string]any, error)
 }
 
-func (l *pluginLogLimiter) Allow(pluginID string) bool {
-	if l == nil {
-		return true
-	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	now := l.now().UTC()
-	entries := prunePluginLogEntries(l.records[pluginID], now, l.limit.Window)
-	if len(entries) >= l.limit.Count {
-		l.records[pluginID] = entries
-		return false
-	}
-	l.records[pluginID] = append(entries, now)
-	return true
+type Deps struct {
+	CurrentConfig    func() config.Config
+	Logger           *slog.Logger
+	RedactText       func(string) string
+	Grants           GrantView
+	PluginConfig     pluginconfig.Repository
+	PluginFiles      *pluginfile.Service
+	PluginKV         pluginkv.Repository
+	Scheduler        *scheduler.Engine
+	Dispatcher       *dispatch.Dispatcher
+	Renderer         *render.Service
+	Adapter          *adapter.Shell
+	PluginLogLimiter *PluginLogLimiter
 }
 
-type localActionService struct {
-	state            *appRuntimeState
-	grants           *pluginGrantView
+type Service struct {
+	currentConfig    func() config.Config
+	logger           *slog.Logger
+	redactText       func(string) string
+	grants           GrantView
 	pluginConfig     pluginconfig.Repository
 	pluginFiles      *pluginfile.Service
 	pluginKV         pluginkv.Repository
@@ -79,33 +65,35 @@ type localActionService struct {
 	dispatcher       *dispatch.Dispatcher
 	renderer         *render.Service
 	adapter          *adapter.Shell
-	webhookGateway   webhookGateway
-	pluginLogLimiter *pluginLogLimiter
+	webhookGateway   WebhookGateway
+	pluginLogLimiter *PluginLogLimiter
 }
 
-func newLocalActionService(deps localActionServiceDeps) *localActionService {
-	return &localActionService{
-		state:            deps.state,
-		grants:           deps.grants,
-		pluginConfig:     deps.pluginConfig,
-		pluginFiles:      deps.pluginFiles,
-		pluginKV:         deps.pluginKV,
-		scheduler:        deps.scheduler,
-		dispatcher:       deps.dispatcher,
-		renderer:         deps.renderer,
-		adapter:          deps.adapter,
-		pluginLogLimiter: deps.pluginLogLimiter,
+func New(deps Deps) *Service {
+	return &Service{
+		currentConfig:    deps.CurrentConfig,
+		logger:           deps.Logger,
+		redactText:       deps.RedactText,
+		grants:           deps.Grants,
+		pluginConfig:     deps.PluginConfig,
+		pluginFiles:      deps.PluginFiles,
+		pluginKV:         deps.PluginKV,
+		scheduler:        deps.Scheduler,
+		dispatcher:       deps.Dispatcher,
+		renderer:         deps.Renderer,
+		adapter:          deps.Adapter,
+		pluginLogLimiter: deps.PluginLogLimiter,
 	}
 }
 
-func (s *localActionService) SetWebhookGateway(gateway webhookGateway) {
+func (s *Service) SetWebhookGateway(gateway WebhookGateway) {
 	if s == nil {
 		return
 	}
 	s.webhookGateway = gateway
 }
 
-func (s *localActionService) Execute(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
 	switch action.Kind {
 	case "logger.write":
 		return s.executeLoggerWrite(ctx, pluginID, requestID, action)
@@ -130,7 +118,7 @@ func (s *localActionService) Execute(ctx context.Context, pluginID, requestID st
 	default:
 		switch {
 		case runtimeIsOneBotLocalAction(action.Kind), runtimeIsProviderExtensionAction(action.Kind):
-			return s.executeOneBotLocalAction(ctx, pluginID, requestID, action)
+			return s.executeOneBotLocalAction(ctx, pluginID, action)
 		default:
 			return nil, &runtime.Error{
 				Code:    "plugin.protocol_violation",
@@ -138,4 +126,11 @@ func (s *localActionService) Execute(ctx context.Context, pluginID, requestID st
 			}
 		}
 	}
+}
+
+func (s *Service) config() config.Config {
+	if s == nil || s.currentConfig == nil {
+		return config.Config{}
+	}
+	return s.currentConfig()
 }

@@ -5,10 +5,19 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"runtime/debug"
+	"strings"
+)
+
+const (
+	MaxManagementJSONBodyBytes int64 = 1 << 20
+	MaxWebhookBodyBytes        int64 = 1 << 20
 )
 
 type requestIDKey struct{}
@@ -105,6 +114,51 @@ func WriteJSON(w http.ResponseWriter, statusCode int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+func DecodeStrictJSON(w http.ResponseWriter, r *http.Request, target any, maxBytes int64) error {
+	reader := http.MaxBytesReader(w, r.Body, maxBytes)
+	defer reader.Close()
+
+	decoder := json.NewDecoder(reader)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+
+	var trailing any
+	if err := decoder.Decode(&trailing); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+
+	return errors.New("unexpected trailing JSON content")
+}
+
+func ReadRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64) ([]byte, error) {
+	reader := http.MaxBytesReader(w, r.Body, maxBytes)
+	defer reader.Close()
+
+	return io.ReadAll(reader)
+}
+
+func RequestRemoteIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+
+	host := strings.TrimSpace(r.RemoteAddr)
+	if host == "" {
+		return ""
+	}
+
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		host = parsedHost
+	}
+
+	return strings.Trim(host, "[]")
 }
 
 func newRequestID() string {

@@ -231,7 +231,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
 		plugins:            catalog,
 		pluginConfig:       repo,
-		notifyConfigChange: application.localActions.dispatchPluginConfigChanged,
+		notifyConfigChange: application.dispatchPluginConfigChanged,
 	})
 	router := chi.NewRouter()
 	router.Put("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsPut())

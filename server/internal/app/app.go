@@ -14,12 +14,16 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/governance"
+	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
@@ -80,9 +84,9 @@ type appPlugins struct {
 	blacklistRepo     permission.BlacklistRepository
 	whitelistRepo     permission.WhitelistRepository
 	whitelistState    permission.WhitelistStateRepository
-	webhooks          *pluginWebhookRegistry
+	webhooks          *pluginwebhook.Registry
 	renderer          *render.Service
-	pluginLogLimiter  *pluginLogLimiter
+	pluginLogLimiter  *localaction.PluginLogLimiter
 }
 
 type appProcessState struct {
@@ -143,14 +147,14 @@ type App struct {
 	whitelistRepo     permission.WhitelistRepository
 	whitelistState    permission.WhitelistStateRepository
 	renderer          *render.Service
-	webhookRegistry   *pluginWebhookRegistry
-	pluginLogLimiter  *pluginLogLimiter
+	webhookRegistry   *pluginwebhook.Registry
+	pluginLogLimiter  *localaction.PluginLogLimiter
 
-	localActions    *localActionService
+	localActions    *localaction.Service
 	pluginLifecycle *pluginLifecycleController
 	eventIngress    *eventIngressService
 	protocol        *protocolService
-	pluginWebhooks  *pluginWebhookService
+	pluginWebhooks  *pluginwebhook.Service
 	logService      *logService
 	systemService   *systemService
 
@@ -194,17 +198,19 @@ func New(options Options) (*App, error) {
 		grantRepository: pluginState.grantRepository,
 	}
 	pluginState.Dispatcher.SetCapabilityChecker(grantView.capabilityGranted)
-	localActions := newLocalActionService(localActionServiceDeps{
-		state:            state,
-		grants:           grantView,
-		pluginConfig:     pluginState.pluginConfig,
-		pluginFiles:      pluginState.pluginFiles,
-		pluginKV:         pluginState.pluginKV,
-		scheduler:        platformState.Scheduler,
-		dispatcher:       pluginState.Dispatcher,
-		renderer:         pluginState.renderer,
-		adapter:          pluginState.Adapter,
-		pluginLogLimiter: pluginState.pluginLogLimiter,
+	localActions := localaction.New(localaction.Deps{
+		CurrentConfig:    func() config.Config { return state.Config },
+		Logger:           state.Logger,
+		RedactText:       state.redactString,
+		Grants:           grantView,
+		PluginConfig:     pluginState.pluginConfig,
+		PluginFiles:      pluginState.pluginFiles,
+		PluginKV:         pluginState.pluginKV,
+		Scheduler:        platformState.Scheduler,
+		Dispatcher:       pluginState.Dispatcher,
+		Renderer:         pluginState.renderer,
+		Adapter:          pluginState.Adapter,
+		PluginLogLimiter: pluginState.pluginLogLimiter,
 	})
 	runtimeOptions := runtime.Options{
 		Console:                    platformState.Console,
@@ -251,14 +257,15 @@ func New(options Options) (*App, error) {
 		blacklistRepo:    pluginState.blacklistRepo,
 	})
 	protocolService := newProtocolService(state, pluginState.Adapter)
-	pluginWebhooks := newPluginWebhookService(pluginWebhookServiceDeps{
-		state:      state,
-		registry:   pluginState.webhooks,
-		secrets:    platformState.Secrets,
-		plugins:    pluginState.Plugins,
-		dispatcher: pluginState.Dispatcher,
-		lifecycle:  lifecycle,
-		grants:     grantView,
+	pluginWebhooks := pluginwebhook.New(pluginwebhook.Deps{
+		CurrentConfig: func() config.Config { return state.Config },
+		Logger:        state.Logger,
+		Registry:      pluginState.webhooks,
+		Secrets:       platformState.Secrets,
+		Plugins:       pluginState.Plugins,
+		Dispatcher:    pluginState.Dispatcher,
+		Runtime:       lifecycle,
+		Grants:        grantView,
 	})
 	localActions.SetWebhookGateway(pluginWebhooks)
 
@@ -356,12 +363,12 @@ func New(options Options) (*App, error) {
 		system:          systemService,
 		requestShutdown: application.requestShutdown,
 	})
-	governanceHandler := newGovernanceHTTPHandlers(governanceHTTPDeps{
-		state:          state,
-		plugins:        pluginState.Plugins,
-		blacklistRepo:  pluginState.blacklistRepo,
-		whitelistRepo:  pluginState.whitelistRepo,
-		whitelistState: pluginState.whitelistState,
+	governanceHandler := governance.NewHandlers(governance.Deps{
+		CurrentConfig:  func() config.Config { return state.Config },
+		Plugins:        pluginState.Plugins,
+		BlacklistRepo:  pluginState.blacklistRepo,
+		WhitelistRepo:  pluginState.whitelistRepo,
+		WhitelistState: pluginState.whitelistState,
 	})
 	taskHandler := newTaskHTTPHandlers(platformState.Tasks, platformState.taskExecutor, pluginState.PluginInstaller)
 	logHandler := newLogHTTPHandlers(logService)
@@ -372,11 +379,10 @@ func New(options Options) (*App, error) {
 	tasksWS := newTasksWSHandler(platformState.Tasks)
 	logsWS := newLogsWSHandler(logService)
 	consoleWS := newConsoleWSHandler(platformState.Console, pluginState.Plugins)
-	pluginWebhookHandlers := newPluginWebhookHTTPHandlers(pluginWebhooks)
-	pluginManagementUIHandler := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins:            pluginState.Plugins,
-		pluginConfig:       pluginState.pluginConfig,
-		notifyConfigChange: localActions.dispatchPluginConfigChanged,
+	pluginManagementUIHandler := pluginui.NewHandlers(pluginui.Deps{
+		Plugins:            pluginState.Plugins,
+		PluginConfig:       pluginState.pluginConfig,
+		NotifyConfigChange: localActions.DispatchPluginConfigChanged,
 	})
 
 	router, server := buildAppHTTPServer(httpServerDeps{
@@ -408,7 +414,7 @@ func New(options Options) (*App, error) {
 		tasksWS:            tasksWS,
 		logsWS:             logsWS,
 		consoleWS:          consoleWS,
-		pluginWebhooks:     pluginWebhookHandlers,
+		pluginWebhooks:     pluginWebhooks,
 		pluginManagementUI: pluginManagementUIHandler,
 	})
 	application.process.router = router

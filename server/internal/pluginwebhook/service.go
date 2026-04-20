@@ -1,4 +1,4 @@
-package app
+package pluginwebhook
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,13 +20,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
-type pluginWebhookRegistration struct {
+type Registration struct {
 	PluginID        string
 	Route           string
 	Methods         []string
@@ -37,37 +40,37 @@ type pluginWebhookRegistration struct {
 	URL             string
 }
 
-type pluginWebhookRegistry struct {
+type Registry struct {
 	mu    sync.RWMutex
-	items map[string]pluginWebhookRegistration
+	items map[string]Registration
 }
 
-func newPluginWebhookRegistry() *pluginWebhookRegistry {
-	return &pluginWebhookRegistry{
-		items: make(map[string]pluginWebhookRegistration),
+func NewRegistry() *Registry {
+	return &Registry{
+		items: make(map[string]Registration),
 	}
 }
 
-func (r *pluginWebhookRegistry) Register(item pluginWebhookRegistration) {
+func (r *Registry) Register(item Registration) {
 	if r == nil {
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.items[pluginWebhookKey(item.PluginID, item.Route)] = item
+	r.items[webhookKey(item.PluginID, item.Route)] = item
 }
 
-func (r *pluginWebhookRegistry) Get(pluginID, route string) (pluginWebhookRegistration, bool) {
+func (r *Registry) Get(pluginID, route string) (Registration, bool) {
 	if r == nil {
-		return pluginWebhookRegistration{}, false
+		return Registration{}, false
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	item, ok := r.items[pluginWebhookKey(pluginID, route)]
+	item, ok := r.items[webhookKey(pluginID, route)]
 	return item, ok
 }
 
-func (r *pluginWebhookRegistry) DeletePlugin(pluginID string) {
+func (r *Registry) DeletePlugin(pluginID string) {
 	if r == nil {
 		return
 	}
@@ -81,47 +84,77 @@ func (r *pluginWebhookRegistry) DeletePlugin(pluginID string) {
 	}
 }
 
-func pluginWebhookKey(pluginID, route string) string {
+func webhookKey(pluginID, route string) string {
 	return strings.TrimSpace(pluginID) + "\x00" + strings.TrimSpace(route)
 }
 
-type pluginWebhookService struct {
-	state      *appRuntimeState
-	registry   *pluginWebhookRegistry
-	secrets    secrets.Store
-	plugins    *plugins.Catalog
-	dispatcher *dispatch.Dispatcher
-	lifecycle  *pluginLifecycleController
-	grants     *pluginGrantView
+type GrantView interface {
+	CapabilityGranted(context.Context, string, string) bool
+	GrantedWebhookScope(context.Context, string, string) (plugins.WebhookScope, bool)
 }
 
-func newPluginWebhookService(deps pluginWebhookServiceDeps) *pluginWebhookService {
-	return &pluginWebhookService{
-		state:      deps.state,
-		registry:   deps.registry,
-		secrets:    deps.secrets,
-		plugins:    deps.plugins,
-		dispatcher: deps.dispatcher,
-		lifecycle:  deps.lifecycle,
-		grants:     deps.grants,
+type RuntimeEnsurer interface {
+	CurrentBotID() string
+	EnsurePluginRunning(context.Context, string, string) error
+}
+
+type Deps struct {
+	CurrentConfig func() config.Config
+	Logger        *slog.Logger
+	Registry      *Registry
+	Secrets       secrets.Store
+	Plugins       *plugins.Catalog
+	Dispatcher    *dispatch.Dispatcher
+	Runtime       RuntimeEnsurer
+	Grants        GrantView
+}
+
+type Service struct {
+	currentConfig func() config.Config
+	logger        *slog.Logger
+	registry      *Registry
+	secrets       secrets.Store
+	plugins       *plugins.Catalog
+	dispatcher    *dispatch.Dispatcher
+	runtime       RuntimeEnsurer
+	grants        GrantView
+}
+
+func New(deps Deps) *Service {
+	return &Service{
+		currentConfig: deps.CurrentConfig,
+		logger:        deps.Logger,
+		registry:      deps.Registry,
+		secrets:       deps.Secrets,
+		plugins:       deps.Plugins,
+		dispatcher:    deps.Dispatcher,
+		runtime:       deps.Runtime,
+		grants:        deps.Grants,
 	}
 }
 
-func (s *pluginWebhookService) Expose(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "event.expose_webhook") {
+func (s *Service) RegisterPublicRoutes(router chi.Router) {
+	if router == nil {
+		return
+	}
+	router.Post("/api/webhooks/{plugin_id}/{route}", s.HandleWebhook())
+}
+
+func (s *Service) Expose(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "event.expose_webhook") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "event.expose_webhook capability is not granted",
 		}
 	}
-	if s == nil || s.registry == nil {
+	if s.registry == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "webhook gateway is not available",
 		}
 	}
 
-	scope, ok := s.grants.grantedWebhookScope(ctx, pluginID, action.WebhookRoute)
+	scope, ok := s.grants.GrantedWebhookScope(ctx, pluginID, action.WebhookRoute)
 	if !ok {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
@@ -146,7 +179,7 @@ func (s *pluginWebhookService) Expose(ctx context.Context, pluginID string, acti
 	}
 
 	urlValue := s.webhookGatewayURL(pluginID, action.WebhookRoute)
-	s.registry.Register(pluginWebhookRegistration{
+	s.registry.Register(Registration{
 		PluginID:        pluginID,
 		Route:           action.WebhookRoute,
 		Methods:         append([]string(nil), action.WebhookMethods...),
@@ -163,14 +196,14 @@ func (s *pluginWebhookService) Expose(ctx context.Context, pluginID string, acti
 	}, nil
 }
 
-func (h *pluginWebhookHTTPHandlers) handlePluginWebhook() http.HandlerFunc {
+func (s *Service) HandleWebhook() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		route := chi.URLParam(r, "route")
 
-		registration, ok := h.webhooks.registry.Get(pluginID, route)
+		registration, ok := s.registry.Get(pluginID, route)
 		if !ok {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "webhook",
 				"plugin_id":     pluginID,
 				"route":         route,
@@ -178,7 +211,7 @@ func (h *pluginWebhookHTTPHandlers) handlePluginWebhook() http.HandlerFunc {
 			return
 		}
 		if !slices.Contains(registration.Methods, r.Method) {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "webhook",
 				"plugin_id":     pluginID,
 				"route":         route,
@@ -186,9 +219,9 @@ func (h *pluginWebhookHTTPHandlers) handlePluginWebhook() http.HandlerFunc {
 			return
 		}
 
-		snapshot, ok := h.webhooks.plugins.Get(pluginID)
+		snapshot, ok := s.plugins.Get(pluginID)
 		if !ok || !snapshot.Valid || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
-			writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 				"resource_type": "plugin",
 				"plugin_id":     pluginID,
 			})
@@ -197,28 +230,28 @@ func (h *pluginWebhookHTTPHandlers) handlePluginWebhook() http.HandlerFunc {
 
 		allowed, err := webhookSourceAllowed(r.RemoteAddr, registration.SourceIPs)
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 		if !allowed {
-			writeAppError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied", nil)
+			httpapi.WriteError(w, r, http.StatusForbidden, "permission.denied", "当前用户无权执行该操作", "errors.permission.denied", nil)
 			return
 		}
 
-		body, err := readRequestBody(w, r, maxWebhookBodyBytes)
+		body, err := httpapi.ReadRequestBody(w, r, httpapi.MaxWebhookBodyBytes)
 		if err != nil {
-			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		if !h.webhooks.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), body) {
-			writeAppError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied", nil)
+		if !s.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), body) {
+			httpapi.WriteError(w, r, http.StatusUnauthorized, "permission.denied", "当前用户无权执行该操作", "errors.permission.denied", nil)
 			return
 		}
 
-		if !h.webhooks.dispatcher.HasDeliverablePlugin(pluginID) && h.webhooks.lifecycle != nil {
-			if botID := h.webhooks.lifecycle.currentBotID(); botID != "" {
-				if err := h.webhooks.lifecycle.ensurePluginRunning(r.Context(), pluginID, botID); err != nil {
-					h.webhooks.state.Logger.Warn(
+		if !s.dispatcher.HasDeliverablePlugin(pluginID) && s.runtime != nil {
+			if botID := strings.TrimSpace(s.runtime.CurrentBotID()); botID != "" {
+				if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil && s.logger != nil {
+					s.logger.Warn(
 						"ensure runtime before webhook dispatch failed",
 						"component", "app",
 						"plugin_id", pluginID,
@@ -228,7 +261,7 @@ func (h *pluginWebhookHTTPHandlers) handlePluginWebhook() http.HandlerFunc {
 			}
 		}
 
-		result := h.webhooks.dispatcher.DispatchToPlugin(r.Context(), pluginID, runtime.Event{
+		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, runtime.Event{
 			EventID:        fmt.Sprintf("webhook-%s-%d", route, time.Now().UnixNano()),
 			SourceProtocol: "webhook",
 			SourceAdapter:  "webhook.gateway",
@@ -243,18 +276,18 @@ func (h *pluginWebhookHTTPHandlers) handlePluginWebhook() http.HandlerFunc {
 				ID:   webhookRemoteIP(r.RemoteAddr),
 				Role: "remote",
 			},
-			RawPayload: h.webhooks.buildWebhookRawPayload(r, route, body, h.webhooks.grants.capabilityGranted(r.Context(), pluginID, "event.raw_payload")),
+			RawPayload: s.buildWebhookRawPayload(r, route, body, s.grants.CapabilityGranted(r.Context(), pluginID, "event.raw_payload")),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		writeAuthJSON(w, http.StatusAccepted, map[string]any{"accepted": true})
+		httpapi.WriteJSON(w, http.StatusAccepted, map[string]any{"accepted": true})
 	}
 }
 
-func (s *pluginWebhookService) buildWebhookRawPayload(r *http.Request, route string, body []byte, include bool) any {
+func (s *Service) buildWebhookRawPayload(r *http.Request, route string, body []byte, include bool) any {
 	if !include {
 		return nil
 	}
@@ -286,7 +319,7 @@ func (s *pluginWebhookService) buildWebhookRawPayload(r *http.Request, route str
 	return payload
 }
 
-func (s *pluginWebhookService) validateWebhookAuth(ctx context.Context, registration pluginWebhookRegistration, presented string, body []byte) bool {
+func (s *Service) validateWebhookAuth(ctx context.Context, registration Registration, presented string, body []byte) bool {
 	if s == nil || s.secrets == nil {
 		return false
 	}
@@ -308,15 +341,19 @@ func (s *pluginWebhookService) validateWebhookAuth(ctx context.Context, registra
 	}
 }
 
-func (s *pluginWebhookService) webhookGatewayURL(pluginID, route string) string {
-	host := strings.TrimSpace(s.state.Config.Server.Host)
+func (s *Service) webhookGatewayURL(pluginID, route string) string {
+	cfg := config.Config{}
+	if s != nil && s.currentConfig != nil {
+		cfg = s.currentConfig()
+	}
+	host := strings.TrimSpace(cfg.Server.Host)
 	switch host {
 	case "", "0.0.0.0", "::":
 		host = "127.0.0.1"
 	}
 	u := &url.URL{
 		Scheme: "http",
-		Host:   net.JoinHostPort(host, fmt.Sprintf("%d", s.state.Config.Server.Port)),
+		Host:   net.JoinHostPort(host, fmt.Sprintf("%d", cfg.Server.Port)),
 		Path:   fmt.Sprintf("/api/webhooks/%s/%s", pluginID, route),
 	}
 	return u.String()

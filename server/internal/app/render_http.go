@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -54,7 +55,7 @@ func (h *renderHTTPHandlers) handleSystemRenderPreview() http.HandlerFunc {
 		}
 
 		var request render.Request
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil || strings.TrimSpace(request.Template) == "" {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || strings.TrimSpace(request.Template) == "" {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -160,7 +161,7 @@ func (h *renderHTTPHandlers) handleSystemRenderTemplateSource() http.HandlerFunc
 func (h *renderHTTPHandlers) handleSystemRenderTemplateSourcePut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request renderTemplateSourceUpdateRequest
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil ||
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil ||
 			strings.TrimSpace(request.BaseRevisionID) == "" ||
 			strings.TrimSpace(request.Message) == "" {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
@@ -186,7 +187,7 @@ func (h *renderHTTPHandlers) handleSystemRenderTemplateSourcePut() http.HandlerF
 func (h *renderHTTPHandlers) handleSystemRenderTemplateValidate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request renderTemplateValidateRequest
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -216,7 +217,7 @@ func (h *renderHTTPHandlers) handleSystemRenderTemplateVersions() http.HandlerFu
 func (h *renderHTTPHandlers) handleSystemRenderTemplateRollback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request renderTemplateRollbackRequest
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil ||
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil ||
 			strings.TrimSpace(request.TargetRevisionID) == "" ||
 			strings.TrimSpace(request.BaseRevisionID) == "" ||
 			strings.TrimSpace(request.Message) == "" {

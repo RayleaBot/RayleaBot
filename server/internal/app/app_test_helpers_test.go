@@ -10,12 +10,15 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
@@ -64,7 +67,7 @@ func (a *App) setTestEventIngressWithGovernance(catalog *plugins.Catalog, whitel
 	})
 }
 
-func (a *App) setTestLifecycle(catalog *plugins.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adapter.Shell, webhooks *pluginWebhookRegistry) {
+func (a *App) setTestLifecycle(catalog *plugins.Catalog, desiredRepo plugins.DesiredStateRepository, grantRepo plugins.GrantRepository, runtimes *runtimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginconfig.Repository, adapterShell *adapter.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
@@ -93,7 +96,7 @@ func (a *App) setTestLifecycle(catalog *plugins.Catalog, desiredRepo plugins.Des
 	})
 }
 
-func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *render.Service, adapterShell *adapter.Shell, limiter *pluginLogLimiter, webhookService *pluginWebhookService) {
+func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfigRepo pluginconfig.Repository, pluginFiles *pluginfile.Service, pluginKV pluginkv.Repository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *render.Service, adapterShell *adapter.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
 	}
@@ -106,21 +109,23 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 	a.renderer = rendererService
 	a.adapter = adapterShell
 	a.pluginLogLimiter = limiter
-	a.localActions = newLocalActionService(localActionServiceDeps{
-		state: a.state,
-		grants: &pluginGrantView{
+	a.localActions = localaction.New(localaction.Deps{
+		CurrentConfig: func() config.Config { return a.state.Config },
+		Logger:        a.state.Logger,
+		RedactText:    a.state.redactString,
+		Grants: &pluginGrantView{
 			state:           a.state,
 			plugins:         a.plugins,
 			grantRepository: grantRepo,
 		},
-		pluginConfig:     pluginConfigRepo,
-		pluginFiles:      pluginFiles,
-		pluginKV:         pluginKV,
-		scheduler:        schedulerEngine,
-		dispatcher:       dispatcher,
-		renderer:         rendererService,
-		adapter:          adapterShell,
-		pluginLogLimiter: limiter,
+		PluginConfig:     pluginConfigRepo,
+		PluginFiles:      pluginFiles,
+		PluginKV:         pluginKV,
+		Scheduler:        schedulerEngine,
+		Dispatcher:       dispatcher,
+		Renderer:         rendererService,
+		Adapter:          adapterShell,
+		PluginLogLimiter: limiter,
 	})
 	if webhookService != nil {
 		a.localActions.SetWebhookGateway(webhookService)
@@ -148,21 +153,22 @@ func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Ex
 	a.systemService.shuttingDown = &a.process.shuttingDown
 }
 
-func (a *App) setTestWebhookService(secretStore secrets.Store, dispatcher *dispatch.Dispatcher, lifecycle *pluginLifecycleController, registry *pluginWebhookRegistry) {
+func (a *App) setTestWebhookService(secretStore secrets.Store, dispatcher *dispatch.Dispatcher, lifecycle *pluginLifecycleController, registry *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
 	a.secrets = secretStore
 	a.dispatcher = dispatcher
 	a.webhookRegistry = registry
-	a.pluginWebhooks = newPluginWebhookService(pluginWebhookServiceDeps{
-		state:      a.state,
-		registry:   registry,
-		secrets:    secretStore,
-		plugins:    a.plugins,
-		dispatcher: dispatcher,
-		lifecycle:  lifecycle,
-		grants: &pluginGrantView{
+	a.pluginWebhooks = pluginwebhook.New(pluginwebhook.Deps{
+		CurrentConfig: func() config.Config { return a.state.Config },
+		Logger:        a.state.Logger,
+		Registry:      registry,
+		Secrets:       secretStore,
+		Plugins:       a.plugins,
+		Dispatcher:    dispatcher,
+		Runtime:       lifecycle,
+		Grants: &pluginGrantView{
 			state:           a.state,
 			plugins:         a.plugins,
 			grantRepository: a.grantRepository,
@@ -178,7 +184,7 @@ func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string
 }
 
 func (a *App) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	return a.localActions.executeOneBotLocalAction(ctx, pluginID, requestID, action)
+	return a.localActions.Execute(ctx, pluginID, requestID, action)
 }
 
 func (a *App) commandInfoForEvent(event adapter.NormalizedEvent) *permission.CommandInfo {
@@ -226,7 +232,7 @@ func (a *App) handleSystemRuntimeBootstrap() http.HandlerFunc {
 }
 
 func (a *App) handlePluginWebhook() http.HandlerFunc {
-	return newPluginWebhookHTTPHandlers(a.pluginWebhooks).handlePluginWebhook()
+	return a.pluginWebhooks.HandleWebhook()
 }
 
 func applyConfigApplyEffects(app *App, newCfg config.Config) configApplyEffects {
@@ -247,4 +253,52 @@ func applyConfigApplyEffects(app *App, newCfg config.Config) configApplyEffects 
 
 func applyHotReloadableFields(app *App, newCfg config.Config) bool {
 	return applyConfigApplyEffects(app, newCfg).restartRequired()
+}
+
+func newPluginWebhookRegistry() *pluginwebhook.Registry {
+	return pluginwebhook.NewRegistry()
+}
+
+func newPluginLogLimiter(cfg config.Config) *localaction.PluginLogLimiter {
+	return localaction.NewPluginLogLimiter(cfg)
+}
+
+func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
+	if a == nil || a.localActions == nil {
+		return
+	}
+	a.localActions.DispatchPluginConfigChanged(ctx, pluginID)
+}
+
+type pluginManagementUIHTTPDeps struct {
+	plugins            *plugins.Catalog
+	pluginConfig       pluginconfig.Repository
+	notifyConfigChange func(context.Context, string)
+}
+
+type pluginSettingsResponse = pluginui.PluginSettingsResponse
+type pluginSettingsUpdateResponse = pluginui.PluginSettingsUpdateResponse
+
+type pluginManagementUIHTTPHandlers struct {
+	*pluginui.Handlers
+}
+
+func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginManagementUIHTTPHandlers {
+	return &pluginManagementUIHTTPHandlers{Handlers: pluginui.NewHandlers(pluginui.Deps{
+		Plugins:            deps.plugins,
+		PluginConfig:       deps.pluginConfig,
+		NotifyConfigChange: deps.notifyConfigChange,
+	})}
+}
+
+func (h *pluginManagementUIHTTPHandlers) handlePluginManagementUIStatic() http.HandlerFunc {
+	return h.Handlers.HandlePluginManagementUIStatic()
+}
+
+func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsGet() http.HandlerFunc {
+	return h.Handlers.HandlePluginSettingsGet()
+}
+
+func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsPut() http.HandlerFunc {
+	return h.Handlers.HandlePluginSettingsPut()
 }

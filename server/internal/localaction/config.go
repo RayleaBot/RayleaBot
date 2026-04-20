@@ -1,4 +1,4 @@
-package app
+package localaction
 
 import (
 	"context"
@@ -8,14 +8,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (s *localActionService) executeConfigRead(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "config.read") {
+func (s *Service) executeConfigRead(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "config.read") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "config.read capability is not granted",
 		}
 	}
-	if s == nil || s.pluginConfig == nil {
+	if s.pluginConfig == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "config.read repository is not available",
@@ -31,14 +31,14 @@ func (s *localActionService) executeConfigRead(ctx context.Context, pluginID str
 	}, nil
 }
 
-func (s *localActionService) executeConfigWrite(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "config.write") {
+func (s *Service) executeConfigWrite(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "config.write") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "config.write capability is not granted",
 		}
 	}
-	if s == nil || s.pluginConfig == nil {
+	if s.pluginConfig == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "config.write repository is not available",
@@ -55,8 +55,8 @@ func (s *localActionService) executeConfigWrite(ctx context.Context, pluginID st
 	}, nil
 }
 
-func (s *localActionService) executeLoggerWrite(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "logger.write") {
+func (s *Service) executeLoggerWrite(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "logger.write") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "logger.write capability is not granted",
@@ -68,7 +68,7 @@ func (s *localActionService) executeLoggerWrite(ctx context.Context, pluginID, r
 			Message: "plugin log throughput exceeded the configured platform limit",
 		}
 	}
-	if s == nil || s.state == nil || s.state.Logger == nil {
+	if s.logger == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "logger.write is not available",
@@ -76,7 +76,10 @@ func (s *localActionService) executeLoggerWrite(ctx context.Context, pluginID, r
 	}
 
 	level := strings.TrimSpace(action.LogLevel)
-	message := s.state.redactString(action.LogMessage)
+	message := action.LogMessage
+	if s.redactText != nil {
+		message = s.redactText(message)
+	}
 	attrs := []any{
 		"component", "plugin",
 		"plugin_id", pluginID,
@@ -88,18 +91,18 @@ func (s *localActionService) executeLoggerWrite(ctx context.Context, pluginID, r
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		attrs = append(attrs, key, redactValue(s.state.redactText, action.LogFields[key]))
+		attrs = append(attrs, key, redactValue(s.redactText, action.LogFields[key]))
 	}
 
 	switch level {
 	case "debug":
-		s.state.Logger.Debug(message, attrs...)
+		s.logger.Debug(message, attrs...)
 	case "warn":
-		s.state.Logger.Warn(message, attrs...)
+		s.logger.Warn(message, attrs...)
 	case "error":
-		s.state.Logger.Error(message, attrs...)
+		s.logger.Error(message, attrs...)
 	default:
-		s.state.Logger.Info(message, attrs...)
+		s.logger.Info(message, attrs...)
 	}
 	return map[string]any{}, nil
 }

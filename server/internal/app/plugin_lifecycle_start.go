@@ -47,6 +47,10 @@ func (c *pluginLifecycleController) ensurePluginRunning(ctx context.Context, plu
 	return c.startRuntime(ctx, pluginID, botID, manager)
 }
 
+func (c *pluginLifecycleController) EnsurePluginRunning(ctx context.Context, pluginID, botID string) error {
+	return c.ensurePluginRunning(ctx, pluginID, botID)
+}
+
 func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
 	if c == nil || strings.TrimSpace(botID) == "" {
 		return

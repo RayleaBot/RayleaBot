@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,18 +13,19 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -113,6 +115,10 @@ func (v *pluginGrantView) capabilityGranted(ctx context.Context, pluginID, capab
 	return false
 }
 
+func (v *pluginGrantView) CapabilityGranted(ctx context.Context, pluginID, capability string) bool {
+	return v.capabilityGranted(ctx, pluginID, capability)
+}
+
 func (v *pluginGrantView) grantedScope(ctx context.Context, pluginID, capability string) grantedScope {
 	for _, grant := range v.effectiveGrants(ctx, pluginID) {
 		if strings.TrimSpace(grant.Capability) != capability {
@@ -172,6 +178,10 @@ func (v *pluginGrantView) storageRootGranted(ctx context.Context, pluginID, root
 	return false
 }
 
+func (v *pluginGrantView) StorageRootGranted(ctx context.Context, pluginID, root string) bool {
+	return v.storageRootGranted(ctx, pluginID, root)
+}
+
 func (v *pluginGrantView) grantedWebhookScope(ctx context.Context, pluginID, route string) (plugins.WebhookScope, bool) {
 	scope := v.grantedScope(ctx, pluginID, "event.expose_webhook")
 	route = strings.TrimSpace(route)
@@ -183,17 +193,19 @@ func (v *pluginGrantView) grantedWebhookScope(ctx context.Context, pluginID, rou
 	return plugins.WebhookScope{}, false
 }
 
-type localActionServiceDeps struct {
-	state            *appRuntimeState
-	grants           *pluginGrantView
-	pluginConfig     pluginconfig.Repository
-	pluginFiles      *pluginfile.Service
-	pluginKV         pluginkv.Repository
-	scheduler        *scheduler.Engine
-	dispatcher       *dispatch.Dispatcher
-	renderer         *render.Service
-	adapter          *adapter.Shell
-	pluginLogLimiter *pluginLogLimiter
+func (v *pluginGrantView) GrantedWebhookScope(ctx context.Context, pluginID, route string) (plugins.WebhookScope, bool) {
+	return v.grantedWebhookScope(ctx, pluginID, route)
+}
+
+func (v *pluginGrantView) GrantedHTTPHosts(ctx context.Context, pluginID string) []string {
+	return append([]string(nil), v.grantedScope(ctx, pluginID, "http.request").HTTPHosts...)
+}
+
+func (v *pluginGrantView) ListPluginSnapshots() []plugins.Snapshot {
+	if v == nil || v.plugins == nil {
+		return nil
+	}
+	return v.plugins.List()
 }
 
 type pluginLifecycleDeps struct {
@@ -205,7 +217,7 @@ type pluginLifecycleDeps struct {
 	dispatcher       *dispatch.Dispatcher
 	pluginConfig     pluginconfig.Repository
 	adapter          *adapter.Shell
-	webhooks         *pluginWebhookRegistry
+	webhooks         *pluginwebhook.Registry
 	onRecoveryChange func(string)
 }
 
@@ -224,16 +236,6 @@ type eventIngressDeps struct {
 	whitelistRepo    permission.WhitelistRepository
 	whitelistState   permission.WhitelistStateRepository
 	blacklistRepo    permission.BlacklistRepository
-}
-
-type pluginWebhookServiceDeps struct {
-	state      *appRuntimeState
-	registry   *pluginWebhookRegistry
-	secrets    secrets.Store
-	plugins    *plugins.Catalog
-	dispatcher *dispatch.Dispatcher
-	lifecycle  *pluginLifecycleController
-	grants     *pluginGrantView
 }
 
 type systemServiceDeps struct {
@@ -268,18 +270,10 @@ type configHTTPDeps struct {
 	logs             *logging.Stream
 	logRepository    logging.Repository
 	renderer         *render.Service
-	pluginLogLimiter *pluginLogLimiter
+	pluginLogLimiter *localaction.PluginLogLimiter
 	protocol         *protocolService
 	eventIngress     *eventIngressService
 	blacklistRepo    permission.BlacklistRepository
-}
-
-type governanceHTTPDeps struct {
-	state          *appRuntimeState
-	plugins        *plugins.Catalog
-	blacklistRepo  permission.BlacklistRepository
-	whitelistRepo  permission.WhitelistRepository
-	whitelistState permission.WhitelistStateRepository
 }
 
 type httpServerDeps struct {
@@ -301,7 +295,7 @@ type httpServerDeps struct {
 	configHandler      *configHTTPHandlers
 	authHandler        *authHTTPHandlers
 	managementHandler  *managementHTTPHandlers
-	governanceHandler  *governanceHTTPHandlers
+	governanceHandler  *governance.Handlers
 	taskHandler        *taskHTTPHandlers
 	logHandler         *logHTTPHandlers
 	renderHandler      *renderHTTPHandlers
@@ -311,8 +305,8 @@ type httpServerDeps struct {
 	tasksWS            *tasksWSHandler
 	logsWS             *logsWSHandler
 	consoleWS          *consoleWSHandler
-	pluginWebhooks     *pluginWebhookHTTPHandlers
-	pluginManagementUI *pluginManagementUIHTTPHandlers
+	pluginWebhooks     *pluginwebhook.Service
+	pluginManagementUI *pluginui.Handlers
 }
 
 type authHTTPHandlers struct {
@@ -354,7 +348,7 @@ type configHTTPHandlers struct {
 	logs             *logging.Stream
 	logRepository    logging.Repository
 	renderer         *render.Service
-	pluginLogLimiter *pluginLogLimiter
+	pluginLogLimiter *localaction.PluginLogLimiter
 	protocol         *protocolService
 	eventIngress     *eventIngressService
 	blacklistRepo    permission.BlacklistRepository
@@ -370,24 +364,6 @@ func newConfigHTTPHandlers(deps configHTTPDeps) *configHTTPHandlers {
 		protocol:         deps.protocol,
 		eventIngress:     deps.eventIngress,
 		blacklistRepo:    deps.blacklistRepo,
-	}
-}
-
-type governanceHTTPHandlers struct {
-	state          *appRuntimeState
-	plugins        *plugins.Catalog
-	blacklistRepo  permission.BlacklistRepository
-	whitelistRepo  permission.WhitelistRepository
-	whitelistState permission.WhitelistStateRepository
-}
-
-func newGovernanceHTTPHandlers(deps governanceHTTPDeps) *governanceHTTPHandlers {
-	return &governanceHTTPHandlers{
-		state:          deps.state,
-		plugins:        deps.plugins,
-		blacklistRepo:  deps.blacklistRepo,
-		whitelistRepo:  deps.whitelistRepo,
-		whitelistState: deps.whitelistState,
 	}
 }
 
@@ -457,14 +433,6 @@ func newProtocolHTTPHandlers(protocol *protocolService) *protocolHTTPHandlers {
 	return &protocolHTTPHandlers{protocol: protocol}
 }
 
-type pluginWebhookHTTPHandlers struct {
-	webhooks *pluginWebhookService
-}
-
-func newPluginWebhookHTTPHandlers(webhooks *pluginWebhookService) *pluginWebhookHTTPHandlers {
-	return &pluginWebhookHTTPHandlers{webhooks: webhooks}
-}
-
 type eventsWSHandler struct {
 	bridge        *bridge.Bridge
 	plugins       *plugins.Catalog
@@ -520,3 +488,21 @@ type readinessProvider interface {
 
 var _ readinessProvider = (*systemService)(nil)
 var _ http.Handler = (http.Handler)(nil)
+
+type grantedScope struct {
+	HTTPHosts    []string               `json:"http_hosts"`
+	StorageRoots []string               `json:"storage_roots"`
+	Webhooks     []plugins.WebhookScope `json:"webhooks"`
+}
+
+func parseGrantedScope(raw string) grantedScope {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return grantedScope{}
+	}
+	var scope grantedScope
+	if err := json.Unmarshal([]byte(raw), &scope); err != nil {
+		return grantedScope{}
+	}
+	return scope
+}

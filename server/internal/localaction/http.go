@@ -1,32 +1,29 @@
-package app
+package localaction
 
 import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginhttp"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (s *localActionService) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "http.request") {
+func (s *Service) executeHTTPRequest(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "http.request") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "http.request capability is not granted",
 		}
 	}
 
-	scope := s.grants.grantedScope(ctx, pluginID, "http.request")
+	cfg := s.config()
 	client := pluginhttp.New(pluginhttp.Config{
-		Timeout:           currentHTTPTimeout(s.state.Config),
-		MaxRetries:        currentHTTPMaxRetries(s.state.Config),
-		AllowPrivateHosts: append([]string(nil), s.state.Config.HTTP.AllowPrivateHosts...),
+		Timeout:           currentHTTPTimeout(cfg),
+		MaxRetries:        currentHTTPMaxRetries(cfg),
+		AllowPrivateHosts: append([]string(nil), cfg.HTTP.AllowPrivateHosts...),
 	})
 	response, err := client.Do(ctx, pluginhttp.Request{
 		Method:        action.HTTPMethod,
@@ -34,7 +31,7 @@ func (s *localActionService) executeHTTPRequest(ctx context.Context, pluginID st
 		Headers:       cloneHTTPHeaders(action.HTTPHeaders),
 		Body:          append([]byte(nil), action.HTTPBody...),
 		ActionTimeout: currentHTTPActionTimeout(action),
-	}, scope.HTTPHosts)
+	}, s.grants.GrantedHTTPHosts(ctx, pluginID))
 	if err == pluginhttp.ErrScopeViolation {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
@@ -69,14 +66,14 @@ func (s *localActionService) executeHTTPRequest(ctx context.Context, pluginID st
 	return result, nil
 }
 
-func (s *localActionService) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "scheduler.create") {
+func (s *Service) executeSchedulerCreate(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "scheduler.create") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "scheduler.create capability is not granted",
 		}
 	}
-	if s == nil || s.scheduler == nil {
+	if s.scheduler == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "scheduler engine is not available",
@@ -99,58 +96,4 @@ func (s *localActionService) executeSchedulerCreate(ctx context.Context, pluginI
 		"task_id":  job.JobID,
 		"next_run": job.NextRun.UTC().Format(time.RFC3339),
 	}, nil
-}
-
-type grantedScope struct {
-	HTTPHosts    []string               `json:"http_hosts"`
-	StorageRoots []string               `json:"storage_roots"`
-	Webhooks     []plugins.WebhookScope `json:"webhooks"`
-}
-
-func parseGrantedScope(raw string) grantedScope {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return grantedScope{}
-	}
-	var scope grantedScope
-	if err := json.Unmarshal([]byte(raw), &scope); err != nil {
-		return grantedScope{}
-	}
-	return scope
-}
-
-func currentHTTPTimeout(cfg config.Config) time.Duration {
-	seconds := cfg.HTTP.TimeoutSeconds
-	if seconds <= 0 {
-		seconds = defaultHTTPTimeoutSeconds
-	}
-	return time.Duration(seconds) * time.Second
-}
-
-func currentHTTPMaxRetries(cfg config.Config) int {
-	if cfg.HTTP.MaxRetries < 0 {
-		return defaultHTTPMaxRetries
-	}
-	if cfg.HTTP.MaxRetries == 0 {
-		return 0
-	}
-	return cfg.HTTP.MaxRetries
-}
-
-func currentHTTPActionTimeout(action runtime.Action) time.Duration {
-	if action.HTTPTimeoutSeconds <= 0 {
-		return 0
-	}
-	return time.Duration(action.HTTPTimeoutSeconds) * time.Second
-}
-
-func cloneHTTPHeaders(headers map[string]string) map[string]string {
-	if len(headers) == 0 {
-		return map[string]string{}
-	}
-	cloned := make(map[string]string, len(headers))
-	for key, value := range headers {
-		cloned[key] = value
-	}
-	return cloned
 }

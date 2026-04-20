@@ -10,6 +10,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 )
 
 type managementEventFrame struct {
@@ -148,7 +149,7 @@ func (h *protocolHTTPHandlers) handleProtocolOneBot11Webhook() http.HandlerFunc 
 			return
 		}
 
-		payload, err := readRequestBody(w, r, maxWebhookBodyBytes)
+		payload, err := httpapi.ReadRequestBody(w, r, httpapi.MaxWebhookBodyBytes)
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return

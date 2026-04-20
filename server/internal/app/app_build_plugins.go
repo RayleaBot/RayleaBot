@@ -9,11 +9,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
@@ -32,7 +35,7 @@ func buildAppPlugins(
 		_ = platform.Storage.Close()
 		return appPlugins{}, err
 	}
-	webhookRegistry := newPluginWebhookRegistry()
+	webhookRegistry := pluginwebhook.NewRegistry()
 	pluginFileService := pluginfile.NewService(filepath.Join(filepath.Dir(platform.Storage.Path), "plugins"))
 	renderService, err := buildRenderService(state, platform, renderRunner)
 	if err != nil {
@@ -74,7 +77,7 @@ func buildAppPlugins(
 		whitelistState:    whitelistStateRepo,
 		webhooks:          webhookRegistry,
 		renderer:          renderService,
-		pluginLogLimiter:  newPluginLogLimiter(state.core.Config),
+		pluginLogLimiter:  localaction.NewPluginLogLimiter(state.core.Config),
 	}, nil
 }
 
@@ -107,7 +110,7 @@ func buildRenderService(state appBuildState, platform appPlatform, renderRunner 
 		QueueMaxLength:     state.core.Config.Render.QueueMaxLength,
 		QueueWaitTimeout:   time.Duration(state.core.Config.Render.QueueWaitTimeoutSeconds) * time.Second,
 		RenderTimeout:      time.Duration(state.core.Config.Render.TimeoutSeconds) * time.Second,
-		MaxRenderDataBytes: int(maxManagementJSONBodyBytes),
+		MaxRenderDataBytes: int(httpapi.MaxManagementJSONBodyBytes),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create render service: %w", err)

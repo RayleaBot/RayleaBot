@@ -37,7 +37,7 @@ func (h *authHTTPHandlers) handleSetupAdmin() http.HandlerFunc {
 		}
 
 		var request authRequest
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
 			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
 			return
 		}
@@ -60,12 +60,12 @@ func (h *authHTTPHandlers) handleSetupAdmin() http.HandlerFunc {
 func (h *authHTTPHandlers) handleSessionLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request authRequest
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
 			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
 			return
 		}
 
-		sourceIP := requestRemoteIP(r)
+		sourceIP := httpapi.RequestRemoteIP(r)
 		if h.loginFailures != nil && h.loginFailures.IsLimited(sourceIP, loginFailureLimit(h.state.Config), loginFailureWindow(h.state.Config)) {
 			writeAppError(w, r, http.StatusTooManyRequests, "platform.rate_limited", "触发平台级限流", "errors.platform.rate_limited", nil)
 			return
@@ -107,7 +107,7 @@ func (h *authHTTPHandlers) handleLauncherAdmission() http.HandlerFunc {
 		}
 
 		var request launcherAdmissionRequest
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil || request.LauncherToken == "" {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.LauncherToken == "" {
 			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
 			return
 		}

@@ -165,6 +165,10 @@ func (c *pluginLifecycleController) currentBotID() string {
 	return strings.TrimSpace(c.adapter.Snapshot().BotID)
 }
 
+func (c *pluginLifecycleController) CurrentBotID() string {
+	return c.currentBotID()
+}
+
 func (c *pluginLifecycleController) logLifecycleWarn(message, pluginID string, err error) {
 	if c == nil || c.state == nil || c.state.Logger == nil || err == nil {
 		return

@@ -1,4 +1,4 @@
-package app
+package localaction
 
 import (
 	"context"
@@ -10,14 +10,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (s *localActionService) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "render.image") {
+func (s *Service) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "render.image") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "render.image capability is not granted",
 		}
 	}
-	if s == nil || s.renderer == nil {
+	if s.renderer == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "render.image service is not available",
@@ -47,7 +47,7 @@ func (s *localActionService) executeRenderImage(ctx context.Context, pluginID st
 	}, nil
 }
 
-func (s *localActionService) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
+func (s *Service) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
 	if s == nil || s.dispatcher == nil || !s.dispatcher.HasDeliverablePlugin(pluginID) {
 		return
 	}
@@ -64,10 +64,10 @@ func (s *localActionService) dispatchPluginConfigChanged(ctx context.Context, pl
 			Name: pluginID,
 		},
 	})
-	if result.Outcome == dispatch.OutcomeDelivered || s.state == nil || s.state.Logger == nil {
+	if result.Outcome == dispatch.OutcomeDelivered || s.logger == nil {
 		return
 	}
-	s.state.Logger.Warn(
+	s.logger.Warn(
 		"config.changed event was not queued for plugin runtime",
 		"component", "app",
 		"plugin_id", pluginID,
@@ -76,7 +76,11 @@ func (s *localActionService) dispatchPluginConfigChanged(ctx context.Context, pl
 	)
 }
 
-func (s *localActionService) executeExposeWebhook(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) DispatchPluginConfigChanged(ctx context.Context, pluginID string) {
+	s.dispatchPluginConfigChanged(ctx, pluginID)
+}
+
+func (s *Service) executeExposeWebhook(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
 	if s == nil || s.webhookGateway == nil {
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",

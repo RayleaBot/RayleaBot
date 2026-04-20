@@ -11,6 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwebhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
@@ -24,7 +25,7 @@ type pluginLifecycleController struct {
 	dispatcher       *dispatch.Dispatcher
 	pluginConfig     pluginconfig.Repository
 	adapter          *adapter.Shell
-	webhooks         *pluginWebhookRegistry
+	webhooks         *pluginwebhook.Registry
 	onRecoveryChange func(string)
 }
 

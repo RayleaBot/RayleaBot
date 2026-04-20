@@ -1,4 +1,4 @@
-package app
+package localaction
 
 import (
 	"context"
@@ -7,18 +7,15 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (s *localActionService) executePluginList(ctx context.Context, pluginID string) (map[string]any, error) {
-	if !s.grants.capabilityGranted(ctx, pluginID, "plugin.list") {
+func (s *Service) executePluginList(ctx context.Context, pluginID string) (map[string]any, error) {
+	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "plugin.list") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
 			Message: "plugin.list capability is not granted",
 		}
 	}
-	if s == nil || s.grants == nil || s.grants.plugins == nil {
-		return map[string]any{"items": []map[string]any{}}, nil
-	}
 
-	snapshots := s.grants.plugins.List()
+	snapshots := s.grants.ListPluginSnapshots()
 	conflicts := plugins.DetectCommandConflicts(snapshots)
 	items := make([]map[string]any, 0, len(snapshots))
 	for _, snapshot := range snapshots {

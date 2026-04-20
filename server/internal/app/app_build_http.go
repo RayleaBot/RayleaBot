@@ -55,9 +55,12 @@ func registerAppPublicRoutes(router chi.Router, deps httpServerDeps) {
 	router.Post("/api/session/launcher-admission", deps.authHandler.handleLauncherAdmission())
 	router.Get("/api/protocols/onebot11/reverse-ws", deps.protocolHandler.handleProtocolOneBot11ReverseWS())
 	router.Post("/api/protocols/onebot11/webhook", deps.protocolHandler.handleProtocolOneBot11Webhook())
-	router.Post("/api/webhooks/{plugin_id}/{route}", deps.pluginWebhooks.handlePluginWebhook())
-	router.Get("/plugin-ui/{plugin_id}/*", deps.pluginManagementUI.handlePluginManagementUIStatic())
-	router.Head("/plugin-ui/{plugin_id}/*", deps.pluginManagementUI.handlePluginManagementUIStatic())
+	if deps.pluginWebhooks != nil {
+		deps.pluginWebhooks.RegisterPublicRoutes(router)
+	}
+	if deps.pluginManagementUI != nil {
+		deps.pluginManagementUI.RegisterPublicRoutes(router)
+	}
 }
 
 func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
@@ -66,14 +69,9 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Put("/api/config", deps.configHandler.handleConfigPut())
 	router.Get("/api/protocols/onebot11", deps.protocolHandler.handleProtocolOneBot11Snapshot())
 	router.Get("/api/protocols/onebot11/compatibility", deps.protocolHandler.handleProtocolOneBot11Compatibility())
-	router.Get("/api/governance/blacklist", deps.governanceHandler.handleGovernanceBlacklist())
-	router.Post("/api/governance/blacklist/entries", deps.governanceHandler.handleGovernanceBlacklistEntryUpsert())
-	router.Delete("/api/governance/blacklist/entries/{entry_type}/{target_id}", deps.governanceHandler.handleGovernanceBlacklistEntryDelete())
-	router.Get("/api/governance/whitelist", deps.governanceHandler.handleGovernanceWhitelist())
-	router.Put("/api/governance/whitelist/state", deps.governanceHandler.handleGovernanceWhitelistStatePut())
-	router.Post("/api/governance/whitelist/entries", deps.governanceHandler.handleGovernanceWhitelistEntryUpsert())
-	router.Delete("/api/governance/whitelist/entries/{entry_type}/{target_id}", deps.governanceHandler.handleGovernanceWhitelistEntryDelete())
-	router.Get("/api/governance/command-policy", deps.governanceHandler.handleGovernanceCommandPolicy())
+	if deps.governanceHandler != nil {
+		deps.governanceHandler.RegisterProtectedRoutes(router)
+	}
 	router.Get("/api/logs", deps.logHandler.handleLogsList())
 	router.Get("/api/logs/{log_id}", deps.logHandler.handleLogDetail())
 	router.Get("/api/system/status", deps.managementHandler.handleSystemStatus())
@@ -95,8 +93,9 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/api/tasks", deps.taskHandler.handleTaskList())
 	router.Get("/api/tasks/{task_id}", deps.taskHandler.handleTaskDetail())
 	router.Post("/api/tasks/{task_id}/cancel", deps.taskHandler.handleTaskCancel())
-	router.Get("/api/plugins/{plugin_id}/settings", deps.pluginManagementUI.handlePluginSettingsGet())
-	router.Put("/api/plugins/{plugin_id}/settings", deps.pluginManagementUI.handlePluginSettingsPut())
+	if deps.pluginManagementUI != nil {
+		deps.pluginManagementUI.RegisterProtectedRoutes(router)
+	}
 	router.Get("/ws/events", deps.eventsWS.handleEventsWebSocket())
 	router.Get("/ws/tasks", deps.tasksWS.handleTasksWebSocket())
 	router.Get("/ws/logs", deps.logsWS.handleLogsWebSocket())

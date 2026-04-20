@@ -1,4 +1,4 @@
-package app
+package governance
 
 import (
 	"context"
@@ -10,9 +10,55 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
+
+const (
+	defaultUserCommandRateLimit  = "10/60s"
+	defaultGroupCommandRateLimit = "30/60s"
+)
+
+type Deps struct {
+	CurrentConfig  func() config.Config
+	Plugins        *plugins.Catalog
+	BlacklistRepo  permission.BlacklistRepository
+	WhitelistRepo  permission.WhitelistRepository
+	WhitelistState permission.WhitelistStateRepository
+}
+
+type Handlers struct {
+	currentConfig  func() config.Config
+	plugins        *plugins.Catalog
+	blacklistRepo  permission.BlacklistRepository
+	whitelistRepo  permission.WhitelistRepository
+	whitelistState permission.WhitelistStateRepository
+}
+
+func NewHandlers(deps Deps) *Handlers {
+	return &Handlers{
+		currentConfig:  deps.CurrentConfig,
+		plugins:        deps.Plugins,
+		blacklistRepo:  deps.BlacklistRepo,
+		whitelistRepo:  deps.WhitelistRepo,
+		whitelistState: deps.WhitelistState,
+	}
+}
+
+func (h *Handlers) RegisterProtectedRoutes(router chi.Router) {
+	if router == nil {
+		return
+	}
+	router.Get("/api/governance/blacklist", h.handleGovernanceBlacklist())
+	router.Post("/api/governance/blacklist/entries", h.handleGovernanceBlacklistEntryUpsert())
+	router.Delete("/api/governance/blacklist/entries/{entry_type}/{target_id}", h.handleGovernanceBlacklistEntryDelete())
+	router.Get("/api/governance/whitelist", h.handleGovernanceWhitelist())
+	router.Put("/api/governance/whitelist/state", h.handleGovernanceWhitelistStatePut())
+	router.Post("/api/governance/whitelist/entries", h.handleGovernanceWhitelistEntryUpsert())
+	router.Delete("/api/governance/whitelist/entries/{entry_type}/{target_id}", h.handleGovernanceWhitelistEntryDelete())
+	router.Get("/api/governance/command-policy", h.handleGovernanceCommandPolicy())
+}
 
 type governanceEntryResponse struct {
 	EntryType string `json:"entry_type"`
@@ -68,10 +114,17 @@ type governanceCommandPolicyResponse struct {
 	Commands     []governanceCommandPolicyEntryResponse `json:"commands"`
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceBlacklist() http.HandlerFunc {
+func (h *Handlers) currentCfg() config.Config {
+	if h == nil || h.currentConfig == nil {
+		return config.Config{}
+	}
+	return h.currentConfig()
+}
+
+func (h *Handlers) handleGovernanceBlacklist() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.blacklistRepo == nil {
-			writeAuthJSON(w, http.StatusOK, governanceBlacklistResponse{
+			httpapi.WriteJSON(w, http.StatusOK, governanceBlacklistResponse{
 				UserEntries:  []governanceEntryResponse{},
 				GroupEntries: []governanceEntryResponse{},
 			})
@@ -80,26 +133,26 @@ func (h *governanceHTTPHandlers) handleGovernanceBlacklist() http.HandlerFunc {
 
 		userEntries, err := h.blacklistRepo.List(r.Context(), "user")
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 		groupEntries, err := h.blacklistRepo.List(r.Context(), "group")
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		writeAuthJSON(w, http.StatusOK, governanceBlacklistResponse{
+		httpapi.WriteJSON(w, http.StatusOK, governanceBlacklistResponse{
 			UserEntries:  buildGovernanceBlacklistEntries(userEntries),
 			GroupEntries: buildGovernanceBlacklistEntries(groupEntries),
 		})
 	}
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceBlacklistEntryUpsert() http.HandlerFunc {
+func (h *Handlers) handleGovernanceBlacklistEntryUpsert() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.blacklistRepo == nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -109,24 +162,24 @@ func (h *governanceHTTPHandlers) handleGovernanceBlacklistEntryUpsert() http.Han
 		}
 
 		if err := h.blacklistRepo.Add(r.Context(), request.EntryType, request.TargetID, request.Reason); err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
 		entry, err := h.blacklistRepo.Get(r.Context(), request.EntryType, request.TargetID)
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		writeAuthJSON(w, http.StatusOK, buildGovernanceEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt))
+		httpapi.WriteJSON(w, http.StatusOK, buildGovernanceEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt))
 	}
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceBlacklistEntryDelete() http.HandlerFunc {
+func (h *Handlers) handleGovernanceBlacklistEntryDelete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.blacklistRepo == nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -137,13 +190,13 @@ func (h *governanceHTTPHandlers) handleGovernanceBlacklistEntryDelete() http.Han
 
 		if err := h.blacklistRepo.Remove(r.Context(), entryType, targetID); err != nil {
 			if errors.Is(err, permission.ErrGovernanceEntryNotFound) {
-				writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+				httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 					"entry_type": entryType,
 					"target_id":  targetID,
 				})
 				return
 			}
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -151,10 +204,10 @@ func (h *governanceHTTPHandlers) handleGovernanceBlacklistEntryDelete() http.Han
 	}
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceWhitelist() http.HandlerFunc {
+func (h *Handlers) handleGovernanceWhitelist() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil {
-			writeAuthJSON(w, http.StatusOK, governanceWhitelistResponse{
+			httpapi.WriteJSON(w, http.StatusOK, governanceWhitelistResponse{
 				Enabled:      false,
 				UserEntries:  []governanceEntryResponse{},
 				GroupEntries: []governanceEntryResponse{},
@@ -164,17 +217,17 @@ func (h *governanceHTTPHandlers) handleGovernanceWhitelist() http.HandlerFunc {
 
 		enabled, err := governanceWhitelistEnabled(r.Context(), h.whitelistState)
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
 		userEntries, groupEntries, err := governanceWhitelistEntries(r.Context(), h.whitelistRepo)
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		writeAuthJSON(w, http.StatusOK, governanceWhitelistResponse{
+		httpapi.WriteJSON(w, http.StatusOK, governanceWhitelistResponse{
 			Enabled:      enabled,
 			UserEntries:  userEntries,
 			GroupEntries: groupEntries,
@@ -182,32 +235,32 @@ func (h *governanceHTTPHandlers) handleGovernanceWhitelist() http.HandlerFunc {
 	}
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceWhitelistStatePut() http.HandlerFunc {
+func (h *Handlers) handleGovernanceWhitelistStatePut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.whitelistState == nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
 		var request governanceWhitelistStateUpdateRequest
-		if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil || request.Enabled == nil {
-			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Enabled == nil {
+			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
 
 		if err := h.whitelistState.SetEnabled(r.Context(), *request.Enabled); err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		writeAuthJSON(w, http.StatusOK, governanceWhitelistStateResponse{Enabled: *request.Enabled})
+		httpapi.WriteJSON(w, http.StatusOK, governanceWhitelistStateResponse{Enabled: *request.Enabled})
 	}
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceWhitelistEntryUpsert() http.HandlerFunc {
+func (h *Handlers) handleGovernanceWhitelistEntryUpsert() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.whitelistRepo == nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -217,24 +270,24 @@ func (h *governanceHTTPHandlers) handleGovernanceWhitelistEntryUpsert() http.Han
 		}
 
 		if err := h.whitelistRepo.Add(r.Context(), request.EntryType, request.TargetID, request.Reason); err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
 		entry, err := h.whitelistRepo.Get(r.Context(), request.EntryType, request.TargetID)
 		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
-		writeAuthJSON(w, http.StatusOK, buildGovernanceEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt))
+		httpapi.WriteJSON(w, http.StatusOK, buildGovernanceEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt))
 	}
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceWhitelistEntryDelete() http.HandlerFunc {
+func (h *Handlers) handleGovernanceWhitelistEntryDelete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.whitelistRepo == nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -245,13 +298,13 @@ func (h *governanceHTTPHandlers) handleGovernanceWhitelistEntryDelete() http.Han
 
 		if err := h.whitelistRepo.Remove(r.Context(), entryType, targetID); err != nil {
 			if errors.Is(err, permission.ErrGovernanceEntryNotFound) {
-				writeAppError(w, r, http.StatusNotFound, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+				httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
 					"entry_type": entryType,
 					"target_id":  targetID,
 				})
 				return
 			}
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
 
@@ -259,19 +312,16 @@ func (h *governanceHTTPHandlers) handleGovernanceWhitelistEntryDelete() http.Han
 	}
 }
 
-func (h *governanceHTTPHandlers) handleGovernanceCommandPolicy() http.HandlerFunc {
+func (h *Handlers) handleGovernanceCommandPolicy() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cfg := config.Config{}
-		if h != nil && h.state != nil {
-			cfg = h.state.Config
-		}
+		cfg := h.currentCfg()
 
 		var snapshots []plugins.Snapshot
 		if h != nil && h.plugins != nil {
 			snapshots = h.plugins.List()
 		}
 
-		writeAuthJSON(w, http.StatusOK, governanceCommandPolicyResponse{
+		httpapi.WriteJSON(w, http.StatusOK, governanceCommandPolicyResponse{
 			DefaultLevel: commandPermissionDefaultLevel(cfg),
 			Cooldown:     governanceCooldownSnapshot(cfg),
 			Commands:     buildGovernanceCommandPolicyEntries(snapshots, cfg),
@@ -281,8 +331,8 @@ func (h *governanceHTTPHandlers) handleGovernanceCommandPolicy() http.HandlerFun
 
 func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) (governanceEntryUpsertRequest, bool) {
 	var request governanceEntryUpsertRequest
-	if err := decodeStrictJSON(w, r, &request, maxManagementJSONBodyBytes); err != nil {
-		writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+	if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
+		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 		return governanceEntryUpsertRequest{}, false
 	}
 
@@ -290,7 +340,7 @@ func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) 
 	request.TargetID = strings.TrimSpace(request.TargetID)
 	request.Reason = strings.TrimSpace(request.Reason)
 	if !isGovernanceEntryType(request.EntryType) || request.TargetID == "" || request.Reason == "" {
-		writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 		return governanceEntryUpsertRequest{}, false
 	}
 
@@ -301,7 +351,7 @@ func readGovernanceEntryPath(w http.ResponseWriter, r *http.Request) (string, st
 	entryType := strings.TrimSpace(chi.URLParam(r, "entry_type"))
 	targetID := strings.TrimSpace(chi.URLParam(r, "target_id"))
 	if !isGovernanceEntryType(entryType) || targetID == "" {
-		writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 		return "", "", false
 	}
 	return entryType, targetID, true
@@ -481,4 +531,34 @@ func normalizedDeclaredCommandPermission(raw string) *string {
 	default:
 		return nil
 	}
+}
+
+func commandPermissionDefaultLevel(cfg config.Config) string {
+	defaultLevel := strings.TrimSpace(cfg.Permission.DefaultLevel)
+	if defaultLevel == "" {
+		defaultLevel = strings.TrimSpace(cfg.Auth.DefaultLevel)
+	}
+	switch defaultLevel {
+	case "super_admin", "group_admin", "everyone":
+		return defaultLevel
+	default:
+		return "everyone"
+	}
+}
+
+func effectiveCommandPermissionLevel(permissionLevel string, cfg config.Config) string {
+	switch strings.TrimSpace(permissionLevel) {
+	case "super_admin", "group_admin", "everyone":
+		return strings.TrimSpace(permissionLevel)
+	case "":
+		return commandPermissionDefaultLevel(cfg)
+	default:
+		return "everyone"
+	}
+}
+
+func pluginParticipatesInCommandPolicy(snapshot plugins.Snapshot) bool {
+	return snapshot.Valid &&
+		snapshot.RegistrationState == "installed" &&
+		snapshot.DesiredState == "enabled"
 }
