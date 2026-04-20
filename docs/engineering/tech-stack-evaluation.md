@@ -16,19 +16,19 @@
 
 | 维度 | 数量 |
 |------|------|
-| Server Go 源文件（不含测试） | 125 |
+| Server Go 源文件（不含测试） | 158 |
 | Server 内部包 | 30 |
-| SQLite 迁移文件 / 表 | 14 / 12 |
+| SQLite 迁移文件 / 表 | 19 / 12 |
 | SQLiteRepository 实现 | 7（auth, tasks, scheduler, logging, plugins, pluginkv, pluginconfig） |
-| API 路由（`contracts/web-api.openapi.yaml`） | 31 |
+| API 路由（`contracts/web-api.openapi.yaml`） | 43 |
 | 插件协议消息类型 | 10（init, init_progress, init_ack, event, action, result, error, ping, pong, shutdown） |
 | 任务类型 | 11 |
 | 配置段 | 21（含 4 个遗留兼容映射） |
-| Web Vue 组件 | 19 |
-| Web TypeScript 源文件 | 44 |
-| Web 测试（单元 + E2E） | 24 + 1 |
-| Launcher 源文件（.ts + .tsx） | 46 |
-| Launcher 测试 | 29 |
+| Web Vue 组件 | 43 |
+| Web TypeScript 源文件 | 73 |
+| Web 测试（单元 + E2E） | 42 |
+| Launcher 源文件（.ts + .tsx） | 56 |
+| Launcher 测试 | 26 |
 | CI 工作流 | 5（contracts, lint, race, release, self-host-smoke） |
 
 ---

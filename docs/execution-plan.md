@@ -13,10 +13,10 @@
 | 阶段 | 名称 | 状态 | 当前落地摘要 |
 |------|------|------|--------------|
 | Pre-Phase | Foundation / 基线 / 仓库治理 / CI 骨架 | ✅ | baseline、治理规则、3 个 repo-local skills、CI skeleton、`deps-manifest` formal contract、运行环境准备基线与 repo identity 已统一 |
-| Phase 1 | 契约文件补全 | ✅ | 10 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
+| Phase 1 | 契约文件补全 | ✅ | 12 份 formal contracts 已全部进入 fixture-ready，并受 CI 引用与覆盖校验 |
 | Phase 2 | Fixtures / Golden Cases | ✅ | config、web-api、websocket、plugin-info、plugin-protocol、release-manifest、CLI fixtures 已落库并进入 CI 校验 |
 | Phase 3 | Server 内核骨架 | ✅ | server 入口、配置校验、日志、健康检查、SQLite、auth、tasks、plugin discovery 已接入主运行链路 |
-| Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、`idle/ready` 语义、重连、心跳、消息/notice 归一化、`message.send` / `message.reply` 已接入主链路；更广动作族与多 adapter 仍未实现 |
+| Phase 4 | Adapter（OneBot11） | 🟡 | reverse WebSocket、`idle/ready` 语义、重连、心跳、消息/notice 归一化、`message.send` / `message.reply` 已接入主链路；forward WebSocket、HTTP 调用与 webhook 在 v0.2 补齐，多 adapter 仍未实现 |
 | Phase 5 | Plugin Protocol Bridge | ✅ | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` local action RPC 与 gated `event.raw_payload` 已接入；完整 Chromium Render Service 继续后置到 Phase 10 |
 | Phase 6 | Config / Storage / Security | ✅ | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；`/readyz`、诊断包、`doctor`、Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 统一诊断结构 |
 | Phase 7 | Web API & Tasks | ✅ | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress、插件来源/信任/命令冲突 metadata 与 render preview / artifact 管理面已进入正式主链 |
@@ -62,13 +62,15 @@
 - `web-api.openapi.yaml`
 - `websocket-events.yaml`
 - `plugin-info.schema.json`
+- `plugin-management-ui.yaml`
+- `plugin-management-ui-bridge.schema.json`
 - `plugin-protocol.schema.json`
 - `release-manifest.schema.json`
 - `cli-commands.yaml`
 
 说明：
 
-- 10 份 formal contract 均已进入 fixture-ready。
+- 12 份 formal contract 均已进入 fixture-ready。
 - 当前正式 contract 以 `contracts/` 为准；规划正文、README 与实现代码只作派生说明。
 
 ---

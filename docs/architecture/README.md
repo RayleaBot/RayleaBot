@@ -52,6 +52,8 @@ OneBot11 transport
 | Protocol Service | 负责协议快照、reverse-ws / webhook 协议入口和协议事件推送 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和定向投递 |
 | System Service | 负责恢复摘要、运行环境诊断、备份和系统状态 |
+| Capability Grant Manager | 负责插件能力授权与时效过滤 |
+| Governance Service | 负责黑白名单、白名单状态、命令策略读取面与聊天侧权限裁决 |
 | HTTP / WebSocket Handlers | 负责按领域暴露管理 API 与实时通道 |
 
 ## 跨层边界
