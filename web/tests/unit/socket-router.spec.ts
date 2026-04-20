@@ -1,0 +1,218 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { createSocketFrameRouter } from '@/stores/socket-router'
+
+describe('socket frame router', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('debounces service status refreshes while keeping events readable', async () => {
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      tasks: {
+        upsert: vi.fn(),
+      },
+      logs: {
+        append: vi.fn(),
+      },
+      protocols: {
+        applySnapshot: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-05T08:00:00Z',
+      data: {
+        service_status: 'degraded',
+        summary: '服务运行条件受限',
+        reason: 'OneBot 正在建立连接',
+        reason_codes: ['adapter.connection_pending'],
+      },
+    })
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-05T08:00:01Z',
+      data: {
+        service_status: 'degraded',
+        summary: '服务运行条件受限',
+        reason: 'OneBot 正在建立连接',
+        reason_codes: ['adapter.connection_pending'],
+      },
+    })
+
+    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(2)
+    expect(dependencies.system.refreshStatus).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(120)
+
+    expect(dependencies.system.refreshStatus).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes plugin and protocol events to the narrow dependencies', () => {
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      tasks: {
+        upsert: vi.fn(),
+      },
+      logs: {
+        append: vi.fn(),
+      },
+      protocols: {
+        applySnapshot: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-05T08:00:00Z',
+      data: {
+        plugin_id: 'weather',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+      },
+    })
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-05T08:00:02Z',
+      data: {
+        protocol: 'onebot11',
+        protocol_snapshot: {
+          protocol: 'onebot11',
+          provider: 'standard',
+          configured_transports: ['reverse_ws'],
+          active_transports: ['reverse_ws'],
+          transport_status: [
+            {
+              transport: 'reverse_ws',
+              enabled: true,
+              configured: true,
+              endpoint: 'ws://127.0.0.1:8080/ws',
+              state: 'connected',
+              summary: '已连接',
+            },
+          ],
+          readiness_status: 'ready',
+          summary: 'OneBot11 已就绪',
+          recent_transport_issues: [],
+        },
+      },
+    })
+
+    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(2)
+    expect(dependencies.plugins.upsert).toHaveBeenCalledWith({
+      id: 'weather',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'running',
+      display_state: 'running',
+    })
+    expect(dependencies.protocols.applySnapshot).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes task, log, and console frames without changing payload semantics', () => {
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      tasks: {
+        upsert: vi.fn(),
+      },
+      logs: {
+        append: vi.fn(),
+      },
+      protocols: {
+        applySnapshot: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleTasksFrame({
+      channel: 'tasks',
+      type: 'tasks.updated',
+      timestamp: '2026-04-05T08:00:03Z',
+      data: {
+        task_id: 'task_1',
+        task_type: 'runtime.bootstrap',
+        status: 'running',
+        summary: '运行环境准备中',
+      },
+    })
+    router.handleLogsFrame({
+      channel: 'logs',
+      type: 'logs.appended',
+      timestamp: '2026-04-05T08:00:04Z',
+      data: {
+        log_id: 'log_plugin_outbound_0001',
+        timestamp: '2026-04-05T08:00:04Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        plugin_id: 'weather',
+        request_id: 'req_runtime_delivery_0001',
+        message: 'plugin weather command echo delivered group message: hello',
+      },
+    })
+    router.handleConsoleFrame({
+      channel: 'plugin_console',
+      type: 'plugins.console',
+      timestamp: '2026-04-05T08:00:05Z',
+      data: {
+        plugin_id: 'weather',
+        stream: 'stdout',
+        text: 'console line',
+        timestamp: '2026-04-05T08:00:05Z',
+      },
+    })
+
+    expect(dependencies.tasks.upsert).toHaveBeenCalledWith({
+      task_id: 'task_1',
+      task_type: 'runtime.bootstrap',
+      status: 'running',
+      summary: '运行环境准备中',
+    })
+    expect(dependencies.logs.append).toHaveBeenCalledTimes(1)
+    expect(dependencies.plugins.appendOutboundLog).toHaveBeenCalledTimes(1)
+    expect(dependencies.plugins.appendConsole).toHaveBeenCalledWith({
+      plugin_id: 'weather',
+      stream: 'stdout',
+      text: 'console line',
+      timestamp: '2026-04-05T08:00:05Z',
+    })
+  })
+})

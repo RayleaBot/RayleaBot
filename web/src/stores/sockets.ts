@@ -1,8 +1,7 @@
-import { reactive } from 'vue'
 import { defineStore } from 'pinia'
 
-import { ManagedSocket } from '@/lib/ws'
-import type { ConnectionStatus, EventsPayload, LogSummary, TaskSummary, WebSocketFrame } from '@/types/api'
+import { createSocketController } from '@/stores/socket-controller'
+import { createSocketFrameRouter } from '@/stores/socket-router'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
 import { useProtocolsStore } from '@/stores/protocols'
@@ -10,213 +9,49 @@ import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
 
-interface SocketSnapshot {
-  status: ConnectionStatus
-  lastError?: string
-}
-
 export const useSocketStore = defineStore('sockets', () => {
-  const snapshots = reactive<Record<'events' | 'tasks' | 'logs' | 'pluginConsole', SocketSnapshot>>({
-    events: { status: 'disconnected' },
-    tasks: { status: 'disconnected' },
-    logs: { status: 'disconnected' },
-    pluginConsole: { status: 'disconnected' },
-  })
-
-  let consolePluginId: string | null = null
-  let socketsInitialized = false
-  let statusRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
-  let statusRefreshInFlight = false
-
   const sessionStore = useSessionStore()
-
-  const runtime = {
-    getToken: () => sessionStore.token,
-    onSessionExpired: (tokenSnapshot: string | null) => sessionStore.handleSessionExpired(tokenSnapshot),
-  }
-
   const pluginsStore = usePluginsStore()
   const tasksStore = useTasksStore()
   const logsStore = useLogsStore()
   const protocolsStore = useProtocolsStore()
   const systemStore = useSystemStore()
 
-  function clearStatusRefresh() {
-    if (statusRefreshHandle !== null) {
-      window.clearTimeout(statusRefreshHandle)
-      statusRefreshHandle = null
-    }
-  }
-
-  async function runStatusRefresh() {
-    if (statusRefreshInFlight) {
-      return
-    }
-
-    statusRefreshInFlight = true
-    try {
-      await systemStore.refreshStatus()
-    } catch {
-      // dashboard keeps the last good snapshot until the next reconnect or manual refresh
-    } finally {
-      statusRefreshInFlight = false
-    }
-  }
-
-  function scheduleStatusRefresh() {
-    if (statusRefreshHandle !== null || statusRefreshInFlight) {
-      return
-    }
-
-    statusRefreshHandle = window.setTimeout(() => {
-      statusRefreshHandle = null
-      void runStatusRefresh()
-    }, 120)
-  }
-
-  const eventsSocket = new ManagedSocket<EventsPayload>({
-    name: 'events',
-    path: () => '/ws/events',
-    runtime,
-    onStatusChange: (status, lastError) => {
-      snapshots.events.status = status
-      snapshots.events.lastError = lastError
+  const router = createSocketFrameRouter({
+    system: {
+      applyEvent: systemStore.applyEvent,
+      refreshStatus: systemStore.refreshStatus,
     },
-    onFrame: (frame) => {
-      systemStore.applyEvent(frame.timestamp, frame.data)
-      if ('service_status' in frame.data) {
-        scheduleStatusRefresh()
-        return
-      }
-      if ('plugin_id' in frame.data) {
-        pluginsStore.upsert({
-          id: frame.data.plugin_id,
-          registration_state: frame.data.registration_state,
-          desired_state: frame.data.desired_state,
-          runtime_state: frame.data.runtime_state,
-          display_state: frame.data.display_state,
-        })
-        return
-      }
-      if ('protocol_snapshot' in frame.data) {
-        protocolsStore.applySnapshot(frame.data.protocol_snapshot)
-        return
-      }
+    plugins: {
+      upsert: pluginsStore.upsert,
+      appendOutboundLog: pluginsStore.appendOutboundLog,
+      appendConsole: pluginsStore.appendConsole,
+    },
+    tasks: {
+      upsert: tasksStore.upsert,
+    },
+    logs: {
+      append: logsStore.append,
+    },
+    protocols: {
+      applySnapshot: protocolsStore.applySnapshot,
     },
   })
 
-  const tasksSocket = new ManagedSocket<TaskSummary>({
-    name: 'tasks',
-    path: () => '/ws/tasks',
-    runtime,
-    onStatusChange: (status, lastError) => {
-      snapshots.tasks.status = status
-      snapshots.tasks.lastError = lastError
+  const controller = createSocketController({
+    runtime: {
+      getToken: () => sessionStore.token,
+      onSessionExpired: (tokenSnapshot: string | null) => sessionStore.handleSessionExpired(tokenSnapshot),
     },
-    onFrame: (frame: WebSocketFrame<TaskSummary>) => {
-      if (frame.type === 'tasks.updated') {
-        tasksStore.upsert(frame.data)
-      }
-    },
+    router,
   })
-
-  const logsSocket = new ManagedSocket<LogSummary>({
-    name: 'logs',
-    path: () => '/ws/logs',
-    runtime,
-    onStatusChange: (status, lastError) => {
-      snapshots.logs.status = status
-      snapshots.logs.lastError = lastError
-    },
-    onFrame: (frame: WebSocketFrame<LogSummary>) => {
-      if (frame.type === 'logs.appended') {
-        logsStore.append(frame.data)
-        pluginsStore.appendOutboundLog(frame.data)
-      }
-    },
-  })
-
-  const consoleSocket = new ManagedSocket<{
-    plugin_id: string
-    stream: 'stdout' | 'stderr' | 'system'
-    text: string
-    timestamp: string
-  }>({
-    name: 'pluginConsole',
-    path: () => (consolePluginId ? `/ws/plugins/${consolePluginId}/console` : null),
-    runtime,
-    onStatusChange: (status, lastError) => {
-      snapshots.pluginConsole.status = status
-      snapshots.pluginConsole.lastError = lastError
-    },
-    onFrame: (frame) => {
-      if (frame.type === 'plugins.console') {
-        pluginsStore.appendConsole(frame.data)
-      }
-    },
-  })
-
-  function ensureManagementSockets() {
-    if (socketsInitialized) {
-      eventsSocket.refresh()
-      tasksSocket.refresh()
-      logsSocket.refresh()
-      return
-    }
-
-    socketsInitialized = true
-    eventsSocket.start()
-    tasksSocket.start()
-    logsSocket.start()
-  }
-
-  function disconnectAll() {
-    clearStatusRefresh()
-    eventsSocket.stop()
-    tasksSocket.stop()
-    logsSocket.stop()
-    consoleSocket.stop()
-    socketsInitialized = false
-  }
-
-  function reconnectAll() {
-    ensureManagementSockets()
-    clearStatusRefresh()
-    eventsSocket.refresh()
-    tasksSocket.refresh()
-    logsSocket.refresh()
-    if (consolePluginId) {
-      consoleSocket.start()
-      consoleSocket.refresh()
-    }
-  }
-
-  function setConsolePlugin(pluginId: string | null) {
-    consolePluginId = pluginId
-    if (pluginId) {
-      consoleSocket.start()
-      consoleSocket.refresh()
-      return
-    }
-
-    consoleSocket.stop()
-  }
-
-  function reconnectConsole() {
-    if (!consolePluginId) {
-      return
-    }
-
-    consoleSocket.start()
-    consoleSocket.refresh()
-  }
 
   return {
-    snapshots,
-    disconnectAll,
-    ensureManagementSockets,
-    reconnectAll,
-    reconnectConsole,
-    setConsolePlugin,
+    snapshots: controller.snapshots,
+    disconnectAll: controller.disconnectAll,
+    ensureManagementSockets: controller.ensureManagementSockets,
+    reconnectAll: controller.reconnectAll,
+    reconnectConsole: controller.reconnectConsole,
+    setConsolePlugin: controller.setConsolePlugin,
   }
 })

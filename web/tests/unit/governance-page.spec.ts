@@ -178,10 +178,11 @@ describe('GovernancePage', () => {
 
     await flushPromises()
 
-    const blacklistForm = wrapper.get('[data-testid="governance-blacklist-user-form"]')
-    await blacklistForm.findAll('input')[0]!.setValue('30003')
-    await blacklistForm.findAll('input')[1]!.setValue('临时封禁')
-    await wrapper.get('[data-testid="governance-blacklist-add-user"]').trigger('click')
+    const blacklistForm = wrapper.get('[data-testid="governance-blacklist-form"]')
+    const blacklistInputs = blacklistForm.findAll('input.governance-form-input')
+    await blacklistInputs[0]!.setValue('30003')
+    await blacklistInputs[1]!.setValue('临时封禁')
+    await wrapper.get('[data-testid="governance-blacklist-add"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('30003')
@@ -191,10 +192,11 @@ describe('GovernancePage', () => {
     await flushPromises()
     expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).not.toContain('30003')
 
-    const whitelistForm = wrapper.get('[data-testid="governance-whitelist-user-form"]')
-    await whitelistForm.findAll('input')[0]!.setValue('30003')
-    await whitelistForm.findAll('input')[1]!.setValue('临时放行')
-    await wrapper.get('[data-testid="governance-whitelist-add-user"]').trigger('click')
+    const whitelistForm = wrapper.get('[data-testid="governance-whitelist-form"]')
+    const whitelistInputs = whitelistForm.findAll('input.governance-form-input')
+    await whitelistInputs[0]!.setValue('30003')
+    await whitelistInputs[1]!.setValue('临时放行')
+    await wrapper.get('[data-testid="governance-whitelist-add"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).toContain('30003')
