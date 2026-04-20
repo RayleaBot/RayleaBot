@@ -31,7 +31,7 @@ export const useSocketStore = defineStore('sockets', () => {
       upsert: tasksStore.upsert,
     },
     logs: {
-      append: logsStore.append,
+      appendBatch: logsStore.appendBatch,
     },
     protocols: {
       applySnapshot: protocolsStore.applySnapshot,

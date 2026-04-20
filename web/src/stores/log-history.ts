@@ -5,7 +5,7 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import {
   buildLogListPath,
-  mergeLogItemsAsc,
+  mergeSortedLogItemsAsc,
   normalizeLogLimit,
   normalizeLogListResponseItems,
   type HistoryTimeRange,
@@ -99,7 +99,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
         limit: pageLimit.value,
       }))
 
-      items.value = mergeLogItemsAsc(items.value, normalizeLogListResponseItems(response))
+      items.value = mergeSortedLogItemsAsc(items.value, normalizeLogListResponseItems(response))
       olderCursor.value = response.page?.older_cursor ?? null
       hasOlder.value = Boolean(response.page?.has_older)
       initialized.value = true

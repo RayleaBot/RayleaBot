@@ -124,12 +124,91 @@ export function mergeLogItemsAsc(existingItems: LogSummary[], nextItems: LogSumm
   return sortLogItemsAsc(Array.from(merged.values()))
 }
 
+export function mergeSortedLogItemsAsc(existingItems: LogSummary[], nextItems: LogSummary[]) {
+  if (existingItems.length === 0) {
+    return sortLogItemsAsc(nextItems)
+  }
+  if (nextItems.length === 0) {
+    return [...existingItems]
+  }
+
+  const nextMap = new Map<string, LogSummary>()
+  for (const item of nextItems) {
+    nextMap.set(getLogIdentityKey(item), item)
+  }
+  const sortedNext = sortLogItemsAsc(Array.from(nextMap.values()))
+
+  const result: LogSummary[] = []
+  let i = 0
+  let j = 0
+
+  while (i < existingItems.length && j < sortedNext.length) {
+    const left = existingItems[i]!
+    const right = sortedNext[j]!
+    const leftTs = toComparableTimestamp(left.timestamp)
+    const rightTs = toComparableTimestamp(right.timestamp)
+
+    if (leftTs < rightTs) {
+      result.push(left)
+      i++
+    } else if (leftTs > rightTs) {
+      result.push(right)
+      j++
+    } else {
+      const leftKey = getLogIdentityKey(left)
+      const rightKey = getLogIdentityKey(right)
+      const cmp = leftKey.localeCompare(rightKey)
+      if (cmp < 0) {
+        result.push(left)
+        i++
+      } else if (cmp > 0) {
+        result.push(right)
+        j++
+      } else {
+        result.push(right)
+        i++
+        j++
+      }
+    }
+  }
+
+  while (i < existingItems.length) {
+    result.push(existingItems[i]!)
+    i++
+  }
+  while (j < sortedNext.length) {
+    result.push(sortedNext[j]!)
+    j++
+  }
+
+  return result
+}
+
+export function canAppendInPlace(items: LogSummary[], log: LogSummary): boolean {
+  if (items.length === 0) {
+    return true
+  }
+  const last = items[items.length - 1]!
+  const lastTs = toComparableTimestamp(last.timestamp)
+  const logTs = toComparableTimestamp(log.timestamp)
+  if (logTs > lastTs) {
+    return true
+  }
+  if (logTs < lastTs) {
+    return false
+  }
+  return getLogIdentityKey(log).localeCompare(getLogIdentityKey(last)) >= 0
+}
+
 export function normalizeLogListResponseItems(response: LogListResponse | null | undefined) {
   return sortLogItemsAsc(response?.items ?? [])
 }
 
 export function getLogIdentityKey(log: LogSummary) {
-  return log.log_id || [
+  if (log.log_id) {
+    return log.log_id
+  }
+  return [
     log.timestamp,
     log.level,
     log.source,

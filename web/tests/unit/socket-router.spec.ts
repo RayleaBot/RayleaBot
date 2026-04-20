@@ -1,3 +1,4 @@
+import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createSocketFrameRouter } from '@/stores/socket-router'
@@ -26,7 +27,7 @@ describe('socket frame router', () => {
         upsert: vi.fn(),
       },
       logs: {
-        append: vi.fn(),
+        appendBatch: vi.fn(),
       },
       protocols: {
         applySnapshot: vi.fn(),
@@ -80,7 +81,7 @@ describe('socket frame router', () => {
         upsert: vi.fn(),
       },
       logs: {
-        append: vi.fn(),
+        appendBatch: vi.fn(),
       },
       protocols: {
         applySnapshot: vi.fn(),
@@ -139,7 +140,7 @@ describe('socket frame router', () => {
     expect(dependencies.protocols.applySnapshot).toHaveBeenCalledTimes(1)
   })
 
-  it('routes task, log, and console frames without changing payload semantics', () => {
+  it('routes task, log, and console frames without changing payload semantics', async () => {
     const dependencies = {
       system: {
         applyEvent: vi.fn(),
@@ -154,7 +155,7 @@ describe('socket frame router', () => {
         upsert: vi.fn(),
       },
       logs: {
-        append: vi.fn(),
+        appendBatch: vi.fn(),
       },
       protocols: {
         applySnapshot: vi.fn(),
@@ -200,13 +201,27 @@ describe('socket frame router', () => {
       },
     })
 
+    await flushPromises()
+
     expect(dependencies.tasks.upsert).toHaveBeenCalledWith({
       task_id: 'task_1',
       task_type: 'runtime.bootstrap',
       status: 'running',
       summary: '运行环境准备中',
     })
-    expect(dependencies.logs.append).toHaveBeenCalledTimes(1)
+    expect(dependencies.logs.appendBatch).toHaveBeenCalledTimes(1)
+    expect(dependencies.logs.appendBatch).toHaveBeenCalledWith([
+      {
+        log_id: 'log_plugin_outbound_0001',
+        timestamp: '2026-04-05T08:00:04Z',
+        level: 'info',
+        protocol: 'onebot11',
+        source: 'adapter.onebot11',
+        plugin_id: 'weather',
+        request_id: 'req_runtime_delivery_0001',
+        message: 'plugin weather command echo delivered group message: hello',
+      },
+    ])
     expect(dependencies.plugins.appendOutboundLog).toHaveBeenCalledTimes(1)
     expect(dependencies.plugins.appendConsole).toHaveBeenCalledWith({
       plugin_id: 'weather',
@@ -214,5 +229,77 @@ describe('socket frame router', () => {
       text: 'console line',
       timestamp: '2026-04-05T08:00:05Z',
     })
+  })
+
+  it('batches multiple log frames into a single appendBatch call', async () => {
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      tasks: {
+        upsert: vi.fn(),
+      },
+      logs: {
+        appendBatch: vi.fn(),
+      },
+      protocols: {
+        applySnapshot: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleLogsFrame({
+      channel: 'logs',
+      type: 'logs.appended',
+      timestamp: '2026-04-05T08:00:01Z',
+      data: {
+        log_id: 'log_1',
+        timestamp: '2026-04-05T08:00:01Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'first',
+      },
+    })
+    router.handleLogsFrame({
+      channel: 'logs',
+      type: 'logs.appended',
+      timestamp: '2026-04-05T08:00:02Z',
+      data: {
+        log_id: 'log_2',
+        timestamp: '2026-04-05T08:00:02Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'second',
+      },
+    })
+
+    expect(dependencies.logs.appendBatch).not.toHaveBeenCalled()
+
+    await flushPromises()
+
+    expect(dependencies.logs.appendBatch).toHaveBeenCalledTimes(1)
+    expect(dependencies.logs.appendBatch).toHaveBeenCalledWith([
+      {
+        log_id: 'log_1',
+        timestamp: '2026-04-05T08:00:01Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'first',
+      },
+      {
+        log_id: 'log_2',
+        timestamp: '2026-04-05T08:00:02Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'second',
+      },
+    ])
+    expect(dependencies.plugins.appendOutboundLog).toHaveBeenCalledTimes(2)
   })
 })

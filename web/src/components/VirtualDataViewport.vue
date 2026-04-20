@@ -39,6 +39,8 @@ let observedScroller: HTMLElement | null = null
 const measuredHeights = new Map<string | number, number>()
 const measuredKeys = new Set<string | number>()
 const rowRefs = new Map<string | number, HTMLElement>()
+const rowElementToKey = new Map<HTMLElement, string | number>()
+const keyToIndexMap = ref(new Map<string | number, number>())
 let lastAtBottom = true
 let topReachArmed = false
 let followBottomPausedByUser = false
@@ -114,12 +116,18 @@ const visibleStartIndex = computed(() => {
   }
 
   const { heights, offsets } = layoutMetrics.value
-  for (let index = 0; index < heights.length; index += 1) {
-    if (offsets[index]! + heights[index]! > scrollTop.value) {
-      return index
+  let low = 0
+  let high = heights.length - 1
+  while (low <= high) {
+    const mid = (low + high) >>> 1
+    const midBottom = offsets[mid]! + heights[mid]!
+    if (midBottom <= scrollTop.value) {
+      low = mid + 1
+    } else {
+      high = mid - 1
     }
   }
-  return props.items.length
+  return Math.min(heights.length, low)
 })
 
 const visibleCount = computed(() => {
@@ -202,11 +210,9 @@ function createResizeObserver() {
         continue
       }
 
-      for (const [key, element] of rowRefs.entries()) {
-        if (element === entry.target) {
-          updateMeasuredRowHeight(key, entry.contentRect.height)
-          break
-        }
+      const key = rowElementToKey.get(entry.target)
+      if (key !== undefined) {
+        updateMeasuredRowHeight(key, entry.contentRect.height)
       }
     }
   })
@@ -344,13 +350,24 @@ function updateMeasuredRowHeight(key: string | number, nextHeight: number) {
   }
 }
 
+function rebuildKeyToIndexMap() {
+  const map = new Map<string | number, number>()
+  for (let index = 0; index < props.items.length; index += 1) {
+    map.set(resolveKey(props.items[index]!, index), index)
+  }
+  keyToIndexMap.value = map
+}
+
 function findItemIndexByKey(key: string | number) {
+  const fromMap = keyToIndexMap.value.get(key)
+  if (fromMap !== undefined && fromMap < props.items.length && resolveKey(props.items[fromMap]!, fromMap) === key) {
+    return fromMap
+  }
   for (let index = 0; index < props.items.length; index += 1) {
     if (resolveKey(props.items[index]!, index) === key) {
       return index
     }
   }
-
   return -1
 }
 
@@ -466,19 +483,26 @@ function setMeasuredRowRef(key: string | number, element: Element | null) {
     return
   }
   const previous = rowRefs.get(key)
-  if (previous && previous !== element && resizeObserver) {
-    resizeObserver.unobserve(previous)
+  if (previous && previous !== element) {
+    if (resizeObserver) {
+      resizeObserver.unobserve(previous)
+    }
+    rowElementToKey.delete(previous)
   }
 
   if (!(element instanceof HTMLElement)) {
     if (previous && resizeObserver) {
       resizeObserver.unobserve(previous)
     }
+    if (previous) {
+      rowElementToKey.delete(previous)
+    }
     rowRefs.delete(key)
     return
   }
 
   rowRefs.set(key, element)
+  rowElementToKey.set(element, key)
   if (resizeObserver) {
     resizeObserver.observe(element)
   }
@@ -521,9 +545,10 @@ onBeforeUpdate(() => {
       ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight)
       : anchorIndex * props.itemHeight)
     : 0
-  const anchorElement = anchorKey !== null ? rowRefs.get(anchorKey) ?? null : null
-  const anchorViewportOffset = anchorElement
-    ? anchorElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top
+  const anchorViewportOffset = hasAnchor
+    ? (props.dynamicItemHeight
+      ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight) - scroller.scrollTop
+      : anchorIndex * props.itemHeight - scroller.scrollTop)
     : null
 
   pendingListMutation = {
@@ -546,6 +571,32 @@ onUpdated(() => {
   }
 
   const nextKeys = props.items.map((item, index) => resolveKey(item, index))
+  rebuildKeyToIndexMap()
+
+  const activeKeys = new Set(nextKeys)
+  let changed = false
+  for (const key of Array.from(measuredHeights.keys())) {
+    if (!activeKeys.has(key)) {
+      measuredHeights.delete(key)
+      changed = true
+    }
+  }
+  for (const key of Array.from(measuredKeys.keys())) {
+    if (!activeKeys.has(key)) {
+      measuredKeys.delete(key)
+    }
+  }
+  for (const [key, element] of Array.from(rowRefs.entries())) {
+    if (!activeKeys.has(key)) {
+      resizeObserver?.unobserve(element)
+      rowElementToKey.delete(element)
+      rowRefs.delete(key)
+    }
+  }
+  if (changed) {
+    measurementVersion.value += 1
+  }
+
   const prepended = didPrepend(snapshot.previousKeys, nextKeys)
   const appended = didAppend(snapshot.previousKeys, nextKeys)
   const keysChanged = !areKeyArraysEqual(snapshot.previousKeys, nextKeys)
@@ -578,9 +629,11 @@ onUpdated(() => {
   }
 
   if (!shouldFollowBottomForHeightChanges && contentHeightChanged && snapshot.anchorKey !== null) {
-    const anchorElement = rowRefs.get(snapshot.anchorKey)
-    if (anchorElement && snapshot.anchorViewportOffset !== null) {
-      const nextViewportOffset = anchorElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top
+    const anchorIndex = nextKeys.indexOf(snapshot.anchorKey)
+    if (anchorIndex >= 0 && snapshot.anchorViewportOffset !== null) {
+      const nextViewportOffset = props.dynamicItemHeight
+        ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight) - scroller.scrollTop
+        : anchorIndex * props.itemHeight - scroller.scrollTop
       const viewportDelta = nextViewportOffset - snapshot.anchorViewportOffset
       if (viewportDelta !== 0) {
         scrollToOffset(scroller.scrollTop + viewportDelta)
@@ -588,7 +641,6 @@ onUpdated(() => {
       }
     }
 
-    const anchorIndex = nextKeys.indexOf(snapshot.anchorKey)
     if (anchorIndex >= 0) {
       const anchorTop = props.dynamicItemHeight
         ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight)
@@ -605,37 +657,7 @@ onUpdated(() => {
   syncViewportState(scroller, { userInitiated: false })
 })
 
-watch(
-  () => props.items.map((item, index) => resolveKey(item, index)),
-  (nextKeys) => {
-    const activeKeys = new Set(nextKeys)
-    let changed = false
 
-    for (const key of Array.from(measuredHeights.keys())) {
-      if (!activeKeys.has(key)) {
-        measuredHeights.delete(key)
-        changed = true
-      }
-    }
-
-    for (const key of Array.from(measuredKeys.keys())) {
-      if (!activeKeys.has(key)) {
-        measuredKeys.delete(key)
-      }
-    }
-
-    for (const [key, element] of Array.from(rowRefs.entries())) {
-      if (!activeKeys.has(key)) {
-        resizeObserver?.unobserve(element)
-        rowRefs.delete(key)
-      }
-    }
-
-    if (changed) {
-      measurementVersion.value += 1
-    }
-  },
-)
 
 watch(
   scrollerRef,

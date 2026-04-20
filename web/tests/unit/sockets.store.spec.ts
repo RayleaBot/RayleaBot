@@ -1,6 +1,8 @@
+import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useLogsStore } from '@/stores/logs'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
 
@@ -84,5 +86,30 @@ describe('socket store', () => {
     expect(MockManagedSocket.instances[1].stop).toHaveBeenCalledTimes(1)
     expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(1)
     expect(MockManagedSocket.instances[3].stop).toHaveBeenCalledTimes(2)
+  })
+
+  it('routes live log frames through the public socket store wiring', async () => {
+    const sessionStore = useSessionStore()
+    sessionStore.token = 'session-token'
+    const store = useSocketStore()
+    const logsStore = useLogsStore()
+
+    store.ensureManagementSockets()
+    MockManagedSocket.instances[2].options.onFrame?.({
+      channel: 'logs',
+      type: 'logs.appended',
+      timestamp: '2026-04-05T08:00:01Z',
+      data: {
+        log_id: 'log_0001',
+        timestamp: '2026-04-05T08:00:01Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'first live row',
+      },
+    })
+
+    await flushPromises()
+
+    expect(logsStore.items.map((item) => item.log_id)).toEqual(['log_0001'])
   })
 })

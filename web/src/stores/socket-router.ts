@@ -19,6 +19,8 @@ export function createSocketFrameRouter(
 ): SocketFrameRouter {
   let statusRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
   let statusRefreshInFlight = false
+  let pendingLiveLogs: LogSummary[] = []
+  let flushLiveLogsScheduled = false
 
   function clearPendingStatusRefresh() {
     if (statusRefreshHandle !== null) {
@@ -83,10 +85,35 @@ export function createSocketFrameRouter(
     }
   }
 
+  function flushPendingLiveLogs() {
+    flushLiveLogsScheduled = false
+    if (pendingLiveLogs.length === 0) {
+      return
+    }
+    const batch = pendingLiveLogs
+    pendingLiveLogs = []
+    dependencies.logs.appendBatch(batch)
+    for (const log of batch) {
+      dependencies.plugins.appendOutboundLog(log)
+    }
+  }
+
+  function scheduleFlushLiveLogs() {
+    if (flushLiveLogsScheduled) {
+      return
+    }
+    flushLiveLogsScheduled = true
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(flushPendingLiveLogs)
+    } else {
+      Promise.resolve().then(flushPendingLiveLogs)
+    }
+  }
+
   function handleLogsFrame(frame: WebSocketFrame<LogSummary>) {
     if (frame.type === 'logs.appended') {
-      dependencies.logs.append(frame.data)
-      dependencies.plugins.appendOutboundLog(frame.data)
+      pendingLiveLogs.push(frame.data)
+      scheduleFlushLiveLogs()
     }
   }
 

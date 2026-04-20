@@ -5,7 +5,8 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import {
   buildLogListPath,
-  mergeLogItemsAsc,
+  canAppendInPlace,
+  mergeSortedLogItemsAsc,
   normalizeLogLimit,
   normalizeLogListResponseItems,
   matchesLogFilters,
@@ -14,6 +15,7 @@ import {
 import type { LogListResponse, LogSummary } from '@/types/api'
 
 const currentSessionPageLimit = 100
+const MAX_LIVE_LOG_ITEMS = 5000
 
 export const useLogsStore = defineStore('logs', () => {
   const items = ref<LogSummary[]>([])
@@ -29,6 +31,7 @@ export const useLogsStore = defineStore('logs', () => {
   const atBottom = ref(true)
 
   let requestVersion = 0
+  let olderWindowExpanded = false
 
   const pageLimit = computed(() => normalizeLogLimit(currentSessionPageLimit, currentSessionPageLimit))
 
@@ -45,6 +48,7 @@ export const useLogsStore = defineStore('logs', () => {
     hasOlder.value = false
     pendingNewCount.value = 0
     initialized.value = false
+    olderWindowExpanded = false
     return fetchLatest({ replaceItems: true })
   }
 
@@ -69,10 +73,14 @@ export const useLogsStore = defineStore('logs', () => {
         limit: pageLimit.value,
       }))
 
-      items.value = mergeLogItemsAsc(items.value, normalizeLogListResponseItems(response))
+      const olderItems = normalizeLogListResponseItems(response)
+      items.value = mergeSortedLogItemsAsc(items.value, olderItems)
       olderCursor.value = response.page?.older_cursor ?? null
       hasOlder.value = Boolean(response.page?.has_older)
       initialized.value = true
+      if (olderItems.length > 0) {
+        olderWindowExpanded = true
+      }
       return items.value
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
@@ -82,12 +90,26 @@ export const useLogsStore = defineStore('logs', () => {
     }
   }
 
+  function trimItems(value: LogSummary[]): LogSummary[] {
+    if (olderWindowExpanded) {
+      return value
+    }
+    if (value.length <= MAX_LIVE_LOG_ITEMS) {
+      return value
+    }
+    return value.slice(value.length - MAX_LIVE_LOG_ITEMS)
+  }
+
   function append(log: LogSummary) {
     if (!matchesLogFilters(log, filters.value)) {
       return false
     }
 
-    items.value = mergeLogItemsAsc(items.value, [log])
+    if (canAppendInPlace(items.value, log)) {
+      items.value = trimItems([...items.value, log])
+    } else {
+      items.value = trimItems(mergeSortedLogItemsAsc(items.value, [log]))
+    }
     initialized.value = true
 
     if (active.value && atBottom.value) {
@@ -97,6 +119,24 @@ export const useLogsStore = defineStore('logs', () => {
     }
 
     return true
+  }
+
+  function appendBatch(logs: LogSummary[]) {
+    const matching = logs.filter((log) => matchesLogFilters(log, filters.value))
+    if (matching.length === 0) {
+      return 0
+    }
+
+    items.value = trimItems(mergeSortedLogItemsAsc(items.value, matching))
+    initialized.value = true
+
+    if (active.value && atBottom.value) {
+      pendingNewCount.value = 0
+    } else {
+      pendingNewCount.value += matching.length
+    }
+
+    return matching.length
   }
 
   function setViewportActive(nextValue: boolean) {
@@ -131,7 +171,7 @@ export const useLogsStore = defineStore('logs', () => {
       }
 
       const nextItems = normalizeLogListResponseItems(response)
-      items.value = options.replaceItems ? nextItems : mergeLogItemsAsc(items.value, nextItems)
+      items.value = options.replaceItems ? nextItems : mergeSortedLogItemsAsc(items.value, nextItems)
       if (options.replaceItems || !olderCursor.value) {
         olderCursor.value = response.page?.older_cursor ?? null
       }
@@ -165,6 +205,7 @@ export const useLogsStore = defineStore('logs', () => {
     pendingNewCount,
     acknowledgePendingNew,
     append,
+    appendBatch,
     applyFilters,
     ensureLoaded,
     loadOlder,

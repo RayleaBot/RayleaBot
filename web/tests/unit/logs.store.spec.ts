@@ -275,4 +275,144 @@ describe('logs store', () => {
     await expect(store.ensureLoaded()).rejects.toMatchObject({ message: '读取日志失败' })
     expect(store.error).toBe('读取日志失败')
   })
+
+  it('trims live logs to the maximum limit and keeps the newest rows', () => {
+    const store = useLogsStore()
+    store.setViewportActive(false)
+    store.setViewportAtBottom(false)
+
+    const baseTime = new Date('2026-04-05T08:00:00Z').getTime()
+    for (let index = 0; index < 5005; index += 1) {
+      const timestamp = new Date(baseTime + index * 1000).toISOString()
+      store.append({
+        log_id: `log_${String(index).padStart(4, '0')}`,
+        timestamp,
+        level: 'info',
+        source: 'runtime',
+        message: `row ${index}`,
+      })
+    }
+
+    expect(store.items.length).toBe(5000)
+    expect(store.items[0]!.log_id).toBe('log_0005')
+    expect(store.items[store.items.length - 1]!.log_id).toBe('log_5004')
+  })
+
+  it('uses the fast append path when the new log is newer than the last item', () => {
+    const store = useLogsStore()
+    store.setViewportActive(true)
+    store.setViewportAtBottom(true)
+
+    store.append({
+      log_id: 'log_0001',
+      timestamp: '2026-04-05T08:00:01Z',
+      level: 'info',
+      source: 'runtime',
+      message: 'first',
+    })
+    store.append({
+      log_id: 'log_0002',
+      timestamp: '2026-04-05T08:00:02Z',
+      level: 'info',
+      source: 'runtime',
+      message: 'second',
+    })
+
+    expect(store.items.map((item) => item.log_id)).toEqual(['log_0001', 'log_0002'])
+  })
+
+  it('appends a batch of live logs in one update', () => {
+    const store = useLogsStore()
+    store.setViewportActive(false)
+    store.setViewportAtBottom(false)
+    store.filters = {
+      level: 'info',
+      source: 'runtime',
+    }
+
+    const count = store.appendBatch([
+      {
+        log_id: 'log_0001',
+        timestamp: '2026-04-05T08:00:01Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'first',
+      },
+      {
+        log_id: 'log_0002',
+        timestamp: '2026-04-05T08:00:02Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'second',
+      },
+      {
+        log_id: 'log_0003',
+        timestamp: '2026-04-05T08:00:03Z',
+        level: 'warn',
+        source: 'adapter',
+        message: 'filtered out',
+      },
+    ])
+
+    expect(count).toBe(2)
+    expect(store.items.map((item) => item.log_id)).toEqual(['log_0001', 'log_0002'])
+    expect(store.pendingNewCount).toBe(2)
+  })
+
+  it('keeps loaded older rows when live traffic grows beyond the realtime cap', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            log_id: 'log_recent_0001',
+            timestamp: '2026-04-05T08:00:01Z',
+            level: 'info',
+            source: 'runtime',
+            message: 'recent row',
+          },
+        ],
+        page: {
+          limit: 100,
+          has_older: true,
+          older_cursor: 'cursor-older-1',
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [
+          {
+            log_id: 'log_older_0001',
+            timestamp: '2026-04-05T08:00:00Z',
+            level: 'info',
+            source: 'runtime',
+            message: 'older row',
+          },
+        ],
+        page: {
+          limit: 100,
+          has_older: false,
+          older_cursor: null,
+        },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const store = useLogsStore()
+    await store.ensureLoaded()
+    await store.loadOlder()
+
+    const baseTime = new Date('2026-04-05T08:00:02Z').getTime()
+    const liveBatch = Array.from({ length: 5001 }, (_, index) => ({
+      log_id: `log_live_${String(index).padStart(4, '0')}`,
+      timestamp: new Date(baseTime + index * 1000).toISOString(),
+      level: 'info' as const,
+      source: 'runtime',
+      message: `live row ${index}`,
+    }))
+
+    const count = store.appendBatch(liveBatch)
+
+    expect(count).toBe(5001)
+    expect(store.items[0]!.log_id).toBe('log_older_0001')
+    expect(store.items.map((item) => item.log_id)).toContain('log_recent_0001')
+    expect(store.items).toHaveLength(5003)
+  })
 })

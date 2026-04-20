@@ -49,7 +49,7 @@ export interface SocketFrameRouterDependencies {
     upsert: (task: TaskSummary) => void
   }
   logs: {
-    append: (log: LogSummary) => unknown
+    appendBatch: (logs: LogSummary[]) => unknown
   }
   protocols: {
     applySnapshot: (snapshot: OneBot11ProtocolSnapshotResponse) => void

@@ -94,43 +94,16 @@ function shouldSyncViewportToLatest() {
     && !currentRouteLogId()
 }
 
-function waitForNextFrame() {
-  return new Promise<void>((resolve) => {
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => resolve())
-      return
-    }
-
-    window.setTimeout(resolve, 0)
-  })
-}
-
 async function syncViewportToLatest() {
   if (!shouldSyncViewportToLatest()) {
     return
   }
 
   autoFollowBottom.value = true
-  try {
-    for (let pass = 0; pass < 3; pass += 1) {
-      await nextTick()
-      await waitForNextFrame()
-      viewportRef.value?.scrollToBottom()
-
-      const metrics = viewportRef.value?.getScrollMetrics?.()
-      if (!metrics || metrics.scrollHeight <= metrics.clientHeight) {
-        continue
-      }
-
-      if (metrics.scrollHeight - metrics.clientHeight - metrics.scrollTop <= 2) {
-        break
-      }
-    }
-  } finally {
-    await nextTick()
-    await waitForNextFrame()
-    autoFollowBottom.value = false
-  }
+  await nextTick()
+  viewportRef.value?.scrollToBottom()
+  await nextTick()
+  autoFollowBottom.value = false
 }
 
 async function replaceRouteState(nextLogId: string | null = selectedLogId.value) {
