@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import type { LauncherResetAdminRunner } from "./launcher-coordinator";
+import type { LauncherResetAdminRunner } from "./launcher-coordinator.types";
 import type { LauncherResolvedSettings } from "../../shared/launcher-models";
 import { resolveConfigSchemaPath } from "./process-controller";
 
