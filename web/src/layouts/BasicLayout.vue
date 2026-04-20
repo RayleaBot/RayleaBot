@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineComponent, h, markRaw, onBeforeUnmount, onMounted, ref, resolveDynamicComponent, watch } from 'vue'
+import { computed, defineComponent, h, markRaw, nextTick, onBeforeUnmount, onMounted, ref, resolveDynamicComponent, watch } from 'vue'
 import type { Component as VueComponent } from 'vue'
 import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteRecordRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
@@ -65,6 +65,7 @@ const openMenuKeys = ref<string[]>([])
 let reducedMotionMediaQuery: MediaQueryList | null = null
 
 const menuItems = computed(() => buildMenuItems(adminRoutes[0]?.children ?? [], ''))
+const staticNavigationItems = collectNavigationItems(adminRoutes[0]?.children ?? [], '')
 const navigationItems = computed(() => {
   const fromTabs = tabs.value.map((item) => ({
     icon: resolveTabItemIconName(item),
@@ -72,10 +73,9 @@ const navigationItems = computed(() => {
     path: item.path,
     title: item.title,
   }))
-  const fromRoutes = collectNavigationItems(adminRoutes[0]?.children ?? [], '')
-  const byPath = new Map<string, (typeof fromRoutes)[number]>()
+  const byPath = new Map<string, (typeof staticNavigationItems)[number]>()
 
-  for (const item of [...fromTabs, ...fromRoutes]) {
+  for (const item of [...fromTabs, ...staticNavigationItems]) {
     byPath.set(item.path, item)
   }
 
@@ -311,14 +311,14 @@ function flattenMenu(items: AppMenuItem[], lineage: Array<{ key: string; path: s
   })
 }
 
+const flattenedMenu = flattenMenu(menuItems.value)
 const menuLineage = computed(() => {
   const leafMeta = getLeafRouteMeta(route)
   const targetPath = typeof leafMeta?.activePath === 'string' && leafMeta.activePath
     ? leafMeta.activePath
     : route.path
 
-  const flattened = flattenMenu(menuItems.value)
-  return flattened.find(({ item }) => item.path === targetPath)?.lineage ?? []
+  return flattenedMenu.find(({ item }) => item.path === targetPath)?.lineage ?? []
 })
 
 const selectedMenuKeys = computed(() => {
@@ -337,32 +337,34 @@ watch(
 watch(
   () => route.fullPath,
   () => {
-    const leafRecord = getLeafMatchedRecord(route)
-    const leafMeta = getLeafRouteMeta(route)
+    nextTick(() => {
+      const leafRecord = getLeafMatchedRecord(route)
+      const leafMeta = getLeafRouteMeta(route)
 
-    if (!leafRecord || leafMeta?.hideInTab || !route.name) {
-      return
-    }
+      if (!leafRecord || leafMeta?.hideInTab || !route.name) {
+        return
+      }
 
-    const title = resolveCurrentTabTitle(route)
-    if (!title) {
-      return
-    }
+      const title = resolveCurrentTabTitle(route)
+      if (!title) {
+        return
+      }
 
-    if (typeof leafMeta?.viewKey === 'string' && leafMeta.viewKey) {
-      uiShellStore.removeTabsByName(String(route.name), { exceptPath: resolveTabPath(route) })
-    }
+      if (typeof leafMeta?.viewKey === 'string' && leafMeta.viewKey) {
+        uiShellStore.removeTabsByName(String(route.name), { exceptPath: resolveTabPath(route) })
+      }
 
-    uiShellStore.upsertTab({
-      affix: Boolean(leafMeta?.affixTab),
-      fullPath: route.fullPath,
-      icon: resolveCurrentTabIcon(route),
-      keepAlive: Boolean(leafMeta?.keepAlive),
-      name: String(route.name),
-      path: resolveTabPath(route),
-      title,
+      uiShellStore.upsertTab({
+        affix: Boolean(leafMeta?.affixTab),
+        fullPath: route.fullPath,
+        icon: resolveCurrentTabIcon(route),
+        keepAlive: Boolean(leafMeta?.keepAlive),
+        name: String(route.name),
+        path: resolveTabPath(route),
+        title,
+      })
+      uiShellStore.setMobileMenuOpen(false)
     })
-    uiShellStore.setMobileMenuOpen(false)
   },
   { immediate: true },
 )
@@ -978,7 +980,7 @@ onBeforeUnmount(() => {
         />
 
         <RouterView v-slot="{ route: currentViewRoute }">
-          <Transition :name="effectiveTransitionName" mode="out-in" appear>
+          <Transition :name="effectiveTransitionName" mode="out-in">
             <KeepAlive :include="effectiveCachedViewNames">
               <component
                 :is="getRouteStageComponent(currentViewRoute)"

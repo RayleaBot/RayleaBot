@@ -738,42 +738,6 @@ textarea:focus-visible,
   line-height: 1.5;
 }
 
-.connection-card__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.connection-card__item {
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-  display: grid;
-  gap: 6px;
-}
-
-.connection-card__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.connection-card__label {
-  font-weight: 600;
-}
-
-.connection-card__meta {
-  color: var(--muted);
-  line-height: 1.4;
-}
-
-.connection-card__badge-wrap {
-  display: inline-flex;
-  border-radius: 999px;
-}
-
 .app-page {
   width: 100%;
   margin: 0;
@@ -1515,35 +1479,6 @@ textarea:focus-visible,
   animation: shimmer 1.4s infinite;
 }
 
-/* Route search panel staggered animation */
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.route-search-panel__result {
-  animation: slideUpFade 0.25s ease both;
-}
-
-.route-search-panel__result:nth-child(1) { animation-delay: 0ms; }
-.route-search-panel__result:nth-child(2) { animation-delay: 30ms; }
-.route-search-panel__result:nth-child(3) { animation-delay: 60ms; }
-.route-search-panel__result:nth-child(4) { animation-delay: 90ms; }
-.route-search-panel__result:nth-child(5) { animation-delay: 120ms; }
-.route-search-panel__result:nth-child(6) { animation-delay: 150ms; }
-.route-search-panel__result:nth-child(7) { animation-delay: 180ms; }
-.route-search-panel__result:nth-child(8) { animation-delay: 210ms; }
-.route-search-panel__result:nth-child(9) { animation-delay: 240ms; }
-.route-search-panel__result:nth-child(10) { animation-delay: 270ms; }
-.route-search-panel__result:nth-child(11) { animation-delay: 300ms; }
-.route-search-panel__result:nth-child(12) { animation-delay: 330ms; }
-
 /* Auth layout grid background */
 .auth-layout__hero::before {
   content: '';
@@ -1575,7 +1510,7 @@ textarea:focus-visible,
 .route-fade-leave-active,
 .route-fade-slide-enter-active,
 .route-fade-slide-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.14s ease, transform 0.14s ease;
 }
 
 .route-fade-enter-from,

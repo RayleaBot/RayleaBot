@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MotionDirective as vMotion } from '@vueuse/motion'
 import { computed } from 'vue'
 
 import { useUiShellStore } from '@/stores/ui-shell'

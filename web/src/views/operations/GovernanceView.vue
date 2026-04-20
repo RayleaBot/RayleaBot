@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MotionDirective as vMotion } from '@vueuse/motion'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'

@@ -21,6 +21,10 @@ vi.mock('ant-design-vue', () => ({
   default: {},
 }))
 
+vi.mock('@/plugins/antd', () => ({
+  installAntDesignVue: vi.fn(),
+}))
+
 vi.mock('pinia', () => ({
   createPinia,
 }))

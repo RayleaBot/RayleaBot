@@ -87,3 +87,41 @@ function getPulseClass(status: ConnectionStatus) {
     </div>
   </a-card>
 </template>
+
+<style scoped lang="scss">
+.connection-card__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.connection-card__item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  display: grid;
+  gap: 6px;
+}
+
+.connection-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.connection-card__label {
+  font-weight: 600;
+}
+
+.connection-card__meta {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.connection-card__badge-wrap {
+  display: inline-flex;
+  border-radius: 999px;
+}
+</style>

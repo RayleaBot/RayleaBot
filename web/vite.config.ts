@@ -32,6 +32,32 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1400,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (
+              id.includes('/vue/')
+              || id.includes('/vue-router/')
+              || id.includes('/pinia/')
+              || id.includes('/@vue/')
+            ) {
+              return 'vue-vendor'
+            }
+            if (id.includes('/ant-design-vue/') || id.includes('/@ant-design/')) {
+              return 'antd-vendor'
+            }
+            if (
+              id.includes('/@vueuse/')
+              || id.includes('/popmotion/')
+              || id.includes('/framesync/')
+            ) {
+              return 'utils-vendor'
+            }
+          }
+        },
+      },
+    },
   },
   test: {
     environment: 'jsdom',

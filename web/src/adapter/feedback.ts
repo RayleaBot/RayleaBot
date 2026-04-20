@@ -1,4 +1,4 @@
-import { message } from 'ant-design-vue'
+import message from 'ant-design-vue/es/message'
 
 export function notifySuccess(content: string) {
   void message.success(content)

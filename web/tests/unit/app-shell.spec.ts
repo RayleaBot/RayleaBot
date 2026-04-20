@@ -243,6 +243,15 @@ describe('BasicLayout', () => {
     expect(wrapper.text()).toContain('模板编辑')
   })
 
+  it('serializes route transitions to avoid overlapping pages during navigation', async () => {
+    await mountShell('/')
+
+    const transition = document.body.querySelector('.admin-layout__content transition-stub')
+
+    expect(transition).not.toBeNull()
+    expect(transition?.getAttribute('mode')).toBe('out-in')
+  })
+
   it('creates leaf tabs for grouped pages and keeps the active tab in sync', async () => {
     const { router, uiShellStore } = await mountShell('/')
 

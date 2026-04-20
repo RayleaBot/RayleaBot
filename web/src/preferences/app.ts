@@ -1,4 +1,5 @@
-import { theme, type ThemeConfig } from 'ant-design-vue'
+import theme from 'ant-design-vue/es/theme'
+import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
 
 export type ThemeMode = 'dark' | 'light'
 export type RadiusLevel = 'sm' | 'md' | 'lg' | 'xl'

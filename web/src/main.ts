@@ -1,11 +1,10 @@
 import { watch } from 'vue'
 import { createPinia } from 'pinia'
-import Antd from 'ant-design-vue'
 import { createApp } from 'vue'
-import { MotionPlugin } from '@vueuse/motion'
 
 import App from '@/App.vue'
 import { i18n } from '@/i18n'
+import { installAntDesignVue } from '@/plugins/antd'
 import { toLauncherAdmissionHint } from '@/lib/auth-feedback'
 import { configureApiRuntime } from '@/request/http'
 import { createAppRouter } from '@/router'
@@ -78,9 +77,8 @@ async function bootstrap() {
   const pinia = createPinia()
 
   app.use(pinia)
-  app.use(Antd)
+  installAntDesignVue(app)
   app.use(i18n)
-  app.use(MotionPlugin)
 
   const sessionStore = useSessionStore(pinia)
   const socketStore = useSocketStore(pinia)

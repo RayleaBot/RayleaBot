@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MotionDirective as vMotion } from '@vueuse/motion'
 import { reactive, ref } from 'vue'
 import type { FormInstance, Rule } from 'ant-design-vue/es/form'
 import { useRouter } from 'vue-router'
