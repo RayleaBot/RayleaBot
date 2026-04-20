@@ -8,6 +8,7 @@
 
 - `config/default.yaml` 提供发行包默认基线。
 - `config/user.yaml` 保存用户自定义配置。
+- `data/launcher.json` 保存 Launcher 的本机设置，例如安装根选择、关闭行为和本地覆盖项。
 - 服务运行时按 `default.yaml -> user.yaml` 生成有效配置，并在保存时输出 canonical 结构。
 - 首次启动如缺少 `config/user.yaml`，服务会基于默认模板生成首份用户配置。
 - 敏感连接信息和凭据由受控配置入口处理，不把明文 secret 散落到公开界面和诊断面。
@@ -31,7 +32,7 @@
 | 路径 | 用途 |
 | --- | --- |
 | `config/` | 默认模板与用户配置 |
-| `data/` | SQLite 状态库和插件业务数据 |
+| `data/` | SQLite 状态库、插件业务数据和 Launcher 本机设置 |
 | `cache/` | 渲染缓存、下载缓存和临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
 | `plugins/installed/` | 用户安装插件 |
@@ -49,6 +50,7 @@
 - 复用已有工作区时，继续沿用原有 `config/`、`data/`、`cache/`、`logs/` 和 `plugins/installed/`。
 - Launcher 的运行目录覆盖只影响进程工作目录和本地数据目录，不改变 `.deps/` 与 `templates/` 的正式位置。
 - 运行环境与模板资源的有效根目录跟随 RayleaBot 根目录，而不是临时工作目录。
+- `data/launcher.json` 随同机目录保留，不属于正式恢复包范围。
 
 ## 配置与管理面
 
@@ -61,5 +63,6 @@
 
 ## 当前边界
 
-- 用户可编辑的是配置文件和明确开放的管理入口，不是程序托管目录中的内部状态文件。
+- 用户可编辑的是 `config/default.yaml`、`config/user.yaml` 和明确开放的管理入口，不是程序托管目录中的内部状态文件。
+- `data/launcher.json` 用于 Launcher 本机设置，不替代 `config/user.yaml`，也不作为常规人工编辑对象。
 - `cache/`、`logs/`、`.deps/` 和状态库文件不作为常规人工编辑对象。

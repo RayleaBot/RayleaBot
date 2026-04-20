@@ -6,13 +6,14 @@
 
 - 平台使用 `config/default.yaml` 与 `config/user.yaml` 生成有效配置。
 - 运行根目录围绕 `config/`、`data/`、`cache/`、`logs/`、`plugins/installed/` 和 `.deps/` 组织。
+- Launcher 本地设置位于 `data/launcher.json`，用于安装根选择、关闭行为和本地覆盖项，不替代 `config/user.yaml`。
 - 配置读取、schema 校验、热更新快照和 `restart_required` 语义由服务端统一裁决。
 - 插件不能直接读写 `config/user.yaml`，配置读写必须通过正式能力入口。
 
 ## 存储与日志
 
 - SQLite 是唯一正式状态库，负责鉴权、任务、插件实例、授权、日志与调度持久化。
-- `data/` 保存状态库和插件业务数据；`cache/` 保存可重建缓存；`logs/` 保存结构化日志与诊断输出。
+- `data/` 保存状态库、插件业务数据和 Launcher 本地设置；`cache/` 保存可重建缓存；`logs/` 保存结构化日志与诊断输出。
 - 敏感信息通过受控 secret store 管理，不把明文 secret 放入公开用户配置。
 - 管理日志、插件日志和诊断导出复用同一套结构化摘要口径。
 
@@ -22,6 +23,7 @@
 - `doctor`、诊断导出、Web 管理面和 Launcher 状态页共享同一份恢复摘要和资源问题摘要。
 - `runtime.bootstrap` 负责运行环境资源准备；`recovery.recheck` 和 `recovery.confirm` 负责恢复摘要再检查与人工确认。
 - 平台把恢复、兼容检查、运行环境资源准备和人工处理建议视为同一条正式运维链路的一部分。
+- `data/launcher.json` 随同机目录保留，不进入正式恢复包范围。
 
 ## Launcher 与 Server 控制面
 

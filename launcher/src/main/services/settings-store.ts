@@ -28,6 +28,18 @@ interface SerializedLauncherSettings {
   CloseBehavior?: string;
 }
 
+interface LauncherSettingsFileLocations {
+  settingsPath: string;
+  legacySettingsPath: string;
+}
+
+interface ReadSerializedSettingsResult {
+  path: string;
+  payload: SerializedLauncherSettings | null;
+  exists: boolean;
+  valid: boolean;
+}
+
 function normalizeCloseBehavior(value: unknown): LauncherCloseBehavior {
   if (value === "hide_to_tray" || value === "HideToTray") {
     return "hide_to_tray";
@@ -235,6 +247,25 @@ function shouldUseCurrentInstallationRoot(
   }
 
   return belongsToSameManagedWorktreeFamily(savedInstallationRoot, fallbackRoot);
+}
+
+function resolveLauncherStorageRoot(basePath: string) {
+  const ownerRoot = findManagedWorktreeOwnerRoot(basePath);
+  if (ownerRoot) {
+    return ownerRoot;
+  }
+  return path.resolve(basePath);
+}
+
+function resolveLauncherSettingsFileLocations(
+  installationRoot: string,
+  legacyUserDataPath: string,
+): LauncherSettingsFileLocations {
+  const storageRoot = resolveLauncherStorageRoot(installationRoot);
+  return {
+    settingsPath: path.join(storageRoot, "data", "launcher.json"),
+    legacySettingsPath: legacyUserDataPath ? path.join(legacyUserDataPath, "launcher.json") : "",
+  };
 }
 
 function serverExecutableCandidates(root: string, platform: NodeJS.Platform) {
@@ -460,49 +491,91 @@ async function serializeSettings(
   } satisfies SerializedLauncherSettings;
 }
 
+async function readSerializedSettings(settingsPath: string): Promise<ReadSerializedSettingsResult> {
+  if (!settingsPath || !(await pathExists(settingsPath))) {
+    return {
+      path: settingsPath,
+      payload: null,
+      exists: false,
+      valid: false,
+    };
+  }
+
+  try {
+    const rawPayload = JSON.parse(await fs.readFile(settingsPath, "utf8"));
+    if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
+      throw new Error("launcher.json must contain an object payload.");
+    }
+    return {
+      path: settingsPath,
+      payload: rawPayload as SerializedLauncherSettings,
+      exists: true,
+      valid: true,
+    };
+  } catch {
+    return {
+      path: settingsPath,
+      payload: null,
+      exists: true,
+      valid: false,
+    };
+  }
+}
+
 export class JsonLauncherSettingsStore {
-  private readonly settingsPath: string;
   private readonly defaultsPromise: Promise<LauncherSettings>;
+  private readonly fileLocationsPromise: Promise<LauncherSettingsFileLocations>;
+  private readonly legacyUserDataPath: string;
   private readonly platform: NodeJS.Platform;
 
-  constructor(userDataPath: string, basePath: string, platform: NodeJS.Platform) {
-    this.settingsPath = path.join(userDataPath, "launcher.json");
+  constructor(basePath: string, platform: NodeJS.Platform, legacyUserDataPath = "") {
     this.defaultsPromise = createDefaultSettings(basePath);
+    this.fileLocationsPromise = this.defaultsPromise.then((defaults) =>
+      resolveLauncherSettingsFileLocations(defaults.installationRoot, legacyUserDataPath),
+    );
+    this.legacyUserDataPath = legacyUserDataPath;
     this.platform = platform;
   }
 
   async load() {
     const defaults = await this.defaultsPromise;
-    if (!(await pathExists(this.settingsPath))) {
+    const locations = await this.fileLocationsPromise;
+    const current = await readSerializedSettings(locations.settingsPath);
+    if (current.exists && !current.valid) {
       await this.save(defaults);
       return defaults;
     }
 
-    let payload: SerializedLauncherSettings;
-    try {
-      const rawPayload = JSON.parse(await fs.readFile(this.settingsPath, "utf8"));
-      if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
-        throw new Error("launcher.json must contain an object payload.");
+    let source = current;
+    if (!current.exists && this.legacyUserDataPath) {
+      const legacy = await readSerializedSettings(locations.legacySettingsPath);
+      if (legacy.exists && !legacy.valid) {
+        await this.save(defaults);
+        return defaults;
       }
-      payload = rawPayload as SerializedLauncherSettings;
-    } catch {
+      source = legacy;
+    }
+
+    if (!source.exists || !source.payload) {
       await this.save(defaults);
       return defaults;
     }
-    const normalized = await normalizeSettings(payload, defaults, this.platform);
+
+    const normalized = await normalizeSettings(source.payload, defaults, this.platform);
     const serialized = await serializeSettings(normalized, defaults);
-    if (JSON.stringify(payload) !== JSON.stringify(serialized)) {
-      await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
-      await fs.writeFile(this.settingsPath, JSON.stringify(serialized, null, 2), "utf8");
+    if (source.path !== locations.settingsPath || JSON.stringify(source.payload) !== JSON.stringify(serialized)) {
+      await fs.mkdir(path.dirname(locations.settingsPath), { recursive: true });
+      await fs.writeFile(locations.settingsPath, JSON.stringify(serialized, null, 2), "utf8");
     }
     return normalized;
   }
 
   async save(settings: LauncherSettings) {
     const defaults = await this.defaultsPromise;
+    const locations = await this.fileLocationsPromise;
     const normalized = await normalizeCurrentSettingsInput(settings, this.platform);
     const serialized = await serializeSettings(normalized, defaults);
-    await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
-    await fs.writeFile(this.settingsPath, JSON.stringify(serialized, null, 2), "utf8");
+    await fs.mkdir(path.dirname(locations.settingsPath), { recursive: true });
+    await fs.writeFile(locations.settingsPath, JSON.stringify(serialized, null, 2), "utf8");
   }
 }
