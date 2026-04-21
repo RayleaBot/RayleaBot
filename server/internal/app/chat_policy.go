@@ -454,6 +454,31 @@ func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
 	}
 
 	if s.state != nil && s.state.Logger != nil && strings.TrimSpace(attempt.ActionKind) != "" {
-		outbound.LogSendOutcome(s.state.Logger, outbound.SendLogContext{}, attempt, result, err)
+		outbound.LogSendOutcome(s.state.Logger, outbound.SendLogContext{
+			TargetLabel: buildCooldownTargetLabel(ctx, event, s.outboundSender),
+		}, attempt, result, err)
 	}
+}
+
+func buildCooldownTargetLabel(ctx context.Context, event adapter.NormalizedEvent, sender outboundActionSender) string {
+	targetType := strings.TrimSpace(event.ConversationType)
+	targetID := strings.TrimSpace(event.ConversationID)
+	targetName := ""
+	actorID := ""
+	actorNickname := ""
+
+	switch targetType {
+	case "group":
+		targetName = strings.TrimSpace(event.TargetName)
+	case "private":
+		actorID = strings.TrimSpace(event.SenderID)
+		actorNickname = strings.TrimSpace(event.ActorNickname)
+	}
+
+	var resolver outbound.TargetDisplayResolver
+	if candidate, ok := any(sender).(outbound.TargetDisplayResolver); ok {
+		resolver = candidate
+	}
+
+	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }

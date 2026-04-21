@@ -13,7 +13,7 @@ response:
         level: warn
         source: adapter.onebot11
         protocol: onebot11
-        message: "plugin help command help failed to deliver private message: hello world"
+        message: "help/help -> Alice(3001) 发送失败：hello world"
         plugin_id: help
         request_id: req_runtime_delivery_0002
       - log_id: log_outbound_delivered_0001
@@ -21,7 +21,7 @@ response:
         level: info
         source: adapter.onebot11
         protocol: onebot11
-        message: "plugin weather command echo delivered group message: hello world"
+        message: "weather/echo -> [测试群(2001)]：hello world"
         plugin_id: weather
         request_id: req_runtime_delivery_0001
     page:

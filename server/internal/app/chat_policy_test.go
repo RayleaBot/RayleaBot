@@ -852,6 +852,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 		Timestamp:        time.Now().Unix(),
 		ConversationType: "group",
 		ConversationID:   "20001",
+		TargetName:       "测试群",
 		SenderID:         "10002",
 		ActorRole:        "member",
 		PlainText:        "/weather",
@@ -876,7 +877,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	}
 
 	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "platform delivered group message: 命令触发冷却，请稍后再试。"
+		return summary.Message == "系统 -> [测试群(20001)]：命令触发冷却，请稍后再试。"
 	})
 	if summary.Source != "adapter.onebot11" {
 		t.Fatalf("unexpected log source: got %q want adapter.onebot11", summary.Source)
@@ -934,6 +935,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		Timestamp:        time.Now().Unix(),
 		ConversationType: "group",
 		ConversationID:   "20001",
+		TargetName:       "测试群",
 		SenderID:         "10002",
 		ActorRole:        "member",
 		PlainText:        "/weather",
@@ -958,7 +960,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 	}
 
 	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "platform failed to deliver group message: 命令触发冷却，请稍后再试。"
+		return summary.Message == "系统 -> [测试群(20001)] 发送失败：命令触发冷却，请稍后再试。"
 	})
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)

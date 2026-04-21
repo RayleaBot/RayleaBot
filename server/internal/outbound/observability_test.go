@@ -1,6 +1,7 @@
 package outbound
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"testing"
@@ -43,6 +44,12 @@ func waitForOutboundSummary(t *testing.T, stream *logging.Stream) logging.Summar
 	return logging.Summary{}
 }
 
+type stubTargetDisplayResolver map[string]string
+
+func (s stubTargetDisplayResolver) ResolveTargetName(_ context.Context, targetType, targetID string) string {
+	return s[targetType+":"+targetID]
+}
+
 func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 	t.Parallel()
 
@@ -64,7 +71,7 @@ func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 	}, nil)
 
 	summary := waitForOutboundSummary(t, stream)
-	if summary.Message != "platform delivered group message: cooldown reply" {
+	if summary.Message != "系统 -> [200]：cooldown reply" {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
 	if summary.PluginID != "" {
@@ -98,10 +105,37 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 	})
 
 	summary := waitForOutboundSummary(t, stream)
-	if summary.Message != "platform failed to deliver private message: cooldown reply" {
+	if summary.Message != "系统 -> 私聊(300) 发送失败：cooldown reply" {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
 	if summary.Details["error_code"] != "adapter.send_failed" {
 		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
+	}
+}
+
+func TestBuildTargetLabelPrefersEventContextForPrivateMessage(t *testing.T) {
+	t.Parallel()
+
+	label := BuildTargetLabel(context.Background(), "private", "300", "", "300", "Alice", stubTargetDisplayResolver{
+		"private:300": "Bob",
+	})
+	if label != "Alice(300)" {
+		t.Fatalf("unexpected private label: got %q want %q", label, "Alice(300)")
+	}
+}
+
+func TestBuildTargetLabelUsesResolverAndFallbackFormats(t *testing.T) {
+	t.Parallel()
+
+	groupLabel := BuildTargetLabel(context.Background(), "group", "200", "", "", "", stubTargetDisplayResolver{
+		"group:200": "测试群",
+	})
+	if groupLabel != "[测试群(200)]" {
+		t.Fatalf("unexpected group label: got %q want %q", groupLabel, "[测试群(200)]")
+	}
+
+	privateLabel := BuildTargetLabel(context.Background(), "private", "300", "", "", "", stubTargetDisplayResolver{})
+	if privateLabel != "私聊(300)" {
+		t.Fatalf("unexpected private fallback label: got %q want %q", privateLabel, "私聊(300)")
 	}
 }

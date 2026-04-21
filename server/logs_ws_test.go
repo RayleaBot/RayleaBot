@@ -87,7 +87,7 @@ func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
 		Timestamp: "2026-04-10T09:18:00Z",
 		Level:     "info",
 		Source:    "adapter.onebot11",
-		Message:   "plugin weather command echo delivered group message: hello world",
+		Message:   "weather/echo -> [测试群(2001)]：hello world",
 		PluginID:  "weather",
 		RequestID: "req_runtime_delivery_0001",
 	})

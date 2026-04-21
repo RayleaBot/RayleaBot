@@ -483,11 +483,13 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		TargetID:   targetID,
 		Segments:   toOutboundSegments(action.MessageSegments),
 	}
+	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
 	if !d.capabilityGranted(ctx, pluginID, action.Kind) {
 		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 			PluginID:    pluginID,
 			RequestID:   requestID,
 			CommandName: commandName,
+			TargetLabel: targetLabel,
 		}, attempt, outbound.SendResult{
 			DeliveryKind: action.Kind,
 			TargetType:   targetType,
@@ -503,7 +505,31 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		PluginID:    pluginID,
 		RequestID:   requestID,
 		CommandName: commandName,
+		TargetLabel: targetLabel,
 	}, attempt, result, err)
+}
+
+func buildOutboundTargetLabel(ctx context.Context, event runtime.Event, targetType, targetID string, sender outbound.ActionSender) string {
+	targetName := ""
+	if event.Target != nil &&
+		strings.TrimSpace(event.Target.Type) == strings.TrimSpace(targetType) &&
+		strings.TrimSpace(event.Target.ID) == strings.TrimSpace(targetID) {
+		targetName = strings.TrimSpace(event.Target.Name)
+	}
+
+	actorID := ""
+	actorNickname := ""
+	if event.Actor != nil {
+		actorID = strings.TrimSpace(event.Actor.ID)
+		actorNickname = strings.TrimSpace(event.Actor.Nickname)
+	}
+
+	var resolver outbound.TargetDisplayResolver
+	if candidate, ok := any(sender).(outbound.TargetDisplayResolver); ok {
+		resolver = candidate
+	}
+
+	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }
 
 func (d *Dispatcher) capabilityGranted(ctx context.Context, pluginID string, capability string) bool {

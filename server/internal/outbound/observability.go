@@ -20,6 +20,7 @@ type SendLogContext struct {
 	PluginID    string
 	RequestID   string
 	CommandName string
+	TargetLabel string
 }
 
 func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAttempt, result SendResult, err error) {
@@ -76,7 +77,11 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 			fields = append(fields, "message_id", messageID)
 		}
 		logger.Info(
-			sendSummary(summaryPrefix(pluginID, commandName, false), targetType, plainText),
+			sendSummary(SendLogContext{
+				PluginID:    pluginID,
+				CommandName: commandName,
+				TargetLabel: strings.TrimSpace(context.TargetLabel),
+			}, targetType, targetID, plainText, false),
 			fields...,
 		)
 		return
@@ -88,44 +93,39 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 	}
 	fields = append(fields, "reason", reason)
 	logger.Warn(
-		sendSummary(summaryPrefix(pluginID, commandName, true), targetType, plainText),
+		sendSummary(SendLogContext{
+			PluginID:    pluginID,
+			CommandName: commandName,
+			TargetLabel: strings.TrimSpace(context.TargetLabel),
+		}, targetType, targetID, plainText, true),
 		fields...,
 	)
 }
 
-func summaryPrefix(pluginID, commandName string, failed bool) string {
-	if pluginID == "" {
-		if failed {
-			return "platform failed to deliver"
+func sendSummary(context SendLogContext, targetType, targetID, plainText string, failed bool) string {
+	subject := "系统"
+	if pluginID := strings.TrimSpace(context.PluginID); pluginID != "" {
+		subject = pluginID
+		if commandName := strings.TrimSpace(context.CommandName); commandName != "" {
+			subject += "/" + commandName
 		}
-		return "platform delivered"
 	}
 
-	if commandName != "" {
-		if failed {
-			return "plugin " + pluginID + " command " + commandName + " failed to deliver"
-		}
-		return "plugin " + pluginID + " command " + commandName + " delivered"
+	targetLabel := strings.TrimSpace(context.TargetLabel)
+	if targetLabel == "" {
+		targetLabel = formatTargetLabel(targetType, targetID, "")
 	}
 
 	if failed {
-		return "plugin " + pluginID + " failed to deliver"
+		return subject + " -> " + targetLabel + " 发送失败：" + summarizePlainText(plainText)
 	}
-	return "plugin " + pluginID + " delivered"
-}
-
-func sendSummary(prefix, targetType, plainText string) string {
-	targetType = strings.TrimSpace(targetType)
-	if targetType == "" {
-		targetType = "unknown"
-	}
-	return prefix + " " + targetType + " message: " + summarizePlainText(plainText)
+	return subject + " -> " + targetLabel + "：" + summarizePlainText(plainText)
 }
 
 func summarizePlainText(plainText string) string {
 	plainText = strings.TrimSpace(plainText)
 	if plainText == "" {
-		return "[empty message]"
+		return "[空消息]"
 	}
 	return textsafe.TruncateRunes(plainText, 72, "...")
 }
