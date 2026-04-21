@@ -89,8 +89,14 @@ describe('GovernancePage', () => {
     expect(wrapper.text()).toContain('会发送提示')
     expect(wrapper.text()).toContain('前往配置')
     expect(wrapper.text()).toContain('查看指令中心')
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('读取黑名单失败')
     expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).not.toContain('读取黑名单失败')
+
+    // Switch to blacklist tab via DOM click
+    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    expect(tabs.length).toBe(2)
+    await tabs[1]!.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('读取黑名单失败')
 
     await wrapper.get('[data-testid="governance-open-config"]').trigger('click')
     await flushPromises()
@@ -103,7 +109,158 @@ describe('GovernancePage', () => {
     expect(router.currentRoute.value.name).toBe('commands')
   }, 15000)
 
-  it('adds and removes blacklist and whitelist entries', async () => {
+  it('adds and removes whitelist and blacklist entries through modal and popconfirm', async () => {
+    const router = createRouterForPage()
+    await router.push('/governance')
+    await router.isReady()
+
+    const store = useGovernanceStore()
+    store.blacklist = {
+      user_entries: [],
+      group_entries: [],
+    }
+    store.whitelist = {
+      enabled: false,
+      user_entries: [],
+      group_entries: [],
+    }
+    store.commandPolicy = {
+      default_level: 'everyone',
+      cooldown: {
+        user_command_rate_limit: '10/60s',
+        group_command_rate_limit: '30/60s',
+        cooldown_reply: true,
+      },
+      commands: [],
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue({
+      blacklist: store.blacklist,
+      whitelist: store.whitelist,
+      commandPolicy: store.commandPolicy,
+    })
+    vi.spyOn(store, 'addBlacklistEntry').mockImplementation(async (payload) => {
+      const entry = { ...payload, created_at: '2026-04-19T09:00:00Z' }
+      if (payload.entry_type === 'group') {
+        store.blacklist = {
+          user_entries: store.blacklist.user_entries,
+          group_entries: [...store.blacklist.group_entries, entry],
+        }
+      } else {
+        store.blacklist = {
+          user_entries: [...store.blacklist.user_entries, entry],
+          group_entries: store.blacklist.group_entries,
+        }
+      }
+      return store.blacklist
+    })
+    vi.spyOn(store, 'removeBlacklistEntry').mockImplementation(async () => {
+      store.blacklist = {
+        user_entries: [],
+        group_entries: [],
+      }
+      return store.blacklist
+    })
+    vi.spyOn(store, 'addWhitelistEntry').mockImplementation(async (payload) => {
+      const entry = { ...payload, created_at: '2026-04-19T10:00:00Z' }
+      if (payload.entry_type === 'group') {
+        store.whitelist = {
+          enabled: store.whitelist.enabled,
+          user_entries: store.whitelist.user_entries,
+          group_entries: [...store.whitelist.group_entries, entry],
+        }
+      } else {
+        store.whitelist = {
+          enabled: store.whitelist.enabled,
+          user_entries: [...store.whitelist.user_entries, entry],
+          group_entries: store.whitelist.group_entries,
+        }
+      }
+      return store.whitelist
+    })
+    vi.spyOn(store, 'removeWhitelistEntry').mockImplementation(async () => {
+      store.whitelist = {
+        enabled: store.whitelist.enabled,
+        user_entries: [],
+        group_entries: [],
+      }
+      return store.whitelist
+    })
+
+    const wrapper = mount(GovernancePage, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    // --- Whitelist (default active tab): add via modal ---
+    // Default entry_type follows scopeFilter ('all' -> 'user')
+    await wrapper.get('[data-testid="governance-whitelist-add-btn"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.addModalVisible).toBe(true)
+    expect(wrapper.vm.addModalTarget).toBe('whitelist')
+    expect(wrapper.vm.addModalDraft.entry_type).toBe('user')
+
+    wrapper.vm.addModalDraft.target_id = '30003'
+    wrapper.vm.addModalDraft.reason = '临时放行'
+    await flushPromises()
+
+    const addModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
+    expect(addModal).toBeDefined()
+    await addModal!.vm.$emit('ok')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).toContain('30003')
+    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).toContain('临时放行')
+
+    // Remove via popconfirm confirm
+    const whitelistPopconfirm = wrapper.get('[data-testid="governance-whitelist-card"]').findComponent({ name: 'APopconfirm' })
+    await whitelistPopconfirm.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).not.toContain('30003')
+
+    // --- Blacklist (switch tab): add via modal ---
+    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    await tabs[1]!.trigger('click')
+    await flushPromises()
+
+    // Switch scope filter to 'group', then open modal
+    wrapper.vm.blacklistScopeFilter = 'group'
+    await flushPromises()
+
+    await wrapper.get('[data-testid="governance-blacklist-add-btn"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.addModalVisible).toBe(true)
+    expect(wrapper.vm.addModalTarget).toBe('blacklist')
+    expect(wrapper.vm.addModalDraft.entry_type).toBe('group')
+
+    wrapper.vm.addModalDraft.target_id = '30003'
+    wrapper.vm.addModalDraft.reason = '临时封禁'
+    await flushPromises()
+
+    const blacklistAddModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
+    expect(blacklistAddModal).toBeDefined()
+    await blacklistAddModal!.vm.$emit('ok')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('30003')
+    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('临时封禁')
+
+    // Remove via popconfirm confirm
+    const blacklistPopconfirm = wrapper.get('[data-testid="governance-blacklist-card"]').findComponent({ name: 'APopconfirm' })
+    await blacklistPopconfirm.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).not.toContain('30003')
+  }, 15000)
+
+  it('clears region error after a successful add', async () => {
     const router = createRouterForPage()
     await router.push('/governance')
     await router.isReady()
@@ -144,33 +301,11 @@ describe('GovernancePage', () => {
       return store.blacklist
     })
     vi.spyOn(store, 'removeBlacklistEntry').mockImplementation(async () => {
-      store.blacklist = {
-        user_entries: [],
-        group_entries: [],
-      }
-      return store.blacklist
-    })
-    vi.spyOn(store, 'addWhitelistEntry').mockImplementation(async (payload) => {
-      store.whitelist = {
-        enabled: false,
-        user_entries: [{
-          ...payload,
-          created_at: '2026-04-19T10:00:00Z',
-        }],
-        group_entries: [],
-      }
-      return store.whitelist
-    })
-    vi.spyOn(store, 'removeWhitelistEntry').mockImplementation(async () => {
-      store.whitelist = {
-        enabled: false,
-        user_entries: [],
-        group_entries: [],
-      }
-      return store.whitelist
+      throw new Error('删除失败')
     })
 
     const wrapper = mount(GovernancePage, {
+      attachTo: document.body,
       global: {
         plugins: [Antd, router],
       },
@@ -178,33 +313,48 @@ describe('GovernancePage', () => {
 
     await flushPromises()
 
-    const blacklistForm = wrapper.get('[data-testid="governance-blacklist-form"]')
-    const blacklistInputs = blacklistForm.findAll('input.governance-form-input')
-    await blacklistInputs[0]!.setValue('30003')
-    await blacklistInputs[1]!.setValue('临时封禁')
-    await wrapper.get('[data-testid="governance-blacklist-add"]').trigger('click')
+    // Switch to blacklist tab
+    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    await tabs[1]!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('30003')
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('临时封禁')
+    // Trigger a remove error
+    const blacklistCard = wrapper.get('[data-testid="governance-blacklist-card"]')
+    expect(blacklistCard.text()).not.toContain('删除失败')
 
-    await wrapper.get('[data-testid="governance-blacklist-card"]').get('button.ant-btn-link').trigger('click')
+    // We need an entry to remove; add one first
+    await wrapper.get('[data-testid="governance-blacklist-add-btn"]').trigger('click')
     await flushPromises()
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).not.toContain('30003')
-
-    const whitelistForm = wrapper.get('[data-testid="governance-whitelist-form"]')
-    const whitelistInputs = whitelistForm.findAll('input.governance-form-input')
-    await whitelistInputs[0]!.setValue('30003')
-    await whitelistInputs[1]!.setValue('临时放行')
-    await wrapper.get('[data-testid="governance-whitelist-add"]').trigger('click')
+    wrapper.vm.addModalDraft.target_id = '10001'
+    wrapper.vm.addModalDraft.reason = '测试'
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).toContain('30003')
-    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).toContain('临时放行')
-
-    await wrapper.get('[data-testid="governance-whitelist-card"]').get('button.ant-btn-link').trigger('click')
+    const addModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
+    await addModal!.vm.$emit('ok')
     await flushPromises()
-    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).not.toContain('30003')
+
+    expect(blacklistCard.text()).toContain('10001')
+
+    // Now remove it; it should fail and leave an error
+    const popconfirm = blacklistCard.findComponent({ name: 'APopconfirm' })
+    await popconfirm.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(wrapper.vm.blacklistActionError).toBe('删除失败')
+
+    // Add another entry successfully; the old error should be cleared
+    await wrapper.get('[data-testid="governance-blacklist-add-btn"]').trigger('click')
+    await flushPromises()
+    wrapper.vm.addModalDraft.target_id = '10002'
+    wrapper.vm.addModalDraft.reason = '测试2'
+    await flushPromises()
+
+    const addModal2 = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
+    await addModal2!.vm.$emit('ok')
+    await flushPromises()
+
+    expect(wrapper.vm.blacklistActionError).toBeNull()
+    expect(blacklistCard.text()).toContain('10002')
   }, 15000)
 
   it('confirms empty whitelist enable and keeps the warning visible after enabling', async () => {
@@ -255,15 +405,17 @@ describe('GovernancePage', () => {
 
     await flushPromises()
 
-    const switchComponent = wrapper.findComponent({ name: 'ASwitch' })
-    await switchComponent.vm.$emit('change', true)
+    // Click the whitelist enable switch
+    await wrapper.get('[data-testid="governance-whitelist-enabled"]').trigger('click')
     await flushPromises()
 
     expect(document.body.textContent ?? '').toContain('确认启用空白名单')
     expect(document.body.textContent ?? '').toContain('当前没有任何白名单条目')
 
-    const modal = wrapper.findComponent({ name: 'AModal' })
-    await modal.vm.$emit('ok')
+    // Emit ok on the confirm modal
+    const confirmModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
+    expect(confirmModal).toBeDefined()
+    await confirmModal!.vm.$emit('ok')
     await flushPromises()
 
     expect(wrapper.text()).toContain('白名单已启用且当前为空')

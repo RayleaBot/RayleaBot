@@ -5,6 +5,8 @@ export const governance = {
   actions: {
     openCommands: '查看指令中心',
     openConfig: '前往配置',
+    addEntry: '添加条目',
+    copyTargetId: '已复制目标 ID',
   },
   sections: {
     summary: '治理总览',
@@ -85,6 +87,21 @@ export const governance = {
     whitelistRemoved: '白名单条目已移除。',
     whitelistEnabled: '白名单已启用。',
     whitelistDisabled: '白名单已关闭。',
+  },
+  tabs: {
+    whitelist: '白名单',
+    blacklist: '黑名单',
+  },
+  modal: {
+    addTitle: '添加{target}',
+    addTargetWhitelist: '白名单条目',
+    addTargetBlacklist: '黑名单条目',
+    save: '保存',
+    cancel: '取消',
+  },
+  confirm: {
+    removeTitle: '确认移除',
+    removeDescription: '确定要移除该条目吗？',
   },
   validation: {
     entryRequired: '目标 ID 和原因都需要填写。',

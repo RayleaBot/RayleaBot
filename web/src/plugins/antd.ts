@@ -19,6 +19,7 @@ import Layout from 'ant-design-vue/es/layout'
 import Menu from 'ant-design-vue/es/menu'
 import Modal from 'ant-design-vue/es/modal'
 import Pagination from 'ant-design-vue/es/pagination'
+import Popconfirm from 'ant-design-vue/es/popconfirm'
 import Popover from 'ant-design-vue/es/popover'
 import Progress from 'ant-design-vue/es/progress'
 import Radio from 'ant-design-vue/es/radio'
@@ -54,6 +55,7 @@ const components = [
   Menu,
   Modal,
   Pagination,
+  Popconfirm,
   Popover,
   Progress,
   Radio,

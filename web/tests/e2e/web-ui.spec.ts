@@ -91,20 +91,11 @@ function dashboardConnectionCard(page: import('@playwright/test').Page) {
   return page.getByTestId('dashboard-connection-card')
 }
 
-async function fillGovernanceEntryForm(
-  form: import('@playwright/test').Locator,
-  targetId: string,
-  reason: string,
-) {
-  await form.locator('input').nth(0).fill(targetId)
-  await form.locator('input').nth(1).fill(reason)
-}
-
 function governanceEntryCard(
   container: import('@playwright/test').Locator,
   targetId: string,
 ) {
-  return container.locator('.governance-entry, .blacklist-entry').filter({ hasText: targetId }).first()
+  return container.locator('tr').filter({ hasText: targetId }).first()
 }
 
 async function readTabLabels(page: import('@playwright/test').Page) {
@@ -361,27 +352,39 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await page.goto('/governance')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   await expect(page.getByTestId('governance-summary-card')).toContainText('治理总览')
-  await expect(page.getByTestId('governance-blacklist-card')).toContainText('黑名单')
-  await expect(page.getByTestId('governance-whitelist-card')).toContainText('白名单')
   await expect(page.getByTestId('governance-summary-card').getByText('所有成员').first()).toBeVisible()
   await expect(page.getByText('10/60s')).toBeVisible()
   await expect(page.getByText('30/60s')).toBeVisible()
-  const blacklistCard = page.getByTestId('governance-blacklist-card')
+
   const whitelistCard = page.getByTestId('governance-whitelist-card')
-  await expect(blacklistCard).toContainText('10001')
+  const blacklistCard = page.getByTestId('governance-blacklist-card')
   await expect(whitelistCard).toContainText('10001')
   await expect(whitelistCard).toContainText('值班账号')
 
-  await fillGovernanceEntryForm(page.getByTestId('governance-blacklist-user-form'), '30003', '临时封禁')
-  await page.getByTestId('governance-blacklist-add-user').dispatchEvent('click')
+  // --- Blacklist tab ---
+  await page.locator('.governance-tabs .ant-tabs-tab').filter({ hasText: '黑名单' }).click()
+  await expect(blacklistCard).toContainText('10001')
+
+  await page.getByTestId('governance-blacklist-add-btn').click()
+  const blacklistModal = page.getByRole('dialog').filter({ hasText: '添加黑名单条目' })
+  await blacklistModal.locator('.ant-input').nth(0).fill('30003')
+  await blacklistModal.locator('.ant-input').nth(1).fill('临时封禁')
+  await blacklistModal.locator('.ant-modal-footer button.ant-btn-primary').click()
   await expect(blacklistCard).toContainText('30003')
   await expect(blacklistCard).toContainText('临时封禁')
 
-  await governanceEntryCard(blacklistCard, '30003').getByRole('button', { name: '移除' }).dispatchEvent('click')
+  await governanceEntryCard(blacklistCard, '30003').getByRole('button', { name: '移除' }).click()
+  await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
   await expect(blacklistCard).not.toContainText('30003')
 
-  await fillGovernanceEntryForm(page.getByTestId('governance-whitelist-user-form'), '30003', '临时放行')
-  await page.getByTestId('governance-whitelist-add-user').dispatchEvent('click')
+  // --- Whitelist tab ---
+  await page.locator('.governance-tabs .ant-tabs-tab').filter({ hasText: '白名单' }).click()
+
+  await page.getByTestId('governance-whitelist-add-btn').click()
+  const whitelistModal = page.getByRole('dialog').filter({ hasText: '添加白名单条目' })
+  await whitelistModal.locator('.ant-input').nth(0).fill('30003')
+  await whitelistModal.locator('.ant-input').nth(1).fill('临时放行')
+  await whitelistModal.locator('.ant-modal-footer button.ant-btn-primary').click()
   await expect(whitelistCard).toContainText('30003')
   await expect(whitelistCard).toContainText('临时放行')
 
@@ -389,14 +392,17 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await expect(page.getByTestId('governance-whitelist-enabled')).toHaveAttribute('aria-checked', 'false')
 
   for (const targetId of ['10001', '30003']) {
-    await governanceEntryCard(whitelistCard, targetId).getByRole('button', { name: '移除' }).dispatchEvent('click')
+    await governanceEntryCard(whitelistCard, targetId).getByRole('button', { name: '移除' }).click()
+    await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
     await expect(whitelistCard).not.toContainText(targetId)
   }
 
-  await whitelistCard.locator('.ant-segmented-item').filter({ hasText: '群' }).click()
+  await whitelistCard.locator('.governance-toolbar__filter').click()
+  await page.locator('.ant-select-dropdown').getByTitle('群').click()
   await expect(whitelistCard).toContainText('20002')
   await expect(whitelistCard).toContainText('核心服务群')
-  await governanceEntryCard(whitelistCard, '20002').getByRole('button', { name: '移除' }).dispatchEvent('click')
+  await governanceEntryCard(whitelistCard, '20002').getByRole('button', { name: '移除' }).click()
+  await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
   await expect(whitelistCard).not.toContainText('20002')
 
   await page.getByTestId('governance-whitelist-enabled').dispatchEvent('click')
