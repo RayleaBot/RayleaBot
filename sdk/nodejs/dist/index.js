@@ -142,6 +142,70 @@ export function createPlugin() {
             const { timeoutMs = 30000 } = options;
             return await requestLocalAction(pluginId, requestId, 'config.write', { values }, { timeoutMs });
         },
+        async governanceBlacklistRead(requestId, options = {}) {
+            const { timeoutMs = 30000 } = options;
+            return await requestLocalAction(pluginId, requestId, 'governance.blacklist.read', {}, { timeoutMs });
+        },
+        async governanceBlacklistWrite(requestId, operation, options = {}) {
+            const { entryType, targetId, reason, timeoutMs = 30000 } = options;
+            const data = { operation };
+            if (operation === 'upsert') {
+                if (!entryType || !targetId || !reason) {
+                    throw new Error('governanceBlacklistWrite upsert requires entryType, targetId, and reason');
+                }
+                data.entry_type = entryType;
+                data.target_id = targetId;
+                data.reason = reason;
+            }
+            else if (operation === 'delete') {
+                if (!entryType || !targetId) {
+                    throw new Error('governanceBlacklistWrite delete requires entryType and targetId');
+                }
+                data.entry_type = entryType;
+                data.target_id = targetId;
+            }
+            else {
+                throw new Error('governanceBlacklistWrite requires operation upsert or delete');
+            }
+            return await requestLocalAction(pluginId, requestId, 'governance.blacklist.write', data, { timeoutMs });
+        },
+        async governanceWhitelistRead(requestId, options = {}) {
+            const { timeoutMs = 30000 } = options;
+            return await requestLocalAction(pluginId, requestId, 'governance.whitelist.read', {}, { timeoutMs });
+        },
+        async governanceWhitelistWrite(requestId, operation, options = {}) {
+            const { enabled, entryType, targetId, reason, timeoutMs = 30000 } = options;
+            const data = { operation };
+            if (operation === 'set_enabled') {
+                if (enabled === undefined) {
+                    throw new Error('governanceWhitelistWrite set_enabled requires enabled');
+                }
+                data.enabled = enabled;
+            }
+            else if (operation === 'upsert') {
+                if (!entryType || !targetId || !reason) {
+                    throw new Error('governanceWhitelistWrite upsert requires entryType, targetId, and reason');
+                }
+                data.entry_type = entryType;
+                data.target_id = targetId;
+                data.reason = reason;
+            }
+            else if (operation === 'delete') {
+                if (!entryType || !targetId) {
+                    throw new Error('governanceWhitelistWrite delete requires entryType and targetId');
+                }
+                data.entry_type = entryType;
+                data.target_id = targetId;
+            }
+            else {
+                throw new Error('governanceWhitelistWrite requires operation set_enabled, upsert, or delete');
+            }
+            return await requestLocalAction(pluginId, requestId, 'governance.whitelist.write', data, { timeoutMs });
+        },
+        async governanceCommandPolicyRead(requestId, options = {}) {
+            const { timeoutMs = 30000 } = options;
+            return await requestLocalAction(pluginId, requestId, 'governance.command_policy.read', {}, { timeoutMs });
+        },
         async schedulerCreate(requestId, taskId, cron, options = {}) {
             const { payload, timeoutMs = 30000 } = options;
             const data = {

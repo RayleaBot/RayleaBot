@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { createSocketController } from '@/stores/socket-controller'
+import { useGovernanceStore } from '@/stores/governance'
 import { createSocketFrameRouter } from '@/stores/socket-router'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
@@ -14,6 +15,7 @@ export const useSocketStore = defineStore('sockets', () => {
   const pluginsStore = usePluginsStore()
   const tasksStore = useTasksStore()
   const logsStore = useLogsStore()
+  const governanceStore = useGovernanceStore()
   const protocolsStore = useProtocolsStore()
   const systemStore = useSystemStore()
 
@@ -32,6 +34,9 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     logs: {
       appendBatch: logsStore.appendBatch,
+    },
+    governance: {
+      refresh: governanceStore.refresh,
     },
     protocols: {
       applySnapshot: protocolsStore.applySnapshot,

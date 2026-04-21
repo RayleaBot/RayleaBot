@@ -287,6 +287,49 @@ func TestEventsWebSocketPublishesStoppingServiceStatusAfterShutdownRequest(t *te
 	assertServiceStatusReplayFrame(t, frame, "stopping")
 }
 
+func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	conn := dialEventsWebSocket(t, server.URL, token)
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	readServiceStatusReplayFrame(t, conn)
+	readProtocolReplayFrame(t, conn)
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{"entry_type":"user","target_id":"1001","reason":"spam"}`))
+	if err != nil {
+		t.Fatalf("create governance request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform governance request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected governance status: got %d want %d", response.StatusCode, http.StatusOK)
+	}
+
+	frame := readEventsReplayFrameByKey(t, conn, "event_type")
+	data, ok := frame["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data object, got %#v", frame["data"])
+	}
+	if data["event_type"] != "governance.changed" {
+		t.Fatalf("unexpected governance event_type: %#v", data["event_type"])
+	}
+	if summary, ok := data["summary"].(string); !ok || summary == "" {
+		t.Fatalf("expected governance summary, got %#v", data["summary"])
+	}
+}
+
 func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 

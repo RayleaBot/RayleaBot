@@ -171,6 +171,23 @@ type protocolActionConfigWriteFrame struct {
 	Values map[string]json.RawMessage `json:"values"`
 }
 
+type protocolActionGovernanceReadFrame struct{}
+
+type protocolActionGovernanceBlacklistWriteFrame struct {
+	Operation string  `json:"operation"`
+	EntryType *string `json:"entry_type,omitempty"`
+	TargetID  *string `json:"target_id,omitempty"`
+	Reason    *string `json:"reason,omitempty"`
+}
+
+type protocolActionGovernanceWhitelistWriteFrame struct {
+	Operation string  `json:"operation"`
+	Enabled   *bool   `json:"enabled,omitempty"`
+	EntryType *string `json:"entry_type,omitempty"`
+	TargetID  *string `json:"target_id,omitempty"`
+	Reason    *string `json:"reason,omitempty"`
+}
+
 type protocolActionStorageFileFrame struct {
 	Operation     string  `json:"operation"`
 	Root          string  `json:"root"`

@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000419
+    plugin_id: governance-helper
+    request_id: local_governance_whitelist_write_invalid_0001
+    action: governance.whitelist.write
+    data:
+      operation: set_enabled
+expect:
+  valid: false
+  reason: governance.whitelist.write set_enabled requires enabled.

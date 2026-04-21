@@ -1,0 +1,16 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-04-20T08:05:00Z",
+    "data": {
+      "event_type": "governance.changed",
+      "summary": "治理设置已更新"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

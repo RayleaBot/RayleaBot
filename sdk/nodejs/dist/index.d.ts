@@ -29,6 +29,17 @@ interface FileGroupFsDeleteOptions extends ActionOptions {
     folderId?: string;
     fileId?: string;
 }
+interface GovernanceBlacklistWriteOptions extends ActionOptions {
+    entryType?: 'user' | 'group';
+    targetId?: string;
+    reason?: string;
+}
+interface GovernanceWhitelistWriteOptions extends ActionOptions {
+    enabled?: boolean;
+    entryType?: 'user' | 'group';
+    targetId?: string;
+    reason?: string;
+}
 export interface RayleaBotPlugin {
     readonly botId: string;
     readonly capabilities: string[];
@@ -69,6 +80,11 @@ export interface RayleaBotPlugin {
     }): Promise<Record<string, unknown>>;
     configRead(requestId: string, keys: string[], options?: ActionOptions): Promise<Record<string, unknown>>;
     configWrite(requestId: string, values: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+    governanceBlacklistRead(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    governanceBlacklistWrite(requestId: string, operation: 'upsert' | 'delete', options?: GovernanceBlacklistWriteOptions): Promise<Record<string, unknown>>;
+    governanceWhitelistRead(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    governanceWhitelistWrite(requestId: string, operation: 'set_enabled' | 'upsert' | 'delete', options?: GovernanceWhitelistWriteOptions): Promise<Record<string, unknown>>;
+    governanceCommandPolicyRead(requestId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     schedulerCreate(requestId: string, taskId: string, cron: string, options?: ActionOptions & {
         payload?: Record<string, unknown>;
     }): Promise<Record<string, unknown>>;

@@ -161,14 +161,8 @@ func parseConfigReadAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parsePluginListAction(raw json.RawMessage) (*Action, error) {
-	payload := make(map[string]any)
-	if len(raw) > 0 && string(raw) != "null" {
-		if err := json.Unmarshal(raw, &payload); err != nil {
-			return nil, errorf(codePluginProtocolViolation, "plugin returned malformed plugin.list data", err)
-		}
-	}
-	if len(payload) > 0 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid plugin.list data", nil)
+	if err := parseEmptyObjectAction(raw, "plugin.list"); err != nil {
+		return nil, err
 	}
 	return &Action{Kind: "plugin.list"}, nil
 }
@@ -201,6 +195,126 @@ func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
 		Kind:         "config.write",
 		ConfigValues: values,
 	}, nil
+}
+
+func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*Action, error) {
+	if err := parseEmptyObjectAction(raw, "governance.blacklist.read"); err != nil {
+		return nil, err
+	}
+	return &Action{Kind: "governance.blacklist.read"}, nil
+}
+
+func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionGovernanceBlacklistWriteFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.blacklist.write data", err)
+	}
+
+	operation := strings.TrimSpace(frame.Operation)
+	switch operation {
+	case "upsert":
+		if frame.EntryType == nil || frame.TargetID == nil || frame.Reason == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.blacklist.write fields", nil)
+		}
+		entryType := strings.TrimSpace(*frame.EntryType)
+		targetID := strings.TrimSpace(*frame.TargetID)
+		reason := strings.TrimSpace(*frame.Reason)
+		if entryType == "" || targetID == "" || reason == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.blacklist.write fields", nil)
+		}
+		return &Action{
+			Kind:                "governance.blacklist.write",
+			GovernanceOperation: operation,
+			GovernanceEntryType: entryType,
+			GovernanceTargetID:  targetID,
+			GovernanceReason:    reason,
+		}, nil
+	case "delete":
+		if frame.EntryType == nil || frame.TargetID == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.blacklist.write fields", nil)
+		}
+		entryType := strings.TrimSpace(*frame.EntryType)
+		targetID := strings.TrimSpace(*frame.TargetID)
+		if entryType == "" || targetID == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.blacklist.write fields", nil)
+		}
+		return &Action{
+			Kind:                "governance.blacklist.write",
+			GovernanceOperation: operation,
+			GovernanceEntryType: entryType,
+			GovernanceTargetID:  targetID,
+		}, nil
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported governance.blacklist.write operation", nil)
+	}
+}
+
+func parseGovernanceWhitelistReadAction(raw json.RawMessage) (*Action, error) {
+	if err := parseEmptyObjectAction(raw, "governance.whitelist.read"); err != nil {
+		return nil, err
+	}
+	return &Action{Kind: "governance.whitelist.read"}, nil
+}
+
+func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionGovernanceWhitelistWriteFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.whitelist.write data", err)
+	}
+
+	operation := strings.TrimSpace(frame.Operation)
+	switch operation {
+	case "set_enabled":
+		if frame.Enabled == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
+		}
+		return &Action{
+			Kind:                "governance.whitelist.write",
+			GovernanceOperation: operation,
+			GovernanceEnabled:   frame.Enabled,
+		}, nil
+	case "upsert":
+		if frame.EntryType == nil || frame.TargetID == nil || frame.Reason == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
+		}
+		entryType := strings.TrimSpace(*frame.EntryType)
+		targetID := strings.TrimSpace(*frame.TargetID)
+		reason := strings.TrimSpace(*frame.Reason)
+		if entryType == "" || targetID == "" || reason == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
+		}
+		return &Action{
+			Kind:                "governance.whitelist.write",
+			GovernanceOperation: operation,
+			GovernanceEntryType: entryType,
+			GovernanceTargetID:  targetID,
+			GovernanceReason:    reason,
+		}, nil
+	case "delete":
+		if frame.EntryType == nil || frame.TargetID == nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
+		}
+		entryType := strings.TrimSpace(*frame.EntryType)
+		targetID := strings.TrimSpace(*frame.TargetID)
+		if entryType == "" || targetID == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
+		}
+		return &Action{
+			Kind:                "governance.whitelist.write",
+			GovernanceOperation: operation,
+			GovernanceEntryType: entryType,
+			GovernanceTargetID:  targetID,
+		}, nil
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported governance.whitelist.write operation", nil)
+	}
+}
+
+func parseGovernanceCommandPolicyReadAction(raw json.RawMessage) (*Action, error) {
+	if err := parseEmptyObjectAction(raw, "governance.command_policy.read"); err != nil {
+		return nil, err
+	}
+	return &Action{Kind: "governance.command_policy.read"}, nil
 }
 
 func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
@@ -441,6 +555,19 @@ func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*Action, e
 		Kind:    actionKind,
 		RawData: payload,
 	}, nil
+}
+
+func parseEmptyObjectAction(raw json.RawMessage, actionKind string) error {
+	payload := make(map[string]any)
+	if len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return errorf(codePluginProtocolViolation, "plugin returned malformed "+actionKind+" data", err)
+		}
+	}
+	if len(payload) > 0 {
+		return errorf(codePluginProtocolViolation, "plugin action frame has invalid "+actionKind+" data", nil)
+	}
+	return nil
 }
 
 func decodeExclusiveTextOrBase64(text *string, encoded *string, required bool) ([]byte, error) {

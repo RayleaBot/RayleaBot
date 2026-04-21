@@ -1,7 +1,8 @@
 import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useGovernanceStore } from '@/stores/governance'
 import { useLogsStore } from '@/stores/logs'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
@@ -41,6 +42,10 @@ describe('socket store', () => {
   beforeEach(() => {
     MockManagedSocket.instances = []
     setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('starts management sockets once and keeps snapshots public', () => {
@@ -111,5 +116,34 @@ describe('socket store', () => {
     await flushPromises()
 
     expect(logsStore.items.map((item) => item.log_id)).toEqual(['log_0001'])
+  })
+
+  it('refreshes governance state through the public socket store wiring', async () => {
+    vi.useFakeTimers()
+    const sessionStore = useSessionStore()
+    sessionStore.token = 'session-token'
+    const governanceStore = useGovernanceStore()
+    const refreshSpy = vi.spyOn(governanceStore, 'refresh').mockResolvedValue({
+      blacklist: null,
+      whitelist: null,
+      commandPolicy: null,
+    })
+    const store = useSocketStore()
+
+    store.ensureManagementSockets()
+    MockManagedSocket.instances[0].options.onFrame?.({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-20T08:00:01Z',
+      data: {
+        event_type: 'governance.changed',
+        summary: '治理设置已更新',
+      },
+    })
+
+    await vi.advanceTimersByTimeAsync(120)
+    await flushPromises()
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
   })
 })

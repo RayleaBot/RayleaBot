@@ -7,6 +7,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
@@ -38,6 +39,17 @@ type WebhookGateway interface {
 	Expose(context.Context, string, runtime.Action) (map[string]any, error)
 }
 
+type GovernanceService interface {
+	ReadBlacklist(context.Context) (governance.BlacklistSnapshot, error)
+	UpsertBlacklistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
+	DeleteBlacklistEntry(context.Context, string, string) error
+	ReadWhitelist(context.Context) (governance.WhitelistSnapshot, error)
+	SetWhitelistEnabled(context.Context, bool) (governance.WhitelistStateResponse, error)
+	UpsertWhitelistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
+	DeleteWhitelistEntry(context.Context, string, string) error
+	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
+}
+
 type Deps struct {
 	CurrentConfig    func() config.Config
 	Logger           *slog.Logger
@@ -51,6 +63,7 @@ type Deps struct {
 	Renderer         *render.Service
 	Adapter          *adapter.Shell
 	PluginLogLimiter *PluginLogLimiter
+	Governance       GovernanceService
 }
 
 type Service struct {
@@ -67,6 +80,7 @@ type Service struct {
 	adapter          *adapter.Shell
 	webhookGateway   WebhookGateway
 	pluginLogLimiter *PluginLogLimiter
+	governance       GovernanceService
 }
 
 func New(deps Deps) *Service {
@@ -83,6 +97,7 @@ func New(deps Deps) *Service {
 		renderer:         deps.Renderer,
 		adapter:          deps.Adapter,
 		pluginLogLimiter: deps.PluginLogLimiter,
+		governance:       deps.Governance,
 	}
 }
 
@@ -105,6 +120,16 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 		return s.executePluginList(ctx, pluginID)
 	case "config.write":
 		return s.executeConfigWrite(ctx, pluginID, action)
+	case "governance.blacklist.read":
+		return s.executeGovernanceBlacklistRead(ctx, pluginID)
+	case "governance.blacklist.write":
+		return s.executeGovernanceBlacklistWrite(ctx, pluginID, action)
+	case "governance.whitelist.read":
+		return s.executeGovernanceWhitelistRead(ctx, pluginID)
+	case "governance.whitelist.write":
+		return s.executeGovernanceWhitelistWrite(ctx, pluginID, action)
+	case "governance.command_policy.read":
+		return s.executeGovernanceCommandPolicyRead(ctx, pluginID)
 	case "storage.file":
 		return s.executeStorageFile(ctx, pluginID, action)
 	case "http.request":

@@ -29,6 +29,9 @@ describe('socket frame router', () => {
       logs: {
         appendBatch: vi.fn(),
       },
+      governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
       protocols: {
         applySnapshot: vi.fn(),
       },
@@ -82,6 +85,9 @@ describe('socket frame router', () => {
       },
       logs: {
         appendBatch: vi.fn(),
+      },
+      governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
       },
       protocols: {
         applySnapshot: vi.fn(),
@@ -157,6 +163,9 @@ describe('socket frame router', () => {
       logs: {
         appendBatch: vi.fn(),
       },
+      governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
       protocols: {
         applySnapshot: vi.fn(),
       },
@@ -231,6 +240,120 @@ describe('socket frame router', () => {
     })
   })
 
+  it('debounces governance refresh when governance.changed arrives repeatedly', async () => {
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      tasks: {
+        upsert: vi.fn(),
+      },
+      logs: {
+        appendBatch: vi.fn(),
+      },
+      governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
+      protocols: {
+        applySnapshot: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-20T08:00:00Z',
+      data: {
+        event_type: 'governance.changed',
+        summary: '治理设置已更新',
+      },
+    })
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-20T08:00:01Z',
+      data: {
+        event_type: 'governance.changed',
+        summary: '治理设置已更新',
+      },
+    })
+
+    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(2)
+    expect(dependencies.governance.refresh).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(120)
+
+    expect(dependencies.governance.refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('runs one more governance refresh when another governance.changed arrives mid-refresh', async () => {
+    let resolveRefresh: (() => void) | null = null
+    const refreshSpy = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      resolveRefresh = resolve
+    }))
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      tasks: {
+        upsert: vi.fn(),
+      },
+      logs: {
+        appendBatch: vi.fn(),
+      },
+      governance: {
+        refresh: refreshSpy,
+      },
+      protocols: {
+        applySnapshot: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-20T08:00:00Z',
+      data: {
+        event_type: 'governance.changed',
+        summary: '治理设置已更新',
+      },
+    })
+    await vi.advanceTimersByTimeAsync(120)
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
+
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-20T08:00:01Z',
+      data: {
+        event_type: 'governance.changed',
+        summary: '治理设置已更新',
+      },
+    })
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
+
+    resolveRefresh?.()
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(120)
+
+    expect(refreshSpy).toHaveBeenCalledTimes(2)
+  })
+
   it('batches multiple log frames into a single appendBatch call', async () => {
     const dependencies = {
       system: {
@@ -247,6 +370,9 @@ describe('socket frame router', () => {
       },
       logs: {
         appendBatch: vi.fn(),
+      },
+      governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
       },
       protocols: {
         applySnapshot: vi.fn(),

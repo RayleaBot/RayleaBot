@@ -195,6 +195,16 @@ func (m *Manager) parseLocalActionFrameLocked(handle *processHandle, line []byte
 		action, parseErr = parsePluginListAction(frame.Data)
 	case "config.write":
 		action, parseErr = parseConfigWriteAction(frame.Data)
+	case "governance.blacklist.read":
+		action, parseErr = parseGovernanceBlacklistReadAction(frame.Data)
+	case "governance.blacklist.write":
+		action, parseErr = parseGovernanceBlacklistWriteAction(frame.Data)
+	case "governance.whitelist.read":
+		action, parseErr = parseGovernanceWhitelistReadAction(frame.Data)
+	case "governance.whitelist.write":
+		action, parseErr = parseGovernanceWhitelistWriteAction(frame.Data)
+	case "governance.command_policy.read":
+		action, parseErr = parseGovernanceCommandPolicyReadAction(frame.Data)
 	case "storage.file":
 		action, parseErr = parseStorageFileAction(frame.Data)
 	case "http.request":

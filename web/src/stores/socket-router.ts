@@ -19,6 +19,9 @@ export function createSocketFrameRouter(
 ): SocketFrameRouter {
   let statusRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
   let statusRefreshInFlight = false
+  let governanceRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
+  let governanceRefreshInFlight = false
+  let governanceRefreshQueued = false
   let pendingLiveLogs: LogSummary[] = []
   let flushLiveLogsScheduled = false
 
@@ -26,6 +29,10 @@ export function createSocketFrameRouter(
     if (statusRefreshHandle !== null) {
       window.clearTimeout(statusRefreshHandle)
       statusRefreshHandle = null
+    }
+    if (governanceRefreshHandle !== null) {
+      window.clearTimeout(governanceRefreshHandle)
+      governanceRefreshHandle = null
     }
   }
 
@@ -55,11 +62,52 @@ export function createSocketFrameRouter(
     }, statusRefreshDebounceMs)
   }
 
+  async function runGovernanceRefresh() {
+    if (governanceRefreshInFlight) {
+      governanceRefreshQueued = true
+      return
+    }
+
+    governanceRefreshInFlight = true
+    try {
+      await dependencies.governance.refresh()
+    } catch {
+      // governance pages keep the last successful snapshot until the next update
+    } finally {
+      governanceRefreshInFlight = false
+      if (governanceRefreshQueued) {
+        governanceRefreshQueued = false
+        scheduleGovernanceRefresh()
+      }
+    }
+  }
+
+  function scheduleGovernanceRefresh() {
+    if (governanceRefreshInFlight) {
+      governanceRefreshQueued = true
+      return
+    }
+
+    if (governanceRefreshHandle !== null) {
+      return
+    }
+
+    governanceRefreshHandle = window.setTimeout(() => {
+      governanceRefreshHandle = null
+      void runGovernanceRefresh()
+    }, statusRefreshDebounceMs)
+  }
+
   function handleEventsFrame(frame: WebSocketFrame<EventsPayload>) {
     dependencies.system.applyEvent(frame.timestamp, frame.data)
 
     if (isServiceStatusEvent(frame.data)) {
       scheduleStatusRefresh()
+      return
+    }
+
+    if (isGovernanceChangedEvent(frame.data)) {
+      scheduleGovernanceRefresh()
       return
     }
 
@@ -142,4 +190,8 @@ function isPluginStateEvent(payload: EventsPayload): payload is PluginStateEvent
 
 function isProtocolSnapshotEvent(payload: EventsPayload): payload is ProtocolSnapshotEvent {
   return 'protocol_snapshot' in payload
+}
+
+function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
+  return 'event_type' in payload && payload.event_type === 'governance.changed'
 }

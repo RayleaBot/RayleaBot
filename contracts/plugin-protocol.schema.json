@@ -80,6 +80,11 @@
         "http.request",
         "config.read",
         "config.write",
+        "governance.blacklist.read",
+        "governance.blacklist.write",
+        "governance.whitelist.read",
+        "governance.whitelist.write",
+        "governance.command_policy.read",
         "scheduler.create",
         "event.expose_webhook",
         "render.image",
@@ -1063,6 +1068,21 @@
           "$ref": "#/$defs/action_config_write"
         },
         {
+          "$ref": "#/$defs/action_governance_blacklist_read"
+        },
+        {
+          "$ref": "#/$defs/action_governance_blacklist_write"
+        },
+        {
+          "$ref": "#/$defs/action_governance_whitelist_read"
+        },
+        {
+          "$ref": "#/$defs/action_governance_whitelist_write"
+        },
+        {
+          "$ref": "#/$defs/action_governance_command_policy_read"
+        },
+        {
           "$ref": "#/$defs/action_storage_file"
         },
         {
@@ -1845,6 +1865,157 @@
         }
       }
     },
+    "action_governance_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0
+    },
+    "action_governance_blacklist_write_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "upsert",
+            "delete"
+          ]
+        },
+        "entry_type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "group"
+          ]
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "upsert"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id",
+              "reason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "delete"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id"
+            ]
+          }
+        }
+      ]
+    },
+    "action_governance_whitelist_write_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "set_enabled",
+            "upsert",
+            "delete"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "entry_type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "group"
+          ]
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "set_enabled"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "enabled"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "upsert"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id",
+              "reason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "delete"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id"
+            ]
+          }
+        }
+      ]
+    },
     "action_scheduler_create_data": {
       "type": "object",
       "additionalProperties": false,
@@ -2055,6 +2226,166 @@
             },
             "data": {
               "$ref": "#/$defs/action_config_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_blacklist_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.blacklist.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_blacklist_write": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.blacklist.write"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_blacklist_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_whitelist_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.whitelist.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_whitelist_write": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.whitelist.write"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_whitelist_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_command_policy_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.command_policy.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_read_data"
             }
           }
         }
@@ -2335,6 +2666,91 @@
     },
     {
       "type": "action",
+      "action_kind": "governance.blacklist.read",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-governance-blacklist-read.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "governance.blacklist.write",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-governance-blacklist-write-upsert.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "governance.whitelist.read",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-governance-whitelist-read.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "governance.whitelist.write",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-governance-whitelist-write-set-enabled.yaml"
+    },
+    {
+      "type": "action",
+      "action_kind": "governance.command_policy.read",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-governance-command-policy-read.yaml"
+    },
+    {
+      "type": "action",
       "action_kind": "storage.file",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request_distinct_from_event",
@@ -2538,6 +2954,11 @@
     "fixtures/plugin-protocol/ok.action-config-read.yaml",
     "fixtures/plugin-protocol/ok.action-plugin-list.yaml",
     "fixtures/plugin-protocol/ok.action-config-write.yaml",
+    "fixtures/plugin-protocol/ok.action-governance-blacklist-read.yaml",
+    "fixtures/plugin-protocol/ok.action-governance-blacklist-write-upsert.yaml",
+    "fixtures/plugin-protocol/ok.action-governance-whitelist-read.yaml",
+    "fixtures/plugin-protocol/ok.action-governance-whitelist-write-set-enabled.yaml",
+    "fixtures/plugin-protocol/ok.action-governance-command-policy-read.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-read.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-write-text.yaml",
     "fixtures/plugin-protocol/ok.action-storage-file-write-base64.yaml",
@@ -2577,6 +2998,8 @@
     "fixtures/plugin-protocol/invalid.action-storage-kv-missing-key.yaml",
     "fixtures/plugin-protocol/invalid.action-config-read-empty-keys.yaml",
     "fixtures/plugin-protocol/invalid.action-config-write-empty-values.yaml",
+    "fixtures/plugin-protocol/invalid.action-governance-blacklist-write-missing-target.yaml",
+    "fixtures/plugin-protocol/invalid.action-governance-whitelist-write-missing-enabled.yaml",
     "fixtures/plugin-protocol/invalid.action-storage-file-path-escape.yaml",
     "fixtures/plugin-protocol/invalid.action-storage-file-mixed-content.yaml",
     "fixtures/plugin-protocol/invalid.action-http-request-get-with-body.yaml",
@@ -2604,5 +3027,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

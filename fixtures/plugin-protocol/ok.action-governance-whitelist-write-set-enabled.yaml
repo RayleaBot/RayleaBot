@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000416
+    plugin_id: governance-helper
+    request_id: local_governance_whitelist_write_0001
+    action: governance.whitelist.write
+    data:
+      operation: set_enabled
+      enabled: true
+expect:
+  valid: true
+  notes:
+    - governance.whitelist.write set_enabled switches whitelist admission on or off.

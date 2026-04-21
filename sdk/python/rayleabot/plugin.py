@@ -214,6 +214,88 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
+    def governance_blacklist_read(self, request_id, timeout_seconds=30):
+        """Read the current governance blacklist snapshot."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "governance.blacklist.read",
+            {},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def governance_blacklist_write(self, request_id, operation, entry_type=None, target_id=None, reason=None, timeout_seconds=30):
+        """Write one governance blacklist change."""
+        data = {"operation": operation}
+        if operation == "upsert":
+            if not entry_type or not target_id or not reason:
+                raise ValueError("governance_blacklist_write upsert requires entry_type, target_id, and reason")
+            data["entry_type"] = entry_type
+            data["target_id"] = target_id
+            data["reason"] = reason
+        elif operation == "delete":
+            if not entry_type or not target_id:
+                raise ValueError("governance_blacklist_write delete requires entry_type and target_id")
+            data["entry_type"] = entry_type
+            data["target_id"] = target_id
+        else:
+            raise ValueError("governance_blacklist_write requires operation upsert or delete")
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "governance.blacklist.write",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def governance_whitelist_read(self, request_id, timeout_seconds=30):
+        """Read the current governance whitelist snapshot."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "governance.whitelist.read",
+            {},
+            timeout_seconds=timeout_seconds,
+        )
+
+    def governance_whitelist_write(self, request_id, operation, enabled=None, entry_type=None, target_id=None, reason=None, timeout_seconds=30):
+        """Write one governance whitelist change."""
+        data = {"operation": operation}
+        if operation == "set_enabled":
+            if enabled is None:
+                raise ValueError("governance_whitelist_write set_enabled requires enabled")
+            data["enabled"] = enabled
+        elif operation == "upsert":
+            if not entry_type or not target_id or not reason:
+                raise ValueError("governance_whitelist_write upsert requires entry_type, target_id, and reason")
+            data["entry_type"] = entry_type
+            data["target_id"] = target_id
+            data["reason"] = reason
+        elif operation == "delete":
+            if not entry_type or not target_id:
+                raise ValueError("governance_whitelist_write delete requires entry_type and target_id")
+            data["entry_type"] = entry_type
+            data["target_id"] = target_id
+        else:
+            raise ValueError("governance_whitelist_write requires operation set_enabled, upsert, or delete")
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "governance.whitelist.write",
+            data,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def governance_command_policy_read(self, request_id, timeout_seconds=30):
+        """Read the current governance command policy projection."""
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "governance.command_policy.read",
+            {},
+            timeout_seconds=timeout_seconds,
+        )
+
     def scheduler_create(self, request_id, task_id, cron, payload=None, timeout_seconds=30):
         """Create or update one scheduler.trigger task through scheduler.create."""
         data = {
@@ -528,6 +610,11 @@ class RayleaBotPlugin:
     httpRequest = http_request
     configRead = config_read
     configWrite = config_write
+    governanceBlacklistRead = governance_blacklist_read
+    governanceBlacklistWrite = governance_blacklist_write
+    governanceWhitelistRead = governance_whitelist_read
+    governanceWhitelistWrite = governance_whitelist_write
+    governanceCommandPolicyRead = governance_command_policy_read
     schedulerCreate = scheduler_create
     exposeWebhook = expose_webhook
     renderImage = render_image

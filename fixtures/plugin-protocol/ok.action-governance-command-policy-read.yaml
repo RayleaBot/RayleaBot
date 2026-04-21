@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000417
+    plugin_id: governance-helper
+    request_id: local_governance_command_policy_read_0001
+    action: governance.command_policy.read
+    data: {}
+expect:
+  valid: true
+  notes:
+    - governance.command_policy.read returns the same effective command policy projection used by the management surface.

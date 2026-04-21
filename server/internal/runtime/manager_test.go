@@ -949,6 +949,62 @@ func TestParseConfigWriteAction(t *testing.T) {
 	}
 }
 
+func TestParseGovernanceBlacklistReadAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseGovernanceBlacklistReadAction(json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("parseGovernanceBlacklistReadAction: %v", err)
+	}
+	if action.Kind != "governance.blacklist.read" {
+		t.Fatalf("unexpected governance.blacklist.read action: %#v", action)
+	}
+}
+
+func TestParseGovernanceBlacklistWriteAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseGovernanceBlacklistWriteAction(json.RawMessage(`{
+		"operation": "upsert",
+		"entry_type": "user",
+		"target_id": "10001",
+		"reason": "manual_review"
+	}`))
+	if err != nil {
+		t.Fatalf("parseGovernanceBlacklistWriteAction: %v", err)
+	}
+	if action.Kind != "governance.blacklist.write" || action.GovernanceOperation != "upsert" || action.GovernanceTargetID != "10001" {
+		t.Fatalf("unexpected governance.blacklist.write action: %#v", action)
+	}
+}
+
+func TestParseGovernanceWhitelistWriteAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseGovernanceWhitelistWriteAction(json.RawMessage(`{
+		"operation": "set_enabled",
+		"enabled": true
+	}`))
+	if err != nil {
+		t.Fatalf("parseGovernanceWhitelistWriteAction: %v", err)
+	}
+	if action.Kind != "governance.whitelist.write" || action.GovernanceOperation != "set_enabled" || action.GovernanceEnabled == nil || !*action.GovernanceEnabled {
+		t.Fatalf("unexpected governance.whitelist.write action: %#v", action)
+	}
+}
+
+func TestParseGovernanceCommandPolicyReadAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseGovernanceCommandPolicyReadAction(json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("parseGovernanceCommandPolicyReadAction: %v", err)
+	}
+	if action.Kind != "governance.command_policy.read" {
+		t.Fatalf("unexpected governance.command_policy.read action: %#v", action)
+	}
+}
+
 func TestParseSchedulerCreateAction(t *testing.T) {
 	t.Parallel()
 

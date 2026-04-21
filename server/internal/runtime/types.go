@@ -92,6 +92,11 @@ type Action struct {
 	LogFields               map[string]any
 	ConfigKeys              []string
 	ConfigValues            map[string]any
+	GovernanceOperation     string
+	GovernanceEntryType     string
+	GovernanceTargetID      string
+	GovernanceReason        string
+	GovernanceEnabled       *bool
 	StorageOperation        string
 	StorageRoot             string
 	StoragePath             string

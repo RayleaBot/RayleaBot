@@ -69,6 +69,11 @@
 - `config.read`
 - `plugin.list`
 - `config.write`
+- `governance.blacklist.read`
+- `governance.blacklist.write`
+- `governance.whitelist.read`
+- `governance.whitelist.write`
+- `governance.command_policy.read`
 - `scheduler.create`
 - `event.expose_webhook`
 - `render.image`
@@ -126,6 +131,10 @@
 OneBot 单动作 capability 名称与 action kind 保持一致，provider capability 只包含上面三项正式扩展动作。
 
 - `plugin.list` 返回当前已发现插件的只读目录，包括插件状态、命令列表和命令冲突信息。
+- `governance.blacklist.read` 与 `governance.whitelist.read` 返回当前治理快照。
+- `governance.blacklist.write` 支持单条黑名单 `upsert` 与 `delete`。
+- `governance.whitelist.write` 支持白名单开关 `set_enabled`，以及单条白名单 `upsert` 与 `delete`。
+- `governance.command_policy.read` 返回当前生效的默认权限、冷却配置和命令级权限投影。
 
 - 同一事件内允许多个 local action 同时在途。
 - 插件在本地 action 尚未完成时返回事件级 `result` 或 `error`，属于协议违规。

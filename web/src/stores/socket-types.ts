@@ -51,6 +51,9 @@ export interface SocketFrameRouterDependencies {
   logs: {
     appendBatch: (logs: LogSummary[]) => unknown
   }
+  governance: {
+    refresh: () => Promise<unknown>
+  }
   protocols: {
     applySnapshot: (snapshot: OneBot11ProtocolSnapshotResponse) => void
   }

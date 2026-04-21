@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000414
+    plugin_id: governance-helper
+    request_id: local_governance_blacklist_write_0001
+    action: governance.blacklist.write
+    data:
+      operation: upsert
+      entry_type: user
+      target_id: "10001"
+      reason: manual_review
+expect:
+  valid: true
+  notes:
+    - governance.blacklist.write upsert adds or updates one blacklist entry without exposing management session tokens.

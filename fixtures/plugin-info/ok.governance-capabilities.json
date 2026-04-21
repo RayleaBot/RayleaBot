@@ -1,0 +1,41 @@
+{
+  "id": "governance-helper",
+  "name": "Governance Helper",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Example manifest declaring governance read and write capabilities.",
+  "author": "raylea",
+  "role": "example",
+  "capabilities": [
+    "event.subscribe",
+    "message.send",
+    "governance.blacklist.read",
+    "governance.blacklist.write",
+    "governance.whitelist.read",
+    "governance.whitelist.write",
+    "governance.command_policy.read"
+  ],
+  "permissions": {
+    "required": [
+      "message.send",
+      "governance.blacklist.read",
+      "governance.blacklist.write",
+      "governance.whitelist.read",
+      "governance.whitelist.write",
+      "governance.command_policy.read"
+    ],
+    "optional": []
+  },
+  "commands": [
+    {
+      "name": "governance_demo",
+      "description": "Read governance snapshots through local actions.",
+      "usage": "/governance_demo"
+    }
+  ]
+}

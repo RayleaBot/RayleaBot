@@ -10,6 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
@@ -109,6 +110,17 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 	a.renderer = rendererService
 	a.adapter = adapterShell
 	a.pluginLogLimiter = limiter
+	if a.governanceEvents == nil {
+		a.governanceEvents = newGovernanceEventService()
+	}
+	a.governance = governance.NewService(governance.Deps{
+		CurrentConfig:  func() config.Config { return a.state.Config },
+		Plugins:        a.plugins,
+		BlacklistRepo:  a.blacklistRepo,
+		WhitelistRepo:  a.whitelistRepo,
+		WhitelistState: a.whitelistState,
+		NotifyChanged:  a.governanceEvents.PublishChanged,
+	})
 	a.localActions = localaction.New(localaction.Deps{
 		CurrentConfig: func() config.Config { return a.state.Config },
 		Logger:        a.state.Logger,
@@ -126,6 +138,7 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 		Renderer:         rendererService,
 		Adapter:          adapterShell,
 		PluginLogLimiter: limiter,
+		Governance:       a.governance,
 	})
 	if webhookService != nil {
 		a.localActions.SetWebhookGateway(webhookService)

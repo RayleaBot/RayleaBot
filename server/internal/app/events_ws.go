@@ -39,6 +39,12 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 		defer unsubscribeProtocol()
 		statusFrames, unsubscribeStatus := h.serviceStatus.subscribeStatusEvents(4)
 		defer unsubscribeStatus()
+		var governanceFrames <-chan managementEventFrame
+		unsubscribeGovernance := func() {}
+		if h.governance != nil {
+			governanceFrames, unsubscribeGovernance = h.governance.subscribeGovernanceEvents(4)
+		}
+		defer unsubscribeGovernance()
 
 		for _, frame := range []managementEventFrame{
 			h.serviceStatus.currentServiceStatusEvent(),
@@ -75,6 +81,13 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 					return
 				}
 			case frame, ok := <-statusFrames:
+				if !ok {
+					return
+				}
+				if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
+					return
+				}
+			case frame, ok := <-governanceFrames:
 				if !ok {
 					return
 				}

@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000415
+    plugin_id: governance-helper
+    request_id: local_governance_whitelist_read_0001
+    action: governance.whitelist.read
+    data: {}
+expect:
+  valid: true
+  notes:
+    - governance.whitelist.read returns whitelist state and current user or group entries.

@@ -78,6 +78,19 @@ interface FileGroupFsDeleteOptions extends ActionOptions {
   fileId?: string;
 }
 
+interface GovernanceBlacklistWriteOptions extends ActionOptions {
+  entryType?: 'user' | 'group';
+  targetId?: string;
+  reason?: string;
+}
+
+interface GovernanceWhitelistWriteOptions extends ActionOptions {
+  enabled?: boolean;
+  entryType?: 'user' | 'group';
+  targetId?: string;
+  reason?: string;
+}
+
 export interface RayleaBotPlugin {
   readonly botId: string;
   readonly capabilities: string[];
@@ -152,6 +165,28 @@ export interface RayleaBotPlugin {
   configWrite(
     requestId: string,
     values: Record<string, unknown>,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  governanceBlacklistRead(
+    requestId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  governanceBlacklistWrite(
+    requestId: string,
+    operation: 'upsert' | 'delete',
+    options?: GovernanceBlacklistWriteOptions,
+  ): Promise<Record<string, unknown>>;
+  governanceWhitelistRead(
+    requestId: string,
+    options?: ActionOptions,
+  ): Promise<Record<string, unknown>>;
+  governanceWhitelistWrite(
+    requestId: string,
+    operation: 'set_enabled' | 'upsert' | 'delete',
+    options?: GovernanceWhitelistWriteOptions,
+  ): Promise<Record<string, unknown>>;
+  governanceCommandPolicyRead(
+    requestId: string,
     options?: ActionOptions,
   ): Promise<Record<string, unknown>>;
   schedulerCreate(
@@ -710,6 +745,87 @@ export function createPlugin(): RayleaBotPlugin {
         { values },
         { timeoutMs },
       );
+    },
+
+    async governanceBlacklistRead(
+      requestId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'governance.blacklist.read', {}, { timeoutMs });
+    },
+
+    async governanceBlacklistWrite(
+      requestId: string,
+      operation: 'upsert' | 'delete',
+      options: GovernanceBlacklistWriteOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { entryType, targetId, reason, timeoutMs = 30000 } = options;
+      const data: Record<string, unknown> = { operation };
+      if (operation === 'upsert') {
+        if (!entryType || !targetId || !reason) {
+          throw new Error('governanceBlacklistWrite upsert requires entryType, targetId, and reason');
+        }
+        data.entry_type = entryType;
+        data.target_id = targetId;
+        data.reason = reason;
+      } else if (operation === 'delete') {
+        if (!entryType || !targetId) {
+          throw new Error('governanceBlacklistWrite delete requires entryType and targetId');
+        }
+        data.entry_type = entryType;
+        data.target_id = targetId;
+      } else {
+        throw new Error('governanceBlacklistWrite requires operation upsert or delete');
+      }
+      return await requestLocalAction(pluginId, requestId, 'governance.blacklist.write', data, { timeoutMs });
+    },
+
+    async governanceWhitelistRead(
+      requestId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'governance.whitelist.read', {}, { timeoutMs });
+    },
+
+    async governanceWhitelistWrite(
+      requestId: string,
+      operation: 'set_enabled' | 'upsert' | 'delete',
+      options: GovernanceWhitelistWriteOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { enabled, entryType, targetId, reason, timeoutMs = 30000 } = options;
+      const data: Record<string, unknown> = { operation };
+      if (operation === 'set_enabled') {
+        if (enabled === undefined) {
+          throw new Error('governanceWhitelistWrite set_enabled requires enabled');
+        }
+        data.enabled = enabled;
+      } else if (operation === 'upsert') {
+        if (!entryType || !targetId || !reason) {
+          throw new Error('governanceWhitelistWrite upsert requires entryType, targetId, and reason');
+        }
+        data.entry_type = entryType;
+        data.target_id = targetId;
+        data.reason = reason;
+      } else if (operation === 'delete') {
+        if (!entryType || !targetId) {
+          throw new Error('governanceWhitelistWrite delete requires entryType and targetId');
+        }
+        data.entry_type = entryType;
+        data.target_id = targetId;
+      } else {
+        throw new Error('governanceWhitelistWrite requires operation set_enabled, upsert, or delete');
+      }
+      return await requestLocalAction(pluginId, requestId, 'governance.whitelist.write', data, { timeoutMs });
+    },
+
+    async governanceCommandPolicyRead(
+      requestId: string,
+      options: ActionOptions = {},
+    ): Promise<Record<string, unknown>> {
+      const { timeoutMs = 30000 } = options;
+      return await requestLocalAction(pluginId, requestId, 'governance.command_policy.read', {}, { timeoutMs });
     },
 
     async schedulerCreate(

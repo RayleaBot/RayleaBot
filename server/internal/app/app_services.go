@@ -438,10 +438,11 @@ type eventsWSHandler struct {
 	plugins       *plugins.Catalog
 	protocol      *protocolService
 	serviceStatus *serviceStatusService
+	governance    *governanceEventService
 }
 
-func newEventsWSHandler(bridge *bridge.Bridge, plugins *plugins.Catalog, protocol *protocolService, serviceStatus *serviceStatusService) *eventsWSHandler {
-	return &eventsWSHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus}
+func newEventsWSHandler(bridge *bridge.Bridge, plugins *plugins.Catalog, protocol *protocolService, serviceStatus *serviceStatusService, governance *governanceEventService) *eventsWSHandler {
+	return &eventsWSHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance}
 }
 
 type tasksWSHandler struct {

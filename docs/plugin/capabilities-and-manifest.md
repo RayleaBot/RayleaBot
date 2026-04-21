@@ -38,6 +38,11 @@
 - `http.request`
 - `config.read`
 - `config.write`
+- `governance.blacklist.read`
+- `governance.blacklist.write`
+- `governance.whitelist.read`
+- `governance.whitelist.write`
+- `governance.command_policy.read`
 - `scheduler.create`
 - `event.expose_webhook`
 - `render.image`

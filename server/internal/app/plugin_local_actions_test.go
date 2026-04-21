@@ -15,6 +15,8 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/governance"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginkv"
@@ -23,6 +25,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
+
+func boolPointer(value bool) *bool {
+	return &value
+}
 
 func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
 	t.Parallel()
@@ -379,6 +385,218 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected config.changed event")
+	}
+}
+
+func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
+	t.Parallel()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	defer store.Close()
+
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err = application.executeLocalAction(context.Background(), "governance-helper", "req_governance_unauthorized", runtime.Action{
+		Kind: "governance.blacklist.read",
+	})
+	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+}
+
+func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	defer store.Close()
+
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{
+				"governance.blacklist.read",
+				"governance.blacklist.write",
+				"governance.whitelist.read",
+				"governance.whitelist.write",
+				"governance.command_policy.read",
+			},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Name:              "Weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		Commands: []plugins.Command{
+			{Name: "forecast", Permission: "group_admin", Aliases: []string{"fc"}},
+			{Name: "current"},
+		},
+	}})
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	blacklistWrite, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_upsert", runtime.Action{
+		Kind:                "governance.blacklist.write",
+		GovernanceOperation: "upsert",
+		GovernanceEntryType: "user",
+		GovernanceTargetID:  "1001",
+		GovernanceReason:    "spam",
+	})
+	if err != nil {
+		t.Fatalf("governance.blacklist.write upsert failed: %v", err)
+	}
+	if blacklistWrite["entry_type"] != "user" || blacklistWrite["target_id"] != "1001" {
+		t.Fatalf("unexpected blacklist write result: %#v", blacklistWrite)
+	}
+
+	blacklistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_read", runtime.Action{
+		Kind: "governance.blacklist.read",
+	})
+	if err != nil {
+		t.Fatalf("governance.blacklist.read failed: %v", err)
+	}
+	userEntries, _ := blacklistRead["user_entries"].([]governance.EntryResponse)
+	if len(userEntries) != 1 || userEntries[0].TargetID != "1001" {
+		t.Fatalf("unexpected blacklist snapshot: %#v", blacklistRead)
+	}
+
+	whitelistToggle, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_enabled", runtime.Action{
+		Kind:                "governance.whitelist.write",
+		GovernanceOperation: "set_enabled",
+		GovernanceEnabled:   boolPointer(true),
+	})
+	if err != nil {
+		t.Fatalf("governance.whitelist.write set_enabled failed: %v", err)
+	}
+	if whitelistToggle["enabled"] != true {
+		t.Fatalf("unexpected whitelist toggle result: %#v", whitelistToggle)
+	}
+
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_upsert", runtime.Action{
+		Kind:                "governance.whitelist.write",
+		GovernanceOperation: "upsert",
+		GovernanceEntryType: "group",
+		GovernanceTargetID:  "2001",
+		GovernanceReason:    "approved",
+	}); err != nil {
+		t.Fatalf("governance.whitelist.write upsert failed: %v", err)
+	}
+
+	whitelistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_read", runtime.Action{
+		Kind: "governance.whitelist.read",
+	})
+	if err != nil {
+		t.Fatalf("governance.whitelist.read failed: %v", err)
+	}
+	groupEntries, _ := whitelistRead["group_entries"].([]governance.EntryResponse)
+	if whitelistRead["enabled"] != true || len(groupEntries) != 1 || groupEntries[0].TargetID != "2001" {
+		t.Fatalf("unexpected whitelist snapshot: %#v", whitelistRead)
+	}
+
+	commandPolicy, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_command_policy", runtime.Action{
+		Kind: "governance.command_policy.read",
+	})
+	if err != nil {
+		t.Fatalf("governance.command_policy.read failed: %v", err)
+	}
+	commands, _ := commandPolicy["commands"].([]governance.CommandPolicyEntryResponse)
+	if commandPolicy["default_level"] != "everyone" || len(commands) != 2 {
+		t.Fatalf("unexpected command policy: %#v", commandPolicy)
+	}
+
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_delete", runtime.Action{
+		Kind:                "governance.blacklist.write",
+		GovernanceOperation: "delete",
+		GovernanceEntryType: "user",
+		GovernanceTargetID:  "1001",
+	}); err != nil {
+		t.Fatalf("governance.blacklist.write delete failed: %v", err)
+	}
+}
+
+func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
+	t.Parallel()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	defer store.Close()
+
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"governance.blacklist.write"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
+	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	events, unsubscribe := application.governanceEvents.subscribeGovernanceEvents(1)
+	defer unsubscribe()
+
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", runtime.Action{
+		Kind:                "governance.blacklist.write",
+		GovernanceOperation: "upsert",
+		GovernanceEntryType: "user",
+		GovernanceTargetID:  "1001",
+		GovernanceReason:    "spam",
+	}); err != nil {
+		t.Fatalf("governance.blacklist.write upsert failed: %v", err)
+	}
+
+	select {
+	case frame := <-events:
+		data, _ := frame.Data.(map[string]any)
+		if data["event_type"] != "governance.changed" {
+			t.Fatalf("unexpected governance event: %#v", frame)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected governance.changed event")
 	}
 }
 

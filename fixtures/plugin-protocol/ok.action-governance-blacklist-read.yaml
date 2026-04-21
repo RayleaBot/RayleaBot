@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000413
+    plugin_id: governance-helper
+    request_id: local_governance_blacklist_read_0001
+    action: governance.blacklist.read
+    data: {}
+expect:
+  valid: true
+  notes:
+    - governance.blacklist.read returns the current blacklist snapshot through the local action path.

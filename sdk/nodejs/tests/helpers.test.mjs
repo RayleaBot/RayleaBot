@@ -170,11 +170,59 @@ test('napcatGroupSignSet emits the frozen provider action name', async () => {
   assert.deepEqual(actionFrame.data, { group_id: 'group-10001' });
 });
 
+test('governance helpers emit the frozen action names', async () => {
+  let result = await invokeHelper(
+    "plugin.governanceBlacklistRead('evt-3', { timeoutMs: 1000 })",
+  );
+  assert.equal(result.actionFrame.action, 'governance.blacklist.read');
+  assert.deepEqual(result.actionFrame.data, {});
+
+  result = await invokeHelper(
+    "plugin.governanceBlacklistWrite('evt-4', 'upsert', { entryType: 'user', targetId: '10001', reason: 'manual_review', timeoutMs: 1000 })",
+  );
+  assert.equal(result.actionFrame.action, 'governance.blacklist.write');
+  assert.deepEqual(result.actionFrame.data, {
+    operation: 'upsert',
+    entry_type: 'user',
+    target_id: '10001',
+    reason: 'manual_review',
+  });
+
+  result = await invokeHelper(
+    "plugin.governanceWhitelistWrite('evt-5', 'set_enabled', { enabled: true, timeoutMs: 1000 })",
+  );
+  assert.equal(result.actionFrame.action, 'governance.whitelist.write');
+  assert.deepEqual(result.actionFrame.data, {
+    operation: 'set_enabled',
+    enabled: true,
+  });
+
+  result = await invokeHelper(
+    "plugin.governanceCommandPolicyRead('evt-6', { timeoutMs: 1000 })",
+  );
+  assert.equal(result.actionFrame.action, 'governance.command_policy.read');
+  assert.deepEqual(result.actionFrame.data, {});
+});
+
 test('fileGroupFsDelete rejects when both folderId and fileId are missing', async () => {
   const error = await invokeHelperError(
-    "plugin.fileGroupFsDelete('evt-3', 'group-10001')",
+    "plugin.fileGroupFsDelete('evt-7', 'group-10001')",
   );
 
   assert.equal(error.name, 'Error');
   assert.match(error.message, /requires folderId or fileId/);
+});
+
+test('governance helpers reject missing required fields', async () => {
+  const blacklistError = await invokeHelperError(
+    "plugin.governanceBlacklistWrite('evt-8', 'upsert', { entryType: 'user', reason: 'missing-target' })",
+  );
+  assert.equal(blacklistError.name, 'Error');
+  assert.match(blacklistError.message, /requires entryType, targetId, and reason/);
+
+  const whitelistError = await invokeHelperError(
+    "plugin.governanceWhitelistWrite('evt-9', 'set_enabled', { timeoutMs: 1000 })",
+  );
+  assert.equal(whitelistError.name, 'Error');
+  assert.match(whitelistError.message, /requires enabled/);
 });

@@ -1,0 +1,46 @@
+{
+  "id": "example-governance-control",
+  "name": "Example Governance Control",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "Python example plugin demonstrating governance local actions.",
+  "author": "raylea",
+  "role": "example",
+  "capabilities": [
+    "event.subscribe",
+    "message.send",
+    "governance.blacklist.read",
+    "governance.blacklist.write",
+    "governance.whitelist.read",
+    "governance.whitelist.write",
+    "governance.command_policy.read"
+  ],
+  "permissions": {
+    "required": [
+      "message.send",
+      "governance.blacklist.read",
+      "governance.blacklist.write",
+      "governance.whitelist.read",
+      "governance.whitelist.write",
+      "governance.command_policy.read"
+    ],
+    "optional": []
+  },
+  "commands": [
+    {
+      "name": "governance_demo",
+      "description": "Read governance snapshots and command policy.",
+      "usage": "/governance_demo"
+    },
+    {
+      "name": "governance_block",
+      "description": "Add one user to the blacklist for demonstration.",
+      "usage": "/governance_block <user_id>"
+    }
+  ]
+}

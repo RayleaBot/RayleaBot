@@ -150,13 +150,15 @@ type App struct {
 	webhookRegistry   *pluginwebhook.Registry
 	pluginLogLimiter  *localaction.PluginLogLimiter
 
-	localActions    *localaction.Service
-	pluginLifecycle *pluginLifecycleController
-	eventIngress    *eventIngressService
-	protocol        *protocolService
-	pluginWebhooks  *pluginwebhook.Service
-	logService      *logService
-	systemService   *systemService
+	localActions     *localaction.Service
+	pluginLifecycle  *pluginLifecycleController
+	eventIngress     *eventIngressService
+	protocol         *protocolService
+	pluginWebhooks   *pluginwebhook.Service
+	governance       *governance.Service
+	governanceEvents *governanceEventService
+	logService       *logService
+	systemService    *systemService
 
 	authHandler       *authHTTPHandlers
 	managementHandler *managementHTTPHandlers
@@ -198,6 +200,15 @@ func New(options Options) (*App, error) {
 		grantRepository: pluginState.grantRepository,
 	}
 	pluginState.Dispatcher.SetCapabilityChecker(grantView.capabilityGranted)
+	governanceEvents := newGovernanceEventService()
+	governanceService := governance.NewService(governance.Deps{
+		CurrentConfig:  func() config.Config { return state.Config },
+		Plugins:        pluginState.Plugins,
+		BlacklistRepo:  pluginState.blacklistRepo,
+		WhitelistRepo:  pluginState.whitelistRepo,
+		WhitelistState: pluginState.whitelistState,
+		NotifyChanged:  governanceEvents.PublishChanged,
+	})
 	localActions := localaction.New(localaction.Deps{
 		CurrentConfig:    func() config.Config { return state.Config },
 		Logger:           state.Logger,
@@ -211,6 +222,7 @@ func New(options Options) (*App, error) {
 		Renderer:         pluginState.renderer,
 		Adapter:          pluginState.Adapter,
 		PluginLogLimiter: pluginState.pluginLogLimiter,
+		Governance:       governanceService,
 	})
 	runtimeOptions := runtime.Options{
 		Console:                    platformState.Console,
@@ -307,6 +319,8 @@ func New(options Options) (*App, error) {
 		eventIngress:      eventIngress,
 		protocol:          protocolService,
 		pluginWebhooks:    pluginWebhooks,
+		governance:        governanceService,
+		governanceEvents:  governanceEvents,
 		logService:        logService,
 		systemService:     systemService,
 	}
@@ -363,19 +377,13 @@ func New(options Options) (*App, error) {
 		system:          systemService,
 		requestShutdown: application.requestShutdown,
 	})
-	governanceHandler := governance.NewHandlers(governance.Deps{
-		CurrentConfig:  func() config.Config { return state.Config },
-		Plugins:        pluginState.Plugins,
-		BlacklistRepo:  pluginState.blacklistRepo,
-		WhitelistRepo:  pluginState.whitelistRepo,
-		WhitelistState: pluginState.whitelistState,
-	})
+	governanceHandler := governance.NewHandlersWithService(governanceService)
 	taskHandler := newTaskHTTPHandlers(platformState.Tasks, platformState.taskExecutor, pluginState.PluginInstaller)
 	logHandler := newLogHTTPHandlers(logService)
 	renderHandler := newRenderHTTPHandlers(pluginState.renderer, platformState.taskExecutor)
 	systemHandler := newSystemHTTPHandlers(systemService)
 	protocolHandler := newProtocolHTTPHandlers(protocolService)
-	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService, serviceStatusService)
+	eventsWS := newEventsWSHandler(pluginState.Bridge, pluginState.Plugins, protocolService, serviceStatusService, governanceEvents)
 	tasksWS := newTasksWSHandler(platformState.Tasks)
 	logsWS := newLogsWSHandler(logService)
 	consoleWS := newConsoleWSHandler(platformState.Console, pluginState.Plugins)

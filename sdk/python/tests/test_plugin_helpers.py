@@ -105,6 +105,60 @@ class PluginHelperTests(unittest.TestCase):
         self.assertEqual("provider.napcat.group.sign.set", sent["action"])
         self.assertEqual({"group_id": "group-10001"}, sent["data"])
 
+    def test_governance_helpers_use_frozen_action_names(self):
+        sent = self._invoke_local_action(
+            lambda plugin: plugin.governance_blacklist_read("evt-4", timeout_seconds=1),
+        )
+        self.assertEqual("governance.blacklist.read", sent["action"])
+        self.assertEqual({}, sent["data"])
+
+        sent = self._invoke_local_action(
+            lambda plugin: plugin.governance_blacklist_write(
+                "evt-5",
+                "upsert",
+                entry_type="user",
+                target_id="10001",
+                reason="manual_review",
+                timeout_seconds=1,
+            ),
+        )
+        self.assertEqual("governance.blacklist.write", sent["action"])
+        self.assertEqual(
+            {
+                "operation": "upsert",
+                "entry_type": "user",
+                "target_id": "10001",
+                "reason": "manual_review",
+            },
+            sent["data"],
+        )
+
+        sent = self._invoke_local_action(
+            lambda plugin: plugin.governance_whitelist_write(
+                "evt-6",
+                "set_enabled",
+                enabled=True,
+                timeout_seconds=1,
+            ),
+        )
+        self.assertEqual("governance.whitelist.write", sent["action"])
+        self.assertEqual({"operation": "set_enabled", "enabled": True}, sent["data"])
+
+        sent = self._invoke_local_action(
+            lambda plugin: plugin.governance_command_policy_read("evt-7", timeout_seconds=1),
+        )
+        self.assertEqual("governance.command_policy.read", sent["action"])
+        self.assertEqual({}, sent["data"])
+
+    def test_governance_helpers_validate_required_fields(self):
+        plugin = self.plugin_module.RayleaBotPlugin()
+
+        with self.assertRaises(ValueError):
+            plugin.governance_blacklist_write("evt-8", "upsert", entry_type="user", reason="missing-target")
+
+        with self.assertRaises(ValueError):
+            plugin.governance_whitelist_write("evt-9", "set_enabled")
+
     def test_runtime_context_properties_return_copies(self):
         plugin = self.plugin_module.RayleaBotPlugin()
         plugin._bot_id = "bot-10001"

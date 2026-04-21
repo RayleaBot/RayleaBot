@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000418
+    plugin_id: governance-helper
+    request_id: local_governance_blacklist_write_invalid_0001
+    action: governance.blacklist.write
+    data:
+      operation: upsert
+      entry_type: user
+      reason: missing_target
+expect:
+  valid: false
+  reason: governance.blacklist.write upsert requires both entry_type and target_id.
