@@ -738,6 +738,11 @@ test('history logs stay frozen until the user refreshes the anchor', async ({ pa
   await page.getByRole('button', { name: '应用筛选' }).click()
 
   await expect(page.locator('.logs-row__message', { hasText: 'history row 50' })).toBeVisible()
+  await expect.poll(async () => (
+    logScroller(page).evaluate((node) => (
+      node.scrollHeight - node.clientHeight - node.scrollTop
+    ))
+  )).toBeLessThanOrEqual(4)
   const initialMetrics = await logScroller(page).evaluate((node) => ({
     clientHeight: node.clientHeight,
     scrollHeight: node.scrollHeight,
@@ -1047,7 +1052,7 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
 
   const baseTimestamp = Date.now() - 3 * 60 * 60 * 1000
 
-  await pushLogsInBatches(request, 151, (index) => ({
+  await pushLogsInBatches(request, 251, (index) => ({
     summary: {
       log_id: `log_history_scroll_e2e_${index}`,
       timestamp: new Date(baseTimestamp + index * 1000).toISOString(),
@@ -1070,7 +1075,8 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
     page.getByRole('button', { name: '应用筛选' }).click(),
   ])
 
-  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 150' })).toBeVisible()
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 250' })).toBeVisible()
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 150' })).toHaveCount(0)
   await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toHaveCount(0)
   await expect.poll(async () => (
     logScroller(page).evaluate((node) => (
@@ -1091,6 +1097,24 @@ test('history logs reveal older rows after scrolling to the top edge', async ({ 
     }),
   ])
 
+  await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toHaveCount(0)
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().includes('/api/logs?')
+      && response.url().includes('request_id=req_logs_history_scroll_e2e')
+      && response.url().includes('direction=older')
+    )),
+    logScroller(page).evaluate((node) => {
+      node.scrollTop = 0
+      node.dispatchEvent(new Event('scroll'))
+    }),
+  ])
+
+  await logScroller(page).evaluate((node) => {
+    node.scrollTop = 0
+    node.dispatchEvent(new Event('scroll'))
+  })
   await expect(page.locator('.logs-row__message', { hasText: 'history scroll row 0' })).toBeVisible()
 })
 

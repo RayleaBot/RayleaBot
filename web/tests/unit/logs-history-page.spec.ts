@@ -8,6 +8,12 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { useLogHistoryStore } from '@/stores/log-history'
 import LogsHistoryPage from '@/views/operations/LogsHistoryView.vue'
 
+interface ScrollMetrics {
+  clientHeight: number
+  scrollHeight: number
+  scrollTop: number
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -35,6 +41,18 @@ function mockRect(element: Element, width: number, height: number, left = 0, top
 }
 
 const scrollToBottomSpy = vi.fn()
+const getScrollMetricsSpy = vi.fn<() => ScrollMetrics>()
+let scrollMetricsQueue: ScrollMetrics[] = []
+let currentScrollMetrics: ScrollMetrics = {
+  clientHeight: 420,
+  scrollHeight: 420,
+  scrollTop: 0,
+}
+
+function queueScrollMetrics(metrics: ScrollMetrics[]) {
+  scrollMetricsQueue = [...metrics]
+  currentScrollMetrics = scrollMetricsQueue[0] ?? currentScrollMetrics
+}
 
 const VirtualDataViewportStub = defineComponent({
   name: 'VirtualDataViewport',
@@ -50,7 +68,16 @@ const VirtualDataViewportStub = defineComponent({
   },
   emits: ['reach-top'],
   setup(props, { emit, slots, expose }) {
+    getScrollMetricsSpy.mockImplementation(() => {
+      const nextMetrics = scrollMetricsQueue.shift()
+      if (nextMetrics) {
+        currentScrollMetrics = nextMetrics
+      }
+      return currentScrollMetrics
+    })
+
     expose({
+      getScrollMetrics: getScrollMetricsSpy,
       scrollToBottom: scrollToBottomSpy,
     })
 
@@ -72,6 +99,13 @@ describe('LogsHistoryPage', () => {
     document.body.innerHTML = ''
     setActivePinia(createPinia())
     scrollToBottomSpy.mockReset()
+    getScrollMetricsSpy.mockReset()
+    scrollMetricsQueue = []
+    currentScrollMetrics = {
+      clientHeight: 420,
+      scrollHeight: 420,
+      scrollTop: 0,
+    }
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
       callback(0)
       return 0
@@ -114,6 +148,11 @@ describe('LogsHistoryPage', () => {
       endLocal: '2026-04-02T08:00',
     }
     const refreshSpy = vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
+    queueScrollMetrics([
+      { clientHeight: 420, scrollHeight: 900, scrollTop: 456 },
+      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
+      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
+    ])
 
     const wrapper = mount(LogsHistoryPage, {
       attachTo: document.body,
@@ -128,7 +167,8 @@ describe('LogsHistoryPage', () => {
     await flushPromises()
 
     expect(refreshSpy).toHaveBeenCalledTimes(1)
-    expect(scrollToBottomSpy).toHaveBeenCalled()
+    expect(scrollToBottomSpy).toHaveBeenCalledTimes(3)
+    expect(getScrollMetricsSpy).toHaveBeenCalledTimes(3)
     expect(wrapper.text()).toContain('历史日志')
     expect(wrapper.text()).toContain('固定时间窗口')
     expect(wrapper.text()).toContain('最近一天')
@@ -284,6 +324,11 @@ describe('LogsHistoryPage', () => {
       },
     ]
     vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
+    queueScrollMetrics([
+      { clientHeight: 420, scrollHeight: 900, scrollTop: 452 },
+      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
+      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
+    ])
 
     const Host = defineComponent({
       components: {
@@ -321,6 +366,12 @@ describe('LogsHistoryPage', () => {
 
     await flushPromises()
     scrollToBottomSpy.mockClear()
+    getScrollMetricsSpy.mockClear()
+    queueScrollMetrics([
+      { clientHeight: 420, scrollHeight: 920, scrollTop: 472 },
+      { clientHeight: 420, scrollHeight: 920, scrollTop: 500 },
+      { clientHeight: 420, scrollHeight: 920, scrollTop: 500 },
+    ])
 
     ;(wrapper.vm as { current: 'history' | 'other' }).current = 'other'
     await nextTick()
@@ -329,6 +380,7 @@ describe('LogsHistoryPage', () => {
     await nextTick()
     await flushPromises()
 
-    expect(scrollToBottomSpy).toHaveBeenCalled()
+    expect(scrollToBottomSpy).toHaveBeenCalledTimes(3)
+    expect(getScrollMetricsSpy).toHaveBeenCalledTimes(3)
   })
 })

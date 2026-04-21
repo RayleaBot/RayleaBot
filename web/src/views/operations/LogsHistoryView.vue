@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -44,6 +44,10 @@ const viewportRef = ref<{
 } | null>(null)
 const autoFollowBottom = ref(false)
 const routeSyncing = ref(false)
+const latestViewportBottomThreshold = 4
+const latestViewportSyncMaxAttempts = 6
+const latestViewportStablePasses = 2
+let latestViewportSyncToken = 0
 
 const {
   error,
@@ -94,16 +98,85 @@ function shouldSyncViewportToLatest() {
     && !currentRouteLogId()
 }
 
-async function syncViewportToLatest() {
-  if (!shouldSyncViewportToLatest()) {
+function nextViewportSyncToken() {
+  latestViewportSyncToken += 1
+  return latestViewportSyncToken
+}
+
+function cancelViewportSyncToLatest() {
+  nextViewportSyncToken()
+  autoFollowBottom.value = false
+}
+
+function isViewportSyncCurrent(token: number) {
+  return token === latestViewportSyncToken && shouldSyncViewportToLatest()
+}
+
+async function waitForAnimationFrame() {
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    await nextTick()
     return
   }
 
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve())
+  })
+}
+
+async function syncViewportToLatest() {
+  if (!shouldSyncViewportToLatest()) {
+    cancelViewportSyncToLatest()
+    return
+  }
+
+  const syncToken = nextViewportSyncToken()
   autoFollowBottom.value = true
-  await nextTick()
-  viewportRef.value?.scrollToBottom()
-  await nextTick()
-  autoFollowBottom.value = false
+  let stablePasses = 0
+
+  try {
+    for (let attempt = 0; attempt < latestViewportSyncMaxAttempts; attempt += 1) {
+      if (!isViewportSyncCurrent(syncToken)) {
+        return
+      }
+
+      await nextTick()
+      if (!isViewportSyncCurrent(syncToken)) {
+        return
+      }
+
+      await waitForAnimationFrame()
+      if (!isViewportSyncCurrent(syncToken)) {
+        return
+      }
+
+      viewportRef.value?.scrollToBottom()
+      await nextTick()
+      if (!isViewportSyncCurrent(syncToken)) {
+        return
+      }
+
+      const metrics = viewportRef.value?.getScrollMetrics?.()
+      if (!metrics || metrics.clientHeight < 1) {
+        stablePasses = 0
+        continue
+      }
+
+      const distanceToBottom = Math.max(0, metrics.scrollHeight - metrics.clientHeight - metrics.scrollTop)
+      if (distanceToBottom <= latestViewportBottomThreshold) {
+        stablePasses += 1
+        if (stablePasses >= latestViewportStablePasses) {
+          return
+        }
+        continue
+      }
+
+      stablePasses = 0
+    }
+  } finally {
+    if (syncToken === latestViewportSyncToken) {
+      autoFollowBottom.value = false
+    }
+  }
 }
 
 async function replaceRouteState(nextLogId: string | null = selectedLogId.value) {
@@ -130,6 +203,7 @@ async function replaceRouteState(nextLogId: string | null = selectedLogId.value)
 
 async function syncFromRoute() {
   if (route.name !== 'logs-history') {
+    cancelViewportSyncToLatest()
     return
   }
 
@@ -162,6 +236,7 @@ async function syncFromRoute() {
   }
 
   if (routeState.logId) {
+    cancelViewportSyncToLatest()
     const targetSummary = items.value.find((item) => item.log_id === routeState.logId) ?? null
     if (targetSummary && selectedLogId.value !== routeState.logId) {
       await detailController.openDetail(targetSummary)
@@ -176,6 +251,7 @@ async function syncFromRoute() {
 
 async function activatePage() {
   if (!currentRouteLogId()) {
+    nextViewportSyncToken()
     autoFollowBottom.value = true
   }
 
@@ -188,6 +264,7 @@ async function activatePage() {
 }
 
 async function refreshHistory() {
+  nextViewportSyncToken()
   autoFollowBottom.value = true
 
   try {
@@ -200,6 +277,7 @@ async function refreshHistory() {
 }
 
 async function applyFilters() {
+  nextViewportSyncToken()
   autoFollowBottom.value = true
 
   try {
@@ -241,6 +319,7 @@ function getLevelColor(level: string) {
 }
 
 async function openLogDetail(item: LogSummary) {
+  cancelViewportSyncToLatest()
   await detailController.openDetail(item)
   await replaceRouteState(item.log_id)
 }
@@ -267,6 +346,10 @@ onMounted(() => {
 
 onActivated(() => {
   void activatePage()
+})
+
+onBeforeUnmount(() => {
+  cancelViewportSyncToLatest()
 })
 </script>
 

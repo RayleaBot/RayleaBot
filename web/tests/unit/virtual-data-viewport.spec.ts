@@ -97,6 +97,10 @@ describe('VirtualDataViewport', () => {
     })
 
     window.ResizeObserver = ResizeObserverMock as typeof ResizeObserver
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
+      callback(0)
+      return 0
+    })
   })
 
   afterEach(() => {
@@ -193,18 +197,21 @@ describe('VirtualDataViewport', () => {
     expectCanvasHeight(wrapper, 400)
   })
 
-  it('keeps the viewport at the top when older rows are prepended after reaching the top edge', async () => {
+  it('allows reaching the top again after older rows are prepended', async () => {
     heightByLabel = new Map([
       ['Older 1', 120],
       ['Older 2', 100],
       ['A', 120],
       ['B', 80],
+      ['C', 140],
+      ['D', 160],
     ])
 
     const wrapper = mount(VirtualDataViewport, {
       props: {
-        items: [{ id: 'A' }, { id: 'B' }],
+        items: [{ id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }],
         itemHeight: 60,
+        viewportHeight: 180,
         dynamicItemHeight: true,
         getItemKey: (item: { id: string }) => item.id,
       },
@@ -217,17 +224,120 @@ describe('VirtualDataViewport', () => {
     await wrapper.vm.$nextTick()
 
     const scroller = wrapper.get('.data-viewport__scroller').element as HTMLElement
+    let internalScrollTop = 0
+    Object.defineProperty(scroller, 'clientHeight', {
+      configurable: true,
+      value: 180,
+    })
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => internalScrollTop,
+      set: (value: number) => {
+        internalScrollTop = Math.floor(value)
+      },
+    })
+    Object.defineProperty(scroller, 'scrollHeight', {
+      configurable: true,
+      get: () => {
+        const style = wrapper.get('.data-viewport__canvas').attributes('style')
+        const matched = /height:\s*(\d+)px/.exec(style)
+        return matched ? Number(matched[1]) : 0
+      },
+    })
+
+    scroller.scrollTop = 48
+    await wrapper.get('.data-viewport__scroller').trigger('scroll')
+    await wrapper.vm.$nextTick()
+
     scroller.scrollTop = 0
     await wrapper.get('.data-viewport__scroller').trigger('scroll')
     await wrapper.vm.$nextTick()
 
+    expect(wrapper.emitted('reach-top')).toHaveLength(1)
+
     await wrapper.setProps({
-      items: [{ id: 'Older 1' }, { id: 'Older 2' }, { id: 'A' }, { id: 'B' }],
+      items: [{ id: 'Older 1' }, { id: 'Older 2' }, { id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }],
     })
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    expect(scroller.scrollTop).toBe(0)
+    scroller.scrollTop = 0
+    await wrapper.get('.data-viewport__scroller').trigger('scroll')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('reach-top')).toHaveLength(2)
+  })
+
+  it('treats another upward wheel at the top as a new older-load request after prepending rows', async () => {
+    heightByLabel = new Map([
+      ['Older 1', 120],
+      ['Older 2', 100],
+      ['A', 120],
+      ['B', 80],
+      ['C', 140],
+    ])
+
+    const wrapper = mount(VirtualDataViewport, {
+      props: {
+        items: [{ id: 'A' }, { id: 'B' }, { id: 'C' }],
+        itemHeight: 60,
+        viewportHeight: 180,
+        dynamicItemHeight: true,
+        getItemKey: (item: { id: string }) => item.id,
+      },
+      slots: {
+        default: ({ item }: { item: { id: string } }) => item.id,
+      },
+    })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const scroller = wrapper.get('.data-viewport__scroller').element as HTMLElement
+    let internalScrollTop = 0
+    Object.defineProperty(scroller, 'clientHeight', {
+      configurable: true,
+      value: 180,
+    })
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => internalScrollTop,
+      set: (value: number) => {
+        internalScrollTop = Math.floor(value)
+      },
+    })
+    Object.defineProperty(scroller, 'scrollHeight', {
+      configurable: true,
+      get: () => {
+        const style = wrapper.get('.data-viewport__canvas').attributes('style')
+        const matched = /height:\s*(\d+)px/.exec(style)
+        return matched ? Number(matched[1]) : 0
+      },
+    })
+
+    scroller.scrollTop = 36
+    await wrapper.get('.data-viewport__scroller').trigger('scroll')
+    await wrapper.vm.$nextTick()
+
+    scroller.scrollTop = 0
+    await wrapper.get('.data-viewport__scroller').trigger('scroll')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('reach-top')).toHaveLength(1)
+
+    await wrapper.setProps({
+      items: [{ id: 'Older 1' }, { id: 'Older 2' }, { id: 'A' }, { id: 'B' }, { id: 'C' }],
+    })
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    scroller.scrollTop = 0
+    await wrapper.get('.data-viewport__scroller').trigger('wheel', {
+      deltaY: -120,
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('reach-top')).toHaveLength(2)
   })
 
   it('keeps the scroll anchor stable when a row above the viewport is remeasured', async () => {
@@ -252,6 +362,26 @@ describe('VirtualDataViewport', () => {
     await wrapper.vm.$nextTick()
 
     const scroller = wrapper.get('.data-viewport__scroller').element as HTMLElement
+    let internalScrollTop = 0
+    Object.defineProperty(scroller, 'clientHeight', {
+      configurable: true,
+      value: viewportHeight,
+    })
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => internalScrollTop,
+      set: (value: number) => {
+        internalScrollTop = Math.floor(value)
+      },
+    })
+    Object.defineProperty(scroller, 'scrollHeight', {
+      configurable: true,
+      get: () => {
+        const style = wrapper.get('.data-viewport__canvas').attributes('style')
+        const matched = /height:\s*(\d+)px/.exec(style)
+        return matched ? Number(matched[1]) : 0
+      },
+    })
     scroller.scrollTop = 280
     await wrapper.get('.data-viewport__scroller').trigger('scroll')
     await wrapper.vm.$nextTick()

@@ -47,7 +47,11 @@ let followBottomPausedByUser = false
 let pendingProgrammaticScrollEvents = 0
 let pendingProgrammaticScrollResetHandle: number | null = null
 let lastProgrammaticScrollTop: number | null = null
+let pendingPrependedAnchorRestoreToken = 0
+let lastRenderedKeys: Array<string | number> = []
+let lastRenderedContentHeight = 0
 let pendingListMutation: {
+  contentHeight: number
   previousKeys: Array<string | number>
   scrollHeight: number
   scrollTop: number
@@ -174,6 +178,11 @@ function handleScroll(event: Event) {
 function handleWheel(event: WheelEvent) {
   if (event.deltaY < 0) {
     pauseFollowBottomByUser()
+    const scroller = scrollerRef.value
+    if (scroller && scroller.scrollTop <= props.topThreshold && topReachArmed) {
+      topReachArmed = false
+      emit('reach-top')
+    }
   }
 }
 
@@ -285,6 +294,35 @@ function consumeProgrammaticScrollEvent(nextScrollTop: number) {
   }
 
   return true
+}
+
+async function restorePrependedAnchor(nextScrollTop: number) {
+  pendingPrependedAnchorRestoreToken += 1
+  const restoreToken = pendingPrependedAnchorRestoreToken
+
+  await nextTick()
+  if (restoreToken !== pendingPrependedAnchorRestoreToken) {
+    return
+  }
+
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve())
+    })
+    if (restoreToken !== pendingPrependedAnchorRestoreToken) {
+      return
+    }
+  }
+
+  const scroller = scrollerRef.value
+  if (!scroller) {
+    return
+  }
+
+  scrollToOffset(nextScrollTop)
+  if (Math.max(nextScrollTop, scroller.scrollTop) > 0) {
+    topReachArmed = true
+  }
 }
 
 async function syncScrollerLifecycle() {
@@ -517,7 +555,16 @@ function rowStyle(index: number) {
   return undefined
 }
 
+function updateLastRenderedSnapshot(keys: Array<string | number>, contentHeight: number) {
+  lastRenderedKeys = keys
+  lastRenderedContentHeight = contentHeight
+}
+
 onMounted(() => {
+  updateLastRenderedSnapshot(
+    props.items.map((item, index) => resolveKey(item, index)),
+    totalHeight.value,
+  )
   void syncScrollerLifecycle()
 })
 
@@ -526,6 +573,7 @@ onActivated(() => {
 })
 
 onBeforeUnmount(() => {
+  pendingPrependedAnchorRestoreToken += 1
   clearPendingProgrammaticScrollReset()
   clearResizeObserver()
 })
@@ -552,7 +600,8 @@ onBeforeUpdate(() => {
     : null
 
   pendingListMutation = {
-    previousKeys: props.items.map((item, index) => resolveKey(item, index)),
+    contentHeight: lastRenderedContentHeight,
+    previousKeys: lastRenderedKeys,
     scrollHeight: scroller.scrollHeight,
     scrollTop: scroller.scrollTop,
     atBottom: isNearBottom(scroller),
@@ -566,11 +615,14 @@ onUpdated(() => {
   const scroller = scrollerRef.value
   const snapshot = pendingListMutation
   pendingListMutation = null
+  const nextKeys = props.items.map((item, index) => resolveKey(item, index))
+  const nextContentHeight = totalHeight.value
+
   if (!scroller || !snapshot) {
+    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
     return
   }
 
-  const nextKeys = props.items.map((item, index) => resolveKey(item, index))
   rebuildKeyToIndexMap()
 
   const activeKeys = new Set(nextKeys)
@@ -600,31 +652,34 @@ onUpdated(() => {
   const prepended = didPrepend(snapshot.previousKeys, nextKeys)
   const appended = didAppend(snapshot.previousKeys, nextKeys)
   const keysChanged = !areKeyArraysEqual(snapshot.previousKeys, nextKeys)
-  const contentHeightChanged = scroller.scrollHeight !== snapshot.scrollHeight
+  const contentHeightChanged = nextContentHeight !== snapshot.contentHeight
   const shouldFollowBottomForListChanges = !followBottomPausedByUser && (props.followBottom || snapshot.atBottom)
   const shouldFollowBottomForHeightChanges = !followBottomPausedByUser && (props.followBottom || snapshot.atBottom)
 
   if (prepended) {
-    const nextScrollHeight = scroller.scrollHeight
-    const offsetDelta = nextScrollHeight - snapshot.scrollHeight
-    if (offsetDelta !== 0 && snapshot.scrollTop > props.topThreshold) {
-      scrollToOffset(snapshot.scrollTop + offsetDelta)
+    const offsetDelta = nextContentHeight - snapshot.contentHeight
+    if (offsetDelta !== 0) {
+      void restorePrependedAnchor(snapshot.scrollTop + offsetDelta)
     }
+    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
     return
   }
 
   if (shouldFollowBottomForListChanges && (appended || (snapshot.previousKeys.length === 0 && nextKeys.length > 0))) {
     scrollToBottom()
+    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
     return
   }
 
   if (shouldFollowBottomForListChanges && nextKeys.length > 0 && keysChanged) {
     scrollToBottom()
+    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
     return
   }
 
   if (shouldFollowBottomForHeightChanges && nextKeys.length > 0 && contentHeightChanged) {
     scrollToBottom()
+    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
     return
   }
 
@@ -637,6 +692,7 @@ onUpdated(() => {
       const viewportDelta = nextViewportOffset - snapshot.anchorViewportOffset
       if (viewportDelta !== 0) {
         scrollToOffset(scroller.scrollTop + viewportDelta)
+        updateLastRenderedSnapshot(nextKeys, nextContentHeight)
         return
       }
     }
@@ -646,15 +702,18 @@ onUpdated(() => {
         ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight)
         : anchorIndex * props.itemHeight
       scrollToOffset(anchorTop + snapshot.anchorOffset)
+      updateLastRenderedSnapshot(nextKeys, nextContentHeight)
       return
     }
   }
 
   if (clampScrollPosition(scroller)) {
+    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
     return
   }
 
   syncViewportState(scroller, { userInitiated: false })
+  updateLastRenderedSnapshot(nextKeys, nextContentHeight)
 })
 
 
