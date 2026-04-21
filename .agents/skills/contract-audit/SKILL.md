@@ -11,7 +11,7 @@ This skill is a reusable workflow. It does not define project truth. Formal trut
 
 - 用户要修改 API、schema、状态、错误码、事件名
 - 代码改动疑似影响 contract，但用户没有显式提到 contract
-- 你需要判断四件套是否满足
+- 你需要判断五件套是否满足
 - 你需要做 contract-focused review，而不是普通代码 review
 
 ## Inputs
@@ -47,7 +47,7 @@ This skill is a reusable workflow. It does not define project truth. Formal trut
 - 受影响 contract 清单
 - 命名漂移或 shape 漂移清单
 - 缺失的 fixture / example / test / doc 更新
-- 是否满足四件套门禁
+- 是否满足五件套门禁
 - 如有需要，给出建议的最小 contract-first 修正顺序
 
 ## Do Not
