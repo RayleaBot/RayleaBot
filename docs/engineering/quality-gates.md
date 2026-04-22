@@ -37,7 +37,7 @@
 - PR 默认门禁覆盖 contracts、baseline、Server 核心检查、Web 核心检查、Launcher Linux 核心检查、Node / Python SDK 回归和轻量 smoke。
 - `contracts/**`、`fixtures/**`、`examples/**` 与 `sdk/**` 变更会触发 `lint.yml`，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
 - Playwright E2E、Chromium 重渲染 golden、跨版本恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
-- 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/protocols/onebot11`、`/api/protocols/onebot11/compatibility`、模板编辑器闭环、packaged recovery drill 和长期自托管 smoke。
+- 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/protocols/onebot11`、`/api/protocols/onebot11/compatibility`、模板预览工作区闭环、packaged recovery drill 和长期自托管 smoke。
 - 高成本依赖审计保留为 `lint.yml` 中的手动 job，不挤占每个 PR 的默认门禁预算。
 
 ## 当前工作流矩阵
@@ -47,8 +47,8 @@
 | `contracts.yml` | `ubuntu-x64` | 是 | 校验 baseline、contracts、schema 与 fixtures 同步性 |
 | `lint.yml` | `ubuntu-x64` | 是 | 负责 Server、Web、Launcher Linux、Node / Python SDK 核心检查、OpenAPI 生成类型漂移检查与 PR smoke，手动触发时也承载依赖审计 |
 | `race.yml` | `ubuntu-x64` | 否 | 作为按需 Go race 回归入口 |
-| `release.yml` | `windows-x64`、`linux-x64`、`macos-arm64` | Tag 门禁 | 负责正式打包、checksum、release metadata、协议读取面、兼容矩阵、模板编辑器、recovery drill 与交付 smoke |
-| `self-host-smoke.yml` | `windows-x64`、`linux-x64`、`macos-arm64` | 否 | 负责长期自托管巡检，并复用协议读取面、兼容矩阵、模板编辑器、诊断与恢复探针 |
+| `release.yml` | `windows-x64`、`linux-x64`、`macos-arm64` | Tag 门禁 | 负责正式打包、checksum、release metadata、协议读取面、兼容矩阵、模板预览工作区、recovery drill 与交付 smoke |
+| `self-host-smoke.yml` | `windows-x64`、`linux-x64`、`macos-arm64` | 否 | 负责长期自托管巡检，并复用协议读取面、兼容矩阵、模板预览工作区、诊断与恢复探针 |
 
 ## 验证原则
 

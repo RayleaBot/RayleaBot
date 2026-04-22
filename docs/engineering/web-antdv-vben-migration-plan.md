@@ -25,7 +25,7 @@
 - 组件层统一使用 Ant Design Vue。
 - 页面壳、菜单、页签、面包屑、主题偏好和工作区行为按 Vben 风格组织。
 - 现有业务语义保留在 `stores/`、`lib/`、`views/` 与 `components/` 内，不重定义后端 contract。
-- `AppCard`、`AppPage`、`AppEmptyState`、`ManagementContextActions`、日志详情抽屉、模板编辑工作区和恢复卡片作为当前正式业务组件。
+- `AppCard`、`AppPage`、`AppEmptyState`、`ManagementContextActions`、日志详情抽屉、模板预览工作区和恢复卡片作为当前正式业务组件。
 
 ## 目录与职责
 
@@ -60,7 +60,7 @@
 - `commands`、`tasks`、`logs`、`logs-history` 和 `render-templates` 使用稳定 `viewKey`，在 query 变化时复用同一个工作区实例和同一个页签。
 - `plugin-detail` 保持按插件 ID 独立详情页签。
 - 工作区 query 只表达当前筛选、选中项和详情抽屉状态，不制造重复页签和历史噪音。
-- 模板编辑页使用 `/render/templates/:templateId?` 单页工作区，模板切换使用同一页面实例。
+- 模板预览页使用 `/render/templates/:templateId?` 单页工作区，模板切换使用同一页面实例。
 
 ## 当前正式页面
 
@@ -72,11 +72,11 @@
 - 实时日志与历史日志
 - 协议中心与兼容矩阵
 - 配置
-- 模板编辑
+- 模板预览
 
 ## 页面联动基线
 
-- 仪表盘、协议中心、日志中心、任务、插件详情、指令中心和模板编辑器之间通过稳定字段跳转。
+- 仪表盘、协议中心、日志中心、任务、插件详情、指令中心和模板预览之间通过稳定字段跳转。
 - 日志详情使用 `plugin_id`、`protocol`、`request_id` 生成上下文入口。
 - 任务详情使用 `plugin_id`、`protocol`、`request_id`、`template` 生成上下文入口。
 - 协议中心提供兼容矩阵入口，并可进入日志中心的实时日志页，自动带上 `protocol=onebot11` 筛选。

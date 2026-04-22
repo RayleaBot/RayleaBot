@@ -27,7 +27,7 @@
 | 协议中心 | `/protocols` | 查看 OneBot11 协议快照、连接设置和传输异常 |
 | 协议兼容矩阵 | `/protocols/compatibility` | 查看正式兼容范围与 provider 差异 |
 | 配置 | `/config` | 查看和保存通用配置 |
-| 模板编辑 | `/render/templates/:templateId?` | 编辑模板、校验、预览、保存、回退和查看版本历史 |
+| 模板预览 | `/render/templates/:templateId?` | 查看模板信息、输入结构、实时预览结果和任务入口 |
 
 ## 权限策略页
 
@@ -50,8 +50,8 @@
 - 实时日志与历史日志支持 `level`、`source`、`protocol`、`plugin_id`、`request_id` 和 `log_id` 工作区 query；历史日志额外支持 `start_at` 与 `end_at`。
 - 命令被白名单、黑名单、权限或冷却拒绝时，日志中心会显示拒绝摘要，日志详情会显示 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件列表。
 - 日志详情会根据稳定字段提供插件详情、协议中心和请求 ID 对应日志页入口。
-- 任务详情会根据稳定字段提供插件详情、协议中心、请求历史日志和模板编辑器入口。
-- 模板编辑页的预览结果会提供任务详情入口，`render.preview` 任务详情会提供返回模板编辑器的入口。
+- 任务详情会根据稳定字段提供插件详情、协议中心、请求历史日志和模板预览入口。
+- 模板预览页的结果区会提供任务详情入口，`render.preview` 任务详情会提供返回模板预览的入口。
 
 ## 插件内置管理页
 

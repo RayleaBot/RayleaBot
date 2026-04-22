@@ -481,7 +481,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start an asynchronous render.preview task for management-side template debugging. */
+        /** Start an asynchronous render.preview task for management-side template preview. */
         post: operations["createRenderPreview"];
         delete?: never;
         options?: never;
@@ -513,7 +513,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List managed render templates available to the online template editor. */
+        /** List managed render templates available to the preview workspace. */
         get: operations["listRenderTemplates"];
         put?: never;
         post?: never;
@@ -530,79 +530,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get one managed render template detail snapshot. */
+        /** Get one managed render template preview snapshot. */
         get: operations["getRenderTemplate"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/system/render/templates/{template_id}/source": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read the current source bundle for one managed render template. */
-        get: operations["getRenderTemplateSource"];
-        /** Save a new source bundle revision for one managed render template. */
-        put: operations["updateRenderTemplateSource"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/system/render/templates/{template_id}/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Validate the current or draft source bundle for one managed render template. */
-        post: operations["validateRenderTemplate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/system/render/templates/{template_id}/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List stored source revisions for one managed render template. */
-        get: operations["listRenderTemplateVersions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/system/render/templates/{template_id}/rollback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a new managed render template revision by rolling back to a previous revision. */
-        post: operations["rollbackRenderTemplate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1197,31 +1128,6 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
-            draft?: components["schemas"]["RenderTemplateDraft"];
-        };
-        RenderTemplateDraft: {
-            source: components["schemas"]["RenderTemplateSource"];
-        };
-        RenderTemplateFiles: {
-            manifest: string;
-            html: string;
-            stylesheet: string;
-            input_schema: string | null;
-        };
-        RenderTemplateValidationStatus: {
-            valid: boolean;
-            /** Format: date-time */
-            checked_at: string;
-            issue_count: number;
-        };
-        RenderTemplateVersion: {
-            revision_id: string;
-            template_version: string;
-            /** Format: date-time */
-            saved_at: string;
-            /** @enum {string} */
-            kind: "save" | "rollback";
-            message?: string | null;
         };
         RenderTemplateSummary: {
             id: string;
@@ -1229,7 +1135,6 @@ export interface components {
             width: number;
             height: number;
             has_input_schema: boolean;
-            current_revision_id: string;
             /** Format: date-time */
             updated_at: string;
         };
@@ -1237,55 +1142,12 @@ export interface components {
             items: components["schemas"]["RenderTemplateSummary"][];
         };
         RenderTemplateDetail: components["schemas"]["RenderTemplateSummary"] & {
-            files: components["schemas"]["RenderTemplateFiles"];
-            current_revision: components["schemas"]["RenderTemplateVersion"];
-            last_validation: components["schemas"]["RenderTemplateValidationStatus"];
-        };
-        RenderTemplateDetailResponse: {
-            template: components["schemas"]["RenderTemplateDetail"];
-        };
-        RenderTemplateSource: {
-            manifest_json: {
-                [key: string]: unknown;
-            };
-            html: string;
-            stylesheet: string;
             input_schema_json: {
                 [key: string]: unknown;
             } | null;
         };
-        RenderTemplateSourceResponse: {
-            template_id: string;
-            revision_id: string;
-            source: components["schemas"]["RenderTemplateSource"];
-        };
-        RenderTemplateSourceUpdateRequest: {
-            base_revision_id: string;
-            source: components["schemas"]["RenderTemplateSource"];
-            message: string;
-        };
-        RenderTemplateValidationIssue: {
-            code: string;
-            message: string;
-            path?: string;
-        };
-        RenderTemplateValidateRequest: {
-            source?: components["schemas"]["RenderTemplateSource"];
-        };
-        RenderTemplateValidateResponse: {
-            valid: boolean;
-            issues: components["schemas"]["RenderTemplateValidationIssue"][];
-            normalized_manifest: {
-                [key: string]: unknown;
-            };
-        };
-        RenderTemplateVersionListResponse: {
-            items: components["schemas"]["RenderTemplateVersion"][];
-        };
-        RenderTemplateRollbackRequest: {
-            target_revision_id: string;
-            base_revision_id: string;
-            message: string;
+        RenderTemplateDetailResponse: {
+            template: components["schemas"]["RenderTemplateDetail"];
         };
         /** @enum {string} */
         GovernanceEntryType: "user" | "group";
@@ -2558,148 +2420,6 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getRenderTemplateSource: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: components["parameters"]["TemplateId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current template source bundle. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RenderTemplateSourceResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updateRenderTemplateSource: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: components["parameters"]["TemplateId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RenderTemplateSourceUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description Template source stored as a new revision. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RenderTemplateDetailResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    validateRenderTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: components["parameters"]["TemplateId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["RenderTemplateValidateRequest"];
-            };
-        };
-        responses: {
-            /** @description Template validation result. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RenderTemplateValidateResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listRenderTemplateVersions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: components["parameters"]["TemplateId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Template revision history from newest to oldest. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RenderTemplateVersionListResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    rollbackRenderTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: components["parameters"]["TemplateId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RenderTemplateRollbackRequest"];
-            };
-        };
-        responses: {
-            /** @description Rollback stored as a new template revision. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RenderTemplateDetailResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

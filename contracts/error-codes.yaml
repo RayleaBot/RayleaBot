@@ -54,46 +54,6 @@ codes:
     retryable: false
     applies_to: [http, task]
 
-  platform.template_source_invalid:
-    code: platform.template_source_invalid
-    domain: platform
-    message_key: errors.platform.template_source_invalid
-    message: 模板源码不合法
-    description: The submitted template source did not satisfy the formal manifest, source, or schema validation rules.
-    http_status: 400
-    retryable: false
-    applies_to: [http, task]
-
-  platform.template_revision_conflict:
-    code: platform.template_revision_conflict
-    domain: platform
-    message_key: errors.platform.template_revision_conflict
-    message: 模板版本已变化
-    description: The submitted base_revision_id no longer matched the latest stored template revision.
-    http_status: 409
-    retryable: true
-    applies_to: [http, task]
-
-  platform.template_revision_not_found:
-    code: platform.template_revision_not_found
-    domain: platform
-    message_key: errors.platform.template_revision_not_found
-    message: 模板版本不存在
-    description: The requested template revision identifier could not be found for the target template.
-    http_status: 404
-    retryable: false
-    applies_to: [http, task]
-
-  platform.template_rollback_target_invalid:
-    code: platform.template_rollback_target_invalid
-    domain: platform
-    message_key: errors.platform.template_rollback_target_invalid
-    message: 模板回退目标不合法
-    description: The requested rollback target could not be used as a valid source for a new template revision.
-    http_status: 409
-    retryable: false
-    applies_to: [http, task]
-
   platform.invalid_request:
     code: platform.invalid_request
     domain: platform

@@ -119,9 +119,9 @@ describe('TasksPage', () => {
     const image = wrapper.find('img[alt="图片预览结果"]')
     expect(image.exists()).toBe(true)
     expect(image.attributes('src')).toBe('blob:task-preview')
-    expect(wrapper.text()).toContain('打开模板编辑')
+    expect(wrapper.text()).toContain('打开模板预览')
 
-    const templateButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('打开模板编辑'))
+    const templateButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('打开模板预览'))
     expect(templateButton).toBeTruthy()
     await templateButton!.trigger('click')
     await flushPromises()

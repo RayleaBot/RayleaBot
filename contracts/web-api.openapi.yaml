@@ -28,15 +28,9 @@ x-fixtures:
   - fixtures/web-api/ok.system-recovery-confirm-accepted.yaml
   - fixtures/web-api/ok.system-runtime-bootstrap-accepted.yaml
   - fixtures/web-api/ok.system-render-preview-accepted.yaml
-  - fixtures/web-api/ok.system-render-preview-accepted.draft-source.yaml
   - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-render-templates-list-response.yaml
   - fixtures/web-api/ok.system-render-template-detail-response.yaml
-  - fixtures/web-api/ok.system-render-template-source-response.yaml
-  - fixtures/web-api/ok.system-render-template-source-update-response.yaml
-  - fixtures/web-api/ok.system-render-template-validate-response.yaml
-  - fixtures/web-api/ok.system-render-template-versions-response.yaml
-  - fixtures/web-api/ok.system-render-template-rollback-response.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.governance-blacklist-response.yaml
   - fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml
@@ -104,10 +98,6 @@ x-fixtures:
   - fixtures/web-api/invalid.governance-entry-upsert-invalid.yaml
   - fixtures/web-api/invalid.system-render-preview-invalid.yaml
   - fixtures/web-api/invalid.system-render-template-not-found.yaml
-  - fixtures/web-api/invalid.system-render-template-source-conflict.yaml
-  - fixtures/web-api/invalid.system-render-template-validate-invalid-source.yaml
-  - fixtures/web-api/invalid.system-render-template-rollback-revision-not-found.yaml
-  - fixtures/web-api/invalid.system-render-template-rollback-invalid-target.yaml
   - fixtures/web-api/invalid.logs-list-limit-too-large.yaml
   - fixtures/web-api/invalid.logs-list-invalid-scope.yaml
   - fixtures/web-api/invalid.logs-list-start-after-end.yaml
@@ -699,7 +689,7 @@ paths:
 
   /api/system/render/preview:
     post:
-      summary: Start an asynchronous render.preview task for management-side template debugging.
+      summary: Start an asynchronous render.preview task for management-side template preview.
       operationId: createRenderPreview
       security:
         - BearerAuth: []
@@ -763,7 +753,7 @@ paths:
 
   /api/system/render/templates:
     get:
-      summary: List managed render templates available to the online template editor.
+      summary: List managed render templates available to the preview workspace.
       operationId: listRenderTemplates
       security:
         - BearerAuth: []
@@ -781,7 +771,7 @@ paths:
 
   /api/system/render/templates/{template_id}:
     get:
-      summary: Get one managed render template detail snapshot.
+      summary: Get one managed render template preview snapshot.
       operationId: getRenderTemplate
       security:
         - BearerAuth: []
@@ -797,142 +787,6 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/render/templates/{template_id}/source:
-    get:
-      summary: Read the current source bundle for one managed render template.
-      operationId: getRenderTemplateSource
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TemplateId'
-      responses:
-        '200':
-          description: Current template source bundle.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RenderTemplateSourceResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-    put:
-      summary: Save a new source bundle revision for one managed render template.
-      operationId: updateRenderTemplateSource
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TemplateId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RenderTemplateSourceUpdateRequest'
-      responses:
-        '200':
-          description: Template source stored as a new revision.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RenderTemplateDetailResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '409':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/render/templates/{template_id}/validate:
-    post:
-      summary: Validate the current or draft source bundle for one managed render template.
-      operationId: validateRenderTemplate
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TemplateId'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RenderTemplateValidateRequest'
-      responses:
-        '200':
-          description: Template validation result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RenderTemplateValidateResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/render/templates/{template_id}/versions:
-    get:
-      summary: List stored source revisions for one managed render template.
-      operationId: listRenderTemplateVersions
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TemplateId'
-      responses:
-        '200':
-          description: Template revision history from newest to oldest.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RenderTemplateVersionListResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/render/templates/{template_id}/rollback:
-    post:
-      summary: Create a new managed render template revision by rolling back to a previous revision.
-      operationId: rollbackRenderTemplate
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TemplateId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RenderTemplateRollbackRequest'
-      responses:
-        '200':
-          description: Rollback stored as a new template revision.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RenderTemplateDetailResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '409':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -2266,75 +2120,11 @@ components:
         data:
           type: object
           additionalProperties: true
-        draft:
-          $ref: '#/components/schemas/RenderTemplateDraft'
-
-    RenderTemplateDraft:
-      type: object
-      additionalProperties: false
-      required: [source]
-      properties:
-        source:
-          $ref: '#/components/schemas/RenderTemplateSource'
-
-    RenderTemplateFiles:
-      type: object
-      additionalProperties: false
-      required: [manifest, html, stylesheet, input_schema]
-      properties:
-        manifest:
-          type: string
-          minLength: 1
-        html:
-          type: string
-          minLength: 1
-        stylesheet:
-          type: string
-          minLength: 1
-        input_schema:
-          type: string
-          minLength: 1
-          nullable: true
-
-    RenderTemplateValidationStatus:
-      type: object
-      additionalProperties: false
-      required: [valid, checked_at, issue_count]
-      properties:
-        valid:
-          type: boolean
-        checked_at:
-          type: string
-          format: date-time
-        issue_count:
-          type: integer
-          minimum: 0
-
-    RenderTemplateVersion:
-      type: object
-      additionalProperties: false
-      required: [revision_id, template_version, saved_at, kind]
-      properties:
-        revision_id:
-          type: string
-          minLength: 1
-        template_version:
-          type: string
-          minLength: 1
-        saved_at:
-          type: string
-          format: date-time
-        kind:
-          type: string
-          enum: [save, rollback]
-        message:
-          type: string
-          nullable: true
 
     RenderTemplateSummary:
       type: object
       additionalProperties: false
-      required: [id, version, width, height, has_input_schema, current_revision_id, updated_at]
+      required: [id, version, width, height, has_input_schema, updated_at]
       properties:
         id:
           type: string
@@ -2350,9 +2140,6 @@ components:
           minimum: 1
         has_input_schema:
           type: boolean
-        current_revision_id:
-          type: string
-          minLength: 1
         updated_at:
           type: string
           format: date-time
@@ -2372,14 +2159,12 @@ components:
         - $ref: '#/components/schemas/RenderTemplateSummary'
         - type: object
           additionalProperties: false
-          required: [files, current_revision, last_validation]
+          required: [input_schema_json]
           properties:
-            files:
-              $ref: '#/components/schemas/RenderTemplateFiles'
-            current_revision:
-              $ref: '#/components/schemas/RenderTemplateVersion'
-            last_validation:
-              $ref: '#/components/schemas/RenderTemplateValidationStatus'
+            input_schema_json:
+              type: object
+              additionalProperties: true
+              nullable: true
 
     RenderTemplateDetailResponse:
       type: object
@@ -2388,112 +2173,6 @@ components:
       properties:
         template:
           $ref: '#/components/schemas/RenderTemplateDetail'
-
-    RenderTemplateSource:
-      type: object
-      additionalProperties: false
-      required: [manifest_json, html, stylesheet, input_schema_json]
-      properties:
-        manifest_json:
-          type: object
-          additionalProperties: true
-        html:
-          type: string
-        stylesheet:
-          type: string
-        input_schema_json:
-          type: object
-          additionalProperties: true
-          nullable: true
-
-    RenderTemplateSourceResponse:
-      type: object
-      additionalProperties: false
-      required: [template_id, revision_id, source]
-      properties:
-        template_id:
-          type: string
-          minLength: 1
-        revision_id:
-          type: string
-          minLength: 1
-        source:
-          $ref: '#/components/schemas/RenderTemplateSource'
-
-    RenderTemplateSourceUpdateRequest:
-      type: object
-      additionalProperties: false
-      required: [base_revision_id, source, message]
-      properties:
-        base_revision_id:
-          type: string
-          minLength: 1
-        source:
-          $ref: '#/components/schemas/RenderTemplateSource'
-        message:
-          type: string
-          minLength: 1
-
-    RenderTemplateValidationIssue:
-      type: object
-      additionalProperties: false
-      required: [code, message]
-      properties:
-        code:
-          type: string
-          minLength: 1
-        message:
-          type: string
-          minLength: 1
-        path:
-          type: string
-
-    RenderTemplateValidateRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        source:
-          $ref: '#/components/schemas/RenderTemplateSource'
-
-    RenderTemplateValidateResponse:
-      type: object
-      additionalProperties: false
-      required: [valid, issues, normalized_manifest]
-      properties:
-        valid:
-          type: boolean
-        issues:
-          type: array
-          items:
-            $ref: '#/components/schemas/RenderTemplateValidationIssue'
-        normalized_manifest:
-          type: object
-          additionalProperties: true
-
-    RenderTemplateVersionListResponse:
-      type: object
-      additionalProperties: false
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/RenderTemplateVersion'
-
-    RenderTemplateRollbackRequest:
-      type: object
-      additionalProperties: false
-      required: [target_revision_id, base_revision_id, message]
-      properties:
-        target_revision_id:
-          type: string
-          minLength: 1
-        base_revision_id:
-          type: string
-          minLength: 1
-        message:
-          type: string
-          minLength: 1
 
     GovernanceEntryType:
       type: string

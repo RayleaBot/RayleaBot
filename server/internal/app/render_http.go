@@ -13,38 +13,54 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-type renderTemplateSourceResponse struct {
-	TemplateID string                `json:"template_id"`
-	RevisionID string                `json:"revision_id"`
-	Source     render.TemplateSource `json:"source"`
+type renderTemplateSummary struct {
+	ID             string `json:"id"`
+	Version        string `json:"version"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
+	HasInputSchema bool   `json:"has_input_schema"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+type renderTemplateDetail struct {
+	ID              string         `json:"id"`
+	Version         string         `json:"version"`
+	Width           int            `json:"width"`
+	Height          int            `json:"height"`
+	HasInputSchema  bool           `json:"has_input_schema"`
+	UpdatedAt       string         `json:"updated_at"`
+	InputSchemaJSON map[string]any `json:"input_schema_json"`
 }
 
 type renderTemplateListResponse struct {
-	Items []render.TemplateSummary `json:"items"`
+	Items []renderTemplateSummary `json:"items"`
 }
 
 type renderTemplateDetailResponse struct {
-	Template render.TemplateDetail `json:"template"`
+	Template renderTemplateDetail `json:"template"`
 }
 
-type renderTemplateVersionListResponse struct {
-	Items []render.TemplateVersion `json:"items"`
+func toRenderTemplateSummary(item render.TemplateSummary) renderTemplateSummary {
+	return renderTemplateSummary{
+		ID:             item.ID,
+		Version:        item.Version,
+		Width:          item.Width,
+		Height:         item.Height,
+		HasInputSchema: item.HasInputSchema,
+		UpdatedAt:      item.UpdatedAt,
+	}
 }
 
-type renderTemplateSourceUpdateRequest struct {
-	BaseRevisionID string                `json:"base_revision_id"`
-	Source         render.TemplateSource `json:"source"`
-	Message        string                `json:"message"`
-}
-
-type renderTemplateValidateRequest struct {
-	Source *render.TemplateSource `json:"source"`
-}
-
-type renderTemplateRollbackRequest struct {
-	TargetRevisionID string `json:"target_revision_id"`
-	BaseRevisionID   string `json:"base_revision_id"`
-	Message          string `json:"message"`
+func toRenderTemplateDetail(detail render.TemplateDetail, source render.TemplateSource) renderTemplateDetail {
+	return renderTemplateDetail{
+		ID:              detail.ID,
+		Version:         detail.Version,
+		Width:           detail.Width,
+		Height:          detail.Height,
+		HasInputSchema:  detail.HasInputSchema,
+		UpdatedAt:       detail.UpdatedAt,
+		InputSchemaJSON: source.InputSchemaJSON,
+	}
 }
 
 func (h *renderHTTPHandlers) handleSystemRenderPreview() http.HandlerFunc {
@@ -126,7 +142,15 @@ func (h *renderHTTPHandlers) handleSystemRenderTemplateList() http.HandlerFunc {
 			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 			return
 		}
-		writeAuthJSON(w, http.StatusOK, renderTemplateListResponse{Items: items})
+
+		response := renderTemplateListResponse{
+			Items: make([]renderTemplateSummary, 0, len(items)),
+		}
+		for _, item := range items {
+			response.Items = append(response.Items, toRenderTemplateSummary(item))
+		}
+
+		writeAuthJSON(w, http.StatusOK, response)
 	}
 }
 
@@ -138,106 +162,16 @@ func (h *renderHTTPHandlers) handleSystemRenderTemplateDetail() http.HandlerFunc
 			writeRenderTemplateError(w, r, err)
 			return
 		}
-		writeAuthJSON(w, http.StatusOK, renderTemplateDetailResponse{Template: detail})
-	}
-}
 
-func (h *renderHTTPHandlers) handleSystemRenderTemplateSource() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		templateID := chi.URLParam(r, "template_id")
-		revisionID, source, err := h.renderer.GetTemplateSource(r.Context(), templateID)
+		_, source, err := h.renderer.GetTemplateSource(r.Context(), templateID)
 		if err != nil {
 			writeRenderTemplateError(w, r, err)
 			return
 		}
-		writeAuthJSON(w, http.StatusOK, renderTemplateSourceResponse{
-			TemplateID: templateID,
-			RevisionID: revisionID,
-			Source:     source,
+
+		writeAuthJSON(w, http.StatusOK, renderTemplateDetailResponse{
+			Template: toRenderTemplateDetail(detail, source),
 		})
-	}
-}
-
-func (h *renderHTTPHandlers) handleSystemRenderTemplateSourcePut() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request renderTemplateSourceUpdateRequest
-		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil ||
-			strings.TrimSpace(request.BaseRevisionID) == "" ||
-			strings.TrimSpace(request.Message) == "" {
-			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
-			return
-		}
-
-		detail, err := h.renderer.UpdateTemplateSource(
-			r.Context(),
-			chi.URLParam(r, "template_id"),
-			request.BaseRevisionID,
-			request.Message,
-			request.Source,
-		)
-		if err != nil {
-			writeRenderTemplateError(w, r, err)
-			return
-		}
-
-		writeAuthJSON(w, http.StatusOK, renderTemplateDetailResponse{Template: detail})
-	}
-}
-
-func (h *renderHTTPHandlers) handleSystemRenderTemplateValidate() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request renderTemplateValidateRequest
-		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
-			return
-		}
-
-		result, err := h.renderer.ValidateTemplate(r.Context(), chi.URLParam(r, "template_id"), request.Source)
-		if err != nil {
-			writeRenderTemplateError(w, r, err)
-			return
-		}
-
-		writeAuthJSON(w, http.StatusOK, result)
-	}
-}
-
-func (h *renderHTTPHandlers) handleSystemRenderTemplateVersions() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		items, err := h.renderer.ListTemplateVersions(r.Context(), chi.URLParam(r, "template_id"))
-		if err != nil {
-			writeRenderTemplateError(w, r, err)
-			return
-		}
-
-		writeAuthJSON(w, http.StatusOK, renderTemplateVersionListResponse{Items: items})
-	}
-}
-
-func (h *renderHTTPHandlers) handleSystemRenderTemplateRollback() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request renderTemplateRollbackRequest
-		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil ||
-			strings.TrimSpace(request.TargetRevisionID) == "" ||
-			strings.TrimSpace(request.BaseRevisionID) == "" ||
-			strings.TrimSpace(request.Message) == "" {
-			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
-			return
-		}
-
-		detail, err := h.renderer.RollbackTemplate(
-			r.Context(),
-			chi.URLParam(r, "template_id"),
-			request.TargetRevisionID,
-			request.BaseRevisionID,
-			request.Message,
-		)
-		if err != nil {
-			writeRenderTemplateError(w, r, err)
-			return
-		}
-
-		writeAuthJSON(w, http.StatusOK, renderTemplateDetailResponse{Template: detail})
 	}
 }
 
@@ -251,14 +185,6 @@ func writeRenderTemplateError(w http.ResponseWriter, r *http.Request, err error)
 	switch renderErr.Code {
 	case "platform.template_not_found":
 		writeAppError(w, r, http.StatusNotFound, renderErr.Code, "模板不存在", "errors.platform.template_not_found", nil)
-	case "platform.template_source_invalid":
-		writeAppError(w, r, http.StatusBadRequest, renderErr.Code, "模板源码不合法", "errors.platform.template_source_invalid", nil)
-	case "platform.template_revision_conflict":
-		writeAppError(w, r, http.StatusConflict, renderErr.Code, "模板版本已变化", "errors.platform.template_revision_conflict", nil)
-	case "platform.template_revision_not_found":
-		writeAppError(w, r, http.StatusNotFound, renderErr.Code, "模板版本不存在", "errors.platform.template_revision_not_found", nil)
-	case "platform.template_rollback_target_invalid":
-		writeAppError(w, r, http.StatusConflict, renderErr.Code, "回退目标不合法", "errors.platform.template_rollback_target_invalid", nil)
 	default:
 		writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
 	}

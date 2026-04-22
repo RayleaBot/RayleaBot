@@ -10,73 +10,21 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-function templateDetail() {
+function templateDetail(updatedAt = '2026-04-18T10:30:00Z') {
   return {
     id: 'help.menu',
     version: '1',
     width: 960,
     height: 640,
     has_input_schema: true,
-    current_revision_id: 'rev_help_menu_0004',
-    updated_at: '2026-04-18T10:30:00Z',
-    files: {
-      manifest: 'template.json',
-      html: 'template.html',
-      stylesheet: 'styles.css',
-      input_schema: 'input.schema.json',
-    },
-    current_revision: {
-      revision_id: 'rev_help_menu_0004',
-      template_version: '1',
-      saved_at: '2026-04-18T10:30:00Z',
-      kind: 'save',
-      message: '调整帮助菜单排版',
-    },
-    last_validation: {
-      valid: true,
-      checked_at: '2026-04-18T10:31:00Z',
-      issue_count: 0,
-    },
-  } as const
-}
-
-function templateSource(revisionId = 'rev_help_menu_0004') {
-  return {
-    template_id: 'help.menu',
-    revision_id: revisionId,
-    source: {
-      manifest_json: {
-        id: 'help.menu',
-        version: '1',
-        entry_html: 'template.html',
-        stylesheet: 'styles.css',
-        input_schema: 'input.schema.json',
-        width: 960,
-        height: 640,
+    updated_at: updatedAt,
+    input_schema_json: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: '主标题' },
       },
-      html: '<section class="menu-card"><h1>{{ .title }}</h1></section>',
-      stylesheet: '.menu-card { display: grid; gap: 12px; }',
-      input_schema_json: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-        },
-      },
+      required: ['title'],
     },
-  } as const
-}
-
-function templateVersions() {
-  return {
-    items: [
-      {
-        revision_id: 'rev_help_menu_0004',
-        template_version: '1',
-        saved_at: '2026-04-18T10:30:00Z',
-        kind: 'save',
-        message: '调整帮助菜单排版',
-      },
-    ],
   } as const
 }
 
@@ -85,84 +33,58 @@ describe('render templates store', () => {
     setActivePinia(createPinia())
   })
 
-  it('keeps the session draft when workspace data refreshes without reset', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn()
-        .mockResolvedValueOnce(jsonResponse({ template: templateDetail() }))
-        .mockResolvedValueOnce(jsonResponse(templateSource()))
-        .mockResolvedValueOnce(jsonResponse(templateVersions())),
-    )
-
-    const store = useRenderTemplatesStore()
-    store.draftById = {
-      'help.menu': {
-        manifest_json: '{\n  "id": "help.menu"\n}',
-        html: '<section class="menu-card"><h1>本地草稿</h1></section>',
-        stylesheet: '.menu-card { gap: 20px; }',
-        input_schema_json: '{\n  "type": "object"\n}',
-      },
-    }
-
-    await store.fetchTemplateWorkspace('help.menu')
-
-    expect(store.draftById['help.menu']?.html).toContain('本地草稿')
-    expect(store.baseDraftById['help.menu']?.html).toContain('{{ .title }}')
-    expect(store.versionsById['help.menu']).toHaveLength(1)
-  })
-
-  it('marks a template conflict and preserves the local draft after stale save', async () => {
+  it('sorts template summaries by updated_at descending', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(jsonResponse({
-        error: {
-          code: 'platform.template_revision_conflict',
-          message: '模板版本已变化',
-          message_key: 'errors.platform.template_revision_conflict',
-          request_id: 'req_template_conflict_0001',
-        },
-      }, 409)),
+        items: [
+          {
+            id: 'status.panel',
+            version: '1',
+            width: 960,
+            height: 540,
+            has_input_schema: true,
+            updated_at: '2026-04-18T09:45:00Z',
+          },
+          {
+            id: 'help.menu',
+            version: '1',
+            width: 960,
+            height: 640,
+            has_input_schema: true,
+            updated_at: '2026-04-18T10:30:00Z',
+          },
+        ],
+      })),
     )
 
     const store = useRenderTemplatesStore()
-    store.detailById = {
-      'help.menu': templateDetail(),
-    }
-    store.sourceMetaById = {
-      'help.menu': {
-        template_id: 'help.menu',
-        revision_id: 'rev_help_menu_0004',
-      },
-    }
-    store.baseDraftById = {
-      'help.menu': {
-        manifest_json: '{\n  "id": "help.menu"\n}',
-        html: '<section class="menu-card"><h1>{{ .title }}</h1></section>',
-        stylesheet: '.menu-card { gap: 12px; }',
-        input_schema_json: '{\n  "type": "object"\n}',
-      },
-    }
-    store.draftById = {
-      'help.menu': {
-        manifest_json: '{\n  "id": "help.menu"\n}',
-        html: '<section class="menu-card"><h1>冲突中的本地草稿</h1></section>',
-        stylesheet: '.menu-card { gap: 20px; }',
-        input_schema_json: '{\n  "type": "object"\n}',
-      },
-    }
+    await store.fetchTemplates()
 
-    await expect(store.saveTemplate('help.menu', {
-      base_revision_id: 'rev_help_menu_0004',
-      message: '覆盖旧版本',
-      source: {
-        manifest_json: { id: 'help.menu' },
-        html: '<section class="menu-card"><h1>冲突中的本地草稿</h1></section>',
-        stylesheet: '.menu-card { gap: 20px; }',
-        input_schema_json: { type: 'object' },
-      },
-    })).rejects.toThrow()
+    expect(store.items.map((item) => item.id)).toEqual(['help.menu', 'status.panel'])
+  })
 
-    expect(store.conflictById['help.menu']).toBe(true)
-    expect(store.draftById['help.menu']?.html).toContain('冲突中的本地草稿')
+  it('loads one preview workspace detail and upserts the summary list', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ template: templateDetail() })),
+    )
+
+    const store = useRenderTemplatesStore()
+    store.items = [
+      {
+        id: 'status.panel',
+        version: '1',
+        width: 960,
+        height: 540,
+        has_input_schema: true,
+        updated_at: '2026-04-18T09:45:00Z',
+      },
+    ]
+
+    await store.fetchTemplateWorkspace('help.menu')
+
+    expect(store.detailById['help.menu']?.input_schema_json).toEqual(templateDetail().input_schema_json)
+    expect(store.items.map((item) => item.id)).toEqual(['help.menu', 'status.panel'])
   })
 })

@@ -319,7 +319,7 @@ func TestServiceSeedsTemplatesAndKeepsSavedRevisionOnRestart(t *testing.T) {
 	}
 }
 
-func TestServiceRenderDraftDoesNotPersistAndCacheKeyTracksSourceDigest(t *testing.T) {
+func TestServiceRenderCacheKeyTracksStoredSourceDigest(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := filepath.Join("..", "..", "..")
@@ -366,32 +366,6 @@ func TestServiceRenderDraftDoesNotPersistAndCacheKeyTracksSourceDigest(t *testin
 		t.Fatalf("GetTemplateSource: %v", err)
 	}
 
-	draftSource := currentSource
-	draftSource.HTML = `<section class="draft">{{ .title }}</section>`
-	draftResult, err := service.Render(context.Background(), Request{
-		Template: "help.menu",
-		Theme:    "default",
-		Output:   "png",
-		Data: map[string]any{
-			"title": "帮助菜单",
-		},
-		Draft: &TemplateDraft{Source: draftSource},
-	})
-	if err != nil {
-		t.Fatalf("Render draft template: %v", err)
-	}
-	if draftResult.ArtifactID == first.ArtifactID {
-		t.Fatalf("draft render reused current artifact id")
-	}
-
-	revisionAfterDraft, sourceAfterDraft, err := service.GetTemplateSource(context.Background(), "help.menu")
-	if err != nil {
-		t.Fatalf("GetTemplateSource after draft render: %v", err)
-	}
-	if revisionAfterDraft != baseRevisionID || sourceAfterDraft.HTML != currentSource.HTML {
-		t.Fatalf("draft render changed current template revision")
-	}
-
 	currentSource.HTML = `<section class="saved">{{ .title }}</section>`
 	if _, err := service.UpdateTemplateSource(context.Background(), "help.menu", baseRevisionID, "保存模板修改", currentSource); err != nil {
 		t.Fatalf("UpdateTemplateSource: %v", err)
@@ -415,8 +389,8 @@ func TestServiceRenderDraftDoesNotPersistAndCacheKeyTracksSourceDigest(t *testin
 	if !third.FromCache {
 		t.Fatalf("expected saved template to hit cache on repeated render")
 	}
-	if runner.callCount() != 3 {
-		t.Fatalf("unexpected runner calls: got %d want 3", runner.callCount())
+	if runner.callCount() != 2 {
+		t.Fatalf("unexpected runner calls: got %d want 2", runner.callCount())
 	}
 }
 

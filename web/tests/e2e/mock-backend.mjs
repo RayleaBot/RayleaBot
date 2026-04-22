@@ -53,13 +53,7 @@ const fixtures = {
   systemRenderPreviewAccepted: await readFixture('fixtures/web-api/ok.system-render-preview-accepted.yaml'),
   renderTemplatesList: await readFixture('fixtures/web-api/ok.system-render-templates-list-response.yaml'),
   renderTemplateDetail: await readFixture('fixtures/web-api/ok.system-render-template-detail-response.yaml'),
-  renderTemplateSource: await readFixture('fixtures/web-api/ok.system-render-template-source-response.yaml'),
-  renderTemplateValidate: await readFixture('fixtures/web-api/ok.system-render-template-validate-response.yaml'),
   renderTemplateNotFound: await readFixture('fixtures/web-api/invalid.system-render-template-not-found.yaml'),
-  renderTemplateSourceConflict: await readFixture('fixtures/web-api/invalid.system-render-template-source-conflict.yaml'),
-  renderTemplateRollbackInvalidTarget: await readFixture('fixtures/web-api/invalid.system-render-template-rollback-invalid-target.yaml'),
-  renderTemplateRollbackRevisionNotFound: await readFixture('fixtures/web-api/invalid.system-render-template-rollback-revision-not-found.yaml'),
-  renderTemplateValidateInvalidSource: await readFixture('fixtures/web-api/invalid.system-render-template-validate-invalid-source.yaml'),
   systemDiagnosticsExport: await readFixture('fixtures/web-api/ok.system-diagnostics-export.yaml'),
   pluginEnable: await readFixture('fixtures/web-api/ok.plugins-enable-response.yaml'),
   pluginDisable: await readFixture('fixtures/web-api/edge.plugins-disable-response.yaml'),
@@ -123,6 +117,8 @@ function baseState() {
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     renderTemplates: createRenderTemplateState(),
+    renderPreviewSequence: 1,
+    renderPreviewTasks: {},
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
       'builtin-help': [],
@@ -269,119 +265,18 @@ function computeRestartRequiredForConfig(prevConfig, nextConfig) {
 
 function createRenderTemplateState() {
   const helpDetail = structuredClone(fixtures.renderTemplateDetail.response.body.template)
-  const helpSource = structuredClone(fixtures.renderTemplateSource.response.body)
-  const statusSummary = structuredClone(
-    fixtures.renderTemplatesList.response.body.items.find((item) => item.id === 'status.panel'),
-  )
-
-  const helpPreviousSource = structuredClone(helpSource.source)
-  helpPreviousSource.html = [
-    '<section class="menu-card">',
-    '  <h1>{{ .title }}</h1>',
-    '  <p>{{ .subtitle }}</p>',
-    '</section>',
-  ].join('\n')
-
-  const statusSource = {
-    template_id: 'status.panel',
-    revision_id: 'rev_status_panel_0002',
-    source: {
-      manifest_json: {
-        id: 'status.panel',
-        version: '1',
-        entry_html: 'template.html',
-        stylesheet: 'styles.css',
-        width: 960,
-        height: 640,
-      },
-      html: [
-        '<section class="status-panel">',
-        '  <h1>{{ .headline }}</h1>',
-        '</section>',
-      ].join('\n'),
-      stylesheet: [
-        '.status-panel {',
-        '  display: grid;',
-        '  gap: 8px;',
-        '}',
-      ].join('\n'),
-      input_schema_json: null,
-    },
-  }
-
-  return {
-    byId: {
-      'help.menu': {
-        currentSource: structuredClone(helpSource.source),
-        detail: helpDetail,
-        files: structuredClone(helpDetail.files),
-        nextRevisionSequence: 5,
-        revisionSources: {
-          rev_help_menu_0004: structuredClone(helpSource.source),
-          rev_help_menu_0003: helpPreviousSource,
-        },
-        versions: [
-          {
-            revision_id: 'rev_help_menu_0004',
-            template_version: '1',
-            saved_at: '2026-04-18T10:30:00Z',
-            kind: 'save',
-            message: '调整帮助菜单排版',
-          },
-          {
-            revision_id: 'rev_help_menu_0003',
-            template_version: '1',
-            saved_at: '2026-04-18T08:00:00Z',
-            kind: 'rollback',
-            message: '恢复到已验证版本',
-          },
-        ],
-      },
-      'status.panel': {
-        currentSource: structuredClone(statusSource.source),
-        detail: {
-          ...statusSummary,
-          files: {
-            manifest: 'template.json',
-            html: 'template.html',
-            stylesheet: 'styles.css',
-            input_schema: null,
-          },
-          current_revision: {
-            revision_id: 'rev_status_panel_0002',
-            template_version: '1',
-            saved_at: '2026-04-18T09:45:00Z',
-            kind: 'save',
-            message: '同步状态面板基线',
-          },
-          last_validation: {
-            valid: true,
-            checked_at: '2026-04-18T09:45:01Z',
-            issue_count: 0,
-          },
-        },
-        files: {
-          manifest: 'template.json',
-          html: 'template.html',
-          stylesheet: 'styles.css',
-          input_schema: null,
-        },
-        nextRevisionSequence: 3,
-        revisionSources: {
-          rev_status_panel_0002: structuredClone(statusSource.source),
-        },
-        versions: [
-          {
-            revision_id: 'rev_status_panel_0002',
-            template_version: '1',
-            saved_at: '2026-04-18T09:45:00Z',
-            kind: 'save',
-            message: '同步状态面板基线',
-          },
-        ],
+  const items = structuredClone(fixtures.renderTemplatesList.response.body.items)
+  const byId = Object.fromEntries(items.map((item) => [
+    item.id,
+    {
+      detail: {
+        ...item,
+        input_schema_json: item.id === helpDetail.id ? structuredClone(helpDetail.input_schema_json) : null,
       },
     },
-  }
+  ]))
+
+  return { byId }
 }
 
 function listRenderTemplates() {
@@ -393,7 +288,6 @@ function listRenderTemplates() {
         width: template.detail.width,
         height: template.detail.height,
         has_input_schema: template.detail.has_input_schema,
-        current_revision_id: template.detail.current_revision_id,
         updated_at: template.detail.updated_at,
       }))
       .sort((left, right) => right.updated_at.localeCompare(left.updated_at)),
@@ -409,103 +303,59 @@ function renderTemplateDetailBody(templateId) {
   return template ? { template: structuredClone(template.detail) } : null
 }
 
-function renderTemplateSourceBody(templateId) {
-  const template = getRenderTemplate(templateId)
-  if (!template) {
-    return null
-  }
+function nextRenderPreviewTaskSequence() {
+  const sequence = state.renderPreviewSequence
+  state.renderPreviewSequence += 1
+  return sequence
+}
+
+function buildRenderPreviewDetail(payload = {}) {
+  const sequence = nextRenderPreviewTaskSequence()
+  const sequenceText = String(sequence).padStart(4, '0')
+  const templateId = typeof payload.template === 'string' && payload.template.trim()
+    ? payload.template.trim()
+    : 'unknown-template'
+  const theme = typeof payload.theme === 'string' && payload.theme.trim()
+    ? payload.theme.trim()
+    : 'default'
+  const output = payload.output === 'jpeg' ? 'jpeg' : 'png'
+  const taskId = `task_render_preview_${sequenceText}`
+  const artifactId = `render_preview_${sequenceText}.${output}`
+  const baseTime = Date.parse('2026-04-22T10:00:00Z') + sequence * 1000
+  const startedAt = new Date(baseTime).toISOString()
+  const finishedAt = new Date(baseTime + 800).toISOString()
 
   return {
-    template_id: templateId,
-    revision_id: template.detail.current_revision_id,
-    source: structuredClone(template.currentSource),
-  }
-}
-
-function renderTemplateVersionsBody(templateId) {
-  const template = getRenderTemplate(templateId)
-  return template ? { items: structuredClone(template.versions) } : null
-}
-
-function buildRenderTemplateValidationBody(source) {
-  return {
-    valid: true,
-    issues: [],
-    normalized_manifest: structuredClone(source.manifest_json),
-  }
-}
-
-function validateRenderTemplateSource(templateId, source) {
-  if (!isPlainObject(source) || !isPlainObject(source.manifest_json) || typeof source.html !== 'string' || typeof source.stylesheet !== 'string') {
-    return false
-  }
-
-  if (source.input_schema_json !== null && !isPlainObject(source.input_schema_json)) {
-    return false
-  }
-
-  if (source.manifest_json.id !== templateId || typeof source.manifest_json.version !== 'string') {
-    return false
-  }
-
-  return true
-}
-
-function nextRenderTemplateRevisionId(templateId) {
-  const template = getRenderTemplate(templateId)
-  const nextSequence = template.nextRevisionSequence++
-  return `rev_${templateId.replace(/[.-]/g, '_')}_${String(nextSequence).padStart(4, '0')}`
-}
-
-function applyRenderTemplateSource(templateId, source, options) {
-  const template = getRenderTemplate(templateId)
-  const revisionId = nextRenderTemplateRevisionId(templateId)
-  const savedAt = new Date().toISOString()
-  const checkedAt = new Date(Date.now() + 1000).toISOString()
-  const version = String(source.manifest_json.version ?? template.detail.version)
-  const width = Number(source.manifest_json.width ?? template.detail.width)
-  const height = Number(source.manifest_json.height ?? template.detail.height)
-  const hasInputSchema = source.input_schema_json !== null
-
-  template.currentSource = structuredClone(source)
-  template.revisionSources[revisionId] = structuredClone(source)
-  template.versions = [
-    {
-      revision_id: revisionId,
-      template_version: version,
-      saved_at: savedAt,
-      kind: options.kind,
-      message: options.message,
+    task_id: taskId,
+    task_type: 'render.preview',
+    status: 'succeeded',
+    progress: 100,
+    summary: `渲染 ${templateId} 预览已完成`,
+    started_at: startedAt,
+    finished_at: finishedAt,
+    result: {
+      summary: '渲染预览已生成',
+      details: {
+        artifact_id: artifactId,
+        image_url: `/api/system/render/artifacts/${artifactId}`,
+        mime: output === 'jpeg' ? 'image/jpeg' : 'image/png',
+        cache_key: `${templateId}:${theme}:${output}:${sequenceText}`,
+        template: templateId,
+        theme,
+        from_cache: false,
+      },
     },
-    ...template.versions,
+  }
+}
+
+function createRenderPreviewTask(payload = {}) {
+  const task = buildRenderPreviewDetail(payload)
+  state.renderPreviewTasks[task.task_id] = structuredClone(task)
+  state.tasks = [
+    taskSummary(task.task_id, task.task_type, task.summary),
+    ...state.tasks.filter((item) => item.task_id !== task.task_id),
   ]
-  template.detail = {
-    ...template.detail,
-    version,
-    width,
-    height,
-    has_input_schema: hasInputSchema,
-    current_revision_id: revisionId,
-    updated_at: savedAt,
-    current_revision: {
-      revision_id: revisionId,
-      template_version: version,
-      saved_at: savedAt,
-      kind: options.kind,
-      message: options.message,
-    },
-    last_validation: {
-      valid: true,
-      checked_at: checkedAt,
-      issue_count: 0,
-    },
-    files: {
-      ...template.files,
-      input_schema: hasInputSchema ? 'input.schema.json' : null,
-    },
-  }
-
-  return renderTemplateDetailBody(templateId)
+  return task
 }
 
 const configRestartRequiredFields = new Set([
@@ -1515,154 +1365,7 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/source') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
-    const sourceBody = renderTemplateSourceBody(templateId)
-    if (!sourceBody) {
-      json(response, fixtures.renderTemplateNotFound.response.status, fixtures.renderTemplateNotFound.response.body)
-      return
-    }
-
-    json(response, 200, sourceBody)
-    return
-  }
-
-  if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/source') && request.method === 'PUT') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
-    const template = getRenderTemplate(templateId)
-    if (!template) {
-      json(response, fixtures.renderTemplateNotFound.response.status, fixtures.renderTemplateNotFound.response.body)
-      return
-    }
-
-    const payload = await parseBody(request)
-    if (payload.base_revision_id !== template.detail.current_revision_id) {
-      json(response, fixtures.renderTemplateSourceConflict.response.status, errorEnvelope(
-        'platform.template_revision_conflict',
-        '模板版本已变化',
-        'req_template_source_conflict',
-      ))
-      return
-    }
-
-    if (!validateRenderTemplateSource(templateId, payload.source) || typeof payload.message !== 'string' || !payload.message.trim()) {
-      json(response, fixtures.renderTemplateValidateInvalidSource.response.status, errorEnvelope(
-        'platform.template_source_invalid',
-        '模板源码不合法',
-        'req_template_source_invalid',
-      ))
-      return
-    }
-
-    json(response, 200, applyRenderTemplateSource(templateId, payload.source, {
-      kind: 'save',
-      message: payload.message.trim(),
-    }))
-    return
-  }
-
-  if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/validate') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
-    const template = getRenderTemplate(templateId)
-    if (!template) {
-      json(response, fixtures.renderTemplateNotFound.response.status, fixtures.renderTemplateNotFound.response.body)
-      return
-    }
-
-    const payload = await parseBody(request)
-    const source = payload.source ?? template.currentSource
-    if (!validateRenderTemplateSource(templateId, source)) {
-      json(response, fixtures.renderTemplateValidateInvalidSource.response.status, errorEnvelope(
-        'platform.template_source_invalid',
-        '模板源码不合法',
-        'req_template_validate_invalid',
-      ))
-      return
-    }
-
-    json(response, fixtures.renderTemplateValidate.response.status, buildRenderTemplateValidationBody(source))
-    return
-  }
-
-  if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/versions') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
-    const versionsBody = renderTemplateVersionsBody(templateId)
-    if (!versionsBody) {
-      json(response, fixtures.renderTemplateNotFound.response.status, fixtures.renderTemplateNotFound.response.body)
-      return
-    }
-
-    json(response, 200, versionsBody)
-    return
-  }
-
-  if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/rollback') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
-    const template = getRenderTemplate(templateId)
-    if (!template) {
-      json(response, fixtures.renderTemplateNotFound.response.status, fixtures.renderTemplateNotFound.response.body)
-      return
-    }
-
-    const payload = await parseBody(request)
-    if (payload.base_revision_id !== template.detail.current_revision_id) {
-      json(response, fixtures.renderTemplateSourceConflict.response.status, errorEnvelope(
-        'platform.template_revision_conflict',
-        '模板版本已变化',
-        'req_template_rollback_conflict',
-      ))
-      return
-    }
-
-    if (payload.target_revision_id === template.detail.current_revision_id) {
-      json(response, fixtures.renderTemplateRollbackInvalidTarget.response.status, errorEnvelope(
-        'platform.template_rollback_target_invalid',
-        '回退目标不合法',
-        'req_template_rollback_invalid_target',
-      ))
-      return
-    }
-
-    const targetSource = template.revisionSources[payload.target_revision_id]
-    if (!targetSource) {
-      json(response, fixtures.renderTemplateRollbackRevisionNotFound.response.status, errorEnvelope(
-        'platform.template_revision_not_found',
-        '模板版本不存在',
-        'req_template_rollback_missing_revision',
-      ))
-      return
-    }
-
-    json(response, 200, applyRenderTemplateSource(templateId, structuredClone(targetSource), {
-      kind: 'rollback',
-      message: typeof payload.message === 'string' && payload.message.trim()
-        ? payload.message.trim()
-        : '恢复到已验证版本',
-    }))
-    return
-  }
-
-  if (pathname.startsWith('/api/system/render/templates/') && request.method === 'GET') {
+  if (pathname.startsWith('/api/system/render/templates/') && request.method === 'GET' && pathname.split('/').length === 6) {
     if (!requireAuth(request, response)) {
       return
     }
@@ -1684,13 +1387,8 @@ const server = http.createServer(async (request, response) => {
     }
 
     const payload = await parseBody(request)
-    const taskId = fixtures.systemRenderPreviewAccepted.response.body.task_id
-    state.tasks = [
-      taskSummary(taskId, 'render.preview', `render preview for ${payload.template ?? 'unknown-template'}`),
-      ...state.tasks.filter((item) => item.task_id !== taskId),
-    ]
-
-    json(response, fixtures.systemRenderPreviewAccepted.response.status, fixtures.systemRenderPreviewAccepted.response.body)
+    const task = createRenderPreviewTask(payload)
+    json(response, fixtures.systemRenderPreviewAccepted.response.status, { task_id: task.task_id })
     return
   }
 
@@ -1835,6 +1533,8 @@ const server = http.createServer(async (request, response) => {
     let task
     if (taskId === fixtures.taskDetailSucceededInstall.response.body.task.task_id) {
       task = structuredClone(fixtures.taskDetailSucceededInstall.response.body.task)
+    } else if (state.renderPreviewTasks[taskId]) {
+      task = structuredClone(state.renderPreviewTasks[taskId])
     } else if (taskId === fixtures.taskDetailSucceededRenderPreview.response.body.task.task_id) {
       task = structuredClone(fixtures.taskDetailSucceededRenderPreview.response.body.task)
     } else if (taskId === fixtures.taskDetailFailedInstallScriptBlocked.response.body.task.task_id) {

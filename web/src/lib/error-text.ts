@@ -9,10 +9,6 @@ const errorMessageByKey: Record<string, string> = {
   'errors.platform.not_found': t('errors.platform.notFound'),
   'errors.platform.resource_missing': t('errors.platform.resourceMissing'),
   'errors.platform.template_not_found': t('errors.platform.templateNotFound'),
-  'errors.platform.template_source_invalid': t('errors.platform.templateSourceInvalid'),
-  'errors.platform.template_revision_conflict': t('errors.platform.templateRevisionConflict'),
-  'errors.platform.template_revision_not_found': t('errors.platform.templateRevisionNotFound'),
-  'errors.platform.template_rollback_target_invalid': t('errors.platform.templateRollbackTargetInvalid'),
 }
 
 const errorMessageByCode: Record<string, string> = {
@@ -23,10 +19,6 @@ const errorMessageByCode: Record<string, string> = {
   'platform.not_found': t('errors.platform.notFound'),
   'platform.resource_missing': t('errors.platform.resourceMissing'),
   'platform.template_not_found': t('errors.platform.templateNotFound'),
-  'platform.template_source_invalid': t('errors.platform.templateSourceInvalid'),
-  'platform.template_revision_conflict': t('errors.platform.templateRevisionConflict'),
-  'platform.template_revision_not_found': t('errors.platform.templateRevisionNotFound'),
-  'platform.template_rollback_target_invalid': t('errors.platform.templateRollbackTargetInvalid'),
 }
 
 function hasChineseText(value: string) {

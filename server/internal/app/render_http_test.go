@@ -16,7 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-func TestRenderTemplateHandlersSupportSaveRollbackAndHistory(t *testing.T) {
+func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
 	t.Parallel()
 
 	fixture := newRenderHTTPFixture(t)
@@ -34,153 +34,50 @@ func TestRenderTemplateHandlersSupportSaveRollbackAndHistory(t *testing.T) {
 		t.Fatalf("expected seeded templates, got %#v", listBody.Items)
 	}
 
-	sourceRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/source", nil)
-	if sourceRecorder.Code != http.StatusOK {
-		t.Fatalf("source status = %d, want 200 (%s)", sourceRecorder.Code, sourceRecorder.Body.String())
+	detailRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu", nil)
+	if detailRecorder.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want 200 (%s)", detailRecorder.Code, detailRecorder.Body.String())
 	}
 
-	var sourceBody renderTemplateSourceResponse
-	if err := json.Unmarshal(sourceRecorder.Body.Bytes(), &sourceBody); err != nil {
-		t.Fatalf("decode source response: %v", err)
-	}
-	baseRevisionID := sourceBody.RevisionID
-	updatedSource := sourceBody.Source
-	updatedSource.HTML = `<section class="saved">{{ .title }}</section>`
-
-	saveRecorder := fixture.request(http.MethodPut, "/api/system/render/templates/help.menu/source", renderTemplateSourceUpdateRequest{
-		BaseRevisionID: baseRevisionID,
-		Source:         updatedSource,
-		Message:        "调整帮助卡片",
-	})
-	if saveRecorder.Code != http.StatusOK {
-		t.Fatalf("save status = %d, want 200 (%s)", saveRecorder.Code, saveRecorder.Body.String())
+	var detailEnvelope map[string]map[string]any
+	if err := json.Unmarshal(detailRecorder.Body.Bytes(), &detailEnvelope); err != nil {
+		t.Fatalf("decode detail response: %v", err)
 	}
 
-	var saveBody renderTemplateDetailResponse
-	if err := json.Unmarshal(saveRecorder.Body.Bytes(), &saveBody); err != nil {
-		t.Fatalf("decode save response: %v", err)
+	templateBody := detailEnvelope["template"]
+	if templateBody["input_schema_json"] == nil {
+		t.Fatalf("expected input_schema_json, got %#v", templateBody)
 	}
-	if saveBody.Template.CurrentRevision.RevisionID == baseRevisionID {
-		t.Fatalf("expected save to create a new revision")
-	}
-
-	rollbackRecorder := fixture.request(http.MethodPost, "/api/system/render/templates/help.menu/rollback", renderTemplateRollbackRequest{
-		TargetRevisionID: baseRevisionID,
-		BaseRevisionID:   saveBody.Template.CurrentRevision.RevisionID,
-		Message:          "恢复到初始版本",
-	})
-	if rollbackRecorder.Code != http.StatusOK {
-		t.Fatalf("rollback status = %d, want 200 (%s)", rollbackRecorder.Code, rollbackRecorder.Body.String())
-	}
-
-	var rollbackBody renderTemplateDetailResponse
-	if err := json.Unmarshal(rollbackRecorder.Body.Bytes(), &rollbackBody); err != nil {
-		t.Fatalf("decode rollback response: %v", err)
-	}
-	if rollbackBody.Template.CurrentRevision.Kind != "rollback" {
-		t.Fatalf("unexpected rollback revision kind: %#v", rollbackBody.Template.CurrentRevision)
-	}
-
-	versionsRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/versions", nil)
-	if versionsRecorder.Code != http.StatusOK {
-		t.Fatalf("versions status = %d, want 200 (%s)", versionsRecorder.Code, versionsRecorder.Body.String())
-	}
-
-	var versionsBody renderTemplateVersionListResponse
-	if err := json.Unmarshal(versionsRecorder.Body.Bytes(), &versionsBody); err != nil {
-		t.Fatalf("decode versions response: %v", err)
-	}
-	if len(versionsBody.Items) < 3 {
-		t.Fatalf("expected save and rollback revisions, got %#v", versionsBody.Items)
-	}
-	if versionsBody.Items[0].Kind != "rollback" {
-		t.Fatalf("expected newest revision to be rollback, got %#v", versionsBody.Items[0])
+	for _, removedField := range []string{"files", "current_revision", "last_validation", "current_revision_id"} {
+		if _, ok := templateBody[removedField]; ok {
+			t.Fatalf("unexpected legacy detail field %q in %#v", removedField, templateBody)
+		}
 	}
 }
 
-func TestRenderTemplateHandlersValidateInvalidSourceAndDetectRevisionConflict(t *testing.T) {
+func TestRenderTemplateHandlersRejectUnknownTemplate(t *testing.T) {
 	t.Parallel()
 
 	fixture := newRenderHTTPFixture(t)
 
-	sourceRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/source", nil)
-	if sourceRecorder.Code != http.StatusOK {
-		t.Fatalf("source status = %d, want 200 (%s)", sourceRecorder.Code, sourceRecorder.Body.String())
+	recorder := fixture.request(http.MethodGet, "/api/system/render/templates/missing-template", nil)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("detail status = %d, want 404 (%s)", recorder.Code, recorder.Body.String())
 	}
 
-	var sourceBody renderTemplateSourceResponse
-	if err := json.Unmarshal(sourceRecorder.Body.Bytes(), &sourceBody); err != nil {
-		t.Fatalf("decode source response: %v", err)
+	var body map[string]map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode error response: %v", err)
 	}
-
-	validateRecorder := fixture.request(http.MethodPost, "/api/system/render/templates/help.menu/validate", renderTemplateValidateRequest{
-		Source: &render.TemplateSource{
-			ManifestJSON: map[string]any{
-				"version": "1",
-			},
-			HTML:            "<section></section>",
-			Stylesheet:      ".menu-card {}",
-			InputSchemaJSON: nil,
-		},
-	})
-	if validateRecorder.Code != http.StatusBadRequest {
-		t.Fatalf("validate status = %d, want 400 (%s)", validateRecorder.Code, validateRecorder.Body.String())
-	}
-
-	var validateError map[string]map[string]any
-	if err := json.Unmarshal(validateRecorder.Body.Bytes(), &validateError); err != nil {
-		t.Fatalf("decode validate error: %v", err)
-	}
-	if validateError["error"]["code"] != "platform.template_source_invalid" {
-		t.Fatalf("unexpected validate error: %#v", validateError)
-	}
-
-	updatedSource := sourceBody.Source
-	updatedSource.HTML = `<section class="saved">{{ .title }}</section>`
-	saveRecorder := fixture.request(http.MethodPut, "/api/system/render/templates/help.menu/source", renderTemplateSourceUpdateRequest{
-		BaseRevisionID: sourceBody.RevisionID,
-		Source:         updatedSource,
-		Message:        "保存模板修改",
-	})
-	if saveRecorder.Code != http.StatusOK {
-		t.Fatalf("save status = %d, want 200 (%s)", saveRecorder.Code, saveRecorder.Body.String())
-	}
-
-	conflictRecorder := fixture.request(http.MethodPut, "/api/system/render/templates/help.menu/source", renderTemplateSourceUpdateRequest{
-		BaseRevisionID: sourceBody.RevisionID,
-		Source:         updatedSource,
-		Message:        "重复保存旧版本",
-	})
-	if conflictRecorder.Code != http.StatusConflict {
-		t.Fatalf("conflict status = %d, want 409 (%s)", conflictRecorder.Code, conflictRecorder.Body.String())
-	}
-
-	var conflictError map[string]map[string]any
-	if err := json.Unmarshal(conflictRecorder.Body.Bytes(), &conflictError); err != nil {
-		t.Fatalf("decode conflict error: %v", err)
-	}
-	if conflictError["error"]["code"] != "platform.template_revision_conflict" {
-		t.Fatalf("unexpected conflict error: %#v", conflictError)
+	if body["error"]["code"] != "platform.template_not_found" {
+		t.Fatalf("unexpected error response: %#v", body)
 	}
 }
 
-func TestRenderPreviewHandlerAcceptsDraftSourceWithoutPersistingRevision(t *testing.T) {
+func TestRenderPreviewHandlerAcceptsStoredTemplateAndStreamsArtifact(t *testing.T) {
 	t.Parallel()
 
 	fixture := newRenderHTTPFixture(t)
-
-	sourceRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/source", nil)
-	if sourceRecorder.Code != http.StatusOK {
-		t.Fatalf("source status = %d, want 200 (%s)", sourceRecorder.Code, sourceRecorder.Body.String())
-	}
-
-	var sourceBody renderTemplateSourceResponse
-	if err := json.Unmarshal(sourceRecorder.Body.Bytes(), &sourceBody); err != nil {
-		t.Fatalf("decode source response: %v", err)
-	}
-
-	draftSource := sourceBody.Source
-	draftSource.HTML = `<section class="draft">{{ .title }}</section>`
 
 	previewRecorder := fixture.request(http.MethodPost, "/api/system/render/preview", render.Request{
 		Template: "help.menu",
@@ -189,7 +86,6 @@ func TestRenderPreviewHandlerAcceptsDraftSourceWithoutPersistingRevision(t *test
 		Data: map[string]any{
 			"title": "帮助菜单",
 		},
-		Draft: &render.TemplateDraft{Source: draftSource},
 	})
 	if previewRecorder.Code != http.StatusAccepted {
 		t.Fatalf("preview status = %d, want 202 (%s)", previewRecorder.Code, previewRecorder.Body.String())
@@ -199,25 +95,52 @@ func TestRenderPreviewHandlerAcceptsDraftSourceWithoutPersistingRevision(t *test
 	if err := json.Unmarshal(previewRecorder.Body.Bytes(), &accepted); err != nil {
 		t.Fatalf("decode preview accepted response: %v", err)
 	}
+
 	task := waitTask(t, fixture.tasks, accepted.TaskID, tasks.StatusSucceeded)
 	if task.Result == nil {
 		t.Fatalf("expected preview task result, got %#v", task)
 	}
-	if task.Result.Details["template"] != "help.menu" {
-		t.Fatalf("unexpected preview task details: %#v", task.Result.Details)
+
+	imageURL, _ := task.Result.Details["image_url"].(string)
+	artifactID, _ := task.Result.Details["artifact_id"].(string)
+	if imageURL == "" || artifactID == "" {
+		t.Fatalf("expected artifact metadata, got %#v", task.Result.Details)
 	}
 
-	sourceAfterRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu/source", nil)
-	if sourceAfterRecorder.Code != http.StatusOK {
-		t.Fatalf("source after preview status = %d, want 200 (%s)", sourceAfterRecorder.Code, sourceAfterRecorder.Body.String())
+	artifactRecorder := fixture.request(http.MethodGet, imageURL, nil)
+	if artifactRecorder.Code != http.StatusOK {
+		t.Fatalf("artifact status = %d, want 200 (%s)", artifactRecorder.Code, artifactRecorder.Body.String())
+	}
+	if got := artifactRecorder.Header().Get("Content-Type"); got != "image/png" {
+		t.Fatalf("artifact content-type = %q, want image/png", got)
+	}
+	if len(artifactRecorder.Body.Bytes()) == 0 {
+		t.Fatal("expected artifact bytes")
+	}
+}
+
+func TestRenderTemplateEditorRoutesAreRemoved(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRenderHTTPFixture(t)
+
+	requests := []struct {
+		method string
+		path   string
+		body   any
+	}{
+		{method: http.MethodGet, path: "/api/system/render/templates/help.menu/source"},
+		{method: http.MethodPut, path: "/api/system/render/templates/help.menu/source", body: map[string]any{}},
+		{method: http.MethodPost, path: "/api/system/render/templates/help.menu/validate", body: map[string]any{}},
+		{method: http.MethodGet, path: "/api/system/render/templates/help.menu/versions"},
+		{method: http.MethodPost, path: "/api/system/render/templates/help.menu/rollback", body: map[string]any{}},
 	}
 
-	var sourceAfter renderTemplateSourceResponse
-	if err := json.Unmarshal(sourceAfterRecorder.Body.Bytes(), &sourceAfter); err != nil {
-		t.Fatalf("decode source after preview response: %v", err)
-	}
-	if sourceAfter.RevisionID != sourceBody.RevisionID {
-		t.Fatalf("draft preview changed current revision: got %q want %q", sourceAfter.RevisionID, sourceBody.RevisionID)
+	for _, tc := range requests {
+		recorder := fixture.request(tc.method, tc.path, tc.body)
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("%s %s status = %d, want 404", tc.method, tc.path, recorder.Code)
+		}
 	}
 }
 
@@ -264,13 +187,9 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 
 	router := chi.NewRouter()
 	router.Post("/api/system/render/preview", handlers.handleSystemRenderPreview())
+	router.Get("/api/system/render/artifacts/{artifact_id}", handlers.handleSystemRenderArtifact())
 	router.Get("/api/system/render/templates", handlers.handleSystemRenderTemplateList())
 	router.Get("/api/system/render/templates/{template_id}", handlers.handleSystemRenderTemplateDetail())
-	router.Get("/api/system/render/templates/{template_id}/source", handlers.handleSystemRenderTemplateSource())
-	router.Put("/api/system/render/templates/{template_id}/source", handlers.handleSystemRenderTemplateSourcePut())
-	router.Post("/api/system/render/templates/{template_id}/validate", handlers.handleSystemRenderTemplateValidate())
-	router.Get("/api/system/render/templates/{template_id}/versions", handlers.handleSystemRenderTemplateVersions())
-	router.Post("/api/system/render/templates/{template_id}/rollback", handlers.handleSystemRenderTemplateRollback())
 
 	cleanup := func() {
 		_ = executor.Close()

@@ -62,7 +62,6 @@ type Request struct {
 	Theme    string         `json:"theme,omitempty"`
 	Output   string         `json:"output,omitempty"`
 	Data     map[string]any `json:"data"`
-	Draft    *TemplateDraft `json:"draft,omitempty"`
 }
 
 type Document struct {
@@ -892,29 +891,11 @@ func (s *Service) loadArtifacts() error {
 }
 
 func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) (*compiledTemplate, string, string, error) {
-	if request.Draft != nil {
-		bundle, err := buildTemplateSourceBundle(request.Template, request.Draft.Source)
-		if err != nil {
-			return nil, "", "", err
-		}
-		compiled, issues, err := compileTemplateBundle(bundle)
-		if err != nil {
-			return nil, "", "", err
-		}
-		if len(issues) > 0 {
-			return nil, "", "", &Error{
-				Code:    "platform.template_source_invalid",
-				Message: issues[0].Message,
-			}
-		}
-		return compiled, compiled.bundle.manifest.Version, compiled.bundle.digest, nil
-	}
-
 	_, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", "", &Error{
-				Code:    "platform.resource_missing",
+				Code:    "platform.template_not_found",
 				Message: "render template was not found",
 			}
 		}

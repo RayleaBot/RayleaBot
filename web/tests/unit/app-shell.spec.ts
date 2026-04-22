@@ -118,13 +118,13 @@ describe('BasicLayout', () => {
                 {
                   path: '/render/templates/:templateId?',
                   name: 'render-templates',
-                  component: { template: '<div>模板编辑页</div>' },
+                  component: { template: '<div>模板预览页</div>' },
                   meta: {
                     activePath: '/render/templates',
                     entryPath: '/render/templates',
                     icon: 'render-templates',
                     keepAlive: true,
-                    title: '模板编辑',
+                    title: '模板预览',
                     viewKey: 'render-templates',
                   },
                 },
@@ -240,7 +240,7 @@ describe('BasicLayout', () => {
     expect(wrapper.text()).toContain('日志中心')
     expect(wrapper.text()).toContain('协议')
     expect(wrapper.text()).toContain('系统')
-    expect(wrapper.text()).toContain('模板编辑')
+    expect(wrapper.text()).toContain('模板预览')
   })
 
   it('serializes route transitions to avoid overlapping pages during navigation', async () => {
@@ -328,11 +328,11 @@ describe('BasicLayout', () => {
       { title: '任务', icon: 'tasks', path: '/tasks', fullPath: '/tasks' },
       { title: '实时日志', icon: 'logs', path: '/logs', fullPath: '/logs' },
       { title: '历史日志', icon: 'history-logs', path: '/logs/history', fullPath: '/logs/history' },
-      { title: '模板编辑', icon: 'render-templates', path: '/render/templates', fullPath: '/render/templates/help.menu' },
+      { title: '模板预览', icon: 'render-templates', path: '/render/templates', fullPath: '/render/templates/help.menu' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板预览'])
     expect(getTabIconKeys()).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs', 'history-logs', 'render-templates'])
-    expect(getActiveTabLabel()).toBe('模板编辑')
+    expect(getActiveTabLabel()).toBe('模板预览')
 
     await router.push('/render/templates/status.panel')
     await flushPromises()
@@ -340,11 +340,11 @@ describe('BasicLayout', () => {
       expect.objectContaining({
         fullPath: '/render/templates/status.panel',
         path: '/render/templates',
-        title: '模板编辑',
+        title: '模板预览',
       }),
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板编辑'])
-    expect(getActiveTabLabel()).toBe('模板编辑')
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板预览'])
+    expect(getActiveTabLabel()).toBe('模板预览')
   })
 
   it('renders full breadcrumbs with a clickable parent group', async () => {
@@ -494,13 +494,13 @@ describe('BasicLayout', () => {
     expect(uiShellStore.searchOpen).toBe(false)
   })
 
-  it('uses the stable template editor entry path for menu and route search', async () => {
+  it('uses the stable template preview entry path for menu and route search', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/')
 
     const systemGroup = wrapper.findAll('.admin-layout__sider .ant-menu-submenu').find((item) => item.text().includes('系统'))
     expect(systemGroup).toBeDefined()
 
-    const templateMenuItem = systemGroup!.findAll('.ant-menu-item').find((item) => item.text().includes('模板编辑'))
+    const templateMenuItem = systemGroup!.findAll('.ant-menu-item').find((item) => item.text().includes('模板预览'))
     expect(templateMenuItem).toBeDefined()
     await templateMenuItem!.trigger('click')
     await flushPromises()
@@ -512,7 +512,7 @@ describe('BasicLayout', () => {
 
     const input = document.body.querySelector<HTMLInputElement>('.route-search-panel input')
     expect(input).not.toBeNull()
-    input!.value = '模板编辑'
+    input!.value = '模板预览'
     input!.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
 

@@ -1,20 +1,7 @@
-import type {
-  RenderTemplateLocalIssue,
-  RenderTemplateSchemaNode,
-  RenderTemplateSource,
-  RenderTemplateTextDraft,
-} from '@/types/api'
+import type { RenderTemplateLocalIssue, RenderTemplateSchemaNode } from '@/types/api'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function safeJsonStringify(value: Record<string, unknown> | null) {
-  if (value === null) {
-    return ''
-  }
-
-  return JSON.stringify(value, null, 2)
 }
 
 function normalizeJsonError(error: unknown) {
@@ -23,109 +10,6 @@ function normalizeJsonError(error: unknown) {
   }
 
   return 'JSON 解析失败，请检查格式。'
-}
-
-function parseObjectJson(
-  field: RenderTemplateLocalIssue['field'],
-  raw: string,
-  options: { allowEmpty: boolean },
-) {
-  const text = raw.trim()
-  if (!text) {
-    if (options.allowEmpty) {
-      return { value: null, issue: null }
-    }
-
-    return {
-      value: null,
-      issue: {
-        field,
-        message: '该文件不能为空。',
-      } satisfies RenderTemplateLocalIssue,
-    }
-  }
-
-  try {
-    const parsed = JSON.parse(text)
-    if (!isPlainObject(parsed)) {
-      return {
-        value: null,
-        issue: {
-          field,
-          message: '该文件需要是 JSON 对象。',
-        } satisfies RenderTemplateLocalIssue,
-      }
-    }
-
-    return { value: parsed, issue: null }
-  } catch (error) {
-    return {
-      value: null,
-      issue: {
-        field,
-        message: normalizeJsonError(error),
-      } satisfies RenderTemplateLocalIssue,
-    }
-  }
-}
-
-export function cloneRenderTemplateDraft(draft: RenderTemplateTextDraft): RenderTemplateTextDraft {
-  return {
-    manifest_json: draft.manifest_json,
-    html: draft.html,
-    stylesheet: draft.stylesheet,
-    input_schema_json: draft.input_schema_json,
-  }
-}
-
-export function formatRenderTemplateDraft(source: RenderTemplateSource): RenderTemplateTextDraft {
-  return {
-    manifest_json: safeJsonStringify(source.manifest_json),
-    html: source.html,
-    stylesheet: source.stylesheet,
-    input_schema_json: safeJsonStringify(source.input_schema_json),
-  }
-}
-
-export function renderTemplateDraftEquals(left?: RenderTemplateTextDraft | null, right?: RenderTemplateTextDraft | null) {
-  if (!left || !right) {
-    return false
-  }
-
-  return left.manifest_json === right.manifest_json
-    && left.html === right.html
-    && left.stylesheet === right.stylesheet
-    && left.input_schema_json === right.input_schema_json
-}
-
-export function parseRenderTemplateDraft(draft: RenderTemplateTextDraft) {
-  const issues: RenderTemplateLocalIssue[] = []
-  const manifestResult = parseObjectJson('manifest_json', draft.manifest_json, { allowEmpty: false })
-  if (manifestResult.issue) {
-    issues.push(manifestResult.issue)
-  }
-
-  const inputSchemaResult = parseObjectJson('input_schema_json', draft.input_schema_json, { allowEmpty: true })
-  if (inputSchemaResult.issue) {
-    issues.push(inputSchemaResult.issue)
-  }
-
-  if (issues.length > 0 || !manifestResult.value) {
-    return {
-      issues,
-      source: null,
-    }
-  }
-
-  return {
-    issues,
-    source: {
-      manifest_json: manifestResult.value,
-      html: draft.html,
-      stylesheet: draft.stylesheet,
-      input_schema_json: inputSchemaResult.value,
-    } satisfies RenderTemplateSource,
-  }
 }
 
 export function parseRenderTemplatePreviewData(raw: string) {

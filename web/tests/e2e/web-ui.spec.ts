@@ -1346,73 +1346,40 @@ test('status page can submit render previews and show the artifact', async ({ pa
   await expect(page.getByRole('img', { name: '图片预览结果' })).toBeVisible()
 })
 
-test('template editor can validate, preview, save and rollback a template', async ({ page, request }) => {
+test('template preview auto-refreshes results without editor controls', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
-  await navigateThroughMenu(page, '模板编辑', '系统')
-  await expect(page.getByRole('heading', { name: '模板编辑', level: 1 })).toBeVisible()
+  await navigateThroughMenu(page, '模板预览', '系统')
+  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
   await expect(page.getByText('模板不存在。')).toHaveCount(0)
-  await expect(page).toHaveURL(/\/render\/templates\/.+/)
-  await expect(page.getByText('当前版本', { exact: true })).toBeVisible()
-  expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
-
-  await page.locator('.template-nav-item').filter({ hasText: 'help.menu' }).first().click()
   await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
-  expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
+  expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
+
+  await expect(page.locator('.app-card__title-text').filter({ hasText: '模板信息' }).first()).toBeVisible()
+  await expect(page.locator('.app-card__title-text').filter({ hasText: '输入结构' }).first()).toBeVisible()
+  await expect(page.locator('.render-templates-card--editor')).toHaveCount(0)
+  await expect(page.locator('.version-item')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '保存模板' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '执行校验' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '确认回退' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '生成预览' })).toHaveCount(0)
+
+  const previewResult = page.getByTestId('render-template-preview-result')
+  await expect(previewResult).toContainText('task_render_preview_0001')
+  await expect(previewResult).toContainText('render_preview_0001.png')
+  await expect(page.getByRole('img', { name: '模板预览结果' })).toBeVisible()
+
+  await page.getByLabel('输入数据 JSON').fill('{\n  "title": "帮助菜单（自动刷新）"\n}')
+  await expect(previewResult).toContainText('task_render_preview_0002')
+  await expect(previewResult).toContainText('render_preview_0002.png')
 
   await page.locator('.template-nav-item').filter({ hasText: 'status.panel' }).first().click()
   await expect(page).toHaveURL(/\/render\/templates\/status\.panel$/)
-  expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
-
-  const editorCard = page.locator('.render-templates-card--editor')
-  const bottomWorkspace = page.locator('.render-templates-card--bottom-workspace')
-  const editorBox = await editorCard.boundingBox()
-  const bottomBox = await bottomWorkspace.boundingBox()
-  expect(editorBox).not.toBeNull()
-  expect(bottomBox).not.toBeNull()
-  expect((editorBox?.y ?? 0) + (editorBox?.height ?? 0)).toBeLessThanOrEqual((bottomBox?.y ?? 0) + 1)
-
-  await page.locator('.template-nav-item').filter({ hasText: 'help.menu' }).first().click()
-  await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
-
-  await page.getByRole('tab', { name: 'HTML' }).focus()
-  await page.getByRole('tab', { name: 'HTML' }).press('Enter')
-  const editor = page.locator('#render-template-editor-input')
-  await editor.fill([
-    '<section class="menu-card">',
-    '  <h1>{{ .title }}</h1>',
-    '  <p>模板工作台</p>',
-    '</section>',
-  ].join('\n'))
-
-  await page.getByLabel('保存说明').fill('增加模板工作台副标题')
-  await page.getByTestId('render-template-validate-button').click()
-  await expect(page.getByText('当前草稿通过服务端校验。')).toBeVisible()
-
-  await page.getByTestId('render-template-preview-button').click()
-  await expect(page.getByTestId('render-template-preview-result')).toContainText('render_preview_0001.png')
-  await expect(page.getByRole('img', { name: '模板预览结果' })).toBeVisible()
-
-  await page.getByTestId('render-template-save-button').click()
-  await expect(page.getByText('模板已保存。')).toBeVisible()
-  await expect(page.getByText('增加模板工作台副标题')).toHaveCount(2)
-  await expect(page.getByText('rev_help_menu_0005').first()).toBeVisible()
-
-  const rollbackItem = page.locator('.version-item').filter({ hasText: 'rev_help_menu_0004' }).first()
-  await rollbackItem.getByRole('button', { name: '回退到此版本' }).click()
-  await page.getByLabel('回退说明').fill('恢复到初始帮助菜单版本')
-  await page.getByRole('button', { name: '确认回退' }).click()
-
-  await expect(page.getByText('模板已回退。')).toBeVisible()
-  await expect(page.getByText('rev_help_menu_0006').first()).toBeVisible()
-  await expect(page.locator('#render-template-editor-input')).toHaveValue(/{{ \.title }}/)
-  await expect(page.getByText('恢复到初始帮助菜单版本').first()).toBeVisible()
-
-  await navigateThroughMenu(page, '任务', '运维')
-  await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
-  await expect.poll(() => page.url()).toContain('/tasks')
-  expect(await readActiveTabLabel(page)).toBe('任务')
+  expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
+  await expect(previewResult).toContainText('task_render_preview_0003')
+  await expect(previewResult).toContainText('render_preview_0003.png')
+  await expect(page.locator('.summary-grid')).toContainText('status.panel')
 })
 
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
@@ -1464,7 +1431,19 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await expect(page.locator('.log-detail-card__content--json')).toContainText('api response echo must be a non-empty string')
 })
 
-test('management links connect protocol, logs, plugin, commands, and template workspaces', async ({ page, request }) => {
+test('template preview task detail links return to the preview workspace', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/tasks?task_id=task_render_preview_0001')
+  await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: '打开模板预览' }).click()
+  await expect.poll(() => page.url()).toContain('/render/templates/help.menu')
+  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
+  await expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
+})
+
+test('management links connect protocol, logs, plugin, and commands workspaces', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -1505,10 +1484,10 @@ test('management links connect protocol, logs, plugin, commands, and template wo
 
   await page.goto('/tasks?task_id=task_render_preview_0001')
   await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
-  await page.getByRole('button', { name: '打开模板编辑' }).click()
+  await page.getByRole('button', { name: '打开模板预览' }).click()
   await expect.poll(() => page.url()).toContain('/render/templates/help.menu')
-  await expect(page.getByRole('heading', { name: '模板编辑', level: 1 })).toBeVisible()
-  await expect((await readTabLabels(page)).filter((label) => label === '模板编辑')).toHaveLength(1)
+  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
+  await expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
 })
 
 test('logs page filters both history and live log appends', async ({ page, request }) => {

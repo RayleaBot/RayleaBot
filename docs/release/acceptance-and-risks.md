@@ -48,7 +48,7 @@
 - 管理员重置后，旧管理会话和一次性 Launcher token 全部失效。
 - 配置或数据库迁移失败时，服务不会进入 `running`。
 - 默认配置下，管理接口以 loopback 为主，API 与 WebSocket 都要求鉴权。
-- packaged 模板编辑器支持列表、源码读取、校验、预览、artifact、保存、版本历史、回退和重启后的 revision 持久化。
+- packaged 模板预览工作区支持列表、模板详情、输入结构、自动预览、artifact 和任务详情跳转。
 - 正式发布包通过 release metadata 校验、packaged recovery drill 和长期自托管 smoke。
 
 ## 当前边界

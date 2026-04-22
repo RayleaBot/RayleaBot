@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Template detail exposes file layout, current revision summary, and latest validation status.
+description: Template preview detail exposes base metadata and the current input schema.
 request:
   method: GET
   path: /api/system/render/templates/help.menu
@@ -13,22 +13,15 @@ response:
       width: 960
       height: 640
       has_input_schema: true
-      current_revision_id: rev_help_menu_0004
       updated_at: '2026-04-18T10:30:00Z'
-      files:
-        manifest: template.json
-        html: template.html
-        stylesheet: styles.css
-        input_schema: input.schema.json
-      current_revision:
-        revision_id: rev_help_menu_0004
-        template_version: '1'
-        saved_at: '2026-04-18T10:30:00Z'
-        kind: save
-        message: 调整帮助菜单排版
-      last_validation:
-        valid: true
-        checked_at: '2026-04-18T10:31:00Z'
-        issue_count: 0
+      input_schema_json:
+        type: object
+        additionalProperties: false
+        required:
+          - title
+        properties:
+          title:
+            type: string
+            description: 主标题
 expect:
   valid: true
