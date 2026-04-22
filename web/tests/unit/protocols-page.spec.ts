@@ -166,12 +166,11 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('OneBot 主动连接鉴权失败，请检查访问令牌。')
     expect(wrapper.text()).toContain('连接设置')
     expect(wrapper.text()).toContain('兼容矩阵')
-    expect(wrapper.text()).toContain('相关日志')
-    expect(wrapper.text()).not.toContain('查看协议日志')
+    expect(wrapper.text()).toContain('查看实时日志')
 
-    const protocolLogsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('相关日志'))
-    expect(protocolLogsButton).toBeTruthy()
-    await protocolLogsButton!.trigger('click')
+    const realtimeLogsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('查看实时日志'))
+    expect(realtimeLogsButton).toBeTruthy()
+    await realtimeLogsButton!.trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('logs')

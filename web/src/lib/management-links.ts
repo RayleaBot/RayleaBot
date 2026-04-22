@@ -239,14 +239,14 @@ export function buildTaskLocation(taskId?: string | null) {
   } satisfies RouteLocationRaw
 }
 
-export function buildProtocolsLocation(options: { protocolLogs?: boolean } = {}) {
-  if (!options.protocolLogs) {
-    return { name: 'protocols' } satisfies RouteLocationRaw
-  }
+export function buildProtocolsLocation() {
+  return { name: 'protocols' } satisfies RouteLocationRaw
+}
 
+export function buildProtocolRealtimeLogsLocation(protocol: NonNullable<LogFilters['protocol']> = 'onebot11') {
   return buildLogsLocation({
     filters: {
-      protocol: 'onebot11',
+      protocol,
     },
   })
 }
@@ -298,9 +298,9 @@ export function buildProtocolWorkbenchActions(snapshot?: OneBot11ProtocolSnapsho
       to: buildProtocolCompatibilityLocation(),
     },
     {
-      key: 'protocol-logs',
-      label: t('protocols.actions.openFilteredLogs'),
-      to: buildProtocolsLocation({ protocolLogs: true }),
+      key: 'protocol-realtime-logs',
+      label: t('protocols.actions.openRealtimeLogs'),
+      to: buildProtocolRealtimeLogsLocation(),
     },
   ] satisfies ManagementContextAction[]
 }
@@ -317,9 +317,9 @@ export function buildDashboardProtocolActions(snapshot?: OneBot11ProtocolSnapsho
       to: buildProtocolsLocation(),
     },
     {
-      key: 'protocol-logs',
-      label: t('dashboard.actions.openProtocolLogs'),
-      to: buildProtocolsLocation({ protocolLogs: true }),
+      key: 'protocol-realtime-logs',
+      label: t('dashboard.actions.openRealtimeLogs'),
+      to: buildProtocolRealtimeLogsLocation(),
     },
   ] satisfies ManagementContextAction[]
 }

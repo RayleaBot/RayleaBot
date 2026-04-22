@@ -4,8 +4,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { notifySuccess } from '@/adapter/feedback'
 import GovernancePage from '@/views/operations/GovernanceView.vue'
 import { useGovernanceStore } from '@/stores/governance'
+
+vi.mock('@/adapter/feedback', () => ({
+  notifySuccess: vi.fn(),
+}))
 
 function createRouterForPage() {
   return createRouter({
@@ -18,10 +23,25 @@ function createRouterForPage() {
   })
 }
 
+function buildEntries(
+  count: number,
+  entryType: 'user' | 'group',
+  startId: number,
+  reasonPrefix: string,
+) {
+  return Array.from({ length: count }, (_, index) => ({
+    entry_type: entryType,
+    target_id: String(startId + index),
+    reason: `${reasonPrefix}${index + 1}`,
+    created_at: new Date(Date.UTC(2026, 3, 18, 8, index, 0)).toISOString(),
+  }))
+}
+
 describe('GovernancePage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     document.body.innerHTML = ''
+    vi.clearAllMocks()
   })
 
   it('renders governance summary and keeps local errors scoped to the current card', async () => {
@@ -260,6 +280,79 @@ describe('GovernancePage', () => {
     expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).not.toContain('30003')
   }, 15000)
 
+  it('shows complete filtered lists without pagination controls', async () => {
+    const router = createRouterForPage()
+    await router.push('/governance')
+    await router.isReady()
+
+    const store = useGovernanceStore()
+    store.blacklist = {
+      user_entries: buildEntries(11, 'user', 50001, '黑名单用户'),
+      group_entries: [
+        {
+          entry_type: 'group',
+          target_id: '60001',
+          reason: '黑名单群组',
+          created_at: '2026-04-18T20:00:00Z',
+        },
+      ],
+    }
+    store.whitelist = {
+      enabled: false,
+      user_entries: buildEntries(12, 'user', 10001, '白名单用户'),
+      group_entries: [
+        {
+          entry_type: 'group',
+          target_id: '20002',
+          reason: '核心服务群',
+          created_at: '2026-04-18T21:00:00Z',
+        },
+      ],
+    }
+    store.commandPolicy = {
+      default_level: 'everyone',
+      cooldown: {
+        user_command_rate_limit: '10/60s',
+        group_command_rate_limit: '30/60s',
+        cooldown_reply: true,
+      },
+      commands: [],
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue({
+      blacklist: store.blacklist,
+      whitelist: store.whitelist,
+      commandPolicy: store.commandPolicy,
+    })
+
+    const wrapper = mount(GovernancePage, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    const whitelistCard = wrapper.get('[data-testid="governance-whitelist-card"]')
+    expect(whitelistCard.text()).toContain('10001')
+    expect(whitelistCard.text()).toContain('10012')
+    expect(whitelistCard.text()).toContain('20002')
+    expect(whitelistCard.findAll('.ant-table-tbody > tr')).toHaveLength(13)
+    expect(whitelistCard.find('.ant-pagination').exists()).toBe(false)
+
+    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    await tabs[1]!.trigger('click')
+    await flushPromises()
+
+    const blacklistCard = wrapper.get('[data-testid="governance-blacklist-card"]')
+    expect(blacklistCard.text()).toContain('50001')
+    expect(blacklistCard.text()).toContain('50011')
+    expect(blacklistCard.text()).toContain('60001')
+    expect(blacklistCard.findAll('.ant-table-tbody > tr')).toHaveLength(12)
+    expect(blacklistCard.find('.ant-pagination').exists()).toBe(false)
+  }, 15000)
+
   it('clears region error after a successful add', async () => {
     const router = createRouterForPage()
     await router.push('/governance')
@@ -420,5 +513,65 @@ describe('GovernancePage', () => {
 
     expect(wrapper.text()).toContain('白名单已启用且当前为空')
     expect(wrapper.text()).toContain('除超级管理员外，所有命令都会被挡下')
+  }, 15000)
+
+  it('copies the target id and keeps the existing success feedback', async () => {
+    const router = createRouterForPage()
+    await router.push('/governance')
+    await router.isReady()
+
+    const store = useGovernanceStore()
+    store.blacklist = {
+      user_entries: [],
+      group_entries: [],
+    }
+    store.whitelist = {
+      enabled: true,
+      user_entries: [
+        {
+          entry_type: 'user',
+          target_id: '91001',
+          reason: '值班账号',
+          created_at: '2026-04-18T08:30:00Z',
+        },
+      ],
+      group_entries: [],
+    }
+    store.commandPolicy = {
+      default_level: 'everyone',
+      cooldown: {
+        user_command_rate_limit: '10/60s',
+        group_command_rate_limit: '30/60s',
+        cooldown_reply: true,
+      },
+      commands: [],
+    }
+
+    vi.spyOn(store, 'refresh').mockResolvedValue({
+      blacklist: store.blacklist,
+      whitelist: store.whitelist,
+      commandPolicy: store.commandPolicy,
+    })
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    const wrapper = mount(GovernancePage, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    await wrapper.get('[data-testid="governance-whitelist-card"] .copyable-text').trigger('click')
+    await flushPromises()
+
+    expect(writeText).toHaveBeenCalledWith('91001')
+    expect(notifySuccess).toHaveBeenCalledWith('已复制目标 ID')
   }, 15000)
 })

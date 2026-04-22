@@ -189,11 +189,11 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('OneBot 主动连接已断开，正在重试。')
     expect(wrapper.text()).toContain('adapter.transport_forward_ws_session_lost')
     expect(wrapper.text()).toContain('查看协议中心')
-    expect(wrapper.text()).toContain('相关日志')
+    expect(wrapper.text()).toContain('查看实时日志')
 
-    const protocolLogsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('相关日志'))
-    expect(protocolLogsButton).toBeTruthy()
-    await protocolLogsButton!.trigger('click')
+    const realtimeLogsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('查看实时日志'))
+    expect(realtimeLogsButton).toBeTruthy()
+    await realtimeLogsButton!.trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('logs')

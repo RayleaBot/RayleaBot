@@ -30,7 +30,7 @@ export const protocols = {
   openSettings: '查看连接设置',
   actions: {
     openCompatibility: '兼容矩阵',
-    openFilteredLogs: '相关日志',
+    openRealtimeLogs: '查看实时日志',
   },
   fields: {
     protocol: '协议',

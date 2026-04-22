@@ -151,7 +151,6 @@ function protocolSummary(code: string, ...texts: Array<string | undefined>) {
     return '协议心跳超时，请检查连接稳定性'
   }
   if (
-    raw.includes('protocol logs') ||
     raw.includes('partial_warning') ||
     raw.includes('warning')
   ) {

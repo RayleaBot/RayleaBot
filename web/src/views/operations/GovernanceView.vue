@@ -7,7 +7,7 @@ import {
   StopOutlined,
 } from '@ant-design/icons-vue'
 import { MotionDirective as vMotion } from '@vueuse/motion'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
@@ -66,9 +66,6 @@ const addModalDraft = reactive({
 const blacklistScopeFilter = ref<'all' | 'user' | 'group'>('all')
 const whitelistScopeFilter = ref<'all' | 'user' | 'group'>('all')
 
-const blacklistPagination = reactive({ current: 1, pageSize: 10 })
-const whitelistPagination = reactive({ current: 1, pageSize: 10 })
-
 const pageErrorMessage = computed(() => (
   governanceError.value
   ?? commandPolicyError.value
@@ -113,30 +110,6 @@ const filteredWhitelistEntries = computed(() => {
       ? userWhitelistEntries.value
       : groupWhitelistEntries.value
   return sortEntries(entries)
-})
-
-const paginatedBlacklistEntries = computed(() => {
-  const start = (blacklistPagination.current - 1) * blacklistPagination.pageSize
-  return filteredBlacklistEntries.value.slice(start, start + blacklistPagination.pageSize)
-})
-
-const paginatedWhitelistEntries = computed(() => {
-  const start = (whitelistPagination.current - 1) * whitelistPagination.pageSize
-  return filteredWhitelistEntries.value.slice(start, start + whitelistPagination.pageSize)
-})
-
-watch(filteredBlacklistEntries, (entries) => {
-  const maxPage = Math.ceil(entries.length / blacklistPagination.pageSize) || 1
-  if (blacklistPagination.current > maxPage) {
-    blacklistPagination.current = maxPage
-  }
-})
-
-watch(filteredWhitelistEntries, (entries) => {
-  const maxPage = Math.ceil(entries.length / whitelistPagination.pageSize) || 1
-  if (whitelistPagination.current > maxPage) {
-    whitelistPagination.current = maxPage
-  }
 })
 
 const summaryCards = computed(() => [
@@ -350,12 +323,10 @@ async function submitAddModal() {
     if (addModalTarget.value === 'blacklist') {
       await governanceStore.addBlacklistEntry(payload)
       blacklistActionError.value = null
-      blacklistPagination.current = 1
       notifySuccess(t('governance.feedback.blacklistSaved'))
     } else {
       await governanceStore.addWhitelistEntry(payload)
       whitelistActionError.value = null
-      whitelistPagination.current = 1
       notifySuccess(t('governance.feedback.whitelistSaved'))
     }
     closeAddModal()
@@ -512,7 +483,7 @@ onMounted(() => {
               <a-table
                 class="governance-data-table app-data-table"
                 :columns="tableColumns"
-                :data-source="paginatedWhitelistEntries"
+                :data-source="filteredWhitelistEntries"
                 :pagination="false"
                 :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
                 :loading="whitelistLoading && !whitelist"
@@ -554,17 +525,6 @@ onMounted(() => {
                   </template>
                 </template>
               </a-table>
-
-              <div v-if="filteredWhitelistEntries.length > 0" class="governance-pagination">
-                <a-pagination
-                  v-model:current="whitelistPagination.current"
-                  v-model:pageSize="whitelistPagination.pageSize"
-                  :total="filteredWhitelistEntries.length"
-                  show-size-changer
-                  :page-size-options="['10', '20', '50']"
-                  :show-total="(total: number) => t('governance.table.total', { total })"
-                />
-              </div>
             </div>
           </a-tab-pane>
 
@@ -604,7 +564,7 @@ onMounted(() => {
               <a-table
                 class="governance-data-table app-data-table"
                 :columns="tableColumns"
-                :data-source="paginatedBlacklistEntries"
+                :data-source="filteredBlacklistEntries"
                 :pagination="false"
                 :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
                 :loading="blacklistLoading && !blacklist"
@@ -646,17 +606,6 @@ onMounted(() => {
                   </template>
                 </template>
               </a-table>
-
-              <div v-if="filteredBlacklistEntries.length > 0" class="governance-pagination">
-                <a-pagination
-                  v-model:current="blacklistPagination.current"
-                  v-model:pageSize="blacklistPagination.pageSize"
-                  :total="filteredBlacklistEntries.length"
-                  show-size-changer
-                  :page-size-options="['10', '20', '50']"
-                  :show-total="(total: number) => t('governance.table.total', { total })"
-                />
-              </div>
             </div>
           </a-tab-pane>
         </a-tabs>
@@ -877,12 +826,6 @@ onMounted(() => {
   background: color-mix(in srgb, var(--accent) 4%, var(--surface-soft));
 }
 
-.governance-pagination {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 8px;
-}
-
 .governance-empty-hint {
   padding: var(--space-xl) var(--space-md);
   text-align: center;
@@ -941,10 +884,6 @@ onMounted(() => {
 
   .governance-toolbar__count {
     text-align: right;
-  }
-
-  .governance-pagination {
-    justify-content: center;
   }
 }
 </style>

@@ -349,6 +349,39 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await resetBackend(request, true)
   await login(page)
 
+  const sessionResponse = await request.post(`${backendUrl}/api/session/login`, {
+    data: {
+      identifier: 'admin',
+      secret: 'fixture-only-secret',
+    },
+  })
+  expect(sessionResponse.ok()).toBeTruthy()
+  const { session_token: sessionToken } = await sessionResponse.json()
+  const authHeaders = {
+    Authorization: `Bearer ${sessionToken}`,
+  }
+
+  await Promise.all(Array.from({ length: 10 }, (_, index) => (
+    request.post(`${backendUrl}/api/governance/whitelist/entries`, {
+      headers: authHeaders,
+      data: {
+        entry_type: 'user',
+        target_id: `31${String(index + 1).padStart(3, '0')}`,
+        reason: `扩展白名单${index + 1}`,
+      },
+    })
+  )))
+  await Promise.all(Array.from({ length: 10 }, (_, index) => (
+    request.post(`${backendUrl}/api/governance/blacklist/entries`, {
+      headers: authHeaders,
+      data: {
+        entry_type: 'user',
+        target_id: `41${String(index + 1).padStart(3, '0')}`,
+        reason: `扩展黑名单${index + 1}`,
+      },
+    })
+  )))
+
   await page.goto('/governance')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   await expect(page.getByTestId('governance-summary-card')).toContainText('治理总览')
@@ -360,10 +393,14 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   const blacklistCard = page.getByTestId('governance-blacklist-card')
   await expect(whitelistCard).toContainText('10001')
   await expect(whitelistCard).toContainText('值班账号')
+  await expect(whitelistCard).toContainText('31010')
+  await expect(whitelistCard.locator('.ant-pagination')).toHaveCount(0)
 
   // --- Blacklist tab ---
   await page.locator('.governance-tabs .ant-tabs-tab').filter({ hasText: '黑名单' }).click()
   await expect(blacklistCard).toContainText('10001')
+  await expect(blacklistCard).toContainText('41010')
+  await expect(blacklistCard.locator('.ant-pagination')).toHaveCount(0)
 
   await page.getByTestId('governance-blacklist-add-btn').click()
   const blacklistModal = page.getByRole('dialog').filter({ hasText: '添加黑名单条目' })
@@ -404,6 +441,14 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await governanceEntryCard(whitelistCard, '20002').getByRole('button', { name: '移除' }).click()
   await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
   await expect(whitelistCard).not.toContainText('20002')
+
+  await Promise.all(Array.from({ length: 10 }, (_, index) => (
+    request.delete(`${backendUrl}/api/governance/whitelist/entries/user/${encodeURIComponent(`31${String(index + 1).padStart(3, '0')}`)}`, {
+      headers: authHeaders,
+    })
+  )))
+  await page.getByRole('button', { name: '刷新状态' }).click()
+  await expect(whitelistCard).not.toContainText('31010')
 
   await page.getByTestId('governance-whitelist-enabled').dispatchEvent('click')
   const confirmDialog = page.getByRole('dialog', { name: '确认启用空白名单' })
@@ -1400,7 +1445,7 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await page.getByRole('button', { name: '保存协议设置' }).click()
   await expect(page.getByText('配置已保存并已生效')).toBeVisible()
   await expect(page.locator('.transport-cards-grid .transport-card').filter({ hasText: '回连 WebSocket' })).toContainText('等待 OneBot 回连')
-  await expect(page.getByRole('button', { name: '查看协议日志' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '查看实时日志' })).toBeVisible()
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -1439,7 +1484,7 @@ test('management links connect protocol, logs, plugin, commands, and template wo
   await expect(page.getByRole('heading', { name: '协议兼容矩阵', level: 1 })).toBeVisible()
 
   await page.goto('/protocols')
-  await page.getByRole('button', { name: '相关日志' }).click()
+  await page.getByRole('button', { name: '查看实时日志' }).click()
   await expect.poll(() => page.url()).toContain('/logs')
   await expect(page.url()).toContain('protocol=onebot11')
 

@@ -63,6 +63,6 @@ export const dashboard = {
   actions: {
     openPlugin: '查看插件',
     openProtocols: '查看协议中心',
-    openProtocolLogs: '相关日志',
+    openRealtimeLogs: '查看实时日志',
   },
 } as const
