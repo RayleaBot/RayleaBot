@@ -116,10 +116,10 @@ async function save() {
   <AppPage :title="t('config.title')" full-height>
     <template #extra>
       <div class="table-actions">
-        <a-button type="primary" :disabled="!canSave" :loading="saving" @click="save">
+        <a-button type="primary" :disabled="!canSave" :loading="saving" :aria-label="t('config.save')" @click="save">
           {{ t('config.save') }}
         </a-button>
-        <a-button :loading="loading" @click="loadConfig">{{ t('dashboard.refresh') }}</a-button>
+        <a-button :loading="loading" :aria-label="t('dashboard.refresh')" @click="loadConfig">{{ t('dashboard.refresh') }}</a-button>
       </div>
     </template>
 
@@ -166,6 +166,7 @@ async function save() {
             type="button"
             class="config-nav-item"
             :class="{ 'is-active': activeSectionKey === section.key }"
+            :aria-current="activeSectionKey === section.key ? 'page' : undefined"
             @click="activeSectionKey = section.key"
           >
             <span class="config-nav-item__title">{{ section.title }}</span>
@@ -200,46 +201,51 @@ async function save() {
                 <div class="field-label-wrap">
                   <span class="field-label-text">{{ field.label }}</span>
                   <a-tooltip v-if="field.description" :title="field.description">
-                    <span class="field-info-icon">?</span>
+                    <button type="button" class="field-info-icon" :aria-label="field.description">?</button>
                   </a-tooltip>
                 </div>
               </template>
 
-              <a-input
-                v-if="field.type === 'text'"
-                :value="String(readField(field.path, field.type) ?? '')"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
-
-              <a-input-number
-                v-else-if="field.type === 'number'"
-                class="config-number-input"
-                :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
-                :min="0"
-                :step="1"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
-
-              <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                <a-switch
-                  :checked="Boolean(readField(field.path, field.type))"
-                  @update:checked="(value) => writeField(field.path, field.type, value)"
+                <a-input
+                  v-if="field.type === 'text'"
+                  :value="String(readField(field.path, field.type) ?? '')"
+                  :aria-label="field.label"
+                  @update:value="(value) => writeField(field.path, field.type, value)"
                 />
-              </div>
 
-              <a-select
-                v-else-if="field.type === 'select'"
-                :value="String(readField(field.path, field.type) ?? '')"
-                :options="field.options"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
+                <a-input-number
+                  v-else-if="field.type === 'number'"
+                  class="config-number-input"
+                  :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
+                  :min="0"
+                  :step="1"
+                  :aria-label="field.label"
+                  @update:value="(value) => writeField(field.path, field.type, value)"
+                />
 
-              <a-textarea
-                v-else
-                :value="String(readField(field.path, field.type) ?? '')"
-                :auto-size="{ minRows: 4, maxRows: 8 }"
-                @update:value="(value) => writeField(field.path, field.type, value)"
-              />
+                <div v-else-if="field.type === 'boolean'" class="switch-wrap">
+                  <a-switch
+                    :checked="Boolean(readField(field.path, field.type))"
+                    :aria-label="field.label"
+                    @update:checked="(value) => writeField(field.path, field.type, value)"
+                  />
+                </div>
+
+                <a-select
+                  v-else-if="field.type === 'select'"
+                  :value="String(readField(field.path, field.type) ?? '')"
+                  :options="field.options"
+                  :aria-label="field.label"
+                  @update:value="(value) => writeField(field.path, field.type, value)"
+                />
+
+                <a-textarea
+                  v-else
+                  :value="String(readField(field.path, field.type) ?? '')"
+                  :auto-size="{ minRows: 4, maxRows: 8 }"
+                  :aria-label="field.label"
+                  @update:value="(value) => writeField(field.path, field.type, value)"
+                />
 
               <div v-if="field.description || getRateLimitPreview(field.path)" class="config-field-note">
                 <p v-if="field.description" class="config-field-note__text">{{ field.description }}</p>
@@ -270,7 +276,7 @@ async function save() {
 }
 
 .skeleton-panel {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   min-height: 520px;
   background: linear-gradient(90deg, var(--surface-soft), var(--surface), var(--surface-soft));
   background-size: 200% 100%;
@@ -288,6 +294,7 @@ async function save() {
 .config-nav-card,
 .config-editor-card {
   min-height: 0;
+  box-shadow: var(--shadow-xs);
 }
 
 :deep(.config-nav-card) {
@@ -340,19 +347,26 @@ async function save() {
   cursor: pointer;
   display: grid;
   gap: 4px;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   color: var(--text);
 }
 
 .config-nav-item:hover {
   background: var(--surface-soft);
   border-color: var(--border);
+  box-shadow: var(--shadow-xs);
 }
 
 .config-nav-item.is-active {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: var(--surface-accent);
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-xs);
   font-weight: 600;
+}
+
+.config-nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .config-nav-item__title {
@@ -407,6 +421,8 @@ async function save() {
 }
 
 .field-info-icon {
+  appearance: none;
+  background: transparent;
   color: var(--muted);
   cursor: help;
   font-size: 0.8rem;
@@ -417,7 +433,7 @@ async function save() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
 
@@ -425,6 +441,11 @@ async function save() {
   opacity: 1;
   color: var(--accent);
   border-color: var(--accent);
+}
+
+.field-info-icon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .config-number-input {
@@ -454,9 +475,9 @@ async function save() {
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
+  border-radius: var(--radius-lg);
+  background: var(--surface-accent);
+  border: 1px solid var(--border-accent);
 }
 
 .config-rate-preview__label {

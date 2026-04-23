@@ -167,6 +167,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
           <a-switch
             :checked="autoRefresh"
             size="small"
+            :aria-label="t('dashboard.autoRefresh')"
             @change="toggleAutoRefresh"
           />
         </label>
@@ -196,6 +197,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
     <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
     <DashboardStatusGrid
+      v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
       :health-status-type="healthStatusType"
       :readiness-status-type="readinessStatusType"
       :health-label="t('dashboard.health')"
@@ -211,24 +213,31 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
     />
 
     <div class="dashboard-main-grid">
-      <AppCard borderless class="dashboard-activity-card">
+      <AppCard
+        borderless
+        class="dashboard-activity-card"
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 50 } } }"
+      >
         <a-tabs v-model:activeKey="activeOverviewTab" size="small">
           <a-tab-pane key="events" :tab="t('dashboard.overviewEvents')">
             <a-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
             <a-timeline v-else class="events-timeline">
               <a-timeline-item
-                v-for="event in recentEvents"
+                v-for="(event, index) in recentEvents"
                 :key="`${event.timestamp}-${event.summary}`"
                 :color="getEventSeverityColor(getEventSeverity(event.payload))"
+                v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 50 } } }"
               >
                 <template #dot>
                   <component
                     :is="getEventSeverityIcon(getEventSeverity(event.payload))"
                     v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
                     class="events-timeline__dot-icon"
+                    role="img"
+                    :aria-label="`事件级别：${getEventSeverity(event.payload) ?? 'info'}`"
                   />
-                  <span v-else class="events-timeline__dot" />
+                  <span v-else class="events-timeline__dot" role="img" aria-label="事件级别：info" />
                 </template>
                 <div class="events-timeline__item">
                   <div class="events-timeline__summary">{{ event.summary }}</div>
@@ -247,12 +256,13 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
           <a-tab-pane key="readiness" :tab="t('dashboard.overviewReadiness')">
             <div v-if="checkItems.length" class="readiness-checks">
               <div
-                v-for="item in checkItems"
+                v-for="(item, index) in checkItems"
                 :key="item.key"
                 :class="['readiness-check', `readiness-check--${item.status}`]"
+                v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 50 } } }"
               >
                 <div class="readiness-check__header">
-                  <span class="readiness-check__icon">{{ getCheckIcon(item.status) }}</span>
+                  <span class="readiness-check__icon" role="img" :aria-label="`检查状态：${item.status}`">{{ getCheckIcon(item.status) }}</span>
                   <span class="readiness-check__name">{{ item.key }}</span>
                 </div>
                 <div class="readiness-check__value">{{ item.value }}</div>
@@ -287,7 +297,12 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
             </div>
 
             <div v-if="readinessIssues.length > 3" class="issues-toggle">
-              <a-button size="small" type="link" @click="issuesExpanded = !issuesExpanded">
+              <a-button
+                size="small"
+                type="link"
+                :aria-label="issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 })"
+                @click="issuesExpanded = !issuesExpanded"
+              >
                 {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 }) }}
               </a-button>
             </div>
@@ -296,6 +311,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
       </AppCard>
 
       <DashboardRecoveryCard
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 100 } } }"
         v-model:selected-recovery-review-ids="selectedRecoveryReviewIds"
         v-model:recovery-confirm-note="recoveryConfirmNote"
         :recovery-summary="recoverySummary"
@@ -313,9 +329,12 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
     </div>
 
     <div class="dashboard-bottom-grid">
-      <ConnectionStatusStrip />
+      <ConnectionStatusStrip
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 150 } } }"
+      />
 
       <DashboardToolsPanel
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 200 } } }"
         :backup-pending="backupPending"
         :diagnostics-pending="diagnosticsPending"
         :preview-pending="previewPending"
@@ -324,7 +343,12 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
         @open-preview="previewVisible = true"
       />
 
-      <AppCard :title="t('dashboard.runtimeInfo')" borderless class="dashboard-runtime-card">
+      <AppCard
+        :title="t('dashboard.runtimeInfo')"
+        borderless
+        class="dashboard-runtime-card"
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 250 } } }"
+      >
         <div class="dashboard-runtime-grid">
           <div class="dashboard-runtime-item">
             <span>{{ t('dashboard.service') }}</span>
@@ -410,7 +434,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 
 .dashboard-page__refresh-meta {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .dashboard-page__refresh-toggle {
@@ -418,19 +442,19 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .dashboard-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.12fr) minmax(340px, 0.88fr);
-  gap: var(--app-layout-gap);
+  gap: var(--space-lg);
 }
 
 .dashboard-bottom-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--app-layout-gap);
+  gap: var(--space-lg);
 }
 
 .dashboard-activity-card :deep(.ant-card-body) {
@@ -460,9 +484,10 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   gap: 12px;
   margin-top: 14px;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border));
   background: color-mix(in srgb, var(--warning) 8%, var(--surface-soft));
+  box-shadow: var(--shadow-xs);
 }
 
 .dashboard-protocol-alert__header {
@@ -548,7 +573,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--muted);
+  background: var(--accent);
   margin: 5px;
 }
 
@@ -573,6 +598,55 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 
 .events-timeline__actions {
   margin-top: 2px;
+}
+
+.readiness-checks {
+  display: grid;
+  gap: 8px;
+}
+
+.readiness-check {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.readiness-check--success {
+  border-color: var(--border-success);
+  background: var(--surface-success);
+}
+
+.readiness-check--warning {
+  border-color: var(--border-warning);
+  background: var(--surface-warning);
+}
+
+.readiness-check--danger {
+  border-color: var(--border-danger);
+  background: var(--surface-danger);
+}
+
+.readiness-check__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.readiness-check__icon {
+  font-size: 1rem;
+}
+
+.readiness-check__name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.readiness-check__value {
+  font-size: 0.86rem;
+  color: var(--muted);
 }
 
 .issues-list {
@@ -610,6 +684,7 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--danger) 6%, transparent);
+  box-shadow: var(--shadow-xs);
   position: relative;
   overflow: hidden;
 }
@@ -652,9 +727,10 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   display: grid;
   gap: 4px;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-soft);
+  box-shadow: var(--shadow-xs);
 
   span {
     color: var(--muted);
@@ -673,15 +749,15 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
 }
 
 .text-success {
-  color: var(--success);
+  color: #1f7a43;
 }
 
 .text-warning {
-  color: var(--warning);
+  color: #8a5a00;
 }
 
 .text-danger {
-  color: var(--danger);
+  color: #b4232d;
 }
 
 @media (max-width: 1200px) {

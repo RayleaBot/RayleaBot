@@ -40,6 +40,7 @@ defineProps<{
 <style scoped lang="scss">
 .app-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: var(--shadow-xs);
 }
 
 .app-card:hover {

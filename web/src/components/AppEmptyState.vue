@@ -159,7 +159,7 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
 }
 
 .css-icon-command__prompt {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 1.1rem;
   font-weight: 600;
   color: color-mix(in srgb, var(--muted) 50%, transparent);

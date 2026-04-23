@@ -1,6 +1,8 @@
 :root,
 [data-theme='light'] {
   color-scheme: light;
+  --font-sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', 'JetBrains Mono', 'Courier New', monospace;
   --app-border-radius: 10px;
   --app-card-radius: 12px;
   --app-content-max-width: none;
@@ -16,13 +18,26 @@
   --surface: #ffffff;
   --surface-strong: #ffffff;
   --surface-soft: #f7f8fc;
+  --surface-accent: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --surface-success: color-mix(in srgb, var(--success) 10%, var(--surface));
+  --surface-warning: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  --surface-danger: color-mix(in srgb, var(--danger) 10%, var(--surface));
   --border: rgba(15, 23, 42, 0.07);
   --border-strong: rgba(22, 104, 220, 0.18);
+  --border-accent: color-mix(in srgb, var(--accent) 30%, var(--border));
+  --border-success: color-mix(in srgb, var(--success) 30%, var(--border));
+  --border-warning: color-mix(in srgb, var(--warning) 30%, var(--border));
+  --border-danger: color-mix(in srgb, var(--danger) 30%, var(--border));
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.03);
   --shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   --shadow-lg: 0 4px 16px rgba(15, 23, 42, 0.08);
   --text: #0f172a;
-  --muted: #64748b;
+  --text-accent: var(--accent);
+  --text-success: var(--success);
+  --text-warning: var(--warning);
+  --text-danger: var(--danger);
+  --muted: #4a5568;  /* was #64748b — raised for WCAG AA on small text */
   --accent: #1668dc;
   --accent-soft: rgba(22, 104, 220, 0.12);
   --success: #3fbe73;
@@ -72,12 +87,25 @@
   --surface: #0f172a;
   --surface-strong: #0f172a;
   --surface-soft: #1a2336;
+  --surface-accent: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --surface-success: color-mix(in srgb, var(--success) 10%, var(--surface));
+  --surface-warning: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  --surface-danger: color-mix(in srgb, var(--danger) 10%, var(--surface));
   --border: rgba(148, 163, 184, 0.14);
   --border-strong: rgba(22, 104, 220, 0.28);
+  --border-accent: color-mix(in srgb, var(--accent) 30%, var(--border));
+  --border-success: color-mix(in srgb, var(--success) 30%, var(--border));
+  --border-warning: color-mix(in srgb, var(--warning) 30%, var(--border));
+  --border-danger: color-mix(in srgb, var(--danger) 30%, var(--border));
+  --shadow-xs: 0 1px 2px rgba(2, 6, 23, 0.10);
   --shadow-sm: 0 1px 2px rgba(2, 6, 23, 0.15);
   --shadow: 0 2px 10px rgba(2, 6, 23, 0.18);
   --shadow-lg: 0 8px 28px rgba(2, 6, 23, 0.28);
   --text: #e5edf8;
+  --text-accent: var(--accent);
+  --text-success: var(--success);
+  --text-warning: var(--warning);
+  --text-danger: var(--danger);
   --muted: #93a2bb;
   --accent: #4f8cff;
   --accent-soft: rgba(79, 140, 255, 0.16);
@@ -102,20 +130,6 @@
   --sider-menu-active: #f8fbff;
   --sider-menu-active-bg: rgba(79, 140, 255, 0.22);
 
-  /* Semantic spacing scale */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
-  --space-2xl: 32px;
-
-  /* Semantic radius scale */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-
   /* Semantic shadow scale */
   --shadow-card: 0 1px 3px rgba(2, 6, 23, 0.18);
   --shadow-elevated: 0 4px 16px rgba(2, 6, 23, 0.24);
@@ -132,7 +146,7 @@ body,
   margin: 0;
   height: 100%;
   min-height: 100%;
-  font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
 }
@@ -262,6 +276,10 @@ textarea:focus-visible,
   text-align: left;
 }
 
+.admin-layout__brand:hover {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-soft)) !important;
+}
+
 .admin-layout__brand-mark {
   width: 28px;
   height: 28px;
@@ -273,6 +291,7 @@ textarea:focus-visible,
   color: #ffffff;
   font-size: 1rem;
   font-weight: 800;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .admin-layout__brand-copy {
@@ -330,6 +349,10 @@ textarea:focus-visible,
   font-weight: 600;
 }
 
+.admin-layout__sider .ant-menu-item-selected {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .admin-layout__sider .ant-menu-submenu-selected > .ant-menu-submenu-title,
 .admin-layout__mobile-drawer .ant-menu-submenu-selected > .ant-menu-submenu-title {
   color: var(--sider-menu-active) !important;
@@ -353,7 +376,7 @@ textarea:focus-visible,
   padding: 0 !important;
   background: var(--surface-strong) !important;
   border-bottom: 1px solid var(--border);
-  box-shadow: none;
+  box-shadow: var(--shadow-xs);
 }
 
 .admin-layout__header.is-static {
@@ -428,8 +451,8 @@ textarea:focus-visible,
 }
 
 .admin-layout__icon-button:hover {
-  color: var(--text) !important;
-  background: var(--surface-soft) !important;
+  color: var(--text-accent) !important;
+  background: var(--surface-accent) !important;
 }
 
 .admin-layout__theme-toggle {
@@ -540,17 +563,17 @@ textarea:focus-visible,
 }
 
 .admin-layout__breadcrumb-link:hover {
-  border-color: color-mix(in srgb, var(--accent) 10%, transparent);
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface-soft));
-  color: color-mix(in srgb, var(--app-text) 88%, var(--accent));
+  border-color: var(--border-accent);
+  background: var(--surface-accent);
+  color: var(--text-accent);
 }
 
 .admin-layout__breadcrumb-current {
   max-width: min(13rem, 26vw);
   padding-inline: 8px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface-soft));
+  border: 1px solid var(--border-accent);
+  background: var(--surface-accent);
   color: var(--app-text);
   font-weight: 600;
 }
@@ -1137,8 +1160,9 @@ textarea:focus-visible,
   justify-content: center;
   border-right: 1px solid var(--border);
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 90%, transparent), transparent 58%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 36%),
+    radial-gradient(ellipse at bottom right, color-mix(in srgb, var(--accent) 6%, transparent), transparent 52%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 88%, transparent), transparent 62%);
 }
 
 .auth-layout__toolbar {
@@ -1189,6 +1213,7 @@ textarea:focus-visible,
   color: #ffffff;
   font-size: 1.2rem;
   font-weight: 800;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent), 0 2px 8px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .auth-layout__brand-copy {
@@ -1234,7 +1259,7 @@ textarea:focus-visible,
 .auth-layout__highlights span {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 9px 12px;
   border: 1px solid var(--border);
   border-radius: var(--app-card-radius);
@@ -1242,12 +1267,9 @@ textarea:focus-visible,
   font-size: 0.84rem;
 }
 
-.auth-layout__highlights span::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 78%, #ffffff 22%);
+.auth-layout__highlight-icon {
+  font-size: 0.82rem;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -1256,7 +1278,7 @@ textarea:focus-visible,
   align-items: center;
   justify-content: center;
   padding: 24px 32px;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  background: color-mix(in srgb, var(--surface) 96%, var(--accent) 4%);
 }
 
 .auth-panel-card {
@@ -1286,7 +1308,7 @@ textarea:focus-visible,
 .mono-list {
   display: grid;
   gap: 6px;
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
 }
 
 .mobile-data-copy {

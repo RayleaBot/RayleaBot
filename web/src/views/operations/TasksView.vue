@@ -210,7 +210,7 @@ function getStatusColor(status: string) {
 <template>
   <AppPage :title="t('tasks.title')" full-height>
     <template #extra>
-      <a-button :loading="loading" @click="loadTasks()">
+      <a-button :loading="loading" :aria-label="t('tasks.refresh')" @click="loadTasks()">
         {{ t('tasks.refresh') }}
       </a-button>
     </template>
@@ -239,6 +239,7 @@ function getStatusColor(status: string) {
     <a-table
       v-else
       class="tasks-data-table app-data-table"
+      v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
       :columns="tableColumns"
       :data-source="sortedItems"
       :pagination="false"
@@ -259,7 +260,7 @@ function getStatusColor(status: string) {
 
         <template v-else-if="column.key === 'status'">
           <div class="task-cell-status">
-            <a-tag size="small" :color="getStatusColor(record.status)">
+            <a-tag size="small" :color="getStatusColor(record.status)" :aria-label="`任务状态：${getTaskStatusLabel(record.status)}`">
               {{ getTaskStatusLabel(record.status) }}
             </a-tag>
             <strong v-if="record.progress !== undefined" class="task-progress">{{ record.progress }}%</strong>
@@ -278,7 +279,7 @@ function getStatusColor(status: string) {
         </template>
 
         <template v-else-if="column.key === 'actions'">
-          <a-button size="small" @click="inspect(record.task_id)">
+          <a-button size="small" :aria-label="`${t('tasks.actions.detail')} ${record.task_id}`" @click="inspect(record.task_id)">
             {{ t('tasks.actions.detail') }}
           </a-button>
         </template>
@@ -365,7 +366,7 @@ function getStatusColor(status: string) {
           </div>
 
           <div class="drawer-section drawer-actions">
-            <a-button danger :loading="cancelPending" @click="cancelCurrent">
+            <a-button danger :loading="cancelPending" :aria-label="t('tasks.actions.cancel')" @click="cancelCurrent">
               {{ t('tasks.actions.cancel') }}
             </a-button>
           </div>
@@ -377,12 +378,43 @@ function getStatusColor(status: string) {
 
 <style lang="scss" scoped>
 .tasks-empty-card {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
 }
 
 .tasks-data-table {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+
+:deep(.ant-table-row:hover > td) {
+  background: var(--surface-accent) !important;
+}
+
+:deep(.ant-tag-success) {
+  color: #1f7a43;
+  border-color: #1f7a43;
+}
+
+:deep(.ant-tag-error) {
+  color: #b4232d;
+  border-color: #b4232d;
+}
+
+:deep(.ant-tag-processing) {
+  color: #8a5a00;
+  border-color: #8a5a00;
+}
+
+.mono-list {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.mobile-data-copy {
+  font-family: var(--font-mono);
+  color: var(--text);
 }
 
 .task-cell-identity {
@@ -398,7 +430,7 @@ function getStatusColor(status: string) {
 }
 
 .task-type-id {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--muted);
 }
@@ -426,7 +458,7 @@ function getStatusColor(status: string) {
 }
 
 .task-id-mono {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--muted);
 }
@@ -443,6 +475,11 @@ function getStatusColor(status: string) {
 
 .drawer-section {
   margin-top: 20px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
 }
 
 .drawer-actions {
@@ -454,7 +491,7 @@ function getStatusColor(status: string) {
   display: block;
   width: 100%;
   margin-top: 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-soft);
 }

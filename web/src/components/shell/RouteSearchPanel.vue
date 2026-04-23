@@ -216,7 +216,7 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -225,8 +225,8 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
 
   &:hover,
   &.is-active {
-    border-color: color-mix(in srgb, var(--accent) 36%, transparent);
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border-color: var(--border-accent);
+    background: var(--surface-accent);
   }
 }
 

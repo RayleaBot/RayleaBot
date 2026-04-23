@@ -130,7 +130,7 @@ const summaryFields = computed(() => {
   display: grid;
   gap: 6px;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 96%, transparent), transparent 100%),
@@ -154,14 +154,14 @@ const summaryFields = computed(() => {
 
 .log-detail-content__field-value.is-mono,
 .log-detail-card__content {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
 }
 
 .log-detail-card {
   display: grid;
   gap: 0;
   margin-top: 16px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 96%, transparent), transparent 44%),

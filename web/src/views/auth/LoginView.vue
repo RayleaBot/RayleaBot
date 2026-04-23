@@ -76,6 +76,8 @@ async function submit() {
       message="登录未完成"
       type="error"
       :description="submitError"
+      role="alert"
+      aria-live="assertive"
       show-icon
       class="section-gap"
     />
@@ -89,7 +91,7 @@ async function submit() {
         :label="t('auth.identifier')"
         name="identifier"
       >
-        <a-input v-model:value="form.identifier" autocomplete="username" />
+        <a-input v-model:value="form.identifier" autocomplete="username" :aria-label="t('auth.identifier')" />
       </a-form-item>
 
       <a-form-item
@@ -100,7 +102,7 @@ async function submit() {
         :label="t('auth.secret')"
         name="secret"
       >
-        <a-input-password v-model:value="form.secret" autocomplete="current-password" />
+        <a-input-password v-model:value="form.secret" autocomplete="current-password" :aria-label="t('auth.secret')" />
       </a-form-item>
 
       <a-button
@@ -110,6 +112,7 @@ async function submit() {
         }"
         type="primary"
         class="auth-submit"
+        :aria-label="t('auth.loginSubmit')"
         :loading="sessionStore.loginPending"
         @click="submit"
       >

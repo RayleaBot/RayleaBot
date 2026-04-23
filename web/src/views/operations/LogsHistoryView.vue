@@ -501,12 +501,16 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
 }
 
 .logs-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+  align-items: end;
 }
 
 .logs-toolbar__actions {
@@ -514,6 +518,7 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
+  align-self: end;
 }
 
 .logs-feed-card,
@@ -522,6 +527,10 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+}
+
+.logs-feed-card {
+  box-shadow: var(--shadow-xs);
 }
 
 .logs-feed-card__title {
@@ -536,7 +545,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 14px;
   border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-bottom: 1px solid var(--border);
   background: transparent;
   padding: 14px 16px;
   text-align: left;
@@ -545,12 +554,12 @@ onBeforeUnmount(() => {
 
 .logs-row:hover,
 .logs-row.is-selected {
-  background: color-mix(in srgb, var(--app-primary) 8%, transparent);
+  background: var(--surface-accent);
 }
 
 .logs-row.is-selected {
-  box-shadow: inset 3px 0 0 var(--app-primary);
-  background: color-mix(in srgb, var(--app-primary) 5%, var(--surface-soft)) !important;
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--surface-accent) !important;
 }
 
 .logs-row__meta,
@@ -564,12 +573,12 @@ onBeforeUnmount(() => {
 .logs-row__time,
 .logs-row__source,
 .logs-row__sub {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
 }
 
 .logs-row__time {
-  color: var(--text);
-  font-size: 0.88rem;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .logs-row__source {
@@ -581,7 +590,7 @@ onBeforeUnmount(() => {
 }
 
 .logs-row__protocol {
-  color: var(--app-primary);
+  color: var(--accent);
 }
 
 .logs-row__headline {
@@ -600,6 +609,7 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--text);
   line-height: 1.6;
+  font-size: 0.9rem;
   white-space: pre-wrap;
   word-break: break-all;
   unicode-bidi: plaintext;

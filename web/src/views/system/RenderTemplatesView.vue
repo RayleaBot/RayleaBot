@@ -802,7 +802,7 @@ onBeforeUnmount(() => {
   appearance: none;
   border: 1px solid var(--app-border);
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, white 8%), var(--surface-soft));
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 14px;
   display: grid;
   gap: 10px;
@@ -813,15 +813,15 @@ onBeforeUnmount(() => {
 }
 
 .template-nav-item:hover {
-  border-color: color-mix(in srgb, var(--app-primary) 28%, var(--app-border));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--app-border));
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
 }
 
 .template-nav-item.is-active {
-  border-color: color-mix(in srgb, var(--app-primary) 38%, var(--app-border));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--app-primary) 8%, white 92%), color-mix(in srgb, var(--app-primary) 6%, var(--surface-soft)));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-primary) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--app-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, white 92%), color-mix(in srgb, var(--accent) 6%, var(--surface-soft)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .template-nav-item__header,
@@ -848,7 +848,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 4px;
   padding: 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--app-border);
   background: color-mix(in srgb, var(--surface-soft) 88%, white 12%);
 
@@ -878,7 +878,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 8px;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--app-border);
   background: color-mix(in srgb, var(--surface-soft) 92%, white 8%);
   margin-left: calc(var(--schema-depth) * 12px);
@@ -933,13 +933,13 @@ onBeforeUnmount(() => {
 .preview-result__image {
   display: block;
   width: 100%;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--app-border);
   background: var(--surface-soft);
 }
 
 .preview-result__link {
-  color: var(--app-primary);
+  color: var(--accent);
   font-weight: 600;
 }
 

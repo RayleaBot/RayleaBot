@@ -579,13 +579,13 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--border-strong) 82%, var(--border));
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 98%, transparent), color-mix(in srgb, var(--surface-soft) 80%, transparent));
   box-shadow:
     0 22px 50px color-mix(in srgb, var(--text) 12%, transparent),
-    0 6px 18px color-mix(in srgb, var(--app-primary) 10%, transparent);
+    0 6px 18px color-mix(in srgb, var(--accent) 10%, transparent);
   overflow: hidden;
 }
 
@@ -677,8 +677,8 @@ onBeforeUnmount(() => {
 }
 
 .log-detail-window__chip.is-info {
-  background: color-mix(in srgb, var(--app-primary) 10%, var(--surface-soft));
-  color: color-mix(in srgb, var(--app-primary) 84%, var(--text));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
+  color: color-mix(in srgb, var(--accent) 84%, var(--text));
 }
 
 .log-detail-window__chip.is-warn {
@@ -697,7 +697,7 @@ onBeforeUnmount(() => {
 }
 
 .log-detail-window__subtitle {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
 }
 
 .log-detail-window__subtitle {
@@ -716,7 +716,7 @@ onBeforeUnmount(() => {
   height: 36px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--surface-soft) 92%, transparent);
   color: var(--muted);
   cursor: pointer;
@@ -724,8 +724,8 @@ onBeforeUnmount(() => {
 }
 
 .log-detail-window__close:hover {
-  border-color: color-mix(in srgb, var(--app-primary) 18%, var(--border));
-  background: color-mix(in srgb, var(--app-primary) 10%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
   color: var(--text);
 }
 

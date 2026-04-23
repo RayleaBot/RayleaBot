@@ -83,7 +83,7 @@ function isConflicted(command: PluginCommandSummary) {
   display: grid;
   gap: 12px;
   padding: 16px 18px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: rgba(247, 250, 246, 0.88);
   border: 1px solid rgba(22, 33, 39, 0.08);
 }

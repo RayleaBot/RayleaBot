@@ -165,7 +165,12 @@ async function submitInstall() {
 
     <a-alert v-else-if="error" :message="t('errors.common.loadFailed')" type="error" :description="error" show-icon />
 
-    <AppCard v-else borderless class="plugins-card">
+    <AppCard
+      v-else
+      borderless
+      class="plugins-card"
+      v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
+    >
       <AppTableToolbar>
         <template #right>
           <a-button type="primary" @click="installDialogVisible = true">
@@ -223,7 +228,11 @@ async function submitInstall() {
                 :key="`${record.id}-${command.name}`"
                 class="plugin-command-chip"
               >
-                <a-tag size="small" :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'">
+                <a-tag
+                  size="small"
+                  :color="isConflictedCommand(command, record.command_conflicts) ? 'warning' : 'success'"
+                  :aria-label="`指令：${command.name}`"
+                >
                   {{ command.name }}
                 </a-tag>
                 <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
@@ -240,8 +249,8 @@ async function submitInstall() {
           <template v-else-if="column.key === 'runtime'">
             <div class="plugin-cell-status">
               <div class="plugin-status-badges">
-                <a-tag size="small" color="blue">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
-                <a-tag size="small" :color="getRuntimeColor(record.runtime_state)">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
+                <a-tag size="small" color="blue" :aria-label="`期望状态：${getPluginDesiredStateLabel(record.desired_state)}`">{{ getPluginDesiredStateLabel(record.desired_state) }}</a-tag>
+                <a-tag size="small" :color="getRuntimeColor(record.runtime_state)" :aria-label="`运行状态：${getPluginRuntimeStateLabel(record.runtime_state)}`">{{ getPluginRuntimeStateLabel(record.runtime_state) }}</a-tag>
               </div>
               <div v-if="getPluginHealthNotices(record).length > 0" class="plugin-health-notices">
                 <a-tag
@@ -249,6 +258,7 @@ async function submitInstall() {
                   :key="notice.label"
                   size="small"
                   :color="getTagColor(notice.tone)"
+                  :aria-label="`健康状态：${notice.label}`"
                 >
                   {{ notice.label }}
                 </a-tag>
@@ -379,6 +389,7 @@ async function submitInstall() {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  box-shadow: var(--shadow-xs);
 }
 
 .plugins-card :deep(.ant-card-body) {
@@ -400,6 +411,10 @@ async function submitInstall() {
   overflow: hidden;
 }
 
+.plugins-data-table :deep(.ant-table-row:hover > td) {
+  background: var(--surface-accent) !important;
+}
+
 .plugin-cell-identity {
   display: flex;
   flex-direction: column;
@@ -407,13 +422,13 @@ async function submitInstall() {
 }
 
 .plugin-name {
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   color: var(--text);
   font-weight: 600;
 }
 
 .plugin-id {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--muted);
 }
@@ -425,7 +440,7 @@ async function submitInstall() {
 }
 
 .plugin-source-root {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -487,5 +502,18 @@ async function submitInstall() {
 
 .drawer-card {
   margin-top: 12px;
+}
+
+.drawer-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mono-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  strong { font-size: 1rem; font-weight: 600; }
+  small { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
 }
 </style>

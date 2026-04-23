@@ -325,7 +325,7 @@ function providerColumnClass(provider: string) {
 .protocol-support-pill.is-supported {
   background: rgba(22, 163, 74, 0.08);
   border-color: rgba(22, 163, 74, 0.24);
-  color: #15803d;
+  color: var(--text-success);
 }
 
 .protocol-support-pill.is-unsupported {

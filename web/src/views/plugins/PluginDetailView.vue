@@ -853,6 +853,10 @@ async function scrollConsoleToBottom() {
 </template>
 
 <style scoped lang="scss">
+:deep(.ant-card) {
+  box-shadow: var(--shadow-xs);
+}
+
 .plugin-detail-actions :deep(.plugin-holo-button) {
   flex: 0 0 auto;
 }
@@ -885,13 +889,13 @@ async function scrollConsoleToBottom() {
 .metadata-json {
   margin: 0;
   padding: 12px 14px;
-  border-radius: 10px;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.6;
 }
@@ -911,7 +915,7 @@ async function scrollConsoleToBottom() {
   display: grid;
   gap: 4px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-soft);
   border: 1px solid var(--border);
 }
@@ -921,7 +925,7 @@ async function scrollConsoleToBottom() {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-soft);
   border: 1px solid var(--border);
   flex-wrap: wrap;
@@ -962,7 +966,7 @@ async function scrollConsoleToBottom() {
   max-height: 560px;
   overflow: auto;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-soft);
   border: 1px solid var(--border);
   display: grid;
@@ -973,31 +977,35 @@ async function scrollConsoleToBottom() {
   display: grid;
   gap: 6px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-strong);
   color: var(--text);
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 52%, transparent);
+  font-family: var(--font-mono);
+  box-shadow: inset 2px 0 0 var(--border-accent);
 }
 
 .console-terminal-line.is-stderr {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--danger) 70%, transparent);
+  box-shadow: inset 2px 0 0 var(--border-danger);
 }
 
 .console-terminal-line.is-system {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--warning) 70%, transparent);
+  box-shadow: inset 2px 0 0 var(--border-warning);
 }
 
 .console-terminal-line.is-outbound {
-  background: color-mix(in srgb, var(--success) 6%, var(--surface-strong));
+  background: var(--surface-success);
 }
 
 .console-terminal-line.is-outbound.is-info {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--success) 72%, transparent);
+  box-shadow: inset 2px 0 0 var(--border-success);
 }
 
-.console-terminal-line.is-outbound.is-warn,
+.console-terminal-line.is-outbound.is-warn {
+  box-shadow: inset 2px 0 0 var(--border-warning);
+}
+
 .console-terminal-line.is-outbound.is-error {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--warning) 72%, transparent);
+  box-shadow: inset 2px 0 0 var(--border-danger);
 }
 
 .console-meta {
@@ -1005,7 +1013,7 @@ async function scrollConsoleToBottom() {
   flex-wrap: wrap;
   gap: 8px 12px;
   color: var(--muted);
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
 }
 
@@ -1014,7 +1022,7 @@ async function scrollConsoleToBottom() {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   line-height: 1.55;
   unicode-bidi: plaintext;
 }

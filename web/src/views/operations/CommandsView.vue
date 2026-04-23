@@ -198,17 +198,21 @@ onMounted(() => {
   <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" full-height>
     <template #extra>
       <div class="commands-page__actions">
-        <a-button data-testid="commands-open-governance" @click="router.push(buildGovernanceLocation())">
+        <a-button data-testid="commands-open-governance" :aria-label="t('commands.actions.openGovernance')" @click="router.push(buildGovernanceLocation())">
           {{ t('commands.actions.openGovernance') }}
         </a-button>
-        <a-button :loading="loading || commandPolicyLoading" type="primary" @click="loadCommands()">
+        <a-button :loading="loading || commandPolicyLoading" type="primary" :aria-label="t('commands.refresh')" @click="loadCommands()">
           {{ t('commands.refresh') }}
         </a-button>
       </div>
     </template>
 
     <template #toolbar>
-      <a-card :bordered="false" class="app-view-card commands-filter-toolbar">
+      <a-card
+        :bordered="false"
+        class="app-view-card commands-filter-toolbar"
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
+      >
         <a-form layout="vertical">
           <a-form-item :label="t('commands.filters.plugins')">
             <a-select
@@ -242,11 +246,15 @@ onMounted(() => {
         class="section-gap"
       />
 
-      <a-card :bordered="false" class="app-view-card commands-section-card">
+      <a-card
+        :bordered="false"
+        class="app-view-card commands-section-card"
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 50 } } }"
+      >
         <template #title>
           <div class="card-header">
             <span>{{ t('commands.sections.effectivePolicies') }}</span>
-            <a-tag>{{ governanceCommandRows.length }}</a-tag>
+            <a-tag color="blue">{{ governanceCommandRows.length }}</a-tag>
           </div>
         </template>
 
@@ -278,7 +286,7 @@ onMounted(() => {
 
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'command'">
-              <a-tag color="blue">{{ record.command }}</a-tag>
+              <a-tag color="blue" :aria-label="`指令：${record.command}`">{{ record.command }}</a-tag>
             </template>
 
             <template v-else-if="column.key === 'aliases'">
@@ -309,11 +317,15 @@ onMounted(() => {
         </a-table>
       </a-card>
 
-      <a-card :bordered="false" class="app-view-card commands-section-card">
+      <a-card
+        :bordered="false"
+        class="app-view-card commands-section-card"
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 100 } } }"
+      >
         <template #title>
           <div class="card-header">
             <span>{{ t('commands.sections.declaredCommands') }}</span>
-            <a-tag>{{ commandRows.length }}</a-tag>
+            <a-tag color="blue">{{ commandRows.length }}</a-tag>
           </div>
         </template>
 
@@ -335,7 +347,7 @@ onMounted(() => {
 
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'command'">
-              <a-tag :color="record.conflicted ? 'warning' : 'blue'">
+              <a-tag :color="record.conflicted ? 'warning' : 'blue'" :aria-label="`指令：${record.command.name}`">
                 {{ record.command.name }}
               </a-tag>
             </template>
@@ -366,7 +378,7 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'status'">
-              <a-tag :color="getStatusColor(record.availability)">
+              <a-tag :color="getStatusColor(record.availability)" :aria-label="`可用性：${getStatusLabel(record.availability)}`">
                 {{ getStatusLabel(record.availability) }}
               </a-tag>
             </template>
@@ -381,7 +393,20 @@ onMounted(() => {
 .commands-filter-toolbar,
 .commands-section-card,
 .commands-data-table {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
+}
+
+.commands-filter-toolbar,
+.commands-section-card {
+  box-shadow: var(--shadow-xs);
+}
+
+:deep(.ant-table-row:hover > td) {
+  background: var(--surface-accent) !important;
+}
+
+.section-gap {
+  margin-bottom: 12px;
 }
 
 .commands-page__actions {
@@ -405,13 +430,13 @@ onMounted(() => {
 }
 
 .command-plugin-link {
-  color: var(--app-primary);
+  color: var(--accent);
   font-weight: 600;
 }
 
 .command-plugin-cell small {
   color: var(--muted);
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
 }
 
 @media (max-width: 768px) {

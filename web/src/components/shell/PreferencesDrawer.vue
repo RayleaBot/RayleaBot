@@ -281,7 +281,7 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
 
   &.is-active {
-    border-color: color-mix(in srgb, var(--preferences-color) 60%, #ffffff 40%);
+    border-color: color-mix(in srgb, var(--preferences-color) 60%, var(--surface-strong) 40%);
   }
 }
 
@@ -290,11 +290,11 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
   gap: 6px;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
 
   strong {
-    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-family: var(--font-mono);
     font-size: 0.84rem;
   }
 

@@ -626,7 +626,13 @@ onBeforeUnmount(() => {
       width="224"
       data-testid="app-sider"
     >
-      <button type="button" class="admin-layout__brand" @click="navigateTo('/')">
+      <button
+        type="button"
+        class="admin-layout__brand"
+        aria-label="RayleaBot"
+        :title="siderCollapsed ? 'RayleaBot' : undefined"
+        @click="navigateTo('/')"
+      >
         <span class="admin-layout__brand-mark">R</span>
         <span v-if="!siderCollapsed" class="admin-layout__brand-copy">
           <strong>RayleaBot</strong>
@@ -879,13 +885,18 @@ onBeforeUnmount(() => {
               />
             </a-tooltip>
 
-            <a-button class="admin-layout__shutdown-button" danger @click="shutdownDialogVisible = true">
+            <a-button
+              class="admin-layout__shutdown-button"
+              danger
+              :aria-label="t('shell.shutdown')"
+              @click="shutdownDialogVisible = true"
+            >
               <template #icon><PoweroffOutlined /></template>
               <span class="desktop-only">{{ t('shell.shutdown') }}</span>
             </a-button>
 
             <a-dropdown placement="bottomRight">
-              <a-button class="admin-layout__account-button">
+              <a-button class="admin-layout__account-button" :aria-label="t('shell.account')">
                 <UserOutlined />
                 <span class="desktop-only">{{ t('shell.account') }}</span>
                 <DownOutlined />
@@ -936,6 +947,7 @@ onBeforeUnmount(() => {
                 <a-button
                   class="admin-layout__icon-button"
                   type="text"
+                  :aria-label="t('shell.tabActions.refresh')"
                   data-testid="tabbar-refresh"
                   @click="refreshCurrentRoute"
                 >
@@ -946,7 +958,12 @@ onBeforeUnmount(() => {
               </a-tooltip>
 
               <a-dropdown placement="bottomRight">
-                <a-button class="admin-layout__icon-button" type="text" data-testid="tabbar-actions">
+                <a-button
+                  class="admin-layout__icon-button"
+                  type="text"
+                  aria-label="标签页操作"
+                  data-testid="tabbar-actions"
+                >
                   <template #icon>
                     <MoreOutlined />
                   </template>
@@ -1016,3 +1033,13 @@ onBeforeUnmount(() => {
     <p>{{ t('shell.shutdownConfirmBody') }}</p>
   </a-modal>
 </template>
+
+<style scoped lang="scss">
+.admin-layout__brand:focus-visible,
+.admin-layout__icon-button:focus-visible,
+.admin-layout__shutdown-button:focus-visible,
+.admin-layout__account-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+</style>

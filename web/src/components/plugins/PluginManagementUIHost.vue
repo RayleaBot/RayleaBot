@@ -616,8 +616,8 @@ onBeforeUnmount(() => {
   min-height: 640px;
   flex: 1 1 auto;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fff;
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
 }
 
 @media (max-width: 768px) {

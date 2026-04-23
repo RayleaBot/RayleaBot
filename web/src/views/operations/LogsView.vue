@@ -228,13 +228,17 @@ onUnmounted(() => {
 <template>
   <AppPage :title="t('logs.currentTitle')" full-height>
     <template #extra>
-      <a-button :loading="loading" @click="refreshLatest">
+      <a-button :loading="loading" :aria-label="t('logs.refresh')" @click="refreshLatest">
         {{ t('logs.refresh') }}
       </a-button>
     </template>
 
     <template #toolbar>
-      <a-card :bordered="false" class="app-view-card logs-toolbar">
+      <a-card
+        :bordered="false"
+        class="app-view-card logs-toolbar"
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
+      >
         <a-form layout="vertical" class="logs-filter-grid">
           <a-form-item :label="t('logs.filters.level')">
             <a-select
@@ -264,7 +268,7 @@ onUnmounted(() => {
         </a-form>
 
         <div class="logs-toolbar__actions">
-          <a-button type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
+          <a-button type="primary" :aria-label="t('logs.filters.apply')" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
         </div>
       </a-card>
     </template>
@@ -285,7 +289,11 @@ onUnmounted(() => {
       class="logs-layout"
       :class="{ 'has-detail-window': detailOpen }"
     >
-      <a-card :bordered="false" class="logs-feed-card">
+      <a-card
+        :bordered="false"
+        class="logs-feed-card"
+        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 50 } } }"
+      >
         <template #title>
           <div class="logs-feed-card__title">
             <span>{{ t('logs.current.streamTitle') }}</span>
@@ -310,12 +318,13 @@ onUnmounted(() => {
             @at-bottom-change="onViewportBottomChange"
           >
             <template #default="{ item }">
-              <button
-                type="button"
-                class="logs-row"
-                :class="{ 'is-selected': selectedLogId === item.log_id }"
-                @click="openLogDetail(item)"
-              >
+                <button
+                  type="button"
+                  class="logs-row"
+                  :class="{ 'is-selected': selectedLogId === item.log_id }"
+                  :aria-label="`${getLogLevelLabel(item.level)} · ${item.source} · ${formatDateTime(item.timestamp)}`"
+                  @click="openLogDetail(item)"
+                >
                 <div class="logs-row__meta">
                   <div class="logs-row__time">{{ formatDateTime(item.timestamp) }}</div>
                   <div class="logs-row__source">
@@ -390,17 +399,22 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
 }
 
 .logs-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+  align-items: end;
 }
 
 .logs-toolbar__actions {
   display: flex;
   justify-content: flex-end;
+  align-self: end;
 }
 
 .logs-feed-card,
@@ -409,6 +423,10 @@ onUnmounted(() => {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+}
+
+.logs-feed-card {
+  box-shadow: var(--shadow-xs);
 }
 
 .logs-feed-card__body {
@@ -439,7 +457,7 @@ onUnmounted(() => {
 }
 
 .logs-jump-latest__button {
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--app-primary) 24%, transparent);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .logs-row {
@@ -448,7 +466,7 @@ onUnmounted(() => {
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 14px;
   border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-bottom: 1px solid var(--border);
   background: transparent;
   padding: 14px 16px;
   text-align: left;
@@ -457,12 +475,17 @@ onUnmounted(() => {
 
 .logs-row:hover,
 .logs-row.is-selected {
-  background: color-mix(in srgb, var(--app-primary) 8%, transparent);
+  background: var(--surface-accent);
+}
+
+.logs-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .logs-row.is-selected {
-  box-shadow: inset 3px 0 0 var(--app-primary);
-  background: color-mix(in srgb, var(--app-primary) 5%, var(--surface-soft)) !important;
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--surface-accent) !important;
 }
 
 .logs-row__meta,
@@ -476,12 +499,12 @@ onUnmounted(() => {
 .logs-row__time,
 .logs-row__source,
 .logs-row__sub {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
 }
 
 .logs-row__time {
-  color: var(--text);
-  font-size: 0.88rem;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .logs-row__source {
@@ -493,7 +516,7 @@ onUnmounted(() => {
 }
 
 .logs-row__protocol {
-  color: var(--app-primary);
+  color: var(--accent);
 }
 
 .logs-row__headline {
@@ -512,6 +535,7 @@ onUnmounted(() => {
   margin: 0;
   color: var(--text);
   line-height: 1.6;
+  font-size: 0.9rem;
   white-space: pre-wrap;
   word-break: break-all;
   unicode-bidi: plaintext;

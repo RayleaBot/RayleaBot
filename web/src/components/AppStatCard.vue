@@ -16,7 +16,9 @@ withDefaults(defineProps<{
 
 <template>
   <div :class="['app-stat-card stat-card', `app-stat-card--${tone}`, `stat-card--${tone}`]">
-    <component :is="icon" v-if="icon" class="app-stat-card__icon" />
+    <div v-if="icon" class="app-stat-card__icon-wrap">
+      <component :is="icon" class="app-stat-card__icon" />
+    </div>
     <div class="app-stat-card__content">
       <span class="app-stat-card__label">{{ label }}</span>
       <strong class="app-stat-card__value">{{ value }}</strong>
@@ -36,13 +38,14 @@ withDefaults(defineProps<{
   border-radius: var(--app-card-radius);
   border: 1px solid var(--border);
   background: var(--surface-strong);
+  box-shadow: var(--shadow-xs);
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .app-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card);
   border-color: var(--border-strong);
 }
 
@@ -50,42 +53,86 @@ withDefaults(defineProps<{
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: color-mix(in srgb, var(--muted) 30%, transparent);
+  background: var(--muted);
 }
 
 .app-stat-card--primary .app-stat-card__accent {
-  background: color-mix(in srgb, var(--accent) 80%, transparent);
+  background: var(--accent);
 }
 
 .app-stat-card--success .app-stat-card__accent {
-  background: color-mix(in srgb, var(--success) 80%, transparent);
+  background: var(--success);
 }
 
 .app-stat-card--warning .app-stat-card__accent {
-  background: color-mix(in srgb, var(--warning) 80%, transparent);
+  background: var(--warning);
 }
 
 .app-stat-card--danger .app-stat-card__accent {
-  background: color-mix(in srgb, var(--danger) 80%, transparent);
+  background: var(--danger);
+}
+
+.app-stat-card__icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  flex-shrink: 0;
+}
+
+.app-stat-card__icon-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: var(--shadow-card);
+  z-index: -1;
+}
+
+.app-stat-card--primary .app-stat-card__icon-wrap {
+  background: var(--surface-accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.app-stat-card--success .app-stat-card__icon-wrap {
+  background: var(--surface-success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.app-stat-card--warning .app-stat-card__icon-wrap {
+  background: var(--surface-warning);
+  border-color: color-mix(in srgb, var(--warning) 30%, transparent);
+}
+
+.app-stat-card--danger .app-stat-card__icon-wrap {
+  background: var(--surface-danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
 .app-stat-card__icon {
-  flex-shrink: 0;
-  font-size: 2rem;
-  color: color-mix(in srgb, var(--accent) 24%, transparent);
-  margin-top: 2px;
+  font-size: 1.4rem;
+  color: var(--accent);
+}
+
+.app-stat-card--primary .app-stat-card__icon {
+  color: var(--accent);
 }
 
 .app-stat-card--success .app-stat-card__icon {
-  color: color-mix(in srgb, var(--success) 30%, transparent);
+  color: var(--success);
 }
 
 .app-stat-card--warning .app-stat-card__icon {
-  color: color-mix(in srgb, var(--warning) 30%, transparent);
+  color: var(--warning);
 }
 
 .app-stat-card--danger .app-stat-card__icon {
-  color: color-mix(in srgb, var(--danger) 30%, transparent);
+  color: var(--danger);
 }
 
 .app-stat-card__content {

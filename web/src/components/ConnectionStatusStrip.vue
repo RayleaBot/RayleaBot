@@ -97,7 +97,7 @@ function getPulseClass(status: ConnectionStatus) {
 
 .connection-card__item {
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-soft);
   display: grid;

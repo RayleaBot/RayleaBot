@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { TranslationOutlined } from '@ant-design/icons-vue'
+import { TranslationOutlined, CheckOutlined } from '@ant-design/icons-vue'
 
 import ThemeToggleSwitch from '@/components/shell/ThemeToggleSwitch.vue'
 import { t } from '@/i18n'
@@ -59,9 +59,10 @@ const themeToggleLabel = computed(() => (
         </div>
 
         <div class="auth-layout__highlights">
-          <span>{{ t('auth.heroFeatureStatus') }}</span>
-          <span>{{ t('auth.heroFeaturePlugins') }}</span>
-          <span>{{ t('auth.heroFeatureProtocols') }}</span>
+          <p class="auth-layout__highlights-label">{{ t('auth.heroHighlightsLabel') || '功能亮点' }}</p>
+          <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeatureStatus') }}</span>
+          <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeaturePlugins') }}</span>
+          <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeatureProtocols') }}</span>
         </div>
       </div>
     </section>

@@ -529,7 +529,7 @@ async function save() {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--app-border) 70%, var(--app-primary) 30%);
+  background: color-mix(in srgb, var(--app-border) 70%, var(--accent) 30%);
   
   &.success { background: var(--app-success); }
   &.danger { background: var(--app-danger); }
@@ -606,7 +606,7 @@ async function save() {
 
   &:hover {
     opacity: 1;
-    color: var(--app-primary);
+    color: var(--accent);
   }
 }
 
@@ -627,7 +627,7 @@ async function save() {
 :deep(.refined-input.ant-input-affix-wrapper),
 :deep(.refined-input.ant-input-textarea textarea.ant-input),
 :deep(.refined-input.ant-select .ant-select-selector) {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-soft);
   border-color: var(--app-border);
   box-shadow: none;
@@ -637,27 +637,27 @@ async function save() {
 :deep(.refined-input.ant-input-affix-wrapper:hover),
 :deep(.refined-input.ant-input-textarea:hover textarea.ant-input),
 :deep(.refined-input.ant-select:hover .ant-select-selector) {
-  border-color: color-mix(in srgb, var(--app-primary) 24%, var(--app-border));
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--app-border));
 }
 
 :deep(.refined-input.ant-input:focus),
 :deep(.refined-input.ant-input-affix-wrapper.ant-input-affix-wrapper-focused),
 :deep(.refined-input.ant-input-textarea textarea.ant-input:focus),
 :deep(.refined-input.ant-select.ant-select-focused .ant-select-selector) {
-  border-color: var(--app-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-primary) 14%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 :deep(.refined-number-input.ant-input-number) {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-soft);
   border-color: var(--app-border);
   box-shadow: none;
 }
 
 :deep(.refined-number-input.ant-input-number.ant-input-number-focused) {
-  border-color: var(--app-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-primary) 14%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 @media (max-width: 768px) {

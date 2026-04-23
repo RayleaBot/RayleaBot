@@ -355,7 +355,7 @@ onMounted(() => {
 <template>
   <AppPage :title="t('governance.title')" :description="t('governance.subtitle')">
     <template #extra>
-      <a-button :loading="loading" type="primary" @click="loadGovernance()">
+      <a-button :loading="loading" type="primary" :aria-label="t('governance.refresh')" @click="loadGovernance()">
         {{ t('governance.refresh') }}
       </a-button>
     </template>
@@ -445,6 +445,7 @@ onMounted(() => {
                   <a-switch
                     :checked="whitelistEnabled"
                     :loading="whitelistMutating"
+                    :aria-label="t('governance.summary.whitelistStatus')"
                     data-testid="governance-whitelist-enabled"
                     @change="handleWhitelistToggle"
                   />
@@ -470,7 +471,12 @@ onMounted(() => {
 
               <div class="governance-toolbar">
                 <div class="governance-toolbar__row">
-                  <a-select v-model:value="whitelistScopeFilter" :options="scopeFilterOptions" class="governance-toolbar__filter" />
+                  <a-select
+                    v-model:value="whitelistScopeFilter"
+                    :options="scopeFilterOptions"
+                    class="governance-toolbar__filter"
+                    :aria-label="t('governance.filters.all')"
+                  />
                   <div class="governance-toolbar__actions">
                     <span class="governance-toolbar__count">{{ t('governance.table.total', { total: filteredWhitelistEntries.length }) }}</span>
                     <a-button type="primary" data-testid="governance-whitelist-add-btn" @click="openAddModal('whitelist')">
@@ -503,9 +509,14 @@ onMounted(() => {
                   </template>
 
                   <template v-else-if="column.key === 'targetId'">
-                    <span class="mono-text copyable-text" @click="copyTargetId(record.target_id)">
+                    <button
+                      type="button"
+                      class="mono-text copyable-text"
+                      :aria-label="`${t('governance.actions.copyTargetId')} ${record.target_id}`"
+                      @click="copyTargetId(record.target_id)"
+                    >
                       {{ record.target_id }}
-                    </span>
+                    </button>
                   </template>
 
                   <template v-else-if="column.key === 'createdAt'">
@@ -551,7 +562,12 @@ onMounted(() => {
 
               <div class="governance-toolbar">
                 <div class="governance-toolbar__row">
-                  <a-select v-model:value="blacklistScopeFilter" :options="scopeFilterOptions" class="governance-toolbar__filter" />
+                  <a-select
+                    v-model:value="blacklistScopeFilter"
+                    :options="scopeFilterOptions"
+                    class="governance-toolbar__filter"
+                    :aria-label="t('governance.filters.all')"
+                  />
                   <div class="governance-toolbar__actions">
                     <span class="governance-toolbar__count">{{ t('governance.table.total', { total: filteredBlacklistEntries.length }) }}</span>
                     <a-button type="primary" data-testid="governance-blacklist-add-btn" @click="openAddModal('blacklist')">
@@ -584,9 +600,14 @@ onMounted(() => {
                   </template>
 
                   <template v-else-if="column.key === 'targetId'">
-                    <span class="mono-text copyable-text" @click="copyTargetId(record.target_id)">
+                    <button
+                      type="button"
+                      class="mono-text copyable-text"
+                      :aria-label="`${t('governance.actions.copyTargetId')} ${record.target_id}`"
+                      @click="copyTargetId(record.target_id)"
+                    >
                       {{ record.target_id }}
-                    </span>
+                    </button>
                   </template>
 
                   <template v-else-if="column.key === 'createdAt'">
@@ -636,18 +657,20 @@ onMounted(() => {
 
       <a-form layout="vertical" class="add-modal-form">
         <a-form-item :label="t('governance.entryForm.scope')">
-          <a-select v-model:value="addModalDraft.entry_type" :options="scopeOptions" />
+          <a-select v-model:value="addModalDraft.entry_type" :options="scopeOptions" :aria-label="t('governance.entryForm.scope')" />
         </a-form-item>
         <a-form-item :label="t('governance.entryForm.targetId')">
           <a-input
             v-model:value="addModalDraft.target_id"
             :placeholder="t('governance.entryForm.placeholderTargetId')"
+            :aria-label="t('governance.entryForm.targetId')"
           />
         </a-form-item>
         <a-form-item :label="t('governance.entryForm.reason')">
           <a-input
             v-model:value="addModalDraft.reason"
             :placeholder="t('governance.entryForm.placeholderReason')"
+            :aria-label="t('governance.entryForm.reason')"
           />
         </a-form-item>
       </a-form>
@@ -673,7 +696,7 @@ onMounted(() => {
 }
 
 .governance-summary-card {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 55%, var(--surface)) 0%, var(--surface) 100%);
 }
@@ -718,17 +741,32 @@ onMounted(() => {
 
 .governance-summary-cards {
   display: grid;
-  gap: 12px;
+  gap: var(--space-lg);
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   margin-top: 18px;
 }
 
+.governance-summary-cards :deep(> *) {
+  box-shadow: var(--shadow-xs);
+}
+
 .governance-tabs-card {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
+}
+
+:deep(.governance-summary-card),
+:deep(.governance-tabs-card) {
+  box-shadow: var(--shadow-xs);
 }
 
 .governance-tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+:deep(.ant-tabs-tab-active .ant-tabs-tab-btn) {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .governance-tab-content {
@@ -768,7 +806,7 @@ onMounted(() => {
 
 .governance-risk-banner {
   padding: 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--warning) 12%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--warning) 22%, var(--border));
   display: grid;
@@ -822,8 +860,8 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.governance-data-table :deep(.ant-table-tbody > tr:hover > td) {
-  background: color-mix(in srgb, var(--accent) 4%, var(--surface-soft));
+.governance-data-table :deep(.ant-table-row:hover > td) {
+  background: var(--surface-accent) !important;
 }
 
 .governance-empty-hint {
@@ -844,17 +882,28 @@ onMounted(() => {
 }
 
 .mono-text {
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 0.88rem;
 }
 
 .copyable-text {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
   cursor: pointer;
   transition: color 0.15s ease;
+  text-align: left;
 }
 
 .copyable-text:hover {
   color: var(--accent);
+}
+
+.copyable-text:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .add-modal-form {
