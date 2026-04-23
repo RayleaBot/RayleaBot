@@ -1382,6 +1382,32 @@ test('template preview auto-refreshes results without editor controls', async ({
   await expect(page.locator('.summary-grid')).toContainText('status.panel')
 })
 
+test('template preview page stays scrollable on shorter viewports', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 1280, height: 640 })
+  await login(page)
+
+  await page.goto('/render/templates/help.menu')
+  await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('render-template-preview-result')).toContainText('task_render_preview_0001')
+
+  const appMain = page.locator('#app-main')
+  const initialMetrics = await appMain.evaluate((node) => ({
+    clientHeight: node.clientHeight,
+    scrollHeight: node.scrollHeight,
+    scrollTop: node.scrollTop,
+  }))
+
+  expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight)
+
+  await appMain.hover()
+  await page.mouse.wheel(0, 1200)
+
+  await expect.poll(async () => (
+    appMain.evaluate((node) => node.scrollTop)
+  )).toBeGreaterThan(initialMetrics.scrollTop)
+})
+
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)

@@ -538,7 +538,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <AppPage :title="t('renderTemplates.title')" :description="t('renderTemplates.subtitle')" full-height>
+  <AppPage :title="t('renderTemplates.title')" :description="t('renderTemplates.subtitle')">
     <template #extra>
       <div class="table-actions">
         <a-button :loading="loading || workspaceLoading" @click="loadTemplateList">
