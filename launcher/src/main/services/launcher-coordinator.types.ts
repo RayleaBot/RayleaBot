@@ -70,6 +70,7 @@ export interface LauncherCoordinatorOptions {
   pollIntervalMs?: number;
   shutdownTimeoutMs?: number;
   resetAdminTimeoutMs?: number;
+  autoRefreshIntervalMs?: number;
 }
 
 export interface LauncherCoordinatorDependencies {

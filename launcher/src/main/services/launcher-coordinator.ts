@@ -7,6 +7,7 @@ import type {
   LauncherCoordinatorDependencies,
 } from "./launcher-coordinator.types";
 import { createLauncherRuntimeContext } from "./launcher-runtime-context";
+import type { LauncherSnapshot } from "../../shared/launcher-models";
 
 export type {
   EnvironmentCheckResult,
@@ -39,6 +40,7 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     pollIntervalMs: deps.options?.pollIntervalMs ?? 500,
     shutdownTimeoutMs: deps.options?.shutdownTimeoutMs ?? 5000,
     resetAdminTimeoutMs: deps.options?.resetAdminTimeoutMs ?? 30000,
+    autoRefreshIntervalMs: deps.options?.autoRefreshIntervalMs ?? 2000,
   };
 
   const runtimeContext = createLauncherRuntimeContext({
@@ -78,6 +80,57 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     managementClient: deps.managementClient,
     externalOpener: deps.externalOpener,
     processController: deps.processController,
+  });
+  let autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let autoRefreshInFlight = false;
+
+  function clearAutoRefreshTimer() {
+    if (!autoRefreshTimer) {
+      return;
+    }
+    clearTimeout(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+
+  function shouldAutoRefresh(snapshot: LauncherSnapshot) {
+    return snapshot.launcher.processLifecycle === "running"
+      || snapshot.server.health?.status === "ok"
+      || snapshot.server.readiness !== null;
+  }
+
+  function scheduleAutoRefresh() {
+    clearAutoRefreshTimer();
+    if (autoRefreshInFlight || options.autoRefreshIntervalMs <= 0 || !shouldAutoRefresh(snapshotStore.snapshot)) {
+      return;
+    }
+    autoRefreshTimer = setTimeout(async () => {
+      autoRefreshTimer = null;
+      await runAutoRefresh();
+    }, options.autoRefreshIntervalMs);
+    if (typeof autoRefreshTimer === "object" && autoRefreshTimer && "unref" in autoRefreshTimer) {
+      autoRefreshTimer.unref();
+    }
+  }
+
+  async function runAutoRefresh() {
+    if (autoRefreshInFlight || !shouldAutoRefresh(snapshotStore.snapshot)) {
+      return;
+    }
+    autoRefreshInFlight = true;
+    try {
+      await statusService.refresh(false);
+    } catch {
+      // Keep the current snapshot and try again on the next interval.
+    } finally {
+      autoRefreshInFlight = false;
+      scheduleAutoRefresh();
+    }
+  }
+
+  snapshotStore.subscribe(() => {
+    if (!autoRefreshInFlight) {
+      scheduleAutoRefresh();
+    }
   });
 
   return {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@renderer/AppShell";
 import type { LauncherSnapshot } from "@shared/launcher-models";
@@ -299,6 +299,22 @@ describe("AppShell", () => {
     expect(screen.getByText("请先选择可写的工作目录，再启动服务。")).toBeInTheDocument();
     expect(screen.queryByText("Python 运行环境已纳入启动流程。")).toBeNull();
     expect(container.querySelector(".check-item__remediation")).not.toBeNull();
+  });
+
+  test("uses refresh for the environment recheck action", () => {
+    const onRefresh = vi.fn();
+    renderShell({
+      activeSection: "environment",
+      renderedSection: "environment",
+      onRefresh,
+    });
+
+    const recheckButton = screen.getByRole("button", { name: "重新检查" });
+    expect(recheckButton).toBeEnabled();
+
+    fireEvent.click(recheckButton);
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
   test("renders draft and resolved settings surfaces during editing", () => {

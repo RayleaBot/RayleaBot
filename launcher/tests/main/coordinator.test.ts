@@ -391,6 +391,53 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.server.readiness?.issues?.[0]?.code).toBe("adapter.connection_pending");
   });
 
+  test("initialize auto-refreshes degraded readiness after protocol recovery", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    processController.isRunning = true;
+    managementClient.readiness = {
+      status: "degraded",
+      issues: [
+        {
+          code: "adapter.connection_pending",
+          severity: "warning",
+          summary: "OneBot 正在建立连接",
+          remediation: "请稍后重试。",
+        },
+      ],
+    };
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        autoRefreshIntervalMs: 5,
+      },
+    });
+
+    await coordinator.initialize();
+    expect(presentationState(coordinator.snapshot).state).toBe("degraded");
+
+    managementClient.readiness = {
+      status: "ready",
+      reason: "服务稳定。",
+    };
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(presentationState(coordinator.snapshot).detail).toBe("服务稳定。");
+  });
+
   test("initialize reflects system/status shutting_down state", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
@@ -1111,6 +1158,46 @@ describe("launcher coordinator", () => {
 
     expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
     expect(presentationState(coordinator.snapshot).detail).toContain("管理员初始化");
+  });
+
+  test("initialize auto-refreshes setup_required after administrator setup completes", async () => {
+    const settingsStore = new FakeSettingsStore();
+    const endpointResolver = new FakeEndpointResolver();
+    const managementClient = new FakeManagementClient();
+    managementClient.readiness = {
+      status: "setup_required",
+      reason: "管理员初始化尚未完成。",
+    };
+    const processController = new FakeProcessController();
+    processController.isRunning = true;
+
+    const coordinator = createLauncherCoordinator({
+      settingsStore,
+      endpointResolver,
+      inspectEnvironment: vi.fn(async () => okInspection()),
+      managementClient,
+      processController,
+      isEndpointListening: vi.fn(async () => false),
+      tryStopEndpointProcess: vi.fn(async () => false),
+      externalOpener: new FakeExternalOpener(),
+      releaseFeedClient: new FakeReleaseFeedClient(),
+      options: {
+        autoRefreshIntervalMs: 5,
+      },
+    });
+
+    await coordinator.initialize();
+    expect(presentationState(coordinator.snapshot).state).toBe("setup_required");
+
+    managementClient.readiness = {
+      status: "ready",
+      reason: "服务稳定。",
+    };
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(presentationState(coordinator.snapshot).state).toBe("running");
+    expect(presentationState(coordinator.snapshot).detail).toBe("服务稳定。");
   });
 
   test("initialize does not block on slow release checks", async () => {

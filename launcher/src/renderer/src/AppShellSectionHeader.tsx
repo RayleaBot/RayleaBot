@@ -61,7 +61,7 @@ function getSectionHeaderBadges(
   return <span className="glass-chip glass-chip--accent">{editingSettings ? "草稿编辑中" : "已加载当前配置"}</span>;
 }
 
-function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecoveryActions: boolean, canRecheckRecovery: boolean): ReactNode {
+function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecoveryActions: boolean): ReactNode {
   if (props.renderedSection === "status") {
     return (
       <Button
@@ -79,7 +79,15 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
   if (props.renderedSection === "environment") {
     return (
       <>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--secondary" onClick={props.onRecoveryRecheck} disabled={!canRecheckRecovery}>重新检查</Button>
+        <Button
+          appearance="transparent"
+          size="small"
+          className="frost-button frost-button--secondary"
+          onClick={props.onRefresh}
+          disabled={props.controlsDisabled}
+        >
+          重新检查
+        </Button>
         <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={props.onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行环境</Button>
       </>
     );
@@ -103,7 +111,6 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
   const presentation = deriveLauncherPresentation(props.snapshot);
   const hasRecentStderr = props.snapshot.launcher.recentStderr.length > 0;
   const canRunRecoveryActions = presentation.canRunRecoveryActions && !props.controlsDisabled;
-  const canRecheckRecovery = canRunRecoveryActions && presentation.canRecheckRecovery;
   const environmentLabel = getEnvironmentSummaryLabel(props.snapshot.launcher.preflightChecks);
 
   return (
@@ -119,7 +126,7 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
         <p className="section-header__detail">{sectionMeta.detail}</p>
       </div>
       <div className="section-header__actions">
-        {getSectionHeaderActions(props, canRunRecoveryActions, canRecheckRecovery)}
+        {getSectionHeaderActions(props, canRunRecoveryActions)}
       </div>
     </header>
   );
