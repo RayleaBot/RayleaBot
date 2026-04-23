@@ -629,13 +629,13 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="admin-layout__brand"
-        aria-label="RayleaBot"
-        :title="siderCollapsed ? 'RayleaBot' : undefined"
+        :aria-label="t('app.brand')"
+        :title="siderCollapsed ? t('app.brand') : undefined"
         @click="navigateTo('/')"
       >
         <span class="admin-layout__brand-mark">R</span>
         <span v-if="!siderCollapsed" class="admin-layout__brand-copy">
-          <strong>RayleaBot</strong>
+          <strong>{{ t('app.brand') }}</strong>
         </span>
       </button>
 
@@ -687,7 +687,7 @@ onBeforeUnmount(() => {
       @close="uiShellStore.setMobileMenuOpen(false)"
     >
       <div class="admin-layout__mobile-brand">
-        <strong>RayleaBot</strong>
+        <strong>{{ t('app.brand') }}</strong>
       </div>
 
       <a-menu mode="inline" :selected-keys="selectedMenuKeys">
@@ -762,7 +762,7 @@ onBeforeUnmount(() => {
               ]"
               data-testid="header-breadcrumb"
             >
-              <nav class="admin-layout__breadcrumb-nav" aria-label="面包屑">
+              <nav class="admin-layout__breadcrumb-nav" :aria-label="t('shell.breadcrumbNav')">
                 <ol class="admin-layout__breadcrumb-list">
                   <li
                   v-for="item in breadcrumbItems"
@@ -961,7 +961,7 @@ onBeforeUnmount(() => {
                 <a-button
                   class="admin-layout__icon-button"
                   type="text"
-                  aria-label="标签页操作"
+                  :aria-label="t('shell.tabActions.menu')"
                   data-testid="tabbar-actions"
                 >
                   <template #icon>

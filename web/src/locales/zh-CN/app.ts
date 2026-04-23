@@ -26,6 +26,7 @@ export const routes = {
 
 export const shell = {
   account: '账号',
+  breadcrumbNav: '面包屑',
   cancel: '取消',
   enterFullscreen: '进入全屏',
   exitFullscreen: '退出全屏',
@@ -55,6 +56,7 @@ export const shell = {
   tabActions: {
     closeCurrent: '关闭当前标签',
     closeLeft: '关闭左侧标签',
+    menu: '标签页操作',
     closeOther: '关闭其他标签',
     closeRight: '关闭右侧标签',
     refresh: '刷新当前页',

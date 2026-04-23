@@ -19,8 +19,8 @@ const form = reactive({
 })
 const formRef = ref<FormInstance>()
 const rules: Record<string, Rule[]> = {
-  identifier: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
-  secret: [{ required: true, message: '请输入管理员密钥', trigger: 'blur' }],
+  identifier: [{ required: true, message: t('auth.validation.identifierRequired'), trigger: 'blur' }],
+  secret: [{ required: true, message: t('auth.validation.secretRequired'), trigger: 'blur' }],
 }
 
 async function submit() {
@@ -29,7 +29,7 @@ async function submit() {
   try {
     await formRef.value?.validate()
     await sessionStore.login(form)
-    notifySuccess('已登录')
+    notifySuccess(t('auth.feedback.loginSuccess'))
     await router.push({ name: 'status' })
   } catch (error) {
     const message = toLoginErrorMessage(error)
@@ -55,7 +55,7 @@ async function submit() {
 
     <a-alert
       v-if="sessionStore.bootstrapError"
-      message="暂时无法进入管理界面"
+      :message="t('auth.alerts.bootstrapUnavailable')"
       type="warning"
       :description="sessionStore.bootstrapError"
       show-icon
@@ -64,7 +64,7 @@ async function submit() {
 
     <a-alert
       v-if="sessionStore.launcherAdmissionHint"
-      message="请手动登录"
+      :message="t('auth.alerts.launcherManualLogin')"
       type="warning"
       :description="sessionStore.launcherAdmissionHint"
       show-icon
@@ -73,7 +73,7 @@ async function submit() {
 
     <a-alert
       v-if="submitError"
-      message="登录未完成"
+      :message="t('auth.alerts.loginIncomplete')"
       type="error"
       :description="submitError"
       role="alert"

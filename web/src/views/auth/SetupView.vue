@@ -19,8 +19,8 @@ const form = reactive({
 })
 const formRef = ref<FormInstance>()
 const rules: Record<string, Rule[]> = {
-  identifier: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
-  secret: [{ required: true, message: '请输入管理员密钥', trigger: 'blur' }],
+  identifier: [{ required: true, message: t('auth.validation.identifierRequired'), trigger: 'blur' }],
+  secret: [{ required: true, message: t('auth.validation.secretRequired'), trigger: 'blur' }],
 }
 
 async function submit() {
@@ -29,7 +29,7 @@ async function submit() {
   try {
     await formRef.value?.validate()
     await sessionStore.setupAdmin(form)
-    notifySuccess('管理员账号已创建')
+    notifySuccess(t('auth.feedback.setupSuccess'))
     await router.push({ name: 'status' })
   } catch (error) {
     const message = toSetupErrorMessage(error)
@@ -55,7 +55,7 @@ async function submit() {
 
     <a-alert
       v-if="submitError"
-      message="创建管理员账号未完成"
+      :message="t('auth.alerts.setupIncomplete')"
       type="error"
       :description="submitError"
       role="alert"

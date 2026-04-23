@@ -29,4 +29,5 @@ export const tasks = {
   previewAlt: '图片预览结果',
   recoverySummary: '恢复摘要',
   cancelAccepted: '取消请求已发送',
+  statusAriaLabel: '任务状态：{status}',
 } as const
