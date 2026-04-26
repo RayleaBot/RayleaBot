@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
@@ -32,6 +33,7 @@ func (c *pluginLifecycleController) stopPlugin(ctx context.Context, pluginID str
 		return
 	}
 
+	c.clearBotIdentity(pluginID)
 	c.dispatcher.Deregister(pluginID)
 
 	manager, ok := c.runtimes.Get(pluginID)
@@ -67,6 +69,7 @@ func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int,
 	if c.dispatcher != nil {
 		c.dispatcher.Deregister(pluginID)
 	}
+	c.clearBotIdentity(pluginID)
 
 	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
@@ -137,16 +140,6 @@ func (c *pluginLifecycleController) backoffRestart(pluginID string, delay time.D
 	}
 
 	botID := c.currentBotID()
-	if botID == "" {
-		manager.SetDeadLetterState()
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
-		c.state.Logger.Warn(
-			"cannot restart plugin: no bot connection",
-			"component", "app",
-			"plugin_id", pluginID,
-		)
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.state.Config.Runtime))
 	defer cancel()
@@ -162,7 +155,11 @@ func (c *pluginLifecycleController) currentBotID() string {
 	if c == nil || c.adapter == nil {
 		return ""
 	}
-	return strings.TrimSpace(c.adapter.Snapshot().BotID)
+	snapshot := c.adapter.Snapshot()
+	if snapshot.State != adapter.StateConnected {
+		return ""
+	}
+	return strings.TrimSpace(snapshot.BotID)
 }
 
 func (c *pluginLifecycleController) CurrentBotID() string {

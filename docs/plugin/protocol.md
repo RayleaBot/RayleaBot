@@ -22,6 +22,7 @@
 - 启动后平台会发送 `ping`，插件返回 `pong` 做保活。
 - 插件异常退出会进入崩溃恢复路径，而不是默默消失。
 - `init.command_prefixes` 提供当前生效的命令前缀列表，至少包含一项。
+- `init.bot` 在 OneBot 身份可用时提供当前 bot 身份；协议身份不可用时该字段缺省。
 
 ## 事件与结果
 
@@ -42,7 +43,7 @@
 ### 事件字段
 
 - 当前正式 `event_type` 集合包括：
-  - 平台事件：`scheduler.trigger`、`config.changed`、`webhook.received`
+  - 平台事件：`scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed`
   - OneBot 消息事件：`message.private`、`message.group`、`message_sent.private`、`message_sent.group`
   - OneBot notice 事件：`notice.member_increase`、`notice.member_decrease`、`notice.group_admin`、`notice.group_ban`、`notice.group_recall`、`notice.group_upload`、`notice.group_card`、`notice.group_title`、`notice.group_essence`、`notice.friend_add`、`notice.friend_recall`、`notice.flash_file`、`notice.poke`、`notice.poke_recall`、`notice.profile_like`、`notice.input_status`、`notice.group_message_emoji_like`
   - OneBot request 事件：`request.friend`、`request.group`
@@ -55,6 +56,7 @@
 - `event.payload.onebot` 保留 OneBot11 原生字段，包括 `post_type`、`message_type`、`group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`message_format`、`font`、`sender`、`meta_event_type`、`interval` 和 `status`。
 - `message_sent.private` 与 `message_sent.group` 作为独立事件类型进入插件协议，不并入普通 `message.*`。
 - `meta.*` 事件使用系统会话：`conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
+- `bot.identity.changed` 使用 `target.type=bot`、`target.id=<self_id>`，并在 `event.payload.onebot.self_id` 中提供同一身份。
 
 ## Local Action RPC
 
@@ -127,6 +129,8 @@
   - `provider.luckylillia.friend_groups.get`
 
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
+
+`message.send`、`message.reply`、OneBot family actions 与 provider extension actions 需要可用的 OneBot adapter 连接；连接不可用时返回 adapter 类错误，插件进程保持运行。
 
 OneBot 单动作 capability 名称与 action kind 保持一致，provider capability 只包含上面三项正式扩展动作。
 

@@ -128,7 +128,7 @@ export interface EventBody {
 }
 export interface InitFrame extends FrameCommon {
     type: 'init';
-    bot: Bot;
+    bot?: Bot;
     capabilities?: string[];
     command_prefixes: string[];
 }

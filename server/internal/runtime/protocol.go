@@ -16,7 +16,7 @@ type initFrame struct {
 	Timestamp       int64    `json:"timestamp"`
 	PluginID        string   `json:"plugin_id"`
 	RequestID       string   `json:"request_id"`
-	Bot             botFrame `json:"bot"`
+	Bot             *botFrame `json:"bot,omitempty"`
 	Capabilities    []string `json:"capabilities,omitempty"`
 	CommandPrefixes []string `json:"command_prefixes"`
 }

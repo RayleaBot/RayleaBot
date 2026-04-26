@@ -249,15 +249,14 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		}
 
 		if !s.dispatcher.HasDeliverablePlugin(pluginID) && s.runtime != nil {
-			if botID := strings.TrimSpace(s.runtime.CurrentBotID()); botID != "" {
-				if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil && s.logger != nil {
-					s.logger.Warn(
-						"ensure runtime before webhook dispatch failed",
-						"component", "app",
-						"plugin_id", pluginID,
-						"err", err.Error(),
-					)
-				}
+			botID := strings.TrimSpace(s.runtime.CurrentBotID())
+			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil && s.logger != nil {
+				s.logger.Warn(
+					"ensure runtime before webhook dispatch failed",
+					"component", "app",
+					"plugin_id", pluginID,
+					"err", err.Error(),
+				)
 			}
 		}
 

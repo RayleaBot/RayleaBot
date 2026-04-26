@@ -1,0 +1,26 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: init
+    timestamp: 1710000002
+    plugin_id: weather
+    request_id: init_0002
+    capabilities:
+      - event.subscribe
+      - scheduler.create
+    command_prefixes:
+      - /
+      - "!"
+  - protocol_version: "1"
+    type: init_ack
+    timestamp: 1710000003
+    plugin_id: weather
+    request_id: init_0002
+    status: ready
+    subscriptions:
+      - scheduler.trigger
+      - bot.identity.changed
+expect:
+  valid: true
+

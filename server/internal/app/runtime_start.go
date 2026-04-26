@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
@@ -123,11 +122,7 @@ func ensureRuntimeStartedForEvent(
 	cfg config.Config,
 	event adapter.NormalizedEvent,
 ) (plugins.Snapshot, bool, error) {
-	if event.BotID == "" {
-		return plugins.Snapshot{}, false, fmt.Errorf("normalized adapter event is missing bot_id")
-	}
-
-	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, cfg, event.BotID, nil)
+	return ensureRuntimeStartedForBot(ctx, manager, catalog, repoRoot, cfg, strings.TrimSpace(event.BotID), nil)
 }
 
 func ensureRuntimeStartedForBot(
@@ -145,9 +140,7 @@ func ensureRuntimeStartedForBot(
 	if manager.Snapshot().State != runtime.StateStopped {
 		return plugins.Snapshot{}, false, nil
 	}
-	if botID == "" {
-		return plugins.Snapshot{}, false, fmt.Errorf("normalized adapter event is missing bot_id")
-	}
+	botID = strings.TrimSpace(botID)
 
 	snapshot, ok := selectRuntimeStartupPlugin(catalog, grantedCapabilities)
 	if !ok {

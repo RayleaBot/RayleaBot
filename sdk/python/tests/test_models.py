@@ -1,6 +1,8 @@
 import unittest
 
 from rayleabot import (
+    Bot,
+    InitFrame,
     OneBotPayload,
     PassthroughSegment,
     flash_file_segment,
@@ -59,6 +61,29 @@ class ModelHelpersTests(unittest.TestCase):
         self.assertEqual(5000, payload.interval)
         self.assertEqual({"online": True, "good": True}, payload.status)
         self.assertEqual("heartbeat", payload.to_dict()["meta_event_type"])
+
+    def test_init_frame_allows_missing_bot(self):
+        frame = InitFrame(plugin_id="weather", request_id="init-1", bot=None)
+
+        encoded = frame.to_dict()
+        self.assertNotIn("bot", encoded)
+
+        decoded = InitFrame.from_dict({
+            "protocol_version": "1",
+            "type": "init",
+            "timestamp": 1710000000,
+            "plugin_id": "weather",
+            "request_id": "init-1",
+            "command_prefixes": ["/"],
+        })
+        self.assertIsNone(decoded.bot)
+
+    def test_init_frame_preserves_bot_when_present(self):
+        frame = InitFrame(plugin_id="weather", request_id="init-2", bot=Bot(id="10001"))
+
+        encoded = frame.to_dict()
+        self.assertEqual({"id": "10001"}, encoded["bot"])
+        self.assertEqual("10001", InitFrame.from_dict(encoded).bot.id)
 
 
 if __name__ == "__main__":

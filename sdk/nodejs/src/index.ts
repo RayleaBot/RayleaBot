@@ -1483,6 +1483,7 @@ export function createPlugin(): RayleaBotPlugin {
     requestId: string,
   ): Promise<void> {
     const event = frame.event ?? ({} as EventBody);
+    updateBotIdentity(event);
     const command = event.payload?.command;
 
     if (command && commandHandlers.has(command)) {
@@ -1498,6 +1499,15 @@ export function createPlugin(): RayleaBotPlugin {
     }
 
     sendResult(pid, requestId, { handled: false });
+  }
+
+  function updateBotIdentity(event: EventBody): void {
+    if (event.event_type !== 'bot.identity.changed') {
+      return;
+    }
+    const targetId = event.target?.type === 'bot' ? event.target.id : undefined;
+    const selfId = event.payload?.onebot?.self_id;
+    botId = targetId || selfId || botId;
   }
 
   async function requestOneBotAction(

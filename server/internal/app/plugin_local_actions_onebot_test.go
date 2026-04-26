@@ -14,6 +14,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
@@ -169,6 +170,43 @@ func TestExecuteOneBotLocalActionRejectsMissingCapability(t *testing.T) {
 		},
 	})
 	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+}
+
+func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) {
+	t.Parallel()
+
+	application := newTestAppState(config.Config{
+		OneBot: config.OneBotConfig{Provider: "standard"},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"message.history.get"},
+		},
+	}, nil)
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Name:              "Weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+	}})
+	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &adapter.Shell{}, nil, nil)
+
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", runtime.Action{
+		Kind: "message.history.get",
+		RawData: map[string]any{
+			"conversation_type": "group",
+			"conversation_id":   "456",
+		},
+	})
+	assertRuntimeErrorCode(t, err, "adapter.connection_lost")
+
+	snapshot, ok := application.plugins.Get("weather")
+	if !ok {
+		t.Fatal("plugin missing from catalog")
+	}
+	if snapshot.RuntimeState != string(runtime.StateRunning) {
+		t.Fatalf("runtime_state = %q, want running", snapshot.RuntimeState)
+	}
 }
 
 func waitForAdapterState(t *testing.T, shell *adapter.Shell, want adapter.State, timeout time.Duration) {

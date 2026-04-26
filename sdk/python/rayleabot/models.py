@@ -458,7 +458,7 @@ class EventBody:
 class InitFrame:
     plugin_id: str
     request_id: str
-    bot: Bot
+    bot: Bot | None = None
     capabilities: list[str] = field(default_factory=list)
     command_prefixes: list[str] = field(default_factory=lambda: ["/"])
     timestamp: int = field(default_factory=_now)
@@ -470,8 +470,9 @@ class InitFrame:
             "timestamp": self.timestamp,
             "plugin_id": self.plugin_id,
             "request_id": self.request_id,
-            "bot": self.bot.to_dict(),
         }
+        if self.bot is not None:
+            d["bot"] = self.bot.to_dict()
         if self.capabilities:
             d["capabilities"] = self.capabilities
         d["command_prefixes"] = self.command_prefixes or ["/"]
@@ -482,7 +483,7 @@ class InitFrame:
         return cls(
             plugin_id=d["plugin_id"],
             request_id=d["request_id"],
-            bot=Bot.from_dict(d["bot"]),
+            bot=Bot.from_dict(d["bot"]) if "bot" in d else None,
             capabilities=d.get("capabilities", []),
             command_prefixes=d.get("command_prefixes", ["/"]),
             timestamp=d.get("timestamp", _now()),

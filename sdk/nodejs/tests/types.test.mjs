@@ -41,6 +41,7 @@ test('generated declaration files include meta fields and new helpers', async ()
   assert.match(typesText, /meta_event_type\?: string;/);
   assert.match(typesText, /interval\?: number;/);
   assert.match(typesText, /status\?: Record<string, unknown>;/);
+  assert.match(typesText, /bot\?: Bot;/);
 
   assert.match(indexText, /messageForwardGet/);
   assert.match(indexText, /fileGroupFsDelete/);

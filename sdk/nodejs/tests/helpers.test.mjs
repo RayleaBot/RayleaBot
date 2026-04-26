@@ -226,3 +226,93 @@ test('governance helpers reject missing required fields', async () => {
   assert.equal(whitelistError.name, 'Error');
   assert.match(whitelistError.message, /requires enabled/);
 });
+
+test('bot.identity.changed updates botId after init without bot', async () => {
+  const result = await new Promise((resolve, reject) => {
+    const script = `
+      import { createPlugin } from './dist/index.js';
+
+      const plugin = createPlugin();
+      plugin.onEvent('bot.identity.changed', () => {
+        process.stderr.write(JSON.stringify({ botId: plugin.botId }) + '\\n');
+      });
+      await plugin.run();
+    `;
+
+    const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
+      cwd: sdkRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stderrBuffer = '';
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error('timed out waiting for identity event'));
+    }, 3000);
+
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderrBuffer += chunk.toString();
+    });
+
+    child.stdin.write(JSON.stringify({
+      protocol_version: '1',
+      type: 'init',
+      timestamp: Math.floor(Date.now() / 1000),
+      plugin_id: 'helper-plugin',
+      request_id: 'init-1',
+      command_prefixes: ['/'],
+    }) + '\n');
+    child.stdin.write(JSON.stringify({
+      protocol_version: '1',
+      type: 'event',
+      timestamp: Math.floor(Date.now() / 1000),
+      plugin_id: 'helper-plugin',
+      request_id: 'evt-identity-1',
+      event: {
+        event_id: 'identity-1',
+        source_protocol: 'onebot11',
+        source_adapter: 'adapter.onebot11',
+        event_type: 'bot.identity.changed',
+        timestamp: Math.floor(Date.now() / 1000),
+        target: {
+          type: 'bot',
+          id: '10001',
+        },
+        payload: {
+          onebot: {
+            self_id: '10001',
+          },
+        },
+      },
+    }) + '\n');
+    child.stdin.end(JSON.stringify({
+      protocol_version: '1',
+      type: 'shutdown',
+      timestamp: Math.floor(Date.now() / 1000),
+      plugin_id: 'helper-plugin',
+      request_id: 'shutdown-1',
+      reason: 'stop',
+    }) + '\n');
+
+    child.on('exit', (code) => {
+      clearTimeout(timeout);
+      if (code !== 0) {
+        reject(new Error(`child exited with code ${code}: ${stderrBuffer}`));
+        return;
+      }
+      const lines = stderrBuffer.trim().split(/\r?\n/).filter(Boolean);
+      if (lines.length === 0) {
+        reject(new Error('identity handler did not emit botId'));
+        return;
+      }
+      resolve(JSON.parse(lines.at(-1)));
+    });
+  });
+
+  assert.deepEqual(result, { botId: '10001' });
+});

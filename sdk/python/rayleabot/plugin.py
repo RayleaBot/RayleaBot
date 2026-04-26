@@ -731,7 +731,8 @@ class RayleaBotPlugin:
     def _handle_event(self, frame, plugin_id, request_id):
         event = frame.get("event", {})
         event_type = event.get("event_type", "")
-        payload = event.get("payload", {})
+        self._update_bot_identity(event)
+        payload = event.get("payload") or {}
         command = payload.get("command")
 
         # Try command handler first.
@@ -748,6 +749,22 @@ class RayleaBotPlugin:
 
         # No handler matched.
         protocol.send_result(plugin_id, request_id, {"handled": False})
+
+    def _update_bot_identity(self, event):
+        if event.get("event_type") != "bot.identity.changed":
+            return
+
+        target = event.get("target") or {}
+        target_id = target.get("id") if target.get("type") == "bot" else None
+        if target_id:
+            self._bot_id = str(target_id)
+            return
+
+        payload = event.get("payload") or {}
+        onebot = payload.get("onebot") or {}
+        self_id = onebot.get("self_id")
+        if self_id:
+            self._bot_id = str(self_id)
 
     @property
     def command_prefixes(self):

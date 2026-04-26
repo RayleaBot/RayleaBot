@@ -1,0 +1,33 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000040
+    plugin_id: echo
+    request_id: evt_bot_identity_001
+    event:
+      event_id: onebot11-bot-identity-1710000040-999001
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: bot.identity.changed
+      timestamp: 1710000040
+      target:
+        type: bot
+        id: "999001"
+        name: RayleaBot
+      payload:
+        onebot:
+          self_id: "999001"
+          time: 1710000040
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000041
+    plugin_id: echo
+    request_id: evt_bot_identity_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true
+

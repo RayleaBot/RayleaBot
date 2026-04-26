@@ -170,7 +170,6 @@
           "type": "object",
           "required": [
             "type",
-            "bot",
             "command_prefixes"
           ],
           "properties": {
@@ -321,6 +320,7 @@
                     "scheduler.trigger",
                     "config.changed",
                     "webhook.received",
+                    "bot.identity.changed",
                     "message.private",
                     "message.group",
                     "message_sent.private",
@@ -2500,7 +2500,6 @@
         "timestamp",
         "plugin_id",
         "request_id",
-        "bot",
         "command_prefixes"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.init-init-ack.yaml"
@@ -2941,7 +2940,9 @@
   ],
   "x-fixtures": [
     "fixtures/plugin-protocol/ok.init-init-ack.yaml",
+    "fixtures/plugin-protocol/ok.init-without-bot.yaml",
     "fixtures/plugin-protocol/ok.event-result.yaml",
+    "fixtures/plugin-protocol/ok.event-bot-identity-changed.yaml",
     "fixtures/plugin-protocol/ok.event-error.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-segments.yaml",
     "fixtures/plugin-protocol/ok.action-message-send-mixed-segments.yaml",
@@ -3027,5 +3028,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. init conveys the current bot identity, granted capabilities, and sanitized command_prefixes. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. init conveys granted capabilities, sanitized command_prefixes, and the current bot identity when available. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

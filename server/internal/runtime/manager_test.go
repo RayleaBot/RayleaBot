@@ -49,6 +49,32 @@ func TestManagerStartInitAckSuccess(t *testing.T) {
 	}
 }
 
+func TestManagerStartOmitsBotWhenUnavailable(t *testing.T) {
+	t.Parallel()
+
+	recordPath := filepath.Join(t.TempDir(), "frames.jsonl")
+	manager := testManager()
+	spec := helperSpec(t, "success", recordPath)
+	payload := testInitPayload()
+	payload.Bot = BotInfo{}
+
+	if err := manager.Start(context.Background(), spec, payload); err != nil {
+		t.Fatalf("start runtime without bot identity: %v", err)
+	}
+
+	frames := recordedFrames(t, recordPath)
+	if len(frames) == 0 {
+		t.Fatalf("expected recorded init frame")
+	}
+	if _, ok := frames[0]["bot"]; ok {
+		t.Fatalf("init frame should omit bot when identity is unavailable: %#v", frames[0])
+	}
+
+	if err := manager.Stop(context.Background()); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
 func TestManagerStartAllowsInitProgressBeforeReady(t *testing.T) {
 	t.Parallel()
 

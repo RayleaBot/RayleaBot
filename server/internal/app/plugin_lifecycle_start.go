@@ -9,9 +9,10 @@ import (
 )
 
 func (c *pluginLifecycleController) reconcileRuntime(ctx context.Context, botID string) {
-	if c == nil || strings.TrimSpace(botID) == "" {
+	if c == nil || c.plugins == nil {
 		return
 	}
+	botID = strings.TrimSpace(botID)
 
 	for _, snapshot := range c.plugins.List() {
 		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
@@ -52,9 +53,10 @@ func (c *pluginLifecycleController) EnsurePluginRunning(ctx context.Context, plu
 }
 
 func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
-	if c == nil || strings.TrimSpace(botID) == "" {
+	if c == nil {
 		return
 	}
+	botID = strings.TrimSpace(botID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.state.Config.Runtime))
 	defer cancel()
@@ -67,9 +69,10 @@ func (c *pluginLifecycleController) startPluginAsync(pluginID, botID string) {
 }
 
 func (c *pluginLifecycleController) reloadPluginAsync(pluginID, botID string) {
-	if c == nil || strings.TrimSpace(botID) == "" {
+	if c == nil {
 		return
 	}
+	botID = strings.TrimSpace(botID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeInitTimeout(c.state.Config.Runtime))
 	defer cancel()
@@ -120,6 +123,8 @@ func (c *pluginLifecycleController) reloadPluginAsync(pluginID, botID string) {
 	c.runtimes.Replace(pluginID, newManager)
 	newManager.ResetCrashCount()
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+	c.clearBotIdentity(pluginID)
+	c.afterRuntimeRegistered(ctx, pluginID, botID)
 }
 
 func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, botID string, manager *runtime.Manager) error {
@@ -150,6 +155,7 @@ func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, 
 		return err
 	}
 
+	c.clearBotIdentity(pluginID)
 	if err := manager.Start(ctx, spec, payload); err != nil {
 		return err
 	}
@@ -157,6 +163,7 @@ func (c *pluginLifecycleController) startRuntime(ctx context.Context, pluginID, 
 	manager.ResetCrashCount()
 	c.registerRuntime(pluginID, snapshot, manager)
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateRunning))
+	c.afterRuntimeRegistered(ctx, pluginID, botID)
 	return nil
 }
 
@@ -177,12 +184,25 @@ func (c *pluginLifecycleController) buildStartInputsWithCapabilities(pluginID, b
 
 	payload := runtime.InitPayload{
 		Bot: runtime.BotInfo{
-			ID: botID,
+			ID: strings.TrimSpace(botID),
 		},
 		Capabilities:    append([]string(nil), capabilities...),
 		CommandPrefixes: runtimeCommandPrefixes(c.state.Config),
 	}
 	return spec, payload, nil
+}
+
+func (c *pluginLifecycleController) afterRuntimeRegistered(ctx context.Context, pluginID string, initBotID string) {
+	initBotID = strings.TrimSpace(initBotID)
+	currentBotID := c.currentBotID()
+	if initBotID != "" {
+		c.markBotIdentitySent(pluginID, initBotID)
+		if currentBotID != "" && currentBotID != initBotID {
+			c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, currentBotID)
+		}
+		return
+	}
+	c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, currentBotID)
 }
 
 func (c *pluginLifecycleController) registerRuntimeIfNeeded(pluginID string, manager *runtime.Manager) {

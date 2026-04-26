@@ -179,6 +179,83 @@ class PluginHelperTests(unittest.TestCase):
         self.assertEqual(["!", "/"], plugin.command_prefixes)
         self.assertEqual("!", plugin.primary_command_prefix)
 
+    def test_init_without_bot_keeps_empty_bot_id(self):
+        sent = {}
+
+        def fake_send_init_ack(plugin_id, request_id, subscriptions=None):
+            sent.update({
+                "plugin_id": plugin_id,
+                "request_id": request_id,
+                "subscriptions": subscriptions,
+            })
+
+        frames = iter([
+            {
+                "protocol_version": "1",
+                "type": "init",
+                "timestamp": int(time.time()),
+                "plugin_id": "helper-plugin",
+                "request_id": "init-1",
+                "command_prefixes": ["/"],
+            },
+            {
+                "protocol_version": "1",
+                "type": "shutdown",
+                "timestamp": int(time.time()),
+                "plugin_id": "helper-plugin",
+                "request_id": "shutdown-1",
+                "reason": "stop",
+            },
+        ])
+
+        self.protocol.read_frame = lambda: next(frames, None)
+        self.protocol.send_init_ack = fake_send_init_ack
+
+        plugin = self.plugin_module.RayleaBotPlugin()
+        plugin.run()
+
+        self.assertEqual("helper-plugin", sent["plugin_id"])
+        self.assertEqual("", plugin.bot_id)
+
+    def test_bot_identity_changed_updates_bot_id_before_handler(self):
+        plugin = self.plugin_module.RayleaBotPlugin()
+        seen = {}
+
+        @plugin.on_event("bot.identity.changed")
+        def handle_identity(event, request_id):
+            seen["request_id"] = request_id
+            seen["bot_id"] = plugin.bot_id
+            seen["target"] = event["target"]["id"]
+
+        plugin._handle_event(
+            {
+                "event": {
+                    "event_id": "identity-1",
+                    "source_protocol": "onebot11",
+                    "source_adapter": "adapter.onebot11",
+                    "event_type": "bot.identity.changed",
+                    "timestamp": int(time.time()),
+                    "target": {
+                        "type": "bot",
+                        "id": "10001",
+                    },
+                    "payload": {
+                        "onebot": {
+                            "self_id": "10001",
+                        },
+                    },
+                }
+            },
+            "helper-plugin",
+            "evt-identity-1",
+        )
+
+        self.assertEqual({
+            "request_id": "evt-identity-1",
+            "bot_id": "10001",
+            "target": "10001",
+        }, seen)
+
 
 if __name__ == "__main__":
     unittest.main()

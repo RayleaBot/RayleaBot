@@ -75,6 +75,9 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		return err
 	}
+	if a.pluginLifecycle != nil {
+		go a.pluginLifecycle.reconcileRuntime(runCtx, a.pluginLifecycle.currentBotID())
+	}
 	a.adapter.Start(runCtx)
 	a.scheduler.Start(runCtx)
 

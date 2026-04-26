@@ -10,6 +10,7 @@
 - 启动上下文 helper：
   - Python：`bot_id`、`capabilities`、`command_prefixes`、`primary_command_prefix`
   - Node.js：`botId`、`capabilities`、`commandPrefixes`、`primaryCommandPrefix`
+- `bot_id` / `botId` 在协议身份不可用时为空字符串；SDK 收到 `bot.identity.changed` 后更新为当前 bot 身份。
 - 事件接收与结果回传
 - 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`
 - OneBot 单动作 helper：正式 capability 名称与 action kind 一一对应，helper 直接复用同一组动作名

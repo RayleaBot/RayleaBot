@@ -118,7 +118,7 @@ func TestEnsureRuntimeStartedForEventSkipsWhenRuntimeIsAlreadyRunning(t *testing
 	}
 }
 
-func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
+func TestEnsureRuntimeStartedForEventAllowsMissingBotID(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -148,11 +148,14 @@ func TestEnsureRuntimeStartedForEventRequiresBotID(t *testing.T) {
 		config.Config{},
 		adapter.NormalizedEvent{},
 	)
-	if err == nil {
-		t.Fatal("expected missing bot id to fail runtime startup")
+	if err != nil {
+		t.Fatalf("ensure runtime started without bot id: %v", err)
 	}
-	if started {
-		t.Fatal("runtime should not start without a bot id")
+	if !started {
+		t.Fatal("runtime should start without a bot id")
+	}
+	if manager.startedPayload.Bot.ID != "" {
+		t.Fatalf("unexpected bot id: got %q want empty", manager.startedPayload.Bot.ID)
 	}
 }
 

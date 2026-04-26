@@ -75,9 +75,6 @@ func (m *Manager) Snapshot() Snapshot {
 }
 
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
-	if payload.Bot.ID == "" {
-		return errorf(codePlatformInvalidRequest, "init payload bot.id is required", nil)
-	}
 	if len(payload.CommandPrefixes) == 0 {
 		return errorf(codePlatformInvalidRequest, "init payload command_prefixes is required", nil)
 	}
@@ -150,16 +147,21 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		"entry_path", spec.EntryPath,
 	)
 
+	var bot *botFrame
+	if payload.Bot.ID != "" {
+		bot = &botFrame{
+			ID:       payload.Bot.ID,
+			Nickname: payload.Bot.Nickname,
+		}
+	}
+
 	if err := handle.writeJSONLine(initFrame{
 		ProtocolVersion: "1",
 		Type:            "init",
 		Timestamp:       m.deps.now().Unix(),
 		PluginID:        spec.PluginID,
 		RequestID:       requestID,
-		Bot: botFrame{
-			ID:       payload.Bot.ID,
-			Nickname: payload.Bot.Nickname,
-		},
+		Bot:             bot,
 		Capabilities:    append([]string(nil), payload.Capabilities...),
 		CommandPrefixes: append([]string(nil), payload.CommandPrefixes...),
 	}); err != nil {

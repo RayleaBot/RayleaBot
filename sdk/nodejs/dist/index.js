@@ -500,6 +500,7 @@ export function createPlugin() {
     }
     async function handleEvent(frame, pid, requestId) {
         const event = frame.event ?? {};
+        updateBotIdentity(event);
         const command = event.payload?.command;
         if (command && commandHandlers.has(command)) {
             await commandHandlers.get(command)(event, requestId);
@@ -512,6 +513,14 @@ export function createPlugin() {
             }
         }
         sendResult(pid, requestId, { handled: false });
+    }
+    function updateBotIdentity(event) {
+        if (event.event_type !== 'bot.identity.changed') {
+            return;
+        }
+        const targetId = event.target?.type === 'bot' ? event.target.id : undefined;
+        const selfId = event.payload?.onebot?.self_id;
+        botId = targetId || selfId || botId;
     }
     async function requestOneBotAction(requestId, action, data, options = {}) {
         const { timeoutMs = 30000 } = options;

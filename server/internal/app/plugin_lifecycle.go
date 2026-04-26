@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
@@ -27,6 +28,9 @@ type pluginLifecycleController struct {
 	adapter          *adapter.Shell
 	webhooks         *pluginwebhook.Registry
 	onRecoveryChange func(string)
+
+	identityMu       sync.Mutex
+	identityByPlugin map[string]string
 }
 
 func newPluginLifecycleController(deps pluginLifecycleDeps) *pluginLifecycleController {
@@ -91,12 +95,10 @@ func (c *pluginLifecycleController) Enable(ctx context.Context, pluginID string)
 		return plugins.Snapshot{}, err
 	}
 
-	if botID := c.currentBotID(); botID != "" {
-		if runtimeSnapshot, runtimeErr := c.plugins.SetRuntimeState(updated.PluginID, string(runtime.StateStarting)); runtimeErr == nil {
-			updated = runtimeSnapshot
-		}
-		go c.startPluginAsync(updated.PluginID, botID)
+	if runtimeSnapshot, runtimeErr := c.plugins.SetRuntimeState(updated.PluginID, string(runtime.StateStarting)); runtimeErr == nil {
+		updated = runtimeSnapshot
 	}
+	go c.startPluginAsync(updated.PluginID, c.currentBotID())
 	c.reconcileRecoverySummaryBestEffort("plugin.enable")
 
 	return updated, nil
@@ -125,14 +127,7 @@ func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string)
 		updated = snapshot
 	}
 
-	botID := c.currentBotID()
-	if botID == "" {
-		go c.stopPluginAsync(pluginID, true)
-		c.reconcileRecoverySummaryBestEffort("plugin.reload")
-		return updated, nil
-	}
-
-	go c.reloadPluginAsync(pluginID, botID)
+	go c.reloadPluginAsync(pluginID, c.currentBotID())
 	c.reconcileRecoverySummaryBestEffort("plugin.reload")
 	return updated, nil
 }
@@ -185,14 +180,18 @@ func (c *pluginLifecycleController) HandleAdapterReady(ctx context.Context) {
 	if c == nil {
 		return
 	}
-	c.reconcileRuntime(ctx, c.currentBotID())
+	botID := c.currentBotID()
+	c.reconcileRuntime(ctx, botID)
+	c.broadcastBotIdentityChanged(ctx, botID)
 }
 
 func (c *pluginLifecycleController) HandleAdapterEvent(ctx context.Context, event adapter.NormalizedEvent) {
 	if c == nil {
 		return
 	}
-	c.reconcileRuntime(ctx, strings.TrimSpace(event.BotID))
+	botID := strings.TrimSpace(event.BotID)
+	c.reconcileRuntime(ctx, botID)
+	c.broadcastBotIdentityChanged(ctx, botID)
 }
 
 func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, job scheduler.Job) {
@@ -216,18 +215,7 @@ func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, 
 		return
 	}
 
-	botID := c.currentBotID()
-	if botID == "" {
-		c.state.Logger.Warn(
-			"scheduler trigger skipped because adapter bot identity is unavailable",
-			"component", "app",
-			"plugin_id", pluginID,
-			"job_id", job.JobID,
-		)
-		return
-	}
-
-	if err := c.ensurePluginRunning(ctx, pluginID, botID); err != nil {
+	if err := c.ensurePluginRunning(ctx, pluginID, c.currentBotID()); err != nil {
 		c.logLifecycleWarn("ensure runtime before scheduler trigger", pluginID, err)
 		return
 	}
@@ -248,5 +236,80 @@ func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, 
 			"outcome", string(result.Outcome),
 			"error_code", result.ErrorCode,
 		)
+	}
+}
+
+func (c *pluginLifecycleController) broadcastBotIdentityChanged(ctx context.Context, botID string) {
+	if c == nil || c.dispatcher == nil {
+		return
+	}
+	botID = strings.TrimSpace(botID)
+	if botID == "" {
+		return
+	}
+	for _, pluginID := range c.dispatcher.PluginIDs() {
+		c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, botID)
+	}
+}
+
+func (c *pluginLifecycleController) dispatchBotIdentityChangedToPlugin(ctx context.Context, pluginID string, botID string) {
+	if c == nil || c.dispatcher == nil {
+		return
+	}
+	pluginID = strings.TrimSpace(pluginID)
+	botID = strings.TrimSpace(botID)
+	if pluginID == "" || botID == "" {
+		return
+	}
+	if c.botIdentityAlreadySent(pluginID, botID) {
+		return
+	}
+
+	now := time.Now()
+	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, runtime.Event{
+		EventID:        fmt.Sprintf("onebot11-bot-identity-%d-%s", now.UnixNano(), botID),
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "adapter.onebot11",
+		EventType:      "bot.identity.changed",
+		Timestamp:      now.Unix(),
+		Target: &runtime.EventTarget{
+			Type: "bot",
+			ID:   botID,
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"self_id": botID,
+				"time":    now.Unix(),
+			},
+		},
+	})
+	if result.Outcome == dispatch.OutcomeDelivered {
+		c.markBotIdentitySent(pluginID, botID)
+	}
+}
+
+func (c *pluginLifecycleController) botIdentityAlreadySent(pluginID string, botID string) bool {
+	c.identityMu.Lock()
+	defer c.identityMu.Unlock()
+	return c.identityByPlugin != nil && c.identityByPlugin[pluginID] == botID
+}
+
+func (c *pluginLifecycleController) markBotIdentitySent(pluginID string, botID string) {
+	c.identityMu.Lock()
+	defer c.identityMu.Unlock()
+	if c.identityByPlugin == nil {
+		c.identityByPlugin = make(map[string]string)
+	}
+	c.identityByPlugin[pluginID] = botID
+}
+
+func (c *pluginLifecycleController) clearBotIdentity(pluginID string) {
+	if c == nil {
+		return
+	}
+	c.identityMu.Lock()
+	defer c.identityMu.Unlock()
+	if c.identityByPlugin != nil {
+		delete(c.identityByPlugin, pluginID)
 	}
 }
