@@ -170,15 +170,20 @@ describe('RenderTemplatesView', () => {
     expect(wrapper.text()).toContain('模板预览')
     expect(wrapper.text()).toContain('help.menu')
     expect(wrapper.text()).toContain('输入结构')
+    expect(wrapper.text()).not.toContain('主题')
+    expect(wrapper.text()).not.toContain('输出格式')
     expect(wrapper.text()).not.toContain('源码编辑')
     expect(wrapper.text()).not.toContain('版本历史')
     expect(wrapper.text()).not.toContain('执行校验')
     expect(wrapper.text()).not.toContain('保存模板')
     expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
-    expect(systemStore.previewRender).toHaveBeenCalledWith(expect.objectContaining({
+    const previewPayload = vi.mocked(systemStore.previewRender).mock.calls[0]![0]
+    expect(previewPayload).toEqual({
       template: 'help.menu',
-      output: 'png',
-    }))
+      data: JSON.parse(HELP_MENU_DEFAULT_PREVIEW_DATA),
+    })
+    expect(previewPayload).not.toHaveProperty('theme')
+    expect(previewPayload).not.toHaveProperty('output')
     expect(systemStore.previewRender).not.toHaveBeenCalledWith(expect.objectContaining({
       draft: expect.anything(),
     }))

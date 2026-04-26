@@ -29,8 +29,6 @@ const { detailById, error, items, loading, workspaceLoading } = storeToRefs(rend
 const hasRequestedList = ref(false)
 const pageActive = ref(true)
 const previewDataByTemplate = ref<Record<string, string>>({})
-const previewThemeByTemplate = ref<Record<string, string>>({})
-const previewOutputByTemplate = ref<Record<string, 'png' | 'jpeg'>>({})
 const previewTaskIdByTemplate = ref<Record<string, string>>({})
 const previewRequestErrorByTemplate = ref<Record<string, string>>({})
 const previewRequestErrorKeyByTemplate = ref<Record<string, string>>({})
@@ -38,6 +36,7 @@ const desiredPreviewKeyByTemplate = ref<Record<string, string>>({})
 const lastSubmittedPreviewKeyByTemplate = ref<Record<string, string>>({})
 const pendingPreviewKeysByTemplate = ref<Record<string, string[]>>({})
 const previewImageSrc = ref('')
+const imageModalVisible = ref(false)
 
 let autoPreviewHandle: number | null = null
 let previewImageLoadVersion = 0
@@ -55,42 +54,6 @@ const activeTemplateId = computed(() => (
 const currentTemplate = computed(() => (
   activeTemplateId.value ? detailById.value[activeTemplateId.value] ?? null : null
 ))
-
-const currentPreviewTheme = computed({
-  get() {
-    if (!activeTemplateId.value) {
-      return 'default'
-    }
-    return previewThemeByTemplate.value[activeTemplateId.value] ?? 'default'
-  },
-  set(value: string) {
-    if (!activeTemplateId.value) {
-      return
-    }
-    previewThemeByTemplate.value = {
-      ...previewThemeByTemplate.value,
-      [activeTemplateId.value]: value,
-    }
-  },
-})
-
-const currentPreviewOutput = computed({
-  get() {
-    if (!activeTemplateId.value) {
-      return 'png'
-    }
-    return previewOutputByTemplate.value[activeTemplateId.value] ?? 'png'
-  },
-  set(value: 'png' | 'jpeg') {
-    if (!activeTemplateId.value) {
-      return
-    }
-    previewOutputByTemplate.value = {
-      ...previewOutputByTemplate.value,
-      [activeTemplateId.value]: value,
-    }
-  },
-})
 
 const currentPreviewDataText = computed({
   get() {
@@ -129,6 +92,7 @@ const currentPreviewPending = computed(() => (
 
 const previewParseResult = computed(() => parseRenderTemplatePreviewData(currentPreviewDataText.value))
 const schemaNodes = computed(() => buildRenderTemplateSchemaNodes(currentTemplate.value?.input_schema_json ?? null))
+const displaySchemaNodes = computed(() => schemaNodes.value.filter((node) => node.depth > 0))
 
 const previewRequestKey = computed(() => {
   if (!activeTemplateId.value || !currentTemplate.value || !previewParseResult.value.data) {
@@ -138,8 +102,6 @@ const previewRequestKey = computed(() => {
   return JSON.stringify({
     template: activeTemplateId.value,
     updated_at: currentTemplate.value.updated_at,
-    theme: currentPreviewTheme.value.trim() || 'default',
-    output: currentPreviewOutput.value,
     data: previewParseResult.value.data,
   })
 })
@@ -205,20 +167,6 @@ function ensurePreviewDefaults(templateId: string) {
     previewDataByTemplate.value = {
       ...previewDataByTemplate.value,
       [templateId]: buildDefaultPreviewData(templateId),
-    }
-  }
-
-  if (!previewThemeByTemplate.value[templateId]) {
-    previewThemeByTemplate.value = {
-      ...previewThemeByTemplate.value,
-      [templateId]: 'default',
-    }
-  }
-
-  if (!previewOutputByTemplate.value[templateId]) {
-    previewOutputByTemplate.value = {
-      ...previewOutputByTemplate.value,
-      [templateId]: 'png',
     }
   }
 }
@@ -383,8 +331,6 @@ async function submitPreview(templateId: string, requestKey: string) {
 
   const payload: RenderPreviewRequest = {
     template: templateId,
-    theme: currentPreviewTheme.value.trim() || undefined,
-    output: currentPreviewOutput.value,
     data: previewParseResult.value.data,
   }
 
@@ -445,6 +391,13 @@ function scheduleAutoPreview() {
   }, 500)
 }
 
+function openImageModal() {
+  if (!previewImageSrc.value) {
+    return
+  }
+  imageModalVisible.value = true
+}
+
 watch([items, isActiveTemplateRoute, () => route.params.templateId], () => {
   void syncRouteTemplate()
 }, { immediate: true })
@@ -466,8 +419,6 @@ watch(activeTemplateId, (templateId) => {
 watch(() => [
   activeTemplateId.value,
   currentTemplate.value?.updated_at ?? '',
-  currentPreviewTheme.value,
-  currentPreviewOutput.value,
   currentPreviewDataText.value,
   isActiveTemplateRoute.value,
   pageActive.value,
@@ -611,150 +562,178 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="render-templates-layout__main">
-        <AppCard :title="t('renderTemplates.summaryTitle')" borderless class="render-templates-card" size="small">
-          <template #extra>
-            <span class="render-templates-card__meta">{{ t('renderTemplates.summaryHint') }}</span>
-          </template>
-          <a-skeleton :loading="workspaceLoading && !currentTemplate" active :paragraph="{ rows: 4 }">
-            <div v-if="currentTemplate" class="summary-grid">
-              <div class="summary-item">
-                <span>{{ t('renderTemplates.fields.id') }}</span>
-                <strong>{{ currentTemplate.id }}</strong>
-              </div>
-              <div class="summary-item">
-                <span>{{ t('renderTemplates.fields.version') }}</span>
-                <strong>{{ currentTemplate.version }}</strong>
-              </div>
-              <div class="summary-item">
-                <span>{{ t('renderTemplates.fields.size') }}</span>
-                <strong>{{ formatTemplateSize(currentTemplate.width, currentTemplate.height) }}</strong>
-              </div>
-              <div class="summary-item">
-                <span>{{ t('renderTemplates.fields.hasInputSchema') }}</span>
-                <strong>{{ currentTemplate.has_input_schema ? t('renderTemplates.required.yes') : t('renderTemplates.required.no') }}</strong>
-              </div>
-              <div class="summary-item summary-item--full">
-                <span>{{ t('renderTemplates.fields.updatedAt') }}</span>
-                <strong>{{ formatDateTime(currentTemplate.updated_at) }}</strong>
-              </div>
-            </div>
-          </a-skeleton>
-        </AppCard>
+        <a-skeleton
+          v-if="workspaceLoading && !currentTemplate"
+          active
+          :paragraph="{ rows: 1 }"
+          class="template-info-bar-skeleton"
+        />
+        <div v-else-if="currentTemplate" class="template-info-bar">
+          <div class="template-info-bar__item">
+            <span>{{ t('renderTemplates.fields.id') }}</span>
+            <strong>{{ currentTemplate.id }}</strong>
+          </div>
+          <div class="template-info-bar__item">
+            <span>{{ t('renderTemplates.fields.version') }}</span>
+            <strong>{{ currentTemplate.version }}</strong>
+          </div>
+          <div class="template-info-bar__item">
+            <span>{{ t('renderTemplates.fields.size') }}</span>
+            <strong>{{ formatTemplateSize(currentTemplate.width, currentTemplate.height) }}</strong>
+          </div>
+          <div class="template-info-bar__item">
+            <span>{{ t('renderTemplates.fields.updatedAt') }}</span>
+            <strong>{{ formatDateTime(currentTemplate.updated_at) }}</strong>
+          </div>
+        </div>
 
-        <AppCard :title="t('renderTemplates.schemaPreviewTitle')" borderless class="render-templates-card" size="small">
-          <template #extra>
-            <span class="render-templates-card__meta">{{ t('renderTemplates.schemaPreviewHint') }}</span>
-          </template>
-          <a-skeleton :loading="workspaceLoading && !currentTemplate" active :paragraph="{ rows: 5 }">
-            <div v-if="schemaNodes.length > 0" class="schema-list">
-              <section
-                v-for="node in schemaNodes"
-                :key="node.key"
-                class="schema-item"
-                :style="{ '--schema-depth': String(node.depth) }"
-              >
-                <div class="schema-item__header">
-                  <div class="schema-item__title">
-                    <strong>{{ node.label }}</strong>
-                    <code>{{ node.path || '$root' }}</code>
-                  </div>
-                  <div class="schema-item__badges">
-                    <a-tag size="small">{{ node.type }}</a-tag>
-                    <a-tag size="small" :color="node.required ? 'red' : 'default'">
-                      {{ node.required ? t('renderTemplates.required.yes') : t('renderTemplates.required.no') }}
-                    </a-tag>
+        <div class="render-templates-workspace">
+          <div class="render-templates-workspace__col">
+            <AppCard :title="t('renderTemplates.previewData')" borderless size="small">
+              <a-form layout="vertical" class="preview-form">
+                <a-form-item :label="t('renderTemplates.previewData')">
+                  <a-textarea
+                    v-model:value="currentPreviewDataText"
+                    :rows="10"
+                    :aria-label="t('renderTemplates.previewData')"
+                    :placeholder="t('renderTemplates.previewDataPlaceholder')"
+                  />
+                </a-form-item>
+              </a-form>
+            </AppCard>
+
+            <AppCard :title="t('renderTemplates.schemaPreviewTitle')" borderless size="small">
+              <template #extra>
+                <span class="render-templates-card__meta">{{ t('renderTemplates.schemaPreviewHint') }}</span>
+              </template>
+              <a-skeleton :loading="workspaceLoading && !currentTemplate" active :paragraph="{ rows: 5 }">
+                <div v-if="displaySchemaNodes.length > 0" class="schema-tree">
+                  <div
+                    v-for="node in displaySchemaNodes"
+                    :key="node.key"
+                    class="schema-tree-row"
+                    :style="{ '--schema-depth': String(node.depth) }"
+                  >
+                    <div class="schema-tree-row__content">
+                      <div class="schema-tree-row__header">
+                        <span class="schema-tree-row__name">{{ node.label }}</span>
+                        <span class="schema-tree-row__type">{{ node.type }}</span>
+                        <span v-if="node.required" class="schema-tree-row__required">{{ t('renderTemplates.required.yes') }}</span>
+                      </div>
+                      <div v-if="node.description" class="schema-tree-row__desc">{{ node.description }}</div>
+                    </div>
                   </div>
                 </div>
-                <p>{{ node.description || t('display.empty') }}</p>
-              </section>
-            </div>
-            <a-empty v-else :description="t('renderTemplates.schemaPreviewEmpty')" />
-          </a-skeleton>
-        </AppCard>
-
-        <AppCard :title="t('renderTemplates.previewTitle')" borderless class="render-templates-card render-templates-card--preview" size="small">
-          <template #extra>
-            <span class="render-templates-card__meta">{{ t('renderTemplates.previewHint') }}</span>
-          </template>
-
-          <a-form layout="vertical" class="preview-form">
-            <div class="preview-form__row">
-              <a-form-item :label="t('renderTemplates.previewTheme')">
-                <a-input v-model:value="currentPreviewTheme" :aria-label="t('renderTemplates.previewTheme')" />
-              </a-form-item>
-              <a-form-item :label="t('renderTemplates.previewOutput')">
-                <a-radio-group v-model:value="currentPreviewOutput" button-style="solid">
-                  <a-radio-button value="png">png</a-radio-button>
-                  <a-radio-button value="jpeg">jpeg</a-radio-button>
-                </a-radio-group>
-              </a-form-item>
-            </div>
-            <a-form-item :label="t('renderTemplates.previewData')">
-              <a-textarea
-                v-model:value="currentPreviewDataText"
-                :rows="8"
-                :aria-label="t('renderTemplates.previewData')"
-                :placeholder="t('renderTemplates.previewDataPlaceholder')"
-              />
-            </a-form-item>
-          </a-form>
-
-          <div v-if="currentPreviewTask || previewImageSrc || currentPreviewRequestError || currentPreviewPending" class="preview-result" data-testid="render-template-preview-result">
-            <div class="preview-result__meta">
-              <div class="summary-item">
-                <span>{{ t('renderTemplates.previewTask') }}</span>
-                <strong>{{ currentPreviewTask?.task_id || t('display.empty') }}</strong>
-              </div>
-              <div class="summary-item">
-                <span>{{ t('tasks.fields.status') }}</span>
-                <strong>{{ currentPreviewPending ? t('renderTemplates.previewPending') : currentPreviewTask ? getTaskStatusLabel(currentPreviewTask.status) : t('display.empty') }}</strong>
-              </div>
-              <div class="summary-item">
-                <span>{{ t('renderTemplates.previewArtifact') }}</span>
-                <strong>{{ currentPreviewTask?.result?.details?.artifact_id || t('display.empty') }}</strong>
-              </div>
-              <div class="summary-item">
-                <span>{{ t('renderTemplates.previewCache') }}</span>
-                <strong>{{ currentPreviewTask?.result?.details?.from_cache ? t('renderTemplates.previewFromCache') : t('renderTemplates.previewFresh') }}</strong>
-              </div>
-            </div>
-
-            <a-alert
-              v-if="currentPreviewRequestError"
-              type="error"
-              show-icon
-              :message="t('errors.common.actionFailed')"
-              :description="currentPreviewRequestError"
-            />
-
-            <a-alert
-              v-if="currentPreviewTask?.error"
-              type="error"
-              show-icon
-              :message="currentPreviewTask.error.code"
-              :description="currentPreviewTask.error.message"
-            />
-
-            <img
-              v-if="previewImageSrc"
-              :src="previewImageSrc"
-              :alt="t('renderTemplates.previewImageAlt')"
-              class="preview-result__image"
-            />
-
-            <RouterLink
-              v-if="currentPreviewTask"
-              class="preview-result__link"
-              :to="{ name: 'tasks', query: { task_id: currentPreviewTask.task_id } }"
-            >
-              {{ t('renderTemplates.previewTaskDetail') }}
-            </RouterLink>
+                <a-empty v-else :description="t('renderTemplates.schemaPreviewEmpty')" />
+              </a-skeleton>
+            </AppCard>
           </div>
 
-          <a-empty v-else :description="previewEmptyDescription" />
-        </AppCard>
+          <div class="render-templates-workspace__col render-templates-workspace__col--preview">
+            <AppCard
+              :title="t('renderTemplates.previewTitle')"
+              borderless
+              size="small"
+              class="render-templates-card--preview"
+            >
+              <template #extra>
+                <span class="render-templates-card__meta">{{ t('renderTemplates.previewHint') }}</span>
+              </template>
+
+              <div class="preview-pane">
+                <div
+                  v-if="currentPreviewTask || previewImageSrc || currentPreviewRequestError || currentPreviewPending"
+                  class="preview-result"
+                  data-testid="render-template-preview-result"
+                >
+                  <div class="preview-result__status-bar">
+                    <span class="status-pill">
+                      <span>{{ t('renderTemplates.previewTask') }}</span>
+                      <strong>{{ currentPreviewTask?.task_id || t('display.empty') }}</strong>
+                    </span>
+                    <span class="status-pill">
+                      <span>{{ t('tasks.fields.status') }}</span>
+                      <strong>
+                        {{ currentPreviewPending
+                          ? t('renderTemplates.previewPending')
+                          : currentPreviewTask
+                            ? getTaskStatusLabel(currentPreviewTask.status)
+                            : t('display.empty') }}
+                      </strong>
+                    </span>
+                    <span class="status-pill">
+                      <span>{{ t('renderTemplates.previewArtifact') }}</span>
+                      <strong>{{ currentPreviewTask?.result?.details?.artifact_id || t('display.empty') }}</strong>
+                    </span>
+                    <span class="status-pill">
+                      <span>{{ t('renderTemplates.previewCache') }}</span>
+                      <strong>{{ currentPreviewTask?.result?.details?.from_cache ? t('renderTemplates.previewFromCache') : t('renderTemplates.previewFresh') }}</strong>
+                    </span>
+                  </div>
+
+                  <a-alert
+                    v-if="currentPreviewRequestError"
+                    type="error"
+                    show-icon
+                    :message="t('errors.common.actionFailed')"
+                    :description="currentPreviewRequestError"
+                  />
+
+                  <a-alert
+                    v-if="currentPreviewTask?.error"
+                    type="error"
+                    show-icon
+                    :message="currentPreviewTask.error.code"
+                    :description="currentPreviewTask.error.message"
+                  />
+
+                  <div
+                    v-if="previewImageSrc"
+                    class="preview-result__image-wrap"
+                    :title="t('renderTemplates.previewZoomHint')"
+                    @click="openImageModal"
+                  >
+                    <img
+                      :src="previewImageSrc"
+                      :alt="t('renderTemplates.previewImageAlt')"
+                      class="preview-result__image"
+                    />
+                    <div class="preview-result__zoom-hint">
+                      {{ t('renderTemplates.previewZoomHint') }}
+                    </div>
+                  </div>
+
+                  <RouterLink
+                    v-if="currentPreviewTask"
+                    class="preview-result__link"
+                    :to="{ name: 'tasks', query: { task_id: currentPreviewTask.task_id } }"
+                  >
+                    {{ t('renderTemplates.previewTaskDetail') }}
+                  </RouterLink>
+                </div>
+
+                <a-empty v-else :description="previewEmptyDescription" />
+              </div>
+            </AppCard>
+          </div>
+        </div>
       </div>
     </div>
+
+    <a-modal
+      v-model:open="imageModalVisible"
+      :footer="null"
+      :closable="true"
+      width="auto"
+      wrap-class-name="preview-image-modal"
+      @cancel="imageModalVisible = false"
+    >
+      <img
+        :src="previewImageSrc"
+        :alt="t('renderTemplates.previewImageAlt')"
+        style="display: block; max-width: 90vw; max-height: 85vh; object-fit: contain;"
+      />
+    </a-modal>
   </AppPage>
 </template>
 
@@ -837,20 +816,27 @@ onBeforeUnmount(() => {
   font-size: 0.82rem;
 }
 
-.summary-grid,
-.preview-result__meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.template-info-bar-skeleton :deep(.ant-skeleton-title) {
+  margin: 0;
+  height: 48px;
+  border-radius: var(--radius-lg);
 }
 
-.summary-item {
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-  border-radius: var(--radius-md);
+.template-info-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--app-border);
-  background: color-mix(in srgb, var(--surface-soft) 88%, white 12%);
+  background: color-mix(in srgb, var(--surface-soft) 92%, white 8%);
+}
+
+.template-info-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
 
   span {
     color: var(--app-text-secondary);
@@ -858,55 +844,93 @@ onBeforeUnmount(() => {
   }
 
   strong {
-    font-size: 0.92rem;
-    line-height: 1.45;
+    font-weight: 600;
     word-break: break-word;
   }
 }
 
-.summary-item--full {
-  grid-column: 1 / -1;
+.render-templates-workspace {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1.2fr);
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.schema-list,
+.render-templates-workspace__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.render-templates-workspace__col--preview {
+  min-height: 0;
+}
+
 .preview-result {
   display: grid;
   gap: 12px;
 }
 
-.schema-item {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--app-border);
-  background: color-mix(in srgb, var(--surface-soft) 92%, white 8%);
-  margin-left: calc(var(--schema-depth) * 12px);
-
-  p {
-    margin: 0;
-    color: var(--app-text-secondary);
-    line-height: 1.5;
-  }
+.schema-tree {
+  display: flex;
+  flex-direction: column;
 }
 
-.schema-item__header,
-.schema-item__title,
-.schema-item__badges {
+.schema-tree-row {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
+  padding: 7px 0;
+  padding-left: calc((var(--schema-depth) - 1) * 16px);
+  border-bottom: 1px solid color-mix(in srgb, var(--app-border) 40%, transparent);
+}
+
+.schema-tree-row:last-child {
+  border-bottom: none;
+}
+
+.schema-tree-row__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.schema-tree-row__header {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.schema-item__title {
-  justify-content: flex-start;
+.schema-tree-row__name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
 
-  code {
-    color: var(--app-text-secondary);
-    font-size: 0.8rem;
-  }
+.schema-tree-row__type {
+  font-size: 0.75rem;
+  color: var(--app-text-secondary);
+  background: color-mix(in srgb, var(--surface-soft) 80%, white 20%);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--app-border) 50%, transparent);
+}
+
+.schema-tree-row__required {
+  font-size: 0.75rem;
+  color: #ff4d4f;
+  font-weight: 500;
+}
+
+.schema-tree-row__desc {
+  font-size: 0.8rem;
+  color: var(--app-text-secondary);
+  line-height: 1.4;
 }
 
 .render-templates-card--preview :deep(.ant-card-body) {
@@ -919,23 +943,82 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.preview-form__row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: flex-end;
-}
-
 .preview-form :deep(.ant-form-item) {
   margin-bottom: 0;
+}
+
+.preview-pane {
+  display: grid;
+  gap: 12px;
+}
+
+.preview-result__status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--surface-soft) 88%, white 12%);
+  font-size: 0.82rem;
+
+  span {
+    color: var(--app-text-secondary);
+  }
+
+  strong {
+    font-weight: 600;
+    word-break: break-word;
+  }
+}
+
+.preview-result__image-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--app-border);
+  background: var(--surface-soft);
+  cursor: zoom-in;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.preview-result__image-wrap:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
 }
 
 .preview-result__image {
   display: block;
   width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--app-border);
-  background: var(--surface-soft);
+}
+
+.preview-result__zoom-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  user-select: none;
+}
+
+.preview-result__image-wrap:hover .preview-result__zoom-hint {
+  opacity: 1;
 }
 
 .preview-result__link {
@@ -949,11 +1032,17 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 768px) {
-  .summary-grid,
-  .preview-result__meta,
-  .preview-form__row {
+@media (max-width: 900px) {
+  .render-templates-workspace {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .template-info-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
 }
 </style>
