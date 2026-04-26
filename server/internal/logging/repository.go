@@ -15,9 +15,11 @@ import (
 
 type Query struct {
 	Level     string
+	Levels    []string
 	Source    string
 	Protocol  string
 	PluginID  string
+	PluginIDs []string
 	RequestID string
 	BootID    string
 	StartAt   string
@@ -34,9 +36,11 @@ const (
 
 type PageQuery struct {
 	Level     string
+	Levels    []string
 	Source    string
 	Protocol  string
 	PluginID  string
+	PluginIDs []string
 	RequestID string
 	BootID    string
 	StartAt   string
@@ -120,9 +124,11 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 
 	clauses, args, err := buildLogFilterClauses(filterSpec{
 		Level:     query.Level,
+		Levels:    query.Levels,
 		Source:    query.Source,
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
+		PluginIDs: query.PluginIDs,
 		RequestID: query.RequestID,
 		BootID:    query.BootID,
 		StartAt:   query.StartAt,
@@ -190,9 +196,11 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 
 	clauses, args, err := buildLogFilterClauses(filterSpec{
 		Level:     query.Level,
+		Levels:    query.Levels,
 		Source:    query.Source,
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
+		PluginIDs: query.PluginIDs,
 		RequestID: query.RequestID,
 		BootID:    query.BootID,
 		StartAt:   query.StartAt,
@@ -282,9 +290,11 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 
 	hasOlder, err := r.hasRows(ctx, filterSpec{
 		Level:     query.Level,
+		Levels:    query.Levels,
 		Source:    query.Source,
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
+		PluginIDs: query.PluginIDs,
 		RequestID: query.RequestID,
 		BootID:    query.BootID,
 		StartAt:   query.StartAt,
@@ -295,9 +305,11 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 	}
 	hasNewer, err := r.hasRows(ctx, filterSpec{
 		Level:     query.Level,
+		Levels:    query.Levels,
 		Source:    query.Source,
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
+		PluginIDs: query.PluginIDs,
 		RequestID: query.RequestID,
 		BootID:    query.BootID,
 		StartAt:   query.StartAt,
@@ -389,9 +401,11 @@ func (r *SQLiteRepository) PruneOlderThan(ctx context.Context, cutoff time.Time)
 
 type filterSpec struct {
 	Level     string
+	Levels    []string
 	Source    string
 	Protocol  string
 	PluginID  string
+	PluginIDs []string
 	RequestID string
 	BootID    string
 	StartAt   string
@@ -428,9 +442,8 @@ const logTimestampExpr = "julianday(ts)"
 func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 	clauses := []string{"1 = 1"}
 	args := make([]any, 0, 8)
-	if spec.Level != "" {
-		clauses = append(clauses, "level = ?")
-		args = append(args, strings.ToLower(strings.TrimSpace(spec.Level)))
+	if levels := normalizeFilterValues(spec.Level, spec.Levels, true); len(levels) > 0 {
+		clauses, args = appendStringSetClause(clauses, args, "level", levels)
 	}
 	if spec.Source != "" {
 		clauses = append(clauses, "source = ?")
@@ -448,9 +461,8 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 		}
 		clauses = append(clauses, "source IN ("+strings.Join(placeholders, ", ")+")")
 	}
-	if spec.PluginID != "" {
-		clauses = append(clauses, "plugin_id = ?")
-		args = append(args, strings.TrimSpace(spec.PluginID))
+	if pluginIDs := normalizeFilterValues(spec.PluginID, spec.PluginIDs, false); len(pluginIDs) > 0 {
+		clauses, args = appendStringSetClause(clauses, args, "plugin_id", pluginIDs)
 	}
 	if spec.RequestID != "" {
 		clauses = append(clauses, "request_id = ?")
@@ -469,6 +481,42 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 		args = append(args, strings.TrimSpace(spec.EndAt))
 	}
 	return clauses, args, nil
+}
+
+func normalizeFilterValues(single string, values []string, lower bool) []string {
+	normalized := make([]string, 0, len(values)+1)
+	seen := make(map[string]struct{}, len(values)+1)
+	for _, value := range append([]string{single}, values...) {
+		item := strings.TrimSpace(value)
+		if lower {
+			item = strings.ToLower(item)
+		}
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		normalized = append(normalized, item)
+	}
+	return normalized
+}
+
+func appendStringSetClause(clauses []string, args []any, column string, values []string) ([]string, []any) {
+	if len(values) == 1 {
+		clauses = append(clauses, column+" = ?")
+		args = append(args, values[0])
+		return clauses, args
+	}
+
+	placeholders := make([]string, 0, len(values))
+	for _, value := range values {
+		placeholders = append(placeholders, "?")
+		args = append(args, value)
+	}
+	clauses = append(clauses, column+" IN ("+strings.Join(placeholders, ", ")+")")
+	return clauses, args
 }
 
 func scanPagedSummary(scanner interface{ Scan(...any) error }) (pagedSummary, error) {

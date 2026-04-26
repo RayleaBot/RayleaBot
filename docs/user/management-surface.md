@@ -47,7 +47,7 @@
 - 权限策略承担治理总览、黑白名单管理和白名单启用状态；默认权限与冷却继续通过配置页管理。
 - 指令中心支持 `plugin_id` 过滤，命令表中的插件列可直接进入插件详情。
 - 插件详情提供当前插件的指令中心入口、历史日志入口，以及同一页内的插件管理页工作区切换。
-- 实时日志与历史日志支持 `level`、`source`、`protocol`、`plugin_id`、`request_id` 和 `log_id` 工作区 query；历史日志额外支持 `start_at` 与 `end_at`。
+- 实时日志与历史日志支持 `level`、`source`、`protocol`、`plugin_id`、`request_id` 和 `log_id` 工作区 query；`level` 与 `plugin_id` 可重复传入多个值，历史日志额外支持 `start_at` 与 `end_at`。
 - 命令被白名单、黑名单、权限或冷却拒绝时，日志中心会显示拒绝摘要，日志详情会显示 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件列表。
 - 日志详情会根据稳定字段提供插件详情、协议中心和请求 ID 对应日志页入口。
 - 任务详情会根据稳定字段提供插件详情、协议中心、请求历史日志和模板预览入口。

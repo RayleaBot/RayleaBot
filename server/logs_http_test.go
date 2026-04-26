@@ -72,6 +72,78 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	}
 }
 
+func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.multi-filter.yaml"))
+
+	for _, summary := range []logging.Summary{
+		{
+			LogID:     "log_multi_filter_0001",
+			Timestamp: "2026-03-20T10:00:00Z",
+			Level:     "error",
+			Source:    "runtime",
+			Message:   "weather plugin error",
+			PluginID:  "weather",
+			RequestID: "req_weather_0001",
+		},
+		{
+			LogID:     "log_multi_filter_0002",
+			Timestamp: "2026-03-20T10:00:01Z",
+			Level:     "warn",
+			Source:    "runtime",
+			Message:   "help plugin warning",
+			PluginID:  "help",
+			RequestID: "req_help_0001",
+		},
+		{
+			LogID:     "log_multi_filter_0003",
+			Timestamp: "2026-03-20T10:00:02Z",
+			Level:     "info",
+			Source:    "runtime",
+			Message:   "filtered by level",
+			PluginID:  "weather",
+		},
+		{
+			LogID:     "log_multi_filter_0004",
+			Timestamp: "2026-03-20T10:00:03Z",
+			Level:     "error",
+			Source:    "runtime",
+			Message:   "filtered by plugin",
+			PluginID:  "ops",
+		},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create logs multi-filter request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform logs multi-filter request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("unexpected logs multi-filter status: got %d want %d", response.StatusCode, fixture.Response.Status)
+	}
+
+	body := decodeBody(t, readAll(t, response))
+	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
+		t.Fatalf("unexpected logs multi-filter body: got %#v want %#v", body, fixture.Response.Body)
+	}
+}
+
 func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 	t.Parallel()
 
@@ -290,7 +362,7 @@ func TestLogsListRejectsInvalidFilters(t *testing.T) {
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?level=fatal&limit=999", nil)
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?level=warn&level=fatal&limit=50", nil)
 	if err != nil {
 		t.Fatalf("create invalid logs request: %v", err)
 	}
@@ -682,6 +754,55 @@ func TestLogsListSupportsCursorPaging(t *testing.T) {
 	thirdItems := thirdPage["items"].([]any)
 	if thirdItems[0].(map[string]any)["message"] != "5" || thirdItems[1].(map[string]any)["message"] != "4" {
 		t.Fatalf("unexpected newer page items: %#v", thirdItems)
+	}
+}
+
+func TestLogsListSupportsCursorPagingWithMultiFilters(t *testing.T) {
+	t.Parallel()
+
+	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+		input["log"].(map[string]any)["retention_days"] = 365
+	}, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	for _, summary := range []logging.Summary{
+		{LogID: "log_multi_cursor_0001", Timestamp: "2026-04-10T09:00:00Z", Level: "info", Source: "runtime", Message: "1", PluginID: "weather"},
+		{LogID: "log_multi_cursor_0002", Timestamp: "2026-04-10T09:00:01Z", Level: "warn", Source: "runtime", Message: "filtered by level", PluginID: "help"},
+		{LogID: "log_multi_cursor_0003", Timestamp: "2026-04-10T09:00:02Z", Level: "error", Source: "runtime", Message: "2", PluginID: "help"},
+		{LogID: "log_multi_cursor_0004", Timestamp: "2026-04-10T09:00:03Z", Level: "info", Source: "runtime", Message: "filtered by plugin", PluginID: "ops"},
+		{LogID: "log_multi_cursor_0005", Timestamp: "2026-04-10T09:00:04Z", Level: "error", Source: "runtime", Message: "3", PluginID: "weather"},
+		{LogID: "log_multi_cursor_0006", Timestamp: "2026-04-10T09:00:05Z", Level: "info", Source: "runtime", Message: "4", PluginID: "help"},
+	} {
+		application.Logs().Append(summary)
+	}
+
+	filterPath := "/api/logs?source=runtime&level=info&level=error&plugin_id=weather&plugin_id=help&limit=2"
+	firstPage := doLogsListRequest(t, server.URL, token, filterPath)
+	firstItems := firstPage["items"].([]any)
+	if firstItems[0].(map[string]any)["message"] != "4" || firstItems[1].(map[string]any)["message"] != "3" {
+		t.Fatalf("unexpected multi-filter first page items: %#v", firstItems)
+	}
+
+	firstPageInfo := firstPage["page"].(map[string]any)
+	olderCursor, ok := firstPageInfo["older_cursor"].(string)
+	if !ok || olderCursor == "" {
+		t.Fatalf("expected older cursor on multi-filter first page: %#v", firstPageInfo)
+	}
+	if firstPageInfo["has_newer"] != false || firstPageInfo["has_older"] != true {
+		t.Fatalf("unexpected multi-filter first page metadata: %#v", firstPageInfo)
+	}
+
+	secondPage := doLogsListRequest(t, server.URL, token, filterPath+"&direction=older&cursor="+olderCursor)
+	secondItems := secondPage["items"].([]any)
+	if secondItems[0].(map[string]any)["message"] != "2" || secondItems[1].(map[string]any)["message"] != "1" {
+		t.Fatalf("unexpected multi-filter second page items: %#v", secondItems)
+	}
+
+	secondPageInfo := secondPage["page"].(map[string]any)
+	if secondPageInfo["has_newer"] != true || secondPageInfo["has_older"] != false {
+		t.Fatalf("unexpected multi-filter second page metadata: %#v", secondPageInfo)
 	}
 }
 

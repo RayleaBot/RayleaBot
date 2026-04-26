@@ -1,0 +1,32 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Log query accepts repeated level and plugin_id parameters and returns matching summaries.
+request:
+  method: GET
+  path: /api/logs?level=warn&level=error&plugin_id=weather&plugin_id=help&limit=10
+response:
+  status: 200
+  body:
+    items:
+      - log_id: log_multi_filter_0002
+        timestamp: "2026-03-20T10:00:01Z"
+        level: warn
+        source: runtime
+        message: help plugin warning
+        plugin_id: help
+        request_id: req_help_0001
+      - log_id: log_multi_filter_0001
+        timestamp: "2026-03-20T10:00:00Z"
+        level: error
+        source: runtime
+        message: weather plugin error
+        plugin_id: weather
+        request_id: req_weather_0001
+    page:
+      limit: 10
+      has_older: false
+      has_newer: false
+      older_cursor: null
+      newer_cursor: null
+expect:
+  valid: true

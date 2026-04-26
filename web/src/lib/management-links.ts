@@ -12,7 +12,7 @@ import type {
   OneBot11ProtocolSnapshotResponse,
   TaskSummary,
 } from '@/types/api'
-import type { LogScope, LogFilters } from '@/stores/log-state'
+import { normalizeFilterValues, type LogScope, type LogFilters } from '@/stores/log-state'
 
 export interface ManagementContextAction {
   key: string
@@ -176,19 +176,19 @@ export function buildGovernanceLocation() {
 
 export function readLogWorkspaceState(query: LocationQuery, options: { history?: boolean } = {}) {
   const filters: LogFilters = {}
-  const level = normalizeSingleQueryValue(query.level)
+  const levels = normalizeQueryValue(query.level)
   const source = normalizeSingleQueryValue(query.source)
   const protocol = normalizeSingleQueryValue(query.protocol)
-  const pluginId = normalizeSingleQueryValue(query.plugin_id)
+  const pluginIds = normalizePluginIds(normalizeQueryValue(query.plugin_id))
   const requestId = normalizeSingleQueryValue(query.request_id)
   const logId = normalizeSingleQueryValue(query.log_id)
   const startAt = options.history ? normalizeSingleQueryValue(query.start_at) : ''
   const endAt = options.history ? normalizeSingleQueryValue(query.end_at) : ''
 
-  if (level) filters.level = level
+  if (levels.length > 0) filters.levels = levels as LogFilters['levels']
   if (source) filters.source = source
   if (protocol) filters.protocol = protocol as LogFilters['protocol']
-  if (pluginId) filters.pluginId = pluginId
+  if (pluginIds.length > 0) filters.pluginIds = pluginIds
   if (requestId) filters.requestId = requestId
 
   return {
@@ -202,14 +202,16 @@ export function readLogWorkspaceState(query: LocationQuery, options: { history?:
 export function buildLogsLocation(options: LogsLocationOptions = {}) {
   const filters = options.filters ?? {}
   const history = Boolean(options.history)
+  const levels = normalizeFilterValues(filters.levels, filters.level)
+  const pluginIds = normalizePluginIds([filters.pluginId ?? '', ...(filters.pluginIds ?? [])])
 
   return {
     name: history ? 'logs-history' : 'logs',
     query: createLocationQuery([
-      ['level', normalizeString(filters.level)],
+      ['level', levels],
       ['source', normalizeString(filters.source)],
       ['protocol', normalizeString(filters.protocol)],
-      ['plugin_id', normalizeString(filters.pluginId)],
+      ['plugin_id', pluginIds],
       ['request_id', normalizeString(filters.requestId)],
       ['log_id', normalizeString(options.logId ?? undefined)],
       ['start_at', history ? normalizeString(options.startAt ?? undefined) : undefined],

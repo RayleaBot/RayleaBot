@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { useLogHistoryStore } from '@/stores/log-history'
+import { usePluginsStore } from '@/stores/plugins'
 import LogsHistoryPage from '@/views/operations/LogsHistoryView.vue'
 
 interface ScrollMetrics {
@@ -110,6 +111,30 @@ describe('LogsHistoryPage', () => {
       callback(0)
       return 0
     })
+    const pluginsStore = usePluginsStore()
+    pluginsStore.items = [
+      {
+        id: 'weather',
+        name: 'Weather',
+        role: 'user',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+        commands: [],
+      },
+      {
+        id: 'help',
+        name: 'Help',
+        role: 'builtin',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+        commands: [],
+      },
+    ]
+    vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -181,7 +206,7 @@ describe('LogsHistoryPage', () => {
 
   it('opens the shared detail window for a history row', async () => {
     const router = createTestRouter()
-    await router.push('/logs/history?plugin_id=weather&protocol=onebot11&request_id=req_history_1&start_at=2026-04-01T00:00:00Z&end_at=2026-04-02T00:00:00Z')
+    await router.push('/logs/history?level=warn&level=error&plugin_id=weather&plugin_id=help&protocol=onebot11&request_id=req_history_1&start_at=2026-04-01T00:00:00Z&end_at=2026-04-02T00:00:00Z')
     await router.isReady()
 
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
@@ -224,11 +249,15 @@ describe('LogsHistoryPage', () => {
 
     await flushPromises()
     mockRect(wrapper.get('.logs-layout').element, 1600, 960)
+    expect(store.filters.levels).toEqual(['warn', 'error'])
+    expect(store.filters.pluginIds).toEqual(['help', 'weather'])
     await wrapper.get('.logs-row').trigger('click')
     await flushPromises()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/logs/log_history_0001', expect.any(Object))
     expect(router.currentRoute.value.query.log_id).toBe('log_history_0001')
+    expect(router.currentRoute.value.query.level).toEqual(['warn', 'error'])
+    expect(router.currentRoute.value.query.plugin_id).toEqual(['help', 'weather'])
     expect(wrapper.find('.log-detail-window').exists()).toBe(true)
     expect(wrapper.text()).toContain('日志详情')
     expect(wrapper.text()).toContain('详情 JSON')

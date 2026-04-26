@@ -1,16 +1,16 @@
 {
   "items": [
     {
-      "log_id": "log_current_session_0003",
+      "log_id": "log_current_session_0002",
       "timestamp": "2026-03-20T10:00:02Z",
       "level": "info",
-      "source": "bridge",
-      "protocol": "onebot11",
-      "message": "721011692: [测试群(2001)]管理员/Alice(3001): hello bridge",
-      "request_id": "req_bridge_0001"
+      "source": "runtime",
+      "message": "help plugin heartbeat",
+      "plugin_id": "help",
+      "request_id": "req_help_0001"
     },
     {
-      "log_id": "log_current_session_0002",
+      "log_id": "log_current_session_0001",
       "timestamp": "2026-03-20T10:00:01Z",
       "level": "error",
       "source": "runtime",

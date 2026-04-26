@@ -41,6 +41,7 @@ x-fixtures:
   - fixtures/web-api/ok.governance-whitelist-entry-upsert.yaml
   - fixtures/web-api/ok.governance-whitelist-entry-delete.yaml
   - fixtures/web-api/ok.logs-list-response.yaml
+  - fixtures/web-api/ok.logs-list-response.multi-filter.yaml
   - fixtures/web-api/ok.logs-list-response.current-session.yaml
   - fixtures/web-api/ok.logs-list-response.history-range.yaml
   - fixtures/web-api/ok.logs-list-response.protocol-onebot11.yaml
@@ -913,7 +914,13 @@ paths:
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/LogLevel'
+            type: array
+            uniqueItems: true
+            items:
+              $ref: '#/components/schemas/LogLevel'
+          style: form
+          explode: true
+          description: Repeat level to include logs matching any selected level.
         - name: source
           in: query
           required: false
@@ -929,8 +936,14 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            minLength: 1
+            type: array
+            uniqueItems: true
+            items:
+              type: string
+              minLength: 1
+          style: form
+          explode: true
+          description: Repeat plugin_id to include logs for any selected plugin.
         - name: request_id
           in: query
           required: false

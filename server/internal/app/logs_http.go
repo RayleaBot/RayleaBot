@@ -34,29 +34,32 @@ const (
 
 func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		levelFilter := strings.TrimSpace(r.URL.Query().Get("level"))
-		if levelFilter != "" && !isAllowedLogLevel(levelFilter) {
-			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
-			return
+		queryValues := r.URL.Query()
+		levelFilters := normalizeRepeatedQueryValues(queryValues["level"])
+		for _, levelFilter := range levelFilters {
+			if !isAllowedLogLevel(levelFilter) {
+				writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+				return
+			}
 		}
 
-		sourceFilter := strings.TrimSpace(r.URL.Query().Get("source"))
-		protocolFilter := strings.TrimSpace(r.URL.Query().Get("protocol"))
+		sourceFilter := strings.TrimSpace(queryValues.Get("source"))
+		protocolFilter := strings.TrimSpace(queryValues.Get("protocol"))
 		if protocolFilter != "" && !logging.IsSupportedProtocol(protocolFilter) {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		pluginIDFilter := strings.TrimSpace(r.URL.Query().Get("plugin_id"))
-		requestIDFilter := strings.TrimSpace(r.URL.Query().Get("request_id"))
-		cursor := strings.TrimSpace(r.URL.Query().Get("cursor"))
-		direction := logging.PageDirection(strings.TrimSpace(r.URL.Query().Get("direction")))
+		pluginIDFilters := normalizeRepeatedQueryValues(queryValues["plugin_id"])
+		requestIDFilter := strings.TrimSpace(queryValues.Get("request_id"))
+		cursor := strings.TrimSpace(queryValues.Get("cursor"))
+		direction := logging.PageDirection(strings.TrimSpace(queryValues.Get("direction")))
 		if direction != "" && direction != logging.PageDirectionOlder && direction != logging.PageDirectionNewer {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
 
 		limit := 50
-		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if raw := strings.TrimSpace(queryValues.Get("limit")); raw != "" {
 			parsed, err := strconv.Atoi(raw)
 			if err != nil || parsed < 1 || parsed > maxLogPageLimit {
 				writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
@@ -65,22 +68,22 @@ func (h *logHTTPHandlers) handleLogsList() http.HandlerFunc {
 			limit = parsed
 		}
 
-		scope, err := parseLogScope(r.URL.Query().Get("scope"))
+		scope, err := parseLogScope(queryValues.Get("scope"))
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		startAt, endAt, err := parseLogTimeRange(scope, r.URL.Query().Get("start_at"), r.URL.Query().Get("end_at"))
+		startAt, endAt, err := parseLogTimeRange(scope, queryValues.Get("start_at"), queryValues.Get("end_at"))
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
 
 		pageQuery := logging.PageQuery{
-			Level:     levelFilter,
+			Levels:    levelFilters,
 			Source:    sourceFilter,
 			Protocol:  protocolFilter,
-			PluginID:  pluginIDFilter,
+			PluginIDs: pluginIDFilters,
 			RequestID: requestIDFilter,
 			StartAt:   startAt,
 			EndAt:     endAt,
@@ -149,7 +152,7 @@ func (s *logService) listLogSummaries(ctx context.Context, query logging.Query) 
 		if query.BootID != "" && summary.BootID != query.BootID {
 			continue
 		}
-		if query.Level != "" && summary.Level != query.Level {
+		if !matchesRepeatedLogFilter(summary.Level, query.Level, query.Levels) {
 			continue
 		}
 		if query.Source != "" && summary.Source != query.Source {
@@ -158,7 +161,7 @@ func (s *logService) listLogSummaries(ctx context.Context, query logging.Query) 
 		if query.Protocol != "" && summary.Protocol != query.Protocol {
 			continue
 		}
-		if query.PluginID != "" && summary.PluginID != query.PluginID {
+		if !matchesRepeatedLogFilter(summary.PluginID, query.PluginID, query.PluginIDs) {
 			continue
 		}
 		if query.RequestID != "" && summary.RequestID != query.RequestID {
@@ -255,10 +258,15 @@ func (s *logService) listLogPage(ctx context.Context, query logging.PageQuery) (
 
 	items, err := s.listLogSummaries(ctx, logging.Query{
 		Level:     query.Level,
+		Levels:    query.Levels,
 		Source:    query.Source,
 		Protocol:  query.Protocol,
 		PluginID:  query.PluginID,
+		PluginIDs: query.PluginIDs,
 		RequestID: query.RequestID,
+		BootID:    query.BootID,
+		StartAt:   query.StartAt,
+		EndAt:     query.EndAt,
 		Limit:     query.Limit,
 	})
 	if err != nil {
@@ -328,4 +336,34 @@ func isAllowedLogLevel(level string) bool {
 	default:
 		return false
 	}
+}
+
+func normalizeRepeatedQueryValues(values []string) []string {
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		item := strings.TrimSpace(value)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		normalized = append(normalized, item)
+	}
+	return normalized
+}
+
+func matchesRepeatedLogFilter(value, single string, values []string) bool {
+	filters := normalizeRepeatedQueryValues(append([]string{single}, values...))
+	if len(filters) == 0 {
+		return true
+	}
+	for _, filter := range filters {
+		if value == filter {
+			return true
+		}
+	}
+	return false
 }

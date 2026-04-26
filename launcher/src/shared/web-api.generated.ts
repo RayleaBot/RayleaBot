@@ -2528,10 +2528,12 @@ export interface operations {
                 /** @description Select whether to browse persisted history or only the current server boot session. start_at and end_at are only valid when scope=history.
                  *      */
                 scope?: components["schemas"]["LogScope"];
-                level?: components["schemas"]["LogLevel"];
+                /** @description Repeat level to include logs matching any selected level. */
+                level?: components["schemas"]["LogLevel"][];
                 source?: string;
                 protocol?: components["schemas"]["LogProtocol"];
-                plugin_id?: string;
+                /** @description Repeat plugin_id to include logs for any selected plugin. */
+                plugin_id?: string[];
                 request_id?: string;
                 limit?: number;
                 /** @description Opaque cursor issued by the server for log history pagination. */

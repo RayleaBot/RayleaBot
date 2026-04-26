@@ -886,10 +886,10 @@ function listLogPage(searchParams) {
   const scope = searchParams.get('scope') === 'current_session' ? 'current_session' : 'history'
   const startAt = searchParams.get('start_at')
   const endAt = searchParams.get('end_at')
-  const level = searchParams.get('level')
+  const levels = normalizedSearchValues(searchParams, 'level')
   const source = searchParams.get('source')
   const protocol = searchParams.get('protocol')
-  const pluginId = searchParams.get('plugin_id')
+  const pluginIds = normalizedSearchValues(searchParams, 'plugin_id')
   const requestId = searchParams.get('request_id')
   const limit = Math.max(1, Number(searchParams.get('limit') ?? '50') || 50)
   const direction = searchParams.get('direction') === 'newer' ? 'newer' : 'older'
@@ -901,10 +901,10 @@ function listLogPage(searchParams) {
       if (scope === 'current_session' && !state.currentSessionLogIds.has(item.log_id)) return false
       if (scope === 'history' && startAt && timestamp < normalizeSortableTimestamp(startAt)) return false
       if (scope === 'history' && endAt && timestamp > normalizeSortableTimestamp(endAt)) return false
-      if (level && item.level !== level) return false
+      if (levels.length > 0 && !levels.includes(item.level)) return false
       if (source && item.source !== source) return false
       if (protocol && item.protocol !== protocol) return false
-      if (pluginId && item.plugin_id !== pluginId) return false
+      if (pluginIds.length > 0 && !pluginIds.includes(item.plugin_id ?? '')) return false
       if (requestId && item.request_id !== requestId) return false
       return true
     })
@@ -941,6 +941,15 @@ function listLogPage(searchParams) {
       newer_cursor: hasNewer && items.length > 0 ? encodeLogCursor(items[0]) : null,
     },
   }
+}
+
+function normalizedSearchValues(searchParams, key) {
+  return Array.from(new Set(
+    searchParams
+      .getAll(key)
+      .map((value) => value.trim())
+      .filter(Boolean),
+  ))
 }
 
 function defaultProtocolLiveLog() {

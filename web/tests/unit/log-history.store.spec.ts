@@ -102,10 +102,10 @@ describe('log history store', () => {
 
     const store = useLogHistoryStore()
     store.filters = {
-      level: 'warn',
+      levels: ['warn', 'error'],
       source: 'adapter',
       protocol: 'onebot11',
-      pluginId: 'weather',
+      pluginIds: ['weather', 'help'],
       requestId: 'req_1',
     }
     store.timeRangeInput = {
@@ -120,12 +120,12 @@ describe('log history store', () => {
     const endAt = encodeURIComponent(localDateTimeToUtc('2026-04-16T10:30'))
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      `/api/logs?scope=history&limit=100&level=warn&source=adapter&protocol=onebot11&plugin_id=weather&request_id=req_1&start_at=${startAt}&end_at=${endAt}`,
+      `/api/logs?scope=history&limit=100&level=warn&level=error&source=adapter&protocol=onebot11&plugin_id=weather&plugin_id=help&request_id=req_1&start_at=${startAt}&end_at=${endAt}`,
       expect.any(Object),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      `/api/logs?scope=history&limit=100&level=warn&source=adapter&protocol=onebot11&plugin_id=weather&request_id=req_1&start_at=${startAt}&end_at=${endAt}&cursor=history-cursor-1&direction=older`,
+      `/api/logs?scope=history&limit=100&level=warn&level=error&source=adapter&protocol=onebot11&plugin_id=weather&plugin_id=help&request_id=req_1&start_at=${startAt}&end_at=${endAt}&cursor=history-cursor-1&direction=older`,
       expect.any(Object),
     )
     expect(store.customTimeRange).toBe(true)

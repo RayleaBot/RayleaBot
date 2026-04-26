@@ -1,4 +1,4 @@
-import type { LogListResponse, LogPageDirection, LogProtocol, LogSummary } from '@/types/api'
+import type { LogLevel, LogListResponse, LogPageDirection, LogProtocol, LogSummary } from '@/types/api'
 
 export type LogScope = 'history' | 'current_session'
 
@@ -6,10 +6,12 @@ export const DEFAULT_LOG_PAGE_LIMIT = 100
 export const MAX_LOG_PAGE_LIMIT = 200
 
 export interface LogFilters {
-  level?: string
+  level?: LogLevel
+  levels?: LogLevel[]
   source?: string
   protocol?: LogProtocol
   pluginId?: string
+  pluginIds?: string[]
   requestId?: string
 }
 
@@ -34,17 +36,17 @@ export function buildLogListPath(options: BuildLogListPathOptions) {
   params.set('scope', options.scope)
   params.set('limit', String(normalizeLogLimit(options.limit)))
 
-  const level = normalizeFilterValue(filters.level)
+  const levels = normalizeFilterValues(filters.levels, filters.level)
   const source = normalizeFilterValue(filters.source)
   const protocol = normalizeFilterValue(filters.protocol)
-  const pluginId = normalizeFilterValue(filters.pluginId)
+  const pluginIds = normalizeFilterValues(filters.pluginIds, filters.pluginId)
   const requestId = normalizeFilterValue(filters.requestId)
   const startAt = normalizeFilterValue(options.timeRange?.startAt)
   const endAt = normalizeFilterValue(options.timeRange?.endAt)
   const cursor = normalizeFilterValue(options.cursor)
 
-  if (level) {
-    params.set('level', level)
+  for (const level of levels) {
+    params.append('level', level)
   }
   if (source) {
     params.set('source', source)
@@ -52,8 +54,8 @@ export function buildLogListPath(options: BuildLogListPathOptions) {
   if (protocol) {
     params.set('protocol', protocol)
   }
-  if (pluginId) {
-    params.set('plugin_id', pluginId)
+  for (const pluginId of pluginIds) {
+    params.append('plugin_id', pluginId)
   }
   if (requestId) {
     params.set('request_id', requestId)
@@ -75,7 +77,10 @@ export function buildLogListPath(options: BuildLogListPathOptions) {
 }
 
 export function matchesLogFilters(log: LogSummary, filters: LogFilters) {
-  if (filters.level && log.level !== filters.level) {
+  const levels = normalizeFilterValues(filters.levels, filters.level)
+  const pluginIds = normalizeFilterValues(filters.pluginIds, filters.pluginId)
+
+  if (levels.length > 0 && !levels.includes(log.level)) {
     return false
   }
   if (filters.source && log.source !== filters.source) {
@@ -84,7 +89,7 @@ export function matchesLogFilters(log: LogSummary, filters: LogFilters) {
   if (filters.protocol && log.protocol !== filters.protocol) {
     return false
   }
-  if (filters.pluginId && log.plugin_id !== filters.pluginId) {
+  if (pluginIds.length > 0 && !pluginIds.includes(log.plugin_id ?? '')) {
     return false
   }
   if (filters.requestId && log.request_id !== filters.requestId) {
@@ -222,6 +227,20 @@ export function getLogIdentityKey(log: LogSummary) {
 function normalizeFilterValue(value: string | undefined | null) {
   const nextValue = value?.trim()
   return nextValue ? nextValue : ''
+}
+
+export function normalizeFilterValues(values: string[] | undefined | null, single?: string | null) {
+  const normalized: string[] = []
+  const seen = new Set<string>()
+  for (const value of [single ?? '', ...(values ?? [])]) {
+    const nextValue = normalizeFilterValue(value)
+    if (!nextValue || seen.has(nextValue)) {
+      continue
+    }
+    seen.add(nextValue)
+    normalized.push(nextValue)
+  }
+  return normalized
 }
 
 function toComparableTimestamp(value: string) {

@@ -16,14 +16,17 @@ import {
 } from '@/lib/management-links'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
+import { normalizeFilterValues } from '@/stores/log-state'
 import { toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
+import { usePluginsStore } from '@/stores/plugins'
 import type { LogFilters } from '@/stores/log-state'
-import type { LogSummary } from '@/types/api'
+import type { LogLevel, LogSummary, PluginSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 
 const route = useRoute()
 const router = useRouter()
 const historyStore = useLogHistoryStore()
+const pluginsStore = usePluginsStore()
 const detailController = useLogDetailController()
 const {
   currentDetail,
@@ -59,20 +62,60 @@ const {
   loadingOlder,
   timeRangeInput,
 } = storeToRefs(historyStore)
+const { sortedItems: pluginItems } = storeToRefs(pluginsStore)
 
 const levelOptions = computed(() => ([
-  { label: t('display.logLevels.debug'), value: 'debug' },
-  { label: t('display.logLevels.info'), value: 'info' },
-  { label: t('display.logLevels.warn'), value: 'warn' },
-  { label: t('display.logLevels.error'), value: 'error' },
+  { label: t('display.logLevels.debug'), value: 'debug' as LogLevel },
+  { label: t('display.logLevels.info'), value: 'info' as LogLevel },
+  { label: t('display.logLevels.warn'), value: 'warn' as LogLevel },
+  { label: t('display.logLevels.error'), value: 'error' as LogLevel },
 ]))
+const selectedPluginIds = computed(() => normalizeFilterValues(filters.value.pluginIds, filters.value.pluginId))
+const pluginOptions = computed(() => {
+  const options = pluginItems.value.map((plugin) => ({
+    label: getPluginLabel(plugin),
+    value: plugin.id,
+  }))
+  const knownPluginIds = new Set(options.map((option) => option.value))
+
+  for (const pluginId of selectedPluginIds.value) {
+    if (!knownPluginIds.has(pluginId)) {
+      options.push({ label: pluginId, value: pluginId })
+    }
+  }
+
+  return options
+})
+
+function sameFilterValues(left: string[], right: string[]) {
+  const normalizedLeft = [...left].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  const normalizedRight = [...right].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  return normalizedLeft.length === normalizedRight.length
+    && normalizedLeft.every((item, index) => item === normalizedRight[index])
+}
 
 function sameLogFilters(left: LogFilters, right: LogFilters) {
-  return (left.level ?? '') === (right.level ?? '')
+  return sameFilterValues(normalizeFilterValues(left.levels, left.level), normalizeFilterValues(right.levels, right.level))
     && (left.source ?? '') === (right.source ?? '')
     && (left.protocol ?? '') === (right.protocol ?? '')
-    && (left.pluginId ?? '') === (right.pluginId ?? '')
+    && sameFilterValues(normalizeFilterValues(left.pluginIds, left.pluginId), normalizeFilterValues(right.pluginIds, right.pluginId))
     && (left.requestId ?? '') === (right.requestId ?? '')
+}
+
+function getPluginLabel(plugin: PluginSummary) {
+  return `${plugin.name}（${plugin.id}）`
+}
+
+async function loadPluginOptions() {
+  if (pluginsStore.items.length > 0 || pluginsStore.loading) {
+    return
+  }
+
+  try {
+    await pluginsStore.fetchList()
+  } catch {
+    return
+  }
 }
 
 function toLocalInput(value: string) {
@@ -250,6 +293,7 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
+  void loadPluginOptions()
   if (!currentRouteLogId()) {
     nextViewportSyncToken()
     autoFollowBottom.value = true
@@ -366,7 +410,8 @@ onBeforeUnmount(() => {
         <a-form layout="vertical" class="logs-filter-grid">
           <a-form-item :label="t('logs.filters.level')">
             <a-select
-              v-model:value="filters.level"
+              v-model:value="filters.levels"
+              mode="multiple"
               allow-clear
               :options="levelOptions"
               :placeholder="t('logs.filters.all')"
@@ -384,7 +429,13 @@ onBeforeUnmount(() => {
             />
           </a-form-item>
           <a-form-item :label="t('logs.filters.plugin')">
-            <a-input v-model:value="filters.pluginId" :placeholder="t('logs.filters.pluginPlaceholder')" />
+            <a-select
+              v-model:value="filters.pluginIds"
+              mode="multiple"
+              allow-clear
+              :options="pluginOptions"
+              :placeholder="t('logs.filters.all')"
+            />
           </a-form-item>
           <a-form-item :label="t('logs.filters.requestId')">
             <a-input v-model:value="filters.requestId" :placeholder="t('logs.filters.requestPlaceholder')" />

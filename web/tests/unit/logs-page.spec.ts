@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { useLogsStore } from '@/stores/logs'
+import { usePluginsStore } from '@/stores/plugins'
 import LogsPage from '@/views/operations/LogsView.vue'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -38,6 +39,30 @@ describe('LogsPage', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
     setActivePinia(createPinia())
+    const pluginsStore = usePluginsStore()
+    pluginsStore.items = [
+      {
+        id: 'weather',
+        name: 'Weather',
+        role: 'user',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+        commands: [],
+      },
+      {
+        id: 'help',
+        name: 'Help',
+        role: 'builtin',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+        commands: [],
+      },
+    ]
+    vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
   })
 
   function createTestRouter() {
@@ -54,7 +79,7 @@ describe('LogsPage', () => {
 
   it('reads query filters and opens detail with related links', async () => {
     const router = createTestRouter()
-    await router.push('/logs?plugin_id=weather&protocol=onebot11&request_id=req_1')
+    await router.push('/logs?level=warn&level=error&plugin_id=weather&plugin_id=help&protocol=onebot11&request_id=req_1')
     await router.isReady()
 
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
@@ -100,7 +125,8 @@ describe('LogsPage', () => {
     expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
     expect(wrapper.findComponent(VirtualDataViewport).props('bottomThreshold')).toBe(0)
     expect(wrapper.findAll('.logs-row')).toHaveLength(1)
-    expect((wrapper.get('input[placeholder="例如 weather"]').element as HTMLInputElement).value).toBe('weather')
+    expect(store.filters.levels).toEqual(['warn', 'error'])
+    expect(store.filters.pluginIds).toEqual(['help', 'weather'])
     expect(router.currentRoute.value.query.request_id).toBe('req_1')
 
     await wrapper.get('.logs-row').trigger('click')
@@ -108,6 +134,8 @@ describe('LogsPage', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/logs/log_warn_0001', expect.any(Object))
     expect(router.currentRoute.value.query.log_id).toBe('log_warn_0001')
+    expect(router.currentRoute.value.query.level).toEqual(['warn', 'error'])
+    expect(router.currentRoute.value.query.plugin_id).toEqual(['help', 'weather'])
     expect(wrapper.find('.log-detail-window').exists()).toBe(true)
     expect(wrapper.text()).toContain('日志详情')
     expect(wrapper.text()).toContain('详情 JSON')
