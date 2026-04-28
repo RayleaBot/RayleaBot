@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -49,6 +50,7 @@ type Options struct {
 	QueueWaitTimeout   time.Duration
 	RenderTimeout      time.Duration
 	MaxRenderDataBytes int
+	Logger             *slog.Logger
 }
 
 type RuntimeConfig struct {
@@ -65,12 +67,13 @@ type Request struct {
 }
 
 type Document struct {
-	Template string
-	Theme    string
-	Output   string
-	Width    int
-	Height   int
-	HTML     string
+	Template   string
+	Theme      string
+	Output     string
+	Width      int
+	Height     int
+	AutoHeight bool
+	HTML       string
 }
 
 type Result struct {
@@ -126,16 +129,17 @@ type artifactRecord struct {
 }
 
 type Service struct {
-	repoRoot      string
-	templatesRoot string
-	outputRoot    string
-	browserPath   string
-	browserArgs   []string
-	runner        Runner
-	workerSem     chan struct{}
-	workerCount   int
-	templateRepo  *sqliteTemplateRepository
-	templateSeeds map[string]templateSeed
+	repoRoot       string
+	templatesRoot  string
+	outputRoot     string
+	browserPath    string
+	browserArgs    []string
+	runner         Runner
+	workerSem      chan struct{}
+	workerCount    int
+	logger         *slog.Logger
+	templateRepo   *sqliteTemplateRepository
+	templateSyncMu sync.Mutex
 
 	mu                 sync.RWMutex
 	queueMaxLength     int
@@ -164,12 +168,7 @@ func NewService(options Options) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create render template repository: %w", err)
 	}
-
 	templatesRoot := filepath.Join(repoRoot, "templates")
-	templateSeeds, err := discoverTemplateSeeds(templatesRoot)
-	if err != nil {
-		return nil, err
-	}
 
 	workerCount := options.WorkerCount
 	if workerCount <= 0 {
@@ -216,17 +215,17 @@ func NewService(options Options) (*Service, error) {
 		runner:             runner,
 		workerSem:          make(chan struct{}, workerCount),
 		workerCount:        workerCount,
+		logger:             options.Logger,
 		queueMaxLength:     queueMaxLength,
 		queueWaitTimeout:   queueWaitTimeout,
 		renderTimeout:      renderTimeout,
 		maxRenderDataBytes: maxRenderDataBytes,
 		templateRepo:       templateRepo,
-		templateSeeds:      templateSeeds,
 		cache:              map[string]Result{},
 		artifacts:          map[string]Artifact{},
 	}
 
-	if err := service.seedTemplates(context.Background()); err != nil {
+	if err := service.syncTemplatesFromFiles(context.Background()); err != nil {
 		return nil, err
 	}
 	if err := service.loadArtifacts(); err != nil {
@@ -287,6 +286,10 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		return Result{}, err
 	}
 
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return Result{}, err
+	}
+
 	compiled, cacheVersion, cacheDigest, err := s.resolveCompiledTemplate(ctx, normalized)
 	if err != nil {
 		return Result{}, err
@@ -340,12 +343,13 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 	}
 
 	content, err := s.runner.Render(renderCtx, Document{
-		Template: normalized.Template,
-		Theme:    normalized.Theme,
-		Output:   normalized.Output,
-		Width:    compiled.bundle.manifest.Width,
-		Height:   compiled.bundle.manifest.Height,
-		HTML:     html,
+		Template:   normalized.Template,
+		Theme:      normalized.Theme,
+		Output:     normalized.Output,
+		Width:      compiled.bundle.manifest.Width,
+		Height:     compiled.bundle.manifest.Height,
+		AutoHeight: true,
+		HTML:       html,
 	})
 	if err != nil {
 		if errors.Is(renderCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
@@ -371,6 +375,10 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 }
 
 func (s *Service) ListTemplates(ctx context.Context) ([]TemplateSummary, error) {
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return nil, err
+	}
+
 	items, err := s.templateRepo.ListTemplateSummaries(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list render templates: %w", err)
@@ -379,6 +387,10 @@ func (s *Service) ListTemplates(ctx context.Context) ([]TemplateSummary, error) 
 }
 
 func (s *Service) GetTemplate(ctx context.Context, templateID string) (TemplateDetail, error) {
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return TemplateDetail{}, err
+	}
+
 	detail, err := s.templateRepo.GetTemplateDetail(ctx, strings.TrimSpace(templateID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -393,6 +405,10 @@ func (s *Service) GetTemplate(ctx context.Context, templateID string) (TemplateD
 }
 
 func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (string, TemplateSource, error) {
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return "", TemplateSource{}, err
+	}
+
 	revisionID, source, err := s.templateRepo.GetCurrentSource(ctx, strings.TrimSpace(templateID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -639,9 +655,19 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 			Remediation: "请恢复仓库中的 templates 目录结构。",
 		})
 	default:
+		templateSeeds, err := discoverTemplateSeeds(s.templatesRoot, s.logger)
+		if err != nil {
+			issues = append(issues, health.DiagnosticIssue{
+				Code:        "platform.resource_missing",
+				Severity:    "warning",
+				Summary:     "模板资源目录不可读",
+				Remediation: "请确认 templates 目录存在且当前进程有读取权限。",
+			})
+			break
+		}
 		required := []string{"help.menu", "status.panel"}
 		for _, templateID := range required {
-			if _, ok := s.templateSeeds[templateID]; ok {
+			if _, ok := templateSeeds[templateID]; ok {
 				continue
 			}
 			issues = append(issues, health.DiagnosticIssue{
@@ -958,9 +984,21 @@ func (s *Service) validateTemplateForWrite(ctx context.Context, templateID strin
 	return bundle, compiled, validation, nil
 }
 
-func (s *Service) seedTemplates(ctx context.Context) error {
-	for _, templateID := range sortedTemplateIDs(s.templateSeeds) {
-		seed := s.templateSeeds[templateID]
+func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+
+	s.templateSyncMu.Lock()
+	defer s.templateSyncMu.Unlock()
+
+	templateSeeds, err := discoverTemplateSeeds(s.templatesRoot, s.logger)
+	if err != nil {
+		return err
+	}
+
+	for _, templateID := range sortedTemplateIDs(templateSeeds) {
+		seed := templateSeeds[templateID]
 		savedAt := time.Now().UTC().Format(time.RFC3339Nano)
 		revision := newStoredRevision(
 			templateID,
@@ -970,12 +1008,22 @@ func (s *Service) seedTemplates(ctx context.Context) error {
 			nil,
 			savedAt,
 		)
-		if err := s.templateRepo.SeedTemplateIfMissing(ctx, revision, TemplateValidationStatus{
+		changed, err := s.templateRepo.SyncTemplateRevision(ctx, revision, TemplateValidationStatus{
 			Valid:      true,
 			CheckedAt:  savedAt,
 			IssueCount: 0,
-		}); err != nil {
-			return fmt.Errorf("seed render template %s: %w", templateID, err)
+		})
+		if err != nil {
+			return fmt.Errorf("sync render template %s: %w", templateID, err)
+		}
+		if changed && s.logger != nil {
+			s.logger.Info(
+				"render template synchronized",
+				"component", "render",
+				"template_id", templateID,
+				"revision_id", revision.RevisionID,
+				"source_digest", revision.SourceDigest,
+			)
 		}
 	}
 	return nil

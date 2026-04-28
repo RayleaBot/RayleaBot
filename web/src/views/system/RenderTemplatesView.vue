@@ -129,7 +129,7 @@ function formatTemplateSize(width?: number, height?: number) {
     return t('display.empty')
   }
 
-  return `${width} × ${height}`
+  return `宽度 ${width}px · 高度自适应（初始 ${height}px）`
 }
 
 function buildDefaultPreviewData(templateId: string) {
@@ -812,8 +812,14 @@ onBeforeUnmount(() => {
 }
 
 .template-nav-item__meta {
+  flex-wrap: wrap;
   color: var(--app-text-secondary);
   font-size: 0.82rem;
+
+  span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 }
 
 .template-info-bar-skeleton :deep(.ant-skeleton-title) {

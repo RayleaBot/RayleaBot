@@ -49,29 +49,66 @@ func newSQLiteTemplateRepository(store *storage.Store) (*sqliteTemplateRepositor
 	}, nil
 }
 
-func (r *sqliteTemplateRepository) SeedTemplateIfMissing(ctx context.Context, revision storedTemplateRevision, validation TemplateValidationStatus) error {
+func (r *sqliteTemplateRepository) SyncTemplateRevision(ctx context.Context, revision storedTemplateRevision, validation TemplateValidationStatus) (bool, error) {
 	tx, err := r.write.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin render template seed transaction: %w", err)
+		return false, fmt.Errorf("begin render template sync transaction: %w", err)
 	}
 	defer func() {
 		_ = tx.Rollback()
 	}()
 
-	var existing string
-	err = tx.QueryRowContext(ctx, `SELECT current_revision_id FROM render_template_states WHERE template_id = ?`, revision.TemplateID).Scan(&existing)
+	var (
+		currentRevisionID string
+		currentDigest     string
+		validationValid   bool
+		validationIssues  int
+	)
+	err = tx.QueryRowContext(ctx, `
+		SELECT s.current_revision_id, r.source_digest, s.validation_valid, s.validation_issue_count
+		FROM render_template_states s
+		INNER JOIN render_template_revisions r ON r.revision_id = s.current_revision_id
+		WHERE s.template_id = ?`, revision.TemplateID).Scan(&currentRevisionID, &currentDigest, &validationValid, &validationIssues)
 	switch {
+	case err == nil && currentDigest == revision.SourceDigest:
+		if validationValid != validation.Valid || validationIssues != validation.IssueCount {
+			if _, updateErr := tx.ExecContext(ctx, `
+				UPDATE render_template_states
+				SET validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?
+				WHERE template_id = ?`,
+				boolToInt(validation.Valid),
+				validation.CheckedAt,
+				validation.IssueCount,
+				revision.TemplateID,
+			); updateErr != nil {
+				return false, fmt.Errorf("update render template validation during sync for %s: %w", revision.TemplateID, updateErr)
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			return false, fmt.Errorf("commit render template sync transaction: %w", err)
+		}
+		return false, nil
 	case err == nil:
-		return tx.Commit()
 	case errors.Is(err, sql.ErrNoRows):
 	default:
-		return fmt.Errorf("query render template state for %s: %w", revision.TemplateID, err)
+		return false, fmt.Errorf("query render template state for sync %s: %w", revision.TemplateID, err)
 	}
 
 	if err := insertTemplateRevision(ctx, tx, revision); err != nil {
-		return err
+		return false, err
 	}
-	if err := insertTemplateState(ctx, tx, storedTemplateState{
+	if currentRevisionID == "" {
+		if err := insertTemplateState(ctx, tx, storedTemplateState{
+			TemplateID:           revision.TemplateID,
+			CurrentRevisionID:    revision.RevisionID,
+			UpdatedAt:            revision.SavedAt,
+			ValidationValid:      validation.Valid,
+			ValidationCheckedAt:  validation.CheckedAt,
+			ValidationIssueCount: validation.IssueCount,
+		}); err != nil {
+			return false, err
+		}
+	} else if err := upsertTemplateState(ctx, tx, storedTemplateState{
 		TemplateID:           revision.TemplateID,
 		CurrentRevisionID:    revision.RevisionID,
 		UpdatedAt:            revision.SavedAt,
@@ -79,13 +116,13 @@ func (r *sqliteTemplateRepository) SeedTemplateIfMissing(ctx context.Context, re
 		ValidationCheckedAt:  validation.CheckedAt,
 		ValidationIssueCount: validation.IssueCount,
 	}); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit render template seed transaction: %w", err)
+		return false, fmt.Errorf("commit render template sync transaction: %w", err)
 	}
-	return nil
+	return true, nil
 }
 
 func (r *sqliteTemplateRepository) ListTemplateSummaries(ctx context.Context) ([]TemplateSummary, error) {

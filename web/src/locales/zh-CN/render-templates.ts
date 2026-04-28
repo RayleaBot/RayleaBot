@@ -9,7 +9,7 @@ export const renderTemplates = {
   schemaPreviewHint: '根据当前 input schema 展示字段层级、类型和说明。',
   schemaPreviewEmpty: '当前模板没有输入结构。',
   previewTitle: '实时预览',
-  previewHint: '修改输入数据后会自动生成最新预览。',
+  previewHint: '修改输入数据后会按内容高度生成最新预览。',
   previewEmpty: '等待生成预览。',
   previewPending: '正在生成最新预览。',
   previewInvalid: '当前输入数据不是合法 JSON 对象。',
@@ -27,7 +27,7 @@ export const renderTemplates = {
   noTemplates: '当前没有可预览的模板。',
   fields: {
     id: '模板 ID',
-    size: '画布尺寸',
+    size: '渲染参数',
     version: '模板版本',
     updatedAt: '更新时间',
     hasInputSchema: '输入结构',

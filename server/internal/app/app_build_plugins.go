@@ -111,6 +111,7 @@ func buildRenderService(state appBuildState, platform appPlatform, renderRunner 
 		QueueWaitTimeout:   time.Duration(state.core.Config.Render.QueueWaitTimeoutSeconds) * time.Second,
 		RenderTimeout:      time.Duration(state.core.Config.Render.TimeoutSeconds) * time.Second,
 		MaxRenderDataBytes: int(httpapi.MaxManagementJSONBodyBytes),
+		Logger:             state.core.Logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create render service: %w", err)

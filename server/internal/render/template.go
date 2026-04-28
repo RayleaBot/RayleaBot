@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -117,7 +118,7 @@ type templateSeed struct {
 	compiled *compiledTemplate
 }
 
-func discoverTemplateSeeds(root string) (map[string]templateSeed, error) {
+func discoverTemplateSeeds(root string, logger *slog.Logger) (map[string]templateSeed, error) {
 	if root == "" {
 		return map[string]templateSeed{}, nil
 	}
@@ -144,9 +145,18 @@ func discoverTemplateSeeds(root string) (map[string]templateSeed, error) {
 			continue
 		}
 
-		seed, err := loadTemplateSeed(filepath.Join(root, entry.Name()))
+		templateDir := filepath.Join(root, entry.Name())
+		seed, err := loadTemplateSeed(templateDir)
 		if err != nil {
-			return nil, err
+			if logger != nil {
+				logger.Warn(
+					"render template skipped",
+					"component", "render",
+					"template_dir", templateDir,
+					"err", err,
+				)
+			}
+			continue
 		}
 		seeds[seed.compiled.bundle.manifest.ID] = seed
 	}
