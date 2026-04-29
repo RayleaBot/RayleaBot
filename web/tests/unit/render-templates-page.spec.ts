@@ -18,6 +18,18 @@ vi.mock('@/lib/http', async (importOriginal) => ({
 const HELP_MENU_DEFAULT_PREVIEW_DATA = JSON.stringify({
   title: '帮助菜单',
   subtitle: '常用命令入口',
+  user: {
+    avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
+    nickname: '星野',
+    title: '指令调度员',
+    id: '10001',
+  },
+  group: {
+    name: 'RayleaBot 测试群',
+  },
+  permission: {
+    level: 'admin',
+  },
   items: [
     {
       name: 'weather',

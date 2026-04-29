@@ -7,6 +7,54 @@
   </head>
   <body class="theme-{{ .Theme }}">
     <main class="panel">
+      {{ $displayName := "访客" }}
+      {{ $avatarURL := "" }}
+      {{ $userTitle := "" }}
+      {{ $userID := "" }}
+      {{ $groupName := "" }}
+      {{ $permissionLevel := "member" }}
+      {{ $hasGroup := false }}
+      {{ $showPermissionBadge := false }}
+      {{ with .user }}
+        {{ with .id }}{{ $userID = printf "%v" . }}{{ $displayName = $userID }}{{ end }}
+        {{ with .nickname }}{{ $displayName = printf "%v" . }}{{ end }}
+        {{ with .avatar_url }}{{ $avatarURL = printf "%v" . }}{{ end }}
+        {{ with .title }}{{ $userTitle = printf "%v" . }}{{ end }}
+      {{ end }}
+      {{ with .group }}
+        {{ $hasGroup = true }}
+        {{ with .name }}{{ $groupName = printf "%v" . }}{{ end }}
+      {{ end }}
+      {{ with .permission }}
+        {{ with .level }}{{ $permissionLevel = printf "%v" . }}{{ end }}
+      {{ end }}
+      {{ if or $hasGroup (eq $permissionLevel "super_admin") }}{{ $showPermissionBadge = true }}{{ end }}
+      <aside class="identity-card" aria-label="用户身份">
+        {{ if $showPermissionBadge }}
+        <span class="permission-badge {{ if eq $permissionLevel "super_admin" }}permission-badge--super-admin{{ else if eq $permissionLevel "owner" }}permission-badge--owner{{ else if eq $permissionLevel "admin" }}permission-badge--admin{{ else }}permission-badge--member{{ end }}">
+          {{ if eq $permissionLevel "super_admin" }}超级管理器{{ else if eq $permissionLevel "owner" }}群主{{ else if eq $permissionLevel "admin" }}管理员{{ else }}群员{{ end }}
+        </span>
+        {{ end }}
+        <div class="identity-card__avatar">
+          {{ if $avatarURL }}
+          <img src="{{ $avatarURL }}" alt="" />
+          {{ else }}
+          <span>{{ $displayName }}</span>
+          {{ end }}
+        </div>
+        <div class="identity-card__body">
+          {{ if or $userTitle $showPermissionBadge }}
+          <div class="identity-card__topline">
+            {{ if $userTitle }}<span class="identity-card__title-badge">{{ $userTitle }}</span>{{ end }}
+          </div>
+          {{ end }}
+          <div class="identity-card__name">{{ $displayName }}</div>
+          <div class="identity-card__meta">
+            {{ if $groupName }}<span class="identity-card__meta-line identity-card__meta-line--group">{{ $groupName }}</span>{{ end }}
+            {{ if $userID }}<span class="identity-card__meta-line identity-card__meta-line--id">ID {{ $userID }}</span>{{ end }}
+          </div>
+        </div>
+      </aside>
       <section class="headline">
         <p class="caption">Runtime Status</p>
         <h1>{{ .title }}</h1>

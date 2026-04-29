@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,31 @@ func (staticRenderRunner) Render(_ context.Context, doc render.Document) ([]byte
 	return append([]byte(nil), testRenderPNGBytes...), nil
 }
 
+type captureRenderRunner struct {
+	mu   sync.Mutex
+	docs []render.Document
+}
+
+func (r *captureRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
+	r.mu.Lock()
+	r.docs = append(r.docs, doc)
+	r.mu.Unlock()
+
+	if doc.Output == "jpeg" {
+		return append([]byte(nil), testRenderJPEGBytes...), nil
+	}
+	return append([]byte(nil), testRenderPNGBytes...), nil
+}
+
+func (r *captureRenderRunner) lastHTML() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.docs) == 0 {
+		return ""
+	}
+	return r.docs[len(r.docs)-1].HTML
+}
+
 func newRenderService(t *testing.T, root string) *render.Service {
 	t.Helper()
 
@@ -32,6 +58,11 @@ func newRenderService(t *testing.T, root string) *render.Service {
 	if err != nil {
 		panic(err)
 	}
+	return newRenderServiceForRepo(t, repoRoot, root, staticRenderRunner{})
+}
+
+func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner render.Runner) *render.Service {
+	t.Helper()
 
 	store, err := storage.Open(filepath.Join(root, "render-state.db"))
 	if err != nil {
@@ -45,7 +76,7 @@ func newRenderService(t *testing.T, root string) *render.Service {
 		RepoRoot:           repoRoot,
 		OutputRoot:         root,
 		Store:              store,
-		Runner:             staticRenderRunner{},
+		Runner:             runner,
 		WorkerCount:        1,
 		QueueMaxLength:     2,
 		QueueWaitTimeout:   time.Second,

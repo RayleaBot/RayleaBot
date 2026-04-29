@@ -18,7 +18,7 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	}
 
 	requestID := m.deps.requestID()
-	session, runtimeErr := m.registerEventSession(ctx, handle, requestID)
+	session, runtimeErr := m.registerEventSession(ctx, handle, requestID, event)
 	if runtimeErr != nil {
 		return Delivery{}, runtimeErr
 	}

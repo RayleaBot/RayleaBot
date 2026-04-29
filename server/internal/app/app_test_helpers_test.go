@@ -193,11 +193,15 @@ func (a *App) setTestWebhookService(secretStore secrets.Store, dispatcher *dispa
 }
 
 func (a *App) executeLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	return a.localActions.Execute(ctx, pluginID, requestID, action)
+	return a.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
 }
 
 func (a *App) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
-	return a.localActions.Execute(ctx, pluginID, requestID, action)
+	return a.localActions.Execute(ctx, pluginID, requestID, action, runtime.Event{})
+}
+
+func (a *App) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
+	return a.localActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 
 func (a *App) commandInfoForEvent(event adapter.NormalizedEvent) *permission.CommandInfo {

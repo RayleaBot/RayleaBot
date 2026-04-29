@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -902,6 +904,506 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	}
 	if cacheKey, ok := result["cache_key"].(string); !ok || cacheKey == "" {
 		t.Fatalf("unexpected cache key: %#v", result["cache_key"])
+	}
+}
+
+func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
+	t.Parallel()
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	runner := &captureRenderRunner{}
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	application := newTestAppState(config.Config{
+		Admin: config.AdminConfig{
+			SuperAdmins: []string{"30001"},
+		},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_group", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "help.menu",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title": "帮助菜单",
+			"user": map[string]any{
+				"nickname": "插件昵称",
+				"id":       "plugin-user",
+			},
+			"group": map[string]any{
+				"name": "插件群",
+			},
+			"permission": map[string]any{
+				"level": "member",
+			},
+		},
+	}, runtime.Event{
+		EventID:        "event-render-group",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message.group",
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:       "30001",
+			Nickname: "角色昵称",
+			Role:     "owner",
+		},
+		Target: &runtime.EventTarget{
+			Type: "group",
+			ID:   "2001",
+			Name: "放逐之城贴吧官方联动测试长群名",
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"user_id": "30001",
+				"sender": map[string]any{
+					"user_id":  "30001",
+					"nickname": "普通昵称",
+					"card":     "群名片",
+					"role":     "owner",
+					"title":    "专属头衔",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("render.image failed: %v", err)
+	}
+
+	html := runner.lastHTML()
+	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-card__title-badge"`, "ID 30001", "放逐之城贴吧官方联动测试长群名", "超级管理器", `<span class="permission-badge`, "nk=30001"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("rendered html missing %q:\n%s", want, html)
+		}
+	}
+	for _, unwanted := range []string{"插件昵称", "plugin-user", "插件群"} {
+		if strings.Contains(html, unwanted) {
+			t.Fatalf("rendered html contains plugin identity field %q:\n%s", unwanted, html)
+		}
+	}
+}
+
+func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
+	t.Parallel()
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	runner := &captureRenderRunner{}
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "help.menu",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title": "帮助菜单",
+			"group": map[string]any{
+				"name": "插件群",
+			},
+		},
+	}, runtime.Event{
+		EventID:        "event-render-private",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message.private",
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:       "30002",
+			Nickname: "好友昵称",
+		},
+		Target: &runtime.EventTarget{
+			Type: "private",
+			ID:   "30002",
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"user_id": "30002",
+				"sender": map[string]any{
+					"user_id":  "30002",
+					"nickname": "普通昵称",
+					"card":     "私聊群名片",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("render.image failed: %v", err)
+	}
+
+	html := runner.lastHTML()
+	for _, want := range []string{"好友昵称", "ID 30002", "nk=30002"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("rendered html missing %q:\n%s", want, html)
+		}
+	}
+	for _, unwanted := range []string{"插件群", "私聊群名片", "群员", `<span class="permission-badge`} {
+		if strings.Contains(html, unwanted) {
+			t.Fatalf("private rendered html contains group-only field %q:\n%s", unwanted, html)
+		}
+	}
+}
+
+func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
+	t.Parallel()
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	runner := &captureRenderRunner{}
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	application := newTestAppState(config.Config{
+		Admin: config.AdminConfig{
+			SuperAdmins: []string{"30002"},
+		},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private_super", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "help.menu",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title": "帮助菜单",
+		},
+	}, runtime.Event{
+		EventID:        "event-render-private-super",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message.private",
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:       "30002",
+			Nickname: "超级用户",
+		},
+		Target: &runtime.EventTarget{
+			Type: "private",
+			ID:   "30002",
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"user_id": "30002",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("render.image failed: %v", err)
+	}
+
+	html := runner.lastHTML()
+	if !strings.Contains(html, "超级管理器") || !strings.Contains(html, `<span class="permission-badge`) {
+		t.Fatalf("private super admin rendered html missing badge:\n%s", html)
+	}
+	if strings.Contains(html, "群员") {
+		t.Fatalf("private super admin rendered html should not contain member badge:\n%s", html)
+	}
+}
+
+func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) {
+	t.Parallel()
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	runner := &captureRenderRunner{}
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	application := newTestAppState(config.Config{
+		Admin: config.AdminConfig{
+			SuperAdmins: []string{"30005"},
+		},
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
+		nil,
+		nil,
+		nil,
+	)
+
+	renderStatus := func(requestID string, event runtime.Event) string {
+		t.Helper()
+		_, err := application.executeLocalActionForEvent(context.Background(), "status-panel", requestID, runtime.Action{
+			Kind:           "render.image",
+			RenderTemplate: "status.panel",
+			RenderTheme:    "default",
+			RenderOutput:   "png",
+			RenderData: map[string]any{
+				"title":   "Runtime Status " + requestID,
+				"status":  "ready",
+				"summary": "核心服务已就绪。",
+			},
+		}, event)
+		if err != nil {
+			t.Fatalf("render.image failed: %v", err)
+		}
+		return runner.lastHTML()
+	}
+
+	privateHTML := renderStatus("req_render_status_private", runtime.Event{
+		EventID:        "event-render-status-private",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message.private",
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:       "30004",
+			Nickname: "普通好友",
+		},
+		Target: &runtime.EventTarget{
+			Type: "private",
+			ID:   "30004",
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"user_id": "30004",
+			},
+		},
+	})
+	if strings.Contains(privateHTML, "群员") || strings.Contains(privateHTML, `<span class="permission-badge`) {
+		t.Fatalf("status private rendered html should not contain member badge:\n%s", privateHTML)
+	}
+
+	superHTML := renderStatus("req_render_status_private_super", runtime.Event{
+		EventID:        "event-render-status-private-super",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message.private",
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:       "30005",
+			Nickname: "超级用户",
+		},
+		Target: &runtime.EventTarget{
+			Type: "private",
+			ID:   "30005",
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"user_id": "30005",
+			},
+		},
+	})
+	if !strings.Contains(superHTML, "超级管理器") || !strings.Contains(superHTML, `<span class="permission-badge`) {
+		t.Fatalf("status private super admin rendered html missing badge:\n%s", superHTML)
+	}
+
+	longGroupName := "放逐之城贴吧官方联动测试长群名"
+	groupHTML := renderStatus("req_render_status_group", runtime.Event{
+		EventID:        "event-render-status-group",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message.group",
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:       "30006",
+			Nickname: "群名片",
+			Role:     "admin",
+		},
+		Target: &runtime.EventTarget{
+			Type: "group",
+			ID:   "2006",
+			Name: longGroupName,
+		},
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"user_id": "30006",
+				"sender": map[string]any{
+					"user_id": "30006",
+					"card":    "群名片",
+					"role":    "admin",
+					"title":   "梦忆楼",
+				},
+			},
+		},
+	})
+	for _, want := range []string{longGroupName, "管理员", "梦忆楼", `<span class="identity-card__title-badge"`} {
+		if !strings.Contains(groupHTML, want) {
+			t.Fatalf("status group rendered html missing %q:\n%s", want, groupHTML)
+		}
+	}
+}
+
+func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writePlainRenderTemplate(t, repoRoot)
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	runner := &captureRenderRunner{}
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := application.executeLocalActionForEvent(context.Background(), "plain-card", "req_render_plain", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "plain.card",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title": "Plain",
+			"user": map[string]any{
+				"nickname": "插件昵称",
+			},
+			"group": map[string]any{
+				"name": "插件群",
+			},
+			"permission": map[string]any{
+				"level": "admin",
+			},
+		},
+	}, runtime.Event{
+		EventID:        "event-render-plain",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message.group",
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:       "30003",
+			Nickname: "真实昵称",
+			Role:     "owner",
+		},
+		Target: &runtime.EventTarget{
+			Type: "group",
+			ID:   "2003",
+			Name: "真实群",
+		},
+	})
+	if err != nil {
+		t.Fatalf("render.image failed: %v", err)
+	}
+
+	html := runner.lastHTML()
+	for _, want := range []string{"插件昵称", "插件群", "admin"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("plain template html missing plugin field %q:\n%s", want, html)
+		}
+	}
+	for _, unwanted := range []string{"真实昵称", "真实群", "owner"} {
+		if strings.Contains(html, unwanted) {
+			t.Fatalf("plain template html contains injected identity field %q:\n%s", unwanted, html)
+		}
+	}
+}
+
+func writePlainRenderTemplate(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	templateRoot := filepath.Join(repoRoot, "templates", "plain.card")
+	if err := os.MkdirAll(templateRoot, 0o755); err != nil {
+		t.Fatalf("mkdir plain template: %v", err)
+	}
+	files := map[string]string{
+		"template.json": `{
+  "id": "plain.card",
+  "version": "1",
+  "entry_html": "template.html",
+  "stylesheet": "styles.css",
+  "input_schema": "input.schema.json",
+  "width": 480,
+  "height": 240
+}`,
+		"template.html": `<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8" /><style>{{ .Stylesheet }}</style></head>
+  <body>
+    <h1>{{ .title }}</h1>
+    {{ with .user }}<p class="user">{{ .nickname }}</p>{{ end }}
+    {{ with .group }}<p class="group">{{ .name }}</p>{{ end }}
+    {{ with .permission }}<p class="permission">{{ .level }}</p>{{ end }}
+  </body>
+</html>`,
+		"styles.css": `body { font-family: sans-serif; }`,
+		"input.schema.json": `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "title": { "type": "string" }
+  },
+  "additionalProperties": true
+}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(templateRoot, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write plain template %s: %v", name, err)
+		}
 	}
 }
 

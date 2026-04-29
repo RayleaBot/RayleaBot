@@ -33,10 +33,27 @@ func TestBuiltinHelpPluginRendersRootMenuFromPluginList(t *testing.T) {
 			"target": map[string]any{
 				"type": "group",
 				"id":   "2001",
+				"name": "测试群",
+			},
+			"actor": map[string]any{
+				"id":       "30001",
+				"nickname": "群名片",
+				"role":     "owner",
 			},
 			"payload": map[string]any{
 				"command": "help",
 				"args":    []string{},
+				"onebot": map[string]any{
+					"user_id":  "30001",
+					"group_id": "2001",
+					"sender": map[string]any{
+						"user_id":  "30001",
+						"nickname": "普通昵称",
+						"card":     "群名片",
+						"role":     "owner",
+						"title":    "专属头衔",
+					},
+				},
 			},
 		},
 	})
@@ -106,6 +123,11 @@ func TestBuiltinHelpPluginRendersRootMenuFromPluginList(t *testing.T) {
 	if firstItem["usage"] != "/help echo" {
 		t.Fatalf("unexpected root help usage: %#v", firstItem["usage"])
 	}
+	for _, key := range []string{"user", "group", "permission"} {
+		if _, ok := payload[key]; ok {
+			t.Fatalf("builtin help plugin should not send identity field %q: %#v", key, payload[key])
+		}
+	}
 	session.writeFrame(t, map[string]any{
 		"protocol_version": "1",
 		"type":             "result",
@@ -165,15 +187,26 @@ func TestBuiltinHelpPluginFallsBackToTextForPluginDetail(t *testing.T) {
 			"event_id":        "event-2",
 			"source_protocol": "onebot11",
 			"source_adapter":  "test",
-			"event_type":      "message.group",
+			"event_type":      "message.private",
 			"timestamp":       time.Now().Unix(),
 			"target": map[string]any{
-				"type": "group",
-				"id":   "2002",
+				"type": "private",
+				"id":   "30002",
+			},
+			"actor": map[string]any{
+				"id":       "30002",
+				"nickname": "好友昵称",
 			},
 			"payload": map[string]any{
 				"command": "help",
 				"args":    []string{"echo"},
+				"onebot": map[string]any{
+					"user_id": "30002",
+					"sender": map[string]any{
+						"user_id":  "30002",
+						"nickname": "好友昵称",
+					},
+				},
 			},
 		},
 	})
@@ -236,6 +269,11 @@ func TestBuiltinHelpPluginFallsBackToTextForPluginDetail(t *testing.T) {
 	}
 	if firstItem["usage"] != "!echo <内容>" {
 		t.Fatalf("unexpected normalized command usage: %#v", firstItem["usage"])
+	}
+	for _, key := range []string{"user", "group", "permission"} {
+		if _, ok := payload[key]; ok {
+			t.Fatalf("builtin help plugin should not send identity field %q: %#v", key, payload[key])
+		}
 	}
 	session.writeFrame(t, map[string]any{
 		"protocol_version": "1",

@@ -552,13 +552,16 @@ func TestManagerDeliverEventProcessesLocalActionsBeforeTerminalResult(t *testing
 		actions []Action
 	)
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, parentEvent Event) (map[string]any, error) {
 			mu.Lock()
 			actions = append(actions, action)
 			mu.Unlock()
 
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
+			}
+			if parentEvent.EventID != "evt-1" || parentEvent.Target == nil || parentEvent.Target.ID != "2001" {
+				t.Fatalf("unexpected parent event: %#v", parentEvent)
 			}
 			switch requestID {
 			case "local_logger_1":
@@ -615,7 +618,7 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
@@ -645,7 +648,7 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
@@ -706,7 +709,7 @@ func TestManagerDeliverEventProcessesConcurrentLocalActionsWithinOneSession(t *t
 	started := make(chan string, 2)
 	release := make(chan struct{})
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, _ Event) (map[string]any, error) {
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
 			}
@@ -771,7 +774,7 @@ func TestManagerDeliverEventRejectsTerminalFrameBeforePendingLocalActionsComplet
 
 	release := make(chan struct{})
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(context.Context, string, string, Action) (map[string]any, error) {
+		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
 			<-release
 			return map[string]any{}, nil
 		},
@@ -795,7 +798,7 @@ func TestManagerDeliverEventRejectsLocalActionUsingEventRequestID(t *testing.T) 
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(context.Context, string, string, Action) (map[string]any, error) {
+		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
 			t.Fatal("ExecuteLocalAction should not be called when request_id reuses the event request_id")
 			return nil, nil
 		},
@@ -820,7 +823,7 @@ func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *tes
 	startedSlow := make(chan string, 1)
 	releaseSlow := make(chan struct{})
 	manager := testManagerWithRequestIDs(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, _ Event) (map[string]any, error) {
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
 			}

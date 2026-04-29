@@ -141,7 +141,7 @@ type managerDeps struct {
 	requestID func() string
 }
 
-type LocalActionExecutor func(context.Context, string, string, Action) (map[string]any, error)
+type LocalActionExecutor func(context.Context, string, string, Action, Event) (map[string]any, error)
 
 type Options struct {
 	Console                    *console.Stream

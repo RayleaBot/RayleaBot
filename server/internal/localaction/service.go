@@ -108,7 +108,7 @@ func (s *Service) SetWebhookGateway(gateway WebhookGateway) {
 	s.webhookGateway = gateway
 }
 
-func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
 	switch action.Kind {
 	case "logger.write":
 		return s.executeLoggerWrite(ctx, pluginID, requestID, action)
@@ -139,7 +139,7 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 	case "event.expose_webhook":
 		return s.executeExposeWebhook(ctx, pluginID, action)
 	case "render.image":
-		return s.executeRenderImage(ctx, pluginID, action)
+		return s.executeRenderImage(ctx, pluginID, action, parentEvent)
 	default:
 		switch {
 		case runtimeIsOneBotLocalAction(action.Kind), runtimeIsProviderExtensionAction(action.Kind):

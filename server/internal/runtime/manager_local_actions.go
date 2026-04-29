@@ -69,7 +69,7 @@ func isProviderExtensionAction(kind string) bool {
 	}
 }
 
-func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle, parentRequestID string, requestID string, action Action) {
+func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle, parentRequestID string, requestID string, action Action, parentEvent Event) {
 	if m.opts.ExecuteLocalAction == nil {
 		if err := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action executor is not available", nil); err != nil {
 			m.failRuntime(handle, err.Code, err.Message, err.Err)
@@ -77,7 +77,7 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *processHandle,
 		return
 	}
 
-	result, err := m.opts.ExecuteLocalAction(ctx, handle.spec.PluginID, requestID, action)
+	result, err := m.opts.ExecuteLocalAction(ctx, handle.spec.PluginID, requestID, action, parentEvent)
 	if err != nil {
 		var runtimeErr *Error
 		if errors.As(err, &runtimeErr) {

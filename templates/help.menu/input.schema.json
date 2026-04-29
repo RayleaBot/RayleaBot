@@ -10,6 +10,43 @@
     "subtitle": {
       "type": "string"
     },
+    "user": {
+      "type": "object",
+      "properties": {
+        "avatar_url": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "id": {
+          "type": ["string", "number"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "permission": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["super_admin", "owner", "admin", "member"]
+        }
+      },
+      "additionalProperties": true
+    },
     "items": {
       "type": "array",
       "items": {

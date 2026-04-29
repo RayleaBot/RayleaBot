@@ -137,6 +137,18 @@ function buildDefaultPreviewData(templateId: string) {
     return JSON.stringify({
       title: '帮助菜单',
       subtitle: '常用命令入口',
+      user: {
+        avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
+        nickname: '星野',
+        title: '指令调度员',
+        id: '10001',
+      },
+      group: {
+        name: 'RayleaBot 测试群',
+      },
+      permission: {
+        level: 'admin',
+      },
       items: [
         {
           name: 'weather',
@@ -152,6 +164,18 @@ function buildDefaultPreviewData(templateId: string) {
       title: 'Runtime Status',
       status: 'ready',
       summary: '所有核心服务已就绪。',
+      user: {
+        avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10086&s=100',
+        nickname: '凌川',
+        title: '系统观察员',
+        id: '10086',
+      },
+      group: {
+        name: 'RayleaBot 运维群',
+      },
+      permission: {
+        level: 'super_admin',
+      },
       metrics: [
         { label: 'Plugins', value: '8 loaded' },
         { label: 'Queue', value: 'idle' },

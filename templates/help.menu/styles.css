@@ -22,13 +22,182 @@ body {
 }
 
 .surface {
+  position: relative;
   padding: 52px 56px;
   max-width: 960px;
   width: 100%;
 }
 
 .hero {
+  min-height: 136px;
+  padding-right: 316px;
   margin-bottom: 36px;
+}
+
+.identity-card {
+  position: absolute;
+  top: 52px;
+  right: 56px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 292px;
+  min-height: 112px;
+  padding: 18px 14px 14px;
+  border: 1px solid rgba(23, 48, 66, 0.12);
+  border-radius: 8px;
+  background: rgba(253, 252, 247, 0.86);
+  box-shadow:
+    0 16px 32px rgba(23, 48, 66, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  overflow: visible;
+}
+
+.identity-card__avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #173042, #7a9dad);
+  color: #f6fbf8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.identity-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.identity-card__avatar span {
+  max-width: 38px;
+  max-height: 30px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.identity-card__body {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  flex: 1 1 auto;
+}
+
+.identity-card__topline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  min-height: 22px;
+  padding-right: 88px;
+}
+
+.identity-card__title-badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 8px;
+  border: 1px solid rgba(154, 123, 79, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 248, 228, 0.72);
+  color: #806033;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-card__name {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: #173042;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.identity-card__meta {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: #5d737a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.identity-card__meta-line {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.identity-card__meta-line--group {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.identity-card__meta-line--id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.permission-badge--super-admin {
+  border-color: #e4bd4f;
+  background: #fff2bf;
+  color: #755000;
+}
+
+.permission-badge--owner {
+  border-color: #e7a1c2;
+  background: #fde5f0;
+  color: #8a225a;
+}
+
+.permission-badge--admin {
+  border-color: #9fc3ee;
+  background: #deecff;
+  color: #175ca5;
+}
+
+.permission-badge--member {
+  border-color: #afd9b6;
+  background: #e4f5e8;
+  color: #246d3c;
 }
 
 .eyebrow {
@@ -117,4 +286,27 @@ code {
     0 2px 8px rgba(30, 58, 79, 0.2);
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+@media (max-width: 760px) {
+  .surface {
+    padding: 32px 24px;
+  }
+
+  .identity-card {
+    position: static;
+    width: 100%;
+    margin-bottom: 28px;
+    overflow: visible;
+  }
+
+  .hero {
+    min-height: 0;
+    padding-right: 0;
+    margin-bottom: 28px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }

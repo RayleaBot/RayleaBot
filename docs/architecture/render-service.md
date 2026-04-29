@@ -42,6 +42,15 @@
 - 模板输入数据
 - 主题与输出格式
 
+### 身份上下文
+
+- 插件侧 `render.image` 提交模板业务数据。
+- 模板 `input.schema.json` 顶层声明 `user` 与 `permission` 时，平台会根据父事件为渲染数据补充身份字段。
+- `user` 包含用户 ID、昵称、群头衔和 QQ 头像地址；昵称在群聊中优先使用群名片。
+- `permission.level` 使用 `super_admin`、`owner`、`admin`、`member`。
+- 群聊事件带有已归一化群名时，渲染数据包含 `group.name`；私聊事件没有 `group`。
+- 管理面 `render.preview` 使用页面提交的 JSON，适合检查模板视觉样例。
+
 ### 输出
 
 - 插件侧消费 `image_path` 与受控 artifact 信息

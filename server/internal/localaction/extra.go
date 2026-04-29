@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
-func (s *Service) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action) (map[string]any, error) {
+func (s *Service) executeRenderImage(ctx context.Context, pluginID string, action runtime.Action, parentEvent runtime.Event) (map[string]any, error) {
 	if s == nil || s.grants == nil || !s.grants.CapabilityGranted(ctx, pluginID, "render.image") {
 		return nil, &runtime.Error{
 			Code:    "permission.scope_violation",
@@ -24,11 +24,13 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 		}
 	}
 
+	renderData := s.renderImageData(ctx, action.RenderTemplate, action.RenderData, parentEvent)
+
 	result, err := s.renderer.Render(ctx, render.Request{
 		Template: action.RenderTemplate,
 		Theme:    action.RenderTheme,
 		Output:   action.RenderOutput,
-		Data:     action.RenderData,
+		Data:     renderData,
 	})
 	if err != nil {
 		return nil, &runtime.Error{

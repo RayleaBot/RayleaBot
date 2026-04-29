@@ -11,6 +11,7 @@ import (
 
 type eventSession struct {
 	requestID          string
+	event              Event
 	ctx                context.Context
 	cancel             context.CancelFunc
 	done               chan struct{}
@@ -159,7 +160,7 @@ func (m *Manager) routeLocalActionFrameLocked(handle *processHandle, line []byte
 	session.localActionIDs[frame.RequestID] = struct{}{}
 	session.pendingLocalAction++
 
-	go m.executeLocalAction(session.ctx, handle, parentRequestID, frame.RequestID, *action)
+	go m.executeLocalAction(session.ctx, handle, parentRequestID, frame.RequestID, *action, session.event)
 	return nil
 }
 
@@ -231,7 +232,7 @@ func (m *Manager) parseLocalActionFrameLocked(handle *processHandle, line []byte
 	return frame, action, parentRequestID, nil
 }
 
-func (m *Manager) registerEventSession(ctx context.Context, handle *processHandle, requestID string) (*eventSession, *Error) {
+func (m *Manager) registerEventSession(ctx context.Context, handle *processHandle, requestID string, event Event) (*eventSession, *Error) {
 	sessionCtx, cancel := context.WithCancel(ctx)
 
 	m.mu.Lock()
@@ -252,6 +253,7 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *processHandl
 
 	session := &eventSession{
 		requestID:      requestID,
+		event:          event,
 		ctx:            sessionCtx,
 		cancel:         cancel,
 		done:           make(chan struct{}),
