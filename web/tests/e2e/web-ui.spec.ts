@@ -83,6 +83,10 @@ function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
 }
 
+function logFilterField(page: import('@playwright/test').Page, label: string) {
+  return page.locator('.logs-filter-grid .ant-form-item').filter({ hasText: label }).first()
+}
+
 function appHeader(page: import('@playwright/test').Page) {
   return page.getByTestId('app-header')
 }
@@ -118,6 +122,117 @@ async function readTabIconKeys(page: import('@playwright/test').Page) {
       .map((node) => node.getAttribute('data-icon') ?? '')
       .filter(Boolean)
   ))
+}
+
+function hasRepeatedLogFilterParams(
+  response: import('@playwright/test').Response,
+  scope: 'current_session' | 'history',
+) {
+  if (response.request().method() !== 'GET') {
+    return false
+  }
+
+  const url = new URL(response.url())
+  const levels = url.searchParams.getAll('level')
+  const pluginIds = url.searchParams.getAll('plugin_id')
+
+  return url.pathname === '/api/logs'
+    && url.searchParams.get('scope') === scope
+    && levels.includes('warn')
+    && levels.includes('error')
+    && pluginIds.includes('weather')
+    && pluginIds.includes('builtin-help')
+}
+
+async function expectRepeatedLogFilterControls(page: import('@playwright/test').Page) {
+  const levelTags = logFilterField(page, '级别').locator('.ant-select-selection-item-content')
+  await expect(levelTags.filter({ hasText: '警告' })).toHaveCount(1)
+  await expect(levelTags.filter({ hasText: '错误' })).toHaveCount(1)
+
+  const pluginTags = logFilterField(page, '插件').locator('.ant-select-selection-item-content')
+  await expect(pluginTags.filter({ hasText: 'weather' })).toHaveCount(1)
+  await expect(pluginTags.filter({ hasText: 'builtin-help' })).toHaveCount(1)
+}
+
+async function seedRepeatedLogFilterRows(
+  request: import('@playwright/test').APIRequestContext,
+  prefix: string,
+) {
+  const baseTimestamp = Date.now() - 20 * 60 * 1000
+  const weatherRequestId = `req_${prefix}_weather`
+  const builtinRequestId = `req_${prefix}_builtin_help`
+  const weatherMessage = `${prefix} weather warn match`
+  const builtinMessage = `${prefix} builtin help error match`
+  const filteredLevelMessage = `${prefix} weather debug filtered out`
+  const filteredPluginMessage = `${prefix} config panel error filtered out`
+  const rows = [
+    {
+      log_id: `log_${prefix}_weather_warn_match`,
+      timestamp: new Date(baseTimestamp + 1000).toISOString(),
+      level: 'warn',
+      source: 'runtime',
+      plugin_id: 'weather',
+      request_id: weatherRequestId,
+      message: weatherMessage,
+    },
+    {
+      log_id: `log_${prefix}_builtin_help_error_match`,
+      timestamp: new Date(baseTimestamp + 2000).toISOString(),
+      level: 'error',
+      source: 'runtime',
+      plugin_id: 'builtin-help',
+      request_id: builtinRequestId,
+      message: builtinMessage,
+    },
+    {
+      log_id: `log_${prefix}_weather_debug_filtered`,
+      timestamp: new Date(baseTimestamp + 3000).toISOString(),
+      level: 'debug',
+      source: 'runtime',
+      plugin_id: 'weather',
+      request_id: `req_${prefix}_filtered_level`,
+      message: filteredLevelMessage,
+    },
+    {
+      log_id: `log_${prefix}_config_panel_error_filtered`,
+      timestamp: new Date(baseTimestamp + 4000).toISOString(),
+      level: 'error',
+      source: 'runtime',
+      plugin_id: 'example-config-panel',
+      request_id: `req_${prefix}_filtered_plugin`,
+      message: filteredPluginMessage,
+    },
+  ]
+
+  await pushLogsInBatches(request, rows.length, (index) => ({
+    summary: rows[index],
+    detail: {
+      details: {
+        branch: 'repeated-log-filters',
+        case: prefix,
+      },
+    },
+  }))
+
+  return {
+    builtinMessage,
+    builtinRequestId,
+    filteredLevelMessage,
+    filteredPluginMessage,
+    weatherMessage,
+    weatherRequestId,
+  }
+}
+
+async function expectRepeatedLogFilterRows(
+  page: import('@playwright/test').Page,
+  rows: Awaited<ReturnType<typeof seedRepeatedLogFilterRows>>,
+) {
+  const logsFeed = page.locator('.logs-feed-card')
+  await expect(logsFeed).toContainText(rows.weatherMessage)
+  await expect(logsFeed).toContainText(rows.builtinMessage)
+  await expect(logsFeed).not.toContainText(rows.filteredLevelMessage)
+  await expect(logsFeed).not.toContainText(rows.filteredPluginMessage)
 }
 
 async function navigateThroughMenu(
@@ -1514,6 +1629,78 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await expect.poll(() => page.url()).toContain('/render/templates/help.menu')
   await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
   await expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
+})
+
+test('repeated log filters restore current logs and preserve workspace jumps', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const rows = await seedRepeatedLogFilterRows(request, 'repeated_current')
+
+  await page.goto('/logs?level=warn&level=error&plugin_id=weather&plugin_id=builtin-help')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await expectRepeatedLogFilterControls(page)
+
+  await Promise.all([
+    page.waitForResponse((response) => hasRepeatedLogFilterParams(response, 'current_session')),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+  await expectRepeatedLogFilterRows(page, rows)
+
+  const weatherRow = logRows(page).filter({ hasText: rows.weatherMessage }).first()
+  await expect(weatherRow).toBeVisible()
+  await weatherRow.click()
+  await expect(logDetailWindow(page)).toBeVisible()
+  await logDetailWindow(page).getByRole('button', { name: '相关实时日志' }).click()
+
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/logs')
+  await expect.poll(() => new URL(page.url()).searchParams.get('request_id')).toBe(rows.weatherRequestId)
+  const currentUrl = new URL(page.url())
+  expect(currentUrl.searchParams.getAll('level')).toHaveLength(0)
+  expect(currentUrl.searchParams.getAll('plugin_id')).toHaveLength(0)
+  await expect(page.locator('.logs-feed-card')).toContainText(rows.weatherMessage)
+  expect((await readTabLabels(page)).filter((label) => label === '实时日志')).toHaveLength(1)
+})
+
+test('repeated log filters restore history logs and preserve workspace jumps', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const rows = await seedRepeatedLogFilterRows(request, 'repeated_history')
+
+  await page.goto('/logs/history?level=warn&level=error&plugin_id=weather&plugin_id=builtin-help')
+  await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  await expect.poll(() => Boolean(new URL(page.url()).searchParams.get('start_at'))).toBe(true)
+  await expect.poll(() => Boolean(new URL(page.url()).searchParams.get('end_at'))).toBe(true)
+  await expectRepeatedLogFilterControls(page)
+
+  await Promise.all([
+    page.waitForResponse((response) => hasRepeatedLogFilterParams(response, 'history')),
+    page.getByRole('button', { name: '应用筛选' }).click(),
+  ])
+  await expectRepeatedLogFilterRows(page, rows)
+
+  const historyUrl = new URL(page.url())
+  expect(historyUrl.searchParams.getAll('level')).toEqual(expect.arrayContaining(['warn', 'error']))
+  expect(historyUrl.searchParams.getAll('plugin_id')).toEqual(expect.arrayContaining(['weather', 'builtin-help']))
+  expect(historyUrl.searchParams.get('start_at')).toBeTruthy()
+  expect(historyUrl.searchParams.get('end_at')).toBeTruthy()
+
+  const builtinRow = logRows(page).filter({ hasText: rows.builtinMessage }).first()
+  await expect(builtinRow).toBeVisible()
+  await builtinRow.click()
+  await expect(logDetailWindow(page)).toBeVisible()
+  await logDetailWindow(page).getByRole('button', { name: '相关历史日志' }).click()
+
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/logs/history')
+  await expect.poll(() => new URL(page.url()).searchParams.get('request_id')).toBe(rows.builtinRequestId)
+  await expect.poll(() => Boolean(new URL(page.url()).searchParams.get('start_at'))).toBe(true)
+  await expect.poll(() => Boolean(new URL(page.url()).searchParams.get('end_at'))).toBe(true)
+  const relatedHistoryUrl = new URL(page.url())
+  expect(relatedHistoryUrl.searchParams.getAll('level')).toHaveLength(0)
+  expect(relatedHistoryUrl.searchParams.getAll('plugin_id')).toHaveLength(0)
+  await expect(page.locator('.logs-feed-card')).toContainText(rows.builtinMessage)
+  expect((await readTabLabels(page)).filter((label) => label === '历史日志')).toHaveLength(1)
 })
 
 test('logs page filters both history and live log appends', async ({ page, request }) => {
