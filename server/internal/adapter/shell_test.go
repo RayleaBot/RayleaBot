@@ -20,7 +20,6 @@ import (
 )
 
 func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
@@ -94,7 +93,6 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 }
 
 func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -128,7 +126,6 @@ func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 }
 
 func TestShellDoesNotConnectDisabledConfiguredForwardTransport(t *testing.T) {
-	t.Parallel()
 
 	var attempts atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -172,7 +169,6 @@ func TestShellDoesNotConnectDisabledConfiguredForwardTransport(t *testing.T) {
 }
 
 func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testing.T) {
-	t.Parallel()
 
 	var firstServerConnections atomic.Int64
 	firstServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +297,6 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 }
 
 func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -382,7 +377,6 @@ func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 }
 
 func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -456,7 +450,6 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 }
 
 func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -518,7 +511,6 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 }
 
 func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -573,7 +565,6 @@ func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 }
 
 func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
-	t.Parallel()
 
 	invalidSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -642,7 +633,6 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 }
 
 func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
-	t.Parallel()
 
 	unknownSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -718,7 +708,6 @@ func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
 }
 
 func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
-	t.Parallel()
 
 	ignoredSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -796,7 +785,6 @@ func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
 }
 
 func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
-	t.Parallel()
 
 	ignoredSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -871,7 +859,6 @@ func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
 }
 
 func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
-	t.Parallel()
 
 	eventSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -947,7 +934,6 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 }
 
 func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -989,7 +975,6 @@ func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 }
 
 func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
-	t.Parallel()
 
 	closeConn := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1047,7 +1032,6 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 }
 
 func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -1102,7 +1086,6 @@ func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(
 }
 
 func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -1154,7 +1137,6 @@ func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 }
 
 func TestShellStopTransitionsToStopped(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -1204,7 +1186,6 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 }
 
 func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T) {
-	t.Parallel()
 
 	shell := newTestShell(config.OneBotConfig{}, shellDeps{
 		connectTimeout: 75 * time.Millisecond,
@@ -1245,7 +1226,6 @@ func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T
 }
 
 func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
-	t.Parallel()
 
 	requests := make(chan map[string]any, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1377,7 +1357,6 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 }
 
 func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -1457,7 +1436,6 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 }
 
 func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T) {
-	t.Parallel()
 
 	requests := make(chan map[string]any, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1580,7 +1558,6 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 }
 
 func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
-	t.Parallel()
 
 	requests := make(chan map[string]any, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1688,7 +1665,6 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 }
 
 func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)

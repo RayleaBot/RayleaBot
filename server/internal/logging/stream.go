@@ -39,6 +39,7 @@ type Stream struct {
 	flushTicker      time.Duration
 	flushNotify      chan struct{}
 	flushStop        chan struct{}
+	flushWG          sync.WaitGroup
 	flushLoopStarted bool
 	flushLoopClosed  bool
 	diagnosticMu     sync.Mutex
@@ -119,6 +120,7 @@ func (s *Stream) ConfigureSpool(queue *SpoolQueue, stderr io.Writer) {
 	startLoop := queue != nil && !s.flushLoopStarted && !s.flushLoopClosed
 	if startLoop {
 		s.flushLoopStarted = true
+		s.flushWG.Add(1)
 	}
 	s.mu.Unlock()
 
@@ -144,9 +146,14 @@ func (s *Stream) Close() {
 		s.mu.Unlock()
 		return
 	}
+	waitForFlushLoop := s.flushLoopStarted
 	s.flushLoopClosed = true
 	close(s.flushStop)
 	s.mu.Unlock()
+
+	if waitForFlushLoop {
+		s.flushWG.Wait()
+	}
 }
 
 func (s *Stream) Append(summary Summary) {
@@ -259,6 +266,8 @@ func (s *Stream) SubscriberCount() int {
 }
 
 func (s *Stream) flushLoop() {
+	defer s.flushWG.Done()
+
 	ticker := time.NewTicker(s.flushTicker)
 	defer ticker.Stop()
 

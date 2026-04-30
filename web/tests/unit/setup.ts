@@ -7,6 +7,14 @@ class ResizeObserverMock {
   disconnect() {}
 }
 
+config.global.directives = {
+  ...(config.global.directives ?? {}),
+  motion: {
+    mounted() {},
+    updated() {},
+  },
+}
+
 beforeEach(() => {
   Object.defineProperty(window, 'ResizeObserver', {
     configurable: true,

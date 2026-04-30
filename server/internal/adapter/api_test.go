@@ -15,7 +15,6 @@ import (
 )
 
 func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -98,7 +97,6 @@ func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
 }
 
 func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -172,7 +170,6 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 }
 
 func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -256,7 +253,6 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 }
 
 func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -333,7 +329,6 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 }
 
 func TestGetGroupInfoReturnsGroupName(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -409,7 +404,6 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 }
 
 func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -481,7 +475,6 @@ func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
 }
 
 func TestGetStrangerInfoReturnsNickname(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -557,7 +550,6 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 }
 
 func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
-	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -629,7 +621,6 @@ func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 }
 
 func TestCallAPIReturnsErrorWhenNotConnected(t *testing.T) {
-	t.Parallel()
 
 	shell := newTestShell(config.OneBotConfig{
 		WSURL: "ws://127.0.0.1:1",
@@ -653,7 +644,6 @@ func TestCallAPIReturnsErrorWhenNotConnected(t *testing.T) {
 }
 
 func TestIdentityCacheTTLExpiry(t *testing.T) {
-	t.Parallel()
 
 	cache := NewIdentityCache(50 * time.Millisecond)
 
@@ -695,7 +685,6 @@ func TestIdentityCacheTTLExpiry(t *testing.T) {
 }
 
 func TestIdentityCacheClearInvalidatesAll(t *testing.T) {
-	t.Parallel()
 
 	cache := NewIdentityCache(10 * time.Minute)
 

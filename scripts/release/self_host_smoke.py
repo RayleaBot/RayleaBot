@@ -582,7 +582,10 @@ def request_json(
             raw_body = response.read()
     except urllib.error.HTTPError as exc:
         status = exc.code
-        raw_body = exc.read()
+        try:
+            raw_body = exc.read()
+        finally:
+            exc.close()
     allowed_statuses = expected_statuses or {expected_status}
     if status not in allowed_statuses:
         expected_label = ", ".join(str(item) for item in sorted(allowed_statuses))
@@ -606,7 +609,10 @@ def request_bytes(
             payload = response.read()
     except urllib.error.HTTPError as exc:
         status = exc.code
-        payload = exc.read()
+        try:
+            payload = exc.read()
+        finally:
+            exc.close()
     if status != expected_status:
         raise SmokeError(f"GET {url} returned {status}, expected {expected_status}: {payload.decode('utf-8', errors='replace')}")
     return payload

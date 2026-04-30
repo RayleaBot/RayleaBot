@@ -24,6 +24,7 @@ export default defineConfig({
       env: {
         ...process.env,
         VITE_BACKEND_TARGET: 'http://127.0.0.1:4010',
+        VITE_WS_BASE_URL: 'ws://127.0.0.1:4010',
       },
     },
   ],

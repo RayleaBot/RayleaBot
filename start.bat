@@ -56,5 +56,5 @@ if /I "%RAYLEA_START_SKIP_LAUNCH%"=="1" (
 )
 
 echo [RayleaBot] Starting launcher...
-start "" "%LAUNCHER_DIR%\node_modules\electron\dist\electron.exe" "%LAUNCHER_DIR%"
-exit /b 0
+call pnpm --dir "%LAUNCHER_DIR%" exec electron "."
+exit /b %errorlevel%

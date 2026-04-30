@@ -106,7 +106,10 @@ export const useLogsStore = defineStore('logs', () => {
     }
 
     if (canAppendInPlace(items.value, log)) {
-      items.value = trimItems([...items.value, log])
+      items.value.push(log)
+      if (!olderWindowExpanded && items.value.length > MAX_LIVE_LOG_ITEMS) {
+        items.value.splice(0, items.value.length - MAX_LIVE_LOG_ITEMS)
+      }
     } else {
       items.value = trimItems(mergeSortedLogItemsAsc(items.value, [log]))
     }

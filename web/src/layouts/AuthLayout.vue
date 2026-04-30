@@ -59,7 +59,7 @@ const themeToggleLabel = computed(() => (
         </div>
 
         <div class="auth-layout__highlights">
-          <p class="auth-layout__highlights-label">{{ t('auth.heroHighlightsLabel') || '功能亮点' }}</p>
+          <p class="auth-layout__highlights-label">{{ t('auth.heroHighlightsLabel') }}</p>
           <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeatureStatus') }}</span>
           <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeaturePlugins') }}</span>
           <span><CheckOutlined class="auth-layout__highlight-icon" aria-hidden="true" />{{ t('auth.heroFeatureProtocols') }}</span>

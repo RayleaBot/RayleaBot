@@ -476,8 +476,8 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
     Authorization: `Bearer ${sessionToken}`,
   }
 
-  await Promise.all(Array.from({ length: 10 }, (_, index) => (
-    request.post(`${backendUrl}/api/governance/whitelist/entries`, {
+  for (let index = 0; index < 10; index += 1) {
+    await request.post(`${backendUrl}/api/governance/whitelist/entries`, {
       headers: authHeaders,
       data: {
         entry_type: 'user',
@@ -485,9 +485,9 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
         reason: `扩展白名单${index + 1}`,
       },
     })
-  )))
-  await Promise.all(Array.from({ length: 10 }, (_, index) => (
-    request.post(`${backendUrl}/api/governance/blacklist/entries`, {
+  }
+  for (let index = 0; index < 10; index += 1) {
+    await request.post(`${backendUrl}/api/governance/blacklist/entries`, {
       headers: authHeaders,
       data: {
         entry_type: 'user',
@@ -495,7 +495,7 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
         reason: `扩展黑名单${index + 1}`,
       },
     })
-  )))
+  }
 
   await page.goto('/governance')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
@@ -557,11 +557,11 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
   await expect(whitelistCard).not.toContainText('20002')
 
-  await Promise.all(Array.from({ length: 10 }, (_, index) => (
-    request.delete(`${backendUrl}/api/governance/whitelist/entries/user/${encodeURIComponent(`31${String(index + 1).padStart(3, '0')}`)}`, {
+  for (let index = 0; index < 10; index += 1) {
+    await request.delete(`${backendUrl}/api/governance/whitelist/entries/user/${encodeURIComponent(`31${String(index + 1).padStart(3, '0')}`)}`, {
       headers: authHeaders,
     })
-  )))
+  }
   await page.getByRole('button', { name: '刷新状态' }).click()
   await expect(whitelistCard).not.toContainText('31010')
 
@@ -993,6 +993,13 @@ test('current logs reveal older rows after scrolling to the top edge', async ({ 
     }),
   ])
 
+  await logScroller(page).evaluate((node) => {
+    node.scrollTop = 0
+    node.dispatchEvent(new Event('scroll'))
+  })
+  await expect.poll(async () => (
+    logScroller(page).evaluate((node) => node.scrollTop)
+  )).toBe(0)
   await expect(page.locator('.logs-row__message', { hasText: 'current scroll row 0' })).toBeVisible()
 })
 
@@ -1471,7 +1478,9 @@ test('template preview auto-refreshes results without editor controls', async ({
   await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
 
-  await expect(page.locator('.app-card__title-text').filter({ hasText: '模板信息' }).first()).toBeVisible()
+  await expect(page.locator('.template-info-bar')).toContainText('模板 ID')
+  await expect(page.locator('.template-info-bar')).toContainText('help.menu')
+  await expect(page.locator('.template-info-bar')).toContainText('渲染参数')
   await expect(page.locator('.app-card__title-text').filter({ hasText: '输入结构' }).first()).toBeVisible()
   await expect(page.locator('.render-templates-card--editor')).toHaveCount(0)
   await expect(page.locator('.version-item')).toHaveCount(0)
@@ -1494,7 +1503,7 @@ test('template preview auto-refreshes results without editor controls', async ({
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
   await expect(previewResult).toContainText('task_render_preview_0003')
   await expect(previewResult).toContainText('render_preview_0003.png')
-  await expect(page.locator('.summary-grid')).toContainText('status.panel')
+  await expect(page.locator('.template-info-bar')).toContainText('status.panel')
 })
 
 test('template preview page stays scrollable on shorter viewports', async ({ page, request }) => {
@@ -1515,7 +1524,14 @@ test('template preview page stays scrollable on shorter viewports', async ({ pag
 
   expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight)
 
-  await appMain.hover()
+  const appMainBox = await appMain.boundingBox()
+  if (!appMainBox) {
+    throw new Error('#app-main is not visible')
+  }
+  await page.mouse.move(
+    appMainBox.x + appMainBox.width - 24,
+    appMainBox.y + Math.min(appMainBox.height - 24, 320),
+  )
   await page.mouse.wheel(0, 1200)
 
   await expect.poll(async () => (

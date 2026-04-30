@@ -2,6 +2,7 @@ export const auth = {
   surface: '管理后台',
   heroTitle: '统一管理机器人与连接能力',
   heroBody: '登录后查看系统状态、任务、日志和协议设置。',
+  heroHighlightsLabel: '功能亮点',
   heroFeatureStatus: '系统状态与恢复',
   heroFeaturePlugins: '插件与任务管理',
   heroFeatureProtocols: '协议设置与实时日志',

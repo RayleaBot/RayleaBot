@@ -204,6 +204,21 @@ function presentationState(snapshot: LauncherSnapshot) {
   return deriveLauncherPresentation(snapshot);
 }
 
+async function waitForPresentationState(
+  coordinator: { readonly snapshot: LauncherSnapshot },
+  expectedState: ReturnType<typeof presentationState>["state"],
+  timeoutMs = 500,
+) {
+  const deadline = Date.now() + timeoutMs;
+  let latest = presentationState(coordinator.snapshot);
+  while (latest.state !== expectedState && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    latest = presentationState(coordinator.snapshot);
+  }
+  expect(latest.state).toBe(expectedState);
+  return latest;
+}
+
 describe("launcher coordinator", () => {
   test("initialize reports externally managed running service with formal state names", async () => {
     const settingsStore = new FakeSettingsStore();
@@ -432,10 +447,8 @@ describe("launcher coordinator", () => {
       reason: "服务稳定。",
     };
 
-    await new Promise((resolve) => setTimeout(resolve, 30));
-
-    expect(presentationState(coordinator.snapshot).state).toBe("running");
-    expect(presentationState(coordinator.snapshot).detail).toBe("服务稳定。");
+    const readyState = await waitForPresentationState(coordinator, "running");
+    expect(readyState.detail).toBe("服务稳定。");
   });
 
   test("initialize reflects system/status shutting_down state", async () => {
@@ -1194,10 +1207,8 @@ describe("launcher coordinator", () => {
       reason: "服务稳定。",
     };
 
-    await new Promise((resolve) => setTimeout(resolve, 30));
-
-    expect(presentationState(coordinator.snapshot).state).toBe("running");
-    expect(presentationState(coordinator.snapshot).detail).toBe("服务稳定。");
+    const readyState = await waitForPresentationState(coordinator, "running");
+    expect(readyState.detail).toBe("服务稳定。");
   });
 
   test("initialize does not block on slow release checks", async () => {

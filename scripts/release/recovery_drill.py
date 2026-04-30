@@ -412,11 +412,14 @@ def download_previous_archive(repository: str, current_version: str, artifact_id
         with urllib.request.urlopen(request, timeout=30) as response:
             releases = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        if exc.code in {403, 404}:
-            raise DrillBootstrapSkip(
-                f"release api is not accessible for {artifact_id} (HTTP {exc.code})"
-            ) from exc
-        raise
+        try:
+            if exc.code in {403, 404}:
+                raise DrillBootstrapSkip(
+                    f"release api is not accessible for {artifact_id} (HTTP {exc.code})"
+                ) from exc
+            raise
+        finally:
+            exc.close()
     release = select_previous_release(releases, current_version)
     if release is None:
         raise DrillBootstrapSkip(f"no previous published release found for {artifact_id}")
