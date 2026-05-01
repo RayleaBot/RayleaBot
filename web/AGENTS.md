@@ -18,7 +18,7 @@
 
 ## Current Surface Expectations
 
-- 运维分组当前正式页面包含：`/governance`、`/commands`、`/tasks`、`/logs`、`/logs/history`、`/protocols`、`/protocols/compatibility`、`/config`。
+- 运维分组当前正式页面包含：`/permission-policy`、`/access-lists`、`/commands`、`/tasks`、`/logs`、`/logs/history`、`/protocols`、`/protocols/compatibility`、`/config`。
 - 插件详情页 `/plugins/:id` 保持单插件详情页签语义，并在页内承载概览、实时控制台和插件内置管理页工作区。
 - 插件内置管理页通过 `/plugin-ui/{plugin_id}/...` 静态资源路由与正式桥接消息工作，不把管理 session、请求库或全局 store 直接暴露给插件页面。
 - 权限策略、指令中心、日志中心、任务和协议中心继续通过稳定字段互相钻取，不靠摘要文案猜目标。

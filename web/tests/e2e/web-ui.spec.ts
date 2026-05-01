@@ -460,7 +460,7 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByText('Traceback (most recent call last): ...').first()).toBeVisible()
 })
 
-test('governance page manages blacklist and whitelist entries', async ({ page, request }) => {
+test('access lists page manages blacklist and whitelist entries', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -497,27 +497,23 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
     })
   }
 
-  await page.goto('/governance')
-  await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('governance-summary-card')).toContainText('治理总览')
-  await expect(page.getByTestId('governance-summary-card').getByText('所有成员').first()).toBeVisible()
-  await expect(page.getByText('10/60s')).toBeVisible()
-  await expect(page.getByText('30/60s')).toBeVisible()
+  await page.goto('/access-lists')
+  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
 
-  const whitelistCard = page.getByTestId('governance-whitelist-card')
-  const blacklistCard = page.getByTestId('governance-blacklist-card')
+  const whitelistCard = page.getByTestId('access-lists-whitelist-card')
+  const blacklistCard = page.getByTestId('access-lists-blacklist-card')
   await expect(whitelistCard).toContainText('10001')
   await expect(whitelistCard).toContainText('值班账号')
   await expect(whitelistCard).toContainText('31010')
   await expect(whitelistCard.locator('.ant-pagination')).toHaveCount(0)
 
   // --- Blacklist tab ---
-  await page.locator('.governance-tabs .ant-tabs-tab').filter({ hasText: '黑名单' }).click()
+  await page.locator('.access-lists-tabs .ant-tabs-tab').filter({ hasText: '黑名单' }).click()
   await expect(blacklistCard).toContainText('10001')
   await expect(blacklistCard).toContainText('41010')
   await expect(blacklistCard.locator('.ant-pagination')).toHaveCount(0)
 
-  await page.getByTestId('governance-blacklist-add-btn').click()
+  await page.getByTestId('access-lists-blacklist-add-btn').click()
   const blacklistModal = page.getByRole('dialog').filter({ hasText: '添加黑名单条目' })
   await blacklistModal.locator('.ant-input').nth(0).fill('30003')
   await blacklistModal.locator('.ant-input').nth(1).fill('临时封禁')
@@ -530,9 +526,9 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await expect(blacklistCard).not.toContainText('30003')
 
   // --- Whitelist tab ---
-  await page.locator('.governance-tabs .ant-tabs-tab').filter({ hasText: '白名单' }).click()
+  await page.locator('.access-lists-tabs .ant-tabs-tab').filter({ hasText: '白名单' }).click()
 
-  await page.getByTestId('governance-whitelist-add-btn').click()
+  await page.getByTestId('access-lists-whitelist-add-btn').click()
   const whitelistModal = page.getByRole('dialog').filter({ hasText: '添加白名单条目' })
   await whitelistModal.locator('.ant-input').nth(0).fill('30003')
   await whitelistModal.locator('.ant-input').nth(1).fill('临时放行')
@@ -540,8 +536,8 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await expect(whitelistCard).toContainText('30003')
   await expect(whitelistCard).toContainText('临时放行')
 
-  await page.getByTestId('governance-whitelist-enabled').dispatchEvent('click')
-  await expect(page.getByTestId('governance-whitelist-enabled')).toHaveAttribute('aria-checked', 'false')
+  await page.getByTestId('access-lists-whitelist-enabled').dispatchEvent('click')
+  await expect(page.getByTestId('access-lists-whitelist-enabled')).toHaveAttribute('aria-checked', 'false')
 
   for (const targetId of ['10001', '30003']) {
     await governanceEntryCard(whitelistCard, targetId).getByRole('button', { name: '移除' }).click()
@@ -549,7 +545,7 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
     await expect(whitelistCard).not.toContainText(targetId)
   }
 
-  await whitelistCard.locator('.governance-toolbar__filter').click()
+  await whitelistCard.locator('.access-lists-toolbar__filter').click()
   await page.locator('.ant-select-dropdown').getByTitle('群').click()
   await expect(whitelistCard).toContainText('20002')
   await expect(whitelistCard).toContainText('核心服务群')
@@ -565,21 +561,63 @@ test('governance page manages blacklist and whitelist entries', async ({ page, r
   await page.getByRole('button', { name: '刷新状态' }).click()
   await expect(whitelistCard).not.toContainText('31010')
 
-  await page.getByTestId('governance-whitelist-enabled').dispatchEvent('click')
+  await page.getByTestId('access-lists-whitelist-enabled').dispatchEvent('click')
   const confirmDialog = page.getByRole('dialog', { name: '确认启用空白名单' })
   await expect(confirmDialog).toContainText('当前没有任何白名单条目')
   await expect(confirmDialog).toContainText('除超级管理员外，所有命令都会被挡下')
 
   await confirmDialog.getByRole('button', { name: '确认启用' }).dispatchEvent('click')
 
-  await expect(page.getByTestId('governance-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByTestId('access-lists-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
   await expect(whitelistCard).toContainText('白名单已启用且当前为空')
   await expect(whitelistCard).toContainText('除超级管理员外，所有命令都会被挡下')
 
   await page.reload()
+  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('access-lists-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByTestId('access-lists-whitelist-card')).toContainText('白名单已启用且当前为空')
+})
+
+test('permission policy page edits command policy config', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('governance-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
-  await expect(page.getByTestId('governance-whitelist-card')).toContainText('白名单已启用且当前为空')
+  await expect(page.getByTestId('permission-policy-summary-card').getByText('所有成员').first()).toBeVisible()
+  await expect(page.getByText('配置超级管理员、默认权限级别和聊天命令速率限制。')).toHaveCount(0)
+  await expect(page.getByText('策略总览')).toHaveCount(0)
+  await expect(page.getByTestId('permission-policy-unsaved-status')).toHaveCount(0)
+
+  const superAdminsInput = page.getByTestId('permission-policy-super-admins').locator('input')
+  await superAdminsInput.click()
+  await superAdminsInput.fill('10002')
+  await superAdminsInput.press('Enter')
+  await page.getByLabel('默认权限级别').click()
+  await page.getByTitle('群管理员').click()
+  await page.getByLabel('用户命令速率限制').fill('20/60s')
+  await page.getByLabel('群命令速率限制').fill('60/60s')
+  await page.getByLabel('冷却提示').dispatchEvent('click')
+
+  await expect(page.getByTestId('permission-policy-unsaved-status')).toContainText('有未保存更改')
+  await expect(page.getByText('60 秒内最多 20 次')).toBeVisible()
+  await expect(page.getByText('60 秒内最多 60 次')).toBeVisible()
+
+  await page.getByTestId('permission-policy-save').click()
+  await expect(page.getByTestId('permission-policy-save-status')).toContainText('保存完成，已生效')
+  await expect(page.getByTestId('permission-policy-unsaved-status')).toHaveCount(0)
+  await expect(page.getByTestId('permission-policy-summary-card').getByText('群管理员').first()).toBeVisible()
+  await expect(page.getByTestId('permission-policy-summary-card')).toContainText('20/60s')
+  await expect(page.getByTestId('permission-policy-summary-card')).toContainText('60/60s')
+  await expect(page.getByTestId('permission-policy-summary-card')).toContainText('不发送提示')
+
+  await page.getByTestId('permission-policy-open-access-lists').click()
+  await expect.poll(() => page.url()).toContain('/access-lists')
+  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
+
+  await page.goto('/permission-policy')
+  await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('permission-policy-save-status')).toHaveCount(0)
 })
 
 test('plugin enable resumes after scope confirmation', async ({ page, request }) => {
@@ -1848,8 +1886,8 @@ test('command center shows all declared commands and filters by plugin selection
   const effectivePoliciesTable = page.locator('.commands-section-card').filter({ hasText: '生效命令策略' }).locator('.commands-data-table')
   const declaredCommandsTable = page.locator('.commands-section-card').filter({ hasText: '全部声明命令' }).locator('.commands-data-table')
 
-  await expect(page.getByTestId('commands-open-governance')).toBeVisible()
-  await expect(page.getByText('治理总览', { exact: true })).toHaveCount(0)
+  await expect(page.getByTestId('commands-open-permission-policy')).toBeVisible()
+  await expect(page.getByText('策略总览', { exact: true })).toHaveCount(0)
   await expect(page.getByText('白名单', { exact: true })).toHaveCount(0)
   await expect(page.getByText('黑名单', { exact: true })).toHaveCount(0)
   await expect(effectivePoliciesTable).toContainText('hello')
@@ -1866,8 +1904,8 @@ test('command center shows all declared commands and filters by plugin selection
   await expect(declaredCommandsTable).toContainText('查询天气')
   await expect(declaredCommandsTable).not.toContainText('查看帮助')
 
-  await page.getByTestId('commands-open-governance').click()
-  await expect.poll(() => page.url()).toContain('/governance')
+  await page.getByTestId('commands-open-permission-policy').click()
+  await expect.poll(() => page.url()).toContain('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
 })
 
@@ -1879,38 +1917,38 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-link')).toHaveCount(0)
   await expect(page.locator('.admin-layout__header-breadcrumb .admin-layout__breadcrumb-current')).toHaveText('系统状态')
 
-  await page.goto('/governance')
+  await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   await expect(page.locator('.admin-layout__header-breadcrumb')).toHaveClass(/admin-layout__header-breadcrumb--multi/)
-  await expect(page.locator('.admin-layout__header-breadcrumb').getByRole('link', { name: '运维' })).toHaveAttribute('href', '/governance')
+  await expect(page.locator('.admin-layout__header-breadcrumb').getByRole('link', { name: '运维' })).toHaveAttribute('href', '/permission-policy')
   await expect(page.locator('.admin-layout__breadcrumb-current')).toHaveText('权限策略')
   await expect(page.getByRole('tab', { name: '权限策略' })).toBeVisible()
 
   let tabLabels = await readTabLabels(page)
   expect(tabLabels).toEqual(['系统状态', '权限策略'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'governance'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy'])
   expect(await readActiveTabLabel(page)).toBe('权限策略')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '运维' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(4)
 
   await page.goto('/commands')
   await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
   expect(tabLabels).toEqual(['系统状态', '权限策略', '指令中心'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'governance', 'commands'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands'])
   expect(await readActiveTabLabel(page)).toBe('指令中心')
 
   await page.goto('/tasks')
   await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
   expect(tabLabels).toEqual(['系统状态', '权限策略', '指令中心', '任务'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'governance', 'commands', 'tasks'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks'])
   expect(await readActiveTabLabel(page)).toBe('任务')
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
   expect(tabLabels).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs'])
   expect(await readActiveTabLabel(page)).toBe('实时日志')
   await expect(page.getByRole('tab', { name: '权限策略' })).toBeVisible()
   await page.locator('.admin-layout__breadcrumb-item--ancestor .ant-breadcrumb-link').hover()
@@ -2047,24 +2085,24 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await page.goto('/protocols')
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '协议中心'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs', 'protocols'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'protocols'])
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '协议' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
   expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '协议中心', '配置'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs', 'protocols', 'config'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'protocols', 'config'])
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
   await expect(page.locator('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon')).toHaveCount(1)
 
   await page.getByRole('tab', { name: '权限策略' }).click()
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page).toHaveURL(/\/governance$/)
+  await expect(page).toHaveURL(/\/permission-policy$/)
 
   await page.reload()
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '协议中心', '配置'])
-  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'governance', 'commands', 'tasks', 'logs', 'protocols', 'config'])
+  expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'protocols', 'config'])
 
   await page.goto('/plugins/weather')
   await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
@@ -2096,6 +2134,11 @@ test('nested admin pages animate only once when entering grouped routes', async 
   await navigateThroughMenu(page, '权限策略', '运维')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
   expectSingleEnterTransition(await collectTransitionSamples(page), '权限策略')
+
+  await startTransitionSampling(page)
+  await navigateThroughMenu(page, '黑白名单', '运维')
+  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '黑白名单')
 
   await startTransitionSampling(page)
   await navigateThroughMenu(page, '系统状态')

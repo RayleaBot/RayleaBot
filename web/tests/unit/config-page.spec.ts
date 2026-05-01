@@ -157,6 +157,10 @@ describe('ConfigPage', () => {
     expect(wrapper.find('.glass-panel').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('OneBot 连接')
     expect(wrapper.text()).not.toContain('适配器')
+    expect(wrapper.text()).not.toContain('超级管理员')
+    expect(wrapper.text()).not.toContain('默认权限级别')
+    expect(wrapper.text()).not.toContain('用户命令速率限制')
+    expect(wrapper.text()).not.toContain('群命令速率限制')
   })
 
   it('keeps cleared numeric fields empty instead of forcing them to 0', async () => {
@@ -224,7 +228,7 @@ describe('ConfigPage', () => {
     expect(wrapper.text()).toContain('server.port')
   })
 
-  it('shows rate limit explanations and a readable preview in the user section', async () => {
+  it('keeps plugin authorization in the general config page', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
 
@@ -238,15 +242,13 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    const userNav = wrapper.findAll('.config-nav-item').find((candidate) => candidate.text().includes('用户'))
-    expect(userNav).toBeTruthy()
-    await userNav!.trigger('click')
+    const authorizationNav = wrapper.findAll('.config-nav-item').find((candidate) => candidate.text().includes('插件授权'))
+    expect(authorizationNav).toBeTruthy()
+    await authorizationNav!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('格式使用“次数/时间窗口”，例如 10/60s。')
-    expect(wrapper.text()).toContain('同一用户在一个滑动时间窗口内最多触发多少次命令。')
-    expect(wrapper.text()).toContain('开启后，命令因冷却被挡下时会自动回复一条提示消息。')
-    expect(wrapper.text()).toContain('当前表示')
-    expect(wrapper.text()).toContain('60 秒内最多 10 次')
+    expect(wrapper.text()).toContain('插件授权')
+    expect(wrapper.text()).toContain('自动授权能力')
+    expect(wrapper.text()).not.toContain('默认权限级别')
   })
 })

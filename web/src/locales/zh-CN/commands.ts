@@ -3,7 +3,7 @@ export const commands = {
   subtitle: '查看当前生效的命令策略，并核对插件声明指令。',
   refresh: '刷新列表',
   actions: {
-    openGovernance: '权限策略',
+    openPermissionPolicy: '权限策略',
   },
   filters: {
     plugins: '按插件筛选',

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { notifySuccess } from '@/adapter/feedback'
-import GovernancePage from '@/views/operations/GovernanceView.vue'
+import AccessListsPage from '@/views/operations/AccessListsView.vue'
 import { useGovernanceStore } from '@/stores/governance'
 
 vi.mock('@/adapter/feedback', () => ({
@@ -16,7 +16,7 @@ function createRouterForPage() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/governance', name: 'governance', component: GovernancePage },
+      { path: '/access-lists', name: 'access-lists', component: AccessListsPage },
       { path: '/commands', name: 'commands', component: { template: '<div>commands</div>' } },
       { path: '/config', name: 'config', component: { template: '<div>config</div>' } },
     ],
@@ -37,16 +37,21 @@ function buildEntries(
   }))
 }
 
-describe('GovernancePage', () => {
+function mockAccessListFetches(store: ReturnType<typeof useGovernanceStore>) {
+  vi.spyOn(store, 'fetchBlacklist').mockResolvedValue(store.blacklist!)
+  vi.spyOn(store, 'fetchWhitelist').mockResolvedValue(store.whitelist!)
+}
+
+describe('AccessListsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     document.body.innerHTML = ''
     vi.clearAllMocks()
   })
 
-  it('renders governance summary and keeps local errors scoped to the current card', async () => {
+  it('renders access lists and keeps local errors scoped to the current card', async () => {
     const router = createRouterForPage()
-    await router.push('/governance')
+    await router.push('/access-lists')
     await router.isReady()
 
     const store = useGovernanceStore()
@@ -73,24 +78,11 @@ describe('GovernancePage', () => {
         },
       ],
     }
-    store.commandPolicy = {
-      default_level: 'everyone',
-      cooldown: {
-        user_command_rate_limit: '10/60s',
-        group_command_rate_limit: '30/60s',
-        cooldown_reply: true,
-      },
-      commands: [],
-    }
     store.blacklistError = '读取黑名单失败'
 
-    vi.spyOn(store, 'refresh').mockResolvedValue({
-      blacklist: store.blacklist,
-      whitelist: store.whitelist,
-      commandPolicy: store.commandPolicy,
-    })
+    mockAccessListFetches(store)
 
-    const wrapper = mount(GovernancePage, {
+    const wrapper = mount(AccessListsPage, {
       global: {
         plugins: [Antd, router],
       },
@@ -98,40 +90,27 @@ describe('GovernancePage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('权限策略')
-    expect(wrapper.text()).toContain('治理总览')
-    expect(wrapper.text()).toContain('所有成员')
-    expect(wrapper.text()).toContain('60 秒内最多 10 次')
-    expect(wrapper.text()).toContain('60 秒内最多 30 次')
-    expect(wrapper.text()).toContain('按同一用户累计 · 当前值 10/60s')
-    expect(wrapper.text()).toContain('按同一群累计 · 当前值 30/60s')
-    expect(wrapper.text()).toContain('冷却提示')
-    expect(wrapper.text()).toContain('会发送提示')
-    expect(wrapper.text()).toContain('前往配置')
+    expect(wrapper.text()).toContain('黑白名单')
+    expect(wrapper.text()).toContain('前置放行名单')
     expect(wrapper.text()).toContain('查看指令中心')
-    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).not.toContain('读取黑名单失败')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('读取黑名单失败')
 
     // Switch to blacklist tab via DOM click
-    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
     expect(tabs.length).toBe(2)
     await tabs[1]!.trigger('click')
     await flushPromises()
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('读取黑名单失败')
+    expect(wrapper.text()).toContain('拦截名单')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('读取黑名单失败')
 
-    await wrapper.get('[data-testid="governance-open-config"]').trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.name).toBe('config')
-
-    await router.push('/governance')
-    await flushPromises()
-    await wrapper.get('[data-testid="governance-open-commands"]').trigger('click')
+    await wrapper.get('[data-testid="access-lists-open-commands"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('commands')
   }, 15000)
 
   it('adds and removes whitelist and blacklist entries through modal and popconfirm', async () => {
     const router = createRouterForPage()
-    await router.push('/governance')
+    await router.push('/access-lists')
     await router.isReady()
 
     const store = useGovernanceStore()
@@ -154,11 +133,7 @@ describe('GovernancePage', () => {
       commands: [],
     }
 
-    vi.spyOn(store, 'refresh').mockResolvedValue({
-      blacklist: store.blacklist,
-      whitelist: store.whitelist,
-      commandPolicy: store.commandPolicy,
-    })
+    mockAccessListFetches(store)
     vi.spyOn(store, 'addBlacklistEntry').mockImplementation(async (payload) => {
       const entry = { ...payload, created_at: '2026-04-19T09:00:00Z' }
       if (payload.entry_type === 'group') {
@@ -207,7 +182,7 @@ describe('GovernancePage', () => {
       return store.whitelist
     })
 
-    const wrapper = mount(GovernancePage, {
+    const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
@@ -218,7 +193,7 @@ describe('GovernancePage', () => {
 
     // --- Whitelist (default active tab): add via modal ---
     // Default entry_type follows scopeFilter ('all' -> 'user')
-    await wrapper.get('[data-testid="governance-whitelist-add-btn"]').trigger('click')
+    await wrapper.get('[data-testid="access-lists-whitelist-add-btn"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.vm.addModalVisible).toBe(true)
@@ -234,18 +209,18 @@ describe('GovernancePage', () => {
     await addModal!.vm.$emit('ok')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).toContain('30003')
-    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).toContain('临时放行')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain('30003')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain('临时放行')
 
     // Remove via popconfirm confirm
-    const whitelistPopconfirm = wrapper.get('[data-testid="governance-whitelist-card"]').findComponent({ name: 'APopconfirm' })
+    const whitelistPopconfirm = wrapper.get('[data-testid="access-lists-whitelist-card"]').findComponent({ name: 'APopconfirm' })
     await whitelistPopconfirm.vm.$emit('confirm')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="governance-whitelist-card"]').text()).not.toContain('30003')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('30003')
 
     // --- Blacklist (switch tab): add via modal ---
-    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
     await tabs[1]!.trigger('click')
     await flushPromises()
 
@@ -253,7 +228,7 @@ describe('GovernancePage', () => {
     wrapper.vm.blacklistScopeFilter = 'group'
     await flushPromises()
 
-    await wrapper.get('[data-testid="governance-blacklist-add-btn"]').trigger('click')
+    await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.vm.addModalVisible).toBe(true)
@@ -269,20 +244,20 @@ describe('GovernancePage', () => {
     await blacklistAddModal!.vm.$emit('ok')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('30003')
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).toContain('临时封禁')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('30003')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('临时封禁')
 
     // Remove via popconfirm confirm
-    const blacklistPopconfirm = wrapper.get('[data-testid="governance-blacklist-card"]').findComponent({ name: 'APopconfirm' })
+    const blacklistPopconfirm = wrapper.get('[data-testid="access-lists-blacklist-card"]').findComponent({ name: 'APopconfirm' })
     await blacklistPopconfirm.vm.$emit('confirm')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="governance-blacklist-card"]').text()).not.toContain('30003')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('30003')
   }, 15000)
 
   it('shows complete filtered lists without pagination controls', async () => {
     const router = createRouterForPage()
-    await router.push('/governance')
+    await router.push('/access-lists')
     await router.isReady()
 
     const store = useGovernanceStore()
@@ -319,13 +294,9 @@ describe('GovernancePage', () => {
       commands: [],
     }
 
-    vi.spyOn(store, 'refresh').mockResolvedValue({
-      blacklist: store.blacklist,
-      whitelist: store.whitelist,
-      commandPolicy: store.commandPolicy,
-    })
+    mockAccessListFetches(store)
 
-    const wrapper = mount(GovernancePage, {
+    const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
@@ -334,18 +305,18 @@ describe('GovernancePage', () => {
 
     await flushPromises()
 
-    const whitelistCard = wrapper.get('[data-testid="governance-whitelist-card"]')
+    const whitelistCard = wrapper.get('[data-testid="access-lists-whitelist-card"]')
     expect(whitelistCard.text()).toContain('10001')
     expect(whitelistCard.text()).toContain('10012')
     expect(whitelistCard.text()).toContain('20002')
     expect(whitelistCard.findAll('.ant-table-tbody > tr')).toHaveLength(13)
     expect(whitelistCard.find('.ant-pagination').exists()).toBe(false)
 
-    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
     await tabs[1]!.trigger('click')
     await flushPromises()
 
-    const blacklistCard = wrapper.get('[data-testid="governance-blacklist-card"]')
+    const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
     expect(blacklistCard.text()).toContain('50001')
     expect(blacklistCard.text()).toContain('50011')
     expect(blacklistCard.text()).toContain('60001')
@@ -355,7 +326,7 @@ describe('GovernancePage', () => {
 
   it('clears region error after a successful add', async () => {
     const router = createRouterForPage()
-    await router.push('/governance')
+    await router.push('/access-lists')
     await router.isReady()
 
     const store = useGovernanceStore()
@@ -378,11 +349,7 @@ describe('GovernancePage', () => {
       commands: [],
     }
 
-    vi.spyOn(store, 'refresh').mockResolvedValue({
-      blacklist: store.blacklist,
-      whitelist: store.whitelist,
-      commandPolicy: store.commandPolicy,
-    })
+    mockAccessListFetches(store)
     vi.spyOn(store, 'addBlacklistEntry').mockImplementation(async (payload) => {
       store.blacklist = {
         user_entries: [{
@@ -397,7 +364,7 @@ describe('GovernancePage', () => {
       throw new Error('删除失败')
     })
 
-    const wrapper = mount(GovernancePage, {
+    const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
@@ -407,16 +374,16 @@ describe('GovernancePage', () => {
     await flushPromises()
 
     // Switch to blacklist tab
-    const tabs = wrapper.findAll('.governance-tabs .ant-tabs-tab')
+    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
     await tabs[1]!.trigger('click')
     await flushPromises()
 
     // Trigger a remove error
-    const blacklistCard = wrapper.get('[data-testid="governance-blacklist-card"]')
+    const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
     expect(blacklistCard.text()).not.toContain('删除失败')
 
     // We need an entry to remove; add one first
-    await wrapper.get('[data-testid="governance-blacklist-add-btn"]').trigger('click')
+    await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
     wrapper.vm.addModalDraft.target_id = '10001'
     wrapper.vm.addModalDraft.reason = '测试'
@@ -436,7 +403,7 @@ describe('GovernancePage', () => {
     expect(wrapper.vm.blacklistActionError).toBe('删除失败')
 
     // Add another entry successfully; the old error should be cleared
-    await wrapper.get('[data-testid="governance-blacklist-add-btn"]').trigger('click')
+    await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
     wrapper.vm.addModalDraft.target_id = '10002'
     wrapper.vm.addModalDraft.reason = '测试2'
@@ -452,7 +419,7 @@ describe('GovernancePage', () => {
 
   it('confirms empty whitelist enable and keeps the warning visible after enabling', async () => {
     const router = createRouterForPage()
-    await router.push('/governance')
+    await router.push('/access-lists')
     await router.isReady()
 
     const store = useGovernanceStore()
@@ -475,11 +442,7 @@ describe('GovernancePage', () => {
       commands: [],
     }
 
-    vi.spyOn(store, 'refresh').mockResolvedValue({
-      blacklist: store.blacklist,
-      whitelist: store.whitelist,
-      commandPolicy: store.commandPolicy,
-    })
+    mockAccessListFetches(store)
     vi.spyOn(store, 'setWhitelistEnabled').mockImplementation(async (enabled: boolean) => {
       store.whitelist = {
         enabled,
@@ -489,7 +452,7 @@ describe('GovernancePage', () => {
       return store.whitelist
     })
 
-    const wrapper = mount(GovernancePage, {
+    const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
@@ -499,7 +462,7 @@ describe('GovernancePage', () => {
     await flushPromises()
 
     // Click the whitelist enable switch
-    await wrapper.get('[data-testid="governance-whitelist-enabled"]').trigger('click')
+    await wrapper.get('[data-testid="access-lists-whitelist-enabled"]').trigger('click')
     await flushPromises()
 
     expect(document.body.textContent ?? '').toContain('确认启用空白名单')
@@ -517,7 +480,7 @@ describe('GovernancePage', () => {
 
   it('copies the target id and keeps the existing success feedback', async () => {
     const router = createRouterForPage()
-    await router.push('/governance')
+    await router.push('/access-lists')
     await router.isReady()
 
     const store = useGovernanceStore()
@@ -547,11 +510,7 @@ describe('GovernancePage', () => {
       commands: [],
     }
 
-    vi.spyOn(store, 'refresh').mockResolvedValue({
-      blacklist: store.blacklist,
-      whitelist: store.whitelist,
-      commandPolicy: store.commandPolicy,
-    })
+    mockAccessListFetches(store)
 
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
@@ -559,7 +518,7 @@ describe('GovernancePage', () => {
       value: { writeText },
     })
 
-    const wrapper = mount(GovernancePage, {
+    const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
         plugins: [Antd, router],
@@ -568,7 +527,7 @@ describe('GovernancePage', () => {
 
     await flushPromises()
 
-    await wrapper.get('[data-testid="governance-whitelist-card"] .copyable-text').trigger('click')
+    await wrapper.get('[data-testid="access-lists-whitelist-card"] .copyable-text').trigger('click')
     await flushPromises()
 
     expect(writeText).toHaveBeenCalledWith('91001')

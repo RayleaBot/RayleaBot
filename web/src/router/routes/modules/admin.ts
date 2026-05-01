@@ -47,7 +47,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: '',
         component: RouteView,
-        redirect: { name: 'governance' },
+        redirect: { name: 'permission-policy' },
         meta: {
           hideInTab: true,
           icon: 'toolbox',
@@ -57,15 +57,27 @@ export const adminRoutes: RouteRecordRaw[] = [
         },
         children: [
           {
-            path: '/governance',
-            name: 'governance',
-            component: () => import('@/views/operations/GovernanceView.vue'),
+            path: '/permission-policy',
+            name: 'permission-policy',
+            component: () => import('@/views/operations/PermissionPolicyView.vue'),
             meta: {
-              icon: 'governance',
+              icon: 'permission-policy',
               keepAlive: true,
               requiresAuth: true,
-              titleKey: 'routes.governance',
-              viewKey: 'governance',
+              titleKey: 'routes.permissionPolicy',
+              viewKey: 'permission-policy',
+            },
+          },
+          {
+            path: '/access-lists',
+            name: 'access-lists',
+            component: () => import('@/views/operations/AccessListsView.vue'),
+            meta: {
+              icon: 'access-lists',
+              keepAlive: true,
+              requiresAuth: true,
+              titleKey: 'routes.accessLists',
+              viewKey: 'access-lists',
             },
           },
           {

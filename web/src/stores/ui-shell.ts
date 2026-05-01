@@ -107,7 +107,7 @@ function normalizeTabs(value: unknown): ShellTabItem[] {
       continue
     }
 
-    nextTabs.push({
+    nextTabs.push(normalizeLegacyTab({
       affix: Boolean(tab.affix),
       fullPath: tab.fullPath,
       icon: typeof tab.icon === 'string' && tab.icon ? tab.icon : undefined,
@@ -115,10 +115,26 @@ function normalizeTabs(value: unknown): ShellTabItem[] {
       name: tab.name,
       path: tab.path,
       title: tab.title,
-    })
+    }))
   }
 
   return dedupeTabs(nextTabs)
+}
+
+function normalizeLegacyTab(tab: ShellTabItem): ShellTabItem {
+  if (tab.name !== 'governance' && tab.path !== '/governance' && tab.fullPath !== '/governance') {
+    return tab
+  }
+
+  return {
+    ...tab,
+    fullPath: '/permission-policy',
+    icon: 'permission-policy',
+    keepAlive: true,
+    name: 'permission-policy',
+    path: '/permission-policy',
+    title: tab.title || '权限策略',
+  }
 }
 
 function dedupeTabs(items: ShellTabItem[]) {

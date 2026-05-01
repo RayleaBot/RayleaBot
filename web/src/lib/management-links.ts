@@ -168,9 +168,15 @@ export function buildCommandsLocation(pluginIds?: string[] | string | null) {
   } satisfies RouteLocationRaw
 }
 
-export function buildGovernanceLocation() {
+export function buildPermissionPolicyLocation() {
   return {
-    name: 'governance',
+    name: 'permission-policy',
+  } satisfies RouteLocationRaw
+}
+
+export function buildAccessListsLocation() {
+  return {
+    name: 'access-lists',
   } satisfies RouteLocationRaw
 }
 

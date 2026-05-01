@@ -10,7 +10,7 @@ import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage
 import {
   areLocationQueriesEqual,
   buildCommandsLocation,
-  buildGovernanceLocation,
+  buildPermissionPolicyLocation,
   buildPluginDetailLocation,
   readCommandsPluginIds,
 } from '@/lib/management-links'
@@ -198,8 +198,8 @@ onMounted(() => {
   <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" full-height>
     <template #extra>
       <div class="commands-page__actions">
-        <a-button data-testid="commands-open-governance" :aria-label="t('commands.actions.openGovernance')" @click="router.push(buildGovernanceLocation())">
-          {{ t('commands.actions.openGovernance') }}
+        <a-button data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="router.push(buildPermissionPolicyLocation())">
+          {{ t('commands.actions.openPermissionPolicy') }}
         </a-button>
         <a-button :loading="loading || commandPolicyLoading" type="primary" :aria-label="t('commands.refresh')" @click="loadCommands()">
           {{ t('commands.refresh') }}

@@ -1,35 +1,16 @@
-export const governance = {
-  title: '权限策略',
-  subtitle: '查看治理摘要，维护黑名单与白名单，并确认白名单风险状态。',
+export const accessLists = {
+  title: '黑白名单',
+  subtitle: '维护白名单、黑名单和白名单启用状态。',
   refresh: '刷新状态',
   actions: {
     openCommands: '查看指令中心',
-    openConfig: '前往配置',
     addEntry: '添加条目',
     copyTargetId: '已复制目标 ID',
   },
-  sections: {
-    summary: '治理总览',
-    whitelist: '白名单',
-    blacklist: '黑名单',
-  },
   summary: {
-    description: '默认权限与冷却通过配置页维护，这里展示当前实际生效结果。',
-    defaultPermission: '默认权限',
-    defaultPermissionMeta: '当前默认生效的权限级别',
-    userCooldown: '用户冷却',
-    groupCooldown: '群冷却',
-    cooldownReplyEnabled: '会发送提示',
-    cooldownReplyDisabled: '不发送提示',
-    blacklistCount: '黑名单',
     whitelistStatus: '白名单',
-    cooldownReply: '冷却提示',
-    cooldownReplyDescription: '命令被冷却挡下时的自动回复开关。',
-    userCooldownMeta: '按同一用户累计 · 当前值 {value}',
-    groupCooldownMeta: '按同一群累计 · 当前值 {value}',
     whitelistEnabled: '已启用',
     whitelistDisabled: '未启用',
-    whitelistCount: '{count} 条名单',
   },
   cards: {
     whitelistTitle: '前置放行名单',
@@ -64,8 +45,6 @@ export const governance = {
     all: '全部',
   },
   empty: {
-    summaryTitle: '暂无治理快照',
-    summaryDescription: '当前未读取到治理摘要。',
     blacklistTitle: '暂无黑名单',
     blacklistDescription: '当前没有用户或群黑名单记录。',
     whitelistTitle: '暂无白名单',

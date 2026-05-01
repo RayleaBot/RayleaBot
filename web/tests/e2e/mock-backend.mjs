@@ -263,6 +263,19 @@ function computeRestartRequiredForConfig(prevConfig, nextConfig) {
   return computeConfigApplyEffects(prevConfig, nextConfig).restart_required_fields.length > 0
 }
 
+function syncGovernanceCommandPolicyFromConfig(config) {
+  if (!state?.governanceCommandPolicy) {
+    return
+  }
+
+  state.governanceCommandPolicy.default_level = config.permission?.default_level ?? 'everyone'
+  state.governanceCommandPolicy.cooldown = {
+    user_command_rate_limit: config.user?.command_rate_limit ?? '10/60s',
+    group_command_rate_limit: config.group?.command_rate_limit ?? '30/60s',
+    cooldown_reply: Boolean(config.user?.cooldown_reply),
+  }
+}
+
 function createRenderTemplateState() {
   const helpDetail = structuredClone(fixtures.renderTemplateDetail.response.body.template)
   const items = structuredClone(fixtures.renderTemplatesList.response.body.items)
@@ -1434,6 +1447,7 @@ const server = http.createServer(async (request, response) => {
     const payload = await parseBody(request)
     const previousConfig = structuredClone(state.config)
     state.config = payload
+    syncGovernanceCommandPolicyFromConfig(state.config)
     const applyEffects = computeConfigApplyEffects(previousConfig, state.config)
     state.protocolSnapshot = computeProtocolSnapshotFromConfig(state.config, state.protocolSnapshot)
     broadcast('events', {

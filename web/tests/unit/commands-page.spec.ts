@@ -103,12 +103,12 @@ describe('CommandsPage', () => {
     document.body.innerHTML = ''
   })
 
-  it('renders filtered command tables and keeps governance actions out of the page body', async () => {
+  it('renders filtered command tables and keeps policy actions out of the page body', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/commands', name: 'commands', component: CommandsPage },
-        { path: '/governance', name: 'governance', component: { template: '<div>governance</div>' } },
+        { path: '/permission-policy', name: 'permission-policy', component: { template: '<div>permission policy</div>' } },
         { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
       ],
     })
@@ -221,17 +221,17 @@ describe('CommandsPage', () => {
     const pluginLink = wrapper.find('.command-plugin-link')
     expect(pluginLink.attributes('href')).toBe('/plugins/help')
 
-    await wrapper.get('[data-testid="commands-open-governance"]').trigger('click')
+    await wrapper.get('[data-testid="commands-open-permission-policy"]').trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.name).toBe('governance')
+    expect(router.currentRoute.value.name).toBe('permission-policy')
   }, 15000)
 
-  it('shows command empty states without governance panels', async () => {
+  it('shows command empty states without policy panels', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/commands', name: 'commands', component: CommandsPage },
-        { path: '/governance', name: 'governance', component: { template: '<div>governance</div>' } },
+        { path: '/permission-policy', name: 'permission-policy', component: { template: '<div>permission policy</div>' } },
         { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
       ],
     })

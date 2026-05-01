@@ -12,19 +12,21 @@ import {
   ProfileOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
+  StopOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
 
 const iconMap: Record<string, Component> = {
   appstore: AppstoreOutlined,
+  'access-lists': StopOutlined,
   commands: BarsOutlined,
   config: SettingOutlined,
   dashboard: DashboardOutlined,
-  governance: SafetyCertificateOutlined,
   'history-logs': ControlOutlined,
   login: LoginOutlined,
   logs: FileSearchOutlined,
   'logs-center': FileSearchOutlined,
+  'permission-policy': SafetyCertificateOutlined,
   protocols: DisconnectOutlined,
   'render-templates': FileTextOutlined,
   setting: SettingOutlined,

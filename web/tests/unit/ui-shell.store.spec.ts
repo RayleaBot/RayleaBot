@@ -32,6 +32,37 @@ describe('ui-shell store', () => {
     expect(store.preferences.chromeTabbar).toBe(true)
   })
 
+  it('migrates remembered governance tabs to the permission policy route', () => {
+    window.localStorage.setItem('rayleabot.ui-shell', JSON.stringify({
+      version: 2,
+      preferences: { rememberTabs: true },
+      tabs: [
+        {
+          fullPath: '/governance',
+          icon: 'governance',
+          keepAlive: true,
+          name: 'governance',
+          path: '/governance',
+          title: '权限策略',
+        },
+      ],
+    }))
+
+    setActivePinia(createPinia())
+    const store = useUiShellStore()
+
+    expect(store.tabs).toEqual([
+      expect.objectContaining({
+        fullPath: '/permission-policy',
+        icon: 'permission-policy',
+        keepAlive: true,
+        name: 'permission-policy',
+        path: '/permission-policy',
+        title: '权限策略',
+      }),
+    ])
+  })
+
   it('stores tabs in local storage only when rememberTabs is enabled', () => {
     const store = useUiShellStore()
 

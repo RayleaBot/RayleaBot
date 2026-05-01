@@ -48,7 +48,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       key: 'admin',
       title: t('config.sections.admin'),
       fields: [
-        { path: 'admin.super_admins', label: t('config.fields.adminSuperAdmins'), type: 'list' },
         { path: 'admin.session_ttl_days', label: t('config.fields.adminSessionTtlDays'), type: 'number' },
         { path: 'admin.sliding_renewal', label: t('config.fields.adminSlidingRenewal'), type: 'boolean' },
         { path: 'admin.max_sessions', label: t('config.fields.adminMaxSessions'), type: 'number' },
@@ -58,18 +57,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
     },
     {
       key: 'permission',
-      title: t('config.sections.permission'),
+      title: t('config.sections.pluginAuthorization'),
       fields: [
-        {
-          path: 'permission.default_level',
-          label: t('config.fields.permissionDefaultLevel'),
-          type: 'select',
-          options: [
-            { label: t('config.options.permissionEveryone'), value: 'everyone' },
-            { label: t('config.options.permissionGroupAdmin'), value: 'group_admin' },
-            { label: t('config.options.permissionSuperAdmin'), value: 'super_admin' },
-          ],
-        },
         { path: 'permission.auto_grant_capabilities', label: t('config.fields.permissionAutoGrantCapabilities'), type: 'list' },
       ],
     },
@@ -160,36 +149,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'user',
-      title: t('config.sections.user'),
-      description: t('config.hints.userSection'),
-      fields: [
-        {
-          path: 'user.command_rate_limit',
-          label: t('config.fields.userCommandRateLimit'),
-          type: 'text',
-          description: `${t('config.hints.rateLimitFormat')} ${t('config.hints.userCommandRateLimit')}`,
-        },
-        {
-          path: 'user.cooldown_reply',
-          label: t('config.fields.userCooldownReply'),
-          type: 'boolean',
-          description: t('config.hints.cooldownReply'),
-        },
-      ],
-    },
-    {
-      key: 'group',
-      title: t('config.sections.group'),
-      description: t('config.hints.groupSection'),
-      fields: [{
-        path: 'group.command_rate_limit',
-        label: t('config.fields.groupCommandRateLimit'),
-        type: 'text',
-        description: `${t('config.hints.rateLimitFormat')} ${t('config.hints.groupCommandRateLimit')}`,
-      }],
-    },
-    {
       key: 'http',
       title: t('config.sections.http'),
       fields: [
@@ -227,6 +186,69 @@ export function getConfigSections(): ConfigSectionDefinition[] {
             { label: t('config.options.backupOffline'), value: 'offline' },
             { label: t('config.options.backupOnline'), value: 'online' },
           ],
+        },
+      ],
+    },
+  ]
+}
+
+export function getPermissionPolicyConfigSections(): ConfigSectionDefinition[] {
+  return [
+    {
+      key: 'admin',
+      title: t('permissionPolicy.sections.superAdmins'),
+      fields: [
+        {
+          path: 'admin.super_admins',
+          label: t('permissionPolicy.fields.superAdmins'),
+          type: 'list',
+          description: t('permissionPolicy.hints.superAdmins'),
+        },
+      ],
+    },
+    {
+      key: 'permission',
+      title: t('permissionPolicy.sections.permission'),
+      fields: [
+        {
+          path: 'permission.default_level',
+          label: t('permissionPolicy.fields.defaultLevel'),
+          type: 'select',
+          options: [
+            { label: t('config.options.permissionEveryone'), value: 'everyone' },
+            { label: t('config.options.permissionGroupAdmin'), value: 'group_admin' },
+            { label: t('config.options.permissionSuperAdmin'), value: 'super_admin' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'user',
+      title: t('permissionPolicy.sections.user'),
+      fields: [
+        {
+          path: 'user.command_rate_limit',
+          label: t('permissionPolicy.fields.userCommandRateLimit'),
+          type: 'text',
+          description: `${t('config.hints.rateLimitFormat')} ${t('permissionPolicy.hints.userCommandRateLimit')}`,
+        },
+        {
+          path: 'user.cooldown_reply',
+          label: t('permissionPolicy.fields.cooldownReply'),
+          type: 'boolean',
+          description: t('permissionPolicy.hints.cooldownReply'),
+        },
+      ],
+    },
+    {
+      key: 'group',
+      title: t('permissionPolicy.sections.group'),
+      fields: [
+        {
+          path: 'group.command_rate_limit',
+          label: t('permissionPolicy.fields.groupCommandRateLimit'),
+          type: 'text',
+          description: `${t('config.hints.rateLimitFormat')} ${t('permissionPolicy.hints.groupCommandRateLimit')}`,
         },
       ],
     },

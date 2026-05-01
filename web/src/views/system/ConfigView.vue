@@ -201,51 +201,51 @@ async function save() {
                 <div class="field-label-wrap">
                   <span class="field-label-text">{{ field.label }}</span>
                   <a-tooltip v-if="field.description" :title="field.description">
-                    <button type="button" class="field-info-icon" :aria-label="field.description">?</button>
+                    <button type="button" class="field-info-icon" :aria-label="t('config.fieldHelp')">?</button>
                   </a-tooltip>
                 </div>
               </template>
 
-                <a-input
-                  v-if="field.type === 'text'"
-                  :value="String(readField(field.path, field.type) ?? '')"
-                  :aria-label="field.label"
-                  @update:value="(value) => writeField(field.path, field.type, value)"
-                />
+              <a-input
+                v-if="field.type === 'text'"
+                :value="String(readField(field.path, field.type) ?? '')"
+                :aria-label="field.label"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
 
-                <a-input-number
-                  v-else-if="field.type === 'number'"
-                  class="config-number-input"
-                  :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
-                  :min="0"
-                  :step="1"
-                  :aria-label="field.label"
-                  @update:value="(value) => writeField(field.path, field.type, value)"
-                />
+              <a-input-number
+                v-else-if="field.type === 'number'"
+                class="config-number-input"
+                :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
+                :min="0"
+                :step="1"
+                :aria-label="field.label"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
 
-                <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                  <a-switch
-                    :checked="Boolean(readField(field.path, field.type))"
-                    :aria-label="field.label"
-                    @update:checked="(value) => writeField(field.path, field.type, value)"
-                  />
-                </div>
-
-                <a-select
-                  v-else-if="field.type === 'select'"
-                  :value="String(readField(field.path, field.type) ?? '')"
-                  :options="field.options"
+              <div v-else-if="field.type === 'boolean'" class="switch-wrap">
+                <a-switch
+                  :checked="Boolean(readField(field.path, field.type))"
                   :aria-label="field.label"
-                  @update:value="(value) => writeField(field.path, field.type, value)"
+                  @update:checked="(value) => writeField(field.path, field.type, value)"
                 />
+              </div>
 
-                <a-textarea
-                  v-else
-                  :value="String(readField(field.path, field.type) ?? '')"
-                  :auto-size="{ minRows: 4, maxRows: 8 }"
-                  :aria-label="field.label"
-                  @update:value="(value) => writeField(field.path, field.type, value)"
-                />
+              <a-select
+                v-else-if="field.type === 'select'"
+                :value="String(readField(field.path, field.type) ?? '')"
+                :options="field.options"
+                :aria-label="field.label"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
+
+              <a-textarea
+                v-else
+                :value="String(readField(field.path, field.type) ?? '')"
+                :auto-size="{ minRows: 4, maxRows: 8 }"
+                :aria-label="field.label"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
 
               <div v-if="field.description || getRateLimitPreview(field.path)" class="config-field-note">
                 <p v-if="field.description" class="config-field-note__text">{{ field.description }}</p>
