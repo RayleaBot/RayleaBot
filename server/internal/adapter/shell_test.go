@@ -17,9 +17,12 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
+
+	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
@@ -94,6 +97,8 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 
 func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
@@ -126,6 +131,8 @@ func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 }
 
 func TestShellDoesNotConnectDisabledConfiguredForwardTransport(t *testing.T) {
+
+	t.Parallel()
 
 	var attempts atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,6 +176,8 @@ func TestShellDoesNotConnectDisabledConfiguredForwardTransport(t *testing.T) {
 }
 
 func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testing.T) {
+
+	t.Parallel()
 
 	var firstServerConnections atomic.Int64
 	firstServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -298,6 +307,8 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 
 func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -378,6 +389,8 @@ func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 
 func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -451,6 +464,8 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 
 func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -512,6 +527,8 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 
 func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -565,6 +582,8 @@ func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 }
 
 func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
+
+	t.Parallel()
 
 	invalidSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -633,6 +652,8 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 }
 
 func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
+
+	t.Parallel()
 
 	unknownSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -708,6 +729,8 @@ func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
 }
 
 func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
+
+	t.Parallel()
 
 	ignoredSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -786,6 +809,8 @@ func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
 
 func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
 
+	t.Parallel()
+
 	ignoredSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -859,6 +884,8 @@ func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
 }
 
 func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
+
+	t.Parallel()
 
 	eventSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -935,6 +962,8 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 
 func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -975,6 +1004,8 @@ func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 }
 
 func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
+
+	t.Parallel()
 
 	closeConn := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1033,6 +1064,8 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 
 func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -1087,6 +1120,8 @@ func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(
 
 func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -1138,6 +1173,8 @@ func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 
 func TestShellStopTransitionsToStopped(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -1185,7 +1222,96 @@ func TestShellStopTransitionsToStopped(t *testing.T) {
 	}
 }
 
+func TestShellStopWaitsForReverseWebSocketAndStoppedLog(t *testing.T) {
+
+	t.Parallel()
+
+	logStream := logging.NewStream(16)
+	logger := slog.New(slog.NewJSONHandler(logging.NewSummaryWriter(io.Discard, logStream, nil), &slog.HandlerOptions{
+		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
+			switch attr.Key {
+			case slog.TimeKey:
+				attr.Key = "ts"
+			case slog.MessageKey:
+				attr.Key = "msg"
+			}
+			return attr
+		},
+	}))
+	shell := newShell(config.OneBotConfig{
+		ReverseWS: config.OneBotTransportConfig{
+			Enabled: true,
+			URL:     "ws://127.0.0.1:8080/onebot/reverse",
+		},
+	}, logger, shellDeps{
+		connectTimeout: 75 * time.Millisecond,
+		sleep:          blockingSleep,
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		shell.AttachReverseWS(conn)
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	shell.Start(ctx)
+	waitForSnapshot(t, shell, 500*time.Millisecond, func(snapshot Snapshot) bool {
+		return snapshot.ReverseWS.State == TransportStateListening
+	})
+
+	client, _, err := websocket.Dial(context.Background(), wsURL(server.URL), nil)
+	if err != nil {
+		t.Fatalf("Dial reverse websocket failed: %v", err)
+	}
+	defer func() {
+		_ = client.CloseNow()
+	}()
+	if err := wsjson.Write(context.Background(), client, map[string]any{
+		"post_type":       "meta_event",
+		"meta_event_type": "lifecycle",
+		"sub_type":        "enable",
+	}); err != nil {
+		t.Fatalf("write reverse ready frame: %v", err)
+	}
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+
+	snapshot := shell.Snapshot()
+	if snapshot.State != StateStopped {
+		t.Fatalf("expected stopped state, got %s", snapshot.State)
+	}
+	if snapshot.ReverseWS.State != TransportStateStopped {
+		t.Fatalf("expected stopped reverse websocket, got %s", snapshot.ReverseWS.State)
+	}
+	for _, transport := range snapshot.ActiveTransports {
+		if transport == TransportReverseWS {
+			t.Fatalf("reverse websocket remained active after stop: %#v", snapshot.ActiveTransports)
+		}
+	}
+
+	for _, summary := range logStream.Snapshot() {
+		if summary.Source == "adapter" && summary.Message == "adapter shell stopped" {
+			return
+		}
+	}
+	t.Fatalf("expected stopped adapter log, got %#v", logStream.Snapshot())
+}
+
 func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T) {
+
+	t.Parallel()
 
 	shell := newTestShell(config.OneBotConfig{}, shellDeps{
 		connectTimeout: 75 * time.Millisecond,
@@ -1226,6 +1352,8 @@ func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T
 }
 
 func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
+
+	t.Parallel()
 
 	requests := make(chan map[string]any, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1358,6 +1486,8 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 
 func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -1436,6 +1566,8 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 }
 
 func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T) {
+
+	t.Parallel()
 
 	requests := make(chan map[string]any, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1559,6 +1691,8 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 
 func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 
+	t.Parallel()
+
 	requests := make(chan map[string]any, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -1665,6 +1799,8 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 }
 
 func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
+
+	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)

@@ -180,23 +180,49 @@ func (s *Shell) AttachReverseWS(conn *websocket.Conn) {
 		return
 	}
 
+	done := make(chan struct{})
+	var previous *websocket.Conn
+
 	s.mu.Lock()
+	if s.stopping || !s.started {
+		s.mu.Unlock()
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		return
+	}
 	if s.reverseConn != nil {
-		_ = s.reverseConn.Close(websocket.StatusNormalClosure, "")
+		previous = s.reverseConn
 	}
 	s.reverseConn = conn
+	s.reverseDone = done
 	s.mu.Unlock()
 
-	go s.handleReverseSession(conn)
+	if previous != nil {
+		_ = previous.Close(websocket.StatusNormalClosure, "")
+	}
+
+	go s.handleReverseSession(conn, done)
 }
 
-func (s *Shell) handleReverseSession(conn *websocket.Conn) {
-	ctx := conn.CloseRead(context.Background())
+func (s *Shell) handleReverseSession(conn *websocket.Conn, done chan struct{}) {
+	ctx := context.Background()
 	defer func() {
+		defer close(done)
 		_ = conn.Close(websocket.StatusNormalClosure, "")
-		s.clearReverseConn(conn)
 		s.mu.Lock()
-		if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
+		current := s.reverseConn == conn
+		if current {
+			s.reverseConn = nil
+			if s.reverseDone == done {
+				s.reverseDone = nil
+			}
+		}
+		if !current && !s.stopping {
+			s.mu.Unlock()
+			return
+		}
+		if s.stopping && s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
+			s.snapshot.ReverseWS.State = TransportStateStopped
+		} else if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
 			s.snapshot.ReverseWS.State = TransportStateListening
 		} else {
 			s.snapshot.ReverseWS.State = TransportStateIdle
@@ -210,7 +236,7 @@ func (s *Shell) handleReverseSession(conn *websocket.Conn) {
 
 	ready, err := s.waitForReadyFrame(ctx, TransportReverseWS, conn)
 	if err != nil {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || s.isStopping() {
 			return
 		}
 		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
@@ -234,9 +260,15 @@ func (s *Shell) handleReverseSession(conn *websocket.Conn) {
 		go readyHandler(ctx)
 	}
 
-	if err := s.readLoop(ctx, TransportReverseWS, conn); err != nil && ctx.Err() == nil {
+	if err := s.readLoop(ctx, TransportReverseWS, conn); err != nil && ctx.Err() == nil && !s.isStopping() {
 		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
 	}
+}
+
+func (s *Shell) isStopping() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.stopping
 }
 
 func (s *Shell) AcceptWebhookPayload(ctx context.Context, payload []byte) error {

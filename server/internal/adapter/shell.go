@@ -55,9 +55,11 @@ type Shell struct {
 	snapshot         Snapshot
 	conn             *websocket.Conn
 	reverseConn      *websocket.Conn
+	reverseDone      chan struct{}
 	cancel           context.CancelFunc
 	done             chan struct{}
 	started          bool
+	stopping         bool
 	supervisorCtx    context.Context
 	eventHandler     func(context.Context, NormalizedEvent)
 	readyHandler     func(context.Context)
@@ -126,6 +128,7 @@ func (s *Shell) Start(ctx context.Context) {
 	s.cancel = cancel
 	s.done = make(chan struct{})
 	s.started = true
+	s.stopping = false
 	s.supervisorCtx = ctx
 	s.mu.Unlock()
 
@@ -156,10 +159,25 @@ func (s *Shell) Stop(ctx context.Context) error {
 	done := s.done
 	conn := s.conn
 	reverseConn := s.reverseConn
+	reverseDone := s.reverseDone
 	started := s.started
+	s.stopping = true
 	s.mu.Unlock()
 
+	if cancel != nil {
+		cancel()
+	}
+	if conn != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}
+	if reverseConn != nil {
+		_ = reverseConn.CloseNow()
+	}
+
 	if !started {
+		if err := waitForClosed(ctx, reverseDone); err != nil {
+			return err
+		}
 		s.markStopped()
 		return nil
 	}
@@ -170,22 +188,10 @@ func (s *Shell) Stop(ctx context.Context) error {
 		"adapter_state", s.Snapshot().State,
 	)
 
-	if cancel != nil {
-		cancel()
+	if err := waitForClosed(ctx, done); err != nil {
+		return err
 	}
-	if conn != nil {
-		_ = conn.Close(websocket.StatusNormalClosure, "")
-	}
-	if reverseConn != nil {
-		_ = reverseConn.Close(websocket.StatusNormalClosure, "")
-	}
-
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return waitForClosed(ctx, reverseDone)
 }
 
 func (s *Shell) Reload(nextCfg config.OneBotConfig) error {
@@ -687,12 +693,10 @@ func (s *Shell) markReconnecting(code string, err error) {
 func (s *Shell) markStopped() {
 	s.mu.Lock()
 	s.snapshot.ForwardWS.State = TransportStateStopped
-	if s.snapshot.ReverseWS.State != TransportStateConnected {
-		if s.snapshot.ReverseWS.Configured && s.snapshot.ReverseWS.Enabled {
-			s.snapshot.ReverseWS.State = TransportStateStopped
-		} else {
-			s.snapshot.ReverseWS.State = TransportStateIdle
-		}
+	if s.snapshot.ReverseWS.Configured && s.snapshot.ReverseWS.Enabled {
+		s.snapshot.ReverseWS.State = TransportStateStopped
+	} else {
+		s.snapshot.ReverseWS.State = TransportStateIdle
 	}
 	if s.snapshot.Webhook.Configured && s.snapshot.Webhook.Enabled {
 		s.snapshot.Webhook.State = TransportStateStopped
@@ -803,6 +807,19 @@ func sleepWithContext(ctx context.Context, delay time.Duration) error {
 		return ctx.Err()
 	case <-timer.C:
 		return nil
+	}
+}
+
+func waitForClosed(ctx context.Context, ch <-chan struct{}) error {
+	if ch == nil {
+		return nil
+	}
+
+	select {
+	case <-ch:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
