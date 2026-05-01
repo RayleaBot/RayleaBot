@@ -17,6 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
@@ -87,6 +88,7 @@ type appPlugins struct {
 	webhooks          *pluginwebhook.Registry
 	renderer          *render.Service
 	pluginLogLimiter  *localaction.PluginLogLimiter
+	outboundLimiter   *outbound.MessageRateLimiter
 }
 
 type appProcessState struct {
@@ -149,6 +151,7 @@ type App struct {
 	renderer          *render.Service
 	webhookRegistry   *pluginwebhook.Registry
 	pluginLogLimiter  *localaction.PluginLogLimiter
+	outboundLimiter   *outbound.MessageRateLimiter
 
 	localActions     *localaction.Service
 	pluginLifecycle  *pluginLifecycleController
@@ -261,6 +264,7 @@ func New(options Options) (*App, error) {
 		plugins:          pluginState.Plugins,
 		replyTargets:     pluginState.replyTargets,
 		outboundSender:   pluginState.outboundSender,
+		outboundLimiter:  pluginState.outboundLimiter,
 		bridge:           pluginState.Bridge,
 		lifecycle:        lifecycle,
 		metadataEnricher: pluginState.Adapter,
@@ -314,6 +318,7 @@ func New(options Options) (*App, error) {
 		renderer:          pluginState.renderer,
 		webhookRegistry:   pluginState.webhooks,
 		pluginLogLimiter:  pluginState.pluginLogLimiter,
+		outboundLimiter:   pluginState.outboundLimiter,
 		localActions:      localActions,
 		pluginLifecycle:   lifecycle,
 		eventIngress:      eventIngress,
@@ -360,6 +365,7 @@ func New(options Options) (*App, error) {
 		logRepository:    platformState.LogRepository,
 		renderer:         pluginState.renderer,
 		pluginLogLimiter: pluginState.pluginLogLimiter,
+		outboundLimiter:  pluginState.outboundLimiter,
 		protocol:         protocolService,
 		eventIngress:     eventIngress,
 		blacklistRepo:    pluginState.blacklistRepo,

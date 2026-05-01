@@ -9,13 +9,13 @@ export interface ConfigFieldOption {
 export interface ConfigFieldDefinition {
   path: string
   label: string
-  type: 'text' | 'number' | 'boolean' | 'select' | 'list'
+  type: 'text' | 'number' | 'boolean' | 'select' | 'list' | 'rateLimit'
   description?: string
   options?: ConfigFieldOption[]
 }
 
 export interface ConfigSectionDefinition {
-  key: keyof ConfigDocument
+  key: string
   title: string
   description?: string
   fields: ConfigFieldDefinition[]
@@ -40,11 +40,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'command',
-      title: t('config.sections.command'),
-      fields: [{ path: 'command.prefixes', label: t('config.fields.commandPrefixes'), type: 'list' }],
-    },
-    {
       key: 'admin',
       title: t('config.sections.admin'),
       fields: [
@@ -53,13 +48,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         { path: 'admin.max_sessions', label: t('config.fields.adminMaxSessions'), type: 'number' },
         { path: 'admin.login_fail_limit', label: t('config.fields.adminLoginFailLimit'), type: 'number' },
         { path: 'admin.login_fail_window_seconds', label: t('config.fields.adminLoginFailWindowSeconds'), type: 'number' },
-      ],
-    },
-    {
-      key: 'permission',
-      title: t('config.sections.pluginAuthorization'),
-      fields: [
-        { path: 'permission.auto_grant_capabilities', label: t('config.fields.permissionAutoGrantCapabilities'), type: 'list' },
       ],
     },
     {
@@ -92,7 +80,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         { path: 'runtime.dependency_install_timeout_seconds', label: t('config.fields.runtimeDependencyInstallTimeoutSeconds'), type: 'number' },
         { path: 'runtime.max_concurrent_dependency_installs', label: t('config.fields.runtimeMaxConcurrentDependencyInstalls'), type: 'number' },
         { path: 'runtime.ipc_pending_actions_max', label: t('config.fields.runtimeIpcPendingActionsMax'), type: 'number' },
-        { path: 'runtime.ipc_action_burst_limit', label: t('config.fields.runtimeIpcActionBurstLimit'), type: 'text' },
+        { path: 'runtime.ipc_action_burst_limit', label: t('config.fields.runtimeIpcActionBurstLimit'), type: 'rateLimit' },
         { path: 'runtime.stderr_rate_limit_bytes_per_second', label: t('config.fields.runtimeStderrRateLimitBytesPerSecond'), type: 'number' },
         { path: 'runtime.max_concurrent_tasks_per_plugin', label: t('config.fields.runtimeMaxConcurrentTasksPerPlugin'), type: 'number' },
         { path: 'runtime.crash_backoff_initial_seconds', label: t('config.fields.runtimeCrashBackoffInitialSeconds'), type: 'number' },
@@ -108,7 +96,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         { path: 'storage.kv_value_max_bytes', label: t('config.fields.storageKvValueMaxBytes'), type: 'number' },
         { path: 'storage.kv_total_limit_mb', label: t('config.fields.storageKvTotalLimitMb'), type: 'number' },
         { path: 'storage.file_max_bytes', label: t('config.fields.storageFileMaxBytes'), type: 'number' },
-        { path: 'storage.plugin_workdir_soft_limit_mb', label: t('config.fields.storagePluginWorkdirSoftLimitMb'), type: 'number' },
       ],
     },
     {
@@ -136,15 +123,12 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           ],
         },
         { path: 'log.retention_days', label: t('config.fields.logRetentionDays'), type: 'number' },
-        { path: 'log.rate_limit_per_plugin', label: t('config.fields.logRateLimitPerPlugin'), type: 'text' },
       ],
     },
     {
       key: 'message',
       title: t('config.sections.message'),
       fields: [
-        { path: 'message.rate_limit_per_plugin', label: t('config.fields.messageRateLimitPerPlugin'), type: 'text' },
-        { path: 'message.rate_limit_per_target', label: t('config.fields.messageRateLimitPerTarget'), type: 'text' },
         { path: 'message.circuit_breaker_seconds', label: t('config.fields.messageCircuitBreakerSeconds'), type: 'number' },
       ],
     },
@@ -192,6 +176,58 @@ export function getConfigSections(): ConfigSectionDefinition[] {
   ]
 }
 
+export function getPluginSettingsConfigSections(): ConfigSectionDefinition[] {
+  return [
+    {
+      key: 'command',
+      title: t('plugins.settings.sections.command'),
+      fields: [
+        {
+          path: 'command.prefixes',
+          label: t('config.fields.commandPrefixes'),
+          type: 'list',
+          description: t('plugins.settings.hints.commandPrefixes'),
+        },
+      ],
+    },
+    {
+      key: 'permission',
+      title: t('plugins.settings.sections.authorization'),
+      fields: [
+        {
+          path: 'permission.auto_grant_capabilities',
+          label: t('config.fields.permissionAutoGrantCapabilities'),
+          type: 'list',
+          description: t('plugins.settings.hints.autoGrantCapabilities'),
+        },
+      ],
+    },
+    {
+      key: 'log',
+      title: t('plugins.settings.sections.log'),
+      fields: [
+        {
+          path: 'log.rate_limit_per_plugin',
+          label: t('config.fields.logRateLimitPerPlugin'),
+          type: 'rateLimit',
+        },
+      ],
+    },
+    {
+      key: 'storage',
+      title: t('plugins.settings.sections.storage'),
+      fields: [
+        {
+          path: 'storage.plugin_workdir_soft_limit_mb',
+          label: t('config.fields.storagePluginWorkdirSoftLimitMb'),
+          type: 'number',
+          description: t('plugins.settings.hints.pluginWorkdirSoftLimit'),
+        },
+      ],
+    },
+  ]
+}
+
 export function getPermissionPolicyConfigSections(): ConfigSectionDefinition[] {
   return [
     {
@@ -222,33 +258,68 @@ export function getPermissionPolicyConfigSections(): ConfigSectionDefinition[] {
         },
       ],
     },
+  ]
+}
+
+export function getRateLimitConfigSections(): ConfigSectionDefinition[] {
+  return [
     {
       key: 'user',
-      title: t('permissionPolicy.sections.user'),
+      title: t('rateLimits.sections.userCommand'),
       fields: [
         {
           path: 'user.command_rate_limit',
-          label: t('permissionPolicy.fields.userCommandRateLimit'),
-          type: 'text',
-          description: `${t('config.hints.rateLimitFormat')} ${t('permissionPolicy.hints.userCommandRateLimit')}`,
-        },
-        {
-          path: 'user.cooldown_reply',
-          label: t('permissionPolicy.fields.cooldownReply'),
-          type: 'boolean',
-          description: t('permissionPolicy.hints.cooldownReply'),
+          label: t('config.fields.userCommandRateLimit'),
+          type: 'rateLimit',
+          description: t('rateLimits.hints.userCommandRateLimit'),
         },
       ],
     },
     {
       key: 'group',
-      title: t('permissionPolicy.sections.group'),
+      title: t('rateLimits.sections.groupCommand'),
       fields: [
         {
           path: 'group.command_rate_limit',
-          label: t('permissionPolicy.fields.groupCommandRateLimit'),
-          type: 'text',
-          description: `${t('config.hints.rateLimitFormat')} ${t('permissionPolicy.hints.groupCommandRateLimit')}`,
+          label: t('config.fields.groupCommandRateLimit'),
+          type: 'rateLimit',
+          description: t('rateLimits.hints.groupCommandRateLimit'),
+        },
+      ],
+    },
+    {
+      key: 'cooldown-reply',
+      title: t('rateLimits.sections.cooldownReply'),
+      fields: [
+        {
+          path: 'user.cooldown_reply',
+          label: t('rateLimits.fields.cooldownReply'),
+          type: 'boolean',
+          description: t('rateLimits.hints.cooldownReply'),
+        },
+      ],
+    },
+    {
+      key: 'plugin-message',
+      title: t('rateLimits.sections.pluginMessage'),
+      fields: [
+        {
+          path: 'message.rate_limit_per_plugin',
+          label: t('config.fields.messageRateLimitPerPlugin'),
+          type: 'rateLimit',
+          description: t('rateLimits.hints.pluginMessageRateLimit'),
+        },
+      ],
+    },
+    {
+      key: 'target-message',
+      title: t('rateLimits.sections.targetMessage'),
+      fields: [
+        {
+          path: 'message.rate_limit_per_target',
+          label: t('config.fields.messageRateLimitPerTarget'),
+          type: 'rateLimit',
+          description: t('rateLimits.hints.targetMessageRateLimit'),
         },
       ],
     },

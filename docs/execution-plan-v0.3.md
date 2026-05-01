@@ -13,14 +13,14 @@
 ### v0.3 核对结论
 
 - v0.2 主线已完成。
-- 运维下的权限策略与黑白名单工作区分别覆盖策略配置、名单管理和白名单前置裁决，`/commands` 提供命令治理只读快照。
+- 运维下的权限策略、黑白名单与限流中心分别覆盖策略配置、名单管理和限流配置；插件中心下的 `/commands` 提供命令治理只读快照。
 - 当前真实缺口集中在“有来源展示、无正式可信校验”和“有版本检查、无完整受控更新引导”。
 - 当前插件来源 `trust` 主要用于展示，不等于正式可信校验结果。
 - 当前发布与桌面入口已具备版本检查、发布页跳转和 release metadata 校验基础，自动覆盖更新仍不在正式范围。
 
 ### v0.3 主线目标
 
-- 补齐治理操作链，使运维下的权限策略工作区承担策略配置，黑白名单工作区承担名单管理，`/commands` 保留命令治理读面。
+- 补齐治理操作链，使运维下的权限策略工作区承担策略配置，黑白名单工作区承担名单管理，限流中心承担命令与外发消息限流配置，插件中心下的 `/commands` 保留命令治理读面。
 - 补齐插件来源可信校验，使来源展示、安装任务、插件详情和诊断面共享同一套可信结果。
 - 补齐发布可信校验与更新引导，使 Web、Launcher 和 CLI 都能沿正式升级与恢复路径完成版本查看、校验和下载引导。
 
@@ -30,7 +30,7 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 
 ### v0.3 正式范围
 
-- 治理闭环：`/permission-policy` 承担权限策略配置，`/access-lists` 承担名单治理管理，`/commands` 保留命令治理读面。
+- 治理闭环：`/permission-policy` 承担权限策略配置，`/access-lists` 承担名单治理管理，`/rate-limits` 承担限流和冷却提示配置，插件中心下的 `/commands` 保留命令治理读面。
 - 可信来源：插件安装来源从展示型 `trust` label 补成正式可信校验。
 - 受控更新：发布可信校验和更新引导补齐，但不做自动覆盖更新。
 
@@ -50,7 +50,7 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 | 阶段 | 名称 | 状态 | 当前目标 |
 | --- | --- | --- | --- |
 | Pre-Phase | 真实缺口核对与边界重排 | ☑️ | v0.3 范围已固定为治理闭环、可信来源和受控更新引导 |
-| Phase 1 | Governance / Commands | ☑️ | `/permission-policy` 提供权限策略配置，`/access-lists` 形成黑白名单管理闭环，`/commands` 保留命令治理读面 |
+| Phase 1 | Governance / Commands | ☑️ | `/permission-policy` 提供权限策略配置，`/access-lists` 形成黑白名单管理闭环，`/rate-limits` 提供限流和冷却提示配置，插件中心下的 `/commands` 保留命令治理读面 |
 | Phase 2 | Trusted Plugin Sources | 🟡 | 把插件来源 `trust` 从展示信息补成正式可信校验与诊断链 |
 | Phase 3 | Release Trust / Guided Update | 🟡 | 补齐版本查看、发布可信校验、受控下载与升级引导，不进入自动覆盖更新 |
 | Phase 4 | Companion Updates / Acceptance | 🟡 | 固定 contract-first、fixtures、examples、tests、docs 和验收要求 |
@@ -60,9 +60,9 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 | 边界 | 当前说明 |
 | --- | --- |
 | 治理 surface | 正式治理接口包含黑名单读写、白名单读写与 `GET /api/governance/command-policy` |
-| Web 页面职责 | `/permission-policy` 展示并保存超级管理员、默认权限和命令冷却配置；`/access-lists` 通过黑白名单 tab、添加条目弹窗、目标 ID 复制、“确认启用空白名单”确认提示和“白名单已启用且当前为空”风险提示承担名单管理 |
-| `/commands` 页面职责 | 当前管理面展示当前生效命令策略与全部声明命令 |
-| 配置入口 | 权限策略通过 `/permission-policy` 管理；黑白名单通过 `/access-lists` 管理 |
+| Web 页面职责 | `/permission-policy` 展示并保存超级管理员和默认权限；`/access-lists` 通过黑白名单 tab、添加条目弹窗、目标 ID 复制、“确认启用空白名单”确认提示和“白名单已启用且当前为空”风险提示承担名单管理；`/rate-limits` 展示并保存用户命令、群命令、插件消息、目标消息限流和冷却提示 |
+| `/commands` 页面职责 | 插件中心下展示当前生效命令策略与全部声明命令 |
+| 配置入口 | 权限策略通过 `/permission-policy` 管理；黑白名单通过 `/access-lists` 管理；限流和冷却提示配置通过 `/rate-limits` 管理 |
 | 插件来源展示 | 插件列表与详情页已有 `source`、`trust`、`package_source_type` 与 `package_source_ref` 展示 |
 | 可信来源校验 | `remote_url`、`local_zip` 与 `local_directory` 当前没有统一正式可信校验模型 |
 | 发布可信基础 | 发布包已包含 `release_manifest.json`、`build_info.json`、`SHA256SUMS.txt`，Launcher 已有版本检查与发布页跳转 |
@@ -96,7 +96,7 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 | 项目 | 当前情况 |
 | --- | --- |
 | 正式治理接口 | `GET /api/governance/blacklist`、`POST /api/governance/blacklist/entries`、`DELETE /api/governance/blacklist/entries/{entry_type}/{target_id}`、`GET /api/governance/whitelist`、`PUT /api/governance/whitelist/state`、`POST /api/governance/whitelist/entries`、`DELETE /api/governance/whitelist/entries/{entry_type}/{target_id}`、`GET /api/governance/command-policy` |
-| Web 工作区 | `/permission-policy` 展示并保存权限策略，`/access-lists` 展示并管理黑白名单，`/commands` 展示有效命令策略与全部声明命令 |
+| Web 工作区 | `/permission-policy` 展示并保存权限策略，`/access-lists` 展示并管理黑白名单，`/rate-limits` 展示并保存限流和冷却提示配置，插件中心下的 `/commands` 展示有效命令策略与全部声明命令 |
 | 默认权限与冷却 | 通过现有配置模型管理 |
 | 黑名单 | 用户 / 群黑名单已接入聊天侧命令裁决和管理工作区 |
 | 白名单 | 用户 / 群白名单已具备正式 contract、正式存储、启用开关和管理工作区语义 |
@@ -104,12 +104,12 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 
 ### 目标边界
 
-- `/permission-policy` 作为权限策略工作区，`/access-lists` 作为黑白名单工作区，`/commands` 保留命令治理读面。
+- `/permission-policy` 作为权限策略工作区，`/access-lists` 作为黑白名单工作区，`/rate-limits` 作为限流和冷却提示配置工作区，插件中心下的 `/commands` 保留命令治理读面。
 - 黑名单和白名单都采用单条 upsert 与单条删除。
 - 白名单固定只作用于“是否进入命令分发”的前置裁决。
 - 白名单优先于黑名单判断，但不绕过命令权限和冷却限制。
 - 白名单支持显式启用开关，群聊采用“用户命中或群命中任一条即可通过”的规则。
-- 默认权限与冷却使用现有配置模型，并通过权限策略工作区管理。
+- 默认权限使用现有配置模型，并通过权限策略工作区管理；命令与外发消息限流、冷却提示通过限流中心管理。
 - 不纳入命令级人工权限覆盖。
 
 ### 完成定义
@@ -118,9 +118,9 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 | --- | --- | --- |
 | 黑名单管理 | ☑️ | 管理面可新增、删除、查看用户 / 群黑名单，并复用现有聊天裁决链 |
 | 白名单正式化 | ☑️ | formal contract、存储、裁决顺序、管理面展示和操作链一致 |
-| 权限策略与名单工作区 | ☑️ | `/permission-policy` 固定展示并保存权限策略，`/access-lists` 固定展示黑白名单 tab、添加条目弹窗、目标 ID 复制反馈，以及“确认启用空白名单”确认提示和“白名单已启用且当前为空”风险提示 |
+| 权限策略、名单与限流工作区 | ☑️ | `/permission-policy` 固定展示并保存权限策略，`/access-lists` 固定展示黑白名单 tab、添加条目弹窗、目标 ID 复制反馈，以及“确认启用空白名单”确认提示和“白名单已启用且当前为空”风险提示，`/rate-limits` 固定展示并保存用户命令、群命令、插件消息、目标消息限流和冷却提示 |
 | `/commands` 工作区分工 | ☑️ | 命令策略与声明命令保持只读工作区语义 |
-| 配置边界保持一致 | ☑️ | 默认权限与冷却使用现有配置模型，名单工作区只承载黑白名单管理 |
+| 配置边界保持一致 | ☑️ | 默认权限、冷却提示和限流使用现有配置模型，名单工作区只承载黑白名单管理 |
 | 诊断与日志口径 | ☑️ | 黑白名单命中、权限拒绝和冷却拒绝保持正式错误码与诊断摘要一致 |
 
 ### Contract-first 要求
@@ -230,7 +230,7 @@ v0.2 已提供完整的管理面、插件生命周期、治理读取面、日志
 
 | 场景 | 验收目标 |
 | --- | --- |
-| 治理工作区 | `/permission-policy` 能完成权限策略查看与保存，`/access-lists` 能完成黑白名单 tab 管理、添加条目弹窗、目标 ID 复制、“确认启用空白名单”确认提示、“白名单已启用且当前为空”风险提示和错误反馈闭环 |
+| 治理工作区 | `/permission-policy` 能完成权限策略查看与保存，`/access-lists` 能完成黑白名单 tab 管理、添加条目弹窗、目标 ID 复制、“确认启用空白名单”确认提示、“白名单已启用且当前为空”风险提示和错误反馈闭环，`/rate-limits` 能完成限流和冷却提示查看与保存 |
 | 命令治理读面 | `/commands` 能完成命令策略查看、声明命令查看和插件筛选 |
 | 聊天侧治理裁决 | 黑名单、白名单、命令权限和冷却的正式裁决顺序与 contract 保持一致 |
 | 插件可信来源 | 安装任务、插件列表、插件详情和诊断面能显示统一可信结果 |

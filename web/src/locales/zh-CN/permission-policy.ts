@@ -8,7 +8,7 @@ export const permissionPolicy = {
     settings: '策略配置',
     superAdmins: '超级管理员',
     permission: '默认权限',
-    user: '用户命令',
+    user: '冷却提示',
     group: '群命令',
   },
   summary: {

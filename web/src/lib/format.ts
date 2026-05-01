@@ -1,5 +1,6 @@
 import { i18n } from '@/i18n'
 import { t } from '@/i18n'
+import { parseRateLimitValue } from '@/lib/rate-limit'
 
 export function formatDateTime(value?: string | number | Date | null) {
   const date = toValidDate(value)
@@ -167,38 +168,20 @@ function formatFallbackValue(value?: string | number | Date | null) {
 }
 
 function parseRateLimit(raw: string) {
-  const [countText, windowText, hasWindow] = splitRateLimit(raw)
-  if (!hasWindow) {
+  const parsed = parseRateLimitValue(raw)
+  if (!parsed) {
     return null
   }
 
-  const count = Number.parseInt(countText.trim(), 10)
-  if (!Number.isFinite(count) || count <= 0) {
-    return null
-  }
-
-  const windowLabel = formatDurationLabel(windowText.trim())
+  const windowLabel = formatDurationLabel(`${parsed.windowValue}${parsed.unit}`)
   if (!windowLabel) {
     return null
   }
 
   return {
-    count,
+    count: parsed.count,
     windowLabel,
   }
-}
-
-function splitRateLimit(raw: string): [string, string, boolean] {
-  const separatorIndex = raw.indexOf('/')
-  if (separatorIndex === -1) {
-    return ['', '', false]
-  }
-
-  return [
-    raw.slice(0, separatorIndex),
-    raw.slice(separatorIndex + 1),
-    true,
-  ]
 }
 
 function formatDurationLabel(raw: string) {

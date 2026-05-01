@@ -26,16 +26,36 @@ describe('BasicLayout', () => {
               meta: { affixTab: true, icon: 'dashboard', title: '系统状态' },
             },
             {
-              path: 'plugins',
-              name: 'plugins',
-              component: { template: '<div>插件页</div>' },
-              meta: { icon: 'appstore', keepAlive: true, title: '插件' },
-            },
-            {
-              path: 'plugins/:id',
-              name: 'plugin-detail',
-              component: { template: '<div data-testid="plugin-detail-page">插件详情页</div>' },
-              meta: { activePath: '/plugins', hideInMenu: true, title: '插件详情' },
+              path: '',
+              component: RouteView,
+              redirect: { name: 'plugins' },
+              meta: { hideInTab: true, icon: 'appstore', title: '插件中心' },
+              children: [
+                {
+                  path: '/plugins',
+                  name: 'plugins',
+                  component: { template: '<div>插件列表页</div>' },
+                  meta: { icon: 'appstore', keepAlive: true, order: 1, title: '插件列表' },
+                },
+                {
+                  path: '/plugins/settings',
+                  name: 'plugin-settings',
+                  component: { template: '<div>插件设置页</div>' },
+                  meta: { icon: 'setting', keepAlive: true, order: 2, title: '插件设置', viewKey: 'plugin-settings' },
+                },
+                {
+                  path: '/plugins/:id',
+                  name: 'plugin-detail',
+                  component: { template: '<div data-testid="plugin-detail-page">插件详情页</div>' },
+                  meta: { activePath: '/plugins', hideInMenu: true, title: '插件详情' },
+                },
+                {
+                  path: '/commands',
+                  name: 'commands',
+                  component: { template: '<div>指令中心页</div>' },
+                  meta: { icon: 'commands', keepAlive: true, order: 3, title: '指令中心', viewKey: 'commands' },
+                },
+              ],
             },
             {
               path: '',
@@ -56,10 +76,10 @@ describe('BasicLayout', () => {
                   meta: { icon: 'access-lists', keepAlive: true, title: '黑白名单', viewKey: 'access-lists' },
                 },
                 {
-                  path: '/commands',
-                  name: 'commands',
-                  component: { template: '<div>指令中心页</div>' },
-                  meta: { icon: 'commands', keepAlive: true, title: '指令中心', viewKey: 'commands' },
+                  path: '/rate-limits',
+                  name: 'rate-limits',
+                  component: { template: '<div>限流中心页</div>' },
+                  meta: { icon: 'rate-limits', keepAlive: true, title: '限流中心', viewKey: 'rate-limits' },
                 },
                 {
                   path: '/tasks',
@@ -286,9 +306,13 @@ describe('BasicLayout', () => {
     expect(breadcrumb.find('.admin-layout__breadcrumb-link').exists()).toBe(false)
     expect(currentBreadcrumb.text()).toBe('系统状态')
     expect(wrapper.text()).toContain('系统状态')
+    expect(wrapper.text()).toContain('插件中心')
+    expect(wrapper.text()).toContain('插件列表')
+    expect(wrapper.text()).toContain('插件设置')
     expect(wrapper.text()).toContain('协议中心')
     expect(wrapper.text()).toContain('权限策略')
     expect(wrapper.text()).toContain('黑白名单')
+    expect(wrapper.text()).toContain('限流中心')
     expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).toContain('运维')
     expect(wrapper.text()).toContain('日志中心')
@@ -430,6 +454,20 @@ describe('BasicLayout', () => {
     expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
   })
 
+  it('renders plugin settings under the plugin center group', async () => {
+    const { wrapper } = await mountShell('/plugins/settings')
+
+    const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
+    const parentLink = breadcrumb.get('.admin-layout__breadcrumb-link')
+
+    expect(parentLink.text()).toBe('插件中心')
+    expect(parentLink.attributes('href')).toBe('/plugins')
+    expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('插件设置')
+    expect(getTabLabels()).toEqual(['系统状态', '插件设置'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'setting'])
+    expect(getActiveTabLabel()).toBe('插件设置')
+  })
+
   it('keeps a single workspace tab when only query state changes', async () => {
     const { router, uiShellStore } = await mountShell('/permission-policy')
 
@@ -563,10 +601,12 @@ describe('BasicLayout', () => {
     const { wrapper } = await mountShell('/permission-policy')
 
     const menuGroups = wrapper.findAll('.admin-layout__sider .ant-menu-submenu')
+    const pluginGroup = menuGroups.find((item) => item.text().includes('插件中心'))
     const operationsGroup = menuGroups.find((item) => item.text().includes('运维'))
     const logsGroup = menuGroups.find((item) => item.text().includes('日志中心'))
     const protocolGroup = menuGroups.find((item) => item.text().includes('协议'))
 
+    expect(pluginGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
     expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(5)
     expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
     expect(protocolGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)
@@ -609,6 +649,10 @@ describe('BasicLayout', () => {
     const pluginItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.route-search-panel__result')).find(
       (node) => node.textContent?.includes('/plugins'),
     )
+    const pluginSettingsItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.route-search-panel__result')).find(
+      (node) => node.textContent?.includes('/plugins/settings'),
+    )
+    expect(pluginSettingsItem).toBeTruthy()
     pluginItem?.click()
     await flushPromises()
 

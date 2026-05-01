@@ -2,6 +2,7 @@ import { app, routes, shell } from './zh-CN/app'
 import { dashboard } from './zh-CN/dashboard'
 import { commands } from './zh-CN/commands'
 import { permissionPolicy } from './zh-CN/permission-policy'
+import { rateLimits } from './zh-CN/rate-limits'
 import { accessLists } from './zh-CN/access-lists'
 import { plugins } from './zh-CN/plugins'
 import { tasks } from './zh-CN/tasks'
@@ -20,6 +21,7 @@ export const zhCN = {
   dashboard,
   commands,
   permissionPolicy,
+  rateLimits,
   accessLists,
   plugins,
   tasks,

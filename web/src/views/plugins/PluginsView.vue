@@ -45,7 +45,7 @@ const installForm = reactive<PluginInstallRequest>({
 
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
 const tableColumns = computed(() => [
-  { title: t('plugins.title'), key: 'title', dataIndex: 'name', width: 260 },
+  { title: t('plugins.fields.plugin'), key: 'title', dataIndex: 'name', width: 260 },
   { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220 },
   { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 280 },
   { title: t('plugins.fields.runtime'), key: 'runtime', dataIndex: 'runtime_state', width: 300 },

@@ -228,7 +228,7 @@ describe('ConfigPage', () => {
     expect(wrapper.text()).toContain('server.port')
   })
 
-  it('keeps plugin authorization in the general config page', async () => {
+  it('keeps plugin-facing settings out of the general config page', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
 
@@ -242,13 +242,66 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    const authorizationNav = wrapper.findAll('.config-nav-item').find((candidate) => candidate.text().includes('插件授权'))
-    expect(authorizationNav).toBeTruthy()
-    await authorizationNav!.trigger('click')
+    expect(wrapper.text()).not.toContain('命令前缀')
+    expect(wrapper.text()).not.toContain('插件授权')
+    expect(wrapper.text()).not.toContain('自动授权能力')
+    expect(wrapper.text()).not.toContain('插件日志速率限制')
+    expect(wrapper.text()).not.toContain('插件消息速率限制')
+    expect(wrapper.text()).not.toContain('插件工作目录软上限')
+    expect(wrapper.text()).not.toContain('默认权限级别')
+    expect(wrapper.text()).not.toContain('目标消息速率限制')
+  })
+
+  it('edits general IPC rate limit with split inputs', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
+      config: store.document,
+      redacted_fields: [],
+      restart_required: false,
+      apply_effects: {
+        applied_now: ['runtime.ipc_action_burst_limit'],
+        reloaded_now: [],
+        restart_required_fields: [],
+      },
+    })
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
     await flushPromises()
 
-    expect(wrapper.text()).toContain('插件授权')
-    expect(wrapper.text()).toContain('自动授权能力')
-    expect(wrapper.text()).not.toContain('默认权限级别')
+    const viewModel = wrapper.vm as unknown as {
+      activeSectionKey: string
+      writeField: (path: string, type: string, value: unknown) => void
+    }
+
+    viewModel.activeSectionKey = 'runtime'
+    await flushPromises()
+    expect(wrapper.text()).toContain('IPC 突发限制')
+    expect(wrapper.text()).toContain('次数')
+    expect(wrapper.text()).toContain('时间窗口')
+    expect(wrapper.text()).toContain('单位')
+    expect(wrapper.text()).not.toContain('格式使用')
+    expect(wrapper.text()).toContain('1 秒内最多 100 次')
+
+    viewModel.writeField('runtime.ipc_action_burst_limit', 'rateLimit', '200/10s')
+    viewModel.activeSectionKey = 'message'
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('目标消息速率限制')
+
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    const submitted = saveSpy.mock.calls[0][0]
+    expect(submitted.runtime.ipc_action_burst_limit).toBe('200/10s')
+    expect(submitted.message.rate_limit_per_target).toBe('5/5s')
   })
 })

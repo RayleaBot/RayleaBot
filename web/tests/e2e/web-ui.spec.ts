@@ -102,6 +102,21 @@ function governanceEntryCard(
   return container.locator('tr').filter({ hasText: targetId }).first()
 }
 
+async function fillRateLimit(
+  page: import('@playwright/test').Page,
+  label: string,
+  count: string,
+  windowValue: string,
+  unit?: '秒' | '分钟' | '小时',
+) {
+  await page.getByLabel(`${label} 次数`).fill(count)
+  await page.getByLabel(`${label} 时间窗口`).fill(windowValue)
+  if (unit) {
+    await page.getByLabel(`${label} 单位`).click()
+    await page.getByTitle(unit).click()
+  }
+}
+
 async function readTabLabels(page: import('@playwright/test').Page) {
   return page.locator('.admin-layout__tabbar .ant-tabs-tab-btn').evaluateAll((nodes) => (
     nodes
@@ -448,7 +463,7 @@ test('plugin management flow covers install, grants and console recovery', async
   await login(page)
 
   await page.goto('/plugins')
-  await expect(page.locator('#app-main').getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
+  await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
   await expect(pluginRows(page).first()).toBeVisible()
   await expect(page.locator('.plugins-data-table')).toContainText('help')
   await expect(page.locator('.plugins-data-table')).toContainText('weather')
@@ -632,21 +647,16 @@ test('permission policy page edits command policy config', async ({ page, reques
   await superAdminsInput.press('Enter')
   await page.getByLabel('默认权限级别').click()
   await page.getByTitle('群管理员').click()
-  await page.getByLabel('用户命令速率限制').fill('20/60s')
-  await page.getByLabel('群命令速率限制').fill('60/60s')
-  await page.getByLabel('冷却提示').dispatchEvent('click')
+  await expect(page.getByText('用户命令速率限制')).toHaveCount(0)
+  await expect(page.getByText('群命令速率限制')).toHaveCount(0)
+  await expect(page.getByText('冷却提示')).toHaveCount(0)
 
   await expect(page.getByTestId('permission-policy-unsaved-status')).toContainText('有未保存更改')
-  await expect(page.getByText('60 秒内最多 20 次')).toBeVisible()
-  await expect(page.getByText('60 秒内最多 60 次')).toBeVisible()
 
   await page.getByTestId('permission-policy-save').click()
   await expect(page.getByTestId('permission-policy-save-status')).toContainText('保存完成，已生效')
   await expect(page.getByTestId('permission-policy-unsaved-status')).toHaveCount(0)
   await expect(page.getByTestId('permission-policy-summary-card').getByText('群管理员').first()).toBeVisible()
-  await expect(page.getByTestId('permission-policy-summary-card')).toContainText('20/60s')
-  await expect(page.getByTestId('permission-policy-summary-card')).toContainText('60/60s')
-  await expect(page.getByTestId('permission-policy-summary-card')).toContainText('不发送提示')
 
   await page.getByTestId('permission-policy-open-access-lists').click()
   await expect.poll(() => page.url()).toContain('/access-lists')
@@ -1383,8 +1393,8 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
   ])
   await expect(page.locator('.logs-row__message', { hasText: 'reactivate latest row' })).toHaveCount(0)
 
-  await navigateThroughMenu(page, '插件')
-  await expect(page.getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
+  await navigateThroughMenu(page, '插件列表', '插件中心')
+  await expect(page.getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
 
   await request.post(`${backendUrl}/__test/push-log`, {
     data: {
@@ -1510,9 +1520,127 @@ test('config keeps the section list scroll inside the card without page overflow
   expect(metrics.docScrollHeight).toBeLessThanOrEqual(metrics.docClientHeight + 1)
   expect(metrics.bodyScrollHeight).toBeLessThanOrEqual(metrics.bodyClientHeight + 1)
   expect(metrics.mainScrollHeight).toBeLessThanOrEqual(metrics.mainClientHeight + 1)
-  expect(metrics.navScrollHeight).toBeGreaterThan(metrics.navClientHeight)
+  expect(metrics.navScrollHeight).toBeGreaterThanOrEqual(metrics.navClientHeight)
   expect(metrics.navClientHeight).toBeGreaterThan(0)
   expect(metrics.firstNavItemWidth).toBeGreaterThanOrEqual(metrics.navClientWidth - 40)
+})
+
+test('config page edits general IPC rate limit with split inputs', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/config')
+  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
+
+  await page.locator('.config-nav-list').getByRole('button', { name: /运行环境/ }).click()
+  await fillRateLimit(page, 'IPC 突发限制', '180', '5')
+  await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
+
+  await page.locator('.config-nav-list').getByRole('button', { name: /消息/ }).click()
+  await expect(page.getByText('目标消息速率限制')).toHaveCount(0)
+
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'PUT'
+      && response.url().endsWith('/api/config')
+    )),
+    page.getByRole('button', { name: '保存更改' }).click(),
+  ])
+
+  await page.locator('.config-nav-list').getByRole('button', { name: /运行环境/ }).click()
+  await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
+  await page.locator('.config-nav-list').getByRole('button', { name: /消息/ }).click()
+  await expect(page.getByText('目标消息速率限制')).toHaveCount(0)
+})
+
+test('rate limits page edits chat and outbound limits', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await navigateThroughMenu(page, '限流中心', '运维')
+  await expect(page.getByRole('heading', { name: '限流中心', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('rate-limits-unsaved-status')).toHaveCount(0)
+
+  await fillRateLimit(page, '用户命令速率限制', '20', '60')
+  await fillRateLimit(page, '群命令速率限制', '60', '60')
+  await page.getByLabel('命中后发送冷却提示').dispatchEvent('click')
+  await fillRateLimit(page, '插件消息速率限制', '30', '10')
+  await fillRateLimit(page, '目标消息速率限制', '12', '1', '分钟')
+
+  await expect(page.getByTestId('rate-limits-unsaved-status')).toContainText('有未保存更改')
+  await expect(page.getByText('命中后拒绝本次命令').first()).toBeVisible()
+  await expect(page.getByText('FIFO 排队等待').first()).toBeVisible()
+  await expect(page.getByText('60 秒内最多 20 次')).toBeVisible()
+  await expect(page.getByText('60 秒内最多 60 次')).toBeVisible()
+  await expect(page.getByText('10 秒内最多 30 次')).toBeVisible()
+  await expect(page.getByText('1 分钟内最多 12 次')).toBeVisible()
+
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'PUT'
+      && response.url().endsWith('/api/config')
+    )),
+    page.getByTestId('rate-limits-save').click(),
+  ])
+
+  await expect(page.getByTestId('rate-limits-unsaved-status')).toHaveCount(0)
+  await expect(page.getByTestId('rate-limits-save-status')).toContainText('保存完成，已生效')
+  await expect(page.getByText('保存结果')).toHaveCount(0)
+
+  await page.goto('/permission-policy')
+  await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
+  await expect(page.getByText('用户命令速率限制')).toHaveCount(0)
+  await expect(page.getByText('群命令速率限制')).toHaveCount(0)
+
+  await page.goto('/plugins/settings')
+  await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
+  await expect(page.getByText('插件消息速率限制')).toHaveCount(0)
+})
+
+test('plugin settings page edits plugin global config', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await navigateThroughMenu(page, '插件设置', '插件中心')
+  await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
+
+  const commandPrefixesInput = page.getByTestId('plugin-settings-command-prefixes').locator('input')
+  await commandPrefixesInput.click()
+  await commandPrefixesInput.fill('!')
+  await commandPrefixesInput.press('Enter')
+  await expect(page.getByTestId('plugin-settings-unsaved-status')).toContainText('有未保存更改')
+
+  await page.getByLabel('自动授权能力').fill('logger.write\nmessage.send')
+
+  await fillRateLimit(page, '插件日志速率限制', '300', '10')
+  await expect(
+    page.locator('.plugin-settings-setting-row').filter({ hasText: '插件日志速率限制' }).locator('.plugin-settings-rate-preview'),
+  ).toContainText('10 秒内最多 300 次')
+
+  await expect(page.getByText('插件消息速率限制')).toHaveCount(0)
+
+  await page.getByLabel('插件工作目录软上限（MB）').fill('512')
+
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'PUT'
+      && response.url().endsWith('/api/config')
+    )),
+    page.getByTestId('plugin-settings-save').click(),
+  ])
+
+  await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
+  await expect(page.getByTestId('plugin-settings-save-status')).toContainText('保存完成，已生效')
+  await expect(page.getByText('保存结果')).toHaveCount(0)
+
+  await page.goto('/config')
+  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
+  await expect(page.locator('.config-layout')).not.toContainText('命令前缀')
+  await expect(page.locator('.config-layout')).not.toContainText('自动授权能力')
+  await expect(page.locator('.config-layout')).not.toContainText('插件日志速率限制')
+  await expect(page.locator('.config-layout')).not.toContainText('插件消息速率限制')
+  await expect(page.locator('.config-layout')).not.toContainText('插件工作目录软上限')
 })
 
 test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
@@ -1973,6 +2101,7 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(['系统状态', '权限策略', '指令中心'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy', 'commands'])
   expect(await readActiveTabLabel(page)).toBe('指令中心')
+  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '插件中心' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
 
   await page.goto('/tasks')
   await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
@@ -2198,9 +2327,9 @@ test('nested admin pages animate only once when entering grouped routes', async 
   expectSingleEnterTransition(await collectTransitionSamples(page), '协议中心')
 
   await startTransitionSampling(page)
-  await navigateThroughMenu(page, '插件')
-  await expect(page.getByRole('heading', { name: '插件', level: 1 })).toBeVisible()
-  expectSingleEnterTransition(await collectTransitionSamples(page), '插件')
+  await navigateThroughMenu(page, '插件列表', '插件中心')
+  await expect(page.getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  expectSingleEnterTransition(await collectTransitionSamples(page), '插件列表')
 
   await startTransitionSampling(page)
   await navigateThroughMenu(page, '历史日志', '日志中心')
@@ -2331,8 +2460,24 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   expect(headerMetrics.tabbarHeight).toBeLessThanOrEqual(44)
 
   await page.locator('.admin-layout__icon-button.mobile-only').first().click()
-  await page.locator('.ant-drawer-content').getByRole('menuitem', { name: '插件' }).click()
+  const mobilePluginGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '插件中心' }).first()
+  const mobilePluginListItem = mobilePluginGroup.locator('.ant-menu-item').filter({ hasText: '插件列表' }).first()
+  if (!await mobilePluginListItem.isVisible().catch(() => false)) {
+    await mobilePluginGroup.locator('.ant-menu-submenu-title').click()
+    await expect(mobilePluginListItem).toBeVisible()
+  }
+  await mobilePluginListItem.click()
   await expect(pluginRows(page).first()).toBeVisible()
+
+  await page.locator('.admin-layout__icon-button.mobile-only').first().click()
+  const mobilePluginSettingsGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '插件中心' }).first()
+  const mobilePluginSettingsItem = mobilePluginSettingsGroup.locator('.ant-menu-item').filter({ hasText: '插件设置' }).first()
+  if (!await mobilePluginSettingsItem.isVisible().catch(() => false)) {
+    await mobilePluginSettingsGroup.locator('.ant-menu-submenu-title').click()
+    await expect(mobilePluginSettingsItem).toBeVisible()
+  }
+  await mobilePluginSettingsItem.click()
+  await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
 
   await page.goto('/logs')
   await expect(logRows(page).first()).toBeVisible()

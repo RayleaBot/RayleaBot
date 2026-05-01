@@ -14,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
@@ -546,6 +547,137 @@ func TestApplyChatPolicySendsCooldownReplyForGroupCommand(t *testing.T) {
 	}
 }
 
+func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newAppTestLogger()
+	sender := &recordingOutboundSender{}
+	limiter := &recordingAppOutboundLimiter{
+		err: &adapter.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+	}
+	cfg := config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		Cooldown: &config.CooldownConfig{
+			UserCommandRateLimit:  "1/1h",
+			GroupCommandRateLimit: "5/1h",
+			CooldownReply:         true,
+		},
+	}
+	application := newTestAppState(cfg, logger)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "weather",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
+	application.eventIngress.outboundLimiter = limiter
+
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-weather-target-limit",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		TargetName:       "测试群",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "30001",
+	}
+
+	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first command should be allowed")
+	}
+	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+		t.Fatal("second command should be rate limited")
+	}
+
+	if sender.replyCount != 0 || sender.messageCount != 0 {
+		t.Fatalf("rate limited cooldown reply should not send: replies=%d messages=%d", sender.replyCount, sender.messageCount)
+	}
+	request := limiter.lastRequest()
+	if request.PluginID != "" || request.TargetType != "group" || request.TargetID != "20001" {
+		t.Fatalf("unexpected limiter request: %#v", request)
+	}
+	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+		return summary.Details["error_code"] == "platform.rate_limited"
+	})
+	if summary.Level != "warn" || summary.Source != "adapter.onebot11" {
+		t.Fatalf("unexpected rate limit summary: %+v", summary)
+	}
+}
+
+func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	limiter := &contextAwareOutboundLimiter{}
+	cfg := config.Config{
+		Command: &config.CommandConfig{
+			Prefixes: []string{"/"},
+		},
+		Cooldown: &config.CooldownConfig{
+			UserCommandRateLimit:  "1/1h",
+			GroupCommandRateLimit: "5/1h",
+			CooldownReply:         true,
+		},
+	}
+	application := newTestAppState(cfg, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "weather",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, nil)
+	application.eventIngress.outboundLimiter = limiter
+
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-weather-cancelled-limit",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "30001",
+	}
+
+	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first command should be allowed")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, allowed := application.applyChatPolicy(ctx, event); allowed {
+		t.Fatal("second command should be rate limited")
+	}
+	if limiter.ctxErr != context.Canceled {
+		t.Fatalf("limiter ctxErr = %v, want context.Canceled", limiter.ctxErr)
+	}
+	if sender.replyCount != 0 || sender.messageCount != 0 {
+		t.Fatalf("cancelled cooldown reply should not send: replies=%d messages=%d", sender.replyCount, sender.messageCount)
+	}
+}
+
 func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T) {
 	t.Parallel()
 
@@ -1006,9 +1138,22 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			AllowPrivateHosts: []string{},
 		},
 		Logging: config.LoggingConfig{Level: "info"},
+		Message: config.MessageConfig{
+			RateLimitPerPlugin:    "1/1h",
+			RateLimitPerTarget:    "100/1s",
+			CircuitBreakerSeconds: 1,
+		},
 	}
 	app := newTestAppState(cfg, nil)
 	app.setTestEventIngress(nil, repo, nil, nil)
+	app.outboundLimiter = outbound.NewMessageRateLimiter(cfg)
+	if err := app.outboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
+		PluginID:   "weather",
+		TargetType: "group",
+		TargetID:   "20001",
+	}); err != nil {
+		t.Fatalf("prime outbound limiter: %v", err)
+	}
 
 	restartRequired := applyHotReloadableFields(app, config.Config{
 		Admin: config.AdminConfig{
@@ -1039,6 +1184,11 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
 		Logging: config.LoggingConfig{Level: "info"},
+		Message: config.MessageConfig{
+			RateLimitPerPlugin:    "2/1h",
+			RateLimitPerTarget:    "100/1s",
+			CircuitBreakerSeconds: 1,
+		},
 	})
 	if restartRequired {
 		t.Fatal("restartRequired = true, want false for hot-reloadable fields")
@@ -1063,6 +1213,13 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	}
 	if len(app.state.Config.HTTP.AllowPrivateHosts) != 1 || app.state.Config.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
 		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", app.state.Config.HTTP.AllowPrivateHosts)
+	}
+	if err := app.outboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
+		PluginID:   "weather",
+		TargetType: "group",
+		TargetID:   "20002",
+	}); err != nil {
+		t.Fatalf("new outbound message limit was not applied: %v", err)
 	}
 }
 
@@ -1101,6 +1258,37 @@ func (s *recordingOutboundSender) SendReply(_ context.Context, action adapter.Ou
 	s.replyCount++
 	s.lastReplyText = firstTextSegment(action.Segments)
 	return adapter.SendMessageResult{MessageID: "msg-2"}, s.replyErr
+}
+
+type recordingAppOutboundLimiter struct {
+	requests []outbound.MessageLimitRequest
+	err      error
+}
+
+func (l *recordingAppOutboundLimiter) Wait(_ context.Context, request outbound.MessageLimitRequest) error {
+	l.requests = append(l.requests, request)
+	return l.err
+}
+
+func (l *recordingAppOutboundLimiter) ApplyConfig(config.Config) {}
+
+func (l *recordingAppOutboundLimiter) lastRequest() outbound.MessageLimitRequest {
+	if len(l.requests) == 0 {
+		return outbound.MessageLimitRequest{}
+	}
+	return l.requests[len(l.requests)-1]
+}
+
+type contextAwareOutboundLimiter struct {
+	ctxErr error
+}
+
+func (l *contextAwareOutboundLimiter) Wait(ctx context.Context, _ outbound.MessageLimitRequest) error {
+	l.ctxErr = ctx.Err()
+	if l.ctxErr != nil {
+		return &adapter.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
+	}
+	return nil
 }
 
 func firstTextSegment(segments []adapter.OutboundMessageSegment) string {

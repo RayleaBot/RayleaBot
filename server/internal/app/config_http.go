@@ -116,6 +116,11 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 	if newCfg.Logging.RateLimitPerPlugin != oldCfg.Logging.RateLimitPerPlugin && h.pluginLogLimiter != nil {
 		h.pluginLogLimiter.ApplyConfig(newCfg)
 	}
+	if h.outboundLimiter != nil && (newCfg.Message.RateLimitPerPlugin != oldCfg.Message.RateLimitPerPlugin ||
+		newCfg.Message.RateLimitPerTarget != oldCfg.Message.RateLimitPerTarget ||
+		newCfg.Message.CircuitBreakerSeconds != oldCfg.Message.CircuitBreakerSeconds) {
+		h.outboundLimiter.ApplyConfig(newCfg)
+	}
 	if h.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
 		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||
 		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength) {

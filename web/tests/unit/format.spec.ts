@@ -42,7 +42,7 @@ describe('format helpers', () => {
 
   it('formats rate limits into readable chinese text', () => {
     expect(formatRateLimit('10/60s')).toBe('60 秒内最多 10 次')
-    expect(formatRateLimit('3/1h30m')).toBe('1 小时 30 分钟内最多 3 次')
+    expect(formatRateLimit('3/1h')).toBe('1 小时内最多 3 次')
     expect(formatRateLimit('')).toBe('—')
     expect(formatRateLimit('not-a-rate-limit')).toBe('not-a-rate-limit')
   })

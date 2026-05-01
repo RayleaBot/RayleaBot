@@ -158,10 +158,11 @@ describe('PermissionPolicyPage', () => {
     expect(wrapper.text()).not.toContain('这些配置参与聊天侧命令分发、权限判断和冷却判断。')
     expect(wrapper.text()).toContain('超级管理员')
     expect(wrapper.text()).toContain('所有成员')
-    expect(wrapper.text()).toContain('60 秒内最多 10 次')
-    expect(wrapper.text()).toContain('60 秒内最多 30 次')
-    expect(wrapper.text()).toContain('冷却提示')
-    expect(wrapper.text()).toContain('会发送提示')
+    expect(wrapper.text()).not.toContain('用户命令速率限制')
+    expect(wrapper.text()).not.toContain('群命令速率限制')
+    expect(wrapper.text()).not.toContain('冷却提示')
+    expect(wrapper.text()).not.toContain('格式使用')
+    expect((wrapper.vm.configSections as Array<{ fields: Array<{ path: string }> }>).flatMap((section) => section.fields).map((field) => field.path)).not.toContain('user.cooldown_reply')
     expect(wrapper.find('[data-testid="permission-policy-super-admins"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('保存结果')
     expect(wrapper.text()).not.toContain('有未保存更改')
@@ -200,7 +201,7 @@ describe('PermissionPolicyPage', () => {
         redacted_fields: [],
         restart_required: false,
         apply_effects: {
-          applied_now: ['permission.default_level', 'user.command_rate_limit', 'group.command_rate_limit', 'user.cooldown_reply'],
+          applied_now: ['permission.default_level'],
           reloaded_now: [],
           restart_required_fields: [],
         },
@@ -219,17 +220,12 @@ describe('PermissionPolicyPage', () => {
     expect(wrapper.vm.superAdminCount).toBe(1)
     wrapper.vm.writeSuperAdminTags(['10001', '10002'])
     wrapper.vm.writeField('permission.default_level', 'select', 'group_admin')
-    wrapper.vm.writeField('user.command_rate_limit', 'text', '20/60s')
-    wrapper.vm.writeField('group.command_rate_limit', 'text', '60/60s')
-    wrapper.vm.writeField('user.cooldown_reply', 'boolean', false)
     await flushPromises()
 
     expect(wrapper.vm.superAdminCount).toBe(1)
     expect(wrapper.vm.hasUnsavedChanges).toBe(true)
     expect(wrapper.text()).toContain('有未保存更改')
     expect(wrapper.get('[data-testid="permission-policy-save"]').attributes('disabled')).toBeUndefined()
-    expect(wrapper.text()).toContain('60 秒内最多 20 次')
-    expect(wrapper.text()).toContain('60 秒内最多 60 次')
 
     await wrapper.get('[data-testid="permission-policy-save"]').trigger('click')
     await flushPromises()
@@ -238,9 +234,9 @@ describe('PermissionPolicyPage', () => {
     const submitted = saveSpy.mock.calls[0][0]
     expect(submitted.admin.super_admins).toEqual(['10001', '10002'])
     expect(submitted.permission.default_level).toBe('group_admin')
-    expect(submitted.user.command_rate_limit).toBe('20/60s')
-    expect(submitted.group.command_rate_limit).toBe('60/60s')
-    expect(submitted.user.cooldown_reply).toBe(false)
+    expect(submitted.user.command_rate_limit).toBe('10/60s')
+    expect(submitted.group.command_rate_limit).toBe('30/60s')
+    expect(submitted.user.cooldown_reply).toBe(true)
     expect(wrapper.vm.superAdminCount).toBe(2)
     expect(wrapper.vm.hasUnsavedChanges).toBe(false)
     expect(wrapper.text()).not.toContain('有未保存更改')

@@ -11,6 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
@@ -28,6 +29,8 @@ func buildAppPlugins(
 	adapterShell := adapter.New(state.core.Config.OneBot, state.core.Logger)
 	replyTargets := newReplyTargetCache(defaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(state.core.Logger, adapterShell, replyTargets, state.core.Config.Runtime.MaxPendingEventsPerPlugin)
+	outboundLimiter := outbound.NewMessageRateLimiter(state.core.Config)
+	eventDispatcher.SetOutboundLimiter(outboundLimiter)
 	eventBridge := bridge.New(state.core.Logger, eventDispatcher)
 
 	pluginRepository, pluginKVRepository, pluginConfigRepository, err := buildPluginRepositories(platform)
@@ -78,6 +81,7 @@ func buildAppPlugins(
 		webhooks:          webhookRegistry,
 		renderer:          renderService,
 		pluginLogLimiter:  localaction.NewPluginLogLimiter(state.core.Config),
+		outboundLimiter:   outboundLimiter,
 	}, nil
 }
 

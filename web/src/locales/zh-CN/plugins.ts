@@ -1,10 +1,33 @@
 export const plugins = {
-  title: '插件',
+  title: '插件列表',
   install: '安装插件',
   refresh: '刷新列表',
   detailTitle: '插件详情',
   installDialogTitle: '安装插件',
   sourceType: '来源类型',
+  settings: {
+    title: '插件设置',
+    sections: {
+      command: '命令入口',
+      authorization: '插件授权',
+      log: '日志保护',
+      message: '消息保护',
+      storage: '插件存储',
+    },
+    hints: {
+      commandPrefixes: '输入前缀后按 Enter 添加，聊天消息以这些前缀开头时进入命令解析。',
+      autoGrantCapabilities: '每行一个能力标识，匹配的插件能力会自动授权。',
+      pluginWorkdirSoftLimit: '单个插件工作目录的软限制，超过后会进入告警和清理建议。',
+    },
+    placeholders: {
+      commandPrefixes: '输入命令前缀',
+    },
+    status: {
+      unsaved: '有未保存更改',
+      savedHot: '保存完成，已生效',
+      savedRestart: '保存完成，重启后生效',
+    },
+  },
   localZip: '本地 ZIP 包',
   localDirectory: '本地目录',
   remoteUrl: '远程 URL',
@@ -16,6 +39,7 @@ export const plugins = {
   unverified: '未验证',
   fields: {
     id: '插件 ID',
+    plugin: '插件',
     name: '名称',
     role: '角色',
     trust: '可信度',

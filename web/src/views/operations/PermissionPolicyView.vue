@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import {
-  ClockCircleOutlined,
   ExclamationCircleOutlined,
-  MessageOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
   SafetyOutlined,
@@ -28,7 +26,7 @@ import {
   setValueByPath,
   type ConfigFieldDefinition,
 } from '@/lib/config-form'
-import { formatRateLimit, fromMultilineList, toMultilineList } from '@/lib/format'
+import { fromMultilineList, toMultilineList } from '@/lib/format'
 import { buildAccessListsLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -101,36 +99,6 @@ const summaryCards = computed(() => [
     value: getCommandPermissionLabel(commandPolicy.value?.default_level),
     description: t('permissionPolicy.summary.defaultPermissionMeta'),
   },
-  {
-    key: 'user-cooldown',
-    icon: ClockCircleOutlined,
-    label: t('permissionPolicy.summary.userCooldown'),
-    tone: 'default' as const,
-    value: formatRateLimit(commandPolicy.value?.cooldown.user_command_rate_limit),
-    description: t('permissionPolicy.summary.userCooldownMeta', {
-      value: commandPolicy.value?.cooldown.user_command_rate_limit ?? t('display.empty'),
-    }),
-  },
-  {
-    key: 'group-cooldown',
-    icon: ClockCircleOutlined,
-    label: t('permissionPolicy.summary.groupCooldown'),
-    tone: 'default' as const,
-    value: formatRateLimit(commandPolicy.value?.cooldown.group_command_rate_limit),
-    description: t('permissionPolicy.summary.groupCooldownMeta', {
-      value: commandPolicy.value?.cooldown.group_command_rate_limit ?? t('display.empty'),
-    }),
-  },
-  {
-    key: 'cooldown-reply',
-    icon: MessageOutlined,
-    label: t('permissionPolicy.summary.cooldownReply'),
-    tone: commandPolicy.value?.cooldown.cooldown_reply ? 'success' : 'default' as const,
-    value: commandPolicy.value?.cooldown.cooldown_reply
-      ? t('permissionPolicy.summary.cooldownReplyEnabled')
-      : t('permissionPolicy.summary.cooldownReplyDisabled'),
-    description: t('permissionPolicy.summary.cooldownReplyDescription'),
-  },
 ])
 
 function cardMotion(delay: number) {
@@ -159,8 +127,6 @@ function getSectionIcon(key: string) {
       return UserAddOutlined
     case 'permission':
       return SafetyOutlined
-    case 'user':
-      return UserAddOutlined
     case 'group':
       return TeamOutlined
     default:
@@ -279,24 +245,6 @@ function writeField(path: string, type: ConfigFieldDefinition['type'], value: un
 
   markDraftChanged()
   setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
-}
-
-function isRateLimitField(path: string) {
-  return path === 'user.command_rate_limit' || path === 'group.command_rate_limit'
-}
-
-function getRateLimitPreview(path: string) {
-  if (!isRateLimitField(path)) {
-    return null
-  }
-
-  const rawValue = String(readField(path, 'text') ?? '').trim()
-  if (!rawValue) {
-    return null
-  }
-
-  const preview = formatRateLimit(rawValue)
-  return preview !== rawValue ? preview : null
 }
 
 async function save() {
@@ -499,12 +447,8 @@ async function save() {
                       @update:value="(value) => writeField(field.path, field.type, value)"
                     />
 
-                    <div v-if="field.description || getRateLimitPreview(field.path)" class="config-field-note">
+                    <div v-if="field.description" class="config-field-note">
                       <p v-if="field.description" class="config-field-note__text">{{ field.description }}</p>
-                      <div v-if="getRateLimitPreview(field.path)" class="config-rate-preview">
-                        <span class="config-rate-preview__label">{{ t('config.hints.rateLimitPreview') }}</span>
-                        <strong class="config-rate-preview__value">{{ getRateLimitPreview(field.path) }}</strong>
-                      </div>
                     </div>
                   </a-form-item>
                 </div>
@@ -532,7 +476,7 @@ async function save() {
 .permission-policy-summary-cards {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .permission-policy-summary-empty {
@@ -767,28 +711,6 @@ async function save() {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.6;
-}
-
-.config-rate-preview {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-accent);
-  border: 1px solid var(--border-accent);
-}
-
-.config-rate-preview__label {
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.config-rate-preview__value {
-  color: var(--text);
-  font-size: 0.9rem;
-  line-height: 1.4;
 }
 
 @media (max-width: 768px) {

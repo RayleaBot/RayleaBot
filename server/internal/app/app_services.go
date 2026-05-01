@@ -11,12 +11,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -230,6 +232,7 @@ type eventIngressDeps struct {
 	plugins          *plugins.Catalog
 	replyTargets     *replyTargetCache
 	outboundSender   outboundActionSender
+	outboundLimiter  outbound.MessageLimiter
 	bridge           *bridge.Bridge
 	lifecycle        *pluginLifecycleController
 	metadataEnricher eventMetadataEnricher
@@ -271,6 +274,7 @@ type configHTTPDeps struct {
 	logRepository    logging.Repository
 	renderer         *render.Service
 	pluginLogLimiter *localaction.PluginLogLimiter
+	outboundLimiter  interface{ ApplyConfig(config.Config) }
 	protocol         *protocolService
 	eventIngress     *eventIngressService
 	blacklistRepo    permission.BlacklistRepository
@@ -349,6 +353,7 @@ type configHTTPHandlers struct {
 	logRepository    logging.Repository
 	renderer         *render.Service
 	pluginLogLimiter *localaction.PluginLogLimiter
+	outboundLimiter  interface{ ApplyConfig(config.Config) }
 	protocol         *protocolService
 	eventIngress     *eventIngressService
 	blacklistRepo    permission.BlacklistRepository
@@ -361,6 +366,7 @@ func newConfigHTTPHandlers(deps configHTTPDeps) *configHTTPHandlers {
 		logRepository:    deps.logRepository,
 		renderer:         deps.renderer,
 		pluginLogLimiter: deps.pluginLogLimiter,
+		outboundLimiter:  deps.outboundLimiter,
 		protocol:         deps.protocol,
 		eventIngress:     deps.eventIngress,
 		blacklistRepo:    deps.blacklistRepo,

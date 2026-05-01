@@ -6,9 +6,10 @@ import AppCard from '@/components/AppCard.vue'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import { notifySuccess } from '@/adapter/feedback'
 import ConfigApplyEffectsSummary from '@/components/config/ConfigApplyEffectsSummary.vue'
+import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { cloneConfig, getConfigSections, getValueByPath, setValueByPath } from '@/lib/config-form'
+import { cloneConfig, getConfigSections, getValueByPath, setValueByPath, type ConfigFieldDefinition } from '@/lib/config-form'
 import { formatRateLimit, fromMultilineList, toMultilineList } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -19,7 +20,7 @@ const { applyEffects, document, error, loading, redactedFields, restartRequired,
 
 const draft = ref<ConfigDocument | null>(null)
 const configSections = computed(() => getConfigSections())
-const activeSectionKey = ref<keyof ConfigDocument>('server')
+const activeSectionKey = ref('server')
 const currentSection = computed(
   () => configSections.value.find((section) => section.key === activeSectionKey.value) ?? configSections.value[0],
 )
@@ -46,7 +47,7 @@ onMounted(() => {
   void loadConfig()
 })
 
-function readField(path: string, type: 'text' | 'number' | 'boolean' | 'select' | 'list') {
+function readField(path: string, type: ConfigFieldDefinition['type']) {
   if (!draft.value) {
     if (type === 'boolean') {
       return false
@@ -62,7 +63,7 @@ function readField(path: string, type: 'text' | 'number' | 'boolean' | 'select' 
   return current
 }
 
-function writeField(path: string, type: 'text' | 'number' | 'boolean' | 'select' | 'list', value: unknown) {
+function writeField(path: string, type: ConfigFieldDefinition['type'], value: unknown) {
   if (!draft.value) {
     return
   }
@@ -82,16 +83,12 @@ function writeField(path: string, type: 'text' | 'number' | 'boolean' | 'select'
   setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
 }
 
-function isRateLimitField(path: string) {
-  return path === 'user.command_rate_limit' || path === 'group.command_rate_limit'
-}
-
-function getRateLimitPreview(path: string) {
-  if (!isRateLimitField(path)) {
+function getRateLimitPreview(field: ConfigFieldDefinition) {
+  if (field.type !== 'rateLimit') {
     return null
   }
 
-  const rawValue = String(readField(path, 'text') ?? '').trim()
+  const rawValue = String(readField(field.path, field.type) ?? '').trim()
   if (!rawValue) {
     return null
   }
@@ -206,8 +203,15 @@ async function save() {
                 </div>
               </template>
 
+              <RateLimitInput
+                v-if="field.type === 'rateLimit'"
+                :value="String(readField(field.path, field.type) ?? '')"
+                :aria-label="field.label"
+                @update:value="(value) => writeField(field.path, field.type, value)"
+              />
+
               <a-input
-                v-if="field.type === 'text'"
+                v-else-if="field.type === 'text'"
                 :value="String(readField(field.path, field.type) ?? '')"
                 :aria-label="field.label"
                 @update:value="(value) => writeField(field.path, field.type, value)"
@@ -247,11 +251,11 @@ async function save() {
                 @update:value="(value) => writeField(field.path, field.type, value)"
               />
 
-              <div v-if="field.description || getRateLimitPreview(field.path)" class="config-field-note">
+              <div v-if="field.description || getRateLimitPreview(field)" class="config-field-note">
                 <p v-if="field.description" class="config-field-note__text">{{ field.description }}</p>
-                <div v-if="getRateLimitPreview(field.path)" class="config-rate-preview">
+                <div v-if="getRateLimitPreview(field)" class="config-rate-preview">
                   <span class="config-rate-preview__label">{{ t('config.hints.rateLimitPreview') }}</span>
-                  <strong class="config-rate-preview__value">{{ getRateLimitPreview(field.path) }}</strong>
+                  <strong class="config-rate-preview__value">{{ getRateLimitPreview(field) }}</strong>
                 </div>
               </div>
             </a-form-item>

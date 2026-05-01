@@ -5,11 +5,15 @@ export const app = {
 
 export const routes = {
   status: '系统状态',
-  plugins: '插件',
+  pluginCenter: '插件中心',
+  pluginList: '插件列表',
+  pluginSettings: '插件设置',
+  plugins: '插件列表',
   pluginDetail: '插件详情',
   operations: '运维',
   permissionPolicy: '权限策略',
   accessLists: '黑白名单',
+  rateLimits: '限流中心',
   commands: '指令中心',
   tasks: '任务',
   logs: '实时日志',

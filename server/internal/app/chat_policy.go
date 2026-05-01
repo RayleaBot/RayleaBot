@@ -133,6 +133,7 @@ type eventIngressService struct {
 	plugins           *plugins.Catalog
 	replyTargets      *replyTargetCache
 	outboundSender    outboundActionSender
+	outboundLimiter   outbound.MessageLimiter
 	bridge            *bridge.Bridge
 	lifecycle         *pluginLifecycleController
 	metadataEnricher  eventMetadataEnricher
@@ -156,6 +157,7 @@ func newEventIngressService(deps eventIngressDeps) *eventIngressService {
 		plugins:          deps.plugins,
 		replyTargets:     deps.replyTargets,
 		outboundSender:   deps.outboundSender,
+		outboundLimiter:  deps.outboundLimiter,
 		bridge:           deps.bridge,
 		lifecycle:        deps.lifecycle,
 		metadataEnricher: deps.metadataEnricher,
@@ -202,7 +204,7 @@ func (s *eventIngressService) applyChatPolicy(ctx context.Context, event adapter
 		s.logCommandPolicyRejection(enriched, verdict, commandContext)
 	}
 	if (verdict.ErrorCode == "platform.user_rate_limited" || verdict.ErrorCode == "platform.rate_limited") && cooldownReplyEnabled(s.state.Config) {
-		s.sendCooldownReply(enriched)
+		s.sendCooldownReply(ctx, enriched)
 	}
 	return enriched, false
 }
@@ -381,13 +383,13 @@ func commandPolicyReasonSummary(verdict permission.Verdict) string {
 	}
 }
 
-func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
+func (s *eventIngressService) sendCooldownReply(ctx context.Context, event adapter.NormalizedEvent) {
 	if s == nil || s.outboundSender == nil {
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	var (
 		attempt outbound.SendAttempt
@@ -408,18 +410,27 @@ func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
 				TargetID:   strings.TrimSpace(event.ConversationID),
 				Segments:   segments,
 			}
-			sendResult, sendErr := s.outboundSender.SendReply(ctx, adapter.OutboundMessageReply{
+			result = outbound.SendResult{
+				DeliveryKind: "message.reply",
+				TargetType:   "group",
+				TargetID:     strings.TrimSpace(event.ConversationID),
+			}
+			if limitErr := s.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
+				TargetType: result.TargetType,
+				TargetID:   result.TargetID,
+			}); limitErr != nil {
+				err = limitErr
+				break
+			}
+			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, adapter.OutboundMessageReply{
 				TargetType:       "group",
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
 				Segments:         segments,
 			})
-			result = outbound.SendResult{
-				MessageID:    sendResult.MessageID,
-				DeliveryKind: "message.reply",
-				TargetType:   "group",
-				TargetID:     strings.TrimSpace(event.ConversationID),
-			}
+			cancel()
+			result.MessageID = sendResult.MessageID
 			err = sendErr
 			break
 		}
@@ -436,17 +447,26 @@ func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
 				TargetID:   targetID,
 				Segments:   segments,
 			}
-			sendResult, sendErr := s.outboundSender.SendMessage(ctx, adapter.OutboundMessageSend{
-				TargetType: strings.TrimSpace(event.ConversationType),
-				TargetID:   targetID,
-				Segments:   segments,
-			})
 			result = outbound.SendResult{
-				MessageID:    sendResult.MessageID,
 				DeliveryKind: "message.send",
 				TargetType:   strings.TrimSpace(event.ConversationType),
 				TargetID:     targetID,
 			}
+			if limitErr := s.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
+				TargetType: result.TargetType,
+				TargetID:   result.TargetID,
+			}); limitErr != nil {
+				err = limitErr
+				break
+			}
+			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, adapter.OutboundMessageSend{
+				TargetType: strings.TrimSpace(event.ConversationType),
+				TargetID:   targetID,
+				Segments:   segments,
+			})
+			cancel()
+			result.MessageID = sendResult.MessageID
 			err = sendErr
 		}
 	default:
@@ -458,6 +478,13 @@ func (s *eventIngressService) sendCooldownReply(event adapter.NormalizedEvent) {
 			TargetLabel: buildCooldownTargetLabel(ctx, event, s.outboundSender),
 		}, attempt, result, err)
 	}
+}
+
+func (s *eventIngressService) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
+	if s == nil || s.outboundLimiter == nil {
+		return nil
+	}
+	return s.outboundLimiter.Wait(ctx, request)
 }
 
 func buildCooldownTargetLabel(ctx context.Context, event adapter.NormalizedEvent, sender outboundActionSender) string {

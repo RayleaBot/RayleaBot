@@ -62,6 +62,7 @@ type Dispatcher struct {
 	logger            *slog.Logger
 	sender            outbound.ActionSender
 	resolver          outbound.ReplyTargetResolver
+	outboundLimiter   outbound.MessageLimiter
 	queueSize         int
 	mu                sync.RWMutex
 	slots             map[string]*pluginSlot
@@ -92,6 +93,15 @@ func (d *Dispatcher) SetCapabilityChecker(checker CapabilityChecker) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.capabilityChecker = checker
+}
+
+func (d *Dispatcher) SetOutboundLimiter(limiter outbound.MessageLimiter) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.outboundLimiter = limiter
 }
 
 // Register adds a plugin runtime to the dispatch registry and starts its
@@ -500,6 +510,30 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		})
 		return
 	}
+	limitTargetType, limitTargetID := d.limitTargetForAction(action)
+	if strings.TrimSpace(limitTargetType) == "" {
+		limitTargetType = targetType
+	}
+	if strings.TrimSpace(limitTargetID) == "" {
+		limitTargetID = targetID
+	}
+	if err := d.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
+		PluginID:   pluginID,
+		TargetType: limitTargetType,
+		TargetID:   limitTargetID,
+	}); err != nil {
+		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
+			PluginID:    pluginID,
+			RequestID:   requestID,
+			CommandName: commandName,
+			TargetLabel: targetLabel,
+		}, attempt, outbound.SendResult{
+			DeliveryKind: action.Kind,
+			TargetType:   limitTargetType,
+			TargetID:     limitTargetID,
+		}, err)
+		return
+	}
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
@@ -507,6 +541,28 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		CommandName: commandName,
 		TargetLabel: targetLabel,
 	}, attempt, result, err)
+}
+
+func (d *Dispatcher) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
+	if d == nil {
+		return nil
+	}
+	d.mu.RLock()
+	limiter := d.outboundLimiter
+	d.mu.RUnlock()
+	if limiter == nil {
+		return nil
+	}
+	return limiter.Wait(ctx, request)
+}
+
+func (d *Dispatcher) limitTargetForAction(action runtime.Action) (string, string) {
+	if action.Kind == "message.reply" && d != nil && d.resolver != nil {
+		if target, ok := d.resolver.ResolveReplyTarget(strings.TrimSpace(action.ReplyToEventID)); ok {
+			return target.TargetType, target.TargetID
+		}
+	}
+	return action.TargetType, action.TargetID
 }
 
 func buildOutboundTargetLabel(ctx context.Context, event runtime.Event, targetType, targetID string, sender outbound.ActionSender) string {

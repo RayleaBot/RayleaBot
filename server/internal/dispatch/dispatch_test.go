@@ -92,6 +92,28 @@ func (f fakeReplyTargets) ResolveReplyTarget(eventID string) (outbound.ReplyTarg
 	return target, ok
 }
 
+type recordingOutboundLimiter struct {
+	mu       sync.Mutex
+	requests []outbound.MessageLimitRequest
+	err      error
+}
+
+func (l *recordingOutboundLimiter) Wait(_ context.Context, request outbound.MessageLimitRequest) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.requests = append(l.requests, request)
+	return l.err
+}
+
+func (l *recordingOutboundLimiter) lastRequest() outbound.MessageLimitRequest {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.requests) == 0 {
+		return outbound.MessageLimitRequest{}
+	}
+	return l.requests[len(l.requests)-1]
+}
+
 func testEvent() runtime.Event {
 	return runtime.Event{
 		EventID:        "test-evt-1",
@@ -556,6 +578,84 @@ func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 	}
 	if len(sender.messages[0].Segments) != 2 {
 		t.Fatalf("unexpected rich segments: %#v", sender.messages[0])
+	}
+}
+
+func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) {
+	t.Parallel()
+
+	sender := &fakeSender{}
+	limiter := &recordingOutboundLimiter{}
+	d := New(slog.Default(), sender, fakeReplyTargets{
+		"evt_reply_target": {
+			MessageID:  "msg-1",
+			TargetType: "group",
+			TargetID:   "200",
+		},
+	}, 16)
+	d.SetOutboundLimiter(limiter)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{
+		Action: &runtime.Action{
+			Kind:           "message.reply",
+			ReplyToEventID: "evt_reply_target",
+			MessageSegments: []runtime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "reply text"},
+			}},
+		},
+	}}
+	d.Register("action-plugin", rt, nil, nil, 1)
+
+	d.Dispatch(context.Background(), testEvent(), "")
+	time.Sleep(100 * time.Millisecond)
+
+	request := limiter.lastRequest()
+	if request.PluginID != "action-plugin" || request.TargetType != "group" || request.TargetID != "200" {
+		t.Fatalf("unexpected limiter request: %#v", request)
+	}
+}
+
+func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newDispatchTestLogger()
+	sender := &fakeSender{}
+	limiter := &recordingOutboundLimiter{
+		err: &adapter.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+	}
+	d := New(logger, sender, nil, 16)
+	d.SetOutboundLimiter(limiter)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{
+		RequestID: "req_runtime_delivery_rate_limited",
+		Action: &runtime.Action{
+			Kind:       "message.send",
+			TargetType: "group",
+			TargetID:   "200",
+			MessageSegments: []runtime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "limited"},
+			}},
+		},
+	}}
+	d.Register("action-plugin", rt, nil, nil, 1)
+
+	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+
+	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
+		return summary.RequestID == "req_runtime_delivery_rate_limited"
+	})
+	if summary.Details["error_code"] != "platform.rate_limited" {
+		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
+	}
+
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	if len(sender.messages) != 0 || len(sender.replies) != 0 {
+		t.Fatalf("rate limited action should not send: messages=%#v replies=%#v", sender.messages, sender.replies)
 	}
 }
 

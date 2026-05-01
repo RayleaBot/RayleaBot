@@ -13,6 +13,7 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   StopOutlined,
+  ThunderboltOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
 
@@ -28,6 +29,7 @@ const iconMap: Record<string, Component> = {
   'logs-center': FileSearchOutlined,
   'permission-policy': SafetyCertificateOutlined,
   protocols: DisconnectOutlined,
+  'rate-limits': ThunderboltOutlined,
   'render-templates': FileTextOutlined,
   setting: SettingOutlined,
   system: HddOutlined,
