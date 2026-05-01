@@ -55,6 +55,7 @@ export const shell = {
   switchDarkTheme: '切换到暗色主题',
   switchLightTheme: '切换到亮色主题',
   tabActions: {
+    closeAll: '关闭所有标签',
     closeCurrent: '关闭当前标签',
     closeLeft: '关闭左侧标签',
     menu: '标签页操作',

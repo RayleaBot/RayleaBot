@@ -91,4 +91,52 @@ describe('ui-shell store', () => {
     persisted = JSON.parse(window.localStorage.getItem('rayleabot.ui-shell') ?? '{}')
     expect(persisted.tabs).toBeUndefined()
   })
+
+  it('closes all non-affix tabs and keeps the persisted affix tabs', () => {
+    const store = useUiShellStore()
+
+    store.upsertTab({
+      affix: true,
+      fullPath: '/',
+      icon: 'dashboard',
+      name: 'status',
+      path: '/',
+      title: '系统状态',
+    })
+    store.upsertTab({
+      fullPath: '/commands',
+      icon: 'commands',
+      keepAlive: true,
+      name: 'commands',
+      path: '/commands',
+      title: '指令中心',
+    })
+    store.upsertTab({
+      fullPath: '/logs',
+      icon: 'logs',
+      keepAlive: true,
+      name: 'logs',
+      path: '/logs',
+      title: '实时日志',
+    })
+
+    store.closeAllTabs()
+
+    expect(store.tabs).toEqual([
+      expect.objectContaining({
+        affix: true,
+        path: '/',
+        title: '系统状态',
+      }),
+    ])
+
+    const persisted = JSON.parse(window.localStorage.getItem('rayleabot.ui-shell') ?? '{}')
+    expect(persisted.tabs).toEqual([
+      expect.objectContaining({
+        affix: true,
+        path: '/',
+        title: '系统状态',
+      }),
+    ])
+  })
 })

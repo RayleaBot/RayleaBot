@@ -88,6 +88,14 @@ interface AppBreadcrumbItem {
   title: string
 }
 
+type TabActionKey = 'refresh' | 'close-current' | 'close-other' | 'close-left' | 'close-right' | 'close-all'
+
+interface TabActionItem {
+  disabled?: boolean
+  key: TabActionKey
+  label: string
+}
+
 const siderTheme = computed(() => (preferences.value.themeMode === 'dark' ? 'dark' : 'light'))
 const themeToggleLabel = computed(() => (
   preferences.value.themeMode === 'dark' ? t('shell.switchLightTheme') : t('shell.switchDarkTheme')
@@ -97,7 +105,6 @@ const fullscreenLabel = computed(() => (
 ))
 const currentTabPath = computed(() => resolveTabPath(route))
 const currentTab = computed(() => tabs.value.find((item) => item.path === currentTabPath.value) ?? null)
-const activeTabIndex = computed(() => tabs.value.findIndex((item) => item.path === currentTabPath.value))
 const effectiveTransitionName = computed(() => {
   if (preferences.value.pageTransition === 'none') {
     return 'route-none'
@@ -382,20 +389,60 @@ function onTabChange(targetKey: string) {
   void router.push(targetTab?.fullPath ?? targetKey)
 }
 
-function closeTab(targetPath: string) {
-  const items = tabs.value
-  const targetIndex = items.findIndex((item) => item.path === targetPath)
-  if (targetIndex < 0) {
+function findTab(path: string) {
+  return tabs.value.find((item) => item.path === path) ?? null
+}
+
+function getFallbackTab(targetPath: string, beforeTabs: ShellTabItem[], afterTabs: ShellTabItem[]) {
+  const targetTab = afterTabs.find((item) => item.path === targetPath)
+  if (targetTab) {
+    return targetTab
+  }
+
+  const targetIndex = beforeTabs.findIndex((item) => item.path === targetPath)
+  if (targetIndex >= 0) {
+    const leftTab = beforeTabs
+      .slice(0, targetIndex)
+      .reverse()
+      .find((item) => afterTabs.some((candidate) => candidate.path === item.path))
+    if (leftTab) {
+      return afterTabs.find((item) => item.path === leftTab.path) ?? leftTab
+    }
+
+    const rightTab = beforeTabs
+      .slice(targetIndex + 1)
+      .find((item) => afterTabs.some((candidate) => candidate.path === item.path))
+    if (rightTab) {
+      return afterTabs.find((item) => item.path === rightTab.path) ?? rightTab
+    }
+  }
+
+  return afterTabs[0] ?? affixTabs[0] ?? null
+}
+
+function closeTabsWithFallback(targetPath: string, mutateTabs: () => void) {
+  const beforeTabs = [...tabs.value]
+  const activePathBefore = currentTabPath.value
+
+  mutateTabs()
+
+  if (tabs.value.some((item) => item.path === activePathBefore)) {
     return
   }
 
-  const closingCurrent = currentTabPath.value === targetPath
-  const fallback = items[targetIndex - 1] ?? items[targetIndex + 1] ?? affixTabs[0]
-  uiShellStore.removeTab(targetPath)
-
-  if (closingCurrent && fallback) {
+  const fallback = getFallbackTab(targetPath, beforeTabs, tabs.value)
+  if (fallback) {
     void router.push(fallback.fullPath)
   }
+}
+
+function closeTab(targetPath: string) {
+  const targetTab = findTab(targetPath)
+  if (!targetTab || targetTab.affix) {
+    return
+  }
+
+  closeTabsWithFallback(targetPath, () => uiShellStore.removeTab(targetPath))
 }
 
 function onTabEdit(targetKey: string | MouseEvent, action: 'add' | 'remove') {
@@ -410,16 +457,32 @@ async function refreshCurrentRoute() {
   await uiShellStore.refreshView(currentRouteViewName.value)
 }
 
-function closeOtherTabs() {
-  uiShellStore.closeOtherTabs(currentTabPath.value)
+function closeOtherTabs(targetPath = currentTabPath.value) {
+  if (!findTab(targetPath)) {
+    return
+  }
+
+  closeTabsWithFallback(targetPath, () => uiShellStore.closeOtherTabs(targetPath))
 }
 
-function closeTabsToLeft() {
-  uiShellStore.closeTabsToLeft(currentTabPath.value)
+function closeTabsToLeft(targetPath = currentTabPath.value) {
+  if (!findTab(targetPath)) {
+    return
+  }
+
+  closeTabsWithFallback(targetPath, () => uiShellStore.closeTabsToLeft(targetPath))
 }
 
-function closeTabsToRight() {
-  uiShellStore.closeTabsToRight(currentTabPath.value)
+function closeTabsToRight(targetPath = currentTabPath.value) {
+  if (!findTab(targetPath)) {
+    return
+  }
+
+  closeTabsWithFallback(targetPath, () => uiShellStore.closeTabsToRight(targetPath))
+}
+
+function closeAllTabs(targetPath = currentTabPath.value) {
+  closeTabsWithFallback(targetPath, () => uiShellStore.closeAllTabs())
 }
 
 function syncFullscreenState() {
@@ -481,48 +544,84 @@ function onSearchOpenUpdate(open: boolean) {
   }
 }
 
-function handleTabAction(key: string) {
-  switch (key) {
+function handleTabAction(key: string | number, targetTab = currentTab.value) {
+  const actionKey = String(key) as TabActionKey
+  switch (actionKey) {
     case 'refresh':
       void refreshCurrentRoute()
       return
     case 'close-current':
-      if (currentTab.value && !currentTab.value.affix) {
-        closeTab(currentTab.value.path)
+      if (targetTab && !targetTab.affix) {
+        closeTab(targetTab.path)
       }
       return
     case 'close-other':
-      closeOtherTabs()
+      if (targetTab) {
+        closeOtherTabs(targetTab.path)
+      }
       return
     case 'close-left':
-      closeTabsToLeft()
+      if (targetTab) {
+        closeTabsToLeft(targetTab.path)
+      }
       return
     case 'close-right':
-      closeTabsToRight()
+      if (targetTab) {
+        closeTabsToRight(targetTab.path)
+      }
+      return
+    case 'close-all':
+      closeAllTabs(targetTab?.path ?? currentTabPath.value)
       return
     default:
       return
   }
 }
 
-const tabActionItems = computed(() => [
+function hasClosableTabsBefore(index: number) {
+  return tabs.value.slice(0, index).some((item) => !item.affix)
+}
+
+function hasClosableTabsAfter(index: number) {
+  return tabs.value.slice(index + 1).some((item) => !item.affix)
+}
+
+function getTabCloseActionItems(targetTab: ShellTabItem | null | undefined): TabActionItem[] {
+  const targetIndex = targetTab ? tabs.value.findIndex((item) => item.path === targetTab.path) : -1
+  const hasClosableTabs = tabs.value.some((item) => !item.affix)
+
+  return [
+    {
+      disabled: !targetTab || targetTab.affix,
+      key: 'close-current',
+      label: t('shell.tabActions.closeCurrent'),
+    },
+    {
+      disabled: !targetTab || !tabs.value.some((item) => !item.affix && item.path !== targetTab.path),
+      key: 'close-other',
+      label: t('shell.tabActions.closeOther'),
+    },
+    {
+      disabled: targetIndex < 0 || !hasClosableTabsBefore(targetIndex),
+      key: 'close-left',
+      label: t('shell.tabActions.closeLeft'),
+    },
+    {
+      disabled: targetIndex < 0 || !hasClosableTabsAfter(targetIndex),
+      key: 'close-right',
+      label: t('shell.tabActions.closeRight'),
+    },
+    {
+      disabled: !hasClosableTabs,
+      key: 'close-all',
+      label: t('shell.tabActions.closeAll'),
+    },
+  ]
+}
+
+const tabActionItems = computed<TabActionItem[]>(() => [
   { key: 'refresh', label: t('shell.tabActions.refresh') },
-  {
-    disabled: !currentTab.value || currentTab.value.affix,
-    key: 'close-current',
-    label: t('shell.tabActions.closeCurrent'),
-  },
-  { key: 'close-other', label: t('shell.tabActions.closeOther') },
-  {
-    disabled: activeTabIndex.value <= 0,
-    key: 'close-left',
-    label: t('shell.tabActions.closeLeft'),
-  },
-  {
-    disabled: activeTabIndex.value < 0 || activeTabIndex.value >= tabs.value.length - 1,
-    key: 'close-right',
-    label: t('shell.tabActions.closeRight'),
-  },
+  ...getTabCloseActionItems(currentTab.value),
 ])
 
 function isEditableTarget(target: EventTarget | null) {
@@ -930,14 +1029,33 @@ onBeforeUnmount(() => {
                 :closable="!item.affix"
               >
                 <template #tab>
-                  <span class="admin-layout__tab-label" :data-icon="resolveTabItemIconName(item) || undefined">
-                    <component
-                      :is="resolveTabItemIconComponent(item)"
-                      v-if="resolveTabItemIconComponent(item)"
-                      class="admin-layout__tab-icon"
-                    />
-                    <span>{{ item.title }}</span>
-                  </span>
+                  <a-dropdown :trigger="['contextmenu']" placement="bottomLeft">
+                    <span
+                      class="admin-layout__tab-label"
+                      :data-icon="resolveTabItemIconName(item) || undefined"
+                      :data-tab-path="item.path"
+                    >
+                      <component
+                        :is="resolveTabItemIconComponent(item)"
+                        v-if="resolveTabItemIconComponent(item)"
+                        class="admin-layout__tab-icon"
+                      />
+                      <span>{{ item.title }}</span>
+                    </span>
+
+                    <template #overlay>
+                      <a-menu data-testid="tab-context-menu" @click="handleTabAction($event.key, item)">
+                        <a-menu-item
+                          v-for="action in getTabCloseActionItems(item)"
+                          :key="action.key"
+                          :disabled="action.disabled"
+                          :data-testid="`tab-context-${action.key}`"
+                        >
+                          {{ action.label }}
+                        </a-menu-item>
+                      </a-menu>
+                    </template>
+                  </a-dropdown>
                 </template>
               </a-tab-pane>
             </a-tabs>

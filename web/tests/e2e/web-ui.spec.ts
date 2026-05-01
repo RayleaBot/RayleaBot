@@ -124,6 +124,43 @@ async function readTabIconKeys(page: import('@playwright/test').Page) {
   ))
 }
 
+async function openStandardTabs(page: import('@playwright/test').Page) {
+  await page.evaluate(() => window.localStorage.removeItem('rayleabot.ui-shell'))
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态'])
+
+  await page.goto('/permission-policy')
+  await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略'])
+
+  await page.goto('/commands')
+  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心'])
+
+  await page.goto('/tasks')
+  await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务'])
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志'])
+  await expect.poll(() => readActiveTabLabel(page)).toBe('实时日志')
+}
+
+async function openTabContextMenu(page: import('@playwright/test').Page, tabName: string) {
+  await page.locator('.admin-layout__tabbar .ant-tabs-tab')
+    .filter({ hasText: tabName })
+    .locator('.admin-layout__tab-label')
+    .click({ button: 'right' })
+  await expect(page.getByTestId('tab-context-menu')).toBeVisible()
+}
+
+async function clickTabContextAction(page: import('@playwright/test').Page, actionName: string) {
+  await page.getByTestId('tab-context-menu').getByRole('menuitem', { name: actionName }).click()
+}
+
 function hasRepeatedLogFilterParams(
   response: import('@playwright/test').Response,
   scope: 'current_session' | 'history',
@@ -2109,6 +2146,46 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(await readActiveTabLabel(page)).toBe('weather')
   expect(await readTabLabels(page)).toContain('weather')
   expect(await readTabIconKeys(page)).toContain('appstore')
+})
+
+test('tab context menu closes tabs relative to the clicked tab', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await openStandardTabs(page)
+  await openTabContextMenu(page, '指令中心')
+  await clickTabContextAction(page, '关闭当前标签')
+  await expect(page).toHaveURL(/\/logs$/)
+  expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '任务', '实时日志'])
+  expect(await readActiveTabLabel(page)).toBe('实时日志')
+
+  await openStandardTabs(page)
+  await openTabContextMenu(page, '指令中心')
+  await clickTabContextAction(page, '关闭其他标签')
+  await expect(page).toHaveURL(/\/commands$/)
+  expect(await readTabLabels(page)).toEqual(['系统状态', '指令中心'])
+  expect(await readActiveTabLabel(page)).toBe('指令中心')
+
+  await openStandardTabs(page)
+  await openTabContextMenu(page, '任务')
+  await clickTabContextAction(page, '关闭左侧标签')
+  await expect(page).toHaveURL(/\/logs$/)
+  expect(await readTabLabels(page)).toEqual(['系统状态', '任务', '实时日志'])
+  expect(await readActiveTabLabel(page)).toBe('实时日志')
+
+  await openStandardTabs(page)
+  await openTabContextMenu(page, '指令中心')
+  await clickTabContextAction(page, '关闭右侧标签')
+  await expect(page).toHaveURL(/\/commands$/)
+  expect(await readTabLabels(page)).toEqual(['系统状态', '权限策略', '指令中心'])
+  expect(await readActiveTabLabel(page)).toBe('指令中心')
+
+  await openStandardTabs(page)
+  await openTabContextMenu(page, '指令中心')
+  await clickTabContextAction(page, '关闭所有标签')
+  await expect(page).toHaveURL(/\/$/)
+  expect(await readTabLabels(page)).toEqual(['系统状态'])
+  expect(await readActiveTabLabel(page)).toBe('系统状态')
 })
 
 test('nested admin pages animate only once when entering grouped routes', async ({ page, request }) => {

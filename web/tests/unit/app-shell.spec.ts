@@ -2,7 +2,7 @@ import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
@@ -210,6 +210,53 @@ describe('BasicLayout', () => {
       .filter(Boolean)
   }
 
+  async function openStandardTabs(router: Router) {
+    for (const path of ['/permission-policy', '/commands', '/tasks', '/logs']) {
+      await router.push(path)
+      await flushPromises()
+    }
+  }
+
+  async function openTabContextMenu(tabTitle: string) {
+    const target = Array.from(document.body.querySelectorAll<HTMLElement>('.admin-layout__tabbar .admin-layout__tab-label'))
+      .find((node) => node.textContent?.includes(tabTitle))
+    if (!target) {
+      throw new Error(`tab not found: ${tabTitle}`)
+    }
+
+    target.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true,
+      button: 2,
+      cancelable: true,
+    }))
+    await flushPromises()
+  }
+
+  function getContextMenuItem(label: string) {
+    const item = Array.from(document.body.querySelectorAll<HTMLElement>('.ant-dropdown-menu-item'))
+      .filter((node) => node.textContent?.trim() === label)
+      .at(-1)
+    if (!item) {
+      throw new Error(`context menu item not found: ${label}`)
+    }
+
+    return item
+  }
+
+  async function clickContextMenuItem(label: string) {
+    getContextMenuItem(label).dispatchEvent(new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+    }))
+    await flushPromises()
+  }
+
+  function isMenuItemDisabled(item: HTMLElement) {
+    return item.getAttribute('aria-disabled') === 'true'
+      || item.classList.contains('ant-dropdown-menu-item-disabled')
+      || item.classList.contains('ant-menu-item-disabled')
+  }
+
   beforeEach(() => {
     window.localStorage.clear()
     setActivePinia(createPinia())
@@ -413,6 +460,74 @@ describe('BasicLayout', () => {
     await flushPromises()
     expect(uiShellStore.tabs.filter((item) => item.name === 'tasks')).toHaveLength(1)
     expect(getActiveTabLabel()).toBe('任务')
+  })
+
+  it('closes the right-clicked tab without changing the active page when it remains open', async () => {
+    const { router } = await mountShell('/')
+    await openStandardTabs(router)
+
+    await openTabContextMenu('指令中心')
+    await clickContextMenuItem('关闭当前标签')
+
+    expect(router.currentRoute.value.path).toBe('/logs')
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '任务', '实时日志'])
+    expect(getActiveTabLabel()).toBe('实时日志')
+  })
+
+  it('closes other tabs from the right-clicked tab and activates that tab when needed', async () => {
+    const { router } = await mountShell('/')
+    await openStandardTabs(router)
+
+    await openTabContextMenu('指令中心')
+    await clickContextMenuItem('关闭其他标签')
+
+    expect(router.currentRoute.value.path).toBe('/commands')
+    expect(getTabLabels()).toEqual(['系统状态', '指令中心'])
+    expect(getActiveTabLabel()).toBe('指令中心')
+  })
+
+  it('closes tabs to the left of the right-clicked tab', async () => {
+    const { router } = await mountShell('/')
+    await openStandardTabs(router)
+
+    await openTabContextMenu('任务')
+    await clickContextMenuItem('关闭左侧标签')
+
+    expect(router.currentRoute.value.path).toBe('/logs')
+    expect(getTabLabels()).toEqual(['系统状态', '任务', '实时日志'])
+    expect(getActiveTabLabel()).toBe('实时日志')
+  })
+
+  it('closes tabs to the right of the right-clicked tab and falls back to it', async () => {
+    const { router } = await mountShell('/')
+    await openStandardTabs(router)
+
+    await openTabContextMenu('指令中心')
+    await clickContextMenuItem('关闭右侧标签')
+
+    expect(router.currentRoute.value.path).toBe('/commands')
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心'])
+    expect(getActiveTabLabel()).toBe('指令中心')
+  })
+
+  it('closes all non-affix tabs from the right-click menu', async () => {
+    const { router } = await mountShell('/')
+    await openStandardTabs(router)
+
+    await openTabContextMenu('指令中心')
+    await clickContextMenuItem('关闭所有标签')
+
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(getTabLabels()).toEqual(['系统状态'])
+    expect(getActiveTabLabel()).toBe('系统状态')
+  })
+
+  it('keeps the affix tab protected in the right-click menu', async () => {
+    await mountShell('/')
+
+    await openTabContextMenu('系统状态')
+
+    expect(isMenuItemDisabled(getContextMenuItem('关闭当前标签'))).toBe(true)
   })
 
   it('creates a closable detail tab for plugin pages', async () => {

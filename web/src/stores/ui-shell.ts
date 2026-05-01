@@ -285,6 +285,11 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     persist()
   }
 
+  function closeAllTabs() {
+    tabs.value = tabs.value.filter((item) => item.affix)
+    persist()
+  }
+
   function openSearch() {
     searchOpen.value = true
   }
@@ -330,6 +335,7 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   return {
     cachedViewNames,
     effectiveCachedViewNames,
+    closeAllTabs,
     closeOtherTabs,
     closeTabsToLeft,
     closeTabsToRight,
