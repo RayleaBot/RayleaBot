@@ -989,7 +989,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 	}
 
 	html := runner.lastHTML()
-	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-card__title-badge"`, "ID 30001", "放逐之城贴吧官方联动测试长群名", "超级管理器", `<span class="permission-badge`, "nk=30001"} {
+	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-card__title-badge"`, "ID 30001", "放逐之城贴吧官方联动测试长群名", "超级管理员", `<span class="permission-badge`, "nk=30001"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("rendered html missing %q:\n%s", want, html)
 		}
@@ -1144,7 +1144,7 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 	}
 
 	html := runner.lastHTML()
-	if !strings.Contains(html, "超级管理器") || !strings.Contains(html, `<span class="permission-badge`) {
+	if !strings.Contains(html, "超级管理员") || !strings.Contains(html, `<span class="permission-badge`) {
 		t.Fatalf("private super admin rendered html missing badge:\n%s", html)
 	}
 	if strings.Contains(html, "群员") {
@@ -1245,7 +1245,7 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 			},
 		},
 	})
-	if !strings.Contains(superHTML, "超级管理器") || !strings.Contains(superHTML, `<span class="permission-badge`) {
+	if !strings.Contains(superHTML, "超级管理员") || !strings.Contains(superHTML, `<span class="permission-badge`) {
 		t.Fatalf("status private super admin rendered html missing badge:\n%s", superHTML)
 	}
 

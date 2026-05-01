@@ -41,19 +41,20 @@ body {
   right: 56px;
   z-index: 2;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
   width: 292px;
   min-height: 112px;
-  padding: 18px 14px 14px;
-  border: 1px solid rgba(244, 251, 255, 0.18);
-  border-radius: 8px;
-  background: rgba(244, 251, 255, 0.11);
+  padding: 16px;
+  border: 1px solid rgba(244, 251, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(244, 251, 255, 0.09);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
   overflow: visible;
 }
 
@@ -61,9 +62,8 @@ body {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  margin-top: 16px;
+  width: 52px;
+  height: 52px;
   overflow: hidden;
   border-radius: 50%;
   background: linear-gradient(135deg, #f4fbff, #86d4de);
@@ -72,6 +72,7 @@ body {
   font-weight: 800;
   line-height: 1.1;
   text-align: center;
+  box-shadow: 0 0 0 2.5px rgba(244, 251, 255, 0.22), 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
 .identity-card__avatar img {
@@ -81,27 +82,49 @@ body {
 }
 
 .identity-card__avatar span {
-  max-width: 38px;
-  max-height: 30px;
+  max-width: 40px;
+  max-height: 34px;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
 
 .identity-card__body {
-  display: grid;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 5px;
+  min-width: 0;
   flex: 1 1 auto;
 }
 
-.identity-card__topline {
+.identity-card__name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.identity-card__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #f4fbff;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-card__badges {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+  flex: 0 0 auto;
   min-width: 0;
-  min-height: 22px;
-  padding-right: 88px;
 }
 
 .identity-card__title-badge {
@@ -111,44 +134,29 @@ body {
   max-width: 100%;
   overflow: hidden;
   padding: 3px 8px;
-  border: 1px solid rgba(244, 251, 255, 0.18);
+  border: 1px solid rgba(244, 251, 255, 0.14);
   border-radius: 999px;
-  background: rgba(244, 251, 255, 0.12);
+  background: rgba(244, 251, 255, 0.10);
   color: rgba(244, 251, 255, 0.82);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.identity-card__name {
-  display: -webkit-box;
-  min-width: 0;
-  overflow: hidden;
-  color: #f4fbff;
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
 .identity-card__meta {
   display: grid;
   gap: 3px;
   min-width: 0;
-  color: rgba(244, 251, 255, 0.66);
+  color: rgba(244, 251, 255, 0.62);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
 }
 
 .identity-card__meta-line {
-  display: block;
   min-width: 0;
-  max-width: 100%;
 }
 
 .identity-card__meta-line--group {
@@ -169,8 +177,8 @@ body {
   z-index: 3;
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 3px 8px;
+  min-height: 20px;
+  padding: 2px 8px;
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: 11px;

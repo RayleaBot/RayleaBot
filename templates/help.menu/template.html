@@ -32,7 +32,7 @@
       <aside class="identity-card" aria-label="用户身份">
         {{ if $showPermissionBadge }}
         <span class="permission-badge {{ if eq $permissionLevel "super_admin" }}permission-badge--super-admin{{ else if eq $permissionLevel "owner" }}permission-badge--owner{{ else if eq $permissionLevel "admin" }}permission-badge--admin{{ else }}permission-badge--member{{ end }}">
-          {{ if eq $permissionLevel "super_admin" }}超级管理器{{ else if eq $permissionLevel "owner" }}群主{{ else if eq $permissionLevel "admin" }}管理员{{ else }}群员{{ end }}
+          {{ if eq $permissionLevel "super_admin" }}超级管理员{{ else if eq $permissionLevel "owner" }}群主{{ else if eq $permissionLevel "admin" }}管理员{{ else }}群员{{ end }}
         </span>
         {{ end }}
         <div class="identity-card__avatar">
@@ -43,12 +43,14 @@
           {{ end }}
         </div>
         <div class="identity-card__body">
-          {{ if or $userTitle $showPermissionBadge }}
-          <div class="identity-card__topline">
-            {{ if $userTitle }}<span class="identity-card__title-badge">{{ $userTitle }}</span>{{ end }}
+          <div class="identity-card__name-row">
+            <div class="identity-card__name">{{ $displayName }}</div>
+            {{ if $userTitle }}
+            <div class="identity-card__badges">
+              <span class="identity-card__title-badge">{{ $userTitle }}</span>
+            </div>
+            {{ end }}
           </div>
-          {{ end }}
-          <div class="identity-card__name">{{ $displayName }}</div>
           <div class="identity-card__meta">
             {{ if $groupName }}<span class="identity-card__meta-line identity-card__meta-line--group">{{ $groupName }}</span>{{ end }}
             {{ if $userID }}<span class="identity-card__meta-line identity-card__meta-line--id">ID {{ $userID }}</span>{{ end }}
