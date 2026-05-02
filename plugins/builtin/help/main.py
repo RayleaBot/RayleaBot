@@ -6,45 +6,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sdk", "python"))
 
-from rayleabot import RayleaBotPlugin
-
-plugin = RayleaBotPlugin()
-plugin.subscribe("message.group", "message.private")
-
-
-def current_prefix():
-    return plugin.primary_command_prefix or "/"
-
-
-def current_target(event):
-    target = event.get("target", {}) or {}
-    return target.get("type", "group"), target.get("id", "")
-
-
-def send_text(event, request_id, text):
-    target_type, target_id = current_target(event)
-    plugin.send_message(
-        request_id,
-        target_type,
-        target_id,
-        [{
-            "type": "text",
-            "data": {"text": text},
-        }],
-    )
-
-
-def send_image(event, request_id, image_path):
-    target_type, target_id = current_target(event)
-    plugin.send_message(
-        request_id,
-        target_type,
-        target_id,
-        [{
-            "type": "image",
-            "data": {"file": image_path},
-        }],
-    )
+from rayleabot import RayleaBotPlugin, command
 
 
 def normalize_usage(usage, prefix, command_tokens):
@@ -102,22 +64,6 @@ def select_query_key(item, commands, conflicts):
         if name and name.casefold() not in conflicts:
             return name
     return (item.get("id") or "").strip()
-
-
-def visible_plugins(request_id):
-    prefix = current_prefix()
-    response = plugin.plugin_list(request_id)
-    items = []
-    for item in response.get("items", []):
-        normalized = normalize_plugin_item(item, prefix)
-        if normalized["registration_state"] != "installed":
-            continue
-        if normalized["desired_state"] != "enabled":
-            continue
-        if not normalized["commands"]:
-            continue
-        items.append(normalized)
-    return items
 
 
 def format_command_label(command, prefix):
@@ -205,27 +151,6 @@ def build_plugin_text(item, prefix):
     return "\n".join(line for line in lines).strip()
 
 
-def try_render_image(event, request_id, render_data, fallback_text):
-    try:
-        result = plugin.render_image(
-            request_id,
-            "help.menu",
-            render_data,
-            theme="default",
-            output="png",
-            fallback_text=fallback_text,
-        )
-    except Exception:
-        return False
-
-    image_path = (result.get("image_path") or "").strip()
-    if not image_path:
-        return False
-
-    send_image(event, request_id, image_path)
-    return True
-
-
 def find_plugin(items, query):
     exact_id = [item for item in items if item["id"] == query]
     if exact_id:
@@ -259,51 +184,87 @@ def find_plugin(items, query):
     return "missing", None
 
 
-@plugin.on_command("help", aliases=["commands"])
-def handle_help(event, request_id):
-    prefix = current_prefix()
-    payload = event.get("payload", {}) or {}
-    args = payload.get("args", []) or []
-    query = " ".join(part.strip() for part in args if isinstance(part, str) and part.strip()).strip()
+class HelpPlugin(RayleaBotPlugin):
+    def __init__(self):
+        super().__init__()
+        self.subscribe("message.group", "message.private")
 
-    try:
-        items = visible_plugins(request_id)
-    except Exception:
-        send_text(event, request_id, "帮助暂时不可用。")
-        return
+    def visible_plugins(self, request_id):
+        prefix = self.primary_command_prefix or "/"
+        response = self.plugin_list(request_id)
+        items = []
+        for item in response.get("items", []):
+            normalized = normalize_plugin_item(item, prefix)
+            if normalized["registration_state"] != "installed":
+                continue
+            if normalized["desired_state"] != "enabled":
+                continue
+            if not normalized["commands"]:
+                continue
+            items.append(normalized)
+        return items
 
-    if not query:
-        fallback_text = build_root_text(items, prefix)
-        if try_render_image(event, request_id, build_root_render_data(items, prefix), fallback_text):
+    def try_render_image(self, ctx, render_data, fallback_text):
+        try:
+            result = ctx.render_image(
+                "help.menu",
+                render_data,
+                theme="default",
+                output="png",
+                fallback_text=fallback_text,
+            )
+        except Exception:
+            return False
+
+        image_path = (result.get("image_path") or "").strip()
+        if not image_path:
+            return False
+
+        ctx.send_message([{
+            "type": "image",
+            "data": {"file": image_path},
+        }])
+        return True
+
+    @command("help", aliases=["commands"])
+    def handle_help(self, ctx):
+        prefix = self.primary_command_prefix or "/"
+        query = " ".join(part.strip() for part in ctx.args if isinstance(part, str) and part.strip()).strip()
+
+        try:
+            items = self.visible_plugins(ctx.request_id)
+        except Exception:
+            ctx.send_text("帮助暂时不可用。")
             return
-        send_text(event, request_id, fallback_text)
-        return
 
-    match_type, match_value = find_plugin(items, query)
-    if match_type == "plugin":
-        fallback_text = build_plugin_text(match_value, prefix)
-        if try_render_image(event, request_id, build_plugin_render_data(match_value, prefix), fallback_text):
+        if not query:
+            fallback_text = build_root_text(items, prefix)
+            if self.try_render_image(ctx, build_root_render_data(items, prefix), fallback_text):
+                return
+            ctx.send_text(fallback_text)
             return
-        send_text(event, request_id, fallback_text)
-        return
 
-    if match_type == "ambiguous":
-        text = [
-            f"“{query}” 对应多个插件。",
-            "可用插件 ID：",
-        ]
-        text.extend(match_value)
-        text.append("")
-        text.append(f"使用 {prefix}help <plugin.id> 查看具体说明。")
-        send_text(event, request_id, "\n".join(text))
-        return
+        match_type, match_value = find_plugin(items, query)
+        if match_type == "plugin":
+            fallback_text = build_plugin_text(match_value, prefix)
+            if self.try_render_image(ctx, build_plugin_render_data(match_value, prefix), fallback_text):
+                return
+            ctx.send_text(fallback_text)
+            return
 
-    send_text(
-        event,
-        request_id,
-        f"没有找到与“{query}”对应的插件或指令。\n使用 {prefix}help 查看插件菜单。",
-    )
+        if match_type == "ambiguous":
+            text = [
+                f"“{query}” 对应多个插件。",
+                "可用插件 ID：",
+            ]
+            text.extend(match_value)
+            text.append("")
+            text.append(f"使用 {prefix}help <plugin.id> 查看具体说明。")
+            ctx.send_text("\n".join(text))
+            return
+
+        ctx.send_text(f"没有找到与“{query}”对应的插件或指令。\n使用 {prefix}help 查看插件菜单。")
 
 
 if __name__ == "__main__":
-    plugin.run()
+    HelpPlugin().run()

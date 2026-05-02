@@ -44,7 +44,9 @@ export {
 } from './types.js';
 export { ActionError } from './protocol.js';
 
-type EventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
+type LegacyEventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
+type ContextEventHandler = (ctx: PluginEventContext) => void | Promise<void>;
+type EventHandler = LegacyEventHandler | ContextEventHandler;
 type ConversationType = 'group' | 'private';
 type ProviderName = 'napcat' | 'luckylillia';
 
@@ -91,16 +93,16 @@ interface GovernanceWhitelistWriteOptions extends ActionOptions {
   reason?: string;
 }
 
-export interface RayleaBotPlugin {
+export interface RayleaBotPluginRuntime {
   readonly botId: string;
   readonly capabilities: string[];
   readonly commandPrefixes: string[];
   readonly primaryCommandPrefix: string;
 
-  onEvent(handler: EventHandler): RayleaBotPlugin;
-  onEvent(eventType: string, handler: EventHandler): RayleaBotPlugin;
-  onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPlugin;
-  subscribe(...eventTypes: string[]): RayleaBotPlugin;
+  onEvent(handler: EventHandler): RayleaBotPluginRuntime;
+  onEvent(eventType: string, handler: EventHandler): RayleaBotPluginRuntime;
+  onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPluginRuntime;
+  subscribe(...eventTypes: string[]): RayleaBotPluginRuntime;
 
   sendMessage(requestId: string, targetType: string, targetId: string, segments: Segment[]): void;
   sendReply(
@@ -109,6 +111,7 @@ export interface RayleaBotPlugin {
     segments: Segment[],
     options?: { fallbackToSendIfMissing?: boolean },
   ): void;
+  sendResult(requestId: string, data?: Record<string, unknown>): void;
 
   loggerWrite(
     requestId: string,
@@ -465,7 +468,526 @@ export interface RayleaBotPlugin {
   run(): Promise<void>;
 }
 
-export function createPlugin(): RayleaBotPlugin {
+export class PluginEventContext {
+  readonly event: EventBody;
+  readonly requestId: string;
+  private readonly plugin: RayleaBotPluginRuntime;
+
+  constructor(plugin: RayleaBotPluginRuntime, event: EventBody, requestId: string) {
+    this.plugin = plugin;
+    this.event = event;
+    this.requestId = requestId;
+  }
+
+  get payload(): EventBody['payload'] {
+    return this.event.payload ?? {};
+  }
+
+  get target(): EventBody['target'] {
+    return this.event.target;
+  }
+
+  get actor(): EventBody['actor'] {
+    return this.event.actor;
+  }
+
+  get message(): EventBody['message'] {
+    return this.event.message ?? {};
+  }
+
+  get eventType(): string {
+    return this.event.event_type;
+  }
+
+  get command(): string | null | undefined {
+    return this.event.payload?.command;
+  }
+
+  get args(): string[] {
+    return this.event.payload?.args ?? [];
+  }
+
+  get plainText(): string {
+    return this.event.message?.plain_text ?? '';
+  }
+
+  get targetType(): string {
+    return this.event.target?.type ?? 'group';
+  }
+
+  get targetId(): string {
+    return this.event.target?.id ?? '';
+  }
+
+  get botId(): string {
+    return this.plugin.botId;
+  }
+
+  get capabilities(): string[] {
+    return this.plugin.capabilities;
+  }
+
+  get commandPrefixes(): string[] {
+    return this.plugin.commandPrefixes;
+  }
+
+  get primaryCommandPrefix(): string {
+    return this.plugin.primaryCommandPrefix;
+  }
+
+  sendMessage(segments: Segment[], options: { targetType?: string; targetId?: string } = {}): void {
+    this.plugin.sendMessage(
+      this.requestId,
+      options.targetType ?? this.targetType,
+      options.targetId ?? this.targetId,
+      segments,
+    );
+  }
+
+  sendText(text: string, options: { targetType?: string; targetId?: string } = {}): void {
+    this.sendMessage([{ type: 'text', data: { text } }], options);
+  }
+
+  sendReply(
+    replyToEventId: string,
+    segments: Segment[],
+    options: { fallbackToSendIfMissing?: boolean } = {},
+  ): void {
+    this.plugin.sendReply(this.requestId, replyToEventId, segments, options);
+  }
+
+  sendResult(data: Record<string, unknown> = {}): void {
+    this.plugin.sendResult(this.requestId, data);
+  }
+
+  loggerWrite(
+    level: string,
+    message: string,
+    fields?: Record<string, unknown>,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.loggerWrite(this.requestId, level, message, fields, options);
+  }
+
+  storageGet(key: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.storageGet(this.requestId, key, options);
+  }
+
+  storageSet(key: string, value: unknown, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.storageSet(this.requestId, key, value, options);
+  }
+
+  storageDelete(key: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.storageDelete(this.requestId, key, options);
+  }
+
+  storageList(prefix = '', options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.storageList(this.requestId, prefix, options);
+  }
+
+  storageFileRead(
+    path: string,
+    options: ActionOptions & { root?: string } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.storageFileRead(this.requestId, path, options);
+  }
+
+  storageFileWrite(
+    path: string,
+    options: ActionOptions & { root?: string; contentText?: string; contentBase64?: string } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.storageFileWrite(this.requestId, path, options);
+  }
+
+  storageFileDelete(
+    path: string,
+    options: ActionOptions & { root?: string } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.storageFileDelete(this.requestId, path, options);
+  }
+
+  storageFileList(
+    prefix = '',
+    options: ActionOptions & { root?: string } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.storageFileList(this.requestId, prefix, options);
+  }
+
+  httpRequest(
+    method: string,
+    url: string,
+    options: ActionOptions & {
+      headers?: Record<string, string>;
+      timeoutSeconds?: number;
+      bodyText?: string;
+      bodyBase64?: string;
+    } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.httpRequest(this.requestId, method, url, options);
+  }
+
+  configRead(keys: string[], options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.configRead(this.requestId, keys, options);
+  }
+
+  configWrite(values: Record<string, unknown>, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.configWrite(this.requestId, values, options);
+  }
+
+  governanceBlacklistRead(options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.governanceBlacklistRead(this.requestId, options);
+  }
+
+  governanceBlacklistWrite(
+    operation: 'upsert' | 'delete',
+    options: GovernanceBlacklistWriteOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.governanceBlacklistWrite(this.requestId, operation, options);
+  }
+
+  governanceWhitelistRead(options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.governanceWhitelistRead(this.requestId, options);
+  }
+
+  governanceWhitelistWrite(
+    operation: 'set_enabled' | 'upsert' | 'delete',
+    options: GovernanceWhitelistWriteOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.governanceWhitelistWrite(this.requestId, operation, options);
+  }
+
+  governanceCommandPolicyRead(options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.governanceCommandPolicyRead(this.requestId, options);
+  }
+
+  schedulerCreate(
+    taskId: string,
+    cron: string,
+    options: ActionOptions & { payload?: Record<string, unknown> } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.schedulerCreate(this.requestId, taskId, cron, options);
+  }
+
+  exposeWebhook(
+    route: string,
+    options: ActionOptions & {
+      methods?: string[];
+      authStrategy?: string;
+      header?: string;
+      secretRef: string;
+      signaturePrefix?: string;
+      sourceIps?: string[];
+    },
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.exposeWebhook(this.requestId, route, options);
+  }
+
+  renderImage(
+    template: string,
+    data: Record<string, unknown>,
+    options: ActionOptions & {
+      theme?: string;
+      output?: string;
+      fallbackText?: string;
+    } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.renderImage(this.requestId, template, data, options);
+  }
+
+  pluginList(options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.pluginList(this.requestId, options);
+  }
+
+  messageGet(messageId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.messageGet(this.requestId, messageId, options);
+  }
+
+  messageDelete(messageId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.messageDelete(this.requestId, messageId, options);
+  }
+
+  messageHistoryGet(
+    conversationType: ConversationType,
+    conversationId: string,
+    options: ActionOptions & { limit?: number } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.messageHistoryGet(this.requestId, conversationType, conversationId, options);
+  }
+
+  messageForwardGet(options: MessageForwardGetOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.messageForwardGet(this.requestId, options);
+  }
+
+  messageForwardSend(
+    targetType: ConversationType,
+    targetId: string,
+    messages: Record<string, unknown>[],
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.messageForwardSend(this.requestId, targetType, targetId, messages, options);
+  }
+
+  messageReadMark(options: MessageReadMarkOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.messageReadMark(this.requestId, options);
+  }
+
+  friendRequestHandle(
+    flag: string,
+    approve: boolean,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.friendRequestHandle(this.requestId, flag, approve, options);
+  }
+
+  friendList(options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.friendList(this.requestId, options);
+  }
+
+  friendRemarkSet(userId: string, remark: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.friendRemarkSet(this.requestId, userId, remark, options);
+  }
+
+  userInfoGet(userId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.userInfoGet(this.requestId, userId, options);
+  }
+
+  userLikeSend(userId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.userLikeSend(this.requestId, userId, options);
+  }
+
+  groupList(options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupList(this.requestId, options);
+  }
+
+  groupInfoGet(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupInfoGet(this.requestId, groupId, options);
+  }
+
+  groupMemberGet(
+    groupId: string,
+    userId: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupMemberGet(this.requestId, groupId, userId, options);
+  }
+
+  groupMemberList(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupMemberList(this.requestId, groupId, options);
+  }
+
+  groupRequestHandle(
+    flag: string,
+    approve: boolean,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupRequestHandle(this.requestId, flag, approve, options);
+  }
+
+  groupLeave(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupLeave(this.requestId, groupId, options);
+  }
+
+  groupAdminSet(
+    groupId: string,
+    userId: string,
+    enabled: boolean,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupAdminSet(this.requestId, groupId, userId, enabled, options);
+  }
+
+  groupBanSet(groupId: string, options: GroupBanSetOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupBanSet(this.requestId, groupId, options);
+  }
+
+  groupCardSet(
+    groupId: string,
+    userId: string,
+    card: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupCardSet(this.requestId, groupId, userId, card, options);
+  }
+
+  groupTitleSet(
+    groupId: string,
+    userId: string,
+    title: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupTitleSet(this.requestId, groupId, userId, title, options);
+  }
+
+  groupNameSet(groupId: string, name: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupNameSet(this.requestId, groupId, name, options);
+  }
+
+  groupAnnouncementList(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupAnnouncementList(this.requestId, groupId, options);
+  }
+
+  groupAnnouncementCreate(
+    groupId: string,
+    content: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupAnnouncementCreate(this.requestId, groupId, content, options);
+  }
+
+  groupAnnouncementDelete(
+    groupId: string,
+    noticeId: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupAnnouncementDelete(this.requestId, groupId, noticeId, options);
+  }
+
+  groupEssenceList(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupEssenceList(this.requestId, groupId, options);
+  }
+
+  groupEssenceSet(messageId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupEssenceSet(this.requestId, messageId, options);
+  }
+
+  groupEssenceUnset(messageId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupEssenceUnset(this.requestId, messageId, options);
+  }
+
+  groupHonorGet(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.groupHonorGet(this.requestId, groupId, options);
+  }
+
+  groupTodoSet(
+    groupId: string,
+    todo: Record<string, unknown>,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.groupTodoSet(this.requestId, groupId, todo, options);
+  }
+
+  fileGet(fileId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.fileGet(this.requestId, fileId, options);
+  }
+
+  fileDownload(fileId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.fileDownload(this.requestId, fileId, options);
+  }
+
+  fileGroupUpload(
+    groupId: string,
+    fileName: string,
+    fileUrl: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.fileGroupUpload(this.requestId, groupId, fileName, fileUrl, options);
+  }
+
+  filePrivateUpload(
+    userId: string,
+    fileName: string,
+    fileUrl: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.filePrivateUpload(this.requestId, userId, fileName, fileUrl, options);
+  }
+
+  fileGroupUrlGet(
+    groupId: string,
+    fileId: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.fileGroupUrlGet(this.requestId, groupId, fileId, options);
+  }
+
+  filePrivateUrlGet(
+    userId: string,
+    fileId: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.filePrivateUrlGet(this.requestId, userId, fileId, options);
+  }
+
+  fileGroupFsInfo(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.fileGroupFsInfo(this.requestId, groupId, options);
+  }
+
+  fileGroupFsList(
+    groupId: string,
+    options: FileGroupFsListOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.fileGroupFsList(this.requestId, groupId, options);
+  }
+
+  fileGroupFsMkdir(groupId: string, name: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.fileGroupFsMkdir(this.requestId, groupId, name, options);
+  }
+
+  fileGroupFsDelete(
+    groupId: string,
+    options: FileGroupFsDeleteOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.fileGroupFsDelete(this.requestId, groupId, options);
+  }
+
+  reactionSet(
+    messageId: string,
+    emoji: string,
+    enabled = true,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.reactionSet(this.requestId, messageId, emoji, enabled, options);
+  }
+
+  reactionList(messageId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.reactionList(this.requestId, messageId, options);
+  }
+
+  pokeSend(
+    targetType: ConversationType,
+    targetId: string,
+    userId: string,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.pokeSend(this.requestId, targetType, targetId, userId, options);
+  }
+
+  napcatMessageEmojiLikeSet(
+    messageId: string,
+    emojiId: string,
+    enabled = true,
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.napcatMessageEmojiLikeSet(this.requestId, messageId, emojiId, enabled, options);
+  }
+
+  napcatGroupSignSet(groupId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.napcatGroupSignSet(this.requestId, groupId, options);
+  }
+
+  luckylilliaFriendGroupsGet(userId: string, options: ActionOptions = {}): Promise<Record<string, unknown>> {
+    return this.plugin.luckylilliaFriendGroupsGet(this.requestId, userId, options);
+  }
+
+  onebotAction(
+    action: string,
+    data: Record<string, unknown> = {},
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.onebotAction(this.requestId, action, data, options);
+  }
+
+  providerAction(
+    provider: ProviderName,
+    action: string,
+    data: Record<string, unknown> = {},
+    options: ActionOptions = {},
+  ): Promise<Record<string, unknown>> {
+    return this.plugin.providerAction(this.requestId, provider, action, data, options);
+  }
+}
+
+function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
   const eventHandlers: Array<{ type: string | null; handler: EventHandler }> = [];
   const commandHandlers = new Map<string, EventHandler>();
   const activeHandlers = new Set<Promise<void>>();
@@ -475,7 +997,7 @@ export function createPlugin(): RayleaBotPlugin {
   let commandPrefixes = ['/'];
   let subscriptions: string[] | null = null;
 
-  const plugin: RayleaBotPlugin = {
+  const plugin: RayleaBotPluginRuntime = {
     get botId(): string {
       return botId;
     },
@@ -492,7 +1014,7 @@ export function createPlugin(): RayleaBotPlugin {
       return commandPrefixes[0] || '/';
     },
 
-    onEvent(eventTypeOrHandler: string | EventHandler, handler?: EventHandler): RayleaBotPlugin {
+    onEvent(eventTypeOrHandler: string | EventHandler, handler?: EventHandler): RayleaBotPluginRuntime {
       if (typeof eventTypeOrHandler === 'function') {
         eventHandlers.push({ type: null, handler: eventTypeOrHandler });
       } else {
@@ -501,7 +1023,7 @@ export function createPlugin(): RayleaBotPlugin {
       return plugin;
     },
 
-    onCommand(name: string, handler: EventHandler, aliases: string[] = []): RayleaBotPlugin {
+    onCommand(name: string, handler: EventHandler, aliases: string[] = []): RayleaBotPluginRuntime {
       commandHandlers.set(name, handler);
       for (const alias of aliases) {
         commandHandlers.set(alias, handler);
@@ -509,7 +1031,7 @@ export function createPlugin(): RayleaBotPlugin {
       return plugin;
     },
 
-    subscribe(...eventTypes: string[]): RayleaBotPlugin {
+    subscribe(...eventTypes: string[]): RayleaBotPluginRuntime {
       subscriptions = eventTypes;
       return plugin;
     },
@@ -541,6 +1063,10 @@ export function createPlugin(): RayleaBotPlugin {
         data.fallback_to_send_if_missing = true;
       }
       sendAction(pluginId, requestId, 'message.reply', data);
+    },
+
+    sendResult(requestId: string, data: Record<string, unknown> = {}): void {
+      sendResult(pluginId, requestId, data);
     },
 
     async loggerWrite(
@@ -1487,13 +2013,13 @@ export function createPlugin(): RayleaBotPlugin {
     const command = event.payload?.command;
 
     if (command && commandHandlers.has(command)) {
-      await commandHandlers.get(command)!(event, requestId);
+      await invokeHandler(owner ?? plugin, commandHandlers.get(command)!, event, requestId);
       return;
     }
 
     for (const { type, handler } of eventHandlers) {
       if (type === null || type === event.event_type) {
-        await handler(event, requestId);
+        await invokeHandler(owner ?? plugin, handler, event, requestId);
         return;
       }
     }
@@ -1540,6 +2066,165 @@ export function createPlugin(): RayleaBotPlugin {
   }
 
   return plugin;
+}
+
+export class RayleaBotPlugin {
+  private readonly runtime: RayleaBotPluginRuntime;
+
+  constructor() {
+    this.runtime = createPluginRuntime(this);
+  }
+
+  get botId(): string {
+    return this.runtime.botId;
+  }
+
+  get capabilities(): string[] {
+    return this.runtime.capabilities;
+  }
+
+  get commandPrefixes(): string[] {
+    return this.runtime.commandPrefixes;
+  }
+
+  get primaryCommandPrefix(): string {
+    return this.runtime.primaryCommandPrefix;
+  }
+
+  onEvent(handler: EventHandler): this;
+  onEvent(eventType: string, handler: EventHandler): this;
+  onEvent(eventTypeOrHandler: string | EventHandler, handler?: EventHandler): this {
+    if (typeof eventTypeOrHandler === 'function') {
+      this.runtime.onEvent(bindHandler(this, eventTypeOrHandler));
+      return this;
+    }
+    if (!handler) {
+      throw new Error('onEvent requires a handler');
+    }
+    this.runtime.onEvent(eventTypeOrHandler, bindHandler(this, handler));
+    return this;
+  }
+
+  onCommand(name: string, handler: EventHandler, aliases: string[] = []): this {
+    this.runtime.onCommand(name, bindHandler(this, handler), aliases);
+    return this;
+  }
+
+  subscribe(...eventTypes: string[]): this {
+    this.runtime.subscribe(...eventTypes);
+    return this;
+  }
+}
+
+export interface RayleaBotPlugin extends Omit<
+  RayleaBotPluginRuntime,
+  'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe'
+> {}
+
+const delegatedRuntimeMethods = [
+  'sendMessage',
+  'sendReply',
+  'sendResult',
+  'loggerWrite',
+  'storageGet',
+  'storageSet',
+  'storageDelete',
+  'storageList',
+  'storageFileRead',
+  'storageFileWrite',
+  'storageFileDelete',
+  'storageFileList',
+  'httpRequest',
+  'configRead',
+  'configWrite',
+  'governanceBlacklistRead',
+  'governanceBlacklistWrite',
+  'governanceWhitelistRead',
+  'governanceWhitelistWrite',
+  'governanceCommandPolicyRead',
+  'schedulerCreate',
+  'exposeWebhook',
+  'renderImage',
+  'pluginList',
+  'onebotAction',
+  'providerAction',
+  'messageGet',
+  'messageDelete',
+  'messageHistoryGet',
+  'messageForwardGet',
+  'messageForwardSend',
+  'messageReadMark',
+  'friendRequestHandle',
+  'friendList',
+  'friendRemarkSet',
+  'userInfoGet',
+  'userLikeSend',
+  'groupList',
+  'groupInfoGet',
+  'groupMemberGet',
+  'groupMemberList',
+  'groupRequestHandle',
+  'groupLeave',
+  'groupAdminSet',
+  'groupBanSet',
+  'groupCardSet',
+  'groupTitleSet',
+  'groupNameSet',
+  'groupAnnouncementList',
+  'groupAnnouncementCreate',
+  'groupAnnouncementDelete',
+  'groupEssenceList',
+  'groupEssenceSet',
+  'groupEssenceUnset',
+  'groupHonorGet',
+  'groupTodoSet',
+  'fileGet',
+  'fileDownload',
+  'fileGroupUpload',
+  'filePrivateUpload',
+  'fileGroupUrlGet',
+  'filePrivateUrlGet',
+  'fileGroupFsInfo',
+  'fileGroupFsList',
+  'fileGroupFsMkdir',
+  'fileGroupFsDelete',
+  'reactionSet',
+  'reactionList',
+  'pokeSend',
+  'napcatMessageEmojiLikeSet',
+  'napcatGroupSignSet',
+  'luckylilliaFriendGroupsGet',
+  'run',
+] as const;
+
+for (const methodName of delegatedRuntimeMethods) {
+  Object.defineProperty(RayleaBotPlugin.prototype, methodName, {
+    value(this: RayleaBotPlugin, ...args: unknown[]) {
+      const runtime = (this as unknown as { runtime: Record<string, (...innerArgs: unknown[]) => unknown> }).runtime;
+      return runtime[methodName](...args);
+    },
+  });
+}
+
+export function createPlugin(): RayleaBotPlugin {
+  return new RayleaBotPlugin();
+}
+
+function bindHandler(owner: RayleaBotPlugin, handler: EventHandler): EventHandler {
+  return handler.bind(owner) as EventHandler;
+}
+
+async function invokeHandler(
+  plugin: RayleaBotPluginRuntime,
+  handler: EventHandler,
+  event: EventBody,
+  requestId: string,
+): Promise<void> {
+  if (handler.length >= 2) {
+    await (handler as LegacyEventHandler)(event, requestId);
+    return;
+  }
+  await (handler as ContextEventHandler)(new PluginEventContext(plugin, event, requestId));
 }
 
 function formatErrorMessage(error: unknown): string {

@@ -1,7 +1,278 @@
 import { readFrames, requestLocalAction, sendAction, sendError, sendInitAck, sendPong, sendResult, } from './protocol.js';
 export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, passthroughSegment, recordSegment, videoSegment, markdownSegment, fileSegment, flashFileSegment, jsonSegment, xmlSegment, musicSegment, contactSegment, forwardSegment, nodeSegment, pokeSegment, diceSegment, rpsSegment, mfaceSegment, keyboardSegment, shakeSegment, } from './types.js';
 export { ActionError } from './protocol.js';
-export function createPlugin() {
+export class PluginEventContext {
+    event;
+    requestId;
+    plugin;
+    constructor(plugin, event, requestId) {
+        this.plugin = plugin;
+        this.event = event;
+        this.requestId = requestId;
+    }
+    get payload() {
+        return this.event.payload ?? {};
+    }
+    get target() {
+        return this.event.target;
+    }
+    get actor() {
+        return this.event.actor;
+    }
+    get message() {
+        return this.event.message ?? {};
+    }
+    get eventType() {
+        return this.event.event_type;
+    }
+    get command() {
+        return this.event.payload?.command;
+    }
+    get args() {
+        return this.event.payload?.args ?? [];
+    }
+    get plainText() {
+        return this.event.message?.plain_text ?? '';
+    }
+    get targetType() {
+        return this.event.target?.type ?? 'group';
+    }
+    get targetId() {
+        return this.event.target?.id ?? '';
+    }
+    get botId() {
+        return this.plugin.botId;
+    }
+    get capabilities() {
+        return this.plugin.capabilities;
+    }
+    get commandPrefixes() {
+        return this.plugin.commandPrefixes;
+    }
+    get primaryCommandPrefix() {
+        return this.plugin.primaryCommandPrefix;
+    }
+    sendMessage(segments, options = {}) {
+        this.plugin.sendMessage(this.requestId, options.targetType ?? this.targetType, options.targetId ?? this.targetId, segments);
+    }
+    sendText(text, options = {}) {
+        this.sendMessage([{ type: 'text', data: { text } }], options);
+    }
+    sendReply(replyToEventId, segments, options = {}) {
+        this.plugin.sendReply(this.requestId, replyToEventId, segments, options);
+    }
+    sendResult(data = {}) {
+        this.plugin.sendResult(this.requestId, data);
+    }
+    loggerWrite(level, message, fields, options = {}) {
+        return this.plugin.loggerWrite(this.requestId, level, message, fields, options);
+    }
+    storageGet(key, options = {}) {
+        return this.plugin.storageGet(this.requestId, key, options);
+    }
+    storageSet(key, value, options = {}) {
+        return this.plugin.storageSet(this.requestId, key, value, options);
+    }
+    storageDelete(key, options = {}) {
+        return this.plugin.storageDelete(this.requestId, key, options);
+    }
+    storageList(prefix = '', options = {}) {
+        return this.plugin.storageList(this.requestId, prefix, options);
+    }
+    storageFileRead(path, options = {}) {
+        return this.plugin.storageFileRead(this.requestId, path, options);
+    }
+    storageFileWrite(path, options = {}) {
+        return this.plugin.storageFileWrite(this.requestId, path, options);
+    }
+    storageFileDelete(path, options = {}) {
+        return this.plugin.storageFileDelete(this.requestId, path, options);
+    }
+    storageFileList(prefix = '', options = {}) {
+        return this.plugin.storageFileList(this.requestId, prefix, options);
+    }
+    httpRequest(method, url, options = {}) {
+        return this.plugin.httpRequest(this.requestId, method, url, options);
+    }
+    configRead(keys, options = {}) {
+        return this.plugin.configRead(this.requestId, keys, options);
+    }
+    configWrite(values, options = {}) {
+        return this.plugin.configWrite(this.requestId, values, options);
+    }
+    governanceBlacklistRead(options = {}) {
+        return this.plugin.governanceBlacklistRead(this.requestId, options);
+    }
+    governanceBlacklistWrite(operation, options = {}) {
+        return this.plugin.governanceBlacklistWrite(this.requestId, operation, options);
+    }
+    governanceWhitelistRead(options = {}) {
+        return this.plugin.governanceWhitelistRead(this.requestId, options);
+    }
+    governanceWhitelistWrite(operation, options = {}) {
+        return this.plugin.governanceWhitelistWrite(this.requestId, operation, options);
+    }
+    governanceCommandPolicyRead(options = {}) {
+        return this.plugin.governanceCommandPolicyRead(this.requestId, options);
+    }
+    schedulerCreate(taskId, cron, options = {}) {
+        return this.plugin.schedulerCreate(this.requestId, taskId, cron, options);
+    }
+    exposeWebhook(route, options) {
+        return this.plugin.exposeWebhook(this.requestId, route, options);
+    }
+    renderImage(template, data, options = {}) {
+        return this.plugin.renderImage(this.requestId, template, data, options);
+    }
+    pluginList(options = {}) {
+        return this.plugin.pluginList(this.requestId, options);
+    }
+    messageGet(messageId, options = {}) {
+        return this.plugin.messageGet(this.requestId, messageId, options);
+    }
+    messageDelete(messageId, options = {}) {
+        return this.plugin.messageDelete(this.requestId, messageId, options);
+    }
+    messageHistoryGet(conversationType, conversationId, options = {}) {
+        return this.plugin.messageHistoryGet(this.requestId, conversationType, conversationId, options);
+    }
+    messageForwardGet(options = {}) {
+        return this.plugin.messageForwardGet(this.requestId, options);
+    }
+    messageForwardSend(targetType, targetId, messages, options = {}) {
+        return this.plugin.messageForwardSend(this.requestId, targetType, targetId, messages, options);
+    }
+    messageReadMark(options = {}) {
+        return this.plugin.messageReadMark(this.requestId, options);
+    }
+    friendRequestHandle(flag, approve, options = {}) {
+        return this.plugin.friendRequestHandle(this.requestId, flag, approve, options);
+    }
+    friendList(options = {}) {
+        return this.plugin.friendList(this.requestId, options);
+    }
+    friendRemarkSet(userId, remark, options = {}) {
+        return this.plugin.friendRemarkSet(this.requestId, userId, remark, options);
+    }
+    userInfoGet(userId, options = {}) {
+        return this.plugin.userInfoGet(this.requestId, userId, options);
+    }
+    userLikeSend(userId, options = {}) {
+        return this.plugin.userLikeSend(this.requestId, userId, options);
+    }
+    groupList(options = {}) {
+        return this.plugin.groupList(this.requestId, options);
+    }
+    groupInfoGet(groupId, options = {}) {
+        return this.plugin.groupInfoGet(this.requestId, groupId, options);
+    }
+    groupMemberGet(groupId, userId, options = {}) {
+        return this.plugin.groupMemberGet(this.requestId, groupId, userId, options);
+    }
+    groupMemberList(groupId, options = {}) {
+        return this.plugin.groupMemberList(this.requestId, groupId, options);
+    }
+    groupRequestHandle(flag, approve, options = {}) {
+        return this.plugin.groupRequestHandle(this.requestId, flag, approve, options);
+    }
+    groupLeave(groupId, options = {}) {
+        return this.plugin.groupLeave(this.requestId, groupId, options);
+    }
+    groupAdminSet(groupId, userId, enabled, options = {}) {
+        return this.plugin.groupAdminSet(this.requestId, groupId, userId, enabled, options);
+    }
+    groupBanSet(groupId, options = {}) {
+        return this.plugin.groupBanSet(this.requestId, groupId, options);
+    }
+    groupCardSet(groupId, userId, card, options = {}) {
+        return this.plugin.groupCardSet(this.requestId, groupId, userId, card, options);
+    }
+    groupTitleSet(groupId, userId, title, options = {}) {
+        return this.plugin.groupTitleSet(this.requestId, groupId, userId, title, options);
+    }
+    groupNameSet(groupId, name, options = {}) {
+        return this.plugin.groupNameSet(this.requestId, groupId, name, options);
+    }
+    groupAnnouncementList(groupId, options = {}) {
+        return this.plugin.groupAnnouncementList(this.requestId, groupId, options);
+    }
+    groupAnnouncementCreate(groupId, content, options = {}) {
+        return this.plugin.groupAnnouncementCreate(this.requestId, groupId, content, options);
+    }
+    groupAnnouncementDelete(groupId, noticeId, options = {}) {
+        return this.plugin.groupAnnouncementDelete(this.requestId, groupId, noticeId, options);
+    }
+    groupEssenceList(groupId, options = {}) {
+        return this.plugin.groupEssenceList(this.requestId, groupId, options);
+    }
+    groupEssenceSet(messageId, options = {}) {
+        return this.plugin.groupEssenceSet(this.requestId, messageId, options);
+    }
+    groupEssenceUnset(messageId, options = {}) {
+        return this.plugin.groupEssenceUnset(this.requestId, messageId, options);
+    }
+    groupHonorGet(groupId, options = {}) {
+        return this.plugin.groupHonorGet(this.requestId, groupId, options);
+    }
+    groupTodoSet(groupId, todo, options = {}) {
+        return this.plugin.groupTodoSet(this.requestId, groupId, todo, options);
+    }
+    fileGet(fileId, options = {}) {
+        return this.plugin.fileGet(this.requestId, fileId, options);
+    }
+    fileDownload(fileId, options = {}) {
+        return this.plugin.fileDownload(this.requestId, fileId, options);
+    }
+    fileGroupUpload(groupId, fileName, fileUrl, options = {}) {
+        return this.plugin.fileGroupUpload(this.requestId, groupId, fileName, fileUrl, options);
+    }
+    filePrivateUpload(userId, fileName, fileUrl, options = {}) {
+        return this.plugin.filePrivateUpload(this.requestId, userId, fileName, fileUrl, options);
+    }
+    fileGroupUrlGet(groupId, fileId, options = {}) {
+        return this.plugin.fileGroupUrlGet(this.requestId, groupId, fileId, options);
+    }
+    filePrivateUrlGet(userId, fileId, options = {}) {
+        return this.plugin.filePrivateUrlGet(this.requestId, userId, fileId, options);
+    }
+    fileGroupFsInfo(groupId, options = {}) {
+        return this.plugin.fileGroupFsInfo(this.requestId, groupId, options);
+    }
+    fileGroupFsList(groupId, options = {}) {
+        return this.plugin.fileGroupFsList(this.requestId, groupId, options);
+    }
+    fileGroupFsMkdir(groupId, name, options = {}) {
+        return this.plugin.fileGroupFsMkdir(this.requestId, groupId, name, options);
+    }
+    fileGroupFsDelete(groupId, options = {}) {
+        return this.plugin.fileGroupFsDelete(this.requestId, groupId, options);
+    }
+    reactionSet(messageId, emoji, enabled = true, options = {}) {
+        return this.plugin.reactionSet(this.requestId, messageId, emoji, enabled, options);
+    }
+    reactionList(messageId, options = {}) {
+        return this.plugin.reactionList(this.requestId, messageId, options);
+    }
+    pokeSend(targetType, targetId, userId, options = {}) {
+        return this.plugin.pokeSend(this.requestId, targetType, targetId, userId, options);
+    }
+    napcatMessageEmojiLikeSet(messageId, emojiId, enabled = true, options = {}) {
+        return this.plugin.napcatMessageEmojiLikeSet(this.requestId, messageId, emojiId, enabled, options);
+    }
+    napcatGroupSignSet(groupId, options = {}) {
+        return this.plugin.napcatGroupSignSet(this.requestId, groupId, options);
+    }
+    luckylilliaFriendGroupsGet(userId, options = {}) {
+        return this.plugin.luckylilliaFriendGroupsGet(this.requestId, userId, options);
+    }
+    onebotAction(action, data = {}, options = {}) {
+        return this.plugin.onebotAction(this.requestId, action, data, options);
+    }
+    providerAction(provider, action, data = {}, options = {}) {
+        return this.plugin.providerAction(this.requestId, provider, action, data, options);
+    }
+}
+function createPluginRuntime(owner) {
     const eventHandlers = [];
     const commandHandlers = new Map();
     const activeHandlers = new Set();
@@ -59,6 +330,9 @@ export function createPlugin() {
                 data.fallback_to_send_if_missing = true;
             }
             sendAction(pluginId, requestId, 'message.reply', data);
+        },
+        sendResult(requestId, data = {}) {
+            sendResult(pluginId, requestId, data);
         },
         async loggerWrite(requestId, level, message, fields, options = {}) {
             const data = { level, message };
@@ -503,12 +777,12 @@ export function createPlugin() {
         updateBotIdentity(event);
         const command = event.payload?.command;
         if (command && commandHandlers.has(command)) {
-            await commandHandlers.get(command)(event, requestId);
+            await invokeHandler(owner ?? plugin, commandHandlers.get(command), event, requestId);
             return;
         }
         for (const { type, handler } of eventHandlers) {
             if (type === null || type === event.event_type) {
-                await handler(event, requestId);
+                await invokeHandler(owner ?? plugin, handler, event, requestId);
                 return;
             }
         }
@@ -533,6 +807,139 @@ export function createPlugin() {
         return await requestOneBotAction(requestId, `provider.${provider}.${action}`, data, options);
     }
     return plugin;
+}
+export class RayleaBotPlugin {
+    runtime;
+    constructor() {
+        this.runtime = createPluginRuntime(this);
+    }
+    get botId() {
+        return this.runtime.botId;
+    }
+    get capabilities() {
+        return this.runtime.capabilities;
+    }
+    get commandPrefixes() {
+        return this.runtime.commandPrefixes;
+    }
+    get primaryCommandPrefix() {
+        return this.runtime.primaryCommandPrefix;
+    }
+    onEvent(eventTypeOrHandler, handler) {
+        if (typeof eventTypeOrHandler === 'function') {
+            this.runtime.onEvent(bindHandler(this, eventTypeOrHandler));
+            return this;
+        }
+        if (!handler) {
+            throw new Error('onEvent requires a handler');
+        }
+        this.runtime.onEvent(eventTypeOrHandler, bindHandler(this, handler));
+        return this;
+    }
+    onCommand(name, handler, aliases = []) {
+        this.runtime.onCommand(name, bindHandler(this, handler), aliases);
+        return this;
+    }
+    subscribe(...eventTypes) {
+        this.runtime.subscribe(...eventTypes);
+        return this;
+    }
+}
+const delegatedRuntimeMethods = [
+    'sendMessage',
+    'sendReply',
+    'sendResult',
+    'loggerWrite',
+    'storageGet',
+    'storageSet',
+    'storageDelete',
+    'storageList',
+    'storageFileRead',
+    'storageFileWrite',
+    'storageFileDelete',
+    'storageFileList',
+    'httpRequest',
+    'configRead',
+    'configWrite',
+    'governanceBlacklistRead',
+    'governanceBlacklistWrite',
+    'governanceWhitelistRead',
+    'governanceWhitelistWrite',
+    'governanceCommandPolicyRead',
+    'schedulerCreate',
+    'exposeWebhook',
+    'renderImage',
+    'pluginList',
+    'onebotAction',
+    'providerAction',
+    'messageGet',
+    'messageDelete',
+    'messageHistoryGet',
+    'messageForwardGet',
+    'messageForwardSend',
+    'messageReadMark',
+    'friendRequestHandle',
+    'friendList',
+    'friendRemarkSet',
+    'userInfoGet',
+    'userLikeSend',
+    'groupList',
+    'groupInfoGet',
+    'groupMemberGet',
+    'groupMemberList',
+    'groupRequestHandle',
+    'groupLeave',
+    'groupAdminSet',
+    'groupBanSet',
+    'groupCardSet',
+    'groupTitleSet',
+    'groupNameSet',
+    'groupAnnouncementList',
+    'groupAnnouncementCreate',
+    'groupAnnouncementDelete',
+    'groupEssenceList',
+    'groupEssenceSet',
+    'groupEssenceUnset',
+    'groupHonorGet',
+    'groupTodoSet',
+    'fileGet',
+    'fileDownload',
+    'fileGroupUpload',
+    'filePrivateUpload',
+    'fileGroupUrlGet',
+    'filePrivateUrlGet',
+    'fileGroupFsInfo',
+    'fileGroupFsList',
+    'fileGroupFsMkdir',
+    'fileGroupFsDelete',
+    'reactionSet',
+    'reactionList',
+    'pokeSend',
+    'napcatMessageEmojiLikeSet',
+    'napcatGroupSignSet',
+    'luckylilliaFriendGroupsGet',
+    'run',
+];
+for (const methodName of delegatedRuntimeMethods) {
+    Object.defineProperty(RayleaBotPlugin.prototype, methodName, {
+        value(...args) {
+            const runtime = this.runtime;
+            return runtime[methodName](...args);
+        },
+    });
+}
+export function createPlugin() {
+    return new RayleaBotPlugin();
+}
+function bindHandler(owner, handler) {
+    return handler.bind(owner);
+}
+async function invokeHandler(plugin, handler, event, requestId) {
+    if (handler.length >= 2) {
+        await handler(event, requestId);
+        return;
+    }
+    await handler(new PluginEventContext(plugin, event, requestId));
 }
 function formatErrorMessage(error) {
     if (error instanceof Error) {

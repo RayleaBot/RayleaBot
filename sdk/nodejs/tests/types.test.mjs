@@ -46,6 +46,26 @@ test('generated declaration files include meta fields and new helpers', async ()
   assert.match(indexText, /messageForwardGet/);
   assert.match(indexText, /fileGroupFsDelete/);
   assert.match(indexText, /napcatGroupSignSet/);
+  assert.match(indexText, /export declare class PluginEventContext/);
+  assert.match(indexText, /export declare class RayleaBotPlugin/);
   assert.match(indexText, /readonly botId: string;/);
   assert.match(indexText, /readonly capabilities: string\[\];/);
+
+  const contextDeclaration = indexText.slice(
+    indexText.indexOf('export declare class PluginEventContext'),
+    indexText.indexOf('export declare class RayleaBotPlugin'),
+  );
+  for (const helper of [
+    'storageFileRead',
+    'storageFileDelete',
+    'storageFileList',
+    'messageGet',
+    'messageForwardSend',
+    'groupList',
+    'fileGroupFsDelete',
+    'providerAction',
+    'luckylilliaFriendGroupsGet',
+  ]) {
+    assert.match(contextDeclaration, new RegExp(`${helper}\\(`));
+  }
 });

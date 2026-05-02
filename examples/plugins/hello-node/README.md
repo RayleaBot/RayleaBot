@@ -5,22 +5,17 @@
 用途：
 
 - 展示最小 `info.json` 应如何声明
-- 展示插件如何接收 `init`、返回 `init_ack`
-- 展示插件如何接收最小 `event` 并返回 `result`
-
-边界：
-
-- 这是 contract-aligned example，不是生产插件模板
-- 它只演示最小协议骨架，不展示完整 OneBot、子进程拉起、恢复或错误处理
+- 展示 Node.js SDK 的 `RayleaBotPlugin` 子类入口
+- 展示 `PluginEventContext` 如何读取事件并返回 `result`
 
 常用 SDK helper 示例：
 
 ```js
-await plugin.messageHistoryGet(requestId, 'group', '123456', { limit: 20 })
-await plugin.messageForwardGet(requestId, { forwardId: 'forward-001' })
-await plugin.groupAnnouncementCreate(requestId, '123456', '维护窗口：今晚 23:00')
-await plugin.fileGroupFsList(requestId, '123456', { folderId: '/reports' })
-await plugin.napcatGroupSignSet(requestId, '123456')
+await ctx.messageHistoryGet('group', '123456', { limit: 20 })
+await ctx.messageForwardGet({ forwardId: 'forward-001' })
+await ctx.groupAnnouncementCreate('123456', '维护窗口：今晚 23:00')
+await ctx.fileGroupFsList('123456', { folderId: '/reports' })
+await ctx.napcatGroupSignSet('123456')
 ```
 
 ```js
@@ -32,10 +27,10 @@ const segments = [
 ]
 
 try {
-  await plugin.httpRequest(requestId, 'GET', 'https://api.example.test/v1/data')
+  await ctx.httpRequest('GET', 'https://api.example.test/v1/data')
 } catch (error) {
   if (error instanceof ActionError) {
-    await plugin.loggerWrite(requestId, 'warn', 'request rejected', {
+    await ctx.loggerWrite('warn', 'request rejected', {
       code: error.code,
       details: error.details,
     })

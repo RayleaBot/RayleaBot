@@ -1,56 +1,27 @@
-const readline = require("node:readline");
+const { pathToFileURL } = require("node:url");
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  crlfDelay: Infinity,
-});
+const sdkUrl = new URL("../../../sdk/nodejs/dist/index.js", pathToFileURL(__filename)).href;
 
-function writeFrame(frame) {
-  process.stdout.write(`${JSON.stringify(frame)}\n`);
-}
+(async () => {
+  const { RayleaBotPlugin } = await import(sdkUrl);
 
-rl.on("line", (line) => {
-  const raw = line.trim();
-  if (!raw) {
-    return;
-  }
+  class HelloNodePlugin extends RayleaBotPlugin {
+    constructor() {
+      super();
+      this.subscribe("message.group");
+      this.onEvent("message.group", this.handleGroupMessage);
+    }
 
-  const frame = JSON.parse(raw);
-  const frameType = frame.type;
-  const requestId = frame.request_id || "";
-  const pluginId = frame.plugin_id || "hello-node";
-  const timestamp = Math.floor(Date.now() / 1000);
-
-  if (frameType === "init") {
-    writeFrame({
-      protocol_version: "1",
-      type: "init_ack",
-      timestamp,
-      plugin_id: pluginId,
-      request_id: requestId,
-      status: "ready",
-      subscriptions: ["message.group"],
-    });
-    return;
-  }
-
-  if (frameType === "event") {
-    writeFrame({
-      protocol_version: "1",
-      type: "result",
-      timestamp,
-      plugin_id: pluginId,
-      request_id: requestId,
-      status: "success",
-      data: {
+    handleGroupMessage(ctx) {
+      ctx.sendResult({
         handled: true,
-        summary: `hello-node accepted ${frame.event?.event_type ?? "unknown"}`,
-      },
-    });
-    return;
+        summary: `hello-node accepted ${ctx.eventType}`,
+      });
+    }
   }
 
-  // This example intentionally keeps the protocol surface narrow.
-  // shutdown, error handling, and other message types stay outside this
-  // minimal sample.
+  await new HelloNodePlugin().run();
+})().catch((error) => {
+  process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+  process.exit(1);
 });

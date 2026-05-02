@@ -7,6 +7,12 @@
 ## 当前覆盖范围
 
 - 生命周期握手：`init`、`init_progress`、`init_ack`、`ping`、`pong`、`shutdown`
+- 插件结构：
+  - Python：继承 `RayleaBotPlugin`，使用 `@command(...)` 与 `@event_handler(...)` 注册类方法
+  - Node.js：继承 `RayleaBotPlugin`，在构造函数中使用 `this.onCommand(...)` 与 `this.onEvent(...)` 注册实例方法
+- 事件上下文：
+  - Python：`EventContext` 提供 `event`、`request_id`、`target`、`actor`、`payload`、`args`、`plain_text`、`bot_id` 和 request-bound helper
+  - Node.js：`PluginEventContext` 提供 `event`、`requestId`、`target`、`actor`、`payload`、`args`、`plainText`、`botId` 和 request-bound helper
 - 启动上下文 helper：
   - Python：`bot_id`、`capabilities`、`command_prefixes`、`primary_command_prefix`
   - Node.js：`botId`、`capabilities`、`commandPrefixes`、`primaryCommandPrefix`
@@ -17,6 +23,48 @@
 - provider helper：`provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set`、`provider.luckylillia.friend_groups.get`
 - 通用回退入口：`onebot_action` / `onebotAction` 与 `provider_action` / `providerAction`
 - 结构化错误：`ActionError.code`、`ActionError.message`、`ActionError.details`
+
+## 推荐入口
+
+Python：
+
+```python
+from rayleabot import RayleaBotPlugin, command
+
+
+class EchoPlugin(RayleaBotPlugin):
+    def __init__(self):
+        super().__init__()
+        self.subscribe("message.group", "message.private")
+
+    @command("echo", aliases=["repeat"])
+    def handle_echo(self, ctx):
+        ctx.send_text(" ".join(ctx.args) or ctx.plain_text or "(空消息)")
+
+
+if __name__ == "__main__":
+    EchoPlugin().run()
+```
+
+Node.js：
+
+```js
+import { RayleaBotPlugin } from '@rayleabot/sdk'
+
+class EchoPlugin extends RayleaBotPlugin {
+  constructor() {
+    super()
+    this.subscribe('message.group', 'message.private')
+    this.onCommand('echo', this.handleEcho, ['repeat'])
+  }
+
+  handleEcho(ctx) {
+    ctx.sendText(ctx.args.join(' ') || ctx.plainText || '(空消息)')
+  }
+}
+
+await new EchoPlugin().run()
+```
 
 ## 消息段 builder
 

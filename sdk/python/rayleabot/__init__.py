@@ -1,4 +1,4 @@
-from rayleabot.plugin import RayleaBotPlugin
+from rayleabot.plugin import EventContext, RayleaBotPlugin, command, event_handler
 from rayleabot.models import (
     PROTOCOL_VERSION,
     TextSegment,
@@ -53,6 +53,9 @@ from rayleabot.protocol import ProtocolError, ActionError
 
 __all__ = [
     "RayleaBotPlugin",
+    "EventContext",
+    "command",
+    "event_handler",
     "PROTOCOL_VERSION",
     "TextSegment",
     "ImageSegment",

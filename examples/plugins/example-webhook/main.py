@@ -6,39 +6,35 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sdk", "python"))
 
-from rayleabot import RayleaBotPlugin
-from rayleabot import protocol
-
-plugin = RayleaBotPlugin()
-plugin.subscribe("message.group", "webhook.received")
+from rayleabot import RayleaBotPlugin, command, event_handler
 
 
-@plugin.on_command("webhook_register")
-def handle_register(_event, request_id):
-    result = plugin.expose_webhook(
-        request_id,
-        route="github",
-        secret_ref="webhook.github.secret",
-        auth_strategy="hmac_sha256",
-        header="X-Hub-Signature-256",
-        signature_prefix="sha256=",
-    )
-    protocol.send_result(plugin._plugin_id, request_id, {"webhook": result})
+class WebhookPlugin(RayleaBotPlugin):
+    def __init__(self):
+        super().__init__()
+        self.subscribe("message.group", "webhook.received")
+
+    @command("webhook_register")
+    def handle_register(self, ctx):
+        result = ctx.expose_webhook(
+            route="github",
+            secret_ref="webhook.github.secret",
+            auth_strategy="hmac_sha256",
+            header="X-Hub-Signature-256",
+            signature_prefix="sha256=",
+        )
+        ctx.send_result({"webhook": result})
 
 
-@plugin.on_event("webhook.received")
-def handle_webhook(event, request_id):
-    payload = event.get("raw_payload", {})
-    plugin.logger_write(request_id, "info", "webhook received", {"route": event.get("target", {}).get("id")})
-    protocol.send_result(
-        plugin._plugin_id,
-        request_id,
-        {
+    @event_handler("webhook.received")
+    def handle_webhook(self, ctx):
+        payload = ctx.event.get("raw_payload", {})
+        ctx.logger_write("info", "webhook received", {"route": ctx.target.get("id")})
+        ctx.send_result({
             "handled": True,
             "raw_payload_keys": sorted(payload.keys()) if isinstance(payload, dict) else [],
-        },
-    )
+        })
 
 
 if __name__ == "__main__":
-    plugin.run()
+    WebhookPlugin().run()

@@ -1,8 +1,134 @@
 """High-level plugin framework for RayleaBot Python plugins."""
 
+import inspect
 import threading
 
 from rayleabot import protocol
+
+
+def command(name, aliases=None):
+    """Decorator for class-based command handlers."""
+    def decorator(func):
+        func._rayleabot_command = (name, list(aliases or []))
+        return func
+    return decorator
+
+
+def event_handler(event_type=None):
+    """Decorator for class-based event handlers."""
+    def decorator(func):
+        func._rayleabot_event_type = event_type
+        return func
+    return decorator
+
+
+class EventContext:
+    """Request-bound event context passed to class-based handlers."""
+
+    def __init__(self, plugin, event, request_id):
+        self._plugin = plugin
+        self.event = event or {}
+        self.request_id = request_id
+
+    @property
+    def payload(self):
+        return self.event.get("payload") or {}
+
+    @property
+    def target(self):
+        return self.event.get("target") or {}
+
+    @property
+    def actor(self):
+        return self.event.get("actor") or {}
+
+    @property
+    def message(self):
+        return self.event.get("message") or {}
+
+    @property
+    def event_type(self):
+        return self.event.get("event_type", "")
+
+    @property
+    def command(self):
+        return self.payload.get("command")
+
+    @property
+    def args(self):
+        args = self.payload.get("args")
+        return list(args) if isinstance(args, list) else []
+
+    @property
+    def plain_text(self):
+        return self.message.get("plain_text", "")
+
+    @property
+    def target_type(self):
+        return self.target.get("type", "group")
+
+    @property
+    def target_id(self):
+        return self.target.get("id", "")
+
+    @property
+    def bot_id(self):
+        return self._plugin.bot_id
+
+    @property
+    def capabilities(self):
+        return self._plugin.capabilities
+
+    @property
+    def command_prefixes(self):
+        return self._plugin.command_prefixes
+
+    @property
+    def primary_command_prefix(self):
+        return self._plugin.primary_command_prefix
+
+    def send_message(self, segments, target_type=None, target_id=None):
+        """Send message segments to the current target by default."""
+        self._plugin.send_message(
+            self.request_id,
+            target_type or self.target_type,
+            target_id or self.target_id,
+            segments,
+        )
+
+    def send_text(self, text, target_type=None, target_id=None):
+        """Send one text segment to the current target by default."""
+        self.send_message(
+            [{
+                "type": "text",
+                "data": {"text": text},
+            }],
+            target_type=target_type,
+            target_id=target_id,
+        )
+
+    def send_reply(self, reply_to_event_id, segments, fallback_to_send_if_missing=False):
+        """Reply to a recent upstream event."""
+        self._plugin.send_reply(
+            self.request_id,
+            reply_to_event_id,
+            segments,
+            fallback_to_send_if_missing=fallback_to_send_if_missing,
+        )
+
+    def send_result(self, data=None):
+        """Send a success result for the current event."""
+        self._plugin.send_result(self.request_id, data or {})
+
+    def __getattr__(self, name):
+        attr = getattr(self._plugin, name)
+        if not callable(attr):
+            return attr
+
+        def request_bound_helper(*args, **kwargs):
+            return attr(self.request_id, *args, **kwargs)
+
+        return request_bound_helper
 
 
 class RayleaBotPlugin:
@@ -18,6 +144,38 @@ class RayleaBotPlugin:
         self._capabilities = []
         self._command_prefixes = ["/"]
         self._subscriptions = None
+        self._register_decorated_handlers()
+
+    def _register_decorated_handlers(self):
+        seen = set()
+        for cls in type(self).__mro__:
+            for attr_name, source in vars(cls).items():
+                if attr_name in seen:
+                    continue
+                seen.add(attr_name)
+                source_func = getattr(source, "__func__", source)
+                command_meta = getattr(source_func, "_rayleabot_command", None)
+                has_event_handler = hasattr(source_func, "_rayleabot_event_type")
+                if command_meta is None and not has_event_handler:
+                    continue
+
+                handler = getattr(self, attr_name)
+                if not callable(handler):
+                    continue
+                self._register_decorated_handler(source_func, handler, command_meta, has_event_handler)
+
+    def _register_decorated_handler(self, source, handler, command_meta, has_event_handler):
+        if command_meta is not None:
+            name, aliases = command_meta
+            self._register_command_handler(name, handler, aliases)
+        if has_event_handler:
+            self._event_handlers.append((getattr(source, "_rayleabot_event_type"), handler))
+
+    def _register_command_handler(self, name, handler, aliases=None):
+        self._command_handlers[name] = handler
+        if aliases:
+            for alias in aliases:
+                self._command_handlers[alias] = handler
 
     def on_event(self, event_type=None):
         """Decorator to register an event handler. If event_type is None, matches all events."""
@@ -29,10 +187,7 @@ class RayleaBotPlugin:
     def on_command(self, name, aliases=None):
         """Decorator to register a command handler by name and optional aliases."""
         def decorator(func):
-            self._command_handlers[name] = func
-            if aliases:
-                for alias in aliases:
-                    self._command_handlers[alias] = func
+            self._register_command_handler(name, func, aliases)
             return func
         return decorator
 
@@ -62,6 +217,10 @@ class RayleaBotPlugin:
         if fallback_to_send_if_missing:
             data["fallback_to_send_if_missing"] = True
         protocol.send_action(self._plugin_id, request_id, "message.reply", data)
+
+    def send_result(self, request_id, data=None):
+        """Send a success result for an event."""
+        protocol.send_result(self._plugin_id, request_id, data or {})
 
     def logger_write(self, request_id, level, message, fields=None, timeout_seconds=30):
         """Write a management log entry through the platform-local logger.write action."""
@@ -610,6 +769,7 @@ class RayleaBotPlugin:
     httpRequest = http_request
     configRead = config_read
     configWrite = config_write
+    sendResult = send_result
     governanceBlacklistRead = governance_blacklist_read
     governanceBlacklistWrite = governance_blacklist_write
     governanceWhitelistRead = governance_whitelist_read
@@ -738,17 +898,22 @@ class RayleaBotPlugin:
         # Try command handler first.
         if command and command in self._command_handlers:
             handler = self._command_handlers[command]
-            handler(event, request_id)
+            self._invoke_handler(handler, event, request_id)
             return
 
         # Try event type handlers.
         for type_filter, handler in self._event_handlers:
             if type_filter is None or type_filter == event_type:
-                handler(event, request_id)
+                self._invoke_handler(handler, event, request_id)
                 return
 
         # No handler matched.
         protocol.send_result(plugin_id, request_id, {"handled": False})
+
+    def _invoke_handler(self, handler, event, request_id):
+        if _uses_context_handler(handler):
+            return handler(EventContext(self, event, request_id))
+        return handler(event, request_id)
 
     def _update_bot_identity(self, event):
         if event.get("event_type") != "bot.identity.changed":
@@ -783,3 +948,20 @@ class RayleaBotPlugin:
     @property
     def capabilities(self):
         return list(self._capabilities)
+
+
+def _uses_context_handler(handler):
+    try:
+        signature = inspect.signature(handler)
+    except (TypeError, ValueError):
+        return False
+
+    positional = [
+        parameter
+        for parameter in signature.parameters.values()
+        if parameter.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        )
+    ]
+    return len(positional) == 1

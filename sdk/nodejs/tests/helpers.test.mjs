@@ -316,3 +316,146 @@ test('bot.identity.changed updates botId after init without bot', async () => {
 
   assert.deepEqual(result, { botId: '10001' });
 });
+
+test('class plugin dispatches context command handlers', async () => {
+  const result = await new Promise((resolve, reject) => {
+    const script = `
+      import { RayleaBotPlugin } from './dist/index.js';
+
+      class ContextPlugin extends RayleaBotPlugin {
+        constructor() {
+          super();
+          this.subscribe('message.group');
+          this.onCommand('hello', this.handleHello, ['hi']);
+        }
+
+        handleHello(ctx) {
+          ctx.sendText('ok');
+          ctx.sendResult({
+            args: ctx.args,
+            botId: ctx.botId,
+            targetId: ctx.targetId,
+            prefix: ctx.primaryCommandPrefix,
+            helpers: {
+              storageFileRead: typeof ctx.storageFileRead,
+              storageFileDelete: typeof ctx.storageFileDelete,
+              storageFileList: typeof ctx.storageFileList,
+              messageGet: typeof ctx.messageGet,
+              groupList: typeof ctx.groupList,
+              providerAction: typeof ctx.providerAction,
+              luckylilliaFriendGroupsGet: typeof ctx.luckylilliaFriendGroupsGet,
+            },
+          });
+        }
+      }
+
+      await new ContextPlugin().run();
+    `;
+
+    const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
+      cwd: sdkRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error('timed out waiting for class plugin context handler'));
+    }, 3000);
+
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+
+    child.stdout.on('data', (chunk) => {
+      stdoutBuffer += chunk.toString();
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderrBuffer += chunk.toString();
+    });
+
+    const now = Math.floor(Date.now() / 1000);
+    child.stdin.write(JSON.stringify({
+      protocol_version: '1',
+      type: 'init',
+      timestamp: now,
+      plugin_id: 'context-plugin',
+      request_id: 'init-ctx',
+      bot: { id: 'bot-10001' },
+      command_prefixes: ['!'],
+    }) + '\n');
+    child.stdin.write(JSON.stringify({
+      protocol_version: '1',
+      type: 'event',
+      timestamp: now,
+      plugin_id: 'context-plugin',
+      request_id: 'evt-ctx',
+      event: {
+        event_id: 'evt-class-command',
+        source_protocol: 'onebot11',
+        source_adapter: 'adapter.onebot11',
+        event_type: 'message.group',
+        timestamp: now,
+        target: {
+          type: 'group',
+          id: '20001',
+        },
+        payload: {
+          command: 'hi',
+          args: ['world'],
+        },
+      },
+    }) + '\n');
+    child.stdin.end(JSON.stringify({
+      protocol_version: '1',
+      type: 'shutdown',
+      timestamp: now,
+      plugin_id: 'context-plugin',
+      request_id: 'shutdown-ctx',
+      reason: 'stop',
+    }) + '\n');
+
+    child.on('exit', (code) => {
+      clearTimeout(timeout);
+      if (code !== 0) {
+        reject(new Error(`child exited with code ${code}: ${stderrBuffer}`));
+        return;
+      }
+      const frames = stdoutBuffer.trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+      resolve({
+        initAck: frames.find((frame) => frame.type === 'init_ack'),
+        action: frames.find((frame) => frame.type === 'action'),
+        result: frames.find((frame) => frame.type === 'result'),
+      });
+    });
+  });
+
+  assert.equal(result.initAck.status, 'ready');
+  assert.deepEqual(result.initAck.subscriptions, ['message.group']);
+  assert.equal(result.action.action, 'message.send');
+  assert.deepEqual(result.action.data, {
+    target_type: 'group',
+    target_id: '20001',
+    message: {
+      segments: [{ type: 'text', data: { text: 'ok' } }],
+    },
+  });
+  assert.deepEqual(result.result.data, {
+    args: ['world'],
+    botId: 'bot-10001',
+    targetId: '20001',
+    prefix: '!',
+    helpers: {
+      storageFileRead: 'function',
+      storageFileDelete: 'function',
+      storageFileList: 'function',
+      messageGet: 'function',
+      groupList: 'function',
+      providerAction: 'function',
+      luckylilliaFriendGroupsGet: 'function',
+    },
+  });
+});

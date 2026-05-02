@@ -2,7 +2,9 @@ import type { EventBody, Segment } from './types.js';
 export type { Frame, Segment, EventBody } from './types.js';
 export { textSegment, imageSegment, atSegment, atAllSegment, faceSegment, replySegment, passthroughSegment, recordSegment, videoSegment, markdownSegment, fileSegment, flashFileSegment, jsonSegment, xmlSegment, musicSegment, contactSegment, forwardSegment, nodeSegment, pokeSegment, diceSegment, rpsSegment, mfaceSegment, keyboardSegment, shakeSegment, } from './types.js';
 export { ActionError } from './protocol.js';
-type EventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
+type LegacyEventHandler = (event: EventBody, requestId: string) => void | Promise<void>;
+type ContextEventHandler = (ctx: PluginEventContext) => void | Promise<void>;
+type EventHandler = LegacyEventHandler | ContextEventHandler;
 type ConversationType = 'group' | 'private';
 type ProviderName = 'napcat' | 'luckylillia';
 interface ActionOptions {
@@ -40,19 +42,20 @@ interface GovernanceWhitelistWriteOptions extends ActionOptions {
     targetId?: string;
     reason?: string;
 }
-export interface RayleaBotPlugin {
+export interface RayleaBotPluginRuntime {
     readonly botId: string;
     readonly capabilities: string[];
     readonly commandPrefixes: string[];
     readonly primaryCommandPrefix: string;
-    onEvent(handler: EventHandler): RayleaBotPlugin;
-    onEvent(eventType: string, handler: EventHandler): RayleaBotPlugin;
-    onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPlugin;
-    subscribe(...eventTypes: string[]): RayleaBotPlugin;
+    onEvent(handler: EventHandler): RayleaBotPluginRuntime;
+    onEvent(eventType: string, handler: EventHandler): RayleaBotPluginRuntime;
+    onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPluginRuntime;
+    subscribe(...eventTypes: string[]): RayleaBotPluginRuntime;
     sendMessage(requestId: string, targetType: string, targetId: string, segments: Segment[]): void;
     sendReply(requestId: string, replyToEventId: string, segments: Segment[], options?: {
         fallbackToSendIfMissing?: boolean;
     }): void;
+    sendResult(requestId: string, data?: Record<string, unknown>): void;
     loggerWrite(requestId: string, level: string, message: string, fields?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
     storageGet(requestId: string, key: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     storageSet(requestId: string, key: string, value: unknown, options?: ActionOptions): Promise<Record<string, unknown>>;
@@ -153,6 +156,151 @@ export interface RayleaBotPlugin {
     napcatGroupSignSet(requestId: string, groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     luckylilliaFriendGroupsGet(requestId: string, userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
     run(): Promise<void>;
+}
+export declare class PluginEventContext {
+    readonly event: EventBody;
+    readonly requestId: string;
+    private readonly plugin;
+    constructor(plugin: RayleaBotPluginRuntime, event: EventBody, requestId: string);
+    get payload(): EventBody['payload'];
+    get target(): EventBody['target'];
+    get actor(): EventBody['actor'];
+    get message(): EventBody['message'];
+    get eventType(): string;
+    get command(): string | null | undefined;
+    get args(): string[];
+    get plainText(): string;
+    get targetType(): string;
+    get targetId(): string;
+    get botId(): string;
+    get capabilities(): string[];
+    get commandPrefixes(): string[];
+    get primaryCommandPrefix(): string;
+    sendMessage(segments: Segment[], options?: {
+        targetType?: string;
+        targetId?: string;
+    }): void;
+    sendText(text: string, options?: {
+        targetType?: string;
+        targetId?: string;
+    }): void;
+    sendReply(replyToEventId: string, segments: Segment[], options?: {
+        fallbackToSendIfMissing?: boolean;
+    }): void;
+    sendResult(data?: Record<string, unknown>): void;
+    loggerWrite(level: string, message: string, fields?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+    storageGet(key: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    storageSet(key: string, value: unknown, options?: ActionOptions): Promise<Record<string, unknown>>;
+    storageDelete(key: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    storageList(prefix?: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    storageFileRead(path: string, options?: ActionOptions & {
+        root?: string;
+    }): Promise<Record<string, unknown>>;
+    storageFileWrite(path: string, options?: ActionOptions & {
+        root?: string;
+        contentText?: string;
+        contentBase64?: string;
+    }): Promise<Record<string, unknown>>;
+    storageFileDelete(path: string, options?: ActionOptions & {
+        root?: string;
+    }): Promise<Record<string, unknown>>;
+    storageFileList(prefix?: string, options?: ActionOptions & {
+        root?: string;
+    }): Promise<Record<string, unknown>>;
+    httpRequest(method: string, url: string, options?: ActionOptions & {
+        headers?: Record<string, string>;
+        timeoutSeconds?: number;
+        bodyText?: string;
+        bodyBase64?: string;
+    }): Promise<Record<string, unknown>>;
+    configRead(keys: string[], options?: ActionOptions): Promise<Record<string, unknown>>;
+    configWrite(values: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+    governanceBlacklistRead(options?: ActionOptions): Promise<Record<string, unknown>>;
+    governanceBlacklistWrite(operation: 'upsert' | 'delete', options?: GovernanceBlacklistWriteOptions): Promise<Record<string, unknown>>;
+    governanceWhitelistRead(options?: ActionOptions): Promise<Record<string, unknown>>;
+    governanceWhitelistWrite(operation: 'set_enabled' | 'upsert' | 'delete', options?: GovernanceWhitelistWriteOptions): Promise<Record<string, unknown>>;
+    governanceCommandPolicyRead(options?: ActionOptions): Promise<Record<string, unknown>>;
+    schedulerCreate(taskId: string, cron: string, options?: ActionOptions & {
+        payload?: Record<string, unknown>;
+    }): Promise<Record<string, unknown>>;
+    exposeWebhook(route: string, options: ActionOptions & {
+        methods?: string[];
+        authStrategy?: string;
+        header?: string;
+        secretRef: string;
+        signaturePrefix?: string;
+        sourceIps?: string[];
+    }): Promise<Record<string, unknown>>;
+    renderImage(template: string, data: Record<string, unknown>, options?: ActionOptions & {
+        theme?: string;
+        output?: string;
+        fallbackText?: string;
+    }): Promise<Record<string, unknown>>;
+    pluginList(options?: ActionOptions): Promise<Record<string, unknown>>;
+    messageGet(messageId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    messageDelete(messageId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    messageHistoryGet(conversationType: ConversationType, conversationId: string, options?: ActionOptions & {
+        limit?: number;
+    }): Promise<Record<string, unknown>>;
+    messageForwardGet(options?: MessageForwardGetOptions): Promise<Record<string, unknown>>;
+    messageForwardSend(targetType: ConversationType, targetId: string, messages: Record<string, unknown>[], options?: ActionOptions): Promise<Record<string, unknown>>;
+    messageReadMark(options?: MessageReadMarkOptions): Promise<Record<string, unknown>>;
+    friendRequestHandle(flag: string, approve: boolean, options?: ActionOptions): Promise<Record<string, unknown>>;
+    friendList(options?: ActionOptions): Promise<Record<string, unknown>>;
+    friendRemarkSet(userId: string, remark: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    userInfoGet(userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    userLikeSend(userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupList(options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupInfoGet(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupMemberGet(groupId: string, userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupMemberList(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupRequestHandle(flag: string, approve: boolean, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupLeave(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupAdminSet(groupId: string, userId: string, enabled: boolean, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupBanSet(groupId: string, options?: GroupBanSetOptions): Promise<Record<string, unknown>>;
+    groupCardSet(groupId: string, userId: string, card: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupTitleSet(groupId: string, userId: string, title: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupNameSet(groupId: string, name: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupAnnouncementList(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupAnnouncementCreate(groupId: string, content: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupAnnouncementDelete(groupId: string, noticeId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupEssenceList(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupEssenceSet(messageId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupEssenceUnset(messageId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupHonorGet(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    groupTodoSet(groupId: string, todo: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileGet(fileId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileDownload(fileId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileGroupUpload(groupId: string, fileName: string, fileUrl: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    filePrivateUpload(userId: string, fileName: string, fileUrl: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileGroupUrlGet(groupId: string, fileId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    filePrivateUrlGet(userId: string, fileId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileGroupFsInfo(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileGroupFsList(groupId: string, options?: FileGroupFsListOptions): Promise<Record<string, unknown>>;
+    fileGroupFsMkdir(groupId: string, name: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    fileGroupFsDelete(groupId: string, options?: FileGroupFsDeleteOptions): Promise<Record<string, unknown>>;
+    reactionSet(messageId: string, emoji: string, enabled?: boolean, options?: ActionOptions): Promise<Record<string, unknown>>;
+    reactionList(messageId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    pokeSend(targetType: ConversationType, targetId: string, userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    napcatMessageEmojiLikeSet(messageId: string, emojiId: string, enabled?: boolean, options?: ActionOptions): Promise<Record<string, unknown>>;
+    napcatGroupSignSet(groupId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    luckylilliaFriendGroupsGet(userId: string, options?: ActionOptions): Promise<Record<string, unknown>>;
+    onebotAction(action: string, data?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+    providerAction(provider: ProviderName, action: string, data?: Record<string, unknown>, options?: ActionOptions): Promise<Record<string, unknown>>;
+}
+export declare class RayleaBotPlugin {
+    private readonly runtime;
+    constructor();
+    get botId(): string;
+    get capabilities(): string[];
+    get commandPrefixes(): string[];
+    get primaryCommandPrefix(): string;
+    onEvent(handler: EventHandler): this;
+    onEvent(eventType: string, handler: EventHandler): this;
+    onCommand(name: string, handler: EventHandler, aliases?: string[]): this;
+    subscribe(...eventTypes: string[]): this;
+}
+export interface RayleaBotPlugin extends Omit<RayleaBotPluginRuntime, 'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe'> {
 }
 export declare function createPlugin(): RayleaBotPlugin;
 //# sourceMappingURL=index.d.ts.map

@@ -256,6 +256,136 @@ class PluginHelperTests(unittest.TestCase):
             "target": "10001",
         }, seen)
 
+    def test_class_command_handler_receives_event_context(self):
+        sent = {}
+
+        def fake_send_action(plugin_id, request_id, action, data, parent_request_id=None):
+            sent.update({
+                "plugin_id": plugin_id,
+                "request_id": request_id,
+                "action": action,
+                "data": data,
+                "parent_request_id": parent_request_id,
+            })
+
+        self.protocol.send_action = fake_send_action
+
+        class ContextPlugin(self.plugin_module.RayleaBotPlugin):
+            def __init__(self):
+                super().__init__()
+                self.subscribe("message.group")
+
+            @self.plugin_module.command("hello", aliases=["hi"])
+            def handle_hello(self, ctx):
+                self.seen = {
+                    "request_id": ctx.request_id,
+                    "args": ctx.args,
+                    "target_id": ctx.target_id,
+                    "bot_id": ctx.bot_id,
+                    "prefix": ctx.primary_command_prefix,
+                }
+                ctx.send_text("ok")
+
+        plugin = ContextPlugin()
+        plugin._plugin_id = "context-plugin"
+        plugin._bot_id = "bot-10001"
+        plugin._command_prefixes = ["!"]
+
+        plugin._handle_event(
+            {
+                "event": {
+                    "event_id": "evt-ctx",
+                    "source_protocol": "onebot11",
+                    "source_adapter": "adapter.onebot11",
+                    "event_type": "message.group",
+                    "timestamp": int(time.time()),
+                    "target": {
+                        "type": "group",
+                        "id": "20001",
+                    },
+                    "payload": {
+                        "command": "hi",
+                        "args": ["world"],
+                    },
+                }
+            },
+            "context-plugin",
+            "evt-ctx-request",
+        )
+
+        self.assertEqual({
+            "request_id": "evt-ctx-request",
+            "args": ["world"],
+            "target_id": "20001",
+            "bot_id": "bot-10001",
+            "prefix": "!",
+        }, plugin.seen)
+        self.assertEqual("context-plugin", sent["plugin_id"])
+        self.assertEqual("evt-ctx-request", sent["request_id"])
+        self.assertEqual("message.send", sent["action"])
+        self.assertEqual({
+            "target_type": "group",
+            "target_id": "20001",
+            "message": {
+                "segments": [{
+                    "type": "text",
+                    "data": {"text": "ok"},
+                }],
+            },
+        }, sent["data"])
+
+    def test_decorated_handler_registration_skips_unrelated_properties(self):
+        class ContextPlugin(self.plugin_module.RayleaBotPlugin):
+            def __init__(self):
+                super().__init__()
+                self.ready = True
+
+            @property
+            def late_value(self):
+                if not getattr(self, "ready", False):
+                    raise RuntimeError("late value accessed too early")
+                return "ready"
+
+            @self.plugin_module.command("hello")
+            def handle_hello(self, ctx):
+                ctx.send_result({"handled": True})
+
+        plugin = ContextPlugin()
+
+        self.assertEqual("ready", plugin.late_value)
+        self.assertIn("hello", plugin._command_handlers)
+
+    def test_instance_decorator_accepts_context_handler(self):
+        plugin = self.plugin_module.RayleaBotPlugin()
+        seen = {}
+
+        @plugin.on_event("message.private")
+        def handle_private(ctx):
+            seen["request_id"] = ctx.request_id
+            seen["plain_text"] = ctx.plain_text
+
+        plugin._handle_event(
+            {
+                "event": {
+                    "event_id": "evt-private",
+                    "source_protocol": "onebot11",
+                    "source_adapter": "adapter.onebot11",
+                    "event_type": "message.private",
+                    "timestamp": int(time.time()),
+                    "message": {
+                        "plain_text": "hello",
+                    },
+                }
+            },
+            "context-plugin",
+            "evt-private-request",
+        )
+
+        self.assertEqual({
+            "request_id": "evt-private-request",
+            "plain_text": "hello",
+        }, seen)
+
 
 if __name__ == "__main__":
     unittest.main()
