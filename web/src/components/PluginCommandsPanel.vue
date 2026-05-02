@@ -37,36 +37,39 @@ function isConflicted(command: PluginCommandSummary) {
 <template>
   <a-empty v-if="commands.length === 0" :description="t('plugins.empty.commands')" />
 
-  <div v-else class="plugin-command-panel">
+  <div v-else class="plugin-command-panel" role="list">
     <article
       v-for="command in commands"
       :key="command.name"
-      class="plugin-command-card"
+      class="plugin-command-row"
+      :class="{ 'is-conflicted': isConflicted(command) }"
+      role="listitem"
     >
-      <div class="plugin-command-card__header">
-        <div class="plugin-command-card__title">
-          <a-tag :color="isConflicted(command) ? 'warning' : 'success'">
-            {{ command.name }}
-          </a-tag>
-          <a-tag v-if="isConflicted(command)" color="warning">
-            {{ t('plugins.commandConflictBadge') }}
-          </a-tag>
-        </div>
-        <small>{{ getPermissionText(command) }}</small>
+      <div class="plugin-command-row__command">
+        <a-tag :color="isConflicted(command) ? 'warning' : 'success'">
+          {{ command.name }}
+        </a-tag>
+        <a-tag v-if="isConflicted(command)" color="warning">
+          {{ t('plugins.commandConflictBadge') }}
+        </a-tag>
       </div>
 
-      <dl class="plugin-command-card__meta">
-        <div>
+      <dl class="plugin-command-row__meta">
+        <div class="plugin-command-row__aliases">
           <dt>{{ t('plugins.commandAliases') }}</dt>
           <dd>{{ getAliasesText(command) }}</dd>
         </div>
-        <div>
+        <div class="plugin-command-row__description">
           <dt>{{ t('plugins.commandDescription') }}</dt>
           <dd>{{ getText(command.description) }}</dd>
         </div>
-        <div>
+        <div class="plugin-command-row__usage">
           <dt>{{ t('plugins.commandUsage') }}</dt>
           <dd>{{ getUsageText(command) }}</dd>
+        </div>
+        <div class="plugin-command-row__permission">
+          <dt>{{ t('plugins.fields.permission') }}</dt>
+          <dd>{{ getPermissionText(command) }}</dd>
         </div>
       </dl>
     </article>
@@ -76,57 +79,74 @@ function isConflicted(command: PluginCommandSummary) {
 <style scoped lang="scss">
 .plugin-command-panel {
   display: grid;
-  gap: 12px;
+  gap: 8px;
+  container-type: inline-size;
 }
 
-.plugin-command-card {
+.plugin-command-row {
   display: grid;
-  gap: 12px;
-  padding: 16px 18px;
-  border-radius: var(--radius-lg);
-  background: rgba(247, 250, 246, 0.88);
-  border: 1px solid rgba(22, 33, 39, 0.08);
+  grid-template-columns: minmax(108px, 0.28fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
 }
 
-.plugin-command-card__header,
-.plugin-command-card__title {
+.plugin-command-row:hover {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-soft));
+}
+
+.plugin-command-row__command {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   flex-wrap: wrap;
-}
-
-.plugin-command-card__header small {
-  color: var(--muted);
-}
-
-.plugin-command-card__meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin: 0;
-}
-
-.plugin-command-card__meta div {
-  display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
-.plugin-command-card__meta dt {
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.plugin-command-card__meta dd {
+.plugin-command-row__meta {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.62fr) minmax(116px, 1.1fr) minmax(116px, 1.12fr) minmax(78px, 0.72fr);
+  gap: 8px 12px;
   margin: 0;
-  word-break: break-word;
-  line-height: 1.55;
+}
+
+.plugin-command-row__meta div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.plugin-command-row__meta dt {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.plugin-command-row__meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.plugin-command-row__usage dd,
+.plugin-command-row__permission dd {
+  font-family: var(--font-mono);
+}
+
+@container (max-width: 520px) {
+  .plugin-command-row,
+  .plugin-command-row__meta {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
-  .plugin-command-card {
-    padding: 14px 16px;
+  .plugin-command-row {
+    padding: 10px;
   }
 }
 </style>

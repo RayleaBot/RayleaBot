@@ -479,14 +479,17 @@ test('plugin management flow covers install, grants and console recovery', async
 
   await page.goto('/plugins/weather')
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
-  await expect(page.getByText('未验证来源')).toBeVisible()
-  await expect(page.getByText('plugins/installed')).toBeVisible()
-  await expect(page.getByText('包与运行信息')).toBeVisible()
-  await expect(page.getByText('Manifest 元数据')).toBeVisible()
+  await expect(page.getByText('未验证来源').first()).toBeVisible()
+  await expect(page.getByText('plugins/installed').first()).toBeVisible()
+  await expect(page.getByText('运行摘要')).toBeVisible()
+  await expect(page.getByText('包信息')).toBeVisible()
+  await expect(page.getByText('来源信息')).toBeVisible()
   await expect(page.getByText('运行配置')).toBeVisible()
+  await page.getByText('详细信息').click()
+  await expect(page.getByText('Manifest 元数据')).toBeVisible()
   await expect(page.getByText('https://github.com/RayleaBot/plugins-weather')).toBeVisible()
   await expect(page.getByText('assets/overview.svg')).toBeVisible()
-  await expect(page.locator('.ant-descriptions').getByText('命令冲突')).toBeVisible()
+  await expect(page.getByText('命令冲突').first()).toBeVisible()
   await expect(page.getByText('已注册指令')).toBeVisible()
   await expect(page.getByText('查询天气')).toBeVisible()
 
@@ -675,7 +678,7 @@ test('plugin enable resumes after scope confirmation', async ({ page, request })
 
   await page.goto('/plugins/weather')
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
-  await expect(page.getByText('未验证来源')).toBeVisible()
+  await expect(page.getByText('未验证来源').first()).toBeVisible()
   const powerSwitch = page.locator('.plugin-detail-actions .plugin-holo-button')
   await Promise.all([
     page.waitForResponse((response) => (

@@ -122,9 +122,21 @@ describe('PluginDetailPage', () => {
     }
     pluginsStore.appendConsole({
       plugin_id: 'weather',
+      stream: 'stdout',
+      text: 'worker ready',
+      timestamp: '2026-03-22T10:00:00Z',
+    })
+    pluginsStore.appendConsole({
+      plugin_id: 'weather',
       stream: 'stderr',
       text: 'Traceback (most recent call last): ...',
       timestamp: '2026-03-22T10:00:01Z',
+    })
+    pluginsStore.appendConsole({
+      plugin_id: 'weather',
+      stream: 'system',
+      text: 'process heartbeat ok',
+      timestamp: '2026-03-22T10:00:01.500Z',
     })
     pluginsStore.appendOutboundLog({
       log_id: 'log_weather_outbound_0001',
@@ -154,9 +166,11 @@ describe('PluginDetailPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('当前状态')
-    expect(wrapper.text()).toContain('包与运行信息')
+    expect(wrapper.text()).toContain('运行摘要')
+    expect(wrapper.text()).toContain('包信息')
+    expect(wrapper.text()).toContain('来源信息')
     expect(wrapper.text()).toContain('Manifest 元数据')
+    expect(wrapper.text()).toContain('详细信息')
     expect(wrapper.text()).toContain('运行配置')
     expect(wrapper.text()).toContain('已注册指令')
     expect(wrapper.text()).toContain('权限与授权')
@@ -179,10 +193,16 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('手动授权')
     expect(wrapper.text()).toContain('查询天气')
     expect(wrapper.text()).toContain('member')
+    expect(wrapper.text()).toContain('4 条输出')
+    expect(wrapper.text()).toContain('worker ready')
     expect(wrapper.text()).toContain('Traceback (most recent call last): ...')
+    expect(wrapper.text()).toContain('process heartbeat ok')
     expect(wrapper.text()).toContain('plugin weather command weather delivered group message: 杭州晴')
-    expect(wrapper.text()).toContain('outbound')
-    expect(wrapper.text()).toContain('info')
+    expect(wrapper.text()).toContain('标准输出')
+    expect(wrapper.text()).toContain('错误输出')
+    expect(wrapper.text()).toContain('系统')
+    expect(wrapper.text()).toContain('外发')
+    expect(wrapper.text()).toContain('信息')
     expect(wrapper.text()).toContain('当前插件指令')
     expect(wrapper.text()).toContain('当前插件日志')
     expect(wrapper.text()).toContain('Weather')
@@ -191,10 +211,11 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('已识别')
     expect(wrapper.text()).toContain('weather')
     expect(wrapper.find('.console-terminal').exists()).toBe(true)
+    expect(wrapper.findAll('.console-terminal-line')).toHaveLength(4)
     expect(wrapper.findAll('.plugin-holo-button')).toHaveLength(1)
     expect(wrapper.findComponent({ name: 'PluginCommandsPanel' }).exists()).toBe(true)
 
-    const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('重新连接'))
+    const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.attributes('aria-label') === '重新连接')
     expect(reconnectButton).toBeTruthy()
     await reconnectButton!.trigger('click')
 
