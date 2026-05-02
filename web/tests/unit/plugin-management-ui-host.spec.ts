@@ -350,5 +350,7 @@ describe('PluginManagementUIHost', () => {
 
     expect(wrapper.text()).toContain('插件页面未打开')
     expect(wrapper.text()).toContain('插件页面发送了无效消息，当前页面已停止交互。')
+    expect(wrapper.find('[data-testid="vben-fallback"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('返回首页')
   })
 })

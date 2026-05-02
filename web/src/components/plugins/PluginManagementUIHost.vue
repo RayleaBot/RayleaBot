@@ -564,6 +564,7 @@ onBeforeUnmount(() => {
       :title="t('plugins.managementUi.loadFailed')"
       :description="fatalError"
       :loading="false"
+      variant="compact"
       @retry="retryLoad"
     />
 

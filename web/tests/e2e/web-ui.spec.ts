@@ -32,6 +32,14 @@ async function closeSocket(
   })
 }
 
+async function setBackendNetworkOffline(request: import('@playwright/test').APIRequestContext) {
+  await request.post(`${backendUrl}/__test/network-offline`)
+}
+
+async function setBackendNetworkOnline(request: import('@playwright/test').APIRequestContext) {
+  await request.post(`${backendUrl}/__test/network-online`)
+}
+
 async function pushLogsInBatches(
   request: import('@playwright/test').APIRequestContext,
   count: number,
@@ -2409,19 +2417,37 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
   await login(page)
 
   await page.goto('/plugins')
-  await expect(page.getByText('读取未完成，请稍后重试。').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '哎呀！出错了' })).toBeVisible()
   await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByText('weather').first()).toBeVisible()
 
   const weatherRow = pluginRows(page).filter({ hasText: 'Weather' })
   await weatherRow.getByRole('button', { name: '查看详情' }).click()
-  await expect(page.getByText('读取未完成，请稍后重试。').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '哎呀！出错了' })).toBeVisible()
   await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
 
   await page.getByRole('button', { name: /卸\s*载/ }).click()
   await page.getByRole('button', { name: /确认卸载/ }).click()
   await expect(page.getByText('缺少必要资源')).toBeVisible()
+})
+
+test('fallback pages cover missing routes and server offline recovery', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/missing-admin-page')
+  await expect(page.getByRole('heading', { name: '哎呀！未找到页面' })).toBeVisible()
+
+  await page.goto('/commands')
+  await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
+
+  await setBackendNetworkOffline(request)
+  await expect(page.getByRole('heading', { name: '哎呀！网络错误' })).toBeVisible({ timeout: 7000 })
+
+  await setBackendNetworkOnline(request)
+  await page.getByRole('button', { name: '重新检测' }).click()
+  await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
 })
 
 test('shutdown flow shows the draining banner', async ({ page, request }) => {
@@ -2433,6 +2459,7 @@ test('shutdown flow shows the draining banner', async ({ page, request }) => {
 
   await expect(page.getByText('服务正在停止', { exact: true })).toBeVisible()
   await expect(page.getByText('停机请求已发送')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '哎呀！网络错误' })).toBeVisible({ timeout: 7000 })
 })
 
 test('mobile navigation and card layouts remain usable', async ({ page, request }) => {

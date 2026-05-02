@@ -25,6 +25,10 @@ export const routes = {
   system: '系统',
   config: '配置',
   renderTemplates: '模板预览',
+  forbidden: '403',
+  notFound: '404',
+  serverError: '500',
+  offline: '离线页面',
   login: '登录',
   setup: '创建管理员账号',
 } as const
@@ -112,5 +116,31 @@ export const shell = {
     transitionFade: '淡入淡出',
     transitionFadeSlide: '滑入淡入',
     transitionNone: '关闭动画',
+  },
+} as const
+
+export const fallback = {
+  actions: {
+    backHome: '返回首页',
+    retry: '重试',
+    recheck: '重新检测',
+  },
+  status: {
+    403: {
+      title: '哎呀！访问被拒绝',
+      description: '抱歉，您没有权限访问此页面。',
+    },
+    404: {
+      title: '哎呀！未找到页面',
+      description: '抱歉，我们无法找到您要找的页面。',
+    },
+    500: {
+      title: '哎呀！出错了',
+      description: '抱歉，服务器遇到错误。',
+    },
+    offline: {
+      title: '哎呀！网络错误',
+      description: '抱歉，无法连接到服务，请检查网络连接并重试。',
+    },
   },
 } as const

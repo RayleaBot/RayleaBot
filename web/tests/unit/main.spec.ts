@@ -5,6 +5,7 @@ const createAppRouter = vi.fn()
 const createApp = vi.fn()
 const createPinia = vi.fn()
 const useUiShellStore = vi.fn()
+const appAvailabilityStoreFactory = vi.fn()
 const watch = vi.fn()
 const sessionStoreFactory = vi.fn()
 const socketStoreFactory = vi.fn()
@@ -31,6 +32,10 @@ vi.mock('pinia', () => ({
 
 vi.mock('@/stores/ui-shell', () => ({
   useUiShellStore,
+}))
+
+vi.mock('@/stores/app-availability', () => ({
+  useAppAvailabilityStore: appAvailabilityStoreFactory,
 }))
 
 vi.mock('vue', () => ({
@@ -101,6 +106,18 @@ describe('web bootstrap', () => {
     socketStoreFactory.mockReturnValue({
       ensureManagementSockets: vi.fn(),
       disconnectAll: vi.fn(),
+      snapshots: {
+        events: { status: 'authenticated' },
+        tasks: { status: 'authenticated' },
+        logs: { status: 'authenticated' },
+      },
+    })
+
+    appAvailabilityStoreFactory.mockReturnValue({
+      isOffline: false,
+      returnPath: null,
+      markOffline: vi.fn(),
+      markOnline: vi.fn(),
     })
 
     useUiShellStore.mockReturnValue({})
@@ -108,19 +125,35 @@ describe('web bootstrap', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('forwards unauthorized token snapshots to the session store handler', async () => {
     await import('@/main')
 
-    expect(configureApiRuntime).toHaveBeenCalledTimes(1)
+    expect(configureApiRuntime).toHaveBeenCalled()
 
-    const runtime = configureApiRuntime.mock.calls[0]?.[0]
+    const runtime = configureApiRuntime.mock.calls
+      .map((call) => call[0])
+      .find((config) => typeof config.onUnauthorized === 'function')
     const sessionStore = sessionStoreFactory.mock.results[0]?.value
 
     runtime.onUnauthorized('stale-token')
 
     expect(sessionStore.handleSessionExpired).toHaveBeenCalledWith('stale-token')
+  })
+
+  it('preserves the current deep link when startup detects offline state', async () => {
+    window.history.replaceState({}, '', '/plugins/settings?panel=limits#rate')
+
+    await import('@/main')
+
+    const startupRuntime = configureApiRuntime.mock.calls[0]?.[0]
+    const availabilityStore = appAvailabilityStoreFactory.mock.results[0]?.value
+
+    startupRuntime.onNetworkUnavailable()
+
+    expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins/settings?panel=limits#rate')
   })
 
   it('does not redirect back to login before consuming a launcher token', async () => {
@@ -192,5 +225,79 @@ describe('web bootstrap', () => {
     expect(sessionStore.admitLauncherToken).toHaveBeenCalledWith('launcher_token_fixture_0001')
     expect(sessionStore.token).toBe('launcher-session-token')
     expect(sessionStore.clearSession).not.toHaveBeenCalled()
+  })
+
+  it('opens the offline page after core websocket reconnecting persists', async () => {
+    vi.useFakeTimers()
+    const watchers: Array<{
+      callback: (nextValue: unknown, oldValue?: unknown) => unknown
+      source: () => unknown
+    }> = []
+    const router = {
+      currentRoute: {
+        value: {
+          fullPath: '/commands',
+          name: 'commands',
+          meta: { requiresAuth: true },
+        },
+      },
+      isReady: vi.fn().mockResolvedValue(undefined),
+      push: vi.fn(),
+      replace: vi.fn(),
+    }
+    const sessionStore = {
+      token: 'fixture-token',
+      isAuthenticated: true,
+      isBootstrapped: true,
+      requiresSetup: false,
+      setupInitialized: true,
+      bootstrap: vi.fn().mockResolvedValue(undefined),
+      admitLauncherToken: vi.fn(),
+      clearSession: vi.fn(),
+      handleSessionExpired: vi.fn(),
+      setLauncherAdmissionHint: vi.fn(),
+    }
+    const socketStore = {
+      ensureManagementSockets: vi.fn(),
+      disconnectAll: vi.fn(),
+      snapshots: {
+        events: { status: 'authenticated' },
+        tasks: { status: 'authenticated' },
+        logs: { status: 'authenticated' },
+      },
+    }
+    const availabilityStore = {
+      isOffline: false,
+      returnPath: null,
+      markOffline: vi.fn(),
+      markOnline: vi.fn(),
+    }
+
+    createAppRouter.mockReturnValue(router)
+    sessionStoreFactory.mockReturnValue(sessionStore)
+    socketStoreFactory.mockReturnValue(socketStore)
+    appAvailabilityStoreFactory.mockReturnValue(availabilityStore)
+    watch.mockImplementation((source, callback, options) => {
+      watchers.push({ source, callback })
+      if (options?.immediate) {
+        callback(source(), undefined)
+      }
+    })
+
+    await import('@/main')
+    await flushBootstrap()
+
+    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 5)
+    expect(websocketWatcher).toBeDefined()
+
+    socketStore.snapshots.events.status = 'reconnecting'
+    websocketWatcher!.callback(websocketWatcher!.source())
+
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(router.replace).not.toHaveBeenCalledWith({ name: 'offline' })
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(availabilityStore.markOffline).toHaveBeenCalledWith('websocket', '/commands')
+    expect(router.replace).toHaveBeenCalledWith({ name: 'offline' })
   })
 })

@@ -149,6 +149,7 @@ function baseState() {
       failUninstallOnce: false,
       failPluginEnableScopeChangedOnce: false,
     },
+    networkOffline: false,
   }
 }
 
@@ -531,13 +532,17 @@ function broadcast(channel, frame) {
   }
 }
 
-function resetState(payload = {}) {
+function closeAllSockets() {
   for (const channel of Object.keys(sockets)) {
     for (const socket of sockets[channel]) {
       socket.close()
     }
     sockets[channel].clear()
   }
+}
+
+function resetState(payload = {}) {
+  closeAllSockets()
 
   state = baseState()
   state.initialized = Boolean(payload.initialized)
@@ -546,6 +551,7 @@ function resetState(payload = {}) {
     ...state.failures,
     ...(payload.failures ?? {}),
   }
+  state.networkOffline = false
 }
 
 function takeFailureFlag(name) {
@@ -1234,6 +1240,24 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/__test/network-offline' && request.method === 'POST') {
+    state.networkOffline = true
+    closeAllSockets()
+    json(response, 200, { ok: true })
+    return
+  }
+
+  if (pathname === '/__test/network-online' && request.method === 'POST') {
+    state.networkOffline = false
+    json(response, 200, { ok: true })
+    return
+  }
+
+  if (state.networkOffline) {
+    request.socket.destroy()
+    return
+  }
+
   if (pathname === '/api/governance/blacklist/entries' && request.method === 'POST') {
     if (!requireAuth(request, response)) {
       return
@@ -1347,6 +1371,10 @@ const server = http.createServer(async (request, response) => {
 
     state.systemStatus.status = 'shutting_down'
     json(response, fixtures.systemShutdown.response.status, fixtures.systemShutdown.response.body)
+    setTimeout(() => {
+      state.networkOffline = true
+      closeAllSockets()
+    }, 50)
     return
   }
 
@@ -1890,6 +1918,11 @@ wsServer.on('connection', (socket, request) => {
 })
 
 server.on('upgrade', (request, socket, head) => {
+  if (state.networkOffline) {
+    socket.destroy()
+    return
+  }
+
   wsServer.handleUpgrade(request, socket, head, (connection) => {
     wsServer.emit('connection', connection, request)
   })

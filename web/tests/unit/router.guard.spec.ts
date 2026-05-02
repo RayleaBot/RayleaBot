@@ -3,6 +3,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppRouter, routes } from '@/router'
+import { useAppAvailabilityStore } from '@/stores/app-availability'
+import { useUiShellStore } from '@/stores/ui-shell'
 
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -14,6 +16,7 @@ function jsonResponse(body: unknown) {
 describe('router guards', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    window.sessionStorage.clear()
   })
 
   it('redirects to setup when setup is required', async () => {
@@ -60,5 +63,51 @@ describe('router guards', () => {
     expect(routePaths.has('/permission-policy')).toBe(true)
     expect(routePaths.has('/access-lists')).toBe(true)
     expect(routePaths.has('/governance')).toBe(false)
+  })
+
+  it('registers Vben fallback routes and redirects unmatched paths to 404', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
+    window.sessionStorage.setItem('rayleabot.session_token', 'fixture-session-token')
+    const router = createAppRouter(createMemoryHistory())
+
+    await router.push('/missing-page')
+    await router.isReady()
+
+    expect(router.currentRoute.value.name).toBe('not-found')
+    expect(router.currentRoute.value.path).toBe('/missing-page')
+  })
+
+  it('lets offline state own protected navigation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
+    const availabilityStore = useAppAvailabilityStore()
+    availabilityStore.markOffline('http', '/commands')
+    const router = createAppRouter(createMemoryHistory())
+
+    await router.push('/commands')
+    await router.isReady()
+
+    expect(router.currentRoute.value.name).toBe('offline')
+  })
+
+  it('opens the offline page when a route chunk cannot be loaded', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
+    const availabilityStore = useAppAvailabilityStore()
+    const uiShellStore = useUiShellStore()
+    uiShellStore.setRouteLoading(true)
+    const router = createAppRouter(createMemoryHistory())
+    router.addRoute({
+      path: '/broken-chunk',
+      name: 'broken-chunk',
+      component: () => Promise.reject(new Error('Failed to fetch dynamically imported module')),
+    })
+
+    await router.push('/broken-chunk').catch(() => undefined)
+    await Promise.resolve()
+    await Promise.resolve()
+    await new Promise((resolve) => window.setTimeout(resolve, 180))
+
+    expect(availabilityStore.isOffline).toBe(true)
+    expect(uiShellStore.routeLoading).toBe(false)
+    expect(router.currentRoute.value.name).toBe('offline')
   })
 })

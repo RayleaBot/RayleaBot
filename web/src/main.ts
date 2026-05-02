@@ -8,6 +8,7 @@ import { installAntDesignVue } from '@/plugins/antd'
 import { toLauncherAdmissionHint } from '@/lib/auth-feedback'
 import { configureApiRuntime } from '@/request/http'
 import { createAppRouter } from '@/router'
+import { useAppAvailabilityStore } from '@/stores/app-availability'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
 import { useUiShellStore } from '@/stores/ui-shell'
@@ -18,6 +19,15 @@ import '@/styles/main.scss'
 const initialLauncherToken = typeof window === 'undefined'
   ? null
   : new URL(window.location.href).searchParams.get('token')?.trim() || null
+const websocketOfflineDelayMs = 2000
+
+function currentBrowserPath() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
 
 async function consumeLauncherTokenQuery(
   sessionStore: ReturnType<typeof useSessionStore>,
@@ -72,6 +82,81 @@ async function syncRouteWithSession(
   }
 }
 
+function installAvailabilityHandlers(
+  router: ReturnType<typeof createAppRouter>,
+  sessionStore: ReturnType<typeof useSessionStore>,
+  socketStore: ReturnType<typeof useSocketStore>,
+  availabilityStore: ReturnType<typeof useAppAvailabilityStore>,
+) {
+  let websocketOfflineTimer: number | null = null
+
+  function clearWebsocketOfflineTimer() {
+    if (websocketOfflineTimer !== null) {
+      window.clearTimeout(websocketOfflineTimer)
+      websocketOfflineTimer = null
+    }
+  }
+
+  function openOfflinePage(source: 'browser' | 'http' | 'websocket') {
+    const current = router.currentRoute.value
+    availabilityStore.markOffline(source, current.name === 'offline' ? availabilityStore.returnPath : current.fullPath)
+
+    if (current.name !== 'offline') {
+      void router.replace({ name: 'offline' })
+    }
+  }
+
+  configureApiRuntime({
+    onNetworkUnavailable: () => openOfflinePage('http'),
+    onReachable: () => availabilityStore.markOnline(),
+  })
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('offline', () => openOfflinePage('browser'))
+  }
+
+  watch(
+    () => [
+      sessionStore.isAuthenticated,
+      socketStore.snapshots.events.status,
+      socketStore.snapshots.tasks.status,
+      socketStore.snapshots.logs.status,
+      router.currentRoute.value.name,
+    ] as const,
+    ([isAuthenticated, eventsStatus, tasksStatus, logsStatus, routeName]) => {
+      const shouldWatchSockets = isAuthenticated && routeName !== 'offline' && !availabilityStore.isOffline
+      const hasReconnectingCoreSocket = [eventsStatus, tasksStatus, logsStatus].some((status) => status === 'reconnecting')
+
+      if (!shouldWatchSockets || !hasReconnectingCoreSocket) {
+        clearWebsocketOfflineTimer()
+        return
+      }
+
+      if (websocketOfflineTimer !== null) {
+        return
+      }
+
+      websocketOfflineTimer = window.setTimeout(() => {
+        websocketOfflineTimer = null
+        const coreStatuses = [
+          socketStore.snapshots.events.status,
+          socketStore.snapshots.tasks.status,
+          socketStore.snapshots.logs.status,
+        ]
+
+        if (
+          sessionStore.isAuthenticated
+          && router.currentRoute.value.name !== 'offline'
+          && coreStatuses.some((status) => status === 'reconnecting')
+        ) {
+          openOfflinePage('websocket')
+        }
+      }, websocketOfflineDelayMs)
+    },
+    { immediate: true },
+  )
+}
+
 async function bootstrap() {
   const app = createApp(App)
   const pinia = createPinia()
@@ -82,10 +167,13 @@ async function bootstrap() {
 
   const sessionStore = useSessionStore(pinia)
   const socketStore = useSocketStore(pinia)
+  const availabilityStore = useAppAvailabilityStore(pinia)
   useUiShellStore(pinia)
 
   configureApiRuntime({
     getToken: () => sessionStore.token,
+    onNetworkUnavailable: () => availabilityStore.markOffline('http', currentBrowserPath()),
+    onReachable: () => availabilityStore.markOnline(),
     onUnauthorized: (tokenSnapshot) => sessionStore.handleSessionExpired(tokenSnapshot),
   })
 
@@ -93,9 +181,13 @@ async function bootstrap() {
   await consumeLauncherTokenQuery(sessionStore, initialLauncherToken)
 
   const router = createAppRouter()
+  installAvailabilityHandlers(router, sessionStore, socketStore, availabilityStore)
   app.use(router)
 
   await router.isReady()
+  if (availabilityStore.isOffline && router.currentRoute.value.name !== 'offline') {
+    await router.replace({ name: 'offline' })
+  }
   await syncRouteWithSession(router, sessionStore, socketStore)
 
   watch(

@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router'
 
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
+import ExceptionView from '@/views/core/ExceptionView.vue'
 
 export const adminRoutes: RouteRecordRaw[] = [
   {
@@ -258,6 +259,76 @@ export const adminRoutes: RouteRecordRaw[] = [
             },
           },
         ],
+      },
+      {
+        path: '/403',
+        name: 'forbidden',
+        component: ExceptionView,
+        props: { status: '403' },
+        meta: {
+          exceptionStatus: '403',
+          hideInMenu: true,
+          icon: 'forbidden',
+          requiresAuth: true,
+          titleKey: 'routes.forbidden',
+          viewKey: 'forbidden',
+        },
+      },
+      {
+        path: '/404',
+        name: 'not-found-page',
+        component: ExceptionView,
+        props: { status: '404' },
+        meta: {
+          exceptionStatus: '404',
+          hideInMenu: true,
+          icon: 'not-found',
+          requiresAuth: true,
+          titleKey: 'routes.notFound',
+          viewKey: 'not-found-page',
+        },
+      },
+      {
+        path: '/500',
+        name: 'server-error',
+        component: ExceptionView,
+        props: { status: '500' },
+        meta: {
+          exceptionStatus: '500',
+          hideInMenu: true,
+          icon: 'server-error',
+          requiresAuth: true,
+          titleKey: 'routes.serverError',
+          viewKey: 'server-error',
+        },
+      },
+      {
+        path: '/offline',
+        name: 'offline',
+        component: ExceptionView,
+        props: { status: 'offline' },
+        meta: {
+          exceptionStatus: 'offline',
+          hideInMenu: true,
+          icon: 'offline',
+          public: true,
+          requiresAuth: false,
+          titleKey: 'routes.offline',
+          viewKey: 'offline',
+        },
+      },
+      {
+        path: '/:pathMatch(.*)*',
+        name: 'not-found',
+        component: ExceptionView,
+        props: { status: '404' },
+        meta: {
+          exceptionStatus: '404',
+          hideInMenu: true,
+          icon: 'not-found',
+          requiresAuth: true,
+          titleKey: 'routes.notFound',
+        },
       },
     ],
   },

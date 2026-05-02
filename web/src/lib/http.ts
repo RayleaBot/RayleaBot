@@ -27,17 +27,29 @@ export class ApiError extends Error {
 
 interface RuntimeConfig {
   getToken: () => string | null
+  onNetworkUnavailable: (path: string, error: Error) => void
+  onReachable: (path: string, status: number) => void
   onUnauthorized: (tokenSnapshot: string | null) => void
 }
 
 const runtime: RuntimeConfig = {
   getToken: () => null,
+  onNetworkUnavailable: () => undefined,
+  onReachable: () => undefined,
   onUnauthorized: () => undefined,
 }
 
 export function configureApiRuntime(config: Partial<RuntimeConfig>) {
   if (config.getToken) {
     runtime.getToken = config.getToken
+  }
+
+  if (config.onNetworkUnavailable) {
+    runtime.onNetworkUnavailable = config.onNetworkUnavailable
+  }
+
+  if (config.onReachable) {
+    runtime.onReachable = config.onReachable
   }
 
   if (config.onUnauthorized) {
@@ -122,6 +134,22 @@ function normalizeRequestError(error: unknown, callerAborted: boolean) {
   return new ApiError('请求失败。', 0)
 }
 
+function isNetworkUnavailableError(error: unknown, callerAborted: boolean) {
+  if (callerAborted) {
+    return false
+  }
+
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return false
+  }
+
+  if (error instanceof TypeError) {
+    return true
+  }
+
+  return error instanceof Error && /failed to fetch|network|load failed/i.test(error.message)
+}
+
 async function readResponsePayload(response: Response) {
   if (response.status === 204) {
     return undefined
@@ -170,11 +198,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch (error) {
-    throw normalizeRequestError(error, Boolean(callerSignal?.aborted))
+    const normalizedError = normalizeRequestError(error, Boolean(callerSignal?.aborted))
+    if (isNetworkUnavailableError(error, Boolean(callerSignal?.aborted))) {
+      runtime.onNetworkUnavailable(path, normalizedError)
+    }
+    throw normalizedError
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 
+  runtime.onReachable(path, response.status)
   const payload = await readResponsePayload(response)
 
   if (!response.ok && !acceptStatuses.includes(response.status)) {
@@ -210,11 +243,16 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch (error) {
-    throw normalizeRequestError(error, Boolean(callerSignal?.aborted))
+    const normalizedError = normalizeRequestError(error, Boolean(callerSignal?.aborted))
+    if (isNetworkUnavailableError(error, Boolean(callerSignal?.aborted))) {
+      runtime.onNetworkUnavailable(path, normalizedError)
+    }
+    throw normalizedError
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 
+  runtime.onReachable(path, response.status)
   if (!response.ok) {
     const payload = await readResponsePayload(response)
 

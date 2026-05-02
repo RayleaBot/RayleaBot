@@ -1,4 +1,4 @@
-import { app, routes, shell } from './zh-CN/app'
+import { app, fallback, routes, shell } from './zh-CN/app'
 import { dashboard } from './zh-CN/dashboard'
 import { commands } from './zh-CN/commands'
 import { permissionPolicy } from './zh-CN/permission-policy'
@@ -16,6 +16,7 @@ import { errors } from './zh-CN/errors'
 
 export const zhCN = {
   app,
+  fallback,
   routes,
   shell,
   dashboard,

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type Router, type RouterHistory, type RouteRecordRaw } from 'vue-router'
 
 import { useSessionStore } from '@/stores/session'
+import { useAppAvailabilityStore } from '@/stores/app-availability'
 import { useUiShellStore } from '@/stores/ui-shell'
 import { publicRoutes } from '@/router/routes/core'
 import { adminRoutes } from '@/router/routes/modules/admin'
@@ -11,6 +12,7 @@ declare module 'vue-router' {
     affixTab?: boolean
     affixTabOrder?: number
     entryPath?: string
+    exceptionStatus?: '403' | '404' | '500' | 'offline'
     hideInBreadcrumb?: boolean
     hideInMenu?: boolean
     hideInTab?: boolean
@@ -30,7 +32,38 @@ export const routes: RouteRecordRaw[] = [...publicRoutes, ...adminRoutes]
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({ history, routes })
   installRouteGuards(router)
+  installRouteErrorHandler(router)
   return router
+}
+
+function isRouteAssetLoadError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return /dynamically imported module|loading chunk|unable to preload|importing a module script failed/i.test(error.message)
+}
+
+function installRouteErrorHandler(router: Router) {
+  router.onError((error) => {
+    const uiShellStore = useUiShellStore()
+    uiShellStore.setRouteLoading(false)
+
+    if (isRouteAssetLoadError(error)) {
+      const availabilityStore = useAppAvailabilityStore()
+      const current = router.currentRoute.value
+      availabilityStore.markOffline('http', current.name === 'offline' ? availabilityStore.returnPath : current.fullPath)
+
+      if (current.name !== 'offline') {
+        void router.replace({ name: 'offline' }).catch(() => undefined)
+      }
+      return
+    }
+
+    if (router.currentRoute.value.name !== 'server-error') {
+      void router.replace({ name: 'server-error' }).catch(() => undefined)
+    }
+  })
 }
 
 function installRouteGuards(router: Router) {
@@ -38,6 +71,7 @@ function installRouteGuards(router: Router) {
 
   router.beforeEach(async (to) => {
     const sessionStore = useSessionStore()
+    const availabilityStore = useAppAvailabilityStore()
     const uiShellStore = useUiShellStore()
 
     if (typeof window !== 'undefined' && loadingTimer) {
@@ -49,10 +83,22 @@ function installRouteGuards(router: Router) {
       uiShellStore.setRouteLoading(true)
     }
 
+    if (to.name === 'offline') {
+      return true
+    }
+
+    if (availabilityStore.isOffline) {
+      return { name: 'offline' }
+    }
+
     if (!sessionStore.isBootstrapped) {
       try {
         await sessionStore.bootstrap()
       } catch {
+        if (availabilityStore.isOffline) {
+          return { name: 'offline' }
+        }
+
         if (to.meta.requiresAuth) {
           return { name: 'login' }
         }
