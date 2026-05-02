@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body class="theme-{{ .Theme }}">
+    <main class="leaderboard" aria-label="排行榜">
+      <header class="leaderboard__header">
+        <div class="leaderboard__title-group">
+          <p class="leaderboard__eyebrow">Leaderboard</p>
+          <h1>{{ .title }}</h1>
+          {{ if .subtitle }}<p class="leaderboard__subtitle">{{ .subtitle }}</p>{{ end }}
+        </div>
+        <div class="leaderboard__value-label">
+          {{ if .value_label }}{{ .value_label }}{{ else }}数值{{ end }}
+        </div>
+      </header>
+
+      <section class="leaderboard__list">
+        {{ range .items }}
+        {{ $nickname := "成员" }}
+        {{ $groupNickname := "" }}
+        {{ $avatarURL := "" }}
+        {{ $title := "" }}
+        {{ with .nickname }}{{ $nickname = printf "%v" . }}{{ end }}
+        {{ with .group_nickname }}{{ $groupNickname = printf "%v" . }}{{ end }}
+        {{ with .avatar_url }}{{ $avatarURL = printf "%v" . }}{{ end }}
+        {{ with .title }}{{ $title = printf "%v" . }}{{ end }}
+        <article class="leaderboard__item">
+          <div class="leaderboard__rank" aria-label="排名"></div>
+          <div class="leaderboard__avatar">
+            {{ if $avatarURL }}
+            <img src="{{ $avatarURL }}" alt="" />
+            {{ else if $groupNickname }}
+            <span>{{ $groupNickname }}</span>
+            {{ else }}
+            <span>{{ $nickname }}</span>
+            {{ end }}
+          </div>
+          <div class="leaderboard__member">
+            <div class="leaderboard__name-line">
+              {{ if $groupNickname }}
+              <span class="leaderboard__group-name">{{ $groupNickname }}</span>
+              <span class="leaderboard__nickname">（{{ $nickname }}）</span>
+              {{ else }}
+              <span class="leaderboard__group-name">{{ $nickname }}</span>
+              {{ end }}
+              {{ if $title }}<span class="leaderboard__title-badge">{{ $title }}</span>{{ end }}
+            </div>
+          </div>
+          <div class="leaderboard__value">{{ .value }}</div>
+        </article>
+        {{ end }}
+      </section>
+    </main>
+  </body>
+</html>

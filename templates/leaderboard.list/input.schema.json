@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["title", "items"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "value_label": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["nickname", "value"],
+        "properties": {
+          "avatar_url": {
+            "type": "string"
+          },
+          "group_nickname": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "value": {
+            "type": ["string", "number"]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "examples": [
+    {
+      "title": "本周发言榜",
+      "subtitle": "统计周期：2026-05-01 至 2026-05-07",
+      "value_label": "发言数",
+      "items": [
+        {
+          "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=10001&s=100",
+          "group_nickname": "银蝶",
+          "nickname": "Silver",
+          "title": "群主",
+          "value": 128
+        },
+        {
+          "group_nickname": "青空观测员",
+          "nickname": "Aoi",
+          "title": "活跃成员",
+          "value": 96
+        },
+        {
+          "nickname": "Nova",
+          "value": 81
+        }
+      ]
+    }
+  ],
+  "additionalProperties": true
+}

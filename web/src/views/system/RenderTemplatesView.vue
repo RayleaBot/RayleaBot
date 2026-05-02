@@ -11,7 +11,11 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { apiDownload } from '@/lib/http'
 import { getTaskStatusLabel } from '@/lib/display'
-import { buildRenderTemplateSchemaNodes, parseRenderTemplatePreviewData } from '@/lib/render-template-editor'
+import {
+  buildRenderTemplatePreviewSample,
+  buildRenderTemplateSchemaNodes,
+  parseRenderTemplatePreviewData,
+} from '@/lib/render-template-editor'
 import { t } from '@/i18n'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import { useSystemStore } from '@/stores/system'
@@ -132,7 +136,7 @@ function formatTemplateSize(width?: number, height?: number) {
   return `宽度 ${width}px · 高度自适应（初始 ${height}px）`
 }
 
-function buildDefaultPreviewData(templateId: string) {
+function buildDefaultPreviewData(templateId: string, schema: Record<string, unknown> | null = null) {
   if (templateId === 'help.menu') {
     return JSON.stringify({
       title: '帮助菜单',
@@ -183,14 +187,23 @@ function buildDefaultPreviewData(templateId: string) {
     }, null, 2)
   }
 
-  return '{}'
+  if (schema) {
+    return JSON.stringify(buildRenderTemplatePreviewSample(schema), null, 2)
+  }
+
+  return ''
 }
 
 function ensurePreviewDefaults(templateId: string) {
   if (!previewDataByTemplate.value[templateId]) {
+    const previewData = buildDefaultPreviewData(templateId, detailById.value[templateId]?.input_schema_json ?? null)
+    if (!previewData) {
+      return
+    }
+
     previewDataByTemplate.value = {
       ...previewDataByTemplate.value,
-      [templateId]: buildDefaultPreviewData(templateId),
+      [templateId]: previewData,
     }
   }
 }
@@ -324,8 +337,8 @@ async function syncRouteTemplate() {
     return
   }
 
-  ensurePreviewDefaults(activeTemplateId.value)
   await loadTemplateWorkspace(activeTemplateId.value)
+  ensurePreviewDefaults(activeTemplateId.value)
 }
 
 async function selectTemplate(templateId: string) {

@@ -253,6 +253,78 @@ func TestServiceRenderRequestsAdaptiveDocumentHeight(t *testing.T) {
 	}
 }
 
+func TestServiceRenderLeaderboardListTemplate(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Join("..", "..", "..")
+	outputRoot := filepath.Join(t.TempDir(), "render-leaderboard")
+	runner := &fakeRunner{}
+	store := openRenderTestStore(t)
+
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         outputRoot,
+		Store:              store,
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	_, err = service.Render(context.Background(), Request{
+		Template: "leaderboard.list",
+		Theme:    "default",
+		Output:   "png",
+		Data: map[string]any{
+			"title":       "本周发言榜",
+			"subtitle":    "统计周期：2026-05-01 至 2026-05-07",
+			"value_label": "发言数",
+			"items": []map[string]any{
+				{
+					"avatar_url":      "https://q.qlogo.cn/headimg_dl?dst_uin=10001&spec=640",
+					"group_nickname": "银蝶",
+					"nickname":       "Silver",
+					"title":          "群主",
+					"value":          128,
+				},
+				{
+					"nickname": "Nova",
+					"value":    81,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatalf("expected render document")
+	}
+	if !doc.AutoHeight {
+		t.Fatalf("expected render document to request adaptive height")
+	}
+	if doc.Width != 960 || doc.Height != 420 {
+		t.Fatalf("unexpected initial render dimensions: got %dx%d", doc.Width, doc.Height)
+	}
+	for _, want := range []string{"银蝶", "（Silver）", "群主", "Nova", "128", "81"} {
+		if !strings.Contains(doc.HTML, want) {
+			t.Fatalf("leaderboard html missing %q:\n%s", want, doc.HTML)
+		}
+	}
+}
+
 func TestServiceRenderRejectsInputTooLarge(t *testing.T) {
 	t.Parallel()
 

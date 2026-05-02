@@ -44,6 +44,60 @@ const HELP_MENU_ALTERNATE_PREVIEW_DATA = JSON.stringify({
 }, null, 2)
 
 function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T10:30:00Z') {
+  if (templateId === 'leaderboard.list') {
+    return {
+      id: 'leaderboard.list',
+      version: '1',
+      width: 960,
+      height: 420,
+      has_input_schema: true,
+      updated_at: updatedAt,
+      input_schema_json: {
+        type: 'object',
+        required: ['title', 'items'],
+        properties: {
+          title: { type: 'string', description: '排行榜标题' },
+          subtitle: { type: 'string', description: '副标题' },
+          value_label: { type: 'string', description: '数值列标签' },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['nickname', 'value'],
+              properties: {
+                avatar_url: { type: 'string' },
+                group_nickname: { type: 'string' },
+                nickname: { type: 'string' },
+                title: { type: 'string' },
+                value: { type: ['string', 'number'] },
+              },
+            },
+          },
+        },
+        examples: [
+          {
+            title: '本周发言榜',
+            subtitle: '统计周期：2026-05-01 至 2026-05-07',
+            value_label: '发言数',
+            items: [
+              {
+                avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
+                group_nickname: '银蝶',
+                nickname: 'Silver',
+                title: '群主',
+                value: 128,
+              },
+              {
+                nickname: 'Nova',
+                value: 81,
+              },
+            ],
+          },
+        ],
+      },
+    } as const
+  }
+
   if (templateId === 'status.panel') {
     return {
       id: 'status.panel',
@@ -269,6 +323,86 @@ describe('RenderTemplatesView', () => {
 
     expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('JSON 解析失败')
+  })
+
+  it('seeds unknown templates from input schema examples before previewing', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+    const systemStore = useSystemStore()
+    const tasksStore = useTasksStore()
+
+    renderTemplatesStore.items = [
+      {
+        id: 'leaderboard.list',
+        version: '1',
+        width: 960,
+        height: 420,
+        has_input_schema: true,
+        updated_at: '2026-05-03T01:01:04Z',
+      },
+    ]
+
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockImplementation(async () => {
+      const detail = createTemplateDetail('leaderboard.list', '2026-05-03T01:01:04Z')
+      renderTemplatesStore.detailById = {
+        ...renderTemplatesStore.detailById,
+        'leaderboard.list': detail,
+      }
+      renderTemplatesStore.items = [detail]
+      return detail
+    })
+    vi.spyOn(systemStore, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_leaderboard' })
+    vi.spyOn(tasksStore, 'fetchTask').mockImplementation(async () => {
+      tasksStore.items = [
+        {
+          task_id: 'task_render_preview_leaderboard',
+          task_type: 'render.preview',
+          status: 'succeeded',
+          summary: 'render preview for leaderboard.list',
+          result: {
+            summary: 'render preview complete',
+            details: {
+              artifact_id: 'render_preview_leaderboard.png',
+              image_url: '/api/system/render/artifacts/render_preview_leaderboard.png',
+              from_cache: false,
+            },
+          },
+        },
+      ]
+      return tasksStore.items[0]!
+    })
+
+    const { wrapper } = await mountPage('/render/templates/leaderboard.list')
+
+    await vi.advanceTimersByTimeAsync(500)
+    await flushPromises()
+
+    const textarea = wrapper.get('textarea[aria-label="输入数据 JSON"]')
+    expect((textarea.element as HTMLTextAreaElement).value).toContain('本周发言榜')
+    expect((textarea.element as HTMLTextAreaElement).value).toContain('items')
+    expect(systemStore.previewRender).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(systemStore.previewRender).mock.calls[0]![0]).toEqual({
+      template: 'leaderboard.list',
+      data: {
+        title: '本周发言榜',
+        subtitle: '统计周期：2026-05-01 至 2026-05-07',
+        value_label: '发言数',
+        items: [
+          {
+            avatar_url: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100',
+            group_nickname: '银蝶',
+            nickname: 'Silver',
+            title: '群主',
+            value: 128,
+          },
+          {
+            nickname: 'Nova',
+            value: 81,
+          },
+        ],
+      },
+    })
+    expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).toContain('render_preview_leaderboard.png')
   })
 
   it('resubmits unchanged preview data after reloading a changed template', async () => {

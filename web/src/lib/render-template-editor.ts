@@ -137,3 +137,119 @@ export function buildRenderTemplateSchemaNodes(schema: Record<string, unknown> |
   })
   return nodes
 }
+
+function firstSchemaExample(schema: Record<string, unknown>) {
+  if (isPlainObject(schema.default)) {
+    return schema.default
+  }
+
+  if (Array.isArray(schema.examples)) {
+    const example = schema.examples.find((value) => isPlainObject(value))
+    if (isPlainObject(example)) {
+      return example
+    }
+  }
+
+  return null
+}
+
+function firstScalarExample(schema: Record<string, unknown>) {
+  if ('default' in schema && !isPlainObject(schema.default) && !Array.isArray(schema.default)) {
+    return schema.default
+  }
+
+  if (Array.isArray(schema.examples) && schema.examples.length > 0) {
+    const example = schema.examples.find((value) => !isPlainObject(value) && !Array.isArray(value))
+    if (example !== undefined) {
+      return example
+    }
+  }
+
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+    return schema.enum[0]
+  }
+
+  return undefined
+}
+
+function schemaTypes(schema: Record<string, unknown>) {
+  const rawType = schema.type
+  if (Array.isArray(rawType)) {
+    return rawType.filter((value): value is string => typeof value === 'string')
+  }
+  return typeof rawType === 'string' ? [rawType] : []
+}
+
+function sampleStringForKey(key: string) {
+  const normalized = key.toLowerCase()
+  if (normalized.includes('title')) {
+    return '示例标题'
+  }
+  if (normalized.includes('subtitle') || normalized.includes('summary') || normalized.includes('description')) {
+    return '示例说明'
+  }
+  if (normalized.includes('avatar') || normalized.includes('url')) {
+    return 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100'
+  }
+  if (normalized.includes('nickname') || normalized.includes('name')) {
+    return '示例成员'
+  }
+  if (normalized.includes('label')) {
+    return '数值'
+  }
+  if (normalized.includes('status')) {
+    return 'ready'
+  }
+  return '示例文本'
+}
+
+function buildSchemaSampleValue(schema: Record<string, unknown>, key: string): unknown {
+  const objectExample = firstSchemaExample(schema)
+  if (objectExample) {
+    return objectExample
+  }
+
+  const scalarExample = firstScalarExample(schema)
+  if (scalarExample !== undefined) {
+    return scalarExample
+  }
+
+  const types = schemaTypes(schema)
+  if (types.includes('object') || isPlainObject(schema.properties)) {
+    const properties = isPlainObject(schema.properties) ? schema.properties : {}
+    const requiredSet = new Set(
+      Array.isArray(schema.required)
+        ? schema.required.filter((value): value is string => typeof value === 'string')
+        : [],
+    )
+    const keys = Object.keys(properties).filter((propertyKey) => requiredSet.has(propertyKey))
+    return Object.fromEntries(keys.map((propertyKey) => {
+      const propertySchema = properties[propertyKey]
+      return [
+        propertyKey,
+        isPlainObject(propertySchema) ? buildSchemaSampleValue(propertySchema, propertyKey) : null,
+      ]
+    }))
+  }
+
+  if (types.includes('array') || schema.items) {
+    return isPlainObject(schema.items) ? [buildSchemaSampleValue(schema.items, key)] : []
+  }
+
+  if (types.includes('number') || types.includes('integer')) {
+    return 1
+  }
+  if (types.includes('boolean')) {
+    return true
+  }
+  return sampleStringForKey(key)
+}
+
+export function buildRenderTemplatePreviewSample(schema: Record<string, unknown> | null) {
+  if (!schema) {
+    return {}
+  }
+
+  const sample = buildSchemaSampleValue(schema, '')
+  return isPlainObject(sample) ? sample : {}
+}
