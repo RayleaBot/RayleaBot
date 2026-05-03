@@ -31,8 +31,8 @@
 | Server | Go `1.25.8` |
 | Web / Node runtime | Node.js `24.14.0` |
 | JS package manager | `pnpm 10.32.1` |
-| Web UI | Vue `3.5.30` + Vite `8.0.0` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.0.4` + Pinia `3.0.4` |
-| Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.3` + `@vitejs/plugin-react 6.0.1` + `electron-builder 26.8.1` |
+| Web UI | Vue `3.5.30` + Vite `8.0.10` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.0.4` + Pinia `3.0.4` |
+| Launcher runtime | Electron `41.1.0` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Vite `8.0.10` + `@vitejs/plugin-react 6.0.1` + `electron-builder 26.8.1` |
 | Python runtime | Python `3.12.13` |
 | Database | SQLite via `modernc.org/sqlite v1.47.0` |
 | Render | `chromedp 0.14.2` + Chromium 浏览环境 |

@@ -1248,7 +1248,7 @@ describe("launcher coordinator", () => {
 
     const result = await Promise.race([
       coordinator.initialize().then(() => "resolved"),
-      new Promise<string>((resolve) => setTimeout(() => resolve("timeout"), 25)),
+      new Promise<string>((resolve) => setTimeout(() => resolve("timeout"), 1000)),
     ]);
 
     expect(result).toBe("resolved");

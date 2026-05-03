@@ -7,8 +7,8 @@
 | 层 | 冻结选型 |
 |----|----------|
 | Server | Go 1.25.8, `net/http` + chi v5.2.5, `database/sql` + `modernc.org/sqlite` v1.47.0, `coder/websocket` v1.8.14, `log/slog`, `gopkg.in/yaml.v3`, `chromedp` 0.14.2, `pgregory.net/rapid` v1.2.0 |
-| Web UI | Vue 3.5.30, Vite 8.0.0, Ant Design Vue 4.2.6, Vue Vben Admin 5.7.0 对齐方案, Pinia 3.0.4, Vue Router 5.0.4, vue-i18n 11.x, lucide-vue-next, Vben request 风格封装, 原生 WebSocket 受控连接封装, Tailwind CSS 4.x, Vitest 3.2.4, Playwright 1.59.1 |
-| Launcher | Electron 41.1.0, React 18.3.1, Fluent UI React v9, Vite 8.0.3, electron-builder 26.8.1, Vitest 4.1.2 |
+| Web UI | Vue 3.5.30, Vite 8.0.10, Ant Design Vue 4.2.6, Vue Vben Admin 5.7.0 对齐方案, Pinia 3.0.4, Vue Router 5.0.4, vue-i18n 11.x, lucide-vue-next, Vben request 风格封装, 原生 WebSocket 受控连接封装, Tailwind CSS 4.x, Vitest 4.1.5, Playwright 1.59.1 |
+| Launcher | Electron 41.1.0, React 18.3.1, Fluent UI React v9, Vite 8.0.10, electron-builder 26.8.1, Vitest 4.1.5 |
 | 插件 SDK | Python SDK (3.12+) + Node.js SDK (24+), JSONL over stdio |
 | 契约 | OpenAPI 3.1, JSON Schema, YAML |
 
