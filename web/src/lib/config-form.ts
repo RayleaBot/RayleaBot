@@ -359,6 +359,12 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
           type: 'text',
           description: t('config.hints.onebotOptional'),
         },
+        {
+          path: 'onebot.reverse_ws.access_token',
+          label: t('config.fields.onebotAccessToken'),
+          type: 'text',
+          description: t('config.hints.onebotTransportToken'),
+        },
       ],
     },
     {
@@ -375,6 +381,12 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
           label: t('config.fields.onebotForwardWsUrl'),
           type: 'text',
           description: t('config.hints.onebotForwardWs'),
+        },
+        {
+          path: 'onebot.forward_ws.access_token',
+          label: t('config.fields.onebotAccessToken'),
+          type: 'text',
+          description: t('config.hints.onebotTransportToken'),
         },
       ],
     },
@@ -393,6 +405,12 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
           type: 'text',
           description: t('config.hints.onebotHttpTransport'),
         },
+        {
+          path: 'onebot.http_api.access_token',
+          label: t('config.fields.onebotAccessToken'),
+          type: 'text',
+          description: t('config.hints.onebotTransportToken'),
+        },
       ],
     },
     {
@@ -410,17 +428,11 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
           type: 'text',
           description: t('config.hints.onebotHttpTransport'),
         },
-      ],
-    },
-    {
-      key: 'onebot',
-      title: t('config.sections.onebotAuth'),
-      fields: [
         {
-          path: 'onebot.access_token',
+          path: 'onebot.webhook.access_token',
           label: t('config.fields.onebotAccessToken'),
           type: 'text',
-          description: t('config.hints.redacted'),
+          description: t('config.hints.onebotTransportToken'),
         },
       ],
     },

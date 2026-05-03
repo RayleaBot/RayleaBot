@@ -7,28 +7,29 @@
     },
     "onebot": {
       "provider": "standard",
-      "access_token": "__REDACTED__",
       "reverse_ws": {
         "enabled": false,
-        "url": ""
+        "url": "",
+        "access_token": ""
       },
       "forward_ws": {
         "enabled": true,
-        "url": "ws://127.0.0.1:2658"
+        "url": "ws://127.0.0.1:2658",
+        "access_token": "forward-secret"
       },
       "http_api": {
         "enabled": false,
-        "url": ""
+        "url": "",
+        "access_token": ""
       },
       "webhook": {
         "enabled": false,
-        "url": ""
+        "url": "",
+        "access_token": ""
       }
     }
   },
-  "redacted_fields": [
-    "onebot.access_token"
-  ],
+  "redacted_fields": [],
   "restart_required": false,
   "apply_effects": {
     "applied_now": [],

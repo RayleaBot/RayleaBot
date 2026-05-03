@@ -58,6 +58,9 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if got := nestedString(t, document, "onebot", "reverse_ws", "url"); got != "" {
 		t.Fatalf("onebot.reverse_ws.url = %q, want empty", got)
 	}
+	if got := nestedString(t, document, "onebot", "forward_ws", "access_token"); got != "" {
+		t.Fatalf("onebot.forward_ws.access_token = %q, want empty", got)
+	}
 }
 
 func TestLoadMigratesLegacyConfigShape(t *testing.T) {
@@ -116,6 +119,12 @@ func TestLoadMigratesLegacyConfigShape(t *testing.T) {
 	}
 	if got := nestedString(t, document, "adapter", "connect_timeout_seconds"); got != "20" {
 		t.Fatalf("adapter.connect_timeout_seconds = %q, want 20", got)
+	}
+	if _, ok := document["onebot"].(map[string]any)["access_token"]; ok {
+		t.Fatal("legacy onebot.access_token should not remain in canonical document")
+	}
+	if got := nestedString(t, document, "onebot", "forward_ws", "access_token"); got != "" {
+		t.Fatalf("onebot.forward_ws.access_token = %q, want empty", got)
 	}
 }
 
@@ -224,7 +233,7 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	document := newPlanningConfigDocument()
 	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["url"] = ""
 	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["enabled"] = false
-	delete(document["onebot"].(map[string]any), "access_token")
+	delete(document["onebot"].(map[string]any)["forward_ws"].(map[string]any), "access_token")
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
 	if err != nil {
@@ -240,6 +249,38 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	}
 	if got := nestedString(t, saved, "onebot", "forward_ws", "url"); got != "" {
 		t.Fatalf("saved onebot.forward_ws.url = %q, want empty", got)
+	}
+	if got := nestedString(t, saved, "onebot", "forward_ws", "access_token"); got != "" {
+		t.Fatalf("saved onebot.forward_ws.access_token = %q, want empty", got)
+	}
+}
+
+func TestSaveDocumentDropsLegacyOneBotAccessToken(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	document := newPlanningConfigDocument()
+	document["onebot"].(map[string]any)["access_token"] = "legacy-secret"
+	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "forward-secret"
+
+	cfg, _, err := SaveDocument(configPath, schemaPath, document)
+	if err != nil {
+		t.Fatalf("SaveDocument() error = %v", err)
+	}
+	if cfg.OneBot.ForwardWS.AccessToken != "forward-secret" {
+		t.Fatalf("OneBot.ForwardWS.AccessToken = %q, want forward-secret", cfg.OneBot.ForwardWS.AccessToken)
+	}
+
+	saved, err := LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("LoadDocument() error = %v", err)
+	}
+	if _, ok := saved["onebot"].(map[string]any)["access_token"]; ok {
+		t.Fatal("legacy onebot.access_token should not be persisted")
+	}
+	if got := nestedString(t, saved, "onebot", "forward_ws", "access_token"); got != "forward-secret" {
+		t.Fatalf("saved onebot.forward_ws.access_token = %q, want forward-secret", got)
 	}
 }
 
@@ -402,23 +443,26 @@ func newPlanningConfigDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"provider":     "standard",
-			"access_token": "",
+			"provider": "standard",
 			"reverse_ws": map[string]any{
-				"enabled": false,
-				"url":     "",
+				"enabled":      false,
+				"url":          "",
+				"access_token": "",
 			},
 			"forward_ws": map[string]any{
-				"enabled": false,
-				"url":     "",
+				"enabled":      false,
+				"url":          "",
+				"access_token": "",
 			},
 			"http_api": map[string]any{
-				"enabled": false,
-				"url":     "",
+				"enabled":      false,
+				"url":          "",
+				"access_token": "",
 			},
 			"webhook": map[string]any{
-				"enabled": false,
-				"url":     "",
+				"enabled":      false,
+				"url":          "",
+				"access_token": "",
 			},
 		},
 		"database": map[string]any{

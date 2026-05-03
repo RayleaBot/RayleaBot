@@ -9,7 +9,12 @@ import (
 )
 
 func buildManagementRedactor(cfg config.Config) *redact.Redactor {
-	values := []string{cfg.OneBot.AccessToken}
+	values := []string{
+		cfg.OneBot.ReverseWS.AccessToken,
+		cfg.OneBot.ForwardWS.AccessToken,
+		cfg.OneBot.HTTPAPI.AccessToken,
+		cfg.OneBot.Webhook.AccessToken,
+	}
 	values = append(values, sensitiveEnvironmentValues(os.Environ())...)
 	return redact.New(values...)
 }

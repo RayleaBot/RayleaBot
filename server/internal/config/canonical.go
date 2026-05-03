@@ -185,9 +185,7 @@ func normalizeOneBotSection(document map[string]any) {
 	if strings.TrimSpace(stringValue(onebot["provider"])) == "" {
 		onebot["provider"] = "standard"
 	}
-	if _, ok := onebot["access_token"]; !ok {
-		onebot["access_token"] = ""
-	}
+	delete(onebot, "access_token")
 
 	wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
 	if wsURL != "" {
@@ -203,13 +201,13 @@ func normalizeOneBotSection(document map[string]any) {
 
 	reverseWS := transportSection(onebot, "reverse_ws")
 	if reverseWS == nil {
-		reverseWS = map[string]any{"enabled": false, "url": ""}
+		reverseWS = oneBotTransportDocument(false, "", "")
 		onebot["reverse_ws"] = reverseWS
 	}
 
 	forwardWS := transportSection(onebot, "forward_ws")
 	if forwardWS == nil {
-		forwardWS = map[string]any{"enabled": false, "url": ""}
+		forwardWS = oneBotTransportDocument(false, "", "")
 		onebot["forward_ws"] = forwardWS
 	}
 	if stringValue(forwardWS["url"]) == "" && wsURL != "" {
@@ -245,6 +243,19 @@ func normalizeOneBotTransport(onebot map[string]any, key string, normalize func(
 	if _, ok := transport["enabled"].(bool); !ok {
 		transport["enabled"] = false
 	}
+	transport["access_token"] = strings.TrimSpace(stringValue(transport["access_token"]))
+}
+
+func oneBotTransportDocument(enabled bool, urlValue string, accessToken string) map[string]any {
+	return map[string]any{
+		"enabled":      enabled,
+		"url":          urlValue,
+		"access_token": accessToken,
+	}
+}
+
+func oneBotTransportConfigDocument(transport OneBotTransportConfig) map[string]any {
+	return oneBotTransportDocument(transport.Enabled, transport.URL, transport.AccessToken)
 }
 
 func normalizeOneBotWSURL(raw string) (string, bool) {
@@ -323,24 +334,11 @@ func legacyToCanonical(document map[string]any) map[string]any {
 	if onebot := section(document, "onebot"); onebot != nil {
 		wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
 		canonical["onebot"] = map[string]any{
-			"provider":     "standard",
-			"access_token": onebot["access_token"],
-			"reverse_ws": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"forward_ws": map[string]any{
-				"enabled": wsURL != "",
-				"url":     wsURL,
-			},
-			"http_api": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"webhook": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
+			"provider":   "standard",
+			"reverse_ws": oneBotTransportDocument(false, "", ""),
+			"forward_ws": oneBotTransportDocument(wsURL != "", wsURL, ""),
+			"http_api":   oneBotTransportDocument(false, "", ""),
+			"webhook":    oneBotTransportDocument(false, "", ""),
 		}
 		canonical["adapter"] = map[string]any{
 			"connect_timeout_seconds":   onebot["connect_timeout_seconds"],
@@ -470,24 +468,11 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"port": cfg.Server.Port,
 		},
 		"onebot": map[string]any{
-			"provider":     configOneBotProvider(cfg),
-			"access_token": cfg.OneBot.AccessToken,
-			"reverse_ws": map[string]any{
-				"enabled": reverseWS.Enabled,
-				"url":     reverseWS.URL,
-			},
-			"forward_ws": map[string]any{
-				"enabled": forwardWS.Enabled,
-				"url":     forwardWS.URL,
-			},
-			"http_api": map[string]any{
-				"enabled": cfg.OneBot.HTTPAPI.Enabled,
-				"url":     cfg.OneBot.HTTPAPI.URL,
-			},
-			"webhook": map[string]any{
-				"enabled": cfg.OneBot.Webhook.Enabled,
-				"url":     cfg.OneBot.Webhook.URL,
-			},
+			"provider":   configOneBotProvider(cfg),
+			"reverse_ws": oneBotTransportConfigDocument(reverseWS),
+			"forward_ws": oneBotTransportConfigDocument(forwardWS),
+			"http_api":   oneBotTransportConfigDocument(cfg.OneBot.HTTPAPI),
+			"webhook":    oneBotTransportConfigDocument(cfg.OneBot.Webhook),
 		},
 		"database": map[string]any{
 			"engine": cfg.Database.Engine,
@@ -817,24 +802,11 @@ func defaultDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"provider":     "standard",
-			"access_token": "",
-			"reverse_ws": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"forward_ws": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"http_api": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
-			"webhook": map[string]any{
-				"enabled": false,
-				"url":     "",
-			},
+			"provider":   "standard",
+			"reverse_ws": oneBotTransportDocument(false, "", ""),
+			"forward_ws": oneBotTransportDocument(false, "", ""),
+			"http_api":   oneBotTransportDocument(false, "", ""),
+			"webhook":    oneBotTransportDocument(false, "", ""),
 		},
 		"database": map[string]any{
 			"engine": "sqlite",

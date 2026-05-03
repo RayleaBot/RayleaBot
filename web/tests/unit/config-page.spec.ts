@@ -12,11 +12,10 @@ function createFixtureConfig(): ConfigDocument {
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
       provider: 'standard',
-      access_token: '__REDACTED__',
-      reverse_ws: { enabled: false, url: '' },
-      forward_ws: { enabled: false, url: '' },
-      http_api: { enabled: false, url: '' },
-      webhook: { enabled: false, url: '' },
+      reverse_ws: { enabled: false, url: '', access_token: '' },
+      forward_ws: { enabled: false, url: '', access_token: '' },
+      http_api: { enabled: false, url: '', access_token: '' },
+      webhook: { enabled: false, url: '', access_token: '' },
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
@@ -101,7 +100,7 @@ describe('ConfigPage', () => {
   it('submits the edited config document', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
-    store.redactedFields = ['onebot.access_token']
+    store.redactedFields = []
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({

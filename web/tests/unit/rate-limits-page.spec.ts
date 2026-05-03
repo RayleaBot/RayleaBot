@@ -18,11 +18,10 @@ function createFixtureConfig(): ConfigDocument {
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
       provider: 'standard',
-      access_token: '__REDACTED__',
-      reverse_ws: { enabled: false, url: '' },
-      forward_ws: { enabled: false, url: '' },
-      http_api: { enabled: false, url: '' },
-      webhook: { enabled: false, url: '' },
+      reverse_ws: { enabled: false, url: '', access_token: '' },
+      forward_ws: { enabled: false, url: '', access_token: '' },
+      http_api: { enabled: false, url: '', access_token: '' },
+      webhook: { enabled: false, url: '', access_token: '' },
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
@@ -112,7 +111,7 @@ describe('RateLimitsPage', () => {
   it('loads rate limit fields with split inputs and previews', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
-    store.redactedFields = ['onebot.access_token']
+    store.redactedFields = []
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
 
@@ -141,7 +140,7 @@ describe('RateLimitsPage', () => {
     expect(wrapper.text()).toContain('时间窗口')
     expect(wrapper.text()).toContain('单位')
     expect(wrapper.text()).not.toContain('格式使用')
-    expect(wrapper.text()).toContain('脱敏字段')
+    expect(wrapper.text()).not.toContain('脱敏字段')
     expect(wrapper.text()).not.toContain('有未保存更改')
     expect(wrapper.get('[data-testid="rate-limits-save"]').attributes('disabled')).toBeDefined()
   })

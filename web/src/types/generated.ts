@@ -1385,12 +1385,16 @@ export interface components {
             enabled: boolean;
             /** @default  */
             url: string | "" | unknown;
+            /** @default  */
+            access_token: string;
         };
         onebotHttpTransport: {
             /** @default false */
             enabled: boolean;
             /** @default  */
             url: string | "" | unknown;
+            /** @default  */
+            access_token: string;
         };
         rateLimit: string;
         /**
@@ -1415,8 +1419,6 @@ export interface components {
                  * @enum {string}
                  */
                 provider: "standard" | "napcat" | "luckylillia";
-                /** @default  */
-                access_token: string;
                 reverse_ws: components["schemas"]["onebotWsTransport"];
                 forward_ws: components["schemas"]["onebotWsTransport"];
                 http_api: components["schemas"]["onebotHttpTransport"];
@@ -1605,12 +1607,16 @@ export interface components {
                     enabled: boolean;
                     /** @default  */
                     url: string | "" | unknown;
+                    /** @default  */
+                    access_token: string;
                 };
                 onebotHttpTransport: {
                     /** @default false */
                     enabled: boolean;
                     /** @default  */
                     url: string | "" | unknown;
+                    /** @default  */
+                    access_token: string;
                 };
                 rateLimit: string;
             };

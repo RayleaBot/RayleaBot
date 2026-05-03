@@ -156,7 +156,7 @@ func ReadinessReportFromAdapter(snapshot adapter.Snapshot) health.ReadinessRepor
 			Code:        firstNonEmpty(snapshot.LastErrorCode, "adapter.auth_failed"),
 			Severity:    "warning",
 			Summary:     "OneBot 鉴权失败",
-			Remediation: "请检查 OneBot access_token 配置后重试连接。",
+			Remediation: "请检查对应连接方式的访问令牌后重试连接。",
 		})
 	case adapter.StateReconnecting:
 		report.Status = "ready"

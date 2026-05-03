@@ -124,7 +124,7 @@ func TestReadyzAuthFailedStaysReady(t *testing.T) {
 					"code":        "adapter.auth_failed",
 					"severity":    "warning",
 					"summary":     "OneBot 鉴权失败",
-					"remediation": "请检查 OneBot access_token 配置后重试连接。",
+					"remediation": "请检查对应连接方式的访问令牌后重试连接。",
 				},
 			},
 		},

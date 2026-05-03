@@ -11,7 +11,7 @@
 - `data/launcher.json` 保存 Launcher 的本机设置，例如安装根选择、关闭行为和本地覆盖项。
 - 服务运行时按 `default.yaml -> user.yaml` 生成有效配置，并在保存时输出 canonical 结构。
 - 首次启动如缺少 `config/user.yaml`，服务会基于默认模板生成首份用户配置。
-- 敏感连接信息和凭据由受控配置入口处理，不把明文 secret 散落到公开界面和诊断面。
+- 日志和诊断输出会过滤 `Authorization`、`access_token`、`token` 等敏感键。
 
 ## 配置生效方式
 
@@ -56,7 +56,7 @@
 
 - 正式配置读写入口是 Web 管理面和受控后端逻辑。
 - 通用配置页承接协议连接设置之外的正式配置项。
-- 协议中心承接 OneBot11 provider、reverse WebSocket 回连地址、forward WebSocket 主动连接地址、HTTP API 地址、webhook 回调地址、访问令牌和 adapter 重连参数，保存继续使用统一配置入口。
+- 协议中心承接 OneBot11 provider、reverse WebSocket 回连地址、forward WebSocket 主动连接地址、HTTP API 地址、webhook 回调地址、各连接方式访问令牌和 adapter 重连参数，保存继续使用统一配置入口。
 - 日志中心位于一级菜单下，提供 `/logs` 与 `/logs/history` 两个正式日志页面。
 - 字段级热更新与 `restart_required` 由服务端统一判断。
 - 插件配置读写必须通过正式插件能力，不直接改写平台用户配置文件。

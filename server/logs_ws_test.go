@@ -390,7 +390,7 @@ func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptio
 	}
 
 	onebot := input["onebot"].(map[string]any)
-	onebot["access_token"] = accessToken
+	onebot["forward_ws"].(map[string]any)["access_token"] = accessToken
 
 	updated, err := json.Marshal(input)
 	if err != nil {

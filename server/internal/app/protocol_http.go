@@ -113,10 +113,7 @@ func (h *protocolHTTPHandlers) handleProtocolOneBot11ReverseWS() http.HandlerFun
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口未启用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
 			return
 		}
-		if strings.TrimSpace(h.protocol.state.Config.OneBot.AccessToken) == "" {
-			h.protocol.state.Logger.Warn("onebot reverse websocket ingress accepted without access token", "component", "adapter", "transport", "reverse_ws")
-		}
-		if !allowOneBotIngress(r, h.protocol.state.Config.OneBot.AccessToken) {
+		if !allowOneBotIngress(r, h.protocol.state.Config.OneBot.ReverseWS.AccessToken) {
 			h.protocol.adapter.MarkReverseWSAuthFailed()
 			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_reverse_ws_auth_failed", "协议鉴权失败", "errors.adapter.transport_reverse_ws_auth_failed", nil)
 			return
@@ -140,10 +137,7 @@ func (h *protocolHTTPHandlers) handleProtocolOneBot11Webhook() http.HandlerFunc 
 			writeAppError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 入口未启用", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
-		if strings.TrimSpace(h.protocol.state.Config.OneBot.AccessToken) == "" {
-			h.protocol.state.Logger.Warn("onebot webhook ingress accepted without access token", "component", "adapter", "transport", "webhook")
-		}
-		if !allowOneBotIngress(r, h.protocol.state.Config.OneBot.AccessToken) {
+		if !allowOneBotIngress(r, h.protocol.state.Config.OneBot.Webhook.AccessToken) {
 			h.protocol.adapter.MarkWebhookAuthFailed()
 			writeAppError(w, r, http.StatusUnauthorized, "adapter.transport_webhook_auth_failed", "协议鉴权失败", "errors.adapter.transport_webhook_auth_failed", nil)
 			return

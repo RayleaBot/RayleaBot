@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Config update persists a validated snapshot, reports redacted fields, and summarizes apply effects.
+description: Config update persists a validated snapshot and summarizes apply effects.
 request:
   method: PUT
   path: /api/config
@@ -11,19 +11,22 @@ request:
       port: 8081
     onebot:
       provider: standard
-      access_token: __REDACTED__
       reverse_ws:
         enabled: false
         url: ""
+        access_token: reverse-secret
       forward_ws:
         enabled: false
         url: ""
+        access_token: forward-secret
       http_api:
         enabled: false
         url: ""
+        access_token: http-secret
       webhook:
         enabled: false
         url: ""
+        access_token: webhook-secret
     database:
       engine: sqlite
       path: data/rayleabot.db
@@ -114,19 +117,22 @@ response:
         port: 8081
       onebot:
         provider: standard
-        access_token: __REDACTED__
         reverse_ws:
           enabled: false
           url: ""
+          access_token: reverse-secret
         forward_ws:
           enabled: false
           url: ""
+          access_token: forward-secret
         http_api:
           enabled: false
           url: ""
+          access_token: http-secret
         webhook:
           enabled: false
           url: ""
+          access_token: webhook-secret
       database:
         engine: sqlite
         path: data/rayleabot.db
@@ -207,13 +213,15 @@ response:
         setup_local_only: true
       backup:
         default_consistency: offline
-    redacted_fields:
-      - onebot.access_token
     restart_required: true
     apply_effects:
       applied_now:
         - log.level
-      reloaded_now: []
+      reloaded_now:
+        - onebot.forward_ws.access_token
+        - onebot.http_api.access_token
+        - onebot.reverse_ws.access_token
+        - onebot.webhook.access_token
       restart_required_fields:
         - server.port
 expect:

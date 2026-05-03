@@ -36,10 +36,10 @@ func TestCallAPIAnyHTTPFallbackClearsAuthIssueAfterSuccess(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(config.OneBotConfig{
-		AccessToken: "secret-token",
 		HTTPAPI: config.OneBotTransportConfig{
-			Enabled: true,
-			URL:     server.URL,
+			Enabled:     true,
+			URL:         server.URL,
+			AccessToken: "secret-token",
 		},
 	}, shellDeps{
 		connectTimeout: 75 * time.Millisecond,

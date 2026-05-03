@@ -381,8 +381,8 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request apiCallRequest) (a
 		return apiResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "build OneBot HTTP request failed", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	if s.cfg.AccessToken != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+s.cfg.AccessToken)
+	if accessToken := strings.TrimSpace(s.cfg.HTTPAPI.AccessToken); accessToken != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 
 	resp, err := s.httpClient.Do(httpReq)

@@ -10,11 +10,10 @@
     },
     "onebot": {
       "provider": "standard",
-      "access_token": "masked-token",
-      "reverse_ws": { "enabled": false, "url": "" },
-      "forward_ws": { "enabled": true, "url": "wss://onebot.example.local/ws" },
-      "http_api": { "enabled": false, "url": "" },
-      "webhook": { "enabled": false, "url": "" }
+      "reverse_ws": { "enabled": false, "url": "", "access_token": "" },
+      "forward_ws": { "enabled": true, "url": "wss://onebot.example.local/ws", "access_token": "masked-token" },
+      "http_api": { "enabled": false, "url": "", "access_token": "" },
+      "webhook": { "enabled": false, "url": "", "access_token": "" }
     },
     "database": {
       "engine": "sqlite",

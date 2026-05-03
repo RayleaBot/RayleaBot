@@ -146,10 +146,10 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 
 	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
 		onebot := input["onebot"].(map[string]any)
-		onebot["access_token"] = "fixture-token"
 		reverseWS := onebot["reverse_ws"].(map[string]any)
 		reverseWS["enabled"] = true
 		reverseWS["url"] = "ws://127.0.0.1:8080/onebot/reverse"
+		reverseWS["access_token"] = "fixture-token"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	server := httptest.NewServer(application.Handler())

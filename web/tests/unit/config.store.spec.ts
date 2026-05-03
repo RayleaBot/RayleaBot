@@ -20,16 +20,15 @@ describe('config store', () => {
       schema_version: '2',
       onebot: {
         provider: 'standard',
-        access_token: '',
-        reverse_ws: { enabled: false, url: '' },
-        forward_ws: { enabled: false, url: '' },
-        http_api: { enabled: false, url: '' },
-        webhook: { enabled: false, url: '' },
+        reverse_ws: { enabled: false, url: '', access_token: '' },
+        forward_ws: { enabled: false, url: '', access_token: '' },
+        http_api: { enabled: false, url: '', access_token: '' },
+        webhook: { enabled: false, url: '', access_token: '' },
       },
     }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
       config,
-      redacted_fields: ['onebot.access_token'],
+      redacted_fields: [],
     })))
 
     const store = useConfigStore()
@@ -37,7 +36,7 @@ describe('config store', () => {
 
     expect(store.document).toEqual(config)
     expect(store.applyEffects).toBeNull()
-    expect(store.redactedFields).toEqual(['onebot.access_token'])
+    expect(store.redactedFields).toEqual([])
     expect(store.restartRequired).toBeNull()
   })
 
@@ -46,11 +45,10 @@ describe('config store', () => {
       schema_version: '2',
       onebot: {
         provider: 'standard',
-        access_token: '',
-        reverse_ws: { enabled: false, url: '' },
-        forward_ws: { enabled: true, url: 'ws://127.0.0.1:2658' },
-        http_api: { enabled: false, url: '' },
-        webhook: { enabled: false, url: '' },
+        reverse_ws: { enabled: false, url: '', access_token: '' },
+        forward_ws: { enabled: true, url: 'ws://127.0.0.1:2658', access_token: 'forward-secret' },
+        http_api: { enabled: false, url: '', access_token: '' },
+        webhook: { enabled: false, url: '', access_token: '' },
       },
     }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({

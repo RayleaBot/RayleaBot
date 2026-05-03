@@ -214,7 +214,7 @@ describe('DashboardPage', () => {
           code: 'adapter.auth_failed',
           severity: 'warning',
           summary: 'OneBot authentication failed',
-          remediation: '请检查 OneBot access_token 配置后重试连接。',
+          remediation: '请检查对应连接方式的访问令牌后重试连接。',
         },
       ],
     }
@@ -239,7 +239,7 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).not.toContain('运行条件受限')
     expect(wrapper.findAll('.stat-card--success').length).toBeGreaterThan(0)
     expect(wrapper.text()).toContain('adapter.auth_failed')
-    expect(wrapper.text()).toContain('请检查 OneBot access_token 配置后重试连接。')
+    expect(wrapper.text()).toContain('请检查对应连接方式的访问令牌后重试连接。')
     expect(wrapper.text()).not.toContain('config = ok')
   })
 

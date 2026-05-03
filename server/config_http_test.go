@@ -15,11 +15,15 @@ import (
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
-func TestConfigGetReturnsRedactedSnapshot(t *testing.T) {
+func TestConfigGetReturnsPlaintextOneBotTransportTokens(t *testing.T) {
 	t.Parallel()
 
 	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["onebot"].(map[string]any)["access_token"] = "fixture-only-secret"
+		onebot := input["onebot"].(map[string]any)
+		onebot["forward_ws"].(map[string]any)["access_token"] = "forward-secret"
+		onebot["reverse_ws"].(map[string]any)["access_token"] = "reverse-secret"
+		onebot["http_api"].(map[string]any)["access_token"] = "http-secret"
+		onebot["webhook"].(map[string]any)["access_token"] = "webhook-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.config-get-response.yaml"))
@@ -47,24 +51,28 @@ func TestConfigGetReturnsRedactedSnapshot(t *testing.T) {
 		t.Fatalf("unexpected config get body: got %#v want %#v", body, expected)
 	}
 
-	raw := responseBodyString(t, body)
-	if strings.Contains(raw, "fixture-only-secret") {
-		t.Fatalf("config get response leaked raw secret: %s", raw)
+	if body["redacted_fields"] != nil {
+		t.Fatalf("redacted_fields = %#v, want omitted for OneBot tokens", body["redacted_fields"])
+	}
+	if got := body["config"].(map[string]any)["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"]; got != "forward-secret" {
+		t.Fatalf("config get forward_ws.access_token = %#v, want forward-secret", got)
 	}
 }
 
-func TestConfigPutWritesValidatedDocumentAndPreservesRedactedSecret(t *testing.T) {
+func TestConfigPutWritesValidatedDocumentAndPlaintextTransportTokens(t *testing.T) {
 	t.Parallel()
 
 	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["onebot"].(map[string]any)["access_token"] = "fixture-only-secret"
+		input["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.config-update-response.yaml"))
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	payload, err := json.Marshal(fixture.Request.Body)
+	updateRequest := normalizeJSONMap(t, fixture.Request.Body)
+	updateRequest["onebot"].(map[string]any)["access_token"] = "legacy-secret"
+	payload, err := json.Marshal(updateRequest)
 	if err != nil {
 		t.Fatalf("marshal config update request: %v", err)
 	}
@@ -89,6 +97,9 @@ func TestConfigPutWritesValidatedDocumentAndPreservesRedactedSecret(t *testing.T
 	if !reflect.DeepEqual(body, expected) {
 		t.Fatalf("unexpected config update body: got %#v want %#v", body, expected)
 	}
+	if _, ok := body["config"].(map[string]any)["onebot"].(map[string]any)["access_token"]; ok {
+		t.Fatal("legacy onebot.access_token should not be returned")
+	}
 
 	document, err := internalconfig.LoadDocument(configPath, schemaPath)
 	if err != nil {
@@ -100,8 +111,12 @@ func TestConfigPutWritesValidatedDocumentAndPreservesRedactedSecret(t *testing.T
 	if got := document["log"].(map[string]any)["level"]; got != "debug" {
 		t.Fatalf("unexpected persisted log.level: got %#v want debug", got)
 	}
-	if got := document["onebot"].(map[string]any)["access_token"]; got != "fixture-only-secret" {
-		t.Fatalf("unexpected persisted access_token: got %#v want preserved secret", got)
+	onebot := document["onebot"].(map[string]any)
+	if _, ok := onebot["access_token"]; ok {
+		t.Fatal("legacy onebot.access_token should not be persisted")
+	}
+	if got := onebot["forward_ws"].(map[string]any)["access_token"]; got != "forward-secret" {
+		t.Fatalf("unexpected persisted forward_ws.access_token: got %#v want forward-secret", got)
 	}
 
 	if application.CurrentConfig().Server.Port != 8081 {
@@ -116,7 +131,7 @@ func TestConfigPutRejectsInvalidConfig(t *testing.T) {
 	t.Parallel()
 
 	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["onebot"].(map[string]any)["access_token"] = "fixture-only-secret"
+		input["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "fixture-only-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.config-update-invalid.yaml"))
@@ -211,23 +226,26 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"provider":     "standard",
-			"access_token": "",
+			"provider": "standard",
 			"reverse_ws": map[string]any{
-				"enabled": false,
-				"url":     "wss://bot.example.com/reverse",
+				"enabled":      false,
+				"url":          "wss://bot.example.com/reverse",
+				"access_token": "reverse-secret",
 			},
 			"forward_ws": map[string]any{
-				"enabled": false,
-				"url":     "ws://127.0.0.1:2658",
+				"enabled":      false,
+				"url":          "ws://127.0.0.1:2658",
+				"access_token": "forward-secret",
 			},
 			"http_api": map[string]any{
-				"enabled": false,
-				"url":     "",
+				"enabled":      false,
+				"url":          "",
+				"access_token": "http-secret",
 			},
 			"webhook": map[string]any{
-				"enabled": false,
-				"url":     "https://bot.example.com/webhook",
+				"enabled":      false,
+				"url":          "https://bot.example.com/webhook",
+				"access_token": "webhook-secret",
 			},
 		},
 		"database": map[string]any{

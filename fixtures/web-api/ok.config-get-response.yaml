@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Config query returns the current effective config snapshot with sensitive fields redacted.
+description: Config query returns the current effective config snapshot.
 request:
   method: GET
   path: /api/config
@@ -14,19 +14,22 @@ response:
         port: 8080
       onebot:
         provider: standard
-        access_token: __REDACTED__
         reverse_ws:
           enabled: false
           url: ""
+          access_token: reverse-secret
         forward_ws:
           enabled: false
           url: ""
+          access_token: forward-secret
         http_api:
           enabled: false
           url: ""
+          access_token: http-secret
         webhook:
           enabled: false
           url: ""
+          access_token: webhook-secret
       database:
         engine: sqlite
         path: data/rayleabot.db
@@ -107,7 +110,5 @@ response:
         setup_local_only: true
       backup:
         default_consistency: offline
-    redacted_fields:
-      - onebot.access_token
 expect:
   valid: true

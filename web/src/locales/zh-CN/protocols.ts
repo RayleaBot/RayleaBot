@@ -7,7 +7,7 @@ export const protocols = {
   transportIssuesTitle: '传输异常',
   transportIssuesHint: '显示最近一次传输异常的错误码与摘要。',
   connectionSettings: '连接设置',
-  connectionSettingsHint: '在这里填写 OneBot11 地址、访问令牌和重连参数。',
+  connectionSettingsHint: '在这里填写 OneBot11 地址、各连接方式访问令牌和重连参数。',
   protocolNameLabel: '协议名称',
   protocolStatusLabel: '当前传输状态',
   protocolSummaryLabel: '当前状态说明',

@@ -18,11 +18,10 @@ function createFixtureConfig(): ConfigDocument {
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
       provider: 'standard',
-      access_token: '__REDACTED__',
-      reverse_ws: { enabled: false, url: '' },
-      forward_ws: { enabled: false, url: '' },
-      http_api: { enabled: false, url: '' },
-      webhook: { enabled: false, url: '' },
+      reverse_ws: { enabled: false, url: '', access_token: '' },
+      forward_ws: { enabled: false, url: '', access_token: '' },
+      http_api: { enabled: false, url: '', access_token: '' },
+      webhook: { enabled: false, url: '', access_token: '' },
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
@@ -112,7 +111,7 @@ describe('PluginSettingsPage', () => {
   it('loads plugin-facing config fields and save metadata', async () => {
     const store = useConfigStore()
     store.document = createFixtureConfig()
-    store.redactedFields = ['onebot.access_token']
+    store.redactedFields = []
     store.applyEffects = {
       applied_now: ['command.prefixes', 'log.rate_limit_per_plugin'],
       reloaded_now: [],
@@ -137,7 +136,7 @@ describe('PluginSettingsPage', () => {
     expect(wrapper.text()).toContain('插件存储')
     expect(wrapper.text()).toContain('命令前缀')
     expect(wrapper.text()).not.toContain('保存结果')
-    expect(wrapper.text()).toContain('脱敏字段')
+    expect(wrapper.text()).not.toContain('脱敏字段')
     expect(wrapper.text()).not.toContain('有未保存更改')
     expect(wrapper.text()).toContain('自动授权能力')
     expect(wrapper.text()).toContain('插件日志速率限制')

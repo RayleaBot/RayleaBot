@@ -234,6 +234,7 @@ function normalizeTransport(entry = {}) {
   return {
     enabled: Boolean(entry.enabled),
     url: String(entry.url ?? ''),
+    access_token: String(entry.access_token ?? ''),
   }
 }
 
@@ -251,7 +252,6 @@ function pickOneBotHotState(config) {
     },
     onebot: {
       provider: onebot.provider ?? 'standard',
-      access_token: onebot.access_token ?? '',
       reverse_ws: normalizeTransport(onebot.reverse_ws),
       forward_ws: normalizeTransport(onebot.forward_ws),
       http_api: normalizeTransport(onebot.http_api),
@@ -1462,7 +1462,7 @@ const server = http.createServer(async (request, response) => {
 
     json(response, 200, {
       config: state.config,
-      redacted_fields: ['onebot.access_token'],
+      redacted_fields: [],
     })
     return
   }
@@ -1489,7 +1489,7 @@ const server = http.createServer(async (request, response) => {
     })
     json(response, 200, {
       config: state.config,
-      redacted_fields: ['onebot.access_token'],
+      redacted_fields: [],
       restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
       apply_effects: applyEffects,
     })

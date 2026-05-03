@@ -95,8 +95,9 @@ type AdapterConfig struct {
 }
 
 type OneBotTransportConfig struct {
-	Enabled bool   `json:"enabled" yaml:"enabled"`
-	URL     string `json:"url" yaml:"url"`
+	Enabled     bool   `json:"enabled" yaml:"enabled"`
+	URL         string `json:"url" yaml:"url"`
+	AccessToken string `json:"access_token" yaml:"access_token"`
 }
 
 type CooldownConfig struct {
@@ -112,7 +113,6 @@ type ServerConfig struct {
 
 type OneBotConfig struct {
 	Provider                string                `json:"provider" yaml:"provider"`
-	AccessToken             string                `json:"access_token" yaml:"access_token"`
 	ReverseWS               OneBotTransportConfig `json:"reverse_ws" yaml:"reverse_ws"`
 	ForwardWS               OneBotTransportConfig `json:"forward_ws" yaml:"forward_ws"`
 	HTTPAPI                 OneBotTransportConfig `json:"http_api" yaml:"http_api"`

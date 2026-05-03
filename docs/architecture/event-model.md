@@ -8,7 +8,7 @@
 
 - 当前正式传输模式包括 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`。
 - `reverse_ws` 用于 OneBot 主动回连 RayleaBot；`forward_ws` 用于 RayleaBot 主动连接 OneBot；`http_api` 负责出站 API 调用；`webhook` 负责入站事件上报。
-- 传输鉴权统一使用 `onebot.access_token`；协议快照对外暴露 `configured_transports`、`active_transports`、`transport_status` 和 `readiness_status`。
+- 传输鉴权使用各连接方式的 `access_token`；协议快照对外暴露 `configured_transports`、`active_transports`、`transport_status` 和 `readiness_status`。
 - `self_id` 会用于一致性检查；发现不一致时记录可观测告警。
 
 ## 二、OneBot11 事件归一化

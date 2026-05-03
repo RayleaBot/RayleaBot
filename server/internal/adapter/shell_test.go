@@ -55,8 +55,10 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(config.OneBotConfig{
-		WSURL:       wsURL(server.URL),
-		AccessToken: "secret-token",
+		WSURL: wsURL(server.URL),
+		ForwardWS: config.OneBotTransportConfig{
+			AccessToken: "secret-token",
+		},
 	}, shellDeps{
 		connectTimeout: 75 * time.Millisecond,
 		sleep:          blockingSleep,
@@ -105,8 +107,10 @@ func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(config.OneBotConfig{
-		WSURL:       wsURL(server.URL),
-		AccessToken: "bad-token",
+		WSURL: wsURL(server.URL),
+		ForwardWS: config.OneBotTransportConfig{
+			AccessToken: "bad-token",
+		},
 	}, shellDeps{
 		connectTimeout: 50 * time.Millisecond,
 		sleep:          blockingSleep,

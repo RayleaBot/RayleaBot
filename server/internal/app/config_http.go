@@ -14,8 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
-const redactedConfigValue = "__REDACTED__"
-
 type configResponse struct {
 	Config         map[string]any `json:"config"`
 	RedactedFields []string       `json:"redacted_fields,omitempty"`
@@ -70,8 +68,7 @@ func (h *configHTTPHandlers) handleConfigPut() http.HandlerFunc {
 			return
 		}
 
-		resolved := resolveRedactedConfigValues(request, h.state.Config)
-		newCfg, newSummary, err := internalconfig.SaveDocument(h.state.Summary.ConfigPath, h.state.Summary.SchemaPath, resolved)
+		newCfg, newSummary, err := internalconfig.SaveDocument(h.state.Summary.ConfigPath, h.state.Summary.SchemaPath, request)
 		if err != nil {
 			writeAppError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", nil)
 			return
@@ -80,7 +77,7 @@ func (h *configHTTPHandlers) handleConfigPut() http.HandlerFunc {
 		applyEffects := h.applyHotReloadableFields(newCfg)
 		h.state.Summary = newSummary
 
-		document, redactedFields := sanitizeConfigDocument(resolved)
+		document, redactedFields := sanitizeConfigDocument(configDocumentFromTyped(newCfg))
 		writeAuthJSON(w, http.StatusOK, configUpdateResponse{
 			Config:          document,
 			RedactedFields:  redactedFields,
@@ -261,43 +258,11 @@ func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) 
 		return nil, nil
 	}
 
-	redactedFields := make([]string, 0, 1)
-	onebotSection, ok := cloned["onebot"].(map[string]any)
-	if !ok {
-		return cloned, redactedFields
-	}
-
-	accessToken, ok := onebotSection["access_token"].(string)
-	if ok && accessToken != "" {
-		onebotSection["access_token"] = redactedConfigValue
-		redactedFields = append(redactedFields, "onebot.access_token")
-	}
-
-	return cloned, redactedFields
-}
-
-func resolveRedactedConfigValues(document map[string]any, current internalconfig.Config) map[string]any {
-	cloned := internalconfig.CloneDocument(document)
-	if cloned == nil {
-		return nil
-	}
-
-	onebotSection, ok := cloned["onebot"].(map[string]any)
-	if !ok {
-		return cloned
-	}
-
-	accessToken, ok := onebotSection["access_token"].(string)
-	if ok && accessToken == redactedConfigValue {
-		onebotSection["access_token"] = current.OneBot.AccessToken
-	}
-
-	return cloned
+	return cloned, []string{}
 }
 
 func oneBotHotReloadChanged(oldCfg internalconfig.Config, newCfg internalconfig.Config) bool {
 	return newCfg.OneBot.Provider != oldCfg.OneBot.Provider ||
-		newCfg.OneBot.AccessToken != oldCfg.OneBot.AccessToken ||
 		newCfg.OneBot.ReverseWS != oldCfg.OneBot.ReverseWS ||
 		newCfg.OneBot.ForwardWS != oldCfg.OneBot.ForwardWS ||
 		newCfg.OneBot.HTTPAPI != oldCfg.OneBot.HTTPAPI ||

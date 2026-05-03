@@ -138,14 +138,6 @@ func (s *Shell) Start(ctx context.Context) {
 		"adapter_state", StateIdle,
 		"forward_ws_url", sanitizeWSURL(s.forwardWSURL()),
 	)
-	if s.cfg.AccessToken == "" {
-		s.logger.Warn(
-			"adapter access token is empty",
-			"component", "adapter",
-			"adapter_state", StateIdle,
-			"forward_ws_url", sanitizeWSURL(s.forwardWSURL()),
-		)
-	}
 
 	s.markTransportPrimed()
 
@@ -581,11 +573,12 @@ func (s *Shell) dial(ctx context.Context) (*websocket.Conn, *http.Response, erro
 	defer cancel()
 
 	headers := http.Header{}
-	if s.cfg.AccessToken != "" {
-		headers.Set("Authorization", "Bearer "+s.cfg.AccessToken)
+	accessToken := strings.TrimSpace(s.cfg.ForwardWS.AccessToken)
+	if accessToken != "" {
+		headers.Set("Authorization", "Bearer "+accessToken)
 	}
 
-	return s.deps.dial(dialCtx, dialURL(s.forwardWSURL(), s.cfg.AccessToken), &websocket.DialOptions{
+	return s.deps.dial(dialCtx, dialURL(s.forwardWSURL(), accessToken), &websocket.DialOptions{
 		HTTPHeader: headers,
 	})
 }

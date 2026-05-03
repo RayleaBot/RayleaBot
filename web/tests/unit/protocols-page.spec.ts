@@ -15,11 +15,10 @@ function createFixtureConfig(): ConfigDocument {
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
       provider: 'standard',
-      access_token: '__REDACTED__',
-      reverse_ws: { enabled: false, url: '' },
-      forward_ws: { enabled: false, url: '' },
-      http_api: { enabled: false, url: '' },
-      webhook: { enabled: false, url: '' },
+      reverse_ws: { enabled: false, url: '', access_token: '' },
+      forward_ws: { enabled: false, url: '', access_token: '' },
+      http_api: { enabled: false, url: '', access_token: '' },
+      webhook: { enabled: false, url: '', access_token: '' },
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
@@ -117,7 +116,7 @@ describe('ProtocolsPage', () => {
     const protocolsStore = useProtocolsStore()
 
     configStore.document = createFixtureConfig()
-    configStore.redactedFields = ['onebot.access_token']
+    configStore.redactedFields = []
     protocolsStore.snapshot = {
       protocol: 'onebot11',
       provider: 'standard',
@@ -165,6 +164,8 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('adapter.transport_forward_ws_connection_failed')
     expect(wrapper.text()).toContain('OneBot 主动连接鉴权失败，请检查访问令牌。')
     expect(wrapper.text()).toContain('连接设置')
+    expect(wrapper.findAll('input[aria-label="访问令牌"]')).toHaveLength(4)
+    expect(wrapper.html()).not.toContain('__REDACTED__')
     expect(wrapper.text()).toContain('兼容矩阵')
     expect(wrapper.text()).toContain('查看实时日志')
 
@@ -299,6 +300,9 @@ describe('ProtocolsPage', () => {
     const wsUrlInput = wrapper.find('input[aria-label="回连地址"]')
     expect(wsUrlInput.exists()).toBe(true)
     await wsUrlInput.setValue('wss://bot.example.com/reverse/onebot')
+    const tokenInputs = wrapper.findAll('input[aria-label="访问令牌"]')
+    expect(tokenInputs).toHaveLength(4)
+    await tokenInputs[0].setValue('reverse-secret')
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存协议设置'))
     expect(saveButton).toBeTruthy()
@@ -307,6 +311,9 @@ describe('ProtocolsPage', () => {
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(refreshSpy).toHaveBeenCalledTimes(2)
     expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('wss://bot.example.com/reverse/onebot')
+    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.access_token).toBe('reverse-secret')
+    expect(saveSpy.mock.calls[0][0].onebot.forward_ws.access_token).toBe('')
+    expect('access_token' in saveSpy.mock.calls[0][0].onebot).toBe(false)
     expect(saveSpy.mock.calls[0][0].server.host).toBe('127.0.0.1')
     expect(wrapper.text()).toContain('未启用')
   })

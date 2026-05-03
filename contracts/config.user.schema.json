@@ -55,7 +55,6 @@
       "additionalProperties": false,
       "required": [
         "provider",
-        "access_token",
         "reverse_ws",
         "forward_ws",
         "http_api",
@@ -66,10 +65,6 @@
           "type": "string",
           "enum": ["standard", "napcat", "luckylillia"],
           "default": "standard"
-        },
-        "access_token": {
-          "type": "string",
-          "default": ""
         },
         "reverse_ws": {
           "$ref": "#/$defs/onebotWsTransport"
@@ -563,7 +558,7 @@
     "onebotWsTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "url"],
+      "required": ["enabled", "url", "access_token"],
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -581,13 +576,17 @@
               "pattern": "^(ws|wss)://.+$"
             }
           ]
+        },
+        "access_token": {
+          "type": "string",
+          "default": ""
         }
       }
     },
     "onebotHttpTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "url"],
+      "required": ["enabled", "url", "access_token"],
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -605,6 +604,10 @@
               "pattern": "^https?://.+$"
             }
           ]
+        },
+        "access_token": {
+          "type": "string",
+          "default": ""
         }
       }
     },
