@@ -67,10 +67,6 @@ export const accessLists = {
     whitelistEnabled: '白名单已启用。',
     whitelistDisabled: '白名单已关闭。',
   },
-  tabs: {
-    whitelist: '白名单',
-    blacklist: '黑名单',
-  },
   modal: {
     addTitle: '添加{target}',
     addTargetWhitelist: '白名单条目',

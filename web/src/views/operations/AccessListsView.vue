@@ -38,8 +38,6 @@ const blacklistMutating = ref(false)
 const whitelistMutating = ref(false)
 const whitelistConfirmVisible = ref(false)
 
-const activeTab = ref<'whitelist' | 'blacklist'>('whitelist')
-
 const addModalVisible = ref(false)
 const addModalTarget = ref<'whitelist' | 'blacklist'>('blacklist')
 const addModalError = ref<string | null>(null)
@@ -292,212 +290,216 @@ onMounted(() => {
     />
 
     <div v-else class="access-lists-page__stack">
+      <!-- Whitelist Card -->
       <AppCard
         v-motion="cardMotion(0)"
         borderless
-        class="access-lists-tabs-card"
-        :loading="(whitelistLoading && !whitelist) || (blacklistLoading && !blacklist)"
+        class="access-lists-card"
+        :loading="whitelistLoading && !whitelist"
       >
-        <a-tabs v-model:activeKey="activeTab" class="access-lists-tabs">
-          <a-tab-pane key="whitelist" :tab="`${t('accessLists.tabs.whitelist')} (${totalWhitelistEntries})`">
-            <div data-testid="access-lists-whitelist-card" class="access-lists-tab-content">
-              <div class="access-lists-tab-header">
-                <div class="access-lists-tab-header__copy">
-                  <strong>{{ t('accessLists.cards.whitelistTitle') }}</strong>
-                  <p>{{ t('accessLists.cards.whitelistDescription') }}</p>
-                </div>
-                <div class="access-lists-tab-header__meta">
-                  <a-tag :color="whitelistEnabled ? 'warning' : 'default'">
-                    {{ whitelistEnabled ? t('accessLists.summary.whitelistEnabled') : t('accessLists.summary.whitelistDisabled') }}
-                  </a-tag>
-                  <a-switch
-                    :checked="whitelistEnabled"
-                    :loading="whitelistMutating"
-                    :aria-label="t('accessLists.summary.whitelistStatus')"
-                    data-testid="access-lists-whitelist-enabled"
-                    @change="handleWhitelistToggle"
-                  />
-                </div>
-              </div>
-
-              <a-alert
-                v-if="whitelistRegionError"
-                :message="t('errors.common.actionFailed')"
-                type="warning"
-                :description="whitelistRegionError"
-                show-icon
-                class="section-gap"
-              />
-
-              <div v-if="showWhitelistEmptyWarning" class="access-lists-risk-banner">
-                <div class="access-lists-risk-banner__header">
-                  <strong>{{ t('accessLists.whitelist.emptyWarningTitle') }}</strong>
-                  <a-tag color="warning">{{ t('accessLists.summary.whitelistEnabled') }}</a-tag>
-                </div>
-                <p>{{ t('accessLists.whitelist.emptyWarningDescription') }}</p>
-              </div>
-
-              <div class="access-lists-toolbar">
-                <div class="access-lists-toolbar__row">
-                  <a-select
-                    v-model:value="whitelistScopeFilter"
-                    :options="scopeFilterOptions"
-                    class="access-lists-toolbar__filter"
-                    :aria-label="t('accessLists.filters.all')"
-                  />
-                  <div class="access-lists-toolbar__actions">
-                    <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredWhitelistEntries.length }) }}</span>
-                    <a-button type="primary" data-testid="access-lists-whitelist-add-btn" @click="openAddModal('whitelist')">
-                      {{ t('accessLists.actions.addEntry') }}
-                    </a-button>
-                  </div>
-                </div>
-              </div>
-
-              <a-table
-                class="access-lists-data-table app-data-table"
-                :columns="tableColumns"
-                :data-source="filteredWhitelistEntries"
-                :pagination="false"
-                :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
-                :loading="whitelistLoading && !whitelist"
-              >
-                <template #emptyText>
-                  <div class="access-lists-empty-hint">
-                    <p>{{ t('accessLists.empty.whitelistTitle') }}</p>
-                    <span>{{ t('accessLists.empty.whitelistDescription') }}</span>
-                  </div>
-                </template>
-
-                <template #bodyCell="{ column, record }">
-                  <template v-if="column.key === 'type'">
-                    <a-tag :color="getEntryTypeTagColor(record.entry_type)">
-                      {{ getEntryTypeLabel(record.entry_type) }}
-                    </a-tag>
-                  </template>
-
-                  <template v-else-if="column.key === 'targetId'">
-                    <button
-                      type="button"
-                      class="mono-text copyable-text"
-                      :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
-                      @click="copyTargetId(record.target_id)"
-                    >
-                      {{ record.target_id }}
-                    </button>
-                  </template>
-
-                  <template v-else-if="column.key === 'createdAt'">
-                    <span>{{ formatDateTime(record.created_at) }}</span>
-                  </template>
-
-                  <template v-else-if="column.key === 'actions'">
-                    <a-popconfirm
-                      :title="t('accessLists.confirm.removeTitle')"
-                      :description="t('accessLists.confirm.removeDescription')"
-                      @confirm="removeWhitelistEntry(record)"
-                    >
-                      <a-button type="link" danger size="small">
-                        {{ t('accessLists.entryForm.remove') }}
-                      </a-button>
-                    </a-popconfirm>
-                  </template>
-                </template>
-              </a-table>
+        <div data-testid="access-lists-whitelist-card" class="access-lists-card-content">
+          <div class="access-lists-card-header">
+            <div class="access-lists-card-header__copy">
+              <strong>{{ t('accessLists.cards.whitelistTitle') }}</strong>
+              <p>{{ t('accessLists.cards.whitelistDescription') }}</p>
             </div>
-          </a-tab-pane>
-
-          <a-tab-pane key="blacklist" :tab="`${t('accessLists.tabs.blacklist')} (${totalBlacklistEntries})`">
-            <div data-testid="access-lists-blacklist-card" class="access-lists-tab-content">
-              <div class="access-lists-tab-header">
-                <div class="access-lists-tab-header__copy">
-                  <strong>{{ t('accessLists.cards.blacklistTitle') }}</strong>
-                  <p>{{ t('accessLists.cards.blacklistDescription') }}</p>
-                </div>
-                <div class="access-lists-tab-header__meta">
-                  <a-tag color="warning">{{ totalBlacklistEntries }}</a-tag>
-                </div>
-              </div>
-
-              <a-alert
-                v-if="blacklistRegionError"
-                :message="t('errors.common.actionFailed')"
-                type="warning"
-                :description="blacklistRegionError"
-                show-icon
-                class="section-gap"
+            <div class="access-lists-card-header__meta">
+              <span class="access-lists-card-header__count">{{ totalWhitelistEntries }}</span>
+              <a-tag :color="whitelistEnabled ? 'warning' : 'default'">
+                {{ whitelistEnabled ? t('accessLists.summary.whitelistEnabled') : t('accessLists.summary.whitelistDisabled') }}
+              </a-tag>
+              <a-switch
+                :checked="whitelistEnabled"
+                :loading="whitelistMutating"
+                :aria-label="t('accessLists.summary.whitelistStatus')"
+                data-testid="access-lists-whitelist-enabled"
+                @change="handleWhitelistToggle"
               />
-
-              <div class="access-lists-toolbar">
-                <div class="access-lists-toolbar__row">
-                  <a-select
-                    v-model:value="blacklistScopeFilter"
-                    :options="scopeFilterOptions"
-                    class="access-lists-toolbar__filter"
-                    :aria-label="t('accessLists.filters.all')"
-                  />
-                  <div class="access-lists-toolbar__actions">
-                    <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredBlacklistEntries.length }) }}</span>
-                    <a-button type="primary" data-testid="access-lists-blacklist-add-btn" @click="openAddModal('blacklist')">
-                      {{ t('accessLists.actions.addEntry') }}
-                    </a-button>
-                  </div>
-                </div>
-              </div>
-
-              <a-table
-                class="access-lists-data-table app-data-table"
-                :columns="tableColumns"
-                :data-source="filteredBlacklistEntries"
-                :pagination="false"
-                :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
-                :loading="blacklistLoading && !blacklist"
-              >
-                <template #emptyText>
-                  <div class="access-lists-empty-hint">
-                    <p>{{ t('accessLists.empty.blacklistTitle') }}</p>
-                    <span>{{ t('accessLists.empty.blacklistDescription') }}</span>
-                  </div>
-                </template>
-
-                <template #bodyCell="{ column, record }">
-                  <template v-if="column.key === 'type'">
-                    <a-tag :color="getEntryTypeTagColor(record.entry_type)">
-                      {{ getEntryTypeLabel(record.entry_type) }}
-                    </a-tag>
-                  </template>
-
-                  <template v-else-if="column.key === 'targetId'">
-                    <button
-                      type="button"
-                      class="mono-text copyable-text"
-                      :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
-                      @click="copyTargetId(record.target_id)"
-                    >
-                      {{ record.target_id }}
-                    </button>
-                  </template>
-
-                  <template v-else-if="column.key === 'createdAt'">
-                    <span>{{ formatDateTime(record.created_at) }}</span>
-                  </template>
-
-                  <template v-else-if="column.key === 'actions'">
-                    <a-popconfirm
-                      :title="t('accessLists.confirm.removeTitle')"
-                      :description="t('accessLists.confirm.removeDescription')"
-                      @confirm="removeBlacklistEntry(record)"
-                    >
-                      <a-button type="link" danger size="small">
-                        {{ t('accessLists.entryForm.remove') }}
-                      </a-button>
-                    </a-popconfirm>
-                  </template>
-                </template>
-              </a-table>
             </div>
-          </a-tab-pane>
-        </a-tabs>
+          </div>
+
+          <a-alert
+            v-if="whitelistRegionError"
+            :message="t('errors.common.actionFailed')"
+            type="warning"
+            :description="whitelistRegionError"
+            show-icon
+            class="section-gap"
+          />
+
+          <div v-if="showWhitelistEmptyWarning" class="access-lists-risk-banner">
+            <div class="access-lists-risk-banner__header">
+              <strong>{{ t('accessLists.whitelist.emptyWarningTitle') }}</strong>
+              <a-tag color="warning">{{ t('accessLists.summary.whitelistEnabled') }}</a-tag>
+            </div>
+            <p>{{ t('accessLists.whitelist.emptyWarningDescription') }}</p>
+          </div>
+
+          <div class="access-lists-toolbar">
+            <div class="access-lists-toolbar__row">
+              <a-select
+                v-model:value="whitelistScopeFilter"
+                :options="scopeFilterOptions"
+                class="access-lists-toolbar__filter"
+                :aria-label="t('accessLists.filters.all')"
+              />
+              <div class="access-lists-toolbar__actions">
+                <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredWhitelistEntries.length }) }}</span>
+                <a-button type="primary" data-testid="access-lists-whitelist-add-btn" @click="openAddModal('whitelist')">
+                  {{ t('accessLists.actions.addEntry') }}
+                </a-button>
+              </div>
+            </div>
+          </div>
+
+          <a-table
+            class="access-lists-data-table app-data-table"
+            :columns="tableColumns"
+            :data-source="filteredWhitelistEntries"
+            :pagination="false"
+            :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
+            :loading="whitelistLoading && !whitelist"
+          >
+            <template #emptyText>
+              <div class="access-lists-empty-hint">
+                <p>{{ t('accessLists.empty.whitelistTitle') }}</p>
+                <span>{{ t('accessLists.empty.whitelistDescription') }}</span>
+              </div>
+            </template>
+
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'type'">
+                <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                  {{ getEntryTypeLabel(record.entry_type) }}
+                </a-tag>
+              </template>
+
+              <template v-else-if="column.key === 'targetId'">
+                <button
+                  type="button"
+                  class="mono-text copyable-text"
+                  :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
+                  @click="copyTargetId(record.target_id)"
+                >
+                  {{ record.target_id }}
+                </button>
+              </template>
+
+              <template v-else-if="column.key === 'createdAt'">
+                <span>{{ formatDateTime(record.created_at) }}</span>
+              </template>
+
+              <template v-else-if="column.key === 'actions'">
+                <a-popconfirm
+                  :title="t('accessLists.confirm.removeTitle')"
+                  :description="t('accessLists.confirm.removeDescription')"
+                  @confirm="removeWhitelistEntry(record)"
+                >
+                  <a-button type="link" danger size="small">
+                    {{ t('accessLists.entryForm.remove') }}
+                  </a-button>
+                </a-popconfirm>
+              </template>
+            </template>
+          </a-table>
+        </div>
+      </AppCard>
+
+      <!-- Blacklist Card -->
+      <AppCard
+        v-motion="cardMotion(1)"
+        borderless
+        class="access-lists-card"
+        :loading="blacklistLoading && !blacklist"
+      >
+        <div data-testid="access-lists-blacklist-card" class="access-lists-card-content">
+          <div class="access-lists-card-header">
+            <div class="access-lists-card-header__copy">
+              <strong>{{ t('accessLists.cards.blacklistTitle') }}</strong>
+              <p>{{ t('accessLists.cards.blacklistDescription') }}</p>
+            </div>
+            <div class="access-lists-card-header__meta">
+              <span class="access-lists-card-header__count">{{ totalBlacklistEntries }}</span>
+            </div>
+          </div>
+
+          <a-alert
+            v-if="blacklistRegionError"
+            :message="t('errors.common.actionFailed')"
+            type="warning"
+            :description="blacklistRegionError"
+            show-icon
+            class="section-gap"
+          />
+
+          <div class="access-lists-toolbar">
+            <div class="access-lists-toolbar__row">
+              <a-select
+                v-model:value="blacklistScopeFilter"
+                :options="scopeFilterOptions"
+                class="access-lists-toolbar__filter"
+                :aria-label="t('accessLists.filters.all')"
+              />
+              <div class="access-lists-toolbar__actions">
+                <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredBlacklistEntries.length }) }}</span>
+                <a-button type="primary" data-testid="access-lists-blacklist-add-btn" @click="openAddModal('blacklist')">
+                  {{ t('accessLists.actions.addEntry') }}
+                </a-button>
+              </div>
+            </div>
+          </div>
+
+          <a-table
+            class="access-lists-data-table app-data-table"
+            :columns="tableColumns"
+            :data-source="filteredBlacklistEntries"
+            :pagination="false"
+            :row-key="(row: BlacklistEntry) => `${row.entry_type}-${row.target_id}`"
+            :loading="blacklistLoading && !blacklist"
+          >
+            <template #emptyText>
+              <div class="access-lists-empty-hint">
+                <p>{{ t('accessLists.empty.blacklistTitle') }}</p>
+                <span>{{ t('accessLists.empty.blacklistDescription') }}</span>
+              </div>
+            </template>
+
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'type'">
+                <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                  {{ getEntryTypeLabel(record.entry_type) }}
+                </a-tag>
+              </template>
+
+              <template v-else-if="column.key === 'targetId'">
+                <button
+                  type="button"
+                  class="mono-text copyable-text"
+                  :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
+                  @click="copyTargetId(record.target_id)"
+                >
+                  {{ record.target_id }}
+                </button>
+              </template>
+
+              <template v-else-if="column.key === 'createdAt'">
+                <span>{{ formatDateTime(record.created_at) }}</span>
+              </template>
+
+              <template v-else-if="column.key === 'actions'">
+                <a-popconfirm
+                  :title="t('accessLists.confirm.removeTitle')"
+                  :description="t('accessLists.confirm.removeDescription')"
+                  @confirm="removeBlacklistEntry(record)"
+                >
+                  <a-button type="link" danger size="small">
+                    {{ t('accessLists.entryForm.remove') }}
+                  </a-button>
+                </a-popconfirm>
+              </template>
+            </template>
+          </a-table>
+        </div>
       </AppCard>
     </div>
 
@@ -563,57 +565,55 @@ onMounted(() => {
   gap: 20px;
 }
 
-.access-lists-tabs-card {
+.access-lists-card {
   border-radius: var(--radius-lg);
 }
 
-:deep(.access-lists-tabs-card) {
+:deep(.access-lists-card) {
   box-shadow: var(--shadow-xs);
 }
 
-.access-lists-tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 0;
-  border-bottom: 1px solid var(--border);
-}
-
-:deep(.ant-tabs-tab-active .ant-tabs-tab-btn) {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.access-lists-tab-content {
+.access-lists-card-content {
   display: grid;
   gap: 16px;
 }
 
-.access-lists-tab-header {
+.access-lists-card-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.access-lists-tab-header__copy {
+.access-lists-card-header__copy {
   display: grid;
   gap: 6px;
 }
 
-.access-lists-tab-header__copy strong {
+.access-lists-card-header__copy strong {
   font-size: 1.05rem;
   line-height: 1.3;
 }
 
-.access-lists-tab-header__copy p {
+.access-lists-card-header__copy p {
   margin: 0;
   color: var(--muted);
 }
 
-.access-lists-tab-header__meta {
+.access-lists-card-header__meta {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+.access-lists-card-header__count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fg);
+  letter-spacing: -0.02em;
 }
 
 .access-lists-risk-banner {
@@ -723,11 +723,11 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .access-lists-tab-header {
+  .access-lists-card-header {
     flex-direction: column;
   }
 
-  .access-lists-tab-header__meta {
+  .access-lists-card-header__meta {
     width: 100%;
   }
 

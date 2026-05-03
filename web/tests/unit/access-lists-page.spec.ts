@@ -95,11 +95,6 @@ describe('AccessListsPage', () => {
     expect(wrapper.text()).toContain('查看指令中心')
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('读取黑名单失败')
 
-    // Switch to blacklist tab via DOM click
-    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
-    expect(tabs.length).toBe(2)
-    await tabs[1]!.trigger('click')
-    await flushPromises()
     expect(wrapper.text()).toContain('拦截名单')
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('读取黑名单失败')
 
@@ -219,12 +214,7 @@ describe('AccessListsPage', () => {
 
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('30003')
 
-    // --- Blacklist (switch tab): add via modal ---
-    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
-    await tabs[1]!.trigger('click')
-    await flushPromises()
-
-    // Switch scope filter to 'group', then open modal
+    // --- Blacklist (always visible): add via modal ---
     wrapper.vm.blacklistScopeFilter = 'group'
     await flushPromises()
 
@@ -312,10 +302,6 @@ describe('AccessListsPage', () => {
     expect(whitelistCard.findAll('.ant-table-tbody > tr')).toHaveLength(13)
     expect(whitelistCard.find('.ant-pagination').exists()).toBe(false)
 
-    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
-    await tabs[1]!.trigger('click')
-    await flushPromises()
-
     const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
     expect(blacklistCard.text()).toContain('50001')
     expect(blacklistCard.text()).toContain('50011')
@@ -371,11 +357,6 @@ describe('AccessListsPage', () => {
       },
     })
 
-    await flushPromises()
-
-    // Switch to blacklist tab
-    const tabs = wrapper.findAll('.access-lists-tabs .ant-tabs-tab')
-    await tabs[1]!.trigger('click')
     await flushPromises()
 
     // Trigger a remove error
