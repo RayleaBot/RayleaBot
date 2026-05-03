@@ -36,6 +36,8 @@ export const dashboard = {
   reasonCodes: '原因代码',
   expandIssues: '展开剩余 {count} 项',
   collapseIssues: '收起',
+  expandEvents: '展开剩余 {count} 条',
+  collapseEvents: '收起',
   connectionStatus: '连接状态',
   connectionStatusHint: '事件、任务和日志连接',
   alertFailed: '系统异常',

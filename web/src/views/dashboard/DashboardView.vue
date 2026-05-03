@@ -39,6 +39,7 @@ const {
   createBackup,
   diagnosticsPending,
   error,
+  eventsExpanded,
   exportDiagnostics,
   healthDetailText,
   healthStatusType,
@@ -222,35 +223,46 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
           <a-tab-pane key="events" :tab="t('dashboard.overviewEvents')">
             <a-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
-            <a-timeline v-else class="events-timeline">
-              <a-timeline-item
-                v-for="(event, index) in recentEvents"
-                :key="`${event.timestamp}-${event.summary}`"
-                :color="getEventSeverityColor(getEventSeverity(event.payload))"
-                v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 50 } } }"
-              >
-                <template #dot>
-                  <component
-                    :is="getEventSeverityIcon(getEventSeverity(event.payload))"
-                    v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
-                    class="events-timeline__dot-icon"
-                    role="img"
-                    :aria-label="`事件级别：${getEventSeverity(event.payload) ?? 'info'}`"
-                  />
-                  <span v-else class="events-timeline__dot" role="img" aria-label="事件级别：info" />
-                </template>
-                <div class="events-timeline__item">
-                  <div class="events-timeline__summary">{{ event.summary }}</div>
-                  <div class="events-timeline__time" :data-absolute="event.timestamp">
-                    {{ formatRelativeTime(event.timestamp) }}
+            <div
+              v-else
+              class="events-timeline-wrapper"
+              :class="{ 'events-timeline-wrapper--collapsed': !eventsExpanded && recentEvents.length > 4 }"
+            >
+              <a-timeline class="events-timeline">
+                <a-timeline-item
+                  v-for="(event, index) in recentEvents"
+                  :key="`${event.timestamp}-${event.summary}`"
+                  :color="getEventSeverityColor(getEventSeverity(event.payload))"
+                  v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: index * 50 } } }"
+                >
+                  <template #dot>
+                    <component
+                      :is="getEventSeverityIcon(getEventSeverity(event.payload))"
+                      v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
+                      class="events-timeline__dot-icon"
+                      role="img"
+                      :aria-label="`事件级别：${getEventSeverity(event.payload) ?? 'info'}`"
+                    />
+                    <span v-else class="events-timeline__dot" role="img" aria-label="事件级别：info" />
+                  </template>
+                  <div class="events-timeline__item">
+                    <div class="events-timeline__summary">{{ event.summary }}</div>
+                    <div class="events-timeline__time" :data-absolute="event.timestamp">
+                      {{ formatRelativeTime(event.timestamp) }}
+                    </div>
+                    <ManagementContextActions
+                      :actions="buildDashboardEventActions(event.payload)"
+                      class="events-timeline__actions"
+                    />
                   </div>
-                  <ManagementContextActions
-                    :actions="buildDashboardEventActions(event.payload)"
-                    class="events-timeline__actions"
-                  />
-                </div>
-              </a-timeline-item>
-            </a-timeline>
+                </a-timeline-item>
+              </a-timeline>
+            </div>
+            <div v-if="recentEvents.length > 4" class="events-toggle">
+              <a-button size="small" type="link" @click="eventsExpanded = !eventsExpanded">
+                {{ eventsExpanded ? t('dashboard.collapseEvents') : t('dashboard.expandEvents', { count: recentEvents.length - 4 }) }}
+              </a-button>
+            </div>
           </a-tab-pane>
 
           <a-tab-pane key="readiness" :tab="t('dashboard.overviewReadiness')">
@@ -545,6 +557,28 @@ function getProtocolIssueTagColor(status: typeof protocolIssueStatusType.value) 
   .dashboard-protocol-alert__actions {
     justify-content: flex-start;
   }
+}
+
+.events-timeline-wrapper--collapsed {
+  max-height: 320px;
+  overflow: hidden;
+  position: relative;
+}
+
+.events-timeline-wrapper--collapsed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  background: linear-gradient(transparent, var(--surface-soft));
+  pointer-events: none;
+}
+
+.events-toggle {
+  margin-top: 10px;
+  text-align: center;
 }
 
 .events-timeline {

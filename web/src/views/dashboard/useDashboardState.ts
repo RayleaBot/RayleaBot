@@ -58,6 +58,7 @@ export function useDashboardState() {
   const lastRefreshed = ref<string | null>(null)
   const countdown = ref(AUTO_REFRESH_INTERVAL)
   const issuesExpanded = ref(false)
+  const eventsExpanded = ref(false)
   const selectedRecoveryReviewIds = ref<string[]>([])
   const recoveryConfirmNote = ref('')
 
@@ -83,6 +84,7 @@ export function useDashboardState() {
     diagnosticsPending,
     error,
     health,
+    eventsExpanded,
     issuesExpanded,
     loading,
     previewForm,
