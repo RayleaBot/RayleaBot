@@ -20,5 +20,34 @@
 
 - Windows 本地开发入口为仓库根目录的 `start.bat`。
 - `start.bat` 使用 Web 开发服务器，管理面地址为 `http://127.0.0.1:4173/`。
-- Web 开发服务器默认代理到 `http://127.0.0.1:8080`；自定义后端地址使用 `VITE_BACKEND_TARGET`。
-- 需要检查后端托管的静态管理面时，使用 `set "RAYLEA_START_WEB_MODE=build" && start.bat`。
+- Web 开发服务器代理到 `config/user.yaml` 中的 `server.host` / `server.port`；自定义后端地址使用 `VITE_BACKEND_TARGET`。
+- WebSocket 后端地址使用 `VITE_WS_BASE_URL`，缺省值与 `VITE_BACKEND_TARGET` 一致。
+- Launcher 打开的管理面地址使用 `RAYLEA_WEB_UI_BASE_URL`，缺省值为 `http://127.0.0.1:4173/`。
+
+| Profile | 用途 | 命令 |
+| --- | --- | --- |
+| `web-dev` | Web 热更新、Server 构建、Launcher 启动 | `start.bat` |
+| `build` | 后端托管静态管理面验证 | `set "RAYLEA_START_PROFILE=build" && start.bat` |
+| `launcher-dev` | Launcher 本体热更新 | `set "RAYLEA_START_PROFILE=launcher-dev" && start.bat` |
+
+兼容环境变量：
+
+- `set "RAYLEA_START_WEB_MODE=build" && start.bat` 等价于 `RAYLEA_START_PROFILE=build`。
+- `set "RAYLEA_START_SKIP_LAUNCH=1" && start.bat` 执行准备与启动检查，不打开 Electron。
+
+依赖安装策略：
+
+| `RAYLEA_START_INSTALL` | 行为 |
+| --- | --- |
+| `auto` | `node_modules` 缺失或 lockfile 更新时间较新时安装依赖 |
+| `always` | 每次启动安装依赖 |
+| `skip` | 跳过依赖安装 |
+
+端口与日志：
+
+- Web 开发服务器使用 `127.0.0.1:4173`。
+- `4173` 上已有 RayleaBot Web 开发服务器时直接复用。
+- `4173` 被其他程序占用时，启动脚本会显示占用原因并退出。
+- 启动日志位于 `logs/dev/start.log`。
+- Web 开发服务器输出位于 `logs/dev/web-dev.log`。
+- Launcher 输出位于 `logs/dev/launcher.log`。

@@ -18,12 +18,15 @@ async function createTempDir(label: string) {
   return tempRoot;
 }
 
-async function writeCommandStub(binDir: string, commandName: string, logPath: string) {
+async function writeNodeStub(binDir: string, logPath: string) {
   await fs.writeFile(
-    path.join(binDir, `${commandName}.cmd`),
+    path.join(binDir, "node.cmd"),
     [
       "@echo off",
-      `>>"${logPath}" echo ${commandName} %*`,
+      `>>"${logPath}" echo CWD=%CD%`,
+      `>>"${logPath}" echo ARGS=%*`,
+      `>>"${logPath}" echo WEB_MODE=%RAYLEA_START_WEB_MODE%`,
+      `>>"${logPath}" echo PROFILE=%RAYLEA_START_PROFILE%`,
       "exit /b 0",
       "",
     ].join("\r\n"),
@@ -31,24 +34,12 @@ async function writeCommandStub(binDir: string, commandName: string, logPath: st
   );
 }
 
-async function readLogLines(logPath: string, expectedCount: number) {
-  const deadline = Date.now() + 5000;
-  let lines: string[] = [];
-  while (Date.now() < deadline) {
-    try {
-      lines = (await fs.readFile(logPath, "utf8"))
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-      if (lines.length >= expectedCount) {
-        return lines;
-      }
-    } catch {
-      lines = [];
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  return lines;
+async function readLogLines(logPath: string) {
+  const content = await fs.readFile(logPath, "utf8");
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 afterEach(async () => {
@@ -60,14 +51,12 @@ afterEach(async () => {
 });
 
 describe("start.bat", () => {
-  test.runIf(process.platform === "win32")("starts web dev mode by default before skipping launch", async () => {
+  test.runIf(process.platform === "win32")("delegates to the Node start orchestrator", async () => {
     const binDir = await createTempDir("bin");
     const logPath = path.join(await createTempDir("logs"), "commands.log");
+    await writeNodeStub(binDir, logPath);
 
-    await writeCommandStub(binDir, "pnpm", logPath);
-    await writeCommandStub(binDir, "go", logPath);
-
-    const result = await execFileAsync("cmd.exe", ["/d", "/c", startScriptPath], {
+    await execFileAsync("cmd.exe", ["/d", "/c", startScriptPath, "--dry-run"], {
       cwd: repositoryRoot,
       env: {
         ...process.env,
@@ -78,49 +67,35 @@ describe("start.bat", () => {
       timeout: 15000,
     });
 
-    const logLines = await readLogLines(logPath, 5);
-
-    expect(result.stdout).toContain("[RayleaBot] Web dev mode enabled.");
-    expect(result.stdout).toContain("[RayleaBot] Starting web dev server...");
-    expect(result.stdout).toContain("[RayleaBot] Building server...");
-    expect(logLines).toEqual([
-      `pnpm --dir "${path.join(repositoryRoot, "web")}" install --frozen-lockfile`,
-      `go build -o "${path.join(repositoryRoot, "server", "raylea-server.exe")}" ./cmd/raylea-server`,
-      `pnpm --dir "${path.join(repositoryRoot, "launcher")}" install --frozen-lockfile`,
-      `pnpm --dir "${path.join(repositoryRoot, "launcher")}" run build:app`,
-      "pnpm dev",
+    expect(await readLogLines(logPath)).toEqual([
+      `CWD=${repositoryRoot}`,
+      "ARGS=scripts\\start-dev.mjs --dry-run",
+      "WEB_MODE=",
+      "PROFILE=",
     ]);
   }, 20000);
 
-  test.runIf(process.platform === "win32")("keeps build mode for packaged web checks", async () => {
+  test.runIf(process.platform === "win32")("keeps legacy build mode available to the orchestrator", async () => {
     const binDir = await createTempDir("bin");
     const logPath = path.join(await createTempDir("logs"), "commands.log");
+    await writeNodeStub(binDir, logPath);
 
-    await writeCommandStub(binDir, "pnpm", logPath);
-    await writeCommandStub(binDir, "go", logPath);
-
-    const result = await execFileAsync("cmd.exe", ["/d", "/c", startScriptPath], {
+    await execFileAsync("cmd.exe", ["/d", "/c", startScriptPath], {
       cwd: repositoryRoot,
       env: {
         ...process.env,
         PATH: `${binDir};${process.env.PATH ?? ""}`,
-        RAYLEA_START_SKIP_LAUNCH: "1",
         RAYLEA_START_WEB_MODE: "build",
       },
       windowsHide: true,
       timeout: 15000,
     });
 
-    const logLines = await readLogLines(logPath, 5);
-
-    expect(result.stdout).toContain("[RayleaBot] Building web...");
-    expect(result.stdout).toContain("[RayleaBot] Building server...");
-    expect(logLines).toEqual([
-      `pnpm --dir "${path.join(repositoryRoot, "web")}" install --frozen-lockfile`,
-      `pnpm --dir "${path.join(repositoryRoot, "web")}" run build`,
-      `go build -o "${path.join(repositoryRoot, "server", "raylea-server.exe")}" ./cmd/raylea-server`,
-      `pnpm --dir "${path.join(repositoryRoot, "launcher")}" install --frozen-lockfile`,
-      `pnpm --dir "${path.join(repositoryRoot, "launcher")}" run build:app`,
+    expect(await readLogLines(logPath)).toEqual([
+      `CWD=${repositoryRoot}`,
+      "ARGS=scripts\\start-dev.mjs",
+      "WEB_MODE=build",
+      "PROFILE=",
     ]);
   }, 20000);
 });
