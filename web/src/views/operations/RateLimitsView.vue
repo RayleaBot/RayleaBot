@@ -359,9 +359,6 @@ async function save() {
                       </div>
                     </div>
 
-                    <div v-if="field.description" class="rate-limits-field-note">
-                      <p class="rate-limits-field-note__text">{{ field.description }}</p>
-                    </div>
                   </a-form-item>
                 </div>
               </div>
@@ -622,18 +619,6 @@ async function save() {
   color: var(--text);
   font-size: 0.9rem;
   line-height: 1.4;
-}
-
-.rate-limits-field-note {
-  display: grid;
-  margin-top: 8px;
-}
-
-.rate-limits-field-note__text {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.6;
 }
 
 @media (max-width: 1180px) {
