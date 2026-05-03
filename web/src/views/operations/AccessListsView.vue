@@ -300,8 +300,12 @@ onMounted(() => {
         <div data-testid="access-lists-whitelist-card" class="access-lists-card-content">
           <div class="access-lists-card-header">
             <div class="access-lists-card-header__copy">
-              <strong>{{ t('accessLists.cards.whitelistTitle') }}</strong>
-              <p>{{ t('accessLists.cards.whitelistDescription') }}</p>
+              <div class="access-lists-card-header__title-row">
+                <strong>{{ t('accessLists.cards.whitelistTitle') }}</strong>
+                <a-tooltip :title="t('accessLists.cards.whitelistDescription')">
+                  <button type="button" class="access-lists-help-badge" :aria-label="t('accessLists.cards.whitelistHelp')">?</button>
+                </a-tooltip>
+              </div>
             </div>
             <div class="access-lists-card-header__meta">
               <span class="access-lists-card-header__count">{{ totalWhitelistEntries }}</span>
@@ -415,8 +419,12 @@ onMounted(() => {
         <div data-testid="access-lists-blacklist-card" class="access-lists-card-content">
           <div class="access-lists-card-header">
             <div class="access-lists-card-header__copy">
-              <strong>{{ t('accessLists.cards.blacklistTitle') }}</strong>
-              <p>{{ t('accessLists.cards.blacklistDescription') }}</p>
+              <div class="access-lists-card-header__title-row">
+                <strong>{{ t('accessLists.cards.blacklistTitle') }}</strong>
+                <a-tooltip :title="t('accessLists.cards.blacklistDescription')">
+                  <button type="button" class="access-lists-help-badge" :aria-label="t('accessLists.cards.blacklistHelp')">?</button>
+                </a-tooltip>
+              </div>
             </div>
             <div class="access-lists-card-header__meta">
               <span class="access-lists-card-header__count">{{ totalBlacklistEntries }}</span>
@@ -590,14 +598,45 @@ onMounted(() => {
   gap: 6px;
 }
 
+.access-lists-card-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .access-lists-card-header__copy strong {
   font-size: 1.05rem;
   line-height: 1.3;
 }
 
-.access-lists-card-header__copy p {
-  margin: 0;
+.access-lists-help-badge {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--muted);
+  cursor: help;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.75;
+  transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.access-lists-help-badge:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.access-lists-help-badge:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .access-lists-card-header__meta {

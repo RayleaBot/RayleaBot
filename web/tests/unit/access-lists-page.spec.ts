@@ -91,11 +91,13 @@ describe('AccessListsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('黑白名单')
-    expect(wrapper.text()).toContain('前置放行名单')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain('白名单')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('命中白名单的用户或群')
     expect(wrapper.text()).toContain('查看指令中心')
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('读取黑名单失败')
 
-    expect(wrapper.text()).toContain('拦截名单')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('黑名单')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('命中黑名单的用户或群')
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('读取黑名单失败')
 
     await wrapper.get('[data-testid="access-lists-open-commands"]').trigger('click')
@@ -186,7 +188,7 @@ describe('AccessListsPage', () => {
 
     await flushPromises()
 
-    // --- Whitelist (default active tab): add via modal ---
+    // --- Whitelist: add via modal ---
     // Default entry_type follows scopeFilter ('all' -> 'user')
     await wrapper.get('[data-testid="access-lists-whitelist-add-btn"]').trigger('click')
     await flushPromises()

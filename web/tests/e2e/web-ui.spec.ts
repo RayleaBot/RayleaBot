@@ -570,8 +570,6 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(whitelistCard).toContainText('31010')
   await expect(whitelistCard.locator('.ant-pagination')).toHaveCount(0)
 
-  // --- Blacklist tab ---
-  await page.locator('.access-lists-tabs .ant-tabs-tab').filter({ hasText: '黑名单' }).click()
   await expect(blacklistCard).toContainText('10001')
   await expect(blacklistCard).toContainText('41010')
   await expect(blacklistCard.locator('.ant-pagination')).toHaveCount(0)
@@ -587,9 +585,6 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await governanceEntryCard(blacklistCard, '30003').getByRole('button', { name: '移除' }).click()
   await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
   await expect(blacklistCard).not.toContainText('30003')
-
-  // --- Whitelist tab ---
-  await page.locator('.access-lists-tabs .ant-tabs-tab').filter({ hasText: '白名单' }).click()
 
   await page.getByTestId('access-lists-whitelist-add-btn').click()
   const whitelistModal = page.getByRole('dialog').filter({ hasText: '添加白名单条目' })

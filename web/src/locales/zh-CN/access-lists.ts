@@ -13,10 +13,12 @@ export const accessLists = {
     whitelistDisabled: '未启用',
   },
   cards: {
-    whitelistTitle: '前置放行名单',
-    whitelistDescription: '命中名单的用户或群会进入命令分发，命令权限与冷却仍继续生效。',
-    blacklistTitle: '拦截名单',
-    blacklistDescription: '黑名单用于拦截高风险用户或群；命中白名单时，仍继续进入后续权限与冷却判断。',
+    whitelistTitle: '白名单',
+    whitelistHelp: '白名单说明',
+    whitelistDescription: '命中白名单的用户或群会进入命令分发，命令权限与冷却继续生效。',
+    blacklistTitle: '黑名单',
+    blacklistHelp: '黑名单说明',
+    blacklistDescription: '命中黑名单的用户或群会被拦截；命中白名单时，仍进入后续权限与冷却判断。',
   },
   scopes: {
     user: '用户',
