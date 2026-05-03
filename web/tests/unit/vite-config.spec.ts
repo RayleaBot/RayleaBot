@@ -1,4 +1,4 @@
-import { resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl } from '../../vite.config'
+import { createBackendProxyOptions, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl } from '../../vite.config'
 
 describe('vite config', () => {
   it('uses the backend target when the dev WebSocket base URL is empty', () => {
@@ -12,5 +12,13 @@ describe('vite config', () => {
 
   it('does not pin built assets to a development WebSocket base URL', () => {
     expect(resolveClientWebSocketBaseUrl('build', 'ws://127.0.0.1:4010', 'http://127.0.0.1:8080')).toBe('')
+  })
+
+  it('does not route WebSocket traffic through the Vite backend proxy', () => {
+    expect(createBackendProxyOptions('http://127.0.0.1:8080')).toMatchObject({
+      target: 'http://127.0.0.1:8080',
+      changeOrigin: true,
+      ws: false,
+    })
   })
 })

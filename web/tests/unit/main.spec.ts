@@ -302,6 +302,70 @@ describe('web bootstrap', () => {
     expect(router.replace).toHaveBeenCalledWith({ name: 'offline' })
   })
 
+  it('opens the offline page when the background health probe fails', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('offline', { status: 503 })))
+    const router = {
+      currentRoute: {
+        value: {
+          fullPath: '/plugins',
+          name: 'plugins',
+          meta: { requiresAuth: true },
+        },
+      },
+      isReady: vi.fn().mockResolvedValue(undefined),
+      push: vi.fn(),
+      replace: vi.fn(),
+    }
+    const sessionStore = {
+      token: 'fixture-token',
+      isAuthenticated: true,
+      isBootstrapped: true,
+      requiresSetup: false,
+      setupInitialized: true,
+      bootstrap: vi.fn().mockResolvedValue(undefined),
+      admitLauncherToken: vi.fn(),
+      clearSession: vi.fn(),
+      handleSessionExpired: vi.fn(),
+      setLauncherAdmissionHint: vi.fn(),
+    }
+    const socketStore = {
+      ensureManagementSockets: vi.fn(),
+      disconnectAll: vi.fn(),
+      snapshots: {
+        events: { status: 'authenticated' },
+        tasks: { status: 'authenticated' },
+        logs: { status: 'authenticated' },
+      },
+    }
+    const availabilityStore = {
+      isOffline: false,
+      returnPath: null,
+      markOffline: vi.fn(),
+      markOnline: vi.fn(),
+    }
+
+    createAppRouter.mockReturnValue(router)
+    sessionStoreFactory.mockReturnValue(sessionStore)
+    socketStoreFactory.mockReturnValue(socketStore)
+    appAvailabilityStoreFactory.mockReturnValue(availabilityStore)
+    watch.mockImplementation((source, callback, options) => {
+      if (options?.immediate) {
+        callback(source(), undefined)
+      }
+    })
+
+    await import('@/main')
+    await flushBootstrap()
+
+    await vi.advanceTimersByTimeAsync(2499)
+    expect(router.replace).not.toHaveBeenCalledWith({ name: 'offline' })
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins')
+    expect(router.replace).toHaveBeenCalledWith({ name: 'offline' })
+  })
+
   it('keeps the current page when websocket reconnecting occurs but health is reachable', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })))

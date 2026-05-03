@@ -82,6 +82,33 @@ describe('api runtime', () => {
     expect(reachable).toHaveBeenCalledWith('/api/system/status', 200)
   })
 
+  it('reports dev proxy backend unavailable responses as network failures', async () => {
+    const networkUnavailable = vi.fn()
+    const reachable = vi.fn()
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: {
+        message: '管理服务暂不可用。',
+      },
+    }), {
+      status: 503,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-rayleabot-backend-unavailable': '1',
+      },
+    })))
+
+    configureApiRuntime({
+      onNetworkUnavailable: networkUnavailable,
+      onReachable: reachable,
+    })
+
+    await expect(apiRequest('/api/system/status')).rejects.toThrow('管理服务暂不可用。')
+
+    expect(networkUnavailable).toHaveBeenCalledWith('/api/system/status', expect.any(Error))
+    expect(reachable).not.toHaveBeenCalled()
+  })
+
   it('parses plain content-disposition filenames without quotes', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('fixture', {
       status: 200,

@@ -70,6 +70,7 @@ export interface ApiDownloadResult {
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000
+const backendUnavailableHeader = 'x-rayleabot-backend-unavailable'
 
 function withRuntimeHeaders(
   headers: HeadersInit | undefined,
@@ -180,6 +181,10 @@ function createApiError(response: Response, payload: unknown) {
   )
 }
 
+function isBackendUnavailableResponse(response: Response) {
+  return response.status === 503 && response.headers.get(backendUnavailableHeader) === '1'
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, acceptStatuses = [], ...rest } = options
   const tokenSnapshot = auth ? runtime.getToken() : null
@@ -207,8 +212,15 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 
-  runtime.onReachable(path, response.status)
   const payload = await readResponsePayload(response)
+
+  if (isBackendUnavailableResponse(response)) {
+    const error = createApiError(response, payload)
+    runtime.onNetworkUnavailable(path, error)
+    throw error
+  }
+
+  runtime.onReachable(path, response.status)
 
   if (!response.ok && !acceptStatuses.includes(response.status)) {
     if (response.status === 401 && auth) {
@@ -252,9 +264,16 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
     if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 
-  runtime.onReachable(path, response.status)
   if (!response.ok) {
     const payload = await readResponsePayload(response)
+
+    if (isBackendUnavailableResponse(response)) {
+      const error = createApiError(response, payload)
+      runtime.onNetworkUnavailable(path, error)
+      throw error
+    }
+
+    runtime.onReachable(path, response.status)
 
     if (response.status === 401 && auth) {
       runtime.onUnauthorized(tokenSnapshot)
@@ -262,6 +281,8 @@ export async function apiDownload(path: string, options: ApiRequestOptions = {})
 
     throw createApiError(response, payload)
   }
+
+  runtime.onReachable(path, response.status)
 
   return {
     blob: await response.blob(),

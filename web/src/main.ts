@@ -21,6 +21,7 @@ const initialLauncherToken = typeof window === 'undefined'
   : new URL(window.location.href).searchParams.get('token')?.trim() || null
 const websocketOfflineDelayMs = 2000
 const websocketOfflineProbeTimeoutMs = 1500
+const backendAvailabilityProbeIntervalMs = 2500
 
 function currentBrowserPath() {
   if (typeof window === 'undefined') {
@@ -90,6 +91,8 @@ function installAvailabilityHandlers(
   availabilityStore: ReturnType<typeof useAppAvailabilityStore>,
 ) {
   let websocketOfflineTimer: number | null = null
+  let backendAvailabilityTimer: number | null = null
+  let backendAvailabilityProbeInFlight = false
 
   function clearWebsocketOfflineTimer() {
     if (websocketOfflineTimer !== null) {
@@ -98,9 +101,17 @@ function installAvailabilityHandlers(
     }
   }
 
+  function clearBackendAvailabilityTimer() {
+    if (backendAvailabilityTimer !== null) {
+      window.clearInterval(backendAvailabilityTimer)
+      backendAvailabilityTimer = null
+    }
+  }
+
   function openOfflinePage(source: 'browser' | 'http' | 'websocket') {
     const current = router.currentRoute.value
     availabilityStore.markOffline(source, current.name === 'offline' ? availabilityStore.returnPath : current.fullPath)
+    clearBackendAvailabilityTimer()
 
     if (current.name !== 'offline') {
       void router.replace({ name: 'offline' })
@@ -121,6 +132,36 @@ function installAvailabilityHandlers(
     } finally {
       window.clearTimeout(timeoutId)
     }
+  }
+
+  async function probeBackendAvailability() {
+    if (
+      backendAvailabilityProbeInFlight
+      || !sessionStore.isAuthenticated
+      || availabilityStore.isOffline
+      || router.currentRoute.value.name === 'offline'
+    ) {
+      return
+    }
+
+    backendAvailabilityProbeInFlight = true
+    try {
+      if (!(await canReachBackend())) {
+        openOfflinePage('http')
+      }
+    } finally {
+      backendAvailabilityProbeInFlight = false
+    }
+  }
+
+  function ensureBackendAvailabilityTimer() {
+    if (backendAvailabilityTimer !== null) {
+      return
+    }
+
+    backendAvailabilityTimer = window.setInterval(() => {
+      void probeBackendAvailability()
+    }, backendAvailabilityProbeIntervalMs)
   }
 
   configureApiRuntime({
@@ -176,6 +217,19 @@ function installAvailabilityHandlers(
 
         openOfflinePage('websocket')
       }, websocketOfflineDelayMs)
+    },
+    { immediate: true },
+  )
+
+  watch(
+    () => [sessionStore.isAuthenticated, router.currentRoute.value.name, availabilityStore.isOffline] as const,
+    ([isAuthenticated, routeName, isOffline]) => {
+      if (isAuthenticated && routeName !== 'offline' && !isOffline) {
+        ensureBackendAvailabilityTimer()
+        return
+      }
+
+      clearBackendAvailabilityTimer()
     },
     { immediate: true },
   )
