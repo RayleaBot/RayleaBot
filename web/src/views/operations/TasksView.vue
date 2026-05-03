@@ -387,8 +387,21 @@ function getStatusColor(status: string) {
 }
 
 .tasks-data-table {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
+}
+
+.tasks-data-table :deep(.ant-spin-nested-loading),
+.tasks-data-table :deep(.ant-spin-container) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .tasks-data-table :deep(.ant-table) {
@@ -396,6 +409,21 @@ function getStatusColor(status: string) {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
+}
+
+.tasks-data-table :deep(.ant-table-container) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tasks-data-table :deep(.ant-table-content) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto !important;
 }
 
 .tasks-data-table :deep(.ant-table-body) {

@@ -63,6 +63,39 @@ async function login(page: import('@playwright/test').Page) {
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 }
 
+async function createRenderPreviewTasks(
+  request: import('@playwright/test').APIRequestContext,
+  count: number,
+) {
+  const sessionResponse = await request.post(`${backendUrl}/api/session/login`, {
+    data: {
+      identifier: 'admin',
+      secret: 'fixture-only-secret',
+    },
+  })
+  expect(sessionResponse.ok()).toBeTruthy()
+  const { session_token: sessionToken } = await sessionResponse.json()
+  const headers = {
+    Authorization: `Bearer ${sessionToken}`,
+  }
+
+  for (let start = 0; start < count; start += 20) {
+    const end = Math.min(start + 20, count)
+    await Promise.all(Array.from({ length: end - start }, (_, offset) => {
+      const index = start + offset
+      return request.post(`${backendUrl}/api/system/render/preview`, {
+        headers,
+        data: {
+          template: 'help.menu',
+          theme: 'default',
+          output: 'png',
+          input: { title: `任务滚动 ${index + 1}` },
+        },
+      })
+    }))
+  }
+}
+
 function pluginRows(page: import('@playwright/test').Page) {
   return page.locator('.plugins-data-table .ant-table-tbody > tr:not(.ant-table-measure-row)')
 }
@@ -80,7 +113,7 @@ function pluginScroller(page: import('@playwright/test').Page) {
 }
 
 function taskScroller(page: import('@playwright/test').Page) {
-  return page.locator('.tasks-data-table .ant-table-container')
+  return page.locator('.tasks-data-table .ant-table-content')
 }
 
 function logScroller(page: import('@playwright/test').Page) {
@@ -804,12 +837,30 @@ test('desktop list viewports fill the remaining shell height without overlapping
   expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('560px')
   expect((await pluginsBody.getAttribute('style')) ?? '').not.toContain('620px')
 
+  await createRenderPreviewTasks(request, 80)
   await page.goto('/tasks')
   const tasksBody = taskScroller(page)
   await expect(tasksBody).toBeVisible()
   expect((await tasksBody.getAttribute('style')) ?? '').not.toContain('560px')
   expect((await tasksBody.getAttribute('style')) ?? '').not.toContain('620px')
   await expect(taskRows(page).first()).toBeVisible()
+  const taskScrollMetrics = await tasksBody.evaluate((node) => {
+    const style = window.getComputedStyle(node)
+    return {
+      clientHeight: node.clientHeight,
+      overflowY: style.overflowY,
+      scrollHeight: node.scrollHeight,
+      scrollTop: node.scrollTop,
+    }
+  })
+  expect(taskScrollMetrics.scrollHeight).toBeGreaterThan(taskScrollMetrics.clientHeight + 100)
+  expect(['auto', 'scroll']).toContain(taskScrollMetrics.overflowY)
+  await tasksBody.evaluate((node) => {
+    node.scrollTop = node.scrollHeight
+    node.dispatchEvent(new Event('scroll'))
+  })
+  await expect.poll(() => tasksBody.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+  await expect(taskRows(page).filter({ hasText: 'task_render_preview_0080' }).first()).toBeVisible()
 
   await page.goto('/logs')
   const logsBody = logScroller(page)
