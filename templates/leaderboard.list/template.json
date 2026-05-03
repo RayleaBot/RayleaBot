@@ -1,6 +1,6 @@
 {
   "id": "leaderboard.list",
-  "version": "1",
+  "version": "2",
   "entry_html": "template.html",
   "stylesheet": "styles.css",
   "input_schema": "input.schema.json",

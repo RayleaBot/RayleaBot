@@ -1,6 +1,6 @@
 {
   "id": "help.menu",
-  "version": "2",
+  "version": "3",
   "entry_html": "template.html",
   "stylesheet": "styles.css",
   "input_schema": "input.schema.json",
