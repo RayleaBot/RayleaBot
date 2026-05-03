@@ -388,8 +388,20 @@ function getStatusColor(status: string) {
 
 .tasks-data-table {
   border-radius: var(--radius-md);
-  overflow: hidden;
   box-shadow: var(--shadow-xs);
+}
+
+.tasks-data-table :deep(.ant-table) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.tasks-data-table :deep(.ant-table-body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 :deep(.ant-table-row:hover > td) {
