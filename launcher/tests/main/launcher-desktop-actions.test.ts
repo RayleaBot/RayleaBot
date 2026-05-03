@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { createLauncherRuntimeContext } from "@main/services/launcher-runtime-context";
 import { createLauncherSnapshotStore } from "@main/services/launcher-snapshot-store";
 import { createLauncherDesktopActions } from "@main/services/launcher-desktop-actions";
@@ -42,6 +42,17 @@ async function createDesktopActionsHarness() {
   };
 }
 
+const originalWebUiBaseUrl = process.env.RAYLEA_WEB_UI_BASE_URL;
+
+afterEach(() => {
+  if (originalWebUiBaseUrl === undefined) {
+    delete process.env.RAYLEA_WEB_UI_BASE_URL;
+  } else {
+    process.env.RAYLEA_WEB_UI_BASE_URL = originalWebUiBaseUrl;
+  }
+  vi.restoreAllMocks();
+});
+
 describe("launcher desktop actions", () => {
   test("openWebUi adds launcher token only when setup is initialized", async () => {
     const { desktopActions, externalOpener, managementClient } = await createDesktopActionsHarness();
@@ -57,6 +68,19 @@ describe("launcher desktop actions", () => {
     const latestUri = externalOpener.openedUris.at(-1) ?? "";
     expect(latestUri.endsWith("/")).toBe(true);
     expect(latestUri.includes("?token=")).toBe(false);
+  });
+
+  test("openWebUi can target the web dev server while using the backend endpoint for tokens", async () => {
+    process.env.RAYLEA_WEB_UI_BASE_URL = "http://127.0.0.1:4173/";
+    const { desktopActions, externalOpener, managementClient } = await createDesktopActionsHarness();
+    const issueLauncherToken = vi.spyOn(managementClient, "issueLauncherToken");
+
+    await desktopActions.openWebUi("/tasks?task_id=task_fixture_0001");
+
+    expect(issueLauncherToken).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: "http://127.0.0.1:8080/" }));
+    expect(externalOpener.openedUris.at(-1)).toBe(
+      "http://127.0.0.1:4173/tasks?task_id=task_fixture_0001&token=launcher_fixture_token",
+    );
   });
 
   test("openWebUi falls back to the plain url and rejects absolute external targets", async () => {

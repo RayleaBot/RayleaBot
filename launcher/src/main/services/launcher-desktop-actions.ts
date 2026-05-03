@@ -17,11 +17,29 @@ interface LauncherDesktopActionsDependencies {
   processController: ServerProcessController;
 }
 
+function resolveWebUiBaseUrl(fallbackBaseUrl: string) {
+  const candidate = process.env.RAYLEA_WEB_UI_BASE_URL?.trim();
+  if (!candidate) {
+    return fallbackBaseUrl;
+  }
+
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return fallbackBaseUrl;
+    }
+    return url.toString();
+  } catch {
+    return fallbackBaseUrl;
+  }
+}
+
 export function createLauncherDesktopActions(deps: LauncherDesktopActionsDependencies): LauncherDesktopActions {
   async function openWebUi(targetPath = "") {
     const context = await deps.runtimeContext.createOperationContext();
     const normalizedTarget = sanitizeLauncherWebTargetPath(targetPath);
-    const url = normalizedTarget ? new URL(normalizedTarget, context.endpoint.baseUrl) : new URL(context.endpoint.baseUrl);
+    const webUiBaseUrl = resolveWebUiBaseUrl(context.endpoint.baseUrl);
+    const url = normalizedTarget ? new URL(normalizedTarget, webUiBaseUrl) : new URL(webUiBaseUrl);
     let initialized = false;
 
     try {
@@ -36,7 +54,7 @@ export function createLauncherDesktopActions(deps: LauncherDesktopActionsDepende
         url.searchParams.set("token", launcherToken);
       } catch {
         if (normalizedTarget) {
-          const fallbackURL = new URL(normalizedTarget, context.endpoint.baseUrl);
+          const fallbackURL = new URL(normalizedTarget, webUiBaseUrl);
           await deps.externalOpener.openUri(fallbackURL.toString());
           return;
         }

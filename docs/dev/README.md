@@ -15,3 +15,10 @@
 
 - 默认命令、版本线和 CI 门禁以 `docs/engineering/` 为准。
 - 本目录说明开发入口和调试路径，不单独定义对外接口。
+
+## 本地启动
+
+- Windows 本地开发入口为仓库根目录的 `start.bat`。
+- `start.bat` 使用 Web 开发服务器，管理面地址为 `http://127.0.0.1:4173/`。
+- Web 开发服务器默认代理到 `http://127.0.0.1:8080`；自定义后端地址使用 `VITE_BACKEND_TARGET`。
+- 需要检查后端托管的静态管理面时，使用 `set "RAYLEA_START_WEB_MODE=build" && start.bat`。

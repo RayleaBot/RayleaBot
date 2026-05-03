@@ -20,6 +20,7 @@ const initialLauncherToken = typeof window === 'undefined'
   ? null
   : new URL(window.location.href).searchParams.get('token')?.trim() || null
 const websocketOfflineDelayMs = 2000
+const websocketOfflineProbeTimeoutMs = 1500
 
 function currentBrowserPath() {
   if (typeof window === 'undefined') {
@@ -106,6 +107,22 @@ function installAvailabilityHandlers(
     }
   }
 
+  async function canReachBackend() {
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), websocketOfflineProbeTimeoutMs)
+    try {
+      const response = await fetch('/healthz', {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      return response.ok
+    } catch {
+      return false
+    } finally {
+      window.clearTimeout(timeoutId)
+    }
+  }
+
   configureApiRuntime({
     onNetworkUnavailable: () => openOfflinePage('http'),
     onReachable: () => availabilityStore.markOnline(),
@@ -136,7 +153,7 @@ function installAvailabilityHandlers(
         return
       }
 
-      websocketOfflineTimer = window.setTimeout(() => {
+      websocketOfflineTimer = window.setTimeout(async () => {
         websocketOfflineTimer = null
         const coreStatuses = [
           socketStore.snapshots.events.status,
@@ -145,12 +162,19 @@ function installAvailabilityHandlers(
         ]
 
         if (
-          sessionStore.isAuthenticated
-          && router.currentRoute.value.name !== 'offline'
-          && coreStatuses.some((status) => status === 'reconnecting')
+          !sessionStore.isAuthenticated
+          || router.currentRoute.value.name === 'offline'
+          || !coreStatuses.some((status) => status === 'reconnecting')
         ) {
-          openOfflinePage('websocket')
+          return
         }
+
+        if (await canReachBackend()) {
+          availabilityStore.markOnline()
+          return
+        }
+
+        openOfflinePage('websocket')
       }, websocketOfflineDelayMs)
     },
     { immediate: true },
