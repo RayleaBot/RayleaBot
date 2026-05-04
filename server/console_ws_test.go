@@ -85,6 +85,62 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 	}
 }
 
+func TestPluginConsoleWebSocketAcceptsLocalDevOrigin(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.help/console?session_token="+token, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Origin": []string{"http://127.0.0.1:4173"},
+		},
+	})
+	if err != nil {
+		status := 0
+		if response != nil {
+			status = response.StatusCode
+		}
+		t.Fatalf("dial websocket with local dev origin failed (status %d): %v", status, err)
+	}
+	_ = conn.Close(websocket.StatusNormalClosure, "")
+}
+
+func TestPluginConsoleWebSocketRejectsUnknownOrigin(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.help/console?session_token="+token, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Origin": []string{"https://example.invalid"},
+		},
+	})
+	if conn != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}
+	if err == nil {
+		t.Fatal("expected websocket dial with unknown origin to fail")
+	}
+	if response == nil || response.StatusCode != http.StatusForbidden {
+		if response == nil {
+			t.Fatal("expected forbidden response, got nil")
+		}
+		t.Fatalf("unexpected forbidden status: got %d want %d", response.StatusCode, http.StatusForbidden)
+	}
+}
+
 func TestPluginConsoleWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 

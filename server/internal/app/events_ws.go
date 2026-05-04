@@ -18,7 +18,7 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 			return
 		}
 
-		conn, err := websocket.Accept(w, r, nil)
+		conn, err := acceptManagementWebSocket(w, r)
 		if err != nil {
 			return
 		}
