@@ -48,11 +48,13 @@ type pluginSummaryResponse struct {
 }
 
 type pluginCommandResponse struct {
-	Name        string   `json:"name"`
-	Aliases     []string `json:"aliases,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Usage       string   `json:"usage,omitempty"`
-	Permission  string   `json:"permission,omitempty"`
+	Name          string   `json:"name"`
+	Aliases       []string `json:"aliases,omitempty"`
+	Description   string   `json:"description,omitempty"`
+	Usage         string   `json:"usage,omitempty"`
+	Permission    string   `json:"permission,omitempty"`
+	CommandSource string   `json:"command_source"`
+	DeclarationID string   `json:"declaration_id,omitempty"`
 }
 
 type pluginSourceResponse struct {
@@ -831,15 +833,25 @@ func buildPluginCommands(snapshot Snapshot) []pluginCommandResponse {
 	items := make([]pluginCommandResponse, 0, len(snapshot.Commands))
 	for _, command := range snapshot.Commands {
 		items = append(items, pluginCommandResponse{
-			Name:        command.Name,
-			Aliases:     normalizeStringList(command.Aliases),
-			Description: strings.TrimSpace(command.Description),
-			Usage:       strings.TrimSpace(command.Usage),
-			Permission:  strings.TrimSpace(command.Permission),
+			Name:          command.Name,
+			Aliases:       normalizeStringList(command.Aliases),
+			Description:   strings.TrimSpace(command.Description),
+			Usage:         strings.TrimSpace(command.Usage),
+			Permission:    strings.TrimSpace(command.Permission),
+			CommandSource: commandSourceOrDefault(command.CommandSource),
+			DeclarationID: strings.TrimSpace(command.DeclarationID),
 		})
 	}
 
 	return items
+}
+
+func commandSourceOrDefault(source string) string {
+	source = strings.TrimSpace(source)
+	if source == CommandSourceDynamic {
+		return CommandSourceDynamic
+	}
+	return CommandSourceManifest
 }
 
 func normalizeStringList(values []string) []string {

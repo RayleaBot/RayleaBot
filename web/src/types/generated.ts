@@ -1184,6 +1184,8 @@ export interface components {
         CommandPermissionLevel: "super_admin" | "group_admin" | "everyone";
         /** @enum {string} */
         CommandPermissionSource: "declared" | "default_level";
+        /** @enum {string} */
+        PluginCommandSource: "manifest" | "dynamic";
         GovernanceCommandCooldown: {
             user_command_rate_limit: string;
             group_command_rate_limit: string;
@@ -1194,6 +1196,8 @@ export interface components {
             plugin_name: string;
             command: string;
             aliases: string[];
+            command_source: components["schemas"]["PluginCommandSource"];
+            declaration_id?: string;
             declared_permission: components["schemas"]["CommandPermissionLevel"];
             effective_permission: components["schemas"]["CommandPermissionLevel"];
             permission_source: components["schemas"]["CommandPermissionSource"];
@@ -1237,6 +1241,8 @@ export interface components {
             description?: string;
             usage?: string;
             permission?: string;
+            command_source: components["schemas"]["PluginCommandSource"];
+            declaration_id?: string;
         };
         PluginSummary: {
             id: string;

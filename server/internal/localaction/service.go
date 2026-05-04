@@ -64,6 +64,7 @@ type Deps struct {
 	Adapter          *adapter.Shell
 	PluginLogLimiter *PluginLogLimiter
 	Governance       GovernanceService
+	RefreshCommands  func(context.Context, string, map[string]any)
 }
 
 type Service struct {
@@ -81,6 +82,7 @@ type Service struct {
 	webhookGateway   WebhookGateway
 	pluginLogLimiter *PluginLogLimiter
 	governance       GovernanceService
+	refreshCommands  func(context.Context, string, map[string]any)
 }
 
 func New(deps Deps) *Service {
@@ -98,7 +100,15 @@ func New(deps Deps) *Service {
 		adapter:          deps.Adapter,
 		pluginLogLimiter: deps.PluginLogLimiter,
 		governance:       deps.Governance,
+		refreshCommands:  deps.RefreshCommands,
 	}
+}
+
+func (s *Service) SetRefreshPluginCommands(refresh func(context.Context, string, map[string]any)) {
+	if s == nil {
+		return
+	}
+	s.refreshCommands = refresh
 }
 
 func (s *Service) SetWebhookGateway(gateway WebhookGateway) {

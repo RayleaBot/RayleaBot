@@ -49,7 +49,7 @@ func buildAppPlugins(
 	whitelistRepo := permission.NewSQLiteWhitelistRepository(platform.Storage.Read, platform.Storage.Write)
 	whitelistStateRepo := permission.NewSQLiteWhitelistStateRepository(platform.Storage.Read, platform.Storage.Write)
 
-	if err := hydratePluginCatalog(state, pluginRepository); err != nil {
+	if err := hydratePluginCatalog(state, pluginRepository, pluginConfigRepository); err != nil {
 		_ = platform.Storage.Close()
 		return appPlugins{}, err
 	}
@@ -123,7 +123,7 @@ func buildRenderService(state appBuildState, platform appPlatform, renderRunner 
 	return renderService, nil
 }
 
-func hydratePluginCatalog(state appBuildState, pluginRepository *plugins.SQLiteRepository) error {
+func hydratePluginCatalog(state appBuildState, pluginRepository *plugins.SQLiteRepository, pluginConfigRepository pluginconfig.Repository) error {
 	desiredStates, err := pluginRepository.LoadDesiredStates(context.Background())
 	if err != nil {
 		return fmt.Errorf("load persisted plugin desired_state: %w", err)
@@ -136,6 +136,27 @@ func hydratePluginCatalog(state appBuildState, pluginRepository *plugins.SQLiteR
 		state.pluginCatalog.Replace(plugins.ApplyPackageMetadata(state.pluginCatalog.List(), packageMetadata))
 	}
 	state.pluginCatalog.ApplyDesiredStates(desiredStates)
+	if err := refreshCatalogCommandsFromSettings(context.Background(), state.pluginCatalog, pluginConfigRepository); err != nil {
+		return err
+	}
+	return nil
+}
+
+func refreshCatalogCommandsFromSettings(ctx context.Context, catalog *plugins.Catalog, repo pluginconfig.Repository) error {
+	if catalog == nil || repo == nil {
+		return nil
+	}
+	for _, snapshot := range catalog.List() {
+		settings := plugins.CloneSettings(snapshot.DefaultConfig)
+		persisted, err := repo.ReadAll(ctx, snapshot.PluginID)
+		if err != nil {
+			return fmt.Errorf("load persisted plugin settings for %s: %w", snapshot.PluginID, err)
+		}
+		for key, value := range persisted {
+			settings[key] = plugins.CloneSettingValue(value)
+		}
+		catalog.RefreshCommands(snapshot.PluginID, settings)
+	}
 	return nil
 }
 

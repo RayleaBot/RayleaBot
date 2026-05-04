@@ -29,17 +29,36 @@ def normalize_usage(usage, prefix, command_tokens):
     return usage
 
 
+def usage_query_tokens(usage):
+    usage = (usage or "").strip()
+    if not usage:
+        return []
+
+    head = usage.split(None, 1)[0]
+    cleaned = head
+    while cleaned and not (cleaned[0].isalnum() or cleaned[0] in "._-"):
+        cleaned = cleaned[1:]
+    return [cleaned] if cleaned else []
+
+
 def normalize_command(command, prefix):
     name = (command.get("name") or "").strip()
     aliases = [alias.strip() for alias in command.get("aliases") or [] if alias and alias.strip()]
+    declaration_id = (command.get("declaration_id") or "").strip()
     tokens = [name] + aliases
     usage = normalize_usage(command.get("usage"), prefix, tokens)
+    query_tokens = usage_query_tokens(usage)
+    if declaration_id:
+        query_tokens.append(declaration_id)
     return {
         "name": name,
         "aliases": aliases,
         "description": (command.get("description") or "").strip(),
         "usage": usage,
+        "query_tokens": query_tokens,
         "permission": (command.get("permission") or "").strip(),
+        "command_source": (command.get("command_source") or "").strip(),
+        "declaration_id": declaration_id,
     }
 
 
@@ -164,7 +183,7 @@ def find_plugin(items, query):
     command_matches = []
     for item in items:
         for command in item["commands"]:
-            tokens = [command["name"]] + command["aliases"]
+            tokens = [command["name"]] + command["aliases"] + command["query_tokens"]
             if any(token.casefold() == lowered for token in tokens if token):
                 command_matches.append(item)
                 break

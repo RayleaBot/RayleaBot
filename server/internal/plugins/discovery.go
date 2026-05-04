@@ -264,7 +264,9 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	snapshot.ScopeHTTPHosts = manifestScopeList(manifest, "http_hosts")
 	snapshot.ScopeStorageRoots = manifestScopeList(manifest, "storage_roots")
 	snapshot.ScopeWebhooks = manifestWebhookScopes(manifest)
-	snapshot.Commands = manifestCommands(manifest)
+	snapshot.ManifestCommands = manifestCommands(manifest)
+	snapshot.DynamicCommands = manifestDynamicCommands(manifest)
+	snapshot.Commands = ProjectCommands(snapshot, snapshot.DefaultConfig)
 
 	if err := validator.Validate(document); err != nil {
 		snapshot.Valid = false
@@ -534,13 +536,42 @@ func manifestCommands(document map[string]any) []Command {
 			continue
 		}
 		command := Command{
-			Name:        name,
-			Aliases:     stringListField(item, "aliases"),
-			Description: stringField(item, "description"),
-			Usage:       stringField(item, "usage"),
-			Permission:  stringField(item, "permission"),
+			Name:          name,
+			Aliases:       stringListField(item, "aliases"),
+			Description:   stringField(item, "description"),
+			Usage:         stringField(item, "usage"),
+			Permission:    stringField(item, "permission"),
+			CommandSource: CommandSourceManifest,
 		}
 		commands = append(commands, command)
+	}
+	return commands
+}
+
+func manifestDynamicCommands(document map[string]any) []DynamicCommandDecl {
+	values, ok := document["dynamic_commands"].([]any)
+	if !ok {
+		return nil
+	}
+
+	commands := make([]DynamicCommandDecl, 0, len(values))
+	for _, value := range values {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		id := stringField(item, "id")
+		settingsKey := stringField(item, "settings_key")
+		if id == "" || settingsKey == "" {
+			continue
+		}
+		commands = append(commands, DynamicCommandDecl{
+			ID:          id,
+			SettingsKey: settingsKey,
+			Description: stringField(item, "description"),
+			UsageArgs:   stringField(item, "usage_args"),
+			Permission:  stringField(item, "permission"),
+		})
 	}
 	return commands
 }

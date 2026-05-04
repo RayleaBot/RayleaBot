@@ -40,6 +40,7 @@ response:
         - name: config_panel
           description: Read and update plugin-local config values.
           usage: /config_panel [city]
+          command_source: manifest
       command_conflicts: []
       permissions:
         - capability: config.read

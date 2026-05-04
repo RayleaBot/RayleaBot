@@ -22,10 +22,20 @@ func (e *PermissionPendingError) Error() string {
 }
 
 type Command struct {
-	Name        string
-	Aliases     []string
+	Name          string
+	Aliases       []string
+	Description   string
+	Usage         string
+	Permission    string
+	CommandSource string
+	DeclarationID string
+}
+
+type DynamicCommandDecl struct {
+	ID          string
+	SettingsKey string
 	Description string
-	Usage       string
+	UsageArgs   string
 	Permission  string
 }
 
@@ -96,6 +106,8 @@ type Snapshot struct {
 	ScopeStorageRoots     []string
 	ScopeWebhooks         []WebhookScope
 	Commands              []Command
+	ManifestCommands      []Command
+	DynamicCommands       []DynamicCommandDecl
 }
 
 type Catalog struct {
@@ -269,6 +281,35 @@ func (c *Catalog) Replace(entries []Snapshot) {
 	c.publishMany(updated)
 }
 
+func (c *Catalog) RefreshCommands(pluginID string, settings map[string]any) (Snapshot, bool) {
+	c.mu.Lock()
+
+	entry, ok := c.items[pluginID]
+	if !ok {
+		c.mu.Unlock()
+		return Snapshot{}, false
+	}
+
+	current := entry
+	entry.Commands = ProjectCommands(entry, settings)
+	changed := pluginStateChanged(current, entry)
+	c.items[pluginID] = entry
+	updated := cloneSnapshot(entry)
+	published := []Snapshot{updated}
+	if changed {
+		published = make([]Snapshot, 0, len(c.order))
+		for _, id := range c.order {
+			published = append(published, cloneSnapshot(c.items[id]))
+		}
+	}
+	c.mu.Unlock()
+
+	if changed {
+		c.publishMany(published)
+	}
+	return updated, true
+}
+
 func (c *Catalog) Subscribe(buffer int) (<-chan Snapshot, func()) {
 	if buffer <= 0 {
 		buffer = 1
@@ -360,12 +401,26 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		cloned.ManagementUI = &copied
 	}
 	if len(snapshot.Commands) > 0 {
-		cloned.Commands = make([]Command, 0, len(snapshot.Commands))
-		for _, cmd := range snapshot.Commands {
-			copied := cmd
-			copied.Aliases = append([]string(nil), cmd.Aliases...)
-			cloned.Commands = append(cloned.Commands, copied)
-		}
+		cloned.Commands = cloneCommands(snapshot.Commands)
+	}
+	if len(snapshot.ManifestCommands) > 0 {
+		cloned.ManifestCommands = cloneCommands(snapshot.ManifestCommands)
+	}
+	if len(snapshot.DynamicCommands) > 0 {
+		cloned.DynamicCommands = append([]DynamicCommandDecl(nil), snapshot.DynamicCommands...)
+	}
+	return cloned
+}
+
+func cloneCommands(commands []Command) []Command {
+	if len(commands) == 0 {
+		return nil
+	}
+	cloned := make([]Command, 0, len(commands))
+	for _, cmd := range commands {
+		copied := cmd
+		copied.Aliases = append([]string(nil), cmd.Aliases...)
+		cloned = append(cloned, copied)
 	}
 	return cloned
 }
@@ -439,5 +494,36 @@ func pluginStateChanged(current Snapshot, next Snapshot) bool {
 	return current.RegistrationState != next.RegistrationState ||
 		current.DesiredState != next.DesiredState ||
 		current.RuntimeState != next.RuntimeState ||
-		current.DisplayState != next.DisplayState
+		current.DisplayState != next.DisplayState ||
+		!commandsEqual(current.Commands, next.Commands)
+}
+
+func commandsEqual(left []Command, right []Command) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index].Name != right[index].Name ||
+			left[index].Description != right[index].Description ||
+			left[index].Usage != right[index].Usage ||
+			left[index].Permission != right[index].Permission ||
+			left[index].CommandSource != right[index].CommandSource ||
+			left[index].DeclarationID != right[index].DeclarationID ||
+			!stringSlicesEqual(left[index].Aliases, right[index].Aliases) {
+			return false
+		}
+	}
+	return true
+}
+
+func stringSlicesEqual(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }

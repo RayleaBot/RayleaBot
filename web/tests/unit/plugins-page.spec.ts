@@ -110,14 +110,16 @@ describe('PluginsPage', () => {
         },
         commands: [
           {
-            name: 'weather',
-            aliases: ['tq', '天气'],
-            description: '查询天气',
-            usage: 'weather <城市>',
-            permission: 'member',
+            name: '我的运势',
+            aliases: ['今日运势', '每日运势'],
+            description: '查看今日运势',
+            usage: '我的运势',
+            permission: 'everyone',
+            command_source: 'dynamic',
+            declaration_id: 'fortune',
           },
         ],
-        command_conflicts: ['weather'],
+        command_conflicts: ['我的运势'],
       },
     ]
 
@@ -136,8 +138,9 @@ describe('PluginsPage', () => {
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('1 个命令冲突')
-    expect(wrapper.text()).toContain('weather')
+    expect(wrapper.text()).toContain('我的运势')
     expect(wrapper.text()).toContain('2 个别名')
+    expect(wrapper.text()).not.toContain('fortune')
     expect(wrapper.text()).not.toContain('显示状态')
     expect(wrapper.text()).not.toContain('discovered')
     expect(wrapper.find('.plugins-data-table').exists()).toBe(true)

@@ -29,6 +29,7 @@ frames:
               description: 复读收到的内容
               usage: /echo <内容>
               permission: everyone
+              command_source: manifest
           command_conflicts: []
         - id: raylea.help
           name: Help
@@ -45,6 +46,7 @@ frames:
               description: 显示插件帮助菜单
               usage: /help [插件或命令]
               permission: everyone
+              command_source: manifest
           command_conflicts: []
 expect:
   valid: true

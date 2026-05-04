@@ -47,7 +47,8 @@ func buildPluginListCommands(commands []plugins.CommandView) []map[string]any {
 	items := make([]map[string]any, 0, len(commands))
 	for _, command := range commands {
 		item := map[string]any{
-			"name": command.Name,
+			"name":           command.Name,
+			"command_source": commandSourceOrDefault(command.CommandSource),
 		}
 		if len(command.Aliases) > 0 {
 			item["aliases"] = append([]string(nil), command.Aliases...)
@@ -61,7 +62,17 @@ func buildPluginListCommands(commands []plugins.CommandView) []map[string]any {
 		if command.Permission != "" {
 			item["permission"] = command.Permission
 		}
+		if command.DeclarationID != "" {
+			item["declaration_id"] = command.DeclarationID
+		}
 		items = append(items, item)
 	}
 	return items
+}
+
+func commandSourceOrDefault(source string) string {
+	if source == plugins.CommandSourceDynamic {
+		return plugins.CommandSourceDynamic
+	}
+	return plugins.CommandSourceManifest
 }

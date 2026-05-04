@@ -7,11 +7,13 @@ import (
 )
 
 type CommandView struct {
-	Name        string
-	Aliases     []string
-	Description string
-	Usage       string
-	Permission  string
+	Name          string
+	Aliases       []string
+	Description   string
+	Usage         string
+	Permission    string
+	CommandSource string
+	DeclarationID string
 }
 
 type SourceView struct {
@@ -314,11 +316,13 @@ func buildCommandViews(snapshot Snapshot) []CommandView {
 	items := make([]CommandView, 0, len(snapshot.Commands))
 	for _, command := range snapshot.Commands {
 		items = append(items, CommandView{
-			Name:        command.Name,
-			Aliases:     normalizeStringViews(command.Aliases),
-			Description: strings.TrimSpace(command.Description),
-			Usage:       strings.TrimSpace(command.Usage),
-			Permission:  strings.TrimSpace(command.Permission),
+			Name:          command.Name,
+			Aliases:       normalizeStringViews(command.Aliases),
+			Description:   strings.TrimSpace(command.Description),
+			Usage:         strings.TrimSpace(command.Usage),
+			Permission:    strings.TrimSpace(command.Permission),
+			CommandSource: strings.TrimSpace(command.CommandSource),
+			DeclarationID: strings.TrimSpace(command.DeclarationID),
 		})
 	}
 	return items

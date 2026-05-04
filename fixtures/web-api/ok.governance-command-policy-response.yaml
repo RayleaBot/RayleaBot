@@ -19,6 +19,7 @@ response:
         aliases:
           - tq
           - 天气
+        command_source: manifest
         declared_permission: group_admin
         effective_permission: group_admin
         permission_source: declared
@@ -27,6 +28,7 @@ response:
         command: hello
         aliases:
           - hi
+        command_source: manifest
         declared_permission: null
         effective_permission: everyone
         permission_source: default_level

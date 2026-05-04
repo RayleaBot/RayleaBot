@@ -227,6 +227,9 @@ func New(options Options) (*App, error) {
 		PluginLogLimiter: pluginState.pluginLogLimiter,
 		Governance:       governanceService,
 	})
+	localActions.SetRefreshPluginCommands(func(ctx context.Context, pluginID string, settings map[string]any) {
+		applicationRefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)
+	})
 	runtimeOptions := runtime.Options{
 		Console:                    platformState.Console,
 		RedactText:                 buildState.managementRedact,
@@ -397,6 +400,9 @@ func New(options Options) (*App, error) {
 		Plugins:            pluginState.Plugins,
 		PluginConfig:       pluginState.pluginConfig,
 		NotifyConfigChange: localActions.DispatchPluginConfigChanged,
+		RefreshCommands: func(ctx context.Context, pluginID string, settings map[string]any) {
+			applicationRefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)
+		},
 	})
 
 	router, server := buildAppHTTPServer(httpServerDeps{

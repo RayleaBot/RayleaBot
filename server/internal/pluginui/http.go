@@ -20,12 +20,14 @@ type Deps struct {
 	Plugins            *plugins.Catalog
 	PluginConfig       pluginconfig.Repository
 	NotifyConfigChange func(context.Context, string)
+	RefreshCommands    func(context.Context, string, map[string]any)
 }
 
 type Handlers struct {
 	plugins            *plugins.Catalog
 	pluginConfig       pluginconfig.Repository
 	notifyConfigChange func(context.Context, string)
+	refreshCommands    func(context.Context, string, map[string]any)
 }
 
 func NewHandlers(deps Deps) *Handlers {
@@ -33,6 +35,7 @@ func NewHandlers(deps Deps) *Handlers {
 		plugins:            deps.Plugins,
 		pluginConfig:       deps.PluginConfig,
 		notifyConfigChange: deps.NotifyConfigChange,
+		refreshCommands:    deps.RefreshCommands,
 	}
 }
 
@@ -160,14 +163,19 @@ func (h *Handlers) HandlePluginSettingsPut() http.HandlerFunc {
 			return
 		}
 
-		if len(changedKeys) > 0 && h.notifyConfigChange != nil {
-			h.notifyConfigChange(r.Context(), snapshot.PluginID)
-		}
-
 		values, err := h.effectiveSettings(r.Context(), snapshot)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
 			return
+		}
+
+		if len(changedKeys) > 0 {
+			if h.refreshCommands != nil {
+				h.refreshCommands(r.Context(), snapshot.PluginID, values)
+			}
+			if h.notifyConfigChange != nil {
+				h.notifyConfigChange(r.Context(), snapshot.PluginID)
+			}
 		}
 
 		httpapi.WriteJSON(w, http.StatusOK, PluginSettingsUpdateResponse{

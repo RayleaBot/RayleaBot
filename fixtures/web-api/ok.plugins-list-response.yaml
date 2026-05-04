@@ -28,6 +28,7 @@ response:
             description: 查看帮助菜单
             usage: help [命令]
             permission: member
+            command_source: manifest
         command_conflicts: []
       - id: weather
         name: Weather
@@ -52,6 +53,7 @@ response:
             description: 查询天气
             usage: weather <城市>
             permission: member
+            command_source: manifest
         command_conflicts:
           - weather
 expect:

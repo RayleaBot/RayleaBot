@@ -208,9 +208,15 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
 		DefaultConfig: map[string]any{
-			"default_city": "北京",
-			"unit":         "celsius",
+			"default_city":     "北京",
+			"unit":             "celsius",
+			"trigger_commands": []any{"默认指令"},
 		},
+		DynamicCommands: []plugins.DynamicCommandDecl{{
+			ID:          "dynamic",
+			SettingsKey: "trigger_commands",
+			Description: "动态指令",
+		}},
 	}})
 	application.plugins = catalog
 	application.setTestLocalActions(
@@ -232,11 +238,14 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		plugins:            catalog,
 		pluginConfig:       repo,
 		notifyConfigChange: application.dispatchPluginConfigChanged,
+		refreshCommands: func(ctx context.Context, pluginID string, settings map[string]any) {
+			applicationRefreshPluginCommands(catalog, dispatcher, pluginID, settings)
+		},
 	})
 	router := chi.NewRouter()
 	router.Put("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsPut())
 
-	body := bytes.NewReader([]byte(`{"values":{"default_city":"上海","unit":"fahrenheit"}}`))
+	body := bytes.NewReader([]byte(`{"values":{"default_city":"上海","unit":"fahrenheit","trigger_commands":["今日签"]}}`))
 	request := httptest.NewRequest(http.MethodPut, "/api/plugins/example-config-panel/settings", body)
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -250,11 +259,18 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if len(response.ChangedKeys) != 2 || response.ChangedKeys[0] != "default_city" || response.ChangedKeys[1] != "unit" {
+	if len(response.ChangedKeys) != 3 || response.ChangedKeys[0] != "default_city" || response.ChangedKeys[1] != "trigger_commands" || response.ChangedKeys[2] != "unit" {
 		t.Fatalf("unexpected changed_keys: %#v", response.ChangedKeys)
 	}
 	if response.Values["default_city"] != "上海" || response.Values["unit"] != "fahrenheit" {
 		t.Fatalf("unexpected values: %#v", response.Values)
+	}
+	snapshot, ok := catalog.Get("example-config-panel")
+	if !ok {
+		t.Fatal("expected plugin snapshot")
+	}
+	if len(snapshot.Commands) != 1 || snapshot.Commands[0].Name != "今日签" || snapshot.Commands[0].CommandSource != plugins.CommandSourceDynamic {
+		t.Fatalf("unexpected refreshed commands: %#v", snapshot.Commands)
 	}
 
 	select {

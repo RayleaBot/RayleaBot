@@ -124,7 +124,8 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	}
 	assertCommandList(t, builtin["commands"], []map[string]any{
 		{
-			"name": "help",
+			"name":           "help",
+			"command_source": "manifest",
 		},
 	})
 
@@ -160,11 +161,12 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	}
 	assertCommandList(t, weather["commands"], []map[string]any{
 		{
-			"name":        "weather",
-			"aliases":     []any{"天气"},
-			"description": "查询天气",
-			"usage":       "weather <城市>",
-			"permission":  "member",
+			"name":           "weather",
+			"aliases":        []any{"天气"},
+			"description":    "查询天气",
+			"usage":          "weather <城市>",
+			"permission":     "member",
+			"command_source": "manifest",
 		},
 	})
 
@@ -181,7 +183,8 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	}
 	assertCommandList(t, devPlugin["commands"], []map[string]any{
 		{
-			"name": "weather",
+			"name":           "weather",
+			"command_source": "manifest",
 		},
 	})
 }
@@ -244,11 +247,12 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 			},
 			"commands": []any{
 				map[string]any{
-					"name":        "hello",
-					"aliases":     []any{"hi"},
-					"description": "Say hello",
-					"usage":       "hello",
-					"permission":  "member",
+					"name":           "hello",
+					"aliases":        []any{"hi"},
+					"description":    "Say hello",
+					"usage":          "hello",
+					"permission":     "member",
+					"command_source": "manifest",
 				},
 			},
 			"command_conflicts": []any{},

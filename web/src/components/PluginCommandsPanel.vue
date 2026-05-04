@@ -2,7 +2,7 @@
 import { formatCommandUsage } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { isPluginCommandConflicted } from '@/lib/plugin-commands'
-import type { PluginCommandSummary } from '@/types/api'
+import type { CommandPermissionLevel, PluginCommandSummary } from '@/types/api'
 
 const props = withDefaults(defineProps<{
   commands: PluginCommandSummary[]
@@ -22,11 +22,32 @@ function getAliasesText(command: PluginCommandSummary) {
 }
 
 function getPermissionText(command: PluginCommandSummary) {
-  return command.permission?.trim() || t('plugins.commandPermissionDefault')
+  const permission = command.permission?.trim() as CommandPermissionLevel | ''
+  if (!permission) {
+    return t('plugins.commandPermissionDefault')
+  }
+  switch (permission) {
+    case 'everyone':
+      return t('commands.permissions.everyone')
+    case 'group_admin':
+      return t('commands.permissions.groupAdmin')
+    case 'super_admin':
+      return t('commands.permissions.superAdmin')
+    default:
+      return permission
+  }
 }
 
 function getUsageText(command: PluginCommandSummary) {
   return formatCommandUsage(command, props.commandPrefix) || t('display.empty')
+}
+
+function getCommandSourceText(command: PluginCommandSummary) {
+  return t(`plugins.commandSourceLabel.${command.command_source}`)
+}
+
+function getCommandSourceColor(command: PluginCommandSummary) {
+  return command.command_source === 'dynamic' ? 'purple' : 'default'
 }
 
 function isConflicted(command: PluginCommandSummary) {
@@ -52,6 +73,9 @@ function isConflicted(command: PluginCommandSummary) {
         <a-tag v-if="isConflicted(command)" color="warning">
           {{ t('plugins.commandConflictBadge') }}
         </a-tag>
+        <a-tag :color="getCommandSourceColor(command)">
+          {{ getCommandSourceText(command) }}
+        </a-tag>
       </div>
 
       <dl class="plugin-command-row__meta">
@@ -62,6 +86,10 @@ function isConflicted(command: PluginCommandSummary) {
         <div class="plugin-command-row__description">
           <dt>{{ t('plugins.commandDescription') }}</dt>
           <dd>{{ getText(command.description) }}</dd>
+        </div>
+        <div class="plugin-command-row__source">
+          <dt>{{ t('plugins.commandSource') }}</dt>
+          <dd>{{ getCommandSourceText(command) }}</dd>
         </div>
         <div class="plugin-command-row__usage">
           <dt>{{ t('plugins.commandUsage') }}</dt>
@@ -108,7 +136,7 @@ function isConflicted(command: PluginCommandSummary) {
 
 .plugin-command-row__meta {
   display: grid;
-  grid-template-columns: minmax(72px, 0.62fr) minmax(116px, 1.1fr) minmax(116px, 1.12fr) minmax(78px, 0.72fr);
+  grid-template-columns: minmax(72px, 0.62fr) minmax(116px, 1.1fr) minmax(82px, 0.68fr) minmax(116px, 1.12fr) minmax(78px, 0.72fr);
   gap: 8px 12px;
   margin: 0;
 }

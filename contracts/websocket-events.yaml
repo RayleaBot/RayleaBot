@@ -221,6 +221,34 @@ channels:
                     - backoff
                     - dead_letter
                     - disabled
+                commands:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [name, command_source]
+                    properties:
+                      name:
+                        type: string
+                      aliases:
+                        type: array
+                        items:
+                          type: string
+                      description:
+                        type: string
+                      usage:
+                        type: string
+                      permission:
+                        type: string
+                      command_source:
+                        type: string
+                        enum: [manifest, dynamic]
+                      declaration_id:
+                        type: string
+                command_conflicts:
+                  type: array
+                  items:
+                    type: string
             - type: object
               additionalProperties: false
               required: [connection_status, summary]

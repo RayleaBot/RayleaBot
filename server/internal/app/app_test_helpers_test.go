@@ -293,6 +293,7 @@ type pluginManagementUIHTTPDeps struct {
 	plugins            *plugins.Catalog
 	pluginConfig       pluginconfig.Repository
 	notifyConfigChange func(context.Context, string)
+	refreshCommands    func(context.Context, string, map[string]any)
 }
 
 type pluginSettingsResponse = pluginui.PluginSettingsResponse
@@ -307,6 +308,7 @@ func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginM
 		Plugins:            deps.plugins,
 		PluginConfig:       deps.pluginConfig,
 		NotifyConfigChange: deps.notifyConfigChange,
+		RefreshCommands:    deps.refreshCommands,
 	})}
 }
 

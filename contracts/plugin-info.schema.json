@@ -327,6 +327,43 @@
           }
         }
       }
+    },
+    "dynamic_commands": {
+      "type": "array",
+      "description": "Declared plugin settings fields that project runtime command names for command parser directed delivery, policy, conflict detection, and help generation.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "settings_key", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "Stable declaration identifier used by management and help lookup. It is not a command trigger unless the setting value also contains it."
+          },
+          "settings_key": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "description": "Top-level plugin settings key whose string or string array value provides command names without global prefixes."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short command description for help output."
+          },
+          "usage_args": {
+            "type": "string",
+            "description": "Optional argument pattern appended after the projected command name for help output."
+          },
+          "permission": {
+            "type": "string",
+            "enum": ["super_admin", "group_admin", "everyone"],
+            "description": "Minimum chat-side permission level required to invoke projected commands. When omitted, the platform falls back to auth.default_level."
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -525,6 +562,7 @@
     "fixtures/plugin-info/invalid.unsupported-binary-runtime.json",
     "fixtures/plugin-info/edge.permission-regrant-and-migration.json",
     "fixtures/plugin-info/ok.plugin-with-commands.json",
+    "fixtures/plugin-info/ok.plugin-with-dynamic-commands.json",
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
     "fixtures/plugin-info/ok.rich-metadata.json",
     "fixtures/plugin-info/ok.management-ui.json",

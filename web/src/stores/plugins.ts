@@ -108,7 +108,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       source: plugin.source ?? previous?.source,
       trust: plugin.trust ?? previous?.trust,
       commands: plugin.commands ?? previous?.commands ?? [],
-      command_conflicts: plugin.command_conflicts ?? previous?.command_conflicts,
+      command_conflicts: plugin.command_conflicts ?? previous?.command_conflicts ?? [],
     }
 
     if (index === -1) {

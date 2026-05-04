@@ -111,7 +111,7 @@ describe('CommandsPage', () => {
         { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
       ],
     })
-    await router.push('/commands?plugin_id=weather')
+    await router.push('/commands?plugin_id=raylea.fortune')
     await router.isReady()
 
     const store = usePluginsStore()
@@ -119,19 +119,21 @@ describe('CommandsPage', () => {
     const governanceStore = useGovernanceStore()
     store.items = [
       {
-        id: 'weather',
-        name: 'Weather',
-        role: 'user',
+        id: 'raylea.fortune',
+        name: '运势',
+        role: 'builtin',
         registration_state: 'installed',
         desired_state: 'enabled',
         runtime_state: 'running',
         display_state: 'running',
         commands: [
           {
-            name: 'weather',
-            aliases: ['tq'],
-            description: '查询天气',
-            usage: '/weather <城市>',
+            name: '我的运势',
+            aliases: ['今日运势'],
+            description: '查看今日运势',
+            usage: '我的运势',
+            command_source: 'dynamic',
+            declaration_id: 'fortune',
           },
         ],
         command_conflicts: [],
@@ -148,6 +150,7 @@ describe('CommandsPage', () => {
           {
             name: 'help',
             description: '查看帮助',
+            command_source: 'manifest',
           },
         ],
         command_conflicts: [],
@@ -163,12 +166,14 @@ describe('CommandsPage', () => {
       },
       commands: [
         {
-          plugin_id: 'weather',
-          plugin_name: 'Weather',
-          command: 'weather',
-          aliases: ['tq'],
-          declared_permission: 'group_admin',
-          effective_permission: 'group_admin',
+          plugin_id: 'raylea.fortune',
+          plugin_name: '运势',
+          command: '我的运势',
+          aliases: ['今日运势'],
+          command_source: 'dynamic',
+          declaration_id: 'fortune',
+          declared_permission: 'everyone',
+          effective_permission: 'everyone',
           permission_source: 'declared',
         },
         {
@@ -176,6 +181,7 @@ describe('CommandsPage', () => {
           plugin_name: 'Help',
           command: 'help',
           aliases: [],
+          command_source: 'manifest',
           declared_permission: null,
           effective_permission: 'everyone',
           permission_source: 'default_level',
@@ -197,16 +203,18 @@ describe('CommandsPage', () => {
 
     expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).toContain('生效命令策略')
-    expect(wrapper.text()).toContain('全部声明命令')
-    expect(wrapper.text()).toContain('群管理员')
-    expect(wrapper.text()).toContain('weather')
-    expect(wrapper.text()).toContain('!weather <城市>')
+    expect(wrapper.text()).toContain('插件指令')
+    expect(wrapper.text()).toContain('动态指令')
+    expect(wrapper.text()).toContain('所有成员')
+    expect(wrapper.text()).toContain('我的运势')
+    expect(wrapper.text()).toContain('今日运势')
+    expect(wrapper.text()).toContain('!我的运势')
     expect(wrapper.text()).toContain('当前可用')
     expect(wrapper.text()).toContain('权限策略')
     expect(wrapper.text()).not.toContain('治理摘要')
     expect(wrapper.text()).not.toContain('黑名单')
     expect(wrapper.text()).not.toContain('白名单')
-    expect(router.currentRoute.value.fullPath).toContain('plugin_id=weather')
+    expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.fortune')
 
     const select = wrapper.findComponent({ name: 'ASelect' })
     await select.vm.$emit('update:value', ['help'])
@@ -215,7 +223,7 @@ describe('CommandsPage', () => {
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=help')
     expect(wrapper.text()).toContain('help')
     expect(wrapper.text()).toContain('查看帮助')
-    expect(wrapper.text()).not.toContain('查询天气')
+    expect(wrapper.text()).not.toContain('查看今日运势')
 
     const pluginLink = wrapper.find('.command-plugin-link')
     expect(pluginLink.attributes('href')).toBe('/plugins/help')

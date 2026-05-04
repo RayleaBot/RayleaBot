@@ -4,6 +4,7 @@ import type {
   EventsPayload,
   LogSummary,
   OneBot11ProtocolSnapshotResponse,
+  PluginCommandSummary,
   TaskSummary,
   WebSocketFrame,
 } from '@/types/api'
@@ -33,6 +34,8 @@ export interface PluginSocketProjection {
   desired_state: PluginStateEvent['desired_state']
   runtime_state: PluginStateEvent['runtime_state']
   display_state: PluginStateEvent['display_state']
+  commands?: PluginCommandSummary[]
+  command_conflicts?: string[]
 }
 
 export interface SocketFrameRouterDependencies {

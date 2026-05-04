@@ -49,6 +49,13 @@ func (s *Service) executeConfigWrite(ctx context.Context, pluginID string, actio
 	if err != nil {
 		return nil, &runtime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
 	}
+	if len(changedKeys) > 0 && s.refreshCommands != nil {
+		if settings, readErr := s.pluginConfig.ReadAll(ctx, pluginID); readErr != nil {
+			return nil, &runtime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
+		} else {
+			s.refreshCommands(ctx, pluginID, settings)
+		}
+	}
 	s.dispatchPluginConfigChanged(ctx, pluginID)
 	return map[string]any{
 		"changed_keys": changedKeys,

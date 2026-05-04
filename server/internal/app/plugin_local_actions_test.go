@@ -72,9 +72,10 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 			RuntimeState:        "running",
 			RequiredPermissions: []string{"plugin.list"},
 			Commands: []plugins.Command{{
-				Name:        "help",
-				Description: "显示帮助",
-				Usage:       "/help [目标]",
+				Name:          "help",
+				Description:   "显示帮助",
+				Usage:         "/help [目标]",
+				CommandSource: plugins.CommandSourceManifest,
 			}},
 		},
 		{
@@ -85,9 +86,10 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
 			Commands: []plugins.Command{{
-				Name:        "echo",
-				Description: "复读内容",
-				Usage:       "/echo <内容>",
+				Name:          "echo",
+				Description:   "复读内容",
+				Usage:         "/echo <内容>",
+				CommandSource: plugins.CommandSourceManifest,
 			}},
 		},
 	})
@@ -117,6 +119,13 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 	}
 	if items[0]["id"] != "raylea.echo" || items[1]["id"] != "raylea.help" {
 		t.Fatalf("unexpected plugin order: %#v", items)
+	}
+	echoCommands, ok := items[0]["commands"].([]map[string]any)
+	if !ok || len(echoCommands) != 1 {
+		t.Fatalf("unexpected echo commands: %#v", items[0]["commands"])
+	}
+	if echoCommands[0]["name"] != "echo" || echoCommands[0]["command_source"] != "manifest" {
+		t.Fatalf("unexpected echo command projection: %#v", echoCommands[0])
 	}
 }
 
@@ -452,8 +461,8 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		Commands: []plugins.Command{
-			{Name: "forecast", Permission: "group_admin", Aliases: []string{"fc"}},
-			{Name: "current"},
+			{Name: "forecast", Permission: "group_admin", Aliases: []string{"fc"}, CommandSource: plugins.CommandSourceManifest},
+			{Name: "current", CommandSource: plugins.CommandSourceManifest},
 		},
 	}})
 	application.setTestLocalActions(
@@ -536,6 +545,11 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	commands, _ := commandPolicy["commands"].([]governance.CommandPolicyEntryResponse)
 	if commandPolicy["default_level"] != "everyone" || len(commands) != 2 {
 		t.Fatalf("unexpected command policy: %#v", commandPolicy)
+	}
+	for _, command := range commands {
+		if command.CommandSource != "manifest" {
+			t.Fatalf("unexpected command source in policy: %#v", command)
+		}
 	}
 
 	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_delete", runtime.Action{

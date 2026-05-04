@@ -2284,6 +2284,10 @@ components:
       type: string
       enum: [declared, default_level]
 
+    PluginCommandSource:
+      type: string
+      enum: [manifest, dynamic]
+
     GovernanceCommandCooldown:
       type: object
       additionalProperties: false
@@ -2301,7 +2305,7 @@ components:
     GovernanceCommandPolicyEntry:
       type: object
       additionalProperties: false
-      required: [plugin_id, plugin_name, command, aliases, declared_permission, effective_permission, permission_source]
+      required: [plugin_id, plugin_name, command, aliases, command_source, declared_permission, effective_permission, permission_source]
       properties:
         plugin_id:
           type: string
@@ -2316,6 +2320,11 @@ components:
           type: array
           items:
             type: string
+        command_source:
+          $ref: '#/components/schemas/PluginCommandSource'
+        declaration_id:
+          type: string
+          minLength: 1
         declared_permission:
           $ref: '#/components/schemas/CommandPermissionLevel'
           nullable: true
@@ -2412,7 +2421,7 @@ components:
     PluginCommandSummary:
       type: object
       additionalProperties: false
-      required: [name]
+      required: [name, command_source]
       properties:
         name:
           type: string
@@ -2425,6 +2434,10 @@ components:
         usage:
           type: string
         permission:
+          type: string
+        command_source:
+          $ref: '#/components/schemas/PluginCommandSource'
+        declaration_id:
           type: string
 
     PluginSummary:

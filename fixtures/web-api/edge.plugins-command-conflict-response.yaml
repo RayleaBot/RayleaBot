@@ -30,6 +30,7 @@ response:
             description: 查询天气
             usage: weather <城市>
             permission: member
+            command_source: manifest
         command_conflicts:
           - weather
       - id: weather-admin
@@ -52,6 +53,7 @@ response:
             description: 查询天气后台信息
             usage: weather --admin
             permission: admin
+            command_source: manifest
         command_conflicts:
           - weather
 expect:

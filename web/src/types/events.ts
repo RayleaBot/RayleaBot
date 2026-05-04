@@ -7,6 +7,7 @@ import type {
 import type { ConnectionStatus } from './common'
 import type {
   OneBot11ProtocolSnapshotResponse,
+  PluginCommandSummary,
 } from './api'
 
 export type EventsPayload =
@@ -22,6 +23,8 @@ export type EventsPayload =
       desired_state: PluginDesiredState
       runtime_state: PluginRuntimeState
       display_state: PluginDisplayState
+      commands?: PluginCommandSummary[]
+      command_conflicts?: string[]
     }
   | {
       connection_status: ConnectionStatus

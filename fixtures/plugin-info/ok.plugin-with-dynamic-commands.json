@@ -1,0 +1,43 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "fortune",
+    "name": "Fortune",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "description": "Daily fortune plugin with configurable commands",
+    "author": "raylea",
+    "role": "user",
+    "capabilities": [
+      "event.subscribe"
+    ],
+    "permissions": {
+      "required": [],
+      "optional": []
+    },
+    "default_config": {
+      "trigger_commands": [
+        "我的运势",
+        "今日运势"
+      ]
+    },
+    "dynamic_commands": [
+      {
+        "id": "fortune",
+        "settings_key": "trigger_commands",
+        "description": "查看今日运势",
+        "usage_args": "",
+        "permission": "everyone"
+      }
+    ]
+  },
+  "expect": {
+    "valid": true
+  }
+}

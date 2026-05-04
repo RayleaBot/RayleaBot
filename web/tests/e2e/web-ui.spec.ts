@@ -531,7 +531,7 @@ test('plugin management flow covers install, grants and console recovery', async
   await expect(page.getByText('https://github.com/RayleaBot/plugins-weather')).toBeVisible()
   await expect(page.getByText('assets/overview.svg')).toBeVisible()
   await expect(page.getByText('命令冲突').first()).toBeVisible()
-  await expect(page.getByText('已注册指令')).toBeVisible()
+  await expect(page.getByText('插件指令')).toBeVisible()
   await expect(page.getByText('查询天气')).toBeVisible()
 
   await page.getByRole('button', { name: '处理权限' }).click()
@@ -1896,7 +1896,7 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await expect.poll(() => page.url()).toContain('/commands')
   await expect(page.url()).toContain('plugin_id=weather')
   await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
-  await expect(page.locator('.commands-section-card').filter({ hasText: '全部声明命令' })).toContainText('weather')
+  await expect(page.locator('.commands-section-card').filter({ hasText: '插件指令' })).toContainText('weather')
   await expect((await readTabLabels(page)).filter((label) => label === '指令中心')).toHaveLength(1)
 
   await page.goto('/tasks?task_id=task_render_preview_0001')
@@ -2106,7 +2106,7 @@ test('command center shows all declared commands and filters by plugin selection
   await page.goto('/commands')
   await expect(page.locator('#app-main').getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
   const effectivePoliciesTable = page.locator('.commands-section-card').filter({ hasText: '生效命令策略' }).locator('.commands-data-table')
-  const declaredCommandsTable = page.locator('.commands-section-card').filter({ hasText: '全部声明命令' }).locator('.commands-data-table')
+  const declaredCommandsTable = page.locator('.commands-section-card').filter({ hasText: '插件指令' }).locator('.commands-data-table')
 
   await expect(page.getByTestId('commands-open-permission-policy')).toBeVisible()
   await expect(page.getByText('策略总览', { exact: true })).toHaveCount(0)

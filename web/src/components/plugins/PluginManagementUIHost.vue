@@ -5,6 +5,7 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { ApiError } from '@/lib/http'
+import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginDetail, PluginSettingsUpdateRequest } from '@/types/api'
 
@@ -54,6 +55,7 @@ const props = defineProps<{
 }>()
 
 const pluginsStore = usePluginsStore()
+const governanceStore = useGovernanceStore()
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeNonce = ref(0)
@@ -415,6 +417,10 @@ async function saveSettings(values: PluginSettingsUpdateRequest['values'], reque
     }
 
     await pluginsStore.fetchDetail(props.plugin.id)
+    if (currentToken !== bridgeToken) {
+      return
+    }
+    await governanceStore.fetchCommandPolicy().catch(() => undefined)
     if (currentToken !== bridgeToken) {
       return
     }

@@ -282,10 +282,10 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 	if len(payload.Commands) != 2 {
 		t.Fatalf("len(commands) = %d, want 2", len(payload.Commands))
 	}
-	if payload.Commands[0].Command != "current" || payload.Commands[0].EffectivePermission != "group_admin" || payload.Commands[0].PermissionSource != "default_level" {
+	if payload.Commands[0].Command != "current" || payload.Commands[0].CommandSource != "manifest" || payload.Commands[0].EffectivePermission != "group_admin" || payload.Commands[0].PermissionSource != "default_level" {
 		t.Fatalf("unexpected default permission projection: %#v", payload.Commands[0])
 	}
-	if payload.Commands[1].Command != "forecast" || payload.Commands[1].EffectivePermission != "super_admin" || payload.Commands[1].DeclaredPermission == nil || *payload.Commands[1].DeclaredPermission != "super_admin" {
+	if payload.Commands[1].Command != "forecast" || payload.Commands[1].CommandSource != "manifest" || payload.Commands[1].EffectivePermission != "super_admin" || payload.Commands[1].DeclaredPermission == nil || *payload.Commands[1].DeclaredPermission != "super_admin" {
 		t.Fatalf("unexpected declared permission projection: %#v", payload.Commands[1])
 	}
 }

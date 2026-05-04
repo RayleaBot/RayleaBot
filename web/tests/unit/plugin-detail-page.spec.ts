@@ -9,6 +9,86 @@ import PluginDetailPage from '@/views/plugins/PluginDetailView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
+import type { ConfigDocument } from '@/types/api'
+
+function createFixtureConfig(prefixes: string[]): ConfigDocument {
+  return {
+    schema_version: '2',
+    server: { host: '127.0.0.1', port: 8080 },
+    onebot: {
+      provider: 'standard',
+      reverse_ws: { enabled: false, url: '', access_token: '' },
+      forward_ws: { enabled: false, url: '', access_token: '' },
+      http_api: { enabled: false, url: '', access_token: '' },
+      webhook: { enabled: false, url: '', access_token: '' },
+    },
+    database: { engine: 'sqlite', path: 'data/rayleabot.db' },
+    command: { prefixes },
+    admin: {
+      super_admins: [],
+      session_ttl_days: 7,
+      sliding_renewal: true,
+      max_sessions: 3,
+      login_fail_limit: 5,
+      login_fail_window_seconds: 300,
+    },
+    permission: {
+      default_level: 'everyone',
+      auto_grant_capabilities: [],
+    },
+    render: {
+      worker_count: 1,
+      browser_args: ['--disable-gpu'],
+      browser_path: '',
+      timeout_seconds: 30,
+      queue_wait_timeout_seconds: 15,
+      queue_max_length: 32,
+    },
+    scheduler: { timezone: '' },
+    runtime: {
+      plugin_init_timeout_seconds: 30,
+      plugin_init_max_total_seconds: 300,
+      plugin_event_timeout_seconds: 60,
+      max_pending_events_per_plugin: 16,
+      max_pending_control_events_per_plugin: 4,
+      nodejs_max_old_space_size_mb: 256,
+      dependency_install_timeout_seconds: 900,
+      max_concurrent_dependency_installs: 1,
+      ipc_pending_actions_max: 256,
+      ipc_action_burst_limit: '100/1s',
+      stderr_rate_limit_bytes_per_second: 262144,
+      max_concurrent_tasks_per_plugin: 4,
+      crash_backoff_initial_seconds: 2,
+      crash_backoff_max_seconds: 60,
+      shutdown_grace_seconds: 10,
+      ipc_message_max_bytes: 8388608,
+    },
+    storage: { kv_value_max_bytes: 65536, kv_total_limit_mb: 16, file_max_bytes: 10485760, plugin_workdir_soft_limit_mb: 256 },
+    data: {
+      audit_logs_retention_days: 90,
+      event_records_retention_days: 7,
+      download_cache_retention_days: 15,
+    },
+    log: { level: 'info', retention_days: 7, rate_limit_per_plugin: '200/10s' },
+    message: {
+      rate_limit_per_plugin: '20/10s',
+      rate_limit_per_target: '5/5s',
+      circuit_breaker_seconds: 30,
+    },
+    user: { command_rate_limit: '10/60s', cooldown_reply: true },
+    group: { command_rate_limit: '30/60s' },
+    adapter: {
+      connect_timeout_seconds: 15,
+      reconnect_initial_seconds: 2,
+      reconnect_multiplier: 2,
+      reconnect_max_seconds: 120,
+      reconnect_jitter_ratio: 0.2,
+    },
+    http: { timeout_seconds: 10, max_retries: 2, allow_private_hosts: [] },
+    web: { exposure_mode: 'localhost_only', setup_local_only: true },
+    backup: { default_consistency: 'offline' },
+  }
+}
 
 describe('PluginDetailPage', () => {
   function createPluginRouter() {
@@ -33,6 +113,7 @@ describe('PluginDetailPage', () => {
     await router.isReady()
 
     const pluginsStore = usePluginsStore()
+    const configStore = useConfigStore()
     const socketStore = useSocketStore()
 
     pluginsStore.current = {
@@ -91,14 +172,16 @@ describe('PluginDetailPage', () => {
       },
       commands: [
         {
-          name: 'weather',
-          aliases: ['tq', '天气'],
-          description: '查询天气',
-          usage: 'weather <城市>',
-          permission: 'member',
+          name: '我的运势',
+          aliases: ['今日运势'],
+          description: '查看今日运势',
+          usage: '我的运势',
+          permission: 'everyone',
+          command_source: 'dynamic',
+          declaration_id: 'fortune',
         },
       ],
-      command_conflicts: ['weather'],
+      command_conflicts: [],
       permissions: [
         {
           capability: 'http.request',
@@ -149,6 +232,8 @@ describe('PluginDetailPage', () => {
       message: 'plugin weather command weather delivered group message: 杭州晴',
     })
 
+    configStore.document = createFixtureConfig(['#'])
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
     vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue(pluginsStore.grants.weather)
     const historySpy = vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
@@ -172,7 +257,8 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('Manifest 元数据')
     expect(wrapper.text()).toContain('详细信息')
     expect(wrapper.text()).toContain('运行配置')
-    expect(wrapper.text()).toContain('已注册指令')
+    expect(wrapper.text()).toContain('插件指令')
+    expect(wrapper.text()).toContain('动态指令')
     expect(wrapper.text()).toContain('权限与授权')
     expect(wrapper.text()).toContain('实时控制台')
     expect(wrapper.text()).toContain('1.4.2')
@@ -191,8 +277,10 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('天气总览卡片')
     expect(wrapper.text()).toContain('http.request')
     expect(wrapper.text()).toContain('手动授权')
-    expect(wrapper.text()).toContain('查询天气')
-    expect(wrapper.text()).toContain('member')
+    expect(wrapper.text()).toContain('查看今日运势')
+    expect(wrapper.text()).toContain('所有成员')
+    expect(wrapper.text()).toContain('#我的运势')
+    expect(wrapper.text()).toContain('今日运势')
     expect(wrapper.text()).toContain('4 条输出')
     expect(wrapper.text()).toContain('worker ready')
     expect(wrapper.text()).toContain('Traceback (most recent call last): ...')
@@ -209,7 +297,8 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('已识别')
-    expect(wrapper.text()).toContain('weather')
+    expect(wrapper.text()).toContain('我的运势')
+    expect(wrapper.text()).not.toContain('fortune')
     expect(wrapper.find('.console-terminal').exists()).toBe(true)
     expect(wrapper.findAll('.console-terminal-line')).toHaveLength(4)
     expect(wrapper.findAll('.plugin-holo-button')).toHaveLength(1)

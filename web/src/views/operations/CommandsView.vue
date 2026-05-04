@@ -22,6 +22,7 @@ import { usePluginsStore } from '@/stores/plugins'
 import type {
   CommandPermissionLevel,
   CommandPermissionSource,
+  PluginCommandSource,
   PluginCommandSummary,
   PluginSummary,
 } from '@/types/api'
@@ -69,6 +70,7 @@ const showFatalError = computed(() => Boolean(pageErrorMessage.value) && command
 const commandTableColumns = computed(() => [
   { title: t('commands.fields.command'), key: 'command', dataIndex: 'command', width: 180 },
   { title: t('commands.fields.aliases'), key: 'aliases', dataIndex: 'aliases', width: 180 },
+  { title: t('commands.fields.source'), key: 'source', dataIndex: 'source', width: 120 },
   { title: t('commands.fields.description'), key: 'description', dataIndex: 'description' },
   { title: t('commands.fields.usage'), key: 'usage', dataIndex: 'usage' },
   { title: t('commands.fields.permission'), key: 'permission', dataIndex: 'permission', width: 180 },
@@ -79,6 +81,7 @@ const commandTableColumns = computed(() => [
 const policyTableColumns = computed(() => [
   { title: t('commands.fields.command'), key: 'command', dataIndex: 'command', width: 180 },
   { title: t('commands.fields.aliases'), key: 'aliases', dataIndex: 'aliases', width: 180 },
+  { title: t('commands.fields.source'), key: 'source', dataIndex: 'source', width: 120 },
   { title: t('commands.fields.declaredPermission'), key: 'declared_permission', dataIndex: 'declared_permission', width: 180 },
   { title: t('commands.fields.effectivePermission'), key: 'effective_permission', dataIndex: 'effective_permission', width: 180 },
   { title: t('commands.fields.permissionSource'), key: 'permission_source', dataIndex: 'permission_source', width: 160 },
@@ -151,6 +154,14 @@ function getCommandPermissionLabel(level: CommandPermissionLevel | null | undefi
 
 function getPermissionSourceLabel(source: CommandPermissionSource) {
   return t(`commands.permissionSource.${source}`)
+}
+
+function getCommandSourceLabel(source: PluginCommandSource) {
+  return t(`commands.commandSource.${source}`)
+}
+
+function getCommandSourceColor(source: PluginCommandSource) {
+  return source === 'dynamic' ? 'purple' : 'default'
 }
 
 function getSelectPopupContainer(triggerNode: HTMLElement) {
@@ -293,6 +304,12 @@ onMounted(() => {
               <span>{{ getAliasesText(record) }}</span>
             </template>
 
+            <template v-else-if="column.key === 'source'">
+              <a-tag :color="getCommandSourceColor(record.command_source)">
+                {{ getCommandSourceLabel(record.command_source) }}
+              </a-tag>
+            </template>
+
             <template v-else-if="column.key === 'declared_permission'">
               <span>{{ getCommandPermissionLabel(record.declared_permission) }}</span>
             </template>
@@ -324,7 +341,7 @@ onMounted(() => {
       >
         <template #title>
           <div class="card-header">
-            <span>{{ t('commands.sections.declaredCommands') }}</span>
+            <span>{{ t('commands.sections.pluginCommands') }}</span>
             <a-tag color="blue">{{ commandRows.length }}</a-tag>
           </div>
         </template>
@@ -354,6 +371,12 @@ onMounted(() => {
 
             <template v-else-if="column.key === 'aliases'">
               <span>{{ getAliasesText(record.command) }}</span>
+            </template>
+
+            <template v-else-if="column.key === 'source'">
+              <a-tag :color="getCommandSourceColor(record.command.command_source)">
+                {{ getCommandSourceLabel(record.command.command_source) }}
+              </a-tag>
             </template>
 
             <template v-else-if="column.key === 'description'">

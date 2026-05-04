@@ -247,3 +247,68 @@ func TestCatalogSubscribeSkipsUnchangedRuntimeState(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func TestRefreshCommandsPublishesAllSnapshotsForConflictRecalculation(t *testing.T) {
+	catalog := NewCatalog([]Snapshot{
+		{
+			PluginID:          "fortune",
+			Name:              "Fortune",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			Commands: []Command{{
+				Name:          "我的运势",
+				CommandSource: CommandSourceDynamic,
+				DeclarationID: "fortune",
+			}},
+			DynamicCommands: []DynamicCommandDecl{{
+				ID:          "fortune",
+				SettingsKey: "trigger_commands",
+				Description: "查看今日运势",
+			}},
+			DefaultConfig: map[string]any{
+				"trigger_commands": []any{"我的运势"},
+			},
+		},
+		{
+			PluginID:          "weather",
+			Name:              "Weather",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			Commands: []Command{{
+				Name:          "weather",
+				CommandSource: CommandSourceManifest,
+			}},
+			ManifestCommands: []Command{{
+				Name: "weather",
+			}},
+		},
+	})
+
+	updates, unsubscribe := catalog.Subscribe(2)
+	defer unsubscribe()
+
+	snapshot, ok := catalog.RefreshCommands("fortune", map[string]any{
+		"trigger_commands": []any{"weather"},
+	})
+	if !ok {
+		t.Fatal("RefreshCommands returned ok=false")
+	}
+	if len(snapshot.Commands) != 1 || snapshot.Commands[0].Name != "weather" {
+		t.Fatalf("unexpected refreshed commands: %#v", snapshot.Commands)
+	}
+
+	seen := map[string]bool{}
+	for i := 0; i < 2; i++ {
+		select {
+		case update := <-updates:
+			seen[update.PluginID] = true
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for update %d", i+1)
+		}
+	}
+	if !seen["fortune"] || !seen["weather"] {
+		t.Fatalf("published plugin IDs = %#v, want fortune and weather", seen)
+	}
+}

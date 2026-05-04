@@ -64,6 +64,8 @@ type CommandPolicyEntryResponse struct {
 	PluginName          string   `json:"plugin_name"`
 	Command             string   `json:"command"`
 	Aliases             []string `json:"aliases"`
+	CommandSource       string   `json:"command_source"`
+	DeclarationID       string   `json:"declaration_id,omitempty"`
 	DeclaredPermission  *string  `json:"declared_permission"`
 	EffectivePermission string   `json:"effective_permission"`
 	PermissionSource    string   `json:"permission_source"`
@@ -380,6 +382,8 @@ func buildCommandPolicyEntries(snapshots []plugins.Snapshot, cfg config.Config) 
 				PluginName:          pluginDisplayName(snapshot),
 				Command:             name,
 				Aliases:             normalizedStrings(command.Aliases),
+				CommandSource:       commandSourceOrDefault(command.CommandSource),
+				DeclarationID:       strings.TrimSpace(command.DeclarationID),
 				DeclaredPermission:  declaredPermission,
 				EffectivePermission: effectivePermission,
 				PermissionSource:    permissionSource,
@@ -401,6 +405,13 @@ func buildCommandPolicyEntries(snapshots []plugins.Snapshot, cfg config.Config) 
 		return []CommandPolicyEntryResponse{}
 	}
 	return items
+}
+
+func commandSourceOrDefault(source string) string {
+	if strings.TrimSpace(source) == plugins.CommandSourceDynamic {
+		return plugins.CommandSourceDynamic
+	}
+	return plugins.CommandSourceManifest
 }
 
 func pluginDisplayName(snapshot plugins.Snapshot) string {

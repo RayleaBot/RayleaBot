@@ -1,6 +1,6 @@
 export const commands = {
   title: '指令中心',
-  subtitle: '查看当前生效的命令策略，并核对插件声明指令。',
+  subtitle: '查看当前生效的命令策略，并核对插件指令。',
   refresh: '刷新列表',
   actions: {
     openPermissionPolicy: '权限策略',
@@ -11,7 +11,7 @@ export const commands = {
   },
   empty: {
     title: '暂无指令',
-    description: '当前没有插件声明可用指令',
+    description: '当前没有可用插件指令',
     effectiveTitle: '暂无生效策略',
     effectiveDescription: '当前没有参与命令裁决的插件指令。',
   },
@@ -24,12 +24,13 @@ export const commands = {
     declaredPermission: '声明权限',
     effectivePermission: '生效权限',
     permissionSource: '权限来源',
+    source: '来源',
     plugin: '所属插件',
     status: '当前状态',
   },
   sections: {
     effectivePolicies: '生效命令策略',
-    declaredCommands: '全部声明命令',
+    pluginCommands: '插件指令',
   },
   status: {
     available: '当前可用',
@@ -47,5 +48,9 @@ export const commands = {
   permissionSource: {
     declared: '命令声明',
     default_level: '默认权限',
+  },
+  commandSource: {
+    manifest: '固定指令',
+    dynamic: '动态指令',
   },
 } as const

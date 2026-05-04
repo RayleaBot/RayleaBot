@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
+import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 
 function buildPlugin(overrides: Record<string, unknown> = {}) {
@@ -71,6 +72,7 @@ describe('PluginManagementUIHost', () => {
 
   it('requires confirmation before loading an unverified plugin page', async () => {
     const pluginsStore = usePluginsStore()
+    const governanceStore = useGovernanceStore()
     const fetchSettingsSpy = vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
       plugin_id: 'example-config-panel',
       values: {
@@ -107,6 +109,7 @@ describe('PluginManagementUIHost', () => {
 
   it('initializes, reloads, and saves settings through the bridge', async () => {
     const pluginsStore = usePluginsStore()
+    const governanceStore = useGovernanceStore()
     const plugin = buildPlugin({
       source: {
         root: 'examples/plugins',
@@ -144,6 +147,15 @@ describe('PluginManagementUIHost', () => {
       },
     })
     const fetchDetailSpy = vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(plugin as never)
+    const fetchCommandPolicySpy = vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue({
+      default_level: 'everyone',
+      cooldown: {
+        user_command_rate_limit: '10/60s',
+        group_command_rate_limit: '30/60s',
+        cooldown_reply: true,
+      },
+      commands: [],
+    })
 
     const wrapper = mount(PluginManagementUIHost, {
       props: {
@@ -229,6 +241,7 @@ describe('PluginManagementUIHost', () => {
       unit: 'fahrenheit',
     })
     expect(fetchDetailSpy).toHaveBeenCalledWith('example-config-panel')
+    expect(fetchCommandPolicySpy).toHaveBeenCalledTimes(1)
     expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[2]?.[0]).toMatchObject({
       version: '1',
       source: 'management_host',

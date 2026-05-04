@@ -118,6 +118,8 @@ export function createSocketFrameRouter(
         desired_state: frame.data.desired_state,
         runtime_state: frame.data.runtime_state,
         display_state: frame.data.display_state,
+        commands: frame.data.commands,
+        command_conflicts: frame.data.command_conflicts,
       })
       return
     }

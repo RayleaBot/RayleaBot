@@ -73,6 +73,7 @@ response:
           description: 查询天气
           usage: weather <城市>
           permission: member
+          command_source: manifest
       command_conflicts:
         - weather
       permissions:

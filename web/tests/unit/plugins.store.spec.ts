@@ -34,7 +34,7 @@ describe('plugins store', () => {
         desired_state: 'enabled',
         runtime_state: 'running',
         commands: [
-          { name: 'weather' },
+          { name: 'weather', command_source: 'manifest' },
         ],
       },
     })))
@@ -49,7 +49,7 @@ describe('plugins store', () => {
     expect(store.actionPending.weather).toBeNull()
     expect(store.items[0].desired_state).toBe('enabled')
     expect(store.items[0].runtime_state).toBe('running')
-    expect(store.items[0].commands).toEqual([{ name: 'weather' }])
+    expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
   })
 
   it('preserves existing commands when a runtime event only updates states', () => {
@@ -62,7 +62,7 @@ describe('plugins store', () => {
       registration_state: 'installed',
       desired_state: 'enabled',
       runtime_state: 'running',
-      commands: [{ name: 'weather' }],
+      commands: [{ name: 'weather', command_source: 'manifest' }],
       command_conflicts: [],
     })
 
@@ -73,7 +73,7 @@ describe('plugins store', () => {
       runtime_state: 'starting',
     })
 
-    expect(store.items[0].commands).toEqual([{ name: 'weather' }])
+    expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
   })
 
   it('keeps grants sorted, merges outbound console logs, and clears both buffers', async () => {

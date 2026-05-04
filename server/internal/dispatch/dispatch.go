@@ -179,6 +179,22 @@ func (d *Dispatcher) HasPlugin(pluginID string) bool {
 	return ok
 }
 
+func (d *Dispatcher) UpdateCommands(pluginID string, cmds []CommandDecl) bool {
+	if d == nil {
+		return false
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	slot, ok := d.slots[pluginID]
+	if !ok {
+		return false
+	}
+	slot.commands = append([]CommandDecl(nil), cmds...)
+	return true
+}
+
 // HasDeliverablePlugins reports whether at least one registered runtime is in
 // the running state and can accept delivery.
 func (d *Dispatcher) HasDeliverablePlugins() bool {
