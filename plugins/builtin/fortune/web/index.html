@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>运势设置</title>
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <div>
+          <h1 id="page-title">运势设置</h1>
+          <p id="page-subtitle">设置触发词、时区、特殊日期和运势库</p>
+        </div>
+        <div class="status-pill" id="status-text">正在等待宿主初始化</div>
+      </header>
+
+      <section class="settings-grid">
+        <div class="panel panel--compact">
+          <label>
+            <span>触发词</span>
+            <textarea id="trigger-commands-input" rows="3" placeholder="每行一个触发词"></textarea>
+          </label>
+        </div>
+        <div class="panel panel--compact">
+          <label>
+            <span>时区</span>
+            <input id="timezone-input" type="text" placeholder="Asia/Shanghai" />
+          </label>
+        </div>
+        <div class="panel panel--compact">
+          <label>
+            <span>今日宜</span>
+            <textarea id="good-actions-input" rows="4" placeholder="每行一项"></textarea>
+          </label>
+        </div>
+        <div class="panel panel--compact">
+          <label>
+            <span>今日忌</span>
+            <textarea id="bad-actions-input" rows="4" placeholder="每行一项"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="editor-grid">
+        <div class="panel">
+          <div class="section-title">
+            <h2>特殊日期</h2>
+            <p>支持 YYYY-MM-DD 和 MM-DD，精确日期优先。</p>
+          </div>
+          <textarea id="special-dates-input" class="code-input" rows="10" spellcheck="false"></textarea>
+        </div>
+
+        <div class="panel panel--wide">
+          <div class="section-title">
+            <h2>运势库</h2>
+            <p>星级固定七位，吉凶未定使用七个问号。</p>
+          </div>
+          <textarea id="fortunes-input" class="code-input" rows="10" spellcheck="false"></textarea>
+        </div>
+      </section>
+
+      <footer class="actions">
+        <button type="button" id="reload-button" class="button">重新载入</button>
+        <button type="button" id="reset-button" class="button">恢复默认</button>
+        <button type="button" id="save-button" class="button button--primary">保存设置</button>
+      </footer>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

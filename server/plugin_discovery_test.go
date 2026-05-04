@@ -247,11 +247,14 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 
 	catalog := plugins.NewCatalog(snapshots)
 	for _, tc := range []struct {
-		pluginID    string
-		commandName string
+		pluginID      string
+		commandName   string
+		source        string
+		declarationID string
 	}{
-		{pluginID: "raylea.help", commandName: "help"},
-		{pluginID: "raylea.echo", commandName: "echo"},
+		{pluginID: "raylea.help", commandName: "help", source: plugins.CommandSourceManifest},
+		{pluginID: "raylea.echo", commandName: "echo", source: plugins.CommandSourceManifest},
+		{pluginID: "raylea.fortune", commandName: "我的运势", source: plugins.CommandSourceDynamic, declarationID: "fortune"},
 	} {
 		snapshot, ok := catalog.Get(tc.pluginID)
 		if !ok {
@@ -269,6 +272,57 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 		if snapshot.Commands[0].Name != tc.commandName {
 			t.Fatalf("unexpected builtin command name for %s: got %q want %q", tc.pluginID, snapshot.Commands[0].Name, tc.commandName)
 		}
+		if snapshot.Commands[0].CommandSource != tc.source {
+			t.Fatalf("unexpected builtin command source for %s: got %q want %q", tc.pluginID, snapshot.Commands[0].CommandSource, tc.source)
+		}
+		if snapshot.Commands[0].DeclarationID != tc.declarationID {
+			t.Fatalf("unexpected builtin command declaration for %s: got %q want %q", tc.pluginID, snapshot.Commands[0].DeclarationID, tc.declarationID)
+		}
+	}
+}
+
+func TestDiscoverManifestDynamicCommands(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.plugin-with-dynamic-commands.json"))
+	pluginDir := filepath.Join(rootDir, "plugins", "fortune")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if len(snapshot.DynamicCommands) != 1 {
+		t.Fatalf("dynamic command declarations = %#v, want one", snapshot.DynamicCommands)
+	}
+	if len(snapshot.Commands) != 1 {
+		t.Fatalf("projected commands = %#v, want one", snapshot.Commands)
+	}
+	command := snapshot.Commands[0]
+	if command.Name != "我的运势" || !reflect.DeepEqual(command.Aliases, []string{"今日运势"}) {
+		t.Fatalf("unexpected projected dynamic command: %#v", command)
+	}
+	if command.CommandSource != plugins.CommandSourceDynamic || command.DeclarationID != "fortune" || command.Permission != "everyone" {
+		t.Fatalf("unexpected dynamic command metadata: %#v", command)
 	}
 }
 

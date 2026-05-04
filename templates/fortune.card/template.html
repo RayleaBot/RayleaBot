@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body class="theme-{{ .Theme }}">
+    <main class="fortune-card" aria-label="运势卡片">
+      {{ $nickname := "访客" }}
+      {{ $groupNickname := "" }}
+      {{ $avatarURL := "" }}
+      {{ $userTitle := "" }}
+      {{ $userID := "" }}
+      {{ $groupName := "" }}
+      {{ with .user }}
+        {{ with .id }}{{ $userID = printf "%v" . }}{{ end }}
+        {{ with .nickname }}{{ $nickname = printf "%v" . }}{{ end }}
+        {{ with .group_nickname }}{{ $groupNickname = printf "%v" . }}{{ end }}
+        {{ with .avatar_url }}{{ $avatarURL = printf "%v" . }}{{ end }}
+        {{ with .title }}{{ $userTitle = printf "%v" . }}{{ end }}
+      {{ end }}
+      {{ with .group }}
+        {{ with .name }}{{ $groupName = printf "%v" . }}{{ end }}
+      {{ end }}
+
+      <header class="fortune-card__header">
+        <div class="fortune-card__title-group">
+          <p class="fortune-card__eyebrow">Daily Fortune</p>
+          <h1>{{ .title }}</h1>
+          {{ if .subtitle }}<p class="fortune-card__subtitle">{{ .subtitle }}</p>{{ end }}
+        </div>
+        {{ if .status }}<div class="fortune-card__status">{{ .status }}</div>{{ end }}
+      </header>
+
+      <section class="fortune-card__identity">
+        <div class="fortune-card__avatar">
+          {{ if $avatarURL }}
+          <img src="{{ $avatarURL }}" alt="" />
+          {{ else if $groupNickname }}
+          <span>{{ $groupNickname }}</span>
+          {{ else }}
+          <span>{{ $nickname }}</span>
+          {{ end }}
+        </div>
+        <div class="fortune-card__identity-body">
+          <div class="fortune-card__name-line">
+            {{ if $groupNickname }}
+            <span class="fortune-card__group-name">{{ $groupNickname }}</span>
+            <span class="fortune-card__nickname">（{{ $nickname }}）</span>
+            {{ else }}
+            <span class="fortune-card__group-name">{{ $nickname }}</span>
+            {{ end }}
+            {{ if $userTitle }}<span class="fortune-card__title-badge">{{ $userTitle }}</span>{{ end }}
+          </div>
+          <div class="fortune-card__identity-meta">
+            {{ if $groupName }}<span>{{ $groupName }}</span>{{ end }}
+            {{ if $userID }}<span>ID {{ $userID }}</span>{{ end }}
+          </div>
+        </div>
+      </section>
+
+      {{ with .fortune }}
+      <section class="fortune-card__fortune">
+        <div class="fortune-card__fortune-head">
+          <div>
+            <p class="fortune-card__fortune-label">运势</p>
+            <div class="fortune-card__fortune-name">{{ .name }}</div>
+          </div>
+          <div class="fortune-card__stars" aria-label="星级">{{ .stars }}</div>
+        </div>
+        <div class="fortune-card__sign">
+          <p class="fortune-card__section-label">签文</p>
+          <p>{{ .sign }}</p>
+        </div>
+        <div class="fortune-card__explanation">
+          <p class="fortune-card__section-label">解签</p>
+          <p>{{ .explanation }}</p>
+        </div>
+      </section>
+      {{ end }}
+
+      {{ if .repeat_notice }}
+      <section class="fortune-card__notice">{{ .repeat_notice }}</section>
+      {{ end }}
+
+      <section class="fortune-card__actions">
+        <article>
+          <p class="fortune-card__section-label">今日宜</p>
+          <div class="fortune-card__tag-list">
+            {{ range .today_good }}<span>{{ . }}</span>{{ end }}
+          </div>
+        </article>
+        <article>
+          <p class="fortune-card__section-label">今日忌</p>
+          <div class="fortune-card__tag-list fortune-card__tag-list--muted">
+            {{ range .today_bad }}<span>{{ . }}</span>{{ end }}
+          </div>
+        </article>
+      </section>
+
+      <section class="fortune-card__summary">
+        {{ with .streak }}
+        <article class="fortune-card__streak">
+          <p class="fortune-card__section-label">连续签到</p>
+          <p>你已经连续查看运势 <strong>{{ .current }}</strong> 天。</p>
+          <p>累计查看运势 <strong>{{ .total }}</strong> 天。</p>
+        </article>
+        {{ end }}
+        {{ if .stats }}
+        <article class="fortune-card__stats">
+          <p class="fortune-card__section-label">运势统计</p>
+          <div class="fortune-card__stats-grid">
+            {{ range .stats }}
+            <div class="fortune-card__stat">
+              <span>{{ .label }}</span>
+              <strong>{{ .value }}</strong>
+            </div>
+            {{ end }}
+          </div>
+        </article>
+        {{ end }}
+      </section>
+    </main>
+  </body>
+</html>

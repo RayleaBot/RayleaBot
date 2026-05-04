@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["title", "fortune"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "repeat_notice": {
+      "type": "string"
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "avatar_url": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "group_nickname": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "id": {
+          "type": ["string", "number"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "fortune": {
+      "type": "object",
+      "required": ["name", "stars", "sign", "explanation"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stars": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 7
+        },
+        "sign": {
+          "type": "string",
+          "minLength": 1
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "today_good": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "today_bad": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "streak": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "type": ["string", "number"]
+        },
+        "total": {
+          "type": ["string", "number"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "stats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "value"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": ["string", "number"]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "examples": [
+    {
+      "title": "今日运势",
+      "subtitle": "2026-05-04 · Asia/Shanghai",
+      "status": "首次抽取",
+      "user": {
+        "group_nickname": "银蝶",
+        "nickname": "Silver",
+        "title": "群主",
+        "id": "10001"
+      },
+      "group": {
+        "name": "测试群"
+      },
+      "fortune": {
+        "name": "大吉",
+        "stars": "★★★★★★★",
+        "sign": "云开见月，万事顺遂，贵人相助，所愿可期",
+        "explanation": "适合推进重要事项，保持节奏会有不错结果。"
+      },
+      "today_good": ["整理计划", "主动沟通"],
+      "today_bad": ["拖延决定", "熬夜"],
+      "streak": {
+        "current": 7,
+        "total": 12
+      },
+      "stats": [
+        {
+          "label": "累计大吉",
+          "value": "2 次"
+        }
+      ]
+    }
+  ],
+  "additionalProperties": true
+}

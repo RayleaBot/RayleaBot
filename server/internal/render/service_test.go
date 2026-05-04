@@ -291,7 +291,7 @@ func TestServiceRenderLeaderboardListTemplate(t *testing.T) {
 			"value_label": "发言数",
 			"items": []map[string]any{
 				{
-					"avatar_url":      "https://q.qlogo.cn/headimg_dl?dst_uin=10001&spec=640",
+					"avatar_url":     "https://q.qlogo.cn/headimg_dl?dst_uin=10001&spec=640",
 					"group_nickname": "银蝶",
 					"nickname":       "Silver",
 					"title":          "群主",
@@ -321,6 +321,91 @@ func TestServiceRenderLeaderboardListTemplate(t *testing.T) {
 	for _, want := range []string{"银蝶", "（Silver）", "群主", "Nova", "128", "81"} {
 		if !strings.Contains(doc.HTML, want) {
 			t.Fatalf("leaderboard html missing %q:\n%s", want, doc.HTML)
+		}
+	}
+}
+
+func TestServiceRenderFortuneCardTemplate(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Join("..", "..", "..")
+	outputRoot := filepath.Join(t.TempDir(), "render-fortune")
+	runner := &fakeRunner{}
+	store := openRenderTestStore(t)
+
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         outputRoot,
+		Store:              store,
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	_, err = service.Render(context.Background(), Request{
+		Template: "fortune.card",
+		Theme:    "default",
+		Output:   "png",
+		Data: map[string]any{
+			"title":         "今日运势",
+			"subtitle":      "2026-05-04 · Asia/Shanghai",
+			"status":        "今日已抽取",
+			"repeat_notice": "今日运势已经抽取过，以下为当日结果。",
+			"user": map[string]any{
+				"group_nickname": "银蝶",
+				"nickname":       "Silver",
+				"title":          "群主",
+				"id":             "10001",
+			},
+			"group": map[string]any{
+				"name": "测试群",
+			},
+			"fortune": map[string]any{
+				"name":        "大吉",
+				"stars":       "★★★★★★★",
+				"sign":        "云开见月，万事顺遂",
+				"explanation": "适合推进重要事项。",
+			},
+			"today_good": []string{"整理计划", "主动沟通"},
+			"today_bad":  []string{"熬夜", "拖延决定"},
+			"streak": map[string]any{
+				"current": 7,
+				"total":   12,
+			},
+			"stats": []map[string]any{
+				{"label": "累计大吉", "value": "2 次"},
+				{"label": "最长连续大凶", "value": "1 天"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatalf("expected render document")
+	}
+	if !doc.AutoHeight {
+		t.Fatalf("expected render document to request adaptive height")
+	}
+	if doc.Width != 960 || doc.Height != 560 {
+		t.Fatalf("unexpected initial render dimensions: got %dx%d", doc.Width, doc.Height)
+	}
+	for _, want := range []string{"今日运势", "今日已抽取", "银蝶", "（Silver）", "大吉", "★★★★★★★", "累计大吉", "最长连续大凶"} {
+		if !strings.Contains(doc.HTML, want) {
+			t.Fatalf("fortune html missing %q:\n%s", want, doc.HTML)
 		}
 	}
 }

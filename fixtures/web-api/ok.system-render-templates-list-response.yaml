@@ -8,6 +8,12 @@ response:
   status: 200
   body:
     items:
+      - id: fortune.card
+        version: '1'
+        width: 960
+        height: 560
+        has_input_schema: true
+        updated_at: '2026-05-04T10:30:00Z'
       - id: help.menu
         version: '1'
         width: 960
