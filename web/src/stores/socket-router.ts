@@ -1,11 +1,11 @@
 import type {
   EventsPayload,
   LogSummary,
+  PluginConsoleFrameData,
   TaskSummary,
   WebSocketFrame,
 } from '@/types/api'
 import type {
-  PluginConsoleFrameData,
   PluginStateEvent,
   ProtocolSnapshotEvent,
   SocketFrameRouter,
@@ -144,7 +144,7 @@ export function createSocketFrameRouter(
     pendingLiveLogs = []
     dependencies.logs.appendBatch(batch)
     for (const log of batch) {
-      dependencies.plugins.appendOutboundLog(log)
+      dependencies.pluginConsole.appendOutboundLog(log)
     }
   }
 
@@ -169,7 +169,7 @@ export function createSocketFrameRouter(
 
   function handleConsoleFrame(frame: WebSocketFrame<PluginConsoleFrameData>) {
     if (frame.type === 'plugins.console') {
-      dependencies.plugins.appendConsole(frame.data)
+      dependencies.pluginConsole.appendConsole(frame.data)
     }
   }
 

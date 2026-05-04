@@ -5,6 +5,7 @@ import type {
   LogSummary,
   OneBot11ProtocolSnapshotResponse,
   PluginCommandSummary,
+  PluginConsoleFrameData,
   TaskSummary,
   WebSocketFrame,
 } from '@/types/api'
@@ -17,13 +18,6 @@ export interface SocketSnapshot {
 }
 
 export type SocketSnapshotMap = Record<SocketChannelKey, SocketSnapshot>
-
-export interface PluginConsoleFrameData {
-  plugin_id: string
-  stream: 'stdout' | 'stderr' | 'system'
-  text: string
-  timestamp: string
-}
 
 export type PluginStateEvent = Extract<EventsPayload, { plugin_id: string }>
 export type ProtocolSnapshotEvent = Extract<EventsPayload, { protocol_snapshot: OneBot11ProtocolSnapshotResponse }>
@@ -45,6 +39,8 @@ export interface SocketFrameRouterDependencies {
   }
   plugins: {
     upsert: (plugin: PluginSocketProjection) => void
+  }
+  pluginConsole: {
     appendOutboundLog: (log: LogSummary) => void
     appendConsole: (frame: PluginConsoleFrameData) => void
   }

@@ -34,8 +34,8 @@ import {
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
+import { usePluginConsoleStore, type ConsoleFrame } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
-import type { ConsoleFrame } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 import type { PluginDetail, PluginPermissionSummary } from '@/types/api'
 
@@ -44,6 +44,7 @@ type PermissionDialogMode = 'grant' | 'pending' | 'scope_changed'
 const route = useRoute()
 const router = useRouter()
 const pluginsStore = usePluginsStore()
+const pluginConsoleStore = usePluginConsoleStore()
 const socketStore = useSocketStore()
 const configStore = useConfigStore()
 
@@ -52,7 +53,7 @@ const { document: configDocument } = storeToRefs(configStore)
 
 const pluginId = computed(() => String(route.params.id))
 const currentPlugin = computed(() => current.value?.id === pluginId.value ? current.value : null)
-const consoleFrames = computed(() => pluginsStore.getConsole(pluginId.value))
+const consoleFrames = computed(() => pluginConsoleStore.getConsole(pluginId.value))
 const consoleFrameCount = computed(() => consoleFrames.value.length)
 const currentGrants = computed(() => pluginsStore.getGrants(pluginId.value))
 const currentPermissions = computed(() => currentPlugin.value?.permissions ?? [])
@@ -200,7 +201,7 @@ async function loadDetail() {
     await Promise.all([
       pluginsStore.fetchDetail(requestedPluginId),
       pluginsStore.fetchGrants(requestedPluginId),
-      pluginsStore.fetchOutboundConsoleHistory(requestedPluginId).catch(() => []),
+      pluginConsoleStore.fetchOutboundConsoleHistory(requestedPluginId).catch(() => []),
       configStore.fetchConfig().catch(() => undefined),
     ])
 
@@ -350,7 +351,7 @@ async function uninstallPlugin() {
 }
 
 function clearConsole() {
-  pluginsStore.clearConsole(pluginId.value)
+  pluginConsoleStore.clearConsole(pluginId.value)
 }
 
 function getConsoleFrameKey(frame: ConsoleFrame, index: number) {

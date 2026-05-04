@@ -7,12 +7,12 @@ import type {
   TaskSummary,
 } from '@/types/api'
 import type {
-  PluginConsoleFrameData,
   SocketChannelKey,
   SocketController,
   SocketControllerOptions,
   SocketSnapshotMap,
 } from '@/stores/socket-types'
+import type { PluginConsoleFrameData } from '@/types/api'
 
 export function createSocketController(options: SocketControllerOptions): SocketController {
   const snapshots = reactive<SocketSnapshotMap>({

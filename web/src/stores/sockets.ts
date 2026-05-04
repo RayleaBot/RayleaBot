@@ -4,6 +4,7 @@ import { createSocketController } from '@/stores/socket-controller'
 import { useGovernanceStore } from '@/stores/governance'
 import { createSocketFrameRouter } from '@/stores/socket-router'
 import { useLogsStore } from '@/stores/logs'
+import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useProtocolsStore } from '@/stores/protocols'
 import { useSessionStore } from '@/stores/session'
@@ -13,6 +14,7 @@ import { useTasksStore } from '@/stores/tasks'
 export const useSocketStore = defineStore('sockets', () => {
   const sessionStore = useSessionStore()
   const pluginsStore = usePluginsStore()
+  const pluginConsoleStore = usePluginConsoleStore()
   const tasksStore = useTasksStore()
   const logsStore = useLogsStore()
   const governanceStore = useGovernanceStore()
@@ -26,8 +28,10 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     plugins: {
       upsert: pluginsStore.upsert,
-      appendOutboundLog: pluginsStore.appendOutboundLog,
-      appendConsole: pluginsStore.appendConsole,
+    },
+    pluginConsole: {
+      appendOutboundLog: pluginConsoleStore.appendOutboundLog,
+      appendConsole: pluginConsoleStore.appendConsole,
     },
     tasks: {
       upsert: tasksStore.upsert,

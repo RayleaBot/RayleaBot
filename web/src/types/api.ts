@@ -6,6 +6,7 @@ export * from './logs'
 export * from './config'
 export * from './events'
 export * from './governance'
+export type { PluginConsoleFrameData } from './websocket.generated'
 export type { components } from './generated'
 
 import type { components } from './generated'

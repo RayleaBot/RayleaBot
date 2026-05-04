@@ -15,7 +15,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "generate:types": "openapi-typescript ../contracts/web-api.openapi.yaml -o src/types/generated.ts"
+    "generate:openapi-types": "openapi-typescript ../contracts/web-api.openapi.yaml -o src/types/generated.ts",
+    "generate:ws-types": "node scripts/generate-websocket-types.mjs",
+    "generate:types": "pnpm run generate:openapi-types && pnpm run generate:ws-types"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

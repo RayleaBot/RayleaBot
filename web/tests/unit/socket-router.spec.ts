@@ -20,6 +20,8 @@ describe('socket frame router', () => {
       },
       plugins: {
         upsert: vi.fn(),
+      },
+      pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
@@ -77,6 +79,8 @@ describe('socket frame router', () => {
       },
       plugins: {
         upsert: vi.fn(),
+      },
+      pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
@@ -154,6 +158,8 @@ describe('socket frame router', () => {
       },
       plugins: {
         upsert: vi.fn(),
+      },
+      pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
@@ -231,8 +237,8 @@ describe('socket frame router', () => {
         message: 'plugin weather command echo delivered group message: hello',
       },
     ])
-    expect(dependencies.plugins.appendOutboundLog).toHaveBeenCalledTimes(1)
-    expect(dependencies.plugins.appendConsole).toHaveBeenCalledWith({
+    expect(dependencies.pluginConsole.appendOutboundLog).toHaveBeenCalledTimes(1)
+    expect(dependencies.pluginConsole.appendConsole).toHaveBeenCalledWith({
       plugin_id: 'weather',
       stream: 'stdout',
       text: 'console line',
@@ -248,6 +254,8 @@ describe('socket frame router', () => {
       },
       plugins: {
         upsert: vi.fn(),
+      },
+      pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
@@ -305,6 +313,8 @@ describe('socket frame router', () => {
       },
       plugins: {
         upsert: vi.fn(),
+      },
+      pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
@@ -362,6 +372,8 @@ describe('socket frame router', () => {
       },
       plugins: {
         upsert: vi.fn(),
+      },
+      pluginConsole: {
         appendOutboundLog: vi.fn(),
         appendConsole: vi.fn(),
       },
@@ -426,6 +438,6 @@ describe('socket frame router', () => {
         message: 'second',
       },
     ])
-    expect(dependencies.plugins.appendOutboundLog).toHaveBeenCalledTimes(2)
+    expect(dependencies.pluginConsole.appendOutboundLog).toHaveBeenCalledTimes(2)
   })
 })

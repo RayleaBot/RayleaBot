@@ -7,6 +7,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { ApiError } from '@/lib/http'
 import PluginDetailPage from '@/views/plugins/PluginDetailView.vue'
 import { useConfigStore } from '@/stores/config'
+import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 import type { ConfigDocument } from '@/types/api'
@@ -113,6 +114,7 @@ describe('PluginDetailPage', () => {
     await router.isReady()
 
     const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
     const configStore = useConfigStore()
     const socketStore = useSocketStore()
 
@@ -203,25 +205,25 @@ describe('PluginDetailPage', () => {
         },
       ],
     }
-    pluginsStore.appendConsole({
+    pluginConsoleStore.appendConsole({
       plugin_id: 'weather',
       stream: 'stdout',
       text: 'worker ready',
       timestamp: '2026-03-22T10:00:00Z',
     })
-    pluginsStore.appendConsole({
+    pluginConsoleStore.appendConsole({
       plugin_id: 'weather',
       stream: 'stderr',
       text: 'Traceback (most recent call last): ...',
       timestamp: '2026-03-22T10:00:01Z',
     })
-    pluginsStore.appendConsole({
+    pluginConsoleStore.appendConsole({
       plugin_id: 'weather',
       stream: 'system',
       text: 'process heartbeat ok',
       timestamp: '2026-03-22T10:00:01.500Z',
     })
-    pluginsStore.appendOutboundLog({
+    pluginConsoleStore.appendOutboundLog({
       log_id: 'log_weather_outbound_0001',
       timestamp: '2026-03-22T10:00:02Z',
       level: 'info',
@@ -236,7 +238,7 @@ describe('PluginDetailPage', () => {
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
     vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue(pluginsStore.grants.weather)
-    const historySpy = vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    const historySpy = vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     const reconnectSpy = vi.spyOn(socketStore, 'reconnectConsole').mockImplementation(() => undefined)
 
@@ -318,6 +320,7 @@ describe('PluginDetailPage', () => {
     await router.isReady()
 
     const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
     const socketStore = useSocketStore()
 
     pluginsStore.current = {
@@ -371,7 +374,7 @@ describe('PluginDetailPage', () => {
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
     vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue(pluginsStore.grants.weather)
-    vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     vi.spyOn(socketStore, 'reconnectConsole').mockImplementation(() => undefined)
 
@@ -432,6 +435,7 @@ describe('PluginDetailPage', () => {
     await router.isReady()
 
     const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
     const socketStore = useSocketStore()
 
     pluginsStore.current = {
@@ -456,7 +460,7 @@ describe('PluginDetailPage', () => {
       command_conflicts: [],
       permissions: [],
     }
-    pluginsStore.appendOutboundLog({
+    pluginConsoleStore.appendOutboundLog({
       log_id: 'log_weather_outbound_unsafe_0001',
       timestamp: '2026-03-22T10:00:02Z',
       level: 'info',
@@ -469,7 +473,7 @@ describe('PluginDetailPage', () => {
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
     vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
-    vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     vi.spyOn(socketStore, 'reconnectConsole').mockImplementation(() => undefined)
 
@@ -493,6 +497,7 @@ describe('PluginDetailPage', () => {
 
     const configStore = useConfigStore()
     const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
     const socketStore = useSocketStore()
 
     let resolveDetail: (() => void) | null = null
@@ -525,7 +530,7 @@ describe('PluginDetailPage', () => {
       })
     ))
     vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
-    vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     const setConsolePluginSpy = vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
 
     const wrapper = mount(PluginDetailPage, {
@@ -553,6 +558,7 @@ describe('PluginDetailPage', () => {
 
     const configStore = useConfigStore()
     const pluginsStore = usePluginsStore()
+    const pluginConsoleStore = usePluginConsoleStore()
     const socketStore = useSocketStore()
 
     const detail = {
@@ -604,7 +610,7 @@ describe('PluginDetailPage', () => {
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
     vi.spyOn(pluginsStore, 'fetchGrants').mockResolvedValue([])
-    vi.spyOn(pluginsStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
     vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
       plugin_id: 'example-config-panel',
