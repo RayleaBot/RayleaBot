@@ -607,8 +607,8 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 
 	select {
 	case frame := <-events:
-		data, _ := frame.Data.(map[string]any)
-		if data["event_type"] != "governance.changed" {
+		data, ok := frame.Data.(genericManagementEventPayload)
+		if !ok || data.EventType != "governance.changed" {
 			t.Fatalf("unexpected governance event: %#v", frame)
 		}
 	case <-time.After(2 * time.Second):

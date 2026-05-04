@@ -42,7 +42,7 @@ func TestServiceStatusPayload(t *testing.T) {
 		name      string
 		system    string
 		readiness health.ReadinessReport
-		want      map[string]any
+		want      serviceStatusEventPayload
 	}{
 		{
 			name:   "running payload uses stable running summary",
@@ -50,9 +50,9 @@ func TestServiceStatusPayload(t *testing.T) {
 			readiness: health.ReadinessReport{
 				Status: "ready",
 			},
-			want: map[string]any{
-				"service_status": "running",
-				"summary":        "服务运行中",
+			want: serviceStatusEventPayload{
+				ServiceStatus: "running",
+				Summary:       "服务运行中",
 			},
 		},
 		{
@@ -63,11 +63,11 @@ func TestServiceStatusPayload(t *testing.T) {
 				Reason:      "OneBot 正在建立连接",
 				ReasonCodes: []string{"adapter.connection_pending"},
 			},
-			want: map[string]any{
-				"service_status": "degraded",
-				"summary":        "服务运行条件受限",
-				"reason":         "OneBot 正在建立连接",
-				"reason_codes":   []string{"adapter.connection_pending"},
+			want: serviceStatusEventPayload{
+				ServiceStatus: "degraded",
+				Summary:       "服务运行条件受限",
+				Reason:        "OneBot 正在建立连接",
+				ReasonCodes:   []string{"adapter.connection_pending"},
 			},
 		},
 		{
@@ -76,9 +76,9 @@ func TestServiceStatusPayload(t *testing.T) {
 			readiness: health.ReadinessReport{
 				Status: "ready",
 			},
-			want: map[string]any{
-				"service_status": "stopping",
-				"summary":        "服务正在停止",
+			want: serviceStatusEventPayload{
+				ServiceStatus: "stopping",
+				Summary:       "服务正在停止",
 			},
 		},
 	}

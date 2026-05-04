@@ -3,7 +3,6 @@ package app
 import (
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 )
@@ -23,19 +22,14 @@ func newServiceStatusService(system *systemService) *serviceStatusService {
 }
 
 func (s *serviceStatusService) currentServiceStatusEvent() managementEventFrame {
-	return managementEventFrame{
-		Channel:   "events",
-		Type:      "events.received",
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Data:      s.currentServiceStatusPayload(),
-	}
+	return newEventsReceivedFrame(s.currentServiceStatusPayload())
 }
 
-func (s *serviceStatusService) currentServiceStatusPayload() map[string]any {
+func (s *serviceStatusService) currentServiceStatusPayload() serviceStatusEventPayload {
 	if s == nil || s.system == nil {
-		return map[string]any{
-			"service_status": "failed",
-			"summary":        "服务运行异常",
+		return serviceStatusEventPayload{
+			ServiceStatus: "failed",
+			Summary:       "服务运行异常",
 		}
 	}
 
@@ -43,17 +37,17 @@ func (s *serviceStatusService) currentServiceStatusPayload() map[string]any {
 	return serviceStatusPayload(s.system.systemStatus(), readiness)
 }
 
-func serviceStatusPayload(systemStatus string, readiness health.ReadinessReport) map[string]any {
+func serviceStatusPayload(systemStatus string, readiness health.ReadinessReport) serviceStatusEventPayload {
 	status := projectServiceStatus(systemStatus, readiness.Status)
-	payload := map[string]any{
-		"service_status": status,
-		"summary":        serviceStatusSummary(status),
+	payload := serviceStatusEventPayload{
+		ServiceStatus: status,
+		Summary:       serviceStatusSummary(status),
 	}
 	if reason := strings.TrimSpace(readiness.Reason); reason != "" {
-		payload["reason"] = reason
+		payload.Reason = reason
 	}
 	if len(readiness.ReasonCodes) > 0 {
-		payload["reason_codes"] = append([]string(nil), readiness.ReasonCodes...)
+		payload.ReasonCodes = append([]string(nil), readiness.ReasonCodes...)
 	}
 	return payload
 }

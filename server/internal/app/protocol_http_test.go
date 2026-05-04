@@ -138,14 +138,14 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	}
 
 	frame := service.protocolSnapshotEvent()
-	data, ok := frame.Data.(map[string]any)
+	data, ok := frame.Data.(protocolSnapshotEventPayload)
 	if !ok {
-		t.Fatalf("expected event data map, got %T", frame.Data)
+		t.Fatalf("expected protocol snapshot event payload, got %T", frame.Data)
 	}
-	projected, ok := data["protocol_snapshot"].(oneBot11ProtocolSnapshotResponse)
-	if !ok {
-		t.Fatalf("expected protocol snapshot payload, got %T", data["protocol_snapshot"])
+	if data.Protocol != "onebot11" {
+		t.Fatalf("unexpected protocol: got %q want %q", data.Protocol, "onebot11")
 	}
+	projected := data.ProtocolSnapshot
 	if !reflect.DeepEqual(projected, snapshot) {
 		t.Fatalf("unexpected event projection: got %#v want %#v", projected, snapshot)
 	}

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -100,20 +99,15 @@ func (h *eventsWSHandler) handleEventsWebSocket() http.HandlerFunc {
 }
 
 func pluginStateEventFrame(snapshot plugins.Snapshot, snapshots []plugins.Snapshot) managementEventFrame {
-	return managementEventFrame{
-		Channel:   "events",
-		Type:      "events.received",
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Data: map[string]any{
-			"plugin_id":          snapshot.PluginID,
-			"registration_state": snapshot.RegistrationState,
-			"desired_state":      snapshot.DesiredState,
-			"runtime_state":      snapshot.RuntimeState,
-			"display_state":      snapshot.DisplayState,
-			"commands":           pluginStateEventCommands(snapshot.Commands),
-			"command_conflicts":  pluginStateEventCommandConflicts(snapshot, snapshots),
-		},
-	}
+	return newEventsReceivedFrame(pluginStateEventPayload{
+		PluginID:          snapshot.PluginID,
+		RegistrationState: snapshot.RegistrationState,
+		DesiredState:      snapshot.DesiredState,
+		RuntimeState:      snapshot.RuntimeState,
+		DisplayState:      snapshot.DisplayState,
+		Commands:          pluginStateEventCommands(snapshot.Commands),
+		CommandConflicts:  pluginStateEventCommandConflicts(snapshot, snapshots),
+	})
 }
 
 func pluginSnapshotsForConflicts(catalog *plugins.Catalog) []plugins.Snapshot {
@@ -123,38 +117,28 @@ func pluginSnapshotsForConflicts(catalog *plugins.Catalog) []plugins.Snapshot {
 	return catalog.List()
 }
 
-func pluginStateEventCommands(commands []plugins.Command) []map[string]any {
+func pluginStateEventCommands(commands []plugins.Command) []pluginCommandEventItem {
 	if len(commands) == 0 {
-		return []map[string]any{}
+		return []pluginCommandEventItem{}
 	}
-	items := make([]map[string]any, 0, len(commands))
+	items := make([]pluginCommandEventItem, 0, len(commands))
 	for _, command := range commands {
 		if command.Name == "" {
 			continue
 		}
-		item := map[string]any{
-			"name":           command.Name,
-			"command_source": pluginEventCommandSource(command.CommandSource),
-		}
-		if len(command.Aliases) > 0 {
-			item["aliases"] = append([]string(nil), command.Aliases...)
-		}
-		if command.Description != "" {
-			item["description"] = command.Description
-		}
-		if command.Usage != "" {
-			item["usage"] = command.Usage
-		}
-		if command.Permission != "" {
-			item["permission"] = command.Permission
-		}
-		if command.DeclarationID != "" {
-			item["declaration_id"] = command.DeclarationID
+		item := pluginCommandEventItem{
+			Name:          command.Name,
+			Aliases:       append([]string(nil), command.Aliases...),
+			Description:   command.Description,
+			Usage:         command.Usage,
+			Permission:    command.Permission,
+			CommandSource: pluginEventCommandSource(command.CommandSource),
+			DeclarationID: command.DeclarationID,
 		}
 		items = append(items, item)
 	}
 	if len(items) == 0 {
-		return []map[string]any{}
+		return []pluginCommandEventItem{}
 	}
 	return items
 }

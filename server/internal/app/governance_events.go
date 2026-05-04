@@ -3,7 +3,6 @@ package app
 import (
 	"strings"
 	"sync"
-	"time"
 )
 
 type governanceEventService struct {
@@ -30,15 +29,10 @@ func governanceChangedEventFrame(summary string) managementEventFrame {
 	if summary == "" {
 		summary = "治理设置已更新"
 	}
-	return managementEventFrame{
-		Channel:   "events",
-		Type:      "events.received",
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Data: map[string]any{
-			"event_type": "governance.changed",
-			"summary":    summary,
-		},
-	}
+	return newEventsReceivedFrame(genericManagementEventPayload{
+		EventType: "governance.changed",
+		Summary:   summary,
+	})
 }
 
 func (s *governanceEventService) publishEvent(frame managementEventFrame) {
