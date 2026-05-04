@@ -5,7 +5,6 @@ import { createApp } from 'vue'
 import App from '@/App.vue'
 import { i18n } from '@/i18n'
 import { installAntDesignVue } from '@/plugins/antd'
-import { toLauncherAdmissionHint } from '@/lib/auth-feedback'
 import { configureApiRuntime } from '@/request/http'
 import { createAppRouter } from '@/router'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
@@ -16,9 +15,6 @@ import 'ant-design-vue/dist/reset.css'
 import '@/styles/tailwind.css'
 import '@/styles/main.scss'
 
-const initialLauncherToken = typeof window === 'undefined'
-  ? null
-  : new URL(window.location.href).searchParams.get('token')?.trim() || null
 const websocketOfflineDelayMs = 2000
 const websocketOfflineProbeTimeoutMs = 1500
 const backendAvailabilityProbeIntervalMs = 2500
@@ -31,26 +27,17 @@ function currentBrowserPath() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
-async function consumeLauncherTokenQuery(
-  sessionStore: ReturnType<typeof useSessionStore>,
-  launcherToken: string | null,
-) {
-  if (!launcherToken) {
-    return
+function readRouteRedirectTarget(value: unknown) {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (typeof candidate !== 'string' || !candidate.trim()) {
+    return null
   }
 
-  const currentUrl = new URL(window.location.href)
-  currentUrl.searchParams.delete('token')
-  window.history.replaceState({}, '', currentUrl.pathname + currentUrl.search + currentUrl.hash)
-
-  if (sessionStore.setupInitialized === true) {
-    try {
-      await sessionStore.admitLauncherToken(launcherToken)
-    } catch {
-      sessionStore.setLauncherAdmissionHint(toLauncherAdmissionHint())
-      sessionStore.clearSession()
-    }
+  if (!candidate.startsWith('/') || candidate.startsWith('//') || /\\/.test(candidate)) {
+    return null
   }
+
+  return candidate
 }
 
 async function syncRouteWithSession(
@@ -66,7 +53,7 @@ async function syncRouteWithSession(
     socketStore.ensureManagementSockets()
     const current = router.currentRoute.value
     if (current.name === 'login' || current.name === 'setup') {
-      await router.push({ name: 'status' })
+      await router.push(readRouteRedirectTarget(current.query.redirect) ?? { name: 'status' })
     }
     return
   }
@@ -75,12 +62,18 @@ async function syncRouteWithSession(
 
   const current = router.currentRoute.value
   if (sessionStore.requiresSetup && current.name !== 'setup') {
-    await router.push({ name: 'setup' })
+    await router.push({
+      name: 'setup',
+      query: current.fullPath ? { redirect: current.fullPath } : undefined,
+    })
     return
   }
 
   if (!sessionStore.requiresSetup && current.meta.requiresAuth) {
-    await router.push({ name: 'login' })
+    await router.push({
+      name: 'login',
+      query: current.fullPath ? { redirect: current.fullPath } : undefined,
+    })
   }
 }
 
@@ -256,7 +249,6 @@ async function bootstrap() {
   })
 
   await sessionStore.bootstrap().catch(() => undefined)
-  await consumeLauncherTokenQuery(sessionStore, initialLauncherToken)
 
   const router = createAppRouter()
   installAvailabilityHandlers(router, sessionStore, socketStore, availabilityStore)

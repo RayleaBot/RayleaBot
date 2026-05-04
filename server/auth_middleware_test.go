@@ -477,8 +477,8 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 		{http.MethodGet, "/api/setup/status"},
 		{http.MethodPost, "/api/setup/admin"},
 		{http.MethodPost, "/api/session/login"},
-		{http.MethodPost, "/api/session/launcher-token"},
-		{http.MethodPost, "/api/session/launcher-admission"},
+		{http.MethodGet, "/api/launcher/status"},
+		{http.MethodPost, "/api/launcher/shutdown"},
 		{http.MethodGet, "/plugin-ui/raylea.help/web/index.html"},
 	}
 

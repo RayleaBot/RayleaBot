@@ -110,15 +110,21 @@ function installRouteGuards(router: Router) {
     }
 
     if (!sessionStore.requiresSetup && to.name === 'setup') {
-      return sessionStore.isAuthenticated ? { name: 'status' } : { name: 'login' }
+      return sessionStore.isAuthenticated ? { path: readRedirectTarget(to.query.redirect) ?? '/' } : {
+        name: 'login',
+        query: to.query.redirect ? { redirect: to.query.redirect } : undefined,
+      }
     }
 
     if (to.meta.requiresAuth && !sessionStore.isAuthenticated) {
-      return { name: 'login' }
+      return {
+        name: 'login',
+        query: { redirect: to.fullPath },
+      }
     }
 
     if (sessionStore.isAuthenticated && (to.name === 'login' || to.name === 'setup')) {
-      return { name: 'status' }
+      return { path: readRedirectTarget(to.query.redirect) ?? '/' }
     }
 
     return true
@@ -142,4 +148,17 @@ function installRouteGuards(router: Router) {
       loadingTimer = null
     }, 160)
   })
+}
+
+function readRedirectTarget(value: unknown) {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (typeof candidate !== 'string' || !candidate.trim()) {
+    return null
+  }
+
+  if (!candidate.startsWith('/') || candidate.startsWith('//') || /\\/.test(candidate)) {
+    return null
+  }
+
+  return candidate
 }

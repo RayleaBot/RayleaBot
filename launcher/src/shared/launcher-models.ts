@@ -6,18 +6,14 @@ export type LauncherProcessOwnership = "none" | "launcher_managed" | "external";
 
 export type ErrorEnvelope = components["schemas"]["ErrorEnvelope"];
 export type LivenessStatusResponse = components["schemas"]["LivenessStatusResponse"];
-export type LauncherAdmissionRequest = components["schemas"]["LauncherAdmissionRequest"];
 export type LauncherDiagnosticIssue = components["schemas"]["DiagnosticIssue"];
 export type LauncherReadinessSnapshot = components["schemas"]["ReadinessStatusResponse"];
 export type LauncherSystemStatusSnapshot = components["schemas"]["SystemStatusResponse"];
-export type LauncherTokenResponse = components["schemas"]["LauncherTokenResponse"];
 export type RecoveryCompatibilityAuditEntry = components["schemas"]["RecoveryCompatibilityAuditEntry"];
 export type RecoveryCompatibilityAuditItem = components["schemas"]["RecoveryCompatibilityAuditItem"];
 export type RecoveryCompatibilityIssue = components["schemas"]["RecoveryCompatibilityIssue"];
 export type RecoveryCompatibilitySkippedPlugin = components["schemas"]["RecoveryCompatibilitySkippedPlugin"];
 export type RecoveryCompatibilitySummary = components["schemas"]["RecoveryCompatibilitySummary"];
-export type TaskAcceptedResponse = components["schemas"]["TaskAcceptedResponse"];
-export type TaskListResponse = components["schemas"]["TaskListResponse"];
 export type TaskSummary = components["schemas"]["TaskSummary"];
 
 export type CheckSeverity = LauncherDiagnosticIssue["severity"];

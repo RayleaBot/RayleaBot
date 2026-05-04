@@ -12,8 +12,8 @@ x-fixtures:
   - fixtures/web-api/ok.setup-status.yaml
   - fixtures/web-api/ok.session-login.yaml
   - fixtures/web-api/ok.session-logout.yaml
-  - fixtures/web-api/ok.session-launcher-token.yaml
-  - fixtures/web-api/ok.session-launcher-admission.yaml
+  - fixtures/web-api/ok.launcher-status.yaml
+  - fixtures/web-api/ok.launcher-shutdown.yaml
   - fixtures/web-api/ok.config-get-response.yaml
   - fixtures/web-api/ok.config-update-response.yaml
   - fixtures/web-api/edge.config-update-response.adapter-reload-fallback.yaml
@@ -92,7 +92,8 @@ x-fixtures:
   - fixtures/web-api/invalid.protocol-onebot11-webhook-auth-failed.yaml
   - fixtures/web-api/invalid.protocol-onebot11-webhook-invalid-payload.yaml
   - fixtures/web-api/edge.protocol-onebot11-compatibility-provider-gaps.yaml
-  - fixtures/web-api/invalid.session-launcher-admission-invalid-token.yaml
+  - fixtures/web-api/invalid.launcher-status-forwarded.yaml
+  - fixtures/web-api/invalid.launcher-shutdown-forwarded.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
   - fixtures/web-api/invalid.governance-blacklist-entry-unauthorized.yaml
   - fixtures/web-api/invalid.governance-whitelist-unauthorized.yaml
@@ -228,46 +229,39 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/session/launcher-token:
-    post:
-      summary: Issue a single-use short-lived token for local Launcher bootstrap.
-      operationId: issueLauncherToken
+  /api/launcher/status:
+    get:
+      summary: Query the current system status from a local Launcher process.
+      description: >
+        This endpoint accepts only direct loopback requests and rejects requests
+        containing forwarding headers.
+      operationId: getLauncherStatus
       responses:
         '200':
-          description: Single-use launcher token issued for a local loopback Launcher bootstrap.
+          description: Current system status snapshot for local Launcher display.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LauncherTokenResponse'
+                $ref: '#/components/schemas/SystemStatusResponse'
         '403':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
-  /api/session/launcher-admission:
+  /api/launcher/shutdown:
     post:
-      summary: Consume a single-use launcher token and issue a normal management session token.
+      summary: Request graceful server shutdown from a local Launcher process.
       description: >
-        When the configured max_sessions limit is already reached, the service
-        may recycle the oldest active management session before issuing a new one.
-      operationId: admitLauncherSession
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LauncherAdmissionRequest'
+        This endpoint accepts only direct loopback requests and rejects requests
+        containing forwarding headers.
+      operationId: shutdownFromLauncher
       responses:
-        '200':
-          description: Launcher token consumed and management session issued.
+        '202':
+          description: Shutdown request accepted.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionLoginResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
+                $ref: '#/components/schemas/SystemShutdownResponse'
         '403':
           $ref: '#/components/responses/Error'
         default:
@@ -1462,26 +1456,6 @@ components:
         initialized:
           type: boolean
           description: Whether the initial management credential source has been bootstrapped.
-
-    LauncherTokenResponse:
-      type: object
-      additionalProperties: false
-      required: [launcher_token]
-      properties:
-        launcher_token:
-          type: string
-          minLength: 1
-          description: Single-use short-lived token for Launcher admission. Valid for one use only.
-
-    LauncherAdmissionRequest:
-      type: object
-      additionalProperties: false
-      required: [launcher_token]
-      properties:
-        launcher_token:
-          type: string
-          minLength: 1
-          description: Single-use short-lived launcher token obtained from /api/session/launcher-token.
 
     ConfigDocument:
       $ref: './config.user.schema.json'

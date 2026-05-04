@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -88,260 +86,6 @@ func TestSessionLogoutRevokesCurrentToken(t *testing.T) {
 	}
 }
 
-func TestLauncherTokenIssuanceReturnsOpaqueToken(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-token.yaml"))
-	server := httptest.NewServer(application.Handler())
-	defer server.Close()
-
-	setupReq, err := http.NewRequest(setupFixture.Request.Method, server.URL+setupFixture.Request.Path, strings.NewReader(`{"identifier":"admin","secret":"fixture-only-secret"}`))
-	if err != nil {
-		t.Fatalf("create setup request: %v", err)
-	}
-	setupReq.Header.Set("Content-Type", "application/json")
-	setupResp, err := server.Client().Do(setupReq)
-	if err != nil {
-		t.Fatalf("perform setup request: %v", err)
-	}
-	defer setupResp.Body.Close()
-	if setupResp.StatusCode != setupFixture.Response.Status {
-		t.Fatalf("unexpected setup status: got %d want %d", setupResp.StatusCode, setupFixture.Response.Status)
-	}
-
-	request, err := http.NewRequest(http.MethodPost, server.URL+fixture.Request.Path, nil)
-	if err != nil {
-		t.Fatalf("create launcher-token request: %v", err)
-	}
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform launcher-token request: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != fixture.Response.Status {
-		t.Fatalf("unexpected launcher-token status: got %d want %d", response.StatusCode, fixture.Response.Status)
-	}
-
-	body := decodeBody(t, readAll(t, response))
-	value, ok := body["launcher_token"].(string)
-	if !ok || value == "" {
-		t.Fatalf("expected non-empty launcher_token, got %#v", body["launcher_token"])
-	}
-	if len(body) != 1 {
-		t.Fatalf("unexpected launcher-token body shape: %#v", body)
-	}
-}
-
-func TestLauncherTokenIssuanceRejectsForwardedHeaders(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	server := httptest.NewServer(application.Handler())
-	defer server.Close()
-
-	setupReq, err := http.NewRequest(setupFixture.Request.Method, server.URL+setupFixture.Request.Path, strings.NewReader(`{"identifier":"admin","secret":"fixture-only-secret"}`))
-	if err != nil {
-		t.Fatalf("create setup request: %v", err)
-	}
-	setupReq.Header.Set("Content-Type", "application/json")
-	setupResp, err := server.Client().Do(setupReq)
-	if err != nil {
-		t.Fatalf("perform setup request: %v", err)
-	}
-	defer setupResp.Body.Close()
-	if setupResp.StatusCode != setupFixture.Response.Status {
-		t.Fatalf("unexpected setup status: got %d want %d", setupResp.StatusCode, setupFixture.Response.Status)
-	}
-
-	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/session/launcher-token", nil)
-	if err != nil {
-		t.Fatalf("create launcher-token request: %v", err)
-	}
-	request.Header.Set("X-Forwarded-For", "198.51.100.9")
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform launcher-token request: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusForbidden {
-		t.Fatalf("unexpected launcher-token status: got %d want %d", response.StatusCode, http.StatusForbidden)
-	}
-
-	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), map[string]any{
-		"error": map[string]any{
-			"code":        "permission.denied",
-			"message":     "当前用户无权执行该操作",
-			"message_key": "errors.permission.denied",
-			"request_id":  "fixture_request_id_placeholder",
-		},
-	}, "permission.denied")
-}
-
-func TestLauncherAdmissionConsumesTokenAndReturnsSession(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	tokenFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-token.yaml"))
-	admissionFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-admission.yaml"))
-	server := httptest.NewServer(application.Handler())
-	defer server.Close()
-
-	setupReq, err := http.NewRequest(setupFixture.Request.Method, server.URL+setupFixture.Request.Path, strings.NewReader(`{"identifier":"admin","secret":"fixture-only-secret"}`))
-	if err != nil {
-		t.Fatalf("create setup request: %v", err)
-	}
-	setupReq.Header.Set("Content-Type", "application/json")
-	setupResp, err := server.Client().Do(setupReq)
-	if err != nil {
-		t.Fatalf("perform setup request: %v", err)
-	}
-	defer setupResp.Body.Close()
-	if setupResp.StatusCode != setupFixture.Response.Status {
-		t.Fatalf("unexpected setup status: got %d want %d", setupResp.StatusCode, setupFixture.Response.Status)
-	}
-
-	issueReq, err := http.NewRequest(http.MethodPost, server.URL+tokenFixture.Request.Path, nil)
-	if err != nil {
-		t.Fatalf("create launcher-token request: %v", err)
-	}
-	issueResp, err := server.Client().Do(issueReq)
-	if err != nil {
-		t.Fatalf("perform launcher-token request: %v", err)
-	}
-	defer issueResp.Body.Close()
-	if issueResp.StatusCode != tokenFixture.Response.Status {
-		t.Fatalf("unexpected launcher-token status: got %d want %d", issueResp.StatusCode, tokenFixture.Response.Status)
-	}
-	launcherToken, ok := decodeBody(t, readAll(t, issueResp))["launcher_token"].(string)
-	if !ok || launcherToken == "" {
-		t.Fatalf("expected non-empty launcher_token")
-	}
-
-	admissionReq, err := http.NewRequest(admissionFixture.Request.Method, server.URL+admissionFixture.Request.Path, strings.NewReader(`{"launcher_token":"`+launcherToken+`"}`))
-	if err != nil {
-		t.Fatalf("create launcher-admission request: %v", err)
-	}
-	admissionReq.Header.Set("Content-Type", "application/json")
-	admissionResp, err := server.Client().Do(admissionReq)
-	if err != nil {
-		t.Fatalf("perform launcher-admission request: %v", err)
-	}
-	defer admissionResp.Body.Close()
-	if admissionResp.StatusCode != admissionFixture.Response.Status {
-		t.Fatalf("unexpected launcher-admission status: got %d want %d", admissionResp.StatusCode, admissionFixture.Response.Status)
-	}
-	sessionToken, ok := decodeBody(t, readAll(t, admissionResp))["session_token"].(string)
-	if !ok || sessionToken == "" {
-		t.Fatalf("expected non-empty session_token from launcher admission")
-	}
-
-	protectedReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/system/status", nil)
-	if err != nil {
-		t.Fatalf("create protected request: %v", err)
-	}
-	protectedReq.Header.Set("Authorization", "Bearer "+sessionToken)
-	protectedResp, err := server.Client().Do(protectedReq)
-	if err != nil {
-		t.Fatalf("perform protected request: %v", err)
-	}
-	defer protectedResp.Body.Close()
-	if protectedResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected protected status: got %d want 200", protectedResp.StatusCode)
-	}
-
-	reuseReq, err := http.NewRequest(http.MethodPost, server.URL+admissionFixture.Request.Path, strings.NewReader(`{"launcher_token":"`+launcherToken+`"}`))
-	if err != nil {
-		t.Fatalf("create second launcher-admission request: %v", err)
-	}
-	reuseReq.Header.Set("Content-Type", "application/json")
-	reuseResp, err := server.Client().Do(reuseReq)
-	if err != nil {
-		t.Fatalf("perform second launcher-admission request: %v", err)
-	}
-	defer reuseResp.Body.Close()
-	if reuseResp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("unexpected second launcher-admission status: got %d want 401", reuseResp.StatusCode)
-	}
-}
-
-func TestLauncherAdmissionRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t)
-	application.SetAuthManager(newLimitedAuthManager(t, 1))
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	tokenFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-token.yaml"))
-	admissionFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-launcher-admission.yaml"))
-	server := httptest.NewServer(application.Handler())
-	defer server.Close()
-
-	setupReq, err := http.NewRequest(setupFixture.Request.Method, server.URL+setupFixture.Request.Path, strings.NewReader(`{"identifier":"admin","secret":"fixture-only-secret"}`))
-	if err != nil {
-		t.Fatalf("create setup request: %v", err)
-	}
-	setupReq.Header.Set("Content-Type", "application/json")
-	setupResp, err := server.Client().Do(setupReq)
-	if err != nil {
-		t.Fatalf("perform setup request: %v", err)
-	}
-	defer setupResp.Body.Close()
-	if setupResp.StatusCode != setupFixture.Response.Status {
-		t.Fatalf("unexpected setup status: got %d want %d", setupResp.StatusCode, setupFixture.Response.Status)
-	}
-	bootstrapToken, ok := decodeBody(t, readAll(t, setupResp))["session_token"].(string)
-	if !ok || bootstrapToken == "" {
-		t.Fatalf("expected bootstrap token before launcher admission")
-	}
-
-	issueReq, err := http.NewRequest(http.MethodPost, server.URL+tokenFixture.Request.Path, nil)
-	if err != nil {
-		t.Fatalf("create launcher-token request: %v", err)
-	}
-	issueResp, err := server.Client().Do(issueReq)
-	if err != nil {
-		t.Fatalf("perform launcher-token request: %v", err)
-	}
-	defer issueResp.Body.Close()
-	if issueResp.StatusCode != tokenFixture.Response.Status {
-		t.Fatalf("unexpected launcher-token status: got %d want %d", issueResp.StatusCode, tokenFixture.Response.Status)
-	}
-	launcherToken, ok := decodeBody(t, readAll(t, issueResp))["launcher_token"].(string)
-	if !ok || launcherToken == "" {
-		t.Fatalf("expected non-empty launcher_token")
-	}
-
-	admissionReq, err := http.NewRequest(admissionFixture.Request.Method, server.URL+admissionFixture.Request.Path, strings.NewReader(`{"launcher_token":"`+launcherToken+`"}`))
-	if err != nil {
-		t.Fatalf("create launcher-admission request: %v", err)
-	}
-	admissionReq.Header.Set("Content-Type", "application/json")
-	admissionResp, err := server.Client().Do(admissionReq)
-	if err != nil {
-		t.Fatalf("perform launcher-admission request: %v", err)
-	}
-	defer admissionResp.Body.Close()
-	if admissionResp.StatusCode != admissionFixture.Response.Status {
-		t.Fatalf("unexpected launcher-admission status: got %d want %d", admissionResp.StatusCode, admissionFixture.Response.Status)
-	}
-	sessionToken, ok := decodeBody(t, readAll(t, admissionResp))["session_token"].(string)
-	if !ok || sessionToken == "" {
-		t.Fatalf("expected non-empty session_token from launcher admission")
-	}
-
-	if _, err := application.AuthManager().Validate(bootstrapToken); !errors.Is(err, auth.ErrInvalidToken) {
-		t.Fatalf("expected oldest bootstrap session to be recycled, got %v", err)
-	}
-	if _, err := application.AuthManager().Validate(sessionToken); err != nil {
-		t.Fatalf("expected launcher-admitted session to validate, got %v", err)
-	}
-}
-
 func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	t.Parallel()
 
@@ -409,6 +153,136 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	statusAfterBody := decodeBody(t, readAll(t, statusAfterResp))
 	if statusAfterBody["status"] != "shutting_down" {
 		t.Fatalf("unexpected post-shutdown status: %#v", statusAfterBody["status"])
+	}
+}
+
+func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	statusFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.launcher-status.yaml"))
+	statusReq, err := http.NewRequest(statusFixture.Request.Method, server.URL+statusFixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create launcher status request: %v", err)
+	}
+	statusResp, err := server.Client().Do(statusReq)
+	if err != nil {
+		t.Fatalf("perform launcher status request: %v", err)
+	}
+	defer statusResp.Body.Close()
+	if statusResp.StatusCode != statusFixture.Response.Status {
+		t.Fatalf("unexpected launcher status code: got %d want %d", statusResp.StatusCode, statusFixture.Response.Status)
+	}
+	statusBody := decodeBody(t, readAll(t, statusResp))
+	if statusBody["status"] != "running" {
+		t.Fatalf("unexpected launcher status: %#v", statusBody["status"])
+	}
+	if _, ok := statusBody["adapter_state"].(string); !ok {
+		t.Fatalf("expected adapter_state string, got %#v", statusBody["adapter_state"])
+	}
+	if _, ok := statusBody["active_plugins"].(float64); !ok {
+		t.Fatalf("expected active_plugins number, got %#v", statusBody["active_plugins"])
+	}
+	if _, ok := statusBody["uptime_seconds"].(float64); !ok {
+		t.Fatalf("expected uptime_seconds number, got %#v", statusBody["uptime_seconds"])
+	}
+
+	shutdownFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.launcher-shutdown.yaml"))
+	shutdownReq, err := http.NewRequest(shutdownFixture.Request.Method, server.URL+shutdownFixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create launcher shutdown request: %v", err)
+	}
+	shutdownResp, err := server.Client().Do(shutdownReq)
+	if err != nil {
+		t.Fatalf("perform launcher shutdown request: %v", err)
+	}
+	defer shutdownResp.Body.Close()
+	if shutdownResp.StatusCode != shutdownFixture.Response.Status {
+		t.Fatalf("unexpected launcher shutdown status: got %d want %d", shutdownResp.StatusCode, shutdownFixture.Response.Status)
+	}
+	shutdownBody := decodeBody(t, readAll(t, shutdownResp))
+	if shutdownBody["accepted"] != true {
+		t.Fatalf("unexpected launcher shutdown response: %#v", shutdownBody)
+	}
+
+	statusAfterReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/launcher/status", nil)
+	if err != nil {
+		t.Fatalf("create post-shutdown launcher status request: %v", err)
+	}
+	statusAfterResp, err := server.Client().Do(statusAfterReq)
+	if err != nil {
+		t.Fatalf("perform post-shutdown launcher status request: %v", err)
+	}
+	defer statusAfterResp.Body.Close()
+	statusAfterBody := decodeBody(t, readAll(t, statusAfterResp))
+	if statusAfterBody["status"] != "shutting_down" {
+		t.Fatalf("unexpected post-shutdown launcher status: %#v", statusAfterBody["status"])
+	}
+}
+
+func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testing.T) {
+	t.Parallel()
+
+	application := newTestApp(t, deterministicAuthOptions()...)
+	server := httptest.NewServer(application.Handler())
+	defer server.Close()
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "status", method: http.MethodGet, path: "/api/launcher/status"},
+		{name: "shutdown", method: http.MethodPost, path: "/api/launcher/shutdown"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequest(tc.method, server.URL+tc.path, nil)
+			if err != nil {
+				t.Fatalf("create forwarded request: %v", err)
+			}
+			req.Header.Set("X-Forwarded-For", "198.51.100.9")
+
+			resp, err := server.Client().Do(req)
+			if err != nil {
+				t.Fatalf("perform forwarded request: %v", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusForbidden {
+				t.Fatalf("unexpected forwarded status: got %d want 403", resp.StatusCode)
+			}
+			assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, resp)), map[string]any{
+				"error": map[string]any{
+					"code":        "permission.denied",
+					"message":     "当前用户无权执行该操作",
+					"message_key": "errors.permission.denied",
+					"request_id":  "fixture_request_id_placeholder",
+				},
+			}, "permission.denied")
+		})
+	}
+
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodPost, path: "/api/session/launcher-token"},
+		{method: http.MethodPost, path: "/api/session/launcher-admission"},
+	} {
+		req, err := http.NewRequest(tc.method, server.URL+tc.path, nil)
+		if err != nil {
+			t.Fatalf("create old launcher route request: %v", err)
+		}
+		resp, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatalf("perform old launcher route request: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("old launcher route %s returned %d, want 404", tc.path, resp.StatusCode)
+		}
 	}
 }
 

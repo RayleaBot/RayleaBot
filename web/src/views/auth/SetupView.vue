@@ -30,12 +30,22 @@ async function submit() {
     await formRef.value?.validate()
     await sessionStore.setupAdmin(form)
     notifySuccess(t('auth.feedback.setupSuccess'))
-    await router.push({ name: 'status' })
+    await router.push(resolvePostAuthTarget())
   } catch (error) {
     const message = toSetupErrorMessage(error)
     submitError.value = message
     notifyError(message)
   }
+}
+
+function resolvePostAuthTarget() {
+  const redirect = router.currentRoute.value.query.redirect
+  const candidate = Array.isArray(redirect) ? redirect[0] : redirect
+  if (typeof candidate === 'string' && candidate.startsWith('/') && !candidate.startsWith('//') && !/\\/.test(candidate)) {
+    return candidate
+  }
+
+  return { name: 'status' }
 }
 </script>
 

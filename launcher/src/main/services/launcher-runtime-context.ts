@@ -1,6 +1,5 @@
 import type { LauncherResolvedSettings } from "../../shared/launcher-models";
 import type {
-  LauncherManagementClient,
   LauncherOperationContext,
   LauncherRuntimeContext,
   LauncherSettings,
@@ -12,7 +11,6 @@ import { resolveLauncherSettings } from "./settings-store";
 interface LauncherRuntimeContextDependencies {
   settingsStore: LauncherSettingsStore;
   endpointResolver: ServerEndpointResolver;
-  managementClient: LauncherManagementClient;
 }
 
 function defaultResolvedSettings(): LauncherResolvedSettings {
@@ -27,7 +25,6 @@ function defaultResolvedSettings(): LauncherResolvedSettings {
 export function createLauncherRuntimeContext(deps: LauncherRuntimeContextDependencies): LauncherRuntimeContext {
   let currentSettings: LauncherSettings | null = null;
   let currentResolvedSettings: LauncherResolvedSettings = defaultResolvedSettings();
-  let sessionToken = "";
 
   function ensureSettings() {
     if (!currentSettings) {
@@ -60,21 +57,8 @@ export function createLauncherRuntimeContext(deps: LauncherRuntimeContextDepende
     },
     async saveSettings(settings) {
       currentSettings = settings;
-      sessionToken = "";
       await deps.settingsStore.save(settings);
       return await buildOperationContext(settings);
-    },
-    async ensureSessionToken(endpoint) {
-      if (sessionToken) {
-        return sessionToken;
-      }
-
-      const launcherToken = await deps.managementClient.issueLauncherToken(endpoint);
-      sessionToken = await deps.managementClient.admitLauncherToken(endpoint, launcherToken);
-      return sessionToken;
-    },
-    clearSessionToken() {
-      sessionToken = "";
     },
   };
 }

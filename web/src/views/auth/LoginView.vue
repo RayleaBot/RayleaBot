@@ -30,12 +30,22 @@ async function submit() {
     await formRef.value?.validate()
     await sessionStore.login(form)
     notifySuccess(t('auth.feedback.loginSuccess'))
-    await router.push({ name: 'status' })
+    await router.push(resolvePostAuthTarget())
   } catch (error) {
     const message = toLoginErrorMessage(error)
     submitError.value = message
     notifyError(message)
   }
+}
+
+function resolvePostAuthTarget() {
+  const redirect = router.currentRoute.value.query.redirect
+  const candidate = Array.isArray(redirect) ? redirect[0] : redirect
+  if (typeof candidate === 'string' && candidate.startsWith('/') && !candidate.startsWith('//') && !/\\/.test(candidate)) {
+    return candidate
+  }
+
+  return { name: 'status' }
 }
 </script>
 
@@ -58,15 +68,6 @@ async function submit() {
       :message="t('auth.alerts.bootstrapUnavailable')"
       type="warning"
       :description="sessionStore.bootstrapError"
-      show-icon
-      class="section-gap"
-    />
-
-    <a-alert
-      v-if="sessionStore.launcherAdmissionHint"
-      :message="t('auth.alerts.launcherManualLogin')"
-      type="warning"
-      :description="sessionStore.launcherAdmissionHint"
       show-icon
       class="section-gap"
     />

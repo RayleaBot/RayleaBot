@@ -114,10 +114,10 @@
 
 当前已进入 OpenAPI 冻结范围的 launcher bootstrap surface：
 
-- `POST /api/session/launcher-token`
-- `POST /api/session/launcher-admission`
+- `GET /api/launcher/status`
+- `POST /api/launcher/shutdown`
 
-其中 `launcher-token` 用于本机回环的一次性短时 bootstrap，`launcher-admission` 负责把一次性 token 换成正常管理 session。
+其中 launcher surface 只接受本机直连请求，带代理转发头或来自非本机地址的请求返回 `403`。Web 管理面会话仍通过初始化和登录接口建立。
 
 当前已进入 OpenAPI 冻结范围的 render management surface：
 

@@ -16,8 +16,8 @@ type StatusSectionProps = {
   onStart: () => void;
   onStop: () => void;
   onOpenWeb: () => void;
-  onRecoveryRecheck: () => void;
-  onRuntimeBootstrap: () => void;
+  onOpenRecoveryTasks: () => void;
+  onOpenRuntimeTasks: () => void;
   onOpenReleasePage: () => void;
   onOpenLogs: () => void;
 };
@@ -30,8 +30,8 @@ export function AppShellStatusSection({
   onStart,
   onStop,
   onOpenWeb,
-  onRecoveryRecheck,
-  onRuntimeBootstrap,
+  onOpenRecoveryTasks,
+  onOpenRuntimeTasks,
   onOpenReleasePage,
   onOpenLogs,
 }: StatusSectionProps) {
@@ -260,8 +260,8 @@ export function AppShellStatusSection({
           canRunRecoveryActions={canRunRecoveryActions}
           checks={nonOkChecks}
           onOpenReleasePage={onOpenReleasePage}
-          onRecoveryRecheck={onRecoveryRecheck}
-          onRuntimeBootstrap={onRuntimeBootstrap}
+          onOpenRecoveryTasks={onOpenRecoveryTasks}
+          onOpenRuntimeTasks={onOpenRuntimeTasks}
           recoveryStatusSummary={recoveryStatusSummary}
           releaseSummary={snapshot.launcher.releaseCheck.summary}
         />

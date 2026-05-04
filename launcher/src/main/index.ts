@@ -5,7 +5,6 @@ import { launcherCopy } from "../shared/launcher-copy";
 import { launcherEventChannels, launcherInvokeChannels } from "../shared/launcher-ipc";
 import {
   parseLauncherSettingsInput,
-  parseRuntimeBootstrapResources,
   sanitizeLauncherWebTargetPath,
 } from "../shared/launcher-validation";
 import { createLauncherCoordinator } from "./services/launcher-coordinator";
@@ -253,10 +252,6 @@ function wireIpc() {
   ipcMain.handle(launcherInvokeChannels.resetAdmin, async () => coordinator.resetAdmin());
   ipcMain.handle(launcherInvokeChannels.openWeb, async (_event, targetPath?: string) =>
     coordinator.openWebUi(sanitizeLauncherWebTargetPath(targetPath)),
-  );
-  ipcMain.handle(launcherInvokeChannels.createRecoveryRecheck, async () => coordinator.createRecoveryRecheck());
-  ipcMain.handle(launcherInvokeChannels.createRuntimeBootstrap, async (_event, resources?: string[]) =>
-    coordinator.createRuntimeBootstrap(parseRuntimeBootstrapResources(resources)),
   );
   ipcMain.handle(launcherInvokeChannels.openReleasePage, async () => coordinator.openReleasePage());
   ipcMain.handle(launcherInvokeChannels.openLogs, async () => coordinator.openLogsDirectory());

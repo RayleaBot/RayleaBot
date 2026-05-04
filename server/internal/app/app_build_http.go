@@ -51,8 +51,8 @@ func registerAppPublicRoutes(router chi.Router, deps httpServerDeps) {
 	router.Post("/api/setup/admin", deps.authHandler.handleSetupAdmin())
 	router.Get("/api/setup/status", deps.managementHandler.handleSetupStatus())
 	router.Post("/api/session/login", deps.authHandler.handleSessionLogin())
-	router.Post("/api/session/launcher-token", deps.managementHandler.handleLauncherTokenIssue())
-	router.Post("/api/session/launcher-admission", deps.authHandler.handleLauncherAdmission())
+	router.Get("/api/launcher/status", deps.managementHandler.handleLauncherStatus())
+	router.Post("/api/launcher/shutdown", deps.managementHandler.handleLauncherShutdown())
 	router.Get("/api/protocols/onebot11/reverse-ws", deps.protocolHandler.handleProtocolOneBot11ReverseWS())
 	router.Post("/api/protocols/onebot11/webhook", deps.protocolHandler.handleProtocolOneBot11Webhook())
 	if deps.pluginWebhooks != nil {

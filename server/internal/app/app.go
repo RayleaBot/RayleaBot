@@ -64,7 +64,6 @@ type appPlatform struct {
 	Logs           *logging.Stream
 	LogRepository  logging.Repository
 	Console        *console.Stream
-	launcherTokens *launcherTokenStore
 	loginFailures  *loginFailureTracker
 }
 
@@ -128,7 +127,6 @@ type App struct {
 	logs           *logging.Stream
 	logRepository  logging.Repository
 	console        *console.Stream
-	launcherTokens *launcherTokenStore
 	loginFailures  *loginFailureTracker
 
 	plugins           *plugins.Catalog
@@ -299,7 +297,6 @@ func New(options Options) (*App, error) {
 		logs:              platformState.Logs,
 		logRepository:     platformState.LogRepository,
 		console:           platformState.Console,
-		launcherTokens:    platformState.launcherTokens,
 		loginFailures:     platformState.loginFailures,
 		plugins:           pluginState.Plugins,
 		adapter:           pluginState.Adapter,
@@ -374,15 +371,13 @@ func New(options Options) (*App, error) {
 		blacklistRepo:    pluginState.blacklistRepo,
 	})
 	authHandler := newAuthHTTPHandlers(authHTTPDeps{
-		state:          state,
-		auth:           platformState.Auth,
-		loginFailures:  platformState.loginFailures,
-		launcherTokens: platformState.launcherTokens,
+		state:         state,
+		auth:          platformState.Auth,
+		loginFailures: platformState.loginFailures,
 	})
 	managementHandler := newManagementHTTPHandlers(managementHTTPDeps{
 		state:           state,
 		auth:            platformState.Auth,
-		launcherTokens:  platformState.launcherTokens,
 		system:          systemService,
 		requestShutdown: application.requestShutdown,
 	})
@@ -419,7 +414,6 @@ func New(options Options) (*App, error) {
 		pluginLifecycle:    lifecycle,
 		taskExecutor:       platformState.taskExecutor,
 		renderer:           pluginState.renderer,
-		launcherTokens:     platformState.launcherTokens,
 		loginFailures:      platformState.loginFailures,
 		configHandler:      configHandler,
 		authHandler:        authHandler,

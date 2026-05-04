@@ -14,8 +14,9 @@
   - `GET /api/setup/status`
   - `POST /api/session/login`
   - `DELETE /api/session`
-  - `POST /api/session/launcher-token`
-  - `POST /api/session/launcher-admission`
+- launcher local surface：
+  - `GET /api/launcher/status`
+  - `POST /api/launcher/shutdown`
 - management HTTP / WebSocket：
   - `GET /api/config`
   - `PUT /api/config`
@@ -94,10 +95,9 @@
   - persisted summary storage
   - `/api/logs` historical queries
   - `/ws/logs` persisted replay + live stream
-- launcher bootstrap companion：
-  - loopback-only launcher token issuance
-  - launcher admission to normal management sessions
-  - Web `?token=` automatic admission flow
+- launcher local companion：
+  - loopback-only launcher status
+  - loopback-only launcher shutdown
 - config runtime snapshot / hot reload：
   - `command.prefixes`
   - `cooldown.*`

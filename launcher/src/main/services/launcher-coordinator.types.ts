@@ -11,7 +11,6 @@ import type {
   ReleaseCheckSnapshot,
   ServerEndpoint,
   LauncherSystemStatusSnapshot,
-  TaskSummary,
 } from "../../shared/launcher-models";
 
 export type { EnvironmentCheckResult, EnvironmentInspection, LauncherSettings, ServerEndpoint };
@@ -29,13 +28,8 @@ export interface LauncherManagementClient {
   isHealthy(endpoint: ServerEndpoint): Promise<boolean>;
   getReadiness(endpoint: ServerEndpoint): Promise<LauncherReadinessSnapshot>;
   getSetupInitialized(endpoint: ServerEndpoint): Promise<boolean>;
-  issueLauncherToken(endpoint: ServerEndpoint): Promise<string>;
-  admitLauncherToken(endpoint: ServerEndpoint, launcherToken: string): Promise<string>;
-  getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<LauncherSystemStatusSnapshot>;
-  findInProgressTask(endpoint: ServerEndpoint, sessionToken: string, taskType: string): Promise<TaskSummary | null>;
-  createRecoveryRecheck(endpoint: ServerEndpoint, sessionToken: string): Promise<{ task_id: string }>;
-  createRuntimeBootstrap(endpoint: ServerEndpoint, sessionToken: string, resources?: string[]): Promise<{ task_id: string }>;
-  shutdown(endpoint: ServerEndpoint, sessionToken: string): Promise<void>;
+  getLauncherStatus(endpoint: ServerEndpoint): Promise<LauncherSystemStatusSnapshot>;
+  shutdownFromLauncher(endpoint: ServerEndpoint): Promise<void>;
 }
 
 export interface ServerProcessController {
@@ -98,8 +92,6 @@ export interface LauncherCoordinator {
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
   openWebUi(targetPath?: string): Promise<void>;
-  createRecoveryRecheck(): Promise<void>;
-  createRuntimeBootstrap(resources?: string[]): Promise<void>;
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
   saveSettings(settings: LauncherSettings): Promise<void>;
@@ -117,8 +109,6 @@ export interface LauncherRuntimeContext {
   initialize(): Promise<LauncherOperationContext>;
   createOperationContext(): Promise<LauncherOperationContext>;
   saveSettings(settings: LauncherSettings): Promise<LauncherOperationContext>;
-  ensureSessionToken(endpoint: ServerEndpoint): Promise<string>;
-  clearSessionToken(): void;
 }
 
 export interface LocalSnapshotOverrides {
@@ -160,8 +150,6 @@ export interface LauncherLifecycleService {
 
 export interface LauncherDesktopActions {
   openWebUi(targetPath?: string): Promise<void>;
-  createRecoveryRecheck(): Promise<void>;
-  createRuntimeBootstrap(resources?: string[]): Promise<void>;
   openReleasePage(): Promise<void>;
   openLogsDirectory(): Promise<void>;
 }

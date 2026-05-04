@@ -10,10 +10,6 @@ type setupStatusResponse struct {
 	Initialized bool `json:"initialized"`
 }
 
-type launcherTokenResponse struct {
-	LauncherToken string `json:"launcher_token"`
-}
-
 type systemStatusResponse struct {
 	Status          string                         `json:"status"`
 	AdapterState    string                         `json:"adapter_state"`
@@ -50,36 +46,20 @@ func (h *managementHTTPHandlers) handleSessionLogout() http.HandlerFunc {
 	}
 }
 
-func (h *managementHTTPHandlers) handleLauncherTokenIssue() http.HandlerFunc {
+func (h *managementHTTPHandlers) handleLauncherStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !isLoopbackRequest(r) {
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
 			return
 		}
-		if h.auth == nil || !h.auth.IsBootstrapped() {
-			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
-			return
-		}
 
-		token, err := h.launcherTokens.Issue()
-		if err != nil {
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-
-		writeAuthJSON(w, http.StatusOK, launcherTokenResponse{LauncherToken: token})
+		h.writeSystemStatus(w, http.StatusOK)
 	}
 }
 
 func (h *managementHTTPHandlers) handleSystemStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		writeAuthJSON(w, http.StatusOK, systemStatusResponse{
-			Status:          h.system.systemStatus(),
-			AdapterState:    string(stateOrIdle(h.system.adapter.Snapshot().State)),
-			ActivePlugins:   h.system.activePluginCount(),
-			UptimeSeconds:   h.system.uptimeSeconds(),
-			RecoverySummary: h.system.state.recoverySummarySnapshot(),
-		})
+		h.writeSystemStatus(w, http.StatusOK)
 	}
 }
 
@@ -89,4 +69,27 @@ func (h *managementHTTPHandlers) handleSystemShutdown() http.HandlerFunc {
 		h.system.publishStatusSnapshot()
 		writeAuthJSON(w, http.StatusAccepted, systemShutdownResponse{Accepted: true})
 	}
+}
+
+func (h *managementHTTPHandlers) handleLauncherShutdown() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !isLoopbackRequest(r) {
+			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			return
+		}
+
+		h.requestShutdown()
+		h.system.publishStatusSnapshot()
+		writeAuthJSON(w, http.StatusAccepted, systemShutdownResponse{Accepted: true})
+	}
+}
+
+func (h *managementHTTPHandlers) writeSystemStatus(w http.ResponseWriter, statusCode int) {
+	writeAuthJSON(w, statusCode, systemStatusResponse{
+		Status:          h.system.systemStatus(),
+		AdapterState:    string(stateOrIdle(h.system.adapter.Snapshot().State)),
+		ActivePlugins:   h.system.activePluginCount(),
+		UptimeSeconds:   h.system.uptimeSeconds(),
+		RecoverySummary: h.system.state.recoverySummarySnapshot(),
+	})
 }

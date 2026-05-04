@@ -42,10 +42,6 @@ export function toSetupErrorMessage(error: unknown) {
   return '创建管理员账号未完成，请稍后重试。'
 }
 
-export function toLauncherAdmissionHint() {
-  return '自动登录未完成，请手动登录。'
-}
-
 export function toBootstrapStatusMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.code === 'permission.denied') {

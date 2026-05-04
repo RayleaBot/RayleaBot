@@ -125,7 +125,7 @@
 
 前置条件：
 
-- `healthz`、`readyz`、`session/launcher-token`、`system/status` 与 `system/shutdown` 的 server 行为稳定。
+- `healthz`、`readyz`、`setup/status`、`launcher/status` 与 `launcher/shutdown` 的 server 行为稳定。
 
 产出物：
 

@@ -97,10 +97,8 @@ describe('web bootstrap', () => {
       requiresSetup: false,
       setupInitialized: true,
       bootstrap: vi.fn().mockResolvedValue(undefined),
-      admitLauncherToken: vi.fn().mockResolvedValue(undefined),
       clearSession: vi.fn(),
       handleSessionExpired: vi.fn(),
-      setLauncherAdmissionHint: vi.fn(),
     })
 
     socketStoreFactory.mockReturnValue({
@@ -156,10 +154,11 @@ describe('web bootstrap', () => {
     expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins/settings?panel=limits#rate')
   })
 
-  it('does not redirect back to login before consuming a launcher token', async () => {
+  it('redirects protected startup routes to login with a return target', async () => {
     const router = {
       currentRoute: {
         value: {
+          fullPath: '/plugins?token=launcher_token_fixture_0001',
           name: 'status',
           meta: { requiresAuth: true },
         },
@@ -175,13 +174,8 @@ describe('web bootstrap', () => {
       requiresSetup: false,
       setupInitialized: true,
       bootstrap: vi.fn().mockResolvedValue(undefined),
-      admitLauncherToken: vi.fn().mockImplementation(async () => {
-        sessionStore.isAuthenticated = true
-        sessionStore.token = 'launcher-session-token'
-      }),
       clearSession: vi.fn(),
       handleSessionExpired: vi.fn(),
-      setLauncherAdmissionHint: vi.fn(),
     }
 
     createAppRouter.mockReturnValue(router)
@@ -191,40 +185,15 @@ describe('web bootstrap', () => {
         await callback(source(), undefined)
       }
     })
-    window.history.replaceState({}, '', '/?token=launcher_token_fixture_0001')
+    window.history.replaceState({}, '', '/plugins?token=launcher_token_fixture_0001')
 
     await import('@/main')
     await flushBootstrap()
 
-    expect(sessionStore.admitLauncherToken).toHaveBeenCalledWith('launcher_token_fixture_0001')
-    expect(router.push).not.toHaveBeenCalledWith({ name: 'login' })
-  })
-
-  it('prefers a fresh launcher token over an existing stale session token', async () => {
-    const sessionStore = {
-      token: 'stale-session-token',
-      isAuthenticated: true,
-      isBootstrapped: true,
-      requiresSetup: false,
-      setupInitialized: true,
-      bootstrap: vi.fn().mockResolvedValue(undefined),
-      admitLauncherToken: vi.fn().mockImplementation(async () => {
-        sessionStore.token = 'launcher-session-token'
-      }),
-      clearSession: vi.fn(),
-      handleSessionExpired: vi.fn(),
-      setLauncherAdmissionHint: vi.fn(),
-    }
-
-    sessionStoreFactory.mockReturnValue(sessionStore)
-    window.history.replaceState({}, '', '/?token=launcher_token_fixture_0001')
-
-    await import('@/main')
-    await flushBootstrap()
-
-    expect(sessionStore.admitLauncherToken).toHaveBeenCalledWith('launcher_token_fixture_0001')
-    expect(sessionStore.token).toBe('launcher-session-token')
-    expect(sessionStore.clearSession).not.toHaveBeenCalled()
+    expect(router.push).toHaveBeenCalledWith({
+      name: 'login',
+      query: { redirect: '/plugins?token=launcher_token_fixture_0001' },
+    })
   })
 
   it('opens the offline page after core websocket reconnecting persists', async () => {
@@ -253,10 +222,8 @@ describe('web bootstrap', () => {
       requiresSetup: false,
       setupInitialized: true,
       bootstrap: vi.fn().mockResolvedValue(undefined),
-      admitLauncherToken: vi.fn(),
       clearSession: vi.fn(),
       handleSessionExpired: vi.fn(),
-      setLauncherAdmissionHint: vi.fn(),
     }
     const socketStore = {
       ensureManagementSockets: vi.fn(),
@@ -324,10 +291,8 @@ describe('web bootstrap', () => {
       requiresSetup: false,
       setupInitialized: true,
       bootstrap: vi.fn().mockResolvedValue(undefined),
-      admitLauncherToken: vi.fn(),
       clearSession: vi.fn(),
       handleSessionExpired: vi.fn(),
-      setLauncherAdmissionHint: vi.fn(),
     }
     const socketStore = {
       ensureManagementSockets: vi.fn(),
@@ -392,10 +357,8 @@ describe('web bootstrap', () => {
       requiresSetup: false,
       setupInitialized: true,
       bootstrap: vi.fn().mockResolvedValue(undefined),
-      admitLauncherToken: vi.fn(),
       clearSession: vi.fn(),
       handleSessionExpired: vi.fn(),
-      setLauncherAdmissionHint: vi.fn(),
     }
     const socketStore = {
       ensureManagementSockets: vi.fn(),

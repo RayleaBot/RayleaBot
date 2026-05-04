@@ -70,6 +70,25 @@ describe('TasksPage', () => {
     expect(fetchDetailSpy).toHaveBeenCalledWith('task_plugin_install_0001')
   })
 
+  it('loads the task list from the route task type filter', async () => {
+    const router = createTasksRouter()
+    await router.push('/tasks?task_type=recovery.recheck')
+    await router.isReady()
+
+    const store = useTasksStore()
+    const fetchListSpy = vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    mount(TasksPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(fetchListSpy).toHaveBeenCalledWith({ taskType: 'recovery.recheck' })
+  })
+
   it('renders render preview task results including the preview image', async () => {
     const router = createTasksRouter()
     await router.push('/tasks?task_id=task_render_preview_0001')

@@ -1,7 +1,6 @@
 import type {
   LauncherReadinessSnapshot,
   RecoveryCompatibilitySummary,
-  TaskSummary,
 } from "@shared/launcher-models";
 import type {
   EnvironmentCheckResult,
@@ -35,18 +34,16 @@ export class FakeSettingsStore implements LauncherSettingsStore {
 }
 
 export class FakeEndpointResolver implements ServerEndpointResolver {
+  endpoint: ServerEndpoint = { host: "127.0.0.1", port: 8080, baseUrl: "http://127.0.0.1:8080/" };
+
   resolve(): ServerEndpoint {
-    return { host: "127.0.0.1", port: 8080, baseUrl: "http://127.0.0.1:8080/" };
+    return this.endpoint;
   }
 }
 
 export class FakeManagementClient implements LauncherManagementClient {
   health = true;
   setupInitialized = true;
-  launcherToken = "launcher_fixture_token";
-  sessionToken = "session_fixture_token";
-  issueLauncherTokenCalls = 0;
-  admitLauncherTokenCalls = 0;
   systemStatusCalls = 0;
   readiness: LauncherReadinessSnapshot = {
     status: "ready",
@@ -56,7 +53,6 @@ export class FakeManagementClient implements LauncherManagementClient {
     recovery_summary: null as RecoveryCompatibilitySummary | null,
   };
   recoverySummary: RecoveryCompatibilitySummary | null = null;
-  inProgressTask: TaskSummary | null = null;
 
   async isHealthy() {
     return this.health;
@@ -66,21 +62,11 @@ export class FakeManagementClient implements LauncherManagementClient {
     return this.setupInitialized;
   }
 
-  async issueLauncherToken() {
-    this.issueLauncherTokenCalls += 1;
-    return this.launcherToken;
-  }
-
-  async admitLauncherToken() {
-    this.admitLauncherTokenCalls += 1;
-    return this.sessionToken;
-  }
-
   async getReadiness() {
     return this.readiness;
   }
 
-  async getSystemStatus() {
+  async getLauncherStatus() {
     this.systemStatusCalls += 1;
     return {
       ...this.systemStatus,
@@ -88,19 +74,7 @@ export class FakeManagementClient implements LauncherManagementClient {
     };
   }
 
-  async findInProgressTask() {
-    return this.inProgressTask;
-  }
-
-  async createRecoveryRecheck() {
-    return { task_id: "task_recovery_recheck_0001" };
-  }
-
-  async createRuntimeBootstrap() {
-    return { task_id: "task_runtime_bootstrap_0001" };
-  }
-
-  async shutdown() {}
+  async shutdownFromLauncher() {}
 }
 
 export class FakeRecoverySummaryReader implements RecoverySummaryReader {

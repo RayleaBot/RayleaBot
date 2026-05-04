@@ -76,7 +76,7 @@ describe("FetchLauncherManagementClient", () => {
     expect(readiness.reason).toContain("管理员尚未初始化");
   });
 
-  test("creates recovery recheck and runtime bootstrap tasks with auth headers", async () => {
+  test("reads launcher status and requests launcher shutdown without auth headers", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
 
     vi.stubGlobal(
@@ -85,7 +85,7 @@ describe("FetchLauncherManagementClient", () => {
         requests.push({ url: String(input), init });
         return {
           ok: true,
-          json: async () => ({ task_id: "task_fixture_0001" }),
+          json: async () => ({ status: "running", active_plugins: 1, uptime_seconds: 60 }),
           text: async () => "",
         } satisfies Partial<Response> as Response;
       }),
@@ -98,17 +98,18 @@ describe("FetchLauncherManagementClient", () => {
       baseUrl: "http://127.0.0.1:8080/",
     };
 
-    await client.createRecoveryRecheck(endpoint, "session_fixture_token");
-    await client.createRuntimeBootstrap(endpoint, "session_fixture_token", ["chromium", "python-runtime"]);
+    const status = await client.getLauncherStatus(endpoint);
+    await client.shutdownFromLauncher(endpoint);
 
-    expect(requests[0]?.url).toBe("http://127.0.0.1:8080/api/system/recovery/recheck");
-    expect(requests[0]?.init?.method).toBe("POST");
-    expect((requests[0]?.init?.headers as Record<string, string>).Authorization).toBe("Bearer session_fixture_token");
+    expect(status.status).toBe("running");
+    expect(requests[0]?.url).toBe("http://127.0.0.1:8080/api/launcher/status");
+    expect(requests[0]?.init?.method).toBeUndefined();
+    expect(requests[0]?.init?.headers).toBeUndefined();
 
-    expect(requests[1]?.url).toBe("http://127.0.0.1:8080/api/system/runtime/bootstrap");
+    expect(requests[1]?.url).toBe("http://127.0.0.1:8080/api/launcher/shutdown");
     expect(requests[1]?.init?.method).toBe("POST");
-    expect((requests[1]?.init?.headers as Record<string, string>).Authorization).toBe("Bearer session_fixture_token");
-    expect(requests[1]?.init?.body).toBe(JSON.stringify({ resources: ["chromium", "python-runtime"] }));
+    expect(requests[1]?.init?.headers).toBeUndefined();
+    expect(requests[1]?.init?.body).toBeUndefined();
   });
 
   test("uses the formal error envelope message for structured failures", async () => {
@@ -154,6 +155,6 @@ describe("FetchLauncherManagementClient", () => {
       baseUrl: "http://127.0.0.1:8080/",
     };
 
-    await expect(client.createRecoveryRecheck(endpoint, "session_fixture_token")).rejects.toThrow("缺少必要资源");
+    await expect(client.getLauncherStatus(endpoint)).rejects.toThrow("缺少必要资源");
   });
 });

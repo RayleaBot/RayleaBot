@@ -292,8 +292,6 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       resetAdmin: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
-      createRecoveryRecheck: vi.fn(async () => undefined),
-      createRuntimeBootstrap: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
@@ -335,8 +333,6 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       resetAdmin: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
-      createRecoveryRecheck: vi.fn(async () => undefined),
-      createRuntimeBootstrap: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
@@ -358,8 +354,8 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("button", { name: "重新检查" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "准备运行环境" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "打开恢复任务" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "打开运行环境任务" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "管理面板" })).not.toBeDisabled();
   });
 

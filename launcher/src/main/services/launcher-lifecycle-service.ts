@@ -36,6 +36,13 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isLoopbackHost(host: string) {
+  const normalized = host.trim().toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+  return normalized === "localhost"
+    || normalized === "127.0.0.1"
+    || normalized === "::1";
+}
+
 export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDependencies): LauncherLifecycleService {
   async function waitForReadinessStatus(
     endpoint: ServerEndpoint,
@@ -263,6 +270,19 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
           return;
         }
 
+        if (!isLoopbackHost(context.endpoint.host)) {
+          await deps.statusService.refresh(true);
+          await deps.snapshotStore.publish({
+            ...deps.snapshotStore.snapshot,
+            launcher: {
+              ...deps.snapshotStore.snapshot.launcher,
+              lastLocalError: "远程服务只能通过 Web 管理面操作，Launcher 只负责连接检查和打开管理面。",
+              statusHint: "无法停止非本机服务。",
+            },
+          });
+          return;
+        }
+
         await deps.snapshotStore.publish(
           deps.snapshotStore.buildSnapshot(
             context,
@@ -280,17 +300,9 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
         );
 
         try {
-          if (!await deps.managementClient.getSetupInitialized(context.endpoint)) {
-            throw new Error("检测到现有服务仍处于初始化阶段，无法由启动器停止。");
-          }
-
-          deps.runtimeContext.clearSessionToken();
-          const token = await deps.runtimeContext.ensureSessionToken(context.endpoint);
-          await deps.managementClient.shutdown(context.endpoint, token);
-          deps.runtimeContext.clearSessionToken();
+          await deps.managementClient.shutdownFromLauncher(context.endpoint);
           await deps.statusService.refresh(true);
         } catch (error) {
-          deps.runtimeContext.clearSessionToken();
           await deps.statusService.refresh(true);
           await deps.snapshotStore.publish({
             ...deps.snapshotStore.snapshot,
@@ -320,11 +332,8 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
 
       if (healthy) {
         try {
-          if (await deps.managementClient.getSetupInitialized(context.endpoint)) {
-            const token = await deps.runtimeContext.ensureSessionToken(context.endpoint);
-            await deps.managementClient.shutdown(context.endpoint, token);
-          } else if (deps.processController.isRunning) {
-            await deps.processController.forceKill();
+          if (deps.processController.isRunning) {
+            await deps.managementClient.shutdownFromLauncher(context.endpoint);
           } else {
             await deps.tryStopEndpointProcess(context.endpoint);
           }
@@ -338,7 +347,6 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
       }
 
       await ensureManagedProcessStopped();
-      deps.runtimeContext.clearSessionToken();
       await deps.statusService.refresh(true);
     },
     async resetAdmin() {
@@ -371,7 +379,6 @@ export function createLauncherLifecycleService(deps: LauncherLifecycleServiceDep
       }
 
       await deps.resetAdminRunner.run(context.resolvedSettings);
-      deps.runtimeContext.clearSessionToken();
 
       try {
         await deps.processController.start(context.resolvedSettings);

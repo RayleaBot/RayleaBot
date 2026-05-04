@@ -14,8 +14,8 @@ type AppShellStatusRailProps = {
   canRunRecoveryActions: boolean;
   checks: RailCheck[];
   onOpenReleasePage: () => void;
-  onRecoveryRecheck: () => void;
-  onRuntimeBootstrap: () => void;
+  onOpenRecoveryTasks: () => void;
+  onOpenRuntimeTasks: () => void;
   recoveryStatusSummary: string;
   releaseSummary: string;
 };
@@ -25,8 +25,8 @@ export function AppShellStatusRail({
   canRunRecoveryActions,
   checks,
   onOpenReleasePage,
-  onRecoveryRecheck,
-  onRuntimeBootstrap,
+  onOpenRecoveryTasks,
+  onOpenRuntimeTasks,
   recoveryStatusSummary,
   releaseSummary,
 }: AppShellStatusRailProps) {
@@ -56,8 +56,8 @@ export function AppShellStatusRail({
         <div className="brand-eyebrow brand-eyebrow--tight">恢复兼容性</div>
         <Text size={200} className="panel-muted">{recoveryStatusSummary}</Text>
         <div className="side-actions-stack">
-          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRecoveryRecheck} disabled={!canRecheckRecovery}>重新检查</Button>
-          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行环境</Button>
+          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRecoveryTasks} disabled={!canRecheckRecovery}>打开恢复任务</Button>
+          <Button appearance="transparent" size="small" className="frost-button frost-button--secondary frost-button--block" onClick={onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>打开运行环境任务</Button>
         </div>
       </article>
 

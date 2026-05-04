@@ -96,8 +96,8 @@ function renderSection(overrides: Partial<LauncherSnapshot> = {}, resolvedSettin
       onStart={vi.fn()}
       onStop={vi.fn()}
       onOpenWeb={vi.fn()}
-      onRecoveryRecheck={vi.fn()}
-      onRuntimeBootstrap={vi.fn()}
+      onOpenRecoveryTasks={vi.fn()}
+      onOpenRuntimeTasks={vi.fn()}
       onOpenReleasePage={vi.fn()}
       onOpenLogs={vi.fn()}
     />,

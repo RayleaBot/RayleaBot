@@ -254,16 +254,14 @@ type systemServiceDeps struct {
 }
 
 type authHTTPDeps struct {
-	state          *appRuntimeState
-	auth           *auth.Manager
-	loginFailures  *loginFailureTracker
-	launcherTokens *launcherTokenStore
+	state         *appRuntimeState
+	auth          *auth.Manager
+	loginFailures *loginFailureTracker
 }
 
 type managementHTTPDeps struct {
 	state           *appRuntimeState
 	auth            *auth.Manager
-	launcherTokens  *launcherTokenStore
 	system          *systemService
 	requestShutdown func()
 }
@@ -294,7 +292,6 @@ type httpServerDeps struct {
 	pluginLifecycle    *pluginLifecycleController
 	taskExecutor       *tasks.Executor
 	renderer           *render.Service
-	launcherTokens     *launcherTokenStore
 	loginFailures      *loginFailureTracker
 	configHandler      *configHTTPHandlers
 	authHandler        *authHTTPHandlers
@@ -314,25 +311,22 @@ type httpServerDeps struct {
 }
 
 type authHTTPHandlers struct {
-	state          *appRuntimeState
-	auth           *auth.Manager
-	loginFailures  *loginFailureTracker
-	launcherTokens *launcherTokenStore
+	state         *appRuntimeState
+	auth          *auth.Manager
+	loginFailures *loginFailureTracker
 }
 
 func newAuthHTTPHandlers(deps authHTTPDeps) *authHTTPHandlers {
 	return &authHTTPHandlers{
-		state:          deps.state,
-		auth:           deps.auth,
-		loginFailures:  deps.loginFailures,
-		launcherTokens: deps.launcherTokens,
+		state:         deps.state,
+		auth:          deps.auth,
+		loginFailures: deps.loginFailures,
 	}
 }
 
 type managementHTTPHandlers struct {
 	state           *appRuntimeState
 	auth            *auth.Manager
-	launcherTokens  *launcherTokenStore
 	system          *systemService
 	requestShutdown func()
 }
@@ -341,7 +335,6 @@ func newManagementHTTPHandlers(deps managementHTTPDeps) *managementHTTPHandlers 
 	return &managementHTTPHandlers{
 		state:           deps.state,
 		auth:            deps.auth,
-		launcherTokens:  deps.launcherTokens,
 		system:          deps.system,
 		requestShutdown: deps.requestShutdown,
 	}

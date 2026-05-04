@@ -14,8 +14,7 @@ type AppShellSectionHeaderProps = {
   controlsDisabled: boolean;
   editingSettings: boolean;
   onRefresh: () => void;
-  onRecoveryRecheck: () => void;
-  onRuntimeBootstrap: () => void;
+  onOpenRuntimeTasks: () => void;
   onOpenLogs: () => void;
   onBeginEdit: () => void;
   onCancelEdit: () => void;
@@ -88,7 +87,7 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canRunRecove
         >
           重新检查
         </Button>
-        <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={props.onRuntimeBootstrap} disabled={!canRunRecoveryActions}>准备运行环境</Button>
+        <Button appearance="transparent" size="small" className="frost-button frost-button--primary" onClick={props.onOpenRuntimeTasks} disabled={!canRunRecoveryActions}>打开运行环境任务</Button>
       </>
     );
   }

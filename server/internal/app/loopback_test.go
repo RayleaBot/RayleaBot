@@ -60,7 +60,7 @@ func TestIsLoopbackRequestRejectsForwardedHeaders(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			request := httptest.NewRequest("POST", "http://example.test/api/session/launcher-token", nil)
+			request := httptest.NewRequest("GET", "http://example.test/api/launcher/status", nil)
 			request.RemoteAddr = tc.remoteAddr
 			for key, value := range tc.headers {
 				request.Header.Set(key, value)

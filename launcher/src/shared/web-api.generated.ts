@@ -110,24 +110,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/session/launcher-token": {
+    "/api/launcher/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Query the current system status from a local Launcher process.
+         * @description This endpoint accepts only direct loopback requests and rejects requests containing forwarding headers.
+         *
+         */
+        get: operations["getLauncherStatus"];
         put?: never;
-        /** Issue a single-use short-lived token for local Launcher bootstrap. */
-        post: operations["issueLauncherToken"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/session/launcher-admission": {
+    "/api/launcher/shutdown": {
         parameters: {
             query?: never;
             header?: never;
@@ -137,11 +141,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Consume a single-use launcher token and issue a normal management session token.
-         * @description When the configured max_sessions limit is already reached, the service may recycle the oldest active management session before issuing a new one.
+         * Request graceful server shutdown from a local Launcher process.
+         * @description This endpoint accepts only direct loopback requests and rejects requests containing forwarding headers.
          *
          */
-        post: operations["admitLauncherSession"];
+        post: operations["shutdownFromLauncher"];
         delete?: never;
         options?: never;
         head?: never;
@@ -841,14 +845,6 @@ export interface components {
         SetupStatusResponse: {
             /** @description Whether the initial management credential source has been bootstrapped. */
             initialized: boolean;
-        };
-        LauncherTokenResponse: {
-            /** @description Single-use short-lived token for Launcher admission. Valid for one use only. */
-            launcher_token: string;
-        };
-        LauncherAdmissionRequest: {
-            /** @description Single-use short-lived launcher token obtained from /api/session/launcher-token. */
-            launcher_token: string;
         };
         ConfigDocument: components["schemas"]["config.user.schema"];
         ConfigSnapshotResponse: {
@@ -1800,7 +1796,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    issueLauncherToken: {
+    getLauncherStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -1809,43 +1805,37 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Single-use launcher token issued for a local loopback Launcher bootstrap. */
+            /** @description Current system status snapshot for local Launcher display. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LauncherTokenResponse"];
+                    "application/json": components["schemas"]["SystemStatusResponse"];
                 };
             };
             403: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
-    admitLauncherSession: {
+    shutdownFromLauncher: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LauncherAdmissionRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Launcher token consumed and management session issued. */
-            200: {
+            /** @description Shutdown request accepted. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SessionLoginResponse"];
+                    "application/json": components["schemas"]["SystemShutdownResponse"];
                 };
             };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

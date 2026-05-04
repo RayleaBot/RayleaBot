@@ -136,7 +136,6 @@ func buildAppPlatform(state appBuildState, schedulerTrigger func(context.Context
 		Logs:           state.logStream,
 		LogRepository:  logRepository,
 		Console:        console.NewStream(1000, 2*1024*1024),
-		launcherTokens: newLauncherTokenStore(time.Now, 5*time.Minute),
 		loginFailures:  newLoginFailureTracker(time.Now),
 	}, nil
 }

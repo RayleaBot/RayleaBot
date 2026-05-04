@@ -8,8 +8,6 @@ export const launcherInvokeChannels = {
   stop: "launcher:stop",
   resetAdmin: "launcher:reset-admin",
   openWeb: "launcher:open-web",
-  createRecoveryRecheck: "launcher:create-recovery-recheck",
-  createRuntimeBootstrap: "launcher:create-runtime-bootstrap",
   openReleasePage: "launcher:open-release-page",
   openLogs: "launcher:open-logs",
   saveSettings: "launcher:save-settings",

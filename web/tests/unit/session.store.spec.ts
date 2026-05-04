@@ -60,16 +60,6 @@ describe('session store', () => {
     expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('fixture-token')
   })
 
-  it('persists token on launcher admission', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ session_token: 'launcher-session-token' })))
-    const store = useSessionStore()
-
-    await store.admitLauncherToken('launcher_token_fixture_0001')
-
-    expect(store.token).toBe('launcher-session-token')
-    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('launcher-session-token')
-  })
-
   it('ignores session expiration for an older token', () => {
     const store = useSessionStore()
 

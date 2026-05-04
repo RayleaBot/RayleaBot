@@ -16,6 +16,7 @@ import {
 
 async function createLifecycleHarness(options: {
   inspectEnvironment?: ReturnType<typeof vi.fn>;
+  endpointResolver?: FakeEndpointResolver;
   managementClient?: FakeManagementClient;
   processController?: FakeProcessController;
   externalOpener?: FakeExternalOpener;
@@ -29,8 +30,7 @@ async function createLifecycleHarness(options: {
   const processController = options.processController ?? new FakeProcessController();
   const runtimeContext = createLauncherRuntimeContext({
     settingsStore,
-    endpointResolver: new FakeEndpointResolver(),
-    managementClient,
+    endpointResolver: options.endpointResolver ?? new FakeEndpointResolver(),
   });
   const snapshotStore = createLauncherSnapshotStore({
     processController,
@@ -154,7 +154,7 @@ describe("launcher lifecycle service", () => {
     const managementClient = new FakeManagementClient();
     const processController = new FakeProcessController();
     const tryStopEndpointProcess = vi.fn(async () => false);
-    managementClient.shutdown = vi.fn(async () => undefined);
+    managementClient.shutdownFromLauncher = vi.fn(async () => undefined);
     const { lifecycleService, snapshotStore } = await createLifecycleHarness({
       managementClient,
       processController,
@@ -164,19 +164,19 @@ describe("launcher lifecycle service", () => {
 
     await lifecycleService.stop();
 
-    expect(managementClient.shutdown).not.toHaveBeenCalled();
+    expect(managementClient.shutdownFromLauncher).not.toHaveBeenCalled();
     expect(processController.forceKillCalls).toBe(0);
     expect(tryStopEndpointProcess).not.toHaveBeenCalled();
     expect(deriveLauncherPresentation(snapshotStore.snapshot).state).toBe("running");
     expect(snapshotStore.snapshot.launcher.processOwnership).toBe("external");
   });
 
-  test("stop surfaces external admission failures without force killing the foreign process", async () => {
+  test("stop surfaces external launcher shutdown failures without force killing the foreign process", async () => {
     const managementClient = new FakeManagementClient();
     const processController = new FakeProcessController();
     const tryStopEndpointProcess = vi.fn(async () => false);
-    managementClient.issueLauncherToken = vi.fn(async () => {
-      throw new Error("token issue failed");
+    managementClient.shutdownFromLauncher = vi.fn(async () => {
+      throw new Error("launcher shutdown failed");
     });
     const { lifecycleService, snapshotStore } = await createLifecycleHarness({
       managementClient,
@@ -190,10 +190,37 @@ describe("launcher lifecycle service", () => {
     expect(processController.forceKillCalls).toBe(0);
     expect(tryStopEndpointProcess).not.toHaveBeenCalled();
     expect(deriveLauncherPresentation(snapshotStore.snapshot).state).toBe("running");
-    expect(snapshotStore.snapshot.launcher.lastLocalError).toContain("token issue failed");
+    expect(snapshotStore.snapshot.launcher.lastLocalError).toContain("launcher shutdown failed");
   });
 
-  test("stop falls back to force kill when launcher-managed shutdown bootstrap fails", async () => {
+  test("stop does not call launcher shutdown for remote external services", async () => {
+    const managementClient = new FakeManagementClient();
+    const processController = new FakeProcessController();
+    const tryStopEndpointProcess = vi.fn(async () => false);
+    const endpointResolver = new FakeEndpointResolver();
+    endpointResolver.endpoint = {
+      host: "192.0.2.10",
+      port: 8080,
+      baseUrl: "http://192.0.2.10:8080/",
+    };
+    managementClient.shutdownFromLauncher = vi.fn(async () => undefined);
+    const { lifecycleService, snapshotStore } = await createLifecycleHarness({
+      endpointResolver,
+      managementClient,
+      processController,
+      tryStopEndpointProcess,
+      confirmExternalServiceStop: vi.fn(async () => true),
+    });
+
+    await lifecycleService.stop();
+
+    expect(managementClient.shutdownFromLauncher).not.toHaveBeenCalled();
+    expect(processController.forceKillCalls).toBe(0);
+    expect(tryStopEndpointProcess).not.toHaveBeenCalled();
+    expect(snapshotStore.snapshot.launcher.lastLocalError).toContain("远程服务只能通过 Web 管理面操作");
+  });
+
+  test("stop falls back to force kill when launcher-managed shutdown fails", async () => {
     const managementClient = new FakeManagementClient();
     const processController = new FakeProcessController();
     processController.isRunning = true;
@@ -202,8 +229,8 @@ describe("launcher lifecycle service", () => {
       processController.isRunning = false;
       managementClient.health = false;
     });
-    managementClient.issueLauncherToken = vi.fn(async () => {
-      throw new Error("token issue failed");
+    managementClient.shutdownFromLauncher = vi.fn(async () => {
+      throw new Error("launcher shutdown failed");
     });
     const { lifecycleService, snapshotStore } = await createLifecycleHarness({
       managementClient,

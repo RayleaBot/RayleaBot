@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 
 import { toBootstrapStatusMessage } from '@/lib/auth-feedback'
 import { apiRequest } from '@/lib/http'
-import type { LauncherAdmissionRequest, SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
+import type { SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
 
 const sessionStorageKey = 'rayleabot.session_token'
 
@@ -26,7 +26,6 @@ export const useSessionStore = defineStore('session', () => {
   const bootstrapPending = ref(false)
   const loginPending = ref(false)
   const bootstrapError = ref<string | null>(null)
-  const launcherAdmissionHint = ref<string | null>(null)
 
   const isAuthenticated = computed(() => Boolean(token.value))
   const requiresSetup = computed(() => setupInitialized.value === false)
@@ -72,7 +71,6 @@ export const useSessionStore = defineStore('session', () => {
         body: payload,
       })
       setupInitialized.value = true
-      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -89,24 +87,6 @@ export const useSessionStore = defineStore('session', () => {
         body: payload,
       })
       setupInitialized.value = true
-      launcherAdmissionHint.value = null
-      setToken(response.session_token)
-      return response
-    } finally {
-      loginPending.value = false
-    }
-  }
-
-  async function admitLauncherToken(launcherToken: string) {
-    loginPending.value = true
-    try {
-      const response = await apiRequest<SessionLoginResponse>('/api/session/launcher-admission', {
-        method: 'POST',
-        auth: false,
-        body: { launcher_token: launcherToken } satisfies LauncherAdmissionRequest,
-      })
-      setupInitialized.value = true
-      launcherAdmissionHint.value = null
       setToken(response.session_token)
       return response
     } finally {
@@ -134,10 +114,6 @@ export const useSessionStore = defineStore('session', () => {
     return true
   }
 
-  function setLauncherAdmissionHint(message: string | null) {
-    launcherAdmissionHint.value = message
-  }
-
   function handleSessionExpired(tokenSnapshot?: string | null) {
     clearSession(tokenSnapshot)
   }
@@ -147,7 +123,6 @@ export const useSessionStore = defineStore('session', () => {
     bootstrapPending,
     isAuthenticated,
     isBootstrapped,
-    launcherAdmissionHint,
     loginPending,
     requiresSetup,
     setupInitialized,
@@ -157,9 +132,7 @@ export const useSessionStore = defineStore('session', () => {
     handleSessionExpired,
     login,
     logout,
-    setLauncherAdmissionHint,
     setToken,
     setupAdmin,
-    admitLauncherToken,
   }
 })

@@ -216,8 +216,8 @@ export function App() {
       onStart={handlePrimaryServiceAction}
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
-      onRecoveryRecheck={() => runAction("recovery-recheck", () => window.rayleaLauncher.createRecoveryRecheck())}
-      onRuntimeBootstrap={() => runAction("runtime-bootstrap", () => window.rayleaLauncher.createRuntimeBootstrap())}
+      onOpenRecoveryTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/tasks?task_type=recovery.recheck"))}
+      onOpenRuntimeTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/tasks?task_type=runtime.bootstrap"))}
       onOpenRecoveryPlugin={(pluginId: string) => runAction("open-plugin", () => window.rayleaLauncher.openWebUi(`/plugins/${encodeURIComponent(pluginId)}`))}
       onOpenReleasePage={() => runAction("open-release-page", () => window.rayleaLauncher.openReleasePage())}
       onOpenLogs={() => runAction("open-logs", () => window.rayleaLauncher.openLogsDirectory())}

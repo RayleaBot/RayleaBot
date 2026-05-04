@@ -26,8 +26,7 @@ interface LauncherStatusServiceDependencies {
 export function createLauncherStatusService(deps: LauncherStatusServiceDependencies): LauncherStatusService {
   async function tryLoadSystemStatus(endpoint: LauncherOperationContext["endpoint"]) {
     try {
-      const token = await deps.runtimeContext.ensureSessionToken(endpoint);
-      return await deps.managementClient.getSystemStatus(endpoint, token);
+      return await deps.managementClient.getLauncherStatus(endpoint);
     } catch {
       return null;
     }
@@ -48,12 +47,8 @@ export function createLauncherStatusService(deps: LauncherStatusServiceDependenc
     context: LauncherOperationContext,
     inspection: EnvironmentInspection,
     readiness: LauncherReadinessSnapshot,
-    forceReauthentication: boolean,
+    _forceReauthentication: boolean,
   ): Promise<LauncherSnapshot> {
-    if (forceReauthentication) {
-      deps.runtimeContext.clearSessionToken();
-    }
-
     const systemStatus =
       readiness.status === "ready" || readiness.status === "degraded"
         ? await tryLoadSystemStatus(context.endpoint)
@@ -84,11 +79,7 @@ export function createLauncherStatusService(deps: LauncherStatusServiceDependenc
     );
   }
 
-  async function refresh(forceReauthentication: boolean) {
-    if (forceReauthentication) {
-      deps.runtimeContext.clearSessionToken();
-    }
-
+  async function refresh(_forceReauthentication: boolean) {
     const context = await deps.runtimeContext.createOperationContext();
     const inspection = await deps.inspectEnvironment(context.resolvedSettings);
 
@@ -155,7 +146,7 @@ export function createLauncherStatusService(deps: LauncherStatusServiceDependenc
       return;
     }
 
-    await deps.snapshotStore.publish(await buildSnapshotFromReadiness(context, inspection, readiness, forceReauthentication));
+    await deps.snapshotStore.publish(await buildSnapshotFromReadiness(context, inspection, readiness, _forceReauthentication));
   }
 
   return {

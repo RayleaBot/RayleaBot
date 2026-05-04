@@ -15,8 +15,8 @@
 ## Shared Surface Rules
 
 - 与服务端共享的正式接口继续来自 `contracts/web-api.openapi.yaml`，生成文件固定为 `launcher/src/shared/web-api.generated.ts`。
-- 启动器展示的系统状态、恢复摘要、诊断结果、任务和登录交接，都直接消费服务端正式接口。
-- `launcher-token` 与 `launcher-admission` 继续作为 Launcher 打开 Web 管理面的正式 bootstrap surface。
+- 启动器展示的系统状态、恢复摘要和诊断结果都直接消费服务端正式接口。
+- Launcher 打开 Web 管理面只传普通 URL；Web 会话由管理面自己的初始化和登录流程建立。
 
 ## Change Rules
 

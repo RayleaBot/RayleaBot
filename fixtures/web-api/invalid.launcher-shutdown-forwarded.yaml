@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Launcher shutdown rejects forwarded requests.
+request:
+  method: POST
+  path: /api/launcher/shutdown
+  headers:
+    X-Forwarded-For: 198.51.100.9
+response:
+  status: 403
+  body:
+    error:
+      code: permission.denied
+      message: 当前用户无权执行该操作
+      message_key: errors.permission.denied
+      request_id: req_launcher_shutdown_denied_0001
+expect:
+  valid: true

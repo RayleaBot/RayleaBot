@@ -39,10 +39,16 @@ const tableColumns = computed(() => [
 async function loadTasks() {
   hasRequestedTasks.value = true
   try {
-    await tasksStore.fetchList()
+    await tasksStore.fetchList({ taskType: readTaskTypeFilter() })
   } catch {
     // store error state drives the page
   }
+}
+
+function readTaskTypeFilter() {
+  const rawTaskType = route.query.task_type
+  const taskType = Array.isArray(rawTaskType) ? rawTaskType[0] : rawTaskType
+  return typeof taskType === 'string' && taskType.trim() ? taskType.trim() : undefined
 }
 
 async function inspect(taskId: string) {
@@ -94,6 +100,15 @@ watch(
     }
   },
   { immediate: true },
+)
+
+watch(
+  () => route.query.task_type,
+  () => {
+    if (route.name === 'tasks') {
+      void loadTasks()
+    }
+  },
 )
 
 onMounted(() => {

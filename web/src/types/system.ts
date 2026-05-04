@@ -3,8 +3,6 @@ import type { components } from './generated'
 export type SetupStatusResponse = components['schemas']['SetupStatusResponse']
 export type SessionLoginRequest = components['schemas']['SessionLoginRequest']
 export type SessionLoginResponse = components['schemas']['SessionLoginResponse']
-export type LauncherTokenResponse = components['schemas']['LauncherTokenResponse']
-export type LauncherAdmissionRequest = components['schemas']['LauncherAdmissionRequest']
 export type LivenessStatusResponse = components['schemas']['LivenessStatusResponse']
 export type ReadinessIssue = components['schemas']['DiagnosticIssue']
 export type RecoveryCompatibilityIssue = components['schemas']['RecoveryCompatibilityIssue']

@@ -41,7 +41,7 @@ export const sectionContent = {
   status: {
     eyebrow: "Service Console",
     title: "运行状态",
-    detail: "查看当前服务状态，并直接处理启动、停止、管理和恢复动作。",
+    detail: "查看当前服务状态，处理启动、停止和管理入口。",
   },
   environment: {
     eyebrow: "Environment Review",
@@ -77,8 +77,6 @@ export const busyActionLabels: Record<string, string> = {
   "open-release-page": "正在打开版本页面",
   "open-logs": "正在打开日志目录",
   "reset-admin": "正在重置本地凭据",
-  "recovery-recheck": "正在复核恢复兼容性",
-  "runtime-bootstrap": "正在准备运行环境",
   "open-plugin": "正在打开插件详情",
 };
 

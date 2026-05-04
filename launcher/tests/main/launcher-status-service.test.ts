@@ -27,7 +27,6 @@ async function createStatusHarness(options: {
   const runtimeContext = createLauncherRuntimeContext({
     settingsStore,
     endpointResolver: new FakeEndpointResolver(),
-    managementClient,
   });
   const snapshotStore = createLauncherSnapshotStore({
     processController,
@@ -126,7 +125,7 @@ describe("launcher status service", () => {
     await readyHarness.statusService.refresh(false);
 
     expect(deriveLauncherPresentation(readyHarness.snapshotStore.snapshot).state).toBe("running");
-    expect(readyHarness.managementClient.issueLauncherTokenCalls).toBe(1);
+    expect(readyHarness.managementClient.systemStatusCalls).toBe(1);
 
     const degradedClient = new FakeManagementClient();
     degradedClient.readiness = {

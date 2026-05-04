@@ -77,14 +77,14 @@
 - 未验证来源插件首次打开内置管理页时需要手动确认；插件版本或来源变化后会重新确认。
 - 插件管理页只处理插件自己的设置，不提供全局配置或其它管理操作代理。
 
-## 状态来源与 Launcher 登录交接
+## 状态来源与 Launcher 管理入口
 
 - Web 与 Launcher 都直接访问服务端管理接口。
 - Web 使用正式 HTTP API 与管理 WebSocket 读取状态和提交操作。
-- Launcher 读取 `healthz`、`readyz`、`/api/system/status`、恢复摘要与任务信息，并把这些正式结果与本地进程状态一起展示。
-- Launcher 打开 Web 时，通过 `POST /api/session/launcher-token` 申请一次性 launcher token。
-- Web 启动时若 URL 含 `?token=`，会把该 token 交给 `POST /api/session/launcher-admission`，换成正常管理会话。
-- `?token=` 仅用于单次深链交接；交接失败、token 失效或 admission 校验失败时，管理面回到初始化页或登录页。
+- Launcher 使用 `healthz`、`readyz`、`/api/setup/status` 和 `/api/launcher/status` 检查本机服务连接，并把这些正式结果与本地进程状态一起展示。
+- Launcher 打开 Web 时只打开管理面 URL；Web 管理面通过初始化和登录接口建立会话。
+- 未登录状态打开 Web 深链时进入登录页；登录或初始化完成后返回目标页面。
+- Launcher 停止本机服务使用 `/api/launcher/shutdown`。连接非本机服务时，Launcher 只做连接检查和打开 Web。
 
 ## 本地优先安全边界
 
@@ -107,8 +107,8 @@
 - 初始化完成前，不开放常规插件管理、配置修改和日志查询。
 - 管理员凭据丢失时，正式恢复路径是停服后通过 Launcher 或 CLI 触发 `reset-admin`。
 - 管理会话采用有限 TTL，可做滑动续期，但保留绝对有效期上限。
-- 重置管理员凭据后，旧会话与一次性 Launcher token 全部失效。
-- Launcher 自动登录失败、Token 过期或 admission 校验不通过时，管理面回到初始化页或登录页，并显示可读提示。
+- 重置管理员凭据后，旧会话全部失效。
+- 未登录访问受保护页面时，管理面进入初始化页或登录页，并在完成后回到目标页面。
 
 ## Launcher
 
@@ -120,7 +120,7 @@
 - 启动失败摘要来自健康探测、stderr 和日志尾部。
 - 关闭窗口默认隐藏到托盘，不直接结束后台服务。
 - 仅在用户明确选择完全退出时，Launcher 才触发优雅停机流程。
-- 若服务已完成初始化，Launcher 可用一次性 token 做最佳努力自动登录。
+- Launcher 打开 Web 管理面时只打开普通 URL，管理会话由 Web 初始化和登录流程建立。
 
 ## 入口职责矩阵
 

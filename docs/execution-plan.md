@@ -20,8 +20,8 @@
 | Phase 5 | Plugin Protocol Bridge | ✅ | 多 runtime mainline、dispatch fan-out、命令路由、scheduler trigger、zero-gap reload、builtin discovery、grant expiry runtime enforcement、rich message actions、`logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` local action RPC 与 gated `event.raw_payload` 已接入；完整 Chromium Render Service 继续后置到 Phase 10 |
 | Phase 6 | Config / Storage / Security | ✅ | planning-aligned canonical config、`config/default.yaml` 基线、首份 `user.yaml` bootstrap、启动安全迁移、SQLite、auth persistence、grants、secret store、task/scheduler persistence、聊天侧 command policy、temporal grants、plugin-scoped KV / file / HTTP 已落地；`/readyz`、诊断包、`doctor`、Launcher 环境检查共享 `code` / `severity` / `summary` / `remediation` 统一诊断结构 |
 | Phase 7 | Web API & Tasks | ✅ | 管理 HTTP / WebSocket、plugin lifecycle、grants、task 历史持久化、配置热更新、日志历史查询、在线备份提交、诊断导出、webhook ingress、插件来源/信任/命令冲突 metadata 与 render preview / artifact 管理面已进入正式主链 |
-| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、恢复摘要筛选与确认历史展示、命令冲突提示、来源信任标识、Launcher 自动登录失败短提示、错误恢复、响应式与可访问性回归 |
-| Phase 9 | Launcher | ✅ | Loopback launcher token admission、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口、正式发行包根目录入口、安装根目录派生设置模型与已有工作区复用语义已对齐 |
+| Phase 8 | Web UI | ✅ | Web 管理面已覆盖 `setup/login/session`、系统状态、4 条管理 WebSocket、`plugins/tasks/logs/config` 主流程，以及 plugin install / uninstall / grants / console、`system/shutdown`、在线备份、诊断导出、恢复摘要筛选与确认历史展示、命令冲突提示、来源信任标识、深链登录返回、错误恢复、响应式与可访问性回归 |
+| Phase 9 | Launcher | ✅ | 本机 launcher status / shutdown、首启配置预检与 server bootstrap 承接、Electron 主进程 / preload / renderer 分层、环境检查、server 启停 / 健康轮询 / 打开管理界面、托盘关闭语义、桌面设置持久化、版本检查、Windows / Linux / macOS CI 与 release feed 联动已落地；Launcher 已收口为本地服务壳与 Web 入口，初始化 / 登录流程判断集中在 Web；凭据丢失恢复入口、正式发行包根目录入口、安装根目录派生设置模型与已有工作区复用语义已对齐 |
 | Phase 10 | Render Service | ✅ | Chromium 渲染、模板资源、artifact registry、`render.preview` 任务流、管理面预览入口、任务详情图片预览与统一资源诊断已接入主链 |
 
 ### 判定口径
@@ -199,7 +199,7 @@
 | 子任务 | 状态 | 说明 |
 |--------|------|------|
 | Health endpoints | ✅ | `GET /healthz` 与 `GET /readyz` |
-| Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login`、`session logout`、loopback-only `launcher-token` 与 `launcher-admission` 已落地 |
+| Setup & Session | ✅ | `setup/admin`、`setup/status`、`session/login` 与 `session logout` 已落地 |
 | System management | ✅ | `GET /api/system/status`、`POST /api/system/shutdown` |
 | Recovery / runtime task surface | ✅ | `POST /api/system/recovery/recheck`、`POST /api/system/recovery/confirm` 与 `POST /api/system/runtime/bootstrap` 已进入 formal API、任务流、fixtures、examples 与 tests |
 | Config management | ✅ | `GET /api/config`、`PUT /api/config` 已包含 `command` / `cooldown` / `storage` / `http`，并支持对应热更新 |
@@ -229,7 +229,7 @@
 | 真实页面与布局 | ✅ | 受保护布局壳、状态页、插件页、任务页、日志中心、协议中心、配置页，以及固定侧栏、内容区内部滚动摘要视图与响应式布局已落地 |
 | HTTP / WebSocket 消费 | ✅ | 已消费 `setup/status`、`setup/admin`、`session/login`、`config`、`system/status`、`plugins`、`tasks`、`logs` 与 4 条管理 WebSocket |
 | 运维交互流 | ✅ | plugin install / uninstall / grants / console、插件 lifecycle、恢复摘要操作入口、恢复批量确认、全部 / 待确认 / 已确认筛选、现有 50 条确认历史展示、任务详情/取消、日志查询/追加、shutdown 确认、配置保存与 `restart_required` 提示已接入 |
-| 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、Launcher 自动登录失败短提示已接入 |
+| 规划内 companion flows | ✅ | 在线备份入口、诊断导出入口、命令冲突提示、插件来源 / 信任等级标签、深链登录返回已接入 |
 | 前端质量与回归 | ✅ | Vitest 单测、fixture-backed Playwright E2E、异常路径、响应式与可访问性交互回归已落地 |
 
 ---
@@ -239,10 +239,10 @@
 | 任务项 | 状态 | 说明 |
 |--------|------|------|
 | Electron / pnpm 基线 | ✅ | Node / pnpm / Electron / Vite / Vue 启动器基线已锁定 |
-| Loopback bootstrap auth | ✅ | `launcher-token`、`launcher-admission` 与 Web `?token=` 自动登录已打通，并已收口为打开 Web 时的 best-effort 增强能力 |
+| Launcher local surface | ✅ | `/api/launcher/status` 与 `/api/launcher/shutdown` 已接入，并限制为本机直连 |
 | 环境检查 / 本机诊断壳 | ✅ | server 可执行文件、配置文件、workdir、`LongPathsEnabled`、`.deps/manifest.json` 检查与诊断摘要已落地 |
 | 真实 Launcher 行为 | ✅ | 单窗口桌面壳、启动 / 停止 / 打开管理界面 / 重试健康检查、错误输出 ring buffer 与 `logs/launcher.log` 已落地 |
-| 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`system/status`、`system/shutdown` 与打开 Web 时的本机自动登录增强 |
+| 与 server 管理面联动 | ✅ | 已接入 `healthz`、`readyz`、`setup/status`、`launcher/status`、`launcher/shutdown` 与普通 Web 打开入口 |
 | Launcher 测试与 CI | ✅ | `pnpm test`、`pnpm build` 与 PR Linux 核心门禁已落地；跨平台验证由 `release.yml` 与 `self-host-smoke.yml` 覆盖 |
 | 首启配置 bootstrap | ✅ | Launcher preflight 会提示缺失配置并继续拉起服务；首份 `user.yaml` 由 server 按 `default.yaml` 基线生成 |
 | 凭据丢失恢复入口 | ✅ | Launcher 偏好设置页提供"重置管理员凭据"入口，执行时停止服务、调用 `reset-admin` CLI、重启服务并打开 Web 初始化页面；coordinator、IPC、preload、renderer 全链路已接入并受测试覆盖 |
@@ -341,4 +341,3 @@
 - CI 中的 module path 校验与正式 Git remote 保持一致。
 - baseline、`execution-plan.md`、CI 校验、工程文件与仓库真实 remote 的 repo identity 口径保持一致。
 - 已跟踪源码、CI 与工程文档中不保留旧模块路径字符串。
-

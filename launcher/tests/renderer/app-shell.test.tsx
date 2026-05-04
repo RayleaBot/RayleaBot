@@ -104,8 +104,8 @@ function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
       onStart={vi.fn()}
       onStop={vi.fn()}
       onOpenWeb={vi.fn()}
-      onRecoveryRecheck={vi.fn()}
-      onRuntimeBootstrap={vi.fn()}
+      onOpenRecoveryTasks={vi.fn()}
+      onOpenRuntimeTasks={vi.fn()}
       onOpenRecoveryPlugin={vi.fn()}
       onOpenReleasePage={vi.fn()}
       onOpenLogs={vi.fn()}
@@ -131,7 +131,7 @@ describe("AppShell", () => {
     const { container } = renderShell();
 
     expect(screen.getByRole("heading", { name: "运行状态" })).toBeInTheDocument();
-    expect(screen.getByText("查看当前服务状态，并直接处理启动、停止、管理和恢复动作。")).toBeInTheDocument();
+    expect(screen.getByText("查看当前服务状态，处理启动、停止和管理入口。")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "刷新状态" })).toHaveLength(2);
     expect(container.querySelector(".section-shell")).not.toBeNull();
     expect(container.querySelector(".section-header")).not.toBeNull();
@@ -252,7 +252,7 @@ describe("AppShell", () => {
       },
     });
 
-    const buttons = screen.getAllByRole("button", { name: "重新检查" });
+    const buttons = screen.getAllByRole("button", { name: "打开恢复任务" });
     expect(buttons).toHaveLength(1);
     expect(buttons[0]).toBeDisabled();
     expect(screen.getByText("当前没有恢复摘要。")).toBeInTheDocument();

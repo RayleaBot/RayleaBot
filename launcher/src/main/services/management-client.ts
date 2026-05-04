@@ -1,17 +1,11 @@
 import type {
   ErrorEnvelope,
-  LauncherAdmissionRequest,
   LauncherReadinessSnapshot,
   LauncherSystemStatusSnapshot,
-  LauncherTokenResponse,
   ServerEndpoint,
-  TaskAcceptedResponse,
-  TaskListResponse,
-  TaskSummary,
 } from "../../shared/launcher-models";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
-const IN_PROGRESS_TASK_STATUSES = new Set(["pending", "running"]);
 
 type FetchLike = typeof fetch;
 
@@ -85,10 +79,6 @@ async function ensureSuccess(response: Response) {
   throw buildResponseError(response, await readPayload(response));
 }
 
-function createAuthedHeaders(sessionToken: string) {
-  return { Authorization: `Bearer ${sessionToken}` };
-}
-
 function withTimeout(init: RequestInit | undefined, timeoutMs: number): RequestInit {
   return {
     ...init,
@@ -145,111 +135,26 @@ export class FetchLauncherManagementClient {
     return Boolean(payload.initialized);
   }
 
-  async issueLauncherToken(endpoint: ServerEndpoint) {
-    const response = await ensureSuccess(
+  async shutdownFromLauncher(endpoint: ServerEndpoint) {
+    await ensureSuccess(
       await fetchWithTimeout(
         this.fetchLike,
-        new URL("api/session/launcher-token", endpoint.baseUrl),
+        new URL("api/launcher/shutdown", endpoint.baseUrl),
         { method: "POST" },
         this.timeoutMs,
       ),
     );
-    const payload = await readJson<LauncherTokenResponse>(response);
-    return String(payload.launcher_token ?? "");
   }
 
-  async admitLauncherToken(endpoint: ServerEndpoint, launcherToken: string) {
-    const body: LauncherAdmissionRequest = { launcher_token: launcherToken };
+  async getLauncherStatus(endpoint: ServerEndpoint): Promise<LauncherSystemStatusSnapshot> {
     const response = await ensureSuccess(
       await fetchWithTimeout(
         this.fetchLike,
-        new URL("api/session/launcher-admission", endpoint.baseUrl),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-        this.timeoutMs,
-      ),
-    );
-    const payload = await readJson<Record<string, unknown>>(response);
-    return String(payload.session_token ?? "");
-  }
-
-  async shutdown(endpoint: ServerEndpoint, sessionToken: string) {
-    await ensureSuccess(
-      await fetchWithTimeout(
-        this.fetchLike,
-        new URL("api/system/shutdown", endpoint.baseUrl),
-        {
-          method: "POST",
-          headers: createAuthedHeaders(sessionToken),
-        },
-        this.timeoutMs,
-      ),
-    );
-  }
-
-  async getSystemStatus(endpoint: ServerEndpoint, sessionToken: string): Promise<LauncherSystemStatusSnapshot> {
-    const response = await ensureSuccess(
-      await fetchWithTimeout(
-        this.fetchLike,
-        new URL("api/system/status", endpoint.baseUrl),
-        {
-          headers: createAuthedHeaders(sessionToken),
-        },
+        new URL("api/launcher/status", endpoint.baseUrl),
+        undefined,
         this.timeoutMs,
       ),
     );
     return await readJson<LauncherSystemStatusSnapshot>(response);
-  }
-
-  async findInProgressTask(endpoint: ServerEndpoint, sessionToken: string, taskType: string): Promise<TaskSummary | null> {
-    const response = await ensureSuccess(
-      await fetchWithTimeout(
-        this.fetchLike,
-        new URL(`api/tasks?task_type=${encodeURIComponent(taskType)}`, endpoint.baseUrl),
-        {
-          headers: createAuthedHeaders(sessionToken),
-        },
-        this.timeoutMs,
-      ),
-    );
-    const payload = await readJson<TaskListResponse>(response);
-    return payload.items.find((task) => IN_PROGRESS_TASK_STATUSES.has(task.status)) ?? null;
-  }
-
-  async createRecoveryRecheck(endpoint: ServerEndpoint, sessionToken: string) {
-    const response = await ensureSuccess(
-      await fetchWithTimeout(
-        this.fetchLike,
-        new URL("api/system/recovery/recheck", endpoint.baseUrl),
-        {
-          method: "POST",
-          headers: createAuthedHeaders(sessionToken),
-        },
-        this.timeoutMs,
-      ),
-    );
-    return await readJson<TaskAcceptedResponse>(response);
-  }
-
-  async createRuntimeBootstrap(endpoint: ServerEndpoint, sessionToken: string, resources?: string[]) {
-    const response = await ensureSuccess(
-      await fetchWithTimeout(
-        this.fetchLike,
-        new URL("api/system/runtime/bootstrap", endpoint.baseUrl),
-        {
-          method: "POST",
-          headers: {
-            ...createAuthedHeaders(sessionToken),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(resources?.length ? { resources } : {}),
-        },
-        this.timeoutMs,
-      ),
-    );
-    return await readJson<TaskAcceptedResponse>(response);
   }
 }

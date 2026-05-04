@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Local Launcher graceful shutdown request is accepted.
+request:
+  method: POST
+  path: /api/launcher/shutdown
+response:
+  status: 202
+  body:
+    accepted: true
+expect:
+  valid: true

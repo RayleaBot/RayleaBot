@@ -21,10 +21,6 @@ type authRequest struct {
 	Secret     string `json:"secret"`
 }
 
-type launcherAdmissionRequest struct {
-	LauncherToken string `json:"launcher_token"`
-}
-
 type authResponse struct {
 	SessionToken string `json:"session_token"`
 }
@@ -84,42 +80,6 @@ func (h *authHTTPHandlers) handleSessionLogin() http.HandlerFunc {
 				h.loginFailures.RecordFailure(sourceIP, loginFailureLimit(h.state.Config), loginFailureWindow(h.state.Config))
 			}
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
-			return
-		case errors.Is(err, auth.ErrSessionLimitReached):
-			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
-			return
-		default:
-			writeAppError(w, r, http.StatusInternalServerError, codeInternalError, "内部错误", "errors.platform.internal_error", nil)
-			return
-		}
-	}
-}
-
-func (h *authHTTPHandlers) handleLauncherAdmission() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !isLoopbackRequest(r) {
-			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
-			return
-		}
-		if h.auth == nil || !h.auth.IsBootstrapped() {
-			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
-			return
-		}
-
-		var request launcherAdmissionRequest
-		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.LauncherToken == "" {
-			writeAuthError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
-			return
-		}
-		if !h.launcherTokens.Consume(request.LauncherToken) {
-			writeAuthError(w, r, http.StatusUnauthorized, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
-			return
-		}
-
-		token, _, err := h.auth.Issue("launcher")
-		switch {
-		case err == nil:
-			writeAuthJSON(w, http.StatusOK, authResponse{SessionToken: token})
 			return
 		case errors.Is(err, auth.ErrSessionLimitReached):
 			writeAuthError(w, r, http.StatusForbidden, codePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")

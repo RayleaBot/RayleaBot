@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import type { LauncherReadinessSnapshot, LauncherSnapshot, TaskSummary } from "@shared/launcher-models";
+import type { LauncherReadinessSnapshot, LauncherSnapshot } from "@shared/launcher-models";
 import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/launcher-presentation";
 import {
   createLauncherCoordinator,
@@ -42,10 +42,6 @@ class FakeEndpointResolver implements ServerEndpointResolver {
 class FakeManagementClient implements LauncherManagementClient {
   health = true;
   setupInitialized = true;
-  launcherToken = "launcher_fixture_token";
-  sessionToken = "session_fixture_token";
-  issueLauncherTokenCalls = 0;
-  admitLauncherTokenCalls = 0;
   systemStatusCalls = 0;
   readiness: LauncherReadinessSnapshot = {
     status: "ready",
@@ -55,7 +51,6 @@ class FakeManagementClient implements LauncherManagementClient {
     recovery_summary: null as RecoveryCompatibilitySummary | null,
   };
   recoverySummary: RecoveryCompatibilitySummary | null = null;
-  inProgressTask: TaskSummary | null = null;
 
   async isHealthy() {
     return this.health;
@@ -65,21 +60,11 @@ class FakeManagementClient implements LauncherManagementClient {
     return this.setupInitialized;
   }
 
-  async issueLauncherToken() {
-    this.issueLauncherTokenCalls += 1;
-    return this.launcherToken;
-  }
-
-  async admitLauncherToken() {
-    this.admitLauncherTokenCalls += 1;
-    return this.sessionToken;
-  }
-
   async getReadiness() {
     return this.readiness;
   }
 
-  async getSystemStatus() {
+  async getLauncherStatus() {
     this.systemStatusCalls += 1;
     return {
       ...this.systemStatus,
@@ -87,19 +72,7 @@ class FakeManagementClient implements LauncherManagementClient {
     };
   }
 
-  async findInProgressTask() {
-    return this.inProgressTask;
-  }
-
-  async createRecoveryRecheck() {
-    return { task_id: "task_recovery_recheck_0001" };
-  }
-
-  async createRuntimeBootstrap() {
-    return { task_id: "task_runtime_bootstrap_0001" };
-  }
-
-  async shutdown() {}
+  async shutdownFromLauncher() {}
 }
 
 class FakeRecoverySummaryReader implements RecoverySummaryReader {
@@ -244,8 +217,7 @@ describe("launcher coordinator", () => {
 
     expect(presentationState(coordinator.snapshot).state).toBe("running");
     expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
-    expect(managementClient.issueLauncherTokenCalls).toBe(1);
-    expect(managementClient.admitLauncherTokenCalls).toBe(1);
+    expect(managementClient.systemStatusCalls).toBe(1);
     expect(coordinator.snapshot.launcher.releaseCheck.status).toBe("up_to_date");
   });
 
@@ -491,9 +463,6 @@ describe("launcher coordinator", () => {
       updated_at: "2026-04-02T08:01:00Z",
     };
     managementClient.health = false;
-    managementClient.issueLauncherToken = vi.fn(async () => {
-      throw new Error("service unavailable");
-    });
 
     const coordinator = createLauncherCoordinator({
       settingsStore,
@@ -514,7 +483,7 @@ describe("launcher coordinator", () => {
     expect(coordinator.snapshot.server.readiness).toBeNull();
   });
 
-  test("open web ui adds token only when setup is initialized", async () => {
+  test("open web ui opens plain management urls", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
@@ -538,10 +507,9 @@ describe("launcher coordinator", () => {
     await coordinator.openWebUi("/tasks?task_id=task_fixture_0001");
 
     expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_fixture_0001");
-    expect(externalOpener.openedUris.at(-1)).toContain("&token=");
+    expect(externalOpener.openedUris.at(-1)).not.toContain("token=");
     expect(presentationState(coordinator.snapshot).detail).toBe(detailBeforeOpen);
 
-    managementClient.setupInitialized = false;
     await coordinator.openWebUi();
 
     const latestUri = externalOpener.openedUris.at(-1) ?? "";
@@ -602,68 +570,6 @@ describe("launcher coordinator", () => {
     await expect(coordinator.openWebUi("https://evil.example/pwn")).rejects.toThrow(
       "启动器只允许打开管理界面的相对路径。",
     );
-    expect(externalOpener.openedUris).toHaveLength(0);
-  });
-
-  test("submits recovery tasks and opens the tasks page", async () => {
-    const settingsStore = new FakeSettingsStore();
-    const endpointResolver = new FakeEndpointResolver();
-    const managementClient = new FakeManagementClient();
-    const processController = new FakeProcessController();
-    const externalOpener = new FakeExternalOpener();
-
-    const coordinator = createLauncherCoordinator({
-      settingsStore,
-      endpointResolver,
-      inspectEnvironment: vi.fn(async () => okInspection()),
-      managementClient,
-      processController,
-      isEndpointListening: vi.fn(async () => false),
-      tryStopEndpointProcess: vi.fn(async () => false),
-      externalOpener,
-      releaseFeedClient: new FakeReleaseFeedClient(),
-    });
-
-    managementClient.recoverySummary = {
-      status: "degraded",
-      phase: "post_startup",
-      operation: "upgrade",
-      created_at: "2026-04-04T08:00:00Z",
-      updated_at: "2026-04-04T08:00:01Z",
-    };
-    await coordinator.initialize();
-    await coordinator.createRecoveryRecheck();
-    await coordinator.createRuntimeBootstrap(["chromium"]);
-
-    expect(externalOpener.openedUris.at(-2)).toContain("/tasks?task_id=task_recovery_recheck_0001");
-    expect(externalOpener.openedUris.at(-1)).toContain("/tasks?task_id=task_runtime_bootstrap_0001");
-  });
-
-  test("skips recovery recheck when there is no recovery summary", async () => {
-    const settingsStore = new FakeSettingsStore();
-    const endpointResolver = new FakeEndpointResolver();
-    const managementClient = new FakeManagementClient();
-    const processController = new FakeProcessController();
-    const externalOpener = new FakeExternalOpener();
-
-    const createRecoveryRecheck = vi.spyOn(managementClient, "createRecoveryRecheck");
-
-    const coordinator = createLauncherCoordinator({
-      settingsStore,
-      endpointResolver,
-      inspectEnvironment: vi.fn(async () => okInspection()),
-      managementClient,
-      processController,
-      isEndpointListening: vi.fn(async () => false),
-      tryStopEndpointProcess: vi.fn(async () => false),
-      externalOpener,
-      releaseFeedClient: new FakeReleaseFeedClient(),
-    });
-
-    await coordinator.initialize();
-    await coordinator.createRecoveryRecheck();
-
-    expect(createRecoveryRecheck).not.toHaveBeenCalled();
     expect(externalOpener.openedUris).toHaveLength(0);
   });
 
@@ -881,7 +787,7 @@ describe("launcher coordinator", () => {
     const managementClient = new FakeManagementClient();
     const processController = new FakeProcessController();
     const tryStopEndpointProcess = vi.fn(async () => false);
-    managementClient.shutdown = vi.fn(async () => undefined);
+    managementClient.shutdownFromLauncher = vi.fn(async () => undefined);
 
     const coordinator = createLauncherCoordinator({
       settingsStore,
@@ -899,21 +805,21 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
     await coordinator.stop();
 
-    expect(managementClient.shutdown).not.toHaveBeenCalled();
+    expect(managementClient.shutdownFromLauncher).not.toHaveBeenCalled();
     expect(processController.forceKillCalls).toBe(0);
     expect(tryStopEndpointProcess).not.toHaveBeenCalled();
     expect(presentationState(coordinator.snapshot).state).toBe("running");
     expect(coordinator.snapshot.launcher.processOwnership).toBe("external");
   });
 
-  test("stop surfaces external shutdown admission failures without force killing the foreign process", async () => {
+  test("stop surfaces external launcher shutdown failures without force killing the foreign process", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
     const processController = new FakeProcessController();
     const tryStopEndpointProcess = vi.fn(async () => false);
-    managementClient.issueLauncherToken = vi.fn(async () => {
-      throw new Error("token issue failed");
+    managementClient.shutdownFromLauncher = vi.fn(async () => {
+      throw new Error("launcher shutdown failed");
     });
 
     const coordinator = createLauncherCoordinator({
@@ -940,7 +846,7 @@ describe("launcher coordinator", () => {
     expect(processController.forceKillCalls).toBe(0);
     expect(tryStopEndpointProcess).not.toHaveBeenCalled();
     expect(presentationState(coordinator.snapshot).state).toBe("running");
-    expect(coordinator.snapshot.launcher.lastLocalError).toContain("token issue failed");
+    expect(coordinator.snapshot.launcher.lastLocalError).toContain("launcher shutdown failed");
   });
 
   test("stop waits for the managed process to exit before reporting final state", async () => {
@@ -951,7 +857,7 @@ describe("launcher coordinator", () => {
     processController.isRunning = true;
 
     managementClient.health = true;
-    managementClient.shutdown = vi.fn(async () => {
+    managementClient.shutdownFromLauncher = vi.fn(async () => {
       managementClient.health = false;
     });
 
@@ -981,7 +887,7 @@ describe("launcher coordinator", () => {
     expect(presentationState(coordinator.snapshot).state).toBe("stopped");
   });
 
-  test("stop falls back to force kill when launcher session bootstrap fails", async () => {
+  test("stop falls back to force kill when launcher shutdown fails", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
@@ -992,8 +898,8 @@ describe("launcher coordinator", () => {
       processController.isRunning = false;
       managementClient.health = false;
     });
-    managementClient.issueLauncherToken = vi.fn(async () => {
-      throw new Error("token issue failed");
+    managementClient.shutdownFromLauncher = vi.fn(async () => {
+      throw new Error("launcher shutdown failed");
     });
 
     const coordinator = createLauncherCoordinator({

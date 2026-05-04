@@ -46,7 +46,6 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   const runtimeContext = createLauncherRuntimeContext({
     settingsStore: deps.settingsStore,
     endpointResolver: deps.endpointResolver,
-    managementClient: deps.managementClient,
   });
   const snapshotStore = createLauncherSnapshotStore({
     processController: deps.processController,
@@ -77,7 +76,6 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
   const desktopActions = createLauncherDesktopActions({
     runtimeContext,
     snapshotStore,
-    managementClient: deps.managementClient,
     externalOpener: deps.externalOpener,
     processController: deps.processController,
   });
@@ -166,12 +164,6 @@ export function createLauncherCoordinator(deps: LauncherCoordinatorDependencies)
     },
     async openWebUi(targetPath = "") {
       await desktopActions.openWebUi(targetPath);
-    },
-    async createRecoveryRecheck() {
-      await desktopActions.createRecoveryRecheck();
-    },
-    async createRuntimeBootstrap(resources) {
-      await desktopActions.createRuntimeBootstrap(resources);
     },
     async openReleasePage() {
       await desktopActions.openReleasePage();

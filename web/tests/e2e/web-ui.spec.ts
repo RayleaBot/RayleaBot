@@ -457,46 +457,33 @@ test('setup flow reaches protected shell and shows websocket statuses', async ({
   await expect(page.getByTestId('connection-card-logs')).toContainText('已认证')
 })
 
-test('launcher token query admits a session and clears the URL token', async ({ page, request }) => {
+test('protected deep links return to the target after login', async ({ page, request }) => {
   await resetBackend(request, true)
 
-  await page.goto('/?token=launcher_token_fixture_0001')
-
-  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
-  await expect(page).not.toHaveURL(/token=/)
-})
-
-test('launcher token query replaces a stale stored session and clears the URL token', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await page.addInitScript(() => {
-    window.sessionStorage.setItem('rayleabot.session_token', 'stale-session-token')
-  })
-
-  await page.goto('/?token=launcher_token_fixture_0001')
-
-  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
-  await expect(page).not.toHaveURL(/token=/)
-})
-
-test('invalid launcher token falls back to login and clears the URL token', async ({ page, request }) => {
-  await resetBackend(request, true)
-
-  await page.goto('/?token=invalid_launcher_token')
+  await page.goto('/plugins?token=launcher_token_fixture_0001')
 
   await expect(page.getByRole('heading', { name: '登录', level: 1 })).toBeVisible()
-  await expect(page.getByText('自动登录未完成，请手动登录。')).toBeVisible()
   await expect(page.getByTestId('auth-theme-toggle')).toBeVisible()
   await expect(page.getByTestId('auth-language')).toBeVisible()
-  await expect(page).not.toHaveURL(/token=/)
+
+  await page.getByLabel('管理员密钥').fill('fixture-only-secret')
+  await page.getByRole('button', { name: '登录管理界面' }).click()
+
+  await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/\/plugins\?token=launcher_token_fixture_0001$/)
 })
 
-test('setup-required flow ignores launcher token query', async ({ page, request }) => {
+test('setup-required deep links return to the target after initialization', async ({ page, request }) => {
   await resetBackend(request, false)
 
-  await page.goto('/?token=launcher_token_fixture_0001')
+  await page.goto('/plugins?token=launcher_token_fixture_0001')
 
   await expect(page.getByRole('heading', { name: '创建管理员账号', level: 1 })).toBeVisible()
-  await expect(page).not.toHaveURL(/token=/)
+  await page.getByLabel('管理员密钥').fill('fixture-only-secret')
+  await page.getByRole('button', { name: '创建并进入管理界面' }).click()
+
+  await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/\/plugins\?token=launcher_token_fixture_0001$/)
 })
 
 test('plugin management flow covers install, grants and console recovery', async ({ page, request }) => {

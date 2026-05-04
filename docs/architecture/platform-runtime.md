@@ -27,17 +27,17 @@
 
 ## Launcher 与 Server 控制面
 
-- 服务端是正式状态源，`healthz`、`readyz`、`setup/status`、`session/launcher-token`、`session/launcher-admission`、`system/status` 和 `system/shutdown` 保持原始契约。
-- Launcher 通过受控进程编排启动 `raylea-server`，并直接调用这些正式入口。
+- 服务端是正式状态源，`healthz`、`readyz`、`setup/status`、`launcher/status` 和 `launcher/shutdown` 保持正式契约。
+- Launcher 通过受控进程编排启动 `raylea-server`，并直接调用本机 launcher surface。
 - Launcher 快照分成两组数据：
   - `server`：`health`、`readiness`、`systemStatus`
   - `launcher`：`processLifecycle`、`processOwnership`、环境检查、最近 stderr、版本提示、设置与本地错误
 - Tray 与 Renderer 共用同一套展示推导函数，由同一份 `server` 与 `launcher` 快照生成标题、摘要和操作可用性。
 - 若本机已经存在健康服务，但并非 Launcher 当前持有的子进程，Launcher 会明确标示为“检测到现有服务”。
 - 启动失败摘要来自健康探测、stderr 和日志尾部，不要求用户自行拼接多处信息。
-- 优雅停机优先走正式 shutdown 路径，再回退到操作系统级回收。
+- 本机直连服务的优雅停机走 `/api/launcher/shutdown`，再回退到操作系统级回收；非本机服务只支持连接检查和打开 Web。
 - Web 与 Launcher 都直接访问服务端，不通过对方代理状态或管理请求。
-- Launcher 打开 Web 时，可通过 `launcher-token` 与 `launcher-admission` 交接一次性登录；Web 在 `?token=` 深链中消费该 token 后换成正常管理会话。
+- Launcher 打开 Web 时只打开管理面 URL；Web 管理面通过初始化和登录接口建立会话。
 
 ## Launcher 预检边界
 
