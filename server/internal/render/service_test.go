@@ -6,6 +6,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -251,6 +254,9 @@ func TestServiceRenderRequestsAdaptiveDocumentHeight(t *testing.T) {
 	if doc.Width != 960 || doc.Height != 640 {
 		t.Fatalf("unexpected initial render dimensions: got %dx%d", doc.Width, doc.Height)
 	}
+	if doc.BaseURL == "" || !strings.HasPrefix(doc.BaseURL, "file:") || !strings.HasSuffix(doc.BaseURL, "/templates/help.menu/") {
+		t.Fatalf("unexpected template base URL: %q", doc.BaseURL)
+	}
 }
 
 func TestServiceRenderLeaderboardListTemplate(t *testing.T) {
@@ -400,12 +406,20 @@ func TestServiceRenderFortuneCardTemplate(t *testing.T) {
 	if !doc.AutoHeight {
 		t.Fatalf("expected render document to request adaptive height")
 	}
-	if doc.Width != 960 || doc.Height != 560 {
+	if doc.Width != 1124 || doc.Height != 1365 {
 		t.Fatalf("unexpected initial render dimensions: got %dx%d", doc.Width, doc.Height)
 	}
-	for _, want := range []string{"今日运势", "今日已抽取", "银蝶", "（Silver）", "大吉", "★★★★★★★", "累计大吉", "最长连续大凶"} {
+	if doc.BaseURL == "" || !strings.HasPrefix(doc.BaseURL, "file:") || !strings.HasSuffix(doc.BaseURL, "/templates/fortune.card/") {
+		t.Fatalf("unexpected template base URL: %q", doc.BaseURL)
+	}
+	for _, want := range []string{"今日运势", "今日已抽取", "银蝶", "群主", "大吉", "★★★★★★★", "连续签到"} {
 		if !strings.Contains(doc.HTML, want) {
 			t.Fatalf("fortune html missing %q:\n%s", want, doc.HTML)
+		}
+	}
+	for _, unwanted := range []string{"累计大吉", "最长连续大凶", "运势统计"} {
+		if strings.Contains(doc.HTML, unwanted) {
+			t.Fatalf("fortune html contains %q:\n%s", unwanted, doc.HTML)
 		}
 	}
 }
@@ -457,6 +471,80 @@ func TestServiceRenderRejectsInputTooLarge(t *testing.T) {
 	if renderErr.Code != "platform.render_input_too_large" {
 		t.Fatalf("unexpected error code: got %q want %q", renderErr.Code, "platform.render_input_too_large")
 	}
+}
+
+func TestChromiumRunnerLoadsRelativeTemplateAssets(t *testing.T) {
+	repoRoot := filepath.Join("..", "..", "..")
+	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
+	if err != nil {
+		t.Skipf("managed chromium is not prepared: %v", err)
+	}
+
+	templatesRoot := filepath.Join(t.TempDir(), "templates")
+	assetDir := filepath.Join(templatesRoot, "asset.check", "assets")
+	if err := os.MkdirAll(assetDir, 0o755); err != nil {
+		t.Fatalf("create asset dir: %v", err)
+	}
+	asset, err := os.Create(filepath.Join(assetDir, "red.png"))
+	if err != nil {
+		t.Fatalf("create asset: %v", err)
+	}
+	if err := png.Encode(asset, singlePixel(color.RGBA{R: 240, G: 16, B: 16, A: 255})); err != nil {
+		_ = asset.Close()
+		t.Fatalf("encode asset: %v", err)
+	}
+	if err := asset.Close(); err != nil {
+		t.Fatalf("close asset: %v", err)
+	}
+
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
+	content, err := runner.Render(context.Background(), Document{
+		Template:   "relative.asset",
+		Output:     "png",
+		BaseURL:    templateBaseURL(templatesRoot, "asset.check"),
+		Width:      320,
+		Height:     240,
+		AutoHeight: true,
+		HTML: `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --asset-smoke: url("assets/red.png");
+      }
+      body { margin: 0; }
+      main {
+        width: 320px;
+        height: 240px;
+        background: #ffffff var(--asset-smoke) center / cover no-repeat;
+      }
+    </style>
+  </head>
+  <body><main aria-label="relative asset smoke"></main></body>
+</html>`,
+	})
+	if err != nil {
+		t.Fatalf("Render with relative asset: %v", err)
+	}
+	if len(content) == 0 {
+		t.Fatalf("expected screenshot content")
+	}
+
+	screenshot, err := png.Decode(bytes.NewReader(content))
+	if err != nil {
+		t.Fatalf("decode screenshot: %v", err)
+	}
+	r, g, b, _ := screenshot.At(160, 120).RGBA()
+	if r>>8 < 220 || g>>8 > 40 || b>>8 > 40 {
+		t.Fatalf("relative asset did not paint expected pixel: got rgb(%d,%d,%d)", r>>8, g>>8, b>>8)
+	}
+}
+
+func singlePixel(c color.Color) image.Image {
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, c)
+	return img
 }
 
 func TestServiceRenderRejectsQueueFull(t *testing.T) {
@@ -669,6 +757,73 @@ func TestServiceRenderCacheKeyTracksStoredSourceDigest(t *testing.T) {
 	}
 	if !third.FromCache {
 		t.Fatalf("expected synced template to hit cache on repeated render")
+	}
+	if runner.callCount() != 2 {
+		t.Fatalf("unexpected runner calls: got %d want 2", runner.callCount())
+	}
+}
+
+func TestServiceRenderCacheKeyTracksTemplateAssets(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	templatesRoot := filepath.Join(repoRoot, "templates")
+	writeRenderTemplateSeed(t, templatesRoot, "help.menu")
+	assetDir := filepath.Join(templatesRoot, "help.menu", "assets")
+	if err := os.MkdirAll(assetDir, 0o755); err != nil {
+		t.Fatalf("create asset dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetDir, "badge.png"), []byte("first"), 0o644); err != nil {
+		t.Fatalf("write asset: %v", err)
+	}
+
+	runner := &fakeRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	request := Request{
+		Template: "help.menu",
+		Theme:    "default",
+		Output:   "png",
+		Data: map[string]any{
+			"title": "帮助菜单",
+		},
+	}
+
+	first, err := service.Render(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Render with initial asset: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetDir, "badge.png"), []byte("second"), 0o644); err != nil {
+		t.Fatalf("write updated asset: %v", err)
+	}
+
+	second, err := service.Render(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Render with updated asset: %v", err)
+	}
+	if second.FromCache {
+		t.Fatalf("expected asset change render to miss previous cache")
+	}
+	if second.ArtifactID == first.ArtifactID {
+		t.Fatalf("asset change reused stale artifact id")
 	}
 	if runner.callCount() != 2 {
 		t.Fatalf("unexpected runner calls: got %d want 2", runner.callCount())

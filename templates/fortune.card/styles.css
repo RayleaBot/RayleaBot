@@ -1,169 +1,295 @@
 :root {
-  --accent-hue: 82;
-  --color-bg: oklch(0.97 0.012 92);
-  --color-surface: oklch(0.995 0.004 95);
-  --color-surface-soft: oklch(0.94 0.018 92);
-  --color-surface-warm: oklch(0.92 0.035 84);
-  --color-border: oklch(0.84 0.025 86);
-  --color-border-strong: oklch(0.72 0.055 82);
-  --color-text: oklch(0.22 0.025 250);
-  --color-text-secondary: oklch(0.42 0.028 250);
-  --color-text-muted: oklch(0.56 0.025 250);
-  --color-accent: oklch(0.58 0.13 var(--accent-hue));
-  --color-accent-strong: oklch(0.43 0.12 var(--accent-hue));
-  --color-accent-soft: oklch(0.90 0.055 var(--accent-hue));
-  --color-calm: oklch(0.70 0.09 210);
-  --color-danger: oklch(0.55 0.13 28);
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
-  --space-2xl: 32px;
-  --space-3xl: 44px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
-  --radius-full: 999px;
-  --shadow-card: 0 16px 42px oklch(0.35 0.04 90 / 0.12), 0 2px 8px oklch(0.30 0.02 90 / 0.08);
-  font-family: "HarmonyOS Sans SC", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", "Inter", sans-serif;
+  --color-bg: #fbf3e6;
+  --color-paper: rgba(255, 253, 248, 0.93);
+  --color-ink: #23170f;
+  --color-muted: #725a45;
+  --color-gold: #c57b02;
+  --color-gold-deep: #6b3904;
+  --color-line: #e3a94c;
+  --color-red: #d94b4b;
+  --shadow-card: 0 15px 27px rgba(135, 81, 10, 0.12), 0 2px 8px rgba(130, 82, 20, 0.08);
+  --font-sans: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  --font-display: "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif;
+  --asset-landscape: url("assets/effect-landscape-header.png");
+  --asset-status-button: url("assets/effect-status-button.png");
+  --asset-ribbon: url("assets/effect-vertical-fortune-ribbon.png");
+  --asset-emblem: url("assets/effect-windchime-bamboo-moon.png");
+  --asset-calendar-scene: url("assets/effect-checkin-calendar-scene.png");
+  --asset-avatar-frame: url("assets/effect-avatar-frame.png");
+  --asset-cloud-base: url("assets/effect-cloud-base.png");
+  --asset-cloud-sheet: url("assets/effect-cloud-corner-sheet.png");
+  --asset-header-sheet: url("assets/effect-header-ornament-sheet.png");
+  --asset-bird-sheet: url("assets/effect-bird-sheet.png");
+  --asset-card-corner: url("assets/effect-card-corner-sheet.png");
+  --asset-good-icon: url("assets/effect-icon-suitable-token.png");
+  --asset-bad-icon: url("assets/effect-icon-avoid-token.png");
+  --asset-calendar-icon: url("assets/effect-icon-calendar.png");
+  --asset-check-icon: url("assets/effect-icon-check-token.png");
+  --asset-star-full: url("assets/effect-star-full.png");
+  --asset-star-empty: url("assets/effect-star-empty.png");
 }
 
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
+html,
 body {
-  width: 100%;
   margin: 0;
+  min-width: 1124px;
   background: var(--color-bg);
-  color: var(--color-text);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+body {
+  display: grid;
+  place-items: start center;
+}
+
 .fortune-card {
-  width: 100%;
-  max-width: 960px;
-  padding: var(--space-3xl);
+  position: relative;
+  width: 1124px;
+  height: 1365px;
+  overflow: hidden;
+  padding: 42px 52px 34px;
   background:
-    radial-gradient(circle at 88% 8%, oklch(0.91 0.07 82 / 0.70), transparent 28%),
-    linear-gradient(145deg, var(--color-bg), oklch(0.96 0.02 115));
+    linear-gradient(90deg, rgba(255, 255, 255, 0.9) 0 18%, rgba(255, 248, 232, 0.32) 45%, rgba(255, 244, 210, 0.2)),
+    linear-gradient(180deg, #fff9ee 0%, #fffdf8 31%, #fbf2e2 100%);
+}
+
+.fortune-card::before {
+  content: "";
+  position: absolute;
+  left: -138px;
+  top: -22px;
+  width: 470px;
+  height: 255px;
+  opacity: 0.44;
+  pointer-events: none;
+  background: var(--asset-cloud-sheet) 55% 43% / 640px auto no-repeat;
+}
+
+.fortune-card::after {
+  content: "";
+  position: absolute;
+  right: -130px;
+  top: -10px;
+  width: 420px;
+  height: 160px;
+  opacity: 0.42;
+  pointer-events: none;
+  background: var(--asset-cloud-sheet) 8% 7% / 560px auto no-repeat;
+}
+
+.fortune-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .fortune-card__header {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--space-xl);
-  margin-bottom: var(--space-xl);
+  grid-template-columns: minmax(0, 1fr) 222px;
+  min-height: 238px;
+  margin-bottom: 10px;
 }
 
-.fortune-card__eyebrow,
-.fortune-card__section-label,
-.fortune-card__fortune-label {
-  color: var(--color-accent-strong);
-  font-size: 12px;
-  font-weight: 850;
-  letter-spacing: 0;
+.fortune-card__title-group {
+  position: relative;
+  z-index: 4;
+  padding-top: 21px;
+  padding-left: 36px;
 }
 
 .fortune-card__eyebrow {
-  margin-bottom: var(--space-sm);
+  margin: 0 0 17px 0;
+  color: #8b4c13;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 4px;
   text-transform: uppercase;
 }
 
 h1 {
-  color: var(--color-text);
-  font-size: 42px;
+  margin: 0;
+  color: #4c2608;
+  font-family: var(--font-display);
+  font-size: 82px;
   font-weight: 950;
-  line-height: 1.1;
+  line-height: 0.92;
   letter-spacing: 0;
-  overflow-wrap: anywhere;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.86), 0 15px 24px rgba(96, 56, 10, 0.12);
 }
 
 .fortune-card__subtitle {
-  max-width: 640px;
-  margin-top: var(--space-md);
-  color: var(--color-text-secondary);
-  font-size: 16px;
-  font-weight: 650;
-  line-height: 1.55;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 0 3px;
+  color: #6a5542;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.32;
   overflow-wrap: anywhere;
+}
+
+.fortune-card__subtitle span {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  background: var(--asset-calendar-icon) center / 55px 55px no-repeat;
 }
 
 .fortune-card__status {
+  position: relative;
+  z-index: 5;
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
-  max-width: 220px;
-  padding: 7px 13px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
-  font-size: 14px;
-  font-weight: 900;
+  justify-content: center;
+  justify-self: end;
+  gap: 7px;
+  width: 172px;
+  height: 62px;
+  margin-top: 18px;
+  margin-right: -8px;
+  padding: 8px 17px 8px 18px;
+  background: var(--asset-status-button) center / 100% 100% no-repeat;
+  color: #633307;
+  font-size: 17px;
+  font-weight: 950;
   line-height: 1.2;
-  text-align: right;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  filter: drop-shadow(0 10px 14px rgba(119, 74, 10, 0.18));
+}
+
+.fortune-card__status-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  background: var(--asset-check-icon) center / 54px 54px no-repeat;
+}
+
+.fortune-card__landscape {
+  position: absolute;
+  z-index: 2;
+  right: -84px;
+  top: 18px;
+  width: 715px;
+  height: 255px;
+  opacity: 0.98;
+  background: var(--asset-landscape) center / contain no-repeat;
+}
+
+.fortune-card__header-clouds {
+  position: absolute;
+  z-index: 3;
+  right: 240px;
+  top: 84px;
+  width: 320px;
+  height: 90px;
+  opacity: 0.38;
+  background: var(--asset-header-sheet) 0 80% / 580px auto no-repeat;
+}
+
+.fortune-card__header-birds {
+  position: absolute;
+  z-index: 3;
+  right: 260px;
+  top: 72px;
+  width: 260px;
+  height: 95px;
+  opacity: 0.72;
+  background: var(--asset-bird-sheet) 49% 55% / 330px auto no-repeat;
 }
 
 .fortune-card__identity,
-.fortune-card__fortune,
 .fortune-card__notice,
-.fortune-card__actions article,
-.fortune-card__summary article {
-  border: 1px solid var(--color-border);
-  background: oklch(0.995 0.004 95 / 0.86);
+.fortune-card__fortune,
+.fortune-card__action-card,
+.fortune-card__streak {
+  border: 1px solid rgba(226, 164, 72, 0.88);
+  border-radius: 24px;
+  background: var(--color-paper);
   box-shadow: var(--shadow-card);
 }
 
 .fortune-card__identity {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-lg);
-  min-height: 92px;
-  padding: var(--space-lg);
-  border-radius: var(--radius-xl);
-  margin-bottom: var(--space-lg);
+  min-height: 136px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  padding: 18px 42px;
+}
+
+.fortune-card__identity::before {
+  content: "";
+  position: absolute;
+  right: -66px;
+  top: 18px;
+  width: 330px;
+  height: 120px;
+  opacity: 0.36;
+  background: var(--asset-cloud-sheet) 4% 17% / 455px auto no-repeat;
 }
 
 .fortune-card__avatar {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
+  width: 116px;
+  height: 116px;
   flex: 0 0 auto;
-  overflow: hidden;
-  border-radius: 18px;
-  border: 2px solid var(--color-border-strong);
-  background: linear-gradient(135deg, var(--color-accent-soft), oklch(0.82 0.08 210));
-  color: var(--color-accent-strong);
-  font-size: 12px;
+  margin-right: 31px;
+  color: var(--color-gold-deep);
+  font-size: 13px;
   font-weight: 950;
   line-height: 1.1;
   text-align: center;
 }
 
+.fortune-card__avatar::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  background: var(--asset-avatar-frame) center / contain no-repeat;
+}
+
+.fortune-card__avatar img,
+.fortune-card__avatar span {
+  position: relative;
+  z-index: 1;
+}
+
 .fortune-card__avatar img {
-  width: 100%;
-  height: 100%;
+  width: 94px;
+  height: 94px;
+  border-radius: 999px;
   object-fit: cover;
 }
 
 .fortune-card__avatar span {
-  max-width: 46px;
-  max-height: 38px;
+  display: grid;
+  place-items: center;
+  width: 94px;
+  height: 94px;
   overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff4d7, #eac47e);
   overflow-wrap: anywhere;
 }
 
 .fortune-card__identity-body {
+  position: relative;
+  z-index: 2;
   display: grid;
-  gap: 6px;
+  gap: 13px;
   min-width: 0;
 }
 
@@ -171,33 +297,33 @@ h1 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 7px;
-  min-width: 0;
-  color: var(--color-text);
-  font-size: 22px;
+  gap: 13px;
+  color: #21160d;
+  font-size: 37px;
   font-weight: 950;
-  line-height: 1.3;
+  line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
 .fortune-card__nickname {
-  color: var(--color-text-muted);
+  color: var(--color-muted);
   font-size: 17px;
-  font-weight: 750;
+  font-weight: 800;
 }
 
 .fortune-card__title-badge {
   display: inline-flex;
   align-items: center;
-  max-width: 220px;
-  min-height: 24px;
+  justify-content: center;
+  min-height: 34px;
+  max-width: 210px;
   overflow: hidden;
-  padding: 3px 9px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
-  background: var(--color-surface-warm);
-  color: var(--color-accent-strong);
-  font-size: 12px;
+  padding: 5px 15px;
+  border: 1px solid #d8a057;
+  border-radius: 999px;
+  background: rgba(255, 244, 220, 0.82);
+  color: #8b5108;
+  font-size: 15px;
   font-weight: 850;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -207,194 +333,463 @@ h1 {
 .fortune-card__identity-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm) var(--space-lg);
-  color: var(--color-text-muted);
-  font-size: 13px;
-  font-weight: 650;
+  gap: 8px 18px;
+  color: #6b543f;
+  font-size: 17px;
+  font-weight: 720;
   line-height: 1.35;
 }
 
-.fortune-card__fortune {
-  display: grid;
-  gap: var(--space-lg);
-  padding: var(--space-xl);
-  border-radius: var(--radius-xl);
+.fortune-card__identity-lines {
+  display: none;
 }
 
-.fortune-card__fortune-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+.fortune-card__notice {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: var(--space-lg);
+  min-height: 78px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  padding: 15px 38px;
 }
 
-.fortune-card__fortune-name {
-  margin-top: 5px;
-  color: var(--color-accent-strong);
-  font-size: 56px;
-  font-weight: 950;
-  line-height: 1;
+.fortune-card__notice::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  bottom: -34px;
+  width: 335px;
+  height: 110px;
+  opacity: 0.26;
+  background: var(--asset-cloud-sheet) 80% 31% / 420px auto no-repeat;
+}
+
+.fortune-card__notice span {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  margin-right: 22px;
+  background: var(--asset-check-icon) center / 86px 86px no-repeat;
+  filter: drop-shadow(0 8px 10px rgba(159, 95, 5, 0.2));
+}
+
+.fortune-card__notice p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: #241910;
+  font-size: 22px;
+  font-weight: 850;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-.fortune-card__stars {
-  color: oklch(0.62 0.14 82);
-  font-family: "Segoe UI Symbol", "Apple Color Emoji", "Noto Sans Symbols 2", sans-serif;
-  font-size: 28px;
-  font-weight: 900;
-  line-height: 1.2;
+.fortune-card__fortune {
+  position: relative;
+  display: block;
+  min-height: 404px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  padding: 28px 32px 30px;
+}
+
+.fortune-card__fortune::before,
+.fortune-card__fortune::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.fortune-card__fortune::before {
+  inset: 10px;
+  border: 1px solid rgba(232, 184, 101, 0.86);
+  border-radius: 18px;
+}
+
+.fortune-card__fortune::after {
+  left: 8px;
+  top: 8px;
+  width: 210px;
+  height: 210px;
+  opacity: 0.26;
+  background: var(--asset-card-corner) 0 0 / 260px 260px no-repeat;
+}
+
+.fortune-card__ribbon {
+  position: absolute;
+  left: 40px;
+  top: 6px;
+  z-index: 3;
+  width: 112px;
+  height: 366px;
+  background: var(--asset-ribbon) center top / contain no-repeat;
+  filter: drop-shadow(0 12px 18px rgba(119, 72, 8, 0.12));
+}
+
+.fortune-card__fortune-head {
+  position: absolute;
+  z-index: 3;
+  left: 230px;
+  right: 70px;
+  top: 48px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  min-height: 100px;
+}
+
+.fortune-card__fortune-label {
+  display: none;
+}
+
+.fortune-card__fortune-name {
+  position: relative;
+  display: inline-block;
+  margin: 0;
+  color: var(--color-gold);
+  font-family: var(--font-display);
+  font-size: 88px;
+  font-weight: 950;
+  line-height: 1;
   letter-spacing: 0;
-  white-space: nowrap;
+  text-shadow: 0 4px 11px rgba(126, 72, 0, 0.15);
+}
+
+.fortune-card__fortune-name::after {
+  content: "";
+  position: absolute;
+  left: 92%;
+  top: 68%;
+  width: 150px;
+  height: 28px;
+  opacity: 0.42;
+  background: var(--asset-header-sheet) 63% 79% / 300px auto no-repeat;
+}
+
+.fortune-card__stars {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-top: 17px;
+}
+
+.fortune-card__stars span {
+  width: 31px;
+  height: 31px;
+  background: var(--asset-star-empty) center / contain no-repeat;
+}
+
+.fortune-card__stars[data-stars*="★"] span:nth-child(1),
+.fortune-card__stars[data-stars*="★★"] span:nth-child(2),
+.fortune-card__stars[data-stars*="★★★"] span:nth-child(3),
+.fortune-card__stars[data-stars*="★★★★"] span:nth-child(4),
+.fortune-card__stars[data-stars*="★★★★★"] span:nth-child(5),
+.fortune-card__stars[data-stars*="★★★★★★"] span:nth-child(6),
+.fortune-card__stars[data-stars*="★★★★★★★"] span:nth-child(7) {
+  background-image: var(--asset-star-full);
+}
+
+.fortune-card__fortune-body {
+  position: static;
+  z-index: 3;
+  display: block;
+}
+
+.fortune-card__fortune-text {
+  position: absolute;
+  left: 232px;
+  top: 166px;
+  width: 430px;
+  display: grid;
+  align-content: start;
+  gap: 22px;
 }
 
 .fortune-card__sign,
 .fortune-card__explanation {
   display: grid;
-  gap: 7px;
+  gap: 10px;
+}
+
+.fortune-card__section-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  min-height: 31px;
+  margin: 0;
+  padding: 5px 14px;
+  border: 1px solid #dfb372;
+  border-radius: 999px;
+  background: rgba(255, 243, 217, 0.88);
+  color: #8c5108;
+  font-size: 16px;
+  font-weight: 850;
+  line-height: 1.2;
 }
 
 .fortune-card__sign p:last-child,
 .fortune-card__explanation p:last-child {
-  color: var(--color-text);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.65;
+  margin: 0;
+  color: #2a211a;
+  font-size: 22px;
+  font-weight: 760;
+  line-height: 1.62;
+  letter-spacing: 0.06em;
   overflow-wrap: anywhere;
 }
 
-.fortune-card__explanation p:last-child {
-  color: var(--color-text-secondary);
-  font-size: 16px;
-  font-weight: 650;
-}
-
-.fortune-card__notice {
-  margin-top: var(--space-lg);
-  padding: 13px 16px;
-  border-radius: var(--radius-lg);
-  color: var(--color-text-secondary);
-  font-size: 15px;
-  font-weight: 750;
-  line-height: 1.5;
+.fortune-card__fortune-emblem {
+  position: absolute;
+  z-index: 2;
+  right: 20px;
+  bottom: 10px;
+  width: 342px;
+  height: 334px;
+  background: var(--asset-emblem) center / contain no-repeat;
 }
 
 .fortune-card__actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-lg);
-  margin-top: var(--space-lg);
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 14px;
 }
 
-.fortune-card__actions article,
-.fortune-card__summary article {
-  display: grid;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  border-radius: var(--radius-lg);
+.fortune-card__action-card {
+  position: relative;
+  min-height: 112px;
+  overflow: hidden;
+  padding: 22px 36px 23px;
+}
+
+.fortune-card__action-card .fortune-card__section-label {
+  min-height: 34px;
+  margin-bottom: 14px;
+  padding: 0 0 0 42px;
+  border: 0;
+  background: transparent;
+  color: #302016;
+  font-size: 22px;
+  font-weight: 920;
+}
+
+.fortune-card__action-card .fortune-card__section-label span {
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 34px;
+  height: 34px;
+  background: var(--asset-good-icon) center / 62px 62px no-repeat;
+}
+
+.fortune-card__action-card--bad .fortune-card__section-label span {
+  background-image: var(--asset-bad-icon);
+}
+
+.fortune-card__action-ornament {
+  position: absolute;
+  right: 8px;
+  bottom: -18px;
+  width: 155px;
+  height: 55px;
+  opacity: 0.34;
+  background: var(--asset-header-sheet) 74% 80% / 290px auto no-repeat;
 }
 
 .fortune-card__tag-list {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: 14px;
 }
 
 .fortune-card__tag-list span {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 5px 10px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
-  font-size: 14px;
+  justify-content: center;
+  min-width: 148px;
+  min-height: 38px;
+  padding: 6px 22px;
+  border: 1px solid #dda64d;
+  border-radius: 999px;
+  background: rgba(255, 238, 200, 0.82);
+  color: #8d5207;
+  font-size: 17px;
   font-weight: 850;
   line-height: 1.2;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  box-shadow: inset 0 -8px 16px rgba(220, 160, 62, 0.1);
 }
 
 .fortune-card__tag-list--muted span {
-  background: oklch(0.92 0.035 28);
-  color: var(--color-danger);
+  border-color: #e89593;
+  background: rgba(255, 225, 224, 0.82);
+  color: var(--color-red);
 }
 
 .fortune-card__summary {
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  gap: var(--space-lg);
-  margin-top: var(--space-lg);
+  display: block;
+}
+
+.fortune-card__streak {
+  position: relative;
+  min-height: 154px;
+  overflow: hidden;
+  padding: 20px 38px 20px;
+}
+
+.fortune-card__streak::before {
+  content: "";
+  position: absolute;
+  left: 260px;
+  right: 200px;
+  bottom: -42px;
+  height: 126px;
+  opacity: 0.28;
+  background: var(--asset-cloud-base) center / contain no-repeat;
+}
+
+.fortune-card__streak::after {
+  content: "";
+  position: absolute;
+  right: 20px;
+  bottom: -15px;
+  width: 354px;
+  height: 194px;
+  background: var(--asset-calendar-scene) center / contain no-repeat;
+}
+
+.fortune-card__streak > * {
+  position: relative;
+  z-index: 1;
+}
+
+.fortune-card__streak .fortune-card__section-label {
+  min-height: 35px;
+  margin-bottom: 17px;
+  padding: 0 0 0 42px;
+  border: 0;
+  background: transparent;
+  color: #302016;
+  font-size: 23px;
+  font-weight: 920;
+}
+
+.fortune-card__streak .fortune-card__section-label span {
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 35px;
+  height: 35px;
+  background: var(--asset-calendar-icon) center / 66px 66px no-repeat;
 }
 
 .fortune-card__streak p:not(.fortune-card__section-label) {
-  color: var(--color-text-secondary);
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.55;
+  margin: 0 0 8px;
+  color: #241910;
+  font-size: 23px;
+  font-weight: 780;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .fortune-card__streak strong {
-  color: var(--color-accent-strong);
-  font-size: 22px;
+  display: inline-block;
+  min-width: 40px;
+  color: var(--color-gold);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 48px;
   font-weight: 950;
+  line-height: 0.9;
+  text-align: center;
 }
 
-.fortune-card__stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-sm);
+.fortune-card__calendar {
+  display: none;
 }
 
-.fortune-card__stat {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-soft);
-}
+@media (max-width: 760px) {
+  html,
+  body {
+    min-width: 0;
+  }
 
-.fortune-card__stat span {
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.fortune-card__stat strong {
-  color: var(--color-text);
-  font-size: 16px;
-  font-weight: 950;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 720px) {
   .fortune-card {
-    padding: 28px 22px;
+    width: 100vw;
+    min-height: 0;
+    padding: 32px 22px 28px;
   }
 
   .fortune-card__header,
-  .fortune-card__fortune-head,
-  .fortune-card__actions,
-  .fortune-card__summary {
-    grid-template-columns: 1fr;
+  .fortune-card__actions {
+    display: block;
+  }
+
+  .fortune-card__header {
+    min-height: 300px;
+  }
+
+  h1 {
+    font-size: 56px;
+  }
+
+  .fortune-card__landscape {
+    right: -80px;
+    top: 118px;
+    width: 520px;
+    height: 175px;
   }
 
   .fortune-card__status {
-    justify-self: start;
-    text-align: left;
+    margin-top: 22px;
+  }
+
+  .fortune-card__identity {
+    align-items: flex-start;
+    padding: 22px;
+  }
+
+  .fortune-card__fortune {
+    display: block;
+    padding: 28px 22px 24px;
+  }
+
+  .fortune-card__ribbon {
+    width: 110px;
+    height: 260px;
+    margin: -20px auto 8px 0;
   }
 
   .fortune-card__fortune-name {
-    font-size: 46px;
+    font-size: 58px;
   }
 
   .fortune-card__stars {
-    font-size: 24px;
+    margin: 6px 0 12px;
   }
 
-  .fortune-card__stats-grid {
-    grid-template-columns: 1fr;
+  .fortune-card__fortune-text {
+    display: grid;
+    padding-top: 0;
+  }
+
+  .fortune-card__fortune-emblem {
+    width: 250px;
+    height: 240px;
+    margin: 18px auto 0;
+  }
+
+  .fortune-card__action-card {
+    margin-bottom: 16px;
+  }
+
+  .fortune-card__streak::after {
+    opacity: 0.45;
+    right: -88px;
   }
 }

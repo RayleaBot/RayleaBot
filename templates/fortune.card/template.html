@@ -28,9 +28,19 @@
         <div class="fortune-card__title-group">
           <p class="fortune-card__eyebrow">Daily Fortune</p>
           <h1>{{ .title }}</h1>
-          {{ if .subtitle }}<p class="fortune-card__subtitle">{{ .subtitle }}</p>{{ end }}
+          {{ if .subtitle }}
+          <p class="fortune-card__subtitle"><span aria-hidden="true"></span>{{ .subtitle }}</p>
+          {{ end }}
         </div>
-        {{ if .status }}<div class="fortune-card__status">{{ .status }}</div>{{ end }}
+        {{ if .status }}
+        <div class="fortune-card__status">
+          <span class="fortune-card__status-icon" aria-hidden="true"></span>
+          <span>{{ .status }}</span>
+        </div>
+        {{ end }}
+        <div class="fortune-card__landscape" aria-hidden="true"></div>
+        <div class="fortune-card__header-clouds" aria-hidden="true"></div>
+        <div class="fortune-card__header-birds" aria-hidden="true"></div>
       </header>
 
       <section class="fortune-card__identity">
@@ -47,7 +57,9 @@
           <div class="fortune-card__name-line">
             {{ if $groupNickname }}
             <span class="fortune-card__group-name">{{ $groupNickname }}</span>
+            {{ if not $userTitle }}
             <span class="fortune-card__nickname">（{{ $nickname }}）</span>
+            {{ end }}
             {{ else }}
             <span class="fortune-card__group-name">{{ $nickname }}</span>
             {{ end }}
@@ -58,69 +70,75 @@
             {{ if $userID }}<span>ID {{ $userID }}</span>{{ end }}
           </div>
         </div>
+        <div class="fortune-card__identity-lines" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
       </section>
+
+      {{ if .repeat_notice }}
+      <section class="fortune-card__notice">
+        <span aria-hidden="true"></span>
+        <p>{{ .repeat_notice }}</p>
+      </section>
+      {{ end }}
 
       {{ with .fortune }}
       <section class="fortune-card__fortune">
+        <div class="fortune-card__ribbon" aria-hidden="true"></div>
         <div class="fortune-card__fortune-head">
           <div>
             <p class="fortune-card__fortune-label">运势</p>
             <div class="fortune-card__fortune-name">{{ .name }}</div>
           </div>
-          <div class="fortune-card__stars" aria-label="星级">{{ .stars }}</div>
+          <div class="fortune-card__stars" data-stars="{{ .stars }}" aria-label="星级 {{ .stars }}">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
         </div>
-        <div class="fortune-card__sign">
-          <p class="fortune-card__section-label">签文</p>
-          <p>{{ .sign }}</p>
-        </div>
-        <div class="fortune-card__explanation">
-          <p class="fortune-card__section-label">解签</p>
-          <p>{{ .explanation }}</p>
+        <div class="fortune-card__fortune-body">
+          <div class="fortune-card__fortune-text">
+            <div class="fortune-card__sign">
+              <p class="fortune-card__section-label">签文</p>
+              <p>{{ .sign }}</p>
+            </div>
+            <div class="fortune-card__explanation">
+              <p class="fortune-card__section-label">解签</p>
+              <p>{{ .explanation }}</p>
+            </div>
+          </div>
+          <div class="fortune-card__fortune-emblem" aria-hidden="true"></div>
         </div>
       </section>
-      {{ end }}
-
-      {{ if .repeat_notice }}
-      <section class="fortune-card__notice">{{ .repeat_notice }}</section>
       {{ end }}
 
       <section class="fortune-card__actions">
-        <article>
-          <p class="fortune-card__section-label">今日宜</p>
+        <article class="fortune-card__action-card fortune-card__action-card--good">
+          <p class="fortune-card__section-label"><span aria-hidden="true"></span>今日宜</p>
           <div class="fortune-card__tag-list">
             {{ range .today_good }}<span>{{ . }}</span>{{ end }}
           </div>
+          <div class="fortune-card__action-ornament" aria-hidden="true"></div>
         </article>
-        <article>
-          <p class="fortune-card__section-label">今日忌</p>
+        <article class="fortune-card__action-card fortune-card__action-card--bad">
+          <p class="fortune-card__section-label"><span aria-hidden="true"></span>今日忌</p>
           <div class="fortune-card__tag-list fortune-card__tag-list--muted">
             {{ range .today_bad }}<span>{{ . }}</span>{{ end }}
           </div>
+          <div class="fortune-card__action-ornament" aria-hidden="true"></div>
         </article>
       </section>
 
+      {{ with .streak }}
       <section class="fortune-card__summary">
-        {{ with .streak }}
         <article class="fortune-card__streak">
-          <p class="fortune-card__section-label">连续签到</p>
-          <p>你已经连续查看运势 <strong>{{ .current }}</strong> 天。</p>
-          <p>累计查看运势 <strong>{{ .total }}</strong> 天。</p>
-        </article>
-        {{ end }}
-        {{ if .stats }}
-        <article class="fortune-card__stats">
-          <p class="fortune-card__section-label">运势统计</p>
-          <div class="fortune-card__stats-grid">
-            {{ range .stats }}
-            <div class="fortune-card__stat">
-              <span>{{ .label }}</span>
-              <strong>{{ .value }}</strong>
-            </div>
-            {{ end }}
+          <p class="fortune-card__section-label"><span aria-hidden="true"></span>连续签到</p>
+          <div>
+            <p>你已经连续查看运势 <strong>{{ .current }}</strong> 天。</p>
+            <p>累计查看运势 <strong>{{ .total }}</strong> 天。</p>
           </div>
+          <div class="fortune-card__calendar" aria-hidden="true"></div>
         </article>
-        {{ end }}
       </section>
+      {{ end }}
     </main>
   </body>
 </html>

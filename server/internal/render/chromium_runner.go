@@ -3,7 +3,9 @@ package render
 import (
 	"context"
 	"math"
-	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/chromedp/cdproto/emulation"
@@ -54,14 +56,20 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		doc.Height = 640
 	}
 
-	documentURL := "data:text/html;charset=utf-8," + url.PathEscape(doc.HTML)
+	renderURL, cleanup, err := writeTemporaryRenderDocument(doc.HTML, doc.BaseURL)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
 	var content []byte
 	var measuredHeight float64
 
 	actions := []chromedp.Action{
 		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), 1, false),
-		chromedp.Navigate(documentURL),
+		chromedp.Navigate(renderURL),
 		chromedp.WaitReady("body"),
+		chromedp.Evaluate(waitForLocalImageAssetsExpression, nil),
 	}
 	if doc.AutoHeight {
 		actions = append(actions,
@@ -96,6 +104,24 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	return content, nil
 }
 
+func writeTemporaryRenderDocument(html, baseURL string) (string, func(), error) {
+	dir, err := os.MkdirTemp("", "rayleabot-render-*")
+	if err != nil {
+		return "", nil, err
+	}
+
+	cleanup := func() {
+		_ = os.RemoveAll(dir)
+	}
+
+	documentPath := filepath.Join(dir, "document.html")
+	if err := os.WriteFile(documentPath, []byte(htmlWithBaseURL(html, baseURL)), 0o600); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return fileURL(documentPath), cleanup, nil
+}
+
 const adaptiveDocumentHeightExpression = `(() => {
   const body = document.body;
   if (!body) {
@@ -119,6 +145,77 @@ const adaptiveDocumentHeightExpression = `(() => {
 
   return Math.max(1, Math.ceil(bottom - Math.min(0, top)));
 })()`
+
+const waitForLocalImageAssetsExpression = `(() => {
+  const urls = new Set();
+  const addURL = (value) => {
+    if (!value || value === "none") {
+      return;
+    }
+    for (const match of value.matchAll(/url\((?:"([^"]+)"|'([^']+)'|([^)]+))\)/g)) {
+      const raw = (match[1] || match[2] || match[3] || "").trim();
+      if (!raw) {
+        continue;
+      }
+      const absolute = new URL(raw, document.baseURI).href;
+      if (absolute.startsWith("file:") || absolute.startsWith("data:")) {
+        urls.add(absolute);
+      }
+    }
+  };
+
+  for (const element of document.querySelectorAll("*")) {
+    const style = getComputedStyle(element);
+    addURL(style.backgroundImage);
+    addURL(style.borderImageSource);
+    addURL(style.listStyleImage);
+    addURL(style.maskImage);
+    addURL(style.webkitMaskImage);
+    const before = getComputedStyle(element, "::before");
+    addURL(before.backgroundImage);
+    addURL(before.borderImageSource);
+    addURL(before.listStyleImage);
+    addURL(before.maskImage);
+    addURL(before.webkitMaskImage);
+    const after = getComputedStyle(element, "::after");
+    addURL(after.backgroundImage);
+    addURL(after.borderImageSource);
+    addURL(after.listStyleImage);
+    addURL(after.maskImage);
+    addURL(after.webkitMaskImage);
+  }
+
+  for (const image of document.images) {
+    if ((image.currentSrc || image.src || "").startsWith("file:") || (image.currentSrc || image.src || "").startsWith("data:")) {
+      urls.add(image.currentSrc || image.src);
+    }
+  }
+
+  return Promise.all(Array.from(urls, (url) => new Promise((resolve) => {
+    const image = new Image();
+    image.onload = resolve;
+    image.onerror = resolve;
+    image.src = url;
+    if (image.complete) {
+      resolve();
+    }
+  }))).then(() => true);
+})()`
+
+var headOpenPattern = regexp.MustCompile(`(?i)<head(\s[^>]*)?>`)
+
+func htmlWithBaseURL(html, baseURL string) string {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" || strings.Contains(strings.ToLower(html), "<base ") {
+		return html
+	}
+
+	baseElement := `<base href="` + strings.ReplaceAll(baseURL, `"`, "%22") + `">`
+	if location := headOpenPattern.FindStringIndex(html); location != nil {
+		return html[:location[1]] + baseElement + html[location[1]:]
+	}
+	return baseElement + html
+}
 
 func allocatorFlags(arguments []string) []chromedp.ExecAllocatorOption {
 	flags := make([]chromedp.ExecAllocatorOption, 0, len(arguments))

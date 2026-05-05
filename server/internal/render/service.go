@@ -29,6 +29,7 @@ const (
 	defaultQueueWaitTimeout = 15 * time.Second
 	defaultRenderTimeout    = 20 * time.Second
 	defaultRenderDataLimit  = 1 << 20
+	renderCacheVersion      = "render-cache-v2-file-url-assets"
 )
 
 var artifactIDPattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
@@ -70,6 +71,7 @@ type Document struct {
 	Template   string
 	Theme      string
 	Output     string
+	BaseURL    string
 	Width      int
 	Height     int
 	AutoHeight bool
@@ -294,7 +296,8 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, payloadBytes)
+	resourceDigest := templateResourceDigest(s.templatesRoot, normalized.Template)
+	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, payloadBytes)
 	if cached, ok := s.cachedResult(cacheKey); ok {
 		cached.FromCache = true
 		return cached, nil
@@ -346,6 +349,7 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		Template:   normalized.Template,
 		Theme:      normalized.Theme,
 		Output:     normalized.Output,
+		BaseURL:    templateBaseURL(s.templatesRoot, normalized.Template),
 		Width:      compiled.bundle.manifest.Width,
 		Height:     compiled.bundle.manifest.Height,
 		AutoHeight: true,
@@ -1090,9 +1094,9 @@ func issuesOrEmpty(issues []TemplateValidationIssue) []TemplateValidationIssue {
 	return issues
 }
 
-func buildCacheKey(request Request, version string, sourceDigest string, payloadBytes []byte) string {
+func buildCacheKey(request Request, version string, sourceDigest string, resourceDigest string, payloadBytes []byte) string {
 	sum := sha256.Sum256(payloadBytes)
-	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", request.Template, version, sourceDigest, request.Theme, request.Output, hex.EncodeToString(sum[:12]))
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s", renderCacheVersion, request.Template, version, sourceDigest, resourceDigest, request.Theme, request.Output, hex.EncodeToString(sum[:12]))
 }
 
 func buildArtifactID(cacheKey string) string {
@@ -1123,6 +1127,56 @@ func fileURL(path string) string {
 		Scheme: "file",
 		Path:   filepath.ToSlash(path),
 	}).String()
+}
+
+func templateBaseURL(templatesRoot, templateID string) string {
+	templateDir := filepath.Join(templatesRoot, filepath.Clean(templateID))
+	if !pathWithinRoot(templatesRoot, templateDir) {
+		return ""
+	}
+	path := filepath.ToSlash(templateDir)
+	if !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+	return (&url.URL{
+		Scheme: "file",
+		Path:   path,
+	}).String()
+}
+
+func templateResourceDigest(templatesRoot, templateID string) string {
+	templateDir := filepath.Join(templatesRoot, filepath.Clean(templateID))
+	assetsDir := filepath.Join(templateDir, "assets")
+	if !pathWithinRoot(templatesRoot, templateDir) || !pathWithinRoot(templateDir, assetsDir) {
+		return ""
+	}
+
+	digest := sha256.New()
+	err := filepath.WalkDir(assetsDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		relative, err := filepath.Rel(templateDir, path)
+		if err != nil {
+			return err
+		}
+		digest.Write([]byte(filepath.ToSlash(relative)))
+		digest.Write([]byte{0})
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		digest.Write(content)
+		digest.Write([]byte{0})
+		return nil
+	})
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(digest.Sum(nil))
 }
 
 func pathWithinRoot(root, candidate string) bool {

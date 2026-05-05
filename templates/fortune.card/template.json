@@ -4,6 +4,6 @@
   "entry_html": "template.html",
   "stylesheet": "styles.css",
   "input_schema": "input.schema.json",
-  "width": 960,
-  "height": 560
+  "width": 1124,
+  "height": 1365
 }
