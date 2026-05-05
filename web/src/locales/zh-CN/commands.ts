@@ -1,6 +1,6 @@
 export const commands = {
   title: '指令中心',
-  subtitle: '查看当前生效的命令策略，并核对插件指令。',
+  subtitle: '查看当前生效的命令权限、用法和可用状态。',
   refresh: '刷新列表',
   actions: {
     openPermissionPolicy: '权限策略',
@@ -11,9 +11,7 @@ export const commands = {
   },
   empty: {
     title: '暂无指令',
-    description: '当前没有可用插件指令',
-    effectiveTitle: '暂无生效策略',
-    effectiveDescription: '当前没有参与命令裁决的插件指令。',
+    description: '当前没有可展示的插件指令。',
   },
   fields: {
     command: '命令',
@@ -29,8 +27,7 @@ export const commands = {
     status: '当前状态',
   },
   sections: {
-    effectivePolicies: '生效命令策略',
-    pluginCommands: '插件指令',
+    commandList: '指令列表',
   },
   status: {
     available: '当前可用',

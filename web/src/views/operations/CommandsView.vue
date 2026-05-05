@@ -15,7 +15,7 @@ import {
   readCommandsPluginIds,
 } from '@/lib/management-links'
 import { t } from '@/i18n'
-import { flattenPluginCommands, type PluginCommandAvailability } from '@/lib/plugin-commands'
+import { mergeCommandCenterRows, type PluginCommandAvailability } from '@/lib/plugin-commands'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
@@ -52,20 +52,13 @@ const pluginOptions = computed(() => pluginsWithCommands.value.map((plugin) => (
 
 const commandRows = computed(() => {
   const selectedIds = new Set(selectedPluginIds.value)
-  return flattenPluginCommands(pluginsWithCommands.value)
-    .filter((row) => selectedIds.size === 0 || selectedIds.has(row.plugin.id))
-    .sort((left, right) => compareByLabel(left.command.name, right.command.name) || compareByLabel(left.plugin.id, right.plugin.id))
-})
-
-const governanceCommandRows = computed(() => {
-  const selectedIds = new Set(selectedPluginIds.value)
-  return [...(commandPolicy.value?.commands ?? [])]
-    .filter((row) => selectedIds.size === 0 || selectedIds.has(row.plugin_id))
-    .sort((left, right) => compareByLabel(left.command, right.command) || compareByLabel(left.plugin_id, right.plugin_id))
+  return mergeCommandCenterRows(pluginsWithCommands.value, commandPolicy.value?.commands ?? [])
+    .filter((row) => selectedIds.size === 0 || selectedIds.has(row.pluginId))
+    .sort((left, right) => compareByLabel(left.command.name, right.command.name) || compareByLabel(left.pluginId, right.pluginId))
 })
 
 const pageErrorMessage = computed(() => error.value ?? commandPolicyError.value)
-const showFatalError = computed(() => Boolean(pageErrorMessage.value) && commandRows.value.length === 0 && governanceCommandRows.value.length === 0)
+const showFatalError = computed(() => Boolean(pageErrorMessage.value) && commandRows.value.length === 0)
 
 const commandTableColumns = computed(() => [
   { title: t('commands.fields.command'), key: 'command', dataIndex: 'command', width: 180 },
@@ -76,16 +69,6 @@ const commandTableColumns = computed(() => [
   { title: t('commands.fields.permission'), key: 'permission', dataIndex: 'permission', width: 180 },
   { title: t('commands.fields.plugin'), key: 'plugin', dataIndex: 'plugin', width: 220 },
   { title: t('commands.fields.status'), key: 'status', dataIndex: 'status', width: 120 },
-])
-
-const policyTableColumns = computed(() => [
-  { title: t('commands.fields.command'), key: 'command', dataIndex: 'command', width: 180 },
-  { title: t('commands.fields.aliases'), key: 'aliases', dataIndex: 'aliases', width: 180 },
-  { title: t('commands.fields.source'), key: 'source', dataIndex: 'source', width: 120 },
-  { title: t('commands.fields.declaredPermission'), key: 'declared_permission', dataIndex: 'declared_permission', width: 180 },
-  { title: t('commands.fields.effectivePermission'), key: 'effective_permission', dataIndex: 'effective_permission', width: 180 },
-  { title: t('commands.fields.permissionSource'), key: 'permission_source', dataIndex: 'permission_source', width: 160 },
-  { title: t('commands.fields.plugin'), key: 'plugin', dataIndex: 'plugin', width: 220 },
 ])
 
 function samePluginIds(left: string[], right: string[]) {
@@ -114,6 +97,20 @@ function getAliasesText(command: PluginCommandSummary | { aliases?: string[] }) 
 
 function getPermissionText(command: PluginCommandSummary) {
   return command.permission?.trim() || t('plugins.commandPermissionDefault')
+}
+
+function getEffectivePermissionText(policy: { effective_permission?: CommandPermissionLevel } | null) {
+  if (!policy?.effective_permission) {
+    return t('display.empty')
+  }
+  return getCommandPermissionLabel(policy.effective_permission)
+}
+
+function getDeclaredPermissionText(command: PluginCommandSummary, policy: { declared_permission?: CommandPermissionLevel | null } | null) {
+  if (policy) {
+    return getCommandPermissionLabel(policy.declared_permission)
+  }
+  return getPermissionText(command)
 }
 
 function getUsageText(command: PluginCommandSummary) {
@@ -257,82 +254,14 @@ onMounted(() => {
         class="section-gap"
       />
 
-      <a-card
-        :bordered="false"
-        class="app-view-card commands-section-card"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 50 } } }"
-      >
-        <template #title>
-          <div class="card-header">
-            <span>{{ t('commands.sections.effectivePolicies') }}</span>
-            <a-tag color="blue">{{ governanceCommandRows.length }}</a-tag>
-          </div>
-        </template>
-
-        <a-alert
-          v-if="commandPolicyError && governanceCommandRows.length > 0"
-          :message="t('errors.common.loadFailed')"
-          type="warning"
-          :description="commandPolicyError"
-          show-icon
-          class="section-gap"
-        />
-
-        <a-table
-          class="commands-data-table app-data-table"
-          :columns="policyTableColumns"
-          :data-source="governanceCommandRows"
-          :pagination="false"
-          :row-key="(row) => `${row.plugin_id}-${row.command}`"
-          :loading="commandPolicyLoading && !commandPolicy"
-          :scroll="{ x: 1100 }"
-        >
-          <template #emptyText>
-            <AppEmptyState
-              icon="command"
-              :title="t('commands.empty.effectiveTitle')"
-              :description="t('commands.empty.effectiveDescription')"
-            />
-          </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'command'">
-              <a-tag color="blue" :aria-label="`指令：${record.command}`">{{ record.command }}</a-tag>
-            </template>
-
-            <template v-else-if="column.key === 'aliases'">
-              <span>{{ getAliasesText(record) }}</span>
-            </template>
-
-            <template v-else-if="column.key === 'source'">
-              <a-tag :color="getCommandSourceColor(record.command_source)">
-                {{ getCommandSourceLabel(record.command_source) }}
-              </a-tag>
-            </template>
-
-            <template v-else-if="column.key === 'declared_permission'">
-              <span>{{ getCommandPermissionLabel(record.declared_permission) }}</span>
-            </template>
-
-            <template v-else-if="column.key === 'effective_permission'">
-              <span>{{ getCommandPermissionLabel(record.effective_permission) }}</span>
-            </template>
-
-            <template v-else-if="column.key === 'permission_source'">
-              <span>{{ getPermissionSourceLabel(record.permission_source) }}</span>
-            </template>
-
-            <template v-else-if="column.key === 'plugin'">
-              <div class="command-plugin-cell">
-                <RouterLink class="command-plugin-link" :to="buildPluginDetailLocation(record.plugin_id)">
-                  {{ record.plugin_name }}
-                </RouterLink>
-                <small>{{ record.plugin_id }}</small>
-              </div>
-            </template>
-          </template>
-        </a-table>
-      </a-card>
+      <a-alert
+        v-if="commandPolicyError && commandRows.length > 0"
+        :message="t('errors.common.loadFailed')"
+        type="warning"
+        :description="commandPolicyError"
+        show-icon
+        class="section-gap"
+      />
 
       <a-card
         :bordered="false"
@@ -341,7 +270,7 @@ onMounted(() => {
       >
         <template #title>
           <div class="card-header">
-            <span>{{ t('commands.sections.pluginCommands') }}</span>
+            <span>{{ t('commands.sections.commandList') }}</span>
             <a-tag color="blue">{{ commandRows.length }}</a-tag>
           </div>
         </template>
@@ -351,8 +280,9 @@ onMounted(() => {
           :columns="commandTableColumns"
           :data-source="commandRows"
           :pagination="false"
-          :row-key="(row) => `${row.plugin.id}-${row.command.name}`"
-          :scroll="{ x: 1180 }"
+          :row-key="(row) => row.key"
+          :loading="(loading || commandPolicyLoading) && commandRows.length === 0"
+          :scroll="{ x: 1260 }"
         >
           <template #emptyText>
             <AppEmptyState
@@ -388,15 +318,23 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'permission'">
-              <span>{{ getPermissionText(record.command) }}</span>
+              <div class="command-permission-cell">
+                <span>{{ getEffectivePermissionText(record.policy) }}</span>
+                <small>
+                  {{ t('commands.fields.declaredPermission') }}：{{ getDeclaredPermissionText(record.command, record.policy) }}
+                </small>
+                <small v-if="record.policy">
+                  {{ t('commands.fields.permissionSource') }}：{{ getPermissionSourceLabel(record.policy.permission_source) }}
+                </small>
+              </div>
             </template>
 
             <template v-else-if="column.key === 'plugin'">
               <div class="command-plugin-cell">
-                <RouterLink class="command-plugin-link" :to="buildPluginDetailLocation(record.plugin.id)">
-                  {{ record.plugin.name }}
+                <RouterLink class="command-plugin-link" :to="buildPluginDetailLocation(record.pluginId)">
+                  {{ record.pluginName }}
                 </RouterLink>
-                <small>{{ record.plugin.id }}</small>
+                <small>{{ record.pluginId }}</small>
               </div>
             </template>
 
@@ -452,13 +390,23 @@ onMounted(() => {
   gap: 4px;
 }
 
+.command-permission-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .command-plugin-link {
   color: var(--accent);
   font-weight: 600;
 }
 
-.command-plugin-cell small {
+.command-plugin-cell small,
+.command-permission-cell small {
   color: var(--muted);
+}
+
+.command-plugin-cell small {
   font-family: var(--font-mono);
 }
 

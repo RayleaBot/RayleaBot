@@ -102,7 +102,7 @@ describe('CommandsPage', () => {
     document.body.innerHTML = ''
   })
 
-  it('renders filtered command tables and keeps policy actions out of the page body', async () => {
+  it('renders a filtered command list with command and policy details', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -202,10 +202,13 @@ describe('CommandsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('指令中心')
-    expect(wrapper.text()).toContain('生效命令策略')
-    expect(wrapper.text()).toContain('插件指令')
+    expect(wrapper.text()).toContain('指令列表')
+    expect(wrapper.text()).not.toContain('生效命令策略')
+    expect(wrapper.text()).not.toContain('插件指令')
     expect(wrapper.text()).toContain('动态指令')
     expect(wrapper.text()).toContain('所有成员')
+    expect(wrapper.text()).toContain('声明权限：所有成员')
+    expect(wrapper.text()).toContain('权限来源：命令声明')
     expect(wrapper.text()).toContain('我的运势')
     expect(wrapper.text()).toContain('今日运势')
     expect(wrapper.text()).toContain('!我的运势')
@@ -223,6 +226,7 @@ describe('CommandsPage', () => {
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=help')
     expect(wrapper.text()).toContain('help')
     expect(wrapper.text()).toContain('查看帮助')
+    expect(wrapper.text()).toContain('权限来源：默认权限')
     expect(wrapper.text()).not.toContain('查看今日运势')
 
     const pluginLink = wrapper.find('.command-plugin-link')
@@ -233,7 +237,7 @@ describe('CommandsPage', () => {
     expect(router.currentRoute.value.name).toBe('permission-policy')
   }, 15000)
 
-  it('shows command empty states without policy panels', async () => {
+  it('shows a single command empty state', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -273,10 +277,71 @@ describe('CommandsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('暂无生效策略')
+    expect(wrapper.text()).toContain('指令列表')
     expect(wrapper.text()).toContain('暂无指令')
+    expect(wrapper.text()).toContain('当前没有可展示的插件指令。')
+    expect(wrapper.text()).not.toContain('暂无生效策略')
     expect(wrapper.text()).not.toContain('治理摘要')
     expect(wrapper.text()).not.toContain('白名单')
     expect(wrapper.text()).not.toContain('黑名单')
+  }, 15000)
+
+  it('shows policy-only commands when plugin rows are unavailable', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/commands', name: 'commands', component: CommandsPage },
+        { path: '/permission-policy', name: 'permission-policy', component: { template: '<div>permission policy</div>' } },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
+      ],
+    })
+    await router.push('/commands')
+    await router.isReady()
+
+    const store = usePluginsStore()
+    const configStore = useConfigStore()
+    const governanceStore = useGovernanceStore()
+
+    store.items = []
+    configStore.document = createFixtureConfig(['#'])
+    governanceStore.commandPolicy = {
+      default_level: 'everyone',
+      cooldown: {
+        user_command_rate_limit: '10/60s',
+        group_command_rate_limit: '30/60s',
+        cooldown_reply: true,
+      },
+      commands: [
+        {
+          plugin_id: 'raylea.help',
+          plugin_name: 'Help',
+          command: 'help',
+          aliases: ['commands'],
+          command_source: 'manifest',
+          declaration_id: undefined,
+          declared_permission: null,
+          effective_permission: 'everyone',
+          permission_source: 'default_level',
+        },
+      ],
+    }
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue(governanceStore.commandPolicy)
+
+    const wrapper = mount(CommandsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('help')
+    expect(wrapper.text()).toContain('commands')
+    expect(wrapper.text()).toContain('所有成员')
+    expect(wrapper.text()).toContain('未就绪')
+    expect(wrapper.find('.command-plugin-link').attributes('href')).toBe('/plugins/raylea.help')
   }, 15000)
 })
