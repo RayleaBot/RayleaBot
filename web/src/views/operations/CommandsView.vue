@@ -161,8 +161,8 @@ function getCommandSourceColor(source: PluginCommandSource) {
   return source === 'dynamic' ? 'purple' : 'default'
 }
 
-function getSelectPopupContainer(triggerNode: HTMLElement) {
-  return triggerNode.parentElement ?? triggerNode
+function getSelectPopupContainer() {
+  return document.body
 }
 
 watch(
@@ -228,6 +228,7 @@ onMounted(() => {
               mode="multiple"
               allow-clear
               :get-popup-container="getSelectPopupContainer"
+              popup-class-name="commands-plugin-select-popup"
               :options="pluginOptions"
               :placeholder="t('commands.filters.allPlugins')"
             />
@@ -360,6 +361,10 @@ onMounted(() => {
 .commands-filter-toolbar,
 .commands-section-card {
   box-shadow: var(--shadow-xs);
+}
+
+:global(.commands-plugin-select-popup) {
+  z-index: 1060;
 }
 
 :deep(.ant-table-row:hover > td) {
