@@ -16,6 +16,7 @@ function jsonResponse(body: unknown) {
 describe('router guards', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    window.localStorage.clear()
     window.sessionStorage.clear()
   })
 
@@ -67,7 +68,7 @@ describe('router guards', () => {
 
   it('registers Vben fallback routes and redirects unmatched paths to 404', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
-    window.sessionStorage.setItem('rayleabot.session_token', 'fixture-session-token')
+    window.localStorage.setItem('rayleabot.session_token', 'fixture-session-token')
     const router = createAppRouter(createMemoryHistory())
 
     await router.push('/missing-page')
@@ -75,6 +76,17 @@ describe('router guards', () => {
 
     expect(router.currentRoute.value.name).toBe('not-found')
     expect(router.currentRoute.value.path).toBe('/missing-page')
+  })
+
+  it('keeps protected routes open when a persisted session token exists', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
+    window.localStorage.setItem('rayleabot.session_token', 'fixture-session-token')
+    const router = createAppRouter(createMemoryHistory())
+
+    await router.push('/plugins')
+    await router.isReady()
+
+    expect(router.currentRoute.value.name).toBe('plugins')
   })
 
   it('lets offline state own protected navigation', async () => {

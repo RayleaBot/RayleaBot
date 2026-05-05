@@ -40,6 +40,13 @@ function readRouteRedirectTarget(value: unknown) {
   return candidate
 }
 
+function shouldNormalizeStartupRoute(routeName: unknown) {
+  return routeName !== 'status'
+    && routeName !== 'login'
+    && routeName !== 'setup'
+    && routeName !== 'offline'
+}
+
 async function syncRouteWithSession(
   router: ReturnType<typeof createAppRouter>,
   sessionStore: ReturnType<typeof useSessionStore>,
@@ -82,6 +89,7 @@ function installAvailabilityHandlers(
   sessionStore: ReturnType<typeof useSessionStore>,
   socketStore: ReturnType<typeof useSocketStore>,
   availabilityStore: ReturnType<typeof useAppAvailabilityStore>,
+  uiShellStore: ReturnType<typeof useUiShellStore>,
 ) {
   let websocketOfflineTimer: number | null = null
   let backendAvailabilityTimer: number | null = null
@@ -103,6 +111,7 @@ function installAvailabilityHandlers(
 
   function openOfflinePage(source: 'browser' | 'http' | 'websocket') {
     const current = router.currentRoute.value
+    uiShellStore.resetRestoredTabs()
     availabilityStore.markOffline(source, current.name === 'offline' ? availabilityStore.returnPath : current.fullPath)
     clearBackendAvailabilityTimer()
 
@@ -239,19 +248,23 @@ async function bootstrap() {
   const sessionStore = useSessionStore(pinia)
   const socketStore = useSocketStore(pinia)
   const availabilityStore = useAppAvailabilityStore(pinia)
-  useUiShellStore(pinia)
+  const uiShellStore = useUiShellStore(pinia)
 
   configureApiRuntime({
     getToken: () => sessionStore.token,
-    onNetworkUnavailable: () => availabilityStore.markOffline('http', currentBrowserPath()),
+    onNetworkUnavailable: () => {
+      uiShellStore.resetRestoredTabs()
+      availabilityStore.markOffline('http', currentBrowserPath())
+    },
     onReachable: () => availabilityStore.markOnline(),
     onUnauthorized: (tokenSnapshot) => sessionStore.handleSessionExpired(tokenSnapshot),
   })
 
   await sessionStore.bootstrap().catch(() => undefined)
+  uiShellStore.resetRestoredTabs()
 
   const router = createAppRouter()
-  installAvailabilityHandlers(router, sessionStore, socketStore, availabilityStore)
+  installAvailabilityHandlers(router, sessionStore, socketStore, availabilityStore, uiShellStore)
   app.use(router)
 
   await router.isReady()
@@ -259,6 +272,13 @@ async function bootstrap() {
     await router.replace({ name: 'offline' })
   }
   await syncRouteWithSession(router, sessionStore, socketStore)
+  if (
+    sessionStore.isAuthenticated
+    && !availabilityStore.isOffline
+    && shouldNormalizeStartupRoute(router.currentRoute.value.name)
+  ) {
+    await router.replace({ name: 'status' })
+  }
 
   watch(
     () => [sessionStore.isBootstrapped, sessionStore.isAuthenticated, sessionStore.requiresSetup] as const,

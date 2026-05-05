@@ -311,6 +311,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           exceptionStatus: 'offline',
           hideInMenu: true,
           icon: 'offline',
+          hideInTab: true,
           public: true,
           requiresAuth: false,
           titleKey: 'routes.offline',

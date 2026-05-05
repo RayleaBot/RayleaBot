@@ -139,4 +139,78 @@ describe('ui-shell store', () => {
       }),
     ])
   })
+
+  it('resets restored tabs and keeps only affix tabs in storage', () => {
+    const store = useUiShellStore()
+
+    store.syncTabs([
+      {
+        affix: true,
+        fullPath: '/',
+        icon: 'dashboard',
+        name: 'status',
+        path: '/',
+        title: '系统状态',
+      },
+    ])
+    store.upsertTab({
+      fullPath: '/plugins',
+      icon: 'appstore',
+      keepAlive: true,
+      name: 'plugins',
+      path: '/plugins',
+      title: '插件列表',
+    })
+    store.upsertTab({
+      fullPath: '/commands',
+      icon: 'commands',
+      keepAlive: true,
+      name: 'commands',
+      path: '/commands',
+      title: '指令中心',
+    })
+
+    store.resetRestoredTabs()
+
+    expect(store.tabs).toEqual([
+      expect.objectContaining({
+        affix: true,
+        path: '/',
+        title: '系统状态',
+      }),
+    ])
+    const persisted = JSON.parse(window.localStorage.getItem('rayleabot.ui-shell') ?? '{}')
+    expect(persisted.tabs).toEqual([
+      expect.objectContaining({
+        affix: true,
+        path: '/',
+        title: '系统状态',
+      }),
+    ])
+  })
+
+  it('resets restored tabs to empty storage before affix tabs are synced', () => {
+    window.localStorage.setItem('rayleabot.ui-shell', JSON.stringify({
+      version: 2,
+      preferences: { rememberTabs: true },
+      tabs: [
+        {
+          fullPath: '/commands',
+          keepAlive: true,
+          name: 'commands',
+          path: '/commands',
+          title: '指令中心',
+        },
+      ],
+    }))
+
+    setActivePinia(createPinia())
+    const store = useUiShellStore()
+
+    store.resetRestoredTabs()
+
+    expect(store.tabs).toEqual([])
+    const persisted = JSON.parse(window.localStorage.getItem('rayleabot.ui-shell') ?? '{}')
+    expect(persisted.tabs).toEqual([])
+  })
 })

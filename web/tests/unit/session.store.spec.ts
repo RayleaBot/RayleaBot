@@ -13,6 +13,7 @@ function jsonResponse(body: unknown) {
 describe('session store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    window.localStorage.clear()
     window.sessionStorage.clear()
   })
 
@@ -57,7 +58,39 @@ describe('session store', () => {
     await store.login({ identifier: 'admin', secret: 'fixture-only-secret' })
 
     expect(store.token).toBe('fixture-token')
-    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('fixture-token')
+    expect(window.localStorage.getItem('rayleabot.session_token')).toBe('fixture-token')
+    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBeNull()
+  })
+
+  it('restores token from local storage', () => {
+    window.localStorage.setItem('rayleabot.session_token', 'persisted-token')
+
+    const store = useSessionStore()
+
+    expect(store.token).toBe('persisted-token')
+    expect(store.isAuthenticated).toBe(true)
+  })
+
+  it('migrates legacy session storage token to local storage', () => {
+    window.sessionStorage.setItem('rayleabot.session_token', 'legacy-token')
+
+    const store = useSessionStore()
+
+    expect(store.token).toBe('legacy-token')
+    expect(window.localStorage.getItem('rayleabot.session_token')).toBe('legacy-token')
+    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBeNull()
+  })
+
+  it('clears persisted and legacy token storage on session expiration', () => {
+    const store = useSessionStore()
+
+    store.setToken('fresh-token')
+    window.sessionStorage.setItem('rayleabot.session_token', 'legacy-token')
+    store.handleSessionExpired('fresh-token')
+
+    expect(store.token).toBeNull()
+    expect(window.localStorage.getItem('rayleabot.session_token')).toBeNull()
+    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBeNull()
   })
 
   it('ignores session expiration for an older token', () => {
@@ -67,6 +100,6 @@ describe('session store', () => {
     store.handleSessionExpired('stale-token')
 
     expect(store.token).toBe('fresh-token')
-    expect(window.sessionStorage.getItem('rayleabot.session_token')).toBe('fresh-token')
+    expect(window.localStorage.getItem('rayleabot.session_token')).toBe('fresh-token')
   })
 })

@@ -118,7 +118,9 @@ describe('web bootstrap', () => {
       markOnline: vi.fn(),
     })
 
-    useUiShellStore.mockReturnValue({})
+    useUiShellStore.mockReturnValue({
+      resetRestoredTabs: vi.fn(),
+    })
   })
 
   afterEach(() => {
@@ -148,10 +150,119 @@ describe('web bootstrap', () => {
 
     const startupRuntime = configureApiRuntime.mock.calls[0]?.[0]
     const availabilityStore = appAvailabilityStoreFactory.mock.results[0]?.value
+    const uiShellStore = useUiShellStore.mock.results[0]?.value
 
     startupRuntime.onNetworkUnavailable()
 
+    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
     expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins/settings?panel=limits#rate')
+  })
+
+  it('returns authenticated restored workspace routes to the affix home page', async () => {
+    const router = {
+      currentRoute: {
+        value: {
+          fullPath: '/commands',
+          name: 'commands',
+          meta: { requiresAuth: true },
+        },
+      },
+      isReady: vi.fn().mockResolvedValue(undefined),
+      push: vi.fn(),
+      replace: vi.fn(),
+    }
+    const sessionStore = {
+      token: 'fixture-token',
+      isAuthenticated: true,
+      isBootstrapped: true,
+      requiresSetup: false,
+      setupInitialized: true,
+      bootstrap: vi.fn().mockResolvedValue(undefined),
+      clearSession: vi.fn(),
+      handleSessionExpired: vi.fn(),
+    }
+
+    createAppRouter.mockReturnValue(router)
+    sessionStoreFactory.mockReturnValue(sessionStore)
+    watch.mockImplementation((source, callback, options) => {
+      if (options?.immediate) {
+        callback(source(), undefined)
+      }
+    })
+    window.history.replaceState({}, '', '/commands')
+
+    await import('@/main')
+    await flushBootstrap()
+
+    const uiShellStore = useUiShellStore.mock.results[0]?.value
+    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
+    expect(router.replace).toHaveBeenCalledWith({ name: 'status' })
+  })
+
+  it('keeps authenticated startup exception routes in place', async () => {
+    for (const routeName of ['status', 'offline']) {
+      vi.resetModules()
+      vi.clearAllMocks()
+      createPinia.mockReturnValue({})
+      createApp.mockReturnValue({
+        use: vi.fn().mockReturnThis(),
+        mount: vi.fn(),
+      })
+      useUiShellStore.mockReturnValue({
+        resetRestoredTabs: vi.fn(),
+      })
+
+      const router = {
+        currentRoute: {
+          value: {
+            fullPath: routeName === 'status' ? '/' : '/offline',
+            name: routeName,
+            meta: { requiresAuth: routeName === 'status' },
+          },
+        },
+        isReady: vi.fn().mockResolvedValue(undefined),
+        push: vi.fn(),
+        replace: vi.fn(),
+      }
+      const sessionStore = {
+        token: 'fixture-token',
+        isAuthenticated: true,
+        isBootstrapped: true,
+        requiresSetup: false,
+        setupInitialized: true,
+        bootstrap: vi.fn().mockResolvedValue(undefined),
+        clearSession: vi.fn(),
+        handleSessionExpired: vi.fn(),
+      }
+
+      createAppRouter.mockReturnValue(router)
+      sessionStoreFactory.mockReturnValue(sessionStore)
+      socketStoreFactory.mockReturnValue({
+        ensureManagementSockets: vi.fn(),
+        disconnectAll: vi.fn(),
+        snapshots: {
+          events: { status: 'authenticated' },
+          tasks: { status: 'authenticated' },
+          logs: { status: 'authenticated' },
+        },
+      })
+      appAvailabilityStoreFactory.mockReturnValue({
+        isOffline: routeName === 'offline',
+        returnPath: null,
+        markOffline: vi.fn(),
+        markOnline: vi.fn(),
+      })
+      watch.mockImplementation((source, callback, options) => {
+        if (options?.immediate) {
+          callback(source(), undefined)
+        }
+      })
+
+      await import('@/main')
+      await flushBootstrap()
+
+      expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
+    }
   })
 
   it('redirects protected startup routes to login with a return target', async () => {
@@ -265,6 +376,8 @@ describe('web bootstrap', () => {
     expect(router.replace).not.toHaveBeenCalledWith({ name: 'offline' })
 
     await vi.advanceTimersByTimeAsync(1)
+    const uiShellStore = useUiShellStore.mock.results[0]?.value
+    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
     expect(availabilityStore.markOffline).toHaveBeenCalledWith('websocket', '/commands')
     expect(router.replace).toHaveBeenCalledWith({ name: 'offline' })
   })
@@ -327,6 +440,8 @@ describe('web bootstrap', () => {
     expect(router.replace).not.toHaveBeenCalledWith({ name: 'offline' })
 
     await vi.advanceTimersByTimeAsync(1)
+    const uiShellStore = useUiShellStore.mock.results[0]?.value
+    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
     expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins')
     expect(router.replace).toHaveBeenCalledWith({ name: 'offline' })
   })

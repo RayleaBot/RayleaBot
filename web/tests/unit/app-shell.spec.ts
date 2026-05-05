@@ -156,6 +156,12 @@ describe('BasicLayout', () => {
                 },
               ],
             },
+            {
+              path: '/offline',
+              name: 'offline',
+              component: { template: '<div>离线页</div>' },
+              meta: { hideInMenu: true, hideInTab: true, title: '离线' },
+            },
           ],
         },
       ],
@@ -566,6 +572,25 @@ describe('BasicLayout', () => {
     await openTabContextMenu('系统状态')
 
     expect(isMenuItemDisabled(getContextMenuItem('关闭当前标签'))).toBe(true)
+  })
+
+  it('does not create a tab for the offline page', async () => {
+    const { router, uiShellStore } = await mountShell('/')
+
+    await router.push('/commands')
+    await flushPromises()
+    uiShellStore.resetRestoredTabs()
+    await router.push('/offline')
+    await flushPromises()
+
+    expect(getTabLabels()).toEqual(['系统状态'])
+    expect(uiShellStore.tabs).toEqual([
+      expect.objectContaining({
+        affix: true,
+        path: '/',
+        title: '系统状态',
+      }),
+    ])
   })
 
   it('creates a closable detail tab for plugin pages', async () => {

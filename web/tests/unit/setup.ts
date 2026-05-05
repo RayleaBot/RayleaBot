@@ -46,6 +46,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  window.localStorage.clear()
   window.sessionStorage.clear()
   vi.restoreAllMocks()
 })
