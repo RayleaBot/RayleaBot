@@ -13,8 +13,8 @@ spec.loader.exec_module(fortune)
 
 
 class FortuneLogicTests(unittest.TestCase):
-    def test_default_yaml_loads_and_validates_star_rules(self):
-        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.yaml")
+    def test_default_json_loads_and_validates_star_rules(self):
+        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
 
         self.assertEqual(settings["trigger_commands"], ["我的运势"])
         by_name = {item["name"]: item["stars"] for item in settings["fortunes"]}
@@ -47,7 +47,7 @@ class FortuneLogicTests(unittest.TestCase):
             self.assertEqual(fortune.local_date_for_timezone(now, "+08:00"), date(2026, 5, 5))
 
     def test_special_date_exact_key_precedes_yearly_key(self):
-        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.yaml")
+        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
         settings["special_dates"] = [
             {"date": "05-04", "fortune_name": "吉凶未定"},
             {"date": "2026-05-04", "fortune_name": "大吉"},
@@ -59,7 +59,7 @@ class FortuneLogicTests(unittest.TestCase):
         self.assertEqual(result["name"], "大吉")
 
     def test_daily_record_is_stable_for_same_user_and_day(self):
-        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.yaml")
+        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
 
         first = fortune.build_daily_record(settings, "10001", date(2026, 5, 4))
         second = fortune.build_daily_record(settings, "10001", date(2026, 5, 4))
@@ -94,7 +94,7 @@ class FortuneLogicTests(unittest.TestCase):
         self.assertEqual(stats["counts"]["大凶"], 2)
 
     def test_merge_settings_restores_default_values(self):
-        defaults = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.yaml")
+        defaults = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
 
         merged = fortune.merge_settings(defaults, {
             "trigger_commands": ["今日运势"],

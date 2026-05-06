@@ -18,7 +18,7 @@ from rayleabot import RayleaBotPlugin, event_handler
 
 
 PLUGIN_DIR = os.path.dirname(__file__)
-DEFAULT_YAML_PATH = os.path.join(PLUGIN_DIR, "fortunes.yaml")
+DEFAULT_SETTINGS_PATH = os.path.join(PLUGIN_DIR, "fortunes.json")
 DEFAULT_TIMEZONE = "Asia/Shanghai"
 DEFAULT_TRIGGER_COMMANDS = ["我的运势"]
 FORTUNE_ORDER = ["大吉", "吉", "中吉", "小吉", "末吉", "凶", "大凶"]
@@ -54,76 +54,10 @@ class SettingsValidationError(ValueError):
     pass
 
 
-def load_default_settings(path=DEFAULT_YAML_PATH):
+def load_default_settings(path=DEFAULT_SETTINGS_PATH):
     with open(path, "r", encoding="utf-8") as handle:
-        document = parse_simple_yaml(handle.read())
+        document = json.load(handle)
     return validate_settings(document, require_usable=True)
-
-
-def parse_simple_yaml(text):
-    document = {}
-    current_key = None
-    current_item = None
-
-    for raw_line in text.splitlines():
-        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
-            continue
-
-        indent = len(raw_line) - len(raw_line.lstrip(" "))
-        line = raw_line.strip()
-        if indent == 0:
-            key, value, has_value = split_yaml_key_value(line)
-            current_key = key
-            current_item = None
-            if has_value:
-                document[key] = parse_yaml_scalar(value)
-                current_key = None
-            else:
-                document[key] = []
-            continue
-
-        if current_key is None:
-            raise SettingsValidationError(f"YAML 行缺少所属字段：{line}")
-
-        if indent == 2 and line.startswith("- "):
-            item_text = line[2:].strip()
-            if ":" in item_text:
-                key, value, has_value = split_yaml_key_value(item_text)
-                current_item = {key: parse_yaml_scalar(value) if has_value else ""}
-                document[current_key].append(current_item)
-            else:
-                current_item = None
-                document[current_key].append(parse_yaml_scalar(item_text))
-            continue
-
-        if indent >= 4 and current_item is not None:
-            key, value, has_value = split_yaml_key_value(line)
-            current_item[key] = parse_yaml_scalar(value) if has_value else ""
-            continue
-
-        raise SettingsValidationError(f"YAML 行格式不支持：{line}")
-
-    return document
-
-
-def split_yaml_key_value(line):
-    if ":" not in line:
-        raise SettingsValidationError(f"YAML 字段缺少冒号：{line}")
-    key, value = line.split(":", 1)
-    key = key.strip()
-    if not key:
-        raise SettingsValidationError(f"YAML 字段名为空：{line}")
-    value = value.strip()
-    return key, value, value != ""
-
-
-def parse_yaml_scalar(value):
-    value = value.strip()
-    if value == "[]":
-        return []
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-        return value[1:-1]
-    return value
 
 
 def validate_settings(raw_settings, require_usable=False):
