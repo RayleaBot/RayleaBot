@@ -1,17 +1,19 @@
 @import url("assets/fonts/lxgwwenkai-medium/result.css");
 
 :root {
-  --color-bg: #fbf3e6;
-  --color-paper: rgba(255, 253, 248, 0.93);
-  --color-ink: #23170f;
-  --color-muted: #725a45;
-  --color-gold: #c57b02;
-  --color-gold-deep: #6b3904;
-  --color-line: #e3a94c;
+  --color-bg: #fff8ec;
+  --color-paper: rgba(255, 254, 248, 0.94);
+  --color-ink: #1d130b;
+  --color-muted: #674e39;
+  --color-gold: #cf8200;
+  --color-gold-deep: #5a2d05;
+  --color-line: #e99f27;
   --color-red: #d94b4b;
-  --shadow-card: 0 15px 27px rgba(135, 81, 10, 0.12), 0 2px 8px rgba(130, 82, 20, 0.08);
-  --font-sans: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-  --font-display: "LXGW WenKai Medium", "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif;
+  --shadow-card: 0 18px 34px rgba(126, 76, 12, 0.14), 0 3px 9px rgba(126, 76, 12, 0.08);
+  --shadow-glow: 0 0 0 1px rgba(255, 235, 181, 0.84) inset, 0 18px 38px rgba(182, 112, 10, 0.12);
+  --font-sans: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-serif: "STSong", "SimSun", "Songti SC", "Noto Serif SC", serif;
+  --font-calligraphy: "STXingkai", "FZYaoti", "STKaiti", "KaiTi", "LXGW WenKai Medium", serif;
   --asset-landscape: url("assets/effect-landscape-header.png");
   --asset-ribbon: url("assets/fortune-ribbon.png");
   --asset-emblem: url("assets/effect-windchime-bamboo-moon.png");
@@ -54,12 +56,14 @@ body {
 .fortune-card {
   position: relative;
   width: 1124px;
-  min-height: 1365px;
+  min-height: 0;
   overflow: hidden;
-  padding: 42px 52px 34px;
+  padding: 40px 52px 44px;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.9) 0 18%, rgba(255, 248, 232, 0.32) 45%, rgba(255, 244, 210, 0.2)),
-    linear-gradient(180deg, #fff9ee 0%, #fffdf8 31%, #fbf2e2 100%);
+    radial-gradient(circle at 64% 9%, rgba(255, 189, 44, 0.18) 0 8%, transparent 17%),
+    radial-gradient(circle at 12% 18%, rgba(255, 229, 165, 0.46) 0 10%, transparent 24%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.92) 0 20%, rgba(255, 248, 232, 0.44) 47%, rgba(255, 244, 210, 0.25)),
+    linear-gradient(180deg, #fffaf0 0%, #fffdf8 31%, #fbf0de 100%);
 }
 
 .fortune-card::before {
@@ -69,7 +73,7 @@ body {
   top: -22px;
   width: 470px;
   height: 255px;
-  opacity: 0.44;
+  opacity: 0.5;
   pointer-events: none;
   background: var(--asset-cloud-sheet) 55% 43% / 640px auto no-repeat;
 }
@@ -77,11 +81,11 @@ body {
 .fortune-card::after {
   content: "";
   position: absolute;
-  right: -130px;
-  top: -10px;
-  width: 420px;
-  height: 160px;
-  opacity: 0.42;
+  right: -115px;
+  top: -6px;
+  width: 500px;
+  height: 190px;
+  opacity: 0.5;
   pointer-events: none;
   background: var(--asset-cloud-sheet) 8% 7% / 560px auto no-repeat;
 }
@@ -95,26 +99,26 @@ body {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: 238px;
-  margin-bottom: 10px;
+  min-height: 236px;
+  margin-bottom: 14px;
 }
 
 .fortune-card__title-group {
   position: relative;
   z-index: 4;
-  padding-top: 21px;
-  padding-left: 36px;
+  padding-top: 18px;
+  padding-left: 38px;
 }
 
 h1 {
   margin: 0;
-  color: #4c2608;
-  font-family: var(--font-display);
-  font-size: 72px;
-  font-weight: 800;
-  line-height: 0.96;
+  color: #3e1d05;
+  font-family: var(--font-calligraphy);
+  font-size: 88px;
+  font-weight: 700;
+  line-height: 0.94;
   letter-spacing: 0;
-  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+  text-shadow: 0 3px 0 rgba(255, 255, 255, 0.82), 0 16px 24px rgba(118, 61, 6, 0.12);
 }
 
 .fortune-card__subtitle {
@@ -122,17 +126,24 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 28px 0 0 3px;
-  color: #6a5542;
-  font-size: 20px;
-  font-weight: 800;
+  width: max-content;
+  min-height: 38px;
+  margin: 24px 0 0 0;
+  padding: 3px 18px 3px 6px;
+  border-radius: 999px;
+  background: rgba(255, 248, 229, 0.72);
+  color: #5f4733;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
   line-height: 1.32;
+  box-shadow: inset 0 -10px 18px rgba(226, 155, 40, 0.08);
   overflow-wrap: anywhere;
 }
 
 .fortune-card__subtitle span {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
   background: var(--asset-calendar-icon) center / contain no-repeat;
 }
@@ -140,33 +151,34 @@ h1 {
 .fortune-card__landscape {
   position: absolute;
   z-index: 2;
-  right: -30px;
-  top: 8px;
-  width: 760px;
-  height: 255px;
+  right: -16px;
+  top: 22px;
+  width: 790px;
+  height: 266px;
   opacity: 0.98;
   background: var(--asset-landscape) center / contain no-repeat;
+  filter: drop-shadow(0 16px 22px rgba(155, 100, 25, 0.08));
 }
 
 .fortune-card__header-clouds {
   position: absolute;
   z-index: 3;
-  right: 300px;
-  top: 60px;
-  width: 320px;
-  height: 90px;
-  opacity: 0.46;
+  right: 294px;
+  top: 42px;
+  width: 360px;
+  height: 102px;
+  opacity: 0.52;
   background: var(--asset-header-sheet) 0 80% / 580px auto no-repeat;
 }
 
 .fortune-card__header-birds {
   position: absolute;
   z-index: 3;
-  right: 180px;
-  top: 48px;
-  width: 300px;
+  right: 200px;
+  top: 38px;
+  width: 330px;
   height: 95px;
-  opacity: 0.82;
+  opacity: 0.86;
   background: var(--asset-bird-sheet) 49% 55% / 330px auto no-repeat;
 }
 
@@ -175,30 +187,32 @@ h1 {
 .fortune-card__fortune,
 .fortune-card__action-card,
 .fortune-card__streak {
-  border: 1px solid rgba(226, 164, 72, 0.88);
-  border-radius: 24px;
-  background: var(--color-paper);
-  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(232, 153, 30, 0.86);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 252, 0.97), rgba(255, 252, 243, 0.92)),
+    var(--color-paper);
+  box-shadow: var(--shadow-card), var(--shadow-glow);
 }
 
 .fortune-card__identity {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 136px;
+  min-height: 154px;
   margin-bottom: 16px;
   overflow: hidden;
-  padding: 18px 42px;
+  padding: 18px 44px;
 }
 
 .fortune-card__identity::before {
   content: "";
   position: absolute;
-  right: -66px;
-  top: 18px;
-  width: 330px;
+  right: -34px;
+  top: 14px;
+  width: 380px;
   height: 120px;
-  opacity: 0.36;
+  opacity: 0.42;
   background: var(--asset-cloud-sheet) 4% 17% / 455px auto no-repeat;
 }
 
@@ -206,10 +220,10 @@ h1 {
   position: relative;
   display: grid;
   place-items: center;
-  width: 116px;
-  height: 116px;
+  width: 124px;
+  height: 124px;
   flex: 0 0 auto;
-  margin-right: 31px;
+  margin-right: 36px;
   color: var(--color-gold-deep);
   font-size: 13px;
   font-weight: 950;
@@ -231,8 +245,8 @@ h1 {
 }
 
 .fortune-card__avatar img {
-  width: 94px;
-  height: 94px;
+  width: 100px;
+  height: 100px;
   border-radius: 999px;
   object-fit: cover;
 }
@@ -240,8 +254,8 @@ h1 {
 .fortune-card__avatar span {
   display: grid;
   place-items: center;
-  width: 94px;
-  height: 94px;
+  width: 100px;
+  height: 100px;
   overflow: hidden;
   border-radius: 999px;
   background: linear-gradient(135deg, #fff4d7, #eac47e);
@@ -252,7 +266,7 @@ h1 {
   position: relative;
   z-index: 2;
   display: grid;
-  gap: 13px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -262,44 +276,56 @@ h1 {
   flex-wrap: wrap;
   gap: 13px;
   color: #21160d;
-  font-size: 37px;
-  font-weight: 950;
+  font-family: var(--font-sans);
+  font-size: 39px;
+  font-weight: 800;
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
 .fortune-card__nickname {
   color: var(--color-muted);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 800;
 }
 
 .fortune-card__title-badge {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 34px;
-  max-width: 210px;
+  max-width: 224px;
   overflow: hidden;
-  padding: 5px 15px;
-  border: 1px solid var(--color-line);
+  padding: 4px 18px 5px;
+  border: 1px solid rgba(207, 130, 0, 0.86);
   border-radius: 999px;
-  background: linear-gradient(135deg, #fbe5b1, #f3c97a);
-  color: #7a3f07;
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.2;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 48%),
+    radial-gradient(circle at 22% 24%, rgba(255, 252, 234, 0.95), transparent 42%),
+    linear-gradient(135deg, #fff1be 0%, #ffd27a 52%, #efac34 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.86) inset,
+    0 -1px 0 rgba(166, 90, 0, 0.14) inset,
+    0 5px 12px rgba(154, 88, 0, 0.1);
+  color: #7c3d02;
+  font-family: "LXGW WenKai Medium", "KaiTi", "STKaiti", var(--font-serif);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 247, 218, 0.9);
 }
 
 .fortune-card__identity-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 18px;
-  color: #6b543f;
-  font-size: 17px;
-  font-weight: 720;
+  color: #5e4630;
+  font-size: 18px;
+  font-weight: 650;
   line-height: 1.35;
 }
 
@@ -311,10 +337,10 @@ h1 {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 78px;
-  margin-bottom: 18px;
+  min-height: 84px;
+  margin-bottom: 16px;
   overflow: hidden;
-  padding: 15px 38px;
+  padding: 12px 38px;
 }
 
 .fortune-card__notice::after {
@@ -333,8 +359,8 @@ h1 {
   height: 58px;
   flex: 0 0 auto;
   margin-right: 22px;
-  background: var(--asset-check-icon) center / 86px 86px no-repeat;
-  filter: drop-shadow(0 8px 10px rgba(159, 95, 5, 0.2));
+  background: var(--asset-check-icon) center / 88px 88px no-repeat;
+  filter: drop-shadow(0 10px 12px rgba(159, 95, 5, 0.22));
 }
 
 .fortune-card__notice p {
@@ -342,8 +368,8 @@ h1 {
   z-index: 1;
   margin: 0;
   color: #241910;
-  font-size: 22px;
-  font-weight: 850;
+  font-size: 23px;
+  font-weight: 750;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -351,10 +377,13 @@ h1 {
 .fortune-card__fortune {
   position: relative;
   display: block;
-  min-height: 404px;
-  margin-bottom: 14px;
+  min-height: 458px;
+  margin-bottom: 18px;
   overflow: hidden;
-  padding: 28px 32px 30px;
+  padding: 32px 36px 34px;
+  background:
+    radial-gradient(circle at 84% 36%, rgba(249, 190, 73, 0.17) 0 18%, transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 252, 0.98), rgba(255, 251, 241, 0.94));
 }
 
 .fortune-card__fortune::before,
@@ -366,41 +395,40 @@ h1 {
 
 .fortune-card__fortune::before {
   inset: 10px;
-  border: 1px solid rgba(232, 184, 101, 0.86);
+  border: 1px solid rgba(233, 162, 45, 0.94);
   border-radius: 18px;
+  box-shadow: 0 0 0 1px rgba(255, 240, 203, 0.82) inset;
 }
 
 .fortune-card__fortune::after {
   left: 8px;
   top: 8px;
-  width: 210px;
-  height: 210px;
-  opacity: 0.26;
-  background: var(--asset-card-corner) 0 0 / 260px 260px no-repeat;
+  width: 245px;
+  height: 245px;
+  opacity: 0.31;
+  background: var(--asset-card-corner) 0 0 / 300px 300px no-repeat;
 }
 
 .fortune-card__ribbon {
   position: absolute;
-  left: 30px;
-  top: 0px;
+  left: 34px;
+  top: -4px;
   z-index: 3;
-  width: 168px;
-  height: 400px;
+  width: 182px;
+  height: 432px;
   background: var(--asset-ribbon) center top / contain no-repeat;
-  filter: drop-shadow(0 8px 12px rgba(119, 72, 8, 0.10));
+  filter: drop-shadow(0 14px 18px rgba(119, 72, 8, 0.16));
 }
 
 .fortune-card__fortune-head {
-  position: absolute;
+  position: relative;
   z-index: 3;
-  left: 230px;
-  right: 64px;
-  top: 40px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 22px;
   min-height: 100px;
+  margin: 6px 56px 0 212px;
 }
 
 .fortune-card__fortune-label {
@@ -411,26 +439,26 @@ h1 {
   position: relative;
   display: inline-block;
   margin: 0;
-  color: var(--color-gold);
-  font-family: var(--font-display);
-  font-size: 76px;
-  font-weight: 800;
+  color: #c77a00;
+  font-family: var(--font-calligraphy);
+  font-size: 84px;
+  font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
-  text-shadow: 0 2px 6px rgba(126, 72, 0, 0.12);
+  text-shadow: 0 3px 0 rgba(255, 250, 234, 0.92), 0 12px 20px rgba(126, 72, 0, 0.14);
 }
 
 .fortune-card__stars {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex: 0 0 auto;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .fortune-card__stars span {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   background: var(--asset-star-empty) center / contain no-repeat;
 }
 
@@ -445,16 +473,17 @@ h1 {
 }
 
 .fortune-card__fortune-body {
-  position: static;
+  position: relative;
   z-index: 3;
   display: block;
+  min-height: 272px;
+  margin: 8px 0 0 212px;
 }
 
 .fortune-card__fortune-text {
-  position: absolute;
-  left: 232px;
-  top: 158px;
-  width: 460px;
+  position: relative;
+  z-index: 4;
+  width: 430px;
   display: grid;
   align-content: start;
   gap: 22px;
@@ -471,56 +500,82 @@ h1 {
   display: inline-flex;
   align-items: center;
   width: max-content;
-  min-height: 31px;
+  min-height: 32px;
   margin: 0;
-  padding: 5px 14px;
+  padding: 5px 16px;
   border: 1px solid var(--color-line);
   border-radius: 999px;
-  background: linear-gradient(135deg, #fff4d4, #f5d896);
+  background: linear-gradient(135deg, #fff5d6, #f4cf79);
   color: #7a3f07;
-  font-size: 16px;
-  font-weight: 850;
+  font-size: 17px;
+  font-family: var(--font-sans);
+  font-weight: 700;
   line-height: 1.2;
+}
+
+.fortune-card__sign > .fortune-card__section-label,
+.fortune-card__explanation > .fortune-card__section-label {
+  justify-content: center;
+  min-width: 68px;
+  min-height: 33px;
+  padding: 4px 17px 5px;
+  border-color: rgba(213, 137, 9, 0.78);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.64), transparent 46%),
+    radial-gradient(circle at 28% 20%, rgba(255, 255, 242, 0.9), transparent 48%),
+    linear-gradient(135deg, #fff7d8 0%, #f9d887 58%, #f1bd50 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 -1px 0 rgba(175, 99, 5, 0.13) inset,
+    0 4px 10px rgba(166, 99, 9, 0.08);
+  color: #7c4006;
+  font-family: "LXGW WenKai Medium", "KaiTi", "STKaiti", var(--font-serif);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0;
+  text-shadow: 0 1px 0 rgba(255, 248, 224, 0.92);
 }
 
 .fortune-card__sign p:last-child,
 .fortune-card__explanation p:last-child {
   margin: 0;
   color: #2a211a;
+  font-family: var(--font-serif);
   font-size: 22px;
-  font-weight: 760;
-  line-height: 1.62;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  line-height: 1.7;
+  letter-spacing: 0.015em;
   overflow-wrap: anywhere;
 }
 
 .fortune-card__fortune-emblem {
   position: absolute;
   z-index: 2;
-  right: 26px;
-  bottom: 4px;
-  width: 352px;
-  height: 334px;
+  right: 12px;
+  bottom: 12px;
+  width: 306px;
+  height: 292px;
   background: var(--asset-emblem) center / contain no-repeat;
+  filter: drop-shadow(0 12px 16px rgba(144, 91, 10, 0.13));
 }
 
 .fortune-card__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 18px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .fortune-card__action-card {
   position: relative;
-  min-height: 112px;
+  min-height: 132px;
   overflow: hidden;
-  padding: 22px 36px 23px;
+  padding: 22px 34px 22px;
 }
 
 .fortune-card__action-card .fortune-card__section-label {
   min-height: 52px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   padding: 4px 0 4px 70px;
   border: 0;
   background: transparent;
@@ -534,10 +589,10 @@ h1 {
   position: absolute;
   left: 0;
   top: 50%;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   transform: translateY(-50%);
-  background: var(--asset-good-icon) center / 80px 80px no-repeat;
+  background: var(--asset-good-icon) center / 78px 78px no-repeat;
 }
 
 .fortune-card__action-card--bad .fortune-card__section-label span {
@@ -547,12 +602,12 @@ h1 {
 
 .fortune-card__action-ornament {
   position: absolute;
-  right: 8px;
-  bottom: -18px;
-  width: 155px;
-  height: 55px;
-  opacity: 0.34;
-  background: var(--asset-header-sheet) 74% 80% / 290px auto no-repeat;
+  right: 10px;
+  bottom: -15px;
+  width: 178px;
+  height: 64px;
+  opacity: 0.38;
+  background: var(--asset-header-sheet) 74% 80% / 318px auto no-repeat;
 }
 
 .fortune-card__tag-list {
@@ -560,30 +615,30 @@ h1 {
   z-index: 1;
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 12px;
 }
 
 .fortune-card__tag-list span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 148px;
+  min-width: 150px;
   min-height: 38px;
   padding: 6px 22px;
   border: 1px solid #dda64d;
   border-radius: 999px;
-  background: rgba(255, 238, 200, 0.82);
+  background: linear-gradient(180deg, rgba(255, 247, 224, 0.96), rgba(255, 232, 181, 0.88));
   color: #8d5207;
   font-size: 17px;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
   box-shadow: inset 0 -8px 16px rgba(220, 160, 62, 0.1);
 }
 
 .fortune-card__tag-list--muted span {
-  border-color: #e89593;
-  background: rgba(255, 225, 224, 0.82);
+  border-color: #ef9995;
+  background: linear-gradient(180deg, rgba(255, 241, 240, 0.96), rgba(255, 218, 217, 0.88));
   color: var(--color-red);
 }
 
@@ -593,29 +648,29 @@ h1 {
 
 .fortune-card__streak {
   position: relative;
-  min-height: 154px;
+  min-height: 178px;
   overflow: hidden;
-  padding: 20px 38px 20px;
+  padding: 22px 38px 22px;
 }
 
 .fortune-card__streak::before {
   content: "";
   position: absolute;
-  left: 260px;
-  right: 200px;
-  bottom: -42px;
-  height: 126px;
-  opacity: 0.28;
+  left: 230px;
+  right: 210px;
+  bottom: -48px;
+  height: 145px;
+  opacity: 0.34;
   background: var(--asset-cloud-base) center / contain no-repeat;
 }
 
 .fortune-card__streak::after {
   content: "";
   position: absolute;
-  right: 30px;
+  right: 36px;
   bottom: -2px;
   width: 340px;
-  height: 188px;
+  height: 190px;
   background: var(--asset-calendar-scene) center / contain no-repeat;
 }
 
@@ -626,7 +681,7 @@ h1 {
 
 .fortune-card__streak .fortune-card__section-label {
   min-height: 52px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 4px 0 4px 70px;
   border: 0;
   background: transparent;
@@ -640,30 +695,36 @@ h1 {
   position: absolute;
   left: 0;
   top: 50%;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   transform: translateY(-50%);
-  background: var(--asset-calendar-icon) center / 74px 74px no-repeat;
+  background: var(--asset-calendar-icon) center / 72px 72px no-repeat;
 }
 
 .fortune-card__streak p:not(.fortune-card__section-label) {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: #241910;
+  font-family: var(--font-serif);
   font-size: 23px;
-  font-weight: 780;
+  font-weight: 700;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .fortune-card__streak strong {
   display: inline-block;
-  min-width: 40px;
-  color: var(--color-gold);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 48px;
-  font-weight: 950;
-  line-height: 0.9;
+  min-width: 50px;
+  margin: 0 6px;
+  color: #d18400;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 50px;
+  font-weight: 850;
+  line-height: 1;
   text-align: center;
+  font-variant-numeric: tabular-nums;
+  -webkit-text-stroke: 1px rgba(126, 73, 0, 0.2);
+  text-shadow: 0 2px 0 rgba(255, 246, 220, 0.95), 0 8px 14px rgba(156, 91, 0, 0.16);
+  transform: translateY(2px);
 }
 
 .fortune-card__calendar {
