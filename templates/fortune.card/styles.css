@@ -1,3 +1,5 @@
+@import url("assets/fonts/lxgwwenkai-medium/result.css");
+
 :root {
   --color-bg: #fbf3e6;
   --color-paper: rgba(255, 253, 248, 0.93);
@@ -9,11 +11,11 @@
   --color-red: #d94b4b;
   --shadow-card: 0 15px 27px rgba(135, 81, 10, 0.12), 0 2px 8px rgba(130, 82, 20, 0.08);
   --font-sans: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-  --font-display: "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif;
+  --font-display: "LXGW WenKai Medium", "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif;
   --asset-landscape: url("assets/effect-landscape-header.png");
-  --asset-status-button: url("assets/effect-status-button.png");
-  --asset-ribbon: url("assets/effect-vertical-fortune-ribbon.png");
+  --asset-ribbon: url("assets/fortune-ribbon.png");
   --asset-emblem: url("assets/effect-windchime-bamboo-moon.png");
+  --asset-icon-sparkle: url("assets/effect-icon-sparkle-token.png");
   --asset-calendar-scene: url("assets/effect-checkin-calendar-scene.png");
   --asset-avatar-frame: url("assets/effect-avatar-frame.png");
   --asset-cloud-base: url("assets/effect-cloud-base.png");
@@ -52,7 +54,7 @@ body {
 .fortune-card {
   position: relative;
   width: 1124px;
-  height: 1365px;
+  min-height: 1365px;
   overflow: hidden;
   padding: 42px 52px 34px;
   background:
@@ -92,7 +94,7 @@ body {
 .fortune-card__header {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 222px;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 238px;
   margin-bottom: 10px;
 }
@@ -104,25 +106,15 @@ body {
   padding-left: 36px;
 }
 
-.fortune-card__eyebrow {
-  margin: 0 0 17px 0;
-  color: #8b4c13;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 19px;
-  font-weight: 900;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-}
-
 h1 {
   margin: 0;
   color: #4c2608;
   font-family: var(--font-display);
-  font-size: 82px;
-  font-weight: 950;
-  line-height: 0.92;
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 0.96;
   letter-spacing: 0;
-  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.86), 0 15px 24px rgba(96, 56, 10, 0.12);
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
 }
 
 .fortune-card__subtitle {
@@ -139,47 +131,18 @@ h1 {
 }
 
 .fortune-card__subtitle span {
-  width: 27px;
-  height: 27px;
+  width: 30px;
+  height: 30px;
   flex: 0 0 auto;
-  background: var(--asset-calendar-icon) center / 55px 55px no-repeat;
-}
-
-.fortune-card__status {
-  position: relative;
-  z-index: 5;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  justify-self: end;
-  gap: 7px;
-  width: 172px;
-  height: 62px;
-  margin-top: 18px;
-  margin-right: -8px;
-  padding: 8px 17px 8px 18px;
-  background: var(--asset-status-button) center / 100% 100% no-repeat;
-  color: #633307;
-  font-size: 17px;
-  font-weight: 950;
-  line-height: 1.2;
-  white-space: nowrap;
-  filter: drop-shadow(0 10px 14px rgba(119, 74, 10, 0.18));
-}
-
-.fortune-card__status-icon {
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-  background: var(--asset-check-icon) center / 54px 54px no-repeat;
+  background: var(--asset-calendar-icon) center / contain no-repeat;
 }
 
 .fortune-card__landscape {
   position: absolute;
   z-index: 2;
-  right: -84px;
-  top: 18px;
-  width: 715px;
+  right: -30px;
+  top: 8px;
+  width: 760px;
   height: 255px;
   opacity: 0.98;
   background: var(--asset-landscape) center / contain no-repeat;
@@ -188,22 +151,22 @@ h1 {
 .fortune-card__header-clouds {
   position: absolute;
   z-index: 3;
-  right: 240px;
-  top: 84px;
+  right: 300px;
+  top: 60px;
   width: 320px;
   height: 90px;
-  opacity: 0.38;
+  opacity: 0.46;
   background: var(--asset-header-sheet) 0 80% / 580px auto no-repeat;
 }
 
 .fortune-card__header-birds {
   position: absolute;
   z-index: 3;
-  right: 260px;
-  top: 72px;
-  width: 260px;
+  right: 180px;
+  top: 48px;
+  width: 300px;
   height: 95px;
-  opacity: 0.72;
+  opacity: 0.82;
   background: var(--asset-bird-sheet) 49% 55% / 330px auto no-repeat;
 }
 
@@ -319,12 +282,12 @@ h1 {
   max-width: 210px;
   overflow: hidden;
   padding: 5px 15px;
-  border: 1px solid #d8a057;
+  border: 1px solid var(--color-line);
   border-radius: 999px;
-  background: rgba(255, 244, 220, 0.82);
-  color: #8b5108;
+  background: linear-gradient(135deg, #fbe5b1, #f3c97a);
+  color: #7a3f07;
   font-size: 15px;
-  font-weight: 850;
+  font-weight: 800;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -418,21 +381,21 @@ h1 {
 
 .fortune-card__ribbon {
   position: absolute;
-  left: 40px;
-  top: 6px;
+  left: 30px;
+  top: 0px;
   z-index: 3;
-  width: 112px;
-  height: 366px;
+  width: 168px;
+  height: 400px;
   background: var(--asset-ribbon) center top / contain no-repeat;
-  filter: drop-shadow(0 12px 18px rgba(119, 72, 8, 0.12));
+  filter: drop-shadow(0 8px 12px rgba(119, 72, 8, 0.10));
 }
 
 .fortune-card__fortune-head {
   position: absolute;
   z-index: 3;
   left: 230px;
-  right: 70px;
-  top: 48px;
+  right: 64px;
+  top: 40px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -450,35 +413,24 @@ h1 {
   margin: 0;
   color: var(--color-gold);
   font-family: var(--font-display);
-  font-size: 88px;
-  font-weight: 950;
+  font-size: 76px;
+  font-weight: 800;
   line-height: 1;
   letter-spacing: 0;
-  text-shadow: 0 4px 11px rgba(126, 72, 0, 0.15);
-}
-
-.fortune-card__fortune-name::after {
-  content: "";
-  position: absolute;
-  left: 92%;
-  top: 68%;
-  width: 150px;
-  height: 28px;
-  opacity: 0.42;
-  background: var(--asset-header-sheet) 63% 79% / 300px auto no-repeat;
+  text-shadow: 0 2px 6px rgba(126, 72, 0, 0.12);
 }
 
 .fortune-card__stars {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 0 0 auto;
-  margin-top: 17px;
+  margin-top: 8px;
 }
 
 .fortune-card__stars span {
-  width: 31px;
-  height: 31px;
+  width: 24px;
+  height: 24px;
   background: var(--asset-star-empty) center / contain no-repeat;
 }
 
@@ -501,8 +453,8 @@ h1 {
 .fortune-card__fortune-text {
   position: absolute;
   left: 232px;
-  top: 166px;
-  width: 430px;
+  top: 158px;
+  width: 460px;
   display: grid;
   align-content: start;
   gap: 22px;
@@ -522,10 +474,10 @@ h1 {
   min-height: 31px;
   margin: 0;
   padding: 5px 14px;
-  border: 1px solid #dfb372;
+  border: 1px solid var(--color-line);
   border-radius: 999px;
-  background: rgba(255, 243, 217, 0.88);
-  color: #8c5108;
+  background: linear-gradient(135deg, #fff4d4, #f5d896);
+  color: #7a3f07;
   font-size: 16px;
   font-weight: 850;
   line-height: 1.2;
@@ -545,9 +497,9 @@ h1 {
 .fortune-card__fortune-emblem {
   position: absolute;
   z-index: 2;
-  right: 20px;
-  bottom: 10px;
-  width: 342px;
+  right: 26px;
+  bottom: 4px;
+  width: 352px;
   height: 334px;
   background: var(--asset-emblem) center / contain no-repeat;
 }
@@ -567,27 +519,30 @@ h1 {
 }
 
 .fortune-card__action-card .fortune-card__section-label {
-  min-height: 34px;
+  min-height: 52px;
   margin-bottom: 14px;
-  padding: 0 0 0 42px;
+  padding: 4px 0 4px 70px;
   border: 0;
   background: transparent;
   color: #302016;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 920;
+  line-height: 1.2;
 }
 
 .fortune-card__action-card .fortune-card__section-label span {
   position: absolute;
   left: 0;
-  top: -3px;
-  width: 34px;
-  height: 34px;
-  background: var(--asset-good-icon) center / 62px 62px no-repeat;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  transform: translateY(-50%);
+  background: var(--asset-good-icon) center / 80px 80px no-repeat;
 }
 
 .fortune-card__action-card--bad .fortune-card__section-label span {
   background-image: var(--asset-bad-icon);
+  background-size: 60px 60px;
 }
 
 .fortune-card__action-ornament {
@@ -657,10 +612,10 @@ h1 {
 .fortune-card__streak::after {
   content: "";
   position: absolute;
-  right: 20px;
-  bottom: -15px;
-  width: 354px;
-  height: 194px;
+  right: 30px;
+  bottom: -2px;
+  width: 340px;
+  height: 188px;
   background: var(--asset-calendar-scene) center / contain no-repeat;
 }
 
@@ -670,23 +625,25 @@ h1 {
 }
 
 .fortune-card__streak .fortune-card__section-label {
-  min-height: 35px;
-  margin-bottom: 17px;
-  padding: 0 0 0 42px;
+  min-height: 52px;
+  margin-bottom: 16px;
+  padding: 4px 0 4px 70px;
   border: 0;
   background: transparent;
   color: #302016;
-  font-size: 23px;
+  font-size: 26px;
   font-weight: 920;
+  line-height: 1.2;
 }
 
 .fortune-card__streak .fortune-card__section-label span {
   position: absolute;
   left: 0;
-  top: -3px;
-  width: 35px;
-  height: 35px;
-  background: var(--asset-calendar-icon) center / 66px 66px no-repeat;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  transform: translateY(-50%);
+  background: var(--asset-calendar-icon) center / 74px 74px no-repeat;
 }
 
 .fortune-card__streak p:not(.fortune-card__section-label) {
@@ -739,14 +696,10 @@ h1 {
   }
 
   .fortune-card__landscape {
-    right: -80px;
-    top: 118px;
-    width: 520px;
-    height: 175px;
-  }
-
-  .fortune-card__status {
-    margin-top: 22px;
+    right: -40px;
+    top: 110px;
+    width: 540px;
+    height: 180px;
   }
 
   .fortune-card__identity {
@@ -760,13 +713,13 @@ h1 {
   }
 
   .fortune-card__ribbon {
-    width: 110px;
-    height: 260px;
+    width: 140px;
+    height: 332px;
     margin: -20px auto 8px 0;
   }
 
   .fortune-card__fortune-name {
-    font-size: 58px;
+    font-size: 52px;
   }
 
   .fortune-card__stars {

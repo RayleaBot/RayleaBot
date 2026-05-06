@@ -10,9 +10,6 @@
     "subtitle": {
       "type": "string"
     },
-    "status": {
-      "type": "string"
-    },
     "repeat_notice": {
       "type": "string"
     },
@@ -116,7 +113,6 @@
     {
       "title": "今日运势",
       "subtitle": "2026-05-04 · Asia/Shanghai",
-      "status": "首次抽取",
       "user": {
         "group_nickname": "银蝶",
         "nickname": "Silver",

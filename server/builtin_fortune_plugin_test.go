@@ -83,8 +83,8 @@ func TestBuiltinFortunePluginRendersDailyFortuneAndReusesRecord(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected render data: %#v", renderPayload["data"])
 	}
-	if renderData["status"] != "首次抽取" {
-		t.Fatalf("unexpected first render status: %#v", renderData["status"])
+	if renderData["repeat_notice"] != "" {
+		t.Fatalf("unexpected first render repeat_notice: %#v", renderData["repeat_notice"])
 	}
 	session.writeFrame(t, pluginActionResult("raylea.fortune", renderAction["request_id"], map[string]any{
 		"image_path": "file://cache/fortune-first.png",
@@ -119,8 +119,8 @@ func TestBuiltinFortunePluginRendersDailyFortuneAndReusesRecord(t *testing.T) {
 	secondRender := session.readFrame(t)
 	assertPluginAction(t, secondRender, "render.image")
 	secondRenderData := actionData(t, secondRender)["data"].(map[string]any)
-	if secondRenderData["status"] != "今日已抽取" {
-		t.Fatalf("unexpected repeat render status: %#v", secondRenderData["status"])
+	if secondRenderData["repeat_notice"] != "今日运势已经抽取过，以下为当日结果。" {
+		t.Fatalf("unexpected repeat render repeat_notice: %#v", secondRenderData["repeat_notice"])
 	}
 	session.writeFrame(t, pluginActionResult("raylea.fortune", secondRender["request_id"], map[string]any{
 		"image_path": "file://cache/fortune-repeat.png",

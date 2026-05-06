@@ -534,11 +534,9 @@ def group_identity_from_context(ctx):
 def build_render_data(ctx, settings, record, stats, repeated):
     local_date = record["date"]
     timezone_name = settings["timezone"]
-    status = "今日已抽取" if repeated else "首次抽取"
     return {
         "title": "今日运势",
-        "subtitle": f"{local_date} · {timezone_name}",
-        "status": status,
+        "subtitle": local_date,
         "repeat_notice": "今日运势已经抽取过，以下为当日结果。" if repeated else "",
         "user": user_identity_from_context(ctx),
         "group": group_identity_from_context(ctx),
@@ -558,7 +556,7 @@ def build_fallback_text(render_data):
     streak = render_data["streak"]
     lines = [
         render_data["title"],
-        render_data.get("status") or "",
+        render_data.get("repeat_notice") or "",
         f"运势：{fortune['name']}",
         f"星级：{fortune['stars']}",
         f"签文：{fortune['sign']}",

@@ -365,8 +365,7 @@ func TestServiceRenderFortuneCardTemplate(t *testing.T) {
 		Output:   "png",
 		Data: map[string]any{
 			"title":         "今日运势",
-			"subtitle":      "2026-05-04 · Asia/Shanghai",
-			"status":        "今日已抽取",
+			"subtitle":      "2026-05-04",
 			"repeat_notice": "今日运势已经抽取过，以下为当日结果。",
 			"user": map[string]any{
 				"group_nickname": "银蝶",
@@ -412,7 +411,7 @@ func TestServiceRenderFortuneCardTemplate(t *testing.T) {
 	if doc.BaseURL == "" || !strings.HasPrefix(doc.BaseURL, "file:") || !strings.HasSuffix(doc.BaseURL, "/templates/fortune.card/") {
 		t.Fatalf("unexpected template base URL: %q", doc.BaseURL)
 	}
-	for _, want := range []string{"今日运势", "今日已抽取", "银蝶", "群主", "大吉", "★★★★★★★", "连续签到"} {
+	for _, want := range []string{"今日运势", "今日运势已经抽取过", "银蝶", "群主", "大吉", "★★★★★★★", "连续签到"} {
 		if !strings.Contains(doc.HTML, want) {
 			t.Fatalf("fortune html missing %q:\n%s", want, doc.HTML)
 		}

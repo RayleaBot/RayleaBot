@@ -26,18 +26,11 @@
 
       <header class="fortune-card__header">
         <div class="fortune-card__title-group">
-          <p class="fortune-card__eyebrow">Daily Fortune</p>
           <h1>{{ .title }}</h1>
           {{ if .subtitle }}
           <p class="fortune-card__subtitle"><span aria-hidden="true"></span>{{ .subtitle }}</p>
           {{ end }}
         </div>
-        {{ if .status }}
-        <div class="fortune-card__status">
-          <span class="fortune-card__status-icon" aria-hidden="true"></span>
-          <span>{{ .status }}</span>
-        </div>
-        {{ end }}
         <div class="fortune-card__landscape" aria-hidden="true"></div>
         <div class="fortune-card__header-clouds" aria-hidden="true"></div>
         <div class="fortune-card__header-birds" aria-hidden="true"></div>
@@ -67,7 +60,7 @@
           </div>
           <div class="fortune-card__identity-meta">
             {{ if $groupName }}<span>{{ $groupName }}</span>{{ end }}
-            {{ if $userID }}<span>ID {{ $userID }}</span>{{ end }}
+            {{ if $userID }}<span>账号 {{ $userID }}</span>{{ end }}
           </div>
         </div>
         <div class="fortune-card__identity-lines" aria-hidden="true">
