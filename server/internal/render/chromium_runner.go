@@ -69,7 +69,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), 1, false),
 		chromedp.Navigate(renderURL),
 		chromedp.WaitReady("body"),
-		chromedp.Evaluate(waitForLocalImageAssetsExpression, nil),
+		chromedp.Evaluate(waitForLocalAssetsExpression, nil),
 	}
 	if doc.AutoHeight {
 		actions = append(actions,
@@ -146,7 +146,7 @@ const adaptiveDocumentHeightExpression = `(() => {
   return Math.max(1, Math.ceil(bottom - Math.min(0, top)));
 })()`
 
-const waitForLocalImageAssetsExpression = `(() => {
+const waitForLocalAssetsExpression = `(() => {
   const urls = new Set();
   const addURL = (value) => {
     if (!value || value === "none") {
@@ -191,7 +191,7 @@ const waitForLocalImageAssetsExpression = `(() => {
     }
   }
 
-  return Promise.all(Array.from(urls, (url) => new Promise((resolve) => {
+  const imagesReady = Promise.all(Array.from(urls, (url) => new Promise((resolve) => {
     const image = new Image();
     image.onload = resolve;
     image.onerror = resolve;
@@ -199,7 +199,13 @@ const waitForLocalImageAssetsExpression = `(() => {
     if (image.complete) {
       resolve();
     }
-  }))).then(() => true);
+  })));
+
+  const fontsReady = document.fonts && document.fonts.ready
+    ? document.fonts.ready.catch(() => true)
+    : Promise.resolve(true);
+
+  return Promise.all([imagesReady, fontsReady]).then(() => true);
 })()`
 
 var headOpenPattern = regexp.MustCompile(`(?i)<head(\s[^>]*)?>`)
