@@ -92,6 +92,13 @@ func (c *IdentityCache) SetGroupInfo(groupID string, info GroupInfo) {
 	}
 }
 
+func (c *IdentityCache) InvalidateGroupInfo(groupID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.groups, groupID)
+}
+
 // GetGroupMemberInfo returns the cached group member info if present and
 // not expired. The cache key combines groupID and userID.
 func (c *IdentityCache) GetGroupMemberInfo(groupID, userID string) (GroupMemberInfo, bool) {
@@ -115,6 +122,25 @@ func (c *IdentityCache) SetGroupMemberInfo(groupID, userID string, info GroupMem
 	c.members[key] = &cachedGroupMemberInfo{
 		value:     info,
 		expiresAt: time.Now().Add(c.ttl),
+	}
+}
+
+func (c *IdentityCache) InvalidateGroupMemberInfo(groupID, userID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.members, groupID+":"+userID)
+}
+
+func (c *IdentityCache) InvalidateGroupMembers(groupID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	prefix := groupID + ":"
+	for key := range c.members {
+		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			delete(c.members, key)
+		}
 	}
 }
 

@@ -81,6 +81,7 @@ func TestNormalizeSupportedEventMessageGroupCarriesOneBotFields(t *testing.T) {
 		MessageID:     966671988,
 		RealID:        966671988,
 		MessageSeq:    966671988,
+		GroupName:     "测试群",
 		RawMessage:    "您好",
 		Font:          14,
 		MessageFormat: "array",
@@ -114,6 +115,9 @@ func TestNormalizeSupportedEventMessageGroupCarriesOneBotFields(t *testing.T) {
 	}
 	if got := onebot["group_id"]; got != "860105388" {
 		t.Fatalf("unexpected group_id: %#v", got)
+	}
+	if got := onebot["group_name"]; got != "测试群" {
+		t.Fatalf("unexpected group_name: %#v", got)
 	}
 	if got := onebot["message_id"]; got != "966671988" {
 		t.Fatalf("unexpected message_id: %#v", got)

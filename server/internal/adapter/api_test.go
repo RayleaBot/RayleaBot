@@ -205,6 +205,10 @@ func TestGetGroupMemberInfoReturnsRoleAndNames(t *testing.T) {
 		if request["action"] != "get_group_member_info" {
 			t.Errorf("unexpected action: %v", request["action"])
 		}
+		params, _ := request["params"].(map[string]any)
+		if params["no_cache"] != true {
+			t.Errorf("expected get_group_member_info no_cache=true, got %#v", params["no_cache"])
+		}
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
 			"status":  "ok",
@@ -367,6 +371,10 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 
 		if request["action"] != "get_group_info" {
 			t.Errorf("unexpected action: %v", request["action"])
+		}
+		params, _ := request["params"].(map[string]any)
+		if params["no_cache"] != true {
+			t.Errorf("expected get_group_info no_cache=true, got %#v", params["no_cache"])
 		}
 
 		if err := wsjson.Write(context.Background(), conn, map[string]any{
@@ -728,5 +736,40 @@ func TestIdentityCacheClearInvalidatesAll(t *testing.T) {
 	}
 	if _, ok := cache.GetStrangerInfo("u2"); ok {
 		t.Fatal("expected stranger info cache to be cleared")
+	}
+}
+
+func TestIdentityCacheInvalidatesSpecificGroupEntries(t *testing.T) {
+	t.Parallel()
+
+	cache := NewIdentityCache(10 * time.Minute)
+	cache.SetGroupInfo("g1", GroupInfo{Name: "Group 1"})
+	cache.SetGroupInfo("g2", GroupInfo{Name: "Group 2"})
+	cache.SetGroupMemberInfo("g1", "u1", GroupMemberInfo{Role: "member"})
+	cache.SetGroupMemberInfo("g1", "u2", GroupMemberInfo{Role: "admin"})
+	cache.SetGroupMemberInfo("g2", "u1", GroupMemberInfo{Role: "owner"})
+
+	cache.InvalidateGroupInfo("g1")
+	if _, ok := cache.GetGroupInfo("g1"); ok {
+		t.Fatal("expected g1 group info to be invalidated")
+	}
+	if info, ok := cache.GetGroupInfo("g2"); !ok || info.Name != "Group 2" {
+		t.Fatalf("expected g2 group info to remain cached, got ok=%v info=%+v", ok, info)
+	}
+
+	cache.InvalidateGroupMemberInfo("g1", "u1")
+	if _, ok := cache.GetGroupMemberInfo("g1", "u1"); ok {
+		t.Fatal("expected g1/u1 member info to be invalidated")
+	}
+	if info, ok := cache.GetGroupMemberInfo("g1", "u2"); !ok || info.Role != "admin" {
+		t.Fatalf("expected g1/u2 member info to remain cached, got ok=%v info=%+v", ok, info)
+	}
+
+	cache.InvalidateGroupMembers("g1")
+	if _, ok := cache.GetGroupMemberInfo("g1", "u2"); ok {
+		t.Fatal("expected remaining g1 member info to be invalidated")
+	}
+	if info, ok := cache.GetGroupMemberInfo("g2", "u1"); !ok || info.Role != "owner" {
+		t.Fatalf("expected g2/u1 member info to remain cached, got ok=%v info=%+v", ok, info)
 	}
 }

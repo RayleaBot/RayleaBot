@@ -829,6 +829,8 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 		return
 	}
 
+	s.invalidateIdentityCacheForFrame(frame.Frame)
+
 	normalizedEvent, ok := normalizeSupportedEvent(frame.Frame, frame.Summary.ObservedAt)
 	if !ok {
 		s.logger.Debug(

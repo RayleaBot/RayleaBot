@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -12,7 +13,11 @@ const (
 )
 
 func (s *Shell) EnrichEventMetadata(ctx context.Context, event NormalizedEvent) NormalizedEvent {
-	if s == nil || strings.TrimSpace(event.SourceProtocol) != "onebot11" || !isMessageEventType(event.EventType) {
+	if s == nil || strings.TrimSpace(event.SourceProtocol) != "onebot11" {
+		return event
+	}
+	s.invalidateIdentityCacheForEvent(event)
+	if !isMessageEventType(event.EventType) {
 		return event
 	}
 
@@ -22,6 +27,12 @@ func (s *Shell) EnrichEventMetadata(ctx context.Context, event NormalizedEvent) 
 	switch strings.TrimSpace(enriched.ConversationType) {
 	case "group":
 		groupID := strings.TrimSpace(enriched.ConversationID)
+		if groupName := groupNameFromPayload(enriched.PayloadFields); groupID != "" && groupName != "" {
+			enriched.TargetName = groupName
+			if cache := s.currentIdentityCache(); cache != nil {
+				cache.SetGroupInfo(groupID, GroupInfo{Name: groupName})
+			}
+		}
 		if strings.TrimSpace(enriched.TargetName) == "" {
 			if groupName := s.resolveGroupName(ctx, groupID); groupName != "" {
 				enriched.TargetName = groupName
@@ -50,6 +61,134 @@ func (s *Shell) EnrichEventMetadata(ctx context.Context, event NormalizedEvent) 
 	}
 
 	return enriched
+}
+
+func (s *Shell) invalidateIdentityCacheForEvent(event NormalizedEvent) {
+	cache := s.currentIdentityCache()
+	if cache == nil {
+		return
+	}
+
+	groupID := strings.TrimSpace(event.ConversationID)
+	userID := strings.TrimSpace(event.SenderID)
+
+	switch strings.TrimSpace(event.EventType) {
+	case "notice.group_card", "notice.group_title":
+		if groupID != "" && userID != "" {
+			cache.InvalidateGroupMemberInfo(groupID, userID)
+		}
+	case "notice.group_admin", "notice.member_decrease":
+		if groupID != "" {
+			cache.InvalidateGroupMembers(groupID)
+		}
+	case "notice.member_increase":
+		if groupID != "" && userID != "" {
+			cache.InvalidateGroupMemberInfo(groupID, userID)
+		}
+	case "notice.group_name", "notice.group_profile":
+		if groupID != "" {
+			cache.InvalidateGroupInfo(groupID)
+		}
+	}
+
+	onebot := cloneOptionalMap(event.PayloadFields["onebot"])
+	noticeType := strings.TrimSpace(payloadStringValue(onebot["notice_type"]))
+	if noticeType == "" {
+		noticeType = strings.TrimSpace(payloadStringValue(event.PayloadFields["notice_type"]))
+	}
+	subType := strings.TrimSpace(payloadStringValue(onebot["sub_type"]))
+	if subType == "" {
+		subType = strings.TrimSpace(payloadStringValue(event.PayloadFields["sub_type"]))
+	}
+	switch noticeType {
+	case "group_name", "group_name_change", "group_profile":
+		if groupID != "" {
+			cache.InvalidateGroupInfo(groupID)
+		}
+	case "notify":
+		switch subType {
+		case "group_name", "group_name_change", "group_profile":
+			if groupID != "" {
+				cache.InvalidateGroupInfo(groupID)
+			}
+		}
+	case "group_card", "group_title":
+		if groupID != "" && userID != "" {
+			cache.InvalidateGroupMemberInfo(groupID, userID)
+		}
+	}
+}
+
+func (s *Shell) invalidateIdentityCacheForFrame(frame oneBotFrame) {
+	if strings.TrimSpace(frame.PostType) != "notice" {
+		return
+	}
+
+	cache := s.currentIdentityCache()
+	if cache == nil {
+		return
+	}
+
+	groupID := positiveIDString(frame.GroupID)
+	userID := positiveIDString(frame.UserID)
+
+	switch strings.TrimSpace(frame.NoticeType) {
+	case "group_name", "group_name_change", "group_profile":
+		if groupID != "" {
+			cache.InvalidateGroupInfo(groupID)
+		}
+	case "notify":
+		switch strings.TrimSpace(frame.SubType) {
+		case "group_name", "group_name_change", "group_profile":
+			if groupID != "" {
+				cache.InvalidateGroupInfo(groupID)
+			}
+		}
+	case "group_card", "group_title":
+		if groupID != "" && userID != "" {
+			cache.InvalidateGroupMemberInfo(groupID, userID)
+		}
+	case "group_admin", "group_decrease":
+		if groupID != "" {
+			cache.InvalidateGroupMembers(groupID)
+		}
+	case "group_increase":
+		if groupID != "" && userID != "" {
+			cache.InvalidateGroupMemberInfo(groupID, userID)
+		}
+	}
+}
+
+func (s *Shell) invalidateIdentityCacheForAPICall(action string, params map[string]any) {
+	cache := s.currentIdentityCache()
+	if cache == nil {
+		return
+	}
+
+	groupID := strings.TrimSpace(payloadStringValue(params["group_id"]))
+	userID := strings.TrimSpace(payloadStringValue(params["user_id"]))
+
+	switch strings.TrimSpace(action) {
+	case "set_group_name":
+		if groupID != "" {
+			cache.InvalidateGroupInfo(groupID)
+		}
+	case "set_group_card", "set_group_special_title":
+		if groupID != "" && userID != "" {
+			cache.InvalidateGroupMemberInfo(groupID, userID)
+		}
+	case "set_group_admin":
+		if groupID != "" {
+			cache.InvalidateGroupMembers(groupID)
+		}
+	}
+}
+
+func positiveIDString(value int64) string {
+	if value <= 0 {
+		return ""
+	}
+	return strconv.FormatInt(value, 10)
 }
 
 func isMessageEventType(eventType string) bool {
@@ -154,7 +293,18 @@ func withIdentityLookupTimeout(ctx context.Context) (context.Context, context.Ca
 }
 
 func hasGroupMemberInfo(info GroupMemberInfo) bool {
-	return strings.TrimSpace(info.Card) != "" || strings.TrimSpace(info.Nickname) != "" || strings.TrimSpace(info.Role) != ""
+	return strings.TrimSpace(info.Card) != "" || strings.TrimSpace(info.Nickname) != "" || strings.TrimSpace(info.Role) != "" || strings.TrimSpace(info.Title) != ""
+}
+
+func groupNameFromPayload(payload map[string]any) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	if groupName := payloadStringValue(payload["group_name"]); groupName != "" {
+		return groupName
+	}
+	onebot := cloneOptionalMap(payload["onebot"])
+	return payloadStringValue(onebot["group_name"])
 }
 
 func cloneNormalizedEvent(event NormalizedEvent) NormalizedEvent {
@@ -257,6 +407,9 @@ func mergeGroupMemberInfo(sender map[string]any, info GroupMemberInfo) {
 	}
 	if payloadStringValue(sender["role"]) == "" && strings.TrimSpace(info.Role) != "" {
 		sender["role"] = info.Role
+	}
+	if payloadStringValue(sender["title"]) == "" && strings.TrimSpace(info.Title) != "" {
+		sender["title"] = info.Title
 	}
 }
 

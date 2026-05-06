@@ -82,6 +82,7 @@ type oneBotFrame struct {
 	MessageID     int64           `json:"message_id"`
 	RealID        int64           `json:"real_id"`
 	MessageSeq    int64           `json:"message_seq"`
+	GroupName     string          `json:"group_name"`
 	Time          int64           `json:"time"`
 	SelfID        int64           `json:"self_id"`
 	UserID        int64           `json:"user_id"`
@@ -738,6 +739,9 @@ func buildOneBotPayload(frame oneBotFrame) map[string]any {
 	}
 	if frame.GroupID > 0 {
 		payload["group_id"] = fmt.Sprintf("%d", frame.GroupID)
+	}
+	if groupName := textsafe.SanitizeString(frame.GroupName); groupName != "" {
+		payload["group_name"] = groupName
 	}
 	if frame.TargetID > 0 {
 		payload["target_id"] = fmt.Sprintf("%d", frame.TargetID)

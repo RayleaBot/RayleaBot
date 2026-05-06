@@ -23,6 +23,7 @@ type GroupMemberInfo struct {
 	Role     string
 	Nickname string
 	Card     string
+	Title    string
 }
 
 // GroupInfo holds basic group metadata.
@@ -87,7 +88,9 @@ func (s *Shell) CallAPIAny(ctx context.Context, action string, params map[string
 				}
 				return nil, errorf(errorCodeAPICallFailed, message, nil)
 			}
-			return normalizeAPIResult(response.Data), nil
+			result := normalizeAPIResult(response.Data)
+			s.invalidateIdentityCacheForAPICall(action, params)
+			return result, nil
 		case <-ctx.Done():
 			return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
 		}
@@ -104,7 +107,9 @@ func (s *Shell) CallAPIAny(ctx context.Context, action string, params map[string
 		}
 		return nil, errorf(errorCodeAPICallFailed, message, nil)
 	}
-	return normalizeAPIResult(response.Data), nil
+	result := normalizeAPIResult(response.Data)
+	s.invalidateIdentityCacheForAPICall(action, params)
+	return result, nil
 }
 
 // GetLoginInfo calls the OneBot11 get_login_info API and returns the bot's
@@ -126,6 +131,7 @@ func (s *Shell) GetGroupMemberInfo(ctx context.Context, groupID, userID string) 
 	data, err := s.callAPI(ctx, "get_group_member_info", map[string]any{
 		"group_id": oneBotTargetValue(groupID),
 		"user_id":  oneBotTargetValue(userID),
+		"no_cache": true,
 	})
 	if err != nil {
 		return GroupMemberInfo{}, err
@@ -135,6 +141,7 @@ func (s *Shell) GetGroupMemberInfo(ctx context.Context, groupID, userID string) 
 		Role:     extractStringField(data, "role"),
 		Nickname: extractStringField(data, "nickname"),
 		Card:     extractStringField(data, "card"),
+		Title:    extractStringField(data, "title"),
 	}, nil
 }
 
@@ -142,6 +149,7 @@ func (s *Shell) GetGroupMemberInfo(ctx context.Context, groupID, userID string) 
 func (s *Shell) GetGroupInfo(ctx context.Context, groupID string) (GroupInfo, error) {
 	data, err := s.callAPI(ctx, "get_group_info", map[string]any{
 		"group_id": oneBotTargetValue(groupID),
+		"no_cache": true,
 	})
 	if err != nil {
 		return GroupInfo{}, err
