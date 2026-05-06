@@ -61,6 +61,7 @@ Thumbs.db
 .gemini
 .superpowers
 .sisyphus/
+.codex
 
 # Agent packages
 *.tgz
