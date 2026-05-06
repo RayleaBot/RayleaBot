@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -222,6 +223,8 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		return Snapshot{}, false, nil
 	}
 
+	defaultConfig, defaultConfigErr := manifestDefaultConfig(manifest, filepath.Dir(infoPath))
+
 	snapshot := Snapshot{
 		PluginID:           pluginID,
 		Name:               stringField(manifest, "name"),
@@ -246,7 +249,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		Screenshots:        manifestScreenshots(manifest),
 		ManagementUI:       manifestManagementUI(manifest),
 		SystemDependencies: stringListField(manifest, "system_dependencies"),
-		DefaultConfig:      manifestObjectField(manifest, "default_config"),
+		DefaultConfig:      defaultConfig,
 		ManifestPath:       displayPath(repoRoot, infoPath),
 		PackageRootPath:    filepath.Dir(infoPath),
 		SourceRoot:         sourceRoot,
@@ -267,6 +270,13 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 	snapshot.ManifestCommands = manifestCommands(manifest)
 	snapshot.DynamicCommands = manifestDynamicCommands(manifest)
 	snapshot.Commands = ProjectCommands(snapshot, snapshot.DefaultConfig)
+
+	if defaultConfigErr != nil {
+		snapshot.Valid = false
+		snapshot.DisplayState = displayInvalid
+		snapshot.ValidationSummary = trimSummary(defaultConfigErr.Error(), maxSummaryChars)
+		return snapshot, true, nil
+	}
 
 	if err := validator.Validate(document); err != nil {
 		snapshot.Valid = false
@@ -602,6 +612,70 @@ func manifestObjectField(document map[string]any, key string) map[string]any {
 	return cloneMap(value)
 }
 
+func manifestDefaultConfig(document map[string]any, packageRoot string) (map[string]any, error) {
+	fileConfig, err := manifestDefaultConfigFile(document, packageRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	inlineConfig := manifestObjectField(document, "default_config")
+	if len(fileConfig) == 0 {
+		return inlineConfig, nil
+	}
+	if len(inlineConfig) == 0 {
+		return fileConfig, nil
+	}
+
+	merged := cloneMap(fileConfig)
+	for key, value := range inlineConfig {
+		merged[key] = cloneValue(value)
+	}
+	return merged, nil
+}
+
+func manifestDefaultConfigFile(document map[string]any, packageRoot string) (map[string]any, error) {
+	relativePath := stringField(document, "default_config_file")
+	if relativePath == "" {
+		return nil, nil
+	}
+	if filepath.IsAbs(relativePath) {
+		return nil, fmt.Errorf("default_config_file must be package-relative")
+	}
+
+	cleanRelative := filepath.Clean(filepath.FromSlash(relativePath))
+	if cleanRelative == "." || cleanRelative == ".." || strings.HasPrefix(cleanRelative, ".."+string(filepath.Separator)) {
+		return nil, fmt.Errorf("default_config_file must stay inside the plugin package")
+	}
+	if filepath.Ext(cleanRelative) != ".json" {
+		return nil, fmt.Errorf("default_config_file must point to a .json file")
+	}
+
+	packageRoot, err := filepath.Abs(packageRoot)
+	if err != nil {
+		return nil, fmt.Errorf("resolve plugin package root: %w", err)
+	}
+	configPath := filepath.Join(packageRoot, cleanRelative)
+	if !pathWithinRoot(packageRoot, configPath) {
+		return nil, fmt.Errorf("default_config_file must stay inside the plugin package")
+	}
+
+	bytes, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("read default_config_file %s: %w", relativePath, err)
+	}
+
+	var value any
+	if err := json.Unmarshal(bytes, &value); err != nil {
+		return nil, fmt.Errorf("parse default_config_file %s: %w", relativePath, err)
+	}
+
+	config, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("default_config_file %s must contain a JSON object", relativePath)
+	}
+	return cloneMap(config), nil
+}
+
 func defaultDesiredStateForSourceRoot(sourceRoot string) string {
 	if sourceRoot == "plugins/builtin" {
 		return "enabled"
@@ -654,4 +728,12 @@ func containsString(values []string, want string) bool {
 	}
 
 	return false
+}
+
+func pathWithinRoot(root, candidate string) bool {
+	relativePath, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false
+	}
+	return relativePath == "." || (relativePath != "" && relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(filepath.Separator)))
 }

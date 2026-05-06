@@ -1,0 +1,40 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "weather-file-config",
+    "name": "Weather File Config",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "description": "Weather query plugin with package default settings.",
+    "author": "raylea",
+    "role": "user",
+    "capabilities": [
+      "event.subscribe"
+    ],
+    "permissions": {
+      "required": [],
+      "optional": []
+    },
+    "default_config_file": "defaults.json",
+    "default_config": {
+      "unit": "celsius"
+    },
+    "dynamic_commands": [
+      {
+        "id": "weather",
+        "settings_key": "trigger_commands",
+        "description": "查询天气",
+        "permission": "everyone"
+      }
+    ]
+  },
+  "expect": {
+    "valid": true
+  }
+}

@@ -326,6 +326,55 @@ func TestDiscoverManifestDynamicCommands(t *testing.T) {
 	}
 }
 
+func TestDiscoverManifestDefaultConfigFile(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.default-config-file.json"))
+	pluginDir := filepath.Join(rootDir, "plugins", "weather-file-config")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	defaultConfig := map[string]any{
+		"trigger_commands": []any{"weather", "forecast"},
+		"unit":             "metric",
+		"default_city":     "上海",
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "defaults.json"), defaultConfig); err != nil {
+		t.Fatalf("write default config: %v", err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if got := snapshot.DefaultConfig["default_city"]; got != "上海" {
+		t.Fatalf("unexpected default_config.default_city: got %#v want 上海", got)
+	}
+	if got := snapshot.DefaultConfig["unit"]; got != "celsius" {
+		t.Fatalf("unexpected default_config.unit: got %#v want celsius", got)
+	}
+	if len(snapshot.Commands) != 1 || snapshot.Commands[0].Name != "weather" || !reflect.DeepEqual(snapshot.Commands[0].Aliases, []string{"forecast"}) {
+		t.Fatalf("unexpected commands from default_config_file: %#v", snapshot.Commands)
+	}
+}
+
 func TestDiscoverManifestDefaultConfigAndRole(t *testing.T) {
 	t.Parallel()
 

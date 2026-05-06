@@ -261,6 +261,18 @@
       "description": "Optional initial non-sensitive plugin config written into the plugin namespace on first enable only.",
       "additionalProperties": true
     },
+    "default_config_file": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/package_relative_path"
+        },
+        {
+          "type": "string",
+          "pattern": "\\.json$"
+        }
+      ],
+      "description": "Optional package-relative JSON object file used as initial non-sensitive plugin config on first enable."
+    },
     "dependencies": {
       "type": "object",
       "description": "Language-level package dependencies only. Plugin-to-plugin dependencies are intentionally out of scope for v0.1.",
@@ -563,6 +575,7 @@
     "fixtures/plugin-info/edge.permission-regrant-and-migration.json",
     "fixtures/plugin-info/ok.plugin-with-commands.json",
     "fixtures/plugin-info/ok.plugin-with-dynamic-commands.json",
+    "fixtures/plugin-info/ok.default-config-file.json",
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
     "fixtures/plugin-info/ok.rich-metadata.json",
     "fixtures/plugin-info/ok.management-ui.json",
