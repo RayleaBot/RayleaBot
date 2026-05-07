@@ -106,6 +106,29 @@ class FortuneLogicTests(unittest.TestCase):
         self.assertEqual(merged["timezone"], "Asia/Shanghai")
         self.assertEqual(merged["fortunes"], defaults["fortunes"])
 
+    def test_actions_file_loads_and_merges_into_defaults(self):
+        import json
+
+        with open(PLUGIN_ROOT / "actions.json", "r", encoding="utf-8") as handle:
+            raw_actions = json.load(handle)
+
+        defaults = fortune.load_default_settings()
+
+        self.assertGreater(len(defaults["fortunes"]), 0)
+        self.assertEqual(defaults["good_actions"], raw_actions["good_actions"])
+        self.assertEqual(defaults["bad_actions"], raw_actions["bad_actions"])
+        self.assertGreaterEqual(len(defaults["good_actions"]), 2)
+        self.assertGreaterEqual(len(defaults["bad_actions"]), 2)
+
+    def test_load_default_settings_falls_back_when_actions_missing(self):
+        missing = PLUGIN_ROOT / "_does_not_exist_actions.json"
+        self.assertFalse(missing.exists())
+
+        defaults = fortune.load_default_settings(actions_path=str(missing))
+
+        self.assertEqual(defaults["good_actions"], ["整理计划"])
+        self.assertEqual(defaults["bad_actions"], ["熬夜"])
+
 
 if __name__ == "__main__":
     unittest.main()

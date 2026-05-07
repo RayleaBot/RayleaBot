@@ -43,5 +43,23 @@
       "permission": "everyone"
     }
   ],
+  "default_config": {
+    "good_actions": [
+      "整理计划",
+      "主动沟通",
+      "早睡早起",
+      "处理积压事项",
+      "学习新知识",
+      "备份资料"
+    ],
+    "bad_actions": [
+      "拖延决定",
+      "冲动消费",
+      "熬夜",
+      "重复争辩",
+      "临时改约",
+      "忽略细节"
+    ]
+  },
   "default_config_file": "fortunes.json"
 }
