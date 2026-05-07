@@ -382,12 +382,23 @@ def find_fortune_by_name(fortunes, name):
 
 def build_daily_record(settings, user_id, local_day):
     fortune, special = fortune_for_date(settings, user_id, local_day)
+    today_good = choose_from_list(
+        settings["good_actions"],
+        stable_seed(user_id, local_day.isoformat(), "good"),
+        2,
+    )
+    today_bad_pool = [item for item in settings["bad_actions"] if item not in today_good]
+    today_bad = choose_from_list(
+        today_bad_pool,
+        stable_seed(user_id, local_day.isoformat(), "bad"),
+        2,
+    )
     return {
         "date": local_day.isoformat(),
         "draw_source_fingerprint": draw_source_fingerprint(settings),
         "fortune": fortune,
-        "today_good": choose_from_list(settings["good_actions"], stable_seed(user_id, local_day.isoformat(), "good"), 2),
-        "today_bad": choose_from_list(settings["bad_actions"], stable_seed(user_id, local_day.isoformat(), "bad"), 2),
+        "today_good": today_good,
+        "today_bad": today_bad,
         "special": special,
     }
 

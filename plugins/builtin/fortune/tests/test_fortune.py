@@ -1,7 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest import mock
 
 
@@ -280,6 +280,17 @@ class FortuneLogicTests(unittest.TestCase):
         old_record = fortune.build_daily_record(defaults, "2022603900", day)
 
         self.assertFalse(fortune.daily_record_matches_settings(old_record, next_defaults))
+
+    def test_daily_record_excludes_today_good_from_today_bad(self):
+        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
+        overlap = "嫁娶"
+        self.assertIn(overlap, settings["good_actions"])
+        self.assertIn(overlap, settings["bad_actions"])
+
+        for offset in range(60):
+            day = date(2026, 5, 1) + timedelta(days=offset)
+            record = fortune.build_daily_record(settings, "10001", day)
+            self.assertEqual(set(record["today_good"]) & set(record["today_bad"]), set())
 
     def test_replace_current_day_fortune_in_stats_does_not_increment_total_days(self):
         stats = fortune.empty_stats()
