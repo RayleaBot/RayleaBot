@@ -10,6 +10,7 @@ MODULE_PATH = PLUGIN_ROOT / "main.py"
 spec = importlib.util.spec_from_file_location("fortune_plugin_main", MODULE_PATH)
 fortune = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fortune)
+fortune_settings = fortune.FortuneSettingsService.__init__.__globals__
 
 
 class FakeFortuneContext:
@@ -138,7 +139,7 @@ class FortuneLogicTests(unittest.TestCase):
     def test_local_date_falls_back_when_system_tzdata_is_missing(self):
         now = datetime(2026, 5, 4, 16, 30, tzinfo=timezone.utc)
 
-        with mock.patch.object(fortune, "ZoneInfo", side_effect=Exception("tzdata missing")):
+        with mock.patch.dict(fortune_settings, {"ZoneInfo": mock.Mock(side_effect=Exception("tzdata missing"))}):
             self.assertEqual(fortune.normalize_timezone_name("Asia/Shanghai"), "Asia/Shanghai")
             self.assertEqual(fortune.local_date_for_timezone(now, "Asia/Shanghai"), date(2026, 5, 5))
             self.assertEqual(fortune.local_date_for_timezone(now, "UTC+08:00"), date(2026, 5, 5))
@@ -166,6 +167,13 @@ class FortuneLogicTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertNotEqual(first["date"], next_day["date"])
         self.assertEqual(first["draw_source_fingerprint"], fortune.draw_source_fingerprint(settings))
+
+    def test_daily_record_matches_legacy_numeric_fingerprint(self):
+        settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
+        record = fortune.build_daily_record(settings, "10001", date(2026, 5, 4))
+        record["draw_source_fingerprint"] = int(record["draw_source_fingerprint"])
+
+        self.assertTrue(fortune.daily_record_matches_settings(record, settings))
 
     def test_stats_update_counts_first_draw_only_when_called_once(self):
         stats = fortune.empty_stats()
