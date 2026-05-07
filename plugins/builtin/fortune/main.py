@@ -19,8 +19,6 @@ from rayleabot import RayleaBotPlugin, event_handler
 
 PLUGIN_DIR = os.path.dirname(__file__)
 DEFAULT_SETTINGS_PATH = os.path.join(PLUGIN_DIR, "fortunes.json")
-DEFAULT_ACTIONS_PATH = os.path.join(PLUGIN_DIR, "actions.json")
-ACTIONS_KEYS = ("good_actions", "bad_actions")
 DEFAULT_TIMEZONE = "Asia/Shanghai"
 DEFAULT_TRIGGER_COMMANDS = ["我的运势"]
 FORTUNE_ORDER = ["大吉", "吉", "中吉", "小吉", "末吉", "凶", "大凶"]
@@ -56,26 +54,10 @@ class SettingsValidationError(ValueError):
     pass
 
 
-def load_default_settings(path=DEFAULT_SETTINGS_PATH, actions_path=DEFAULT_ACTIONS_PATH):
+def load_default_settings(path=DEFAULT_SETTINGS_PATH):
     with open(path, "r", encoding="utf-8") as handle:
         document = json.load(handle)
-    apply_actions_overlay(document, actions_path)
     return validate_settings(document, require_usable=True)
-
-
-def apply_actions_overlay(document, actions_path):
-    if not actions_path:
-        return
-    try:
-        with open(actions_path, "r", encoding="utf-8") as handle:
-            overlay = json.load(handle)
-    except FileNotFoundError:
-        return
-    if not isinstance(overlay, dict):
-        return
-    for key in ACTIONS_KEYS:
-        if key in overlay:
-            document[key] = overlay[key]
 
 
 def validate_settings(raw_settings, require_usable=False):
