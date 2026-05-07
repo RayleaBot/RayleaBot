@@ -30,6 +30,15 @@ FIXED_TIMEZONES = {
     "PRC": timezone(timedelta(hours=8), "PRC"),
 }
 COUNTED_FORTUNES = FORTUNE_ORDER + [SPECIAL_FORTUNE]
+LEGACY_DEFAULT_FORTUNE_FINGERPRINTS = {
+    20971722105971170178545846480553058583241879270455125236487596287809186753718,
+}
+LEGACY_DEFAULT_GOOD_ACTION_FINGERPRINTS = {
+    115679103881304806644259508398492031899235386804883197485922384508897281193421,
+}
+LEGACY_DEFAULT_BAD_ACTION_FINGERPRINTS = {
+    44719200896750948948678725643061855201404412653412759708514911212779905198010,
+}
 EXPECTED_STARS = {
     "大吉": "★★★★★★★",
     "吉": "★★★★★★☆",
@@ -215,6 +224,12 @@ def merge_settings(default_settings, stored_values):
     if isinstance(stored_values, dict):
         for key in SETTINGS_KEYS:
             if key in stored_values:
+                if key == "fortunes" and stored_fortunes_are_legacy_defaults(stored_values[key]):
+                    continue
+                if key == "good_actions" and stored_actions_are_legacy_defaults(stored_values[key], LEGACY_DEFAULT_GOOD_ACTION_FINGERPRINTS):
+                    continue
+                if key == "bad_actions" and stored_actions_are_legacy_defaults(stored_values[key], LEGACY_DEFAULT_BAD_ACTION_FINGERPRINTS):
+                    continue
                 merged[key] = stored_values[key]
     normalized = validate_settings(merged)
     if not normalized["fortunes"]:
@@ -279,6 +294,41 @@ def stable_seed(*parts):
     return int(hashlib.sha256(joined.encode("utf-8")).hexdigest(), 16)
 
 
+def stable_json(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def stable_fingerprint(value):
+    return stable_seed(stable_json(value))
+
+
+def fortune_library_fingerprint(fortunes):
+    return stable_fingerprint(normalize_fortunes(fortunes))
+
+
+def draw_source_fingerprint(settings):
+    return stable_fingerprint({
+        "fortunes": normalize_fortunes(settings.get("fortunes")),
+        "special_dates": normalize_special_dates(settings.get("special_dates")),
+        "good_actions": normalize_string_list(settings.get("good_actions"), ["整理计划"]),
+        "bad_actions": normalize_string_list(settings.get("bad_actions"), ["熬夜"]),
+    })
+
+
+def stored_fortunes_are_legacy_defaults(value):
+    fortunes = normalize_fortunes(value)
+    if not fortunes:
+        return False
+    return fortune_library_fingerprint(fortunes) in LEGACY_DEFAULT_FORTUNE_FINGERPRINTS
+
+
+def stored_actions_are_legacy_defaults(value, fingerprints):
+    actions = normalize_string_list(value, [])
+    if not actions:
+        return False
+    return stable_fingerprint(actions) in fingerprints
+
+
 def choose_from_list(values, seed, count):
     items = [str(item).strip() for item in values if str(item).strip()]
     if not items:
@@ -334,11 +384,18 @@ def build_daily_record(settings, user_id, local_day):
     fortune, special = fortune_for_date(settings, user_id, local_day)
     return {
         "date": local_day.isoformat(),
+        "draw_source_fingerprint": draw_source_fingerprint(settings),
         "fortune": fortune,
         "today_good": choose_from_list(settings["good_actions"], stable_seed(user_id, local_day.isoformat(), "good"), 2),
         "today_bad": choose_from_list(settings["bad_actions"], stable_seed(user_id, local_day.isoformat(), "bad"), 2),
         "special": special,
     }
+
+
+def daily_record_matches_settings(record, settings):
+    if not isinstance(record, dict):
+        return False
+    return record.get("draw_source_fingerprint") == draw_source_fingerprint(settings)
 
 
 def empty_stats():
@@ -407,6 +464,27 @@ def update_stats(stats, fortune_name, local_day):
     else:
         next_stats["current_daxiong_streak"] = 0
     next_stats["longest_daxiong_streak"] = max(next_stats["longest_daxiong_streak"], next_stats["current_daxiong_streak"])
+    return next_stats
+
+
+def replace_current_day_fortune_in_stats(stats, previous_fortune_name, next_fortune_name):
+    next_stats = normalize_stats(stats)
+    if previous_fortune_name == next_fortune_name:
+        return next_stats
+    if previous_fortune_name in next_stats["counts"]:
+        next_stats["counts"][previous_fortune_name] = max(0, next_stats["counts"][previous_fortune_name] - 1)
+    if next_fortune_name in next_stats["counts"]:
+        next_stats["counts"][next_fortune_name] += 1
+    if previous_fortune_name == "大吉" and next_fortune_name != "大吉":
+        next_stats["current_daji_streak"] = max(0, next_stats["current_daji_streak"] - 1)
+    elif previous_fortune_name != "大吉" and next_fortune_name == "大吉":
+        next_stats["current_daji_streak"] += 1
+        next_stats["longest_daji_streak"] = max(next_stats["longest_daji_streak"], next_stats["current_daji_streak"])
+    if previous_fortune_name == "大凶" and next_fortune_name != "大凶":
+        next_stats["current_daxiong_streak"] = max(0, next_stats["current_daxiong_streak"] - 1)
+    elif previous_fortune_name != "大凶" and next_fortune_name == "大凶":
+        next_stats["current_daxiong_streak"] += 1
+        next_stats["longest_daxiong_streak"] = max(next_stats["longest_daxiong_streak"], next_stats["current_daxiong_streak"])
     return next_stats
 
 
@@ -575,9 +653,21 @@ class FortunePlugin(RayleaBotPlugin):
         repeated = isinstance(record, dict)
 
         stats = normalize_stats(storage_value(ctx.storage_get(stats_key), empty_stats()))
-        if not repeated:
+        should_store = False
+        if repeated and not daily_record_matches_settings(record, settings):
+            previous_fortune_name = ""
+            if isinstance(record.get("fortune"), dict):
+                previous_fortune_name = str(record["fortune"].get("name") or "")
+            record = build_daily_record(settings, user_id, local_day)
+            stats = replace_current_day_fortune_in_stats(stats, previous_fortune_name, record["fortune"]["name"])
+            repeated = False
+            should_store = True
+        elif not repeated:
             record = build_daily_record(settings, user_id, local_day)
             stats = update_stats(stats, record["fortune"]["name"], local_day)
+            should_store = True
+
+        if should_store:
             ctx.storage_set(daily_key, record)
             ctx.storage_set(stats_key, stats)
 
