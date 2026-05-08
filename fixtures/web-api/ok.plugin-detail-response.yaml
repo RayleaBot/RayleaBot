@@ -51,6 +51,8 @@ response:
       screenshots:
         - path: assets/overview.svg
           alt: 天气总览卡片
+      render_templates:
+        - path: templates/card
       system_dependencies:
         - OneBot11 connection
       registration_state: installed

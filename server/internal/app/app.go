@@ -55,16 +55,16 @@ type appCore struct {
 }
 
 type appPlatform struct {
-	Auth           *auth.Manager
-	Storage        *storage.Store
-	Secrets        secrets.Store
-	Tasks          *tasks.Registry
-	taskExecutor   *tasks.Executor
-	Scheduler      *scheduler.Engine
-	Logs           *logging.Stream
-	LogRepository  logging.Repository
-	Console        *console.Stream
-	loginFailures  *loginFailureTracker
+	Auth          *auth.Manager
+	Storage       *storage.Store
+	Secrets       secrets.Store
+	Tasks         *tasks.Registry
+	taskExecutor  *tasks.Executor
+	Scheduler     *scheduler.Engine
+	Logs          *logging.Stream
+	LogRepository logging.Repository
+	Console       *console.Stream
+	loginFailures *loginFailureTracker
 }
 
 type appPlugins struct {
@@ -118,16 +118,16 @@ type App struct {
 	state   *appRuntimeState
 	process appProcessState
 
-	auth           *auth.Manager
-	storage        *storage.Store
-	secrets        secrets.Store
-	tasks          *tasks.Registry
-	taskExecutor   *tasks.Executor
-	scheduler      *scheduler.Engine
-	logs           *logging.Stream
-	logRepository  logging.Repository
-	console        *console.Stream
-	loginFailures  *loginFailureTracker
+	auth          *auth.Manager
+	storage       *storage.Store
+	secrets       secrets.Store
+	tasks         *tasks.Registry
+	taskExecutor  *tasks.Executor
+	scheduler     *scheduler.Engine
+	logs          *logging.Stream
+	logRepository logging.Repository
+	console       *console.Stream
+	loginFailures *loginFailureTracker
 
 	plugins           *plugins.Catalog
 	adapter           *adapter.Shell
@@ -333,17 +333,30 @@ func New(options Options) (*App, error) {
 	systemService.RefreshRecoverySummary()
 	schedulerTriggers.Set(lifecycle.HandleSchedulerTrigger)
 
-	if installer, ok := application.pluginInstaller.(interface{ SetAfterSuccess(func(string)) }); ok {
-		installer.SetAfterSuccess(func(string) {
+	if installer, ok := application.pluginInstaller.(interface{ SetAfterSuccess(func(string) error) }); ok {
+		installer.SetAfterSuccess(func(string) error {
+			if err := syncCatalogRenderTemplates(context.Background(), application.renderer, application.plugins); err != nil {
+				return err
+			}
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
+			return nil
 		})
+	}
+	if installer, ok := application.pluginInstaller.(interface {
+		SetRenderTemplateValidator(func(plugins.Snapshot) error)
+	}); ok {
+		installer.SetRenderTemplateValidator(validatePluginRenderTemplates)
 	}
 	if uninstaller, ok := application.pluginUninstaller.(interface {
 		SetStopPlugin(plugins.StopPluginFunc)
 		SetAfterSuccess(func(string))
 	}); ok {
 		uninstaller.SetStopPlugin(lifecycle.stopAndResetPlugin)
-		uninstaller.SetAfterSuccess(func(string) {
+		uninstaller.SetAfterSuccess(func(pluginID string) {
+			if application.renderer != nil {
+				_ = application.renderer.RemovePluginTemplates(context.Background(), pluginID)
+			}
+			_ = syncCatalogRenderTemplates(context.Background(), application.renderer, application.plugins)
 			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
 		})
 	}

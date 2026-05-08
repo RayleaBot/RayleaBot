@@ -14,22 +14,30 @@ import (
 )
 
 type renderTemplateSummary struct {
-	ID             string `json:"id"`
-	Version        string `json:"version"`
-	Width          int    `json:"width"`
-	Height         int    `json:"height"`
-	HasInputSchema bool   `json:"has_input_schema"`
-	UpdatedAt      string `json:"updated_at"`
+	ID             string               `json:"id"`
+	Version        string               `json:"version"`
+	Width          int                  `json:"width"`
+	Height         int                  `json:"height"`
+	HasInputSchema bool                 `json:"has_input_schema"`
+	UpdatedAt      string               `json:"updated_at"`
+	Source         renderTemplateSource `json:"source"`
 }
 
 type renderTemplateDetail struct {
-	ID              string         `json:"id"`
-	Version         string         `json:"version"`
-	Width           int            `json:"width"`
-	Height          int            `json:"height"`
-	HasInputSchema  bool           `json:"has_input_schema"`
-	UpdatedAt       string         `json:"updated_at"`
-	InputSchemaJSON map[string]any `json:"input_schema_json"`
+	ID              string               `json:"id"`
+	Version         string               `json:"version"`
+	Width           int                  `json:"width"`
+	Height          int                  `json:"height"`
+	HasInputSchema  bool                 `json:"has_input_schema"`
+	UpdatedAt       string               `json:"updated_at"`
+	Source          renderTemplateSource `json:"source"`
+	InputSchemaJSON map[string]any       `json:"input_schema_json"`
+}
+
+type renderTemplateSource struct {
+	Type     string  `json:"type"`
+	PluginID *string `json:"plugin_id"`
+	LocalID  *string `json:"local_id"`
 }
 
 type renderTemplateListResponse struct {
@@ -48,6 +56,7 @@ func toRenderTemplateSummary(item render.TemplateSummary) renderTemplateSummary 
 		Height:         item.Height,
 		HasInputSchema: item.HasInputSchema,
 		UpdatedAt:      item.UpdatedAt,
+		Source:         toRenderTemplateSource(item.Source),
 	}
 }
 
@@ -59,8 +68,28 @@ func toRenderTemplateDetail(detail render.TemplateDetail, source render.Template
 		Height:          detail.Height,
 		HasInputSchema:  detail.HasInputSchema,
 		UpdatedAt:       detail.UpdatedAt,
+		Source:          toRenderTemplateSource(detail.Source),
 		InputSchemaJSON: source.InputSchemaJSON,
 	}
+}
+
+func toRenderTemplateSource(source render.TemplateSourceInfo) renderTemplateSource {
+	if source.Type != "plugin" {
+		return renderTemplateSource{Type: "system", PluginID: nil, LocalID: nil}
+	}
+	return renderTemplateSource{
+		Type:     "plugin",
+		PluginID: renderStringPtr(source.PluginID),
+		LocalID:  renderStringPtr(source.LocalID),
+	}
+}
+
+func renderStringPtr(value string) *string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func (h *renderHTTPHandlers) handleSystemRenderPreview() http.HandlerFunc {

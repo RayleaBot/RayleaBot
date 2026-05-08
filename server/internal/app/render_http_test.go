@@ -33,6 +33,9 @@ func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
 	if len(listBody.Items) < 2 {
 		t.Fatalf("expected seeded templates, got %#v", listBody.Items)
 	}
+	if listBody.Items[0].Source.Type == "" {
+		t.Fatalf("expected template source in list response: %#v", listBody.Items[0])
+	}
 
 	detailRecorder := fixture.request(http.MethodGet, "/api/system/render/templates/help.menu", nil)
 	if detailRecorder.Code != http.StatusOK {
@@ -47,6 +50,10 @@ func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
 	templateBody := detailEnvelope["template"]
 	if templateBody["input_schema_json"] == nil {
 		t.Fatalf("expected input_schema_json, got %#v", templateBody)
+	}
+	source, ok := templateBody["source"].(map[string]any)
+	if !ok || source["type"] != "system" {
+		t.Fatalf("expected system source, got %#v", templateBody["source"])
 	}
 	for _, removedField := range []string{"files", "current_revision", "last_validation", "current_revision_id"} {
 		if _, ok := templateBody[removedField]; ok {

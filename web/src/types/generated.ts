@@ -1125,6 +1125,12 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        RenderTemplateSource: {
+            /** @enum {string} */
+            type: "system" | "plugin";
+            plugin_id: string | null;
+            local_id: string | null;
+        };
         RenderTemplateSummary: {
             id: string;
             version: string;
@@ -1133,6 +1139,7 @@ export interface components {
             has_input_schema: boolean;
             /** Format: date-time */
             updated_at: string;
+            source: components["schemas"]["RenderTemplateSource"];
         };
         RenderTemplateListResponse: {
             items: components["schemas"]["RenderTemplateSummary"][];
@@ -1297,6 +1304,9 @@ export interface components {
             entry: string;
             label?: string;
         };
+        PluginRenderTemplateSummary: {
+            path: string;
+        };
         PluginDetail: components["schemas"]["PluginSummary"] & {
             permissions: components["schemas"]["PluginPermissionSummary"][];
             version?: string;
@@ -1326,6 +1336,7 @@ export interface components {
             keywords?: string[];
             screenshots?: components["schemas"]["PluginScreenshot"][];
             management_ui?: components["schemas"]["PluginManagementUISummary"];
+            render_templates?: components["schemas"]["PluginRenderTemplateSummary"][];
             system_dependencies?: string[];
         };
         PluginDetailResponse: {

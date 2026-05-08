@@ -248,6 +248,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		Keywords:           stringListField(manifest, "keywords"),
 		Screenshots:        manifestScreenshots(manifest),
 		ManagementUI:       manifestManagementUI(manifest),
+		RenderTemplates:    manifestRenderTemplates(manifest),
 		SystemDependencies: stringListField(manifest, "system_dependencies"),
 		DefaultConfig:      defaultConfig,
 		ManifestPath:       displayPath(repoRoot, infoPath),
@@ -527,6 +528,27 @@ func manifestManagementUI(document map[string]any) *ManagementUI {
 		Entry: entry,
 		Label: stringField(value, "label"),
 	}
+}
+
+func manifestRenderTemplates(document map[string]any) []RenderTemplate {
+	values, ok := document["render_templates"].([]any)
+	if !ok {
+		return nil
+	}
+
+	items := make([]RenderTemplate, 0, len(values))
+	for _, value := range values {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		path := stringField(item, "path")
+		if path == "" {
+			continue
+		}
+		items = append(items, RenderTemplate{Path: path})
+	}
+	return items
 }
 
 func manifestCommands(document map[string]any) []Command {

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>{{ .title }}</h1>
+      <ul>
+        {{ range .items }}
+        <li>
+          <strong>{{ .name }}</strong>
+          <span>{{ .description }}</span>
+        </li>
+        {{ end }}
+      </ul>
+    </main>
+  </body>
+</html>

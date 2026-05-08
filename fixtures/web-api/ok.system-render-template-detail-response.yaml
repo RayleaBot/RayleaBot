@@ -14,6 +14,10 @@ response:
       height: 640
       has_input_schema: true
       updated_at: '2026-04-18T10:30:00Z'
+      source:
+        type: system
+        plugin_id: null
+        local_id: null
       input_schema_json:
         type: object
         additionalProperties: false

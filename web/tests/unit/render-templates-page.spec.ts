@@ -9,6 +9,7 @@ import { apiDownload } from '@/lib/http'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
+import type { RenderTemplateSummary } from '@/types/api'
 
 vi.mock('@/lib/http', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/http')>()),
@@ -52,6 +53,11 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
       height: 420,
       has_input_schema: true,
       updated_at: updatedAt,
+      source: {
+        type: 'system',
+        plugin_id: null,
+        local_id: null,
+      },
       input_schema_json: {
         type: 'object',
         required: ['title', 'items'],
@@ -106,6 +112,11 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
       height: 540,
       has_input_schema: true,
       updated_at: updatedAt,
+      source: {
+        type: 'system',
+        plugin_id: null,
+        local_id: null,
+      },
       input_schema_json: {
         type: 'object',
         required: ['title', 'status'],
@@ -124,6 +135,11 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
     height: 640,
     has_input_schema: true,
     updated_at: updatedAt,
+    source: {
+      type: 'system',
+      plugin_id: null,
+      local_id: null,
+    },
     input_schema_json: {
       type: 'object',
       properties: {
@@ -131,6 +147,35 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
         items: { type: 'array', description: '菜单项' },
       },
       required: ['title'],
+    },
+  } as const
+}
+
+function createTemplateSummary(templateId = 'help.menu', updatedAt = '2026-04-18T10:30:00Z'): RenderTemplateSummary {
+  const detail = createTemplateDetail(templateId, updatedAt)
+  return {
+    id: detail.id,
+    version: detail.version,
+    width: detail.width,
+    height: detail.height,
+    has_input_schema: detail.has_input_schema,
+    updated_at: detail.updated_at,
+    source: detail.source,
+  }
+}
+
+function createPluginTemplateSummary(): RenderTemplateSummary {
+  return {
+    id: 'plugin.weather-card.card',
+    version: '1',
+    width: 320,
+    height: 240,
+    has_input_schema: true,
+    updated_at: '2026-04-18T10:29:00Z',
+    source: {
+      type: 'plugin',
+      plugin_id: 'weather-card',
+      local_id: 'card',
     },
   } as const
 }
@@ -191,16 +236,7 @@ describe('RenderTemplatesView', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
-    renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
-    ]
+    renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
       'help.menu': createTemplateDetail(),
     }
@@ -263,21 +299,44 @@ describe('RenderTemplatesView', () => {
     expect(wrapper.find('img[alt="模板预览结果"]').attributes('src')).toBe('blob:render-preview')
   })
 
-  it('does not resubmit identical payloads and blocks invalid preview json', async () => {
+  it('groups templates by source and shows plugin ownership', async () => {
     const renderTemplatesStore = useRenderTemplatesStore()
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
     renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
+      createTemplateSummary(),
+      createPluginTemplateSummary(),
     ]
+    renderTemplatesStore.detailById = {
+      'help.menu': createTemplateDetail(),
+    }
+
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
+    vi.spyOn(systemStore, 'previewRender').mockResolvedValue({ task_id: 'task_render_preview_0001' })
+    vi.spyOn(tasksStore, 'fetchTask').mockResolvedValue({
+      task_id: 'task_render_preview_0001',
+      task_type: 'render.preview',
+      status: 'pending',
+      summary: 'render preview for help.menu',
+    })
+
+    const { wrapper } = await mountPage()
+
+    expect(wrapper.text()).toContain('系统模板')
+    expect(wrapper.text()).toContain('插件模板')
+    expect(wrapper.text()).toContain('plugin.weather-card.card')
+    expect(wrapper.text()).toContain('weather-card')
+    expect(wrapper.text()).toContain('card')
+  })
+
+  it('does not resubmit identical payloads and blocks invalid preview json', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+    const systemStore = useSystemStore()
+    const tasksStore = useTasksStore()
+
+    renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
       'help.menu': createTemplateDetail(),
     }
@@ -330,16 +389,7 @@ describe('RenderTemplatesView', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
-    renderTemplatesStore.items = [
-      {
-        id: 'leaderboard.list',
-        version: '1',
-        width: 960,
-        height: 420,
-        has_input_schema: true,
-        updated_at: '2026-05-03T01:01:04Z',
-      },
-    ]
+    renderTemplatesStore.items = [createTemplateSummary('leaderboard.list', '2026-05-03T01:01:04Z')]
 
     vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockImplementation(async () => {
@@ -410,16 +460,7 @@ describe('RenderTemplatesView', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
-    renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
-    ]
+    renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
       'help.menu': createTemplateDetail(),
     }
@@ -485,16 +526,7 @@ describe('RenderTemplatesView', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
-    renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
-    ]
+    renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
       'help.menu': createTemplateDetail(),
     }
@@ -560,16 +592,7 @@ describe('RenderTemplatesView', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
-    renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
-    ]
+    renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
       'help.menu': createTemplateDetail(),
     }
@@ -640,16 +663,7 @@ describe('RenderTemplatesView', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
-    renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
-    ]
+    renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
       'help.menu': createTemplateDetail(),
     }
@@ -705,16 +719,7 @@ describe('RenderTemplatesView', () => {
     const systemStore = useSystemStore()
     const tasksStore = useTasksStore()
 
-    renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
-    ]
+    renderTemplatesStore.items = [createTemplateSummary()]
     renderTemplatesStore.detailById = {
       'help.menu': createTemplateDetail(),
     }
@@ -776,22 +781,8 @@ describe('RenderTemplatesView', () => {
     const renderTemplatesStore = useRenderTemplatesStore()
 
     renderTemplatesStore.items = [
-      {
-        id: 'help.menu',
-        version: '1',
-        width: 960,
-        height: 640,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:30:00Z',
-      },
-      {
-        id: 'status.panel',
-        version: '1',
-        width: 960,
-        height: 540,
-        has_input_schema: true,
-        updated_at: '2026-04-18T10:31:00Z',
-      },
+      createTemplateSummary(),
+      createTemplateSummary('status.panel', '2026-04-18T10:31:00Z'),
     ]
 
     vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })

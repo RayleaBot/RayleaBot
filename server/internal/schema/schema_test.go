@@ -92,6 +92,39 @@ func TestFormalSchemaFixturesKeepRelativePathConstraints(t *testing.T) {
 			expectValid: false,
 		},
 		{
+			name:       "plugin render template valid fixture",
+			schemaPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
+			fixturePath: filepath.Join(
+				repoRoot,
+				"fixtures",
+				"plugin-info",
+				"ok.render-template.json",
+			),
+			expectValid: true,
+		},
+		{
+			name:       "plugin render template parent path fixture",
+			schemaPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
+			fixturePath: filepath.Join(
+				repoRoot,
+				"fixtures",
+				"plugin-info",
+				"invalid.render-template-parent-path.json",
+			),
+			expectValid: false,
+		},
+		{
+			name:       "plugin render template absolute path fixture",
+			schemaPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
+			fixturePath: filepath.Join(
+				repoRoot,
+				"fixtures",
+				"plugin-info",
+				"invalid.render-template-absolute-path.json",
+			),
+			expectValid: false,
+		},
+		{
 			name:       "deps manifest valid fixture",
 			schemaPath: filepath.Join(repoRoot, "contracts", "deps-manifest.schema.json"),
 			fixturePath: filepath.Join(

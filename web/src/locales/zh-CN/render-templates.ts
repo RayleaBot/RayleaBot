@@ -25,8 +25,14 @@ export const renderTemplates = {
   previewDataPlaceholder: '请输入 JSON 对象，例如 title、items 等字段。',
   reloadAction: '重新加载当前模板',
   noTemplates: '当前没有可预览的模板。',
+  sources: {
+    system: '系统模板',
+    plugin: '插件模板',
+  },
   fields: {
     id: '模板 ID',
+    source: '来源',
+    localId: '短 ID',
     size: '渲染参数',
     version: '模板版本',
     updatedAt: '更新时间',

@@ -8,7 +8,7 @@ frames:
     request_id: local_render_0001
     action: render.image
     data:
-      template: help.menu
+      template: card
       theme: default
       output: png
       fallback_text: 帮助菜单暂时不可用，请稍后重试。
@@ -22,3 +22,4 @@ expect:
   valid: true
   notes:
     - render.image is a render-only action and does not implicitly send the result as a message.
+    - The platform resolves a short template ID against the calling plugin's render_templates before checking system templates.

@@ -58,6 +58,10 @@ type ManagementUI struct {
 	Label string `json:"label,omitempty"`
 }
 
+type RenderTemplate struct {
+	Path string `json:"path"`
+}
+
 type Snapshot struct {
 	PluginID              string
 	Name                  string
@@ -81,6 +85,7 @@ type Snapshot struct {
 	Keywords              []string
 	Screenshots           []Screenshot
 	ManagementUI          *ManagementUI
+	RenderTemplates       []RenderTemplate
 	SystemDependencies    []string
 	DefaultConfig         map[string]any
 	ManifestPath          string
@@ -399,6 +404,9 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	if snapshot.ManagementUI != nil {
 		copied := *snapshot.ManagementUI
 		cloned.ManagementUI = &copied
+	}
+	if len(snapshot.RenderTemplates) > 0 {
+		cloned.RenderTemplates = append([]RenderTemplate(nil), snapshot.RenderTemplates...)
 	}
 	if len(snapshot.Commands) > 0 {
 		cloned.Commands = cloneCommands(snapshot.Commands)

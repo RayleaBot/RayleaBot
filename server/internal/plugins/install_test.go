@@ -4,8 +4,10 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -85,8 +87,9 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	defer service.Close()
 
 	called := make(chan string, 1)
-	service.SetAfterSuccess(func(pluginID string) {
+	service.SetAfterSuccess(func(pluginID string) error {
 		called <- pluginID
+		return nil
 	})
 
 	taskID, err := service.Accept(context.Background(), InstallRequest{
@@ -109,6 +112,49 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for install after-success callback")
+	}
+}
+
+func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-fail-src"), "callback-fail-weather", "nodejs", "index.js")
+	repository := &stubInstallRepository{}
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
+	defer service.Close()
+
+	service.SetAfterSuccess(func(pluginID string) error {
+		if pluginID != "callback-fail-weather" {
+			t.Fatalf("unexpected callback plugin id: got %q want callback-fail-weather", pluginID)
+		}
+		return fmt.Errorf("sync plugin render template callback-fail-weather: source conflict")
+	})
+
+	taskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType: "local_directory",
+		Source:     sourceDir,
+	})
+	if err != nil {
+		t.Fatalf("Accept failed: %v", err)
+	}
+
+	snapshot := waitForTaskCompletion(t, registry, taskID)
+	if snapshot.Status != tasks.StatusFailed {
+		t.Fatalf("unexpected task status: got %q want %q", snapshot.Status, tasks.StatusFailed)
+	}
+	if snapshot.Error == nil || snapshot.Error.Code != codePluginInstallFailed {
+		t.Fatalf("unexpected task error: %#v", snapshot.Error)
+	}
+	if _, ok := catalog.Get("callback-fail-weather"); ok {
+		t.Fatal("plugin remained in catalog after after-success failure")
+	}
+	if _, err := os.Stat(filepath.Join(repoRoot, "plugins", "installed", "callback-fail-weather")); !os.IsNotExist(err) {
+		t.Fatalf("installed directory was not rolled back: %v", err)
+	}
+	if repository.deletedPackage != "callback-fail-weather" {
+		t.Fatalf("package metadata was not rolled back: got %q", repository.deletedPackage)
 	}
 }
 
@@ -139,6 +185,101 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 
 	if _, ok := catalog.Get("zip-weather"); !ok {
 		t.Fatal("expected zip-installed plugin in refreshed catalog")
+	}
+}
+
+func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-src"), "template-weather", "python", "main.py")
+	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
+
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	service.SetRenderTemplateValidator(func(snapshot Snapshot) error {
+		return validateInstallRenderTemplates(snapshot)
+	})
+	defer service.Close()
+
+	taskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType: "local_directory",
+		Source:     sourceDir,
+	})
+	if err != nil {
+		t.Fatalf("Accept failed: %v", err)
+	}
+
+	snapshot := waitForTaskCompletion(t, registry, taskID)
+	if snapshot.Status != tasks.StatusFailed {
+		t.Fatalf("unexpected task status: got %q want %q", snapshot.Status, tasks.StatusFailed)
+	}
+	if snapshot.Error == nil || snapshot.Error.Code != codePluginInstallFailed {
+		t.Fatalf("unexpected task error: %#v", snapshot.Error)
+	}
+}
+
+func TestInstallServiceInstallsRenderTemplatePackage(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-ok-src"), "template-ok-weather", "python", "main.py")
+	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
+	writeInstallRenderTemplate(t, filepath.Join(sourceDir, "templates", "card"), "card")
+
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
+	defer service.Close()
+
+	taskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType: "local_directory",
+		Source:     sourceDir,
+	})
+	if err != nil {
+		t.Fatalf("Accept failed: %v", err)
+	}
+
+	snapshot := waitForTaskCompletion(t, registry, taskID)
+	if snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("unexpected task status: got %q want %q (%#v)", snapshot.Status, tasks.StatusSucceeded, snapshot.Error)
+	}
+	installed, ok := catalog.Get("template-ok-weather")
+	if !ok {
+		t.Fatal("expected installed plugin in refreshed catalog")
+	}
+	if len(installed.RenderTemplates) != 1 || installed.RenderTemplates[0].Path != "templates/card" {
+		t.Fatalf("unexpected render_templates: %#v", installed.RenderTemplates)
+	}
+}
+
+func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-bad-src"), "template-bad-weather", "python", "main.py")
+	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
+	writeInstallRenderTemplate(t, filepath.Join(sourceDir, "templates", "card"), "card/escaped")
+
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
+	defer service.Close()
+
+	taskID, err := service.Accept(context.Background(), InstallRequest{
+		SourceType: "local_directory",
+		Source:     sourceDir,
+	})
+	if err != nil {
+		t.Fatalf("Accept failed: %v", err)
+	}
+
+	snapshot := waitForTaskCompletion(t, registry, taskID)
+	if snapshot.Status != tasks.StatusFailed {
+		t.Fatalf("unexpected task status: got %q want %q", snapshot.Status, tasks.StatusFailed)
+	}
+	if snapshot.Error == nil || snapshot.Error.Code != codePluginInstallFailed {
+		t.Fatalf("unexpected task error: %#v", snapshot.Error)
 	}
 }
 
@@ -388,8 +529,9 @@ type installSourceOptions struct {
 }
 
 type stubInstallRepository struct {
-	saved       map[string]string
-	lastPackage PackageMetadata
+	saved          map[string]string
+	lastPackage    PackageMetadata
+	deletedPackage string
 }
 
 func (r *stubInstallRepository) LoadDesiredStates(context.Context) (map[string]string, error) {
@@ -416,7 +558,8 @@ func (r *stubInstallRepository) DeleteDesiredState(_ context.Context, _ string) 
 	return nil
 }
 
-func (r *stubInstallRepository) DeletePackageMetadata(_ context.Context, _ string) error {
+func (r *stubInstallRepository) DeletePackageMetadata(_ context.Context, pluginID string) error {
+	r.deletedPackage = pluginID
 	return nil
 }
 
@@ -485,6 +628,84 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID, runtimeName, entry s
 	}
 
 	return root
+}
+
+func addRenderTemplateDeclarationToManifest(t *testing.T, pluginRoot, templatePath string) {
+	t.Helper()
+
+	infoPath := filepath.Join(pluginRoot, "info.json")
+	bytes, err := os.ReadFile(infoPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(bytes, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	manifest["render_templates"] = []map[string]any{{"path": templatePath}}
+	manifest["capabilities"] = []string{"event.subscribe", "render.image"}
+	manifest["permissions"] = map[string]any{
+		"required": []string{"render.image"},
+		"optional": []string{},
+	}
+	encoded, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode manifest: %v", err)
+	}
+	if err := os.WriteFile(infoPath, encoded, 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+}
+
+func writeInstallRenderTemplate(t *testing.T, templateDir, templateID string) {
+	t.Helper()
+
+	if err := os.MkdirAll(templateDir, 0o755); err != nil {
+		t.Fatalf("create template dir: %v", err)
+	}
+	html := "<html><body>{{ .title }}</body></html>"
+	files := map[string]string{
+		"template.json": fmt.Sprintf(`{
+  "id": %q,
+  "version": "1",
+  "entry_html": "template.html",
+  "stylesheet": "styles.css",
+  "input_schema": "input.schema.json",
+  "width": 320,
+  "height": 240
+}`, templateID),
+		"template.html":     html,
+		"styles.css":        "body { margin: 0; }",
+		"input.schema.json": `{"type":"object","additionalProperties":true}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write template %s: %v", name, err)
+		}
+	}
+}
+
+func validateInstallRenderTemplates(snapshot Snapshot) error {
+	for _, declared := range snapshot.RenderTemplates {
+		templateDir := filepath.Join(snapshot.PackageRootPath, filepath.FromSlash(declared.Path))
+		if info, err := os.Stat(templateDir); err != nil || !info.IsDir() {
+			return fmt.Errorf("load plugin render template %s: template directory is missing", snapshot.PluginID)
+		}
+		manifestPath := filepath.Join(templateDir, "template.json")
+		document, err := schema.LoadJSONFile(manifestPath)
+		if err != nil {
+			return fmt.Errorf("load plugin render template %s: %w", snapshot.PluginID, err)
+		}
+		manifest, ok := document.(map[string]any)
+		if !ok {
+			return fmt.Errorf("load plugin render template %s: manifest must be an object", snapshot.PluginID)
+		}
+		id, ok := manifest["id"].(string)
+		if !ok || id == "" || strings.Contains(id, "/") || strings.Contains(id, "\\") {
+			return fmt.Errorf("load plugin render template %s: template id is invalid", snapshot.PluginID)
+		}
+	}
+	return nil
 }
 
 func writePluginZip(t *testing.T, archivePath, sourceDir string) {

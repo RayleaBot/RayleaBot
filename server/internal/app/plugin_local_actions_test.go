@@ -921,6 +921,167 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	}
 }
 
+func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	writePluginRenderTemplate(t, repoRoot, "weather-card", "card")
+	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{})
+	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather-card",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		DisplayState:      "running",
+		PackageRootPath:   filepath.Join(repoRoot, "plugins", "installed", "weather-card"),
+		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/card"}},
+	}})
+	if err := syncCatalogRenderTemplates(context.Background(), renderer, catalog); err != nil {
+		t.Fatalf("sync plugin render templates: %v", err)
+	}
+
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = catalog
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		renderer,
+		nil,
+		nil,
+		nil,
+	)
+
+	result, err := application.executeLocalAction(context.Background(), "weather-card", "req_render_plugin_short", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "card",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title": "天气卡片",
+		},
+	})
+	if err != nil {
+		t.Fatalf("render.image failed: %v", err)
+	}
+	if result["mime"] != "image/png" {
+		t.Fatalf("unexpected render mime: %#v", result["mime"])
+	}
+
+	items, err := renderer.ListTemplates(context.Background())
+	if err != nil {
+		t.Fatalf("ListTemplates: %v", err)
+	}
+	var found bool
+	for _, item := range items {
+		if item.ID == "plugin.weather-card.card" && item.Source.Type == "plugin" && item.Source.PluginID == "weather-card" && item.Source.LocalID == "card" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("plugin template source not listed: %#v", items)
+	}
+}
+
+func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	writePluginRenderTemplate(t, repoRoot, "weather-card", "card")
+	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{})
+	catalog := plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather-card",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		DisplayState:      "running",
+		PackageRootPath:   filepath.Join(repoRoot, "plugins", "installed", "weather-card"),
+		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/card"}},
+	}})
+	if err := syncCatalogRenderTemplates(context.Background(), renderer, catalog); err != nil {
+		t.Fatalf("sync plugin render templates: %v", err)
+	}
+
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = catalog
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		renderer,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := application.executeLocalAction(context.Background(), "other-plugin", "req_render_other_plugin", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "plugin.weather-card.card",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title": "天气卡片",
+		},
+	})
+	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+}
+
+func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
+	t.Parallel()
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{}),
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err = application.executeLocalAction(context.Background(), "other-plugin", "req_render_unknown_other_plugin", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "plugin.weather-card.card",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title": "天气卡片",
+		},
+	})
+	assertRuntimeErrorCode(t, err, "permission.scope_violation")
+}
+
 func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 	t.Parallel()
 
@@ -1417,6 +1578,34 @@ func writePlainRenderTemplate(t *testing.T, repoRoot string) {
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(templateRoot, name), []byte(content), 0o644); err != nil {
 			t.Fatalf("write plain template %s: %v", name, err)
+		}
+	}
+}
+
+func writePluginRenderTemplate(t *testing.T, repoRoot, pluginID, templateID string) {
+	t.Helper()
+
+	templateDir := filepath.Join(repoRoot, "plugins", "installed", pluginID, "templates", templateID)
+	if err := os.MkdirAll(templateDir, 0o755); err != nil {
+		t.Fatalf("create plugin template dir: %v", err)
+	}
+	files := map[string]string{
+		"template.json": `{
+  "id": "` + templateID + `",
+  "version": "1",
+  "entry_html": "template.html",
+  "stylesheet": "styles.css",
+  "input_schema": "input.schema.json",
+  "width": 320,
+  "height": 240
+}`,
+		"template.html":     "<html><body>{{ .title }}</body></html>",
+		"styles.css":        "body { margin: 0; }",
+		"input.schema.json": `{"type":"object","additionalProperties":true}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write plugin template file %s: %v", name, err)
 		}
 	}
 }

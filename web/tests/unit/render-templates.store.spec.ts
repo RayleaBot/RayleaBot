@@ -17,8 +17,13 @@ function templateDetail(updatedAt = '2026-04-18T10:30:00Z') {
     width: 960,
     height: 640,
     has_input_schema: true,
-    updated_at: updatedAt,
-    input_schema_json: {
+      updated_at: updatedAt,
+      source: {
+        type: 'system',
+        plugin_id: null,
+        local_id: null,
+      },
+      input_schema_json: {
       type: 'object',
       properties: {
         title: { type: 'string', description: '主标题' },
@@ -45,6 +50,11 @@ describe('render templates store', () => {
             height: 540,
             has_input_schema: true,
             updated_at: '2026-04-18T09:45:00Z',
+            source: {
+              type: 'system',
+              plugin_id: null,
+              local_id: null,
+            },
           },
           {
             id: 'help.menu',
@@ -53,6 +63,11 @@ describe('render templates store', () => {
             height: 640,
             has_input_schema: true,
             updated_at: '2026-04-18T10:30:00Z',
+            source: {
+              type: 'system',
+              plugin_id: null,
+              local_id: null,
+            },
           },
         ],
       })),
@@ -79,6 +94,11 @@ describe('render templates store', () => {
         height: 540,
         has_input_schema: true,
         updated_at: '2026-04-18T09:45:00Z',
+        source: {
+          type: 'system',
+          plugin_id: null,
+          local_id: null,
+        },
       },
     ]
 

@@ -20,7 +20,7 @@ import { t } from '@/i18n'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import { useSystemStore } from '@/stores/system'
 import { useTasksStore } from '@/stores/tasks'
-import type { RenderPreviewRequest } from '@/types/api'
+import type { RenderPreviewRequest, RenderTemplateSummary } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,6 +58,32 @@ const activeTemplateId = computed(() => (
 const currentTemplate = computed(() => (
   activeTemplateId.value ? detailById.value[activeTemplateId.value] ?? null : null
 ))
+
+const groupedTemplates = computed(() => {
+  const systemTemplates: RenderTemplateSummary[] = []
+  const pluginTemplates: RenderTemplateSummary[] = []
+
+  for (const template of items.value) {
+    if (template.source.type === 'plugin') {
+      pluginTemplates.push(template)
+    } else {
+      systemTemplates.push(template)
+    }
+  }
+
+  return [
+    {
+      key: 'system',
+      title: t('renderTemplates.sources.system'),
+      items: systemTemplates,
+    },
+    {
+      key: 'plugin',
+      title: t('renderTemplates.sources.plugin'),
+      items: pluginTemplates,
+    },
+  ].filter((group) => group.items.length > 0)
+})
 
 const currentPreviewDataText = computed({
   get() {
@@ -134,6 +160,22 @@ function formatTemplateSize(width?: number, height?: number) {
   }
 
   return `宽度 ${width}px · 高度自适应（初始 ${height}px）`
+}
+
+function getTemplateSourceLabel(template: RenderTemplateSummary) {
+  if (template.source.type !== 'plugin') {
+    return t('renderTemplates.sources.system')
+  }
+
+  return template.source.plugin_id || t('display.empty')
+}
+
+function getTemplateLocalId(template: RenderTemplateSummary) {
+  if (template.source.type !== 'plugin') {
+    return ''
+  }
+
+  return template.source.local_id || ''
 }
 
 function buildDefaultPreviewData(templateId: string, schema: Record<string, unknown> | null = null) {
@@ -577,23 +619,37 @@ onBeforeUnmount(() => {
             <span class="render-templates-card__meta">{{ items.length }}</span>
           </template>
           <div class="template-nav-list">
-            <button
-              v-for="template in items"
-              :key="template.id"
-              type="button"
-              class="template-nav-item"
-              :class="{ 'is-active': template.id === activeTemplateId }"
-              @click="selectTemplate(template.id)"
+            <section
+              v-for="group in groupedTemplates"
+              :key="group.key"
+              class="template-nav-group"
             >
-              <div class="template-nav-item__header">
-                <strong>{{ template.id }}</strong>
-                <a-tag size="small">{{ template.version }}</a-tag>
+              <div class="template-nav-group__title">
+                <span>{{ group.title }}</span>
+                <small>{{ group.items.length }}</small>
               </div>
-              <div class="template-nav-item__meta">
-                <span>{{ formatTemplateSize(template.width, template.height) }}</span>
-                <span>{{ formatDateTime(template.updated_at) }}</span>
-              </div>
-            </button>
+              <button
+                v-for="template in group.items"
+                :key="template.id"
+                type="button"
+                class="template-nav-item"
+                :class="{ 'is-active': template.id === activeTemplateId }"
+                @click="selectTemplate(template.id)"
+              >
+                <div class="template-nav-item__header">
+                  <strong>{{ template.id }}</strong>
+                  <a-tag size="small">{{ template.version }}</a-tag>
+                </div>
+                <div class="template-nav-item__source">
+                  <a-tag size="small">{{ getTemplateSourceLabel(template) }}</a-tag>
+                  <span v-if="getTemplateLocalId(template)">{{ getTemplateLocalId(template) }}</span>
+                </div>
+                <div class="template-nav-item__meta">
+                  <span>{{ formatTemplateSize(template.width, template.height) }}</span>
+                  <span>{{ formatDateTime(template.updated_at) }}</span>
+                </div>
+              </button>
+            </section>
           </div>
         </AppCard>
       </div>
@@ -609,6 +665,14 @@ onBeforeUnmount(() => {
           <div class="template-info-bar__item">
             <span>{{ t('renderTemplates.fields.id') }}</span>
             <strong>{{ currentTemplate.id }}</strong>
+          </div>
+          <div class="template-info-bar__item">
+            <span>{{ t('renderTemplates.fields.source') }}</span>
+            <strong>{{ getTemplateSourceLabel(currentTemplate) }}</strong>
+          </div>
+          <div v-if="getTemplateLocalId(currentTemplate)" class="template-info-bar__item">
+            <span>{{ t('renderTemplates.fields.localId') }}</span>
+            <strong>{{ getTemplateLocalId(currentTemplate) }}</strong>
           </div>
           <div class="template-info-bar__item">
             <span>{{ t('renderTemplates.fields.version') }}</span>
@@ -811,7 +875,29 @@ onBeforeUnmount(() => {
 
 .template-nav-list {
   display: grid;
+  gap: 14px;
+}
+
+.template-nav-group {
+  display: grid;
   gap: 8px;
+}
+
+.template-nav-group__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+  color: var(--app-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+
+  small {
+    color: var(--app-text-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
 }
 
 .template-nav-item {
@@ -841,11 +927,24 @@ onBeforeUnmount(() => {
 }
 
 .template-nav-item__header,
+.template-nav-item__source,
 .template-nav-item__meta {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
+}
+
+.template-nav-item__source {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--app-text-secondary);
+  font-size: 0.8rem;
+
+  span {
+    overflow-wrap: anywhere;
+  }
 }
 
 .template-nav-item__meta {

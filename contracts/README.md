@@ -45,7 +45,7 @@
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、权限声明和迁移判断边界
-  - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui` 与插件详情页投影所需 metadata
+  - 当前已冻结 `default_config`、`default_config_file`、`role`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`system_dependencies`、`platforms`、`management_ui`、`render_templates` 与插件详情页投影所需 metadata
   - `capabilities`、`permissions.required` 与 `permissions.optional` 共用同一套正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时回落到 `auth.default_level`
@@ -61,7 +61,7 @@
   - `error` 帧由插件终态失败与平台 local action 失败共用，固定包含 `code`、`message`，可选 `details`
   - `message.send`、`message.reply` 使用 shared `message.segments` payload
   - `init.bot` 在协议身份可用时出现，`bot.identity.changed` 用于向运行中插件同步当前 bot 身份
-  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface
+  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface；`render.image` 支持系统模板 ID 和调用插件声明的模板短 ID
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已冻结 OneBot 单动作 surface，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
@@ -126,7 +126,7 @@
 - `POST /api/system/render/preview`
 - `GET /api/system/render/artifacts/{artifact_id}`
 
-其中模板预览工作区继续使用 `render.preview` 任务链进行实时预览；`render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
+其中模板预览工作区继续使用 `render.preview` 任务链进行实时预览；模板列表和详情返回 `source`，用于区分系统模板与插件携带模板；`render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
 
 当前已进入 OpenAPI 冻结范围的 governance surface：
 

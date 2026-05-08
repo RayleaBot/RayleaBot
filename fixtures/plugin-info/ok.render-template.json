@@ -1,0 +1,37 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "description": "A plugin may declare package-local render template directories.",
+  "input": {
+    "id": "weather-card",
+    "name": "Weather Card",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "plugin.py",
+    "license": "MIT",
+    "description": "Weather plugin with a local render card.",
+    "author": "raylea",
+    "role": "user",
+    "capabilities": [
+      "event.subscribe",
+      "render.image"
+    ],
+    "permissions": {
+      "required": [
+        "render.image"
+      ],
+      "optional": []
+    },
+    "render_templates": [
+      {
+        "path": "templates/card"
+      }
+    ]
+  },
+  "expect": {
+    "valid": true
+  }
+}

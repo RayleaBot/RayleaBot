@@ -1,0 +1,37 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "description": "A declared render template directory must exist inside the plugin package.",
+  "input": {
+    "id": "weather-card",
+    "name": "Weather Card",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "plugin.py",
+    "license": "MIT",
+    "description": "Weather plugin with a missing local render card directory.",
+    "author": "raylea",
+    "capabilities": [
+      "event.subscribe",
+      "render.image"
+    ],
+    "permissions": {
+      "required": [
+        "render.image"
+      ],
+      "optional": []
+    },
+    "render_templates": [
+      {
+        "path": "templates/missing-card"
+      }
+    ]
+  },
+  "expect": {
+    "valid": false,
+    "reason": "install-time validation rejects render_templates entries whose package-local directory cannot be read."
+  }
+}

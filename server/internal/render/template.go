@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +27,8 @@ const (
 	defaultTemplateWidth          = 960
 	defaultTemplateHeight         = 640
 )
+
+var templateIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 type TemplateDraft struct {
 	Source TemplateSource `json:"source"`
@@ -51,6 +54,12 @@ type TemplateValidationStatus struct {
 	IssueCount int    `json:"issue_count"`
 }
 
+type TemplateSourceInfo struct {
+	Type     string `json:"type"`
+	PluginID string `json:"plugin_id,omitempty"`
+	LocalID  string `json:"local_id,omitempty"`
+}
+
 type TemplateVersion struct {
 	RevisionID      string  `json:"revision_id"`
 	TemplateVersion string  `json:"template_version"`
@@ -67,6 +76,7 @@ type TemplateSummary struct {
 	HasInputSchema    bool   `json:"has_input_schema"`
 	CurrentRevisionID string `json:"current_revision_id"`
 	UpdatedAt         string `json:"updated_at"`
+	Source            TemplateSourceInfo
 }
 
 type TemplateDetail struct {
@@ -116,6 +126,12 @@ type compiledTemplate struct {
 type templateSeed struct {
 	source   TemplateSource
 	compiled *compiledTemplate
+}
+
+type PluginTemplateSource struct {
+	PluginID string
+	LocalID  string
+	Dir      string
 }
 
 func discoverTemplateSeeds(root string, logger *slog.Logger) (map[string]templateSeed, error) {
@@ -181,19 +197,31 @@ func loadTemplateSeed(templateDir string) (templateSeed, error) {
 		return templateSeed{}, fmt.Errorf("load render template manifest %s: %w", manifestPath, err)
 	}
 
-	htmlBytes, err := os.ReadFile(filepath.Join(templateDir, manifest.EntryHTML))
+	htmlPath, err := templateFilePath(templateDir, manifest.EntryHTML)
+	if err != nil {
+		return templateSeed{}, fmt.Errorf("resolve render template html for %s: %w", manifest.ID, err)
+	}
+	htmlBytes, err := os.ReadFile(htmlPath)
 	if err != nil {
 		return templateSeed{}, fmt.Errorf("read render template html for %s: %w", manifest.ID, err)
 	}
 
-	stylesheetBytes, err := os.ReadFile(filepath.Join(templateDir, manifest.Stylesheet))
+	stylesheetPath, err := templateFilePath(templateDir, manifest.Stylesheet)
+	if err != nil {
+		return templateSeed{}, fmt.Errorf("resolve render template stylesheet for %s: %w", manifest.ID, err)
+	}
+	stylesheetBytes, err := os.ReadFile(stylesheetPath)
 	if err != nil {
 		return templateSeed{}, fmt.Errorf("read render template stylesheet for %s: %w", manifest.ID, err)
 	}
 
 	var inputSchemaJSON map[string]any
 	if manifest.InputSchema != nil {
-		inputSchemaBytes, err := os.ReadFile(filepath.Join(templateDir, *manifest.InputSchema))
+		inputSchemaPath, err := templateFilePath(templateDir, *manifest.InputSchema)
+		if err != nil {
+			return templateSeed{}, fmt.Errorf("resolve render input schema for %s: %w", manifest.ID, err)
+		}
+		inputSchemaBytes, err := os.ReadFile(inputSchemaPath)
 		if err != nil {
 			return templateSeed{}, fmt.Errorf("read render input schema for %s: %w", manifest.ID, err)
 		}
@@ -225,6 +253,29 @@ func loadTemplateSeed(templateDir string) (templateSeed, error) {
 		source:   source,
 		compiled: compiled,
 	}, nil
+}
+
+func templateFilePath(templateDir, relativePath string) (string, error) {
+	templateDir = strings.TrimSpace(templateDir)
+	relativePath = strings.TrimSpace(relativePath)
+	if templateDir == "" || relativePath == "" || filepath.IsAbs(filepath.FromSlash(relativePath)) {
+		return "", fmt.Errorf("template file path %q is invalid", relativePath)
+	}
+
+	cleanRelative := filepath.Clean(filepath.FromSlash(relativePath))
+	if cleanRelative == "." || cleanRelative == ".." || strings.HasPrefix(cleanRelative, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("template file path %q is outside template directory", relativePath)
+	}
+
+	absoluteRoot, err := filepath.Abs(templateDir)
+	if err != nil {
+		return "", err
+	}
+	candidate := filepath.Join(absoluteRoot, cleanRelative)
+	if !pathWithinRoot(absoluteRoot, candidate) {
+		return "", fmt.Errorf("template file path %q is outside template directory", relativePath)
+	}
+	return candidate, nil
 }
 
 func buildTemplateSourceBundle(expectedTemplateID string, source TemplateSource) (templateSourceBundle, error) {
@@ -387,6 +438,9 @@ func parseTemplateManifest(expectedTemplateID string, manifestJSON map[string]an
 	id, err := readRequiredString(manifestJSON, "id")
 	if err != nil {
 		return templateManifest{}, nil, err
+	}
+	if !templateIDPattern.MatchString(id) {
+		return templateManifest{}, nil, fmt.Errorf("manifest_json.id contains unsupported characters")
 	}
 	if expectedTemplateID != "" && id != expectedTemplateID {
 		return templateManifest{}, nil, fmt.Errorf("manifest id %q does not match template path %q", id, expectedTemplateID)

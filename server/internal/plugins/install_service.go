@@ -66,11 +66,18 @@ func (s *InstallService) Cancel(taskID string) bool {
 	return true
 }
 
-func (s *InstallService) SetAfterSuccess(fn func(string)) {
+func (s *InstallService) SetAfterSuccess(fn func(string) error) {
 	if s == nil {
 		return
 	}
 	s.afterSuccess = fn
+}
+
+func (s *InstallService) SetRenderTemplateValidator(fn func(Snapshot) error) {
+	if s == nil {
+		return
+	}
+	s.validateRenderTemplates = fn
 }
 
 func (s *InstallService) Close() error {

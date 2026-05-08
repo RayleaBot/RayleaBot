@@ -1,0 +1,36 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "description": "Render template directories must be package-relative.",
+  "input": {
+    "id": "weather-card",
+    "name": "Weather Card",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "plugin.py",
+    "license": "MIT",
+    "description": "Weather plugin with an invalid local render card path.",
+    "author": "raylea",
+    "capabilities": [
+      "event.subscribe",
+      "render.image"
+    ],
+    "permissions": {
+      "required": [
+        "render.image"
+      ],
+      "optional": []
+    },
+    "render_templates": [
+      {
+        "path": "/templates/card"
+      }
+    ]
+  },
+  "expect": {
+    "valid": false
+  }
+}

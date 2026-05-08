@@ -111,43 +111,48 @@ type pluginManagementUIResponse struct {
 	Label string `json:"label,omitempty"`
 }
 
+type pluginRenderTemplateResponse struct {
+	Path string `json:"path"`
+}
+
 type pluginDetailPluginResponse struct {
-	ID                   string                      `json:"id"`
-	Name                 string                      `json:"name"`
-	Role                 string                      `json:"role"`
-	Version              string                      `json:"version,omitempty"`
-	Runtime              string                      `json:"runtime,omitempty"`
-	Type                 string                      `json:"type,omitempty"`
-	Entry                string                      `json:"entry,omitempty"`
-	Description          string                      `json:"description,omitempty"`
-	Author               string                      `json:"author,omitempty"`
-	License              string                      `json:"license,omitempty"`
-	SDKMinVersion        string                      `json:"sdk_min_version,omitempty"`
-	RuntimeVersion       string                      `json:"runtime_version,omitempty"`
-	MinCoreVersion       string                      `json:"min_core_version,omitempty"`
-	DataSchemaVersion    string                      `json:"data_schema_version,omitempty"`
-	Concurrency          int                         `json:"concurrency,omitempty"`
-	Platforms            []string                    `json:"platforms,omitempty"`
-	DefaultConfig        map[string]any              `json:"default_config,omitempty"`
-	DeclaredCapabilities []string                    `json:"declared_capabilities,omitempty"`
-	Dependencies         *pluginDependenciesResponse `json:"dependencies,omitempty"`
-	Scopes               *pluginScopesResponse       `json:"scopes,omitempty"`
-	Icon                 string                      `json:"icon,omitempty"`
-	Repo                 string                      `json:"repo,omitempty"`
-	Homepage             string                      `json:"homepage,omitempty"`
-	Keywords             []string                    `json:"keywords,omitempty"`
-	Screenshots          []pluginScreenshotResponse  `json:"screenshots,omitempty"`
-	ManagementUI         *pluginManagementUIResponse `json:"management_ui,omitempty"`
-	SystemDependencies   []string                    `json:"system_dependencies,omitempty"`
-	RegistrationState    string                      `json:"registration_state"`
-	DesiredState         string                      `json:"desired_state"`
-	RuntimeState         string                      `json:"runtime_state"`
-	DisplayState         string                      `json:"display_state"`
-	Source               pluginSourceResponse        `json:"source"`
-	Trust                pluginTrustResponse         `json:"trust"`
-	Commands             []pluginCommandResponse     `json:"commands"`
-	CommandConflicts     []string                    `json:"command_conflicts"`
-	Permissions          []pluginPermissionResponse  `json:"permissions"`
+	ID                   string                         `json:"id"`
+	Name                 string                         `json:"name"`
+	Role                 string                         `json:"role"`
+	Version              string                         `json:"version,omitempty"`
+	Runtime              string                         `json:"runtime,omitempty"`
+	Type                 string                         `json:"type,omitempty"`
+	Entry                string                         `json:"entry,omitempty"`
+	Description          string                         `json:"description,omitempty"`
+	Author               string                         `json:"author,omitempty"`
+	License              string                         `json:"license,omitempty"`
+	SDKMinVersion        string                         `json:"sdk_min_version,omitempty"`
+	RuntimeVersion       string                         `json:"runtime_version,omitempty"`
+	MinCoreVersion       string                         `json:"min_core_version,omitempty"`
+	DataSchemaVersion    string                         `json:"data_schema_version,omitempty"`
+	Concurrency          int                            `json:"concurrency,omitempty"`
+	Platforms            []string                       `json:"platforms,omitempty"`
+	DefaultConfig        map[string]any                 `json:"default_config,omitempty"`
+	DeclaredCapabilities []string                       `json:"declared_capabilities,omitempty"`
+	Dependencies         *pluginDependenciesResponse    `json:"dependencies,omitempty"`
+	Scopes               *pluginScopesResponse          `json:"scopes,omitempty"`
+	Icon                 string                         `json:"icon,omitempty"`
+	Repo                 string                         `json:"repo,omitempty"`
+	Homepage             string                         `json:"homepage,omitempty"`
+	Keywords             []string                       `json:"keywords,omitempty"`
+	Screenshots          []pluginScreenshotResponse     `json:"screenshots,omitempty"`
+	ManagementUI         *pluginManagementUIResponse    `json:"management_ui,omitempty"`
+	RenderTemplates      []pluginRenderTemplateResponse `json:"render_templates,omitempty"`
+	SystemDependencies   []string                       `json:"system_dependencies,omitempty"`
+	RegistrationState    string                         `json:"registration_state"`
+	DesiredState         string                         `json:"desired_state"`
+	RuntimeState         string                         `json:"runtime_state"`
+	DisplayState         string                         `json:"display_state"`
+	Source               pluginSourceResponse           `json:"source"`
+	Trust                pluginTrustResponse            `json:"trust"`
+	Commands             []pluginCommandResponse        `json:"commands"`
+	CommandConflicts     []string                       `json:"command_conflicts"`
+	Permissions          []pluginPermissionResponse     `json:"permissions"`
 }
 
 type pluginDetailResponse struct {
@@ -743,6 +748,24 @@ func buildPluginManagementUI(snapshot Snapshot) *pluginManagementUIResponse {
 	}
 }
 
+func buildPluginRenderTemplates(snapshot Snapshot) []pluginRenderTemplateResponse {
+	if len(snapshot.RenderTemplates) == 0 {
+		return nil
+	}
+	items := make([]pluginRenderTemplateResponse, 0, len(snapshot.RenderTemplates))
+	for _, declared := range snapshot.RenderTemplates {
+		path := strings.TrimSpace(declared.Path)
+		if path == "" {
+			continue
+		}
+		items = append(items, pluginRenderTemplateResponse{Path: path})
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return items
+}
+
 func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot Snapshot, repo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) (pluginDetailResponse, error) {
 	summary := buildPluginSummary(catalog, snapshot)
 	persisted, err := loadPersistedGrants(ctx, repo, snapshot.PluginID)
@@ -779,6 +802,7 @@ func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot S
 			Keywords:             normalizeStringList(snapshot.Keywords),
 			Screenshots:          buildPluginScreenshots(snapshot),
 			ManagementUI:         buildPluginManagementUI(snapshot),
+			RenderTemplates:      buildPluginRenderTemplates(snapshot),
 			SystemDependencies:   normalizeStringList(snapshot.SystemDependencies),
 			RegistrationState:    summary.RegistrationState,
 			DesiredState:         summary.DesiredState,

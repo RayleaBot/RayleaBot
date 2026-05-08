@@ -2108,10 +2108,27 @@ components:
           type: object
           additionalProperties: true
 
+    RenderTemplateSource:
+      type: object
+      additionalProperties: false
+      required: [type, plugin_id, local_id]
+      properties:
+        type:
+          type: string
+          enum: [system, plugin]
+        plugin_id:
+          type: string
+          minLength: 1
+          nullable: true
+        local_id:
+          type: string
+          minLength: 1
+          nullable: true
+
     RenderTemplateSummary:
       type: object
       additionalProperties: false
-      required: [id, version, width, height, has_input_schema, updated_at]
+      required: [id, version, width, height, has_input_schema, updated_at, source]
       properties:
         id:
           type: string
@@ -2130,6 +2147,8 @@ components:
         updated_at:
           type: string
           format: date-time
+        source:
+          $ref: '#/components/schemas/RenderTemplateSource'
 
     RenderTemplateListResponse:
       type: object
@@ -2561,6 +2580,14 @@ components:
         label:
           type: string
 
+    PluginRenderTemplateSummary:
+      type: object
+      additionalProperties: false
+      required: [path]
+      properties:
+        path:
+          type: string
+
     PluginDetail:
       allOf:
         - $ref: '#/components/schemas/PluginSummary'
@@ -2633,6 +2660,10 @@ components:
                 $ref: '#/components/schemas/PluginScreenshot'
             management_ui:
               $ref: '#/components/schemas/PluginManagementUISummary'
+            render_templates:
+              type: array
+              items:
+                $ref: '#/components/schemas/PluginRenderTemplateSummary'
             system_dependencies:
               type: array
               items:

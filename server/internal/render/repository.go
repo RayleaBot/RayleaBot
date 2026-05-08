@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -22,6 +23,7 @@ type storedTemplateState struct {
 	ValidationValid      bool
 	ValidationCheckedAt  string
 	ValidationIssueCount int
+	Source               TemplateSourceInfo
 }
 
 type storedTemplateRevision struct {
@@ -49,7 +51,7 @@ func newSQLiteTemplateRepository(store *storage.Store) (*sqliteTemplateRepositor
 	}, nil
 }
 
-func (r *sqliteTemplateRepository) SyncTemplateRevision(ctx context.Context, revision storedTemplateRevision, validation TemplateValidationStatus) (bool, error) {
+func (r *sqliteTemplateRepository) SyncTemplateRevision(ctx context.Context, revision storedTemplateRevision, validation TemplateValidationStatus, sourceInfo TemplateSourceInfo) (bool, error) {
 	tx, err := r.write.BeginTx(ctx, nil)
 	if err != nil {
 		return false, fmt.Errorf("begin render template sync transaction: %w", err)
@@ -63,22 +65,46 @@ func (r *sqliteTemplateRepository) SyncTemplateRevision(ctx context.Context, rev
 		currentDigest     string
 		validationValid   bool
 		validationIssues  int
+		currentSource     TemplateSourceInfo
+		sourcePluginID    sql.NullString
+		sourceLocalID     sql.NullString
 	)
 	err = tx.QueryRowContext(ctx, `
-		SELECT s.current_revision_id, r.source_digest, s.validation_valid, s.validation_issue_count
+		SELECT s.current_revision_id, r.source_digest, s.validation_valid, s.validation_issue_count, s.source_type, s.source_plugin_id, s.source_local_id
 		FROM render_template_states s
 		INNER JOIN render_template_revisions r ON r.revision_id = s.current_revision_id
-		WHERE s.template_id = ?`, revision.TemplateID).Scan(&currentRevisionID, &currentDigest, &validationValid, &validationIssues)
+		WHERE s.template_id = ?`, revision.TemplateID).Scan(
+		&currentRevisionID,
+		&currentDigest,
+		&validationValid,
+		&validationIssues,
+		&currentSource.Type,
+		&sourcePluginID,
+		&sourceLocalID,
+	)
+	if sourcePluginID.Valid {
+		currentSource.PluginID = sourcePluginID.String
+	}
+	if sourceLocalID.Valid {
+		currentSource.LocalID = sourceLocalID.String
+	}
+	nextSource := normalizedTemplateSourceInfo(sourceInfo)
 	switch {
 	case err == nil && currentDigest == revision.SourceDigest:
+		if currentSource != nextSource {
+			return false, fmt.Errorf("render template %s is already registered by %s source", revision.TemplateID, currentSource.Type)
+		}
 		if validationValid != validation.Valid || validationIssues != validation.IssueCount {
 			if _, updateErr := tx.ExecContext(ctx, `
 				UPDATE render_template_states
-				SET validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?
+				SET validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?, source_type = ?, source_plugin_id = ?, source_local_id = ?
 				WHERE template_id = ?`,
 				boolToInt(validation.Valid),
 				validation.CheckedAt,
 				validation.IssueCount,
+				nextSource.Type,
+				nullableString(nextSource.PluginID),
+				nullableString(nextSource.LocalID),
 				revision.TemplateID,
 			); updateErr != nil {
 				return false, fmt.Errorf("update render template validation during sync for %s: %w", revision.TemplateID, updateErr)
@@ -89,6 +115,9 @@ func (r *sqliteTemplateRepository) SyncTemplateRevision(ctx context.Context, rev
 		}
 		return false, nil
 	case err == nil:
+		if currentSource != nextSource {
+			return false, fmt.Errorf("render template %s is already registered by %s source", revision.TemplateID, currentSource.Type)
+		}
 	case errors.Is(err, sql.ErrNoRows):
 	default:
 		return false, fmt.Errorf("query render template state for sync %s: %w", revision.TemplateID, err)
@@ -105,6 +134,7 @@ func (r *sqliteTemplateRepository) SyncTemplateRevision(ctx context.Context, rev
 			ValidationValid:      validation.Valid,
 			ValidationCheckedAt:  validation.CheckedAt,
 			ValidationIssueCount: validation.IssueCount,
+			Source:               nextSource,
 		}); err != nil {
 			return false, err
 		}
@@ -115,6 +145,7 @@ func (r *sqliteTemplateRepository) SyncTemplateRevision(ctx context.Context, rev
 		ValidationValid:      validation.Valid,
 		ValidationCheckedAt:  validation.CheckedAt,
 		ValidationIssueCount: validation.IssueCount,
+		Source:               nextSource,
 	}); err != nil {
 		return false, err
 	}
@@ -131,6 +162,9 @@ func (r *sqliteTemplateRepository) ListTemplateSummaries(ctx context.Context) ([
 			s.template_id,
 			s.current_revision_id,
 			s.updated_at,
+			s.source_type,
+			s.source_plugin_id,
+			s.source_local_id,
 			r.template_version,
 			r.manifest_json,
 			r.input_schema_json
@@ -148,12 +182,21 @@ func (r *sqliteTemplateRepository) ListTemplateSummaries(ctx context.Context) ([
 			templateID        string
 			currentRevisionID string
 			updatedAt         string
+			source            TemplateSourceInfo
+			sourcePluginID    sql.NullString
+			sourceLocalID     sql.NullString
 			templateVersion   string
 			manifestJSONText  string
 			inputSchemaJSON   sql.NullString
 		)
-		if err := rows.Scan(&templateID, &currentRevisionID, &updatedAt, &templateVersion, &manifestJSONText, &inputSchemaJSON); err != nil {
+		if err := rows.Scan(&templateID, &currentRevisionID, &updatedAt, &source.Type, &sourcePluginID, &sourceLocalID, &templateVersion, &manifestJSONText, &inputSchemaJSON); err != nil {
 			return nil, fmt.Errorf("scan render template summary: %w", err)
+		}
+		if sourcePluginID.Valid {
+			source.PluginID = sourcePluginID.String
+		}
+		if sourceLocalID.Valid {
+			source.LocalID = sourceLocalID.String
 		}
 
 		manifest, err := decodeStoredManifest(templateID, manifestJSONText)
@@ -169,6 +212,7 @@ func (r *sqliteTemplateRepository) ListTemplateSummaries(ctx context.Context) ([
 			HasInputSchema:    inputSchemaJSON.Valid && inputSchemaJSON.String != "",
 			CurrentRevisionID: currentRevisionID,
 			UpdatedAt:         updatedAt,
+			Source:            normalizedTemplateSourceInfo(source),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -198,6 +242,7 @@ func (r *sqliteTemplateRepository) GetTemplateDetail(ctx context.Context, templa
 			HasInputSchema:    revision.InputSchemaJSON.Valid && revision.InputSchemaJSON.String != "",
 			CurrentRevisionID: state.CurrentRevisionID,
 			UpdatedAt:         state.UpdatedAt,
+			Source:            normalizedTemplateSourceInfo(state.Source),
 		},
 		Files: TemplateFiles{
 			Manifest:    templateManifestFilename,
@@ -314,6 +359,7 @@ func (r *sqliteTemplateRepository) SaveCurrentRevision(
 		ValidationValid:      validation.Valid,
 		ValidationCheckedAt:  validation.CheckedAt,
 		ValidationIssueCount: validation.IssueCount,
+		Source:               state.Source,
 	}); err != nil {
 		return err
 	}
@@ -356,6 +402,9 @@ func (r *sqliteTemplateRepository) loadCurrentTemplate(ctx context.Context, temp
 			s.validation_valid,
 			s.validation_checked_at,
 			s.validation_issue_count,
+			s.source_type,
+			s.source_plugin_id,
+			s.source_local_id,
 			r.revision_id,
 			r.template_version,
 			r.kind,
@@ -371,10 +420,12 @@ func (r *sqliteTemplateRepository) loadCurrentTemplate(ctx context.Context, temp
 		WHERE s.template_id = ?`, templateID)
 
 	var (
-		state       storedTemplateState
-		revision    storedTemplateRevision
-		message     sql.NullString
-		inputSchema sql.NullString
+		state          storedTemplateState
+		revision       storedTemplateRevision
+		message        sql.NullString
+		inputSchema    sql.NullString
+		sourcePluginID sql.NullString
+		sourceLocalID  sql.NullString
 	)
 	if err := row.Scan(
 		&state.TemplateID,
@@ -383,6 +434,9 @@ func (r *sqliteTemplateRepository) loadCurrentTemplate(ctx context.Context, temp
 		&state.ValidationValid,
 		&state.ValidationCheckedAt,
 		&state.ValidationIssueCount,
+		&state.Source.Type,
+		&sourcePluginID,
+		&sourceLocalID,
 		&revision.RevisionID,
 		&revision.TemplateVersion,
 		&revision.Kind,
@@ -400,6 +454,12 @@ func (r *sqliteTemplateRepository) loadCurrentTemplate(ctx context.Context, temp
 		return storedTemplateState{}, storedTemplateRevision{}, fmt.Errorf("query render template %s: %w", templateID, err)
 	}
 
+	if sourcePluginID.Valid {
+		state.Source.PluginID = sourcePluginID.String
+	}
+	if sourceLocalID.Valid {
+		state.Source.LocalID = sourceLocalID.String
+	}
 	revision.TemplateID = templateID
 	revision.Message = nullStringPointer(message)
 	revision.InputSchemaJSON = inputSchema
@@ -449,6 +509,71 @@ func (r *sqliteTemplateRepository) templateExists(ctx context.Context, templateI
 	return count > 0, nil
 }
 
+func (r *sqliteTemplateRepository) RemovePluginTemplatesExcept(ctx context.Context, pluginID string, keepIDs []string) error {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return nil
+	}
+
+	args := []any{pluginID}
+	query := `DELETE FROM render_template_states WHERE source_type = 'plugin' AND source_plugin_id = ?`
+	if len(keepIDs) > 0 {
+		placeholders := make([]string, 0, len(keepIDs))
+		seen := make(map[string]struct{}, len(keepIDs))
+		for _, templateID := range keepIDs {
+			templateID = strings.TrimSpace(templateID)
+			if templateID == "" {
+				continue
+			}
+			if _, ok := seen[templateID]; ok {
+				continue
+			}
+			seen[templateID] = struct{}{}
+			placeholders = append(placeholders, "?")
+			args = append(args, templateID)
+		}
+		if len(placeholders) > 0 {
+			query += ` AND template_id NOT IN (` + strings.Join(placeholders, ",") + `)`
+		}
+	}
+
+	if _, err := r.write.ExecContext(ctx, query, args...); err != nil {
+		return fmt.Errorf("remove stale plugin render templates for %s: %w", pluginID, err)
+	}
+	return nil
+}
+
+func (r *sqliteTemplateRepository) RemovePluginTemplatesNotIn(ctx context.Context, activePluginIDs []string) error {
+	seen := map[string]struct{}{}
+	for _, pluginID := range activePluginIDs {
+		pluginID = strings.TrimSpace(pluginID)
+		if pluginID == "" {
+			continue
+		}
+		seen[pluginID] = struct{}{}
+	}
+	if len(seen) == 0 {
+		if _, err := r.write.ExecContext(ctx, `DELETE FROM render_template_states WHERE source_type = 'plugin'`); err != nil {
+			return fmt.Errorf("remove all plugin render templates: %w", err)
+		}
+		return nil
+	}
+
+	args := make([]any, 0, len(seen))
+	placeholders := make([]string, 0, len(seen))
+	for pluginID := range seen {
+		placeholders = append(placeholders, "?")
+		args = append(args, pluginID)
+	}
+	if _, err := r.write.ExecContext(ctx,
+		`DELETE FROM render_template_states WHERE source_type = 'plugin' AND source_plugin_id NOT IN (`+strings.Join(placeholders, ",")+`)`,
+		args...,
+	); err != nil {
+		return fmt.Errorf("remove inactive plugin render templates: %w", err)
+	}
+	return nil
+}
+
 func insertTemplateRevision(ctx context.Context, tx *sql.Tx, revision storedTemplateRevision) error {
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO render_template_revisions (
@@ -490,14 +615,20 @@ func insertTemplateState(ctx context.Context, tx *sql.Tx, state storedTemplateSt
 			updated_at,
 			validation_valid,
 			validation_checked_at,
-			validation_issue_count
-		) VALUES (?, ?, ?, ?, ?, ?)`,
+			validation_issue_count,
+			source_type,
+			source_plugin_id,
+			source_local_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		state.TemplateID,
 		state.CurrentRevisionID,
 		state.UpdatedAt,
 		boolToInt(state.ValidationValid),
 		state.ValidationCheckedAt,
 		state.ValidationIssueCount,
+		normalizedTemplateSourceInfo(state.Source).Type,
+		nullableString(normalizedTemplateSourceInfo(state.Source).PluginID),
+		nullableString(normalizedTemplateSourceInfo(state.Source).LocalID),
 	)
 	if err != nil {
 		return fmt.Errorf("insert render template state %s: %w", state.TemplateID, err)
@@ -508,13 +639,16 @@ func insertTemplateState(ctx context.Context, tx *sql.Tx, state storedTemplateSt
 func upsertTemplateState(ctx context.Context, tx *sql.Tx, state storedTemplateState) error {
 	_, err := tx.ExecContext(ctx, `
 		UPDATE render_template_states
-		SET current_revision_id = ?, updated_at = ?, validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?
+		SET current_revision_id = ?, updated_at = ?, validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?, source_type = ?, source_plugin_id = ?, source_local_id = ?
 		WHERE template_id = ?`,
 		state.CurrentRevisionID,
 		state.UpdatedAt,
 		boolToInt(state.ValidationValid),
 		state.ValidationCheckedAt,
 		state.ValidationIssueCount,
+		normalizedTemplateSourceInfo(state.Source).Type,
+		nullableString(normalizedTemplateSourceInfo(state.Source).PluginID),
+		nullableString(normalizedTemplateSourceInfo(state.Source).LocalID),
 		state.TemplateID,
 	)
 	if err != nil {
@@ -525,11 +659,13 @@ func upsertTemplateState(ctx context.Context, tx *sql.Tx, state storedTemplateSt
 
 func loadTemplateStateTx(ctx context.Context, tx *sql.Tx, templateID string) (storedTemplateState, error) {
 	row := tx.QueryRowContext(ctx, `
-		SELECT template_id, current_revision_id, updated_at, validation_valid, validation_checked_at, validation_issue_count
+		SELECT template_id, current_revision_id, updated_at, validation_valid, validation_checked_at, validation_issue_count, source_type, source_plugin_id, source_local_id
 		FROM render_template_states
 		WHERE template_id = ?`, templateID)
 
 	var state storedTemplateState
+	var sourcePluginID sql.NullString
+	var sourceLocalID sql.NullString
 	if err := row.Scan(
 		&state.TemplateID,
 		&state.CurrentRevisionID,
@@ -537,6 +673,9 @@ func loadTemplateStateTx(ctx context.Context, tx *sql.Tx, templateID string) (st
 		&state.ValidationValid,
 		&state.ValidationCheckedAt,
 		&state.ValidationIssueCount,
+		&state.Source.Type,
+		&sourcePluginID,
+		&sourceLocalID,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return storedTemplateState{}, sql.ErrNoRows
@@ -544,6 +683,12 @@ func loadTemplateStateTx(ctx context.Context, tx *sql.Tx, templateID string) (st
 		return storedTemplateState{}, fmt.Errorf("query render template state %s: %w", templateID, err)
 	}
 
+	if sourcePluginID.Valid {
+		state.Source.PluginID = sourcePluginID.String
+	}
+	if sourceLocalID.Valid {
+		state.Source.LocalID = sourceLocalID.String
+	}
 	return state, nil
 }
 
@@ -602,6 +747,26 @@ func pointerStringValue(value *string) any {
 		return nil
 	}
 	return *value
+}
+
+func normalizedTemplateSourceInfo(source TemplateSourceInfo) TemplateSourceInfo {
+	source.Type = strings.TrimSpace(source.Type)
+	source.PluginID = strings.TrimSpace(source.PluginID)
+	source.LocalID = strings.TrimSpace(source.LocalID)
+	if source.Type == "" {
+		source.Type = "system"
+	}
+	if source.Type != "plugin" {
+		return TemplateSourceInfo{Type: "system"}
+	}
+	return source
+}
+
+func nullableString(value string) any {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return value
 }
 
 func boolToInt(value bool) int {

@@ -37,6 +37,11 @@ func (s *InstallService) runInstall(job installJob) error {
 	if _, exists := s.catalog.Get(candidateSnapshot.PluginID); exists {
 		return installError(codePluginInstallFailed, "检测到同 ID 插件，安装被拒绝", "检测到同 ID 插件")
 	}
+	if s.validateRenderTemplates != nil {
+		if err := s.validateRenderTemplates(candidateSnapshot); err != nil {
+			return installError(codePluginInstallFailed, err.Error(), "插件渲染模板校验失败")
+		}
+	}
 
 	if err := job.ctx.Err(); err != nil {
 		return err
@@ -95,7 +100,14 @@ func (s *InstallService) runInstall(job installJob) error {
 		}
 	}
 	if s.afterSuccess != nil {
-		s.afterSuccess(candidateSnapshot.PluginID)
+		if err := s.afterSuccess(candidateSnapshot.PluginID); err != nil {
+			if s.packageRepo != nil {
+				_ = s.packageRepo.DeletePackageMetadata(job.ctx, candidateSnapshot.PluginID)
+			}
+			_ = s.deps.removeAll(finalTarget)
+			_ = s.refreshCatalog()
+			return installError(codePluginInstallFailed, err.Error(), "插件安装后处理失败")
+		}
 	}
 
 	_ = workingRoot

@@ -29,10 +29,11 @@ const (
 	defaultQueueWaitTimeout = 15 * time.Second
 	defaultRenderTimeout    = 20 * time.Second
 	defaultRenderDataLimit  = 1 << 20
-	renderCacheVersion      = "render-cache-v2-file-url-assets"
+	renderCacheVersion      = "render-cache-v3-template-sources"
 )
 
 var artifactIDPattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
+var pluginTemplateLocalIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 var revisionCounter uint64
 
 type Runner interface {
@@ -142,6 +143,7 @@ type Service struct {
 	logger         *slog.Logger
 	templateRepo   *sqliteTemplateRepository
 	templateSyncMu sync.Mutex
+	templateRoots  map[string]string
 
 	mu                 sync.RWMutex
 	queueMaxLength     int
@@ -223,6 +225,7 @@ func NewService(options Options) (*Service, error) {
 		renderTimeout:      renderTimeout,
 		maxRenderDataBytes: maxRenderDataBytes,
 		templateRepo:       templateRepo,
+		templateRoots:      map[string]string{},
 		cache:              map[string]Result{},
 		artifacts:          map[string]Artifact{},
 	}
@@ -296,7 +299,8 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	resourceDigest := templateResourceDigest(s.templatesRoot, normalized.Template)
+	templateDir := s.templateDirFor(normalized.Template)
+	resourceDigest := templateResourceDigest(templateDir)
 	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, payloadBytes)
 	if cached, ok := s.cachedResult(cacheKey); ok {
 		cached.FromCache = true
@@ -349,7 +353,7 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		Template:   normalized.Template,
 		Theme:      normalized.Theme,
 		Output:     normalized.Output,
-		BaseURL:    templateBaseURL(s.templatesRoot, normalized.Template),
+		BaseURL:    templateBaseURL(templateDir),
 		Width:      compiled.bundle.manifest.Width,
 		Height:     compiled.bundle.manifest.Height,
 		AutoHeight: true,
@@ -424,6 +428,55 @@ func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (str
 		return "", TemplateSource{}, fmt.Errorf("get render template source %s: %w", templateID, err)
 	}
 	return revisionID, source, nil
+}
+
+func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested string) (string, error) {
+	if s == nil {
+		return "", &Error{Code: "platform.resource_missing", Message: "render service is not available"}
+	}
+	pluginID = strings.TrimSpace(pluginID)
+	requested = strings.TrimSpace(requested)
+	if requested == "" {
+		return "", &Error{Code: "platform.invalid_request", Message: "render template is required"}
+	}
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return "", err
+	}
+
+	if strings.HasPrefix(requested, "plugin.") {
+		ownerPluginID, _, ok := parseFormalPluginTemplateID(requested)
+		if !ok || pluginID == "" || ownerPluginID != pluginID {
+			return "", &Error{
+				Code:    "permission.scope_violation",
+				Message: "plugin render template belongs to another plugin",
+			}
+		}
+		detail, err := s.templateRepo.GetTemplateDetail(ctx, requested)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return requested, nil
+			}
+			return "", fmt.Errorf("get plugin render template %s: %w", requested, err)
+		}
+		if detail.Source.Type == "plugin" && detail.Source.PluginID != pluginID {
+			return "", &Error{
+				Code:    "permission.scope_violation",
+				Message: "plugin render template belongs to another plugin",
+			}
+		}
+		return requested, nil
+	}
+
+	formalID := formalPluginTemplateID(pluginID, requested)
+	if detail, err := s.templateRepo.GetTemplateDetail(ctx, formalID); err == nil {
+		if detail.Source.Type == "plugin" && detail.Source.PluginID == pluginID && detail.Source.LocalID == requested {
+			return formalID, nil
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("get plugin render template %s: %w", formalID, err)
+	}
+
+	return requested, nil
 }
 
 func (s *Service) ValidateTemplate(ctx context.Context, templateID string, source *TemplateSource) (TemplateValidationResult, error) {
@@ -1003,32 +1056,170 @@ func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
 
 	for _, templateID := range sortedTemplateIDs(templateSeeds) {
 		seed := templateSeeds[templateID]
-		savedAt := time.Now().UTC().Format(time.RFC3339Nano)
-		revision := newStoredRevision(
-			templateID,
-			newRevisionID(templateID, seed.compiled.bundle.digest),
-			seed.compiled,
-			"save",
-			nil,
-			savedAt,
-		)
-		changed, err := s.templateRepo.SyncTemplateRevision(ctx, revision, TemplateValidationStatus{
-			Valid:      true,
-			CheckedAt:  savedAt,
-			IssueCount: 0,
-		})
-		if err != nil {
+		templateDir := filepath.Join(s.templatesRoot, filepath.Clean(templateID))
+		if err := s.syncTemplateSeed(ctx, templateID, seed, TemplateSourceInfo{Type: "system"}, templateDir); err != nil {
 			return fmt.Errorf("sync render template %s: %w", templateID, err)
 		}
-		if changed && s.logger != nil {
-			s.logger.Info(
-				"render template synchronized",
-				"component", "render",
-				"template_id", templateID,
-				"revision_id", revision.RevisionID,
-				"source_digest", revision.SourceDigest,
-			)
+	}
+	return nil
+}
+
+func (s *Service) SyncPluginTemplates(ctx context.Context, sources []PluginTemplateSource) error {
+	if s == nil {
+		return nil
+	}
+
+	s.templateSyncMu.Lock()
+	defer s.templateSyncMu.Unlock()
+
+	keepByPlugin := map[string][]string{}
+	seenTemplates := map[string]struct{}{}
+	for _, source := range sources {
+		pluginID := strings.TrimSpace(source.PluginID)
+		dir := strings.TrimSpace(source.Dir)
+		if pluginID == "" || dir == "" {
+			continue
 		}
+		seed, err := loadTemplateSeed(dir)
+		if err != nil {
+			return fmt.Errorf("load plugin render template %s: %w", pluginID, err)
+		}
+		localID := strings.TrimSpace(seed.compiled.bundle.manifest.ID)
+		if !pluginTemplateLocalIDPattern.MatchString(localID) {
+			return fmt.Errorf("plugin render template %s has invalid local id %q", pluginID, localID)
+		}
+		templateID := formalPluginTemplateID(pluginID, localID)
+		if _, ok := seenTemplates[templateID]; ok {
+			return fmt.Errorf("duplicate plugin render template id %s", templateID)
+		}
+		seenTemplates[templateID] = struct{}{}
+		seed.source.ManifestJSON["id"] = templateID
+		seed.compiled.bundle.manifest.ID = templateID
+		seed.compiled.bundle.normalizedManifest["id"] = templateID
+		seed.compiled.bundle.source.ManifestJSON["id"] = templateID
+		seed.compiled.bundle.digest = digestTemplateSource(seed.compiled.bundle.source)
+		seed.source = seed.compiled.bundle.source
+		if err := s.syncTemplateSeed(ctx, templateID, seed, TemplateSourceInfo{
+			Type:     "plugin",
+			PluginID: pluginID,
+			LocalID:  localID,
+		}, dir); err != nil {
+			return fmt.Errorf("sync plugin render template %s/%s: %w", pluginID, localID, err)
+		}
+		keepByPlugin[pluginID] = append(keepByPlugin[pluginID], templateID)
+	}
+
+	for pluginID, keepIDs := range keepByPlugin {
+		if err := s.templateRepo.RemovePluginTemplatesExcept(ctx, pluginID, keepIDs); err != nil {
+			return err
+		}
+	}
+	activePluginIDs := make([]string, 0, len(keepByPlugin))
+	for pluginID := range keepByPlugin {
+		activePluginIDs = append(activePluginIDs, pluginID)
+	}
+	if err := s.templateRepo.RemovePluginTemplatesNotIn(ctx, activePluginIDs); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ValidatePluginTemplateSources(sources []PluginTemplateSource) error {
+	seenTemplates := map[string]struct{}{}
+	for _, source := range sources {
+		pluginID := strings.TrimSpace(source.PluginID)
+		dir := strings.TrimSpace(source.Dir)
+		if pluginID == "" || dir == "" {
+			return fmt.Errorf("plugin render template declaration is incomplete")
+		}
+		seed, err := loadTemplateSeed(dir)
+		if err != nil {
+			return fmt.Errorf("load plugin render template %s: %w", pluginID, err)
+		}
+		localID := strings.TrimSpace(seed.compiled.bundle.manifest.ID)
+		if !pluginTemplateLocalIDPattern.MatchString(localID) {
+			return fmt.Errorf("plugin render template %s has invalid local id %q", pluginID, localID)
+		}
+		templateID := formalPluginTemplateID(pluginID, localID)
+		if _, ok := seenTemplates[templateID]; ok {
+			return fmt.Errorf("duplicate plugin render template id %s", templateID)
+		}
+		seenTemplates[templateID] = struct{}{}
+	}
+	return nil
+}
+
+func PluginTemplateSourcesFromManifests(items []PluginTemplateSource) []PluginTemplateSource {
+	sources := make([]PluginTemplateSource, 0, len(items))
+	for _, item := range items {
+		pluginID := strings.TrimSpace(item.PluginID)
+		dir := strings.TrimSpace(item.Dir)
+		if pluginID == "" || dir == "" {
+			continue
+		}
+		seed, err := loadTemplateSeed(dir)
+		if err != nil {
+			continue
+		}
+		localID := strings.TrimSpace(seed.compiled.bundle.manifest.ID)
+		if !pluginTemplateLocalIDPattern.MatchString(localID) {
+			continue
+		}
+		item.PluginID = pluginID
+		item.LocalID = localID
+		item.Dir = dir
+		sources = append(sources, item)
+	}
+	return sources
+}
+
+func (s *Service) RemovePluginTemplates(ctx context.Context, pluginID string) error {
+	if s == nil {
+		return nil
+	}
+	if err := s.templateRepo.RemovePluginTemplatesExcept(ctx, pluginID, nil); err != nil {
+		return err
+	}
+
+	prefix := "plugin." + strings.TrimSpace(pluginID) + "."
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for templateID := range s.templateRoots {
+		if strings.HasPrefix(templateID, prefix) {
+			delete(s.templateRoots, templateID)
+		}
+	}
+	return nil
+}
+
+func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed templateSeed, sourceInfo TemplateSourceInfo, templateDir string) error {
+	savedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	revision := newStoredRevision(
+		templateID,
+		newRevisionID(templateID, seed.compiled.bundle.digest),
+		seed.compiled,
+		"save",
+		nil,
+		savedAt,
+	)
+	changed, err := s.templateRepo.SyncTemplateRevision(ctx, revision, TemplateValidationStatus{
+		Valid:      true,
+		CheckedAt:  savedAt,
+		IssueCount: 0,
+	}, sourceInfo)
+	if err != nil {
+		return err
+	}
+
+	s.rememberTemplateDir(templateID, templateDir)
+	if changed && s.logger != nil {
+		s.logger.Info(
+			"render template synchronized",
+			"component", "render",
+			"template_id", templateID,
+			"revision_id", revision.RevisionID,
+			"source_digest", revision.SourceDigest,
+		)
 	}
 	return nil
 }
@@ -1129,9 +1320,36 @@ func fileURL(path string) string {
 	}).String()
 }
 
-func templateBaseURL(templatesRoot, templateID string) string {
-	templateDir := filepath.Join(templatesRoot, filepath.Clean(templateID))
-	if !pathWithinRoot(templatesRoot, templateDir) {
+func (s *Service) rememberTemplateDir(templateID, templateDir string) {
+	if s == nil || strings.TrimSpace(templateID) == "" || strings.TrimSpace(templateDir) == "" {
+		return
+	}
+	absolute, err := filepath.Abs(templateDir)
+	if err != nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.templateRoots[strings.TrimSpace(templateID)] = absolute
+}
+
+func (s *Service) templateDirFor(templateID string) string {
+	if s == nil {
+		return ""
+	}
+	templateID = strings.TrimSpace(templateID)
+	s.mu.RLock()
+	if dir := s.templateRoots[templateID]; dir != "" {
+		s.mu.RUnlock()
+		return dir
+	}
+	s.mu.RUnlock()
+	return filepath.Join(s.templatesRoot, filepath.Clean(templateID))
+}
+
+func templateBaseURL(templateDir string) string {
+	templateDir, err := filepath.Abs(templateDir)
+	if err != nil || templateDir == "" {
 		return ""
 	}
 	path := filepath.ToSlash(templateDir)
@@ -1144,15 +1362,18 @@ func templateBaseURL(templatesRoot, templateID string) string {
 	}).String()
 }
 
-func templateResourceDigest(templatesRoot, templateID string) string {
-	templateDir := filepath.Join(templatesRoot, filepath.Clean(templateID))
+func templateResourceDigest(templateDir string) string {
+	templateDir, err := filepath.Abs(templateDir)
+	if err != nil || templateDir == "" {
+		return ""
+	}
 	assetsDir := filepath.Join(templateDir, "assets")
-	if !pathWithinRoot(templatesRoot, templateDir) || !pathWithinRoot(templateDir, assetsDir) {
+	if !pathWithinRoot(templateDir, assetsDir) {
 		return ""
 	}
 
 	digest := sha256.New()
-	err := filepath.WalkDir(assetsDir, func(path string, entry os.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(assetsDir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -1173,10 +1394,38 @@ func templateResourceDigest(templatesRoot, templateID string) string {
 		digest.Write([]byte{0})
 		return nil
 	})
-	if err != nil {
+	if walkErr != nil {
 		return ""
 	}
 	return hex.EncodeToString(digest.Sum(nil))
+}
+
+func formalPluginTemplateID(pluginID, localID string) string {
+	pluginID = strings.TrimSpace(pluginID)
+	localID = strings.Trim(filepath.ToSlash(strings.TrimSpace(localID)), "/")
+	if pluginID == "" || localID == "" {
+		return ""
+	}
+	return "plugin." + pluginID + "." + localID
+}
+
+func parseFormalPluginTemplateID(templateID string) (string, string, bool) {
+	templateID = strings.TrimSpace(templateID)
+	const prefix = "plugin."
+	if !strings.HasPrefix(templateID, prefix) {
+		return "", "", false
+	}
+	remainder := strings.TrimPrefix(templateID, prefix)
+	separator := strings.LastIndex(remainder, ".")
+	if separator <= 0 || separator == len(remainder)-1 {
+		return "", "", false
+	}
+	pluginID := strings.TrimSpace(remainder[:separator])
+	localID := strings.TrimSpace(remainder[separator+1:])
+	if pluginID == "" || !pluginTemplateLocalIDPattern.MatchString(localID) {
+		return "", "", false
+	}
+	return pluginID, localID, true
 }
 
 func pathWithinRoot(root, candidate string) bool {

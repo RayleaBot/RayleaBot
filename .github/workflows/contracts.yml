@@ -352,7 +352,7 @@ jobs:
               if field not in plugin_info.get('required', []):
                   raise SystemExit(f'plugin-info.schema.json missing required field: {field}')
           info_props = plugin_info.get('properties', {})
-          for field in ['description', 'author', 'sdk_min_version', 'runtime_version', 'min_core_version', 'data_schema_version', 'concurrency', 'role', 'default_config', 'capabilities', 'permissions', 'dependencies', 'require_install_scripts', 'platforms']:
+          for field in ['description', 'author', 'sdk_min_version', 'runtime_version', 'min_core_version', 'data_schema_version', 'concurrency', 'role', 'default_config', 'capabilities', 'permissions', 'dependencies', 'require_install_scripts', 'platforms', 'render_templates']:
               if field not in info_props:
                   raise SystemExit(f'plugin-info.schema.json missing property: {field}')
           if 'authors' in info_props:
@@ -678,10 +678,6 @@ jobs:
               '/api/system/render/artifacts/{artifact_id}',
               '/api/system/render/templates',
               '/api/system/render/templates/{template_id}',
-              '/api/system/render/templates/{template_id}/source',
-              '/api/system/render/templates/{template_id}/validate',
-              '/api/system/render/templates/{template_id}/versions',
-              '/api/system/render/templates/{template_id}/rollback',
               '/api/system/runtime/bootstrap',
               '/api/system/diagnostics/export',
               '/api/logs',
@@ -725,6 +721,12 @@ jobs:
               raise SystemExit('disable must be synchronous and must not return 202')
           if 'task_id' not in web_api['components']['schemas']['TaskAcceptedResponse']['required']:
               raise SystemExit('TaskAcceptedResponse must require task_id')
+          render_template_summary = web_api['components']['schemas'].get('RenderTemplateSummary', {})
+          if 'source' not in render_template_summary.get('required', []):
+              raise SystemExit('RenderTemplateSummary must require source')
+          render_template_source = web_api['components']['schemas'].get('RenderTemplateSource', {})
+          if set(render_template_source.get('properties', {}).get('type', {}).get('enum', [])) != {'system', 'plugin'}:
+              raise SystemExit('RenderTemplateSource.type must distinguish system and plugin templates')
           runtime_bootstrap_request = web_api['components']['schemas'].get('RuntimeBootstrapRequest', {})
           runtime_bootstrap_resources = runtime_bootstrap_request.get('properties', {}).get('resources', {})
           resource_items = runtime_bootstrap_resources.get('items', {})

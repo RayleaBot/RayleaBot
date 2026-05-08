@@ -611,6 +611,40 @@ func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
 	}
 }
 
+func TestDetailHandler_ReturnsRenderTemplates(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "weather-card",
+		Name:              "Weather Card",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "disabled",
+		RuntimeState:      "stopped",
+		DisplayState:      "disabled",
+		RenderTemplates:   []RenderTemplate{{Path: "templates/card"}},
+	}})
+	router := chi.NewRouter()
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather-card", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp pluginDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Plugin.RenderTemplates) != 1 || resp.Plugin.RenderTemplates[0].Path != "templates/card" {
+		t.Fatalf("render_templates = %#v, want templates/card", resp.Plugin.RenderTemplates)
+	}
+}
+
 // TestEnableHandler_AlreadyEnabled_409: enable already-enabled plugin returns 409.
 func TestEnableHandler_AlreadyEnabled_409(t *testing.T) {
 	router, _, _, repo := setupRouter([]Snapshot{{

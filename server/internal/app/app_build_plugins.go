@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
@@ -54,6 +55,10 @@ func buildAppPlugins(
 		return appPlugins{}, err
 	}
 	cleanupOrphanedInstallDirs(state.core.Logger, state.discoverySpec.roots)
+	if err := syncCatalogRenderTemplates(context.Background(), renderService, state.pluginCatalog); err != nil {
+		_ = platform.Storage.Close()
+		return appPlugins{}, err
+	}
 
 	pluginInstallService, pluginUninstallService, err := buildPluginMutationServices(state, pluginRepository)
 	if err != nil {
@@ -188,4 +193,74 @@ func buildPluginMutationServices(state appBuildState, pluginRepository *plugins.
 		return nil, nil, fmt.Errorf("create plugin uninstall service: %w", err)
 	}
 	return pluginInstallService, pluginUninstallService, nil
+}
+
+func syncCatalogRenderTemplates(ctx context.Context, renderer *render.Service, catalog *plugins.Catalog) error {
+	if renderer == nil || catalog == nil {
+		return nil
+	}
+	return renderer.SyncPluginTemplates(ctx, pluginRenderTemplateSources(catalog.List()))
+}
+
+func pluginRenderTemplateSources(snapshots []plugins.Snapshot) []render.PluginTemplateSource {
+	var sources []render.PluginTemplateSource
+	seen := map[string]struct{}{}
+	for _, snapshot := range snapshots {
+		if !snapshot.Valid || snapshot.RegistrationState != "installed" {
+			continue
+		}
+		for _, declared := range snapshot.RenderTemplates {
+			dir, ok := pluginPackageRelativeDir(snapshot.PackageRootPath, declared.Path)
+			if !ok {
+				continue
+			}
+			key := snapshot.PluginID + "\x00" + dir
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			sources = append(sources, render.PluginTemplateSource{
+				PluginID: snapshot.PluginID,
+				Dir:      dir,
+			})
+		}
+	}
+	return render.PluginTemplateSourcesFromManifests(sources)
+}
+
+func validatePluginRenderTemplates(snapshot plugins.Snapshot) error {
+	var sources []render.PluginTemplateSource
+	for _, declared := range snapshot.RenderTemplates {
+		dir, ok := pluginPackageRelativeDir(snapshot.PackageRootPath, declared.Path)
+		if !ok {
+			return fmt.Errorf("plugin render template path %q is invalid", declared.Path)
+		}
+		sources = append(sources, render.PluginTemplateSource{
+			PluginID: snapshot.PluginID,
+			Dir:      dir,
+		})
+	}
+	return render.ValidatePluginTemplateSources(sources)
+}
+
+func pluginPackageRelativeDir(packageRoot, relativePath string) (string, bool) {
+	packageRoot = strings.TrimSpace(packageRoot)
+	relativePath = strings.TrimSpace(relativePath)
+	if packageRoot == "" || relativePath == "" || filepath.IsAbs(relativePath) {
+		return "", false
+	}
+	cleanRelative := filepath.Clean(filepath.FromSlash(relativePath))
+	if cleanRelative == "." || cleanRelative == ".." || strings.HasPrefix(cleanRelative, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	absoluteRoot, err := filepath.Abs(packageRoot)
+	if err != nil {
+		return "", false
+	}
+	candidate := filepath.Join(absoluteRoot, cleanRelative)
+	relativeToRoot, err := filepath.Rel(absoluteRoot, candidate)
+	if err != nil || relativeToRoot == ".." || strings.HasPrefix(relativeToRoot, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return candidate, true
 }

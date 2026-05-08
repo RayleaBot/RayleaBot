@@ -178,6 +178,24 @@
         }
       }
     },
+    "render_templates": {
+      "type": "array",
+      "description": "Optional package-local render template directories. Each directory uses the managed render template layout with template.json, template.html, styles.css, optional input.schema.json, and optional assets/.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "$ref": "#/$defs/package_relative_path",
+            "description": "Package-relative directory containing one render template."
+          }
+        }
+      },
+      "uniqueItems": true
+    },
     "system_dependencies": {
       "type": "array",
       "description": "Optional external system prerequisites declared for operator visibility only.",
@@ -579,6 +597,7 @@
     "fixtures/plugin-info/ok.concurrency-opt-in.json",
     "fixtures/plugin-info/ok.rich-metadata.json",
     "fixtures/plugin-info/ok.management-ui.json",
+    "fixtures/plugin-info/ok.render-template.json",
     "fixtures/plugin-info/invalid.concurrency-zero.json",
     "fixtures/plugin-info/invalid.unknown-capability.json",
     "fixtures/plugin-info/invalid.unknown-provider-capability.json",
@@ -586,9 +605,13 @@
     "fixtures/plugin-info/invalid.icon-parent-path.json",
     "fixtures/plugin-info/invalid.management-ui-parent-path.json",
     "fixtures/plugin-info/invalid.management-ui-non-html-entry.json",
+    "fixtures/plugin-info/invalid.render-template-absolute-path.json",
+    "fixtures/plugin-info/invalid.render-template-manifest.json",
+    "fixtures/plugin-info/invalid.render-template-missing-directory.json",
+    "fixtures/plugin-info/invalid.render-template-parent-path.json",
     "fixtures/plugin-info/invalid.metadata-insecure-urls.json",
     "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
     "fixtures/plugin-info/invalid.system-dependencies-duplicates.json"
   ],
-  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, source metadata, default plugin config seeding, plugin-local management page entry, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions including governance control, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
+  "$comment": "The manifest stays focused on install-time validation, permission declaration, management role labeling, source metadata, default plugin config seeding, plugin-local management page entry, package-local render templates, migration boundaries, and opt-in event concurrency. The formal capability set covers event.subscribe and event.raw_payload, shared local actions including governance control, frozen OneBot single-action capabilities, and the current provider extension actions. Binary runtime support remains outside this frozen surface."
 }

@@ -2,6 +2,7 @@ package localaction
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,10 +25,27 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 		}
 	}
 
-	renderData := s.renderImageData(ctx, action.RenderTemplate, action.RenderData, parentEvent)
+	templateID, err := s.renderer.ResolvePluginTemplate(ctx, pluginID, action.RenderTemplate)
+	if err != nil {
+		var renderErr *render.Error
+		if errors.As(err, &renderErr) && renderErr.Code == "permission.scope_violation" {
+			return nil, &runtime.Error{
+				Code:    "permission.scope_violation",
+				Message: renderErr.Message,
+				Err:     err,
+			}
+		}
+		return nil, &runtime.Error{
+			Code:    "plugin.internal_error",
+			Message: "render.image failed",
+			Err:     err,
+		}
+	}
+
+	renderData := s.renderImageData(ctx, templateID, action.RenderData, parentEvent)
 
 	result, err := s.renderer.Render(ctx, render.Request{
-		Template: action.RenderTemplate,
+		Template: templateID,
 		Theme:    action.RenderTheme,
 		Output:   action.RenderOutput,
 		Data:     renderData,

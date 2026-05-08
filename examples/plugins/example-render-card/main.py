@@ -17,7 +17,7 @@ class RenderCardPlugin(RayleaBotPlugin):
     @command("render_card")
     def handle_render(self, ctx):
         result = ctx.render_image(
-            "help.menu",
+            "card",
             {
                 "title": "Render Example",
                 "items": [

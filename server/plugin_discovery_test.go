@@ -473,6 +473,41 @@ func TestDiscoverManifestManagementUI(t *testing.T) {
 	}
 }
 
+func TestDiscoverManifestRenderTemplates(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	fixture := loadPluginInfoFixture(t, filepath.Join("..", "fixtures", "plugin-info", "ok.render-template.json"))
+	pluginDir := filepath.Join(rootDir, "plugins", "weather-card")
+	if err := os.MkdirAll(filepath.Join(pluginDir, "templates", "card"), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	snapshots, summary, err := plugins.Discover(plugins.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugins.ScanRoot{{
+			Label: "plugins/installed",
+			Path:  filepath.Join(rootDir, "plugins"),
+		}},
+		RepoRoot: rootDir,
+	})
+	if err != nil {
+		t.Fatalf("Discover failed: %v", err)
+	}
+	if summary.ValidCount != 1 || len(snapshots) != 1 {
+		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
+	}
+
+	snapshot := snapshots[0]
+	if len(snapshot.RenderTemplates) != 1 || snapshot.RenderTemplates[0].Path != "templates/card" {
+		t.Fatalf("unexpected render_templates: %#v", snapshot.RenderTemplates)
+	}
+}
+
 func TestDiscoverManifestRichMetadata(t *testing.T) {
 	t.Parallel()
 

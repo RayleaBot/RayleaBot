@@ -23,6 +23,11 @@
     ],
     "optional": []
   },
+  "render_templates": [
+    {
+      "path": "templates/card"
+    }
+  ],
   "commands": [
     {
       "name": "render_card",
