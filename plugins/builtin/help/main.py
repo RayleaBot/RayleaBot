@@ -92,14 +92,33 @@ def format_command_label(command, prefix):
 
 
 def format_command_description(command):
-    parts = []
     if command["description"]:
-        parts.append(command["description"])
-    if command["permission"]:
-        parts.append(f"权限：{command['permission']}")
-    if parts:
-        return " | ".join(parts)
+        return command["description"]
     return "未提供指令说明"
+
+
+def format_permission_label(permission):
+    labels = {
+        "everyone": "所有人可用",
+        "group_admin": "管理员可用",
+        "super_admin": "超级管理员可用",
+    }
+    return labels.get(permission, "")
+
+
+def format_permission_text(permission):
+    label = format_permission_label(permission)
+    return f"开放范围：{label}" if label else ""
+
+
+def command_render_item(command, prefix):
+    return {
+        "name": format_command_label(command, prefix),
+        "description": format_command_description(command),
+        "usage": command["usage"],
+        "permission": command["permission"],
+        "permission_label": format_permission_label(command["permission"]),
+    }
 
 
 def build_root_render_data(items, prefix):
@@ -137,14 +156,7 @@ def build_plugin_render_data(item, prefix):
     return {
         "title": item["name"],
         "subtitle": " | ".join(subtitle_parts),
-        "items": [
-            {
-                "name": format_command_label(command, prefix),
-                "description": format_command_description(command),
-                "usage": command["usage"],
-            }
-            for command in item["commands"]
-        ],
+        "items": [command_render_item(command, prefix) for command in item["commands"]],
     }
 
 
@@ -162,6 +174,9 @@ def build_plugin_text(item, prefix):
     for command in item["commands"]:
         lines.append(format_command_label(command, prefix))
         lines.append(format_command_description(command))
+        permission_text = format_permission_text(command["permission"])
+        if permission_text:
+            lines.append(permission_text)
         if command["usage"]:
             lines.append(f"用法：{command['usage']}")
         lines.append("")
@@ -175,13 +190,7 @@ def build_command_render_data(item, command, prefix):
     return {
         "title": command["name"],
         "subtitle": " | ".join(subtitle_parts),
-        "items": [
-            {
-                "name": format_command_label(command, prefix),
-                "description": format_command_description(command),
-                "usage": command["usage"],
-            }
-        ],
+        "items": [command_render_item(command, prefix)],
     }
 
 
@@ -193,6 +202,9 @@ def build_command_text(item, command, prefix):
     lines.append("")
     lines.append(format_command_label(command, prefix))
     lines.append(format_command_description(command))
+    permission_text = format_permission_text(command["permission"])
+    if permission_text:
+        lines.append(permission_text)
     if command["usage"]:
         lines.append(f"用法：{command['usage']}")
     return "\n".join(lines).strip()

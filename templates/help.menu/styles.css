@@ -28,6 +28,13 @@
   --badge-member-bg:        oklch(0.72 0.15 150 / 0.16);
   --badge-member-text:      oklch(0.88 0.10 150);
 
+  --command-permission-open-bg:  oklch(0.72 0.15 150 / 0.14);
+  --command-permission-open-text: oklch(0.84 0.10 150);
+  --command-permission-admin-bg: oklch(0.72 0.10 250 / 0.16);
+  --command-permission-admin-text: oklch(0.86 0.08 250);
+  --command-permission-super-bg: oklch(0.78 0.13 82 / 0.18);
+  --command-permission-super-text: oklch(0.88 0.12 82);
+
   --space-xs:  4px;
   --space-sm:  8px;
   --space-md:  12px;
@@ -306,13 +313,55 @@ h1 {
   box-shadow: var(--shadow-lg);
 }
 
-.meta {
+.card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
   margin-bottom: 10px;
+}
+
+.meta {
+  min-width: 0;
   font-size: var(--text-md);
   font-weight: var(--weight-bold);
   color: var(--color-text);
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
+}
+
+.command-permission {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  max-width: 136px;
+  min-height: 24px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-extrabold);
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+}
+
+.command-permission--everyone {
+  border-color: oklch(0.72 0.15 150 / 0.34);
+  background: var(--command-permission-open-bg);
+  color: var(--command-permission-open-text);
+}
+
+.command-permission--group_admin {
+  border-color: oklch(0.72 0.10 250 / 0.38);
+  background: var(--command-permission-admin-bg);
+  color: var(--command-permission-admin-text);
+}
+
+.command-permission--super_admin {
+  border-color: oklch(0.78 0.13 82 / 0.42);
+  background: var(--command-permission-super-bg);
+  color: var(--command-permission-super-text);
 }
 
 .description {

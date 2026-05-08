@@ -65,7 +65,12 @@
       <section class="grid">
         {{ range .items }}
         <article class="card">
-          <div class="meta">{{ .name }}</div>
+          <div class="card__header">
+            <div class="meta">{{ .name }}</div>
+            {{ if .permission_label }}
+            <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+            {{ end }}
+          </div>
           <p class="description">{{ .description }}</p>
           {{ if .usage }}<code>{{ .usage }}</code>{{ end }}
         </article>

@@ -63,6 +63,13 @@
           },
           "usage": {
             "type": "string"
+          },
+          "permission": {
+            "type": "string",
+            "enum": ["everyone", "group_admin", "super_admin"]
+          },
+          "permission_label": {
+            "type": "string"
           }
         },
         "additionalProperties": true

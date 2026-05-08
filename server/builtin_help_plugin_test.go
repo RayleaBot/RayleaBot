@@ -306,6 +306,12 @@ func TestBuiltinHelpPluginFallsBackToTextForPluginDetail(t *testing.T) {
 	if firstItem["usage"] != "!echo <内容>" {
 		t.Fatalf("unexpected normalized command usage: %#v", firstItem["usage"])
 	}
+	if firstItem["description"] != "复读收到的内容" {
+		t.Fatalf("unexpected command description: %#v", firstItem["description"])
+	}
+	if firstItem["permission"] != "everyone" || firstItem["permission_label"] != "所有人可用" {
+		t.Fatalf("unexpected command permission label: %#v", firstItem)
+	}
 	for _, key := range []string{"user", "group", "permission"} {
 		if _, ok := payload[key]; ok {
 			t.Fatalf("builtin help plugin should not send identity field %q: %#v", key, payload[key])
@@ -346,8 +352,11 @@ func TestBuiltinHelpPluginFallsBackToTextForPluginDetail(t *testing.T) {
 		t.Fatalf("unexpected text segment data: %#v", segment["data"])
 	}
 	text, _ := segmentData["text"].(string)
-	if !strings.Contains(text, "Echo") || !strings.Contains(text, "!echo <内容>") {
+	if !strings.Contains(text, "Echo") || !strings.Contains(text, "!echo <内容>") || !strings.Contains(text, "开放范围：所有人可用") {
 		t.Fatalf("unexpected help detail text: %q", text)
+	}
+	if strings.Contains(text, "权限：") || strings.Contains(text, "|") {
+		t.Fatalf("help detail text contains raw permission wording: %q", text)
 	}
 }
 
@@ -501,6 +510,9 @@ func TestBuiltinHelpPluginFindsFortunePluginAndCommands(t *testing.T) {
 				}
 				if renderItem["name"] != tc.wantItemNames[index] {
 					t.Fatalf("unexpected fortune help item: %#v", renderItem)
+				}
+				if renderItem["permission"] != "everyone" || renderItem["permission_label"] != "所有人可用" {
+					t.Fatalf("unexpected fortune permission label: %#v", renderItem)
 				}
 			}
 		})
