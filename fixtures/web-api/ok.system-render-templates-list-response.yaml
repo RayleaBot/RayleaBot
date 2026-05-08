@@ -18,6 +18,16 @@ response:
           type: system
           plugin_id: null
           local_id: null
+      - id: fortune.stats
+        version: '1'
+        width: 1124
+        height: 1200
+        has_input_schema: true
+        updated_at: '2026-05-08T10:30:00Z'
+        source:
+          type: system
+          plugin_id: null
+          local_id: null
       - id: help.menu
         version: '1'
         width: 960

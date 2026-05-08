@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 DEFAULT_TIMEZONE = "Asia/Shanghai"
 DEFAULT_TRIGGER_COMMANDS = ["我的运势"]
+DEFAULT_STATS_TRIGGER_COMMANDS = ["运势统计"]
 FORTUNE_ORDER = ["大吉", "吉", "中吉", "小吉", "末吉", "凶", "大凶"]
 SPECIAL_FORTUNE = "吉凶未定"
 FIXED_TIMEZONES = {
@@ -38,6 +39,7 @@ EXPECTED_STARS = {
 FIERCE_STARS = {"★☆☆☆☆☆☆", "★★☆☆☆☆☆"}
 SETTINGS_KEYS = [
     "trigger_commands",
+    "stats_trigger_commands",
     "timezone",
     "fortunes",
     "special_dates",
@@ -67,6 +69,7 @@ class FortuneSettingsService:
         source = raw_settings if isinstance(raw_settings, dict) else {}
         settings = {
             "trigger_commands": normalize_string_list(source.get("trigger_commands"), DEFAULT_TRIGGER_COMMANDS),
+            "stats_trigger_commands": normalize_string_list(source.get("stats_trigger_commands"), DEFAULT_STATS_TRIGGER_COMMANDS),
             "timezone": normalize_timezone_name(source.get("timezone")),
             "fortunes": normalize_fortunes(source.get("fortunes")),
             "special_dates": normalize_special_dates(source.get("special_dates")),

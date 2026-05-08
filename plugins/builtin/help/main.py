@@ -65,24 +65,22 @@ def normalize_command(command, prefix):
 def normalize_plugin_item(item, prefix):
     commands = [normalize_command(command, prefix) for command in item.get("commands") or [] if (command.get("name") or "").strip()]
     conflicts = {(conflict or "").strip().casefold() for conflict in item.get("command_conflicts") or [] if (conflict or "").strip()}
+    plugin_id = (item.get("id") or "").strip()
+    name = (item.get("name") or plugin_id).strip()
     return {
-        "id": (item.get("id") or "").strip(),
-        "name": (item.get("name") or item.get("id") or "").strip(),
+        "id": plugin_id,
+        "name": name,
         "description": (item.get("description") or "").strip(),
         "registration_state": (item.get("registration_state") or "").strip(),
         "desired_state": (item.get("desired_state") or "").strip(),
         "commands": commands,
         "command_conflicts": conflicts,
-        "query_key": select_query_key(item, commands, conflicts),
+        "query_key": select_plugin_query_key(plugin_id, name),
     }
 
 
-def select_query_key(item, commands, conflicts):
-    for command in commands:
-        name = command["name"]
-        if name and name.casefold() not in conflicts:
-            return name
-    return (item.get("id") or "").strip()
+def select_plugin_query_key(plugin_id, name):
+    return name or plugin_id
 
 
 def format_command_label(command, prefix):
@@ -170,7 +168,37 @@ def build_plugin_text(item, prefix):
     return "\n".join(line for line in lines).strip()
 
 
-def find_plugin(items, query):
+def build_command_render_data(item, command, prefix):
+    subtitle_parts = [item["name"]]
+    if item["id"]:
+        subtitle_parts.append(f"插件 ID：{item['id']}")
+    return {
+        "title": command["name"],
+        "subtitle": " | ".join(subtitle_parts),
+        "items": [
+            {
+                "name": format_command_label(command, prefix),
+                "description": format_command_description(command),
+                "usage": command["usage"],
+            }
+        ],
+    }
+
+
+def build_command_text(item, command, prefix):
+    lines = [command["name"]]
+    lines.append(f"插件：{item['name']}")
+    if item["id"]:
+        lines.append(f"插件 ID：{item['id']}")
+    lines.append("")
+    lines.append(format_command_label(command, prefix))
+    lines.append(format_command_description(command))
+    if command["usage"]:
+        lines.append(f"用法：{command['usage']}")
+    return "\n".join(lines).strip()
+
+
+def find_help_target(items, query):
     exact_id = [item for item in items if item["id"] == query]
     if exact_id:
         return "plugin", exact_id[0]
@@ -185,20 +213,20 @@ def find_plugin(items, query):
         for command in item["commands"]:
             tokens = [command["name"]] + command["aliases"] + command["query_tokens"]
             if any(token.casefold() == lowered for token in tokens if token):
-                command_matches.append(item)
-                break
+                command_matches.append((item, command))
 
     if len(command_matches) == 1:
-        return "plugin", command_matches[0]
+        return "command", command_matches[0]
     if len(command_matches) > 1:
-        unique_ids = []
+        unique_targets = []
         seen = set()
-        for item in command_matches:
-            if item["id"] in seen:
+        for item, command in command_matches:
+            target = f"{item['id']}:{command['name']}"
+            if target in seen:
                 continue
-            seen.add(item["id"])
-            unique_ids.append(item["id"])
-        return "ambiguous", unique_ids
+            seen.add(target)
+            unique_targets.append(f"{item['id']} / {command['name']}")
+        return "ambiguous", unique_targets
 
     return "missing", None
 
@@ -263,7 +291,7 @@ class HelpPlugin(RayleaBotPlugin):
             ctx.send_text(fallback_text)
             return
 
-        match_type, match_value = find_plugin(items, query)
+        match_type, match_value = find_help_target(items, query)
         if match_type == "plugin":
             fallback_text = build_plugin_text(match_value, prefix)
             if self.try_render_image(ctx, build_plugin_render_data(match_value, prefix), fallback_text):
@@ -271,14 +299,22 @@ class HelpPlugin(RayleaBotPlugin):
             ctx.send_text(fallback_text)
             return
 
+        if match_type == "command":
+            item, command = match_value
+            fallback_text = build_command_text(item, command, prefix)
+            if self.try_render_image(ctx, build_command_render_data(item, command, prefix), fallback_text):
+                return
+            ctx.send_text(fallback_text)
+            return
+
         if match_type == "ambiguous":
             text = [
-                f"“{query}” 对应多个插件。",
-                "可用插件 ID：",
+                f"“{query}” 对应多个指令。",
+                "可用目标：",
             ]
             text.extend(match_value)
             text.append("")
-            text.append(f"使用 {prefix}help <plugin.id> 查看具体说明。")
+            text.append(f"使用 {prefix}help <插件名或指令名> 查看具体说明。")
             ctx.send_text("\n".join(text))
             return
 

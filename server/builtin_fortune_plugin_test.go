@@ -134,6 +134,79 @@ func TestBuiltinFortunePluginRendersDailyFortuneAndReusesRecord(t *testing.T) {
 	}
 }
 
+func TestBuiltinFortunePluginRendersStats(t *testing.T) {
+	t.Parallel()
+
+	session := startBuiltinPythonPluginWithPrefixes(t, "raylea.fortune", filepath.Join(repoRootPath(t), "plugins", "builtin", "fortune", "main.py"), []string{"!"})
+	defer session.close(t)
+
+	initAck := session.readFrame(t)
+	if initAck["type"] != "init_ack" || initAck["status"] != "ready" {
+		t.Fatalf("unexpected init ack: %#v", initAck)
+	}
+
+	session.writeFrame(t, fortuneStatsMessageEvent("event-stats-1"))
+
+	configRead := session.readFrame(t)
+	assertPluginAction(t, configRead, "config.read")
+	session.writeFrame(t, pluginActionResult("raylea.fortune", configRead["request_id"], map[string]any{
+		"values": map[string]any{
+			"trigger_commands":       []string{"我的运势"},
+			"stats_trigger_commands": []string{"运势统计"},
+			"timezone":               "Asia/Shanghai",
+		},
+	}))
+
+	statsGet := session.readFrame(t)
+	assertPluginAction(t, statsGet, "storage.kv")
+	statsGetData := actionData(t, statsGet)
+	if statsGetData["operation"] != "get" || statsGetData["key"] != "stats:10001" {
+		t.Fatalf("unexpected stats get operation: %#v", statsGetData)
+	}
+	session.writeFrame(t, pluginActionResult("raylea.fortune", statsGet["request_id"], map[string]any{
+		"exists": true,
+		"key":    statsGetData["key"],
+		"value": map[string]any{
+			"total_days":             3,
+			"current_streak":         3,
+			"longest_daji_streak":    2,
+			"longest_daxiong_streak": 1,
+			"counts": map[string]any{
+				"大吉": 2,
+				"吉":  1,
+			},
+		},
+	}))
+
+	renderAction := session.readFrame(t)
+	assertPluginAction(t, renderAction, "render.image")
+	renderPayload := actionData(t, renderAction)
+	if renderPayload["template"] != "fortune.stats" {
+		t.Fatalf("unexpected stats render template: %#v", renderPayload["template"])
+	}
+	renderData, ok := renderPayload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected stats render data: %#v", renderPayload["data"])
+	}
+	if renderData["title"] != "运势统计" {
+		t.Fatalf("unexpected stats render title: %#v", renderData["title"])
+	}
+	distribution, ok := renderData["distribution"].([]any)
+	if !ok || len(distribution) == 0 {
+		t.Fatalf("unexpected stats distribution: %#v", renderData["distribution"])
+	}
+	session.writeFrame(t, pluginActionResult("raylea.fortune", renderAction["request_id"], map[string]any{
+		"image_path": "file://cache/fortune-stats.png",
+	}))
+
+	messageAction := session.readFrame(t)
+	assertPluginAction(t, messageAction, "message.send")
+	resultFrame := session.readFrame(t)
+	if resultFrame["type"] != "result" {
+		t.Fatalf("unexpected stats event result: %#v", resultFrame)
+	}
+}
+
 func fortuneMessageEvent(requestID string) map[string]any {
 	return map[string]any{
 		"protocol_version": "1",
@@ -176,6 +249,14 @@ func fortuneMessageEvent(requestID string) map[string]any {
 			},
 		},
 	}
+}
+
+func fortuneStatsMessageEvent(requestID string) map[string]any {
+	event := fortuneMessageEvent(requestID)
+	eventBody := event["event"].(map[string]any)
+	message := eventBody["message"].(map[string]any)
+	message["plain_text"] = "!运势统计"
+	return event
 }
 
 func assertPluginAction(t *testing.T, frame map[string]any, action string) {

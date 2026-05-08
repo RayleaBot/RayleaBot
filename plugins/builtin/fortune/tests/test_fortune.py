@@ -116,6 +116,7 @@ class FortuneLogicTests(unittest.TestCase):
         settings = fortune.load_default_settings(PLUGIN_ROOT / "fortunes.json")
 
         self.assertEqual(settings["trigger_commands"], ["我的运势"])
+        self.assertEqual(settings["stats_trigger_commands"], ["运势统计"])
         by_name = {item["name"]: item["stars"] for item in settings["fortunes"]}
         self.assertEqual(by_name["大吉"], "★★★★★★★")
         self.assertEqual(by_name["大凶"], "☆☆☆☆☆☆☆")

@@ -93,6 +93,35 @@ func TestBuiltinHelpPluginRendersRootMenuFromPluginList(t *testing.T) {
 					},
 					"command_conflicts": []string{},
 				},
+				{
+					"id":                 "raylea.fortune",
+					"name":               "运势",
+					"description":        "每日运势抽取与统计",
+					"role":               "builtin",
+					"registration_state": "installed",
+					"desired_state":      "enabled",
+					"runtime_state":      "running",
+					"display_state":      "running",
+					"commands": []map[string]any{
+						{
+							"name":           "我的运势",
+							"description":    "查看今日运势",
+							"usage":          "我的运势",
+							"permission":     "everyone",
+							"command_source": "dynamic",
+							"declaration_id": "fortune",
+						},
+						{
+							"name":           "运势统计",
+							"description":    "查看运势统计",
+							"usage":          "运势统计",
+							"permission":     "everyone",
+							"command_source": "dynamic",
+							"declaration_id": "fortune_stats",
+						},
+					},
+					"command_conflicts": []string{},
+				},
 			},
 		},
 	})
@@ -113,15 +142,22 @@ func TestBuiltinHelpPluginRendersRootMenuFromPluginList(t *testing.T) {
 		t.Fatalf("unexpected render payload: %#v", renderData["data"])
 	}
 	items, ok := payload["items"].([]any)
-	if !ok || len(items) != 1 {
+	if !ok || len(items) != 2 {
 		t.Fatalf("unexpected render items: %#v", payload["items"])
 	}
-	firstItem, ok := items[0].(map[string]any)
-	if !ok {
-		t.Fatalf("unexpected render item: %#v", items[0])
+	usagesByName := map[string]any{}
+	for _, item := range items {
+		renderItem, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected render item: %#v", item)
+		}
+		usagesByName[renderItem["name"].(string)] = renderItem["usage"]
 	}
-	if firstItem["usage"] != "/help echo" {
-		t.Fatalf("unexpected root help usage: %#v", firstItem["usage"])
+	if usagesByName["Echo"] != "/help Echo" {
+		t.Fatalf("unexpected echo root help usage: %#v", usagesByName["Echo"])
+	}
+	if usagesByName["运势"] != "/help 运势" {
+		t.Fatalf("unexpected fortune root help usage: %#v", usagesByName["运势"])
 	}
 	for _, key := range []string{"user", "group", "permission"} {
 		if _, ok := payload[key]; ok {
@@ -315,12 +351,49 @@ func TestBuiltinHelpPluginFallsBackToTextForPluginDetail(t *testing.T) {
 	}
 }
 
-func TestBuiltinHelpPluginFindsFortuneByDynamicCommand(t *testing.T) {
+func TestBuiltinHelpPluginFindsFortunePluginAndCommands(t *testing.T) {
 	t.Parallel()
 
-	for _, query := range []string{"fortune", "我的运势", "运势"} {
-		query := query
-		t.Run(query, func(t *testing.T) {
+	cases := []struct {
+		query         string
+		wantTitle     string
+		wantItemNames []string
+	}{
+		{
+			query:         "raylea.fortune",
+			wantTitle:     "运势",
+			wantItemNames: []string{"/我的运势 · 别名 /今日运势", "/运势统计"},
+		},
+		{
+			query:         "运势",
+			wantTitle:     "运势",
+			wantItemNames: []string{"/我的运势 · 别名 /今日运势", "/运势统计"},
+		},
+		{
+			query:         "fortune",
+			wantTitle:     "我的运势",
+			wantItemNames: []string{"/我的运势 · 别名 /今日运势"},
+		},
+		{
+			query:         "我的运势",
+			wantTitle:     "我的运势",
+			wantItemNames: []string{"/我的运势 · 别名 /今日运势"},
+		},
+		{
+			query:         "fortune_stats",
+			wantTitle:     "运势统计",
+			wantItemNames: []string{"/运势统计"},
+		},
+		{
+			query:         "运势统计",
+			wantTitle:     "运势统计",
+			wantItemNames: []string{"/运势统计"},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.query, func(t *testing.T) {
 			t.Parallel()
 
 			session := startBuiltinPythonPlugin(t, "raylea.help", filepath.Join(repoRootPath(t), "plugins", "builtin", "help", "main.py"))
@@ -336,9 +409,9 @@ func TestBuiltinHelpPluginFindsFortuneByDynamicCommand(t *testing.T) {
 				"type":             "event",
 				"timestamp":        time.Now().Unix(),
 				"plugin_id":        "raylea.help",
-				"request_id":       "event-fortune-" + query,
+				"request_id":       "event-fortune-" + tc.query,
 				"event": map[string]any{
-					"event_id":        "event-fortune-" + query,
+					"event_id":        "event-fortune-" + tc.query,
 					"source_protocol": "onebot11",
 					"source_adapter":  "test",
 					"event_type":      "message.private",
@@ -353,7 +426,7 @@ func TestBuiltinHelpPluginFindsFortuneByDynamicCommand(t *testing.T) {
 					},
 					"payload": map[string]any{
 						"command": "help",
-						"args":    []string{query},
+						"args":    []string{tc.query},
 					},
 				},
 			})
@@ -387,6 +460,14 @@ func TestBuiltinHelpPluginFindsFortuneByDynamicCommand(t *testing.T) {
 									"command_source": "dynamic",
 									"declaration_id": "fortune",
 								},
+								{
+									"name":           "运势统计",
+									"description":    "查看运势统计",
+									"usage":          "运势统计",
+									"permission":     "everyone",
+									"command_source": "dynamic",
+									"declaration_id": "fortune_stats",
+								},
 							},
 							"command_conflicts": []string{},
 						},
@@ -406,16 +487,21 @@ func TestBuiltinHelpPluginFindsFortuneByDynamicCommand(t *testing.T) {
 			if !ok {
 				t.Fatalf("unexpected render payload: %#v", renderData["data"])
 			}
-			if payload["title"] != "运势" {
+			if payload["title"] != tc.wantTitle {
 				t.Fatalf("unexpected help title: %#v", payload["title"])
 			}
 			items, ok := payload["items"].([]any)
-			if !ok || len(items) != 1 {
+			if !ok || len(items) != len(tc.wantItemNames) {
 				t.Fatalf("unexpected help items: %#v", payload["items"])
 			}
-			item := items[0].(map[string]any)
-			if item["name"] != "/我的运势 · 别名 /今日运势" || item["usage"] != "/我的运势" {
-				t.Fatalf("unexpected fortune help item: %#v", item)
+			for index, item := range items {
+				renderItem, ok := item.(map[string]any)
+				if !ok {
+					t.Fatalf("unexpected help item: %#v", item)
+				}
+				if renderItem["name"] != tc.wantItemNames[index] {
+					t.Fatalf("unexpected fortune help item: %#v", renderItem)
+				}
 			}
 		})
 	}

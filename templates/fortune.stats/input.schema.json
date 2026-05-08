@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "avatar_url": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "group_nickname": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "id": {
+          "type": ["string", "number"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "value"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": ["string", "number"]
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "distribution": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "count"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "count": {
+            "type": ["string", "number"]
+          },
+          "percentage": {
+            "type": ["string", "number"]
+          },
+          "stars": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 7
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "value"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": ["string", "number"]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "examples": [
+    {
+      "title": "运势统计",
+      "subtitle": "2026-05-08 · Asia/Shanghai",
+      "user": {
+        "group_nickname": "银蝶",
+        "nickname": "Silver",
+        "title": "群主",
+        "id": "10001"
+      },
+      "group": {
+        "name": "测试群"
+      },
+      "summary": [
+        {
+          "label": "累计查看",
+          "value": "12 天"
+        },
+        {
+          "label": "当前连续",
+          "value": "7 天"
+        }
+      ],
+      "distribution": [
+        {
+          "name": "大吉",
+          "count": 2,
+          "percentage": 16.7,
+          "stars": "★★★★★★★"
+        }
+      ],
+      "records": [
+        {
+          "label": "最长连续大吉",
+          "value": "2 天"
+        },
+        {
+          "label": "最长连续大凶",
+          "value": "1 天"
+        }
+      ]
+    }
+  ],
+  "additionalProperties": true
+}

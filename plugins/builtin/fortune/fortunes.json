@@ -2,6 +2,9 @@
   "trigger_commands": [
     "我的运势"
   ],
+  "stats_trigger_commands": [
+    "运势统计"
+  ],
   "timezone": "Asia/Shanghai",
   "fortunes": [
     {

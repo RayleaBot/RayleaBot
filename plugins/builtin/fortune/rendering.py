@@ -1,3 +1,4 @@
+from settings import COUNTED_FORTUNES, EXPECTED_STARS, FORTUNE_ORDER, normalize_string_list
 from stats import build_stats_summary, normalize_stats
 
 
@@ -63,6 +64,78 @@ class FortuneRenderBuilder:
         ]
         return "\n".join(line for line in lines if line)
 
+    def build_stats_render_data(self, ctx, settings, stats):
+        from engine import local_date_for_timezone
+        from stats import normalize_stats
+
+        local_date = local_date_for_timezone(None, settings["timezone"]).isoformat()
+        normalized = normalize_stats(stats)
+        total_days = normalized["total_days"]
+        total_draws = sum(normalized["counts"].get(name, 0) for name in COUNTED_FORTUNES)
+
+        summary = []
+        if total_days:
+            summary.append({"label": "累计查看", "value": f"{total_days} 天"})
+        current_streak = normalized.get("current_streak", 0)
+        if current_streak:
+            summary.append({"label": "当前连续", "value": f"{current_streak} 天"})
+
+        distribution = []
+        for name in FORTUNE_ORDER:
+            count = normalized["counts"].get(name, 0)
+            if count == 0 and total_draws == 0:
+                continue
+            percentage = round((count / total_draws) * 100, 1) if total_draws else 0
+            distribution.append({
+                "name": name,
+                "count": count,
+                "percentage": percentage,
+                "stars": EXPECTED_STARS.get(name, "☆☆☆☆☆☆☆"),
+            })
+        special_name = "吉凶未定"
+        special_count = normalized["counts"].get(special_name, 0)
+        if special_count > 0 or total_draws == 0:
+            percentage = round((special_count / total_draws) * 100, 1) if total_draws else 0
+            distribution.append({
+                "name": special_name,
+                "count": special_count,
+                "percentage": percentage,
+                "stars": EXPECTED_STARS.get(special_name, "???????"),
+            })
+
+        records = []
+        longest_daji = normalized.get("longest_daji_streak", 0)
+        if longest_daji:
+            records.append({"label": "最长连续大吉", "value": f"{longest_daji} 天"})
+        longest_daxiong = normalized.get("longest_daxiong_streak", 0)
+        if longest_daxiong:
+            records.append({"label": "最长连续大凶", "value": f"{longest_daxiong} 天"})
+
+        return {
+            "title": "运势统计",
+            "subtitle": local_date,
+            "user": self.user_identity_from_context(ctx),
+            "group": self.group_identity_from_context(ctx),
+            "summary": summary,
+            "distribution": distribution,
+            "records": records,
+        }
+
+    def build_stats_fallback_text(self, render_data):
+        lines = [render_data["title"]]
+        for item in render_data.get("summary") or []:
+            lines.append(f"{item['label']}：{item['value']}")
+        lines.append("")
+        lines.append("运势分布：")
+        for item in render_data.get("distribution") or []:
+            lines.append(f"  {item['name']}：{item['count']} 次（{item['percentage']}%）")
+        if render_data.get("records"):
+            lines.append("")
+            lines.append("连续记录：")
+            for item in render_data["records"]:
+                lines.append(f"  {item['label']}：{item['value']}")
+        return "\n".join(lines)
+
 
 _DEFAULT_BUILDER = FortuneRenderBuilder()
 
@@ -81,3 +154,11 @@ def build_render_data(ctx, settings, record, stats, repeated):
 
 def build_fallback_text(render_data):
     return _DEFAULT_BUILDER.build_fallback_text(render_data)
+
+
+def build_stats_render_data(ctx, settings, stats):
+    return _DEFAULT_BUILDER.build_stats_render_data(ctx, settings, stats)
+
+
+def build_stats_fallback_text(render_data):
+    return _DEFAULT_BUILDER.build_stats_fallback_text(render_data)

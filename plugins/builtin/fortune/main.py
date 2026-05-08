@@ -30,6 +30,8 @@ from rendering import (
     FortuneRenderBuilder,
     build_fallback_text,
     build_render_data,
+    build_stats_fallback_text,
+    build_stats_render_data,
     group_identity_from_context,
     user_identity_from_context,
 )
@@ -169,13 +171,25 @@ class FortunePlugin(RayleaBotPlugin):
 
         settings = self.load_settings(ctx)
         engine = self.current_engine()
-        trigger = parse_trigger(ctx.plain_text, ctx.command_prefixes, settings["trigger_commands"])
-        if trigger is None:
+
+        fortune_trigger = parse_trigger(ctx.plain_text, ctx.command_prefixes, settings["trigger_commands"])
+        stats_trigger = None
+        if fortune_trigger is None:
+            stats_trigger = parse_trigger(ctx.plain_text, ctx.command_prefixes, settings["stats_trigger_commands"])
+
+        if fortune_trigger is None and stats_trigger is None:
             ctx.send_result({"handled": False})
             return
 
         user = self._render_builder.user_identity_from_context(ctx)
         user_id = user["id"]
+
+        if fortune_trigger is not None:
+            self._handle_fortune_command(ctx, settings, engine, user_id)
+        else:
+            self._handle_stats_command(ctx, settings, user_id)
+
+    def _handle_fortune_command(self, ctx, settings, engine, user_id):
         local_day = local_date_for_timezone(None, settings["timezone"])
         daily_key = f"daily:{user_id}:{local_day.isoformat()}"
         stats_key = f"stats:{user_id}"
@@ -206,6 +220,22 @@ class FortunePlugin(RayleaBotPlugin):
         self.send_fortune_image(ctx, render_data)
         ctx.send_result({"handled": True})
 
+    def _handle_stats_command(self, ctx, settings, user_id):
+        stats_key = f"stats:{user_id}"
+        stats = self._stats_service.normalize(storage_value(ctx.storage_get(stats_key), self._stats_service.empty()))
+
+        if stats["total_days"] == 0:
+            ctx.send_message([{
+                "type": "text",
+                "data": {"text": "你还没有抽取过运势，发送「我的运势」来抽取今日运势吧！"},
+            }])
+            ctx.send_result({"handled": True})
+            return
+
+        render_data = self._render_builder.build_stats_render_data(ctx, settings, stats)
+        self.send_stats_image(ctx, render_data)
+        ctx.send_result({"handled": True})
+
     def send_fortune_image(self, ctx, render_data):
         fallback_text = self._render_builder.build_fallback_text(render_data)
         result = ctx.render_image(
@@ -223,6 +253,24 @@ class FortunePlugin(RayleaBotPlugin):
             }])
             return
         self.try_log(ctx, "warn", "运势图片生成结果缺少图片路径")
+
+    def send_stats_image(self, ctx, render_data):
+        fallback_text = self._render_builder.build_stats_fallback_text(render_data)
+        result = ctx.render_image(
+            "fortune.stats",
+            render_data,
+            theme="default",
+            output="png",
+            fallback_text=fallback_text,
+        )
+        image_path = str(result.get("image_path") or "").strip()
+        if image_path:
+            ctx.send_message([{
+                "type": "image",
+                "data": {"file": image_path},
+            }])
+            return
+        self.try_log(ctx, "warn", "运势统计图片生成结果缺少图片路径")
 
 
 if __name__ == "__main__":

@@ -41,6 +41,12 @@
       "settings_key": "trigger_commands",
       "description": "查看今日运势",
       "permission": "everyone"
+    },
+    {
+      "id": "fortune_stats",
+      "settings_key": "stats_trigger_commands",
+      "description": "查看运势统计",
+      "permission": "everyone"
     }
   ],
   "default_config_file": "fortunes.json"

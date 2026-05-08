@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body class="theme-{{ .Theme }}">
+    <main class="fortune-stats" aria-label="运势统计">
+      {{ $nickname := "访客" }}
+      {{ $groupNickname := "" }}
+      {{ $avatarURL := "" }}
+      {{ $userTitle := "" }}
+      {{ $userID := "" }}
+      {{ $groupName := "" }}
+      {{ with .user }}
+        {{ with .id }}{{ $userID = printf "%v" . }}{{ end }}
+        {{ with .nickname }}{{ $nickname = printf "%v" . }}{{ end }}
+        {{ with .group_nickname }}{{ $groupNickname = printf "%v" . }}{{ end }}
+        {{ with .avatar_url }}{{ $avatarURL = printf "%v" . }}{{ end }}
+        {{ with .title }}{{ $userTitle = printf "%v" . }}{{ end }}
+      {{ end }}
+      {{ with .group }}
+        {{ with .name }}{{ $groupName = printf "%v" . }}{{ end }}
+      {{ end }}
+
+      <header class="fortune-stats__header">
+        <div class="fortune-stats__title-group">
+          <h1>{{ .title }}</h1>
+          {{ if .subtitle }}
+          <p class="fortune-stats__subtitle"><span aria-hidden="true"></span>{{ .subtitle }}</p>
+          {{ end }}
+        </div>
+        <div class="fortune-stats__landscape" aria-hidden="true"></div>
+        <div class="fortune-stats__header-clouds" aria-hidden="true"></div>
+        <div class="fortune-stats__header-birds" aria-hidden="true"></div>
+      </header>
+
+      <section class="fortune-stats__identity">
+        <div class="fortune-stats__avatar">
+          {{ if $avatarURL }}
+          <img src="{{ $avatarURL }}" alt="" />
+          {{ else if $groupNickname }}
+          <span>{{ $groupNickname }}</span>
+          {{ else }}
+          <span>{{ $nickname }}</span>
+          {{ end }}
+        </div>
+        <div class="fortune-stats__identity-body">
+          <div class="fortune-stats__name-line">
+            {{ if $groupNickname }}
+            <span class="fortune-stats__group-name">{{ $groupNickname }}</span>
+            {{ if not $userTitle }}
+            <span class="fortune-stats__nickname">（{{ $nickname }}）</span>
+            {{ end }}
+            {{ else }}
+            <span class="fortune-stats__group-name">{{ $nickname }}</span>
+            {{ end }}
+            {{ if $userTitle }}<span class="fortune-stats__title-badge">{{ $userTitle }}</span>{{ end }}
+          </div>
+          <div class="fortune-stats__identity-meta">
+            {{ if $groupName }}<span>{{ $groupName }}</span>{{ end }}
+            {{ if $userID }}<span>账号 {{ $userID }}</span>{{ end }}
+          </div>
+        </div>
+      </section>
+
+      {{ with .summary }}
+      <section class="fortune-stats__section">
+        <p class="fortune-stats__section-title">统计概览</p>
+        <div class="fortune-stats__summary-grid">
+          {{ range . }}
+          <article class="fortune-stats__summary-card">
+            <p class="label">{{ .label }}</p>
+            <p class="value">{{ .value }}</p>
+          </article>
+          {{ end }}
+        </div>
+      </section>
+      {{ end }}
+
+      {{ with .distribution }}
+      <section class="fortune-stats__section">
+        <p class="fortune-stats__section-title">运势分布</p>
+        <div class="fortune-stats__distribution">
+          {{ range . }}
+          <div class="fortune-stats__distribution-item">
+            <p class="fortune-stats__distribution-name">{{ .name }}</p>
+            <div class="fortune-stats__distribution-bar-wrap">
+              <div class="fortune-stats__distribution-bar" style="width: {{ .percentage }}%"></div>
+            </div>
+            <p class="fortune-stats__distribution-count">{{ .count }} 次</p>
+          </div>
+          {{ end }}
+        </div>
+      </section>
+      {{ end }}
+
+      {{ with .records }}
+      <section class="fortune-stats__section">
+        <p class="fortune-stats__section-title">连续记录</p>
+        <div class="fortune-stats__records-grid">
+          {{ range . }}
+          <article class="fortune-stats__record-card">
+            <p class="label">{{ .label }}</p>
+            <p class="value">{{ .value }}</p>
+          </article>
+          {{ end }}
+        </div>
+      </section>
+      {{ end }}
+    </main>
+  </body>
+</html>
