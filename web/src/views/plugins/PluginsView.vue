@@ -7,7 +7,7 @@ import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
-import { notifySuccess } from '@/adapter/feedback'
+import { notifyError, notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -135,6 +135,15 @@ function openSummary(id: string) {
 
 function getToggleAction(desiredState?: string) {
   return desiredState === 'enabled' ? 'disable' : 'enable'
+}
+
+async function reloadPlugin(pluginId: string) {
+  try {
+    await pluginsStore.executeAction(pluginId, 'reload')
+    notifySuccess(t('plugins.actionAccepted'))
+  } catch (error) {
+    notifyError(getDisplayErrorMessage(error))
+  }
 }
 
 async function submitInstall() {
@@ -284,8 +293,9 @@ async function submitInstall() {
               />
               <a-button
                 size="small"
+                :data-testid="`plugin-reload-button-${record.id}`"
                 :loading="actionPending[record.id] === 'reload'"
-                @click="pluginsStore.executeAction(record.id, 'reload')"
+                @click="reloadPlugin(record.id)"
               >
                 {{ t('plugins.actions.reload') }}
               </a-button>

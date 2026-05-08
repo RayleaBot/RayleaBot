@@ -4,12 +4,20 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 
+import { notifyError, notifySuccess } from '@/adapter/feedback'
 import PluginsPage from '@/views/plugins/PluginsView.vue'
 import { usePluginsStore } from '@/stores/plugins'
+
+vi.mock('@/adapter/feedback', () => ({
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+}))
 
 describe('PluginsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.mocked(notifyError).mockClear()
+    vi.mocked(notifySuccess).mockClear()
   })
 
   it('calls enable action when the chinese enable button is pressed', async () => {
@@ -81,6 +89,78 @@ describe('PluginsPage', () => {
     await button.trigger('click')
 
     expect(executeSpy).toHaveBeenCalledWith('weather', 'disable')
+  })
+
+  it('shows success feedback when reload action succeeds', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [{
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'running',
+      display_state: 'enabled',
+      commands: [],
+      command_conflicts: [],
+    }]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const executeSpy = vi.spyOn(store, 'executeAction').mockResolvedValue(store.items[0])
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-reload-button-weather"]').trigger('click')
+    await flushPromises()
+
+    expect(executeSpy).toHaveBeenCalledWith('weather', 'reload')
+    expect(notifySuccess).toHaveBeenCalledWith('操作已提交')
+    expect(notifyError).not.toHaveBeenCalled()
+  })
+
+  it('shows error feedback when reload action fails', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [{
+      id: 'weather',
+      name: 'Weather',
+      role: 'user',
+      registration_state: 'installed',
+      desired_state: 'enabled',
+      runtime_state: 'running',
+      display_state: 'enabled',
+      commands: [],
+      command_conflicts: [],
+    }]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const executeSpy = vi.spyOn(store, 'executeAction').mockRejectedValue(new Error('reload failed'))
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-reload-button-weather"]').trigger('click')
+    await flushPromises()
+
+    expect(executeSpy).toHaveBeenCalledWith('weather', 'reload')
+    expect(notifyError).toHaveBeenCalledWith('操作未完成，请稍后重试。')
+    expect(notifySuccess).not.toHaveBeenCalled()
   })
 
   it('renders source, trust, and command conflict metadata', async () => {
