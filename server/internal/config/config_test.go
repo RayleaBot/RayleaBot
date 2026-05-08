@@ -61,6 +61,9 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if got := nestedString(t, document, "onebot", "forward_ws", "access_token"); got != "" {
 		t.Fatalf("onebot.forward_ws.access_token = %q, want empty", got)
 	}
+	if got := nestedString(t, document, "render", "footer_template"); got != DefaultRenderFooterTemplate {
+		t.Fatalf("render.footer_template = %q, want default footer template", got)
+	}
 }
 
 func TestLoadMigratesLegacyConfigShape(t *testing.T) {
@@ -491,6 +494,7 @@ func newPlanningConfigDocument() map[string]any {
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,
+			"footer_template":            DefaultRenderFooterTemplate,
 		},
 		"scheduler": map[string]any{
 			"timezone": "",
@@ -635,6 +639,7 @@ func legacyConfigDocument() map[string]any {
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,
+			"footer_template":            DefaultRenderFooterTemplate,
 		},
 		"web": map[string]any{
 			"exposure_mode":    "localhost_only",

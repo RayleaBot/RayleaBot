@@ -1489,6 +1489,8 @@ export interface components {
                 queue_wait_timeout_seconds: number;
                 /** @default 32 */
                 queue_max_length: number;
+                /** @default Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}} */
+                footer_template: string;
             };
             scheduler: {
                 /** @default  */

@@ -29,6 +29,9 @@ const (
 	defaultQueueWaitTimeout = 15 * time.Second
 	defaultRenderTimeout    = 20 * time.Second
 	defaultRenderDataLimit  = 1 << 20
+	defaultRenderFooter     = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
+	developmentVersion      = "开发版本"
+	systemTemplatePlugin    = "系统模板"
 	renderCacheVersion      = "render-cache-v3-template-sources"
 )
 
@@ -52,6 +55,7 @@ type Options struct {
 	QueueWaitTimeout   time.Duration
 	RenderTimeout      time.Duration
 	MaxRenderDataBytes int
+	FooterTemplate     string
 	Logger             *slog.Logger
 }
 
@@ -59,6 +63,7 @@ type RuntimeConfig struct {
 	QueueMaxLength   int
 	QueueWaitTimeout time.Duration
 	RenderTimeout    time.Duration
+	FooterTemplate   string
 }
 
 type Request struct {
@@ -66,6 +71,12 @@ type Request struct {
 	Theme    string         `json:"theme,omitempty"`
 	Output   string         `json:"output,omitempty"`
 	Data     map[string]any `json:"data"`
+	Plugin   *PluginContext `json:"-"`
+}
+
+type PluginContext struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type Document struct {
@@ -150,6 +161,7 @@ type Service struct {
 	queueWaitTimeout   time.Duration
 	renderTimeout      time.Duration
 	maxRenderDataBytes int
+	footerTemplate     string
 	activeRequests     int
 	cache              map[string]Result
 	artifacts          map[string]Artifact
@@ -194,6 +206,10 @@ func NewService(options Options) (*Service, error) {
 	if maxRenderDataBytes <= 0 {
 		maxRenderDataBytes = defaultRenderDataLimit
 	}
+	footerTemplate := strings.TrimSpace(options.FooterTemplate)
+	if footerTemplate == "" {
+		footerTemplate = defaultRenderFooter
+	}
 
 	browserPath := strings.TrimSpace(options.BrowserPath)
 	if browserPath == "" {
@@ -224,6 +240,7 @@ func NewService(options Options) (*Service, error) {
 		queueWaitTimeout:   queueWaitTimeout,
 		renderTimeout:      renderTimeout,
 		maxRenderDataBytes: maxRenderDataBytes,
+		footerTemplate:     footerTemplate,
 		templateRepo:       templateRepo,
 		templateRoots:      map[string]string{},
 		cache:              map[string]Result{},
@@ -278,6 +295,9 @@ func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
 	}
 	if config.RenderTimeout > 0 {
 		s.renderTimeout = config.RenderTimeout
+	}
+	if strings.TrimSpace(config.FooterTemplate) != "" {
+		s.footerTemplate = config.FooterTemplate
 	}
 }
 
@@ -811,6 +831,8 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	if request.Data == nil {
 		request.Data = map[string]any{}
 	}
+	request.Data = cloneRenderData(request.Data)
+	request.Data["render_footer"] = s.renderFooter(request.Plugin)
 
 	payloadBytes, err := json.Marshal(request.Data)
 	if err != nil {
@@ -868,6 +890,65 @@ func (s *Service) currentMaxRenderDataBytes() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.maxRenderDataBytes
+}
+
+func (s *Service) currentFooterTemplate() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if strings.TrimSpace(s.footerTemplate) == "" {
+		return defaultRenderFooter
+	}
+	return s.footerTemplate
+}
+
+func (s *Service) renderFooter(plugin *PluginContext) string {
+	pluginName := systemTemplatePlugin
+	pluginVersion := developmentVersion
+	if plugin != nil {
+		if name := strings.TrimSpace(plugin.Name); name != "" {
+			pluginName = name
+		}
+		if version := displayVersion(plugin.Version); version != "" {
+			pluginVersion = version
+		}
+	}
+
+	replacer := strings.NewReplacer(
+		"{{rayleabot_version}}", displayVersion(detectRenderCoreVersion(s.repoRoot)),
+		"{{plugin_name}}", pluginName,
+		"{{plugin_version}}", pluginVersion,
+	)
+	return replacer.Replace(s.currentFooterTemplate())
+}
+
+func displayVersion(version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" || version == "0.0.0-dev" {
+		return developmentVersion
+	}
+	return version
+}
+
+func detectRenderCoreVersion(repoRoot string) string {
+	content, err := os.ReadFile(filepath.Join(repoRoot, "build_info.json"))
+	if err != nil {
+		return developmentVersion
+	}
+	var payload struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return developmentVersion
+	}
+	return displayVersion(payload.Version)
+}
+
+func cloneRenderData(data map[string]any) map[string]any {
+	cloned := make(map[string]any, len(data)+1)
+	for key, value := range data {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func (s *Service) cachedResult(cacheKey string) (Result, bool) {

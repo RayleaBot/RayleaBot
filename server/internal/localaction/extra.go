@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
@@ -49,6 +50,7 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 		Theme:    action.RenderTheme,
 		Output:   action.RenderOutput,
 		Data:     renderData,
+		Plugin:   s.renderPluginContext(pluginID),
 	})
 	if err != nil {
 		return nil, &runtime.Error{
@@ -65,6 +67,26 @@ func (s *Service) executeRenderImage(ctx context.Context, pluginID string, actio
 		"cache_key":     result.CacheKey,
 		"fallback_sent": false,
 	}, nil
+}
+
+func (s *Service) renderPluginContext(pluginID string) *render.PluginContext {
+	context := &render.PluginContext{
+		Name: strings.TrimSpace(pluginID),
+	}
+	if s == nil || s.grants == nil {
+		return context
+	}
+	for _, snapshot := range s.grants.ListPluginSnapshots() {
+		if snapshot.PluginID != pluginID {
+			continue
+		}
+		if name := strings.TrimSpace(snapshot.Name); name != "" {
+			context.Name = name
+		}
+		context.Version = strings.TrimSpace(snapshot.Version)
+		return context
+	}
+	return context
 }
 
 func (s *Service) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {

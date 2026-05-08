@@ -9,10 +9,13 @@ export interface ConfigFieldOption {
 export interface ConfigFieldDefinition {
   path: string
   label: string
-  type: 'text' | 'number' | 'boolean' | 'select' | 'list' | 'rateLimit'
+  type: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'list' | 'rateLimit'
   description?: string
   options?: ConfigFieldOption[]
+  defaultValue?: unknown
 }
+
+export const DEFAULT_RENDER_FOOTER_TEMPLATE = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
 
 export interface ConfigSectionDefinition {
   key: string
@@ -210,6 +213,19 @@ export function getPluginSettingsConfigSections(): ConfigSectionDefinition[] {
           path: 'log.rate_limit_per_plugin',
           label: t('config.fields.logRateLimitPerPlugin'),
           type: 'rateLimit',
+        },
+      ],
+    },
+    {
+      key: 'render',
+      title: t('plugins.settings.sections.render'),
+      fields: [
+        {
+          path: 'render.footer_template',
+          label: t('config.fields.renderFooterTemplate'),
+          type: 'textarea',
+          description: t('plugins.settings.hints.renderFooterTemplate'),
+          defaultValue: DEFAULT_RENDER_FOOTER_TEMPLATE,
         },
       ],
     },

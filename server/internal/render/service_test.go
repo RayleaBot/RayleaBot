@@ -137,6 +137,98 @@ func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
 	}
 }
 
+func TestRenderInjectsFooterWithDevelopmentSystemContext(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	templatesRoot := filepath.Join(repoRoot, "templates")
+	writeRenderTemplateSeed(t, templatesRoot, "help.menu")
+	runner := &fakeRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	if _, err := service.Render(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title":         "帮助",
+			"render_footer": "plugin supplied",
+		},
+	}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatal("expected rendered document")
+	}
+	if !strings.Contains(doc.HTML, "Created By RayleaBot 开发版本 &amp; Plugin 系统模板 开发版本") {
+		t.Fatalf("footer was not injected with system context: %s", doc.HTML)
+	}
+	if strings.Contains(doc.HTML, "plugin supplied") {
+		t.Fatalf("plugin-supplied footer should be overwritten: %s", doc.HTML)
+	}
+}
+
+func TestRenderInjectsFooterWithPluginContextAndBuildVersion(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	templatesRoot := filepath.Join(repoRoot, "templates")
+	writeRenderTemplateSeed(t, templatesRoot, "help.menu")
+	if err := os.WriteFile(filepath.Join(repoRoot, "build_info.json"), []byte(`{"version":"1.2.3"}`), 0o644); err != nil {
+		t.Fatalf("write build_info.json: %v", err)
+	}
+	runner := &fakeRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+		FooterTemplate:     "Core {{rayleabot_version}} / {{plugin_name}} {{plugin_version}} / {{unknown}}",
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	if _, err := service.Render(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title": "帮助",
+		},
+		Plugin: &PluginContext{
+			Name:    "运势",
+			Version: "0.4.0",
+		},
+	}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatal("expected rendered document")
+	}
+	if !strings.Contains(doc.HTML, "Core 1.2.3 / 运势 0.4.0 / {{unknown}}") {
+		t.Fatalf("footer was not injected with plugin context: %s", doc.HTML)
+	}
+}
+
 func TestServiceRenderCachesArtifacts(t *testing.T) {
 	t.Parallel()
 
@@ -1371,7 +1463,7 @@ func writeRenderTemplateSeed(t *testing.T, templatesRoot, templateID string) {
 }`, templateID)
 	files := map[string]string{
 		"template.json":     manifest,
-		"template.html":     "<html><body>{{ .title }}</body></html>",
+		"template.html":     "<html><body>{{ .title }} {{ .render_footer }}</body></html>",
 		"styles.css":        "body { margin: 0; }",
 		"input.schema.json": `{"type":"object"}`,
 	}

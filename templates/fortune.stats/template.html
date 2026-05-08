@@ -109,6 +109,7 @@
         </div>
       </section>
       {{ end }}
+      {{ with .render_footer }}<footer class="template-footer"><span class="template-footer__text">{{ . }}</span></footer>{{ end }}
     </main>
   </body>
 </html>

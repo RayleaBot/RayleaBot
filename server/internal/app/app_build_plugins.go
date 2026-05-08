@@ -120,6 +120,7 @@ func buildRenderService(state appBuildState, platform appPlatform, renderRunner 
 		QueueWaitTimeout:   time.Duration(state.core.Config.Render.QueueWaitTimeoutSeconds) * time.Second,
 		RenderTimeout:      time.Duration(state.core.Config.Render.TimeoutSeconds) * time.Second,
 		MaxRenderDataBytes: int(httpapi.MaxManagementJSONBodyBytes),
+		FooterTemplate:     state.core.Config.Render.FooterTemplate,
 		Logger:             state.core.Logger,
 	})
 	if err != nil {

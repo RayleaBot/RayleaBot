@@ -44,6 +44,7 @@ function createFixtureConfig(): ConfigDocument {
       timeout_seconds: 30,
       queue_wait_timeout_seconds: 15,
       queue_max_length: 32,
+      footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
     },
     scheduler: {
       timezone: '',
@@ -140,6 +141,9 @@ describe('PluginSettingsPage', () => {
     expect(wrapper.text()).not.toContain('有未保存更改')
     expect(wrapper.text()).toContain('自动授权能力')
     expect(wrapper.text()).toContain('插件日志速率限制')
+    expect(wrapper.text()).toContain('模板说明')
+    expect(wrapper.text()).toContain('模板底部说明')
+    expect(wrapper.text()).toContain('恢复默认')
     expect(wrapper.text()).toContain('次数')
     expect(wrapper.text()).toContain('时间窗口')
     expect(wrapper.text()).toContain('单位')
@@ -148,7 +152,7 @@ describe('PluginSettingsPage', () => {
     expect(wrapper.text()).toContain('插件工作目录软上限')
     expect(wrapper.text()).not.toContain('格式使用')
     expect(wrapper.find('.plugin-settings-nav-item').exists()).toBe(false)
-    expect(wrapper.findAll('.plugin-settings-setting-row')).toHaveLength(4)
+    expect(wrapper.findAll('.plugin-settings-setting-row')).toHaveLength(5)
     expect(wrapper.find('[data-testid="plugin-settings-command-prefixes"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="plugin-settings-save"]').attributes('disabled')).toBeDefined()
   })
@@ -168,8 +172,9 @@ describe('PluginSettingsPage', () => {
           applied_now: [
             'command.prefixes',
             'permission.auto_grant_capabilities',
-            'log.rate_limit_per_plugin',
-            'storage.plugin_workdir_soft_limit_mb',
+      'log.rate_limit_per_plugin',
+      'render.footer_template',
+      'storage.plugin_workdir_soft_limit_mb',
           ],
           reloaded_now: [],
           restart_required_fields: [],
@@ -196,6 +201,7 @@ describe('PluginSettingsPage', () => {
     viewModel.writeCommandPrefixTags(['/', '!'])
     viewModel.writeField('permission.auto_grant_capabilities', 'list', 'logger.write\nmessage.send')
     viewModel.writeField('log.rate_limit_per_plugin', 'rateLimit', '300/10s')
+    viewModel.writeField('render.footer_template', 'textarea', 'Footer {{plugin_name}}')
     viewModel.writeField('storage.plugin_workdir_soft_limit_mb', 'number', 512)
     await flushPromises()
 
@@ -211,6 +217,7 @@ describe('PluginSettingsPage', () => {
     expect(submitted.command.prefixes).toEqual(['/', '!'])
     expect(submitted.permission.auto_grant_capabilities).toEqual(['logger.write', 'message.send'])
     expect(submitted.log.rate_limit_per_plugin).toBe('300/10s')
+    expect(submitted.render.footer_template).toBe('Footer {{plugin_name}}')
     expect(submitted.message.rate_limit_per_plugin).toBe('20/10s')
     expect(submitted.storage.plugin_workdir_soft_limit_mb).toBe(512)
     expect(submitted.server.host).toBe('127.0.0.1')
@@ -223,5 +230,35 @@ describe('PluginSettingsPage', () => {
     vi.advanceTimersByTime(3000)
     await flushPromises()
     expect(wrapper.text()).not.toContain('保存完成，已生效')
+  })
+
+  it('restores render footer template to the default value', async () => {
+    const store = useConfigStore()
+    const fixture = createFixtureConfig()
+    fixture.render.footer_template = 'Custom footer'
+    store.document = fixture
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+
+    const wrapper = mount(PluginSettingsPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as {
+      hasUnsavedChanges: boolean
+      readField: (path: string, type: string) => unknown
+    }
+    expect(viewModel.readField('render.footer_template', 'textarea')).toBe('Custom footer')
+    await wrapper.get('[data-testid="plugin-settings-reset-default"]').trigger('click')
+    await flushPromises()
+
+    expect(viewModel.hasUnsavedChanges).toBe(true)
+    expect(viewModel.readField('render.footer_template', 'textarea')).toBe(
+      'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
+    )
   })
 })

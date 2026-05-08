@@ -40,7 +40,8 @@
       "browser_path": "",
       "timeout_seconds": 30,
       "queue_wait_timeout_seconds": 15,
-      "queue_max_length": 32
+      "queue_max_length": 32,
+      "footer_template": "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
     },
     "scheduler": {
       "timezone": "Asia/Shanghai"

@@ -186,6 +186,7 @@ type RenderConfig struct {
 	TimeoutSeconds          int      `json:"timeout_seconds" yaml:"timeout_seconds"`
 	QueueWaitTimeoutSeconds int      `json:"queue_wait_timeout_seconds" yaml:"queue_wait_timeout_seconds"`
 	QueueMaxLength          int      `json:"queue_max_length" yaml:"queue_max_length"`
+	FooterTemplate          string   `json:"footer_template" yaml:"footer_template"`
 }
 
 type WebConfig struct {
@@ -371,6 +372,9 @@ func (cfg *Config) hydrateCompatibility() {
 	if cfg.OneBot.ForwardWS.URL == "" && cfg.OneBot.WSURL != "" {
 		cfg.OneBot.ForwardWS.URL = cfg.OneBot.WSURL
 		cfg.OneBot.ForwardWS.Enabled = true
+	}
+	if cfg.Render.FooterTemplate == "" {
+		cfg.Render.FooterTemplate = DefaultRenderFooterTemplate
 	}
 }
 

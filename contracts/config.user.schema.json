@@ -188,7 +188,8 @@
         "browser_path",
         "timeout_seconds",
         "queue_wait_timeout_seconds",
-        "queue_max_length"
+        "queue_max_length",
+        "footer_template"
       ],
       "properties": {
         "worker_count": {
@@ -222,6 +223,10 @@
           "type": "integer",
           "minimum": 1,
           "default": 32
+        },
+        "footer_template": {
+          "type": "string",
+          "default": "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
         }
       }
     },

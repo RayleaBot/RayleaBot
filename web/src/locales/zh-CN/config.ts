@@ -70,6 +70,7 @@ export const config = {
     renderTimeoutSeconds: '图片生成超时（秒）',
     renderQueueWaitTimeoutSeconds: '队列等待超时（秒）',
     renderQueueMaxLength: '队列长度上限',
+    renderFooterTemplate: '模板底部说明',
     schedulerTimezone: '时区',
     runtimePluginInitTimeoutSeconds: '插件初始化超时（秒）',
     runtimePluginInitMaxTotalSeconds: '插件初始化总超时（秒）',

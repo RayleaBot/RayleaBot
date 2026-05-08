@@ -12,6 +12,7 @@ import (
 )
 
 const currentSchemaVersion = "2"
+const DefaultRenderFooterTemplate = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
 
 func CurrentSchemaVersion() string {
 	return currentSchemaVersion
@@ -500,6 +501,7 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"timeout_seconds":            cfg.Render.TimeoutSeconds,
 			"queue_wait_timeout_seconds": cfg.Render.QueueWaitTimeoutSeconds,
 			"queue_max_length":           cfg.Render.QueueMaxLength,
+			"footer_template":            configRenderFooterTemplate(cfg),
 		},
 		"scheduler": map[string]any{
 			"timezone": configSchedulerTimezone(cfg),
@@ -794,6 +796,13 @@ func configOneBotForwardWS(cfg Config) OneBotTransportConfig {
 	return transport
 }
 
+func configRenderFooterTemplate(cfg Config) string {
+	if strings.TrimSpace(cfg.Render.FooterTemplate) != "" {
+		return cfg.Render.FooterTemplate
+	}
+	return DefaultRenderFooterTemplate
+}
+
 func defaultDocument() map[string]any {
 	return map[string]any{
 		"schema_version": currentSchemaVersion,
@@ -834,6 +843,7 @@ func defaultDocument() map[string]any {
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,
+			"footer_template":            DefaultRenderFooterTemplate,
 		},
 		"scheduler": map[string]any{
 			"timezone": "",

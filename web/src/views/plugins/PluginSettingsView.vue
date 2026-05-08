@@ -10,6 +10,7 @@ import {
   SafetyCertificateOutlined,
   SaveOutlined,
   SettingOutlined,
+  PictureOutlined,
 } from '@ant-design/icons-vue'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -171,6 +172,15 @@ function writeField(path: string, type: ConfigFieldDefinition['type'], value: un
   setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
 }
 
+function resetFieldToDefault(field: ConfigFieldDefinition) {
+  if (!draft.value || field.defaultValue === undefined) {
+    return
+  }
+
+  markDraftChanged()
+  setValueByPath(draft.value as unknown as Record<string, unknown>, field.path, field.defaultValue)
+}
+
 function getSectionIcon(key: string) {
   switch (key) {
     case 'command':
@@ -181,6 +191,8 @@ function getSectionIcon(key: string) {
       return FileTextOutlined
     case 'message':
       return MessageOutlined
+    case 'render':
+      return PictureOutlined
     case 'storage':
       return DatabaseOutlined
     default:
@@ -371,6 +383,14 @@ async function save() {
                     />
 
                     <a-textarea
+                      v-else-if="field.type === 'textarea'"
+                      :value="String(readField(field.path, field.type) ?? '')"
+                      :auto-size="{ minRows: 3, maxRows: 7 }"
+                      :aria-label="field.label"
+                      @update:value="(value) => writeField(field.path, field.type, value)"
+                    />
+
+                    <a-textarea
                       v-else
                       :value="String(readField(field.path, field.type) ?? '')"
                       :auto-size="{ minRows: 3, maxRows: 7 }"
@@ -386,6 +406,16 @@ async function save() {
 
                   <div v-if="field.description" class="plugin-settings-field-note">
                     <p class="plugin-settings-field-note__text">{{ field.description }}</p>
+                    <a-button
+                      v-if="field.defaultValue !== undefined"
+                      size="small"
+                      type="link"
+                      class="plugin-settings-reset-default"
+                      data-testid="plugin-settings-reset-default"
+                      @click="resetFieldToDefault(field)"
+                    >
+                      {{ t('plugins.settings.resetDefault') }}
+                    </a-button>
                   </div>
                 </a-form-item>
               </div>
@@ -625,7 +655,10 @@ async function save() {
 }
 
 .plugin-settings-field-note {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: 8px;
 }
 
@@ -634,6 +667,14 @@ async function save() {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.6;
+}
+
+.plugin-settings-reset-default {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
 }
 
 .plugin-settings-rate-preview {

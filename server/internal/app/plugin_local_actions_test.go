@@ -921,6 +921,58 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	}
 }
 
+func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
+	t.Parallel()
+
+	renderRoot := filepath.Join(t.TempDir(), "render")
+	runner := &captureRenderRunner{}
+	application := newTestAppState(config.Config{
+		Auth: config.AuthConfig{
+			AutoGrantCapabilities: []string{"render.image"},
+		},
+	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "help-menu",
+		Name:              "帮助",
+		Version:           "1.0.0",
+		Valid:             true,
+		RegistrationState: "installed",
+	}})
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		newRenderServiceForRepo(t, filepath.Join("..", "..", ".."), renderRoot, runner),
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_footer", runtime.Action{
+		Kind:           "render.image",
+		RenderTemplate: "help.menu",
+		RenderTheme:    "default",
+		RenderOutput:   "png",
+		RenderData: map[string]any{
+			"title":         "帮助菜单",
+			"render_footer": "plugin supplied",
+		},
+	})
+	if err != nil {
+		t.Fatalf("render.image failed: %v", err)
+	}
+	html := runner.lastHTML()
+	if !strings.Contains(html, "Created By RayleaBot 开发版本 &amp; Plugin 帮助 1.0.0") {
+		t.Fatalf("plugin footer was not injected: %s", html)
+	}
+	if strings.Contains(html, "plugin supplied") {
+		t.Fatalf("plugin render_footer should be overwritten: %s", html)
+	}
+}
+
 func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 	t.Parallel()
 

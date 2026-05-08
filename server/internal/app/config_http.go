@@ -120,11 +120,13 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 	}
 	if h.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
 		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||
-		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength) {
+		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength ||
+		newCfg.Render.FooterTemplate != oldCfg.Render.FooterTemplate) {
 		h.renderer.UpdateRuntimeConfig(render.RuntimeConfig{
 			QueueMaxLength:   newCfg.Render.QueueMaxLength,
 			QueueWaitTimeout: time.Duration(newCfg.Render.QueueWaitTimeoutSeconds) * time.Second,
 			RenderTimeout:    time.Duration(newCfg.Render.TimeoutSeconds) * time.Second,
+			FooterTemplate:   newCfg.Render.FooterTemplate,
 		})
 	}
 

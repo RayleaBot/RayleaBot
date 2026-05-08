@@ -13,6 +13,9 @@
     "repeat_notice": {
       "type": "string"
     },
+    "render_footer": {
+      "type": "string"
+    },
     "user": {
       "type": "object",
       "properties": {
