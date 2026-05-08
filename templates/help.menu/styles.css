@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Raylea Footer WenKai";
+  src: url("../fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf") format("truetype");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 700;
+}
+
 :root {
   --accent-hue: 65;
 
@@ -82,7 +90,7 @@ body {
 
 .surface {
   position: relative;
-  padding: var(--space-3xl);
+  padding: var(--space-3xl) var(--space-3xl) var(--space-2xl);
   max-width: 960px;
   width: 100%;
 }
@@ -193,7 +201,7 @@ body {
   border-radius: var(--radius-full);
   background: var(--color-accent-subtle);
   color: var(--color-accent);
-  font-size: var(--text-xs);
+  font-size: 13px;
   font-weight: var(--weight-extrabold);
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -236,7 +244,7 @@ body {
   padding: 2px var(--space-sm);
   border: 1px solid transparent;
   border-radius: var(--radius-full);
-  font-size: var(--text-xs);
+  font-size: 13px;
   font-weight: var(--weight-extrabold);
   line-height: 1;
   white-space: nowrap;
@@ -388,9 +396,65 @@ code {
   white-space: normal;
 }
 
+.template-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  max-width: 620px;
+  margin-top: var(--space-2xl);
+  margin-right: auto;
+  margin-left: auto;
+  text-align: center;
+}
+
+.template-footer::before,
+.template-footer::after {
+  content: "";
+  flex: 1 1 72px;
+  max-width: 184px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(0.72 0.14 var(--accent-hue) / 0.22));
+}
+
+.template-footer::after {
+  background: linear-gradient(90deg, oklch(0.72 0.14 var(--accent-hue) / 0.22), transparent);
+}
+
+.template-footer__text {
+  flex: 0 1 auto;
+  max-width: 100%;
+  color: color-mix(in oklch, var(--color-text-muted) 72%, var(--color-accent) 28%);
+  font-family: "Raylea Footer WenKai", "HarmonyOS Sans SC", "PingFang SC", "Noto Sans SC", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.015em;
+  line-height: 1.65;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
 @media (max-width: 760px) {
+  .template-footer {
+    gap: var(--space-sm);
+  }
+
+  .template-footer::before,
+  .template-footer::after {
+    flex-basis: 24px;
+    max-width: 48px;
+    opacity: 0.65;
+  }
+
+  .template-footer__text {
+    font-size: 14px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .surface {
-    padding: var(--space-2xl) var(--space-xl);
+    padding: var(--space-2xl) var(--space-xl) var(--space-xl);
   }
 
   .identity-card {

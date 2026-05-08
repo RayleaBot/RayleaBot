@@ -1,5 +1,13 @@
 @import url("../fortune.card/assets/fonts/lxgwwenkai-medium/result.css");
 
+@font-face {
+  font-family: "Raylea Footer WenKai";
+  src: url("../fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf") format("truetype");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 700;
+}
+
 :root {
   --color-bg: #fff8ec;
   --color-paper: rgba(255, 254, 248, 0.94);
@@ -54,7 +62,7 @@ body {
   width: 1124px;
   min-height: 0;
   overflow: hidden;
-  padding: 40px 52px 44px;
+  padding: 40px 52px 32px;
   background:
     radial-gradient(circle at 64% 9%, rgba(255, 189, 44, 0.18) 0 8%, transparent 17%),
     radial-gradient(circle at 12% 18%, rgba(255, 229, 165, 0.46) 0 10%, transparent 24%),
@@ -218,7 +226,7 @@ h1 {
   flex: 0 0 auto;
   margin-right: 36px;
   color: var(--color-gold-deep);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 950;
   line-height: 1.1;
   text-align: center;
@@ -479,7 +487,65 @@ h1 {
   text-shadow: 0 2px 0 rgba(255, 246, 220, 0.95), 0 4px 8px rgba(156, 91, 0, 0.12);
 }
 
+.template-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  max-width: 700px;
+  margin-top: 24px;
+  margin-right: auto;
+  margin-left: auto;
+  text-align: center;
+}
+
+.template-footer::before,
+.template-footer::after {
+  content: "";
+  flex: 1 1 84px;
+  max-width: 240px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(207, 130, 0, 0.26));
+  box-shadow: 0 1px 0 rgba(255, 252, 240, 0.85);
+}
+
+.template-footer::after {
+  background: linear-gradient(90deg, rgba(207, 130, 0, 0.26), transparent);
+}
+
+.template-footer__text {
+  flex: 0 1 auto;
+  max-width: 100%;
+  color: rgba(100, 68, 39, 0.68);
+  font-family: "Raylea Footer WenKai", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Noto Sans SC", "Segoe UI Variable Text", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.012em;
+  line-height: 1.65;
+  text-shadow: 0 1px 0 rgba(255, 252, 240, 0.92);
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
 @media (max-width: 760px) {
+  .template-footer {
+    gap: 10px;
+  }
+
+  .template-footer::before,
+  .template-footer::after {
+    flex-basis: 20px;
+    max-width: 44px;
+    opacity: 0.65;
+  }
+
+  .template-footer__text {
+    font-size: 15px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   html,
   body {
     min-width: 0;
@@ -488,7 +554,7 @@ h1 {
   .fortune-stats {
     width: 100vw;
     min-height: 0;
-    padding: 32px 22px 28px;
+    padding: 32px 22px 22px;
   }
 
   .fortune-stats__header {
