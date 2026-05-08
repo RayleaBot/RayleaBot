@@ -610,7 +610,7 @@ jobs:
                   raise SystemExit(f'config.user.schema.json must not expose legacy top-level property: {legacy}')
           if props['server']['properties']['host'].get('default') != '127.0.0.1':
               raise SystemExit('config.user.schema.json server.host default must be 127.0.0.1')
-          expected_onebot_props = {'provider', 'access_token', 'reverse_ws', 'forward_ws', 'http_api', 'webhook'}
+          expected_onebot_props = {'provider', 'reverse_ws', 'forward_ws', 'http_api', 'webhook'}
           actual_onebot_props = set(props['onebot']['properties'].keys())
           if actual_onebot_props != expected_onebot_props:
               raise SystemExit(
@@ -658,8 +658,8 @@ jobs:
               '/api/setup/status',
               '/api/session/login',
               '/api/session',
-              '/api/session/launcher-token',
-              '/api/session/launcher-admission',
+              '/api/launcher/status',
+              '/api/launcher/shutdown',
               '/api/config',
               '/api/governance/blacklist',
               '/api/governance/blacklist/entries',
