@@ -5,6 +5,7 @@ import copy
 import os
 import random
 import sys
+import time
 
 PLUGIN_DIR = os.path.dirname(__file__)
 sys.path.insert(0, PLUGIN_DIR)
@@ -200,7 +201,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             )
             document = self.bilibili_response_document(ctx, response, subscription["uid"], "dynamic")
             if document:
-                updates.extend(dynamic_updates(document))
+                updates.extend(self.filter_dynamic_updates(ctx, settings, subscription, dynamic_updates(document)))
         if "all" in services or "live" in services:
             response = ctx.http_request(
                 "GET",
@@ -214,7 +215,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 if update and (update.get("live_status") == 1 or self.previous_live_status(ctx, subscription) == 1):
                     updates.append(update)
 
-        for update in updates:
+        for update in sorted(updates, key=lambda item: int(item.get("pub_ts") or 0)):
             if not service_enabled(subscription, update.get("service")):
                 continue
             if self.seen_update(ctx, subscription, update):
@@ -223,6 +224,30 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             if prepared:
                 return prepared
         return None
+
+    def filter_dynamic_updates(self, ctx, settings, subscription, updates):
+        dynamic_updates_only = [item for item in updates if isinstance(item, dict) and item.get("pub_ts")]
+        if not dynamic_updates_only:
+            return []
+        latest_ts = max(int(item.get("pub_ts") or 0) for item in dynamic_updates_only)
+        baseline_key = self.dynamic_baseline_key(subscription)
+        baseline = self.dynamic_baseline(ctx, subscription)
+        if baseline <= 0:
+            ctx.storage_set(baseline_key, latest_ts)
+            return []
+        now = int(time.time())
+        window = int(settings.get("dynamic_time_range_seconds") or 7200)
+        result = []
+        for update in dynamic_updates_only:
+            pub_ts = int(update.get("pub_ts") or 0)
+            if update.get("is_pinned"):
+                continue
+            if pub_ts <= baseline:
+                continue
+            if now - pub_ts > window:
+                continue
+            result.append(update)
+        return result
 
     def bilibili_cookie_available(self, ctx, settings, headers):
         response = ctx.http_request(
@@ -308,11 +333,25 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
 
     def mark_seen(self, ctx, subscription, update):
         ctx.storage_set(self.update_key(subscription, update), True)
+        if update.get("service") != "live" and update.get("pub_ts"):
+            current = self.dynamic_baseline(ctx, subscription)
+            next_value = max(current, int(update.get("pub_ts") or 0))
+            ctx.storage_set(self.dynamic_baseline_key(subscription), next_value)
         if update.get("service") == "live":
             ctx.storage_set(f"live-status:{subscription['id']}", int(update.get("live_status") or 0))
 
     def update_key(self, subscription, update):
         return f"seen:{subscription['id']}:{update.get('service')}:{update.get('id')}"
+
+    def dynamic_baseline_key(self, subscription):
+        return f"dynamic-baseline:{subscription['id']}"
+
+    def dynamic_baseline(self, ctx, subscription):
+        value = storage_value(ctx.storage_get(self.dynamic_baseline_key(subscription)), 0)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
 
     def prepare_push_update(self, ctx, subscription, update):
         render_data = build_render_data(subscription, update)
@@ -561,6 +600,7 @@ def build_status_text(settings):
         f"订阅：{enabled_subscriptions}/{len(subscriptions)}",
         f"Cookie：{enabled_tokens}/{len(tokens)}",
         f"轮询：{settings.get('poll_cron') or '*/5 * * * *'}",
+        f"动态窗口：{settings.get('dynamic_time_range_seconds') or 7200} 秒",
     ])
 
 

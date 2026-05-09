@@ -2,6 +2,7 @@ import os
 import sys
 import unittest
 import json
+import time
 
 
 PLUGIN_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -123,6 +124,7 @@ class SubscriptionHubTests(unittest.TestCase):
             "enabled": True,
             "poll_cron": "*/5 * * * *",
             "poll_timeout_seconds": 12,
+            "dynamic_time_range_seconds": 7200,
             "tokens": [],
             "subscriptions": [{
                 "id": "bilibili-123456-group-10000",
@@ -159,16 +161,18 @@ class SubscriptionHubTests(unittest.TestCase):
             }),
         }
 
-    def video_item(self, dynamic_id, title):
+    def video_item(self, dynamic_id, title, pub_ts=None):
+        pub_ts = int(pub_ts or time.time())
         return {
             "id_str": dynamic_id,
+            "type": "DYNAMIC_TYPE_AV",
             "basic": {"jump_url": f"//www.bilibili.com/video/{dynamic_id}"},
             "modules": {
-                "module_author": {"name": "测试 UP", "pub_time": "今天 12:00"},
+                "module_author": {"name": "测试 UP", "pub_ts": pub_ts, "pub_time": "今天 12:00"},
                 "module_dynamic": {
                     "major": {
                         "type": "MAJOR_TYPE_ARCHIVE",
-                        "archive": {"title": title, "desc": "视频简介"},
+                        "archive": {"title": title, "desc": "视频简介", "cover": "//i0.hdslb.com/video.jpg"},
                     },
                 },
             },
@@ -209,6 +213,7 @@ class SubscriptionHubTests(unittest.TestCase):
             }],
         })
         self.assertEqual(settings["tokens"][0]["id"], "primary")
+        self.assertEqual(settings["dynamic_time_range_seconds"], 7200)
         self.assertEqual(settings["subscriptions"][0]["services"], ["video", "live"])
         self.assertEqual(settings["subscriptions"][0]["subscribers"][0]["nickname"], "订阅人")
 
@@ -217,13 +222,14 @@ class SubscriptionHubTests(unittest.TestCase):
             "data": {
                 "items": [{
                     "id_str": "987",
+                    "type": "DYNAMIC_TYPE_AV",
                     "basic": {"jump_url": "//www.bilibili.com/video/BV1"},
                     "modules": {
-                        "module_author": {"name": "测试 UP", "pub_time": "今天 12:00"},
+                        "module_author": {"name": "测试 UP", "pub_ts": 1700000000, "pub_time": "今天 12:00"},
                         "module_dynamic": {
                             "major": {
                                 "type": "MAJOR_TYPE_ARCHIVE",
-                                "archive": {"title": "新视频", "desc": "视频简介"},
+                                "archive": {"title": "新视频", "desc": "视频简介", "cover": "//i0.hdslb.com/cover.jpg"},
                             },
                         },
                     },
@@ -233,48 +239,53 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(len(updates), 1)
         self.assertEqual(updates[0]["service"], "video")
         self.assertEqual(updates[0]["title"], "新视频")
+        self.assertEqual(updates[0]["pub_ts"], 1700000000)
+        self.assertEqual(updates[0]["images"], [{"url": "https://i0.hdslb.com/cover.jpg"}])
 
     def test_dynamic_updates_extract_repost_before_major_type(self):
         updates = dynamic_updates({
             "data": {
                 "items": [{
                     "id_str": "988",
+                    "type": "DYNAMIC_TYPE_FORWARD",
                     "basic": {
                         "comment_type": "17",
                         "jump_url": "//t.bilibili.com/988",
                     },
                     "modules": {
-                        "module_author": {"name": "测试 UP", "pub_time": "今天 13:00"},
+                        "module_author": {"name": "测试 UP", "pub_ts": 1700000100, "pub_time": "今天 13:00"},
                         "module_dynamic": {
-                            "desc": {"text": "转发推荐"},
+                            "desc": {"rich_text_nodes": [{"type": "RICH_TEXT_NODE_TYPE_TEXT", "text": "转发推荐"}]},
                             "major": {
                                 "type": "MAJOR_TYPE_OPUS",
                                 "opus": {"title": "被转发内容"},
                             },
                         },
                     },
+                    "orig": self.video_item("777", "原视频", pub_ts=1700000000),
                 }],
             },
         })
         self.assertEqual(len(updates), 1)
         self.assertEqual(updates[0]["service"], "repost")
+        self.assertEqual(updates[0]["summary"], "转发推荐")
+        self.assertEqual(updates[0]["original"]["title"], "原视频")
 
     def test_dynamic_updates_clean_rich_text_node_summary(self):
         updates = dynamic_updates({
             "data": {
                 "items": [{
                     "id_str": "989",
+                    "type": "DYNAMIC_TYPE_WORD",
                     "basic": {"jump_url": "//t.bilibili.com/989"},
                     "modules": {
-                        "module_author": {"name": "测试 UP", "pub_time": "今天 14:00"},
+                        "module_author": {"name": "测试 UP", "pub_ts": 1700000200, "pub_time": "今天 14:00"},
                         "module_dynamic": {
                             "desc": {
-                                "text": {
-                                    "rich_text_nodes": [
-                                        {"text": "个人置顶简介", "orig_text": "个人置顶简介"},
-                                        {"text": "合作联系：hudie007@vip.qq.com"},
-                                    ],
-                                },
+                                "rich_text_nodes": [
+                                    {"text": "个人置顶简介", "orig_text": "个人置顶简介"},
+                                    {"text": "合作联系：hudie007@vip.qq.com"},
+                                ],
                             },
                             "major": {},
                         },
@@ -297,10 +308,22 @@ class SubscriptionHubTests(unittest.TestCase):
             "service": "video",
             "title": "新视频",
             "summary": "视频简介",
+            "images": [{"url": "https://i0.hdslb.com/cover.jpg"}],
+            "pub_ts": 1700000000,
+            "original": {
+                "service": "image_text",
+                "title": "原动态",
+                "summary": "原动态正文",
+                "images": [{"url": "https://i0.hdslb.com/orig.jpg"}],
+                "author": {"name": "原作者"},
+            },
             "author": {"name": "测试 UP"},
         })
         self.assertEqual(data["subscriber_text"], "订阅人")
         self.assertEqual(data["service"], "视频")
+        self.assertEqual(data["images"], [{"url": "https://i0.hdslb.com/cover.jpg"}])
+        self.assertEqual(data["original"]["title"], "原动态")
+        self.assertEqual(data["original"]["images"], [{"url": "https://i0.hdslb.com/orig.jpg"}])
 
     def test_parse_bilibili_command_args_defaults_to_all(self):
         self.assertEqual(parse_bilibili_command_args(["123456"]), {"services": ["all"], "uid": "123456", "error": False})
@@ -498,6 +521,7 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             secrets={"bili.primary": "SESSDATA=token"},
+            storage={"dynamic-baseline:bilibili-123456-group-10000": int(time.time()) - 60},
             http_responses=[
                 self.nav_response(),
                 self.dynamic_response([self.video_item("987", "新视频")]),
@@ -509,13 +533,16 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(ctx.results, [])
         self.assertEqual(ctx.render_calls[0]["template"], "bilibili-update")
-        self.assertEqual(ctx.storage_sets, [{"key": "seen:bilibili-123456-group-10000:video:987", "value": True}])
+        self.assertEqual(ctx.storage_sets, [
+            {"key": "seen:bilibili-123456-group-10000:video:987", "value": True},
+            {"key": "dynamic-baseline:bilibili-123456-group-10000", "value": ctx.render_calls[0]["data"]["pub_ts"]},
+        ])
         self.assertEqual(ctx.messages, [{
             "segments": [{"type": "image", "data": {"file": "rendered.png"}}],
             "target_type": "group",
             "target_id": "10000",
         }])
-        self.assertEqual([action["kind"] for action in ctx.actions], ["render_image", "storage_set", "send_message"])
+        self.assertEqual([action["kind"] for action in ctx.actions], ["render_image", "storage_set", "storage_set", "send_message"])
         self.assertEqual(ctx.http_requests[0]["headers"].get("Cookie"), "SESSDATA=token")
         self.assertIn("Chrome/", ctx.http_requests[0]["headers"].get("User-Agent", ""))
         self.assertEqual(ctx.http_requests[0]["headers"].get("Accept-Language"), "zh-CN,zh;q=0.9,en;q=0.8")
@@ -532,11 +559,12 @@ class SubscriptionHubTests(unittest.TestCase):
         ctx = FakeContext(
             config_values=settings,
             secrets={"bili.primary": "SESSDATA=token"},
+            storage={"dynamic-baseline:bilibili-123456-group-10000": int(time.time()) - 60},
             http_responses=[
                 self.nav_response(),
                 self.dynamic_response([
-                    self.video_item("987", "第一条视频"),
-                    self.video_item("988", "第二条视频"),
+                    self.video_item("987", "第一条视频", pub_ts=int(time.time()) - 20),
+                    self.video_item("988", "第二条视频", pub_ts=int(time.time()) - 10),
                 ]),
             ],
         )
@@ -545,7 +573,92 @@ class SubscriptionHubTests(unittest.TestCase):
 
         self.assertEqual(len(ctx.render_calls), 1)
         self.assertEqual(len(ctx.messages), 1)
-        self.assertEqual(ctx.storage_sets, [{"key": "seen:bilibili-123456-group-10000:video:987", "value": True}])
+        self.assertEqual(ctx.storage_sets[0], {"key": "seen:bilibili-123456-group-10000:video:987", "value": True})
+        self.assertEqual(ctx.storage_sets[1]["key"], "dynamic-baseline:bilibili-123456-group-10000")
+
+    def test_first_successful_dynamic_poll_sets_baseline_without_push(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(tokens=[{
+            "id": "primary",
+            "label": "主 Cookie",
+            "secret_key": "bili.primary",
+            "enabled": True,
+        }])
+        pub_ts = int(time.time()) - 30
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            http_responses=[
+                self.nav_response(),
+                self.dynamic_response([self.video_item("987", "已有动态", pub_ts=pub_ts)]),
+            ],
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        self.assertEqual(ctx.render_calls, [])
+        self.assertEqual(ctx.messages, [])
+        self.assertEqual(ctx.storage_sets, [{"key": "dynamic-baseline:bilibili-123456-group-10000", "value": pub_ts}])
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 0})
+
+    def test_old_and_pinned_dynamic_items_are_skipped(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(
+            dynamic_time_range_seconds=120,
+            tokens=[{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+        )
+        baseline = int(time.time()) - 3600
+        old_item = self.video_item("987", "旧动态", pub_ts=int(time.time()) - 600)
+        pinned_item = self.video_item("988", "置顶动态", pub_ts=int(time.time()) - 30)
+        pinned_item["modules"]["module_tag"] = {"text": "置顶"}
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            storage={"dynamic-baseline:bilibili-123456-group-10000": baseline},
+            http_responses=[
+                self.nav_response(),
+                self.dynamic_response([pinned_item, old_item]),
+            ],
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        self.assertEqual(ctx.render_calls, [])
+        self.assertEqual(ctx.messages, [])
+        self.assertEqual(ctx.storage_sets, [])
+        self.assertEqual(ctx.results[-1], {"handled": True, "sent": 0})
+
+    def test_dynamic_push_uses_oldest_new_item_first(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(tokens=[{
+            "id": "primary",
+            "label": "主 Cookie",
+            "secret_key": "bili.primary",
+            "enabled": True,
+        }])
+        now = int(time.time())
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            storage={"dynamic-baseline:bilibili-123456-group-10000": now - 60},
+            http_responses=[
+                self.nav_response(),
+                self.dynamic_response([
+                    self.video_item("988", "较新视频", pub_ts=now - 10),
+                    self.video_item("987", "较早视频", pub_ts=now - 30),
+                ]),
+            ],
+        )
+
+        plugin.handle_scheduler_trigger(ctx)
+
+        self.assertEqual(ctx.render_calls[0]["data"]["title"], "较早视频")
+        self.assertEqual(ctx.storage_sets[0]["key"], "seen:bilibili-123456-group-10000:video:987")
 
     def test_missing_cookie_logs_clear_warning(self):
         plugin = SubscriptionHubPlugin()
@@ -564,6 +677,7 @@ class SubscriptionHubTests(unittest.TestCase):
         settings = merge_settings({}, {
             "enabled": True,
             "poll_cron": "*/10 * * * *",
+            "dynamic_time_range_seconds": 1800,
             "tokens": [
                 {"id": "primary", "label": "主 Cookie", "secret_key": "bili.primary", "enabled": True},
                 {"id": "backup", "label": "备用 Cookie", "secret_key": "bili.backup", "enabled": False},
@@ -579,6 +693,7 @@ class SubscriptionHubTests(unittest.TestCase):
             "订阅：1/2",
             "Cookie：1/2",
             "轮询：*/10 * * * *",
+            "动态窗口：1800 秒",
         ]))
 
 
