@@ -58,6 +58,42 @@
       "description": "查看订阅中心状态",
       "usage": "/订阅状态",
       "permission": "everyone"
+    },
+    {
+      "name": "订阅b站推送",
+      "description": "订阅当前群聊或私聊的 Bilibili 更新推送",
+      "usage": "/订阅b站推送 [直播|视频|图文|文章|转发] <uid>",
+      "permission": "super_admin"
+    },
+    {
+      "name": "取消b站推送",
+      "description": "取消当前群聊或私聊的 Bilibili 更新推送",
+      "usage": "/取消b站推送 [直播|视频|图文|文章|转发] <uid>",
+      "permission": "super_admin"
+    },
+    {
+      "name": "订阅列表",
+      "description": "查看当前群聊或私聊的订阅列表",
+      "usage": "/订阅列表",
+      "permission": "everyone"
+    },
+    {
+      "name": "b站订阅列表",
+      "description": "查看当前群聊或私聊的 Bilibili 订阅列表",
+      "usage": "/b站订阅列表",
+      "permission": "everyone"
+    },
+    {
+      "name": "全部订阅列表",
+      "description": "查看所有群聊和私聊的订阅列表",
+      "usage": "/全部订阅列表",
+      "permission": "super_admin"
+    },
+    {
+      "name": "全部b站订阅列表",
+      "description": "查看所有群聊和私聊的 Bilibili 订阅列表",
+      "usage": "/全部b站订阅列表",
+      "permission": "super_admin"
     }
   ],
   "default_config_file": "default_config.json"

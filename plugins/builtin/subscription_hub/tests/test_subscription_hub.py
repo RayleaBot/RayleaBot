@@ -8,21 +8,42 @@ PLUGIN_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, PLUGIN_DIR)
 
 from bilibili import dynamic_updates
-from main import build_status_text
+from main import (
+    add_bilibili_subscription,
+    build_status_text,
+    format_subscription_list,
+    parse_bilibili_command_args,
+    remove_bilibili_subscription,
+)
 from rendering import build_render_data
 from settings import merge_settings
+
+
+class FakeContext:
+    def __init__(self, args=None, target_type="group", target_id="10000", actor=None):
+        self.args = args or []
+        self.target_type = target_type
+        self.target_id = target_id
+        self.actor = actor or {"id": "42", "nickname": "订阅人"}
 
 
 class SubscriptionHubTests(unittest.TestCase):
     def test_manifest_declares_visible_command(self):
         with open(os.path.join(PLUGIN_DIR, "info.json"), "r", encoding="utf-8") as handle:
             manifest = json.load(handle)
-        self.assertEqual([{
-            "name": "订阅状态",
-            "description": "查看订阅中心状态",
-            "usage": "/订阅状态",
-            "permission": "everyone",
-        }], manifest.get("commands"))
+        self.assertEqual([
+            "订阅状态",
+            "订阅b站推送",
+            "取消b站推送",
+            "订阅列表",
+            "b站订阅列表",
+            "全部订阅列表",
+            "全部b站订阅列表",
+        ], [item.get("name") for item in manifest.get("commands") or []])
+        self.assertEqual("super_admin", manifest["commands"][1]["permission"])
+        self.assertEqual("super_admin", manifest["commands"][2]["permission"])
+        self.assertEqual("super_admin", manifest["commands"][5]["permission"])
+        self.assertEqual("super_admin", manifest["commands"][6]["permission"])
         self.assertNotIn("dynamic_commands", manifest)
 
     def test_merge_settings_normalizes_tokens_and_subscriptions(self):
@@ -105,6 +126,67 @@ class SubscriptionHubTests(unittest.TestCase):
         })
         self.assertEqual(data["subscriber_text"], "订阅人")
         self.assertEqual(data["service"], "视频")
+
+    def test_parse_bilibili_command_args_defaults_to_all(self):
+        self.assertEqual(parse_bilibili_command_args(["123456"]), {"services": ["all"], "uid": "123456", "error": False})
+        self.assertEqual(parse_bilibili_command_args(["图文", "123456"]), {"services": ["image_text"], "uid": "123456", "error": False})
+        self.assertEqual(parse_bilibili_command_args(["番剧", "123456"]), {"services": [], "uid": "123456", "error": True})
+
+    def test_add_bilibili_subscription_binds_current_target_and_subscriber(self):
+        settings = merge_settings({}, {})
+        result = add_bilibili_subscription(settings, FakeContext(args=["图文", "123456"]))
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(settings["subscriptions"]), 1)
+        subscription = settings["subscriptions"][0]
+        self.assertEqual(subscription["id"], "bilibili-123456-group-10000")
+        self.assertEqual(subscription["services"], ["image_text"])
+        self.assertEqual(subscription["subscribers"], [{"id": "42", "nickname": "订阅人"}])
+
+    def test_add_bilibili_subscription_merges_services_and_subscribers(self):
+        settings = merge_settings({}, {
+            "subscriptions": [{
+                "uid": "123456",
+                "target_type": "group",
+                "target_id": "10000",
+                "services": ["video"],
+                "subscribers": [{"id": "42", "nickname": "旧昵称"}],
+            }],
+        })
+        result = add_bilibili_subscription(settings, FakeContext(args=["直播", "123456"], actor={"id": "43", "nickname": "新订阅人"}))
+        self.assertTrue(result["ok"])
+        self.assertEqual(settings["subscriptions"][0]["services"], ["video", "live"])
+        self.assertEqual(settings["subscriptions"][0]["subscribers"], [
+            {"id": "42", "nickname": "旧昵称"},
+            {"id": "43", "nickname": "新订阅人"},
+        ])
+
+    def test_remove_bilibili_subscription_removes_service_or_item(self):
+        settings = merge_settings({}, {
+            "subscriptions": [{
+                "uid": "123456",
+                "target_type": "group",
+                "target_id": "10000",
+                "services": ["video", "live"],
+            }],
+        })
+        result = remove_bilibili_subscription(settings, FakeContext(args=["直播", "123456"]))
+        self.assertTrue(result["ok"])
+        self.assertEqual(settings["subscriptions"][0]["services"], ["video"])
+
+        result = remove_bilibili_subscription(settings, FakeContext(args=["123456"]))
+        self.assertTrue(result["ok"])
+        self.assertEqual(settings["subscriptions"], [])
+
+    def test_format_subscription_list_can_filter_current_target_and_platform(self):
+        settings = merge_settings({}, {
+            "subscriptions": [
+                {"uid": "123456", "target_type": "group", "target_id": "10000", "services": ["video"], "subscribers": ["订阅人"]},
+                {"uid": "654321", "target_type": "private", "target_id": "42", "services": ["live"]},
+            ],
+        })
+        text = format_subscription_list(settings, {"target_type": "group", "target_id": "10000"}, platform="bilibili", title="Bilibili 订阅列表")
+        self.assertIn("Bilibili 123456", text)
+        self.assertNotIn("654321", text)
 
     def test_build_status_text_summarizes_visible_state(self):
         settings = merge_settings({}, {
