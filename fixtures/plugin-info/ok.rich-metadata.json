@@ -34,7 +34,8 @@
     ],
     "platforms": [
       "windows-x64",
-      "linux-x64"
+      "linux-x64",
+      "macos-arm64"
     ],
     "concurrency": 3,
     "default_config": {

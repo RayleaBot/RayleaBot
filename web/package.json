@@ -29,12 +29,12 @@
     }
   },
   "dependencies": {
-    "@ant-design/icons-vue": "^7.0.1",
-    "@vueuse/motion": "^3.0.3",
+    "@ant-design/icons-vue": "7.0.1",
+    "@vueuse/motion": "3.0.3",
     "ant-design-vue": "4.2.6",
     "pinia": "3.0.4",
     "vue": "3.5.30",
-    "vue-i18n": "^11.3.0",
+    "vue-i18n": "11.3.0",
     "vue-router": "5.0.4"
   },
   "devDependencies": {

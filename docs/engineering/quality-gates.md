@@ -47,8 +47,8 @@
 | `contracts.yml` | `ubuntu-x64` | 是 | 校验 baseline、contracts、schema 与 fixtures 同步性 |
 | `lint.yml` | `ubuntu-x64` | 是 | 负责 Server、Web、Launcher Linux、Node / Python SDK 核心检查、OpenAPI 生成类型漂移检查与 PR smoke，手动触发时也承载依赖审计 |
 | `race.yml` | `ubuntu-x64` | 否 | 作为按需 Go race 回归入口 |
-| `release.yml` | `windows-x64`、`linux-x64`、`macos-arm64` | Tag 门禁 | 负责正式打包、checksum、release metadata、协议读取面、兼容矩阵、模板预览工作区、recovery drill 与交付 smoke |
-| `self-host-smoke.yml` | `windows-x64`、`linux-x64`、`macos-arm64` | 否 | 负责长期自托管巡检，并复用协议读取面、兼容矩阵、模板预览工作区、诊断与恢复探针 |
+| `release.yml` | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` | Tag 门禁 | 负责正式打包、checksum、release metadata、协议读取面、兼容矩阵、模板预览工作区、recovery drill 与交付 smoke |
+| `self-host-smoke.yml` | `windows-x64-full`、`linux-x64-full`、`macos-arm64-full`、`linux-x64-server` | 否 | 负责长期自托管巡检，并复用协议读取面、兼容矩阵、模板预览工作区、诊断与恢复探针 |
 
 ## 验证原则
 

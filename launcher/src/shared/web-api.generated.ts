@@ -1225,7 +1225,7 @@ export interface components {
         /** @enum {string} */
         PluginPackageType: "managed_runtime" | "dev_source";
         /** @enum {string} */
-        PluginPlatform: "windows-x64" | "linux-x64";
+        PluginPlatform: "windows-x64" | "linux-x64" | "macos-arm64";
         PluginTrustSummary: {
             /** @enum {string} */
             level: "official" | "third_party" | "unverified" | "development";

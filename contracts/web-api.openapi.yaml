@@ -4,8 +4,7 @@ info:
   version: 0.1.0
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
-    the currently frozen management routes. Other planned
-    routes remain TODOs in contracts/README.md and are not formalized here yet.
+    the currently frozen management routes.
 x-fixtures:
   - fixtures/web-api/ok.healthz-response.yaml
   - fixtures/web-api/ok.setup-admin.yaml
@@ -2383,7 +2382,7 @@ components:
 
     PluginPlatform:
       type: string
-      enum: [windows-x64, linux-x64]
+      enum: [windows-x64, linux-x64, macos-arm64]
 
     PluginTrustSummary:
       type: object

@@ -107,7 +107,8 @@
         "type": "string",
         "enum": [
           "windows-x64",
-          "linux-x64"
+          "linux-x64",
+          "macos-arm64"
         ]
       },
       "uniqueItems": true

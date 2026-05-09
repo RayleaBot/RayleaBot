@@ -26,6 +26,7 @@ response:
       platforms:
         - windows-x64
         - linux-x64
+        - macos-arm64
       default_config:
         unit: metric
         forecast_days: 3
