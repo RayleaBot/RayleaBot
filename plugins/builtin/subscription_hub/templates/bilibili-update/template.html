@@ -9,7 +9,7 @@
     <main class="surface">
       <header class="header">
         <div>
-          <p class="eyebrow">{{ .platform }} · {{ .service }}</p>
+          <p class="eyebrow">{{ .platform }} · {{ .category }}</p>
           <h1>{{ .title }}</h1>
           {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
         </div>
@@ -30,6 +30,37 @@
       <section class="summary">
         <div class="label">内容摘要</div>
         <p>{{ .summary }}</p>
+      </section>
+      {{ end }}
+
+      {{ if .images }}
+      <section class="image-grid image-count-{{ len .images }}">
+        {{ range .images }}
+          {{ with .url }}<img src="{{ . }}" alt="" />{{ end }}
+        {{ end }}
+      </section>
+      {{ end }}
+
+      {{ with .original }}
+      <section class="original-card">
+        <div class="label">原动态</div>
+        <div class="original-author">
+          {{ with .author }}{{ with .avatar }}<img class="original-avatar" src="{{ . }}" alt="" />{{ end }}{{ end }}
+          <div>
+            {{ with .author }}{{ if .name }}<strong>{{ .name }}</strong>{{ end }}{{ end }}
+            <span>{{ .category }}{{ if .created_at }} · {{ .created_at }}{{ end }}</span>
+          </div>
+        </div>
+        <h2>{{ .title }}</h2>
+        {{ if .summary }}<p>{{ .summary }}</p>{{ end }}
+        {{ if .images }}
+        <div class="original-images">
+          {{ range .images }}
+            {{ with .url }}<img src="{{ . }}" alt="" />{{ end }}
+          {{ end }}
+        </div>
+        {{ end }}
+        {{ if .url }}<div class="original-url">{{ .url }}</div>{{ end }}
       </section>
       {{ end }}
 

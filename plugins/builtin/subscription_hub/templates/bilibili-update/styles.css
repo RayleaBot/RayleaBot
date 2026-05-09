@@ -22,9 +22,9 @@ body {
 
 .surface {
   display: grid;
-  gap: 22px;
+  gap: 18px;
   width: 900px;
-  height: 560px;
+  min-height: 560px;
   padding: 40px;
   background: linear-gradient(145deg, oklch(22% 0.03 250), oklch(17% 0.022 250));
 }
@@ -70,6 +70,8 @@ h1 {
 
 .author-card,
 .summary,
+.image-grid,
+.original-card,
 .meta-item {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -103,9 +105,91 @@ h1 {
 .summary p {
   margin: 8px 0 0;
   color: var(--text);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.58;
   overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+.image-grid img,
+.original-images img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.image-count-1 {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 520px;
+}
+
+.image-count-1 img {
+  aspect-ratio: 16 / 9;
+}
+
+.image-count-2,
+.image-count-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.original-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface-soft);
+}
+
+.original-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.original-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.original-author strong,
+.original-author span {
+  display: block;
+}
+
+.original-author span,
+.original-url {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.original-card h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.original-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.original-images {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .meta-grid {

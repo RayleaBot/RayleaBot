@@ -5,6 +5,7 @@
   const enabledInput = document.getElementById('enabled-input')
   const pollCronInput = document.getElementById('poll-cron-input')
   const pollTimeoutInput = document.getElementById('poll-timeout-input')
+  const dynamicTimeRangeInput = document.getElementById('dynamic-time-range-input')
   const maxUpdatesInput = document.getElementById('max-updates-input')
   const tokensInput = document.getElementById('tokens-input')
   const subscriptionsInput = document.getElementById('subscriptions-input')
@@ -162,6 +163,7 @@
     enabledInput.checked = Boolean(currentSettings.enabled ?? defaultSettings.enabled ?? true)
     pollCronInput.value = currentSettings.poll_cron || defaultSettings.poll_cron || '*/5 * * * *'
     pollTimeoutInput.value = String(currentSettings.poll_timeout_seconds || defaultSettings.poll_timeout_seconds || 12)
+    dynamicTimeRangeInput.value = String(currentSettings.dynamic_time_range_seconds || defaultSettings.dynamic_time_range_seconds || 7200)
     maxUpdatesInput.value = String(currentSettings.max_updates_per_poll || defaultSettings.max_updates_per_poll || 6)
     tokensInput.value = formatJSONLines(tokensForDisplay(currentSettings, currentSecrets))
     subscriptionsInput.value = formatJSONLines(currentSettings.subscriptions || defaultSettings.subscriptions)
@@ -184,6 +186,7 @@
         enabled: enabledInput.checked,
         poll_cron: pollCronInput.value.trim() || '*/5 * * * *',
         poll_timeout_seconds: Number(pollTimeoutInput.value || 12),
+        dynamic_time_range_seconds: Number(dynamicTimeRangeInput.value || 7200),
         max_updates_per_poll: Number(maxUpdatesInput.value || 6),
         tokens,
         subscriptions: parseJSONLines(subscriptionsInput.value, '订阅列表'),
