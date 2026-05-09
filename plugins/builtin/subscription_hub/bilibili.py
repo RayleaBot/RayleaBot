@@ -2,14 +2,17 @@ import json
 from html import unescape
 
 
-DYNAMIC_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid={uid}&timezone_offset=-480&features=itemOpusStyle"
+DYNAMIC_URL = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid={uid}&timezone_offset=-480&platform=web&web_location=333.1365&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete"
 LIVE_URL = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids?uids[]={uid}"
+NAV_URL = "https://api.bilibili.com/x/web-interface/nav"
 
 
-def build_cookie_headers(token):
+def build_cookie_headers(token, uid=None):
     headers = {
-        "User-Agent": "Mozilla/5.0 RayleaBot SubscriptionHub/0.1",
-        "Referer": "https://www.bilibili.com/",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": f"https://space.bilibili.com/{uid}/dynamic" if uid else "https://www.bilibili.com/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     }
     token = str(token or "").strip()
     if token:
@@ -163,5 +166,21 @@ def live_update(document, uid):
 
 
 def clean_text(value):
-    text = unescape(str(value or "")).strip()
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        for key in ("text", "orig_text", "title", "desc", "summary", "content"):
+            text = clean_text(value.get(key))
+            if text:
+                return text
+        for key in ("rich_text_nodes", "paragraphs"):
+            text = clean_text(value.get(key))
+            if text:
+                return text
+        return ""
+    if isinstance(value, list):
+        return " ".join(text for text in (clean_text(item) for item in value) if text)
+    if not isinstance(value, str):
+        value = str(value)
+    text = unescape(value).replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\t", " ").strip()
     return " ".join(text.split())

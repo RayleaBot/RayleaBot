@@ -11,7 +11,7 @@
       <header class="page-header">
         <div>
           <h1 id="page-title">订阅设置</h1>
-          <p id="page-subtitle">管理 Bilibili 订阅、轮询和 token</p>
+          <p id="page-subtitle">管理 Bilibili 订阅、轮询和 Cookie</p>
         </div>
         <div class="status-pill" id="status-text">正在等待宿主初始化</div>
       </header>
@@ -38,8 +38,15 @@
       <section class="editor-grid">
         <div class="panel panel--wide">
           <div class="section-title">
-            <h2>Bilibili Tokens</h2>
-            <p>每行一个 JSON 对象，secret_value 为明文 token。</p>
+            <div class="section-title__heading">
+              <h2>Bilibili Cookie</h2>
+              <span
+                class="help-tip"
+                tabindex="0"
+                aria-label="Bilibili Cookie 从登录后的浏览器请求中复制。可直接粘贴完整 Cookie，至少包含 SESSDATA=...。Cookie 属于登录凭据，保存后使用插件密钥存储。配置多个 Cookie 时，轮询会随机选择一个。"
+                data-tooltip="Bilibili Cookie 从登录后的浏览器请求中复制。可直接粘贴完整 Cookie，至少包含 SESSDATA=...。Cookie 属于登录凭据，保存后使用插件密钥存储。配置多个 Cookie 时，轮询会随机选择一个。"
+              >?</span>
+            </div>
           </div>
           <textarea id="tokens-input" class="code-input" rows="10" spellcheck="false"></textarea>
         </div>

@@ -15,6 +15,7 @@ from rayleabot import RayleaBotPlugin, command, event_handler
 from bilibili import (
     DYNAMIC_URL,
     LIVE_URL,
+    NAV_URL,
     build_cookie_headers,
     dynamic_updates,
     live_update,
@@ -72,6 +73,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
     @command("订阅状态")
     def handle_status_command(self, ctx):
         settings = self.load_settings(ctx)
+        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(build_status_text(settings))
         ctx.send_result({"handled": True})
 
@@ -102,24 +104,28 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
     @command("订阅列表")
     def handle_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
+        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, current_target(ctx), platform=None, title="订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("b站订阅列表")
     def handle_bilibili_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
+        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, current_target(ctx), platform="bilibili", title="Bilibili 订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("全部订阅列表")
     def handle_all_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
+        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, None, platform=None, title="全部订阅列表"))
         ctx.send_result({"handled": True})
 
     @command("全部b站订阅列表")
     def handle_all_bilibili_subscription_list(self, ctx):
         settings = self.load_settings(ctx)
+        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_text(format_subscription_list(settings, None, platform="bilibili", title="全部 Bilibili 订阅列表"))
         ctx.send_result({"handled": True})
 
@@ -129,44 +135,60 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
     @event_handler("config.changed")
     def handle_config_changed(self, ctx):
         settings = self.load_settings(ctx, force=True)
-        self.ensure_scheduler(ctx, settings)
+        self.ensure_scheduler_if_needed(ctx, settings)
         ctx.send_result({"handled": True})
 
     @event_handler("scheduler.trigger")
     def handle_scheduler_trigger(self, ctx):
         settings = self.load_settings(ctx, force=True)
-        self.ensure_scheduler(ctx, settings)
+        self.ensure_scheduler_if_needed(ctx, settings)
         if not settings["enabled"]:
             ctx.send_result({"handled": True, "skipped": "disabled"})
             return
-        sent = self.poll_all(ctx, settings)
-        ctx.send_result({"handled": True, "sent": sent})
+        prepared = self.prepare_next_update(ctx, settings)
+        if prepared:
+            self.send_prepared_update(ctx, prepared)
+            return
+        ctx.send_result({"handled": True, "sent": 0})
+
+    def ensure_scheduler_if_needed(self, ctx, settings):
+        if settings.get("enabled", True) and has_enabled_subscriptions(settings):
+            self.ensure_scheduler(ctx, settings)
 
     def ensure_scheduler(self, ctx, settings):
+        task_id = "subscription-hub-poll"
+        cron = settings["poll_cron"]
         try:
             ctx.scheduler_create(
-                "subscription-hub-poll",
-                settings["poll_cron"],
+                task_id,
+                cron,
                 payload={"kind": "subscription_poll"},
             )
         except Exception as exc:
-            self.try_log(ctx, "warn", "订阅轮询任务注册失败", {"error": str(exc)})
+            self.try_log(ctx, "warn", "订阅轮询任务注册失败", {
+                "task_id": task_id,
+                "cron": cron,
+                "error": str(exc),
+            })
 
-    def poll_all(self, ctx, settings):
-        sent = 0
+    def prepare_next_update(self, ctx, settings):
         for subscription in settings["subscriptions"]:
-            if sent >= settings["max_updates_per_poll"]:
-                break
             if not subscription.get("enabled", True):
                 continue
             if subscription.get("platform") != "bilibili":
                 continue
-            sent += self.poll_bilibili_subscription(ctx, settings, subscription, settings["max_updates_per_poll"] - sent)
-        return sent
+            prepared = self.prepare_bilibili_subscription_update(ctx, settings, subscription)
+            if prepared:
+                return prepared
+        return None
 
-    def poll_bilibili_subscription(self, ctx, settings, subscription, remaining):
+    def prepare_bilibili_subscription_update(self, ctx, settings, subscription):
         token = self.choose_token(ctx, settings)
-        headers = build_cookie_headers(token)
+        if not token:
+            return None
+        headers = build_cookie_headers(token, subscription["uid"])
+        if not self.bilibili_cookie_available(ctx, settings, headers):
+            return None
         updates = []
         services = set(subscription.get("services") or ["all"])
         if "all" in services or any(service in services for service in {"video", "image_text", "article", "repost"}):
@@ -176,7 +198,9 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 headers=headers,
                 timeout_seconds=settings["poll_timeout_seconds"],
             )
-            updates.extend(dynamic_updates(parse_json_response(response)))
+            document = self.bilibili_response_document(ctx, response, subscription["uid"], "dynamic")
+            if document:
+                updates.extend(dynamic_updates(document))
         if "all" in services or "live" in services:
             response = ctx.http_request(
                 "GET",
@@ -184,25 +208,81 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 headers=headers,
                 timeout_seconds=settings["poll_timeout_seconds"],
             )
-            update = live_update(parse_json_response(response), subscription["uid"])
-            if update and (update.get("live_status") == 1 or self.previous_live_status(ctx, subscription) == 1):
-                updates.append(update)
+            document = self.bilibili_response_document(ctx, response, subscription["uid"], "live")
+            if document:
+                update = live_update(document, subscription["uid"])
+                if update and (update.get("live_status") == 1 or self.previous_live_status(ctx, subscription) == 1):
+                    updates.append(update)
 
-        sent = 0
         for update in updates:
-            if sent >= remaining:
-                break
             if not service_enabled(subscription, update.get("service")):
                 continue
             if self.seen_update(ctx, subscription, update):
                 continue
-            self.push_update(ctx, subscription, update)
-            self.mark_seen(ctx, subscription, update)
-            sent += 1
-        return sent
+            prepared = self.prepare_push_update(ctx, subscription, update)
+            if prepared:
+                return prepared
+        return None
+
+    def bilibili_cookie_available(self, ctx, settings, headers):
+        response = ctx.http_request(
+            "GET",
+            NAV_URL,
+            headers=headers,
+            timeout_seconds=settings["poll_timeout_seconds"],
+        )
+        document = self.bilibili_response_document(ctx, response, "", "cookie")
+        if not document:
+            return False
+        data = document.get("data") if isinstance(document, dict) else {}
+        if not isinstance(data, dict) or data.get("isLogin") is not True:
+            self.try_log(ctx, "warn", "Bilibili Cookie 无效或已过期")
+            return False
+        return True
+
+    def bilibili_response_document(self, ctx, response, uid, endpoint):
+        status_code = response.get("status_code") if isinstance(response, dict) else None
+        if not isinstance(status_code, int) or status_code < 200 or status_code >= 300:
+            if status_code == 412:
+                self.try_log(ctx, "warn", "Bilibili 风控拦截", {
+                    "uid": uid,
+                    "endpoint": endpoint,
+                    "status_code": status_code,
+                })
+                return None
+            self.try_log(ctx, "warn", "Bilibili 订阅读取失败", {
+                "uid": uid,
+                "endpoint": endpoint,
+                "status_code": status_code,
+            })
+            return None
+
+        document = parse_json_response(response)
+        if not document:
+            self.try_log(ctx, "warn", "Bilibili 订阅响应解析失败", {
+                "uid": uid,
+                "endpoint": endpoint,
+                "status_code": status_code,
+            })
+            return None
+
+        code = document.get("code")
+        if code != 0:
+            self.try_log(ctx, "warn", "Bilibili 订阅读取失败", {
+                "uid": uid,
+                "endpoint": endpoint,
+                "status_code": status_code,
+                "bilibili_code": code,
+                "bilibili_message": str(document.get("message") or document.get("msg") or "").strip(),
+            })
+            return None
+        return document
 
     def choose_token(self, ctx, settings):
         candidates = [item for item in settings["tokens"] if item.get("enabled", True)]
+        if not candidates:
+            self.try_log(ctx, "warn", "Bilibili Cookie 未配置或未启用")
+            return ""
         random.shuffle(candidates)
         for item in candidates:
             try:
@@ -211,7 +291,8 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 if value:
                     return value
             except Exception as exc:
-                self.try_log(ctx, "warn", "订阅 token 读取失败", {"token_id": item.get("id"), "error": str(exc)})
+                self.try_log(ctx, "warn", "Bilibili Cookie 读取失败", {"cookie_id": item.get("id"), "error": str(exc)})
+        self.try_log(ctx, "warn", "Bilibili Cookie 未读取到可用值")
         return ""
 
     def previous_live_status(self, ctx, subscription):
@@ -233,7 +314,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
     def update_key(self, subscription, update):
         return f"seen:{subscription['id']}:{update.get('service')}:{update.get('id')}"
 
-    def push_update(self, ctx, subscription, update):
+    def prepare_push_update(self, ctx, subscription, update):
         render_data = build_render_data(subscription, update)
         result = ctx.render_image(
             "bilibili-update",
@@ -245,20 +326,35 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         image_path = str(result.get("image_path") or "").strip()
         if not image_path:
             self.try_log(ctx, "warn", "订阅图片生成结果缺少图片路径")
-            return
+            return None
+        self.mark_seen(ctx, subscription, update)
+        return {
+            "image_path": image_path,
+            "target_type": subscription["target_type"],
+            "target_id": subscription["target_id"],
+        }
+
+    def send_prepared_update(self, ctx, prepared):
         ctx.send_message(
             [{
                 "type": "image",
-                "data": {"file": image_path},
+                "data": {"file": prepared["image_path"]},
             }],
-            target_type=subscription["target_type"],
-            target_id=subscription["target_id"],
+            target_type=prepared["target_type"],
+            target_id=prepared["target_id"],
         )
 
 
 def service_enabled(subscription, service):
     services = set(subscription.get("services") or ["all"])
     return "all" in services or service in services
+
+
+def has_enabled_subscriptions(settings):
+    for subscription in settings.get("subscriptions") or []:
+        if subscription.get("enabled", True):
+            return True
+    return False
 
 
 SERVICE_ALIASES = {
@@ -463,7 +559,7 @@ def build_status_text(settings):
         "订阅中心",
         f"状态：{'启用' if settings.get('enabled', True) else '停用'}",
         f"订阅：{enabled_subscriptions}/{len(subscriptions)}",
-        f"Token：{enabled_tokens}/{len(tokens)}",
+        f"Cookie：{enabled_tokens}/{len(tokens)}",
         f"轮询：{settings.get('poll_cron') or '*/5 * * * *'}",
     ])
 

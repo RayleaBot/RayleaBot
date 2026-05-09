@@ -40,17 +40,96 @@
     if (!text) {
       return []
     }
+    if (text.startsWith('[')) {
+      const parsed = JSON.parse(text)
+      if (!Array.isArray(parsed)) {
+        throw new Error(`${label} 必须是 JSON 对象或对象数组`)
+      }
+      for (const item of parsed) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          throw new Error(`${label} 必须是 JSON 对象或对象数组`)
+        }
+      }
+      return parsed
+    }
+
+    const items = []
+    let start = -1
+    let depth = 0
+    let inString = false
+    let escaped = false
+
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index]
+      if (inString) {
+        if (escaped) {
+          escaped = false
+        } else if (char === '\\') {
+          escaped = true
+        } else if (char === '"') {
+          inString = false
+        }
+        continue
+      }
+
+      if (char === '"') {
+        inString = true
+        continue
+      }
+      if (char === '{') {
+        if (depth === 0) {
+          if (text.slice(items.length === 0 ? 0 : start, index).trim() && start < index) {
+            throw new Error(`${label} 必须是 JSON 对象或对象数组`)
+          }
+          start = index
+        }
+        depth += 1
+        continue
+      }
+      if (char === '}') {
+        depth -= 1
+        if (depth < 0) {
+          throw new Error(`${label} JSON 格式不正确`)
+        }
+        if (depth === 0) {
+          const parsed = JSON.parse(text.slice(start, index + 1))
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new Error(`${label} 必须是 JSON 对象或对象数组`)
+          }
+          items.push(parsed)
+          start = index + 1
+        }
+      }
+    }
+
+    if (inString || depth !== 0) {
+      throw new Error(`${label} JSON 内容不完整`)
+    }
+    if (items.length === 0 || text.slice(start).trim()) {
+      throw new Error(`${label} 必须是 JSON 对象或对象数组`)
+    }
+    return items
+  }
+
+  function parseCookieInput(value) {
+    const text = String(value || '').trim()
+    if (!text) {
+      return []
+    }
+    if (text.startsWith('{') || text.startsWith('[')) {
+      return parseJSONLines(text, 'Bilibili Cookie')
+    }
     return text
-      .split(/\n(?=\s*\{)/)
+      .split(/\n+/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => {
-        const parsed = JSON.parse(line)
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          throw new Error(`${label} 必须是 JSON 对象`)
-        }
-        return parsed
-      })
+      .map((line, index) => ({
+        id: index === 0 ? 'primary' : `cookie-${index + 1}`,
+        label: index === 0 ? '主 Cookie' : `备用 Cookie ${index + 1}`,
+        secret_key: index === 0 ? 'bili.primary' : `bili.cookie_${index + 1}`,
+        enabled: true,
+        secret_value: line,
+      }))
   }
 
   function tokensForDisplay(settings, secrets) {
@@ -58,6 +137,23 @@
       ...item,
       secret_value: secrets[item.secret_key] || '',
     }))
+  }
+
+  function validateCookieItems(items) {
+    for (const item of items) {
+      if (item && item.enabled === false) {
+        continue
+      }
+
+      const label = String((item && (item.label || item.id)) || 'Bilibili Cookie')
+      const secretValue = String((item && item.secret_value) || '').trim()
+      if (!secretValue) {
+        throw new Error(`${label} 的 Bilibili Cookie 不能为空`)
+      }
+      if (!/SESSDATA\s*=/.test(secretValue)) {
+        throw new Error(`${label} 的 Bilibili Cookie 至少需要包含 SESSDATA=...`)
+      }
+    }
   }
 
   function applySettings(values, secrets) {
@@ -72,7 +168,8 @@
   }
 
   function buildPayload() {
-    const tokensWithSecrets = parseJSONLines(tokensInput.value, 'Tokens')
+    const tokensWithSecrets = parseCookieInput(tokensInput.value)
+    validateCookieItems(tokensWithSecrets)
     const values = {}
     const tokens = tokensWithSecrets.map((item) => {
       const token = { ...item }
@@ -127,9 +224,7 @@
     if (message.type === 'host.init') {
       const payload = message.payload || {}
       pageTitle.textContent = payload.title || '订阅设置'
-      pageSubtitle.textContent = payload.plugin && payload.plugin.description
-        ? payload.plugin.description
-        : '管理 Bilibili 订阅、轮询和 token'
+      pageSubtitle.textContent = '管理 Bilibili 订阅、轮询和 Cookie'
       defaultSettings = payload.default_config || {}
       currentSecrets = payload.secrets || {}
       applySettings(payload.settings || defaultSettings, currentSecrets)
