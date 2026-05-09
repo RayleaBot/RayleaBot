@@ -53,6 +53,12 @@ func (f *fakeDeliverer) eventCount() int {
 	return len(f.events)
 }
 
+func (f *fakeDeliverer) setState(state runtime.State) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.state = state
+}
+
 type fakeSender struct {
 	mu          sync.Mutex
 	messages    []adapter.OutboundMessageSend
@@ -152,6 +158,19 @@ func waitForStartedEvent(t *testing.T, started <-chan runtime.Event) runtime.Eve
 		t.Fatal("expected event delivery to start")
 		return runtime.Event{}
 	}
+}
+
+func waitForCondition(t *testing.T, condition func() bool, message string) {
+	t.Helper()
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal(message)
 }
 
 func newDispatchTestLogger() (*slog.Logger, *logging.Stream) {
@@ -512,6 +531,36 @@ func TestDispatchToPluginRejectsNonRunningRuntime(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 	if rt.eventCount() != 0 {
 		t.Fatalf("non-running runtime should not receive the event, got %d", rt.eventCount())
+	}
+}
+
+func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	rt := &fakeDeliverer{
+		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+		blockCh:  make(chan struct{}),
+	}
+	d.Register("test", rt, nil, nil, 1)
+
+	results := d.Dispatch(context.Background(), testEventWithTarget("200"), "")
+	if len(results) != 1 || results[0].Outcome != OutcomeDelivered {
+		t.Fatalf("unexpected first dispatch result: %#v", results)
+	}
+	waitForCondition(t, func() bool { return rt.eventCount() == 1 }, "first event should start delivery")
+
+	results = d.Dispatch(context.Background(), testEventWithTarget("201"), "")
+	if len(results) != 1 || results[0].Outcome != OutcomeDelivered {
+		t.Fatalf("unexpected queued dispatch result: %#v", results)
+	}
+	rt.setState(runtime.StateStarting)
+	close(rt.blockCh)
+
+	time.Sleep(80 * time.Millisecond)
+	if got := rt.eventCount(); got != 1 {
+		t.Fatalf("stopped runtime should not receive queued event, got %d events", got)
 	}
 }
 

@@ -83,6 +83,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             self.save_settings(ctx, settings)
             self._settings = copy.deepcopy(settings)
             self._settings_loaded = True
+            self.ensure_scheduler(ctx, settings)
         ctx.send_text(result["message"])
         ctx.send_result({"handled": True})
 
@@ -94,6 +95,7 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             self.save_settings(ctx, settings)
             self._settings = copy.deepcopy(settings)
             self._settings_loaded = True
+            self.ensure_scheduler(ctx, settings)
         ctx.send_text(result["message"])
         ctx.send_result({"handled": True})
 

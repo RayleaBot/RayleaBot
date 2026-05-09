@@ -427,6 +427,10 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 				started = true
 
 				go func(laneKey string, item dispatchItem) {
+					if !slotIsDeliverable(slot) {
+						completions <- laneCompletion{laneKey: laneKey}
+						return
+					}
 					delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
 					if err != nil {
 						d.logger.Warn("dispatch delivery failed",

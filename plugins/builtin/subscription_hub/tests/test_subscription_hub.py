@@ -9,6 +9,7 @@ sys.path.insert(0, PLUGIN_DIR)
 
 from bilibili import dynamic_updates
 from main import (
+    SubscriptionHubPlugin,
     add_bilibili_subscription,
     build_status_text,
     format_subscription_list,
@@ -25,6 +26,24 @@ class FakeContext:
         self.target_type = target_type
         self.target_id = target_id
         self.actor = actor or {"id": "42", "nickname": "订阅人"}
+        self.config_writes = []
+        self.scheduler_creates = []
+        self.texts = []
+        self.results = []
+
+    def config_write(self, values):
+        self.config_writes.append(values)
+        return {"changed_keys": sorted(values.keys())}
+
+    def scheduler_create(self, task_id, cron, payload=None):
+        self.scheduler_creates.append({"task_id": task_id, "cron": cron, "payload": payload})
+        return {"task_id": task_id}
+
+    def send_text(self, text):
+        self.texts.append(text)
+
+    def send_result(self, result):
+        self.results.append(result)
 
 
 class SubscriptionHubTests(unittest.TestCase):
@@ -187,6 +206,41 @@ class SubscriptionHubTests(unittest.TestCase):
         text = format_subscription_list(settings, {"target_type": "group", "target_id": "10000"}, platform="bilibili", title="Bilibili 订阅列表")
         self.assertIn("Bilibili 123456", text)
         self.assertNotIn("654321", text)
+
+    def test_subscribe_command_registers_scheduler_after_saving(self):
+        plugin = SubscriptionHubPlugin()
+        plugin._settings_loaded = True
+        plugin._settings = merge_settings(plugin._default_settings, {"poll_cron": "*/7 * * * *"})
+        ctx = FakeContext(args=["视频", "123456"])
+
+        plugin.handle_subscribe_bilibili(ctx)
+
+        self.assertEqual(len(ctx.config_writes), 1)
+        self.assertEqual(ctx.scheduler_creates, [{
+            "task_id": "subscription-hub-poll",
+            "cron": "*/7 * * * *",
+            "payload": {"kind": "subscription_poll"},
+        }])
+        self.assertEqual(ctx.results[-1], {"handled": True})
+
+    def test_unsubscribe_command_registers_scheduler_after_saving(self):
+        plugin = SubscriptionHubPlugin()
+        plugin._settings_loaded = True
+        plugin._settings = merge_settings(plugin._default_settings, {
+            "subscriptions": [{
+                "uid": "123456",
+                "target_type": "group",
+                "target_id": "10000",
+                "services": ["video"],
+            }],
+        })
+        ctx = FakeContext(args=["123456"])
+
+        plugin.handle_unsubscribe_bilibili(ctx)
+
+        self.assertEqual(len(ctx.config_writes), 1)
+        self.assertEqual(ctx.scheduler_creates[0]["task_id"], "subscription-hub-poll")
+        self.assertEqual(ctx.results[-1], {"handled": True})
 
     def test_build_status_text_summarizes_visible_state(self):
         settings = merge_settings({}, {
