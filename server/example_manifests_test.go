@@ -27,6 +27,7 @@ func TestBundledPluginManifestsMatchContract(t *testing.T) {
 		filepath.Join("..", "plugins", "builtin", "echo", "info.json"),
 		filepath.Join("..", "plugins", "builtin", "fortune", "info.json"),
 		filepath.Join("..", "plugins", "builtin", "help", "info.json"),
+		filepath.Join("..", "plugins", "builtin", "subscription_hub", "info.json"),
 	}
 
 	for _, manifestPath := range manifestPaths {

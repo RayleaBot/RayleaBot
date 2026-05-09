@@ -328,18 +328,18 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "pattern": "^[a-z0-9_-]+$",
-            "description": "Command name matched after stripping the configured command prefix."
+            "pattern": "^\\S+$",
+            "description": "UTF-8 command name matched after stripping the configured command prefix. Whitespace is not allowed."
           },
           "aliases": {
             "type": "array",
             "items": {
               "type": "string",
               "minLength": 1,
-              "pattern": "^[a-z0-9_-]+$"
+              "pattern": "^\\S+$"
             },
             "uniqueItems": true,
-            "description": "Alternative command names that route to the same handler."
+            "description": "Alternative UTF-8 command names that route to the same handler. Whitespace is not allowed."
           },
           "description": {
             "type": "string",

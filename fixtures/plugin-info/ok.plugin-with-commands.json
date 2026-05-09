@@ -27,10 +27,10 @@
     },
     "commands": [
       {
-        "name": "weather",
-        "aliases": ["天气", "tq"],
+        "name": "天气",
+        "aliases": ["weather", "天气？"],
         "description": "查询指定城市天气",
-        "usage": "/weather <城市> [--days=N]",
+        "usage": "/天气 <城市> [--days=N]",
         "permission": "everyone"
       },
       {

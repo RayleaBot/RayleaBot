@@ -96,8 +96,8 @@ func TestProjectCommandsIgnoresWhitespaceDynamicTokens(t *testing.T) {
 func TestProjectCommandsMarksManifestCommands(t *testing.T) {
 	snapshot := Snapshot{
 		ManifestCommands: []Command{{
-			Name:    " help ",
-			Aliases: []string{"commands", "help"},
+			Name:    " 订阅状态 ",
+			Aliases: []string{"状态？", "订阅📡", "状态？", "订阅 状态"},
 		}},
 	}
 
@@ -105,7 +105,7 @@ func TestProjectCommandsMarksManifestCommands(t *testing.T) {
 	if len(commands) != 1 {
 		t.Fatalf("len(commands) = %d, want 1", len(commands))
 	}
-	if commands[0].Name != "help" || !reflect.DeepEqual(commands[0].Aliases, []string{"commands", "help"}) || commands[0].CommandSource != CommandSourceManifest {
+	if commands[0].Name != "订阅状态" || !reflect.DeepEqual(commands[0].Aliases, []string{"状态？", "订阅📡"}) || commands[0].CommandSource != CommandSourceManifest {
 		t.Fatalf("unexpected manifest command projection: %#v", commands[0])
 	}
 }

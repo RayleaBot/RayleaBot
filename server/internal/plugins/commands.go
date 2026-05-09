@@ -17,7 +17,7 @@ func ProjectCommands(snapshot Snapshot, settings map[string]any) []Command {
 		normalized.CommandSource = CommandSourceManifest
 		normalized.DeclarationID = ""
 		normalized.Name = strings.TrimSpace(normalized.Name)
-		normalized.Aliases = normalizeDynamicCommandTokens(normalized.Aliases)
+		normalized.Aliases = normalizeStaticCommandTokens(normalized.Aliases)
 		if normalized.Name == "" {
 			continue
 		}
@@ -47,6 +47,28 @@ func ProjectCommands(snapshot Snapshot, settings map[string]any) []Command {
 			CommandSource: CommandSourceDynamic,
 			DeclarationID: strings.TrimSpace(declaration.ID),
 		})
+	}
+	return items
+}
+
+func normalizeStaticCommandTokens(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	items := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		token := strings.TrimSpace(value)
+		if !validStaticCommandToken(token) {
+			continue
+		}
+		key := strings.ToLower(token)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		items = append(items, token)
 	}
 	return items
 }
@@ -102,6 +124,10 @@ func normalizeDynamicCommandTokens(values []string) []string {
 }
 
 func validDynamicCommandToken(token string) bool {
+	return validStaticCommandToken(token)
+}
+
+func validStaticCommandToken(token string) bool {
 	if token == "" {
 		return false
 	}

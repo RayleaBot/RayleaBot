@@ -10,7 +10,7 @@ PLUGIN_DIR = os.path.dirname(__file__)
 sys.path.insert(0, PLUGIN_DIR)
 sys.path.insert(0, os.path.join(PLUGIN_DIR, "..", "..", "..", "sdk", "python"))
 
-from rayleabot import RayleaBotPlugin, event_handler
+from rayleabot import RayleaBotPlugin, command, event_handler
 
 from bilibili import (
     DYNAMIC_URL,
@@ -45,7 +45,7 @@ def storage_value(result, fallback=None):
 class SubscriptionHubPlugin(RayleaBotPlugin):
     def __init__(self):
         super().__init__()
-        self.subscribe("scheduler.trigger", "config.changed")
+        self.subscribe("message.group", "message.private", "scheduler.trigger", "config.changed")
         self._default_settings = load_default_settings()
         self._settings = copy.deepcopy(self._default_settings)
         self._settings_loaded = False
@@ -68,6 +68,12 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
             ctx.logger_write(level, message, fields or {})
         except Exception:
             pass
+
+    @command("订阅状态")
+    def handle_status_command(self, ctx):
+        settings = self.load_settings(ctx)
+        ctx.send_text(build_status_text(settings))
+        ctx.send_result({"handled": True})
 
     @event_handler("config.changed")
     def handle_config_changed(self, ctx):
@@ -202,6 +208,20 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
 def service_enabled(subscription, service):
     services = set(subscription.get("services") or ["all"])
     return "all" in services or service in services
+
+
+def build_status_text(settings):
+    tokens = settings.get("tokens") or []
+    subscriptions = settings.get("subscriptions") or []
+    enabled_tokens = sum(1 for item in tokens if item.get("enabled", True))
+    enabled_subscriptions = sum(1 for item in subscriptions if item.get("enabled", True))
+    return "\n".join([
+        "订阅中心",
+        f"状态：{'启用' if settings.get('enabled', True) else '停用'}",
+        f"订阅：{enabled_subscriptions}/{len(subscriptions)}",
+        f"Token：{enabled_tokens}/{len(tokens)}",
+        f"轮询：{settings.get('poll_cron') or '*/5 * * * *'}",
+    ])
 
 
 if __name__ == "__main__":

@@ -52,5 +52,13 @@
       ]
     }
   },
+  "commands": [
+    {
+      "name": "订阅状态",
+      "description": "查看订阅中心状态",
+      "usage": "/订阅状态",
+      "permission": "everyone"
+    }
+  ],
   "default_config_file": "default_config.json"
 }
