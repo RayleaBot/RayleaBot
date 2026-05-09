@@ -91,6 +91,7 @@ type Action struct {
 	LogMessage              string
 	LogFields               map[string]any
 	ConfigKeys              []string
+	PluginListVisibility    string
 	SecretKey               string
 	ConfigValues            map[string]any
 	GovernanceOperation     string

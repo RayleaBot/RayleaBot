@@ -8,8 +8,9 @@ frames:
     request_id: local_plugin_list_0001
     parent_request_id: event_help_0001
     action: plugin.list
-    data: {}
+    data:
+      visibility: caller
 expect:
   valid: true
   notes:
-    - plugin.list reads the current installed plugin catalog through the local action channel.
+    - plugin.list supports caller visibility for permission-filtered help and discovery flows.

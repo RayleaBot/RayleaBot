@@ -130,6 +130,174 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 	}
 }
 
+func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		config    config.Config
+		event     runtime.Event
+		wantNames []string
+	}{
+		{
+			name: "member sees everyone commands",
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+			},
+			event:     pluginListCallerEvent("1001", "member", "group"),
+			wantNames: []string{"public", "defaulted"},
+		},
+		{
+			name: "admin sees group admin commands",
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+			},
+			event:     pluginListCallerEvent("1002", "admin", "group"),
+			wantNames: []string{"public", "admin", "defaulted"},
+		},
+		{
+			name: "owner sees group admin commands",
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+			},
+			event:     pluginListCallerEvent("1003", "owner", "group"),
+			wantNames: []string{"public", "admin", "defaulted"},
+		},
+		{
+			name: "super admin sees all commands",
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+			},
+			event:     pluginListCallerEvent("9001", "member", "private"),
+			wantNames: []string{"public", "admin", "super", "defaulted"},
+		},
+		{
+			name: "default permission applies to undeclared commands",
+			config: config.Config{
+				Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
+			},
+			event:     pluginListCallerEvent("1004", "member", "group"),
+			wantNames: []string{"public"},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			application := newPluginListVisibilityTestApp(tc.config)
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.help", "req_local_plugin_list_visibility", runtime.Action{
+				Kind:                 "plugin.list",
+				PluginListVisibility: "caller",
+			}, tc.event)
+			if err != nil {
+				t.Fatalf("plugin.list failed: %v", err)
+			}
+
+			gotNames := pluginListCommandNamesForPlugin(t, result, "raylea.tools")
+			if strings.Join(gotNames, ",") != strings.Join(tc.wantNames, ",") {
+				t.Fatalf("visible commands = %#v, want %#v", gotNames, tc.wantNames)
+			}
+		})
+	}
+}
+
+func newPluginListVisibilityTestApp(cfg config.Config) *App {
+	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{
+		{
+			PluginID:            "raylea.help",
+			Name:                "Help",
+			SourceRoot:          "plugins/builtin",
+			Valid:               true,
+			RegistrationState:   "installed",
+			DesiredState:        "enabled",
+			RuntimeState:        "running",
+			RequiredPermissions: []string{"plugin.list"},
+		},
+		{
+			PluginID:          "raylea.tools",
+			Name:              "Tools",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{
+				{Name: "public", Permission: "everyone", CommandSource: plugins.CommandSourceManifest},
+				{Name: "admin", Permission: "group_admin", CommandSource: plugins.CommandSourceManifest},
+				{Name: "super", Permission: "super_admin", CommandSource: plugins.CommandSourceManifest},
+				{Name: "defaulted", CommandSource: plugins.CommandSourceManifest},
+			},
+		},
+	})
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	return application
+}
+
+func pluginListCallerEvent(actorID, actorRole, targetType string) runtime.Event {
+	event := runtime.Event{
+		EventID:        "event-help-visibility",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "test",
+		EventType:      "message." + targetType,
+		Timestamp:      time.Now().Unix(),
+		Actor: &runtime.EventActor{
+			ID:   actorID,
+			Role: actorRole,
+		},
+		Target: &runtime.EventTarget{
+			Type: targetType,
+			ID:   actorID,
+		},
+	}
+	if targetType == "group" {
+		event.Target.ID = "2001"
+	}
+	return event
+}
+
+func pluginListCommandNamesForPlugin(t *testing.T, result map[string]any, pluginID string) []string {
+	t.Helper()
+
+	items, ok := result["items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("unexpected plugin list items: %#v", result["items"])
+	}
+	for _, item := range items {
+		if item["id"] != pluginID {
+			continue
+		}
+		commands, ok := item["commands"].([]map[string]any)
+		if !ok {
+			t.Fatalf("unexpected commands for %s: %#v", pluginID, item["commands"])
+		}
+		names := make([]string, 0, len(commands))
+		for _, command := range commands {
+			name, _ := command["name"].(string)
+			names = append(names, name)
+		}
+		return names
+	}
+	t.Fatalf("plugin %s not found in result: %#v", pluginID, result)
+	return nil
+}
+
 func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 	t.Parallel()
 

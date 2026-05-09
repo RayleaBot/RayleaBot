@@ -134,7 +134,7 @@
 
 OneBot 单动作 capability 名称与 action kind 保持一致，provider capability 只包含上面三项正式扩展动作。
 
-- `plugin.list` 返回当前已发现插件的只读目录，包括插件状态、命令列表和命令冲突信息。
+- `plugin.list` 返回当前已发现插件的只读目录，包括插件状态、命令列表和命令冲突信息。`data.visibility` 默认为 `catalog`，返回完整目录；`caller` 按父事件调用者权限返回可见指令。
 - `governance.blacklist.read` 与 `governance.whitelist.read` 返回当前治理快照。
 - `governance.blacklist.write` 支持单条黑名单 `upsert` 与 `delete`。
 - `governance.whitelist.write` 支持白名单开关 `set_enabled`，以及单条白名单 `upsert` 与 `delete`。

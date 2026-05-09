@@ -167,6 +167,10 @@ type protocolActionConfigReadFrame struct {
 	Keys []string `json:"keys"`
 }
 
+type protocolActionPluginListFrame struct {
+	Visibility string `json:"visibility,omitempty"`
+}
+
 type protocolActionSecretReadFrame struct {
 	Key string `json:"key"`
 }

@@ -524,13 +524,16 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
-    def plugin_list(self, request_id, timeout_seconds=30):
+    def plugin_list(self, request_id, visibility=None, timeout_seconds=30):
         """List installed plugins through plugin.list."""
+        data = {}
+        if visibility is not None:
+            data["visibility"] = visibility
         return protocol.request_local_action(
             self._plugin_id,
             request_id,
             "plugin.list",
-            {},
+            data,
             timeout_seconds=timeout_seconds,
         )
 

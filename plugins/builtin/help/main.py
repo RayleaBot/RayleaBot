@@ -250,7 +250,7 @@ class HelpPlugin(RayleaBotPlugin):
 
     def visible_plugins(self, request_id):
         prefix = self.primary_command_prefix or "/"
-        response = self.plugin_list(request_id)
+        response = self.plugin_list(request_id, visibility="caller")
         items = []
         for item in response.get("items", []):
             normalized = normalize_plugin_item(item, prefix)

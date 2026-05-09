@@ -961,6 +961,32 @@ func TestParseConfigReadAction(t *testing.T) {
 	}
 }
 
+func TestParsePluginListActionVisibility(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := parsePluginListAction(json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("parsePluginListAction catalog: %v", err)
+	}
+	if catalog.Kind != "plugin.list" || catalog.PluginListVisibility != "catalog" {
+		t.Fatalf("unexpected plugin.list catalog action: %#v", catalog)
+	}
+
+	caller, err := parsePluginListAction(json.RawMessage(`{"visibility":"caller"}`))
+	if err != nil {
+		t.Fatalf("parsePluginListAction caller: %v", err)
+	}
+	if caller.PluginListVisibility != "caller" {
+		t.Fatalf("unexpected plugin.list caller action: %#v", caller)
+	}
+
+	_, err = parsePluginListAction(json.RawMessage(`{"visibility":"invalid"}`))
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+
+	_, err = parsePluginListAction(json.RawMessage(`{"visibility":"caller","extra":true}`))
+	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+}
+
 func TestParseSecretReadAction(t *testing.T) {
 	t.Parallel()
 

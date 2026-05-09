@@ -161,10 +161,31 @@ func parseConfigReadAction(raw json.RawMessage) (*Action, error) {
 }
 
 func parsePluginListAction(raw json.RawMessage) (*Action, error) {
-	if err := parseEmptyObjectAction(raw, "plugin.list"); err != nil {
-		return nil, err
+	var frame protocolActionPluginListFrame
+	payload := map[string]json.RawMessage{}
+	if len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &frame); err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin returned malformed plugin.list data", err)
+		}
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin returned malformed plugin.list data", err)
+		}
 	}
-	return &Action{Kind: "plugin.list"}, nil
+	for key := range payload {
+		if key != "visibility" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid plugin.list data", nil)
+		}
+	}
+
+	visibility := strings.TrimSpace(frame.Visibility)
+	switch visibility {
+	case "", "catalog":
+		visibility = "catalog"
+	case "caller":
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid plugin.list visibility", nil)
+	}
+	return &Action{Kind: "plugin.list", PluginListVisibility: visibility}, nil
 }
 
 func parseSecretReadAction(raw json.RawMessage) (*Action, error) {

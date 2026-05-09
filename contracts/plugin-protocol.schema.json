@@ -2152,7 +2152,17 @@
     "action_plugin_list_data": {
       "type": "object",
       "additionalProperties": false,
-      "maxProperties": 0
+      "properties": {
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "catalog",
+            "caller"
+          ],
+          "default": "catalog",
+          "description": "Catalog returns the full plugin command catalog. Caller returns commands visible to the parent event actor."
+        }
+      }
     },
     "action_config_read": {
       "allOf": [

@@ -131,7 +131,7 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 	case "config.read":
 		return s.executeConfigRead(ctx, pluginID, action)
 	case "plugin.list":
-		return s.executePluginList(ctx, pluginID)
+		return s.executePluginList(ctx, pluginID, action, parentEvent)
 	case "secret.read":
 		return s.executeSecretRead(ctx, pluginID, action)
 	case "config.write":
