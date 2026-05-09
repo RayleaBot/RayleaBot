@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "poll_cron": "*/5 * * * *",
+  "poll_timeout_seconds": 12,
+  "max_updates_per_poll": 6,
+  "tokens": [],
+  "subscriptions": []
+}

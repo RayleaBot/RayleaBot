@@ -412,6 +412,8 @@ jobs:
               'action_render_image_data',
               'action_scheduler_create',
               'action_scheduler_create_data',
+              'action_secret_read',
+              'action_secret_read_data',
               'action_storage_file',
               'action_storage_file_delete_data',
               'action_storage_file_list_data',
@@ -494,6 +496,7 @@ jobs:
               'action_provider_extension',
               'action_render_image',
               'action_scheduler_create',
+              'action_secret_read',
               'action_storage_file',
               'action_storage_kv',
           }
@@ -697,6 +700,7 @@ jobs:
               '/api/plugins/{plugin_id}/grants',
               '/api/plugins/{plugin_id}/grants/{capability}',
               '/api/plugins/{plugin_id}/settings',
+              '/api/plugins/{plugin_id}/secrets',
               '/api/plugins/install',
               '/api/webhooks/{plugin_id}/{route}',
           }

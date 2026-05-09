@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>订阅设置</title>
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <div>
+          <h1 id="page-title">订阅设置</h1>
+          <p id="page-subtitle">管理 Bilibili 订阅、轮询和 token</p>
+        </div>
+        <div class="status-pill" id="status-text">正在等待宿主初始化</div>
+      </header>
+
+      <section class="settings-grid">
+        <label class="switch panel">
+          <input id="enabled-input" type="checkbox" />
+          <span>启用订阅轮询</span>
+        </label>
+        <label class="panel">
+          <span>轮询 Cron</span>
+          <input id="poll-cron-input" type="text" placeholder="*/5 * * * *" />
+        </label>
+        <label class="panel">
+          <span>请求超时秒数</span>
+          <input id="poll-timeout-input" type="number" min="5" max="60" />
+        </label>
+        <label class="panel">
+          <span>单轮最多推送</span>
+          <input id="max-updates-input" type="number" min="1" max="20" />
+        </label>
+      </section>
+
+      <section class="editor-grid">
+        <div class="panel panel--wide">
+          <div class="section-title">
+            <h2>Bilibili Tokens</h2>
+            <p>每行一个 JSON 对象，secret_value 为明文 token。</p>
+          </div>
+          <textarea id="tokens-input" class="code-input" rows="10" spellcheck="false"></textarea>
+        </div>
+
+        <div class="panel panel--wide">
+          <div class="section-title">
+            <h2>订阅列表</h2>
+            <p>services 支持 live、video、image_text、article、repost、all。</p>
+          </div>
+          <textarea id="subscriptions-input" class="code-input" rows="14" spellcheck="false"></textarea>
+        </div>
+      </section>
+
+      <footer class="actions">
+        <button type="button" id="reload-button" class="button">重新载入</button>
+        <button type="button" id="reset-button" class="button">恢复默认</button>
+        <button type="button" id="save-button" class="button button--primary">保存设置</button>
+      </footer>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -218,6 +218,7 @@ func New(options Options) (*App, error) {
 		PluginConfig:     pluginState.pluginConfig,
 		PluginFiles:      pluginState.pluginFiles,
 		PluginKV:         pluginState.pluginKV,
+		Secrets:          platformState.Secrets,
 		Scheduler:        platformState.Scheduler,
 		Dispatcher:       pluginState.Dispatcher,
 		Renderer:         pluginState.renderer,
@@ -407,6 +408,7 @@ func New(options Options) (*App, error) {
 	pluginManagementUIHandler := pluginui.NewHandlers(pluginui.Deps{
 		Plugins:            pluginState.Plugins,
 		PluginConfig:       pluginState.pluginConfig,
+		Secrets:            platformState.Secrets,
 		NotifyConfigChange: localActions.DispatchPluginConfigChanged,
 		RefreshCommands: func(ctx context.Context, pluginID string, settings map[string]any) {
 			applicationRefreshPluginCommands(pluginState.Plugins, pluginState.Dispatcher, pluginID, settings)

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["title", "platform", "service", "subscription"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "service": {
+      "type": "string"
+    },
+    "author": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "subscription": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "subscribers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "subscriber_text": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

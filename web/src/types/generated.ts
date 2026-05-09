@@ -767,6 +767,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plugins/{plugin_id}/secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query plugin-owned secret values for a protected management page. */
+        get: operations["getPluginSecrets"];
+        /** Save or delete plugin-owned secret values. */
+        put: operations["updatePluginSecrets"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins/{plugin_id}": {
         parameters: {
             query?: never;
@@ -1359,6 +1377,22 @@ export interface components {
             values: {
                 [key: string]: unknown;
             };
+        };
+        PluginSecretValues: {
+            [key: string]: string;
+        };
+        PluginSecretsResponse: {
+            plugin_id: string;
+            values: components["schemas"]["PluginSecretValues"];
+        };
+        PluginSecretsUpdateRequest: {
+            values: components["schemas"]["PluginSecretValues"];
+            deleted_keys?: string[];
+        };
+        PluginSecretsUpdateResponse: {
+            plugin_id: string;
+            changed_keys: string[];
+            values: components["schemas"]["PluginSecretValues"];
         };
         PluginGrantRequest: {
             capability: string;
@@ -2831,6 +2865,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PluginSettingsUpdateResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getPluginSecrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current plugin-owned secret values. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSecretsResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePluginSecrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginSecretsUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Plugin-owned secrets saved and echoed back with changed keys. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSecretsUpdateResponse"];
                 };
             };
             400: components["responses"]["Error"];

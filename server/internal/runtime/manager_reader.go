@@ -194,6 +194,8 @@ func (m *Manager) parseLocalActionFrameLocked(handle *processHandle, line []byte
 		action, parseErr = parseConfigReadAction(frame.Data)
 	case "plugin.list":
 		action, parseErr = parsePluginListAction(frame.Data)
+	case "secret.read":
+		action, parseErr = parseSecretReadAction(frame.Data)
 	case "config.write":
 		action, parseErr = parseConfigWriteAction(frame.Data)
 	case "governance.blacklist.read":

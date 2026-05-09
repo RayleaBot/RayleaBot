@@ -80,6 +80,10 @@ describe('PluginManagementUIHost', () => {
         unit: 'fahrenheit',
       },
     })
+    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {},
+    })
 
     const wrapper = mount(PluginManagementUIHost, {
       props: {
@@ -138,12 +142,32 @@ describe('PluginManagementUIHost', () => {
           unit: 'celsius',
         },
       })
+    const fetchSecretsSpy = vi.spyOn(pluginsStore, 'fetchSecrets')
+      .mockResolvedValueOnce({
+        plugin_id: 'example-config-panel',
+        values: {
+          api_token: 'secret-one',
+        },
+      })
+      .mockResolvedValueOnce({
+        plugin_id: 'example-config-panel',
+        values: {
+          api_token: 'secret-two',
+        },
+      })
     const updateSettingsSpy = vi.spyOn(pluginsStore, 'updateSettings').mockResolvedValue({
       plugin_id: 'example-config-panel',
       changed_keys: ['default_city', 'unit'],
       values: {
         default_city: '深圳',
         unit: 'fahrenheit',
+      },
+    })
+    const updateSecretsSpy = vi.spyOn(pluginsStore, 'updateSecrets').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      changed_keys: ['api_token'],
+      values: {
+        api_token: 'secret-three',
       },
     })
     const fetchDetailSpy = vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(plugin as never)
@@ -180,6 +204,7 @@ describe('PluginManagementUIHost', () => {
     await flushPromises()
 
     expect(fetchSettingsSpy).toHaveBeenCalledTimes(1)
+    expect(fetchSecretsSpy).toHaveBeenCalledTimes(1)
     expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toMatchObject({
       version: '1',
       source: 'management_host',
@@ -195,6 +220,9 @@ describe('PluginManagementUIHost', () => {
         settings: {
           default_city: '上海',
           unit: 'fahrenheit',
+        },
+        secrets: {
+          api_token: 'secret-one',
         },
       },
     })
@@ -255,6 +283,58 @@ describe('PluginManagementUIHost', () => {
         },
       },
     })
+
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'secrets.reload',
+      request_id: 'req-secrets-reload',
+    })
+    await flushPromises()
+
+    expect(fetchSecretsSpy).toHaveBeenCalledTimes(2)
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[3]?.[0]).toMatchObject({
+      version: '1',
+      source: 'management_host',
+      type: 'secrets.changed',
+      request_id: 'req-secrets-reload',
+      payload: {
+        changed_keys: [],
+        values: {
+          api_token: 'secret-two',
+        },
+      },
+    })
+
+    dispatchBridgeMessage(frameWindow, {
+      version: '1',
+      source: 'plugin_management_ui',
+      type: 'secrets.save',
+      request_id: 'req-secrets-save',
+      payload: {
+        values: {
+          api_token: 'secret-three',
+        },
+        deleted_keys: ['api_token_old'],
+      },
+    })
+    await flushPromises()
+
+    expect(updateSecretsSpy).toHaveBeenCalledWith('example-config-panel', {
+      api_token: 'secret-three',
+    }, ['api_token_old'])
+    expect((frameWindow.postMessage as ReturnType<typeof vi.fn>).mock.calls[4]?.[0]).toMatchObject({
+      version: '1',
+      source: 'management_host',
+      type: 'secrets.changed',
+      request_id: 'req-secrets-save',
+      payload: {
+        changed_keys: ['api_token'],
+        values: {
+          api_token: 'secret-three',
+        },
+      },
+    })
   })
 
   it('does not restart the iframe when unrelated plugin detail fields change', async () => {
@@ -278,6 +358,10 @@ describe('PluginManagementUIHost', () => {
         default_city: '上海',
         unit: 'fahrenheit',
       },
+    })
+    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {},
     })
 
     const wrapper = mount(PluginManagementUIHost, {
@@ -324,6 +408,10 @@ describe('PluginManagementUIHost', () => {
         default_city: '上海',
         unit: 'fahrenheit',
       },
+    })
+    vi.spyOn(pluginsStore, 'fetchSecrets').mockResolvedValue({
+      plugin_id: 'example-config-panel',
+      values: {},
     })
 
     const wrapper = mount(PluginManagementUIHost, {

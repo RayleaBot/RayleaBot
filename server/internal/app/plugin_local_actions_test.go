@@ -25,6 +25,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -127,6 +128,111 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 	if echoCommands[0]["name"] != "echo" || echoCommands[0]["command_source"] != "manifest" {
 		t.Fatalf("unexpected echo command projection: %#v", echoCommands[0])
 	}
+}
+
+func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
+	t.Parallel()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	secretStore, err := secrets.NewSQLiteStore(store)
+	if err != nil {
+		t.Fatalf("secrets.NewSQLiteStore: %v", err)
+	}
+	sealedPrimary, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=fixture")
+	if err != nil {
+		t.Fatalf("secrets.SealString primary: %v", err)
+	}
+	if err := secretStore.Set(context.Background(), "plugin:subscription-hub:secret:bili_token_primary", sealedPrimary); err != nil {
+		t.Fatalf("secretStore.Set: %v", err)
+	}
+	sealedOther, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=other")
+	if err != nil {
+		t.Fatalf("secrets.SealString other: %v", err)
+	}
+	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:bili_token_primary", sealedOther); err != nil {
+		t.Fatalf("secretStore.Set other: %v", err)
+	}
+
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.plugins = plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:            "subscription-hub",
+		Valid:               true,
+		RegistrationState:   "installed",
+		RequiredPermissions: []string{"secret.read"},
+	}})
+	application.secrets = secretStore
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{
+			"subscription-hub": {{
+				PluginID:   "subscription-hub",
+				Capability: "secret.read",
+			}},
+		}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	result, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_1", runtime.Action{
+		Kind:      "secret.read",
+		SecretKey: "bili_token_primary",
+	})
+	if err != nil {
+		t.Fatalf("secret.read failed: %v", err)
+	}
+	if result["exists"] != true || result["value"] != "SESSDATA=fixture" {
+		t.Fatalf("unexpected secret.read result: %#v", result)
+	}
+
+	missing, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_2", runtime.Action{
+		Kind:      "secret.read",
+		SecretKey: "missing",
+	})
+	if err != nil {
+		t.Fatalf("secret.read missing failed: %v", err)
+	}
+	if missing["exists"] != false {
+		t.Fatalf("unexpected missing result: %#v", missing)
+	}
+}
+
+func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
+	t.Parallel()
+
+	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.setTestLocalActions(
+		&stubLifecycleGrantRepository{grants: map[string][]plugins.PluginGrant{
+			"subscription-hub": {{
+				PluginID:   "subscription-hub",
+				Capability: "secret.read",
+			}},
+		}},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_invalid", runtime.Action{
+		Kind:      "secret.read",
+		SecretKey: "Bad Key",
+	})
+	assertRuntimeErrorCode(t, err, "plugin.protocol_violation")
 }
 
 func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {

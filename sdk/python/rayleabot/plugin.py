@@ -534,6 +534,18 @@ class RayleaBotPlugin:
             timeout_seconds=timeout_seconds,
         )
 
+    def secret_read(self, request_id, key, timeout_seconds=30):
+        """Read one plugin-owned secret value through secret.read."""
+        if not key:
+            raise ValueError("secret_read requires key")
+        return protocol.request_local_action(
+            self._plugin_id,
+            request_id,
+            "secret.read",
+            {"key": key},
+            timeout_seconds=timeout_seconds,
+        )
+
     def onebot_action(self, request_id, action, data=None, timeout_seconds=30):
         """Call one frozen OneBot family action through the shared local action path."""
         return protocol.request_local_action(
@@ -779,6 +791,7 @@ class RayleaBotPlugin:
     exposeWebhook = expose_webhook
     renderImage = render_image
     pluginList = plugin_list
+    secretRead = secret_read
     onebotAction = onebot_action
     providerAction = provider_action
     messageGet = message_get

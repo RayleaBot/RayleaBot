@@ -1,0 +1,142 @@
+:root {
+  --bg: oklch(18% 0.024 250);
+  --surface: oklch(24% 0.026 250);
+  --surface-soft: oklch(30% 0.022 250);
+  --border: oklch(39% 0.025 250);
+  --text: oklch(96% 0.012 90);
+  --muted: oklch(72% 0.025 250);
+  --accent: oklch(73% 0.14 355);
+  --accent-soft: oklch(73% 0.14 355 / 0.16);
+  font-family: "HarmonyOS Sans SC", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.surface {
+  display: grid;
+  gap: 22px;
+  width: 900px;
+  height: 560px;
+  padding: 40px;
+  background: linear-gradient(145deg, oklch(22% 0.03 250), oklch(17% 0.022 250));
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: start;
+}
+
+.eyebrow,
+.label {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+h1 {
+  margin: 8px 0 0;
+  max-width: 680px;
+  font-size: 38px;
+  line-height: 1.16;
+  overflow-wrap: anywhere;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.badge {
+  padding: 8px 12px;
+  border: 1px solid oklch(73% 0.14 355 / 0.38);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.author-card,
+.summary,
+.meta-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.author-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+}
+
+.avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.value {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.summary {
+  padding: 18px;
+}
+
+.summary p {
+  margin: 8px 0 0;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.meta-item {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 14px;
+  min-height: 96px;
+}
+
+.meta-item strong {
+  min-width: 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.meta-item span:last-child {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.footer {
+  align-self: end;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}

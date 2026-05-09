@@ -23,6 +23,7 @@ interface PluginManagementUIHostInitPayload {
   }
   default_config: Record<string, unknown>
   settings: Record<string, unknown>
+  secrets: Record<string, string>
   title: string
 }
 
@@ -48,6 +49,24 @@ type PluginManagementUIInboundMessage =
       values: PluginSettingsUpdateRequest['values']
     }
   }
+  | {
+    version: '1'
+    source: 'plugin_management_ui'
+    type: 'secrets.reload'
+    request_id?: string
+  }
+  | {
+    version: '1'
+    source: 'plugin_management_ui'
+    type: 'secrets.save'
+    request_id?: string
+    payload: {
+      values: Record<string, string>
+      deleted_keys?: string[]
+    }
+  }
+
+const pluginSecretKeyPattern = /^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$/
 
 const props = defineProps<{
   plugin: PluginDetail
@@ -75,12 +94,14 @@ const busy = computed(() => (
   waitingForReady.value
   || Boolean(pluginsStore.settingsLoading[props.plugin.id])
   || Boolean(pluginsStore.settingsSaving[props.plugin.id])
+  || Boolean(pluginsStore.secretsLoading[props.plugin.id])
+  || Boolean(pluginsStore.secretsSaving[props.plugin.id])
 ))
 const busyLabel = computed(() => {
-  if (pluginsStore.settingsSaving[props.plugin.id]) {
+  if (pluginsStore.settingsSaving[props.plugin.id] || pluginsStore.secretsSaving[props.plugin.id]) {
     return t('plugins.managementUi.saving')
   }
-  if (waitingForReady.value || pluginsStore.settingsLoading[props.plugin.id]) {
+  if (waitingForReady.value || pluginsStore.settingsLoading[props.plugin.id] || pluginsStore.secretsLoading[props.plugin.id]) {
     return t('plugins.managementUi.loading')
   }
   return ''
@@ -196,6 +217,22 @@ function toRecord(value: unknown) {
     : null
 }
 
+function toStringRecord(value: unknown) {
+  const record = toRecord(value)
+  if (!record) {
+    return null
+  }
+
+  const result: Record<string, string> = {}
+  for (const [key, rawValue] of Object.entries(record)) {
+    if (!pluginSecretKeyPattern.test(key) || typeof rawValue !== 'string') {
+      return null
+    }
+    result[key] = rawValue
+  }
+  return result
+}
+
 function toBridgeValue<T>(value: T): T {
   if (value === undefined) {
     return value
@@ -246,6 +283,34 @@ function parseInboundBridgeMessage(value: unknown): PluginManagementUIInboundMes
         },
       }
     }
+    case 'secrets.reload':
+      return {
+        version: '1',
+        source: 'plugin_management_ui',
+        type: 'secrets.reload',
+        request_id: requestId,
+      }
+    case 'secrets.save': {
+      const payload = toRecord(record.payload)
+      const values = toStringRecord(payload?.values)
+      if (!values) {
+        return null
+      }
+      const deletedKeys = Array.isArray(payload?.deleted_keys)
+        ? payload.deleted_keys.filter((item): item is string => typeof item === 'string' && pluginSecretKeyPattern.test(item))
+        : undefined
+
+      return {
+        version: '1',
+        source: 'plugin_management_ui',
+        type: 'secrets.save',
+        request_id: requestId,
+        payload: {
+          values,
+          deleted_keys: deletedKeys,
+        },
+      }
+    }
     default:
       return null
   }
@@ -278,7 +343,7 @@ function postBridgeError(message: string, options: { code?: string; requestId?: 
   })
 }
 
-function postHostInit(settings: Record<string, unknown>, requestId?: string) {
+function postHostInit(settings: Record<string, unknown>, secrets: Record<string, string>, requestId?: string) {
   const payload: PluginManagementUIHostInitPayload = {
     plugin_id: props.plugin.id,
     plugin: {
@@ -293,6 +358,7 @@ function postHostInit(settings: Record<string, unknown>, requestId?: string) {
     },
     default_config: toBridgeValue(toRecord(props.plugin.default_config) ?? {}),
     settings: toBridgeValue(settings),
+    secrets: toBridgeValue(secrets),
     title: props.title,
   }
 
@@ -318,6 +384,19 @@ function postSettingsChanged(values: Record<string, unknown>, changedKeys: strin
   })
 }
 
+function postSecretsChanged(values: Record<string, string>, changedKeys: string[], requestId?: string) {
+  return postMessageToIframe({
+    version: '1',
+    source: 'management_host',
+    type: 'secrets.changed',
+    request_id: requestId ?? nextBridgeRequestId('secrets-changed'),
+    payload: {
+      values: toBridgeValue(values),
+      changed_keys: toBridgeValue(changedKeys),
+    },
+  })
+}
+
 async function initializeFrame(requestId?: string) {
   const currentToken = bridgeToken
   if (initStartedForBridgeToken === currentToken) {
@@ -326,12 +405,15 @@ async function initializeFrame(requestId?: string) {
   initStartedForBridgeToken = currentToken
 
   try {
-    const response = await pluginsStore.fetchSettings(props.plugin.id)
+    const [settingsResponse, secretsResponse] = await Promise.all([
+      pluginsStore.fetchSettings(props.plugin.id),
+      pluginsStore.fetchSecrets(props.plugin.id),
+    ])
     if (currentToken !== bridgeToken) {
       return
     }
 
-    const posted = postHostInit(response.values, requestId)
+    const posted = postHostInit(settingsResponse.values, secretsResponse.values, requestId)
     if (!posted) {
       initStartedForBridgeToken = 0
       waitingForReady.value = true
@@ -440,6 +522,54 @@ async function saveSettings(values: PluginSettingsUpdateRequest['values'], reque
   }
 }
 
+async function reloadSecrets(requestId?: string) {
+  const currentToken = bridgeToken
+
+  try {
+    const response = await pluginsStore.fetchSecrets(props.plugin.id)
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = null
+    postSecretsChanged(response.values, [], requestId)
+  } catch (error) {
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = getDisplayErrorMessage(error, 'errors.common.loadFailed')
+    postBridgeError(actionError.value, {
+      code: error instanceof ApiError ? error.code : undefined,
+      requestId,
+    })
+  }
+}
+
+async function saveSecrets(values: Record<string, string>, deletedKeys: string[] = [], requestId?: string) {
+  const currentToken = bridgeToken
+
+  try {
+    const response = await pluginsStore.updateSecrets(props.plugin.id, values, deletedKeys)
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = null
+    postSecretsChanged(response.values, response.changed_keys, requestId)
+  } catch (error) {
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = getDisplayErrorMessage(error)
+    postBridgeError(actionError.value, {
+      code: error instanceof ApiError ? error.code : undefined,
+      requestId,
+    })
+  }
+}
+
 function acceptUnverifiedSource() {
   rememberConfirmation()
   confirmed.value = true
@@ -485,6 +615,12 @@ function handleBridgeMessage(event: MessageEvent) {
       return
     case 'settings.save':
       void saveSettings(message.payload.values, message.request_id)
+      return
+    case 'secrets.reload':
+      void reloadSecrets(message.request_id)
+      return
+    case 'secrets.save':
+      void saveSecrets(message.payload.values, message.payload.deleted_keys ?? [], message.request_id)
       return
   }
 }

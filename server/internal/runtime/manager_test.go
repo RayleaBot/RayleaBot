@@ -961,6 +961,20 @@ func TestParseConfigReadAction(t *testing.T) {
 	}
 }
 
+func TestParseSecretReadAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseSecretReadAction(json.RawMessage(`{
+		"key": "bili_token_primary"
+	}`))
+	if err != nil {
+		t.Fatalf("parseSecretReadAction: %v", err)
+	}
+	if action.Kind != "secret.read" || action.SecretKey != "bili_token_primary" {
+		t.Fatalf("unexpected secret.read action: %#v", action)
+	}
+}
+
 func TestParseConfigWriteAction(t *testing.T) {
 	t.Parallel()
 

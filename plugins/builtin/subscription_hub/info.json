@@ -1,0 +1,56 @@
+{
+  "id": "raylea.subscription-hub",
+  "name": "订阅中心",
+  "version": "0.1.0",
+  "manifest_version": "1",
+  "plugin_protocol_version": "1",
+  "type": "managed_runtime",
+  "runtime": "python",
+  "entry": "main.py",
+  "license": "MIT",
+  "description": "订阅平台内容并推送更新",
+  "author": "raylea",
+  "role": "builtin",
+  "management_ui": {
+    "entry": "web/index.html",
+    "label": "订阅设置"
+  },
+  "render_templates": [
+    {
+      "path": "templates/bilibili-update"
+    }
+  ],
+  "capabilities": [
+    "event.subscribe",
+    "message.send",
+    "render.image",
+    "storage.kv",
+    "config.read",
+    "config.write",
+    "logger.write",
+    "http.request",
+    "scheduler.create",
+    "secret.read"
+  ],
+  "permissions": {
+    "required": [
+      "message.send",
+      "render.image",
+      "storage.kv",
+      "config.read",
+      "config.write",
+      "logger.write",
+      "http.request",
+      "scheduler.create",
+      "secret.read"
+    ],
+    "optional": [],
+    "scopes": {
+      "http_hosts": [
+        "api.bilibili.com",
+        "api.live.bilibili.com"
+      ]
+    }
+  },
+  "default_config_file": "default_config.json"
+}

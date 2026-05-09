@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -226,6 +227,7 @@ func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, 
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
 		Timestamp:      time.Now().Unix(),
+		PayloadFields:  schedulerPayloadFields(job),
 	})
 	if result.Outcome != dispatch.OutcomeDelivered {
 		c.state.Logger.Warn(
@@ -237,6 +239,23 @@ func (c *pluginLifecycleController) HandleSchedulerTrigger(ctx context.Context, 
 			"error_code", result.ErrorCode,
 		)
 	}
+}
+
+func schedulerPayloadFields(job scheduler.Job) map[string]any {
+	fields := map[string]any{
+		"job_id": job.JobID,
+	}
+	if len(job.Payload) == 0 || string(job.Payload) == "null" {
+		return fields
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		return fields
+	}
+	for key, value := range payload {
+		fields[key] = value
+	}
+	return fields
 }
 
 func (c *pluginLifecycleController) broadcastBotIdentityChanged(ctx context.Context, botID string) {

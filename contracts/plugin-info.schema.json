@@ -446,7 +446,8 @@
         "scheduler.create",
         "event.expose_webhook",
         "render.image",
-        "plugin.list"
+        "plugin.list",
+        "secret.read"
       ]
     },
     "onebot_action_capability_name": {

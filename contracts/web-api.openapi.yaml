@@ -61,6 +61,8 @@ x-fixtures:
   - fixtures/web-api/ok.plugin-detail-response.management-ui.yaml
   - fixtures/web-api/ok.plugin-settings-response.yaml
   - fixtures/web-api/ok.plugin-settings-update-response.yaml
+  - fixtures/web-api/ok.plugin-secrets-response.yaml
+  - fixtures/web-api/ok.plugin-secrets-update-response.yaml
   - fixtures/web-api/ok.plugins-enable-response.yaml
   - fixtures/web-api/ok.plugins-grants-list-response.yaml
   - fixtures/web-api/ok.plugins-grant-response.yaml
@@ -1219,6 +1221,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PluginSettingsUpdateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/secrets:
+    get:
+      summary: Query plugin-owned secret values for a protected management page.
+      operationId: getPluginSecrets
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Current plugin-owned secret values.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginSecretsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      summary: Save or delete plugin-owned secret values.
+      operationId: updatePluginSecrets
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginSecretsUpdateRequest'
+      responses:
+        '200':
+          description: Plugin-owned secrets saved and echoed back with changed keys.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginSecretsUpdateResponse'
         '400':
           $ref: '#/components/responses/Error'
         '401':
@@ -2711,6 +2767,54 @@ components:
         values:
           type: object
           additionalProperties: true
+
+    PluginSecretValues:
+      type: object
+      propertyNames:
+        type: string
+        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+      additionalProperties:
+        type: string
+
+    PluginSecretsResponse:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, values]
+      properties:
+        plugin_id:
+          type: string
+        values:
+          $ref: '#/components/schemas/PluginSecretValues'
+
+    PluginSecretsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [values]
+      properties:
+        values:
+          $ref: '#/components/schemas/PluginSecretValues'
+        deleted_keys:
+          type: array
+          items:
+            type: string
+            pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+          uniqueItems: true
+
+    PluginSecretsUpdateResponse:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, changed_keys, values]
+      properties:
+        plugin_id:
+          type: string
+        changed_keys:
+          type: array
+          items:
+            type: string
+            pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
+          uniqueItems: true
+        values:
+          $ref: '#/components/schemas/PluginSecretValues'
 
     PluginGrantRequest:
       type: object

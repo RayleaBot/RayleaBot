@@ -167,6 +167,19 @@ func parsePluginListAction(raw json.RawMessage) (*Action, error) {
 	return &Action{Kind: "plugin.list"}, nil
 }
 
+func parseSecretReadAction(raw json.RawMessage) (*Action, error) {
+	var frame protocolActionSecretReadFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed secret.read data", err)
+	}
+
+	key := strings.TrimSpace(frame.Key)
+	if key == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required secret.read fields", nil)
+	}
+	return &Action{Kind: "secret.read", SecretKey: key}, nil
+}
+
 func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
 	var frame protocolActionConfigWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {

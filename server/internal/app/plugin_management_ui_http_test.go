@@ -16,7 +16,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginui"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
 )
@@ -44,6 +46,24 @@ func openPluginSettingsRepo(t *testing.T) pluginconfig.Repository {
 		t.Fatalf("pluginconfig.NewSQLiteRepository: %v", err)
 	}
 	return repo
+}
+
+func openPluginSecretStore(t *testing.T) secrets.Store {
+	t.Helper()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+
+	secretStore, err := secrets.NewSQLiteStore(store)
+	if err != nil {
+		t.Fatalf("secrets.NewSQLiteStore: %v", err)
+	}
+	return secretStore
 }
 
 func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
@@ -280,6 +300,127 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected config.changed event")
+	}
+}
+
+func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
+	t.Parallel()
+
+	secretStore := openPluginSecretStore(t)
+	sealedPrimary, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=fixture")
+	if err != nil {
+		t.Fatalf("secrets.SealString primary: %v", err)
+	}
+	if err := secretStore.Set(context.Background(), "plugin:example-config-panel:secret:bili_token_primary", sealedPrimary); err != nil {
+		t.Fatalf("secretStore.Set: %v", err)
+	}
+	sealedOther, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=other")
+	if err != nil {
+		t.Fatalf("secrets.SealString other: %v", err)
+	}
+	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:bili_token_primary", sealedOther); err != nil {
+		t.Fatalf("secretStore.Set other: %v", err)
+	}
+
+	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
+		plugins: plugins.NewCatalog([]plugins.Snapshot{{
+			PluginID:          "example-config-panel",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "disabled",
+			RuntimeState:      "stopped",
+		}}),
+		secrets: secretStore,
+	})
+	router := chi.NewRouter()
+	router.Get("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsGet())
+	router.Put("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsPut())
+
+	getRequest := httptest.NewRequest(http.MethodGet, "/api/plugins/example-config-panel/secrets", nil)
+	getRecorder := httptest.NewRecorder()
+	router.ServeHTTP(getRecorder, getRequest)
+
+	if getRecorder.Code != http.StatusOK {
+		t.Fatalf("get status = %d, want 200; body=%s", getRecorder.Code, getRecorder.Body.String())
+	}
+
+	var getResponse pluginui.PluginSecretsResponse
+	if err := json.Unmarshal(getRecorder.Body.Bytes(), &getResponse); err != nil {
+		t.Fatalf("decode get response: %v", err)
+	}
+	if getResponse.Values["bili_token_primary"] != "SESSDATA=fixture" {
+		t.Fatalf("unexpected values: %#v", getResponse.Values)
+	}
+	if _, exists := getResponse.Values["other-plugin"]; exists {
+		t.Fatalf("unexpected cross-plugin secret: %#v", getResponse.Values)
+	}
+
+	body := bytes.NewReader([]byte(`{"values":{"bili_token_backup":"SESSDATA=backup"},"deleted_keys":["bili_token_primary"]}`))
+	putRequest := httptest.NewRequest(http.MethodPut, "/api/plugins/example-config-panel/secrets", body)
+	putRequest.Header.Set("Content-Type", "application/json")
+	putRecorder := httptest.NewRecorder()
+	router.ServeHTTP(putRecorder, putRequest)
+
+	if putRecorder.Code != http.StatusOK {
+		t.Fatalf("put status = %d, want 200; body=%s", putRecorder.Code, putRecorder.Body.String())
+	}
+
+	var putResponse pluginui.PluginSecretsUpdateResponse
+	if err := json.Unmarshal(putRecorder.Body.Bytes(), &putResponse); err != nil {
+		t.Fatalf("decode put response: %v", err)
+	}
+	if len(putResponse.ChangedKeys) != 2 || putResponse.ChangedKeys[0] != "bili_token_backup" || putResponse.ChangedKeys[1] != "bili_token_primary" {
+		t.Fatalf("unexpected changed_keys: %#v", putResponse.ChangedKeys)
+	}
+	if putResponse.Values["bili_token_backup"] != "SESSDATA=backup" {
+		t.Fatalf("unexpected updated values: %#v", putResponse.Values)
+	}
+	if _, exists := putResponse.Values["bili_token_primary"]; exists {
+		t.Fatalf("deleted secret still returned: %#v", putResponse.Values)
+	}
+	storedBackup, err := secretStore.Get(context.Background(), "plugin:example-config-panel:secret:bili_token_backup")
+	if err != nil {
+		t.Fatalf("stored backup missing: %v", err)
+	}
+	if string(storedBackup) == "SESSDATA=backup" {
+		t.Fatal("plugin secret was stored as plaintext")
+	}
+	openedBackup, err := secrets.OpenString(context.Background(), secretStore, storedBackup)
+	if err != nil || openedBackup != "SESSDATA=backup" {
+		t.Fatalf("backup decrypt = %q err=%v", openedBackup, err)
+	}
+	if other, err := secretStore.Get(context.Background(), "plugin:other-plugin:secret:bili_token_primary"); err != nil {
+		t.Fatalf("cross-plugin secret missing: %v", err)
+	} else if opened, err := secrets.OpenString(context.Background(), secretStore, other); err != nil || opened != "SESSDATA=other" {
+		t.Fatalf("cross-plugin secret changed: value=%q err=%v", opened, err)
+	}
+}
+
+func TestHandlePluginSecretsPutRejectsInvalidKey(t *testing.T) {
+	t.Parallel()
+
+	secretStore := openPluginSecretStore(t)
+	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
+		plugins: plugins.NewCatalog([]plugins.Snapshot{{
+			PluginID:          "example-config-panel",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "disabled",
+			RuntimeState:      "stopped",
+		}}),
+		secrets: secretStore,
+	})
+	router := chi.NewRouter()
+	router.Put("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsPut())
+
+	body := bytes.NewReader([]byte(`{"values":{"Bad Key":"SESSDATA=fixture"}}`))
+	request := httptest.NewRequest(http.MethodPut, "/api/plugins/example-config-panel/secrets", body)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", recorder.Code, recorder.Body.String())
 	}
 }
 

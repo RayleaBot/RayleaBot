@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
 const (
@@ -58,6 +59,7 @@ type Deps struct {
 	PluginConfig     pluginconfig.Repository
 	PluginFiles      *pluginfile.Service
 	PluginKV         pluginkv.Repository
+	Secrets          secrets.Store
 	Scheduler        *scheduler.Engine
 	Dispatcher       *dispatch.Dispatcher
 	Renderer         *render.Service
@@ -75,6 +77,7 @@ type Service struct {
 	pluginConfig     pluginconfig.Repository
 	pluginFiles      *pluginfile.Service
 	pluginKV         pluginkv.Repository
+	secrets          secrets.Store
 	scheduler        *scheduler.Engine
 	dispatcher       *dispatch.Dispatcher
 	renderer         *render.Service
@@ -94,6 +97,7 @@ func New(deps Deps) *Service {
 		pluginConfig:     deps.PluginConfig,
 		pluginFiles:      deps.PluginFiles,
 		pluginKV:         deps.PluginKV,
+		secrets:          deps.Secrets,
 		scheduler:        deps.Scheduler,
 		dispatcher:       deps.Dispatcher,
 		renderer:         deps.Renderer,
@@ -128,6 +132,8 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 		return s.executeConfigRead(ctx, pluginID, action)
 	case "plugin.list":
 		return s.executePluginList(ctx, pluginID)
+	case "secret.read":
+		return s.executeSecretRead(ctx, pluginID, action)
 	case "config.write":
 		return s.executeConfigWrite(ctx, pluginID, action)
 	case "governance.blacklist.read":

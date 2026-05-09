@@ -9,7 +9,7 @@
 - 每个插件可声明一个内置管理页入口。
 - 管理页作为插件详情页内的工作区显示，路径保持在 `/plugins/:id`。
 - 管理页资源来自插件包内静态文件。
-- 管理页只允许读取和保存插件自己的设置。
+- 管理页只允许读取和保存插件自己的设置与敏感值。
 - 管理页不直接获得管理 Token、全局 store 或通用管理 API 调用能力。
 
 ## Manifest 字段
@@ -45,6 +45,17 @@
 - `PUT` 响应返回 `changed_keys` 与最新 `values`。
 - 设置保存后，已运行插件继续通过现有 `config.changed` 事件链接收配置变化。
 
+## 敏感值读取与保存
+
+| 接口 | 作用 |
+| --- | --- |
+| `GET /api/plugins/{plugin_id}/secrets` | 读取插件自己的敏感值 |
+| `PUT /api/plugins/{plugin_id}/secrets` | 保存或删除插件敏感值 |
+
+- `GET` 返回插件 secret 命名空间内的明文值，只面向已登录的受保护管理面。
+- `PUT` 请求体固定为 `values: object<string, string>`，可带 `deleted_keys: string[]`。
+- 插件 runtime 通过 `secret.read` 读取自身命名空间内的单个敏感值。
+
 ## 桥接消息
 
 管理页 iframe 与宿主页只使用正式 `postMessage` 消息：
@@ -54,6 +65,9 @@
 - `settings.reload`
 - `settings.save`
 - `settings.changed`
+- `secrets.reload`
+- `secrets.save`
+- `secrets.changed`
 - `error`
 
 `host.init` 会提供：
@@ -63,6 +77,7 @@
 - `trust`
 - `default_config`
 - 当前 `settings`
+- 当前 `secrets`
 - 页面标题
 
 ## 未验证来源确认
@@ -74,6 +89,7 @@
 ## 适用场景
 
 - 插件自己的表单化设置
+- 插件自己的 token、API key、webhook secret 等敏感值设置
 - 插件自己的轻量状态说明
 - 与 `default_config` 对应的管理项展示
 

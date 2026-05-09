@@ -20,6 +20,15 @@
       "$ref": "#/$defs/settings_changed"
     },
     {
+      "$ref": "#/$defs/secrets_reload"
+    },
+    {
+      "$ref": "#/$defs/secrets_save"
+    },
+    {
+      "$ref": "#/$defs/secrets_changed"
+    },
+    {
       "$ref": "#/$defs/error_message"
     }
   ],
@@ -150,6 +159,12 @@
               "type": "object",
               "additionalProperties": true
             },
+            "secrets": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
             "title": {
               "type": "string",
               "minLength": 1
@@ -267,6 +282,135 @@
         }
       }
     },
+    "secrets_reload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "secrets.reload"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "secrets_save": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "secrets.save"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values"
+          ],
+          "properties": {
+            "values": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+              },
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "deleted_keys": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "secrets_changed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "management_host"
+        },
+        "type": {
+          "const": "secrets.changed"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values",
+            "changed_keys"
+          ],
+          "properties": {
+            "values": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+              },
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "changed_keys": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
     "error_message": {
       "type": "object",
       "additionalProperties": false,
@@ -316,6 +460,8 @@
   "x-fixtures": [
     "fixtures/plugin-management-ui/ok.bridge-host-init.json",
     "fixtures/plugin-management-ui/ok.bridge-settings-save.json",
+    "fixtures/plugin-management-ui/ok.bridge-secrets-save.json",
+    "fixtures/plugin-management-ui/ok.bridge-secrets-changed.json",
     "fixtures/plugin-management-ui/invalid.bridge-unknown-type.json"
   ]
 }

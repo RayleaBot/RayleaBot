@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>{{ .Stylesheet }}</style>
+  </head>
+  <body class="theme-{{ .Theme }}">
+    <main class="surface">
+      <header class="header">
+        <div>
+          <p class="eyebrow">{{ .platform }} · {{ .service }}</p>
+          <h1>{{ .title }}</h1>
+          {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
+        </div>
+        <div class="badge">订阅中心</div>
+      </header>
+
+      <section class="author-card">
+        {{ with .author }}
+          {{ with .avatar }}<img class="avatar" src="{{ . }}" alt="" />{{ end }}
+          <div>
+            <div class="label">UP 主</div>
+            <div class="value">{{ .name }}</div>
+          </div>
+        {{ end }}
+      </section>
+
+      {{ if .summary }}
+      <section class="summary">
+        <div class="label">内容摘要</div>
+        <p>{{ .summary }}</p>
+      </section>
+      {{ end }}
+
+      <section class="meta-grid">
+        <div class="meta-item">
+          <span class="label">订阅对象</span>
+          <strong>{{ .subscription.name }}</strong>
+          <span>UID {{ .subscription.uid }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="label">订阅人</span>
+          <strong>{{ .subscriber_text }}</strong>
+        </div>
+        {{ if .created_at }}
+        <div class="meta-item">
+          <span class="label">发布时间</span>
+          <strong>{{ .created_at }}</strong>
+        </div>
+        {{ end }}
+      </section>
+
+      {{ if .url }}<footer class="footer">{{ .url }}</footer>{{ end }}
+    </main>
+  </body>
+</html>

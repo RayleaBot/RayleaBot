@@ -88,7 +88,8 @@
         "scheduler.create",
         "event.expose_webhook",
         "render.image",
-        "plugin.list"
+        "plugin.list",
+        "secret.read"
       ]
     },
     "onebot_action_kind": {
@@ -1065,6 +1066,9 @@
           "$ref": "#/$defs/action_plugin_list"
         },
         {
+          "$ref": "#/$defs/action_secret_read"
+        },
+        {
           "$ref": "#/$defs/action_config_write"
         },
         {
@@ -1851,6 +1855,19 @@
         }
       }
     },
+    "action_secret_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+        }
+      }
+    },
     "action_config_write_data": {
       "type": "object",
       "additionalProperties": false,
@@ -2195,6 +2212,38 @@
             },
             "data": {
               "$ref": "#/$defs/action_plugin_list_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_secret_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "secret.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_secret_read_data"
             }
           }
         }
@@ -2649,6 +2698,23 @@
     },
     {
       "type": "action",
+      "action_kind": "secret.read",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-secret-read.yaml"
+    },
+    {
+      "type": "action",
       "action_kind": "config.write",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request_distinct_from_event",
@@ -2956,6 +3022,7 @@
     "fixtures/plugin-protocol/ok.action-storage-kv-list.yaml",
     "fixtures/plugin-protocol/ok.action-config-read.yaml",
     "fixtures/plugin-protocol/ok.action-plugin-list.yaml",
+    "fixtures/plugin-protocol/ok.action-secret-read.yaml",
     "fixtures/plugin-protocol/ok.action-config-write.yaml",
     "fixtures/plugin-protocol/ok.action-governance-blacklist-read.yaml",
     "fixtures/plugin-protocol/ok.action-governance-blacklist-write-upsert.yaml",
@@ -2990,6 +3057,7 @@
     "fixtures/plugin-protocol/edge.action-http-request-result.yaml",
     "fixtures/plugin-protocol/edge.action-config-read-result.yaml",
     "fixtures/plugin-protocol/edge.action-plugin-list-result.yaml",
+    "fixtures/plugin-protocol/edge.action-secret-read-result.yaml",
     "fixtures/plugin-protocol/edge.action-config-write-result.yaml",
     "fixtures/plugin-protocol/edge.action-scheduler-create-result.yaml",
     "fixtures/plugin-protocol/edge.action-event-expose-webhook-result.yaml",
@@ -3000,6 +3068,7 @@
     "fixtures/plugin-protocol/invalid.action-logger-write-missing-message.yaml",
     "fixtures/plugin-protocol/invalid.action-storage-kv-missing-key.yaml",
     "fixtures/plugin-protocol/invalid.action-config-read-empty-keys.yaml",
+    "fixtures/plugin-protocol/invalid.action-secret-read-empty-key.yaml",
     "fixtures/plugin-protocol/invalid.action-config-write-empty-values.yaml",
     "fixtures/plugin-protocol/invalid.action-governance-blacklist-write-missing-target.yaml",
     "fixtures/plugin-protocol/invalid.action-governance-whitelist-write-missing-enabled.yaml",
@@ -3030,5 +3099,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. init conveys granted capabilities, sanitized command_prefixes, and the current bot identity when available. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. init conveys granted capabilities, sanitized command_prefixes, and the current bot identity when available. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a gated high-sensitivity event field rather than a standalone action. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

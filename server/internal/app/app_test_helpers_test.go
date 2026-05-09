@@ -134,6 +134,7 @@ func (a *App) setTestLocalActions(grantRepo plugins.GrantRepository, pluginConfi
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
+		Secrets:          a.secrets,
 		Scheduler:        schedulerEngine,
 		Dispatcher:       dispatcher,
 		Renderer:         rendererService,
@@ -292,6 +293,7 @@ func (a *App) dispatchPluginConfigChanged(ctx context.Context, pluginID string) 
 type pluginManagementUIHTTPDeps struct {
 	plugins            *plugins.Catalog
 	pluginConfig       pluginconfig.Repository
+	secrets            secrets.Store
 	notifyConfigChange func(context.Context, string)
 	refreshCommands    func(context.Context, string, map[string]any)
 }
@@ -307,6 +309,7 @@ func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginM
 	return &pluginManagementUIHTTPHandlers{Handlers: pluginui.NewHandlers(pluginui.Deps{
 		Plugins:            deps.plugins,
 		PluginConfig:       deps.pluginConfig,
+		Secrets:            deps.secrets,
 		NotifyConfigChange: deps.notifyConfigChange,
 		RefreshCommands:    deps.refreshCommands,
 	})}
@@ -322,4 +325,12 @@ func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsGet() http.HandlerF
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsPut() http.HandlerFunc {
 	return h.Handlers.HandlePluginSettingsPut()
+}
+
+func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsGet() http.HandlerFunc {
+	return h.Handlers.HandlePluginSecretsGet()
+}
+
+func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsPut() http.HandlerFunc {
+	return h.Handlers.HandlePluginSecretsPut()
 }

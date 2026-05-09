@@ -11,14 +11,14 @@ type pingFrame struct {
 }
 
 type initFrame struct {
-	ProtocolVersion string   `json:"protocol_version"`
-	Type            string   `json:"type"`
-	Timestamp       int64    `json:"timestamp"`
-	PluginID        string   `json:"plugin_id"`
-	RequestID       string   `json:"request_id"`
+	ProtocolVersion string    `json:"protocol_version"`
+	Type            string    `json:"type"`
+	Timestamp       int64     `json:"timestamp"`
+	PluginID        string    `json:"plugin_id"`
+	RequestID       string    `json:"request_id"`
 	Bot             *botFrame `json:"bot,omitempty"`
-	Capabilities    []string `json:"capabilities,omitempty"`
-	CommandPrefixes []string `json:"command_prefixes"`
+	Capabilities    []string  `json:"capabilities,omitempty"`
+	CommandPrefixes []string  `json:"command_prefixes"`
 }
 
 type botFrame struct {
@@ -165,6 +165,10 @@ type protocolActionStorageKVFrame struct {
 
 type protocolActionConfigReadFrame struct {
 	Keys []string `json:"keys"`
+}
+
+type protocolActionSecretReadFrame struct {
+	Key string `json:"key"`
 }
 
 type protocolActionConfigWriteFrame struct {
