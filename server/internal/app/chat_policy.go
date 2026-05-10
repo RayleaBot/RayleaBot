@@ -12,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 const (
@@ -134,6 +135,7 @@ type eventIngressService struct {
 	replyTargets      *replyTargetCache
 	outboundSender    outboundActionSender
 	outboundLimiter   outbound.MessageLimiter
+	renderer          *render.Service
 	bridge            *bridge.Bridge
 	lifecycle         *pluginLifecycleController
 	metadataEnricher  eventMetadataEnricher
@@ -158,6 +160,7 @@ func newEventIngressService(deps eventIngressDeps) *eventIngressService {
 		replyTargets:     deps.replyTargets,
 		outboundSender:   deps.outboundSender,
 		outboundLimiter:  deps.outboundLimiter,
+		renderer:         deps.renderer,
 		bridge:           deps.bridge,
 		lifecycle:        deps.lifecycle,
 		metadataEnricher: deps.metadataEnricher,
@@ -270,6 +273,10 @@ func (s *eventIngressService) commandPolicyContextForEvent(event adapter.Normali
 				break
 			}
 		}
+	}
+	if s != nil && s.state != nil && s.matchBuiltinMenu(event).Matched {
+		context.MatchedPluginIDs = nil
+		requiredLevel = "everyone"
 	}
 
 	context.PermissionInfo.Permission = requiredLevel

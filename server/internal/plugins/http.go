@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -44,6 +43,7 @@ type pluginSummaryResponse struct {
 	Source            pluginSourceResponse    `json:"source"`
 	Trust             pluginTrustResponse     `json:"trust"`
 	Commands          []pluginCommandResponse `json:"commands"`
+	Help              pluginHelpResponse      `json:"help"`
 	CommandConflicts  []string                `json:"command_conflicts"`
 }
 
@@ -67,6 +67,25 @@ type pluginSourceResponse struct {
 type pluginTrustResponse struct {
 	Level string `json:"level"`
 	Label string `json:"label"`
+}
+
+type pluginHelpResponse struct {
+	Title   string                    `json:"title,omitempty"`
+	Summary string                    `json:"summary,omitempty"`
+	Groups  []pluginHelpGroupResponse `json:"groups"`
+}
+
+type pluginHelpGroupResponse struct {
+	Title string                   `json:"title"`
+	Items []pluginHelpItemResponse `json:"items"`
+}
+
+type pluginHelpItemResponse struct {
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	Usage       string `json:"usage,omitempty"`
+	Command     string `json:"command,omitempty"`
+	Permission  string `json:"permission,omitempty"`
 }
 
 type pluginListResponse struct {
@@ -151,6 +170,7 @@ type pluginDetailPluginResponse struct {
 	Source               pluginSourceResponse           `json:"source"`
 	Trust                pluginTrustResponse            `json:"trust"`
 	Commands             []pluginCommandResponse        `json:"commands"`
+	Help                 pluginHelpResponse             `json:"help"`
 	CommandConflicts     []string                       `json:"command_conflicts"`
 	Permissions          []pluginPermissionResponse     `json:"permissions"`
 }
@@ -811,6 +831,7 @@ func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot S
 			Source:               summary.Source,
 			Trust:                summary.Trust,
 			Commands:             summary.Commands,
+			Help:                 summary.Help,
 			CommandConflicts:     summary.CommandConflicts,
 			Permissions:          buildPermissionResponses(permissions),
 		},
@@ -838,6 +859,7 @@ func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryRespons
 		Source:            buildPluginSource(snapshot),
 		Trust:             buildPluginTrust(role, snapshot),
 		Commands:          buildPluginCommands(snapshot),
+		Help:              buildPluginHelp(snapshot),
 		CommandConflicts:  normalizeConflictList(conflicts),
 	}
 }
@@ -868,6 +890,37 @@ func buildPluginCommands(snapshot Snapshot) []pluginCommandResponse {
 	}
 
 	return items
+}
+
+func buildPluginHelp(snapshot Snapshot) pluginHelpResponse {
+	view := buildHelpView(snapshot)
+	if view == nil {
+		return pluginHelpResponse{Groups: []pluginHelpGroupResponse{}}
+	}
+	result := pluginHelpResponse{
+		Title:   view.Title,
+		Summary: view.Summary,
+		Groups:  []pluginHelpGroupResponse{},
+	}
+	for _, group := range view.Groups {
+		itemGroup := pluginHelpGroupResponse{
+			Title: group.Title,
+			Items: make([]pluginHelpItemResponse, 0, len(group.Items)),
+		}
+		for _, item := range group.Items {
+			itemGroup.Items = append(itemGroup.Items, pluginHelpItemResponse{
+				Title:       item.Title,
+				Description: item.Description,
+				Usage:       item.Usage,
+				Command:     item.Command,
+				Permission:  item.Permission,
+			})
+		}
+		if len(itemGroup.Items) > 0 {
+			result.Groups = append(result.Groups, itemGroup)
+		}
+	}
+	return result
 }
 
 func commandSourceOrDefault(source string) string {
@@ -959,47 +1012,7 @@ func buildPluginTrust(role string, snapshot Snapshot) pluginTrustResponse {
 }
 
 func detectCommandConflicts(snapshots []Snapshot) map[string][]string {
-	owners := make(map[string]map[string]struct{})
-	for _, snapshot := range snapshots {
-		if !snapshot.Valid || snapshot.RegistrationState != "installed" {
-			continue
-		}
-		seen := make(map[string]struct{})
-		for _, command := range snapshot.Commands {
-			addConflictToken(seen, command.Name)
-			for _, alias := range command.Aliases {
-				addConflictToken(seen, alias)
-			}
-		}
-		for token := range seen {
-			if owners[token] == nil {
-				owners[token] = make(map[string]struct{})
-			}
-			owners[token][snapshot.PluginID] = struct{}{}
-		}
-	}
-
-	conflicts := make(map[string][]string)
-	for token, pluginIDs := range owners {
-		if len(pluginIDs) < 2 {
-			continue
-		}
-		for pluginID := range pluginIDs {
-			conflicts[pluginID] = append(conflicts[pluginID], token)
-		}
-	}
-	for pluginID := range conflicts {
-		sort.Strings(conflicts[pluginID])
-	}
-	return conflicts
-}
-
-func addConflictToken(tokens map[string]struct{}, raw string) {
-	token := strings.ToLower(strings.TrimSpace(raw))
-	if token == "" {
-		return
-	}
-	tokens[token] = struct{}{}
+	return DetectCommandConflicts(snapshots)
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string, details map[string]any) {

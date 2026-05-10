@@ -115,17 +115,17 @@ describe('plugin command merging', () => {
       }),
     ], [
       createPolicy({
-        plugin_id: 'raylea.help',
-        plugin_name: 'Help',
-        command: 'help',
+        plugin_id: 'ops.tools',
+        plugin_name: 'Ops Tools',
+        command: 'ops',
         declaration_id: undefined,
         command_source: 'manifest',
       }),
     ])
 
-    expect(rows.map((row) => row.command.name)).toEqual(['echo', 'help'])
+    expect(rows.map((row) => row.command.name)).toEqual(['echo', 'ops'])
     expect(rows[0].policy).toBeNull()
-    expect(rows[1].pluginId).toBe('raylea.help')
+    expect(rows[1].pluginId).toBe('ops.tools')
     expect(rows[1].availability).toBe('not_ready')
   })
 })

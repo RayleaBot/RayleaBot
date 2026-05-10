@@ -13,8 +13,8 @@ response:
         level: warn
         source: adapter.onebot11
         protocol: onebot11
-        message: "help/help -> Alice(3001) 发送失败：hello world"
-        plugin_id: help
+        message: "echo/echo -> Alice(3001) 发送失败：hello world"
+        plugin_id: raylea.echo
         request_id: req_runtime_delivery_0002
       - log_id: log_outbound_delivered_0001
         timestamp: "2026-04-10T09:18:00Z"

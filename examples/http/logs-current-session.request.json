@@ -1,4 +1,4 @@
 {
   "method": "GET",
-  "path": "/api/logs?scope=current_session&level=info&level=error&plugin_id=weather&plugin_id=help&limit=100"
+  "path": "/api/logs?scope=current_session&level=info&level=error&plugin_id=weather&plugin_id=raylea.echo&limit=100"
 }

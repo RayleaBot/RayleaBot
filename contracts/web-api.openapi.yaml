@@ -2539,7 +2539,7 @@ components:
     PluginSummary:
       type: object
       additionalProperties: false
-      required: [id, name, role, registration_state, desired_state, runtime_state, display_state, commands]
+      required: [id, name, role, registration_state, desired_state, runtime_state, display_state, commands, help]
       properties:
         id:
           type: string
@@ -2563,10 +2563,54 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PluginCommandSummary'
+        help:
+          $ref: '#/components/schemas/PluginHelp'
         command_conflicts:
           type: array
           items:
             type: string
+
+    PluginHelpItem:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        usage:
+          type: string
+        command:
+          type: string
+        permission:
+          type: string
+
+    PluginHelpGroup:
+      type: object
+      additionalProperties: false
+      required: [title, items]
+      properties:
+        title:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginHelpItem'
+
+    PluginHelp:
+      type: object
+      additionalProperties: false
+      required: [groups]
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginHelpGroup'
 
     PluginListResponse:
       type: object

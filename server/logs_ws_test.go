@@ -154,14 +154,14 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
-		return ok && data["message"] == "plugin raylea.help command help rejected by command policy: sender is not whitelisted"
+		return ok && data["message"] == "plugin raylea.echo command echo rejected by command policy: sender is not whitelisted"
 	})
 
 	data := frame["data"].(map[string]any)
 	if data["source"] != "bridge" || data["protocol"] != "onebot11" {
 		t.Fatalf("unexpected command rejection websocket summary: %#v", data)
 	}
-	if data["plugin_id"] != "raylea.help" {
+	if data["plugin_id"] != "raylea.echo" {
 		t.Fatalf("unexpected command rejection websocket plugin_id: %#v", data["plugin_id"])
 	}
 	allowed := map[string]bool{

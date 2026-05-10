@@ -530,19 +530,19 @@ func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 	t.Parallel()
 
 	catalog := NewCatalog([]Snapshot{{
-		PluginID:            "raylea.help",
-		Name:                "Help",
+		PluginID:            "raylea.echo",
+		Name:                "Echo",
 		Valid:               true,
 		SourceRoot:          "plugins/builtin",
 		RegistrationState:   "installed",
 		DesiredState:        "enabled",
 		RuntimeState:        "running",
-		RequiredPermissions: []string{"plugin.list", "render.image"},
+		RequiredPermissions: []string{"message.send"},
 	}})
 	router := chi.NewRouter()
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/plugins/raylea.help", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/raylea.echo", nil)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -555,8 +555,8 @@ func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Plugin.Permissions) != 2 {
-		t.Fatalf("len(permissions) = %d, want 2", len(resp.Plugin.Permissions))
+	if len(resp.Plugin.Permissions) != 1 {
+		t.Fatalf("len(permissions) = %d, want 1", len(resp.Plugin.Permissions))
 	}
 	for _, permission := range resp.Plugin.Permissions {
 		if permission.Source != string(PermissionSourceBuiltinAuto) {
@@ -565,6 +565,58 @@ func TestDetailHandler_ReturnsBuiltinAutoPermissions(t *testing.T) {
 		if permission.Status != string(PermissionStatusGranted) {
 			t.Fatalf("permission status = %q, want %q", permission.Status, PermissionStatusGranted)
 		}
+	}
+}
+
+func TestDetailHandlerReturnsHelpProjection(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "weather",
+		Name:              "Weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Help: &Help{
+			Title:   "Weather",
+			Summary: "天气菜单",
+			Groups: []HelpGroup{{
+				Title: "查询",
+				Items: []HelpItem{{
+					Title:       "城市天气",
+					Description: "查询城市天气",
+					Usage:       "/weather 上海",
+					Command:     "weather",
+					Permission:  "everyone",
+				}},
+			}},
+		},
+	}})
+	router := chi.NewRouter()
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, nil, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp pluginDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Plugin.Help.Title != "Weather" {
+		t.Fatalf("unexpected help projection: %#v", resp.Plugin.Help)
+	}
+	if len(resp.Plugin.Help.Groups) != 1 || resp.Plugin.Help.Groups[0].Title != "查询" {
+		t.Fatalf("unexpected help groups: %#v", resp.Plugin.Help.Groups)
+	}
+	if got := resp.Plugin.Help.Groups[0].Items[0]; got.Command != "weather" || got.Title != "城市天气" {
+		t.Fatalf("unexpected help item: %#v", got)
 	}
 }
 
@@ -1244,10 +1296,10 @@ func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 			wantCapabilities:    []string{"message.send"},
 		},
 		{
-			name:                "help",
-			pluginID:            "raylea.help",
-			requiredPermissions: []string{"message.send", "plugin.list", "render.image"},
-			wantCapabilities:    []string{"message.send", "plugin.list", "render.image"},
+			name:                "fortune",
+			pluginID:            "raylea.fortune",
+			requiredPermissions: []string{"message.send", "render.image", "storage.kv"},
+			wantCapabilities:    []string{"message.send", "render.image", "storage.kv"},
 		},
 	} {
 		tc := tc

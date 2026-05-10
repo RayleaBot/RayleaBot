@@ -27,6 +27,12 @@ function createFixtureConfig(): ConfigDocument {
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
+    builtin_features: {
+      menu: {
+        commands: ['help', '帮助'],
+        prefixes: [],
+      },
+    },
     admin: {
       super_admins: ['10001'],
       session_ttl_days: 7,
@@ -46,6 +52,7 @@ function createFixtureConfig(): ConfigDocument {
       timeout_seconds: 30,
       queue_wait_timeout_seconds: 15,
       queue_max_length: 32,
+      footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
     },
     scheduler: {
       timezone: '',

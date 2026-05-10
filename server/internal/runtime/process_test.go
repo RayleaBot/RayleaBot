@@ -15,7 +15,7 @@ func TestWriteJSONLineRetriesShortWrites(t *testing.T) {
 	writer := &chunkedWriteCloser{maxChunk: 3}
 	frame := map[string]any{
 		"type":       "ping",
-		"plugin_id":  "builtin-help",
+		"plugin_id":  "raylea.echo",
 		"request_id": "req_runtime_ping_0001",
 	}
 
@@ -57,7 +57,7 @@ func TestProcessHandleWriteJSONLineSerializesConcurrentFrames(t *testing.T) {
 			for frameIndex := 0; frameIndex < framesPerWriter; frameIndex++ {
 				err := handle.writeJSONLine(map[string]any{
 					"type":       "result",
-					"plugin_id":  "builtin-help",
+					"plugin_id":  "raylea.echo",
 					"request_id": "req_runtime_local_action",
 					"worker":     worker,
 					"frame":      frameIndex,

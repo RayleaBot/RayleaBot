@@ -96,9 +96,9 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-03-20T10:00:01Z",
 			Level:     "warn",
 			Source:    "runtime",
-			Message:   "help plugin warning",
-			PluginID:  "help",
-			RequestID: "req_help_0001",
+			Message:   "echo plugin warning",
+			PluginID:  "raylea.echo",
+			RequestID: "req_echo_0001",
 		},
 		{
 			LogID:     "log_multi_filter_0003",
@@ -235,8 +235,8 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 			Timestamp: "2026-04-10T09:18:01Z",
 			Level:     "warn",
 			Source:    "adapter.onebot11",
-			Message:   "help/help -> Alice(3001) 发送失败：hello world",
-			PluginID:  "help",
+			Message:   "echo/echo -> Alice(3001) 发送失败：hello world",
+			PluginID:  "raylea.echo",
 			RequestID: "req_runtime_delivery_0002",
 		},
 		{
@@ -769,16 +769,16 @@ func TestLogsListSupportsCursorPagingWithMultiFilters(t *testing.T) {
 
 	for _, summary := range []logging.Summary{
 		{LogID: "log_multi_cursor_0001", Timestamp: "2026-04-10T09:00:00Z", Level: "info", Source: "runtime", Message: "1", PluginID: "weather"},
-		{LogID: "log_multi_cursor_0002", Timestamp: "2026-04-10T09:00:01Z", Level: "warn", Source: "runtime", Message: "filtered by level", PluginID: "help"},
-		{LogID: "log_multi_cursor_0003", Timestamp: "2026-04-10T09:00:02Z", Level: "error", Source: "runtime", Message: "2", PluginID: "help"},
+		{LogID: "log_multi_cursor_0002", Timestamp: "2026-04-10T09:00:01Z", Level: "warn", Source: "runtime", Message: "filtered by level", PluginID: "raylea.echo"},
+		{LogID: "log_multi_cursor_0003", Timestamp: "2026-04-10T09:00:02Z", Level: "error", Source: "runtime", Message: "2", PluginID: "raylea.echo"},
 		{LogID: "log_multi_cursor_0004", Timestamp: "2026-04-10T09:00:03Z", Level: "info", Source: "runtime", Message: "filtered by plugin", PluginID: "ops"},
 		{LogID: "log_multi_cursor_0005", Timestamp: "2026-04-10T09:00:04Z", Level: "error", Source: "runtime", Message: "3", PluginID: "weather"},
-		{LogID: "log_multi_cursor_0006", Timestamp: "2026-04-10T09:00:05Z", Level: "info", Source: "runtime", Message: "4", PluginID: "help"},
+		{LogID: "log_multi_cursor_0006", Timestamp: "2026-04-10T09:00:05Z", Level: "info", Source: "runtime", Message: "4", PluginID: "raylea.echo"},
 	} {
 		application.Logs().Append(summary)
 	}
 
-	filterPath := "/api/logs?source=runtime&level=info&level=error&plugin_id=weather&plugin_id=help&limit=2"
+	filterPath := "/api/logs?source=runtime&level=info&level=error&plugin_id=weather&plugin_id=raylea.echo&limit=2"
 	firstPage := doLogsListRequest(t, server.URL, token, filterPath)
 	firstItems := firstPage["items"].([]any)
 	if firstItems[0].(map[string]any)["message"] != "4" || firstItems[1].(map[string]any)["message"] != "3" {
@@ -1056,7 +1056,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	var rejectionSummary map[string]any
 	for _, raw := range items {
 		item := raw.(map[string]any)
-		if item["message"] == "plugin raylea.help command help rejected by command policy: sender is not whitelisted" {
+		if item["message"] == "plugin raylea.echo command echo rejected by command policy: sender is not whitelisted" {
 			rejectionSummary = item
 			break
 		}
@@ -1067,7 +1067,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	if rejectionSummary["source"] != "bridge" || rejectionSummary["protocol"] != "onebot11" {
 		t.Fatalf("unexpected command rejection summary: %#v", rejectionSummary)
 	}
-	if rejectionSummary["plugin_id"] != "raylea.help" {
+	if rejectionSummary["plugin_id"] != "raylea.echo" {
 		t.Fatalf("unexpected command rejection plugin_id: %#v", rejectionSummary["plugin_id"])
 	}
 
@@ -1087,20 +1087,20 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	if body["plugin_id"] != "raylea.help" {
+	if body["plugin_id"] != "raylea.echo" {
 		t.Fatalf("unexpected command rejection detail plugin_id: %#v", body["plugin_id"])
 	}
 	details, ok := body["details"].(map[string]any)
 	if !ok {
 		t.Fatalf("unexpected command rejection details payload: %#v", body["details"])
 	}
-	if details["command_name"] != "help" || details["error_code"] != "permission.not_whitelisted" {
+	if details["command_name"] != "echo" || details["error_code"] != "permission.not_whitelisted" {
 		t.Fatalf("unexpected command rejection details: %#v", details)
 	}
 	if details["reason"] != "actor is not whitelisted" || details["policy_stage"] != "whitelist" {
 		t.Fatalf("unexpected command rejection details: %#v", details)
 	}
-	if !reflect.DeepEqual(details["matched_plugin_ids"], []any{"raylea.help"}) {
+	if !reflect.DeepEqual(details["matched_plugin_ids"], []any{"raylea.echo"}) {
 		t.Fatalf("unexpected matched_plugin_ids detail: %#v", details["matched_plugin_ids"])
 	}
 }
@@ -1392,7 +1392,7 @@ func commandRejectionEvent() adapter.NormalizedEvent {
 	now := time.Now()
 	return adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
-		EventID:          "evt-command-rejected-help",
+		EventID:          "evt-command-rejected-echo",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -1402,10 +1402,10 @@ func commandRejectionEvent() adapter.NormalizedEvent {
 		ConversationID:   "20001",
 		SenderID:         "30001",
 		MessageID:        "90001",
-		PlainText:        "/help",
+		PlainText:        "/echo",
 		Segments: []adapter.MessageSegment{{
 			Type: "text",
-			Data: map[string]any{"text": "/help"},
+			Data: map[string]any{"text": "/echo"},
 		}},
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
@@ -1414,7 +1414,7 @@ func commandRejectionEvent() adapter.NormalizedEvent {
 				"user_id":        "30001",
 				"time":           now.Unix(),
 				"message_id":     "90001",
-				"raw_message":    "/help",
+				"raw_message":    "/echo",
 				"message_format": "array",
 				"sender": map[string]any{
 					"nickname": "Alice",

@@ -13,11 +13,11 @@ describe('app availability store', () => {
   it('marks the app offline and remembers the current workspace path', () => {
     const store = useAppAvailabilityStore()
 
-    store.markOffline('http', '/commands?plugin_id=help')
+    store.markOffline('http', '/commands?plugin_id=raylea.echo')
 
     expect(store.isOffline).toBe(true)
     expect(store.offlineSource).toBe('http')
-    expect(store.returnPath).toBe('/commands?plugin_id=help')
+    expect(store.returnPath).toBe('/commands?plugin_id=raylea.echo')
     expect(store.lastOfflineAt).toBe('2026-05-02T09:00:00.000Z')
   })
 

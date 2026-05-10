@@ -218,8 +218,8 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 
 	eventBridge.LogCommandPolicyRejected(event, CommandPolicyRejection{
 		CommandName:      "help",
-		PluginID:         "raylea.help",
-		MatchedPluginIDs: []string{"raylea.help"},
+		PluginID:         "raylea.echo",
+		MatchedPluginIDs: []string{"raylea.echo"},
 		ErrorCode:        "permission.not_whitelisted",
 		Reason:           "actor is not whitelisted",
 		ReasonSummary:    "sender is not whitelisted",
@@ -254,10 +254,10 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	if summary.Source != "bridge" || summary.Protocol != logging.ProtocolOneBot11 {
 		t.Fatalf("unexpected log source/protocol: %+v", summary)
 	}
-	if summary.PluginID != "raylea.help" {
-		t.Fatalf("unexpected plugin_id: got %q want raylea.help", summary.PluginID)
+	if summary.PluginID != "raylea.echo" {
+		t.Fatalf("unexpected plugin_id: got %q want raylea.echo", summary.PluginID)
 	}
-	if summary.Message != "plugin raylea.help command help rejected by command policy: sender is not whitelisted" {
+	if summary.Message != "plugin raylea.echo command help rejected by command policy: sender is not whitelisted" {
 		t.Fatalf("unexpected rejection message: got %q", summary.Message)
 	}
 	if summary.Details["command_name"] != "help" || summary.Details["policy_stage"] != "whitelist" {
@@ -266,7 +266,7 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	if summary.Details["error_code"] != "permission.not_whitelisted" || summary.Details["reason"] != "actor is not whitelisted" {
 		t.Fatalf("unexpected rejection details: %#v", summary.Details)
 	}
-	if !reflect.DeepEqual(summary.Details["matched_plugin_ids"], []any{"raylea.help"}) {
+	if !reflect.DeepEqual(summary.Details["matched_plugin_ids"], []any{"raylea.echo"}) {
 		t.Fatalf("unexpected matched_plugin_ids detail: %#v", summary.Details["matched_plugin_ids"])
 	}
 }

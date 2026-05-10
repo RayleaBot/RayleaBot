@@ -23,6 +23,12 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes },
+    builtin_features: {
+      menu: {
+        commands: ['help', '帮助'],
+        prefixes: [],
+      },
+    },
     admin: {
       super_admins: [],
       session_ttl_days: 7,
@@ -42,6 +48,7 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       timeout_seconds: 30,
       queue_wait_timeout_seconds: 15,
       queue_max_length: 32,
+      footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
     },
     scheduler: {
       timezone: '',
@@ -139,8 +146,8 @@ describe('CommandsPage', () => {
         command_conflicts: [],
       },
       {
-        id: 'help',
-        name: 'Help',
+        id: 'raylea.echo',
+        name: 'Echo',
         role: 'builtin',
         registration_state: 'installed',
         desired_state: 'disabled',
@@ -148,8 +155,8 @@ describe('CommandsPage', () => {
         display_state: 'disabled',
         commands: [
           {
-            name: 'help',
-            description: '查看帮助',
+            name: 'echo',
+            description: '复读收到的内容',
             command_source: 'manifest',
           },
         ],
@@ -177,9 +184,9 @@ describe('CommandsPage', () => {
           permission_source: 'declared',
         },
         {
-          plugin_id: 'help',
-          plugin_name: 'Help',
-          command: 'help',
+          plugin_id: 'raylea.echo',
+          plugin_name: 'Echo',
+          command: 'echo',
           aliases: [],
           command_source: 'manifest',
           declared_permission: null,
@@ -220,17 +227,17 @@ describe('CommandsPage', () => {
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.fortune')
 
     const select = wrapper.findComponent({ name: 'ASelect' })
-    await select.vm.$emit('update:value', ['help'])
+    await select.vm.$emit('update:value', ['raylea.echo'])
     await flushPromises()
 
-    expect(router.currentRoute.value.fullPath).toContain('plugin_id=help')
-    expect(wrapper.text()).toContain('help')
-    expect(wrapper.text()).toContain('查看帮助')
+    expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.echo')
+    expect(wrapper.text()).toContain('echo')
+    expect(wrapper.text()).toContain('复读收到的内容')
     expect(wrapper.text()).toContain('权限来源：默认权限')
     expect(wrapper.text()).not.toContain('查看今日运势')
 
     const pluginLink = wrapper.find('.command-plugin-link')
-    expect(pluginLink.attributes('href')).toBe('/plugins/help')
+    expect(pluginLink.attributes('href')).toBe('/plugins/raylea.echo')
 
     await wrapper.get('[data-testid="commands-open-permission-policy"]').trigger('click')
     await flushPromises()
@@ -313,10 +320,10 @@ describe('CommandsPage', () => {
       },
       commands: [
         {
-          plugin_id: 'raylea.help',
-          plugin_name: 'Help',
-          command: 'help',
-          aliases: ['commands'],
+          plugin_id: 'ops.tools',
+          plugin_name: 'Ops Tools',
+          command: 'ops',
+          aliases: ['ops-help'],
           command_source: 'manifest',
           declaration_id: undefined,
           declared_permission: null,
@@ -338,10 +345,10 @@ describe('CommandsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('help')
-    expect(wrapper.text()).toContain('commands')
+    expect(wrapper.text()).toContain('ops')
+    expect(wrapper.text()).toContain('ops-help')
     expect(wrapper.text()).toContain('所有成员')
     expect(wrapper.text()).toContain('未就绪')
-    expect(wrapper.find('.command-plugin-link').attributes('href')).toBe('/plugins/raylea.help')
+    expect(wrapper.find('.command-plugin-link').attributes('href')).toBe('/plugins/ops.tools')
   }, 15000)
 })

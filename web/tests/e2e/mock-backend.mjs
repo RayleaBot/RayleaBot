@@ -119,7 +119,6 @@ function baseState() {
     renderPreviewTasks: {},
     grants: {
       weather: structuredClone(fixtures.pluginGrantsList.response.body.items),
-      'builtin-help': [],
       'example-config-panel': [
         {
           plugin_id: 'example-config-panel',

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -282,13 +283,13 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 	application := newTestAppState(cfg, logger)
 	application.setTestEventIngress(
 		plugins.NewCatalog([]plugins.Snapshot{{
-			PluginID:          "help",
+			PluginID:          "ops.tools",
 			Valid:             true,
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
 			Commands: []plugins.Command{{
-				Name: "help",
+				Name: "ops",
 			}},
 		}}),
 		repo,
@@ -307,13 +308,13 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 		ConversationID:   "10001",
 		SenderID:         "bad-user",
 		MessageID:        "30002",
-		PlainText:        "/help",
+		PlainText:        "/ops",
 	})
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "plugin help command help rejected by command policy: user is blacklisted"
+		return summary.Message == "plugin ops.tools command ops rejected by command policy: user is blacklisted"
 	})
-	if summary.Level != "warn" || summary.PluginID != "help" {
+	if summary.Level != "warn" || summary.PluginID != "ops.tools" {
 		t.Fatalf("unexpected blacklist summary: %+v", summary)
 	}
 	if summary.Details["policy_stage"] != "blacklist" || summary.Details["error_code"] != "permission.blacklisted" {
@@ -947,6 +948,339 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 	}
 }
 
+func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	dispatcher := &recordingDispatcherClient{}
+	application := newTestAppState(config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Commands: []string{"help", "帮助"},
+		}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.renderer = newRenderService(t, t.TempDir())
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Name:              "天气",
+		Description:       "查询天气",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:        "weather",
+			Description: "查询城市天气",
+			Usage:       "/weather 上海",
+			Permission:  "everyone",
+		}},
+	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-builtin-menu",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/help",
+		MessageID:        "30001",
+	})
+
+	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
+		t.Fatalf("unexpected builtin menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
+	}
+	if dispatcher.deliverCount != 0 {
+		t.Fatalf("builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
+	}
+}
+
+func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	dispatcher := &recordingDispatcherClient{}
+	application := newTestAppState(config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Commands: []string{"help", "帮助"},
+			Prefixes: []string{"#"},
+		}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.renderer = newRenderService(t, t.TempDir())
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "fortune",
+		Name:              "运势",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "fortune",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-builtin-menu-prefix",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "10002",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "#help fortune",
+		MessageID:        "30002",
+	})
+
+	if sender.messageCount != 1 || !strings.HasPrefix(sender.lastMessageImage, "file://") {
+		t.Fatalf("unexpected builtin menu send: count=%d image=%q", sender.messageCount, sender.lastMessageImage)
+	}
+	if dispatcher.deliverCount != 0 {
+		t.Fatalf("builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
+	}
+}
+
+func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(t *testing.T) {
+	t.Parallel()
+
+	application := newTestAppState(config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Commands: []string{"help"},
+			Prefixes: []string{"#"},
+		}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "admin-help",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "help",
+			Permission: "super_admin",
+		}},
+	}}), nil, nil, bridge.New(slog.Default(), &recordingDispatcherClient{}))
+
+	_, allowed := application.applyChatPolicy(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-plugin-help-policy",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/help",
+		MessageID:        "30006",
+	})
+	if allowed {
+		t.Fatal("plugin /help command should keep plugin permission when builtin menu prefix is different")
+	}
+}
+
+func TestBuiltinRootMenuDataUsesBuiltinMenuTriggerUsage(t *testing.T) {
+	t.Parallel()
+
+	application := newTestAppState(config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Commands: []string{"帮助"},
+			Prefixes: []string{"#"},
+		}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "fortune",
+		Name:              "运势",
+		Description:       "今日运势",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "fortune",
+			Usage:      "/fortune",
+			Permission: "everyone",
+		}},
+	}}), nil, nil, bridge.New(slog.Default(), &recordingDispatcherClient{}))
+
+	data := application.eventIngress.buildBuiltinMenuData(adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		ConversationType: "private",
+		ConversationID:   "10002",
+		SenderID:         "10002",
+		ActorRole:        "member",
+	}, "")
+	items, ok := data["items"].([]map[string]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("unexpected root menu items: %#v", data["items"])
+	}
+	if got := items[0]["usage"]; got != "#帮助 运势" {
+		t.Fatalf("root menu usage = %#v, want #帮助 运势", got)
+	}
+}
+
+func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	application := newTestAppState(config.Config{
+		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.renderer = newRenderService(t, t.TempDir())
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "fortune",
+		Name:              "运势",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "fortune",
+			Aliases:    []string{"运势"},
+			Permission: "everyone",
+		}},
+	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-builtin-menu-suffix",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/运势帮助",
+		MessageID:        "30003",
+	})
+
+	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
+		t.Fatalf("unexpected suffix menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
+	}
+}
+
+func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
+	t.Parallel()
+
+	repo := newStubBlacklistRepo()
+	repo.block("user", "blocked-user")
+	sender := &recordingOutboundSender{}
+	dispatcher := &recordingDispatcherClient{}
+	application := newTestAppState(config.Config{
+		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help"}}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.renderer = newRenderService(t, t.TempDir())
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "weather",
+			Permission: "everyone",
+		}},
+	}}), repo, sender, bridge.New(slog.Default(), dispatcher))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-builtin-menu-blacklist",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "blocked-user",
+		SenderID:         "blocked-user",
+		ActorRole:        "member",
+		PlainText:        "/help",
+		MessageID:        "30004",
+	})
+
+	if sender.replyCount != 0 || sender.messageCount != 0 {
+		t.Fatalf("blocked builtin menu should not send response: replies=%d messages=%d", sender.replyCount, sender.messageCount)
+	}
+	if dispatcher.deliverCount != 0 {
+		t.Fatalf("blocked builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
+	}
+}
+
+func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	dispatcher := &recordingDispatcherClient{}
+	application := newTestAppState(config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Commands: []string{"help"},
+		}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+		User: config.UserConfig{
+			CommandRateLimit: "1/1h",
+			CooldownReply:    false,
+		},
+		Group: config.GroupConfig{CommandRateLimit: "10/1h"},
+	}, nil)
+	application.renderer = newRenderService(t, t.TempDir())
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "weather",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+
+	event := adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-builtin-menu-cooldown",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.private",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "private",
+		ConversationID:   "10002",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/help",
+		MessageID:        "30005",
+	}
+	application.handleAdapterEvent(context.Background(), event)
+	application.handleAdapterEvent(context.Background(), event)
+
+	if sender.messageCount != 1 {
+		t.Fatalf("builtin menu should send once before cooldown, messages=%d", sender.messageCount)
+	}
+	if dispatcher.deliverCount != 0 {
+		t.Fatalf("builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
+	}
+}
+
 func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	t.Parallel()
 
@@ -1240,23 +1574,27 @@ func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ runtime.Event,
 }
 
 type recordingOutboundSender struct {
-	replyCount      int
-	lastReplyText   string
-	messageCount    int
-	lastMessageText string
-	replyErr        error
-	messageErr      error
+	replyCount       int
+	lastReplyText    string
+	lastReplyImage   string
+	messageCount     int
+	lastMessageText  string
+	lastMessageImage string
+	replyErr         error
+	messageErr       error
 }
 
 func (s *recordingOutboundSender) SendMessage(_ context.Context, action adapter.OutboundMessageSend) (adapter.SendMessageResult, error) {
 	s.messageCount++
 	s.lastMessageText = firstTextSegment(action.Segments)
+	s.lastMessageImage = firstImageSegment(action.Segments)
 	return adapter.SendMessageResult{MessageID: "msg-1"}, s.messageErr
 }
 
 func (s *recordingOutboundSender) SendReply(_ context.Context, action adapter.OutboundMessageReply) (adapter.SendMessageResult, error) {
 	s.replyCount++
 	s.lastReplyText = firstTextSegment(action.Segments)
+	s.lastReplyImage = firstImageSegment(action.Segments)
 	return adapter.SendMessageResult{MessageID: "msg-2"}, s.replyErr
 }
 
@@ -1298,6 +1636,18 @@ func firstTextSegment(segments []adapter.OutboundMessageSegment) string {
 		}
 		if text, ok := segment.Data["text"].(string); ok {
 			return text
+		}
+	}
+	return ""
+}
+
+func firstImageSegment(segments []adapter.OutboundMessageSegment) string {
+	for _, segment := range segments {
+		if segment.Type != "image" {
+			continue
+		}
+		if file, ok := segment.Data["file"].(string); ok {
+			return file
 		}
 	}
 	return ""

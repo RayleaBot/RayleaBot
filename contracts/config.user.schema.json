@@ -11,6 +11,7 @@
     "onebot",
     "database",
     "command",
+    "builtin_features",
     "admin",
     "permission",
     "render",
@@ -107,6 +108,38 @@
           "items": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      }
+    },
+    "builtin_features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["menu"],
+      "properties": {
+        "menu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commands", "prefixes"],
+          "properties": {
+            "commands": {
+              "type": "array",
+              "default": ["help", "帮助"],
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "prefixes": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
           }
         }
       }

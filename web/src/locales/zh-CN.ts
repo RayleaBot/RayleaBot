@@ -1,6 +1,7 @@
 import { app, fallback, routes, shell } from './zh-CN/app'
 import { dashboard } from './zh-CN/dashboard'
 import { commands } from './zh-CN/commands'
+import { builtinFeatures } from './zh-CN/builtin-features'
 import { permissionPolicy } from './zh-CN/permission-policy'
 import { rateLimits } from './zh-CN/rate-limits'
 import { accessLists } from './zh-CN/access-lists'
@@ -19,6 +20,7 @@ export const zhCN = {
   fallback,
   routes,
   shell,
+  builtinFeatures,
   dashboard,
   commands,
   permissionPolicy,

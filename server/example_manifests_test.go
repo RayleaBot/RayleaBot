@@ -26,7 +26,6 @@ func TestBundledPluginManifestsMatchContract(t *testing.T) {
 		filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
 		filepath.Join("..", "plugins", "builtin", "echo", "info.json"),
 		filepath.Join("..", "plugins", "builtin", "fortune", "info.json"),
-		filepath.Join("..", "plugins", "builtin", "help", "info.json"),
 		filepath.Join("..", "plugins", "builtin", "subscription_hub", "info.json"),
 	}
 
@@ -57,12 +56,6 @@ func TestBundledPluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 			manifestPath:     filepath.Join("..", "plugins", "builtin", "echo", "info.json"),
 			wantCapabilities: []string{"event.subscribe", "message.send"},
 			wantRequired:     []string{"message.send"},
-		},
-		{
-			name:             "builtin help",
-			manifestPath:     filepath.Join("..", "plugins", "builtin", "help", "info.json"),
-			wantCapabilities: []string{"event.subscribe", "message.send", "plugin.list", "render.image"},
-			wantRequired:     []string{"message.send", "plugin.list", "render.image"},
 		},
 		{
 			name:             "echo python",

@@ -18,7 +18,7 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	token := issueLoginToken(t, appA)
 	serverA := httptest.NewServer(appA.Handler())
 
-	enableReq, err := http.NewRequest(http.MethodPost, serverA.URL+"/api/plugins/raylea.help/disable", nil)
+	enableReq, err := http.NewRequest(http.MethodPost, serverA.URL+"/api/plugins/raylea.echo/disable", nil)
 	if err != nil {
 		t.Fatalf("create disable request: %v", err)
 	}
@@ -54,22 +54,22 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	listBody := decodeBody(t, readAll(t, listResp))
 	items := listBody["items"].([]any)
 
-	var builtinHelp map[string]any
+	var builtinEcho map[string]any
 	for _, item := range items {
 		entry := item.(map[string]any)
-		if entry["id"] == "raylea.help" {
-			builtinHelp = entry
+		if entry["id"] == "raylea.echo" {
+			builtinEcho = entry
 			break
 		}
 	}
-	if builtinHelp == nil {
-		t.Fatal("expected raylea.help in plugin list")
+	if builtinEcho == nil {
+		t.Fatal("expected raylea.echo in plugin list")
 	}
-	if builtinHelp["desired_state"] != "disabled" {
-		t.Fatalf("unexpected persisted desired_state: got %#v want disabled", builtinHelp["desired_state"])
+	if builtinEcho["desired_state"] != "disabled" {
+		t.Fatalf("unexpected persisted desired_state: got %#v want disabled", builtinEcho["desired_state"])
 	}
-	if builtinHelp["runtime_state"] != "stopped" {
-		t.Fatalf("unexpected runtime_state after restart: got %#v want stopped", builtinHelp["runtime_state"])
+	if builtinEcho["runtime_state"] != "stopped" {
+		t.Fatalf("unexpected runtime_state after restart: got %#v want stopped", builtinEcho["runtime_state"])
 	}
 }
 

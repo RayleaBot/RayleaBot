@@ -36,11 +36,14 @@ func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
 		}
 	})
 
-	if _, ok := application.Plugins().Get("raylea.help"); !ok {
-		t.Fatal("expected builtin plugin to be discovered")
-	}
 	if _, ok := application.Plugins().Get("raylea.echo"); !ok {
 		t.Fatal("expected builtin echo plugin to be discovered")
+	}
+	if _, ok := application.Plugins().Get("raylea.fortune"); !ok {
+		t.Fatal("expected builtin fortune plugin to be discovered")
+	}
+	if _, ok := application.Plugins().Get("raylea.subscription-hub"); !ok {
+		t.Fatal("expected builtin subscription hub plugin to be discovered")
 	}
 	if _, ok := application.Plugins().Get("hello-python"); ok {
 		t.Fatal("examples/plugins must not be discovered by the default application roots")
@@ -251,10 +254,10 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 		commandName   string
 		source        string
 		declarationID string
+		commandCount  int
 	}{
-		{pluginID: "raylea.help", commandName: "help", source: plugins.CommandSourceManifest},
-		{pluginID: "raylea.echo", commandName: "echo", source: plugins.CommandSourceManifest},
-		{pluginID: "raylea.fortune", commandName: "我的运势", source: plugins.CommandSourceDynamic, declarationID: "fortune"},
+		{pluginID: "raylea.echo", commandName: "echo", source: plugins.CommandSourceManifest, commandCount: 1},
+		{pluginID: "raylea.fortune", commandName: "我的运势", source: plugins.CommandSourceDynamic, declarationID: "fortune", commandCount: 2},
 	} {
 		snapshot, ok := catalog.Get(tc.pluginID)
 		if !ok {
@@ -266,19 +269,29 @@ func TestDiscoverBuiltinPluginDefaultsToEnabledAndPreservesCommands(t *testing.T
 		if snapshot.Role != "builtin" {
 			t.Fatalf("unexpected role for %s: got %q want builtin", tc.pluginID, snapshot.Role)
 		}
-		if len(snapshot.Commands) != 1 {
-			t.Fatalf("unexpected builtin command count for %s: got %d want 1", tc.pluginID, len(snapshot.Commands))
+		if len(snapshot.Commands) != tc.commandCount {
+			t.Fatalf("unexpected builtin command count for %s: got %d want %d", tc.pluginID, len(snapshot.Commands), tc.commandCount)
 		}
-		if snapshot.Commands[0].Name != tc.commandName {
-			t.Fatalf("unexpected builtin command name for %s: got %q want %q", tc.pluginID, snapshot.Commands[0].Name, tc.commandName)
+		command, ok := findPluginCommand(snapshot.Commands, tc.commandName)
+		if !ok {
+			t.Fatalf("expected builtin command %q for %s, got %#v", tc.commandName, tc.pluginID, snapshot.Commands)
 		}
-		if snapshot.Commands[0].CommandSource != tc.source {
-			t.Fatalf("unexpected builtin command source for %s: got %q want %q", tc.pluginID, snapshot.Commands[0].CommandSource, tc.source)
+		if command.CommandSource != tc.source {
+			t.Fatalf("unexpected builtin command source for %s: got %q want %q", tc.pluginID, command.CommandSource, tc.source)
 		}
-		if snapshot.Commands[0].DeclarationID != tc.declarationID {
-			t.Fatalf("unexpected builtin command declaration for %s: got %q want %q", tc.pluginID, snapshot.Commands[0].DeclarationID, tc.declarationID)
+		if command.DeclarationID != tc.declarationID {
+			t.Fatalf("unexpected builtin command declaration for %s: got %q want %q", tc.pluginID, command.DeclarationID, tc.declarationID)
 		}
 	}
+}
+
+func findPluginCommand(commands []plugins.Command, name string) (plugins.Command, bool) {
+	for _, command := range commands {
+		if command.Name == name {
+			return command, true
+		}
+	}
+	return plugins.Command{}, false
 }
 
 func TestDiscoverManifestDynamicCommands(t *testing.T) {

@@ -255,6 +255,12 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 		"command": map[string]any{
 			"prefixes": []string{"/"},
 		},
+		"builtin_features": map[string]any{
+			"menu": map[string]any{
+				"commands": []any{"help", "帮助"},
+				"prefixes": []any{},
+			},
+		},
 		"admin": map[string]any{
 			"super_admins":              []any{},
 			"session_ttl_days":          7,
@@ -274,6 +280,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,
+			"footer_template":            "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}",
 		},
 		"scheduler": map[string]any{
 			"timezone": "",
@@ -361,11 +368,12 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 		t.Fatalf("perform config update request: %v", err)
 	}
 	defer response.Body.Close()
+	responseBody := readAll(t, response)
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected config update status: got %d want 200", response.StatusCode)
+		t.Fatalf("unexpected config update status: got %d want 200; body=%s", response.StatusCode, responseBody)
 	}
 
-	body := decodeBody(t, readAll(t, response))
+	body := decodeBody(t, responseBody)
 	if body["restart_required"] != false {
 		t.Fatalf("unexpected restart_required: %#v", body["restart_required"])
 	}

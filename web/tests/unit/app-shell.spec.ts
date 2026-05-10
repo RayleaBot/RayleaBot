@@ -28,8 +28,22 @@ describe('BasicLayout', () => {
             {
               path: '',
               component: RouteView,
+              redirect: { name: 'menu-center' },
+              meta: { hideInTab: true, icon: 'builtin-features', order: 2, title: '内置功能' },
+              children: [
+                {
+                  path: '/menu-center',
+                  name: 'menu-center',
+                  component: { template: '<div>菜单中心页</div>' },
+                  meta: { icon: 'menu-center', keepAlive: true, order: 1, title: '菜单中心', viewKey: 'menu-center' },
+                },
+              ],
+            },
+            {
+              path: '',
+              component: RouteView,
               redirect: { name: 'plugins' },
-              meta: { hideInTab: true, icon: 'appstore', title: '插件中心' },
+              meta: { hideInTab: true, icon: 'appstore', order: 3, title: '插件中心' },
               children: [
                 {
                   path: '/plugins',
@@ -61,7 +75,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'permission-policy' },
-              meta: { hideInTab: true, title: '运维' },
+              meta: { hideInTab: true, order: 4, title: '运维' },
               children: [
                 {
                   path: '/permission-policy',
@@ -93,7 +107,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'logs' },
-              meta: { hideInTab: true, title: '日志中心' },
+              meta: { hideInTab: true, order: 5, title: '日志中心' },
               children: [
                 {
                   path: '/logs',
@@ -113,7 +127,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'protocols' },
-              meta: { hideInTab: true, title: '协议' },
+              meta: { hideInTab: true, order: 6, title: '协议' },
               children: [
                 {
                   path: '/protocols',
@@ -133,7 +147,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'config' },
-              meta: { hideInTab: true, title: '系统' },
+              meta: { hideInTab: true, order: 7, title: '系统' },
               children: [
                 {
                   path: '/config',
@@ -312,6 +326,8 @@ describe('BasicLayout', () => {
     expect(breadcrumb.find('.admin-layout__breadcrumb-link').exists()).toBe(false)
     expect(currentBreadcrumb.text()).toBe('系统状态')
     expect(wrapper.text()).toContain('系统状态')
+    expect(wrapper.text()).toContain('内置功能')
+    expect(wrapper.text()).toContain('菜单中心')
     expect(wrapper.text()).toContain('插件中心')
     expect(wrapper.text()).toContain('插件列表')
     expect(wrapper.text()).toContain('插件设置')
@@ -325,6 +341,7 @@ describe('BasicLayout', () => {
     expect(wrapper.text()).toContain('协议')
     expect(wrapper.text()).toContain('系统')
     expect(wrapper.text()).toContain('模板预览')
+    expect(wrapper.text().indexOf('内置功能')).toBeLessThan(wrapper.text().indexOf('插件中心'))
   })
 
   it('serializes route transitions to avoid overlapping pages during navigation', async () => {
@@ -363,16 +380,29 @@ describe('BasicLayout', () => {
     expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands'])
     expect(getActiveTabLabel()).toBe('指令中心')
 
+    await router.push('/menu-center')
+    await flushPromises()
+    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
+      { title: '系统状态', icon: 'dashboard' },
+      { title: '权限策略', icon: 'permission-policy' },
+      { title: '指令中心', icon: 'commands' },
+      { title: '菜单中心', icon: 'menu-center' },
+    ])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center'])
+    expect(getActiveTabLabel()).toBe('菜单中心')
+
     await router.push('/tasks')
     await flushPromises()
     expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
       { title: '系统状态', icon: 'dashboard' },
       { title: '权限策略', icon: 'permission-policy' },
       { title: '指令中心', icon: 'commands' },
+      { title: '菜单中心', icon: 'menu-center' },
       { title: '任务', icon: 'tasks' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '任务'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center', 'tasks'])
     expect(getActiveTabLabel()).toBe('任务')
 
     await router.push('/logs')
@@ -381,11 +411,12 @@ describe('BasicLayout', () => {
       { title: '系统状态', icon: 'dashboard' },
       { title: '权限策略', icon: 'permission-policy' },
       { title: '指令中心', icon: 'commands' },
+      { title: '菜单中心', icon: 'menu-center' },
       { title: '任务', icon: 'tasks' },
       { title: '实时日志', icon: 'logs' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '任务', '实时日志'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center', 'tasks', 'logs'])
     expect(getActiveTabLabel()).toBe('实时日志')
     expect(uiShellStore.tabs.map((item) => item.title)).not.toContain('运维')
 
@@ -395,12 +426,13 @@ describe('BasicLayout', () => {
       { title: '系统状态', icon: 'dashboard' },
       { title: '权限策略', icon: 'permission-policy' },
       { title: '指令中心', icon: 'commands' },
+      { title: '菜单中心', icon: 'menu-center' },
       { title: '任务', icon: 'tasks' },
       { title: '实时日志', icon: 'logs' },
       { title: '历史日志', icon: 'history-logs' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'history-logs'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '任务', '实时日志', '历史日志'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center', 'tasks', 'logs', 'history-logs'])
     expect(getActiveTabLabel()).toBe('历史日志')
 
     await router.push('/render/templates/help.menu')
@@ -409,13 +441,14 @@ describe('BasicLayout', () => {
       { title: '系统状态', icon: 'dashboard', path: '/', fullPath: '/' },
       { title: '权限策略', icon: 'permission-policy', path: '/permission-policy', fullPath: '/permission-policy' },
       { title: '指令中心', icon: 'commands', path: '/commands', fullPath: '/commands' },
+      { title: '菜单中心', icon: 'menu-center', path: '/menu-center', fullPath: '/menu-center' },
       { title: '任务', icon: 'tasks', path: '/tasks', fullPath: '/tasks' },
       { title: '实时日志', icon: 'logs', path: '/logs', fullPath: '/logs' },
       { title: '历史日志', icon: 'history-logs', path: '/logs/history', fullPath: '/logs/history' },
       { title: '模板预览', icon: 'render-templates', path: '/render/templates', fullPath: '/render/templates/help.menu' },
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板预览'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'tasks', 'logs', 'history-logs', 'render-templates'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '任务', '实时日志', '历史日志', '模板预览'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center', 'tasks', 'logs', 'history-logs', 'render-templates'])
     expect(getActiveTabLabel()).toBe('模板预览')
 
     await router.push('/render/templates/status.panel')
@@ -427,7 +460,7 @@ describe('BasicLayout', () => {
         title: '模板预览',
       }),
     ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '任务', '实时日志', '历史日志', '模板预览'])
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '任务', '实时日志', '历史日志', '模板预览'])
     expect(getActiveTabLabel()).toBe('模板预览')
   })
 
@@ -474,6 +507,20 @@ describe('BasicLayout', () => {
     expect(getActiveTabLabel()).toBe('插件设置')
   })
 
+  it('renders menu center under the builtin features group', async () => {
+    const { wrapper } = await mountShell('/menu-center')
+
+    const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
+    const parentLink = breadcrumb.get('.admin-layout__breadcrumb-link')
+
+    expect(parentLink.text()).toBe('内置功能')
+    expect(parentLink.attributes('href')).toBe('/menu-center')
+    expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('菜单中心')
+    expect(getTabLabels()).toEqual(['系统状态', '菜单中心'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'menu-center'])
+    expect(getActiveTabLabel()).toBe('菜单中心')
+  })
+
   it('keeps a single workspace tab when only query state changes', async () => {
     const { router, uiShellStore } = await mountShell('/permission-policy')
 
@@ -486,7 +533,7 @@ describe('BasicLayout', () => {
 
     await router.push('/commands?plugin_id=weather')
     await flushPromises()
-    await router.push('/commands?plugin_id=help')
+    await router.push('/commands?plugin_id=raylea.echo')
     await flushPromises()
     expect(uiShellStore.tabs.filter((item) => item.name === 'commands')).toHaveLength(1)
     expect(getActiveTabLabel()).toBe('指令中心')
@@ -626,11 +673,13 @@ describe('BasicLayout', () => {
     const { wrapper } = await mountShell('/permission-policy')
 
     const menuGroups = wrapper.findAll('.admin-layout__sider .ant-menu-submenu')
+    const builtinGroup = menuGroups.find((item) => item.text().includes('内置功能'))
     const pluginGroup = menuGroups.find((item) => item.text().includes('插件中心'))
     const operationsGroup = menuGroups.find((item) => item.text().includes('运维'))
     const logsGroup = menuGroups.find((item) => item.text().includes('日志中心'))
     const protocolGroup = menuGroups.find((item) => item.text().includes('协议'))
 
+    expect(builtinGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(2)
     expect(pluginGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(4)
     expect(operationsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(5)
     expect(logsGroup?.findAll('.admin-layout__menu-icon')).toHaveLength(3)

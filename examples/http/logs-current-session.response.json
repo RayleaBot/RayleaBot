@@ -5,9 +5,9 @@
       "timestamp": "2026-03-20T10:00:02Z",
       "level": "info",
       "source": "runtime",
-      "message": "help plugin heartbeat",
-      "plugin_id": "help",
-      "request_id": "req_help_0001"
+      "message": "echo plugin heartbeat",
+      "plugin_id": "raylea.echo",
+      "request_id": "req_echo_0001"
     },
     {
       "log_id": "log_current_session_0001",

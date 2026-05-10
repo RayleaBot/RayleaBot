@@ -25,13 +25,17 @@ func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adap
 		s.replyTargets.Record(event)
 	}
 
-	if s.lifecycle != nil {
-		s.lifecycle.HandleAdapterEvent(ctx, event)
-	}
-
 	enriched, allowed := s.applyChatPolicy(ctx, event)
 	if !allowed {
 		return
+	}
+
+	if s.handleBuiltinMenu(ctx, enriched) {
+		return
+	}
+
+	if s.lifecycle != nil {
+		s.lifecycle.HandleAdapterEvent(ctx, event)
 	}
 
 	if s.bridge != nil {
@@ -95,6 +99,15 @@ func (s *eventIngressService) enrichCommandEvent(event adapter.NormalizedEvent) 
 	}
 
 	parsed := s.commandParser.Parse(event.PlainText)
+	builtinParsed := s.matchBuiltinMenu(event)
+	if builtinParsed.Matched {
+		parsed = command.ParseResult{
+			IsCommand: true,
+			Command:   builtinParsed.Command,
+			Args:      builtinMenuArgs(builtinParsed.Target),
+			Prefix:    builtinParsed.Prefix,
+		}
+	}
 	if !parsed.IsCommand {
 		return event
 	}
@@ -112,6 +125,14 @@ func (s *eventIngressService) enrichCommandEvent(event adapter.NormalizedEvent) 
 	enriched.PayloadFields["command"] = parsed.Command
 	enriched.PayloadFields["args"] = append([]string(nil), parsed.Args...)
 	return enriched
+}
+
+func builtinMenuArgs(target string) []string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return []string{}
+	}
+	return strings.Fields(target)
 }
 
 func ensureRuntimeStartedForEvent(

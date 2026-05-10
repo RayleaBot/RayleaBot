@@ -77,6 +77,17 @@ response:
           usage: weather <城市>
           permission: member
           command_source: manifest
+      help:
+        title: Weather
+        summary: 天气菜单
+        groups:
+          - title: 查询
+            items:
+              - title: 城市天气
+                description: 查询城市天气
+                usage: weather <城市>
+                command: weather
+                permission: everyone
       command_conflicts:
         - weather
       permissions:

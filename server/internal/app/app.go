@@ -267,6 +267,7 @@ func New(options Options) (*App, error) {
 		replyTargets:     pluginState.replyTargets,
 		outboundSender:   pluginState.outboundSender,
 		outboundLimiter:  pluginState.outboundLimiter,
+		renderer:         pluginState.renderer,
 		bridge:           pluginState.Bridge,
 		lifecycle:        lifecycle,
 		metadataEnricher: pluginState.Adapter,

@@ -17,16 +17,31 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 
 	router := pluginRouter(t, plugins.NewCatalog([]plugins.Snapshot{
 		{
-			PluginID:          "builtin-help",
+			PluginID:          "raylea.echo",
 			Valid:             true,
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
 			DisplayState:      "running",
-			Name:              "Builtin Help",
+			Name:              "Echo",
+			Description:       "Built-in echo command",
 			SourceRoot:        "plugins/builtin",
 			Commands: []plugins.Command{
-				{Name: "help"},
+				{Name: "echo"},
+			},
+			Help: &plugins.Help{
+				Title:   "Echo",
+				Summary: "Built-in echo command",
+				Groups: []plugins.HelpGroup{{
+					Title: "基础指令",
+					Items: []plugins.HelpItem{{
+						Title:       "复读内容",
+						Description: "复读收到的内容",
+						Usage:       "/echo <内容>",
+						Command:     "echo",
+						Permission:  "everyone",
+					}},
+				}},
 			},
 		},
 		{
@@ -49,6 +64,20 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 					Usage:       "weather <城市>",
 					Permission:  "member",
 				},
+			},
+			Help: &plugins.Help{
+				Title:   "Weather",
+				Summary: "天气菜单",
+				Groups: []plugins.HelpGroup{{
+					Title: "查询",
+					Items: []plugins.HelpItem{{
+						Title:       "城市天气",
+						Description: "查询城市天气",
+						Usage:       "/weather 上海",
+						Command:     "weather",
+						Permission:  "everyone",
+					}},
+				}},
 			},
 		},
 		{
@@ -105,6 +134,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			"source":             true,
 			"trust":              true,
 			"commands":           true,
+			"help":               true,
 			"command_conflicts":  true,
 		}
 		for key := range itemMap {
@@ -115,19 +145,20 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 		byID[itemMap["id"].(string)] = itemMap
 	}
 
-	builtin := byID["builtin-help"]
+	builtin := byID["raylea.echo"]
 	if builtin["role"] != "builtin" {
-		t.Fatalf("builtin-help role = %v, want builtin", builtin["role"])
+		t.Fatalf("raylea.echo role = %v, want builtin", builtin["role"])
 	}
 	if conflicts := builtin["command_conflicts"].([]any); len(conflicts) != 0 {
-		t.Fatalf("builtin-help command_conflicts = %#v, want []", conflicts)
+		t.Fatalf("raylea.echo command_conflicts = %#v, want []", conflicts)
 	}
 	assertCommandList(t, builtin["commands"], []map[string]any{
 		{
-			"name":           "help",
+			"name":           "echo",
 			"command_source": "manifest",
 		},
 	})
+	assertPluginHelp(t, builtin["help"], "Echo", "基础指令", "复读内容")
 
 	weather := byID["weather"]
 	if weather["name"] != "Weather" {
@@ -169,6 +200,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			"command_source": "manifest",
 		},
 	})
+	assertPluginHelp(t, weather["help"], "Weather", "查询", "城市天气")
 
 	devPlugin := byID["weather-admin"]
 	if devPlugin["role"] != "dev" {
@@ -254,6 +286,9 @@ func TestGetPluginReturnsValidSnapshot(t *testing.T) {
 					"permission":     "member",
 					"command_source": "manifest",
 				},
+			},
+			"help": map[string]any{
+				"groups": []any{},
 			},
 			"command_conflicts": []any{},
 			"permissions":       []any{},
@@ -695,7 +730,7 @@ func TestUninstallBuiltinPluginRejected(t *testing.T) {
 
 	catalog := plugins.NewCatalog([]plugins.Snapshot{
 		{
-			PluginID:          "raylea.help",
+			PluginID:          "raylea.echo",
 			Valid:             true,
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
@@ -706,7 +741,7 @@ func TestUninstallBuiltinPluginRejected(t *testing.T) {
 	uninstaller := &stubUninstallCoordinator{taskID: "should-not-run"}
 	router := pluginRouterWithController(t, catalog, nil, uninstaller)
 
-	request := httptest.NewRequest("DELETE", "/api/plugins/raylea.help", nil)
+	request := httptest.NewRequest("DELETE", "/api/plugins/raylea.echo", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
@@ -718,6 +753,34 @@ func TestUninstallBuiltinPluginRejected(t *testing.T) {
 	errorBody := body["error"].(map[string]any)
 	if errorBody["code"] != "platform.invalid_request" {
 		t.Fatalf("unexpected error code: %v", errorBody["code"])
+	}
+}
+
+func assertPluginHelp(t *testing.T, got any, wantTitle string, wantGroup string, wantItemTitle string) {
+	t.Helper()
+
+	help, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("expected help object, got %#v", got)
+	}
+	if help["title"] != wantTitle {
+		t.Fatalf("help.title = %#v, want %q", help["title"], wantTitle)
+	}
+	groups, ok := help["groups"].([]any)
+	if !ok || len(groups) != 1 {
+		t.Fatalf("unexpected help groups: %#v", help["groups"])
+	}
+	group := groups[0].(map[string]any)
+	if group["title"] != wantGroup {
+		t.Fatalf("help group title = %#v, want %q", group["title"], wantGroup)
+	}
+	items := group["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("unexpected help group items: %#v", group["items"])
+	}
+	item := items[0].(map[string]any)
+	if item["title"] != wantItemTitle {
+		t.Fatalf("help item title = %#v, want %q", item["title"], wantItemTitle)
 	}
 }
 

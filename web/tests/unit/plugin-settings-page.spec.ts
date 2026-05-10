@@ -25,6 +25,12 @@ function createFixtureConfig(): ConfigDocument {
     },
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
+    builtin_features: {
+      menu: {
+        commands: ['help', '帮助'],
+        prefixes: [],
+      },
+    },
     admin: {
       super_admins: [],
       session_ttl_days: 7,

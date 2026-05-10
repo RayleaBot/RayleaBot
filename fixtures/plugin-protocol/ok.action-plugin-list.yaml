@@ -4,9 +4,9 @@ frames:
   - protocol_version: "1"
     type: action
     timestamp: 1710000411
-    plugin_id: raylea.help
+    plugin_id: raylea.echo
     request_id: local_plugin_list_0001
-    parent_request_id: event_help_0001
+    parent_request_id: event_echo_0001
     action: plugin.list
     data:
       visibility: caller

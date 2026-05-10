@@ -8,8 +8,8 @@ response:
   status: 200
   body:
     items:
-      - id: builtin-help
-        name: Builtin Help
+      - id: weather
+        name: Weather
         role: builtin
         registration_state: installed
         desired_state: enabled
@@ -22,16 +22,28 @@ response:
           level: official
           label: 官方
         commands:
-          - name: help
+          - name: weather
             aliases:
-              - 帮助
-            description: 查看帮助菜单
-            usage: help [命令]
+              - tq
+              - 天气
+            description: 查询天气
+            usage: weather <城市>
             permission: member
             command_source: manifest
+        help:
+          title: 天气
+          summary: 查询城市天气。
+          groups:
+            - title: 常用
+              items:
+                - title: 查询天气
+                  description: 查询指定城市的天气。
+                  usage: weather <城市>
+                  command: weather
+                  permission: everyone
         command_conflicts: []
-      - id: weather
-        name: Weather
+      - id: fortune
+        name: Fortune
         role: user
         registration_state: installed
         desired_state: enabled
@@ -46,18 +58,19 @@ response:
           level: unverified
           label: 未验证来源
         commands:
-          - name: weather
+          - name: fortune
             aliases:
-              - tq
-              - 天气
-            description: 查询天气
-            usage: weather <城市>
+              - 运势
+            description: 查看今日运势
+            usage: fortune
             permission: member
             command_source: manifest
+        help:
+          groups: []
         command_conflicts:
-          - weather
+          - fortune
 expect:
   valid: true
   notes:
     - command_conflicts enables explicit fan-out conflict warnings in the Web UI.
-    - commands keeps declared plugin commands visible in list and detail surfaces.
+    - commands and help keep declared plugin menu content visible in list and detail surfaces.

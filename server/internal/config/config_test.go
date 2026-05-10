@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -54,6 +55,12 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	}
 	if _, ok := document["adapter"]; !ok {
 		t.Fatal("expected planning-aligned adapter section in persisted document")
+	}
+	if got := nestedString(t, document, "builtin_features", "menu", "commands"); got != `["help","帮助"]` {
+		t.Fatalf("builtin_features.menu.commands = %q, want default help commands", got)
+	}
+	if got := nestedString(t, document, "builtin_features", "menu", "prefixes"); got != "[]" {
+		t.Fatalf("builtin_features.menu.prefixes = %q, want []", got)
 	}
 	if got := nestedString(t, document, "onebot", "reverse_ws", "url"); got != "" {
 		t.Fatalf("onebot.reverse_ws.url = %q, want empty", got)
@@ -194,6 +201,8 @@ func TestSaveDocumentPersistsPlanningAlignedShape(t *testing.T) {
 	document["log"].(map[string]any)["level"] = "debug"
 	document["permission"].(map[string]any)["default_level"] = "group_admin"
 	document["user"].(map[string]any)["cooldown_reply"] = false
+	document["builtin_features"].(map[string]any)["menu"].(map[string]any)["commands"] = []string{"menu", "菜单"}
+	document["builtin_features"].(map[string]any)["menu"].(map[string]any)["prefixes"] = []string{"#", "！"}
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
 	if err != nil {
@@ -207,6 +216,12 @@ func TestSaveDocumentPersistsPlanningAlignedShape(t *testing.T) {
 	}
 	if cfg.Auth.DefaultLevel != "group_admin" {
 		t.Fatalf("Auth.DefaultLevel = %q, want group_admin", cfg.Auth.DefaultLevel)
+	}
+	if !reflect.DeepEqual(cfg.Builtin.Menu.Commands, []string{"menu", "菜单"}) {
+		t.Fatalf("Builtin.Menu.Commands = %#v, want [menu 菜单]", cfg.Builtin.Menu.Commands)
+	}
+	if !reflect.DeepEqual(cfg.Builtin.Menu.Prefixes, []string{"#", "！"}) {
+		t.Fatalf("Builtin.Menu.Prefixes = %#v, want [# ！]", cfg.Builtin.Menu.Prefixes)
 	}
 
 	bytes, err := os.ReadFile(configPath)
@@ -474,6 +489,12 @@ func newPlanningConfigDocument() map[string]any {
 		},
 		"command": map[string]any{
 			"prefixes": []string{"/"},
+		},
+		"builtin_features": map[string]any{
+			"menu": map[string]any{
+				"commands": []string{"help", "帮助"},
+				"prefixes": []string{},
+			},
 		},
 		"admin": map[string]any{
 			"super_admins":              []string{},

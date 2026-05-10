@@ -13,6 +13,7 @@ type Config struct {
 	OneBot        OneBotConfig     `json:"onebot" yaml:"onebot"`
 	Database      DatabaseConfig   `json:"database" yaml:"database"`
 	Command       *CommandConfig   `json:"command" yaml:"command"`
+	Builtin       BuiltinConfig    `json:"builtin_features" yaml:"builtin_features"`
 	Admin         AdminConfig      `json:"admin" yaml:"admin"`
 	Permission    PermissionConfig `json:"permission" yaml:"permission"`
 	Render        RenderConfig     `json:"render" yaml:"render"`
@@ -38,6 +39,15 @@ type Config struct {
 }
 
 type CommandConfig struct {
+	Prefixes []string `json:"prefixes" yaml:"prefixes"`
+}
+
+type BuiltinConfig struct {
+	Menu BuiltinMenuConfig `json:"menu" yaml:"menu"`
+}
+
+type BuiltinMenuConfig struct {
+	Commands []string `json:"commands" yaml:"commands"`
 	Prefixes []string `json:"prefixes" yaml:"prefixes"`
 }
 
@@ -276,6 +286,9 @@ func (cfg *Config) hydrateCompatibility() {
 
 	if cfg.Command == nil {
 		cfg.Command = &CommandConfig{Prefixes: []string{"/"}}
+	}
+	if len(cfg.Builtin.Menu.Commands) == 0 {
+		cfg.Builtin.Menu.Commands = []string{"help", "帮助"}
 	}
 
 	if len(cfg.Admin.SuperAdmins) == 0 && len(cfg.Auth.SuperAdmins) > 0 {

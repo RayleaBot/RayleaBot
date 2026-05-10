@@ -93,14 +93,14 @@ describe('logs store', () => {
       levels: ['warn', 'error'],
       source: 'adapter',
       protocol: 'onebot11',
-      pluginIds: ['weather', 'help'],
+      pluginIds: ['weather', 'raylea.echo'],
       requestId: 'req_1',
     }
 
     await store.applyFilters()
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/logs?scope=current_session&limit=100&level=warn&level=error&source=adapter&protocol=onebot11&plugin_id=weather&plugin_id=help&request_id=req_1',
+      '/api/logs?scope=current_session&limit=100&level=warn&level=error&source=adapter&protocol=onebot11&plugin_id=weather&plugin_id=raylea.echo&request_id=req_1',
       expect.any(Object),
     )
     expect(store.items.map((item) => item.log_id)).toEqual(['log_warn_0001'])

@@ -33,6 +33,12 @@ request:
     command:
       prefixes:
         - /
+    builtin_features:
+      menu:
+        commands:
+          - help
+          - 帮助
+        prefixes: []
     admin:
       super_admins: []
       session_ttl_days: 7
@@ -140,6 +146,12 @@ response:
       command:
         prefixes:
           - /
+      builtin_features:
+        menu:
+          commands:
+            - help
+            - 帮助
+          prefixes: []
       admin:
         super_admins: []
         session_ttl_days: 7

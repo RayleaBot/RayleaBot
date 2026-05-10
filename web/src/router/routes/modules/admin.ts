@@ -25,11 +25,38 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: '',
         component: RouteView,
+        redirect: { name: 'menu-center' },
+        meta: {
+          hideInTab: true,
+          icon: 'builtin-features',
+          order: 2,
+          requiresAuth: true,
+          titleKey: 'routes.builtinFeatures',
+        },
+        children: [
+          {
+            path: '/menu-center',
+            name: 'menu-center',
+            component: () => import('@/views/builtin/MenuCenterView.vue'),
+            meta: {
+              icon: 'menu-center',
+              keepAlive: true,
+              order: 1,
+              requiresAuth: true,
+              titleKey: 'routes.menuCenter',
+              viewKey: 'menu-center',
+            },
+          },
+        ],
+      },
+      {
+        path: '',
+        component: RouteView,
         redirect: { name: 'plugins' },
         meta: {
           hideInTab: true,
           icon: 'appstore',
-          order: 2,
+          order: 3,
           requiresAuth: true,
           titleKey: 'routes.pluginCenter',
         },
@@ -92,7 +119,7 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: {
           hideInTab: true,
           icon: 'toolbox',
-          order: 3,
+          order: 4,
           requiresAuth: true,
           titleKey: 'routes.operations',
         },
@@ -154,7 +181,7 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: {
           hideInTab: true,
           icon: 'logs-center',
-          order: 4,
+          order: 5,
           requiresAuth: true,
           titleKey: 'routes.logsCenter',
         },
@@ -192,7 +219,7 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: {
           hideInTab: true,
           icon: 'protocols',
-          order: 5,
+          order: 6,
           requiresAuth: true,
           titleKey: 'routes.protocolGroup',
         },
@@ -228,7 +255,7 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: {
           hideInTab: true,
           icon: 'system',
-          order: 6,
+          order: 7,
           requiresAuth: true,
           titleKey: 'routes.system',
         },

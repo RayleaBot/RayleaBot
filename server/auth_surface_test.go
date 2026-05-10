@@ -43,15 +43,15 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodGet, path: "/api/logs/log_test_0001", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/install", want: http.StatusUnauthorized},
-		{method: http.MethodPost, path: "/api/plugins/raylea.help/enable", want: http.StatusUnauthorized},
-		{method: http.MethodPost, path: "/api/plugins/raylea.help/disable", want: http.StatusUnauthorized},
-		{method: http.MethodGet, path: "/api/plugins/raylea.help/settings", want: http.StatusUnauthorized},
-		{method: http.MethodPut, path: "/api/plugins/raylea.help/settings", want: http.StatusUnauthorized},
-		{method: http.MethodGet, path: "/plugin-ui/raylea.help/web/index.html", want: http.StatusNotFound},
+		{method: http.MethodPost, path: "/api/plugins/raylea.echo/enable", want: http.StatusUnauthorized},
+		{method: http.MethodPost, path: "/api/plugins/raylea.echo/disable", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/plugins/raylea.echo/settings", want: http.StatusUnauthorized},
+		{method: http.MethodPut, path: "/api/plugins/raylea.echo/settings", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/plugin-ui/raylea.echo/web/index.html", want: http.StatusNotFound},
 		{method: http.MethodGet, path: "/ws/events", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/tasks", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/ws/logs", want: http.StatusUnauthorized},
-		{method: http.MethodGet, path: "/ws/plugins/raylea.help/console", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/ws/plugins/raylea.echo/console", want: http.StatusUnauthorized},
 	}
 
 	for _, tc := range cases {

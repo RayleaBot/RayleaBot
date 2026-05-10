@@ -233,6 +233,7 @@ type eventIngressDeps struct {
 	replyTargets     *replyTargetCache
 	outboundSender   outboundActionSender
 	outboundLimiter  outbound.MessageLimiter
+	renderer         *render.Service
 	bridge           *bridge.Bridge
 	lifecycle        *pluginLifecycleController
 	metadataEnricher eventMetadataEnricher

@@ -1301,7 +1301,24 @@ export interface components {
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];
+            help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
+        };
+        PluginHelpItem: {
+            title: string;
+            description?: string;
+            usage?: string;
+            command?: string;
+            permission?: string;
+        };
+        PluginHelpGroup: {
+            title: string;
+            items: components["schemas"]["PluginHelpItem"][];
+        };
+        PluginHelp: {
+            title?: string;
+            summary?: string;
+            groups: components["schemas"]["PluginHelpGroup"][];
         };
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
@@ -1509,6 +1526,17 @@ export interface components {
                  *       "/"
                  *     ] */
                 prefixes: string[];
+            };
+            builtin_features: {
+                menu: {
+                    /** @default [
+                     *       "help",
+                     *       "帮助"
+                     *     ] */
+                    commands: string[];
+                    /** @default [] */
+                    prefixes: string[];
+                };
             };
             admin: {
                 /** @default [] */

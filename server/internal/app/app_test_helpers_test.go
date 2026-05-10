@@ -61,6 +61,7 @@ func (a *App) setTestEventIngressWithGovernance(catalog *plugins.Catalog, whitel
 		plugins:          catalog,
 		outboundSender:   sender,
 		outboundLimiter:  a.outboundLimiter,
+		renderer:         a.renderer,
 		bridge:           eventBridge,
 		metadataEnricher: a.adapter,
 		whitelistRepo:    whitelistRepo,

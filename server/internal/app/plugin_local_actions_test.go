@@ -64,8 +64,8 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.plugins = plugins.NewCatalog([]plugins.Snapshot{
 		{
-			PluginID:            "raylea.help",
-			Name:                "Help",
+			PluginID:            "raylea.echo",
+			Name:                "Echo",
 			SourceRoot:          "plugins/builtin",
 			Valid:               true,
 			RegistrationState:   "installed",
@@ -73,23 +73,23 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 			RuntimeState:        "running",
 			RequiredPermissions: []string{"plugin.list"},
 			Commands: []plugins.Command{{
-				Name:          "help",
-				Description:   "显示帮助",
-				Usage:         "/help [目标]",
+				Name:          "echo",
+				Description:   "复读内容",
+				Usage:         "/echo <内容>",
 				CommandSource: plugins.CommandSourceManifest,
 			}},
 		},
 		{
-			PluginID:          "raylea.echo",
-			Name:              "Echo",
+			PluginID:          "raylea.tools",
+			Name:              "Tools",
 			Valid:             true,
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
 			Commands: []plugins.Command{{
-				Name:          "echo",
-				Description:   "复读内容",
-				Usage:         "/echo <内容>",
+				Name:          "tool",
+				Description:   "工具命令",
+				Usage:         "/tool",
 				CommandSource: plugins.CommandSourceManifest,
 			}},
 		},
@@ -107,7 +107,7 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "raylea.help", "req_local_plugin_list_1", runtime.Action{
+	result, err := application.executeLocalAction(context.Background(), "raylea.echo", "req_local_plugin_list_1", runtime.Action{
 		Kind: "plugin.list",
 	})
 	if err != nil {
@@ -118,7 +118,7 @@ func TestExecutePluginListUsesBuiltinAutoGrant(t *testing.T) {
 	if !ok || len(items) != 2 {
 		t.Fatalf("unexpected plugin list items: %#v", result["items"])
 	}
-	if items[0]["id"] != "raylea.echo" || items[1]["id"] != "raylea.help" {
+	if items[0]["id"] != "raylea.echo" || items[1]["id"] != "raylea.tools" {
 		t.Fatalf("unexpected plugin order: %#v", items)
 	}
 	echoCommands, ok := items[0]["commands"].([]map[string]any)
@@ -191,7 +191,7 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 			t.Parallel()
 
 			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.help", "req_local_plugin_list_visibility", runtime.Action{
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_visibility", runtime.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -260,7 +260,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 			t.Parallel()
 
 			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.help", "req_local_plugin_list_help_visibility", runtime.Action{
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_help_visibility", runtime.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -280,8 +280,8 @@ func newPluginListVisibilityTestApp(cfg config.Config) *App {
 	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.plugins = plugins.NewCatalog([]plugins.Snapshot{
 		{
-			PluginID:            "raylea.help",
-			Name:                "Help",
+			PluginID:            "raylea.echo",
+			Name:                "Echo",
 			SourceRoot:          "plugins/builtin",
 			Valid:               true,
 			RegistrationState:   "installed",

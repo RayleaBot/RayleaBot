@@ -3,7 +3,7 @@ case: ok
 description: Log query accepts repeated level and plugin_id parameters and returns matching summaries.
 request:
   method: GET
-  path: /api/logs?level=warn&level=error&plugin_id=weather&plugin_id=help&limit=10
+  path: /api/logs?level=warn&level=error&plugin_id=weather&plugin_id=raylea.echo&limit=10
 response:
   status: 200
   body:
@@ -12,9 +12,9 @@ response:
         timestamp: "2026-03-20T10:00:01Z"
         level: warn
         source: runtime
-        message: help plugin warning
-        plugin_id: help
-        request_id: req_help_0001
+        message: echo plugin warning
+        plugin_id: raylea.echo
+        request_id: req_echo_0001
       - log_id: log_multi_filter_0001
         timestamp: "2026-03-20T10:00:00Z"
         level: error

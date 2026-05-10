@@ -305,7 +305,7 @@
 - `pnpm test`、`pnpm typecheck` 与 `pnpm build` 已在 `launcher/` 本地通过。
 - bundled plugin manifests 当前已与 `contracts/plugin-info.schema.json` 对齐。
 - 根包 discovery 测试当前覆盖 `echo-python`、`hello-node`、`hello-python`、`notice-logger`、`example-config-panel`、`example-render-card`、`example-scheduler`、`example-webhook`。
-- `raylea.help` builtin plugin 已进入默认 discovery，并受安装/卸载边界测试覆盖。
+- 帮助菜单由服务端内置功能处理，默认 discovery 覆盖 `raylea.echo`、`raylea.fortune`、`raylea.subscription-hub` 等内置插件。
 - 聊天侧 command policy 与 temporal grants 当前已受 app / plugins / storage / http tests 覆盖。
 - rich message contract、runtime parser、dispatch / bridge sender、OneBot11 adapter 映射与 reply fallback 当前已受 tests 覆盖。
 - `logger.write` / `storage.kv` / `config.read` / `config.write` / `storage.file` / `http.request` / `scheduler.create` / `event.expose_webhook` / `render.image` 当前已受 contract fixtures、runtime parser、app executor、SDK 编译与示例 smoke 覆盖。

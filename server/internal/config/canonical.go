@@ -482,6 +482,12 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 		"command": map[string]any{
 			"prefixes": configCommandPrefixes(cfg),
 		},
+		"builtin_features": map[string]any{
+			"menu": map[string]any{
+				"commands": configBuiltinMenuCommands(cfg),
+				"prefixes": configBuiltinMenuPrefixes(cfg),
+			},
+		},
 		"admin": map[string]any{
 			"super_admins":              append([]string{}, configSuperAdmins(cfg)...),
 			"session_ttl_days":          configSessionTTLDays(cfg),
@@ -583,6 +589,20 @@ func configCommandPrefixes(cfg Config) []string {
 		return append([]string{}, cfg.Command.Prefixes...)
 	}
 	return []string{"/"}
+}
+
+func configBuiltinMenuCommands(cfg Config) []string {
+	if len(cfg.Builtin.Menu.Commands) > 0 {
+		return append([]string{}, cfg.Builtin.Menu.Commands...)
+	}
+	return []string{"help", "帮助"}
+}
+
+func configBuiltinMenuPrefixes(cfg Config) []string {
+	if len(cfg.Builtin.Menu.Prefixes) > 0 {
+		return append([]string{}, cfg.Builtin.Menu.Prefixes...)
+	}
+	return []string{}
 }
 
 func configSuperAdmins(cfg Config) []string {
@@ -823,6 +843,12 @@ func defaultDocument() map[string]any {
 		},
 		"command": map[string]any{
 			"prefixes": []string{"/"},
+		},
+		"builtin_features": map[string]any{
+			"menu": map[string]any{
+				"commands": []string{"help", "帮助"},
+				"prefixes": []string{},
+			},
 		},
 		"admin": map[string]any{
 			"super_admins":              []string{},

@@ -13,6 +13,12 @@ admin:
     super_admins: []
 backup:
     default_consistency: offline
+builtin_features:
+    menu:
+        commands:
+            - help
+            - 帮助
+        prefixes: []
 command:
     prefixes:
         - /

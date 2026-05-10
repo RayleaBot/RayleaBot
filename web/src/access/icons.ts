@@ -4,6 +4,7 @@ import {
   BarsOutlined,
   ControlOutlined,
   FileTextOutlined,
+  MenuOutlined,
   DashboardOutlined,
   DisconnectOutlined,
   FileSearchOutlined,
@@ -20,6 +21,7 @@ import {
 const iconMap: Record<string, Component> = {
   appstore: AppstoreOutlined,
   'access-lists': StopOutlined,
+  'builtin-features': MenuOutlined,
   commands: BarsOutlined,
   config: SettingOutlined,
   dashboard: DashboardOutlined,
@@ -27,6 +29,7 @@ const iconMap: Record<string, Component> = {
   login: LoginOutlined,
   logs: FileSearchOutlined,
   'logs-center': FileSearchOutlined,
+  'menu-center': MenuOutlined,
   'permission-policy': SafetyCertificateOutlined,
   protocols: DisconnectOutlined,
   'rate-limits': ThunderboltOutlined,

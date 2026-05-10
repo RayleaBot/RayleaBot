@@ -17,7 +17,7 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	application.Console().Append(console.Entry{
-		PluginID:  "raylea.help",
+		PluginID:  "raylea.echo",
 		Stream:    "stderr",
 		Text:      "Traceback (most recent call last): ...",
 		Timestamp: time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC),
@@ -27,7 +27,7 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.help/console", token)
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.echo/console", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	frame := readWebSocketJSON(t, conn)
@@ -39,8 +39,8 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	}
 
 	data := frame["data"].(map[string]any)
-	if data["plugin_id"] != "raylea.help" {
-		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "raylea.help")
+	if data["plugin_id"] != "raylea.echo" {
+		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "raylea.echo")
 	}
 	if data["stream"] != "stderr" {
 		t.Fatalf("unexpected stream: got %#v want %q", data["stream"], "stderr")
@@ -61,12 +61,12 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 	server := httptest.NewServer(application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.help/console", token)
+	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.echo/console", token)
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	waitForConsoleSubscriber(t, application.Console(), "raylea.help")
+	waitForConsoleSubscriber(t, application.Console(), "raylea.echo")
 	application.Console().Append(console.Entry{
-		PluginID:  "raylea.help",
+		PluginID:  "raylea.echo",
 		Stream:    "system",
 		Text:      "[System] stderr rate limit exceeded, output truncated",
 		Timestamp: time.Date(2026, 3, 20, 10, 5, 0, 0, time.UTC),
@@ -74,8 +74,8 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 
 	frame := readWebSocketJSON(t, conn)
 	data := frame["data"].(map[string]any)
-	if data["plugin_id"] != "raylea.help" {
-		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "raylea.help")
+	if data["plugin_id"] != "raylea.echo" {
+		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], "raylea.echo")
 	}
 	if data["stream"] != "system" {
 		t.Fatalf("unexpected stream: got %#v want %q", data["stream"], "system")
@@ -96,7 +96,7 @@ func TestPluginConsoleWebSocketAcceptsLocalDevOrigin(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.help/console?session_token="+token, &websocket.DialOptions{
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console?session_token="+token, &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Origin": []string{"http://127.0.0.1:4173"},
 		},
@@ -122,7 +122,7 @@ func TestPluginConsoleWebSocketRejectsUnknownOrigin(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.help/console?session_token="+token, &websocket.DialOptions{
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console?session_token="+token, &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Origin": []string{"https://example.invalid"},
 		},
@@ -151,7 +151,7 @@ func TestPluginConsoleWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.help/console", nil)
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/plugins/raylea.echo/console", nil)
 	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}

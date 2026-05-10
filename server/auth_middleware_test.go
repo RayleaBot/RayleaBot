@@ -479,7 +479,7 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 		{http.MethodPost, "/api/session/login"},
 		{http.MethodGet, "/api/launcher/status"},
 		{http.MethodPost, "/api/launcher/shutdown"},
-		{http.MethodGet, "/plugin-ui/raylea.help/web/index.html"},
+		{http.MethodGet, "/plugin-ui/raylea.echo/web/index.html"},
 	}
 
 	client := server.Client()
@@ -650,7 +650,7 @@ func TestWebSocketEventsSupportsSessionTokenQueryParam(t *testing.T) {
 func TestAdditionalWebSocketChannelsSupportAuthorizationHeaderAndQueryParam(t *testing.T) {
 	t.Parallel()
 
-	paths := []string{"/ws/tasks", "/ws/logs", "/ws/plugins/raylea.help/console"}
+	paths := []string{"/ws/tasks", "/ws/logs", "/ws/plugins/raylea.echo/console"}
 	for _, path := range paths {
 		path := path
 		t.Run(path, func(t *testing.T) {
