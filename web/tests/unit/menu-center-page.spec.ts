@@ -4,10 +4,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
+import { calculateNativePreviewLayout, nativePreviewTemplateWidth } from '@/components/NativeTemplatePreviewFrame.vue'
 import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import type { ConfigDocument, ConfigUpdateResponse, PluginSummary } from '@/types/api'
+
+const nativeMenuPreviewFooter = 'Created By RayleaBot 开发版本 & Plugin RayleaBot 开发版本'
 
 vi.mock('@/adapter/feedback', () => ({
   notifySuccess: vi.fn(),
@@ -59,7 +62,7 @@ describe('MenuCenterView', () => {
     vi.unstubAllGlobals()
   })
 
-  it('previews menu commands in the DOM and saves builtin menu config', async () => {
+  it('updates native preview payloads and saves builtin menu config', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -139,13 +142,56 @@ describe('MenuCenterView', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="menu-center-inherited-prefixes"]').text()).toContain('/')
-    expect(wrapper.get('[data-testid="menu-center-root-preview"]').text()).toContain('/help')
+    expect(rootPreviewPayload(wrapper)).toMatchObject({
+      title: '插件菜单',
+      subtitle: '当前可用插件',
+      render_footer: nativeMenuPreviewFooter,
+      items: [
+        expect.objectContaining({
+          name: 'Echo',
+          usage: '/help Echo',
+        }),
+        expect.objectContaining({
+          name: 'Weather',
+          usage: '/help Weather',
+        }),
+      ],
+    })
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('插件菜单')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Weather')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('/help Weather')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('template-footer__text')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Created By RayleaBot 开发版本 &amp; Plugin RayleaBot 开发版本')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Raylea Footer WenKai')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('lxgw-wenkai-bold')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('../fortune.card/assets/fonts')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<script')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('<\\/script>')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('</scr${')
+    expect(rootPreviewFrame(wrapper).attributes('sandbox')).toBe('allow-same-origin')
+    expect(rootPreviewFrame(wrapper).attributes('data-preview-frame-width')).toBe(String(nativePreviewTemplateWidth))
+    expect(rootPreviewHost(wrapper).attributes('style')).toContain('--native-template-preview-frame-width: 960px')
     expect(wrapper.text()).toContain('/帮助')
 
     const pluginSelect = wrapper.getComponent('[data-testid="menu-center-plugin-select"]')
     await pluginSelect.vm.$emit('update:value', 'weather')
     await nextTick()
-    expect(wrapper.text()).toContain('/help Weather')
+    expect(pluginPreviewPayload(wrapper)).toMatchObject({
+      title: 'Weather',
+      subtitle: '天气菜单',
+      render_footer: nativeMenuPreviewFooter,
+      groups: expect.arrayContaining([
+        expect.objectContaining({
+          title: '命令',
+          items: [
+            expect.objectContaining({
+              name: 'weather',
+              usage: '/weather 上海',
+            }),
+          ],
+        }),
+      ]),
+    })
 
     const commandSelect = wrapper.getComponent('[data-testid="menu-center-commands"]')
     const prefixSelect = wrapper.getComponent('[data-testid="menu-center-prefixes"]')
@@ -154,8 +200,18 @@ describe('MenuCenterView', () => {
     await nextTick()
 
     expect(wrapper.text()).toContain('#menu')
-    expect(wrapper.text()).toContain('#menu Weather')
     expect(wrapper.text()).toContain('#Weather菜单')
+    expect(rootPreviewPayload(wrapper)).toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Weather',
+          usage: '#menu Weather',
+        }),
+      ]),
+    })
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('#menu Weather')
+    expect(wrapper.find('.menu-preview-item').exists()).toBe(false)
+    expect(wrapper.find('.menu-preview-surface').exists()).toBe(false)
 
     await wrapper.get('[data-testid="menu-center-save"]').trigger('click')
     await flushPromises()
@@ -170,4 +226,68 @@ describe('MenuCenterView', () => {
     }))
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/system/render/preview'))).toBe(false)
   })
+
+  it('calculates native preview scaling and internal scroll bounds', () => {
+    const fitted = calculateNativePreviewLayout({
+      containerTop: 80,
+      containerWidth: 960,
+      contentHeight: 460,
+      viewportHeight: 900,
+    })
+    expect(fitted.scale).toBe(1)
+    expect(fitted.previewHeight).toBe(460)
+    expect(fitted.frameHeight).toBe(460)
+    expect(fitted.isScrollable).toBe(false)
+
+    const narrow = calculateNativePreviewLayout({
+      containerTop: 80,
+      containerWidth: 480,
+      contentHeight: 900,
+      viewportHeight: 900,
+    })
+    expect(narrow.scale).toBe(0.5)
+    expect(narrow.previewHeight).toBe(450)
+    expect(narrow.frameHeight).toBe(900)
+    expect(narrow.isScrollable).toBe(false)
+
+    const longContent = calculateNativePreviewLayout({
+      containerTop: 120,
+      containerWidth: 480,
+      contentHeight: 2000,
+      viewportHeight: 720,
+    })
+    expect(longContent.scale).toBe(0.5)
+    expect(longContent.availableHeight).toBe(576)
+    expect(longContent.previewHeight).toBe(576)
+    expect(longContent.frameHeight).toBe(1152)
+    expect(longContent.isScrollable).toBe(true)
+  })
 })
+
+function rootPreviewPayload(wrapper: ReturnType<typeof mount>) {
+  return previewPayload(wrapper, 'menu-center-root-preview')
+}
+
+function pluginPreviewPayload(wrapper: ReturnType<typeof mount>) {
+  return previewPayload(wrapper, 'menu-center-plugin-preview')
+}
+
+function previewPayload(wrapper: ReturnType<typeof mount>, testId: string) {
+  return JSON.parse(previewFrame(wrapper, testId).attributes('data-preview-payload') ?? '{}')
+}
+
+function rootPreviewFrame(wrapper: ReturnType<typeof mount>) {
+  return previewFrame(wrapper, 'menu-center-root-preview')
+}
+
+function rootPreviewHost(wrapper: ReturnType<typeof mount>) {
+  return previewHost(wrapper, 'menu-center-root-preview')
+}
+
+function previewFrame(wrapper: ReturnType<typeof mount>, testId: string) {
+  return wrapper.get(`[data-testid="${testId}"]`).get('[data-testid="native-template-preview-frame"]')
+}
+
+function previewHost(wrapper: ReturnType<typeof mount>, testId: string) {
+  return wrapper.get(`[data-testid="${testId}"]`)
+}

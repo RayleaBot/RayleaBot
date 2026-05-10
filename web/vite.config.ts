@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { resolve as resolvePath } from 'node:path'
 import net from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
@@ -13,6 +14,13 @@ const backendAvailabilityCacheMs = 500
 
 export function resolveDevWebSocketBaseUrl(configuredBaseUrl: string | undefined, fallbackBaseUrl: string) {
   return configuredBaseUrl?.trim() || fallbackBaseUrl
+}
+
+export function resolveServerFsAllow(webRoot: string) {
+  return [
+    resolvePath(webRoot),
+    resolvePath(webRoot, '..', 'templates'),
+  ]
 }
 
 export function resolveClientWebSocketBaseUrl(command: string, configuredBaseUrl: string | undefined, fallbackBaseUrl: string) {
@@ -128,6 +136,9 @@ export default defineConfig(({ command }) => {
       host: '127.0.0.1',
       port: 4173,
       strictPort: true,
+      fs: {
+        allow: resolveServerFsAllow(process.cwd()),
+      },
       proxy: {
         '^/(api|healthz|readyz|plugin-ui)': createBackendProxyOptions(backendTarget),
       },

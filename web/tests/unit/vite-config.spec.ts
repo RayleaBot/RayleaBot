@@ -1,4 +1,6 @@
-import { createBackendProxyOptions, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl } from '../../vite.config'
+import { resolve as resolvePath } from 'node:path'
+
+import { createBackendProxyOptions, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
 
 describe('vite config', () => {
   it('uses the backend target when the dev WebSocket base URL is empty', () => {
@@ -20,5 +22,12 @@ describe('vite config', () => {
       changeOrigin: true,
       ws: false,
     })
+  })
+
+  it('allows both the web app root and shared templates in dev server fs access', () => {
+    expect(resolveServerFsAllow('C:/repo/web')).toEqual([
+      resolvePath('C:/repo/web'),
+      resolvePath('C:/repo/templates'),
+    ])
   })
 })

@@ -5,7 +5,7 @@ import { ReloadOutlined, SaveOutlined } from '@ant-design/icons-vue'
 
 import { notifySuccess } from '@/adapter/feedback'
 import AppCard from '@/components/AppCard.vue'
-import AppEmptyState from '@/components/AppEmptyState.vue'
+import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
@@ -15,6 +15,9 @@ import { usePluginsStore } from '@/stores/plugins'
 import type { ConfigDocument, PluginCommandSummary, PluginHelpItem, PluginSummary } from '@/types/api'
 
 const defaultMenuCommands = ['help', '帮助']
+const defaultRenderFooterTemplate = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
+const previewDevelopmentVersion = '开发版本'
+const previewNativeMenuPluginName = 'RayleaBot'
 
 const configStore = useConfigStore()
 const pluginsStore = usePluginsStore()
@@ -50,7 +53,6 @@ const pluginOptions = computed(() => enabledPlugins.value.map((plugin) => ({
 
 const rootPreviewItems = computed(() => enabledPlugins.value
   .map((plugin) => ({
-    id: plugin.id,
     name: plugin.name || plugin.id,
     description: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
     usage: pluginMenuTrigger(plugin),
@@ -86,7 +88,33 @@ const selectedPluginPreviewGroups = computed(() => {
   return groups
 })
 
+const rootPreviewData = computed(() => ({
+  title: '插件菜单',
+  subtitle: '当前可用插件',
+  items: rootPreviewItems.value,
+  render_footer: nativeMenuPreviewFooter.value,
+}))
+
+const selectedPluginPreviewData = computed(() => {
+  const plugin = selectedPlugin.value
+  if (!plugin) {
+    return {
+      title: '插件菜单',
+      subtitle: '当前没有可预览的插件菜单。',
+      groups: [],
+      render_footer: nativeMenuPreviewFooter.value,
+    }
+  }
+  return {
+    title: plugin.name || plugin.id,
+    subtitle: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
+    groups: selectedPluginPreviewGroups.value,
+    render_footer: nativeMenuPreviewFooter.value,
+  }
+})
+
 const inheritedPrefixLabel = computed(() => inheritedCommandPrefixes.value.join('、'))
+const nativeMenuPreviewFooter = computed(() => renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template))
 
 const hasUnsavedChanges = computed(() => {
   const source = configDocument.value
@@ -174,16 +202,12 @@ function formatHelpCommandUsage(item: PluginHelpItem) {
   return item.usage?.trim() || `${primaryMenuPrefix.value}${command}`
 }
 
-function permissionLabel(permission?: string) {
-  switch (permission) {
-    case 'group_admin':
-      return t('builtinFeatures.menuCenter.preview.permission.group_admin')
-    case 'super_admin':
-      return t('builtinFeatures.menuCenter.preview.permission.super_admin')
-    case 'everyone':
-    default:
-      return t('builtinFeatures.menuCenter.preview.permission.everyone')
-  }
+function renderNativeMenuPreviewFooter(template?: string) {
+  const source = template?.trim() || defaultRenderFooterTemplate
+  return source
+    .replaceAll('{{rayleabot_version}}', previewDevelopmentVersion)
+    .replaceAll('{{plugin_name}}', previewNativeMenuPluginName)
+    .replaceAll('{{plugin_version}}', previewDevelopmentVersion)
 }
 
 function patchBuiltinMenuConfig(source: ConfigDocument) {
@@ -273,21 +297,11 @@ async function save() {
           <div class="menu-trigger-row">
             <span v-for="command in draftCommands" :key="command" class="menu-trigger-chip">{{ rootMenuTrigger(command) }}</span>
           </div>
-          <div v-if="rootPreviewItems.length > 0" class="menu-preview-surface" data-testid="menu-center-root-preview">
-            <header class="menu-preview-header">
-              <span>RayleaBot</span>
-              <h2>插件菜单</h2>
-              <p>当前可用插件</p>
-            </header>
-            <div class="menu-preview-list">
-              <article v-for="item in rootPreviewItems" :key="item.id" class="menu-preview-item">
-                <strong>{{ item.name }}</strong>
-                <p>{{ item.description }}</p>
-                <code v-if="item.usage">{{ item.usage }}</code>
-              </article>
-            </div>
-          </div>
-          <AppEmptyState v-else icon="plugin" :title="t('builtinFeatures.menuCenter.preview.noPlugins')" />
+          <NativeTemplatePreviewFrame
+            template-id="help.menu"
+            :data="rootPreviewData"
+            data-testid="menu-center-root-preview"
+          />
         </AppCard>
 
         <AppCard borderless :title="t('builtinFeatures.menuCenter.preview.pluginTitle')" shadow="none" class="menu-preview-card">
@@ -307,27 +321,11 @@ async function save() {
             <span class="menu-trigger-chip">{{ suffixMenuTrigger(selectedPlugin) }}</span>
           </div>
 
-          <div v-if="selectedPlugin && selectedPluginPreviewGroups.length > 0" class="menu-preview-surface" data-testid="menu-center-plugin-preview">
-            <header class="menu-preview-header">
-              <span>{{ selectedPlugin.id }}</span>
-              <h2>{{ selectedPlugin.name }}</h2>
-              <p>{{ selectedPlugin.help?.summary || selectedPlugin.commands[0]?.description || selectedPlugin.id }}</p>
-            </header>
-            <section v-for="group in selectedPluginPreviewGroups" :key="group.title" class="menu-preview-group">
-              <h3>{{ group.title }}</h3>
-              <div class="menu-preview-list">
-                <article v-for="item in group.items" :key="`${group.title}-${item.name}-${item.usage}`" class="menu-preview-item">
-                  <div class="menu-preview-item__title">
-                    <strong>{{ item.name }}</strong>
-                    <span>{{ permissionLabel(item.permission) }}</span>
-                  </div>
-                  <p>{{ item.description }}</p>
-                  <code v-if="item.usage">{{ item.usage }}</code>
-                </article>
-              </div>
-            </section>
-          </div>
-          <AppEmptyState v-else icon="command" :title="t('builtinFeatures.menuCenter.preview.noPluginHelp')" />
+          <NativeTemplatePreviewFrame
+            template-id="help.menu"
+            :data="selectedPluginPreviewData"
+            data-testid="menu-center-plugin-preview"
+          />
         </AppCard>
       </div>
     </div>
@@ -394,97 +392,6 @@ async function save() {
   font-size: 0.84rem;
   line-height: 1.4;
   word-break: break-all;
-}
-
-.menu-preview-surface {
-  min-height: 360px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 42%),
-    var(--surface);
-}
-
-.menu-preview-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 18px;
-}
-
-.menu-preview-header span {
-  color: var(--muted);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-}
-
-.menu-preview-header h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 1.35rem;
-  line-height: 1.25;
-}
-
-.menu-preview-header p,
-.menu-preview-item p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.menu-preview-list {
-  display: grid;
-  gap: 10px;
-}
-
-.menu-preview-group + .menu-preview-group {
-  margin-top: 18px;
-}
-
-.menu-preview-group h3 {
-  margin: 0 0 10px;
-  color: var(--text);
-  font-size: 0.95rem;
-}
-
-.menu-preview-item {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--surface-soft) 70%, transparent);
-  min-width: 0;
-}
-
-.menu-preview-item strong {
-  color: var(--text);
-  word-break: break-word;
-}
-
-.menu-preview-item code {
-  width: fit-content;
-  max-width: 100%;
-  padding: 3px 7px;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--muted) 12%, transparent);
-  color: var(--text);
-  white-space: normal;
-  word-break: break-all;
-}
-
-.menu-preview-item__title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.menu-preview-item__title span {
-  flex-shrink: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
 }
 
 @media (max-width: 1180px) {
