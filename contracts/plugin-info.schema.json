@@ -197,6 +197,10 @@
       },
       "uniqueItems": true
     },
+    "help": {
+      "$ref": "#/$defs/plugin_help",
+      "description": "Optional plugin-authored help menu metadata. The platform filters help items with the same caller permission rules used for commands."
+    },
     "system_dependencies": {
       "type": "array",
       "description": "Optional external system prerequisites declared for operator visibility only.",
@@ -398,6 +402,83 @@
     }
   },
   "$defs": {
+    "permission_level": {
+      "type": "string",
+      "enum": [
+        "super_admin",
+        "group_admin",
+        "everyone"
+      ]
+    },
+    "plugin_help": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plugin_help_group"
+          }
+        }
+      }
+    },
+    "plugin_help_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "items"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plugin_help_item"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "plugin_help_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "usage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission": {
+          "$ref": "#/$defs/permission_level"
+        }
+      }
+    },
     "semver": {
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
@@ -600,7 +681,9 @@
     "fixtures/plugin-info/ok.rich-metadata.json",
     "fixtures/plugin-info/ok.management-ui.json",
     "fixtures/plugin-info/ok.render-template.json",
+    "fixtures/plugin-info/ok.plugin-with-help.json",
     "fixtures/plugin-info/invalid.concurrency-zero.json",
+    "fixtures/plugin-info/invalid.help-item-empty-title.json",
     "fixtures/plugin-info/invalid.unknown-capability.json",
     "fixtures/plugin-info/invalid.unknown-provider-capability.json",
     "fixtures/plugin-info/invalid.icon-absolute-path.json",

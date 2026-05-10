@@ -62,6 +62,27 @@
         <h1>{{ .title }}</h1>
         {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
       </header>
+      {{ if .groups }}
+      {{ range .groups }}
+      <section class="help-group">
+        <h2>{{ .title }}</h2>
+        <div class="grid">
+          {{ range .items }}
+          <article class="card">
+            <div class="card__header">
+              <div class="meta">{{ if .name }}{{ .name }}{{ else }}{{ .title }}{{ end }}</div>
+              {{ if .permission_label }}
+              <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+              {{ end }}
+            </div>
+            <p class="description">{{ .description }}</p>
+            {{ if .usage }}<code>{{ .usage }}</code>{{ end }}
+          </article>
+          {{ end }}
+        </div>
+      </section>
+      {{ end }}
+      {{ else }}
       <section class="grid">
         {{ range .items }}
         <article class="card">
@@ -76,6 +97,7 @@
         </article>
         {{ end }}
       </section>
+      {{ end }}
       {{ with .render_footer }}<footer class="template-footer"><span class="template-footer__text">{{ . }}</span></footer>{{ end }}
     </main>
   </body>

@@ -14,13 +14,15 @@
     "event.subscribe",
     "message.send",
     "plugin.list",
-    "render.image"
+    "render.image",
+    "logger.write"
   ],
   "permissions": {
     "required": [
       "message.send",
       "plugin.list",
-      "render.image"
+      "render.image",
+      "logger.write"
     ],
     "optional": []
   },

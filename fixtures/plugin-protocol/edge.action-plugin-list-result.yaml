@@ -30,6 +30,17 @@ frames:
               usage: /echo <内容>
               permission: everyone
               command_source: manifest
+          help:
+            title: Echo
+            summary: 内置测试复读命令
+            groups:
+              - title: 基础指令
+                items:
+                  - title: 复读内容
+                    description: 复读收到的内容
+                    usage: /echo <内容>
+                    command: echo
+                    permission: everyone
           command_conflicts: []
         - id: raylea.help
           name: Help

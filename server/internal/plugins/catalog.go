@@ -62,6 +62,25 @@ type RenderTemplate struct {
 	Path string `json:"path"`
 }
 
+type Help struct {
+	Title   string
+	Summary string
+	Groups  []HelpGroup
+}
+
+type HelpGroup struct {
+	Title string
+	Items []HelpItem
+}
+
+type HelpItem struct {
+	Title       string
+	Description string
+	Usage       string
+	Command     string
+	Permission  string
+}
+
 type Snapshot struct {
 	PluginID              string
 	Name                  string
@@ -86,6 +105,7 @@ type Snapshot struct {
 	Screenshots           []Screenshot
 	ManagementUI          *ManagementUI
 	RenderTemplates       []RenderTemplate
+	Help                  *Help
 	SystemDependencies    []string
 	DefaultConfig         map[string]any
 	ManifestPath          string
@@ -408,6 +428,9 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	if len(snapshot.RenderTemplates) > 0 {
 		cloned.RenderTemplates = append([]RenderTemplate(nil), snapshot.RenderTemplates...)
 	}
+	if snapshot.Help != nil {
+		cloned.Help = cloneHelp(snapshot.Help)
+	}
 	if len(snapshot.Commands) > 0 {
 		cloned.Commands = cloneCommands(snapshot.Commands)
 	}
@@ -418,6 +441,24 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		cloned.DynamicCommands = append([]DynamicCommandDecl(nil), snapshot.DynamicCommands...)
 	}
 	return cloned
+}
+
+func cloneHelp(help *Help) *Help {
+	if help == nil {
+		return nil
+	}
+	cloned := *help
+	if len(help.Groups) > 0 {
+		cloned.Groups = make([]HelpGroup, 0, len(help.Groups))
+		for _, group := range help.Groups {
+			copied := group
+			if len(group.Items) > 0 {
+				copied.Items = append([]HelpItem(nil), group.Items...)
+			}
+			cloned.Groups = append(cloned.Groups, copied)
+		}
+	}
+	return &cloned
 }
 
 func cloneCommands(commands []Command) []Command {

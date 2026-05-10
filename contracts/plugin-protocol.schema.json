@@ -2160,7 +2160,7 @@
             "caller"
           ],
           "default": "catalog",
-          "description": "Catalog returns the full plugin command catalog. Caller returns commands visible to the parent event actor."
+          "description": "Catalog returns the full plugin command and help catalog. Caller returns commands and help entries visible to the parent event actor."
         }
       }
     },

@@ -249,6 +249,7 @@ func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *schema.Valid
 		Screenshots:        manifestScreenshots(manifest),
 		ManagementUI:       manifestManagementUI(manifest),
 		RenderTemplates:    manifestRenderTemplates(manifest),
+		Help:               manifestHelp(manifest),
 		SystemDependencies: stringListField(manifest, "system_dependencies"),
 		DefaultConfig:      defaultConfig,
 		ManifestPath:       displayPath(repoRoot, infoPath),
@@ -549,6 +550,57 @@ func manifestRenderTemplates(document map[string]any) []RenderTemplate {
 		items = append(items, RenderTemplate{Path: path})
 	}
 	return items
+}
+
+func manifestHelp(document map[string]any) *Help {
+	value, ok := document["help"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	help := &Help{
+		Title:   stringField(value, "title"),
+		Summary: stringField(value, "summary"),
+	}
+	groups, ok := value["groups"].([]any)
+	if !ok {
+		return help
+	}
+
+	for _, rawGroup := range groups {
+		groupMap, ok := rawGroup.(map[string]any)
+		if !ok {
+			continue
+		}
+		group := HelpGroup{
+			Title: stringField(groupMap, "title"),
+		}
+		rawItems, ok := groupMap["items"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawItem := range rawItems {
+			itemMap, ok := rawItem.(map[string]any)
+			if !ok {
+				continue
+			}
+			title := stringField(itemMap, "title")
+			if title == "" {
+				continue
+			}
+			group.Items = append(group.Items, HelpItem{
+				Title:       title,
+				Description: stringField(itemMap, "description"),
+				Usage:       stringField(itemMap, "usage"),
+				Command:     stringField(itemMap, "command"),
+				Permission:  stringField(itemMap, "permission"),
+			})
+		}
+		if group.Title != "" && len(group.Items) > 0 {
+			help.Groups = append(help.Groups, group)
+		}
+	}
+	return help
 }
 
 func manifestCommands(document map[string]any) []Command {

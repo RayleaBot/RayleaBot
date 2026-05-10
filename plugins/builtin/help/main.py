@@ -62,8 +62,44 @@ def normalize_command(command, prefix):
     }
 
 
+def normalize_help_item(item, prefix):
+    title = (item.get("title") or "").strip()
+    command = (item.get("command") or "").strip()
+    usage = normalize_usage(item.get("usage"), prefix, [command] if command else [])
+    return {
+        "title": title,
+        "name": title,
+        "description": (item.get("description") or "").strip(),
+        "usage": usage,
+        "command": command,
+        "permission": (item.get("permission") or "").strip(),
+        "permission_label": format_permission_label((item.get("permission") or "").strip()),
+    }
+
+
+def normalize_help(help, prefix):
+    if not isinstance(help, dict):
+        return None
+    groups = []
+    for group in help.get("groups") or []:
+        if not isinstance(group, dict):
+            continue
+        title = (group.get("title") or "").strip()
+        items = [normalize_help_item(item, prefix) for item in group.get("items") or [] if isinstance(item, dict) and (item.get("title") or "").strip()]
+        if title and items:
+            groups.append({"title": title, "items": items})
+    if not groups:
+        return None
+    return {
+        "title": (help.get("title") or "").strip(),
+        "summary": (help.get("summary") or "").strip(),
+        "groups": groups,
+    }
+
+
 def normalize_plugin_item(item, prefix):
     commands = [normalize_command(command, prefix) for command in item.get("commands") or [] if (command.get("name") or "").strip()]
+    help_data = normalize_help(item.get("help"), prefix)
     conflicts = {(conflict or "").strip().casefold() for conflict in item.get("command_conflicts") or [] if (conflict or "").strip()}
     plugin_id = (item.get("id") or "").strip()
     name = (item.get("name") or plugin_id).strip()
@@ -74,6 +110,7 @@ def normalize_plugin_item(item, prefix):
         "registration_state": (item.get("registration_state") or "").strip(),
         "desired_state": (item.get("desired_state") or "").strip(),
         "commands": commands,
+        "help": help_data,
         "command_conflicts": conflicts,
         "query_key": select_plugin_query_key(plugin_id, name),
     }
@@ -112,13 +149,18 @@ def format_permission_text(permission):
 
 
 def command_render_item(command, prefix):
-    return {
+    item = {
         "name": format_command_label(command, prefix),
         "description": format_command_description(command),
         "usage": command["usage"],
-        "permission": command["permission"],
-        "permission_label": format_permission_label(command["permission"]),
     }
+    permission = command["permission"]
+    permission_label = format_permission_label(permission)
+    if permission:
+        item["permission"] = permission
+    if permission_label:
+        item["permission_label"] = permission_label
+    return item
 
 
 def build_root_render_data(items, prefix):
@@ -134,6 +176,55 @@ def build_root_render_data(items, prefix):
             for item in items
         ],
     }
+
+
+def has_visible_help(item):
+    help_data = item.get("help")
+    return bool(help_data and help_data.get("groups"))
+
+
+def help_groups_as_render_groups(help_data):
+    if not help_data:
+        return []
+    groups = []
+    for group in help_data.get("groups") or []:
+        items = []
+        for entry in group.get("items") or []:
+            item = {
+                "name": entry["name"],
+                "title": entry["title"],
+                "description": entry["description"] or entry["title"],
+                "usage": entry["usage"],
+            }
+            if entry["permission"]:
+                item["permission"] = entry["permission"]
+            if entry["permission_label"]:
+                item["permission_label"] = entry["permission_label"]
+            items.append(item)
+        if items:
+            groups.append({"title": group["title"], "items": items})
+    return groups
+
+
+def compact_help_groups_as_text(help_data, limit=8):
+    lines = []
+    count = 0
+    for group in (help_data or {}).get("groups") or []:
+        visible_items = [item for item in group.get("items") or [] if item.get("title")]
+        if not visible_items:
+            continue
+        lines.append(group["title"])
+        for item in visible_items:
+            if count >= limit:
+                lines.append("更多内容请查看帮助图片。")
+                return lines
+            usage = item.get("usage") or item.get("title")
+            if usage and usage != item.get("title"):
+                lines.append(f"- {item['title']}：{usage}")
+            else:
+                lines.append(f"- {item['title']}")
+            count += 1
+    return lines
 
 
 def build_root_text(items, prefix):
@@ -156,6 +247,7 @@ def build_plugin_render_data(item, prefix):
     return {
         "title": item["name"],
         "subtitle": " | ".join(subtitle_parts),
+        "groups": help_groups_as_render_groups(item["help"]),
         "items": [command_render_item(command, prefix) for command in item["commands"]],
     }
 
@@ -166,6 +258,10 @@ def build_plugin_text(item, prefix):
     if item["description"]:
         lines.append(item["description"])
     lines.append("")
+    if has_visible_help(item):
+        lines.extend(compact_help_groups_as_text(item["help"]))
+        return "\n".join(line for line in lines).strip()
+
     if not item["commands"]:
         lines.append("这个插件没有声明可用指令。")
         return "\n".join(lines)
@@ -226,6 +322,13 @@ def find_help_target(items, query):
             tokens = [command["name"]] + command["aliases"] + command["query_tokens"]
             if any(token.casefold() == lowered for token in tokens if token):
                 command_matches.append((item, command))
+        for group in (item.get("help") or {}).get("groups") or []:
+            for help_item in group.get("items") or []:
+                tokens = [help_item.get("title"), help_item.get("command")]
+                if any(str(token or "").casefold() == lowered for token in tokens if token):
+                    command = next((cmd for cmd in item["commands"] if cmd["name"] == help_item.get("command")), None)
+                    if command:
+                        command_matches.append((item, command))
 
     if len(command_matches) == 1:
         return "command", command_matches[0]
@@ -258,7 +361,7 @@ class HelpPlugin(RayleaBotPlugin):
                 continue
             if normalized["desired_state"] != "enabled":
                 continue
-            if not normalized["commands"]:
+            if not normalized["commands"] and not has_visible_help(normalized):
                 continue
             items.append(normalized)
         return items
@@ -272,11 +375,13 @@ class HelpPlugin(RayleaBotPlugin):
                 output="png",
                 fallback_text=fallback_text,
             )
-        except Exception:
+        except Exception as exc:
+            self.log_render_failure(ctx, exc)
             return False
 
         image_path = (result.get("image_path") or "").strip()
         if not image_path:
+            self.log_render_failure(ctx, "missing image_path")
             return False
 
         ctx.send_message([{
@@ -284,6 +389,12 @@ class HelpPlugin(RayleaBotPlugin):
             "data": {"file": image_path},
         }])
         return True
+
+    def log_render_failure(self, ctx, error):
+        try:
+            ctx.logger_write("warn", "帮助菜单图片渲染失败", {"error": str(error)})
+        except Exception:
+            pass
 
     @command("help", aliases=["commands"])
     def handle_help(self, ctx):

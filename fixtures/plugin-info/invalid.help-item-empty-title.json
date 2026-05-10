@@ -1,0 +1,37 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "bad-help",
+    "name": "Bad Help",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "capabilities": [
+      "event.subscribe"
+    ],
+    "permissions": {
+      "required": [],
+      "optional": []
+    },
+    "help": {
+      "groups": [
+        {
+          "title": "管理",
+          "items": [
+            {
+              "title": ""
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": false
+  }
+}

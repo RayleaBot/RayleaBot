@@ -1,0 +1,67 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "subscription-hub",
+    "name": "Subscription Hub",
+    "version": "1.0.0",
+    "manifest_version": "1",
+    "plugin_protocol_version": "1",
+    "type": "managed_runtime",
+    "runtime": "python",
+    "entry": "main.py",
+    "license": "MIT",
+    "description": "Subscription push plugin",
+    "author": "raylea",
+    "role": "user",
+    "capabilities": [
+      "event.subscribe",
+      "message.send"
+    ],
+    "permissions": {
+      "required": [],
+      "optional": []
+    },
+    "commands": [
+      {
+        "name": "订阅状态",
+        "description": "查看订阅状态",
+        "usage": "/订阅状态",
+        "permission": "everyone"
+      },
+      {
+        "name": "立即检查订阅",
+        "description": "手动检查订阅更新",
+        "usage": "/立即检查订阅 [当前|全部]",
+        "permission": "super_admin"
+      }
+    ],
+    "help": {
+      "title": "订阅中心",
+      "summary": "订阅平台内容并推送更新",
+      "groups": [
+        {
+          "title": "订阅管理",
+          "items": [
+            {
+              "title": "查看订阅状态",
+              "description": "查看订阅、Cookie 与轮询配置状态。",
+              "usage": "/订阅状态",
+              "command": "订阅状态"
+            },
+            {
+              "title": "立即检查订阅",
+              "description": "按当前会话或全部订阅立即检查更新。",
+              "usage": "/立即检查订阅 [当前|全部]",
+              "command": "立即检查订阅",
+              "permission": "super_admin"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

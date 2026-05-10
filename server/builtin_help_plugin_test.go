@@ -327,6 +327,33 @@ func TestBuiltinHelpPluginFallsBackToTextForPluginDetail(t *testing.T) {
 		"message":          "render failed",
 	})
 
+	logAction := session.readFrame(t)
+	if logAction["type"] != "action" || logAction["action"] != "logger.write" {
+		t.Fatalf("unexpected render failure log action: %#v", logAction)
+	}
+	logData, ok := logAction["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected render failure log data: %#v", logAction["data"])
+	}
+	if logData["level"] != "warn" || logData["message"] != "帮助菜单图片渲染失败" {
+		t.Fatalf("unexpected render failure log: %#v", logData)
+	}
+	fields, ok := logData["fields"].(map[string]any)
+	if !ok || fields["error"] != "render failed" {
+		t.Fatalf("unexpected render failure log fields: %#v", logData["fields"])
+	}
+	session.writeFrame(t, map[string]any{
+		"protocol_version": "1",
+		"type":             "result",
+		"timestamp":        time.Now().Unix(),
+		"plugin_id":        "raylea.help",
+		"request_id":       logAction["request_id"],
+		"status":           "success",
+		"data": map[string]any{
+			"ok": true,
+		},
+	})
+
 	messageAction := session.readFrame(t)
 	if messageAction["type"] != "action" || messageAction["action"] != "message.send" {
 		t.Fatalf("unexpected outbound action: %#v", messageAction)
@@ -514,6 +541,42 @@ func TestBuiltinHelpPluginFindsFortunePluginAndCommands(t *testing.T) {
 				if renderItem["permission"] != "everyone" || renderItem["permission_label"] != "所有人可用" {
 					t.Fatalf("unexpected fortune permission label: %#v", renderItem)
 				}
+			}
+			session.writeFrame(t, map[string]any{
+				"protocol_version": "1",
+				"type":             "result",
+				"timestamp":        time.Now().Unix(),
+				"plugin_id":        "raylea.help",
+				"request_id":       renderAction["request_id"],
+				"status":           "success",
+				"data": map[string]any{
+					"image_path": "file://cache/help-menu.png",
+				},
+			})
+
+			messageAction := session.readFrame(t)
+			if messageAction["type"] != "action" || messageAction["action"] != "message.send" {
+				t.Fatalf("unexpected outbound action: %#v", messageAction)
+			}
+			data, ok := messageAction["data"].(map[string]any)
+			if !ok {
+				t.Fatalf("unexpected outbound data: %#v", messageAction["data"])
+			}
+			message, ok := data["message"].(map[string]any)
+			if !ok {
+				t.Fatalf("unexpected outbound message: %#v", data["message"])
+			}
+			segments, ok := message["segments"].([]any)
+			if !ok || len(segments) != 1 {
+				t.Fatalf("unexpected outbound segments: %#v", message["segments"])
+			}
+			segment, ok := segments[0].(map[string]any)
+			if !ok {
+				t.Fatalf("unexpected outbound segment: %#v", segments[0])
+			}
+			segmentData, ok := segment["data"].(map[string]any)
+			if !ok || segment["type"] != "image" || segmentData["file"] != "file://cache/help-menu.png" {
+				t.Fatalf("unexpected image segment: %#v", segment)
 			}
 		})
 	}

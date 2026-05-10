@@ -207,6 +207,75 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 	}
 }
 
+func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		config         config.Config
+		event          runtime.Event
+		wantHelpTitles []string
+	}{
+		{
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+			},
+			name:           "member sees public help",
+			event:          pluginListCallerEvent("1001", "member", "group"),
+			wantHelpTitles: []string{"公开说明", "独立公开说明"},
+		},
+		{
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+			},
+			name:           "admin sees group admin help",
+			event:          pluginListCallerEvent("1002", "admin", "group"),
+			wantHelpTitles: []string{"公开说明", "管理说明", "独立公开说明", "独立管理说明"},
+		},
+		{
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+			},
+			name:           "super admin sees all help",
+			event:          pluginListCallerEvent("9001", "member", "private"),
+			wantHelpTitles: []string{"公开说明", "管理说明", "超管说明", "独立公开说明", "独立管理说明", "独立超管说明"},
+		},
+		{
+			name: "independent help without permission defaults to everyone",
+			config: config.Config{
+				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+				Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
+			},
+			event:          pluginListCallerEvent("1001", "member", "group"),
+			wantHelpTitles: []string{"公开说明", "独立公开说明"},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			application := newPluginListVisibilityTestApp(tc.config)
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.help", "req_local_plugin_list_help_visibility", runtime.Action{
+				Kind:                 "plugin.list",
+				PluginListVisibility: "caller",
+			}, tc.event)
+			if err != nil {
+				t.Fatalf("plugin.list failed: %v", err)
+			}
+
+			gotTitles := pluginListHelpTitlesForPlugin(t, result, "raylea.tools")
+			if strings.Join(gotTitles, ",") != strings.Join(tc.wantHelpTitles, ",") {
+				t.Fatalf("visible help titles = %#v, want %#v", gotTitles, tc.wantHelpTitles)
+			}
+		})
+	}
+}
+
 func newPluginListVisibilityTestApp(cfg config.Config) *App {
 	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.plugins = plugins.NewCatalog([]plugins.Snapshot{
@@ -232,6 +301,22 @@ func newPluginListVisibilityTestApp(cfg config.Config) *App {
 				{Name: "admin", Permission: "group_admin", CommandSource: plugins.CommandSourceManifest},
 				{Name: "super", Permission: "super_admin", CommandSource: plugins.CommandSourceManifest},
 				{Name: "defaulted", CommandSource: plugins.CommandSourceManifest},
+			},
+			Help: &plugins.Help{
+				Title:   "Tools",
+				Summary: "工具说明",
+				Groups: []plugins.HelpGroup{{
+					Title: "权限说明",
+					Items: []plugins.HelpItem{
+						{Title: "公开说明", Command: "public"},
+						{Title: "管理说明", Command: "admin"},
+						{Title: "超管说明", Command: "super"},
+						{Title: "未知指令说明", Command: "missing"},
+						{Title: "独立公开说明"},
+						{Title: "独立管理说明", Permission: "group_admin"},
+						{Title: "独立超管说明", Permission: "super_admin"},
+					},
+				}},
 			},
 		},
 	})
@@ -293,6 +378,41 @@ func pluginListCommandNamesForPlugin(t *testing.T, result map[string]any, plugin
 			names = append(names, name)
 		}
 		return names
+	}
+	t.Fatalf("plugin %s not found in result: %#v", pluginID, result)
+	return nil
+}
+
+func pluginListHelpTitlesForPlugin(t *testing.T, result map[string]any, pluginID string) []string {
+	t.Helper()
+
+	items, ok := result["items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("unexpected plugin list items: %#v", result["items"])
+	}
+	for _, item := range items {
+		if item["id"] != pluginID {
+			continue
+		}
+		help, ok := item["help"].(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected help for %s: %#v", pluginID, item["help"])
+		}
+		groups, ok := help["groups"].([]map[string]any)
+		if !ok {
+			t.Fatalf("unexpected help groups for %s: %#v", pluginID, help["groups"])
+		}
+		var titles []string
+		for _, group := range groups {
+			entries, ok := group["items"].([]map[string]any)
+			if !ok {
+				t.Fatalf("unexpected help items for %s: %#v", pluginID, group["items"])
+			}
+			for _, entry := range entries {
+				titles = append(titles, entry["title"].(string))
+			}
+		}
+		return titles
 	}
 	t.Fatalf("plugin %s not found in result: %#v", pluginID, result)
 	return nil
