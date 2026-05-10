@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { ApiError } from '@/lib/http'
+import { ApiError, apiRequest } from '@/lib/http'
+import { buildRenderTemplateLocation } from '@/lib/management-links'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
-import type { PluginDetail, PluginSettingsUpdateRequest } from '@/types/api'
+import type { PluginDetail, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
 
 interface PluginManagementUIHostInitPayload {
   plugin_id: string
@@ -65,6 +67,24 @@ type PluginManagementUIInboundMessage =
       deleted_keys?: string[]
     }
   }
+  | {
+    version: '1'
+    source: 'plugin_management_ui'
+    type: 'scheduler.trigger'
+    request_id?: string
+    payload: {
+      job_id: string
+    }
+  }
+  | {
+    version: '1'
+    source: 'plugin_management_ui'
+    type: 'render_template.open'
+    request_id?: string
+    payload: {
+      template_id: string
+    }
+  }
 
 const pluginSecretKeyPattern = /^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$/
 
@@ -75,6 +95,7 @@ const props = defineProps<{
 
 const pluginsStore = usePluginsStore()
 const governanceStore = useGovernanceStore()
+const router = useRouter()
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeNonce = ref(0)
@@ -311,6 +332,38 @@ function parseInboundBridgeMessage(value: unknown): PluginManagementUIInboundMes
         },
       }
     }
+    case 'scheduler.trigger': {
+      const payload = toRecord(record.payload)
+      const jobId = typeof payload?.job_id === 'string' ? payload.job_id.trim() : ''
+      if (!jobId) {
+        return null
+      }
+      return {
+        version: '1',
+        source: 'plugin_management_ui',
+        type: 'scheduler.trigger',
+        request_id: requestId,
+        payload: {
+          job_id: jobId,
+        },
+      }
+    }
+    case 'render_template.open': {
+      const payload = toRecord(record.payload)
+      const templateId = typeof payload?.template_id === 'string' ? payload.template_id.trim() : ''
+      if (!templateId) {
+        return null
+      }
+      return {
+        version: '1',
+        source: 'plugin_management_ui',
+        type: 'render_template.open',
+        request_id: requestId,
+        payload: {
+          template_id: templateId,
+        },
+      }
+    }
     default:
       return null
   }
@@ -397,6 +450,20 @@ function postSecretsChanged(values: Record<string, string>, changedKeys: string[
   })
 }
 
+function postSchedulerTriggered(response: SchedulerJobTriggerResponse, requestId?: string) {
+  return postMessageToIframe({
+    version: '1',
+    source: 'management_host',
+    type: 'scheduler.triggered',
+    request_id: requestId ?? nextBridgeRequestId('scheduler-triggered'),
+    payload: {
+      job_id: response.job_id,
+      plugin_id: response.plugin_id,
+      triggered: response.triggered,
+    },
+  })
+}
+
 async function initializeFrame(requestId?: string) {
   const currentToken = bridgeToken
   if (initStartedForBridgeToken === currentToken) {
@@ -442,6 +509,44 @@ async function initializeFrame(requestId?: string) {
     clearReadyTimer()
     fatalError.value = getDisplayErrorMessage(error, 'errors.common.loadFailed')
     postBridgeError(fatalError.value, {
+      code: error instanceof ApiError ? error.code : undefined,
+      requestId,
+    })
+  }
+}
+
+async function triggerSchedulerJob(jobId: string, requestId?: string) {
+  const currentToken = bridgeToken
+
+  try {
+    const response = await apiRequest<SchedulerJobTriggerResponse>(`/api/system/scheduler/jobs/${encodeURIComponent(jobId)}/trigger`, {
+      method: 'POST',
+    })
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = null
+    postSchedulerTriggered(response, requestId)
+  } catch (error) {
+    if (currentToken !== bridgeToken) {
+      return
+    }
+
+    actionError.value = getDisplayErrorMessage(error)
+    postBridgeError(actionError.value, {
+      code: error instanceof ApiError ? error.code : undefined,
+      requestId,
+    })
+  }
+}
+
+async function openRenderTemplate(templateId: string, requestId?: string) {
+  try {
+    await router.push(buildRenderTemplateLocation(templateId))
+  } catch (error) {
+    actionError.value = getDisplayErrorMessage(error)
+    postBridgeError(actionError.value, {
       code: error instanceof ApiError ? error.code : undefined,
       requestId,
     })
@@ -621,6 +726,12 @@ function handleBridgeMessage(event: MessageEvent) {
       return
     case 'secrets.save':
       void saveSecrets(message.payload.values, message.payload.deleted_keys ?? [], message.request_id)
+      return
+    case 'scheduler.trigger':
+      void triggerSchedulerJob(message.payload.job_id, message.request_id)
+      return
+    case 'render_template.open':
+      void openRenderTemplate(message.payload.template_id, message.request_id)
       return
   }
 }

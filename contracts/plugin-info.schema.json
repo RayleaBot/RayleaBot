@@ -181,7 +181,7 @@
     },
     "render_templates": {
       "type": "array",
-      "description": "Optional package-local render template directories. Each directory uses the managed render template layout with template.json, template.html, styles.css, optional input.schema.json, and optional assets/.",
+      "description": "Optional package-local render template directories. Each directory uses the managed render template layout with template.json, template.html, styles.css, optional input.schema.json, optional preview.json, and optional assets/.",
       "items": {
         "type": "object",
         "additionalProperties": false,

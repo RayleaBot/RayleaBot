@@ -32,6 +32,7 @@ type renderTemplateDetail struct {
 	UpdatedAt       string               `json:"updated_at"`
 	Source          renderTemplateSource `json:"source"`
 	InputSchemaJSON map[string]any       `json:"input_schema_json"`
+	PreviewDataJSON map[string]any       `json:"preview_data_json"`
 }
 
 type renderTemplateSource struct {
@@ -60,7 +61,7 @@ func toRenderTemplateSummary(item render.TemplateSummary) renderTemplateSummary 
 	}
 }
 
-func toRenderTemplateDetail(detail render.TemplateDetail, source render.TemplateSource) renderTemplateDetail {
+func toRenderTemplateDetail(detail render.TemplateDetail, source render.TemplateSource, previewData map[string]any) renderTemplateDetail {
 	return renderTemplateDetail{
 		ID:              detail.ID,
 		Version:         detail.Version,
@@ -70,6 +71,7 @@ func toRenderTemplateDetail(detail render.TemplateDetail, source render.Template
 		UpdatedAt:       detail.UpdatedAt,
 		Source:          toRenderTemplateSource(detail.Source),
 		InputSchemaJSON: source.InputSchemaJSON,
+		PreviewDataJSON: previewData,
 	}
 }
 
@@ -197,9 +199,14 @@ func (h *renderHTTPHandlers) handleSystemRenderTemplateDetail() http.HandlerFunc
 			writeRenderTemplateError(w, r, err)
 			return
 		}
+		previewData, err := h.renderer.GetTemplatePreviewData(r.Context(), templateID)
+		if err != nil {
+			writeRenderTemplateError(w, r, err)
+			return
+		}
 
 		writeAuthJSON(w, http.StatusOK, renderTemplateDetailResponse{
-			Template: toRenderTemplateDetail(detail, source),
+			Template: toRenderTemplateDetail(detail, source, previewData),
 		})
 	}
 }

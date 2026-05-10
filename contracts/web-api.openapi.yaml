@@ -30,6 +30,7 @@ x-fixtures:
   - fixtures/web-api/ok.system-render-artifact.yaml
   - fixtures/web-api/ok.system-render-templates-list-response.yaml
   - fixtures/web-api/ok.system-render-template-detail-response.yaml
+  - fixtures/web-api/ok.system-scheduler-job-triggered.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.governance-blacklist-response.yaml
   - fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml
@@ -787,6 +788,28 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/system/scheduler/jobs/{job_id}/trigger:
+    post:
+      summary: Trigger an existing scheduler job immediately.
+      operationId: triggerSchedulerJob
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SchedulerJobId'
+      responses:
+        '200':
+          description: Scheduler job trigger result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulerJobTriggerResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/system/diagnostics/export:
     get:
       summary: Export a bounded diagnostics bundle for support and recovery triage.
@@ -1444,6 +1467,13 @@ components:
         minLength: 1
     TemplateId:
       name: template_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    SchedulerJobId:
+      name: job_id
       in: path
       required: true
       schema:
@@ -2220,9 +2250,13 @@ components:
         - $ref: '#/components/schemas/RenderTemplateSummary'
         - type: object
           additionalProperties: false
-          required: [input_schema_json]
+          required: [input_schema_json, preview_data_json]
           properties:
             input_schema_json:
+              type: object
+              additionalProperties: true
+              nullable: true
+            preview_data_json:
               type: object
               additionalProperties: true
               nullable: true
@@ -2234,6 +2268,20 @@ components:
       properties:
         template:
           $ref: '#/components/schemas/RenderTemplateDetail'
+
+    SchedulerJobTriggerResponse:
+      type: object
+      additionalProperties: false
+      required: [job_id, plugin_id, triggered]
+      properties:
+        job_id:
+          type: string
+          minLength: 1
+        plugin_id:
+          type: string
+          minLength: 1
+        triggered:
+          type: boolean
 
     GovernanceEntryType:
       type: string

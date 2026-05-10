@@ -37,7 +37,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已冻结的管理 HTTP 接口
-  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、governance 管理面、tasks / logs / system surfaces、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
+  - 当前包含 setup / session、loopback launcher bootstrap、config snapshot/update、protocol snapshot / compatibility、plugin lifecycle、plugin grants、plugin rich detail、plugin settings、plugin secrets、governance 管理面、tasks / logs / system surfaces、scheduler 手动触发、recovery recheck / confirm、runtime bootstrap、render preview 与 render artifact 读取面
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `display_state` 枚举
 - `websocket-events.yaml`
@@ -54,7 +54,7 @@
   - 当前固定为 `/plugin-ui/{plugin_id}/...`
 - `plugin-management-ui-bridge.schema.json`
   - Web 宿主页与插件内置 iframe 的正式桥接消息结构
-  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed` 与 `error`
+  - 当前固定 `page.ready`、`host.init`、`settings.reload`、`settings.save`、`settings.changed`、`secrets.reload`、`secrets.save`、`secrets.changed`、`scheduler.trigger`、`scheduler.triggered`、`render_template.open` 与 `error`
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL 协议
   - 当前冻结 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
@@ -94,6 +94,7 @@
 当前已进入 OpenAPI 冻结范围的 protocol compatibility surface：
 
 - `GET /api/protocols/onebot11/compatibility`
+- `POST /api/system/scheduler/jobs/{job_id}/trigger`
 
 其中 response 固定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类能力矩阵；provider 支持状态固定为 `supported` 或 `unsupported`。
 
@@ -133,7 +134,7 @@
 - `POST /api/system/render/preview`
 - `GET /api/system/render/artifacts/{artifact_id}`
 
-其中模板预览工作区继续使用 `render.preview` 任务链进行实时预览；模板列表和详情返回 `source`，用于区分系统模板与插件携带模板；`render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
+其中模板预览工作区继续使用 `render.preview` 任务链进行实时预览；模板列表和详情返回 `source`，用于区分系统模板与插件携带模板；模板目录可提供 `preview.json` 作为预览示例数据；`render.preview` 任务详情会在 `result.details` 中暴露 `artifact_id`、`image_url`、`mime`、`cache_key`、`template`、`theme`、`from_cache`。
 
 当前已进入 OpenAPI 冻结范围的 governance surface：
 

@@ -178,7 +178,11 @@ function getTemplateLocalId(template: RenderTemplateSummary) {
   return template.source.local_id || ''
 }
 
-function buildDefaultPreviewData(templateId: string, schema: Record<string, unknown> | null = null) {
+function buildDefaultPreviewData(templateId: string, schema: Record<string, unknown> | null = null, previewData: Record<string, unknown> | null = null) {
+  if (previewData) {
+    return JSON.stringify(previewData, null, 2)
+  }
+
   if (templateId === 'help.menu') {
     return JSON.stringify({
       title: '帮助菜单',
@@ -238,7 +242,8 @@ function buildDefaultPreviewData(templateId: string, schema: Record<string, unkn
 
 function ensurePreviewDefaults(templateId: string) {
   if (!previewDataByTemplate.value[templateId]) {
-    const previewData = buildDefaultPreviewData(templateId, detailById.value[templateId]?.input_schema_json ?? null)
+    const detail = detailById.value[templateId]
+    const previewData = buildDefaultPreviewData(templateId, detail?.input_schema_json ?? null, detail?.preview_data_json ?? null)
     if (!previewData) {
       return
     }

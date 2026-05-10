@@ -1,0 +1,14 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Management users can immediately trigger an existing scheduler job.
+request:
+  method: POST
+  path: /api/system/scheduler/jobs/subscription-hub-poll/trigger
+response:
+  status: 200
+  body:
+    job_id: subscription-hub-poll
+    plugin_id: raylea.subscription-hub
+    triggered: true
+expect:
+  valid: true

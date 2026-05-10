@@ -544,6 +544,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/scheduler/jobs/{job_id}/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger an existing scheduler job immediately. */
+        post: operations["triggerSchedulerJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/diagnostics/export": {
         parameters: {
             query?: never;
@@ -1166,9 +1183,17 @@ export interface components {
             input_schema_json: {
                 [key: string]: unknown;
             } | null;
+            preview_data_json: {
+                [key: string]: unknown;
+            } | null;
         };
         RenderTemplateDetailResponse: {
             template: components["schemas"]["RenderTemplateDetail"];
+        };
+        SchedulerJobTriggerResponse: {
+            job_id: string;
+            plugin_id: string;
+            triggered: boolean;
         };
         /** @enum {string} */
         GovernanceEntryType: "user" | "group";
@@ -1689,6 +1714,7 @@ export interface components {
         GovernanceEntryType: components["schemas"]["GovernanceEntryType"];
         GovernanceTargetId: string;
         TemplateId: string;
+        SchedulerJobId: string;
     };
     requestBodies: never;
     headers: never;
@@ -2465,6 +2491,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RenderTemplateDetailResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    triggerSchedulerJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["SchedulerJobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scheduler job trigger result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchedulerJobTriggerResponse"];
                 };
             };
             401: components["responses"]["Error"];

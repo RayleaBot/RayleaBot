@@ -350,6 +350,64 @@ func TestEngine_UpsertTask(t *testing.T) {
 	}
 }
 
+func TestEngine_TriggerDoesNotAdvanceNextRun(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	var mu sync.Mutex
+	var fired []string
+	engine, err := New(Options{
+		Repository: repo,
+		Logger:     testLogger(),
+		Trigger: func(_ context.Context, job Job) {
+			mu.Lock()
+			fired = append(fired, job.JobID)
+			mu.Unlock()
+		},
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+
+	ctx := context.Background()
+	baseTime := time.Date(2026, 3, 22, 12, 0, 0, 0, time.UTC)
+	engine.now = func() time.Time { return baseTime }
+	job, err := engine.UpsertTask(ctx, "subscription-hub", "subscription-hub-poll", "*/30 * * * *", nil)
+	if err != nil {
+		t.Fatalf("UpsertTask: %v", err)
+	}
+
+	triggered, err := engine.Trigger(ctx, job.JobID)
+	if err != nil {
+		t.Fatalf("Trigger: %v", err)
+	}
+	if triggered.JobID != job.JobID || triggered.PluginID != "subscription-hub" {
+		t.Fatalf("unexpected triggered job: %#v", triggered)
+	}
+
+	mu.Lock()
+	if len(fired) != 1 || fired[0] != job.JobID {
+		t.Fatalf("fired = %#v, want [%s]", fired, job.JobID)
+	}
+	mu.Unlock()
+
+	jobs := engine.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("len(jobs) = %d, want 1", len(jobs))
+	}
+	if !jobs[0].NextRun.Equal(job.NextRun) {
+		t.Fatalf("NextRun changed: got %v want %v", jobs[0].NextRun, job.NextRun)
+	}
+	if jobs[0].LastRun != nil {
+		t.Fatalf("LastRun changed: %#v", jobs[0].LastRun)
+	}
+}
+
 func TestEngine_TickFiresDueJob(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)

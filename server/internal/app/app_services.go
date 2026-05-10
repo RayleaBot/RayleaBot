@@ -417,11 +417,16 @@ func newRenderHTTPHandlers(renderer *render.Service, taskExecutor *tasks.Executo
 }
 
 type systemHTTPHandlers struct {
-	system *systemService
+	system    *systemService
+	scheduler *scheduler.Engine
 }
 
-func newSystemHTTPHandlers(system *systemService) *systemHTTPHandlers {
-	return &systemHTTPHandlers{system: system}
+func newSystemHTTPHandlers(system *systemService, schedulerEngine ...*scheduler.Engine) *systemHTTPHandlers {
+	var schedulerValue *scheduler.Engine
+	if len(schedulerEngine) > 0 {
+		schedulerValue = schedulerEngine[0]
+	}
+	return &systemHTTPHandlers{system: system, scheduler: schedulerValue}
 }
 
 type protocolHTTPHandlers struct {

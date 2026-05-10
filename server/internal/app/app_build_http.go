@@ -85,6 +85,7 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Get("/api/system/render/artifacts/{artifact_id}", deps.renderHandler.handleSystemRenderArtifact())
 	router.Get("/api/system/render/templates", deps.renderHandler.handleSystemRenderTemplateList())
 	router.Get("/api/system/render/templates/{template_id}", deps.renderHandler.handleSystemRenderTemplateDetail())
+	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", deps.systemHandler.handleSystemSchedulerJobTrigger())
 	router.Get("/api/tasks", deps.taskHandler.handleTaskList())
 	router.Get("/api/tasks/{task_id}", deps.taskHandler.handleTaskDetail())
 	router.Post("/api/tasks/{task_id}/cancel", deps.taskHandler.handleTaskCancel())

@@ -51,6 +51,9 @@ func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
 	if templateBody["input_schema_json"] == nil {
 		t.Fatalf("expected input_schema_json, got %#v", templateBody)
 	}
+	if _, ok := templateBody["preview_data_json"]; !ok {
+		t.Fatalf("expected preview_data_json field, got %#v", templateBody)
+	}
 	source, ok := templateBody["source"].(map[string]any)
 	if !ok || source["type"] != "system" {
 		t.Fatalf("expected system source, got %#v", templateBody["source"])

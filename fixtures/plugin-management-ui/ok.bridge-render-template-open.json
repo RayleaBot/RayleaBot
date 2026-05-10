@@ -1,0 +1,17 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The iframe may request navigation to a render template preview.",
+  "input": {
+    "version": "1",
+    "source": "plugin_management_ui",
+    "type": "render_template.open",
+    "request_id": "req_render_template_open_0001",
+    "payload": {
+      "template_id": "plugin.raylea.subscription-hub.bilibili-update"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

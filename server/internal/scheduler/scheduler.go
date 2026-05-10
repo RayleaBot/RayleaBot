@@ -8,11 +8,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 )
+
+var ErrJobNotFound = errors.New("scheduler job not found")
 
 // Job represents a persisted scheduled job.
 type Job struct {
@@ -266,6 +269,25 @@ func (e *Engine) Jobs() []Job {
 		result = append(result, j)
 	}
 	return result
+}
+
+// Trigger fires a registered job immediately without advancing the scheduled
+// next run time.
+func (e *Engine) Trigger(ctx context.Context, jobID string) (Job, error) {
+	e.mu.Lock()
+	job, ok := e.jobs[jobID]
+	e.mu.Unlock()
+	if !ok {
+		return Job{}, ErrJobNotFound
+	}
+	if !job.Enabled {
+		return Job{}, ErrJobNotFound
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	e.trigger(ctx, job)
+	return job, nil
 }
 
 func (e *Engine) tickLoop() {

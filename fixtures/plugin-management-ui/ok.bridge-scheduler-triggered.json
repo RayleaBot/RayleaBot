@@ -1,0 +1,19 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "ok",
+  "description": "The host reports a completed scheduler trigger request.",
+  "input": {
+    "version": "1",
+    "source": "management_host",
+    "type": "scheduler.triggered",
+    "request_id": "req_scheduler_trigger_0001",
+    "payload": {
+      "job_id": "subscription-hub-poll",
+      "plugin_id": "raylea.subscription-hub",
+      "triggered": true
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

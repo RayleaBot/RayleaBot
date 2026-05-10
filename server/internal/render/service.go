@@ -450,6 +450,36 @@ func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (str
 	return revisionID, source, nil
 }
 
+func (s *Service) GetTemplatePreviewData(ctx context.Context, templateID string) (map[string]any, error) {
+	if err := s.syncTemplatesFromFiles(ctx); err != nil {
+		return nil, err
+	}
+	templateID = strings.TrimSpace(templateID)
+	if _, err := s.GetTemplate(ctx, templateID); err != nil {
+		return nil, err
+	}
+
+	templateDir := s.templateDirFor(templateID)
+	previewPath := filepath.Join(templateDir, defaultTemplatePreviewData)
+	content, err := os.ReadFile(previewPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read render template preview data %s: %w", previewPath, err)
+	}
+
+	var previewData map[string]any
+	if err := json.Unmarshal(content, &previewData); err != nil {
+		return nil, &Error{
+			Code:    "platform.template_source_invalid",
+			Message: "render template preview data is invalid",
+			Err:     err,
+		}
+	}
+	return previewData, nil
+}
+
 func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested string) (string, error) {
 	if s == nil {
 		return "", &Error{Code: "platform.resource_missing", Message: "render service is not available"}

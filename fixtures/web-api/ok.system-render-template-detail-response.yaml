@@ -27,5 +27,12 @@ response:
           title:
             type: string
             description: 主标题
+      preview_data_json:
+        title: 帮助菜单
+        subtitle: 常用命令入口
+        items:
+          - name: weather
+            description: 查询天气
+            usage: /weather <城市>
 expect:
   valid: true

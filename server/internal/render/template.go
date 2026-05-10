@@ -24,6 +24,7 @@ const (
 	defaultTemplateHTMLFile       = "template.html"
 	defaultTemplateStylesheetFile = "styles.css"
 	defaultTemplateInputSchema    = "input.schema.json"
+	defaultTemplatePreviewData    = "preview.json"
 	defaultTemplateWidth          = 960
 	defaultTemplateHeight         = 640
 )

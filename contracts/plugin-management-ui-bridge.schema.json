@@ -29,6 +29,15 @@
       "$ref": "#/$defs/secrets_changed"
     },
     {
+      "$ref": "#/$defs/scheduler_trigger"
+    },
+    {
+      "$ref": "#/$defs/scheduler_triggered"
+    },
+    {
+      "$ref": "#/$defs/render_template_open"
+    },
+    {
       "$ref": "#/$defs/error_message"
     }
   ],
@@ -411,6 +420,129 @@
         }
       }
     },
+    "scheduler_trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "scheduler.trigger"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "job_id"
+          ],
+          "properties": {
+            "job_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "scheduler_triggered": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "management_host"
+        },
+        "type": {
+          "const": "scheduler.triggered"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "job_id",
+            "plugin_id",
+            "triggered"
+          ],
+          "properties": {
+            "job_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "plugin_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "triggered": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "render_template_open": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "source": {
+          "const": "plugin_management_ui"
+        },
+        "type": {
+          "const": "render_template.open"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "template_id"
+          ],
+          "properties": {
+            "template_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
     "error_message": {
       "type": "object",
       "additionalProperties": false,
@@ -462,6 +594,9 @@
     "fixtures/plugin-management-ui/ok.bridge-settings-save.json",
     "fixtures/plugin-management-ui/ok.bridge-secrets-save.json",
     "fixtures/plugin-management-ui/ok.bridge-secrets-changed.json",
+    "fixtures/plugin-management-ui/ok.bridge-scheduler-trigger.json",
+    "fixtures/plugin-management-ui/ok.bridge-scheduler-triggered.json",
+    "fixtures/plugin-management-ui/ok.bridge-render-template-open.json",
     "fixtures/plugin-management-ui/invalid.bridge-unknown-type.json"
   ]
 }

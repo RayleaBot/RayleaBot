@@ -1,0 +1,30 @@
+{
+  "title": "帮助菜单",
+  "subtitle": "常用命令入口",
+  "user": {
+    "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=10001&s=100",
+    "nickname": "星野",
+    "title": "指令调度员",
+    "id": "10001"
+  },
+  "group": {
+    "name": "RayleaBot 测试群"
+  },
+  "permission": {
+    "level": "admin"
+  },
+  "groups": [
+    {
+      "title": "基础指令",
+      "items": [
+        {
+          "name": "weather",
+          "description": "查询天气",
+          "usage": "/weather <城市>",
+          "permission": "everyone",
+          "permission_label": "所有人可用"
+        }
+      ]
+    }
+  ]
+}
