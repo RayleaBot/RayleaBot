@@ -6,6 +6,8 @@ import time
 
 
 PLUGIN_DIR = os.path.dirname(os.path.dirname(__file__))
+BUILTIN_DIR = os.path.dirname(PLUGIN_DIR)
+sys.path.insert(0, BUILTIN_DIR)
 sys.path.insert(0, PLUGIN_DIR)
 
 from bilibili import dynamic_updates
@@ -19,103 +21,7 @@ from main import (
 )
 from rendering import build_render_data
 from settings import merge_settings
-
-
-class FakeContext:
-    def __init__(
-        self,
-        args=None,
-        target_type="group",
-        target_id="10000",
-        actor=None,
-        config_values=None,
-        http_responses=None,
-        secrets=None,
-        storage=None,
-        render_result=None,
-    ):
-        self.args = args or []
-        self.target_type = target_type
-        self.target_id = target_id
-        self.actor = actor or {"id": "42", "nickname": "订阅人"}
-        self.config_values = config_values or {}
-        self.http_responses = list(http_responses or [])
-        self.secrets = secrets or {}
-        self.storage = storage or {}
-        self.render_result = render_result or {"image_path": "subscription.png"}
-        self.config_writes = []
-        self.scheduler_creates = []
-        self.texts = []
-        self.results = []
-        self.logs = []
-        self.http_requests = []
-        self.render_calls = []
-        self.messages = []
-        self.storage_sets = []
-        self.actions = []
-
-    def config_read(self, keys):
-        return {"values": {key: self.config_values[key] for key in keys if key in self.config_values}}
-
-    def config_write(self, values):
-        self.config_writes.append(values)
-        return {"changed_keys": sorted(values.keys())}
-
-    def scheduler_create(self, task_id, cron, payload=None):
-        self.scheduler_creates.append({"task_id": task_id, "cron": cron, "payload": payload})
-        return {"task_id": task_id}
-
-    def send_text(self, text):
-        self.texts.append(text)
-
-    def send_result(self, result):
-        self.results.append(result)
-
-    def logger_write(self, level, message, fields):
-        self.logs.append({"level": level, "message": message, "fields": fields})
-        return {"ok": True}
-
-    def http_request(self, method, url, headers=None, timeout_seconds=30):
-        self.http_requests.append({
-            "method": method,
-            "url": url,
-            "headers": headers or {},
-            "timeout_seconds": timeout_seconds,
-        })
-        if self.http_responses:
-            return self.http_responses.pop(0)
-        return {"status_code": 200, "body_text": json.dumps({"code": 0, "data": {"items": []}})}
-
-    def secret_read(self, secret_key):
-        return {"value": self.secrets.get(secret_key, "")}
-
-    def storage_get(self, key):
-        if key in self.storage:
-            return {"exists": True, "value": self.storage[key]}
-        return {"exists": False}
-
-    def storage_set(self, key, value):
-        self.actions.append({"kind": "storage_set", "key": key, "value": value})
-        self.storage_sets.append({"key": key, "value": value})
-        self.storage[key] = value
-        return {"ok": True}
-
-    def render_image(self, template, data, theme, output, fallback_text):
-        call = {
-            "template": template,
-            "data": data,
-            "theme": theme,
-            "output": output,
-            "fallback_text": fallback_text,
-        }
-        self.actions.append({"kind": "render_image", "call": call})
-        self.render_calls.append(call)
-        return self.render_result
-
-    def send_message(self, segments, target_type=None, target_id=None):
-        message = {"segments": segments, "target_type": target_type, "target_id": target_id}
-        self.actions.append({"kind": "send_message", "message": message})
-        self.messages.append(message)
+from testkit import FakePluginContext as FakeContext
 
 
 class SubscriptionHubTests(unittest.TestCase):
@@ -189,11 +95,16 @@ class SubscriptionHubTests(unittest.TestCase):
             "b站订阅列表",
             "全部订阅列表",
             "全部b站订阅列表",
+            "立即检查订阅",
+            "预览订阅卡片",
         ], [item.get("name") for item in manifest.get("commands") or []])
         self.assertEqual("super_admin", manifest["commands"][1]["permission"])
         self.assertEqual("super_admin", manifest["commands"][2]["permission"])
         self.assertEqual("super_admin", manifest["commands"][5]["permission"])
         self.assertEqual("super_admin", manifest["commands"][6]["permission"])
+        self.assertEqual("super_admin", manifest["commands"][7]["permission"])
+        self.assertEqual("super_admin", manifest["commands"][8]["permission"])
+        self.assertIn("help", manifest)
         self.assertNotIn("dynamic_commands", manifest)
 
     def test_merge_settings_normalizes_tokens_and_subscriptions(self):
@@ -575,6 +486,105 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(len(ctx.messages), 1)
         self.assertEqual(ctx.storage_sets[0], {"key": "seen:bilibili-123456-group-10000:video:987", "value": True})
         self.assertEqual(ctx.storage_sets[1]["key"], "dynamic-baseline:bilibili-123456-group-10000")
+
+    def test_manual_check_defaults_to_current_target(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(
+            tokens=[{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+            subscriptions=[
+                self.subscription_settings()["subscriptions"][0],
+                {
+                    "id": "bilibili-654321-group-20000",
+                    "platform": "bilibili",
+                    "uid": "654321",
+                    "name": "其他 UP",
+                    "target_type": "group",
+                    "target_id": "20000",
+                    "services": ["video"],
+                    "subscribers": [{"id": "43", "nickname": "其他订阅人"}],
+                    "enabled": True,
+                },
+            ],
+        )
+        now = int(time.time())
+        ctx = FakeContext(
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            storage={"dynamic-baseline:bilibili-123456-group-10000": now - 60},
+            http_responses=[
+                self.nav_response(),
+                self.dynamic_response([self.video_item("987", "当前会话视频", pub_ts=now - 20)]),
+            ],
+        )
+
+        plugin.handle_manual_check(ctx)
+
+        self.assertEqual(len(ctx.render_calls), 1)
+        self.assertIn("123456", ctx.http_requests[1]["url"])
+        self.assertNotIn("654321", " ".join(request["url"] for request in ctx.http_requests))
+        self.assertEqual(ctx.messages[0]["target_id"], "10000")
+
+    def test_manual_check_all_can_scan_other_targets(self):
+        plugin = SubscriptionHubPlugin()
+        settings = self.subscription_settings(
+            tokens=[{
+                "id": "primary",
+                "label": "主 Cookie",
+                "secret_key": "bili.primary",
+                "enabled": True,
+            }],
+            subscriptions=[{
+                "id": "bilibili-654321-group-20000",
+                "platform": "bilibili",
+                "uid": "654321",
+                "name": "其他 UP",
+                "target_type": "group",
+                "target_id": "20000",
+                "services": ["video"],
+                "subscribers": [{"id": "43", "nickname": "其他订阅人"}],
+                "enabled": True,
+            }],
+        )
+        now = int(time.time())
+        ctx = FakeContext(
+            args=["全部"],
+            config_values=settings,
+            secrets={"bili.primary": "SESSDATA=token"},
+            storage={"dynamic-baseline:bilibili-654321-group-20000": now - 60},
+            http_responses=[
+                self.nav_response(),
+                self.dynamic_response([self.video_item("987", "其他会话视频", pub_ts=now - 20)]),
+            ],
+        )
+
+        plugin.handle_manual_check(ctx)
+
+        self.assertEqual(len(ctx.render_calls), 1)
+        self.assertIn("654321", ctx.http_requests[1]["url"])
+        self.assertEqual(ctx.messages[0]["target_id"], "20000")
+
+    def test_preview_card_uses_sample_data_without_http_or_storage(self):
+        plugin = SubscriptionHubPlugin()
+        ctx = FakeContext(args=["转发"], render_result={"image_path": "preview.png"})
+
+        plugin.handle_preview_card(ctx)
+
+        self.assertEqual(ctx.http_requests, [])
+        self.assertEqual(ctx.storage_sets, [])
+        self.assertEqual(len(ctx.render_calls), 1)
+        self.assertEqual(ctx.render_calls[0]["template"], "bilibili-update")
+        self.assertEqual(ctx.render_calls[0]["data"]["service"], "转发")
+        self.assertEqual(ctx.render_calls[0]["data"]["original"]["title"], "原动态视频标题")
+        self.assertEqual(ctx.messages, [{
+            "segments": [{"type": "image", "data": {"file": "preview.png"}}],
+            "target_type": None,
+            "target_id": None,
+        }])
 
     def test_first_successful_dynamic_poll_sets_baseline_without_push(self):
         plugin = SubscriptionHubPlugin()

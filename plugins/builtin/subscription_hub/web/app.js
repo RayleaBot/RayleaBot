@@ -11,6 +11,8 @@
   const subscriptionsInput = document.getElementById('subscriptions-input')
   const reloadButton = document.getElementById('reload-button')
   const resetButton = document.getElementById('reset-button')
+  const manualCheckButton = document.getElementById('manual-check-button')
+  const previewButton = document.getElementById('preview-button')
   const saveButton = document.getElementById('save-button')
 
   let defaultSettings = {}
@@ -218,6 +220,15 @@
     setStatus('默认设置已载入，保存后生效')
   }
 
+  function triggerManualCheck() {
+    setStatus('正在触发订阅检查')
+    postMessage('scheduler.trigger', { job_id: 'subscription-hub-poll' }, `trigger-scheduler-${Date.now()}`)
+  }
+
+  function openCardPreview() {
+    postMessage('render_template.open', { template_id: 'plugin.raylea.subscription-hub.bilibili-update' }, `open-template-${Date.now()}`)
+  }
+
   window.addEventListener('message', (event) => {
     const message = event.data
     if (!message || message.version !== '1' || typeof message.type !== 'string') {
@@ -250,6 +261,11 @@
       return
     }
 
+    if (message.type === 'scheduler.triggered') {
+      setStatus('已触发订阅检查')
+      return
+    }
+
     if (message.type === 'error') {
       const payload = message.payload || {}
       setStatus(payload.message || '操作未完成', true)
@@ -258,6 +274,8 @@
 
   reloadButton.addEventListener('click', reloadAll)
   resetButton.addEventListener('click', resetSettings)
+  manualCheckButton.addEventListener('click', triggerManualCheck)
+  previewButton.addEventListener('click', openCardPreview)
   saveButton.addEventListener('click', saveAll)
 
   postMessage('page.ready', undefined, `ready-${Date.now()}`)

@@ -130,6 +130,44 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
         ctx.send_text(format_subscription_list(settings, None, platform="bilibili", title="全部 Bilibili 订阅列表"))
         ctx.send_result({"handled": True})
 
+    @command("立即检查订阅")
+    def handle_manual_check(self, ctx):
+        settings = self.load_settings(ctx, force=True)
+        self.ensure_scheduler_if_needed(ctx, settings)
+        if not settings["enabled"]:
+            ctx.send_text("订阅中心未启用。")
+            ctx.send_result({"handled": True, "skipped": "disabled"})
+            return
+        scope = parse_manual_check_scope(ctx.args)
+        target = None if scope == "all" else current_target(ctx)
+        prepared = self.prepare_next_update(ctx, settings, target=target)
+        if prepared:
+            self.send_prepared_update(ctx, prepared)
+            return
+        ctx.send_text("当前没有可推送的订阅更新。")
+        ctx.send_result({"handled": True, "sent": 0})
+
+    @command("预览订阅卡片")
+    def handle_preview_card(self, ctx):
+        service = parse_preview_service(ctx.args)
+        render_data = build_render_data(sample_subscription(ctx), sample_update(service))
+        result = ctx.render_image(
+            "bilibili-update",
+            render_data,
+            theme="default",
+            output="png",
+            fallback_text=build_fallback_text(render_data),
+        )
+        image_path = str(result.get("image_path") or "").strip()
+        if not image_path:
+            ctx.send_text("订阅卡片预览生成失败。")
+            ctx.send_result({"handled": True, "sent": 0})
+            return
+        ctx.send_message([{
+            "type": "image",
+            "data": {"file": image_path},
+        }])
+
     def save_settings(self, ctx, settings):
         ctx.config_write({key: settings[key] for key in SETTINGS_KEYS if key in settings})
 
@@ -172,9 +210,11 @@ class SubscriptionHubPlugin(RayleaBotPlugin):
                 "error": str(exc),
             })
 
-    def prepare_next_update(self, ctx, settings):
+    def prepare_next_update(self, ctx, settings, target=None):
         for subscription in settings["subscriptions"]:
             if not subscription.get("enabled", True):
+                continue
+            if target and (subscription.get("target_type") != target["target_type"] or subscription.get("target_id") != target["target_id"]):
                 continue
             if subscription.get("platform") != "bilibili":
                 continue
@@ -389,6 +429,18 @@ def service_enabled(subscription, service):
     return "all" in services or service in services
 
 
+def parse_manual_check_scope(args):
+    values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
+    return "all" if values and values[0] == "全部" else "current"
+
+
+def parse_preview_service(args):
+    values = [str(item or "").strip() for item in args or [] if str(item or "").strip()]
+    if not values:
+        return "video"
+    return normalize_service_token(values[0]) or "video"
+
+
 def has_enabled_subscriptions(settings):
     for subscription in settings.get("subscriptions") or []:
         if subscription.get("enabled", True):
@@ -423,6 +475,87 @@ SERVICE_NAMES = {
     "article": "文章",
     "repost": "转发",
 }
+
+
+def sample_subscription(ctx):
+    target = current_target(ctx)
+    return {
+        "id": f"preview-bilibili-{target['target_type']}-{target['target_id'] or 'current'}",
+        "platform": "bilibili",
+        "uid": "3546659356389007",
+        "name": "RayleaBot 示例账号",
+        "target_type": target["target_type"],
+        "target_id": target["target_id"],
+        "services": ["all"],
+        "subscribers": [current_subscriber(ctx)],
+        "enabled": True,
+    }
+
+
+def sample_update(service):
+    now = int(time.time())
+    base = {
+        "id": f"preview-{service}",
+        "service": service,
+        "category": SERVICE_NAMES.get(service, "视频"),
+        "author": {"name": "RayleaBot 示例账号"},
+        "pub_ts": now,
+        "created_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(now)),
+        "url": "https://t.bilibili.com/100000000000000001",
+        "images": [{"url": "https://i0.hdslb.com/bfs/archive/sample-cover.jpg"}],
+    }
+    if service == "live":
+        return {
+            **base,
+            "id": "preview-live",
+            "title": "直播间已开播",
+            "summary": "正在直播：RayleaBot 订阅中心调试示例。",
+            "live_status": 1,
+            "url": "https://live.bilibili.com/123456",
+        }
+    if service == "image_text":
+        return {
+            **base,
+            "title": "图文动态示例",
+            "summary": "这里展示图文动态正文、图片九宫格、订阅对象和订阅人信息。",
+            "images": [
+                {"url": "https://i0.hdslb.com/bfs/new_dyn/sample-1.jpg"},
+                {"url": "https://i0.hdslb.com/bfs/new_dyn/sample-2.jpg"},
+                {"url": "https://i0.hdslb.com/bfs/new_dyn/sample-3.jpg"},
+            ],
+        }
+    if service == "article":
+        return {
+            **base,
+            "title": "专栏文章示例",
+            "summary": "文章摘要会显示在卡片正文区域，封面图显示在图片区域。",
+            "url": "https://www.bilibili.com/read/cv12345678",
+        }
+    if service == "repost":
+        return {
+            **base,
+            "title": "转发动态示例",
+            "summary": "转发评论会显示在主卡片正文中。",
+            "original": {
+                "id": "preview-original",
+                "service": "video",
+                "category": "视频",
+                "title": "原动态视频标题",
+                "summary": "原动态摘要会以内嵌卡片显示，包含原作者、正文、图片和链接。",
+                "author": {"name": "原动态作者"},
+                "images": [{"url": "https://i0.hdslb.com/bfs/archive/original-cover.jpg"}],
+                "url": "https://www.bilibili.com/video/BV1RayleaBot",
+                "created_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(now - 300)),
+            },
+        }
+    return {
+        **base,
+        "service": "video",
+        "category": "视频",
+        "title": "新视频示例",
+        "summary": "视频简介会被整理为摘要，推送图会显示封面、链接、订阅对象和订阅人。",
+        "url": "https://www.bilibili.com/video/BV1RayleaBot",
+    }
 
 
 def add_bilibili_subscription(settings, ctx):

@@ -1,0 +1,49 @@
+{
+  "title": "转发动态示例",
+  "subtitle": "Bilibili · 转发",
+  "platform": "Bilibili",
+  "service": "转发",
+  "category": "转发",
+  "author": {
+    "name": "RayleaBot 示例账号"
+  },
+  "summary": "转发评论会显示在主卡片正文中，原动态会以内嵌卡片展示。",
+  "images": [
+    {
+      "url": "https://i0.hdslb.com/bfs/new_dyn/sample-1.jpg"
+    },
+    {
+      "url": "https://i0.hdslb.com/bfs/new_dyn/sample-2.jpg"
+    }
+  ],
+  "url": "https://t.bilibili.com/100000000000000001",
+  "pub_ts": 1778342400,
+  "created_at": "2026-05-09 20:00",
+  "original": {
+    "title": "原动态视频标题",
+    "service": "视频",
+    "category": "视频",
+    "author": {
+      "name": "原动态作者"
+    },
+    "summary": "原动态摘要、图片与链接会显示在内嵌卡片中。",
+    "images": [
+      {
+        "url": "https://i0.hdslb.com/bfs/archive/original-cover.jpg"
+      }
+    ],
+    "url": "https://www.bilibili.com/video/BV1RayleaBot",
+    "created_at": "2026-05-09 19:55"
+  },
+  "subscription": {
+    "uid": "3546659356389007",
+    "name": "RayleaBot 示例账号"
+  },
+  "subscribers": [
+    {
+      "id": "10001",
+      "nickname": "订阅人"
+    }
+  ],
+  "subscriber_text": "订阅人"
+}
