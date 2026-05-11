@@ -175,46 +175,46 @@
   <path class="muted-arrow" d="M 730 740 L 705 740"/>
   <text class="label" x="717" y="688" text-anchor="middle">JSONL</text>
 
-  <rect class="lane" x="396" y="775" width="888" height="210" rx="14"/>
+  <rect class="lane" x="396" y="775" width="888" height="195" rx="14"/>
   <text class="lane-title" x="416" y="797">PLATFORM CAPABILITIES</text>
 
   <rect class="green" x="425" y="813" width="820" height="46" rx="10"/>
   <text class="module-title" x="835" y="836" text-anchor="middle">Local Action Service</text>
   <text class="module-text" x="835" y="852" text-anchor="middle">capability gateway · scope 校验 · 结构化错误</text>
 
-  <rect class="rose" x="425" y="876" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="555" y="897" text-anchor="middle">Render · render.image</text>
-  <rect class="amber" x="705" y="876" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="835" y="897" text-anchor="middle">Scheduler · scheduler.create</text>
-  <rect class="green" x="985" y="876" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="1115" y="897" text-anchor="middle">Storage · storage.kv / file</text>
+  <rect class="rose" x="425" y="872" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="555" y="890" text-anchor="middle">Render · render.image</text>
+  <rect class="amber" x="705" y="872" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="835" y="890" text-anchor="middle">Scheduler · scheduler.create</text>
+  <rect class="green" x="985" y="872" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="1115" y="890" text-anchor="middle">Storage · storage.kv / file</text>
 
-  <rect class="green" x="425" y="912" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="555" y="933" text-anchor="middle">Secrets · secret.read</text>
-  <rect class="amber" x="705" y="912" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="835" y="933" text-anchor="middle">Governance · 黑白名单 · policy</text>
-  <rect class="amber" x="985" y="912" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="1115" y="933" text-anchor="middle">Logger · logger.write</text>
+  <rect class="green" x="425" y="904" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="555" y="922" text-anchor="middle">Secrets · secret.read</text>
+  <rect class="amber" x="705" y="904" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="835" y="922" text-anchor="middle">Governance · 黑白名单 · policy</text>
+  <rect class="amber" x="985" y="904" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="1115" y="922" text-anchor="middle">Logger · logger.write</text>
 
-  <rect class="amber" x="425" y="948" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="555" y="969" text-anchor="middle">Tasks · 后台异步</text>
-  <rect class="green" x="705" y="948" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="835" y="969" text-anchor="middle">HTTP Request · http.request</text>
-  <rect class="blue" x="985" y="948" width="260" height="32" rx="8"/>
-  <text class="chip-title" x="1115" y="969" text-anchor="middle">OneBot Extension · provider 动作</text>
+  <rect class="amber" x="425" y="936" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="555" y="954" text-anchor="middle">Tasks · 后台异步</text>
+  <rect class="green" x="705" y="936" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="835" y="954" text-anchor="middle">HTTP Request · http.request</text>
+  <rect class="blue" x="985" y="936" width="260" height="28" rx="8"/>
+  <text class="chip-title" x="1115" y="954" text-anchor="middle">OneBot Extension · provider 动作</text>
 
-  <rect class="lane" x="396" y="995" width="888" height="55" rx="14"/>
-  <text class="lane-title" x="416" y="1017">OUTBOUND</text>
+  <rect class="lane" x="396" y="985" width="888" height="55" rx="14"/>
+  <text class="lane-title" x="416" y="1003">OUTBOUND</text>
 
-  <rect class="amber" x="500" y="1004" width="320" height="40" rx="10"/>
-  <text class="module-title" x="600" y="1029" text-anchor="middle">Outbound</text>
-  <text class="module-text" x="775" y="1029" text-anchor="end">队列 · rate-limit · 按插件与目标</text>
+  <rect class="amber" x="420" y="1005" width="400" height="33" rx="10"/>
+  <text class="module-title" x="620" y="1019" text-anchor="middle">Outbound</text>
+  <text class="module-text" x="620" y="1033" text-anchor="middle">按插件与目标的队列与 rate-limit</text>
 
-  <rect class="green" x="870" y="1004" width="320" height="40" rx="10"/>
-  <text class="module-title" x="970" y="1029" text-anchor="middle">Adapter Send</text>
-  <text class="module-text" x="1145" y="1029" text-anchor="end">WS · http_api · reply target</text>
+  <rect class="green" x="860" y="1005" width="400" height="33" rx="10"/>
+  <text class="module-title" x="1060" y="1019" text-anchor="middle">Adapter Send</text>
+  <text class="module-text" x="1060" y="1033" text-anchor="middle">WS · http_api · reply target</text>
 
-  <path class="arrow" d="M 820 1024 L 870 1024"/>
+  <path class="arrow" d="M 820 1021 L 860 1021"/>
 
   <rect class="panel" x="1334" y="150" width="290" height="900" rx="16"/>
   <text class="section" x="1364" y="186">运行资源</text>
@@ -291,21 +291,20 @@
   <text class="label" x="940" y="618">action · result</text>
 
   <path class="arrow" d="M 566 762 L 566 813"/>
-  <text class="label-bold" x="500" y="788" text-anchor="end">local action</text>
-
   <path class="muted-arrow" d="M 600 813 L 600 762"/>
+  <text class="label-bold" x="638" y="772">local action ↕</text>
 
-  <path class="arrow" d="M 1245 510 L 1268 510 L 1268 1024 L 820 1024"/>
+  <path class="arrow" d="M 1245 510 L 1268 510 L 1268 977 L 620 977 L 620 1005"/>
   <text class="label-bold" x="1278" y="780" text-anchor="end">message.send</text>
   <text class="label" x="1278" y="794" text-anchor="end">message.reply</text>
 
-  <path class="arrow" d="M 870 1044 L 380 1044 L 380 942 L 326 942"/>
-  <text class="label-bold" x="600" y="1058">send_msg · echo</text>
+  <path class="arrow" d="M 1060 1038 L 1060 1062 L 362 1062 L 362 942 L 326 942"/>
+  <text class="label-bold" x="700" y="1078" text-anchor="middle">send_msg · echo</text>
 
   <path class="muted-arrow" d="M 326 530 C 360 580, 380 660, 425 600"/>
   <text class="label" x="334" y="562">安装包 · manifest</text>
 
-  <path class="muted-arrow" d="M 1245 892 L 1354 380"/>
-  <path class="muted-arrow" d="M 1245 928 L 1354 596"/>
+  <path class="muted-arrow" d="M 1245 888 L 1354 380"/>
+  <path class="muted-arrow" d="M 1245 920 L 1354 596"/>
   <path class="muted-arrow" d="M 1245 730 L 1354 740"/>
 </svg>
