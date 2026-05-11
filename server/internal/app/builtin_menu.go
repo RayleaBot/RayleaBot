@@ -79,6 +79,9 @@ func (s *eventIngressService) matchBuiltinMenu(event adapter.NormalizedEvent) bu
 		if strings.HasSuffix(commandName, name) {
 			target := strings.TrimSpace(strings.TrimSuffix(commandName, name))
 			if target != "" {
+				if s.hasExactPluginCommand(commandName) {
+					continue
+				}
 				return builtinMenuRequest{
 					Matched: true,
 					Target:  target,
@@ -89,6 +92,24 @@ func (s *eventIngressService) matchBuiltinMenu(event adapter.NormalizedEvent) bu
 		}
 	}
 	return builtinMenuRequest{}
+}
+
+func (s *eventIngressService) hasExactPluginCommand(commandName string) bool {
+	commandName = strings.TrimSpace(commandName)
+	if commandName == "" || s == nil || s.plugins == nil {
+		return false
+	}
+	for _, snapshot := range s.plugins.List() {
+		if !pluginParticipatesInCommandPolicy(snapshot) {
+			continue
+		}
+		for _, commandItem := range snapshot.Commands {
+			if commandMatches(commandItem, commandName) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *eventIngressService) isBuiltinMenuCommand(commandName string) bool {

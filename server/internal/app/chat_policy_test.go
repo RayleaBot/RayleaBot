@@ -1178,6 +1178,53 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 	}
 }
 
+func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	dispatcher := &recordingDispatcherClient{}
+	application := newTestAppState(config.Config{
+		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.renderer = newRenderService(t, t.TempDir())
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "custom-help",
+		Name:              "Custom Help",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "myhelp",
+			Permission: "everyone",
+		}},
+	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-plugin-command-help-suffix",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/myhelp",
+		MessageID:        "30007",
+	})
+
+	if sender.replyCount != 0 || sender.messageCount != 0 {
+		t.Fatalf("plugin command was handled as builtin menu: replies=%d messages=%d", sender.replyCount, sender.messageCount)
+	}
+	if dispatcher.deliverCount != 1 {
+		t.Fatalf("plugin command dispatch count = %d, want 1", dispatcher.deliverCount)
+	}
+}
+
 func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 	t.Parallel()
 
