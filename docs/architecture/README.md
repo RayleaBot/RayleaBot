@@ -8,7 +8,9 @@
 
 | 文档 | 主题 |
 | --- | --- |
+| [Platform Architecture](./platform-architecture.md) | 平台组件分层、运行资源和跨层边界 |
 | [Event Model](./event-model.md) | OneBot11 事件归一化、插件协议消息和管理 WebSocket 事件 |
+| [Message Flow](./message-flow.md) | 消息入站、插件分发、出站发送和定时触发链路 |
 | [State Model](./state-model.md) | 插件运行时、任务、授权时效和连接状态 |
 | [Bot Core](./bot-core.md) | 事件分发、命令解析、聊天权限、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板渲染、队列、artifact 与资源边界 |
@@ -28,6 +30,8 @@ OneBot11 transport
   -> adapter
   -> OneBot11 transport
 ```
+
+平台总览见 [Platform Architecture](./platform-architecture.md)，消息链路详图见 [Message Flow](./message-flow.md)。
 
 1. Adapter 负责 OneBot11 transport、协议帧解析和统一事件归一化。
 2. Event Ingress 负责命令提取、聊天权限、冷却回复、reply target 记录和 adapter ready 协调。

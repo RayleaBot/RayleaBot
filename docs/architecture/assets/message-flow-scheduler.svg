@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-labelledby="title desc">
+  <title id="title">RayleaBot 定时消息处理流程</title>
+  <desc id="desc">插件通过 scheduler.create 注册定时任务；Scheduler 到期后发出 scheduler.trigger；插件处理触发事件后通过普通出站链路发送消息。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #64748b; stroke-width: 1.6; rx: 10; }
+      .blue { fill: #eff6ff; stroke: #2563eb; }
+      .green { fill: #ecfdf5; stroke: #059669; }
+      .purple { fill: #f5f3ff; stroke: #7c3aed; }
+      .amber { fill: #fffbeb; stroke: #d97706; }
+      .text { font: 600 16px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .small { font: 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #334155; }
+      .arrow { stroke: #475569; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .muted { stroke: #94a3b8; stroke-width: 1.9; fill: none; marker-end: url(#arrow); stroke-dasharray: 6 5; }
+      .label { font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
+    </style>
+  </defs>
+  <rect class="bg" width="1180" height="430"/>
+
+  <rect class="box blue" x="40" y="70" width="150" height="74"/>
+  <text class="text" x="115" y="101" text-anchor="middle">插件</text>
+  <text class="small" x="115" y="124" text-anchor="middle">scheduler.create</text>
+
+  <rect class="box purple" x="240" y="70" width="170" height="74"/>
+  <text class="text" x="325" y="101" text-anchor="middle">Runtime Manager</text>
+  <text class="small" x="325" y="124" text-anchor="middle">local action RPC</text>
+
+  <rect class="box green" x="460" y="70" width="185" height="74"/>
+  <text class="text" x="552" y="101" text-anchor="middle">Local Action Service</text>
+  <text class="small" x="552" y="124" text-anchor="middle">能力校验</text>
+
+  <rect class="box amber" x="700" y="70" width="170" height="74"/>
+  <text class="text" x="785" y="101" text-anchor="middle">Scheduler</text>
+  <text class="small" x="785" y="124" text-anchor="middle">UpsertTask / next_run</text>
+
+  <rect class="box amber" x="700" y="240" width="170" height="80"/>
+  <text class="text" x="785" y="272" text-anchor="middle">到期任务</text>
+  <text class="small" x="785" y="295" text-anchor="middle">启动检查与 30 秒 tick</text>
+
+  <rect class="box purple" x="460" y="240" width="185" height="80"/>
+  <text class="text" x="552" y="272" text-anchor="middle">Plugin Lifecycle</text>
+  <text class="small" x="552" y="295" text-anchor="middle">确认插件可运行</text>
+
+  <rect class="box purple" x="240" y="240" width="170" height="80"/>
+  <text class="text" x="325" y="272" text-anchor="middle">Dispatcher</text>
+  <text class="small" x="325" y="295" text-anchor="middle">scheduler.trigger</text>
+
+  <rect class="box blue" x="40" y="240" width="150" height="80"/>
+  <text class="text" x="115" y="272" text-anchor="middle">插件处理器</text>
+  <text class="small" x="115" y="295" text-anchor="middle">生成出站 action</text>
+
+  <rect class="box green" x="930" y="240" width="190" height="80"/>
+  <text class="text" x="1025" y="272" text-anchor="middle">普通出站链路</text>
+  <text class="small" x="1025" y="295" text-anchor="middle">限流 / Adapter / send_msg</text>
+
+  <path class="arrow" d="M190 107 L240 107"/>
+  <path class="arrow" d="M410 107 L460 107"/>
+  <path class="arrow" d="M645 107 L700 107"/>
+  <path class="arrow" d="M785 144 L785 240"/>
+  <path class="arrow" d="M700 280 L645 280"/>
+  <path class="arrow" d="M460 280 L410 280"/>
+  <path class="arrow" d="M240 280 L190 280"/>
+  <path class="arrow" d="M190 300 C500 390 790 380 930 300"/>
+
+  <path class="muted" d="M700 124 C590 180 410 180 240 124"/>
+  <text class="label" x="444" y="183" text-anchor="middle">result: task_id / next_run</text>
+  <text class="label" x="819" y="192">任务到期</text>
+  <text class="label" x="492" y="262">确保运行</text>
+  <text class="label" x="492" y="374">message.send / message.reply</text>
+</svg>

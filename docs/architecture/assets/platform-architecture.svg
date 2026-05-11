@@ -1,0 +1,311 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="1180" viewBox="0 0 1640 1180" role="img" aria-labelledby="title desc">
+  <title id="title">RayleaBot 平台架构设计示意图</title>
+  <desc id="desc">RayleaBot 平台架构图。顶部 contracts 横条声明接口边界来源。中央 raylea-server 容器内含 5 条横向 swimlane:管理面、事件主链、插件子系统、平台能力、出站。左侧外部入口包含管理客户端、OneBot11 接入方、插件包、插件 Webhook 调用方与 OneBot11 出站客户端。右侧运行资源栏列出 config、SQLite、data、cache、logs、templates、plugins/installed 与 .deps。底部横切横条标注 Recovery、Health、Console、Redact、TextSafe、migrations、sqlc。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 800 30px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .subtitle { font: 14px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
+      .section { font: 700 22px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .muted { font: 14px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; }
+      .lane-title { font: 700 11px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; letter-spacing: 1.4px; }
+      .module-title { font: 600 15px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .module-text { font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
+      .chip-title { font: 600 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .resource-title { font: 600 14px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .resource-text { font: 11.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
+      .server { fill: #ffffff; stroke: #1f2937; stroke-width: 2.2; }
+      .lane { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1; }
+      .card { fill: #ffffff; stroke: #64748b; stroke-width: 1.4; }
+      .blue { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.4; }
+      .green { fill: #ecfdf5; stroke: #059669; stroke-width: 1.4; }
+      .purple { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 1.4; }
+      .amber { fill: #fffbeb; stroke: #d97706; stroke-width: 1.4; }
+      .rose { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.4; }
+      .slate { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.4; }
+      .chip { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1; }
+      .stack { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.4; }
+      .arrow { stroke: #475569; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .muted-arrow { stroke: #94a3b8; stroke-width: 1.8; fill: none; marker-end: url(#arrow-soft); stroke-dasharray: 6 5; }
+      .label { font: 11px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; }
+      .label-bold { font: 700 11px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1640" height="1180"/>
+
+  <text class="title" x="70" y="52">RayleaBot 平台架构设计示意图</text>
+  <text class="subtitle" x="70" y="76">contracts 是接口边界来源;raylea-server 单二进制供 Web、Launcher、CLI 共用;插件经 Local Action Service 访问平台能力。</text>
+
+  <rect class="slate" x="56" y="92" width="1528" height="42" rx="12"/>
+  <text class="resource-title" x="80" y="119">接口边界 contracts/</text>
+  <text class="resource-text" x="230" y="119">·  HTTP API  ·  WebSocket events  ·  插件协议  ·  schema  ·  错误码  ·  release metadata</text>
+
+  <rect class="panel" x="56" y="150" width="290" height="900" rx="16"/>
+  <text class="section" x="86" y="186">外部入口</text>
+  <text class="muted" x="86" y="208">平台边界外的调用来源</text>
+
+  <rect class="blue" x="76" y="230" width="250" height="112" rx="10"/>
+  <text class="module-title" x="201" y="256" text-anchor="middle">管理客户端</text>
+  <rect class="chip" x="92" y="268" width="218" height="22" rx="6"/>
+  <text class="chip-title" x="201" y="284" text-anchor="middle">Web 管理面</text>
+  <rect class="chip" x="92" y="295" width="105" height="22" rx="6"/>
+  <text class="chip-title" x="144" y="311" text-anchor="middle">Launcher</text>
+  <rect class="chip" x="205" y="295" width="105" height="22" rx="6"/>
+  <text class="chip-title" x="257" y="311" text-anchor="middle">CLI</text>
+  <text class="label" x="201" y="333" text-anchor="middle">共享同一 raylea-server 二进制</text>
+
+  <rect class="blue" x="76" y="362" width="250" height="100" rx="10"/>
+  <text class="module-title" x="201" y="388" text-anchor="middle">OneBot11 接入方</text>
+  <text class="module-text" x="201" y="412" text-anchor="middle">NapCat · LuckyLillia · 其它实现</text>
+  <text class="module-text" x="201" y="432" text-anchor="middle">forward_ws · reverse_ws · webhook</text>
+
+  <rect class="purple" x="76" y="482" width="250" height="92" rx="10"/>
+  <text class="module-title" x="201" y="508" text-anchor="middle">插件包</text>
+  <text class="module-text" x="201" y="532" text-anchor="middle">manifest · Web UI</text>
+  <text class="module-text" x="201" y="552" text-anchor="middle">Python · Node.js · JSONL</text>
+
+  <rect class="rose" x="76" y="594" width="250" height="82" rx="10"/>
+  <text class="module-title" x="201" y="620" text-anchor="middle">插件 Webhook 调用方</text>
+  <text class="module-text" x="201" y="644" text-anchor="middle">外部 HTTP 事件入口</text>
+  <text class="module-text" x="201" y="662" text-anchor="middle">token · HMAC 校验</text>
+
+  <rect class="blue" x="76" y="900" width="250" height="82" rx="10"/>
+  <text class="module-title" x="201" y="926" text-anchor="middle">OneBot11 出站客户端</text>
+  <text class="module-text" x="201" y="950" text-anchor="middle">send_msg · API echo</text>
+  <text class="module-text" x="201" y="968" text-anchor="middle">forward_ws · reverse_ws · http_api</text>
+
+  <rect class="server" x="380" y="150" width="920" height="900" rx="16"/>
+  <text class="section" x="408" y="186">raylea-server</text>
+  <text class="muted" x="408" y="208">管理面 · 事件主链 · 插件子系统 · 平台能力 · 出站</text>
+
+  <rect class="lane" x="396" y="225" width="888" height="130" rx="14"/>
+  <text class="lane-title" x="416" y="247">MANAGEMENT PLANE</text>
+  <rect class="blue" x="416" y="263" width="164" height="78" rx="10"/>
+  <text class="module-title" x="498" y="290" text-anchor="middle">HTTP API</text>
+  <text class="module-text" x="498" y="312" text-anchor="middle">领域路由</text>
+  <text class="module-text" x="498" y="328" text-anchor="middle">auth · config · plugins</text>
+  <rect class="blue" x="588" y="263" width="164" height="78" rx="10"/>
+  <text class="module-title" x="670" y="290" text-anchor="middle">管理 WebSocket</text>
+  <text class="module-text" x="670" y="312" text-anchor="middle">events · tasks</text>
+  <text class="module-text" x="670" y="328" text-anchor="middle">logs · console</text>
+  <rect class="blue" x="760" y="263" width="164" height="78" rx="10"/>
+  <text class="module-title" x="842" y="290" text-anchor="middle">Auth &amp; 会话</text>
+  <text class="module-text" x="842" y="312" text-anchor="middle">登录 · 签名</text>
+  <text class="module-text" x="842" y="328" text-anchor="middle">失败限速</text>
+  <rect class="blue" x="932" y="263" width="164" height="78" rx="10"/>
+  <text class="module-title" x="1014" y="290" text-anchor="middle">Tasks 通道</text>
+  <text class="module-text" x="1014" y="312" text-anchor="middle">异步任务订阅</text>
+  <text class="module-text" x="1014" y="328" text-anchor="middle">安装 · 备份 · 迁移</text>
+  <rect class="blue" x="1104" y="263" width="164" height="78" rx="10"/>
+  <text class="module-title" x="1186" y="290" text-anchor="middle">Logs 通道</text>
+  <text class="module-text" x="1186" y="312" text-anchor="middle">结构化日志流</text>
+  <text class="module-text" x="1186" y="328" text-anchor="middle">spool · 回放</text>
+
+  <rect class="lane" x="396" y="365" width="888" height="170" rx="14"/>
+  <text class="lane-title" x="416" y="387">EVENT FLOW</text>
+  <rect class="green" x="425" y="408" width="190" height="105" rx="10"/>
+  <text class="module-title" x="520" y="438" text-anchor="middle">Adapter Shell</text>
+  <text class="module-text" x="520" y="460" text-anchor="middle">协议帧 · 归一化</text>
+  <text class="module-text" x="520" y="478" text-anchor="middle">状态 · echo 等待表</text>
+  <text class="module-text" x="520" y="496" text-anchor="middle">去重 · target display</text>
+  <rect class="purple" x="635" y="408" width="190" height="105" rx="10"/>
+  <text class="module-title" x="730" y="438" text-anchor="middle">Event Ingress</text>
+  <text class="module-text" x="730" y="460" text-anchor="middle">命令解析</text>
+  <text class="module-text" x="730" y="478" text-anchor="middle">聊天治理 · 冷却</text>
+  <text class="module-text" x="730" y="496" text-anchor="middle">reply target · 内置菜单</text>
+  <rect class="purple" x="845" y="408" width="190" height="105" rx="10"/>
+  <text class="module-title" x="940" y="438" text-anchor="middle">Bridge</text>
+  <text class="module-text" x="940" y="460" text-anchor="middle">统一事件结构校验</text>
+  <text class="module-text" x="940" y="478" text-anchor="middle">桥接层观测</text>
+  <text class="module-text" x="940" y="496" text-anchor="middle">忽略 · delivered · 拒绝</text>
+  <rect class="purple" x="1055" y="408" width="190" height="105" rx="10"/>
+  <text class="module-title" x="1150" y="438" text-anchor="middle">Dispatcher</text>
+  <text class="module-text" x="1150" y="460" text-anchor="middle">target lane · queue</text>
+  <text class="module-text" x="1150" y="478" text-anchor="middle">出站 action 唯一出口</text>
+  <text class="module-text" x="1150" y="496" text-anchor="middle">能力检查</text>
+
+  <path class="arrow" d="M 615 460 L 635 460"/>
+  <path class="arrow" d="M 825 460 L 845 460"/>
+  <path class="arrow" d="M 1035 460 L 1055 460"/>
+
+  <rect class="lane" x="396" y="545" width="888" height="220" rx="14"/>
+  <text class="lane-title" x="416" y="567">PLUGIN SUBSYSTEM</text>
+
+  <rect class="purple" x="425" y="585" width="260" height="76" rx="10"/>
+  <text class="module-title" x="555" y="612" text-anchor="middle">Plugin Catalog</text>
+  <text class="module-text" x="555" y="634" text-anchor="middle">discovery · 安装 · 卸载</text>
+  <text class="module-text" x="555" y="652" text-anchor="middle">manifest · grants 仓库</text>
+
+  <rect class="purple" x="705" y="585" width="260" height="76" rx="10"/>
+  <text class="module-title" x="835" y="612" text-anchor="middle">Lifecycle Controller</text>
+  <text class="module-text" x="835" y="634" text-anchor="middle">启停 · 重载 · 崩溃恢复</text>
+  <text class="module-text" x="835" y="652" text-anchor="middle">Dispatcher 注册</text>
+
+  <rect class="purple" x="985" y="585" width="260" height="76" rx="10"/>
+  <text class="module-title" x="1115" y="612" text-anchor="middle">Runtime Registry</text>
+  <text class="module-text" x="1115" y="634" text-anchor="middle">持多个 Runtime Manager</text>
+  <text class="module-text" x="1115" y="652" text-anchor="middle">desired-state</text>
+
+  <path class="muted-arrow" d="M 685 622 L 705 622"/>
+  <path class="muted-arrow" d="M 965 622 L 985 622"/>
+
+  <rect class="stack" x="445" y="688" width="270" height="64" rx="10" opacity="0.35"/>
+  <rect class="stack" x="438" y="693" width="270" height="64" rx="10" opacity="0.6"/>
+  <rect class="rose" x="431" y="698" width="270" height="64" rx="10"/>
+  <text class="module-title" x="566" y="724" text-anchor="middle">Runtime Manager × N</text>
+  <text class="module-text" x="566" y="745" text-anchor="middle">JSONL · 每插件一个</text>
+
+  <rect class="rose" x="730" y="698" width="160" height="64" rx="10"/>
+  <text class="module-title" x="810" y="724" text-anchor="middle">插件进程</text>
+  <text class="module-text" x="810" y="745" text-anchor="middle">stdin · stdout</text>
+
+  <rect class="rose" x="905" y="698" width="340" height="64" rx="10"/>
+  <text class="module-title" x="1075" y="724" text-anchor="middle">Plugin Webhook Service</text>
+  <text class="module-text" x="1075" y="745" text-anchor="middle">route · token · HMAC · 按需拉起</text>
+
+  <path class="muted-arrow" d="M 705 720 L 730 720"/>
+  <path class="muted-arrow" d="M 730 740 L 705 740"/>
+  <text class="label" x="717" y="688" text-anchor="middle">JSONL</text>
+
+  <rect class="lane" x="396" y="775" width="888" height="210" rx="14"/>
+  <text class="lane-title" x="416" y="797">PLATFORM CAPABILITIES</text>
+
+  <rect class="green" x="425" y="813" width="820" height="46" rx="10"/>
+  <text class="module-title" x="835" y="836" text-anchor="middle">Local Action Service</text>
+  <text class="module-text" x="835" y="852" text-anchor="middle">capability gateway · scope 校验 · 结构化错误</text>
+
+  <rect class="rose" x="425" y="876" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="555" y="897" text-anchor="middle">Render · render.image</text>
+  <rect class="amber" x="705" y="876" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="835" y="897" text-anchor="middle">Scheduler · scheduler.create</text>
+  <rect class="green" x="985" y="876" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="1115" y="897" text-anchor="middle">Storage · storage.kv / file</text>
+
+  <rect class="green" x="425" y="912" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="555" y="933" text-anchor="middle">Secrets · secret.read</text>
+  <rect class="amber" x="705" y="912" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="835" y="933" text-anchor="middle">Governance · 黑白名单 · policy</text>
+  <rect class="amber" x="985" y="912" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="1115" y="933" text-anchor="middle">Logger · logger.write</text>
+
+  <rect class="amber" x="425" y="948" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="555" y="969" text-anchor="middle">Tasks · 后台异步</text>
+  <rect class="green" x="705" y="948" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="835" y="969" text-anchor="middle">HTTP Request · http.request</text>
+  <rect class="blue" x="985" y="948" width="260" height="32" rx="8"/>
+  <text class="chip-title" x="1115" y="969" text-anchor="middle">OneBot Extension · provider 动作</text>
+
+  <rect class="lane" x="396" y="995" width="888" height="55" rx="14"/>
+  <text class="lane-title" x="416" y="1017">OUTBOUND</text>
+
+  <rect class="amber" x="500" y="1004" width="320" height="40" rx="10"/>
+  <text class="module-title" x="600" y="1029" text-anchor="middle">Outbound</text>
+  <text class="module-text" x="775" y="1029" text-anchor="end">队列 · rate-limit · 按插件与目标</text>
+
+  <rect class="green" x="870" y="1004" width="320" height="40" rx="10"/>
+  <text class="module-title" x="970" y="1029" text-anchor="middle">Adapter Send</text>
+  <text class="module-text" x="1145" y="1029" text-anchor="end">WS · http_api · reply target</text>
+
+  <path class="arrow" d="M 820 1024 L 870 1024"/>
+
+  <rect class="panel" x="1334" y="150" width="290" height="900" rx="16"/>
+  <text class="section" x="1364" y="186">运行资源</text>
+  <text class="muted" x="1364" y="208">配置 · 状态 · 模板 · 运行环境</text>
+
+  <rect class="amber" x="1354" y="232" width="250" height="74" rx="10"/>
+  <text class="resource-title" x="1479" y="258" text-anchor="middle">config/</text>
+  <text class="resource-text" x="1479" y="280" text-anchor="middle">default.yaml</text>
+  <text class="resource-text" x="1479" y="297" text-anchor="middle">user.yaml</text>
+
+  <rect class="green" x="1354" y="320" width="250" height="96" rx="10"/>
+  <text class="resource-title" x="1479" y="346" text-anchor="middle">SQLite</text>
+  <text class="resource-text" x="1479" y="368" text-anchor="middle">auth · tasks · plugins</text>
+  <text class="resource-text" x="1479" y="385" text-anchor="middle">scheduler · grants · logs</text>
+  <text class="resource-text" x="1479" y="404" text-anchor="middle">嵌入 migrations · sqlc</text>
+
+  <rect class="green" x="1354" y="428" width="250" height="60" rx="10"/>
+  <text class="resource-title" x="1479" y="454" text-anchor="middle">data/</text>
+  <text class="resource-text" x="1479" y="475" text-anchor="middle">状态库 · 插件业务数据</text>
+
+  <rect class="slate" x="1354" y="500" width="250" height="56" rx="10"/>
+  <text class="resource-title" x="1479" y="524" text-anchor="middle">cache/</text>
+  <text class="resource-text" x="1479" y="544" text-anchor="middle">可重建缓存</text>
+
+  <rect class="slate" x="1354" y="568" width="250" height="60" rx="10"/>
+  <text class="resource-title" x="1479" y="594" text-anchor="middle">logs/</text>
+  <text class="resource-text" x="1479" y="615" text-anchor="middle">结构化日志 · 诊断输出</text>
+
+  <rect class="rose" x="1354" y="640" width="250" height="60" rx="10"/>
+  <text class="resource-title" x="1479" y="666" text-anchor="middle">templates/</text>
+  <text class="resource-text" x="1479" y="687" text-anchor="middle">模板版本 · 图片 artifact</text>
+
+  <rect class="purple" x="1354" y="712" width="250" height="64" rx="10"/>
+  <text class="resource-title" x="1479" y="738" text-anchor="middle">plugins/installed/</text>
+  <text class="resource-text" x="1479" y="759" text-anchor="middle">插件包 · Web UI · 数据沙箱</text>
+
+  <rect class="slate" x="1354" y="788" width="250" height="64" rx="10"/>
+  <text class="resource-title" x="1479" y="814" text-anchor="middle">.deps/</text>
+  <text class="resource-text" x="1479" y="835" text-anchor="middle">Chromium · Python · Node.js</text>
+
+  <rect class="slate" x="56" y="1090" width="1528" height="78" rx="12"/>
+  <text class="resource-title" x="80" y="1115">横切组件</text>
+  <text class="resource-text" x="184" y="1115">参与全部 swimlane · 提供恢复、健康、控制台、脱敏、安全过滤与代码生成支持</text>
+
+  <rect class="chip" x="90" y="1128" width="200" height="30" rx="8"/>
+  <text class="chip-title" x="190" y="1148" text-anchor="middle">Recovery · 启动恢复</text>
+  <rect class="chip" x="300" y="1128" width="200" height="30" rx="8"/>
+  <text class="chip-title" x="400" y="1148" text-anchor="middle">Health · readiness</text>
+  <rect class="chip" x="510" y="1128" width="200" height="30" rx="8"/>
+  <text class="chip-title" x="610" y="1148" text-anchor="middle">Console · 插件 stdio 流</text>
+  <rect class="chip" x="720" y="1128" width="200" height="30" rx="8"/>
+  <text class="chip-title" x="820" y="1148" text-anchor="middle">Redact · 日志脱敏</text>
+  <rect class="chip" x="930" y="1128" width="200" height="30" rx="8"/>
+  <text class="chip-title" x="1030" y="1148" text-anchor="middle">TextSafe · 文本过滤</text>
+  <rect class="chip" x="1140" y="1128" width="200" height="30" rx="8"/>
+  <text class="chip-title" x="1240" y="1148" text-anchor="middle">SQL migrations</text>
+  <rect class="chip" x="1350" y="1128" width="200" height="30" rx="8"/>
+  <text class="chip-title" x="1450" y="1148" text-anchor="middle">sqlc · 生成查询</text>
+
+  <path class="arrow" d="M 326 296 L 416 300"/>
+  <text class="label-bold" x="338" y="284">管理请求</text>
+  <text class="label" x="338" y="298">HTTP · WS</text>
+
+  <path class="arrow" d="M 326 412 L 425 450"/>
+  <text class="label-bold" x="332" y="392">OneBot11 入站</text>
+
+  <path class="arrow" d="M 326 632 C 330 770, 700 780, 905 730"/>
+  <text class="label-bold" x="400" y="772">外部 webhook</text>
+
+  <path class="arrow" d="M 1150 513 C 1150 560, 920 660, 700 698"/>
+  <text class="label-bold" x="940" y="640">event.target lane</text>
+
+  <path class="muted-arrow" d="M 705 698 C 920 640, 1150 590, 1245 510"/>
+  <text class="label" x="940" y="618">action · result</text>
+
+  <path class="arrow" d="M 566 762 L 566 813"/>
+  <text class="label-bold" x="500" y="788" text-anchor="end">local action</text>
+
+  <path class="muted-arrow" d="M 600 813 L 600 762"/>
+
+  <path class="arrow" d="M 1245 510 L 1268 510 L 1268 1024 L 820 1024"/>
+  <text class="label-bold" x="1278" y="780" text-anchor="end">message.send</text>
+  <text class="label" x="1278" y="794" text-anchor="end">message.reply</text>
+
+  <path class="arrow" d="M 870 1044 L 380 1044 L 380 942 L 326 942"/>
+  <text class="label-bold" x="600" y="1058">send_msg · echo</text>
+
+  <path class="muted-arrow" d="M 326 530 C 360 580, 380 660, 425 600"/>
+  <text class="label" x="334" y="562">安装包 · manifest</text>
+
+  <path class="muted-arrow" d="M 1245 892 L 1354 380"/>
+  <path class="muted-arrow" d="M 1245 928 L 1354 596"/>
+  <path class="muted-arrow" d="M 1245 730 L 1354 740"/>
+</svg>
