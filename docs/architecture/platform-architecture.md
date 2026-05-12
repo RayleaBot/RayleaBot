@@ -8,6 +8,8 @@
 
 ![RayleaBot 平台架构设计示意图](./assets/platform-architecture.svg)
 
+图中沿主流向附 ①-⑫ 顺序编号，串起一次完整事件处理与出站发送；底部含 OneBot11 归一化事件列表（message · notice · request · meta 四类共 25 项）与三个核心状态机（Plugin Runtime / Tasks / OneBot Transport）。详细事件枚举见 [Event Model](./event-model.md)，状态枚举见 [State Model](./state-model.md)。
+
 `raylea-server` 是平台唯一的可执行二进制，内含管理面、事件主链、插件子系统、平台能力与出站五条横向链路。Web、Launcher、CLI 三类管理客户端共享同一二进制并消费同一套管理接口；OneBot11 协议接入和插件 Webhook 调用方分别经协议适配与 Webhook Service 进入事件主链；插件统一通过 Local Action Service 这一受控网关访问平台能力。
 
 ## 部署形态
