@@ -38,6 +38,7 @@
 - `http.request`
 - `config.read`
 - `config.write`
+- `secret.read`
 - `governance.blacklist.read`
 - `governance.blacklist.write`
 - `governance.whitelist.read`

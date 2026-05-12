@@ -88,9 +88,10 @@ OneBot11 上报帧
 
 ### 当前正式 local action
 
-- 平台基础动作包括 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook` 和 `render.image`。
+- 平台基础动作包括 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`secret.read`、`plugin.list`、`scheduler.create`、`event.expose_webhook`、`render.image` 与 `governance.*`。
 - OneBot generic action 覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke 等家族。
 - Provider 扩展动作固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 和 `provider.luckylillia.friend_groups.get`。
+- 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed`。
 
 ### 当前正式消息段
 
@@ -120,13 +121,20 @@ OneBot11 上报帧
 
 ## 四、管理 WebSocket 事件
 
-| 频道 | 事件 |
-| --- | --- |
-| `/ws/tasks` | `tasks.updated` |
-| `/ws/logs` | `logs.appended` |
-| `/ws/events` | `events.received` |
-| `/ws/plugins/{id}/console` | `plugins.console` |
+| 频道 | 路径 | 事件 |
+| --- | --- | --- |
+| `tasks` | `/ws/tasks` | `tasks.updated` |
+| `logs` | `/ws/logs` | `logs.appended` |
+| `events` | `/ws/events` | `events.received` |
+| `plugin_console` | `/ws/plugins/{id}/console` | `plugins.console` |
 
-管理面 WebSocket 使用统一 envelope，承载任务更新、日志追加、平台观测事件和插件 console。
+管理面 WebSocket 使用统一 envelope（`channel` / `type` / `timestamp` / `data`），承载任务更新、日志追加、平台观测事件和插件 console。`/ws/events` 的 `events.received` 复用同一个事件名，通过 payload 分支表达不同观测语义：
 
-- `/ws/events` 当前承载协议快照更新和 `bridge_runtime` 聚合观测事件。
+- `service_status`：服务总体状态变化摘要
+- `plugin_id` + `registration_state` + `desired_state` + `runtime_state` + `display_state`：插件生命周期状态投影
+- `connection_status`：OneBot 连接状态摘要
+- `event_type` + `summary`：通用管理事件（当前包括 `governance.changed`）
+- `protocol` + `protocol_snapshot`：OneBot11 协议快照推送
+- `observability_scope` = `bridge_runtime` 时的聚合观测摘要
+
+会话失效时，连接会下发 `session_expired` session event，客户端必须换新 token 重连。
