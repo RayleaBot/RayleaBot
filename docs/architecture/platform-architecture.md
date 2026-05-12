@@ -8,9 +8,36 @@
 
 ![RayleaBot 平台架构设计示意图](./assets/platform-architecture.svg)
 
-图中沿主流向附 ①-⑫ 顺序编号，串起一次完整事件处理与出站发送；底部含 OneBot11 归一化事件列表（message · notice · request · meta 四类共 25 项）与三个核心状态机（Plugin Runtime / Tasks / OneBot Transport）。详细事件枚举见 [Event Model](./event-model.md)，状态枚举见 [State Model](./state-model.md)。
+示意图采用统一视觉语言组织五条横向 swimlane、左右两列与底部附属区块：
+
+- 顶部 `contracts/` 金色条是所有对外边界的唯一来源。
+- 中央 `raylea-server` 框从上到下排列 5 条 swimlane：管理面、事件主链、插件子系统、平台能力、出站。
+- 左列汇总外部入口（Web / Launcher / CLI、OneBot11、插件包、插件 webhook 调用方、OneBot11 出站客户端）；右列汇总运行资源（config、SQLite、data、cache、logs、templates、plugins/installed、.deps 以及内嵌跨 swimlane 服务）。
+- 底部两个面板分别是 OneBot11 归一化事件清单（25 项 OneBot 事件 + 4 项平台内部事件）和 3 个核心状态机的可视化状态轨迹。
+- 黑色实线箭头沿 ①-⑫ 顺序编号串起一次完整事件处理与出站发送；灰色虚线箭头表示 local action 与 JSONL 的本地回调；红色虚线箭头标出外部 webhook 的独立入站路径。
+
+顶部图例同时说明 6 种色块归属（管理面、事件主链与出站、插件子系统、平台能力与 Contracts、Runtime 进程与 Webhook、运行资源与横切组件）。详细事件枚举见 [Event Model](./event-model.md)，状态枚举见 [State Model](./state-model.md)。
 
 `raylea-server` 是平台唯一的可执行二进制，内含管理面、事件主链、插件子系统、平台能力与出站五条横向链路。Web、Launcher、CLI 三类管理客户端共享同一二进制并消费同一套管理接口；OneBot11 协议接入和插件 Webhook 调用方分别经协议适配与 Webhook Service 进入事件主链；插件统一通过 Local Action Service 这一受控网关访问平台能力。
+
+### 主流向编号说明
+
+| 编号 | 语义 | 对应链路 |
+| --- | --- | --- |
+| ① | 管理请求进入 | 管理客户端 → HTTP API / 管理 WebSocket |
+| ② | OneBot11 入站 | OneBot11 接入方 → Adapter Shell |
+| ③ | 归一化事件前推 | Adapter Shell → Event Ingress |
+| ④ | 统一事件校验 | Event Ingress → Bridge |
+| ⑤ | 目标选择与排队 | Bridge → Dispatcher |
+| ⑥ | 事件入队到目标插件 | Dispatcher → Runtime Registry → Runtime Manager（按 `event.target` lane 划分） |
+| ⑦ | 投递事件到插件 | Runtime Manager → 插件子进程（JSONL） |
+| ⑧ | 插件回传 | 插件子进程 → Runtime Manager（`result` / `action` / `error`） |
+| ⑨ | 插件访问平台能力 | Runtime Manager → Local Action Service |
+| ⑩ | 平台能力返回 | Local Action Service → Runtime Manager |
+| ⑪ | 插件返回出站 action | Dispatcher → Outbound |
+| ⑫ | OneBot11 出站发送 | Outbound → Adapter Send → OneBot11 出站客户端（并回填 echo） |
+
+外部 webhook 走独立通道：插件 Webhook 调用方直接进入 Plugin Webhook Service，定向投递 `webhook.received` 事件到 Dispatcher，不经过 Adapter Shell / Bridge。
 
 ## 部署形态
 
@@ -71,19 +98,15 @@ Dispatcher 是插件事件投递与插件出站 action 执行的唯一出口。`
 
 ## 平台能力
 
-Local Action Service 是插件访问平台能力的唯一入口，负责能力授权、scope 校验和结构化错误返回。当前能力按域分组：
+Local Action Service 是插件访问平台能力的唯一入口，负责能力授权、scope 校验和结构化错误返回。能力按作用域分组归类：
 
 - **配置**：`config.read` / `config.write`
-- **存储**：`storage.kv` / `storage.file`
-- **凭据**：`secret.read`
-- **日志**：`logger.write`
-- **调度**：`scheduler.create`
-- **渲染**：`render.image`
-- **网络出站**：`http.request`
-- **治理**：`governance.blacklist.read` / `governance.blacklist.write` / `governance.whitelist.read` / `governance.whitelist.write` / `governance.command_policy.read`
-- **插件元数据**：`plugin.list`
-- **事件暴露**：`event.expose_webhook`
-- **协议直通**：OneBot11 generic action 与 protocolcap 注册的 provider 扩展动作
+- **存储 / 凭据**：`storage.kv` / `storage.file`、`secret.read`
+- **渲染 / 出站**：`render.image`、`http.request`（host-allowlist）
+- **调度与事件暴露**：`scheduler.create`、`event.expose_webhook`
+- **治理**：`governance.blacklist.*` / `governance.whitelist.*` / `governance.command_policy.read`
+- **日志与插件元数据**：`logger.write`、`plugin.list`
+- **OneBot 协议直通**：OneBot11 generic action 与 `protocolcap` 注册的 provider 扩展动作（`provider.*`）
 
 ## 出站链路
 

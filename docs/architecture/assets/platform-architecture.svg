@@ -1,650 +1,783 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="2800" height="2000" viewBox="0 0 2800 2000" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="2800" height="1980" viewBox="0 0 2800 1980" role="img" aria-labelledby="title desc">
   <title id="title">RayleaBot 平台架构设计示意图</title>
-  <desc id="desc">RayleaBot 平台架构总览。顶部 contracts 接口边界横条;中央 raylea-server 五条 swimlane(管理面、事件主链、插件子系统、平台能力、出站);左侧外部入口、右侧运行资源;底部 OneBot11 归一化事件列表、三个核心状态机(Plugin Runtime、Tasks、OneBot Transport)与横切组件横条。主流向沿 ①-⑫ 顺序编号串起一次完整事件处理与出站发送。</desc>
+  <desc id="desc">RayleaBot 平台架构总览。顶部 contracts 接口边界横条；中央 raylea-server 五条 swimlane（管理面、事件主链、插件子系统、平台能力、出站）；左侧外部入口、右侧运行资源；底部 OneBot11 归一化事件列表、三个核心状态机（Plugin Runtime、Tasks、OneBot Transport）与横切组件横条。主流向沿 ①-⑫ 顺序编号，串起一次完整事件处理与出站发送。</desc>
+
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    <filter id="soft-shadow" x="-3%" y="-3%" width="106%" height="112%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="3.5" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+    <filter id="card-shadow" x="-3%" y="-3%" width="106%" height="115%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.09"/>
+    </filter>
+
+    <linearGradient id="grad-blue" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eff6ff"/>
+    </linearGradient>
+    <linearGradient id="grad-emerald" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <linearGradient id="grad-violet" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5f3ff"/>
+    </linearGradient>
+    <linearGradient id="grad-amber" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fffbeb"/>
+    </linearGradient>
+    <linearGradient id="grad-rose" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fff1f2"/>
+    </linearGradient>
+    <linearGradient id="grad-slate" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
+    <linearGradient id="grad-gateway" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="50%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#fef3c7"/>
+    </linearGradient>
+
+    <marker id="arrow-main" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#1e293b"/>
     </marker>
-    <marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+    <marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrow-rose" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e11d48"/>
     </marker>
     <marker id="arrow-thin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
     </marker>
+
     <style>
-      .bg { fill: #f8fafc; }
-      .title { font: 800 38px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .bg { fill: #f7fafc; }
+      .title-text { font: 800 40px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
       .subtitle { font: 16px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
-      .legend { font: 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; }
-      .section { font: 700 24px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
-      .muted { font: 14px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; }
-      .lane-title { font: 700 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; letter-spacing: 1.6px; }
+      .legend { font: 12.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
+      .legend-label { font: 700 12.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #334155; }
+      .section-title { font: 700 24px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .section-sub { font: 13.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; }
+      .lane-label { font: 700 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; letter-spacing: 2px; }
       .panel-title { font: 700 19px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
       .panel-sub { font: 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; }
       .module-title { font: 600 17px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
-      .module-sub { font: 600 14px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #334155; }
+      .module-sub { font: 600 13.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #334155; }
       .module-text { font: 12.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
-      .chip-title { font: 600 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
-      .chip-mono { font: 600 12px "Segoe UI", "Microsoft YaHei", monospace; fill: #0f172a; }
+      .chip-title { font: 600 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .chip-mono { font: 600 12px "Consolas", "Microsoft YaHei", monospace; fill: #334155; }
       .resource-title { font: 600 15px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
       .resource-text { font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
-      .label-bold { font: 700 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
-      .label { font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #64748b; }
-      .badge-text { font: 700 14px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #ffffff; }
-      .col-header { font: 700 14px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #334155; letter-spacing: 0.6px; }
-      .state-node-text { font: 600 11.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .label-bold { font: 700 12.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .label { font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #475569; }
+      .badge-text { font: 700 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #ffffff; }
+      .col-header { font: 700 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #334155; letter-spacing: 1px; }
+      .state-text { font: 600 11.5px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .gateway-title { font: 800 19px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #78350f; letter-spacing: 0.5px; }
+      .gateway-sub { font: 13px "Segoe UI", "Microsoft YaHei", sans-serif; fill: #92400e; }
+
       .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.4; }
-      .server { fill: #ffffff; stroke: #1f2937; stroke-width: 2.6; }
-      .lane { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1; }
-      .blue { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.6; }
-      .green { fill: #ecfdf5; stroke: #059669; stroke-width: 1.6; }
-      .purple { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 1.6; }
-      .amber { fill: #fffbeb; stroke: #d97706; stroke-width: 1.6; }
-      .rose { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.6; }
-      .slate { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.4; }
+      .server-panel { fill: #fdfdfe; stroke: #1e293b; stroke-width: 2.2; }
+      .lane { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
+
+      .card-blue { fill: url(#grad-blue); stroke: #2563eb; stroke-width: 1.4; }
+      .card-emerald { fill: url(#grad-emerald); stroke: #10b981; stroke-width: 1.4; }
+      .card-violet { fill: url(#grad-violet); stroke: #8b5cf6; stroke-width: 1.4; }
+      .card-amber { fill: url(#grad-amber); stroke: #f59e0b; stroke-width: 1.4; }
+      .card-rose { fill: url(#grad-rose); stroke: #f43f5e; stroke-width: 1.4; }
+      .card-slate { fill: url(#grad-slate); stroke: #94a3b8; stroke-width: 1.2; }
+      .card-gateway { fill: url(#grad-gateway); stroke: #d97706; stroke-width: 2; }
+
       .chip { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1; }
-      .chip-blue { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.2; }
-      .chip-green { fill: #ecfdf5; stroke: #059669; stroke-width: 1.2; }
-      .chip-purple { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 1.2; }
-      .chip-amber { fill: #fffbeb; stroke: #d97706; stroke-width: 1.2; }
-      .chip-rose { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.2; }
-      .chip-slate { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1; }
-      .stack-back { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.6; }
-      .arrow { stroke: #475569; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
-      .arrow-thin { stroke: #64748b; stroke-width: 1.6; fill: none; marker-end: url(#arrow-thin); }
-      .muted-arrow { stroke: #94a3b8; stroke-width: 1.8; fill: none; marker-end: url(#arrow-soft); stroke-dasharray: 6 5; }
-      .state-arrow { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#arrow-thin); }
-      .badge-circle { fill: #1f2937; }
+      .chip-blue { fill: #dbeafe; stroke: #2563eb; stroke-width: 0.9; }
+      .chip-emerald { fill: #d1fae5; stroke: #10b981; stroke-width: 0.9; }
+      .chip-violet { fill: #ede9fe; stroke: #8b5cf6; stroke-width: 0.9; }
+      .chip-amber { fill: #fef3c7; stroke: #f59e0b; stroke-width: 0.9; }
+      .chip-rose { fill: #fecdd3; stroke: #f43f5e; stroke-width: 0.9; }
+      .chip-slate { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 0.9; }
+
+      .contracts-strip { fill: #fef3c7; stroke: #f59e0b; stroke-width: 1.5; }
+
+      .arrow-main { stroke: #1e293b; stroke-width: 2.6; fill: none; marker-end: url(#arrow-main); }
+      .arrow-dim { stroke: #94a3b8; stroke-width: 1.8; fill: none; stroke-dasharray: 6 5; marker-end: url(#arrow-soft); }
+      .arrow-webhook { stroke: #e11d48; stroke-width: 2; fill: none; stroke-dasharray: 5 4; marker-end: url(#arrow-rose); }
+      .arrow-state { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#arrow-thin); }
+      .arrow-state-dashed { stroke: #94a3b8; stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; marker-end: url(#arrow-thin); }
+
+      .badge-circle { fill: #1e293b; stroke: #f7fafc; stroke-width: 2.5; }
     </style>
   </defs>
 
-  <rect class="bg" width="2800" height="2000"/>
-
-  <text class="title" x="80" y="60">RayleaBot 平台架构设计示意图</text>
-  <text class="subtitle" x="80" y="88">contracts 是接口边界来源;raylea-server 单二进制供 Web、Launcher、CLI 共用;插件经 Local Action Service 访问平台能力。</text>
-  <text class="legend" x="80" y="108">主流向顺序  ① 管理请求  ②③④⑤ 入站事件主链  ⑥⑦⑧⑨⑩ 插件处理与平台能力  ⑪⑫ 出站发送</text>
-
-  <rect class="slate" x="80" y="120" width="2640" height="60" rx="14"/>
-  <text class="resource-title" x="108" y="156">接口边界 contracts/</text>
-  <text class="resource-text" x="320" y="156">·  HTTP API  ·  WebSocket events  ·  插件协议  ·  schema  ·  错误码  ·  release metadata</text>
-
-  <rect class="panel" x="80" y="210" width="400" height="1290" rx="20"/>
-  <text class="section" x="110" y="252">外部入口</text>
-  <text class="muted" x="110" y="278">平台边界外的调用来源</text>
-
-  <rect class="blue" x="106" y="300" width="348" height="148" rx="12"/>
-  <text class="module-title" x="280" y="328" text-anchor="middle">管理客户端</text>
-  <rect class="chip" x="125" y="342" width="310" height="26" rx="6"/>
-  <text class="chip-title" x="280" y="360" text-anchor="middle">Web 管理面</text>
-  <rect class="chip" x="125" y="374" width="148" height="26" rx="6"/>
-  <text class="chip-title" x="199" y="392" text-anchor="middle">Launcher</text>
-  <rect class="chip" x="287" y="374" width="148" height="26" rx="6"/>
-  <text class="chip-title" x="361" y="392" text-anchor="middle">CLI</text>
-  <text class="module-text" x="280" y="421" text-anchor="middle">共享同一 raylea-server 二进制</text>
-  <text class="module-text" x="280" y="438" text-anchor="middle">CLI 子命令:backup · restore · migrate · diagnose</text>
-
-  <rect class="blue" x="106" y="468" width="348" height="180" rx="12"/>
-  <text class="module-title" x="280" y="496" text-anchor="middle">OneBot11 接入方</text>
-  <text class="module-text" x="280" y="518" text-anchor="middle">NapCat · LuckyLillia · 其它实现</text>
-  <rect class="chip-blue" x="120" y="532" width="148" height="24" rx="6"/>
-  <text class="chip-title" x="194" y="549" text-anchor="middle">forward_ws</text>
-  <rect class="chip-blue" x="278" y="532" width="148" height="24" rx="6"/>
-  <text class="chip-title" x="352" y="549" text-anchor="middle">reverse_ws</text>
-  <rect class="chip-blue" x="120" y="562" width="148" height="24" rx="6"/>
-  <text class="chip-title" x="194" y="579" text-anchor="middle">webhook</text>
-  <rect class="chip-blue" x="278" y="562" width="148" height="24" rx="6"/>
-  <text class="chip-title" x="352" y="579" text-anchor="middle">http_api</text>
-  <text class="module-text" x="280" y="608" text-anchor="middle">access_token 鉴权</text>
-  <text class="module-text" x="280" y="628" text-anchor="middle">self_id 一致性校验</text>
-
-  <rect class="purple" x="106" y="668" width="348" height="156" rx="12"/>
-  <text class="module-title" x="280" y="696" text-anchor="middle">插件包</text>
-  <rect class="chip" x="125" y="710" width="148" height="24" rx="6"/>
-  <text class="chip-title" x="199" y="727" text-anchor="middle">manifest</text>
-  <rect class="chip" x="287" y="710" width="148" height="24" rx="6"/>
-  <text class="chip-title" x="361" y="727" text-anchor="middle">Web UI</text>
-  <text class="module-text" x="280" y="757" text-anchor="middle">Python · Node.js</text>
-  <text class="module-text" x="280" y="777" text-anchor="middle">stdin / stdout · JSONL</text>
-  <text class="module-text" x="280" y="797" text-anchor="middle">manifest 声明能力 grants</text>
-
-  <rect class="rose" x="106" y="844" width="348" height="148" rx="12"/>
-  <text class="module-title" x="280" y="872" text-anchor="middle">插件 Webhook 调用方</text>
-  <text class="module-text" x="280" y="896" text-anchor="middle">外部 HTTP 事件入口</text>
-  <text class="module-text" x="280" y="918" text-anchor="middle">token · HMAC 校验</text>
-  <text class="module-text" x="280" y="940" text-anchor="middle">按需拉起目标插件</text>
-  <text class="module-text" x="280" y="962" text-anchor="middle">投递 webhook.received 事件</text>
-
-  <rect class="blue" x="106" y="1340" width="348" height="148" rx="12"/>
-  <text class="module-title" x="280" y="1368" text-anchor="middle">OneBot11 出站客户端</text>
-  <rect class="chip-blue" x="120" y="1384" width="100" height="24" rx="6"/>
-  <text class="chip-title" x="170" y="1401" text-anchor="middle">forward_ws</text>
-  <rect class="chip-blue" x="226" y="1384" width="108" height="24" rx="6"/>
-  <text class="chip-title" x="280" y="1401" text-anchor="middle">reverse_ws</text>
-  <rect class="chip-blue" x="340" y="1384" width="96" height="24" rx="6"/>
-  <text class="chip-title" x="388" y="1401" text-anchor="middle">http_api</text>
-  <text class="module-text" x="280" y="1430" text-anchor="middle">send_msg · API echo</text>
-  <text class="module-text" x="280" y="1450" text-anchor="middle">reply target 解析</text>
-  <text class="module-text" x="280" y="1470" text-anchor="middle">echo 等待表回填</text>
-
-  <rect class="server" x="520" y="210" width="1760" height="1290" rx="20"/>
-  <text class="section" x="552" y="258">raylea-server</text>
-  <text class="muted" x="552" y="284">管理面 · 事件主链 · 插件子系统 · 平台能力 · 出站</text>
-
-  <rect class="lane" x="540" y="290" width="1720" height="190" rx="16"/>
-  <text class="lane-title" x="558" y="314">MANAGEMENT PLANE</text>
-
-  <rect class="blue" x="570" y="328" width="320" height="142" rx="12"/>
-  <text class="module-title" x="730" y="354" text-anchor="middle">HTTP API</text>
-  <text class="module-text" x="730" y="376" text-anchor="middle">领域路由</text>
-  <text class="module-text" x="730" y="412" text-anchor="middle">auth · config · plugins</text>
-  <text class="module-text" x="730" y="430" text-anchor="middle">tasks · logs · system</text>
-  <text class="module-text" x="730" y="448" text-anchor="middle">governance · render · scheduler</text>
-
-  <rect class="blue" x="905" y="328" width="320" height="142" rx="12"/>
-  <text class="module-title" x="1065" y="354" text-anchor="middle">管理 WebSocket</text>
-  <text class="module-text" x="1065" y="376" text-anchor="middle">实时通道</text>
-  <rect class="chip-blue" x="920" y="392" width="140" height="22" rx="6"/>
-  <text class="chip-title" x="990" y="408" text-anchor="middle">events_ws</text>
-  <rect class="chip-blue" x="1070" y="392" width="140" height="22" rx="6"/>
-  <text class="chip-title" x="1140" y="408" text-anchor="middle">tasks_ws</text>
-  <rect class="chip-blue" x="920" y="420" width="140" height="22" rx="6"/>
-  <text class="chip-title" x="990" y="436" text-anchor="middle">logs_ws</text>
-  <rect class="chip-blue" x="1070" y="420" width="140" height="22" rx="6"/>
-  <text class="chip-title" x="1140" y="436" text-anchor="middle">console_ws</text>
-
-  <rect class="blue" x="1240" y="328" width="320" height="142" rx="12"/>
-  <text class="module-title" x="1400" y="354" text-anchor="middle">Auth &amp; 会话</text>
-  <text class="module-text" x="1400" y="376" text-anchor="middle">登录鉴权</text>
-  <text class="module-text" x="1400" y="408" text-anchor="middle">login · 失败限速</text>
-  <text class="module-text" x="1400" y="428" text-anchor="middle">会话签名密钥</text>
-  <text class="module-text" x="1400" y="448" text-anchor="middle">bootstrap 初始密码</text>
-
-  <rect class="blue" x="1575" y="328" width="320" height="142" rx="12"/>
-  <text class="module-title" x="1735" y="354" text-anchor="middle">Tasks 通道</text>
-  <text class="module-text" x="1735" y="376" text-anchor="middle">异步任务订阅</text>
-  <text class="module-text" x="1735" y="408" text-anchor="middle">install · backup · restore</text>
-  <text class="module-text" x="1735" y="428" text-anchor="middle">migrate · diagnose</text>
-  <text class="module-text" x="1735" y="448" text-anchor="middle">进度 + 终态推送</text>
-
-  <rect class="blue" x="1910" y="328" width="320" height="142" rx="12"/>
-  <text class="module-title" x="2070" y="354" text-anchor="middle">Logs 通道</text>
-  <text class="module-text" x="2070" y="376" text-anchor="middle">结构化日志流</text>
-  <text class="module-text" x="2070" y="408" text-anchor="middle">spool · replay · live</text>
-  <text class="module-text" x="2070" y="428" text-anchor="middle">按插件 / 来源筛选</text>
-  <text class="module-text" x="2070" y="448" text-anchor="middle">redact 脱敏后输出</text>
-
-  <rect class="lane" x="540" y="500" width="1720" height="290" rx="16"/>
-  <text class="lane-title" x="558" y="524">EVENT FLOW</text>
-
-  <rect class="green" x="570" y="540" width="400" height="232" rx="12"/>
-  <text class="module-title" x="770" y="568" text-anchor="middle">Adapter Shell</text>
-  <text class="module-sub" x="588" y="598">Transport</text>
-  <rect class="chip-green" x="588" y="608" width="174" height="22" rx="6"/>
-  <text class="chip-title" x="675" y="624" text-anchor="middle">forward_ws</text>
-  <rect class="chip-green" x="770" y="608" width="174" height="22" rx="6"/>
-  <text class="chip-title" x="857" y="624" text-anchor="middle">reverse_ws</text>
-  <rect class="chip-green" x="588" y="636" width="174" height="22" rx="6"/>
-  <text class="chip-title" x="675" y="652" text-anchor="middle">webhook</text>
-  <rect class="chip-green" x="770" y="636" width="174" height="22" rx="6"/>
-  <text class="chip-title" x="857" y="652" text-anchor="middle">http_api</text>
-  <text class="module-sub" x="588" y="685">Normalizer</text>
-  <text class="module-text" x="588" y="704">25 个归一化事件(详见底部事件表)</text>
-  <text class="module-sub" x="588" y="730">Echo &amp; State</text>
-  <text class="module-text" x="588" y="749">echo 等待表 · target display · 事件去重</text>
-
-  <rect class="purple" x="990" y="540" width="400" height="232" rx="12"/>
-  <text class="module-title" x="1190" y="568" text-anchor="middle">Event Ingress</text>
-  <text class="module-text" x="1190" y="588" text-anchor="middle">命令解析 · 聊天治理 · 内置菜单</text>
-  <rect class="chip-purple" x="1008" y="608" width="180" height="26" rx="6"/>
-  <text class="chip-title" x="1098" y="626" text-anchor="middle">a. 元数据 enrich</text>
-  <rect class="chip-purple" x="1196" y="608" width="180" height="26" rx="6"/>
-  <text class="chip-title" x="1286" y="626" text-anchor="middle">b. 命令解析 prefix</text>
-  <rect class="chip-purple" x="1008" y="642" width="180" height="26" rx="6"/>
-  <text class="chip-title" x="1098" y="660" text-anchor="middle">c. 聊天治理 黑/白/权/冷</text>
-  <rect class="chip-purple" x="1196" y="642" width="180" height="26" rx="6"/>
-  <text class="chip-title" x="1286" y="660" text-anchor="middle">d. Reply target cache</text>
-  <text class="module-sub" x="1008" y="700">内置菜单</text>
-  <text class="module-text" x="1008" y="720">help.menu 由平台直接渲染并发送(不进入插件)</text>
-  <text class="module-text" x="1008" y="750">冷却提示同样走 Outbound 链路</text>
-
-  <rect class="purple" x="1410" y="540" width="400" height="232" rx="12"/>
-  <text class="module-title" x="1610" y="568" text-anchor="middle">Bridge</text>
-  <text class="module-text" x="1610" y="588" text-anchor="middle">统一事件桥接与观测</text>
-  <text class="module-sub" x="1428" y="618">形状校验</text>
-  <text class="module-text" x="1428" y="638">缺字段 · 类型不匹配 · 未注册类型 → 拒绝</text>
-  <text class="module-sub" x="1428" y="668">桥接观测 4 状态</text>
-  <rect class="chip-green" x="1428" y="680" width="176" height="22" rx="6"/>
-  <text class="chip-title" x="1516" y="696" text-anchor="middle">delivered</text>
-  <rect class="chip-slate" x="1612" y="680" width="176" height="22" rx="6"/>
-  <text class="chip-title" x="1700" y="696" text-anchor="middle">ignored</text>
-  <rect class="chip-amber" x="1428" y="708" width="176" height="22" rx="6"/>
-  <text class="chip-title" x="1516" y="724" text-anchor="middle">rejected</text>
-  <rect class="chip-rose" x="1612" y="708" width="176" height="22" rx="6"/>
-  <text class="chip-title" x="1700" y="724" text-anchor="middle">error</text>
-  <text class="module-text" x="1610" y="755" text-anchor="middle">平台内部事件可绕过 Bridge 直入 Dispatcher</text>
-
-  <rect class="purple" x="1830" y="540" width="400" height="232" rx="12"/>
-  <text class="module-title" x="2030" y="568" text-anchor="middle">Dispatcher</text>
-  <text class="module-text" x="2030" y="588" text-anchor="middle">目标选择 · 队列 · fan-out · 出站出口</text>
-  <text class="module-sub" x="1848" y="618">目标选择</text>
-  <text class="module-text" x="1848" y="638">命令匹配 ⇒ 订阅匹配 ⇒ `*` fallback</text>
-  <text class="module-sub" x="1848" y="668">Per-plugin 队列</text>
-  <text class="module-text" x="1848" y="688">仅向 running 插件投递 · 队列满则丢弃并记录</text>
-  <text class="module-sub" x="1848" y="718">Lane 划分</text>
-  <text class="module-text" x="1848" y="738">同 event.target 串行 · 不同 target 并发</text>
-  <text class="module-text" x="2030" y="763" text-anchor="middle">能力检查后执行插件出站 action</text>
-
-  <rect class="lane" x="540" y="810" width="1720" height="290" rx="16"/>
-  <text class="lane-title" x="558" y="834">PLUGIN SUBSYSTEM</text>
-
-  <rect class="purple" x="570" y="848" width="540" height="110" rx="12"/>
-  <text class="module-title" x="840" y="876" text-anchor="middle">Plugin Catalog</text>
-  <rect class="chip-purple" x="590" y="892" width="100" height="22" rx="6"/>
-  <text class="chip-title" x="640" y="908" text-anchor="middle">discovery</text>
-  <rect class="chip-purple" x="698" y="892" width="86" height="22" rx="6"/>
-  <text class="chip-title" x="741" y="908" text-anchor="middle">install</text>
-  <rect class="chip-purple" x="792" y="892" width="92" height="22" rx="6"/>
-  <text class="chip-title" x="838" y="908" text-anchor="middle">uninstall</text>
-  <rect class="chip-purple" x="892" y="892" width="96" height="22" rx="6"/>
-  <text class="chip-title" x="940" y="908" text-anchor="middle">manifest</text>
-  <rect class="chip-purple" x="996" y="892" width="92" height="22" rx="6"/>
-  <text class="chip-title" x="1042" y="908" text-anchor="middle">grants</text>
-  <text class="module-text" x="840" y="940" text-anchor="middle">desired-state(enabled/disabled) · registration(installed/removed)</text>
-
-  <rect class="purple" x="1130" y="848" width="540" height="110" rx="12"/>
-  <text class="module-title" x="1400" y="876" text-anchor="middle">Lifecycle Controller</text>
-  <rect class="chip-purple" x="1150" y="892" width="100" height="22" rx="6"/>
-  <text class="chip-title" x="1200" y="908" text-anchor="middle">start · stop</text>
-  <rect class="chip-purple" x="1258" y="892" width="84" height="22" rx="6"/>
-  <text class="chip-title" x="1300" y="908" text-anchor="middle">reload</text>
-  <rect class="chip-purple" x="1350" y="892" width="124" height="22" rx="6"/>
-  <text class="chip-title" x="1412" y="908" text-anchor="middle">crash recovery</text>
-  <rect class="chip-purple" x="1482" y="892" width="146" height="22" rx="6"/>
-  <text class="chip-title" x="1555" y="908" text-anchor="middle">Dispatcher 注册</text>
-  <text class="module-text" x="1400" y="940" text-anchor="middle">backoff 等待受控重启 · 超阈值进入 dead_letter</text>
-
-  <rect class="purple" x="1690" y="848" width="540" height="110" rx="12"/>
-  <text class="module-title" x="1960" y="876" text-anchor="middle">Runtime Registry</text>
-  <text class="module-text" x="1960" y="900" text-anchor="middle">维护多个 Runtime Manager 实例</text>
-  <rect class="chip-purple" x="1710" y="912" width="170" height="22" rx="6"/>
-  <text class="chip-title" x="1795" y="928" text-anchor="middle">per-plugin map</text>
-  <rect class="chip-purple" x="1888" y="912" width="170" height="22" rx="6"/>
-  <text class="chip-title" x="1973" y="928" text-anchor="middle">desired-state 同步</text>
-  <text class="module-text" x="1960" y="950" text-anchor="middle">按 plugin_id 查询与遍历</text>
-
-  <rect class="stack-back" x="588" y="982" width="510" height="96" rx="12" opacity="0.4"/>
-  <rect class="stack-back" x="578" y="990" width="510" height="96" rx="12" opacity="0.7"/>
-  <rect class="rose" x="568" y="998" width="510" height="96" rx="12"/>
-  <text class="module-title" x="823" y="1024" text-anchor="middle">Runtime Manager × N</text>
-  <text class="module-text" x="823" y="1044" text-anchor="middle">每插件一个 · 子进程握手 · ping 保活</text>
-  <rect class="chip-rose" x="588" y="1056" width="76" height="22" rx="6"/>
-  <text class="chip-title" x="626" y="1072" text-anchor="middle">event</text>
-  <rect class="chip-rose" x="672" y="1056" width="76" height="22" rx="6"/>
-  <text class="chip-title" x="710" y="1072" text-anchor="middle">result</text>
-  <rect class="chip-rose" x="756" y="1056" width="76" height="22" rx="6"/>
-  <text class="chip-title" x="794" y="1072" text-anchor="middle">action</text>
-  <rect class="chip-rose" x="840" y="1056" width="76" height="22" rx="6"/>
-  <text class="chip-title" x="878" y="1072" text-anchor="middle">error</text>
-  <rect class="chip-rose" x="924" y="1056" width="76" height="22" rx="6"/>
-  <text class="chip-title" x="962" y="1072" text-anchor="middle">ping</text>
-  <rect class="chip-rose" x="1008" y="1056" width="60" height="22" rx="6"/>
-  <text class="chip-title" x="1038" y="1072" text-anchor="middle">JSONL</text>
-
-  <rect class="rose" x="1130" y="998" width="200" height="96" rx="12"/>
-  <text class="module-title" x="1230" y="1024" text-anchor="middle">插件进程</text>
-  <text class="module-text" x="1230" y="1046" text-anchor="middle">子进程</text>
-  <text class="module-text" x="1230" y="1064" text-anchor="middle">stdin / stdout</text>
-  <text class="module-text" x="1230" y="1082" text-anchor="middle">Python · Node.js</text>
-
-  <rect class="rose" x="1360" y="998" width="450" height="96" rx="12"/>
-  <text class="module-title" x="1585" y="1024" text-anchor="middle">Plugin Webhook Service</text>
-  <text class="module-text" x="1585" y="1044" text-anchor="middle">暴露外部 HTTP webhook</text>
-  <rect class="chip-rose" x="1380" y="1056" width="92" height="22" rx="6"/>
-  <text class="chip-title" x="1426" y="1072" text-anchor="middle">route</text>
-  <rect class="chip-rose" x="1480" y="1056" width="92" height="22" rx="6"/>
-  <text class="chip-title" x="1526" y="1072" text-anchor="middle">token</text>
-  <rect class="chip-rose" x="1580" y="1056" width="92" height="22" rx="6"/>
-  <text class="chip-title" x="1626" y="1072" text-anchor="middle">HMAC</text>
-  <rect class="chip-rose" x="1680" y="1056" width="112" height="22" rx="6"/>
-  <text class="chip-title" x="1736" y="1072" text-anchor="middle">按需拉起</text>
-
-  <rect class="slate" x="1840" y="998" width="390" height="96" rx="12"/>
-  <text class="module-sub" x="2035" y="1020" text-anchor="middle">Runtime 状态(详见底部状态机)</text>
-  <text class="module-text" x="2035" y="1042" text-anchor="middle">stopped → starting → running</text>
-  <text class="module-text" x="2035" y="1060" text-anchor="middle">running → stopping → stopped</text>
-  <text class="module-text" x="2035" y="1078" text-anchor="middle">crashed → backoff → dead_letter</text>
-
-  <rect class="lane" x="540" y="1120" width="1720" height="240" rx="16"/>
-  <text class="lane-title" x="558" y="1144">PLATFORM CAPABILITIES</text>
-
-  <rect class="green" x="570" y="1160" width="1660" height="56" rx="12"/>
-  <text class="module-title" x="1400" y="1184" text-anchor="middle">Local Action Service</text>
-  <text class="module-text" x="1400" y="1204" text-anchor="middle">capability gateway · scope 校验 · 结构化错误返回 · 唯一插件访问平台能力入口</text>
-
-  <rect class="rose" x="570" y="1230" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="590" y="1252">Render</text>
-  <text class="chip-mono" x="1090" y="1252" text-anchor="end">render.image</text>
-
-  <rect class="amber" x="1130" y="1230" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="1150" y="1252">Scheduler</text>
-  <text class="chip-mono" x="1650" y="1252" text-anchor="end">scheduler.create</text>
-
-  <rect class="green" x="1690" y="1230" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="1710" y="1252">Storage</text>
-  <text class="chip-mono" x="2210" y="1252" text-anchor="end">storage.kv  ·  storage.file</text>
-
-  <rect class="green" x="570" y="1274" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="590" y="1296">Secrets</text>
-  <text class="chip-mono" x="1090" y="1296" text-anchor="end">secret.read</text>
-
-  <rect class="amber" x="1130" y="1274" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="1150" y="1296">Governance</text>
-  <text class="chip-mono" x="1650" y="1296" text-anchor="end">governance.{blacklist,whitelist,command_policy}.*</text>
-
-  <rect class="amber" x="1690" y="1274" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="1710" y="1296">Logger</text>
-  <text class="chip-mono" x="2210" y="1296" text-anchor="end">logger.write</text>
-
-  <rect class="amber" x="570" y="1318" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="590" y="1340">Tasks</text>
-  <text class="chip-mono" x="1090" y="1340" text-anchor="end">后台异步执行器</text>
-
-  <rect class="green" x="1130" y="1318" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="1150" y="1340">HTTP Request</text>
-  <text class="chip-mono" x="1650" y="1340" text-anchor="end">http.request  ·  host-allowlist</text>
-
-  <rect class="blue" x="1690" y="1318" width="540" height="36" rx="8"/>
-  <text class="chip-title" x="1710" y="1340">OneBot Extension</text>
-  <text class="chip-mono" x="2210" y="1340" text-anchor="end">generic action  ·  protocolcap provider</text>
-
-  <rect class="lane" x="540" y="1380" width="1720" height="100" rx="16"/>
-  <text class="lane-title" x="558" y="1404">OUTBOUND</text>
-
-  <rect class="amber" x="570" y="1408" width="780" height="64" rx="12"/>
-  <text class="module-title" x="960" y="1432" text-anchor="middle">Outbound</text>
-  <text class="module-text" x="960" y="1454" text-anchor="middle">按插件与目标的队列 · rate-limit · 失败重试</text>
-
-  <rect class="green" x="1370" y="1408" width="860" height="64" rx="12"/>
-  <text class="module-title" x="1800" y="1432" text-anchor="middle">Adapter Send</text>
-  <text class="module-text" x="1800" y="1454" text-anchor="middle">WS forward / reverse · http_api · reply target cache · echo 等待</text>
-
-  <rect class="panel" x="2320" y="210" width="400" height="1290" rx="20"/>
-  <text class="section" x="2350" y="252">运行资源</text>
-  <text class="muted" x="2350" y="278">配置 · 状态 · 模板 · 运行环境</text>
-  <text class="resource-text" x="2350" y="294">由 Local Action Service 中介读写</text>
-
-  <rect class="amber" x="2340" y="300" width="360" height="98" rx="12"/>
-  <text class="resource-title" x="2520" y="326" text-anchor="middle">config/</text>
-  <rect class="chip" x="2360" y="338" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2440" y="354" text-anchor="middle">default.yaml</text>
-  <rect class="chip" x="2528" y="338" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2608" y="354" text-anchor="middle">user.yaml</text>
-  <text class="resource-text" x="2520" y="380" text-anchor="middle">Config 模块负责合并与裁决</text>
-
-  <rect class="green" x="2340" y="412" width="360" height="232" rx="12"/>
-  <text class="resource-title" x="2520" y="438" text-anchor="middle">SQLite(嵌入 migrations · sqlc)</text>
-  <rect class="chip-green" x="2360" y="452" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2440" y="468" text-anchor="middle">auth_core</text>
-  <rect class="chip-green" x="2528" y="452" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2608" y="468" text-anchor="middle">plugin_instances</text>
-  <rect class="chip-green" x="2360" y="480" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2440" y="496" text-anchor="middle">plugin_packages</text>
-  <rect class="chip-green" x="2528" y="480" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2608" y="496" text-anchor="middle">plugin_grants</text>
-  <rect class="chip-green" x="2360" y="508" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2440" y="524" text-anchor="middle">tasks</text>
-  <rect class="chip-green" x="2528" y="508" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2608" y="524" text-anchor="middle">scheduler</text>
-  <rect class="chip-green" x="2360" y="536" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2440" y="552" text-anchor="middle">management_logs</text>
-  <rect class="chip-green" x="2528" y="536" width="160" height="22" rx="6"/>
-  <text class="chip-title" x="2608" y="552" text-anchor="middle">secret_store</text>
-  <text class="resource-text" x="2520" y="580" text-anchor="middle">modernc.org/sqlite 驱动</text>
-  <text class="resource-text" x="2520" y="600" text-anchor="middle">迁移序列 0001..NNNN 嵌入二进制</text>
-  <text class="resource-text" x="2520" y="620" text-anchor="middle">查询经 sqlc 生成</text>
-
-  <rect class="green" x="2340" y="658" width="360" height="76" rx="12"/>
-  <text class="resource-title" x="2520" y="684" text-anchor="middle">data/</text>
-  <text class="resource-text" x="2520" y="706" text-anchor="middle">状态库根 · 插件业务数据沙箱</text>
-  <text class="resource-text" x="2520" y="724" text-anchor="middle">备份元数据</text>
-
-  <rect class="slate" x="2340" y="748" width="360" height="64" rx="12"/>
-  <text class="resource-title" x="2520" y="774" text-anchor="middle">cache/</text>
-  <text class="resource-text" x="2520" y="794" text-anchor="middle">可重建缓存 · 渲染缓存 · 中间件缓存</text>
-
-  <rect class="slate" x="2340" y="826" width="360" height="76" rx="12"/>
-  <text class="resource-title" x="2520" y="852" text-anchor="middle">logs/</text>
-  <text class="resource-text" x="2520" y="874" text-anchor="middle">结构化 JSON · spool 文件</text>
-  <text class="resource-text" x="2520" y="892" text-anchor="middle">诊断输出 · redact 脱敏</text>
-
-  <rect class="rose" x="2340" y="916" width="360" height="76" rx="12"/>
-  <text class="resource-title" x="2520" y="942" text-anchor="middle">templates/</text>
-  <text class="resource-text" x="2520" y="964" text-anchor="middle">模板版本目录</text>
-  <text class="resource-text" x="2520" y="982" text-anchor="middle">artifacts/(图片产物)</text>
-
-  <rect class="purple" x="2340" y="1006" width="360" height="76" rx="12"/>
-  <text class="resource-title" x="2520" y="1032" text-anchor="middle">plugins/installed/</text>
-  <text class="resource-text" x="2520" y="1054" text-anchor="middle">每插件目录 · Web UI 静态资源</text>
-  <text class="resource-text" x="2520" y="1072" text-anchor="middle">数据沙箱</text>
-
-  <rect class="slate" x="2340" y="1096" width="360" height="98" rx="12"/>
-  <text class="resource-title" x="2520" y="1122" text-anchor="middle">.deps/</text>
-  <rect class="chip" x="2360" y="1134" width="100" height="22" rx="6"/>
-  <text class="chip-title" x="2410" y="1150" text-anchor="middle">Chromium</text>
-  <rect class="chip" x="2468" y="1134" width="86" height="22" rx="6"/>
-  <text class="chip-title" x="2511" y="1150" text-anchor="middle">Python</text>
-  <rect class="chip" x="2562" y="1134" width="80" height="22" rx="6"/>
-  <text class="chip-title" x="2602" y="1150" text-anchor="middle">Node.js</text>
-  <rect class="chip" x="2650" y="1134" width="40" height="22" rx="6"/>
-  <text class="chip-title" x="2670" y="1150" text-anchor="middle">SDK</text>
-  <text class="resource-text" x="2520" y="1178" text-anchor="middle">deps 模块统一解析入口</text>
-
-  <rect class="panel" x="80" y="1530" width="2640" height="200" rx="20"/>
-  <text class="panel-title" x="108" y="1564">OneBot11 归一化事件 · 共 25 项</text>
-  <text class="panel-sub" x="108" y="1586">统一字段:message_id · conversation_id · group_id · user_id  ·  OneBot 原生字段:event.payload.onebot</text>
-
-  <text class="col-header" x="108" y="1614">MESSAGE (4)</text>
-  <rect class="chip-blue" x="108" y="1624" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="228" y="1640" text-anchor="middle">message.private</text>
-  <rect class="chip-blue" x="108" y="1652" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="228" y="1668" text-anchor="middle">message.group</text>
-  <rect class="chip-blue" x="108" y="1680" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="228" y="1696" text-anchor="middle">message_sent.private</text>
-  <rect class="chip-blue" x="108" y="1708" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="228" y="1724" text-anchor="middle">message_sent.group</text>
-
-  <text class="col-header" x="380" y="1614">NOTICE (17)</text>
-  <rect class="chip-amber" x="380" y="1624" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="496" y="1640" text-anchor="middle">notice.member_increase</text>
-  <rect class="chip-amber" x="620" y="1624" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="736" y="1640" text-anchor="middle">notice.member_decrease</text>
-  <rect class="chip-amber" x="860" y="1624" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="976" y="1640" text-anchor="middle">notice.group_admin</text>
-  <rect class="chip-amber" x="1100" y="1624" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="1216" y="1640" text-anchor="middle">notice.group_ban</text>
-  <rect class="chip-amber" x="1340" y="1624" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="1456" y="1640" text-anchor="middle">notice.group_recall</text>
-  <rect class="chip-amber" x="1580" y="1624" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="1696" y="1640" text-anchor="middle">notice.group_upload</text>
-
-  <rect class="chip-amber" x="380" y="1652" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="496" y="1668" text-anchor="middle">notice.group_card</text>
-  <rect class="chip-amber" x="620" y="1652" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="736" y="1668" text-anchor="middle">notice.group_title</text>
-  <rect class="chip-amber" x="860" y="1652" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="976" y="1668" text-anchor="middle">notice.group_essence</text>
-  <rect class="chip-amber" x="1100" y="1652" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="1216" y="1668" text-anchor="middle">notice.friend_add</text>
-  <rect class="chip-amber" x="1340" y="1652" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="1456" y="1668" text-anchor="middle">notice.friend_recall</text>
-  <rect class="chip-amber" x="1580" y="1652" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="1696" y="1668" text-anchor="middle">notice.flash_file</text>
-
-  <rect class="chip-amber" x="380" y="1680" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="496" y="1696" text-anchor="middle">notice.poke</text>
-  <rect class="chip-amber" x="620" y="1680" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="736" y="1696" text-anchor="middle">notice.poke_recall</text>
-  <rect class="chip-amber" x="860" y="1680" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="976" y="1696" text-anchor="middle">notice.profile_like</text>
-  <rect class="chip-amber" x="1100" y="1680" width="232" height="22" rx="6"/>
-  <text class="chip-title" x="1216" y="1696" text-anchor="middle">notice.input_status</text>
-  <rect class="chip-amber" x="1340" y="1680" width="472" height="22" rx="6"/>
-  <text class="chip-title" x="1576" y="1696" text-anchor="middle">notice.group_message_emoji_like</text>
-
-  <text class="col-header" x="1844" y="1614">REQUEST (2)</text>
-  <rect class="chip-rose" x="1844" y="1624" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="1964" y="1640" text-anchor="middle">request.friend</text>
-  <rect class="chip-rose" x="1844" y="1652" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="1964" y="1668" text-anchor="middle">request.group</text>
-
-  <text class="col-header" x="2096" y="1614">META (2)</text>
-  <rect class="chip-slate" x="2096" y="1624" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="2216" y="1640" text-anchor="middle">meta.heartbeat</text>
-  <rect class="chip-slate" x="2096" y="1652" width="240" height="22" rx="6"/>
-  <text class="chip-title" x="2216" y="1668" text-anchor="middle">meta.lifecycle</text>
-
-  <text class="resource-text" x="2350" y="1708" text-anchor="end">心跳与生命周期同时作为 adapter 连接状态信号与正式事件投递</text>
-
-  <rect class="panel" x="80" y="1750" width="2640" height="130" rx="20"/>
-  <text class="panel-title" x="108" y="1782">核心状态机</text>
-  <text class="panel-sub" x="108" y="1802">Plugin Runtime · 后台 Tasks · OneBot Transport 三个枚举值随实现演进,正式枚举以 contracts/ 与 state-model.md 为准</text>
-
-  <text class="col-header" x="108" y="1828">PLUGIN RUNTIME (7)</text>
-  <rect class="chip-rose" x="108" y="1838" width="84" height="22" rx="6"/>
-  <text class="state-node-text" x="150" y="1854" text-anchor="middle">stopped</text>
-  <rect class="chip-rose" x="200" y="1838" width="84" height="22" rx="6"/>
-  <text class="state-node-text" x="242" y="1854" text-anchor="middle">starting</text>
-  <rect class="chip-rose" x="292" y="1838" width="84" height="22" rx="6"/>
-  <text class="state-node-text" x="334" y="1854" text-anchor="middle">running</text>
-  <rect class="chip-rose" x="384" y="1838" width="84" height="22" rx="6"/>
-  <text class="state-node-text" x="426" y="1854" text-anchor="middle">stopping</text>
-  <rect class="chip-rose" x="476" y="1838" width="84" height="22" rx="6"/>
-  <text class="state-node-text" x="518" y="1854" text-anchor="middle">crashed</text>
-  <rect class="chip-rose" x="568" y="1838" width="84" height="22" rx="6"/>
-  <text class="state-node-text" x="610" y="1854" text-anchor="middle">backoff</text>
-  <rect class="chip-rose" x="660" y="1838" width="106" height="22" rx="6"/>
-  <text class="state-node-text" x="713" y="1854" text-anchor="middle">dead_letter</text>
-  <path class="state-arrow" d="M 192 1849 L 200 1849"/>
-  <path class="state-arrow" d="M 284 1849 L 292 1849"/>
-  <path class="state-arrow" d="M 376 1849 L 384 1849"/>
-  <path class="state-arrow" d="M 468 1849 L 476 1849"/>
-  <path class="state-arrow" d="M 560 1849 L 568 1849"/>
-  <path class="state-arrow" d="M 652 1849 L 660 1849"/>
-
-  <text class="col-header" x="820" y="1828">TASKS (6)</text>
-  <rect class="chip-amber" x="820" y="1838" width="88" height="22" rx="6"/>
-  <text class="state-node-text" x="864" y="1854" text-anchor="middle">pending</text>
-  <rect class="chip-amber" x="916" y="1838" width="88" height="22" rx="6"/>
-  <text class="state-node-text" x="960" y="1854" text-anchor="middle">running</text>
-  <rect class="chip-amber" x="1012" y="1838" width="88" height="22" rx="6"/>
-  <text class="state-node-text" x="1056" y="1854" text-anchor="middle">succeeded</text>
-  <rect class="chip-amber" x="1108" y="1838" width="76" height="22" rx="6"/>
-  <text class="state-node-text" x="1146" y="1854" text-anchor="middle">failed</text>
-  <rect class="chip-amber" x="1192" y="1838" width="92" height="22" rx="6"/>
-  <text class="state-node-text" x="1238" y="1854" text-anchor="middle">cancelled</text>
-  <rect class="chip-amber" x="1292" y="1838" width="100" height="22" rx="6"/>
-  <text class="state-node-text" x="1342" y="1854" text-anchor="middle">interrupted</text>
-  <path class="state-arrow" d="M 908 1849 L 916 1849"/>
-  <path class="state-arrow" d="M 1004 1849 L 1012 1849"/>
-  <path class="state-arrow" d="M 1100 1849 L 1108 1849"/>
-  <path class="state-arrow" d="M 1184 1849 L 1192 1849"/>
-  <path class="state-arrow" d="M 1284 1849 L 1292 1849"/>
-
-  <text class="col-header" x="1460" y="1828">ONEBOT TRANSPORT</text>
-  <rect class="chip-blue" x="1460" y="1838" width="120" height="22" rx="6"/>
-  <text class="state-node-text" x="1520" y="1854" text-anchor="middle">configured</text>
-  <rect class="chip-blue" x="1588" y="1838" width="120" height="22" rx="6"/>
-  <text class="state-node-text" x="1648" y="1854" text-anchor="middle">active</text>
-  <rect class="chip-blue" x="1716" y="1838" width="180" height="22" rx="6"/>
-  <text class="state-node-text" x="1806" y="1854" text-anchor="middle">transport_status(健康 / 异常)</text>
-  <rect class="chip-blue" x="1904" y="1838" width="160" height="22" rx="6"/>
-  <text class="state-node-text" x="1984" y="1854" text-anchor="middle">readiness_status</text>
-  <path class="state-arrow" d="M 1580 1849 L 1588 1849"/>
-  <path class="state-arrow" d="M 1708 1849 L 1716 1849"/>
-  <path class="state-arrow" d="M 1896 1849 L 1904 1849"/>
-
-  <text class="resource-text" x="2100" y="1828">提示</text>
-  <text class="resource-text" x="2100" y="1846">· stopped → starting → running → stopping → stopped</text>
-  <text class="resource-text" x="2100" y="1864">· crashed → backoff → starting,超阈值 → dead_letter</text>
-
-  <rect class="slate" x="80" y="1900" width="2640" height="80" rx="14"/>
-  <text class="panel-title" x="108" y="1932">横切组件 · 参与全部 swimlane</text>
-
-  <rect class="chip" x="108" y="1944" width="340" height="28" rx="8"/>
-  <text class="chip-title" x="278" y="1962" text-anchor="middle">Recovery · 启动恢复</text>
-  <rect class="chip" x="464" y="1944" width="340" height="28" rx="8"/>
-  <text class="chip-title" x="634" y="1962" text-anchor="middle">Health · readiness</text>
-  <rect class="chip" x="820" y="1944" width="340" height="28" rx="8"/>
-  <text class="chip-title" x="990" y="1962" text-anchor="middle">Console · 插件 stdio 流</text>
-  <rect class="chip" x="1176" y="1944" width="340" height="28" rx="8"/>
-  <text class="chip-title" x="1346" y="1962" text-anchor="middle">Redact · 日志脱敏</text>
-  <rect class="chip" x="1532" y="1944" width="340" height="28" rx="8"/>
-  <text class="chip-title" x="1702" y="1962" text-anchor="middle">TextSafe · 文本过滤</text>
-  <rect class="chip" x="1888" y="1944" width="340" height="28" rx="8"/>
-  <text class="chip-title" x="2058" y="1962" text-anchor="middle">SQL migrations · 嵌入二进制</text>
-  <rect class="chip" x="2244" y="1944" width="380" height="28" rx="8"/>
-  <text class="chip-title" x="2434" y="1962" text-anchor="middle">sqlc · 生成查询入口</text>
-
-  <path class="arrow" d="M 454 399 L 570 399"/>
-  <circle class="badge-circle" cx="512" cy="399" r="14"/>
-  <text class="badge-text" x="512" y="404" text-anchor="middle">1</text>
-  <text class="label-bold" x="462" y="386">管理请求 HTTP/WS</text>
-
-  <path class="arrow" d="M 454 558 L 570 620"/>
-  <circle class="badge-circle" cx="512" cy="592" r="14"/>
-  <text class="badge-text" x="512" y="597" text-anchor="middle">2</text>
-  <text class="label-bold" x="462" y="540">OneBot11 入站</text>
-
-  <path class="arrow" d="M 970 660 L 990 660"/>
-  <circle class="badge-circle" cx="980" cy="640" r="14"/>
-  <text class="badge-text" x="980" y="645" text-anchor="middle">3</text>
-
-  <path class="arrow" d="M 1390 660 L 1410 660"/>
-  <circle class="badge-circle" cx="1400" cy="640" r="14"/>
-  <text class="badge-text" x="1400" y="645" text-anchor="middle">4</text>
-
-  <path class="arrow" d="M 1810 660 L 1830 660"/>
-  <circle class="badge-circle" cx="1820" cy="640" r="14"/>
-  <text class="badge-text" x="1820" y="645" text-anchor="middle">5</text>
-
-  <path class="arrow" d="M 2030 772 L 2030 800 L 1120 800 L 1120 985 L 870 985 L 870 998"/>
-  <circle class="badge-circle" cx="1500" cy="985" r="14"/>
-  <text class="badge-text" x="1500" y="990" text-anchor="middle">6</text>
-  <text class="label-bold" x="1500" y="972" text-anchor="middle">event.target lane</text>
-
-  <path class="arrow" d="M 1078 1037 L 1130 1037"/>
-  <circle class="badge-circle" cx="1104" cy="1020" r="14"/>
-  <text class="badge-text" x="1104" y="1025" text-anchor="middle">7</text>
-
-  <path class="muted-arrow" d="M 1130 1062 L 1078 1062"/>
-  <circle class="badge-circle" cx="1104" cy="1078" r="14"/>
-  <text class="badge-text" x="1104" y="1083" text-anchor="middle">8</text>
-  <text class="label" x="1104" y="1095" text-anchor="middle">JSONL</text>
-
-  <path class="arrow" d="M 770 1094 L 850 1160"/>
-  <circle class="badge-circle" cx="800" cy="1130" r="14"/>
-  <text class="badge-text" x="800" y="1135" text-anchor="middle">9</text>
-  <text class="label-bold" x="650" y="1124">local action 调用</text>
-
-  <path class="muted-arrow" d="M 920 1160 L 870 1094"/>
-  <circle class="badge-circle" cx="908" cy="1130" r="14"/>
-  <text class="badge-text" x="908" y="1135" text-anchor="middle">10</text>
-
-  <path class="arrow" d="M 2230 772 L 2240 772 L 2240 1430 L 1350 1430"/>
-  <circle class="badge-circle" cx="2240" cy="1100" r="14"/>
-  <text class="badge-text" x="2240" y="1105" text-anchor="middle">11</text>
-  <text class="label-bold" x="2256" y="1080">message.send / reply</text>
-
-  <path class="arrow" d="M 1350 1430 L 1370 1430"/>
-
-  <path class="arrow" d="M 2230 1472 L 2240 1472 L 2240 1525 L 90 1525 L 90 1414 L 106 1414"/>
-  <circle class="badge-circle" cx="1260" cy="1525" r="14"/>
-  <text class="badge-text" x="1260" y="1530" text-anchor="middle">12</text>
-  <text class="label-bold" x="1276" y="1518">send_msg · echo</text>
-
-  <path class="muted-arrow" d="M 454 730 C 480 800, 520 850, 568 860"/>
-  <text class="label" x="468" y="772">安装包 · manifest</text>
-
-  <path class="arrow" d="M 454 920 C 700 940, 1100 990, 1360 1042"/>
-  <text class="label-bold" x="600" y="980">外部 webhook</text>
+  <rect class="bg" width="2800" height="1980"/>
+
+  <text class="title-text" x="80" y="62">RayleaBot 平台架构设计示意图</text>
+  <text class="subtitle" x="80" y="90">contracts 是对外边界唯一正式来源；raylea-server 单二进制为 Web / Launcher / CLI 与 OneBot11 提供共享入口；插件经 Local Action Service 受控访问平台能力。</text>
+
+  <g transform="translate(80 108)">
+    <text class="legend-label" x="0" y="10">主流向</text>
+    <line x1="60" y1="6" x2="110" y2="6" stroke="#1e293b" stroke-width="2.6" marker-end="url(#arrow-main)"/>
+    <text class="legend" x="118" y="10">① - ⑫ 入站事件处理与出站发送</text>
+
+    <text class="legend-label" x="460" y="10">本地回调</text>
+    <line x1="540" y1="6" x2="590" y2="6" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#arrow-soft)"/>
+    <text class="legend" x="598" y="10">local action 返回 · JSONL 响应</text>
+
+    <text class="legend-label" x="940" y="10">外部 webhook</text>
+    <line x1="1040" y1="6" x2="1090" y2="6" stroke="#e11d48" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow-rose)"/>
+    <text class="legend" x="1098" y="10">webhook.received 投递</text>
+
+    <text class="legend-label" x="1370" y="10">色块含义</text>
+    <rect x="1455" y="-2" width="16" height="14" rx="3" fill="url(#grad-blue)" stroke="#2563eb"/>
+    <text class="legend" x="1478" y="10">管理面</text>
+    <rect x="1538" y="-2" width="16" height="14" rx="3" fill="url(#grad-emerald)" stroke="#10b981"/>
+    <text class="legend" x="1561" y="10">事件主链 · 出站</text>
+    <rect x="1692" y="-2" width="16" height="14" rx="3" fill="url(#grad-violet)" stroke="#8b5cf6"/>
+    <text class="legend" x="1715" y="10">插件子系统</text>
+    <rect x="1820" y="-2" width="16" height="14" rx="3" fill="url(#grad-amber)" stroke="#f59e0b"/>
+    <text class="legend" x="1843" y="10">平台能力 · Contracts</text>
+    <rect x="1990" y="-2" width="16" height="14" rx="3" fill="url(#grad-rose)" stroke="#f43f5e"/>
+    <text class="legend" x="2013" y="10">Runtime 进程 · Webhook</text>
+    <rect x="2195" y="-2" width="16" height="14" rx="3" fill="url(#grad-slate)" stroke="#94a3b8"/>
+    <text class="legend" x="2218" y="10">运行资源 · 横切组件</text>
+  </g>
+
+  <rect class="contracts-strip" x="80" y="130" width="2640" height="54" rx="12" filter="url(#card-shadow)"/>
+  <text class="panel-title" x="108" y="162">接口边界 contracts/</text>
+  <text class="panel-sub" x="310" y="162">对外 HTTP API · WebSocket events · 插件协议 · schema · 错误码 · release metadata</text>
+  <text class="legend" x="2692" y="162" text-anchor="end">唯一正式来源 · 所有实现以此为准</text>
+
+  <rect class="panel" x="80" y="200" width="388" height="1270" rx="18" filter="url(#soft-shadow)"/>
+  <text class="section-title" x="108" y="240">外部入口</text>
+  <text class="section-sub" x="108" y="266">Web · Launcher · CLI · OneBot11 · 插件 · Webhook</text>
+
+  <rect class="card-blue" x="100" y="288" width="348" height="148" rx="12" filter="url(#card-shadow)"/>
+  <text class="module-title" x="274" y="316" text-anchor="middle">管理客户端</text>
+  <rect class="chip" x="120" y="330" width="308" height="26" rx="6"/>
+  <text class="chip-title" x="274" y="348" text-anchor="middle">Web 管理面</text>
+  <rect class="chip" x="120" y="362" width="148" height="26" rx="6"/>
+  <text class="chip-title" x="194" y="380" text-anchor="middle">Launcher</text>
+  <rect class="chip" x="280" y="362" width="148" height="26" rx="6"/>
+  <text class="chip-title" x="354" y="380" text-anchor="middle">CLI</text>
+  <text class="module-text" x="274" y="406" text-anchor="middle">共享同一 raylea-server 二进制</text>
+  <text class="module-text" x="274" y="424" text-anchor="middle">CLI：backup · restore · migrate · diagnose</text>
+
+  <rect class="card-emerald" x="100" y="450" width="348" height="198" rx="12" filter="url(#card-shadow)"/>
+  <text class="module-title" x="274" y="478" text-anchor="middle">OneBot11 接入方</text>
+  <text class="module-text" x="274" y="498" text-anchor="middle">NapCat · LuckyLillia · 其它实现</text>
+  <rect class="chip-emerald" x="118" y="514" width="150" height="24" rx="6"/>
+  <text class="chip-title" x="193" y="530" text-anchor="middle">forward_ws</text>
+  <rect class="chip-emerald" x="280" y="514" width="150" height="24" rx="6"/>
+  <text class="chip-title" x="355" y="530" text-anchor="middle">reverse_ws</text>
+  <rect class="chip-emerald" x="118" y="542" width="150" height="24" rx="6"/>
+  <text class="chip-title" x="193" y="558" text-anchor="middle">webhook</text>
+  <rect class="chip-emerald" x="280" y="542" width="150" height="24" rx="6"/>
+  <text class="chip-title" x="355" y="558" text-anchor="middle">http_api</text>
+  <text class="module-text" x="274" y="590" text-anchor="middle">access_token 鉴权</text>
+  <text class="module-text" x="274" y="610" text-anchor="middle">self_id 一致性校验</text>
+  <text class="module-text" x="274" y="630" text-anchor="middle">归一化事件推入 Adapter Shell</text>
+
+  <rect class="card-violet" x="100" y="662" width="348" height="168" rx="12" filter="url(#card-shadow)"/>
+  <text class="module-title" x="274" y="690" text-anchor="middle">插件包</text>
+  <rect class="chip" x="120" y="704" width="148" height="24" rx="6"/>
+  <text class="chip-title" x="194" y="720" text-anchor="middle">manifest</text>
+  <rect class="chip" x="280" y="704" width="148" height="24" rx="6"/>
+  <text class="chip-title" x="354" y="720" text-anchor="middle">Web UI 资源</text>
+  <text class="module-text" x="274" y="750" text-anchor="middle">运行时：Python · Node.js</text>
+  <text class="module-text" x="274" y="770" text-anchor="middle">通信：stdin / stdout · JSONL</text>
+  <text class="module-text" x="274" y="790" text-anchor="middle">manifest 声明 capabilities / commands</text>
+  <text class="module-text" x="274" y="810" text-anchor="middle">经 Plugin Catalog 受控入库</text>
+
+  <rect class="card-rose" x="100" y="844" width="348" height="158" rx="12" filter="url(#card-shadow)"/>
+  <text class="module-title" x="274" y="872" text-anchor="middle">插件 Webhook 调用方</text>
+  <text class="module-text" x="274" y="894" text-anchor="middle">外部 HTTP 事件入口</text>
+  <text class="module-text" x="274" y="914" text-anchor="middle">token · HMAC 校验</text>
+  <text class="module-text" x="274" y="934" text-anchor="middle">按需拉起目标插件</text>
+  <text class="module-text" x="274" y="954" text-anchor="middle">投递 webhook.received 事件</text>
+  <text class="module-text" x="274" y="976" text-anchor="middle">按声明 event.expose_webhook 路由</text>
+  <text class="module-text" x="274" y="994" text-anchor="middle" style="font-style:italic;">仅插件 Webhook Service 进入</text>
+
+  <rect class="card-emerald" x="100" y="1280" width="348" height="168" rx="12" filter="url(#card-shadow)"/>
+  <text class="module-title" x="274" y="1308" text-anchor="middle">OneBot11 出站客户端</text>
+  <rect class="chip-emerald" x="118" y="1324" width="100" height="24" rx="6"/>
+  <text class="chip-title" x="168" y="1340" text-anchor="middle">forward_ws</text>
+  <rect class="chip-emerald" x="224" y="1324" width="108" height="24" rx="6"/>
+  <text class="chip-title" x="278" y="1340" text-anchor="middle">reverse_ws</text>
+  <rect class="chip-emerald" x="338" y="1324" width="96" height="24" rx="6"/>
+  <text class="chip-title" x="386" y="1340" text-anchor="middle">http_api</text>
+  <text class="module-text" x="274" y="1366" text-anchor="middle">send_msg · API echo</text>
+  <text class="module-text" x="274" y="1384" text-anchor="middle">reply target 解析</text>
+  <text class="module-text" x="274" y="1402" text-anchor="middle">WS 优先 · http_api 回退</text>
+  <text class="module-text" x="274" y="1420" text-anchor="middle">echo 等待表回填</text>
+  <text class="module-text" x="274" y="1438" text-anchor="middle" style="font-style:italic;">与入站共用同一 OneBot11 链路</text>
+
+
+  <rect class="server-panel" x="488" y="200" width="1820" height="1270" rx="18" filter="url(#soft-shadow)"/>
+  <text class="section-title" x="516" y="240">raylea-server</text>
+  <text class="section-sub" x="516" y="266">管理面 · 事件主链 · 插件子系统 · 平台能力 · 出站</text>
+  <text class="legend" x="2290" y="266" text-anchor="end">单二进制 · 带子命令即进入 CLI 模式</text>
+
+  <rect class="lane" x="508" y="282" width="1780" height="182" rx="14"/>
+  <text class="lane-label" x="526" y="306">MANAGEMENT PLANE · 管理面</text>
+
+  <rect class="card-blue" x="540" y="320" width="336" height="132" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="708" y="346" text-anchor="middle">HTTP API</text>
+  <text class="module-text" x="708" y="368" text-anchor="middle">领域路由</text>
+  <text class="module-text" x="708" y="398" text-anchor="middle">auth · config · plugins</text>
+  <text class="module-text" x="708" y="416" text-anchor="middle">tasks · logs · system</text>
+  <text class="module-text" x="708" y="434" text-anchor="middle">governance · render · scheduler</text>
+
+  <rect class="card-blue" x="886" y="320" width="336" height="132" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1054" y="346" text-anchor="middle">管理 WebSocket</text>
+  <text class="module-text" x="1054" y="368" text-anchor="middle">实时通道</text>
+  <rect class="chip-blue" x="902" y="380" width="148" height="22" rx="5"/>
+  <text class="chip-title" x="976" y="396" text-anchor="middle">events_ws</text>
+  <rect class="chip-blue" x="1056" y="380" width="148" height="22" rx="5"/>
+  <text class="chip-title" x="1130" y="396" text-anchor="middle">tasks_ws</text>
+  <rect class="chip-blue" x="902" y="408" width="148" height="22" rx="5"/>
+  <text class="chip-title" x="976" y="424" text-anchor="middle">logs_ws</text>
+  <rect class="chip-blue" x="1056" y="408" width="148" height="22" rx="5"/>
+  <text class="chip-title" x="1130" y="424" text-anchor="middle">console_ws</text>
+
+  <rect class="card-blue" x="1232" y="320" width="336" height="132" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1400" y="346" text-anchor="middle">Auth &amp; 会话</text>
+  <text class="module-text" x="1400" y="368" text-anchor="middle">登录鉴权 · 会话密钥</text>
+  <text class="module-text" x="1400" y="394" text-anchor="middle">login · 失败限速</text>
+  <text class="module-text" x="1400" y="414" text-anchor="middle">会话签名 HMAC-SHA256</text>
+  <text class="module-text" x="1400" y="434" text-anchor="middle">bootstrap 初始密码</text>
+
+  <rect class="card-blue" x="1578" y="320" width="336" height="132" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1746" y="346" text-anchor="middle">Tasks 通道</text>
+  <text class="module-text" x="1746" y="368" text-anchor="middle">异步任务订阅</text>
+  <text class="module-text" x="1746" y="394" text-anchor="middle">install · backup · restore</text>
+  <text class="module-text" x="1746" y="414" text-anchor="middle">migrate · recovery</text>
+  <text class="module-text" x="1746" y="434" text-anchor="middle">进度 + 终态推送</text>
+
+  <rect class="card-blue" x="1924" y="320" width="336" height="132" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="2092" y="346" text-anchor="middle">Logs 通道</text>
+  <text class="module-text" x="2092" y="368" text-anchor="middle">结构化日志流</text>
+  <text class="module-text" x="2092" y="394" text-anchor="middle">spool · replay · live</text>
+  <text class="module-text" x="2092" y="414" text-anchor="middle">按插件 / 来源筛选</text>
+  <text class="module-text" x="2092" y="434" text-anchor="middle">redact 脱敏输出</text>
+
+  <rect class="lane" x="508" y="478" width="1780" height="286" rx="14"/>
+  <text class="lane-label" x="526" y="502">EVENT FLOW · 事件主链</text>
+
+  <rect class="card-emerald" x="540" y="516" width="406" height="232" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="743" y="542" text-anchor="middle">Adapter Shell</text>
+  <text class="module-sub" x="558" y="568">Transport</text>
+  <rect class="chip-emerald" x="558" y="578" width="178" height="22" rx="5"/>
+  <text class="chip-title" x="647" y="594" text-anchor="middle">forward_ws</text>
+  <rect class="chip-emerald" x="744" y="578" width="178" height="22" rx="5"/>
+  <text class="chip-title" x="833" y="594" text-anchor="middle">reverse_ws</text>
+  <rect class="chip-emerald" x="558" y="606" width="178" height="22" rx="5"/>
+  <text class="chip-title" x="647" y="622" text-anchor="middle">webhook</text>
+  <rect class="chip-emerald" x="744" y="606" width="178" height="22" rx="5"/>
+  <text class="chip-title" x="833" y="622" text-anchor="middle">http_api</text>
+  <text class="module-sub" x="558" y="656">Normalizer</text>
+  <text class="module-text" x="558" y="675">25 个归一化事件（详见底部事件表）</text>
+  <text class="module-sub" x="558" y="702">Echo &amp; State</text>
+  <text class="module-text" x="558" y="721">echo 等待表 · target display · 事件去重</text>
+  <text class="module-text" x="558" y="739">access_token 校验 · 状态快照</text>
+
+  <rect class="card-violet" x="962" y="516" width="406" height="232" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1165" y="542" text-anchor="middle">Event Ingress</text>
+  <text class="module-text" x="1165" y="562" text-anchor="middle">命令解析 · 聊天治理 · 内置菜单</text>
+  <rect class="chip-violet" x="978" y="580" width="186" height="24" rx="5"/>
+  <text class="chip-title" x="1071" y="597" text-anchor="middle">a. 元数据 enrich</text>
+  <rect class="chip-violet" x="1170" y="580" width="186" height="24" rx="5"/>
+  <text class="chip-title" x="1263" y="597" text-anchor="middle">b. 命令前缀解析</text>
+  <rect class="chip-violet" x="978" y="610" width="186" height="24" rx="5"/>
+  <text class="chip-title" x="1071" y="627" text-anchor="middle">c. 黑/白/权/冷裁决</text>
+  <rect class="chip-violet" x="1170" y="610" width="186" height="24" rx="5"/>
+  <text class="chip-title" x="1263" y="627" text-anchor="middle">d. Reply target cache</text>
+  <text class="module-sub" x="978" y="666">内置菜单</text>
+  <text class="module-text" x="978" y="684">help.menu 由平台直接渲染发送（不进插件）</text>
+  <text class="module-text" x="978" y="702">冷却短提示走同一条 Outbound 链路</text>
+  <text class="module-sub" x="978" y="724">Ready 协调</text>
+  <text class="module-text" x="978" y="742">adapter 未 ready 时事件不向 Bridge 推进</text>
+
+  <rect class="card-violet" x="1384" y="516" width="406" height="232" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1587" y="542" text-anchor="middle">Bridge</text>
+  <text class="module-text" x="1587" y="562" text-anchor="middle">统一事件桥接与观测</text>
+  <text class="module-sub" x="1400" y="592">形状校验</text>
+  <text class="module-text" x="1400" y="611">缺字段 · 类型不匹配 · 未注册类型 → 拒绝</text>
+  <text class="module-sub" x="1400" y="640">桥接观测 4 状态</text>
+  <rect class="chip-emerald" x="1400" y="652" width="180" height="22" rx="5"/>
+  <text class="chip-title" x="1490" y="668" text-anchor="middle">delivered</text>
+  <rect class="chip-slate" x="1592" y="652" width="180" height="22" rx="5"/>
+  <text class="chip-title" x="1682" y="668" text-anchor="middle">ignored</text>
+  <rect class="chip-amber" x="1400" y="680" width="180" height="22" rx="5"/>
+  <text class="chip-title" x="1490" y="696" text-anchor="middle">rejected</text>
+  <rect class="chip-rose" x="1592" y="680" width="180" height="22" rx="5"/>
+  <text class="chip-title" x="1682" y="696" text-anchor="middle">error</text>
+  <text class="module-text" x="1587" y="728" text-anchor="middle">平台内部事件可绕过 Bridge 直入 Dispatcher：</text>
+  <text class="module-text" x="1587" y="746" text-anchor="middle">scheduler.trigger · webhook.received · config.changed</text>
+
+  <rect class="card-violet" x="1806" y="516" width="454" height="232" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="2033" y="542" text-anchor="middle">Dispatcher</text>
+  <text class="module-text" x="2033" y="562" text-anchor="middle">目标选择 · 队列 · fan-out · 出站出口</text>
+  <text class="module-sub" x="1822" y="592">目标选择</text>
+  <text class="module-text" x="1822" y="611">命令匹配 ⇒ 订阅匹配 ⇒ `*` fallback</text>
+  <text class="module-sub" x="1822" y="640">Per-plugin 队列</text>
+  <text class="module-text" x="1822" y="659">仅向 running 插件投递 · 队列满丢弃并记录</text>
+  <text class="module-sub" x="1822" y="688">Lane 划分</text>
+  <text class="module-text" x="1822" y="707">同 event.target 串行 · 不同 target 并发</text>
+  <text class="module-sub" x="1822" y="730">出站出口</text>
+  <text class="module-text" x="1822" y="746">能力检查后执行插件返回的出站 action</text>
+
+
+  <rect class="lane" x="508" y="778" width="1780" height="286" rx="14"/>
+  <text class="lane-label" x="526" y="802">PLUGIN SUBSYSTEM · 插件子系统</text>
+
+  <rect class="card-violet" x="540" y="816" width="560" height="100" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="820" y="842" text-anchor="middle">Plugin Catalog</text>
+  <rect class="chip-violet" x="560" y="856" width="104" height="22" rx="5"/>
+  <text class="chip-title" x="612" y="872" text-anchor="middle">discovery</text>
+  <rect class="chip-violet" x="670" y="856" width="88" height="22" rx="5"/>
+  <text class="chip-title" x="714" y="872" text-anchor="middle">install</text>
+  <rect class="chip-violet" x="764" y="856" width="96" height="22" rx="5"/>
+  <text class="chip-title" x="812" y="872" text-anchor="middle">uninstall</text>
+  <rect class="chip-violet" x="866" y="856" width="100" height="22" rx="5"/>
+  <text class="chip-title" x="916" y="872" text-anchor="middle">manifest</text>
+  <rect class="chip-violet" x="972" y="856" width="108" height="22" rx="5"/>
+  <text class="chip-title" x="1026" y="872" text-anchor="middle">grants</text>
+  <text class="module-text" x="820" y="902" text-anchor="middle">desired-state：enabled / disabled ·  registration：installed / removed</text>
+
+  <rect class="card-violet" x="1120" y="816" width="560" height="100" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1400" y="842" text-anchor="middle">Lifecycle Controller</text>
+  <rect class="chip-violet" x="1140" y="856" width="108" height="22" rx="5"/>
+  <text class="chip-title" x="1194" y="872" text-anchor="middle">start · stop</text>
+  <rect class="chip-violet" x="1254" y="856" width="88" height="22" rx="5"/>
+  <text class="chip-title" x="1298" y="872" text-anchor="middle">reload</text>
+  <rect class="chip-violet" x="1348" y="856" width="132" height="22" rx="5"/>
+  <text class="chip-title" x="1414" y="872" text-anchor="middle">crash recovery</text>
+  <rect class="chip-violet" x="1486" y="856" width="170" height="22" rx="5"/>
+  <text class="chip-title" x="1571" y="872" text-anchor="middle">Dispatcher 注册</text>
+  <text class="module-text" x="1400" y="902" text-anchor="middle">backoff 受控重启 · 超阈值进入 dead_letter</text>
+
+  <rect class="card-violet" x="1700" y="816" width="560" height="100" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1980" y="842" text-anchor="middle">Runtime Registry</text>
+  <text class="module-text" x="1980" y="864" text-anchor="middle">维护多个 Runtime Manager 实例</text>
+  <rect class="chip-violet" x="1720" y="876" width="172" height="22" rx="5"/>
+  <text class="chip-title" x="1806" y="892" text-anchor="middle">per-plugin map</text>
+  <rect class="chip-violet" x="1900" y="876" width="172" height="22" rx="5"/>
+  <text class="chip-title" x="1986" y="892" text-anchor="middle">desired-state 同步</text>
+  <text class="module-text" x="1980" y="909" text-anchor="middle">按 plugin_id 查询与遍历</text>
+
+  <rect class="card-rose" x="556" y="956" width="28" height="92" rx="8" opacity="0.35"/>
+  <rect class="card-rose" x="548" y="950" width="28" height="92" rx="8" opacity="0.55"/>
+  <rect class="card-rose" x="540" y="944" width="560" height="104" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="820" y="970" text-anchor="middle">Runtime Manager × N</text>
+  <text class="module-text" x="820" y="988" text-anchor="middle">每插件一个 · 子进程握手 · ping 保活 · 崩溃回收</text>
+  <rect class="chip-rose" x="566" y="1004" width="68" height="22" rx="5"/>
+  <text class="chip-title" x="600" y="1020" text-anchor="middle">event</text>
+  <rect class="chip-rose" x="642" y="1004" width="68" height="22" rx="5"/>
+  <text class="chip-title" x="676" y="1020" text-anchor="middle">result</text>
+  <rect class="chip-rose" x="718" y="1004" width="68" height="22" rx="5"/>
+  <text class="chip-title" x="752" y="1020" text-anchor="middle">action</text>
+  <rect class="chip-rose" x="794" y="1004" width="68" height="22" rx="5"/>
+  <text class="chip-title" x="828" y="1020" text-anchor="middle">error</text>
+  <rect class="chip-rose" x="870" y="1004" width="68" height="22" rx="5"/>
+  <text class="chip-title" x="904" y="1020" text-anchor="middle">ping / pong</text>
+  <rect class="chip-rose" x="946" y="1004" width="72" height="22" rx="5"/>
+  <text class="chip-title" x="982" y="1020" text-anchor="middle">init · shutdown</text>
+  <rect class="chip-slate" x="1026" y="1004" width="60" height="22" rx="5"/>
+  <text class="chip-title" x="1056" y="1020" text-anchor="middle">JSONL</text>
+  <text class="module-text" x="820" y="1040" text-anchor="middle" style="font-style:italic;">只通过 Local Action Service 访问平台能力</text>
+
+  <rect class="card-rose" x="1120" y="944" width="214" height="104" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1227" y="970" text-anchor="middle">插件进程</text>
+  <text class="module-text" x="1227" y="990" text-anchor="middle">独立子进程</text>
+  <text class="module-text" x="1227" y="1008" text-anchor="middle">stdin / stdout · JSONL</text>
+  <text class="module-text" x="1227" y="1026" text-anchor="middle">Python · Node.js</text>
+  <text class="module-text" x="1227" y="1044" text-anchor="middle" style="font-style:italic;">不直读 config / 数据库</text>
+
+  <rect class="card-rose" x="1354" y="944" width="460" height="104" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1584" y="970" text-anchor="middle">Plugin Webhook Service</text>
+  <text class="module-text" x="1584" y="990" text-anchor="middle">暴露外部 HTTP webhook · 按需拉起目标插件</text>
+  <rect class="chip-rose" x="1374" y="1002" width="100" height="22" rx="5"/>
+  <text class="chip-title" x="1424" y="1018" text-anchor="middle">route</text>
+  <rect class="chip-rose" x="1480" y="1002" width="100" height="22" rx="5"/>
+  <text class="chip-title" x="1530" y="1018" text-anchor="middle">token</text>
+  <rect class="chip-rose" x="1586" y="1002" width="100" height="22" rx="5"/>
+  <text class="chip-title" x="1636" y="1018" text-anchor="middle">HMAC</text>
+  <rect class="chip-rose" x="1692" y="1002" width="108" height="22" rx="5"/>
+  <text class="chip-title" x="1746" y="1018" text-anchor="middle">按需拉起</text>
+  <text class="module-text" x="1584" y="1040" text-anchor="middle">投递 webhook.received 直入 Dispatcher</text>
+
+  <rect class="card-slate" x="1834" y="944" width="426" height="104" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-sub" x="2047" y="968" text-anchor="middle">Runtime 状态机（详见底部）</text>
+  <text class="module-text" x="2047" y="990" text-anchor="middle">stopped → starting → running</text>
+  <text class="module-text" x="2047" y="1010" text-anchor="middle">running → stopping → stopped</text>
+  <text class="module-text" x="2047" y="1030" text-anchor="middle">crashed → backoff → starting</text>
+  <text class="module-text" x="2047" y="1046" text-anchor="middle" style="font-style:italic;">超阈值 → dead_letter</text>
+
+  <rect class="lane" x="508" y="1078" width="1780" height="222" rx="14"/>
+  <text class="lane-label" x="526" y="1102">PLATFORM CAPABILITIES · 平台能力（经 Local Action Service 受控访问）</text>
+
+  <rect class="card-gateway" x="540" y="1116" width="1720" height="50" rx="10" filter="url(#card-shadow)"/>
+  <text class="gateway-title" x="1400" y="1140" text-anchor="middle">Local Action Service  ·  唯一平台能力网关</text>
+  <text class="gateway-sub" x="1400" y="1158" text-anchor="middle">capability gateway · scope 校验 · 结构化错误 · 插件访问平台能力的唯一入口</text>
+
+  <rect class="card-emerald" x="540" y="1180" width="416" height="50" rx="8"/>
+  <text class="chip-title" x="556" y="1206">Render</text>
+  <text class="module-text" x="556" y="1222">模板渲染 · artifact</text>
+  <text class="chip-mono" x="940" y="1212" text-anchor="end">render.image</text>
+
+  <rect class="card-emerald" x="968" y="1180" width="416" height="50" rx="8"/>
+  <text class="chip-title" x="984" y="1206">Storage</text>
+  <text class="module-text" x="984" y="1222">KV · 文件沙箱</text>
+  <text class="chip-mono" x="1368" y="1212" text-anchor="end">storage.kv  ·  storage.file</text>
+
+  <rect class="card-emerald" x="1396" y="1180" width="416" height="50" rx="8"/>
+  <text class="chip-title" x="1412" y="1206">Secrets</text>
+  <text class="module-text" x="1412" y="1222">插件自身命名空间</text>
+  <text class="chip-mono" x="1796" y="1212" text-anchor="end">secret.read</text>
+
+  <rect class="card-emerald" x="1824" y="1180" width="436" height="50" rx="8"/>
+  <text class="chip-title" x="1840" y="1206">HTTP Request</text>
+  <text class="module-text" x="1840" y="1222">host-allowlist</text>
+  <text class="chip-mono" x="2244" y="1212" text-anchor="end">http.request</text>
+
+  <rect class="card-amber" x="540" y="1242" width="416" height="50" rx="8"/>
+  <text class="chip-title" x="556" y="1268">Scheduler</text>
+  <text class="module-text" x="556" y="1284">cron · 一次性触发</text>
+  <text class="chip-mono" x="940" y="1274" text-anchor="end">scheduler.create</text>
+
+  <rect class="card-amber" x="968" y="1242" width="416" height="50" rx="8"/>
+  <text class="chip-title" x="984" y="1268">Governance</text>
+  <text class="module-text" x="984" y="1284">黑白名单 · 命令策略读取</text>
+  <text class="chip-mono" x="1368" y="1274" text-anchor="end">governance.{blacklist,whitelist,command_policy}.*</text>
+
+  <rect class="card-amber" x="1396" y="1242" width="416" height="50" rx="8"/>
+  <text class="chip-title" x="1412" y="1268">Logger · Tasks</text>
+  <text class="module-text" x="1412" y="1284">结构化写入 · 后台执行器</text>
+  <text class="chip-mono" x="1796" y="1274" text-anchor="end">logger.write  ·  plugin.list</text>
+
+  <rect class="card-blue" x="1824" y="1242" width="436" height="50" rx="8"/>
+  <text class="chip-title" x="1840" y="1268">OneBot Extension</text>
+  <text class="module-text" x="1840" y="1284">generic action · provider 扩展</text>
+  <text class="chip-mono" x="2244" y="1274" text-anchor="end">onebot.* · provider.*</text>
+
+  <rect class="lane" x="508" y="1314" width="1780" height="142" rx="14"/>
+  <text class="lane-label" x="526" y="1338">OUTBOUND · 出站</text>
+
+  <rect class="card-amber" x="540" y="1356" width="816" height="86" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="948" y="1386" text-anchor="middle">Outbound</text>
+  <text class="module-text" x="948" y="1408" text-anchor="middle">按插件 × 目标维护出站队列</text>
+  <text class="module-text" x="948" y="1426" text-anchor="middle">rate-limit · 冷却提示 · 失败重试</text>
+
+  <rect class="card-emerald" x="1372" y="1356" width="888" height="86" rx="10" filter="url(#card-shadow)"/>
+  <text class="module-title" x="1816" y="1386" text-anchor="middle">Adapter Send</text>
+  <text class="module-text" x="1816" y="1408" text-anchor="middle">WS forward / reverse · http_api 回退 · reply target cache</text>
+  <text class="module-text" x="1816" y="1426" text-anchor="middle">message segments → send_msg 参数 · echo 等待回填</text>
+
+  <rect class="panel" x="2328" y="200" width="392" height="1270" rx="18" filter="url(#soft-shadow)"/>
+  <text class="section-title" x="2356" y="240">运行资源</text>
+  <text class="section-sub" x="2356" y="266">配置 · 状态 · 缓存 · 日志 · 模板 · 插件 · 依赖</text>
+
+  <rect class="card-amber" x="2348" y="288" width="352" height="96" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="314" text-anchor="middle">config/</text>
+  <rect class="chip" x="2368" y="326" width="156" height="24" rx="5"/>
+  <text class="chip-title" x="2446" y="342" text-anchor="middle">default.yaml</text>
+  <rect class="chip" x="2532" y="326" width="156" height="24" rx="5"/>
+  <text class="chip-title" x="2610" y="342" text-anchor="middle">user.yaml</text>
+  <text class="resource-text" x="2524" y="368" text-anchor="middle">Config 模块合并与裁决</text>
+
+  <rect class="card-emerald" x="2348" y="398" width="352" height="232" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="424" text-anchor="middle">SQLite（嵌入 migrations · sqlc）</text>
+  <rect class="chip-emerald" x="2368" y="438" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2446" y="454" text-anchor="middle">auth_core</text>
+  <rect class="chip-emerald" x="2532" y="438" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2610" y="454" text-anchor="middle">plugin_instances</text>
+  <rect class="chip-emerald" x="2368" y="466" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2446" y="482" text-anchor="middle">plugin_packages</text>
+  <rect class="chip-emerald" x="2532" y="466" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2610" y="482" text-anchor="middle">plugin_grants</text>
+  <rect class="chip-emerald" x="2368" y="494" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2446" y="510" text-anchor="middle">tasks</text>
+  <rect class="chip-emerald" x="2532" y="494" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2610" y="510" text-anchor="middle">scheduler</text>
+  <rect class="chip-emerald" x="2368" y="522" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2446" y="538" text-anchor="middle">management_logs</text>
+  <rect class="chip-emerald" x="2532" y="522" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2610" y="538" text-anchor="middle">secret_store</text>
+  <text class="resource-text" x="2524" y="568" text-anchor="middle">modernc.org/sqlite 纯 Go 驱动</text>
+  <text class="resource-text" x="2524" y="586" text-anchor="middle">迁移 0001..NNNN 嵌入二进制</text>
+  <text class="resource-text" x="2524" y="604" text-anchor="middle">查询经 sqlc 生成入口</text>
+  <text class="resource-text" x="2524" y="622" text-anchor="middle" style="font-style:italic;">唯一正式状态库</text>
+
+  <rect class="card-emerald" x="2348" y="644" width="352" height="72" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="670" text-anchor="middle">data/</text>
+  <text class="resource-text" x="2524" y="690" text-anchor="middle">状态库根 · 插件业务数据沙箱</text>
+  <text class="resource-text" x="2524" y="708" text-anchor="middle">备份元数据</text>
+
+  <rect class="card-slate" x="2348" y="730" width="352" height="64" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="756" text-anchor="middle">cache/</text>
+  <text class="resource-text" x="2524" y="776" text-anchor="middle">渲染缓存 · 下载缓存 · 插件临时缓存</text>
+
+  <rect class="card-slate" x="2348" y="808" width="352" height="80" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="834" text-anchor="middle">logs/</text>
+  <text class="resource-text" x="2524" y="854" text-anchor="middle">结构化 JSON · spool 文件</text>
+  <text class="resource-text" x="2524" y="872" text-anchor="middle">诊断输出 · redact 脱敏</text>
+
+  <rect class="card-rose" x="2348" y="902" width="352" height="80" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="928" text-anchor="middle">templates/</text>
+  <text class="resource-text" x="2524" y="948" text-anchor="middle">模板版本目录</text>
+  <text class="resource-text" x="2524" y="966" text-anchor="middle">artifacts/（渲染产物）</text>
+
+  <rect class="card-violet" x="2348" y="996" width="352" height="80" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="1022" text-anchor="middle">plugins/installed/</text>
+  <text class="resource-text" x="2524" y="1042" text-anchor="middle">每插件目录 · Web UI 静态资源</text>
+  <text class="resource-text" x="2524" y="1060" text-anchor="middle">每插件数据沙箱</text>
+
+  <rect class="card-slate" x="2348" y="1090" width="352" height="102" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="1116" text-anchor="middle">.deps/</text>
+  <rect class="chip" x="2368" y="1128" width="100" height="22" rx="5"/>
+  <text class="chip-title" x="2418" y="1144" text-anchor="middle">Chromium</text>
+  <rect class="chip" x="2476" y="1128" width="86" height="22" rx="5"/>
+  <text class="chip-title" x="2519" y="1144" text-anchor="middle">Python</text>
+  <rect class="chip" x="2570" y="1128" width="80" height="22" rx="5"/>
+  <text class="chip-title" x="2610" y="1144" text-anchor="middle">Node.js</text>
+  <rect class="chip" x="2658" y="1128" width="38" height="22" rx="5"/>
+  <text class="chip-title" x="2677" y="1144" text-anchor="middle">SDK</text>
+  <text class="resource-text" x="2524" y="1172" text-anchor="middle">deps 模块统一解析入口</text>
+  <text class="resource-text" x="2524" y="1188" text-anchor="middle" style="font-style:italic;">cache/downloads/runtime/ → .deps/store/</text>
+
+  <rect class="card-slate" x="2348" y="1206" width="352" height="104" rx="10" filter="url(#card-shadow)"/>
+  <text class="resource-title" x="2524" y="1232" text-anchor="middle">内嵌 · 跨 swimlane 服务</text>
+  <rect class="chip" x="2368" y="1244" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2446" y="1260" text-anchor="middle">Recovery</text>
+  <rect class="chip" x="2532" y="1244" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2610" y="1260" text-anchor="middle">Health / readiness</text>
+  <rect class="chip" x="2368" y="1272" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2446" y="1288" text-anchor="middle">Redact · TextSafe</text>
+  <rect class="chip" x="2532" y="1272" width="156" height="22" rx="5"/>
+  <text class="chip-title" x="2610" y="1288" text-anchor="middle">Console stream</text>
+
+
+  <rect class="panel" x="80" y="1494" width="2640" height="224" rx="18" filter="url(#soft-shadow)"/>
+  <text class="panel-title" x="108" y="1528">OneBot11 归一化事件 · 共 25 项</text>
+  <text class="panel-sub" x="108" y="1550">统一字段：message_id · conversation_id · group_id · user_id    |    OneBot 原生字段：event.payload.onebot</text>
+
+  <text class="col-header" x="108" y="1584">MESSAGE · 4</text>
+  <rect class="chip-blue" x="108" y="1596" width="246" height="24" rx="5"/>
+  <text class="chip-title" x="231" y="1612" text-anchor="middle">message.private</text>
+  <rect class="chip-blue" x="108" y="1626" width="246" height="24" rx="5"/>
+  <text class="chip-title" x="231" y="1642" text-anchor="middle">message.group</text>
+  <rect class="chip-blue" x="108" y="1656" width="246" height="24" rx="5"/>
+  <text class="chip-title" x="231" y="1672" text-anchor="middle">message_sent.private</text>
+  <rect class="chip-blue" x="108" y="1686" width="246" height="24" rx="5"/>
+  <text class="chip-title" x="231" y="1702" text-anchor="middle">message_sent.group</text>
+
+  <text class="col-header" x="386" y="1584">NOTICE · 17</text>
+  <rect class="chip-amber" x="386" y="1596" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="502" y="1612" text-anchor="middle">notice.member_increase</text>
+  <rect class="chip-amber" x="626" y="1596" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="742" y="1612" text-anchor="middle">notice.member_decrease</text>
+  <rect class="chip-amber" x="866" y="1596" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="982" y="1612" text-anchor="middle">notice.group_admin</text>
+  <rect class="chip-amber" x="1106" y="1596" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="1222" y="1612" text-anchor="middle">notice.group_ban</text>
+  <rect class="chip-amber" x="1346" y="1596" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="1462" y="1612" text-anchor="middle">notice.group_recall</text>
+  <rect class="chip-amber" x="1586" y="1596" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="1702" y="1612" text-anchor="middle">notice.group_upload</text>
+
+  <rect class="chip-amber" x="386" y="1626" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="502" y="1642" text-anchor="middle">notice.group_card</text>
+  <rect class="chip-amber" x="626" y="1626" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="742" y="1642" text-anchor="middle">notice.group_title</text>
+  <rect class="chip-amber" x="866" y="1626" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="982" y="1642" text-anchor="middle">notice.group_essence</text>
+  <rect class="chip-amber" x="1106" y="1626" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="1222" y="1642" text-anchor="middle">notice.friend_add</text>
+  <rect class="chip-amber" x="1346" y="1626" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="1462" y="1642" text-anchor="middle">notice.friend_recall</text>
+  <rect class="chip-amber" x="1586" y="1626" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="1702" y="1642" text-anchor="middle">notice.flash_file</text>
+
+  <rect class="chip-amber" x="386" y="1656" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="502" y="1672" text-anchor="middle">notice.poke</text>
+  <rect class="chip-amber" x="626" y="1656" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="742" y="1672" text-anchor="middle">notice.poke_recall</text>
+  <rect class="chip-amber" x="866" y="1656" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="982" y="1672" text-anchor="middle">notice.profile_like</text>
+  <rect class="chip-amber" x="1106" y="1656" width="232" height="24" rx="5"/>
+  <text class="chip-title" x="1222" y="1672" text-anchor="middle">notice.input_status</text>
+  <rect class="chip-amber" x="1346" y="1656" width="472" height="24" rx="5"/>
+  <text class="chip-title" x="1582" y="1672" text-anchor="middle">notice.group_message_emoji_like</text>
+
+  <text class="col-header" x="1854" y="1584">REQUEST · 2</text>
+  <rect class="chip-rose" x="1854" y="1596" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="1974" y="1612" text-anchor="middle">request.friend</text>
+  <rect class="chip-rose" x="1854" y="1626" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="1974" y="1642" text-anchor="middle">request.group</text>
+
+  <text class="col-header" x="2114" y="1584">META · 2</text>
+  <rect class="chip-slate" x="2114" y="1596" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="2234" y="1612" text-anchor="middle">meta.heartbeat</text>
+  <rect class="chip-slate" x="2114" y="1626" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="2234" y="1642" text-anchor="middle">meta.lifecycle</text>
+
+  <text class="col-header" x="2374" y="1584">PLATFORM INTERNAL · 4</text>
+  <rect class="chip-violet" x="2374" y="1596" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="2494" y="1612" text-anchor="middle">scheduler.trigger</text>
+  <rect class="chip-violet" x="2374" y="1626" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="2494" y="1642" text-anchor="middle">webhook.received</text>
+  <rect class="chip-violet" x="2374" y="1656" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="2494" y="1672" text-anchor="middle">config.changed</text>
+  <rect class="chip-violet" x="2374" y="1686" width="240" height="24" rx="5"/>
+  <text class="chip-title" x="2494" y="1702" text-anchor="middle">bot.identity.changed</text>
+
+  <text class="resource-text" x="1854" y="1688">心跳与生命周期同时作为 adapter 连接状态信号与正式事件投递</text>
+
+  <rect class="panel" x="80" y="1738" width="2640" height="220" rx="18" filter="url(#soft-shadow)"/>
+  <text class="panel-title" x="108" y="1770">核心状态机 · 正式枚举以 contracts/ 与 state-model.md 为准</text>
+
+  <text class="col-header" x="108" y="1800">① PLUGIN RUNTIME · 7 态</text>
+  <g transform="translate(108 1816)">
+    <rect class="chip-slate" x="0" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="41" y="17" text-anchor="middle">stopped</text>
+    <path class="arrow-state" d="M 82 13 L 100 13"/>
+    <rect class="chip-violet" x="100" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="141" y="17" text-anchor="middle">starting</text>
+    <path class="arrow-state" d="M 182 13 L 200 13"/>
+    <rect class="chip-emerald" x="200" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="241" y="17" text-anchor="middle">running</text>
+    <path class="arrow-state" d="M 282 13 L 300 13"/>
+    <rect class="chip-amber" x="300" y="0" width="88" height="26" rx="6"/>
+    <text class="state-text" x="344" y="17" text-anchor="middle">stopping</text>
+    <path class="arrow-state" d="M 388 13 L 408 13 L 408 -18 L 41 -18 L 41 0"/>
+
+    <path class="arrow-state-dashed" d="M 241 26 L 241 46 L 478 46 L 478 26"/>
+    <rect class="chip-rose" x="440" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="481" y="17" text-anchor="middle">crashed</text>
+    <path class="arrow-state" d="M 522 13 L 540 13"/>
+    <rect class="chip-rose" x="540" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="581" y="17" text-anchor="middle">backoff</text>
+    <path class="arrow-state" d="M 622 13 L 641 13 L 641 -12 L 141 -12"/>
+    <path class="arrow-state-dashed" d="M 481 26 L 481 56 L 700 56 L 700 26"/>
+    <rect class="chip-slate" x="660" y="0" width="98" height="26" rx="6"/>
+    <text class="state-text" x="709" y="17" text-anchor="middle">dead_letter</text>
+  </g>
+
+  <text class="col-header" x="880" y="1800">② TASKS · 6 态</text>
+  <g transform="translate(880 1816)">
+    <rect class="chip-slate" x="0" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="41" y="17" text-anchor="middle">pending</text>
+    <path class="arrow-state" d="M 82 13 L 100 13"/>
+    <rect class="chip-violet" x="100" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="141" y="17" text-anchor="middle">running</text>
+    <path class="arrow-state" d="M 182 13 L 200 13"/>
+    <rect class="chip-emerald" x="200" y="0" width="92" height="26" rx="6"/>
+    <text class="state-text" x="246" y="17" text-anchor="middle">succeeded</text>
+
+    <path class="arrow-state-dashed" d="M 141 26 L 141 50 L 340 50 L 340 26"/>
+    <rect class="chip-rose" x="300" y="0" width="82" height="26" rx="6"/>
+    <text class="state-text" x="341" y="17" text-anchor="middle">failed</text>
+
+    <path class="arrow-state-dashed" d="M 141 -6 L 141 -22 L 440 -22 L 440 0"/>
+    <rect class="chip-slate" x="400" y="0" width="92" height="26" rx="6"/>
+    <text class="state-text" x="446" y="17" text-anchor="middle">cancelled</text>
+
+    <path class="arrow-state-dashed" d="M 141 6 L 141 68 L 548 68 L 548 26"/>
+    <rect class="chip-amber" x="510" y="0" width="98" height="26" rx="6"/>
+    <text class="state-text" x="559" y="17" text-anchor="middle">interrupted</text>
+  </g>
+
+  <text class="col-header" x="1550" y="1800">③ ONEBOT TRANSPORT</text>
+  <g transform="translate(1550 1816)">
+    <rect class="chip-slate" x="0" y="0" width="108" height="26" rx="6"/>
+    <text class="state-text" x="54" y="17" text-anchor="middle">configured</text>
+    <path class="arrow-state" d="M 108 13 L 126 13"/>
+    <rect class="chip-blue" x="126" y="0" width="108" height="26" rx="6"/>
+    <text class="state-text" x="180" y="17" text-anchor="middle">active</text>
+    <path class="arrow-state" d="M 234 13 L 252 13"/>
+    <rect class="chip-emerald" x="252" y="0" width="172" height="26" rx="6"/>
+    <text class="state-text" x="338" y="17" text-anchor="middle">transport_status · 健康/异常</text>
+    <path class="arrow-state" d="M 424 13 L 442 13"/>
+    <rect class="chip-emerald" x="442" y="0" width="172" height="26" rx="6"/>
+    <text class="state-text" x="528" y="17" text-anchor="middle">readiness · ready / degraded</text>
+  </g>
+
+  <text class="col-header" x="108" y="1890">状态轨迹说明</text>
+  <text class="resource-text" x="108" y="1910">· Plugin Runtime：stopped → starting → running → stopping → stopped</text>
+  <text class="resource-text" x="108" y="1928">· 异常恢复：crashed → backoff → starting；超阈值进入 dead_letter</text>
+  <text class="resource-text" x="108" y="1946">· Tasks：服务重启中断的任务落在 interrupted</text>
+  <text class="resource-text" x="1200" y="1910">· OneBot Transport readiness_status：ready / degraded / failed / setup_required</text>
+  <text class="resource-text" x="1200" y="1928">· active_transports 不压缩为单值，WS / HTTP / webhook 可同时处于激活</text>
+  <text class="resource-text" x="1200" y="1946">· adapter 聚合状态：idle / connecting / connected / auth_failed / reconnecting / stopped</text>
+
+
+  <path class="arrow-main" d="M 448 396 L 540 396"/>
+  <text class="label-bold" x="492" y="384" text-anchor="middle">管理请求</text>
+  <circle class="badge-circle" cx="492" cy="412" r="13"/>
+  <text class="badge-text" x="492" y="417" text-anchor="middle">1</text>
+
+  <path class="arrow-main" d="M 448 548 C 478 548, 504 580, 540 620"/>
+  <text class="label-bold" x="452" y="538">OneBot11 入站</text>
+  <circle class="badge-circle" cx="492" cy="588" r="13"/>
+  <text class="badge-text" x="492" y="593" text-anchor="middle">2</text>
+
+  <path class="arrow-main" d="M 946 632 L 962 632"/>
+  <circle class="badge-circle" cx="954" cy="610" r="13"/>
+  <text class="badge-text" x="954" y="615" text-anchor="middle">3</text>
+
+  <path class="arrow-main" d="M 1368 632 L 1384 632"/>
+  <circle class="badge-circle" cx="1376" cy="610" r="13"/>
+  <text class="badge-text" x="1376" y="615" text-anchor="middle">4</text>
+
+  <path class="arrow-main" d="M 1790 632 L 1806 632"/>
+  <circle class="badge-circle" cx="1798" cy="610" r="13"/>
+  <text class="badge-text" x="1798" y="615" text-anchor="middle">5</text>
+
+  <path class="arrow-main" d="M 2033 748 L 2033 792 L 1690 792 L 1690 932 L 830 932 L 830 944"/>
+  <text class="label-bold" x="1560" y="784" text-anchor="middle">event.target 队列 · per-plugin lane</text>
+  <circle class="badge-circle" cx="1690" cy="862" r="13"/>
+  <text class="badge-text" x="1690" y="867" text-anchor="middle">6</text>
+
+  <path class="arrow-main" d="M 1086 996 L 1120 996"/>
+  <text class="label" x="1103" y="984" text-anchor="middle">event</text>
+  <circle class="badge-circle" cx="1103" cy="1006" r="12"/>
+  <text class="badge-text" x="1103" y="1010" text-anchor="middle">7</text>
+
+  <path class="arrow-dim" d="M 1120 1022 L 1086 1022"/>
+  <text class="label" x="1103" y="1052" text-anchor="middle">result / action · JSONL</text>
+  <circle class="badge-circle" cx="1103" cy="1032" r="12"/>
+  <text class="badge-text" x="1103" y="1036" text-anchor="middle">8</text>
+
+  <path class="arrow-main" d="M 820 1048 L 820 1116"/>
+  <text class="label-bold" x="832" y="1088">local action 调用</text>
+  <circle class="badge-circle" cx="820" cy="1082" r="13"/>
+  <text class="badge-text" x="820" y="1087" text-anchor="middle">9</text>
+
+  <path class="arrow-dim" d="M 912 1116 L 912 1048"/>
+  <text class="label" x="924" y="1078">返回</text>
+  <circle class="badge-circle" cx="912" cy="1082" r="13"/>
+  <text class="badge-text" x="912" y="1087" text-anchor="middle">10</text>
+
+  <path class="arrow-main" d="M 2260 632 L 2288 632 L 2288 1340 L 948 1340 L 948 1356"/>
+  <text class="label-bold" x="2285" y="990" text-anchor="end">message.send / reply</text>
+  <circle class="badge-circle" cx="2288" cy="985" r="13"/>
+  <text class="badge-text" x="2288" y="990" text-anchor="middle">11</text>
+
+  <path class="arrow-main" d="M 1356 1399 L 1372 1399"/>
+
+  <path class="arrow-main" d="M 1816 1442 L 1816 1476 L 60 1476 L 60 1360 L 100 1360"/>
+  <text class="label-bold" x="934" y="1468" text-anchor="middle">send_msg · echo 等待回填</text>
+  <circle class="badge-circle" cx="934" cy="1490" r="13"/>
+  <text class="badge-text" x="934" y="1495" text-anchor="middle">12</text>
+
+  <path class="arrow-dim" d="M 448 746 C 490 780, 520 816, 540 842"/>
+  <text class="label" x="452" y="742">安装 · manifest · grants</text>
+
+  <path class="arrow-webhook" d="M 448 930 L 1430 930 L 1430 944"/>
+  <text class="label-bold" x="920" y="922" text-anchor="middle" style="fill:#be123c;">外部 webhook 直入 → Plugin Webhook Service</text>
+
+  <path class="arrow-webhook" d="M 1690 944 L 1690 770 L 2033 770 L 2033 748"/>
+  <text class="label" x="1700" y="762" style="fill:#be123c;">webhook.received → Dispatcher</text>
 </svg>
