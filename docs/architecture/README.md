@@ -15,6 +15,7 @@
 | [Bot Core](./bot-core.md) | 事件分发、命令解析、聊天权限、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板渲染、队列、artifact 与资源边界 |
 | [Platform Runtime](./platform-runtime.md) | 配置、存储、日志、恢复、Launcher 控制面和兼容策略 |
+| [Optimization Review](./optimization-review.md) | 当前架构可优化项的优先级评估与路线 |
 
 ## 当前主链路
 
