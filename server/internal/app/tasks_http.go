@@ -25,6 +25,7 @@ var allowedTaskTypes = map[string]struct{}{
 	"plugin.reload":     {},
 	"backup.create":     {},
 	"recovery.recheck":  {},
+	"recovery.confirm":  {},
 	"restore.apply":     {},
 	"config.migrate":    {},
 	"db.migrate":        {},
