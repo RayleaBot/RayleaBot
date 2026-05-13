@@ -36,7 +36,7 @@
 
 当前基础：
 
-- server 主链路完整，当前具备配置（热重载快照）、SQLite 存储（16 张表、20 个迁移）、鉴权（HMAC-SHA256 session）、任务（11 种类型、顺序执行器）、插件 runtime（7 种状态、local actions）、dispatcher / scheduler、render service、聊天权限、recovery/backup、diagnostics 与管理面全路由；37 个内部包。
+- server 主链路完整，当前具备配置（热重载快照）、SQLite 存储（16 张表、20 个迁移）、鉴权（HMAC-SHA256 session）、任务（11 种类型、顺序执行器）、插件 runtime（7 种状态、local actions）、dispatcher / scheduler、render service、聊天权限、recovery/backup、diagnostics 与管理面全路由；36 个内部包。
 
 进入本阶段时应继续遵守：
 
