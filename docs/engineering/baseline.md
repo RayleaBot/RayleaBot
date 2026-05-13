@@ -24,7 +24,7 @@
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 - 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 是当前正式操作入口。
 
-## v0.1 固定版本线
+## 固定版本线
 
 | 领域 | 固定基线 |
 | --- | --- |

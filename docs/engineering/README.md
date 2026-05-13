@@ -31,7 +31,7 @@
 | [tech-stack-evaluation.md](./tech-stack-evaluation.md) | 技术栈评估与引入计划 |
 | [web-antdv-vben-migration-plan.md](./web-antdv-vben-migration-plan.md) | Web 管理面迁移到 Ant Design Vue + Vue Vben Admin 的完整执行方案 |
 | [`../execution-plan-v0.3.md`](../execution-plan-v0.3.md) | 当前执行计划 |
-| [`../execution-plan.md`](../execution-plan.md) | v0.1 基线与历史对照 |
+| [`../CHANGELOGS/`](../CHANGELOGS/README.md) | 历史版本能力归档 |
 
 ## 维护规则
 
