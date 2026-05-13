@@ -17,6 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
@@ -165,6 +166,8 @@ type App struct {
 	managementHandler *managementHTTPHandlers
 	taskHandler       *taskHTTPHandlers
 	eventsWS          *eventsWSHandler
+
+	metrics *metrics.Registry
 }
 
 func New(options Options) (*App, error) {
@@ -194,6 +197,7 @@ func New(options Options) (*App, error) {
 		startedAt:            buildState.core.startedAt,
 		startupRuntimeStates: newStartupRuntimeStates(nil),
 	}
+	metricRegistry := metrics.New()
 	logService := newLogService(platformState.Logs, platformState.LogRepository)
 	grantView := &pluginGrantView{
 		state:           state,
@@ -286,6 +290,7 @@ func New(options Options) (*App, error) {
 		Runtime:       lifecycle,
 		Grants:        grantView,
 	})
+	pluginWebhooks.SetReplayMetrics(webhookReplayMetricsAdapter{registry: metricRegistry})
 	localActions.SetWebhookGateway(pluginWebhooks)
 
 	application := &App{
@@ -330,6 +335,7 @@ func New(options Options) (*App, error) {
 		governanceEvents:  governanceEvents,
 		logService:        logService,
 		systemService:     systemService,
+		metrics:           metricRegistry,
 	}
 	systemService.shuttingDown = &application.process.shuttingDown
 	systemService.RefreshRecoverySummary()
@@ -446,6 +452,7 @@ func New(options Options) (*App, error) {
 		consoleWS:          consoleWS,
 		pluginWebhooks:     pluginWebhooks,
 		pluginManagementUI: pluginManagementUIHandler,
+		metrics:            metricRegistry,
 	})
 	application.process.router = router
 	application.process.server = server

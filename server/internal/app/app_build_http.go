@@ -81,6 +81,9 @@ func registerAppProtectedRoutes(router chi.Router, deps httpServerDeps) {
 	router.Post("/api/system/recovery/confirm", deps.systemHandler.handleSystemRecoveryConfirm())
 	router.Post("/api/system/runtime/bootstrap", deps.systemHandler.handleSystemRuntimeBootstrap())
 	router.Get("/api/system/diagnostics/export", deps.systemHandler.handleSystemDiagnosticsExport())
+	if deps.metrics != nil {
+		router.Get("/api/system/metrics", deps.metrics.HTTPHandler().ServeHTTP)
+	}
 	router.Post("/api/system/render/preview", deps.renderHandler.handleSystemRenderPreview())
 	router.Get("/api/system/render/artifacts/{artifact_id}", deps.renderHandler.handleSystemRenderArtifact())
 	router.Get("/api/system/render/templates", deps.renderHandler.handleSystemRenderTemplateList())

@@ -22,6 +22,13 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
+// dispatcherRuntimeFlushInterval bounds how often the dispatcher emits a
+// dispatcher_runtime observability snapshot. The dispatcher publishes one
+// frame per window even when counts are zero so subscribers can show
+// liveness; the window stays short enough for a management dashboard to
+// stay responsive but long enough to dampen drop bursts.
+const dispatcherRuntimeFlushInterval = 10 * time.Second
+
 func buildAppPlugins(
 	state appBuildState,
 	platform appPlatform,
@@ -33,6 +40,10 @@ func buildAppPlugins(
 	outboundLimiter := outbound.NewMessageRateLimiter(state.core.Config)
 	eventDispatcher.SetOutboundLimiter(outboundLimiter)
 	eventBridge := bridge.New(state.core.Logger, eventDispatcher)
+	eventBridge.SetAdapterStatsSource(adapterShell)
+	eventBridge.SetDispatcherStatsSource(dispatcherStatsAdapter{dispatcher: eventDispatcher})
+	eventDispatcher.SetRuntimePublisher(dispatcherRuntimePublisher{bridge: eventBridge})
+	eventDispatcher.StartObservabilityFlush(dispatcherRuntimeFlushInterval)
 
 	pluginRepository, pluginKVRepository, pluginConfigRepository, err := buildPluginRepositories(platform)
 	if err != nil {
@@ -264,4 +275,52 @@ func pluginPackageRelativeDir(packageRoot, relativePath string) (string, bool) {
 		return "", false
 	}
 	return candidate, true
+}
+
+// dispatcherStatsAdapter projects the dispatcher's cumulative statistics into
+// the smaller view the bridge observability frame consumes. It keeps the
+// bridge-side interface free of an internal/dispatch import.
+type dispatcherStatsAdapter struct {
+	dispatcher *dispatch.Dispatcher
+}
+
+func (a dispatcherStatsAdapter) Stats() bridge.DispatcherStatsView {
+	if a.dispatcher == nil {
+		return bridge.DispatcherStatsView{}
+	}
+	stats := a.dispatcher.Stats()
+	return bridge.DispatcherStatsView{
+		Delivered: stats.Delivered,
+		Dropped:   stats.Dropped,
+		Errored:   stats.Errored,
+		Ignored:   stats.Ignored,
+	}
+}
+
+// dispatcherRuntimePublisher bridges dispatch window snapshots into a
+// dispatcher_runtime observability frame on the bridge subscriber fan-out.
+type dispatcherRuntimePublisher struct {
+	bridge *bridge.Bridge
+}
+
+func (p dispatcherRuntimePublisher) PublishDispatcherRuntime(snap dispatch.DispatcherWindowSnapshot) {
+	if p.bridge == nil {
+		return
+	}
+	rows := make([]bridge.DispatcherRuntimeDropRow, 0, len(snap.DropsByReason))
+	for _, row := range snap.DropsByReason {
+		rows = append(rows, bridge.DispatcherRuntimeDropRow{
+			Reason:    row.Reason,
+			PluginID:  row.PluginID,
+			EventType: row.EventType,
+			Count:     row.Count,
+		})
+	}
+	p.bridge.PublishDispatcherRuntime(bridge.DispatcherRuntimeData{
+		WindowSeconds:  snap.WindowSeconds,
+		DeliveredCount: snap.Delivered,
+		DroppedCount:   snap.Dropped,
+		IgnoredCount:   snap.Ignored,
+		DropsByReason:  rows,
+	})
 }

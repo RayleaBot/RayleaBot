@@ -15,12 +15,13 @@ import (
 )
 
 const (
-	codePlatformInvalidRequest = "platform.invalid_request"
-	codePluginInternalError    = "plugin.internal_error"
-	eventsChannel              = "events"
-	eventsTypeReceived         = "events.received"
-	observabilityScopeBridge   = "bridge_runtime"
-	summaryBridgeRuntime       = "bridge delivered recent adapter events while keeping bridge/runtime observability aggregate-only"
+	codePlatformInvalidRequest    = "platform.invalid_request"
+	codePluginInternalError       = "plugin.internal_error"
+	eventsChannel                 = "events"
+	eventsTypeReceived            = "events.received"
+	observabilityScopeBridge      = "bridge_runtime"
+	observabilityScopeDispatcher  = "dispatcher_runtime"
+	summaryBridgeRuntime          = "bridge delivered recent adapter events while keeping bridge/runtime observability aggregate-only"
 )
 
 type Outcome string
@@ -48,20 +49,45 @@ type Snapshot struct {
 }
 
 type ObservabilityFrame struct {
-	Channel   string            `json:"channel"`
-	Type      string            `json:"type"`
-	Timestamp string            `json:"timestamp"`
-	Data      ObservabilityData `json:"data"`
+	Channel   string `json:"channel"`
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	Data      any    `json:"data"`
+}
+
+// DispatcherRuntimeDropRow mirrors the WebSocket-facing dispatcher_runtime
+// drops_by_reason row. Plugin id and event type are optional.
+type DispatcherRuntimeDropRow struct {
+	Reason    string `json:"reason"`
+	PluginID  string `json:"plugin_id,omitempty"`
+	EventType string `json:"event_type,omitempty"`
+	Count     uint64 `json:"count"`
+}
+
+// DispatcherRuntimeData is the dispatcher_runtime branch payload pushed
+// through events.received subscribers. It carries window-local deltas.
+type DispatcherRuntimeData struct {
+	ObservabilityScope string                     `json:"observability_scope"`
+	WindowSeconds      int                        `json:"window_seconds"`
+	DeliveredCount     uint64                     `json:"delivered_count"`
+	DroppedCount       uint64                     `json:"dropped_count"`
+	IgnoredCount       uint64                     `json:"ignored_count"`
+	DropsByReason      []DispatcherRuntimeDropRow `json:"drops_by_reason,omitempty"`
 }
 
 type ObservabilityData struct {
-	ObservabilityScope  string  `json:"observability_scope"`
-	Summary             string  `json:"summary"`
-	LastSupportedKind   string  `json:"last_supported_event_kind,omitempty"`
-	LastDeliveryOutcome Outcome `json:"last_delivery_outcome,omitempty"`
-	DeliveredCount      uint64  `json:"delivered_count"`
-	ResultCount         uint64  `json:"result_count"`
-	ErrorCount          uint64  `json:"error_count"`
+	ObservabilityScope     string  `json:"observability_scope"`
+	Summary                string  `json:"summary"`
+	LastSupportedKind      string  `json:"last_supported_event_kind,omitempty"`
+	LastDeliveryOutcome    Outcome `json:"last_delivery_outcome,omitempty"`
+	DeliveredCount         uint64  `json:"delivered_count"`
+	ResultCount            uint64  `json:"result_count"`
+	ErrorCount             uint64  `json:"error_count"`
+	AdapterDedupDropsTotal uint64  `json:"adapter_dedup_drops_total,omitempty"`
+	BridgeIgnoredTotal     uint64  `json:"bridge_ignored_total,omitempty"`
+	DispatcherDelivered    uint64  `json:"dispatcher_delivered_total,omitempty"`
+	DispatcherDropped      uint64  `json:"dispatcher_dropped_total,omitempty"`
+	DispatcherIgnored      uint64  `json:"dispatcher_ignored_total,omitempty"`
 }
 
 type dispatcherClient interface {
@@ -79,6 +105,26 @@ type CommandPolicyRejection struct {
 	PolicyStage      string
 }
 
+// AdapterDedupStats reports the cumulative count of inbound events the
+// adapter dropped as duplicates within the dedup retention window.
+type AdapterDedupStats interface {
+	DedupDropsSnapshot() uint64
+}
+
+// DispatcherStatsSnapshot reports cumulative dispatcher outcomes for
+// cross-layer observability. The bridge keeps the dispatcher dependency
+// loose to avoid an import cycle through internal/dispatch.
+type DispatcherStatsSnapshot interface {
+	Stats() DispatcherStatsView
+}
+
+type DispatcherStatsView struct {
+	Delivered uint64
+	Dropped   uint64
+	Errored   uint64
+	Ignored   uint64
+}
+
 type Bridge struct {
 	logger     *slog.Logger
 	dispatcher dispatcherClient
@@ -87,6 +133,9 @@ type Bridge struct {
 	snapshot         Snapshot
 	nextSubscriberID uint64
 	subscribers      map[uint64]chan ObservabilityFrame
+
+	adapterStats    AdapterDedupStats
+	dispatcherStats DispatcherStatsSnapshot
 }
 
 func New(logger *slog.Logger, dispatcher dispatcherClient) *Bridge {
@@ -111,6 +160,66 @@ func (b *Bridge) Snapshot() Snapshot {
 		cloned.LastEventAt = &lastEventAt
 	}
 	return cloned
+}
+
+// SetAdapterStatsSource wires an adapter-level dedup snapshot provider into
+// the bridge so the bridge_runtime observability frame can carry adapter
+// dedup drop counts alongside its own delivery counters.
+func (b *Bridge) SetAdapterStatsSource(source AdapterDedupStats) {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.adapterStats = source
+}
+
+// SetDispatcherStatsSource wires a dispatcher snapshot provider so the
+// bridge observability frame can include cross-layer dispatcher outcome
+// counts in the bridge_runtime payload.
+func (b *Bridge) SetDispatcherStatsSource(source DispatcherStatsSnapshot) {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.dispatcherStats = source
+}
+
+// PublishDispatcherRuntime fans out a dispatcher_runtime observability frame
+// containing window-local delta counts. Callers (typically the dispatcher's
+// flush goroutine) build the snapshot; the bridge owns subscriber fan-out
+// so a single websocket subscriber stays the source of truth for both
+// scopes.
+func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
+	if b == nil {
+		return
+	}
+	if strings.TrimSpace(data.ObservabilityScope) == "" {
+		data.ObservabilityScope = observabilityScopeDispatcher
+	}
+	frame := ObservabilityFrame{
+		Channel:   eventsChannel,
+		Type:      eventsTypeReceived,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Data:      data,
+	}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	for _, subscriber := range b.subscribers {
+		select {
+		case subscriber <- frame:
+		default:
+			select {
+			case <-subscriber:
+			default:
+			}
+			select {
+			case subscriber <- frame:
+			default:
+			}
+		}
+	}
 }
 
 func (b *Bridge) SubscribeObservability(buffer int) (<-chan ObservabilityFrame, func()) {
@@ -445,19 +554,30 @@ func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) 
 	if lastKind == "" {
 		lastKind = adapter.EventKindMessageText
 	}
+	data := ObservabilityData{
+		ObservabilityScope:  observabilityScopeBridge,
+		Summary:             summaryBridgeRuntime,
+		LastSupportedKind:   lastKind,
+		LastDeliveryOutcome: outcome,
+		DeliveredCount:      b.snapshot.DeliveredCount,
+		ResultCount:         b.snapshot.ResultCount,
+		ErrorCount:          b.snapshot.ErrorCount,
+		BridgeIgnoredTotal:  b.snapshot.IgnoredCount,
+	}
+	if b.adapterStats != nil {
+		data.AdapterDedupDropsTotal = b.adapterStats.DedupDropsSnapshot()
+	}
+	if b.dispatcherStats != nil {
+		stats := b.dispatcherStats.Stats()
+		data.DispatcherDelivered = stats.Delivered
+		data.DispatcherDropped = stats.Dropped
+		data.DispatcherIgnored = stats.Ignored
+	}
 	frame := ObservabilityFrame{
 		Channel:   eventsChannel,
 		Type:      eventsTypeReceived,
 		Timestamp: observedAt.UTC().Format(time.RFC3339),
-		Data: ObservabilityData{
-			ObservabilityScope:  observabilityScopeBridge,
-			Summary:             summaryBridgeRuntime,
-			LastSupportedKind:   lastKind,
-			LastDeliveryOutcome: outcome,
-			DeliveredCount:      b.snapshot.DeliveredCount,
-			ResultCount:         b.snapshot.ResultCount,
-			ErrorCount:          b.snapshot.ErrorCount,
-		},
+		Data:      data,
 	}
 
 	for _, subscriber := range b.subscribers {

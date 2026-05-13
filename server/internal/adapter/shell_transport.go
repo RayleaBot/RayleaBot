@@ -169,10 +169,21 @@ func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
 		}
 	}
 	if _, ok := s.recentEventIDs[eventID]; ok {
+		s.dedupDrops++
 		return true
 	}
 	s.recentEventIDs[eventID] = observedAt
 	return false
+}
+
+// DedupDropsSnapshot returns the cumulative number of inbound events dropped
+// because their event id matched a recently observed event within the
+// dedup retention window. The counter is monotonically non-decreasing and
+// safe to read from the bridge observability path.
+func (s *Shell) DedupDropsSnapshot() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.dedupDrops
 }
 
 func (s *Shell) AttachReverseWS(conn *websocket.Conn) {

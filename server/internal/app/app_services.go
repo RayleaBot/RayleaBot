@@ -18,6 +18,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
@@ -309,6 +310,7 @@ type httpServerDeps struct {
 	consoleWS          *consoleWSHandler
 	pluginWebhooks     *pluginwebhook.Service
 	pluginManagementUI *pluginui.Handlers
+	metrics            *metrics.Registry
 }
 
 type authHTTPHandlers struct {
@@ -477,6 +479,20 @@ func newConsoleWSHandler(console *console.Stream, plugins *plugins.Catalog) *con
 
 type webhookGateway interface {
 	Expose(context.Context, string, runtime.Action) (map[string]any, error)
+}
+
+// webhookReplayMetricsAdapter exposes the metrics.Registry replay counter
+// behind the narrow ReplayMetricsObserver interface so pluginwebhook can
+// record outcomes without importing client_golang directly.
+type webhookReplayMetricsAdapter struct {
+	registry *metrics.Registry
+}
+
+func (a webhookReplayMetricsAdapter) IncReplayObserved(outcome string) {
+	if a.registry == nil || a.registry.WebhookReplayObserved == nil {
+		return
+	}
+	a.registry.WebhookReplayObserved.WithLabelValues(outcome).Inc()
 }
 
 func containsString(items []string, want string) bool {

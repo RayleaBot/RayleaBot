@@ -70,6 +70,7 @@ type Shell struct {
 	httpClient       *http.Client
 	recentEventIDs   map[string]time.Time
 	identityCache    *IdentityCache
+	dedupDrops       uint64
 }
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {

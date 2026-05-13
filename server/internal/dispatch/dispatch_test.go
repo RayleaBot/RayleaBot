@@ -1007,3 +1007,102 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 		t.Fatalf("unexpected command_name detail: %#v", summary.Details["command_name"])
 	}
 }
+
+func TestDispatcherWindowFlushPublishesDeltas(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{Result: map[string]any{}}}
+	d.Register("p", rt, []string{"message.group"}, nil, 1)
+
+	pub := &recordingRuntimePublisher{}
+	d.SetRuntimePublisher(pub)
+
+	d.Dispatch(context.Background(), testEvent(), "")
+	d.FlushDispatcherWindow(5)
+
+	snapshots := pub.Snapshots()
+	if len(snapshots) != 1 {
+		t.Fatalf("expected one snapshot, got %d", len(snapshots))
+	}
+	first := snapshots[0]
+	if first.WindowSeconds != 5 || first.Delivered != 1 || first.Dropped != 0 || first.Ignored != 0 {
+		t.Fatalf("unexpected snapshot: %+v", first)
+	}
+
+	noTarget := runtime.Event{
+		EventID:        "evt-no-target",
+		SourceProtocol: "onebot11",
+		SourceAdapter:  "adapter.onebot11",
+		EventType:      "notice.member_increase",
+	}
+	d.Dispatch(context.Background(), noTarget, "")
+	d.FlushDispatcherWindow(5)
+
+	snapshots = pub.Snapshots()
+	if len(snapshots) != 2 {
+		t.Fatalf("expected two snapshots, got %d", len(snapshots))
+	}
+	second := snapshots[1]
+	if second.Delivered != 0 || second.Ignored != 1 {
+		t.Fatalf("expected delta Ignored=1 Delivered=0, got %+v", second)
+	}
+}
+
+func TestDispatcherFlushDropsByReasonRecordsQueueFull(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 1)
+	defer d.Close()
+
+	blocker := &fakeDeliverer{
+		blockCh:  make(chan struct{}),
+		delivery: runtime.Delivery{Result: map[string]any{"ok": true}},
+	}
+	d.Register("blocker", blocker, nil, nil, 1)
+
+	pub := &recordingRuntimePublisher{}
+	d.SetRuntimePublisher(pub)
+
+	d.Dispatch(context.Background(), testEvent(), "")
+	time.Sleep(20 * time.Millisecond)
+	d.Dispatch(context.Background(), testEvent(), "")
+	d.Dispatch(context.Background(), testEvent(), "")
+	d.FlushDispatcherWindow(10)
+
+	snapshots := pub.Snapshots()
+	if len(snapshots) != 1 {
+		t.Fatalf("expected one snapshot, got %d", len(snapshots))
+	}
+	snap := snapshots[0]
+	foundQueueFull := false
+	for _, row := range snap.DropsByReason {
+		if row.Reason == "queue_full" && row.PluginID == "blocker" && row.Count >= 1 {
+			foundQueueFull = true
+		}
+	}
+	if !foundQueueFull {
+		t.Fatalf("expected queue_full drop row for blocker, got %+v", snap.DropsByReason)
+	}
+
+	close(blocker.blockCh)
+}
+
+type recordingRuntimePublisher struct {
+	mu        sync.Mutex
+	snapshots []DispatcherWindowSnapshot
+}
+
+func (p *recordingRuntimePublisher) PublishDispatcherRuntime(snap DispatcherWindowSnapshot) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.snapshots = append(p.snapshots, snap)
+}
+
+func (p *recordingRuntimePublisher) Snapshots() []DispatcherWindowSnapshot {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]DispatcherWindowSnapshot, len(p.snapshots))
+	copy(out, p.snapshots)
+	return out
+}

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
@@ -25,6 +26,7 @@ const (
 	OutcomeDelivered Outcome = "delivered"
 	OutcomeError     Outcome = "error"
 	OutcomeDropped   Outcome = "dropped"
+	OutcomeIgnored   Outcome = "ignored"
 )
 
 // DeliveryResult records the outcome of event delivery to a single plugin.
@@ -57,6 +59,23 @@ type pluginSlot struct {
 
 type CapabilityChecker func(context.Context, string, string) bool
 
+// DispatcherStats summarises cumulative per-dispatch outcomes so consumers
+// (the bridge runtime observability frame and the Prometheus metrics handler)
+// can read aggregate counts without holding the dispatcher lock.
+//
+// Counter semantics:
+//   - Delivered:    target plugins that accepted the event onto their queue
+//   - Dropped:      target plugins refused due to queue full or runtime not running
+//   - Errored:      runtime-level errors after delivery (worker failures, etc.)
+//   - Ignored:      Dispatch() calls where no plugin matched (no target selected)
+type DispatcherStats struct {
+	Delivered     uint64
+	Dropped       uint64
+	Errored       uint64
+	Ignored       uint64
+	DropsByReason map[string]map[string]uint64 // reason -> plugin_id -> count
+}
+
 // Dispatcher manages per-plugin event queues and fan-out delivery.
 type Dispatcher struct {
 	logger            *slog.Logger
@@ -67,6 +86,19 @@ type Dispatcher struct {
 	mu                sync.RWMutex
 	slots             map[string]*pluginSlot
 	capabilityChecker CapabilityChecker
+
+	statsMu       sync.Mutex
+	delivered     uint64
+	dropped       uint64
+	errored       uint64
+	ignored       uint64
+	dropsByReason map[string]map[string]uint64
+
+	flushMu          sync.Mutex
+	flushBaseline    DispatcherStats
+	runtimePublisher DispatcherRuntimePublisher
+	flushStop        chan struct{}
+	flushDone        chan struct{}
 }
 
 // New creates a Dispatcher.
@@ -78,11 +110,12 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 		queueSize = 16
 	}
 	return &Dispatcher{
-		logger:    logger,
-		sender:    sender,
-		resolver:  resolver,
-		queueSize: queueSize,
-		slots:     make(map[string]*pluginSlot),
+		logger:        logger,
+		sender:        sender,
+		resolver:      resolver,
+		queueSize:     queueSize,
+		slots:         make(map[string]*pluginSlot),
+		dropsByReason: make(map[string]map[string]uint64),
 	}
 }
 
@@ -243,6 +276,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event runtime.Event, commandN
 	targets := d.selectTargets(event, commandName)
 	d.mu.RUnlock()
 
+	if len(targets) == 0 {
+		d.recordOutcome(OutcomeIgnored, "", "")
+		return nil
+	}
+
 	return d.enqueueTargets(ctx, event, targets)
 }
 
@@ -280,6 +318,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtime.Event, ta
 				Outcome:   OutcomeError,
 				ErrorCode: "platform.invalid_request",
 			})
+			d.recordOutcome(OutcomeDropped, pluginID, "plugin_not_running")
 			continue
 		}
 
@@ -287,6 +326,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtime.Event, ta
 		select {
 		case slot.queue <- item:
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered})
+			d.recordOutcome(OutcomeDelivered, pluginID, "")
 		default:
 			d.logger.Warn("dispatch queue full, dropping event",
 				"component", "dispatch",
@@ -294,9 +334,64 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event runtime.Event, ta
 				"event_id", event.EventID,
 			)
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDropped})
+			d.recordOutcome(OutcomeDropped, pluginID, "queue_full")
 		}
 	}
 	return results
+}
+
+func (d *Dispatcher) recordOutcome(outcome Outcome, pluginID, reason string) {
+	if d == nil {
+		return
+	}
+	d.statsMu.Lock()
+	defer d.statsMu.Unlock()
+	switch outcome {
+	case OutcomeDelivered:
+		d.delivered++
+	case OutcomeDropped:
+		d.dropped++
+		if reason == "" {
+			reason = "unknown"
+		}
+		if d.dropsByReason == nil {
+			d.dropsByReason = make(map[string]map[string]uint64)
+		}
+		bucket, ok := d.dropsByReason[reason]
+		if !ok {
+			bucket = make(map[string]uint64)
+			d.dropsByReason[reason] = bucket
+		}
+		bucket[pluginID]++
+	case OutcomeError:
+		d.errored++
+	case OutcomeIgnored:
+		d.ignored++
+	}
+}
+
+// Stats returns a deep-copied snapshot of cumulative dispatcher outcome counts.
+func (d *Dispatcher) Stats() DispatcherStats {
+	if d == nil {
+		return DispatcherStats{}
+	}
+	d.statsMu.Lock()
+	defer d.statsMu.Unlock()
+	cloned := make(map[string]map[string]uint64, len(d.dropsByReason))
+	for reason, plugins := range d.dropsByReason {
+		row := make(map[string]uint64, len(plugins))
+		for pluginID, count := range plugins {
+			row[pluginID] = count
+		}
+		cloned[reason] = row
+	}
+	return DispatcherStats{
+		Delivered:     d.delivered,
+		Dropped:       d.dropped,
+		Errored:       d.errored,
+		Ignored:       d.ignored,
+		DropsByReason: cloned,
+	}
 }
 
 // selectTargets picks which plugins should receive the event.
@@ -667,6 +762,19 @@ func commandNameForEvent(event runtime.Event) string {
 
 // Close deregisters all plugins and stops all workers.
 func (d *Dispatcher) Close() {
+	d.flushMu.Lock()
+	stop := d.flushStop
+	done := d.flushDone
+	d.flushStop = nil
+	d.flushDone = nil
+	d.flushMu.Unlock()
+	if stop != nil {
+		close(stop)
+		if done != nil {
+			<-done
+		}
+	}
+
 	d.mu.Lock()
 	slots := make(map[string]*pluginSlot, len(d.slots))
 	for id, slot := range d.slots {
@@ -679,4 +787,160 @@ func (d *Dispatcher) Close() {
 		close(slot.queue)
 		<-slot.done
 	}
+}
+
+// DispatcherDropRow captures the per-window, per-reason drop count for one
+// plugin. Plugin id and event type are populated when known; the reason is
+// always set.
+type DispatcherDropRow struct {
+	Reason    string
+	PluginID  string
+	EventType string
+	Count     uint64
+}
+
+// DispatcherWindowSnapshot is the delta carried by a single dispatcher_runtime
+// observability frame. Counts are window-local and reset every flush.
+type DispatcherWindowSnapshot struct {
+	WindowSeconds int
+	Delivered     uint64
+	Dropped       uint64
+	Ignored       uint64
+	DropsByReason []DispatcherDropRow
+}
+
+// DispatcherRuntimePublisher receives window snapshots so the bridge (or a
+// test double) can fan them out to management WebSocket subscribers as the
+// formal dispatcher_runtime observability event.
+type DispatcherRuntimePublisher interface {
+	PublishDispatcherRuntime(snapshot DispatcherWindowSnapshot)
+}
+
+// SetRuntimePublisher wires the runtime publisher the dispatcher hands window
+// snapshots to. Calling with nil disables publication.
+func (d *Dispatcher) SetRuntimePublisher(publisher DispatcherRuntimePublisher) {
+	if d == nil {
+		return
+	}
+	d.flushMu.Lock()
+	defer d.flushMu.Unlock()
+	d.runtimePublisher = publisher
+}
+
+// FlushDispatcherWindow computes the delta against the last flushed baseline
+// and forwards it to the runtime publisher. Exposed primarily for tests; the
+// flush goroutine started by StartObservabilityFlush calls it on a ticker.
+func (d *Dispatcher) FlushDispatcherWindow(windowSeconds int) {
+	if d == nil {
+		return
+	}
+	d.flushMu.Lock()
+	publisher := d.runtimePublisher
+	baseline := d.flushBaseline
+	d.flushMu.Unlock()
+	if publisher == nil {
+		return
+	}
+
+	current := d.Stats()
+	snapshot := DispatcherWindowSnapshot{
+		WindowSeconds: windowSeconds,
+		Delivered:     deltaUint64(current.Delivered, baseline.Delivered),
+		Dropped:       deltaUint64(current.Dropped, baseline.Dropped),
+		Ignored:       deltaUint64(current.Ignored, baseline.Ignored),
+		DropsByReason: diffDropsByReason(current.DropsByReason, baseline.DropsByReason),
+	}
+
+	d.flushMu.Lock()
+	d.flushBaseline = current
+	d.flushMu.Unlock()
+
+	publisher.PublishDispatcherRuntime(snapshot)
+}
+
+// StartObservabilityFlush spawns a goroutine that periodically flushes window
+// snapshots. The goroutine exits when Close is called. Calling more than once
+// without an intervening Close is a no-op after the first call.
+func (d *Dispatcher) StartObservabilityFlush(interval time.Duration) {
+	if d == nil || interval <= 0 {
+		return
+	}
+	windowSeconds := int(interval / time.Second)
+	if windowSeconds <= 0 {
+		windowSeconds = 1
+	}
+	d.flushMu.Lock()
+	if d.flushStop != nil {
+		d.flushMu.Unlock()
+		return
+	}
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	d.flushStop = stop
+	d.flushDone = done
+	d.flushBaseline = d.snapshotStatsLocked()
+	d.flushMu.Unlock()
+
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				d.FlushDispatcherWindow(windowSeconds)
+			}
+		}
+	}()
+}
+
+func (d *Dispatcher) snapshotStatsLocked() DispatcherStats {
+	d.statsMu.Lock()
+	defer d.statsMu.Unlock()
+	cloned := make(map[string]map[string]uint64, len(d.dropsByReason))
+	for reason, plugins := range d.dropsByReason {
+		row := make(map[string]uint64, len(plugins))
+		for pluginID, count := range plugins {
+			row[pluginID] = count
+		}
+		cloned[reason] = row
+	}
+	return DispatcherStats{
+		Delivered:     d.delivered,
+		Dropped:       d.dropped,
+		Errored:       d.errored,
+		Ignored:       d.ignored,
+		DropsByReason: cloned,
+	}
+}
+
+func deltaUint64(current, baseline uint64) uint64 {
+	if current < baseline {
+		return 0
+	}
+	return current - baseline
+}
+
+func diffDropsByReason(current, baseline map[string]map[string]uint64) []DispatcherDropRow {
+	var rows []DispatcherDropRow
+	for reason, plugins := range current {
+		base := baseline[reason]
+		for pluginID, count := range plugins {
+			delta := count
+			if prev, ok := base[pluginID]; ok && prev <= count {
+				delta = count - prev
+			}
+			if delta == 0 {
+				continue
+			}
+			rows = append(rows, DispatcherDropRow{
+				Reason:   reason,
+				PluginID: pluginID,
+				Count:    delta,
+			})
+		}
+	}
+	return rows
 }
