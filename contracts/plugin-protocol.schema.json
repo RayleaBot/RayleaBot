@@ -583,6 +583,36 @@
                   "type": "object",
                   "description": "Only present when the plugin manifest declares event.raw_payload and the corresponding high-sensitivity permission has been granted.",
                   "additionalProperties": true
+                },
+                "webhook": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "Only present for webhook.received events. Carries normalized replay-protection metadata derived from the inbound request headers and the server clock.",
+                  "required": [
+                    "route",
+                    "received_at"
+                  ],
+                  "properties": {
+                    "route": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "received_at": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Server-side ingestion timestamp in seconds since the unix epoch."
+                    },
+                    "client_timestamp": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Client-supplied timestamp from the replay_protection.timestamp_header value. Omitted only when the route is in grace mode (enforce=false) and the header was absent."
+                    },
+                    "client_event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Client-supplied event id from the replay_protection.event_id_header value. Omitted only when the route is in grace mode and the header was absent; in that case the platform falls back to a server-generated event id and exposes it in the parent event_id field."
+                    }
+                  }
                 }
               },
               "unevaluatedProperties": false
@@ -2068,7 +2098,8 @@
         "methods",
         "auth_strategy",
         "header",
-        "secret_ref"
+        "secret_ref",
+        "replay_protection"
       ],
       "properties": {
         "route": {
@@ -2112,6 +2143,39 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "replay_protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "timestamp_header",
+            "event_id_header",
+            "tolerance_seconds",
+            "enforce"
+          ],
+          "description": "Replay protection contract. The exposed webhook caller must supply a unix-epoch timestamp and a unique event id with every request. When auth_strategy is hmac_sha256, the signature input is composed as the timestamp ASCII digits, a single newline, the event id, a single newline, and the raw request body. The server rejects requests whose timestamp differs from the server clock by more than tolerance_seconds or whose (route, event_id) pair has been observed within the rolling replay window. enforce=false degrades all rejections to log-only observation and emits webhook_replay_grace_observed counts; the route still requires the timestamp and event id headers when present but falls back to a server-generated event id when missing.",
+          "properties": {
+            "timestamp_header": {
+              "type": "string",
+              "minLength": 1,
+              "default": "X-Raylea-Timestamp"
+            },
+            "event_id_header": {
+              "type": "string",
+              "minLength": 1,
+              "default": "X-Raylea-Event-Id"
+            },
+            "tolerance_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600,
+              "default": 300
+            },
+            "enforce": {
+              "type": "boolean",
+              "default": true
+            }
+          }
         }
       }
     },
@@ -3048,6 +3112,8 @@
     "fixtures/plugin-protocol/ok.action-http-request-base64.yaml",
     "fixtures/plugin-protocol/ok.action-scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.action-event-expose-webhook.yaml",
+    "fixtures/plugin-protocol/ok.action-event-expose-webhook-grace.yaml",
+    "fixtures/plugin-protocol/ok.event-webhook-received.yaml",
     "fixtures/plugin-protocol/ok.action-render-image.yaml",
     "fixtures/plugin-protocol/ok.action-message-history-get.yaml",
     "fixtures/plugin-protocol/ok.action-group-announcement-create.yaml",

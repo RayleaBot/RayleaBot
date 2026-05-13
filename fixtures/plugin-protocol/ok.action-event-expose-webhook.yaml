@@ -15,7 +15,13 @@ frames:
       header: X-Hub-Signature-256
       signature_prefix: sha256=
       secret_ref: webhook.github.secret
+      replay_protection:
+        timestamp_header: X-Raylea-Timestamp
+        event_id_header: X-Raylea-Event-Id
+        tolerance_seconds: 300
+        enforce: true
 expect:
   valid: true
   notes:
-    - webhook exposure is controlled by route, auth strategy, and a platform-managed secret reference.
+    - webhook exposure is controlled by route, auth strategy, a platform-managed secret reference, and a replay-protection contract.
+    - When auth_strategy is hmac_sha256 the signature input concatenates the timestamp digits, a newline, the event id, a newline, and the raw body.

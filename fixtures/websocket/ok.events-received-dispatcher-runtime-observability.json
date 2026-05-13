@@ -1,0 +1,31 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-03-18T10:20:05Z",
+    "data": {
+      "observability_scope": "dispatcher_runtime",
+      "window_seconds": 10,
+      "delivered_count": 11,
+      "dropped_count": 1,
+      "ignored_count": 0,
+      "drops_by_reason": [
+        {
+          "reason": "queue_full",
+          "plugin_id": "builtin.echo",
+          "event_type": "onebot11.message_text",
+          "count": 1
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "Dispatcher rolling window aggregate. Plugin id and event type pinpoint the noisy fan-out target.",
+      "drops_by_reason rows aggregate by reason and may omit plugin_id or event_type when the drop reason is not bound to either."
+    ]
+  }
+}

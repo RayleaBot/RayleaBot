@@ -1,0 +1,25 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Metrics endpoint exposes Prometheus text exposition with bounded label cardinality.
+request:
+  method: GET
+  path: /api/system/metrics
+response:
+  status: 200
+  headers:
+    Content-Type: text/plain; version=0.0.4; charset=utf-8
+  body: |
+    # HELP raylea_event_pipeline_stage_total Events flowing through each pipeline stage by outcome.
+    # TYPE raylea_event_pipeline_stage_total counter
+    raylea_event_pipeline_stage_total{stage="adapter",outcome="accepted"} 0
+    raylea_event_pipeline_stage_total{stage="bridge",outcome="delivered"} 0
+    raylea_event_pipeline_stage_total{stage="dispatch",outcome="delivered"} 0
+    # HELP raylea_plugin_runtime_state Current count of plugin runtimes per state.
+    # TYPE raylea_plugin_runtime_state gauge
+    raylea_plugin_runtime_state{state="running"} 0
+    raylea_plugin_runtime_state{state="stopped"} 0
+    # HELP raylea_dispatcher_drop_total Dispatcher drops per plugin and reason.
+    # TYPE raylea_dispatcher_drop_total counter
+    raylea_dispatcher_drop_total{plugin_id="builtin.echo",reason="queue_full"} 0
+expect:
+  valid: true

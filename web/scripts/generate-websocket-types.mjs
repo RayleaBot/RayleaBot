@@ -82,7 +82,8 @@ function generatedSource(contract) {
   const serviceBranch = branchWithRequired(branches, 'service_status')
   const pluginBranch = branchWithRequired(branches, 'plugin_id')
   const connectionBranch = branchWithRequired(branches, 'connection_status')
-  const observabilityBranch = branchWithRequired(branches, 'observability_scope')
+  const bridgeObservabilityBranch = branchWithRequired(branches, 'result_count')
+  const dispatcherObservabilityBranch = branchWithRequired(branches, 'window_seconds')
   const protocolBranch = branchWithRequired(branches, 'protocol')
 
   const consoleChannel = channelByPath(contract, '/ws/plugins/{id}/console')
@@ -95,8 +96,13 @@ function generatedSource(contract) {
   const runtimeStates = enumFor(branchProperty(pluginBranch, 'runtime_state'), 'runtime_state')
   const displayStates = enumFor(branchProperty(pluginBranch, 'display_state'), 'display_state')
   const connectionStatuses = enumFor(branchProperty(connectionBranch, 'connection_status'), 'connection_status')
-  const observabilityScopes = enumFor(branchProperty(observabilityBranch, 'observability_scope'), 'observability_scope')
-  const deliveryOutcomes = enumFor(branchProperty(observabilityBranch, 'last_delivery_outcome'), 'last_delivery_outcome')
+  const bridgeScopes = enumFor(branchProperty(bridgeObservabilityBranch, 'observability_scope'), 'bridge.observability_scope')
+  const dispatcherScopes = enumFor(branchProperty(dispatcherObservabilityBranch, 'observability_scope'), 'dispatcher.observability_scope')
+  const deliveryOutcomes = enumFor(branchProperty(bridgeObservabilityBranch, 'last_delivery_outcome'), 'last_delivery_outcome')
+  const dispatcherDropReasons = enumFor(
+    requireObject(branchProperty(dispatcherObservabilityBranch, 'drops_by_reason').items.properties.reason, 'drops_by_reason.items.properties.reason'),
+    'drops_by_reason.reason',
+  )
   const protocols = enumFor(branchProperty(protocolBranch, 'protocol'), 'protocol')
   const consoleStreams = enumFor(consoleProperties.stream, 'plugins.console.stream')
 
@@ -157,13 +163,36 @@ export type GenericManagementEventPayload = {
 }
 
 export type BridgeRuntimeObservabilityEventPayload = {
-  observability_scope: ${union(observabilityScopes)}
+  observability_scope: ${union(bridgeScopes)}
   summary: string
   last_supported_event_kind?: string
   last_delivery_outcome?: ${union(deliveryOutcomes)}
   delivered_count: number
   result_count: number
   error_count: number
+  adapter_dedup_drops_total?: number
+  bridge_ignored_total?: number
+  dispatcher_delivered_total?: number
+  dispatcher_dropped_total?: number
+  dispatcher_ignored_total?: number
+}
+
+export type DispatcherDropReason = ${union(dispatcherDropReasons)}
+
+export type DispatcherRuntimeDropRow = {
+  reason: DispatcherDropReason
+  plugin_id?: string
+  event_type?: string
+  count: number
+}
+
+export type DispatcherRuntimeObservabilityEventPayload = {
+  observability_scope: ${union(dispatcherScopes)}
+  window_seconds: number
+  delivered_count: number
+  dropped_count: number
+  ignored_count: number
+  drops_by_reason?: DispatcherRuntimeDropRow[]
 }
 
 export type ProtocolSnapshotEventPayload = {
@@ -177,6 +206,7 @@ export type EventsPayload =
   | ConnectionStatusEventPayload
   | GenericManagementEventPayload
   | BridgeRuntimeObservabilityEventPayload
+  | DispatcherRuntimeObservabilityEventPayload
   | ProtocolSnapshotEventPayload
 
 export type PluginConsoleFrameData = {

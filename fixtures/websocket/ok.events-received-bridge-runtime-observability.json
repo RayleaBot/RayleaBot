@@ -12,14 +12,20 @@
       "last_delivery_outcome": "delivered",
       "delivered_count": 12,
       "result_count": 12,
-      "error_count": 1
+      "error_count": 1,
+      "adapter_dedup_drops_total": 2,
+      "bridge_ignored_total": 0,
+      "dispatcher_delivered_total": 11,
+      "dispatcher_dropped_total": 1,
+      "dispatcher_ignored_total": 0
     }
   },
   "expect": {
     "valid": true,
     "notes": [
       "This payload is aggregate-only bridge/runtime observability.",
-      "It must not expose raw chat text, request identifiers, or verbatim plugin error text."
+      "It must not expose raw chat text, request identifiers, or verbatim plugin error text.",
+      "Cross-layer counters mirror the dispatcher_runtime observability scope so a single bridge subscriber sees the full pipeline."
     ]
   }
 }

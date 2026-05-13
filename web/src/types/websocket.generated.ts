@@ -62,6 +62,29 @@ export type BridgeRuntimeObservabilityEventPayload = {
   delivered_count: number
   result_count: number
   error_count: number
+  adapter_dedup_drops_total?: number
+  bridge_ignored_total?: number
+  dispatcher_delivered_total?: number
+  dispatcher_dropped_total?: number
+  dispatcher_ignored_total?: number
+}
+
+export type DispatcherDropReason = 'queue_full' | 'plugin_not_running' | 'unsubscribed' | 'runtime_unavailable'
+
+export type DispatcherRuntimeDropRow = {
+  reason: DispatcherDropReason
+  plugin_id?: string
+  event_type?: string
+  count: number
+}
+
+export type DispatcherRuntimeObservabilityEventPayload = {
+  observability_scope: 'dispatcher_runtime'
+  window_seconds: number
+  delivered_count: number
+  dropped_count: number
+  ignored_count: number
+  drops_by_reason?: DispatcherRuntimeDropRow[]
 }
 
 export type ProtocolSnapshotEventPayload = {
@@ -75,6 +98,7 @@ export type EventsPayload =
   | ConnectionStatusEventPayload
   | GenericManagementEventPayload
   | BridgeRuntimeObservabilityEventPayload
+  | DispatcherRuntimeObservabilityEventPayload
   | ProtocolSnapshotEventPayload
 
 export type PluginConsoleFrameData = {

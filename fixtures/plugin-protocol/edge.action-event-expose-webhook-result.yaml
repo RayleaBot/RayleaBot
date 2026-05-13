@@ -15,6 +15,11 @@ frames:
       header: X-Hub-Signature-256
       signature_prefix: sha256=
       secret_ref: webhook.github.secret
+      replay_protection:
+        timestamp_header: X-Raylea-Timestamp
+        event_id_header: X-Raylea-Event-Id
+        tolerance_seconds: 300
+        enforce: true
   - protocol_version: "1"
     type: result
     timestamp: 1710000418

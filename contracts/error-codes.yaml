@@ -264,6 +264,36 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
+  plugin.webhook_replay_rejected:
+    code: plugin.webhook_replay_rejected
+    domain: plugin
+    message_key: errors.plugin.webhook_replay_rejected
+    message: 插件 Webhook 请求已被识别为重复事件
+    description: >
+      The plugin webhook request carried an event id that matched a recently
+      accepted request within the configured replay window. The request was
+      rejected to prevent duplicate plugin event dispatch. Enable
+      replay_protection.enforce=false on the exposed route during legacy
+      source migration to fall back to log-only observation.
+    http_status: 401
+    retryable: false
+    applies_to: [http]
+
+  plugin.webhook_timestamp_skew:
+    code: plugin.webhook_timestamp_skew
+    domain: plugin
+    message_key: errors.plugin.webhook_timestamp_skew
+    message: 插件 Webhook 请求时间戳超出容忍窗口
+    description: >
+      The client-supplied timestamp on a plugin webhook request was outside
+      replay_protection.tolerance_seconds relative to the server clock. The
+      request was rejected to prevent replay outside the acceptable freshness
+      window. Use replay_protection.enforce=false on the exposed route to
+      degrade rejection into log-only observation during onboarding.
+    http_status: 401
+    retryable: false
+    applies_to: [http]
+
   permission.denied:
     code: permission.denied
     domain: permission

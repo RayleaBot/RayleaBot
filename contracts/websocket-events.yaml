@@ -13,6 +13,7 @@ x-fixtures:
   - fixtures/websocket/ok.logs-appended.protocol-onebot11.json
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
+  - fixtures/websocket/ok.events-received-dispatcher-runtime-observability.json
   - fixtures/websocket/ok.events-received-protocol-snapshot.json
   - fixtures/websocket/ok.events-received-service-running.json
   - fixtures/websocket/ok.events-received-service-stopping.json
@@ -364,6 +365,87 @@ channels:
                 error_count:
                   type: integer
                   minimum: 0
+                adapter_dedup_drops_total:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Aggregate count of inbound events the adapter dropped as
+                    duplicates of a recently observed event id. Counts within
+                    the adapter dedup retention window.
+                bridge_ignored_total:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Aggregate count of events the bridge accepted but found no
+                    interested plugin runtime to deliver to.
+                dispatcher_delivered_total:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Cross-layer view of dispatcher delivered outcomes counted
+                    against the bridge runtime window. Same source as the
+                    dispatcher_runtime observability scope.
+                dispatcher_dropped_total:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Cross-layer view of dispatcher dropped outcomes (queue full,
+                    plugin not running, etc.) counted against the bridge runtime
+                    window.
+                dispatcher_ignored_total:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Cross-layer view of dispatcher ignored outcomes counted
+                    against the bridge runtime window.
+            - type: object
+              additionalProperties: false
+              required: [observability_scope, window_seconds, delivered_count, dropped_count, ignored_count]
+              properties:
+                observability_scope:
+                  type: string
+                  enum: [dispatcher_runtime]
+                window_seconds:
+                  type: integer
+                  minimum: 1
+                  description: >
+                    Length of the rolling window covered by this aggregate
+                    snapshot. The dispatcher flushes summary snapshots at the
+                    end of each window.
+                delivered_count:
+                  type: integer
+                  minimum: 0
+                dropped_count:
+                  type: integer
+                  minimum: 0
+                ignored_count:
+                  type: integer
+                  minimum: 0
+                drops_by_reason:
+                  type: array
+                  description: >
+                    Per-reason aggregation of dispatcher drops within the window.
+                    plugin_id and event_type may be omitted when the drop reason
+                    is not bound to a specific plugin or event type.
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [reason, count]
+                    properties:
+                      reason:
+                        type: string
+                        enum:
+                          - queue_full
+                          - plugin_not_running
+                          - unsubscribed
+                          - runtime_unavailable
+                      plugin_id:
+                        type: string
+                      event_type:
+                        type: string
+                      count:
+                        type: integer
+                        minimum: 0
         example_ref: fixtures/websocket/ok.events-received-protocol-snapshot.json
 
   - path: /ws/plugins/{id}/console

@@ -578,6 +578,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Expose runtime metrics in Prometheus exposition format.
+         * @description Returns counters, gauges, and histograms covering the event pipeline (adapter / bridge / dispatcher / runtime), task execution, render queue, outbound send, plugin runtime state, dispatcher drops, and webhook replay protection. Label cardinality is bounded by static enumerations and the set of registered plugins. Scrape with the standard Prometheus exposition parser (text/plain; version=0.0.4).
+         *
+         */
+        get: operations["getSystemMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tasks": {
         parameters: {
             query?: never;
@@ -2567,6 +2588,28 @@ export interface operations {
                 };
                 content: {
                     "application/zip": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getSystemMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prometheus text exposition payload. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             401: components["responses"]["Error"];

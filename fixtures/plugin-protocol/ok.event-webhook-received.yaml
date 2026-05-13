@@ -1,0 +1,33 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: event
+    timestamp: 1710000406
+    plugin_id: repo-watcher
+    request_id: evt_webhook_001
+    event:
+      event_id: gh-evt-7c2f1a
+      source_protocol: webhook
+      source_adapter: pluginwebhook.local
+      event_type: webhook.received
+      timestamp: 1710000405
+      payload:
+        webhook:
+          route: github
+          received_at: 1710000406
+          client_timestamp: 1710000405
+          client_event_id: gh-evt-7c2f1a
+  - protocol_version: "1"
+    type: result
+    timestamp: 1710000407
+    plugin_id: repo-watcher
+    request_id: evt_webhook_001
+    status: success
+    data:
+      handled: true
+expect:
+  valid: true
+  notes:
+    - webhook.received events carry a normalized webhook subobject sourced from the inbound replay-protection headers and the server clock.
+    - parent event_id mirrors the client-supplied event id when present so dedup is observable end to end.
