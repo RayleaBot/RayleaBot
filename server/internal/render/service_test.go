@@ -26,6 +26,7 @@ var testPNGBytes, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAA
 type fakeRunner struct {
 	mu      sync.Mutex
 	calls   int
+	closes  int
 	delay   time.Duration
 	waitCh  chan struct{}
 	content []byte
@@ -86,6 +87,23 @@ func (f *fakeRunner) lastDocument() (Document, bool) {
 	return f.docs[len(f.docs)-1], true
 }
 
+type fakeCloseableRunner struct {
+	fakeRunner
+}
+
+func (f *fakeCloseableRunner) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.closes++
+	return nil
+}
+
+func (f *fakeCloseableRunner) closeCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.closes
+}
+
 func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
 	t.Parallel()
 
@@ -134,6 +152,89 @@ func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
 	logText := logs.String()
 	if !strings.Contains(logText, "render template skipped") || !strings.Contains(logText, ".preview") {
 		t.Fatalf("expected skipped template warning, got %q", logText)
+	}
+}
+
+func TestServiceCloseClosesRunner(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writeRenderTemplateSeed(t, filepath.Join(repoRoot, "templates"), "help.menu")
+	runner := &fakeCloseableRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	if err := service.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+	if err := service.Close(); err != nil {
+		t.Fatalf("second Close: %v", err)
+	}
+	if runner.closeCount() != 1 {
+		t.Fatalf("runner close count = %d, want 1", runner.closeCount())
+	}
+}
+
+func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) {
+	t.Parallel()
+
+	oldChromiumRunner := NewChromiumRunner(ChromiumOptions{BrowserPath: "old-browser"}).(*chromiumRunner)
+	oldChromiumRunner.browserCtx = context.Background()
+	oldChromiumRunner.cancelBrowser = func() {}
+	oldChromiumRunner.cancelAllocator = func() {}
+	service := &Service{
+		runner:      oldChromiumRunner,
+		browserArgs: []string{"--disable-dev-shm-usage"},
+		workerSem:   make(chan struct{}, 1),
+	}
+	oldRunner := service.runner
+
+	service.RefreshBrowserPath("new-browser")
+
+	if service.runner == oldRunner {
+		t.Fatal("expected default chromium runner to be replaced")
+	}
+	replaced, ok := service.runner.(*chromiumRunner)
+	if !ok {
+		t.Fatalf("expected chromium runner, got %T", service.runner)
+	}
+	if replaced.browserPath != "new-browser" {
+		t.Fatalf("browser path = %q, want new-browser", replaced.browserPath)
+	}
+	old, ok := oldRunner.(*chromiumRunner)
+	if !ok {
+		t.Fatalf("old runner type = %T, want chromium runner", oldRunner)
+	}
+	if old.browserCtx != nil || old.cancelBrowser != nil || old.cancelAllocator != nil {
+		t.Fatalf("old chromium runner was not closed")
+	}
+}
+
+func TestRefreshBrowserPathKeepsInjectedRunner(t *testing.T) {
+	t.Parallel()
+
+	runner := &fakeCloseableRunner{}
+	service := &Service{runner: runner}
+
+	service.RefreshBrowserPath("new-browser")
+
+	if service.runner != runner {
+		t.Fatal("expected injected runner to remain unchanged")
+	}
+	if runner.closeCount() != 0 {
+		t.Fatalf("injected runner close count = %d, want 0", runner.closeCount())
 	}
 }
 

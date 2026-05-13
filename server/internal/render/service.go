@@ -43,6 +43,10 @@ type Runner interface {
 	Render(ctx context.Context, doc Document) ([]byte, error)
 }
 
+type closeableRunner interface {
+	Close() error
+}
+
 type Options struct {
 	RepoRoot           string
 	OutputRoot         string
@@ -258,7 +262,17 @@ func NewService(options Options) (*Service, error) {
 }
 
 func (s *Service) Close() error {
-	return nil
+	if s == nil {
+		return nil
+	}
+	releaseWorkers := s.acquireAllWorkerSlots()
+	defer releaseWorkers()
+
+	s.mu.Lock()
+	runner := s.runner
+	s.runner = nil
+	s.mu.Unlock()
+	return closeRenderRunner(runner)
 }
 
 func (s *Service) RefreshBrowserPath(browserPath string) {
@@ -268,15 +282,30 @@ func (s *Service) RefreshBrowserPath(browserPath string) {
 
 	trimmed := strings.TrimSpace(browserPath)
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.browserPath = trimmed
-	if _, ok := s.runner.(*chromiumRunner); ok {
-		s.runner = NewChromiumRunner(ChromiumOptions{
-			BrowserPath: trimmed,
-			BrowserArgs: append([]string(nil), s.browserArgs...),
-		})
+	oldRunner := s.runner
+	browserArgs := append([]string(nil), s.browserArgs...)
+	_, replaceDefaultRunner := oldRunner.(*chromiumRunner)
+	s.mu.Unlock()
+
+	if !replaceDefaultRunner {
+		return
 	}
+
+	releaseWorkers := s.acquireAllWorkerSlots()
+	defer releaseWorkers()
+
+	s.mu.Lock()
+	if s.runner != oldRunner {
+		s.mu.Unlock()
+		return
+	}
+	s.runner = NewChromiumRunner(ChromiumOptions{
+		BrowserPath: trimmed,
+		BrowserArgs: browserArgs,
+	})
+	s.mu.Unlock()
+	_ = closeRenderRunner(oldRunner)
 }
 
 func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
@@ -369,7 +398,11 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		defer cancel()
 	}
 
-	content, err := s.runner.Render(renderCtx, Document{
+	runner := s.currentRunner()
+	if runner == nil {
+		return Result{}, &Error{Code: "platform.resource_missing", Message: "render runner is not available"}
+	}
+	content, err := runner.Render(renderCtx, Document{
 		Template:   normalized.Template,
 		Theme:      normalized.Theme,
 		Output:     normalized.Output,
@@ -400,6 +433,38 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 	s.mu.Unlock()
 
 	return result, nil
+}
+
+func (s *Service) currentRunner() Runner {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.runner
+}
+
+func (s *Service) acquireAllWorkerSlots() func() {
+	if s == nil || s.workerSem == nil {
+		return func() {}
+	}
+	count := cap(s.workerSem)
+	for i := 0; i < count; i++ {
+		s.workerSem <- struct{}{}
+	}
+	return func() {
+		for i := 0; i < count; i++ {
+			<-s.workerSem
+		}
+	}
+}
+
+func closeRenderRunner(runner Runner) error {
+	closeable, ok := runner.(closeableRunner)
+	if !ok || closeable == nil {
+		return nil
+	}
+	return closeable.Close()
 }
 
 func (s *Service) ListTemplates(ctx context.Context) ([]TemplateSummary, error) {

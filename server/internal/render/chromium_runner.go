@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
@@ -21,6 +22,12 @@ type ChromiumOptions struct {
 type chromiumRunner struct {
 	browserPath string
 	browserArgs []string
+
+	mu              sync.Mutex
+	allocatorCtx    context.Context
+	cancelAllocator context.CancelFunc
+	browserCtx      context.Context
+	cancelBrowser   context.CancelFunc
 }
 
 func NewChromiumRunner(options ChromiumOptions) Runner {
@@ -31,23 +38,15 @@ func NewChromiumRunner(options ChromiumOptions) Runner {
 }
 
 func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, error) {
-	allocatorOptions := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
-	allocatorOptions = append(allocatorOptions,
-		chromedp.NoDefaultBrowserCheck,
-		chromedp.NoFirstRun,
-		chromedp.Headless,
-		chromedp.DisableGPU,
-	)
-	if r.browserPath != "" {
-		allocatorOptions = append(allocatorOptions, chromedp.ExecPath(r.browserPath))
+	browserCtx, err := r.browserContext(ctx)
+	if err != nil {
+		return nil, err
 	}
-	allocatorOptions = append(allocatorOptions, allocatorFlags(r.browserArgs)...)
+	tabCtx, cancelTab := chromedp.NewContext(browserCtx)
+	defer cancelTab()
 
-	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(ctx, allocatorOptions...)
-	defer cancelAllocator()
-
-	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx)
-	defer cancelBrowser()
+	runCtx, cancelRun := contextWithRenderDeadline(tabCtx, ctx)
+	defer cancelRun()
 
 	if doc.Width <= 0 {
 		doc.Width = 960
@@ -98,10 +97,116 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		return err
 	}))
 
-	if err := chromedp.Run(browserCtx, actions...); err != nil {
+	if err := chromedp.Run(runCtx, actions...); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		r.resetBrowser()
 		return nil, err
 	}
 	return content, nil
+}
+
+func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.browserCtx != nil {
+		return r.browserCtx, nil
+	}
+
+	allocatorOptions := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
+	allocatorOptions = append(allocatorOptions,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.NoFirstRun,
+		chromedp.Headless,
+		chromedp.DisableGPU,
+	)
+	if r.browserPath != "" {
+		allocatorOptions = append(allocatorOptions, chromedp.ExecPath(r.browserPath))
+	}
+	allocatorOptions = append(allocatorOptions, allocatorFlags(r.browserArgs)...)
+
+	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
+	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx)
+	r.allocatorCtx = allocatorCtx
+	r.cancelAllocator = cancelAllocator
+	r.browserCtx = browserCtx
+	r.cancelBrowser = cancelBrowser
+
+	startDone := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			cancelBrowser()
+			cancelAllocator()
+		case <-startDone:
+		}
+	}()
+	if err := chromedp.Run(browserCtx); err != nil {
+		close(startDone)
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			err = ctxErr
+		}
+		r.closeLocked()
+		return nil, err
+	}
+	close(startDone)
+
+	return r.browserCtx, nil
+}
+
+func (r *chromiumRunner) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.closeLocked()
+	return nil
+}
+
+func (r *chromiumRunner) resetBrowser() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.closeLocked()
+}
+
+func (r *chromiumRunner) closeLocked() {
+	if r.cancelBrowser != nil {
+		r.cancelBrowser()
+	}
+	if r.cancelAllocator != nil {
+		r.cancelAllocator()
+	}
+	r.allocatorCtx = nil
+	r.cancelAllocator = nil
+	r.browserCtx = nil
+	r.cancelBrowser = nil
+}
+
+func contextWithRenderDeadline(parent context.Context, request context.Context) (context.Context, context.CancelFunc) {
+	var runCtx context.Context
+	var cancel context.CancelFunc
+	if deadline, ok := request.Deadline(); ok {
+		runCtx, cancel = context.WithDeadline(parent, deadline)
+	} else {
+		runCtx, cancel = context.WithCancel(parent)
+	}
+
+	done := make(chan struct{})
+	var once sync.Once
+	go func() {
+		select {
+		case <-request.Done():
+			cancel()
+		case <-done:
+		}
+	}()
+
+	return runCtx, func() {
+		once.Do(func() {
+			close(done)
+		})
+		cancel()
+	}
 }
 
 func writeTemporaryRenderDocument(html, baseURL string) (string, func(), error) {
