@@ -10,20 +10,20 @@
 
 ## 总览
 
-| 编号 | 主题 | 优先级 | Contract-first | 当前证据 |
-| --- | --- | --- | --- | --- |
-| 1 | `server/internal/app` 组装边界收敛 | P1 | 否 | `app` 包 46 个非测试 Go 文件 / 71 个 Go 文件总量；`App` 结构体 47 个字段聚合跨领域运行态 |
-| 2 | `allowedTaskTypes` 与 `TaskType` 枚举对齐 | P1 | 否 | `TaskType` 枚举包含 `recovery.confirm`，服务端过滤白名单遗漏该值 |
-| 3 | Chromium 渲染浏览器生命周期复用 | P1 | 部分 | 每次渲染新建 `ExecAllocator` 与 `Context`，默认 worker=1、queue=32 |
-| 4 | 运行时指标与时序观测面 | P2 | 是 | `server/go.mod` 没有 Prometheus / OpenTelemetry 依赖；正式诊断面只覆盖快照 |
-| 5 | 插件 webhook 防重放与幂等窗口 | P2 | 是 | `webhook` 校验 token / HMAC / 源 IP；`EventID = webhook-<route>-<UnixNano>`，无 timestamp / event id 协议字段 |
-| 6 | Dispatcher 队列满行为可见化 | P2 | 是 | 默认 queue=16；`OutcomeDropped` 只写日志，管理面无聚合面 |
-| 7 | 跨层重复 / 丢弃事件统计 | P2 | 部分 | Adapter 维护 `recentEventIDs` 但不对外暴露计数；Bridge 已有 `bridge_runtime` 聚合，没有 dedup / drop 维度 |
-| 8 | Web WebSocket 重连退避 | P2 | 否 | `web/src/lib/ws.ts` 使用固定数组 `[500, 1000, 2000, 4000]`，无 jitter |
-| 9 | Session 绝对 TTL 与签名密钥轮换 | P3 | 是 | `auth.Config` 仅含 `SessionTTLDays` / `SlidingRenewal` / `MaxSessions`；签名密钥常驻 secret store |
-| 10 | 插件子系统字段收敛 | P3 | 否 | `App` 仍直接持有 14 个插件侧字段（installer / uninstaller / repo / config / files / KV / grants / 黑白名单 / webhook / runtime registry 等） |
-| 11 | `dead_letter` 状态恢复入口 | P3 | 部分 | runtime 流转 `crashed → backoff → dead_letter` 已实现，无自动清理与冷启动尝试入口 |
-| 12 | 插件 `bot_id` 身份不可用语义 | P3 | 部分 | `init.bot`、`bot.identity.changed` 与 SDK 更新链已存在，未冻结身份不可用期间的出站降级口径 |
+| 编号 | 主题 | 优先级 | Contract-first | 状态 | 当前证据 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `server/internal/app` 组装边界收敛 | P1 | 否 | 待处理 | `app` 包 46 个非测试 Go 文件 / 71 个 Go 文件总量；`App` 结构体 47 个字段聚合跨领域运行态 |
+| 2 | `allowedTaskTypes` 与 `TaskType` 枚举对齐 | P1 | 否 | 完成 | `recovery.confirm` 已进入服务端过滤白名单；服务端白名单与 OpenAPI `TaskType` 枚举有守卫测试 |
+| 3 | Chromium 渲染浏览器生命周期复用 | P1 | 部分 | 完成 | `chromiumRunner` 复用长驻浏览器上下文，单次渲染创建独立 tab；`Service.Close` 与 `RefreshBrowserPath` 会释放默认 runner |
+| 4 | 运行时指标与时序观测面 | P2 | 是 | 待处理 | `server/go.mod` 没有 Prometheus / OpenTelemetry 依赖；正式诊断面只覆盖快照 |
+| 5 | 插件 webhook 防重放与幂等窗口 | P2 | 是 | 待处理 | `webhook` 校验 token / HMAC / 源 IP；`EventID = webhook-<route>-<UnixNano>`，无 timestamp / event id 协议字段 |
+| 6 | Dispatcher 队列满行为可见化 | P2 | 是 | 待处理 | 默认 queue=16；`OutcomeDropped` 只写日志，管理面无聚合面 |
+| 7 | 跨层重复 / 丢弃事件统计 | P2 | 部分 | 待处理 | Adapter 维护 `recentEventIDs` 但不对外暴露计数；Bridge 已有 `bridge_runtime` 聚合，没有 dedup / drop 维度 |
+| 8 | Web WebSocket 重连退避 | P2 | 否 | 待处理 | `web/src/lib/ws.ts` 使用固定数组 `[500, 1000, 2000, 4000]`，无 jitter |
+| 9 | Session 绝对 TTL 与签名密钥轮换 | P3 | 是 | 待处理 | `auth.Config` 仅含 `SessionTTLDays` / `SlidingRenewal` / `MaxSessions`；签名密钥常驻 secret store |
+| 10 | 插件子系统字段收敛 | P3 | 否 | 待处理 | `App` 仍直接持有 14 个插件侧字段（installer / uninstaller / repo / config / files / KV / grants / 黑白名单 / webhook / runtime registry 等） |
+| 11 | `dead_letter` 状态恢复入口 | P3 | 部分 | 待处理 | runtime 流转 `crashed → backoff → dead_letter` 已实现，无自动清理与冷启动尝试入口 |
+| 12 | 插件 `bot_id` 身份不可用语义 | P3 | 部分 | 待处理 | `init.bot`、`bot.identity.changed` 与 SDK 更新链已存在，未冻结身份不可用期间的出站降级口径 |
 
 ## 1. `server/internal/app` 组装边界收敛（P1）
 
@@ -57,51 +57,31 @@
 
 ## 2. `allowedTaskTypes` 与 `TaskType` 枚举对齐（P1）
 
-**现状证据**
+**完成情况**
 
-- `contracts/web-api.openapi.yaml` 中 `TaskType` 枚举包含 `recovery.confirm`。
-- `server/internal/app/tasks_http.go` 的 `allowedTaskTypes` 当前值：`plugin.install` / `plugin.uninstall` / `plugin.reload` / `backup.create` / `recovery.recheck` / `restore.apply` / `config.migrate` / `db.migrate` / `runtime.bootstrap` / `render.preview`；缺少 `recovery.confirm`。
-- `GET /api/tasks?task_type=recovery.confirm` 命中 `errors.platform.invalid_request`。
-
-**风险**
-
-- OpenAPI、`web/src/types/generated.ts` 与服务端查询行为不一致。
-- 用户无法通过任务列表接口筛选 `recovery.confirm` 任务。
-
-**建议动作**
-
-- 给 `allowedTaskTypes` 补齐 `recovery.confirm`。
-- 增加守卫测试：服务端允许的 task type 必须等于 OpenAPI `TaskType` 枚举。
-- 后续重构可把任务类型集合下沉到 `server/internal/tasks` 统一常量源。
+- 状态：完成。
+- `server/internal/app/tasks_http.go` 的 `allowedTaskTypes` 包含 `recovery.confirm`。
+- `server/internal/app/tasks_http_test.go` 覆盖 `GET /api/tasks?task_type=recovery.confirm`。
+- `server/internal/app/tasks_http_test.go` 校验服务端允许的 task type 与 OpenAPI `TaskType` 枚举一致。
 
 **契约边界**
 
-- 当前 contract 已包含该类型，仅修服务端实现与测试。
+- 当前 contract 已包含该类型，本项只涉及服务端实现与测试。
 
 **验证方式**
 
 - `cd server && go test ./internal/app`
-- 增加 `GET /api/tasks?task_type=recovery.confirm` 的回归断言。
 
 ## 3. Chromium 渲染浏览器生命周期复用（P1）
 
-**现状证据**
+**完成情况**
 
-- `server/internal/render/chromium_runner.go#Render` 每次调用都执行 `chromedp.NewExecAllocator` + `chromedp.NewContext`，进程级冷启动。
-- `render.Service` 默认 `defaultWorkerCount=1`、`defaultQueueMaxLength=32`、`defaultQueueWaitTimeout=15s`、`defaultRenderTimeout=20s`。
-- 模板预览、插件 `render.image` 与冷却短回复都共用同一 Runner。
-- 仓库内没有正式 benchmark / trace 数据，可量化延迟结论不能直接写入。
-
-**风险**
-
-- 单 worker + 进程级冷启动叠加，在并发高峰下排队等待 + 启动浏览器会显著拉高 P95。
-- 失败后的进程清理依赖 `defer cancelBrowser` / `defer cancelAllocator`，缺少异常路径下的复用统计。
-
-**建议动作**
-
-- 不新增配置项的版本：评估在 `chromiumRunner` 内长驻 `ExecAllocator`、按调用新建 `chromedp.NewContext` 作为 tab，调用结束 `Cancel`。
-- 涉及配置面（如 `render.browser_pool_max_tabs`、`render.browser_idle_timeout_seconds`）需要先改 `contracts/config.user.schema.json` 与 fixtures，再改实现。
-- 给 render Runner 增加 benchmark / trace 钩子，记录优化前后的命令、输入与结果文件位置。
+- 状态：完成。
+- `server/internal/render/chromium_runner.go` 复用长驻 `ExecAllocator` 与浏览器根 context。
+- 单次 `Render` 创建独立 `chromedp.NewContext` 作为 tab，渲染结束后关闭 tab。
+- `Service.Close` 会关闭可释放的 runner。
+- `RefreshBrowserPath` 替换默认 Chromium runner 时等待当前 worker 结束，并关闭旧 runner。
+- 渲染失败会重置浏览器上下文，后续渲染可重新初始化。
 
 **契约边界**
 
@@ -111,7 +91,6 @@
 **验证方式**
 
 - `cd server && go test ./internal/render ./internal/app`
-- 模板预览 fixtures 端到端验证：连续触发预览不应出现进程泄漏。
 
 ## 4. 运行时指标与时序观测面（P2）
 
