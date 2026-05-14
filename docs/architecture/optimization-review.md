@@ -23,7 +23,7 @@
 | 9 | Session 绝对 TTL 与签名密钥轮换 | P3 | 是 | 待处理 | `auth.Config` 仅含 `SessionTTLDays` / `SlidingRenewal` / `MaxSessions`；签名密钥常驻 secret store |
 | 10 | 插件子系统字段收敛 | P3 | 否 | 待处理 | `App` 仍直接持有 14 个插件侧字段（installer / uninstaller / repo / config / files / KV / grants / 黑白名单 / webhook / runtime registry 等） |
 | 11 | `dead_letter` 状态恢复入口 | P3 | 部分 | 待处理 | runtime 流转 `crashed → backoff → dead_letter` 已实现，无自动清理与冷启动尝试入口 |
-| 12 | 插件 `bot_id` 身份不可用语义 | P3 | 部分 | 待处理 | `init.bot`、`bot.identity.changed` 与 SDK 更新链已存在，未冻结身份不可用期间的出站降级口径 |
+| 12 | 插件 `bot_id` 身份不可用语义 | P3 | 部分 | 完成 | `init.bot` 缺省与空 `bot.identity.changed` 表示身份不可用；Python / Node.js SDK 提供等待身份就绪 helper |
 
 ## 1. `server/internal/app` 组装边界收敛（P1）
 
@@ -301,31 +301,27 @@
 
 ## 12. 插件 `bot_id` 身份不可用语义（P3）
 
-**现状证据**
+**完成情况**
 
-- `contracts/plugin-protocol.schema.json` 已冻结 `init.bot` 与 `bot.identity.changed`。
-- Python / Node.js SDK 在 `bot.identity.changed` 时更新 `bot_id` / `botId`；身份不可用时返回空字符串。
-- 协议与 SDK 没有冻结身份不可用期间的出站降级口径与显式 `awaitBotIdentity` helper。
-
-**风险**
-
-- 插件作者对身份不可用期间能否发送消息、是否等待身份、如何处理重连缺少统一口径。
-- 不同插件可能自行 busy-wait 或实现不一致。
-
-**建议动作**
-
-- 在 plugin protocol 文档与 SDK README 中冻结身份不可用期间的出站语义。
-- SDK 增加 `awaitBotIdentity(timeoutMs)` / `await_bot_identity(timeout_seconds)` helper。
-- 插件示例展示订阅 `bot.identity.changed` 后刷新本地会话上下文。
+- 状态：完成。
+- `contracts/plugin-protocol.schema.json` 冻结 `init.bot` 与 `bot.identity.changed`。
+- `docs/plugin/protocol.md` 说明身份不可用期间的出站语义：依赖 `self_id` 的 `message.*`、`reaction.set` 与 `onebot.*` action 返回正式 `error` 帧，不依赖身份的 local action 保持可用。
+- Python SDK 在 `bot.identity.changed` 时更新或清空 `bot_id`，并提供 `RayleaBotPlugin.await_bot_identity(timeout_seconds=30)`。
+- Node.js SDK 在 `bot.identity.changed` 时更新或清空 `botId`，并提供 `plugin.awaitBotIdentity(timeoutMs=30000)` 与 `EventContext.awaitBotIdentity(timeoutMs)`。
+- SDK helper 在身份已知时立即返回；身份不可用时等待到身份恢复或超时，超时返回空字符串。
+- Node.js SDK 的等待项在超时和身份提前恢复时都会释放，避免长期不可用时堆积等待闭包。
 
 **契约边界**
 
-- 协议语义说明与 SDK helper 属于 contract / SDK / docs 联动改动。
+- `init.bot` 与 `bot.identity.changed` 的字段结构由 `contracts/plugin-protocol.schema.json` 裁决。
+- 身份不可用期间的出站语义由 `docs/plugin/protocol.md` 和正式错误码口径表达。
 
 **验证方式**
 
 - plugin protocol fixture 覆盖 `bot.identity.changed`。
-- Python / Node.js SDK 测试覆盖 init 无 bot、身份变更、等待超时。
+- `cd sdk/python && python -m unittest discover -s tests`
+- `cd sdk/nodejs && node --test tests/*.test.mjs`
+- `cd sdk/nodejs && npm run typecheck`
 
 ## 长期跟踪
 

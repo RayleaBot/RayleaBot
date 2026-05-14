@@ -58,6 +58,16 @@
 - `meta.*` 事件使用系统会话：`conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
 - `bot.identity.changed` 使用 `target.type=bot`、`target.id=<self_id>`，并在 `event.payload.onebot.self_id` 中提供同一身份。
 
+### 身份不可用期间的出站语义
+
+- `init.bot` 缺失或 `bot.identity.changed` 携带空 `self_id` 时，平台视该插件的 OneBot 身份为不可用：
+  - `message.send`、`message.reply`、`message.recall`、`reaction.set` 及任何依赖 `self_id` 的 `onebot.*` action 会被平台拒绝；拒绝以正式协议 `error` 帧返回，`error.code=plugin.permission_pending` 或 `error.code=adapter.connection_lost`，由具体根因决定。
+  - 不依赖身份的 local action（`config.*`、`storage.*`、`logger.write`、`http.request`、`render.image` 等）保持可用。
+- 插件代码应订阅 `bot.identity.changed` 并在身份重新可用时刷新本地缓存的会话上下文。
+- SDK 提供阻塞等待入口：Python `RayleaBotPlugin.await_bot_identity(timeout_seconds)` 与 Node.js `plugin.awaitBotIdentity(timeoutMs)` / `EventContext.awaitBotIdentity(timeoutMs)`。两者在身份已可用时立即返回当前 `bot_id` / `botId`；否则阻塞直至身份可用或超时，超时返回空字符串。
+- 插件不得在身份不可用时长时间忙等：调用 SDK helper 或直接 `return` 让出 handler 线程，避免阻塞 dispatcher 派发其他事件。
+- 平台不会自动回放身份不可用期间被拒绝的 action；插件需要在 `bot.identity.changed` 中决定是否重试。
+
 ## Local Action RPC
 
 当前正式 local action 集合：

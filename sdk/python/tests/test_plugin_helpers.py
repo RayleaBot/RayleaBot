@@ -386,6 +386,48 @@ class PluginHelperTests(unittest.TestCase):
             "plain_text": "hello",
         }, seen)
 
+    def test_await_bot_identity_returns_immediately_when_identity_known(self):
+        plugin = self.plugin_module.RayleaBotPlugin()
+        plugin._set_bot_id("bot-10001")
+
+        self.assertEqual("bot-10001", plugin.await_bot_identity(timeout_seconds=0.05))
+
+    def test_await_bot_identity_blocks_until_identity_set(self):
+        plugin = self.plugin_module.RayleaBotPlugin()
+        plugin._set_bot_id("")
+
+        def deliver_identity():
+            time.sleep(0.05)
+            plugin._set_bot_id("bot-10002")
+
+        worker = threading.Thread(target=deliver_identity)
+        worker.start()
+        try:
+            result = plugin.await_bot_identity(timeout_seconds=1.0)
+        finally:
+            worker.join()
+
+        self.assertEqual("bot-10002", result)
+
+    def test_await_bot_identity_returns_empty_on_timeout(self):
+        plugin = self.plugin_module.RayleaBotPlugin()
+        plugin._set_bot_id("")
+
+        self.assertEqual("", plugin.await_bot_identity(timeout_seconds=0.05))
+
+    def test_bot_identity_changed_with_no_target_clears_bot_id(self):
+        plugin = self.plugin_module.RayleaBotPlugin()
+        plugin._set_bot_id("bot-10001")
+
+        plugin._update_bot_identity({
+            "event_type": "bot.identity.changed",
+            "target": {},
+            "payload": {},
+        })
+
+        self.assertEqual("", plugin.bot_id)
+        self.assertEqual("", plugin.await_bot_identity(timeout_seconds=0.01))
+
 
 if __name__ == "__main__":
     unittest.main()

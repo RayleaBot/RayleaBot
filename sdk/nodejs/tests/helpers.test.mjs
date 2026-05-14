@@ -317,6 +317,122 @@ test('bot.identity.changed updates botId after init without bot', async () => {
   assert.deepEqual(result, { botId: '10001' });
 });
 
+test('awaitBotIdentity blocks until bot.identity.changed delivers the identity', async () => {
+  const result = await new Promise((resolve, reject) => {
+    const script = `
+      import { createPlugin } from './dist/index.js';
+
+      const plugin = createPlugin();
+      plugin.onEvent('message.private', async (event) => {
+        const identity = await plugin.awaitBotIdentity(2000);
+        process.stderr.write(JSON.stringify({ awaitedBotId: identity, requestId: event.event_id }) + '\\n');
+      });
+      await plugin.run();
+    `;
+
+    const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
+      cwd: sdkRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stderrBuffer = '';
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error('timed out waiting for awaited botId'));
+    }, 5000);
+
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderrBuffer += chunk.toString();
+    });
+
+    child.stdin.write(JSON.stringify({
+      protocol_version: '1',
+      type: 'init',
+      timestamp: Math.floor(Date.now() / 1000),
+      plugin_id: 'helper-plugin',
+      request_id: 'init-1',
+      command_prefixes: ['/'],
+    }) + '\n');
+    child.stdin.write(JSON.stringify({
+      protocol_version: '1',
+      type: 'event',
+      timestamp: Math.floor(Date.now() / 1000),
+      plugin_id: 'helper-plugin',
+      request_id: 'evt-wait-1',
+      event: {
+        event_id: 'evt-wait-1',
+        source_protocol: 'onebot11',
+        source_adapter: 'adapter.onebot11',
+        event_type: 'message.private',
+        timestamp: Math.floor(Date.now() / 1000),
+        message: { plain_text: 'hello' },
+      },
+    }) + '\n');
+    setTimeout(() => {
+      try {
+        child.stdin.write(JSON.stringify({
+          protocol_version: '1',
+          type: 'event',
+          timestamp: Math.floor(Date.now() / 1000),
+          plugin_id: 'helper-plugin',
+          request_id: 'evt-identity-late',
+          event: {
+            event_id: 'identity-late',
+            source_protocol: 'onebot11',
+            source_adapter: 'adapter.onebot11',
+            event_type: 'bot.identity.changed',
+            timestamp: Math.floor(Date.now() / 1000),
+            target: { type: 'bot', id: '20002' },
+            payload: { onebot: { self_id: '20002' } },
+          },
+        }) + '\n');
+        child.stdin.end(JSON.stringify({
+          protocol_version: '1',
+          type: 'shutdown',
+          timestamp: Math.floor(Date.now() / 1000),
+          plugin_id: 'helper-plugin',
+          request_id: 'shutdown-1',
+          reason: 'stop',
+        }) + '\n');
+      } catch (writeErr) {
+        clearTimeout(timeout);
+        reject(writeErr);
+      }
+    }, 150);
+
+    child.on('exit', (code) => {
+      clearTimeout(timeout);
+      if (code !== 0) {
+        reject(new Error(`child exited with code ${code}: ${stderrBuffer}`));
+        return;
+      }
+      const lines = stderrBuffer.trim().split(/\r?\n/).filter(Boolean);
+      const target = lines
+        .map((line) => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter((value) => value && value.awaitedBotId !== undefined)
+        .at(-1);
+      if (!target) {
+        reject(new Error(`awaitBotIdentity handler did not emit identity: ${stderrBuffer}`));
+        return;
+      }
+      resolve(target);
+    });
+  });
+
+  assert.equal(result.awaitedBotId, '20002');
+});
+
 test('class plugin dispatches context command handlers', async () => {
   const result = await new Promise((resolve, reject) => {
     const script = `

@@ -99,6 +99,8 @@ export interface RayleaBotPluginRuntime {
   readonly commandPrefixes: string[];
   readonly primaryCommandPrefix: string;
 
+  awaitBotIdentity(timeoutMs?: number): Promise<string>;
+
   onEvent(handler: EventHandler): RayleaBotPluginRuntime;
   onEvent(eventType: string, handler: EventHandler): RayleaBotPluginRuntime;
   onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPluginRuntime;
@@ -527,6 +529,10 @@ export class PluginEventContext {
 
   get botId(): string {
     return this.plugin.botId;
+  }
+
+  awaitBotIdentity(timeoutMs?: number): Promise<string> {
+    return this.plugin.awaitBotIdentity(timeoutMs);
   }
 
   get capabilities(): string[] {
@@ -1008,10 +1014,62 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
   let capabilities: string[] = [];
   let commandPrefixes = ['/'];
   let subscriptions: string[] | null = null;
+  const botIdentityWaiters = new Set<(value: string) => void>();
+
+  function setBotId(next: string): void {
+    botId = next || '';
+    if (botId) {
+      const current = botId;
+      const pending = Array.from(botIdentityWaiters);
+      botIdentityWaiters.clear();
+      for (const resolve of pending) {
+        try {
+          resolve(current);
+        } catch {
+          // resolver throwing is the caller's bug; swallowing keeps the
+          // event loop healthy for other waiters.
+        }
+      }
+    }
+  }
+
+  function awaitBotIdentityImpl(timeoutMs: number): Promise<string> {
+    if (botId) {
+      return Promise.resolve(botId);
+    }
+    const clampedTimeout = Math.max(0, Math.floor(timeoutMs));
+    return new Promise<string>((resolve) => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const wrappedResolve = (value: string) => finish(value);
+      const finish = (value: string) => {
+        if (settled) return;
+        settled = true;
+        botIdentityWaiters.delete(wrappedResolve);
+        if (timer) {
+          clearTimeout(timer);
+        }
+        resolve(value);
+      };
+      botIdentityWaiters.add(wrappedResolve);
+      if (clampedTimeout > 0) {
+        timer = setTimeout(() => finish(botId), clampedTimeout);
+        if (typeof timer === 'object' && timer && 'unref' in timer && typeof (timer as { unref?: () => void }).unref === 'function') {
+          (timer as { unref: () => void }).unref();
+        }
+      } else {
+        // Zero timeout: keep waiting indefinitely.
+      }
+    });
+  }
 
   const plugin: RayleaBotPluginRuntime = {
     get botId(): string {
       return botId;
+    },
+
+    awaitBotIdentity(timeoutMs: number = 30_000): Promise<string> {
+      return awaitBotIdentityImpl(timeoutMs);
     },
 
     get capabilities(): string[] {
@@ -1990,7 +2048,7 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
         if (type === 'init') {
           const initFrame = frame as InitFrame;
           pluginId = plugin_id;
-          botId = initFrame.bot?.id ?? '';
+          setBotId(initFrame.bot?.id ?? '');
           capabilities = Array.isArray(initFrame.capabilities)
             ? initFrame.capabilities.filter(
                 (value): value is string => typeof value === 'string' && value.length > 0,
@@ -2058,7 +2116,8 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
     }
     const targetId = event.target?.type === 'bot' ? event.target.id : undefined;
     const selfId = event.payload?.onebot?.self_id;
-    botId = targetId || selfId || botId;
+    const next = targetId || selfId || '';
+    setBotId(next);
   }
 
   async function requestOneBotAction(
@@ -2104,6 +2163,10 @@ export class RayleaBotPlugin {
     return this.runtime.botId;
   }
 
+  awaitBotIdentity(timeoutMs?: number): Promise<string> {
+    return this.runtime.awaitBotIdentity(timeoutMs);
+  }
+
   get capabilities(): string[] {
     return this.runtime.capabilities;
   }
@@ -2143,7 +2206,7 @@ export class RayleaBotPlugin {
 
 export interface RayleaBotPlugin extends Omit<
   RayleaBotPluginRuntime,
-  'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe'
+  'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe' | 'awaitBotIdentity'
 > {}
 
 const delegatedRuntimeMethods = [

@@ -47,6 +47,7 @@ export interface RayleaBotPluginRuntime {
     readonly capabilities: string[];
     readonly commandPrefixes: string[];
     readonly primaryCommandPrefix: string;
+    awaitBotIdentity(timeoutMs?: number): Promise<string>;
     onEvent(handler: EventHandler): RayleaBotPluginRuntime;
     onEvent(eventType: string, handler: EventHandler): RayleaBotPluginRuntime;
     onCommand(name: string, handler: EventHandler, aliases?: string[]): RayleaBotPluginRuntime;
@@ -179,6 +180,7 @@ export declare class PluginEventContext {
     get targetType(): string;
     get targetId(): string;
     get botId(): string;
+    awaitBotIdentity(timeoutMs?: number): Promise<string>;
     get capabilities(): string[];
     get commandPrefixes(): string[];
     get primaryCommandPrefix(): string;
@@ -304,6 +306,7 @@ export declare class RayleaBotPlugin {
     private readonly runtime;
     constructor();
     get botId(): string;
+    awaitBotIdentity(timeoutMs?: number): Promise<string>;
     get capabilities(): string[];
     get commandPrefixes(): string[];
     get primaryCommandPrefix(): string;
@@ -312,7 +315,7 @@ export declare class RayleaBotPlugin {
     onCommand(name: string, handler: EventHandler, aliases?: string[]): this;
     subscribe(...eventTypes: string[]): this;
 }
-export interface RayleaBotPlugin extends Omit<RayleaBotPluginRuntime, 'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe'> {
+export interface RayleaBotPlugin extends Omit<RayleaBotPluginRuntime, 'botId' | 'capabilities' | 'commandPrefixes' | 'primaryCommandPrefix' | 'onEvent' | 'onCommand' | 'subscribe' | 'awaitBotIdentity'> {
 }
 export declare function createPlugin(): RayleaBotPlugin;
 //# sourceMappingURL=index.d.ts.map

@@ -16,7 +16,11 @@
 - 启动上下文 helper：
   - Python：`bot_id`、`capabilities`、`command_prefixes`、`primary_command_prefix`
   - Node.js：`botId`、`capabilities`、`commandPrefixes`、`primaryCommandPrefix`
-- `bot_id` / `botId` 在协议身份不可用时为空字符串；SDK 收到 `bot.identity.changed` 后更新为当前 bot 身份。
+- `bot_id` / `botId` 在协议身份不可用时为空字符串；SDK 收到 `bot.identity.changed` 后更新为当前 bot 身份。当 `bot.identity.changed` 不携带可用身份时（`target` 与 `event.payload.onebot.self_id` 均为空），SDK 将 `bot_id` / `botId` 重置为空，下次 `bot.identity.changed` 再恢复。
+- 等待身份就绪 helper：
+  - Python：`RayleaBotPlugin.await_bot_identity(timeout_seconds=30)`；身份已知时立即返回当前 `bot_id`，否则阻塞至身份就绪或超时，超时返回空字符串。线程安全，可在事件处理线程内调用。
+  - Node.js：`plugin.awaitBotIdentity(timeoutMs=30000)` 与 `EventContext.awaitBotIdentity(timeoutMs)`；Promise 在身份就绪或超时时 resolve 当前 `botId`。
+  - 调用方在身份不可用期间不应忙等：handler 内 `await` SDK helper 或直接 `return` 让出线程，避免阻塞 dispatcher。
 - 事件接收与结果回传
 - 通用 local action helper：`message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image`、`plugin.list`
 - `secret.read` helper 当前只在 Python SDK 提供（`secret_read` / `secretRead`）；Node.js SDK 可通过通用回退入口 `onebotAction("secret.read", { key })` 调用。

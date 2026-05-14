@@ -141,6 +141,7 @@ class RayleaBotPlugin:
         self._handler_lock = threading.Lock()
         self._plugin_id = ""
         self._bot_id = ""
+        self._bot_identity_event = threading.Event()
         self._capabilities = []
         self._command_prefixes = ["/"]
         self._subscriptions = None
@@ -860,7 +861,7 @@ class RayleaBotPlugin:
             if frame_type == "init":
                 self._plugin_id = plugin_id
                 bot = frame.get("bot", {})
-                self._bot_id = bot.get("id", "")
+                self._set_bot_id(bot.get("id", ""))
                 self._capabilities = frame.get("capabilities", [])
                 prefixes = [prefix for prefix in frame.get("command_prefixes", ["/"]) if isinstance(prefix, str) and prefix]
                 self._command_prefixes = prefixes or ["/"]
@@ -940,14 +941,48 @@ class RayleaBotPlugin:
         target = event.get("target") or {}
         target_id = target.get("id") if target.get("type") == "bot" else None
         if target_id:
-            self._bot_id = str(target_id)
+            self._set_bot_id(str(target_id))
             return
 
         payload = event.get("payload") or {}
         onebot = payload.get("onebot") or {}
         self_id = onebot.get("self_id")
         if self_id:
-            self._bot_id = str(self_id)
+            self._set_bot_id(str(self_id))
+            return
+
+        # bot.identity.changed with no usable identity means the bot is
+        # currently unavailable; downstream send_message / send_reply calls
+        # must wait for await_bot_identity before issuing protocol actions.
+        self._set_bot_id("")
+
+    def _set_bot_id(self, value):
+        bot_id = str(value or "")
+        self._bot_id = bot_id
+        if bot_id:
+            self._bot_identity_event.set()
+        else:
+            self._bot_identity_event.clear()
+
+    def await_bot_identity(self, timeout_seconds=30):
+        """Block until the bot identity is available or the timeout elapses.
+
+        Returns the current ``bot_id`` when available, an empty string when
+        the timeout expired without a known identity. Safe to call from event
+        handler threads.
+
+        Plugins that need to send outbound messages immediately after
+        ``bot.identity.changed`` should call this helper before issuing any
+        action; while the identity is unavailable the platform refuses
+        identity-dependent OneBot actions.
+        """
+        if timeout_seconds is None or timeout_seconds < 0:
+            timeout_seconds = 0
+        # Already known: return immediately.
+        if self._bot_identity_event.is_set():
+            return self._bot_id
+        self._bot_identity_event.wait(timeout=timeout_seconds)
+        return self._bot_id
 
     @property
     def command_prefixes(self):

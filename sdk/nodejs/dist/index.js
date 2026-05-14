@@ -43,6 +43,9 @@ export class PluginEventContext {
     get botId() {
         return this.plugin.botId;
     }
+    awaitBotIdentity(timeoutMs) {
+        return this.plugin.awaitBotIdentity(timeoutMs);
+    }
     get capabilities() {
         return this.plugin.capabilities;
     }
@@ -281,9 +284,61 @@ function createPluginRuntime(owner) {
     let capabilities = [];
     let commandPrefixes = ['/'];
     let subscriptions = null;
+    const botIdentityWaiters = new Set();
+    function setBotId(next) {
+        botId = next || '';
+        if (botId) {
+            const current = botId;
+            const pending = Array.from(botIdentityWaiters);
+            botIdentityWaiters.clear();
+            for (const resolve of pending) {
+                try {
+                    resolve(current);
+                }
+                catch {
+                    // resolver throwing is the caller's bug; swallowing keeps the
+                    // event loop healthy for other waiters.
+                }
+            }
+        }
+    }
+    function awaitBotIdentityImpl(timeoutMs) {
+        if (botId) {
+            return Promise.resolve(botId);
+        }
+        const clampedTimeout = Math.max(0, Math.floor(timeoutMs));
+        return new Promise((resolve) => {
+            let settled = false;
+            let timer;
+            const wrappedResolve = (value) => finish(value);
+            const finish = (value) => {
+                if (settled)
+                    return;
+                settled = true;
+                botIdentityWaiters.delete(wrappedResolve);
+                if (timer) {
+                    clearTimeout(timer);
+                }
+                resolve(value);
+            };
+            botIdentityWaiters.add(wrappedResolve);
+            if (clampedTimeout > 0) {
+                timer = setTimeout(() => finish(botId), clampedTimeout);
+                if (typeof timer === 'object' && timer && 'unref' in timer && typeof timer.unref === 'function') {
+                    timer.unref();
+                }
+            }
+            else {
+                // Zero timeout: keep waiting indefinitely.
+            }
+        });
+    }
     const plugin = {
         get botId() {
             return botId;
+        },
+        awaitBotIdentity(timeoutMs = 30_000) {
+            return awaitBotIdentityImpl(timeoutMs);
         },
         get capabilities() {
             return [...capabilities];
@@ -743,7 +798,7 @@ function createPluginRuntime(owner) {
                 if (type === 'init') {
                     const initFrame = frame;
                     pluginId = plugin_id;
-                    botId = initFrame.bot?.id ?? '';
+                    setBotId(initFrame.bot?.id ?? '');
                     capabilities = Array.isArray(initFrame.capabilities)
                         ? initFrame.capabilities.filter((value) => typeof value === 'string' && value.length > 0)
                         : [];
@@ -800,7 +855,8 @@ function createPluginRuntime(owner) {
         }
         const targetId = event.target?.type === 'bot' ? event.target.id : undefined;
         const selfId = event.payload?.onebot?.self_id;
-        botId = targetId || selfId || botId;
+        const next = targetId || selfId || '';
+        setBotId(next);
     }
     async function requestOneBotAction(requestId, action, data, options = {}) {
         const { timeoutMs = 30000 } = options;
@@ -821,6 +877,9 @@ export class RayleaBotPlugin {
     }
     get botId() {
         return this.runtime.botId;
+    }
+    awaitBotIdentity(timeoutMs) {
+        return this.runtime.awaitBotIdentity(timeoutMs);
     }
     get capabilities() {
         return this.runtime.capabilities;
