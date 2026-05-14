@@ -22,7 +22,7 @@
 | 8 | Web WebSocket 重连退避 | P2 | 否 | 完成 | `web/src/lib/ws.ts` 走指数退避 + 抖动；`socket-controller` 每频道独立；`ConnectionStatusStrip` 展示重连倒计时与最后错误时间 |
 | 9 | Session 绝对 TTL 与签名密钥轮换 | P3 | 是 | 待处理 | `auth.Config` 仅含 `SessionTTLDays` / `SlidingRenewal` / `MaxSessions`；签名密钥常驻 secret store |
 | 10 | 插件子系统字段收敛 | P3 | 否 | 无需改动 | 插件子系统已按 `plugin*` / `protocolcap` 包拆分，handler deps 走领域 struct；引入 `pluginStack` 聚合沦为命名重排，结论与项 1 同 |
-| 11 | `dead_letter` 状态恢复入口 | P3 | 部分 | 待处理 | runtime 流转 `crashed → backoff → dead_letter` 已实现，无自动清理与冷启动尝试入口 |
+| 11 | `dead_letter` 状态恢复入口 | P3 | 部分 | 部分完成 | runtime 进入 `dead_letter` 时记录 `EnteredDeadLetterAt`、自动清理插件 webhook 路由；管理面摘要字段与冷启动重试入口仍属 contract-first 待处理 |
 | 12 | 插件 `bot_id` 身份不可用语义 | P3 | 部分 | 完成 | `init.bot` 缺省与空 `bot.identity.changed` 表示身份不可用；Python / Node.js SDK 提供等待身份就绪 helper |
 
 ## 1. `server/internal/app` 组装边界收敛（P1）
@@ -226,32 +226,33 @@
 
 ## 11. `dead_letter` 状态恢复入口（P3）
 
-**现状证据**
+**当前进展**
 
-- `runtime` 状态机覆盖 `stopped / starting / running / stopping / crashed / backoff / dead_letter`；`docs/architecture/state-model.md` 已记录流转。
-- 进入 `dead_letter` 后只能由人工触发 enable / reload，没有自动清理与冷启动尝试入口。
+- 状态：部分完成。
+- `runtime.Manager` 在 `SetDeadLetterState` 时记录 `EnteredDeadLetterAt`，`SetStopped` 与 `ResetCrashCount` 都会清空该时间戳，确保字段反映当前 dwell time。
+- `pluginLifecycleController.handleCrash` 进入 `dead_letter` 时除了 `dispatcher.Deregister` 与 `clearBotIdentity`，会同时 `webhooks.DeletePlugin`，避免插件已停止重启时 webhook 路由仍在受理外部请求。
+- 单测 `TestHandleCrashDeadLetterCleansUpWebhooks` 与 `TestManagerSetDeadLetterState` 锁定上述行为。
+
+**剩余工作**
+
 - 管理面对 `dead_letter` 的展示停留在状态枚举，没有"持续时间 / 最近错误 / 建议动作"的统一摘要。
+- 进入 `dead_letter` 后的冷启动尝试入口尚未存在，管理员只能通过 disable + enable 走完整生命周期。
+- `EnteredDeadLetterAt`、`crash_count`、`last_error_code` 等字段尚未通过 `GET /api/plugins/{plugin_id}` 暴露给 Web。
 
-**风险**
+**剩余建议动作**
 
-- 长时间 `dead_letter` 插件可能仍持有运行时连接、订阅、调度 job。
-- 用户需要自行翻日志判断重试 / 禁用 / 卸载。
-
-**建议动作**
-
-- 管理面展示 `dead_letter` 摘要：持续时间、最近错误、建议动作。
-- 提供一次性冷启动尝试入口，复用 enable / reload 权限模型。
-- 自动清理只处理运行时连接和订阅，不删除插件配置、KV 或文件数据。
+- 在 `contracts/web-api.openapi.yaml` 的 `PluginDetailResponse` 内冻结 `dead_letter` 摘要对象（`entered_at`、`crash_count`、`last_error_code`、`last_error_message`）。
+- 新增 `POST /api/plugins/{plugin_id}/dead_letter/recover` 受保护路由：仅在当前 `runtime_state=dead_letter` 时受理，否则 `409`；成功时重置 crash count 并按现有 enable / reload 路径冷启动。
+- Web `PluginDetailView` 展示摘要与"恢复尝试"入口，复用 enable / reload 权限校验。
 
 **契约边界**
 
-- 新管理动作或新摘要字段属于 contract-first。
-- 仅补内部日志或文档不需要 contract。
+- 自动清理与时间戳记录属于纯 server 内部行为，已落地无需 contract。
+- 摘要字段、冷启动入口与错误码属于 contract-first，待后续版本统一冻结。
 
 **验证方式**
 
-- runtime crash / backoff / dead_letter 测试覆盖状态流转。
-- Web plugin detail 测试覆盖 `dead_letter` 摘要展示。
+- `cd server && go test ./internal/app ./internal/runtime`
 
 ## 12. 插件 `bot_id` 身份不可用语义（P3）
 
