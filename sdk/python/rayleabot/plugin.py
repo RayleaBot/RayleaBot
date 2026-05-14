@@ -482,6 +482,7 @@ class RayleaBotPlugin:
         header="X-Webhook-Token",
         signature_prefix=None,
         source_ips=None,
+        replay_protection=None,
         timeout_seconds=30,
     ):
         """Register a controlled webhook route through event.expose_webhook."""
@@ -496,6 +497,7 @@ class RayleaBotPlugin:
             data["signature_prefix"] = signature_prefix
         if source_ips:
             data["source_ips"] = list(source_ips)
+        data["replay_protection"] = _normalise_replay_protection(replay_protection)
         return protocol.request_local_action(
             self._plugin_id,
             request_id,
@@ -981,3 +983,27 @@ def _uses_context_handler(handler):
         )
     ]
     return len(positional) == 1
+
+
+_DEFAULT_TIMESTAMP_HEADER = "X-Raylea-Timestamp"
+_DEFAULT_EVENT_ID_HEADER = "X-Raylea-Event-Id"
+_DEFAULT_TOLERANCE_SECONDS = 300
+
+
+def _normalise_replay_protection(value):
+    """Normalise replay_protection input into the formal contract shape.
+
+    None defaults to enforce=True with the standard header names. A dict is
+    accepted as-is once defaults are filled. The protocol requires the field
+    on every event.expose_webhook action.
+    """
+    if value is None:
+        value = {}
+    if not isinstance(value, dict):
+        raise TypeError("replay_protection must be a dict or None")
+    return {
+        "timestamp_header": str(value.get("timestamp_header", _DEFAULT_TIMESTAMP_HEADER)),
+        "event_id_header": str(value.get("event_id_header", _DEFAULT_EVENT_ID_HEADER)),
+        "tolerance_seconds": int(value.get("tolerance_seconds", _DEFAULT_TOLERANCE_SECONDS)),
+        "enforce": bool(value.get("enforce", True)),
+    }

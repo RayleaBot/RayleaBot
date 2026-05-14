@@ -208,6 +208,12 @@ export interface RayleaBotPluginRuntime {
       secretRef: string;
       signaturePrefix?: string;
       sourceIps?: string[];
+      replayProtection?: {
+        timestampHeader?: string;
+        eventIdHeader?: string;
+        toleranceSeconds?: number;
+        enforce?: boolean;
+      };
     },
   ): Promise<Record<string, unknown>>;
   renderImage(
@@ -677,6 +683,12 @@ export class PluginEventContext {
       secretRef: string;
       signaturePrefix?: string;
       sourceIps?: string[];
+      replayProtection?: {
+        timestampHeader?: string;
+        eventIdHeader?: string;
+        toleranceSeconds?: number;
+        enforce?: boolean;
+      };
     },
   ): Promise<Record<string, unknown>> {
     return this.plugin.exposeWebhook(this.requestId, route, options);
@@ -1388,6 +1400,12 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
         secretRef: string;
         signaturePrefix?: string;
         sourceIps?: string[];
+        replayProtection?: {
+          timestampHeader?: string;
+          eventIdHeader?: string;
+          toleranceSeconds?: number;
+          enforce?: boolean;
+        };
       } = { secretRef: '' },
     ): Promise<Record<string, unknown>> {
       const {
@@ -1397,6 +1415,7 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
         secretRef,
         signaturePrefix,
         sourceIps,
+        replayProtection,
         timeoutMs = 30000,
       } = options;
       if (!secretRef) {
@@ -1415,6 +1434,12 @@ function createPluginRuntime(owner?: RayleaBotPlugin): RayleaBotPluginRuntime {
       if (sourceIps !== undefined) {
         data.source_ips = sourceIps;
       }
+      data.replay_protection = {
+        timestamp_header: replayProtection?.timestampHeader ?? 'X-Raylea-Timestamp',
+        event_id_header: replayProtection?.eventIdHeader ?? 'X-Raylea-Event-Id',
+        tolerance_seconds: replayProtection?.toleranceSeconds ?? 300,
+        enforce: replayProtection?.enforce ?? true,
+      };
       return await requestLocalAction(
         pluginId,
         requestId,

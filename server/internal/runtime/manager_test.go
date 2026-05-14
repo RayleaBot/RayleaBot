@@ -1103,7 +1103,13 @@ func TestParseEventExposeWebhookAction(t *testing.T) {
 		"header": "X-Hub-Signature-256",
 		"signature_prefix": "sha256=",
 		"secret_ref": "webhook.github.secret",
-		"source_ips": ["192.0.2.0/24"]
+		"source_ips": ["192.0.2.0/24"],
+		"replay_protection": {
+			"timestamp_header": "X-Raylea-Timestamp",
+			"event_id_header": "X-Raylea-Event-Id",
+			"tolerance_seconds": 300,
+			"enforce": true
+		}
 	}`))
 	if err != nil {
 		t.Fatalf("parseEventExposeWebhookAction: %v", err)
@@ -1113,6 +1119,30 @@ func TestParseEventExposeWebhookAction(t *testing.T) {
 	}
 	if len(action.WebhookMethods) != 1 || action.WebhookMethods[0] != "POST" {
 		t.Fatalf("unexpected webhook methods: %#v", action.WebhookMethods)
+	}
+	if action.WebhookReplayProtection == nil {
+		t.Fatalf("missing replay_protection on action")
+	}
+	if action.WebhookReplayProtection.TimestampHeader != "X-Raylea-Timestamp" ||
+		action.WebhookReplayProtection.EventIDHeader != "X-Raylea-Event-Id" ||
+		action.WebhookReplayProtection.ToleranceSeconds != 300 ||
+		!action.WebhookReplayProtection.Enforce {
+		t.Fatalf("unexpected replay_protection: %+v", action.WebhookReplayProtection)
+	}
+}
+
+func TestParseEventExposeWebhookActionRejectsMissingReplayProtection(t *testing.T) {
+	t.Parallel()
+
+	if _, err := parseEventExposeWebhookAction(json.RawMessage(`{
+		"route": "github",
+		"methods": ["POST"],
+		"auth_strategy": "hmac_sha256",
+		"header": "X-Hub-Signature-256",
+		"signature_prefix": "sha256=",
+		"secret_ref": "webhook.github.secret"
+	}`)); err == nil {
+		t.Fatalf("expected error when replay_protection is missing")
 	}
 }
 

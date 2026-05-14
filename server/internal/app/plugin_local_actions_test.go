@@ -1126,6 +1126,12 @@ func TestExecuteExposeWebhookRegistersGateway(t *testing.T) {
 		WebhookHeader:          "X-Hub-Signature-256",
 		WebhookSecretRef:       "webhook.github.secret",
 		WebhookSignaturePrefix: "sha256=",
+		WebhookReplayProtection: &runtime.WebhookReplayProtection{
+			TimestampHeader:  "X-Raylea-Timestamp",
+			EventIDHeader:    "X-Raylea-Event-Id",
+			ToleranceSeconds: 300,
+			Enforce:          true,
+		},
 	})
 	if err != nil {
 		t.Fatalf("event.expose_webhook failed: %v", err)

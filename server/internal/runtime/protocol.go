@@ -222,13 +222,21 @@ type protocolActionSchedulerCreateFrame struct {
 }
 
 type protocolActionEventExposeWebhookFrame struct {
-	Route           string   `json:"route"`
-	Methods         []string `json:"methods"`
-	AuthStrategy    string   `json:"auth_strategy"`
-	Header          string   `json:"header"`
-	SecretRef       string   `json:"secret_ref"`
-	SignaturePrefix string   `json:"signature_prefix,omitempty"`
-	SourceIPs       []string `json:"source_ips,omitempty"`
+	Route            string                                 `json:"route"`
+	Methods          []string                               `json:"methods"`
+	AuthStrategy     string                                 `json:"auth_strategy"`
+	Header           string                                 `json:"header"`
+	SecretRef        string                                 `json:"secret_ref"`
+	SignaturePrefix  string                                 `json:"signature_prefix,omitempty"`
+	SourceIPs        []string                               `json:"source_ips,omitempty"`
+	ReplayProtection *protocolWebhookReplayProtectionFrame `json:"replay_protection,omitempty"`
+}
+
+type protocolWebhookReplayProtectionFrame struct {
+	TimestampHeader  string `json:"timestamp_header"`
+	EventIDHeader    string `json:"event_id_header"`
+	ToleranceSeconds int    `json:"tolerance_seconds"`
+	Enforce          *bool  `json:"enforce"`
 }
 
 type protocolActionRenderImageFrame struct {

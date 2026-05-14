@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -98,6 +99,12 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 		WebhookHeader:          "X-Hub-Signature-256",
 		WebhookSecretRef:       "webhook.github.secret",
 		WebhookSignaturePrefix: "sha256=",
+		WebhookReplayProtection: &runtime.WebhookReplayProtection{
+			TimestampHeader:  "X-Raylea-Timestamp",
+			EventIDHeader:    "X-Raylea-Event-Id",
+			ToleranceSeconds: 300,
+			Enforce:          true,
+		},
 	}); err != nil {
 		t.Fatalf("register webhook action: %v", err)
 	}
@@ -108,7 +115,13 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 	defer server.Close()
 
 	body := []byte(`{"action":"opened"}`)
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	eventID := "gh-evt-test-1"
 	mac := hmac.New(sha256.New, []byte("fixture-webhook-secret"))
+	_, _ = mac.Write([]byte(timestamp))
+	_, _ = mac.Write([]byte("\n"))
+	_, _ = mac.Write([]byte(eventID))
+	_, _ = mac.Write([]byte("\n"))
 	_, _ = mac.Write(body)
 	signature := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 
@@ -117,6 +130,8 @@ func TestHandlePluginWebhookAcceptsSignedRequestAndDispatchesEvent(t *testing.T)
 		t.Fatalf("create webhook request: %v", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Raylea-Timestamp", timestamp)
+	request.Header.Set("X-Raylea-Event-Id", eventID)
 	request.Header.Set("X-Hub-Signature-256", signature)
 
 	response, err := server.Client().Do(request)
@@ -202,6 +217,12 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 		WebhookHeader:          "X-Hub-Signature-256",
 		WebhookSecretRef:       "webhook.github.secret",
 		WebhookSignaturePrefix: "sha256=",
+		WebhookReplayProtection: &runtime.WebhookReplayProtection{
+			TimestampHeader:  "X-Raylea-Timestamp",
+			EventIDHeader:    "X-Raylea-Event-Id",
+			ToleranceSeconds: 300,
+			Enforce:          true,
+		},
 	}); err != nil {
 		t.Fatalf("register webhook action: %v", err)
 	}
@@ -212,7 +233,13 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 	defer server.Close()
 
 	body := []byte(`{"action":"` + strings.Repeat("a", 2*1024*1024) + `"}`)
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	eventID := "gh-evt-oversized-1"
 	mac := hmac.New(sha256.New, []byte("fixture-webhook-secret"))
+	_, _ = mac.Write([]byte(timestamp))
+	_, _ = mac.Write([]byte("\n"))
+	_, _ = mac.Write([]byte(eventID))
+	_, _ = mac.Write([]byte("\n"))
 	_, _ = mac.Write(body)
 	signature := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 
@@ -221,6 +248,8 @@ func TestHandlePluginWebhookRejectsOversizedBody(t *testing.T) {
 		t.Fatalf("create webhook request: %v", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Raylea-Timestamp", timestamp)
+	request.Header.Set("X-Raylea-Event-Id", eventID)
 	request.Header.Set("X-Hub-Signature-256", signature)
 
 	response, err := server.Client().Do(request)

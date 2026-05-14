@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,16 +29,24 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
+type ReplayProtection struct {
+	TimestampHeader  string
+	EventIDHeader    string
+	ToleranceSeconds int
+	Enforce          bool
+}
+
 type Registration struct {
-	PluginID        string
-	Route           string
-	Methods         []string
-	AuthStrategy    string
-	Header          string
-	SecretRef       string
-	SignaturePrefix string
-	SourceIPs       []string
-	URL             string
+	PluginID         string
+	Route            string
+	Methods          []string
+	AuthStrategy     string
+	Header           string
+	SecretRef        string
+	SignaturePrefix  string
+	SourceIPs        []string
+	URL              string
+	ReplayProtection ReplayProtection
 }
 
 type Registry struct {
@@ -118,6 +127,17 @@ type Service struct {
 	dispatcher    *dispatch.Dispatcher
 	runtime       RuntimeEnsurer
 	grants        GrantView
+
+	dedup   *replayCache
+	now     func() time.Time
+	metrics ReplayMetricsObserver
+}
+
+// ReplayMetricsObserver is a narrow hook for the Prometheus registry; the
+// pluginwebhook package keeps it interface-shaped so tests can stub it out
+// without pulling in client_golang.
+type ReplayMetricsObserver interface {
+	IncReplayObserved(outcome string)
 }
 
 func New(deps Deps) *Service {
@@ -130,7 +150,19 @@ func New(deps Deps) *Service {
 		dispatcher:    deps.Dispatcher,
 		runtime:       deps.Runtime,
 		grants:        deps.Grants,
+		dedup:         newReplayCache(),
+		now:           time.Now,
 	}
+}
+
+// SetReplayMetrics wires a metrics observer that records every replay
+// protection outcome ("rejected", "grace_observed", "skew"). Optional; the
+// service runs without it when nil.
+func (s *Service) SetReplayMetrics(observer ReplayMetricsObserver) {
+	if s == nil {
+		return
+	}
+	s.metrics = observer
 }
 
 func (s *Service) RegisterPublicRoutes(router chi.Router) {
@@ -151,6 +183,12 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtime.Ac
 		return nil, &runtime.Error{
 			Code:    "plugin.internal_error",
 			Message: "webhook gateway is not available",
+		}
+	}
+	if action.WebhookReplayProtection == nil {
+		return nil, &runtime.Error{
+			Code:    "plugin.protocol_violation",
+			Message: "event.expose_webhook requires replay_protection",
 		}
 	}
 
@@ -189,6 +227,12 @@ func (s *Service) Expose(ctx context.Context, pluginID string, action runtime.Ac
 		SignaturePrefix: action.WebhookSignaturePrefix,
 		SourceIPs:       sourceIPs,
 		URL:             urlValue,
+		ReplayProtection: ReplayProtection{
+			TimestampHeader:  action.WebhookReplayProtection.TimestampHeader,
+			EventIDHeader:    action.WebhookReplayProtection.EventIDHeader,
+			ToleranceSeconds: action.WebhookReplayProtection.ToleranceSeconds,
+			Enforce:          action.WebhookReplayProtection.Enforce,
+		},
 	})
 	return map[string]any{
 		"route": action.WebhookRoute,
@@ -243,7 +287,17 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		if !s.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), body) {
+
+		replayDecision := s.evaluateReplayProtection(pluginID, route, registration.ReplayProtection, r)
+		if replayDecision.reject {
+			httpapi.WriteError(w, r, http.StatusUnauthorized, replayDecision.code, "插件 Webhook 重放校验失败", replayDecision.messageKey, map[string]any{
+				"plugin_id": pluginID,
+				"route":     route,
+			})
+			return
+		}
+
+		if !s.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), replayDecision.timestampRaw, replayDecision.eventID, body) {
 			httpapi.WriteError(w, r, http.StatusUnauthorized, "permission.denied", "当前用户无权执行该操作", "errors.permission.denied", nil)
 			return
 		}
@@ -260,12 +314,28 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			}
 		}
 
+		nowTime := s.now()
+		eventID := replayDecision.eventID
+		if strings.TrimSpace(eventID) == "" {
+			eventID = fmt.Sprintf("webhook-%s-%d", route, nowTime.UnixNano())
+		}
+		webhookMeta := map[string]any{
+			"route":       route,
+			"received_at": nowTime.Unix(),
+		}
+		if replayDecision.timestamp > 0 {
+			webhookMeta["client_timestamp"] = replayDecision.timestamp
+		}
+		if strings.TrimSpace(replayDecision.eventID) != "" {
+			webhookMeta["client_event_id"] = replayDecision.eventID
+		}
+
 		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, runtime.Event{
-			EventID:        fmt.Sprintf("webhook-%s-%d", route, time.Now().UnixNano()),
+			EventID:        eventID,
 			SourceProtocol: "webhook",
 			SourceAdapter:  "webhook.gateway",
 			EventType:      "webhook.received",
-			Timestamp:      time.Now().Unix(),
+			Timestamp:      nowTime.Unix(),
 			Target: &runtime.EventTarget{
 				Type: "webhook",
 				ID:   route,
@@ -275,7 +345,8 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 				ID:   webhookRemoteIP(r.RemoteAddr),
 				Role: "remote",
 			},
-			RawPayload: s.buildWebhookRawPayload(r, route, body, s.grants.CapabilityGranted(r.Context(), pluginID, "event.raw_payload")),
+			PayloadFields: map[string]any{"webhook": webhookMeta},
+			RawPayload:    s.buildWebhookRawPayload(r, route, body, s.grants.CapabilityGranted(r.Context(), pluginID, "event.raw_payload")),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
@@ -284,6 +355,87 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 
 		httpapi.WriteJSON(w, http.StatusAccepted, map[string]any{"accepted": true})
 	}
+}
+
+// replayDecision summarises the replay-protection outcome for a single
+// webhook request. When reject is false the request continues into HMAC
+// validation; the parsed timestamp / event id are reused to assemble the
+// downstream plugin event so the plugin sees consistent identifiers.
+type replayDecision struct {
+	reject       bool
+	code         string
+	messageKey   string
+	timestamp    int64
+	timestampRaw string
+	eventID      string
+}
+
+func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayProtection, r *http.Request) replayDecision {
+	timestampRaw := strings.TrimSpace(r.Header.Get(cfg.TimestampHeader))
+	eventID := strings.TrimSpace(r.Header.Get(cfg.EventIDHeader))
+	decision := replayDecision{timestampRaw: timestampRaw, eventID: eventID}
+
+	if timestampRaw == "" || eventID == "" {
+		s.recordReplayMetric("grace_observed")
+		if cfg.Enforce {
+			decision.reject = true
+			decision.code = "plugin.webhook_replay_rejected"
+			decision.messageKey = "errors.plugin.webhook_replay_rejected"
+			s.recordReplayMetric("rejected")
+		}
+		return decision
+	}
+
+	timestamp, parseErr := strconv.ParseInt(timestampRaw, 10, 64)
+	if parseErr != nil {
+		s.recordReplayMetric("grace_observed")
+		if cfg.Enforce {
+			decision.reject = true
+			decision.code = "plugin.webhook_timestamp_skew"
+			decision.messageKey = "errors.plugin.webhook_timestamp_skew"
+			s.recordReplayMetric("skew")
+		}
+		return decision
+	}
+	decision.timestamp = timestamp
+
+	now := s.now().Unix()
+	tolerance := int64(cfg.ToleranceSeconds)
+	if tolerance <= 0 {
+		tolerance = 300
+	}
+	if now-timestamp > tolerance || timestamp-now > tolerance {
+		s.recordReplayMetric("grace_observed")
+		if cfg.Enforce {
+			decision.reject = true
+			decision.code = "plugin.webhook_timestamp_skew"
+			decision.messageKey = "errors.plugin.webhook_timestamp_skew"
+			s.recordReplayMetric("skew")
+		}
+		return decision
+	}
+
+	dedupKey := webhookKey(pluginID, route) + "\x00" + eventID
+	ttl := time.Duration(2*tolerance) * time.Second
+	if !s.dedup.observe(dedupKey, s.now(), ttl) {
+		s.recordReplayMetric("grace_observed")
+		if cfg.Enforce {
+			decision.reject = true
+			decision.code = "plugin.webhook_replay_rejected"
+			decision.messageKey = "errors.plugin.webhook_replay_rejected"
+			s.recordReplayMetric("rejected")
+		}
+		return decision
+	}
+
+	return decision
+}
+
+func (s *Service) recordReplayMetric(outcome string) {
+	if s == nil || s.metrics == nil {
+		return
+	}
+	s.metrics.IncReplayObserved(outcome)
 }
 
 func (s *Service) buildWebhookRawPayload(r *http.Request, route string, body []byte, include bool) any {
@@ -318,7 +470,7 @@ func (s *Service) buildWebhookRawPayload(r *http.Request, route string, body []b
 	return payload
 }
 
-func (s *Service) validateWebhookAuth(ctx context.Context, registration Registration, presented string, body []byte) bool {
+func (s *Service) validateWebhookAuth(ctx context.Context, registration Registration, presented, timestampRaw, eventID string, body []byte) bool {
 	if s == nil || s.secrets == nil {
 		return false
 	}
@@ -332,6 +484,10 @@ func (s *Service) validateWebhookAuth(ctx context.Context, registration Registra
 		return hmac.Equal([]byte(strings.TrimSpace(presented)), secretValue)
 	case "hmac_sha256":
 		sum := hmac.New(sha256.New, secretValue)
+		_, _ = sum.Write([]byte(timestampRaw))
+		_, _ = sum.Write([]byte("\n"))
+		_, _ = sum.Write([]byte(eventID))
+		_, _ = sum.Write([]byte("\n"))
 		_, _ = sum.Write(body)
 		expected := registration.SignaturePrefix + hex.EncodeToString(sum.Sum(nil))
 		return hmac.Equal([]byte(strings.TrimSpace(presented)), []byte(expected))

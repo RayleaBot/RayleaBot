@@ -98,6 +98,12 @@ export interface RayleaBotPluginRuntime {
         secretRef: string;
         signaturePrefix?: string;
         sourceIps?: string[];
+        replayProtection?: {
+            timestampHeader?: string;
+            eventIdHeader?: string;
+            toleranceSeconds?: number;
+            enforce?: boolean;
+        };
     }): Promise<Record<string, unknown>>;
     renderImage(requestId: string, template: string, data: Record<string, unknown>, options?: ActionOptions & {
         theme?: string;
@@ -230,6 +236,12 @@ export declare class PluginEventContext {
         secretRef: string;
         signaturePrefix?: string;
         sourceIps?: string[];
+        replayProtection?: {
+            timestampHeader?: string;
+            eventIdHeader?: string;
+            toleranceSeconds?: number;
+            enforce?: boolean;
+        };
     }): Promise<Record<string, unknown>>;
     renderImage(template: string, data: Record<string, unknown>, options?: ActionOptions & {
         theme?: string;

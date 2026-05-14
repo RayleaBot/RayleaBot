@@ -493,7 +493,7 @@ function createPluginRuntime(owner) {
             return await requestLocalAction(pluginId, requestId, 'scheduler.create', data, { timeoutMs });
         },
         async exposeWebhook(requestId, route, options = { secretRef: '' }) {
-            const { methods = ['POST'], authStrategy = 'fixed_token', header = 'X-Webhook-Token', secretRef, signaturePrefix, sourceIps, timeoutMs = 30000, } = options;
+            const { methods = ['POST'], authStrategy = 'fixed_token', header = 'X-Webhook-Token', secretRef, signaturePrefix, sourceIps, replayProtection, timeoutMs = 30000, } = options;
             if (!secretRef) {
                 throw new Error('exposeWebhook requires secretRef');
             }
@@ -510,6 +510,12 @@ function createPluginRuntime(owner) {
             if (sourceIps !== undefined) {
                 data.source_ips = sourceIps;
             }
+            data.replay_protection = {
+                timestamp_header: replayProtection?.timestampHeader ?? 'X-Raylea-Timestamp',
+                event_id_header: replayProtection?.eventIdHeader ?? 'X-Raylea-Event-Id',
+                tolerance_seconds: replayProtection?.toleranceSeconds ?? 300,
+                enforce: replayProtection?.enforce ?? true,
+            };
             return await requestLocalAction(pluginId, requestId, 'event.expose_webhook', data, { timeoutMs });
         },
         async renderImage(requestId, template, data, options = {}) {

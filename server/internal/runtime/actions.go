@@ -528,15 +528,37 @@ func parseEventExposeWebhookAction(raw json.RawMessage) (*Action, error) {
 		sourceIPs = append(sourceIPs, value)
 	}
 
+	if frame.ReplayProtection == nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook replay_protection", nil)
+	}
+	timestampHeader := strings.TrimSpace(frame.ReplayProtection.TimestampHeader)
+	eventIDHeader := strings.TrimSpace(frame.ReplayProtection.EventIDHeader)
+	if timestampHeader == "" || eventIDHeader == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook replay_protection headers", nil)
+	}
+	if frame.ReplayProtection.ToleranceSeconds < 1 || frame.ReplayProtection.ToleranceSeconds > 3600 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame replay_protection.tolerance_seconds is out of range", nil)
+	}
+	if frame.ReplayProtection.Enforce == nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame replay_protection.enforce must be a boolean", nil)
+	}
+	replay := &WebhookReplayProtection{
+		TimestampHeader:  timestampHeader,
+		EventIDHeader:    eventIDHeader,
+		ToleranceSeconds: frame.ReplayProtection.ToleranceSeconds,
+		Enforce:          *frame.ReplayProtection.Enforce,
+	}
+
 	return &Action{
-		Kind:                   "event.expose_webhook",
-		WebhookRoute:           route,
-		WebhookMethods:         methods,
-		WebhookAuthStrategy:    authStrategy,
-		WebhookHeader:          header,
-		WebhookSecretRef:       secretRef,
-		WebhookSignaturePrefix: signaturePrefix,
-		WebhookSourceIPs:       sourceIPs,
+		Kind:                    "event.expose_webhook",
+		WebhookRoute:            route,
+		WebhookMethods:          methods,
+		WebhookAuthStrategy:     authStrategy,
+		WebhookHeader:           header,
+		WebhookSecretRef:        secretRef,
+		WebhookSignaturePrefix:  signaturePrefix,
+		WebhookSourceIPs:        sourceIPs,
+		WebhookReplayProtection: replay,
 	}, nil
 }
 

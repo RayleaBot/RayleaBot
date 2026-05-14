@@ -122,11 +122,25 @@ type Action struct {
 	WebhookSecretRef        string
 	WebhookSignaturePrefix  string
 	WebhookSourceIPs        []string
+	WebhookReplayProtection *WebhookReplayProtection
 	RenderTemplate          string
 	RenderTheme             string
 	RenderOutput            string
 	RenderFallbackText      string
 	RenderData              map[string]any
+}
+
+// WebhookReplayProtection mirrors the formal replay_protection contract on
+// event.expose_webhook actions. TimestampHeader and EventIDHeader name the
+// HTTP headers carrying the client-side replay nonce; ToleranceSeconds is
+// the maximum acceptable skew against the server clock. Enforce=false
+// degrades all replay rejections to log-only observation while still
+// counting them in metrics.
+type WebhookReplayProtection struct {
+	TimestampHeader  string
+	EventIDHeader    string
+	ToleranceSeconds int
+	Enforce          bool
 }
 
 type Delivery struct {
