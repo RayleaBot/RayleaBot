@@ -59,6 +59,8 @@ type stubDesiredStateController struct {
 	disableErr    error
 	reloadResult  Snapshot
 	reloadErr     error
+	recoverResult Snapshot
+	recoverErr    error
 }
 
 func (s *stubDesiredStateController) Enable(_ context.Context, _ string) (Snapshot, error) {
@@ -71,6 +73,10 @@ func (s *stubDesiredStateController) Disable(_ context.Context, _ string) (Snaps
 
 func (s *stubDesiredStateController) Reload(_ context.Context, _ string) (Snapshot, error) {
 	return s.reloadResult, s.reloadErr
+}
+
+func (s *stubDesiredStateController) RecoverFromDeadLetter(_ context.Context, _ string) (Snapshot, error) {
+	return s.recoverResult, s.recoverErr
 }
 
 type fataler interface {
@@ -1344,5 +1350,116 @@ func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 				t.Fatalf("builtin auto capabilities = %#v, want %#v", gotCapabilities, tc.wantCapabilities)
 			}
 		})
+	}
+}
+
+
+// TestRecoverFromDeadLetterHandler_Success verifies the recover endpoint
+// returns the plugin detail snapshot when the controller succeeds.
+// Reproduces fixture ok.plugins-dead-letter-recover-response.yaml.
+func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "dead_letter",
+		DisplayState:      "dead_letter",
+	}})
+	controller := &stubDesiredStateController{
+		recoverResult: Snapshot{
+			PluginID:          "weather",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "starting",
+			DisplayState:      "enabling",
+		},
+	}
+	router := chi.NewRouter()
+	RegisterRoutes(router, catalog, nil, nil, nil, controller, nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/dead_letter/recover", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+	var resp pluginDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Plugin.RuntimeState != "starting" {
+		t.Fatalf("runtime_state = %q, want starting", resp.Plugin.RuntimeState)
+	}
+	if resp.Plugin.DesiredState != "enabled" {
+		t.Fatalf("desired_state = %q, want enabled", resp.Plugin.DesiredState)
+	}
+	if resp.Plugin.DeadLetter != nil {
+		t.Fatalf("dead_letter should be cleared, got %+v", resp.Plugin.DeadLetter)
+	}
+}
+
+// TestRecoverFromDeadLetterHandler_NotInDeadLetter verifies the recover
+// endpoint returns 409 plugin.not_in_dead_letter when the runtime is not
+// currently in dead_letter. Reproduces fixture
+// invalid.plugins-dead-letter-recover-not-in-dead-letter.yaml.
+func TestRecoverFromDeadLetterHandler_NotInDeadLetter(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		DisplayState:      "running",
+	}})
+	controller := &stubDesiredStateController{
+		recoverErr: ErrPluginNotInDeadLetter,
+	}
+	router := chi.NewRouter()
+	RegisterRoutes(router, catalog, nil, nil, nil, controller, nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/dead_letter/recover", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409; body = %s", rec.Code, rec.Body.String())
+	}
+	env := decodeErrorEnvelope(t, rec.Body.Bytes())
+	if env.Error.Code != "plugin.not_in_dead_letter" {
+		t.Fatalf("error.code = %q, want plugin.not_in_dead_letter", env.Error.Code)
+	}
+	if env.Error.MessageKey != "errors.plugin.not_in_dead_letter" {
+		t.Fatalf("error.message_key = %q, want errors.plugin.not_in_dead_letter", env.Error.MessageKey)
+	}
+	if env.Error.Details["plugin_id"] != "weather" {
+		t.Fatalf("details.plugin_id = %#v, want weather", env.Error.Details["plugin_id"])
+	}
+}
+
+// TestRecoverFromDeadLetterHandler_NotFound verifies 404 when the plugin
+// does not exist.
+func TestRecoverFromDeadLetterHandler_NotFound(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog(nil)
+	controller := &stubDesiredStateController{
+		recoverErr: ErrPluginNotFound,
+	}
+	router := chi.NewRouter()
+	RegisterRoutes(router, catalog, nil, nil, nil, controller, nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/missing/dead_letter/recover", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404; body = %s", rec.Code, rec.Body.String())
 	}
 }

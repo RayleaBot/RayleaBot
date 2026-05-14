@@ -20,7 +20,7 @@ crashed -> dead_letter
 | `stopping` | 已发送 `shutdown`，等待子进程退出 |
 | `crashed` | 子进程异常退出 |
 | `backoff` | 等待受控重启 |
-| `dead_letter` | 超过自动恢复阈值，等待人工处理 |
+| `dead_letter` | 超过自动恢复阈值，等待人工处理；管理面通过 `POST /api/plugins/{plugin_id}/dead_letter/recover` 触发受控冷启动尝试 |
 
 ## 二、插件注册状态与 Desired State
 

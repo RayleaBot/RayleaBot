@@ -579,6 +579,9 @@ func (s *stubReloadController) Disable(_ context.Context, _ string) (plugins.Sna
 func (s *stubReloadController) Reload(_ context.Context, _ string) (plugins.Snapshot, error) {
 	return s.reloadResult, s.reloadErr
 }
+func (s *stubReloadController) RecoverFromDeadLetter(_ context.Context, _ string) (plugins.Snapshot, error) {
+	return plugins.Snapshot{}, nil
+}
 
 type stubUninstallCoordinator struct {
 	taskID string

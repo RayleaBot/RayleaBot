@@ -133,6 +133,53 @@ func (c *pluginLifecycleController) Reload(ctx context.Context, pluginID string)
 	return updated, nil
 }
 
+func (c *pluginLifecycleController) RecoverFromDeadLetter(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
+	if c == nil || c.plugins == nil {
+		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
+	}
+
+	snapshot, ok := c.plugins.Get(pluginID)
+	if !ok {
+		return plugins.Snapshot{}, plugins.ErrPluginNotFound
+	}
+	if snapshot.RegistrationState != "installed" {
+		return plugins.Snapshot{}, plugins.ErrStateConflict
+	}
+
+	manager, ok := c.runtimes.Get(pluginID)
+	if !ok || manager == nil {
+		return plugins.Snapshot{}, plugins.ErrPluginNotInDeadLetter
+	}
+	if manager.Snapshot().State != runtime.StateDeadLetter {
+		return plugins.Snapshot{}, plugins.ErrPluginNotInDeadLetter
+	}
+
+	if _, err := c.validateActivation(ctx, snapshot); err != nil {
+		c.disablePluginForPermissionLoss(ctx, pluginID)
+		return plugins.Snapshot{}, err
+	}
+
+	manager.ResetCrashCount()
+	manager.SetStopped()
+
+	updated := snapshot
+	if snapshot.DesiredState != "enabled" {
+		if err := persistPluginDesiredState(ctx, c.desiredStateRepo, pluginID, "enabled"); err != nil {
+			return plugins.Snapshot{}, err
+		}
+		if reEnabled, setErr := c.plugins.SetDesiredState(pluginID, "enabled"); setErr == nil {
+			updated = reEnabled
+		}
+	}
+	if startingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(runtime.StateStarting)); runtimeErr == nil {
+		updated = startingSnapshot
+	}
+
+	go c.startPluginAsync(updated.PluginID, c.currentBotID())
+	c.reconcileRecoverySummaryBestEffort("plugin.dead_letter_recover")
+	return updated, nil
+}
+
 func (c *pluginLifecycleController) Disable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 	if c == nil || c.plugins == nil {
 		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")

@@ -294,6 +294,20 @@ codes:
     retryable: false
     applies_to: [http]
 
+  plugin.not_in_dead_letter:
+    code: plugin.not_in_dead_letter
+    domain: plugin
+    message_key: errors.plugin.not_in_dead_letter
+    message: 插件当前不处于 dead_letter 状态
+    description: >
+      The dead_letter recovery endpoint only accepts plugins whose runtime_state
+      is currently `dead_letter`. Use enable / disable / reload for normal
+      lifecycle transitions; this code is returned when a recovery attempt is
+      issued against a plugin in any other runtime_state.
+    http_status: 409
+    retryable: false
+    applies_to: [http]
+
   permission.denied:
     code: permission.denied
     domain: permission

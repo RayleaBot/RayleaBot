@@ -752,6 +752,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plugins/{plugin_id}/dead_letter/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restart a plugin that exhausted its crash retries.
+         * @description Reset the plugin's crash counter and start the runtime again. Only accepted when the current runtime_state is `dead_letter`; any other state returns 409 with `plugin.not_in_dead_letter`. The plugin's webhook routes were already removed when it entered dead_letter and remain removed until the recovered runtime registers them again.
+         *
+         */
+        post: operations["recoverPluginFromDeadLetter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins/{plugin_id}/grants": {
         parameters: {
             query?: never;
@@ -1324,6 +1345,19 @@ export interface components {
             commands: components["schemas"]["PluginCommandSummary"][];
             help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
+            dead_letter?: components["schemas"]["PluginDeadLetterSummary"];
+        };
+        /** @description Present only when runtime_state equals `dead_letter`. Captures
+         *     the moment the runtime exhausted its crash-restart budget so the
+         *     management surface can show dwell time and the most recent
+         *     crash error without scraping logs.
+         *      */
+        PluginDeadLetterSummary: {
+            /** Format: date-time */
+            entered_at: string;
+            crash_count: number;
+            last_error_code?: string;
+            last_error_message?: string;
         };
         PluginHelpItem: {
             title: string;
@@ -2846,6 +2880,32 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Reload accepted. The runtime may still be restarting. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginDetailResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    recoverPluginFromDeadLetter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recovery accepted. The runtime may still be restarting. */
             200: {
                 headers: {
                     [name: string]: unknown;

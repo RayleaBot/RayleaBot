@@ -86,7 +86,16 @@ func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int,
 	maxRetries := runtime.DefaultMaxCrashRetries
 	if crashCount >= maxRetries {
 		manager.SetDeadLetterState()
+		runtimeSnapshot := manager.Snapshot()
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		if c.plugins != nil && runtimeSnapshot.EnteredDeadLetterAt != nil {
+			_, _ = c.plugins.SetDeadLetterSnapshot(pluginID, plugins.DeadLetterSnapshot{
+				EnteredAt:        *runtimeSnapshot.EnteredDeadLetterAt,
+				CrashCount:       runtimeSnapshot.CrashCount,
+				LastErrorCode:    runtimeSnapshot.LastErrorCode,
+				LastErrorMessage: runtimeSnapshot.LastErrorMessage,
+			})
+		}
 		if c.webhooks != nil {
 			c.webhooks.DeletePlugin(pluginID)
 		}

@@ -61,6 +61,7 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-list-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.management-ui.yaml
+  - fixtures/web-api/edge.plugin-detail-dead-letter.yaml
   - fixtures/web-api/ok.plugin-settings-response.yaml
   - fixtures/web-api/ok.plugin-settings-update-response.yaml
   - fixtures/web-api/ok.plugin-secrets-response.yaml
@@ -110,8 +111,10 @@ x-fixtures:
   - fixtures/web-api/invalid.plugins-list-invalid-display-state.yaml
   - fixtures/web-api/invalid.plugins-grant-invalid-expires-at.yaml
   - fixtures/web-api/ok.plugins-reload-response.yaml
+  - fixtures/web-api/ok.plugins-dead-letter-recover-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
+  - fixtures/web-api/invalid.plugins-dead-letter-recover-not-in-dead-letter.yaml
   - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
   - fixtures/web-api/invalid.tasks-cancel-not-cancellable.yaml
   - fixtures/web-api/edge.governance-entry-delete-not-found.yaml
@@ -1141,6 +1144,37 @@ paths:
       responses:
         '200':
           description: Reload accepted. The runtime may still be restarting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDetailResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/dead_letter/recover:
+    post:
+      summary: Restart a plugin that exhausted its crash retries.
+      description: >
+        Reset the plugin's crash counter and start the runtime again.
+        Only accepted when the current runtime_state is `dead_letter`;
+        any other state returns 409 with `plugin.not_in_dead_letter`.
+        The plugin's webhook routes were already removed when it
+        entered dead_letter and remain removed until the recovered
+        runtime registers them again.
+      operationId: recoverPluginFromDeadLetter
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Recovery accepted. The runtime may still be restarting.
           content:
             application/json:
               schema:
@@ -2596,6 +2630,29 @@ components:
           type: array
           items:
             type: string
+        dead_letter:
+          $ref: '#/components/schemas/PluginDeadLetterSummary'
+
+    PluginDeadLetterSummary:
+      type: object
+      additionalProperties: false
+      required: [entered_at, crash_count]
+      description: |
+        Present only when runtime_state equals `dead_letter`. Captures
+        the moment the runtime exhausted its crash-restart budget so the
+        management surface can show dwell time and the most recent
+        crash error without scraping logs.
+      properties:
+        entered_at:
+          type: string
+          format: date-time
+        crash_count:
+          type: integer
+          minimum: 0
+        last_error_code:
+          type: string
+        last_error_message:
+          type: string
 
     PluginHelpItem:
       type: object

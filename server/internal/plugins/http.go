@@ -33,18 +33,26 @@ type errorBody struct {
 }
 
 type pluginSummaryResponse struct {
-	ID                string                  `json:"id"`
-	Name              string                  `json:"name"`
-	Role              string                  `json:"role"`
-	RegistrationState string                  `json:"registration_state"`
-	DesiredState      string                  `json:"desired_state"`
-	RuntimeState      string                  `json:"runtime_state"`
-	DisplayState      string                  `json:"display_state"`
-	Source            pluginSourceResponse    `json:"source"`
-	Trust             pluginTrustResponse     `json:"trust"`
-	Commands          []pluginCommandResponse `json:"commands"`
-	Help              pluginHelpResponse      `json:"help"`
-	CommandConflicts  []string                `json:"command_conflicts"`
+	ID                string                       `json:"id"`
+	Name              string                       `json:"name"`
+	Role              string                       `json:"role"`
+	RegistrationState string                       `json:"registration_state"`
+	DesiredState      string                       `json:"desired_state"`
+	RuntimeState      string                       `json:"runtime_state"`
+	DisplayState      string                       `json:"display_state"`
+	Source            pluginSourceResponse         `json:"source"`
+	Trust             pluginTrustResponse          `json:"trust"`
+	Commands          []pluginCommandResponse      `json:"commands"`
+	Help              pluginHelpResponse           `json:"help"`
+	CommandConflicts  []string                     `json:"command_conflicts"`
+	DeadLetter        *pluginDeadLetterResponse    `json:"dead_letter,omitempty"`
+}
+
+type pluginDeadLetterResponse struct {
+	EnteredAt        string `json:"entered_at"`
+	CrashCount       int    `json:"crash_count"`
+	LastErrorCode    string `json:"last_error_code,omitempty"`
+	LastErrorMessage string `json:"last_error_message,omitempty"`
 }
 
 type pluginCommandResponse struct {
@@ -172,6 +180,7 @@ type pluginDetailPluginResponse struct {
 	Commands             []pluginCommandResponse        `json:"commands"`
 	Help                 pluginHelpResponse             `json:"help"`
 	CommandConflicts     []string                       `json:"command_conflicts"`
+	DeadLetter           *pluginDeadLetterResponse      `json:"dead_letter,omitempty"`
 	Permissions          []pluginPermissionResponse     `json:"permissions"`
 }
 
@@ -193,6 +202,7 @@ type DesiredStateController interface {
 	Enable(context.Context, string) (Snapshot, error)
 	Disable(context.Context, string) (Snapshot, error)
 	Reload(context.Context, string) (Snapshot, error)
+	RecoverFromDeadLetter(context.Context, string) (Snapshot, error)
 }
 
 func newInstallHandler(catalog *Catalog, taskRegistry *tasks.Registry, installer InstallCoordinator) http.HandlerFunc {
@@ -326,6 +336,27 @@ func newReloadHandler(catalog *Catalog, controller DesiredStateController, grant
 			return
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
+		if err == nil {
+			response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
+			if buildErr != nil {
+				writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				return
+			}
+			writeJSON(w, http.StatusOK, response)
+			return
+		}
+		writeDesiredStateError(w, r, pluginID, err)
+	}
+}
+
+func newDeadLetterRecoverHandler(catalog *Catalog, controller DesiredStateController, grantRepo GrantRepository, autoGrantProvider autoGrantCapabilitiesProvider) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pluginID := chi.URLParam(r, "plugin_id")
+		if controller == nil {
+			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			return
+		}
+		snapshot, err := controller.RecoverFromDeadLetter(r.Context(), pluginID)
 		if err == nil {
 			response, buildErr := buildPluginDetailResponse(r.Context(), catalog, snapshot, grantRepo, autoGrantProvider)
 			if buildErr != nil {
@@ -518,6 +549,7 @@ func RegisterRoutes(router chi.Router, catalog *Catalog, taskRegistry *tasks.Reg
 	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
 	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, repo, controller, grantRepo, autoGrantProvider))
 	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller, grantRepo, autoGrantProvider))
+	router.Post("/api/plugins/{plugin_id}/dead_letter/recover", newDeadLetterRecoverHandler(catalog, controller, grantRepo, autoGrantProvider))
 	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
 	router.Get("/api/plugins/{plugin_id}/grants", newListGrantsHandler(catalog, grantRepo, autoGrantProvider))
 	router.Post("/api/plugins/{plugin_id}/grants", newGrantHandler(catalog, grantRepo))
@@ -541,6 +573,10 @@ func validateDesiredStateChange(catalog *Catalog, pluginID string, desired strin
 func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID string, err error) {
 	if errors.Is(err, ErrPluginNotFound) {
 		writeError(w, r, 404, codeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+		return
+	}
+	if errors.Is(err, ErrPluginNotInDeadLetter) {
+		writeError(w, r, 409, "plugin.not_in_dead_letter", "插件当前不处于 dead_letter 状态", "errors.plugin.not_in_dead_letter", map[string]any{"plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, ErrStateConflict) {
@@ -833,6 +869,7 @@ func buildPluginDetailResponse(ctx context.Context, catalog *Catalog, snapshot S
 			Commands:             summary.Commands,
 			Help:                 summary.Help,
 			CommandConflicts:     summary.CommandConflicts,
+			DeadLetter:           summary.DeadLetter,
 			Permissions:          buildPermissionResponses(permissions),
 		},
 	}, nil
@@ -861,6 +898,19 @@ func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryRespons
 		Commands:          buildPluginCommands(snapshot),
 		Help:              buildPluginHelp(snapshot),
 		CommandConflicts:  normalizeConflictList(conflicts),
+		DeadLetter:        buildPluginDeadLetter(snapshot),
+	}
+}
+
+func buildPluginDeadLetter(snapshot Snapshot) *pluginDeadLetterResponse {
+	if snapshot.RuntimeState != "dead_letter" || snapshot.DeadLetter == nil {
+		return nil
+	}
+	return &pluginDeadLetterResponse{
+		EnteredAt:        snapshot.DeadLetter.EnteredAt.UTC().Format(time.RFC3339Nano),
+		CrashCount:       snapshot.DeadLetter.CrashCount,
+		LastErrorCode:    strings.TrimSpace(snapshot.DeadLetter.LastErrorCode),
+		LastErrorMessage: strings.TrimSpace(snapshot.DeadLetter.LastErrorMessage),
 	}
 }
 

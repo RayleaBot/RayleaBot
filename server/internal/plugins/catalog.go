@@ -4,11 +4,13 @@ import (
 	"errors"
 	"sort"
 	"sync"
+	"time"
 )
 
 var (
-	ErrPluginNotFound = errors.New("plugin not found")
-	ErrStateConflict  = errors.New("state conflict")
+	ErrPluginNotFound        = errors.New("plugin not found")
+	ErrStateConflict         = errors.New("state conflict")
+	ErrPluginNotInDeadLetter = errors.New("plugin is not in dead_letter")
 )
 
 type PermissionPendingError struct {
@@ -120,6 +122,7 @@ type Snapshot struct {
 	DesiredState          string
 	RuntimeState          string
 	DisplayState          string
+	DeadLetter            *DeadLetterSnapshot
 	ConflictPaths         []string
 	RequiredPermissions   []string
 	OptionalPermissions   []string
@@ -133,6 +136,17 @@ type Snapshot struct {
 	Commands              []Command
 	ManifestCommands      []Command
 	DynamicCommands       []DynamicCommandDecl
+}
+
+// DeadLetterSnapshot captures the context recorded when a plugin runtime
+// exhausted its crash-restart budget. The catalog only stores this object
+// while runtime_state equals dead_letter; SetRuntimeState into any other
+// state clears it so management surfaces never show stale dwell-time.
+type DeadLetterSnapshot struct {
+	EnteredAt        time.Time
+	CrashCount       int
+	LastErrorCode    string
+	LastErrorMessage string
 }
 
 type Catalog struct {
@@ -233,7 +247,36 @@ func (c *Catalog) SetRuntimeState(pluginID string, runtimeState string) (Snapsho
 
 	current := entry
 	entry.RuntimeState = runtimeState
+	if runtimeState != "dead_letter" {
+		entry.DeadLetter = nil
+	}
 	entry.DisplayState = defaultDisplayState(entry)
+	c.items[pluginID] = entry
+	updated := cloneSnapshot(entry)
+	c.mu.Unlock()
+
+	if pluginStateChanged(current, entry) {
+		c.publish(updated)
+	}
+	return updated, nil
+}
+
+// SetDeadLetterSnapshot stores the dead_letter context surfaced via the
+// management plugin detail. Callers should also drive the runtime_state
+// to dead_letter; SetRuntimeState into any other state clears the
+// snapshot so stale dwell-time never leaks into management surfaces.
+func (c *Catalog) SetDeadLetterSnapshot(pluginID string, info DeadLetterSnapshot) (Snapshot, error) {
+	c.mu.Lock()
+
+	entry, ok := c.items[pluginID]
+	if !ok {
+		c.mu.Unlock()
+		return Snapshot{}, ErrPluginNotFound
+	}
+
+	current := entry
+	copied := info
+	entry.DeadLetter = &copied
 	c.items[pluginID] = entry
 	updated := cloneSnapshot(entry)
 	c.mu.Unlock()
@@ -431,6 +474,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	if snapshot.Help != nil {
 		cloned.Help = cloneHelp(snapshot.Help)
 	}
+	if snapshot.DeadLetter != nil {
+		copied := *snapshot.DeadLetter
+		cloned.DeadLetter = &copied
+	}
 	if len(snapshot.Commands) > 0 {
 		cloned.Commands = cloneCommands(snapshot.Commands)
 	}
@@ -544,7 +591,21 @@ func pluginStateChanged(current Snapshot, next Snapshot) bool {
 		current.DesiredState != next.DesiredState ||
 		current.RuntimeState != next.RuntimeState ||
 		current.DisplayState != next.DisplayState ||
+		!deadLetterEqual(current.DeadLetter, next.DeadLetter) ||
 		!commandsEqual(current.Commands, next.Commands)
+}
+
+func deadLetterEqual(left *DeadLetterSnapshot, right *DeadLetterSnapshot) bool {
+	if left == nil && right == nil {
+		return true
+	}
+	if left == nil || right == nil {
+		return false
+	}
+	return left.EnteredAt.Equal(right.EnteredAt) &&
+		left.CrashCount == right.CrashCount &&
+		left.LastErrorCode == right.LastErrorCode &&
+		left.LastErrorMessage == right.LastErrorMessage
 }
 
 func commandsEqual(left []Command, right []Command) bool {
