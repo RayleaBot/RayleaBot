@@ -21,7 +21,7 @@
 | 7 | 跨层重复 / 丢弃事件统计 | P2 | 部分 | 完成 | bridge `ObservabilityData` 扩展 `adapter_dedup_drops_total`/`bridge_ignored_total`/`dispatcher_*_total`；adapter 暴露 `DedupDropsSnapshot`；dispatcher 暴露 `Stats` 并由 bridge 拉取 |
 | 8 | Web WebSocket 重连退避 | P2 | 否 | 完成 | `web/src/lib/ws.ts` 走指数退避 + 抖动；`socket-controller` 每频道独立；`ConnectionStatusStrip` 展示重连倒计时与最后错误时间 |
 | 9 | Session 绝对 TTL 与签名密钥轮换 | P3 | 是 | 待处理 | `auth.Config` 仅含 `SessionTTLDays` / `SlidingRenewal` / `MaxSessions`；签名密钥常驻 secret store |
-| 10 | 插件子系统字段收敛 | P3 | 否 | 待处理 | `App` 仍直接持有 14 个插件侧字段（installer / uninstaller / repo / config / files / KV / grants / 黑白名单 / webhook / runtime registry 等） |
+| 10 | 插件子系统字段收敛 | P3 | 否 | 无需改动 | 插件子系统已按 `plugin*` / `protocolcap` 包拆分，handler deps 走领域 struct；引入 `pluginStack` 聚合沦为命名重排，结论与项 1 同 |
 | 11 | `dead_letter` 状态恢复入口 | P3 | 部分 | 待处理 | runtime 流转 `crashed → backoff → dead_letter` 已实现，无自动清理与冷启动尝试入口 |
 | 12 | 插件 `bot_id` 身份不可用语义 | P3 | 部分 | 完成 | `init.bot` 缺省与空 `bot.identity.changed` 表示身份不可用；Python / Node.js SDK 提供等待身份就绪 helper |
 
@@ -104,116 +104,79 @@
 
 ## 5. 插件 webhook 防重放与幂等窗口（P2）
 
-**现状证据**
+**完成情况**
 
-- `server/internal/pluginwebhook.Service` 当前校验 route、HTTP method、插件状态、`SourceIPs` 白名单、`fixed_token` 或 `hmac_sha256` 签名。
-- 投递时 `EventID = "webhook-<route>-<UnixNano>"`，即每次重新生成。
-- webhook 入站没有正式 timestamp、event id 或容忍窗口字段；`Adapter.recentEventIDs` 不覆盖 webhook 路径。
-
-**风险**
-
-- 合法签名请求可被重复发送并重复触发 `webhook.received`。
-- 插件需要自行处理幂等，平台没有统一拒绝语义。
-
-**建议动作**
-
-- 在 plugin webhook contract 中冻结 timestamp、event id、签名覆盖范围与 replay tolerance。
-- 服务端按 `(plugin_id, route, event_id)` 做短期 LRU 去重；过期 timestamp 与重复 event id 走 `errors.permission.denied` 或新增正式错误码。
-- fixtures 同步覆盖正常、过期、重复、签名不匹配。
+- 状态：完成。
+- `contracts/plugin-protocol.schema.json` 冻结 `replay_protection` 配置（必填 `enforce`、可选 `timestamp_skew_seconds`、`event_id_header`、`timestamp_header`）。
+- `webhook.received` 事件 payload 暴露 `client_timestamp` 与 `client_event_id`，两者只在 grace 模式下且客户端缺省时才省略。
+- `server/internal/pluginwebhook.Service` 把 timestamp、event_id 与 body 串入 HMAC 签名输入，并按 `(plugin_id, route, event_id)` 做窗口化 LRU 去重。
+- 新错误码：超出容忍窗口返回 `plugin.webhook_timestamp_skew`，重复 event_id 返回 `plugin.webhook_replay_rejected`。
+- Python / Node.js SDK helper 同步生成正式 timestamp 与 event id 头。
 
 **契约边界**
 
-- timestamp、event id、错误语义和 HMAC 覆盖范围属于 contract-first。
+- `replay_protection` 配置、payload 字段、错误码与 HMAC 输入串属于 contract-first，已在 `contracts/plugin-protocol.schema.json` 与 `contracts/error-codes.yaml` 内冻结。
 
 **验证方式**
 
 - `cd server && go test ./internal/pluginwebhook ./internal/app`
-- contract fixtures 覆盖三类异常路径。
+- `cd sdk/python && python -m unittest discover -s tests`
+- `cd sdk/nodejs && node --test tests/*.test.mjs`
 
 ## 6. Dispatcher 队列满行为可见化（P2）
 
-**现状证据**
+**完成情况**
 
-- `dispatch.OutcomeDropped` 在 per-plugin 队列满时返回，只写结构化日志。
-- Dispatcher 默认 `queueSize=16`，由 `New(logger, sender, resolver, queueSize)` 入口决定。
-- 管理 WebSocket `events.received` 当前没有 dispatcher drop 分支；管理面没有按 plugin / 原因 / event_type 的聚合视图。
-
-**风险**
-
-- 用户只能从日志判断消息未处理原因。
-- 插件队列容量与并发度调参缺少可见反馈。
-
-**建议动作**
-
-- 在 Dispatcher 内维护窗口化 drop 统计（按 plugin / reason / event_type），并通过现有 `events.received` 推送聚合摘要。
-- 管理面展示前先在 `contracts/websocket-events.yaml` 增加正式 payload 分支。
-- 第 4 项落地后同步导出对应 `_total` counter；未落地前先用 WebSocket 聚合或 `/api/system/diagnostics/export` 暴露。
+- 状态：完成。
+- `dispatch.Dispatcher` 维护按 `(plugin_id, reason, event_type)` 聚合的窗口化 drop 统计，公开 `Stats()` 与 `FlushDispatcherWindow(windowSeconds)`。
+- `StartObservabilityFlush` 由 bridge 启动定时器，10 秒周期把窗口快照通过 `DispatcherRuntimePublisher` 转发到管理 WebSocket 的正式 `dispatcher_runtime` 帧。
+- `contracts/websocket-events.yaml` 冻结 `dispatcher_runtime` payload 分支；`server/internal/metrics` 同步导出 `raylea_dispatcher_outcome_total` 与 `raylea_dispatcher_window_drops_total`。
+- 管理面（仪表盘 / 协议中心 / 插件详情）按帧消费聚合摘要。
 
 **契约边界**
 
-- 新 WebSocket payload 分支属于 contract-first。
+- 新 WebSocket payload 分支与 metrics 名称属于 contract-first，已落地。
 
 **验证方式**
 
 - `cd server && go test ./internal/dispatch ./internal/app`
-- WebSocket contract 生成物与 Web socket-router 测试同步更新。
+- `cd web && pnpm test`
 
 ## 7. 跨层重复 / 丢弃事件统计（P2）
 
-**现状证据**
+**完成情况**
 
-- Adapter 通过 `recentEventIDs` + `isDuplicateEvent` 在 `recentEventDedupRetention=2m` 内去重，但没有对外暴露 dedup 计数。
-- Bridge 已实现 `ObservabilityData`（`observability_scope=bridge_runtime`、`delivered_count` / `result_count` / `error_count`），通过 `events.received` 暴露聚合摘要。
-- Dispatcher 的 `OutcomeIgnored` / `OutcomeDropped` 与 Adapter 的 dedup 不在同一份聚合面里。
-
-**风险**
-
-- 多 transport 或异常 OneBot 实现下，重复事件是否被完全拦截缺少端到端证据。
-- echo 缺失、duplicate drop、ignored、dropped 之间缺少统一聚合视图。
-
-**建议动作**
-
-- 不直接增加 Bridge / Dispatcher 二级去重。
-- 在现有 `bridge_runtime` 摘要基础上拓宽口径：补 Adapter dedup drop、Bridge ignored、Dispatcher delivered / dropped 的聚合计数。
-- 仅在观测显示重复事件穿透时再设计跨层去重。
+- 状态：完成。
+- Adapter 暴露 `DedupDropsSnapshot()`，把 `recentEventIDs` 命中拒绝的累计计数对外公开。
+- Bridge `ObservabilityData` 新增 `adapter_dedup_drops_total`、`bridge_ignored_total`、`dispatcher_delivered_total`、`dispatcher_dropped_total` 维度，由 bridge 周期拉取上述统计并合入正式 `bridge_runtime` 摘要。
+- Dispatcher 通过 `Stats()` 提供 cumulative outcome counts，bridge 与 metrics 模块共用。
+- `contracts/websocket-events.yaml` 冻结上述字段；管理 WebSocket `events.received` 已能在同一帧内反映四类事件结果。
 
 **契约边界**
 
-- 仅补内部日志或 diagnostics 摘要时不需要 contract。
-- 拓宽 `events.received` payload 字段属于 contract-first。
+- 拓宽后的 `events.received` payload 字段属于 contract-first，已落地。
 
 **验证方式**
 
-- Adapter dedup 测试覆盖多 transport 重复上报。
-- Bridge / Dispatcher 测试确认观测摘要不影响插件投递语义。
+- `cd server && go test ./internal/adapter ./internal/bridge ./internal/dispatch ./internal/app`
 
 ## 8. Web WebSocket 重连退避（P2）
 
-**现状证据**
+**完成情况**
 
-- `web/src/lib/ws.ts` 使用固定数组 `[500, 1000, 2000, 4000]`，`reconnectDelays[Math.min(attempts-1, 3)]`。
-- 超过数组长度后保持 4 秒固定间隔，没有 jitter。
-- 多条管理 WebSocket（`events`、`tasks`、`logs`、`plugin_console`）在断线恢复时容易同步重连。
-
-**风险**
-
-- 服务端短暂抖动恢复时，多频道同步重连形成脉冲。
-- 用户只能看到当前连接状态，缺少断线累计时长 / 最近错误等更细反馈。
-
-**建议动作**
-
-- 改为指数退避 + 随机抖动，例如 `base=500ms`、`cap=30s`、`jitter=±25%`。
-- 每条频道独立计算退避，避免同步重连。
-- UI 展示重连中状态与最后错误时间；不承诺断线期间的事件补回，除非对应 HTTP 查询面已正式存在。
+- 状态：完成。
+- `web/src/lib/ws.ts` 引入 `BackoffOptions`（默认 `baseMs=500`、`capMs=30_000`、`jitterRatio=0.25`）与 `computeBackoffMs`，按指数退避 + 抖动计算下一次重连延迟。
+- 每个 `socket-controller` 实例独立维护 `reconnectAttempts` / `nextBackoffMs`，多个频道不会同步重连。
+- `ConnectionStatusStrip.vue` 展示重连倒计时、最后错误时间与累计断线时长。
+- 单测覆盖退避上限、jitter 范围、`session_expired` 后停止重连等路径。
 
 **契约边界**
 
-- Web 内部行为，不改 contract。
+- Web 内部行为，无 contract 改动。
 
 **验证方式**
 
-- `cd web && pnpm test -- ws`
-- 单测覆盖退避上限、jitter 范围、`session_expired` 后停止重连。
+- `cd web && pnpm test`
 
 ## 9. Session 绝对 TTL 与签名密钥轮换（P3）
 
@@ -245,26 +208,17 @@
 
 ## 10. 插件子系统字段收敛（P3）
 
-**现状证据**
+**完成情况**
 
-- 插件相关包已拆为 `plugins`、`pluginconfig`、`pluginfile`、`pluginhttp`、`pluginkv`、`pluginui`、`pluginwebhook`，OneBot provider 扩展能力注册在 `protocolcap`。
-- `App` 结构体在插件相关字段上仍保留 14 个直接持有项：`pluginInstaller`、`pluginUninstaller`、`pluginRepository`、`pluginConfig`、`pluginFiles`、`pluginKV`、`grantRepository`、`blacklistRepo`、`whitelistRepo`、`whitelistState`、`webhookRegistry`、`pluginLogLimiter`、`outboundLimiter`、`pluginLifecycle`。
-- 插件侧 handler、关闭顺序、测试替换通过 `App` 字段直接访问。
-
-**风险**
-
-- 插件能力新增时容易继续扩大 `App` 字段面。
-- 插件侧关闭顺序与只读访问入口分散。
-
-**建议动作**
-
-- 引入内部 `pluginStack`（或等价聚合对象）集中插件侧装配、关闭顺序与 handler deps。
-- `App` 只保留聚合对象与少量跨域接口。
-- 与第 1 项一同推进，避免两次触碰同一构造链。
+- 状态：无需改动。
+- 插件子系统已经按职责拆为 `plugins`、`pluginconfig`、`pluginfile`、`pluginhttp`、`pluginkv`、`pluginui`、`pluginwebhook`，OneBot provider 扩展能力注册在 `protocolcap`。
+- handler 装配通过 `app_services.go` 中按领域定义的 deps struct（`pluginLifecycleDeps`、`systemServiceDeps`、`managementHTTPDeps` 等）完成；测试入口经 `setTestEventIngress` / `setTestLifecycle` 等领域 helper 替换。
+- `App` 结构体保留对插件侧组件的直接引用是为了维持单一关闭顺序与 boot 阶段的明确依赖图；再引入 `pluginStack` 聚合不会减少字段总数，只会多一层间接命名，无可证明收益。
+- 与第 1 项同源，结论一致：进一步拆分留给具体新能力 / 新依赖触发，不主动重排。
 
 **契约边界**
 
-- 纯 server 内部重构，不改 `contracts/`。
+- 纯 server 内部状态，无 contract。
 
 **验证方式**
 
