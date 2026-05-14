@@ -107,7 +107,7 @@
 **完成情况**
 
 - 状态：完成。
-- `contracts/plugin-protocol.schema.json` 冻结 `replay_protection` 配置（必填 `enforce`、可选 `timestamp_skew_seconds`、`event_id_header`、`timestamp_header`）。
+- `contracts/plugin-protocol.schema.json` 冻结 `replay_protection` 配置（必填 `enforce`、`tolerance_seconds`、`event_id_header`、`timestamp_header`）。
 - `webhook.received` 事件 payload 暴露 `client_timestamp` 与 `client_event_id`，两者只在 grace 模式下且客户端缺省时才省略。
 - `server/internal/pluginwebhook.Service` 把 timestamp、event_id 与 body 串入 HMAC 签名输入，并按 `(plugin_id, route, event_id)` 做窗口化 LRU 去重。
 - 新错误码：超出容忍窗口返回 `plugin.webhook_timestamp_skew`，重复 event_id 返回 `plugin.webhook_replay_rejected`。
