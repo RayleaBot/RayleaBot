@@ -1106,3 +1106,103 @@ func (p *recordingRuntimePublisher) Snapshots() []DispatcherWindowSnapshot {
 	copy(out, p.snapshots)
 	return out
 }
+
+
+// recordingDispatchMetrics captures dispatcher metric callbacks so the
+// outbound-instrumentation test can assert IncOutboundSend and
+// ObserveOutboundDuration are invoked once per send attempt.
+type recordingDispatchMetrics struct {
+	mu                sync.Mutex
+	pipelineCounters  map[string]map[string]int
+	dispatcherDrops   map[string]map[string]int
+	outboundSends     map[string]map[string]int
+	outboundDurations []outboundDurationSample
+}
+
+type outboundDurationSample struct {
+	adapter  string
+	duration time.Duration
+}
+
+func newRecordingDispatchMetrics() *recordingDispatchMetrics {
+	return &recordingDispatchMetrics{
+		pipelineCounters: map[string]map[string]int{},
+		dispatcherDrops:  map[string]map[string]int{},
+		outboundSends:    map[string]map[string]int{},
+	}
+}
+
+func (m *recordingDispatchMetrics) IncDispatcherDrop(pluginID, reason string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.dispatcherDrops[pluginID]; !ok {
+		m.dispatcherDrops[pluginID] = map[string]int{}
+	}
+	m.dispatcherDrops[pluginID][reason]++
+}
+
+func (m *recordingDispatchMetrics) IncEventPipelineStage(stage, outcome string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.pipelineCounters[stage]; !ok {
+		m.pipelineCounters[stage] = map[string]int{}
+	}
+	m.pipelineCounters[stage][outcome]++
+}
+
+func (m *recordingDispatchMetrics) IncOutboundSend(adapter, outcome string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.outboundSends[adapter]; !ok {
+		m.outboundSends[adapter] = map[string]int{}
+	}
+	m.outboundSends[adapter][outcome]++
+}
+
+func (m *recordingDispatchMetrics) ObserveOutboundDuration(adapter string, duration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.outboundDurations = append(m.outboundDurations, outboundDurationSample{adapter: adapter, duration: duration})
+}
+
+// TestDispatchActionExecutionRecordsOutboundMetrics verifies that the
+// dispatcher records outbound send latency and outcome counters every
+// time an action is sent. The /api/system/metrics contract advertises
+// outbound_send_total and outbound_send_duration_seconds and depends on
+// these calls firing in production.
+func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
+	sender := &fakeSender{}
+	d := New(slog.Default(), sender, nil, 16)
+	defer d.Close()
+
+	metrics := newRecordingDispatchMetrics()
+	d.SetMetricsObserver(metrics)
+
+	rt := &fakeDeliverer{delivery: runtime.Delivery{
+		Action: &runtime.Action{
+			Kind:       "message.send",
+			TargetType: "group",
+			TargetID:   "200",
+			MessageSegments: []runtime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "metric reply"},
+			}},
+		},
+	}}
+	d.Register("metric-plugin", rt, nil, nil, 1)
+
+	d.Dispatch(context.Background(), testEvent(), "")
+	time.Sleep(100 * time.Millisecond)
+
+	metrics.mu.Lock()
+	defer metrics.mu.Unlock()
+	if got := metrics.outboundSends["onebot11"]["delivered"]; got != 1 {
+		t.Fatalf("delivered count = %d, want 1; sends=%#v", got, metrics.outboundSends)
+	}
+	if len(metrics.outboundDurations) != 1 {
+		t.Fatalf("duration samples = %d, want 1", len(metrics.outboundDurations))
+	}
+	if metrics.outboundDurations[0].adapter != "onebot11" {
+		t.Fatalf("adapter = %q, want onebot11", metrics.outboundDurations[0].adapter)
+	}
+}

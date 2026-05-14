@@ -367,6 +367,54 @@ func (a dispatchMetricsAdapter) IncDispatcherDrop(pluginID, reason string) {
 	a.registry.DispatcherDropTotal.WithLabelValues(pluginID, reason).Inc()
 }
 
+func (a dispatchMetricsAdapter) IncOutboundSend(adapterLabel, outcome string) {
+	if a.registry == nil || a.registry.OutboundSendTotal == nil {
+		return
+	}
+	a.registry.OutboundSendTotal.WithLabelValues(adapterLabel, outcome).Inc()
+}
+
+func (a dispatchMetricsAdapter) ObserveOutboundDuration(adapterLabel string, duration time.Duration) {
+	if a.registry == nil || a.registry.OutboundSendDuration == nil {
+		return
+	}
+	a.registry.OutboundSendDuration.WithLabelValues(adapterLabel).Observe(duration.Seconds())
+}
+
+// taskMetricsAdapter routes task executor outcomes into the platform-wide
+// Prometheus registry.
+type taskMetricsAdapter struct {
+	registry *metrics.Registry
+}
+
+func (a taskMetricsAdapter) ObserveTaskExecution(taskType, outcome string, duration time.Duration) {
+	if a.registry == nil || a.registry.TaskExecutionLatency == nil {
+		return
+	}
+	a.registry.TaskExecutionLatency.WithLabelValues(taskType, outcome).Observe(duration.Seconds())
+}
+
+// renderMetricsAdapter routes render service outcomes into the platform-wide
+// Prometheus registry. SetRenderQueueDepth is invoked from background
+// goroutines so the gauge stays current without blocking the render loop.
+type renderMetricsAdapter struct {
+	registry *metrics.Registry
+}
+
+func (a renderMetricsAdapter) SetRenderQueueDepth(depth int) {
+	if a.registry == nil || a.registry.RenderQueueDepth == nil {
+		return
+	}
+	a.registry.RenderQueueDepth.Set(float64(depth))
+}
+
+func (a renderMetricsAdapter) ObserveRenderDuration(outcome string, duration time.Duration) {
+	if a.registry == nil || a.registry.RenderDuration == nil {
+		return
+	}
+	a.registry.RenderDuration.WithLabelValues(outcome).Observe(duration.Seconds())
+}
+
 // adapterMetricsAdapter routes adapter dedup observations into the
 // platform-wide Prometheus registry.
 type adapterMetricsAdapter struct {

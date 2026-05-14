@@ -169,6 +169,16 @@ type Service struct {
 	activeRequests     int
 	cache              map[string]Result
 	artifacts          map[string]Artifact
+
+	metricsMu sync.RWMutex
+	metrics   MetricsObserver
+}
+
+// MetricsObserver routes render service outcomes into the Prometheus
+// registry. Implementations must be safe for concurrent use.
+type MetricsObserver interface {
+	SetRenderQueueDepth(depth int)
+	ObserveRenderDuration(outcome string, duration time.Duration)
 }
 
 func NewService(options Options) (*Service, error) {
@@ -335,6 +345,13 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 		return Result{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
 	}
 
+	startedAt := time.Now()
+	result, err := s.renderInternal(ctx, request)
+	s.recordRenderMetric(renderOutcome(result, err), time.Since(startedAt))
+	return result, err
+}
+
+func (s *Service) renderInternal(ctx context.Context, request Request) (Result, error) {
 	normalized, payloadBytes, err := s.normalizeRequest(request)
 	if err != nil {
 		return Result{}, err
@@ -952,12 +969,14 @@ func (s *Service) reserveSlot() error {
 		limit = s.workerCount
 	}
 	if s.activeRequests >= limit {
+		s.publishQueueDepthLocked()
 		return &Error{
 			Code:    "platform.render_queue_full",
 			Message: "render queue is full",
 		}
 	}
 	s.activeRequests++
+	s.publishQueueDepthLocked()
 	return nil
 }
 
@@ -967,6 +986,64 @@ func (s *Service) releaseSlot() {
 	if s.activeRequests > 0 {
 		s.activeRequests--
 	}
+	s.publishQueueDepthLocked()
+}
+
+func (s *Service) publishQueueDepthLocked() {
+	observer := s.currentMetrics()
+	if observer == nil {
+		return
+	}
+	depth := s.activeRequests
+	go observer.SetRenderQueueDepth(depth)
+}
+
+// SetMetricsObserver wires the Prometheus observer the render service uses
+// to track queue depth and end-to-end render latency. Passing nil disables
+// instrumentation.
+func (s *Service) SetMetricsObserver(observer MetricsObserver) {
+	if s == nil {
+		return
+	}
+	s.metricsMu.Lock()
+	s.metrics = observer
+	s.metricsMu.Unlock()
+}
+
+func (s *Service) currentMetrics() MetricsObserver {
+	if s == nil {
+		return nil
+	}
+	s.metricsMu.RLock()
+	defer s.metricsMu.RUnlock()
+	return s.metrics
+}
+
+func (s *Service) recordRenderMetric(outcome string, duration time.Duration) {
+	observer := s.currentMetrics()
+	if observer == nil {
+		return
+	}
+	observer.ObserveRenderDuration(outcome, duration)
+}
+
+func renderOutcome(result Result, err error) string {
+	if err != nil {
+		var renderErr *Error
+		if errors.As(err, &renderErr) {
+			switch renderErr.Code {
+			case "platform.render_queue_full":
+				return "queue_full"
+			case "platform.render_timeout":
+				return "timeout"
+			}
+		}
+		return "failed"
+	}
+	if result.FromCache {
+		return "cache_hit"
+	}
+	return "succeeded"
 }
 
 func (s *Service) currentQueueWaitTimeout() time.Duration {

@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -82,6 +83,8 @@ type DispatcherStats struct {
 type MetricsObserver interface {
 	IncDispatcherDrop(pluginID, reason string)
 	IncEventPipelineStage(stage, outcome string)
+	IncOutboundSend(adapter, outcome string)
+	ObserveOutboundDuration(adapter string, duration time.Duration)
 }
 
 // Dispatcher manages per-plugin event queues and fan-out delivery.
@@ -669,13 +672,50 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 		}, err)
 		return
 	}
+	outboundStart := time.Now()
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
+	d.recordOutboundMetric(action, result, err, time.Since(outboundStart))
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
 		RequestID:   requestID,
 		CommandName: commandName,
 		TargetLabel: targetLabel,
 	}, attempt, result, err)
+}
+
+// recordOutboundMetric routes a single outbound send outcome into the
+// dispatcher MetricsObserver. The adapter label is the OneBot11 shell;
+// outbound currently routes through a single shared adapter, so the label
+// stays bounded and predictable.
+func (d *Dispatcher) recordOutboundMetric(action runtime.Action, result outbound.SendResult, err error, duration time.Duration) {
+	observer := d.currentMetrics()
+	if observer == nil {
+		return
+	}
+	adapterLabel := outboundAdapterLabel(action)
+	observer.ObserveOutboundDuration(adapterLabel, duration)
+	observer.IncOutboundSend(adapterLabel, outboundOutcome(err))
+	_ = result
+}
+
+func outboundAdapterLabel(_ runtime.Action) string {
+	return "onebot11"
+}
+
+func outboundOutcome(err error) string {
+	if err == nil {
+		return "delivered"
+	}
+	var adapterErr *adapter.Error
+	if errors.As(err, &adapterErr) {
+		switch adapterErr.Code {
+		case "permission.scope_violation":
+			return "scope_violation"
+		case "adapter.reply_target_missing":
+			return "reply_target_missing"
+		}
+	}
+	return "failed"
 }
 
 func (d *Dispatcher) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {

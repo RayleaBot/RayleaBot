@@ -178,3 +178,91 @@ func TestExecutor_Close(t *testing.T) {
 		t.Fatal("expected error after close")
 	}
 }
+
+
+// recordingTaskMetrics captures every observed task execution outcome for
+// assertions in TestExecutor_RecordsMetrics.
+type recordingTaskMetrics struct {
+	observations []taskMetricObservation
+}
+
+type taskMetricObservation struct {
+	taskType string
+	outcome  string
+	duration time.Duration
+}
+
+func (m *recordingTaskMetrics) ObserveTaskExecution(taskType, outcome string, duration time.Duration) {
+	m.observations = append(m.observations, taskMetricObservation{
+		taskType: taskType,
+		outcome:  outcome,
+		duration: duration,
+	})
+}
+
+// TestExecutor_RecordsMetrics verifies the executor calls the configured
+// MetricsObserver for both successful and failed tasks. The observation
+// for /api/system/metrics depends on this hook firing once per task.
+func TestExecutor_RecordsMetrics(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	executor := NewExecutor(registry, 30*time.Second)
+	defer executor.Close()
+
+	metrics := &recordingTaskMetrics{}
+	executor.SetMetricsObserver(metrics)
+
+	successID, err := executor.Submit("backup.create", "ok", func(ctx context.Context, _ ProgressReporter) (*ResultSummary, error) {
+		return &ResultSummary{Summary: "done"}, nil
+	})
+	if err != nil {
+		t.Fatalf("submit success: %v", err)
+	}
+	failID, err := executor.Submit("backup.create", "boom", func(ctx context.Context, _ ProgressReporter) (*ResultSummary, error) {
+		return nil, errors.New("boom")
+	})
+	if err != nil {
+		t.Fatalf("submit fail: %v", err)
+	}
+
+	waitForFinalStatus(t, registry, successID, StatusSucceeded)
+	waitForFinalStatus(t, registry, failID, StatusFailed)
+
+	// Allow the executor goroutine to record metrics.
+	time.Sleep(20 * time.Millisecond)
+
+	if len(metrics.observations) != 2 {
+		t.Fatalf("observations = %d, want 2", len(metrics.observations))
+	}
+	outcomes := map[string]bool{}
+	for _, obs := range metrics.observations {
+		if obs.taskType != "backup.create" {
+			t.Fatalf("taskType = %q, want backup.create", obs.taskType)
+		}
+		outcomes[obs.outcome] = true
+	}
+	if !outcomes["succeeded"] || !outcomes["failed"] {
+		t.Fatalf("outcomes = %v, want both succeeded and failed", outcomes)
+	}
+}
+
+func waitForFinalStatus(t *testing.T, registry *Registry, taskID string, want Status) {
+	t.Helper()
+	deadline := time.After(5 * time.Second)
+	for {
+		snap, ok := registry.Get(taskID)
+		if !ok {
+			t.Fatalf("task %s not found", taskID)
+		}
+		if snap.Status == want {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("timeout waiting for status %s on %s, last status=%s", want, taskID, snap.Status)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}

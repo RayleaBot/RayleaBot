@@ -202,6 +202,8 @@ func New(options Options) (*App, error) {
 	pluginState.Bridge.SetMetricsObserver(bridgeMetricsAdapter{registry: metricRegistry})
 	pluginState.Dispatcher.SetMetricsObserver(dispatchMetricsAdapter{registry: metricRegistry})
 	pluginState.Adapter.SetMetricsObserver(adapterMetricsAdapter{registry: metricRegistry})
+	platformState.taskExecutor.SetMetricsObserver(taskMetricsAdapter{registry: metricRegistry})
+	pluginState.renderer.SetMetricsObserver(renderMetricsAdapter{registry: metricRegistry})
 	stopRuntimeStateGauge := startPluginRuntimeStateGaugeRefresh(metricRegistry, pluginState.Plugins)
 	logService := newLogService(platformState.Logs, platformState.LogRepository)
 	grantView := &pluginGrantView{
