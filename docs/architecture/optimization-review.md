@@ -12,14 +12,14 @@
 
 | 编号 | 主题 | 优先级 | Contract-first | 状态 | 当前证据 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `server/internal/app` 组装边界收敛 | P1 | 否 | 待处理 | `app` 包 46 个非测试 Go 文件 / 71 个 Go 文件总量；`App` 结构体 47 个字段聚合跨领域运行态 |
+| 1 | `server/internal/app` 组装边界收敛 | P1 | 否 | 无需改动 | 现有按领域 deps struct 已覆盖建议动作；`App` 字段聚合面与项 10 同源，落地以项 10 为准 |
 | 2 | `allowedTaskTypes` 与 `TaskType` 枚举对齐 | P1 | 否 | 完成 | `recovery.confirm` 已进入服务端过滤白名单；服务端白名单与 OpenAPI `TaskType` 枚举有守卫测试 |
 | 3 | Chromium 渲染浏览器生命周期复用 | P1 | 部分 | 完成 | `chromiumRunner` 复用长驻浏览器上下文，单次渲染创建独立 tab；`Service.Close` 与 `RefreshBrowserPath` 会释放默认 runner |
-| 4 | 运行时指标与时序观测面 | P2 | 是 | 待处理 | `server/go.mod` 没有 Prometheus / OpenTelemetry 依赖；正式诊断面只覆盖快照 |
-| 5 | 插件 webhook 防重放与幂等窗口 | P2 | 是 | 待处理 | `webhook` 校验 token / HMAC / 源 IP；`EventID = webhook-<route>-<UnixNano>`，无 timestamp / event id 协议字段 |
-| 6 | Dispatcher 队列满行为可见化 | P2 | 是 | 待处理 | 默认 queue=16；`OutcomeDropped` 只写日志，管理面无聚合面 |
-| 7 | 跨层重复 / 丢弃事件统计 | P2 | 部分 | 待处理 | Adapter 维护 `recentEventIDs` 但不对外暴露计数；Bridge 已有 `bridge_runtime` 聚合，没有 dedup / drop 维度 |
-| 8 | Web WebSocket 重连退避 | P2 | 否 | 待处理 | `web/src/lib/ws.ts` 使用固定数组 `[500, 1000, 2000, 4000]`，无 jitter |
+| 4 | 运行时指标与时序观测面 | P2 | 是 | 部分完成 | `server/internal/metrics` 注册 Prometheus 指标族；`GET /api/system/metrics` 走 admin session 鉴权；链路侧 instrumentation 仍逐步铺设 |
+| 5 | 插件 webhook 防重放与幂等窗口 | P2 | 是 | 完成 | `pluginwebhook.Service` 强制 `replay_protection`，对客户端 timestamp 与 event_id 做 LRU 去重；HMAC 输入串含 timestamp/event_id/body；新错误码 `plugin.webhook_replay_rejected`/`plugin.webhook_timestamp_skew`；Python/Node SDK 同步 |
+| 6 | Dispatcher 队列满行为可见化 | P2 | 是 | 完成 | dispatcher 维护 per-reason 窗口统计，10s 周期通过 bridge subscriber 推 `dispatcher_runtime` 帧；公开 `Stats()` / `FlushDispatcherWindow` 接入 metrics 与测试 |
+| 7 | 跨层重复 / 丢弃事件统计 | P2 | 部分 | 完成 | bridge `ObservabilityData` 扩展 `adapter_dedup_drops_total`/`bridge_ignored_total`/`dispatcher_*_total`；adapter 暴露 `DedupDropsSnapshot`；dispatcher 暴露 `Stats` 并由 bridge 拉取 |
+| 8 | Web WebSocket 重连退避 | P2 | 否 | 完成 | `web/src/lib/ws.ts` 走指数退避 + 抖动；`socket-controller` 每频道独立；`ConnectionStatusStrip` 展示重连倒计时与最后错误时间 |
 | 9 | Session 绝对 TTL 与签名密钥轮换 | P3 | 是 | 待处理 | `auth.Config` 仅含 `SessionTTLDays` / `SlidingRenewal` / `MaxSessions`；签名密钥常驻 secret store |
 | 10 | 插件子系统字段收敛 | P3 | 否 | 待处理 | `App` 仍直接持有 14 个插件侧字段（installer / uninstaller / repo / config / files / KV / grants / 黑白名单 / webhook / runtime registry 等） |
 | 11 | `dead_letter` 状态恢复入口 | P3 | 部分 | 待处理 | runtime 流转 `crashed → backoff → dead_letter` 已实现，无自动清理与冷启动尝试入口 |
@@ -27,33 +27,21 @@
 
 ## 1. `server/internal/app` 组装边界收敛（P1）
 
-**现状证据**
+**完成情况**
 
-- `server/internal/app` 当前 71 个 Go 文件，46 个非测试文件。
-- `App` 结构体共 47 个字段，跨 storage / auth / tasks / scheduler / adapter / bridge / dispatcher / runtime registry / replyTargets / outbound / plugin lifecycle / plugin webhook / governance / render / local action / system / handler 多领域。
-- `app_build_http.go`、`app_build_platform.go`、`app_build_plugins.go`、`app_services.go` 已经把构造逻辑拆段，但 `App` 仍是跨 swimlane 的依赖承接点。
-- `app_test_helpers_test.go` 集中暴露 fake 注入入口，单领域测试改动会牵动整包重新编译。
-
-**风险**
-
-- 新增子系统容易同时改 `App` 字段、构造链、HTTP / WebSocket handler 与测试 helper 四处。
-- 跨领域改动在同一文件内排队，影响阅读、PR 评审与并行协作。
-
-**建议动作**
-
-- 引入按领域组织的 handler deps 接口，让 handler 只依赖当前领域接口。
-- 把插件子系统、平台能力子系统、HTTP / WebSocket handler 提升为各自包内的首类对象，`App` 只保留聚合指针。
-- 保持 `app.New(...)` 与 `cmd/raylea-server/main.go` 入口稳定，不影响外部启动路径。
-- 与第 10 项一并推进，避免两次触碰同一构造链。
+- 状态：无需改动。
+- `server/internal/app/app_services.go` 已经按领域定义 `authHTTPDeps`、`configHTTPDeps`、`managementHTTPDeps`、`eventIngressDeps`、`pluginLifecycleDeps`、`systemServiceDeps`，每个 deps 只持有该领域真实使用的字段。
+- handler 不直接接收 `*App`：`taskHTTPHandlers`、`authHTTPHandlers`、`configHTTPHandlers`、`managementHTTPHandlers` 等仅持有领域内的依赖。
+- `app_test_helpers_test.go` 的 `setTestEventIngress`、`setTestLifecycle`、`setTestLocalActions`、`setTestSystem`、`setTestWebhookService` 已按领域装配，单领域测试改动不需要联动其他领域。
+- 剩余的 `App` 47 字段聚合面与第 10 项（插件子系统字段收敛）同源；脱离 `pluginStack` 聚合的进一步收敛会沦为命名重排，无可证明收益。
 
 **契约边界**
 
-- 纯 server 内部重构，不改 `contracts/`。
+- 纯 server 内部状态，无 contract。
 
 **验证方式**
 
 - `cd server && go test ./internal/app ./internal/plugins ./internal/runtime ./internal/dispatch`
-- 重点回归 setup/session、tasks、plugins、protocol、render、recovery、WebSocket handler。
 
 ## 2. `allowedTaskTypes` 与 `TaskType` 枚举对齐（P1）
 
