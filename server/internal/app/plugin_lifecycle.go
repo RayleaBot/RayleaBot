@@ -159,9 +159,13 @@ func (c *pluginLifecycleController) RecoverFromDeadLetter(ctx context.Context, p
 		return plugins.Snapshot{}, err
 	}
 
-	manager.ResetCrashCount()
-	manager.SetStopped()
-
+	// Persist desired_state and update the catalog before mutating the
+	// runtime manager. If persistence or catalog updates fail, the manager
+	// must stay in dead_letter so a retry can pick the plugin up cleanly;
+	// resetting the manager up front would leave the catalog reporting
+	// dead_letter while the manager has already moved to stopped, which
+	// would cause subsequent recovery attempts to fail with
+	// plugin.not_in_dead_letter.
 	updated := snapshot
 	if snapshot.DesiredState != "enabled" {
 		if err := persistPluginDesiredState(ctx, c.desiredStateRepo, pluginID, "enabled"); err != nil {
@@ -171,6 +175,10 @@ func (c *pluginLifecycleController) RecoverFromDeadLetter(ctx context.Context, p
 			updated = reEnabled
 		}
 	}
+
+	manager.ResetCrashCount()
+	manager.SetStopped()
+
 	if startingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(runtime.StateStarting)); runtimeErr == nil {
 		updated = startingSnapshot
 	}
