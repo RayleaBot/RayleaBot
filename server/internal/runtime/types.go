@@ -20,17 +20,18 @@ const (
 )
 
 type Snapshot struct {
-	PluginID         string
-	State            State
-	LastErrorCode    string
-	LastErrorMessage string
-	InitRequestID    string
-	PID              int
-	StartedAt        *time.Time
-	StoppedAt        *time.Time
-	CrashCount       int
-	NextRetryAt      *time.Time
-	Subscriptions    []string
+	PluginID            string
+	State               State
+	LastErrorCode       string
+	LastErrorMessage    string
+	InitRequestID       string
+	PID                 int
+	StartedAt           *time.Time
+	StoppedAt           *time.Time
+	CrashCount          int
+	NextRetryAt         *time.Time
+	EnteredDeadLetterAt *time.Time
+	Subscriptions       []string
 }
 
 // CrashCallback is invoked by the runtime manager when a running plugin

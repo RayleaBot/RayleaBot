@@ -117,6 +117,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		nextRetryAt := *snapshot.NextRetryAt
 		cloned.NextRetryAt = &nextRetryAt
 	}
+	if snapshot.EnteredDeadLetterAt != nil {
+		enteredDeadLetterAt := *snapshot.EnteredDeadLetterAt
+		cloned.EnteredDeadLetterAt = &enteredDeadLetterAt
+	}
 	cloned.Subscriptions = append([]string(nil), snapshot.Subscriptions...)
 	return cloned
 }
@@ -127,6 +131,7 @@ func (m *Manager) ResetCrashCount() {
 	defer m.mu.Unlock()
 	m.snap.CrashCount = 0
 	m.snap.NextRetryAt = nil
+	m.snap.EnteredDeadLetterAt = nil
 }
 
 // SetBackoffState transitions the runtime snapshot to backoff with a
@@ -141,11 +146,15 @@ func (m *Manager) SetBackoffState(nextRetry time.Time) {
 
 // SetDeadLetterState transitions the runtime snapshot to dead_letter,
 // indicating that the maximum crash-backoff attempts have been exhausted.
+// EnteredDeadLetterAt records the entry timestamp so management surfaces
+// can show how long the plugin has been in dead_letter.
 func (m *Manager) SetDeadLetterState() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.snap.State = StateDeadLetter
 	m.snap.NextRetryAt = nil
+	now := m.deps.now()
+	m.snap.EnteredDeadLetterAt = &now
 }
 
 // SetOnCrash registers the crash callback after construction. This is
@@ -168,6 +177,7 @@ func (m *Manager) SetStopped() {
 	m.snap.State = StateStopped
 	m.snap.StoppedAt = &now
 	m.snap.NextRetryAt = nil
+	m.snap.EnteredDeadLetterAt = nil
 }
 
 func (m *Manager) watchRunningProcess(handle *processHandle) {

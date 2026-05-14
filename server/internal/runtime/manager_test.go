@@ -2708,6 +2708,27 @@ func TestManagerSetDeadLetterState(t *testing.T) {
 	if snapshot.State != StateDeadLetter {
 		t.Errorf("state after SetDeadLetterState: got %q want %q", snapshot.State, StateDeadLetter)
 	}
+	if snapshot.EnteredDeadLetterAt == nil {
+		t.Fatal("EnteredDeadLetterAt was not recorded")
+	}
+	expected := time.Unix(1_700_000_000, 0).UTC()
+	if !snapshot.EnteredDeadLetterAt.Equal(expected) {
+		t.Errorf("EnteredDeadLetterAt: got %s want %s", snapshot.EnteredDeadLetterAt, expected)
+	}
+
+	manager.ResetCrashCount()
+	if manager.Snapshot().EnteredDeadLetterAt != nil {
+		t.Error("ResetCrashCount should clear EnteredDeadLetterAt")
+	}
+
+	manager.SetDeadLetterState()
+	if manager.Snapshot().EnteredDeadLetterAt == nil {
+		t.Fatal("EnteredDeadLetterAt should be re-recorded on second entry")
+	}
+	manager.SetStopped()
+	if manager.Snapshot().EnteredDeadLetterAt != nil {
+		t.Error("SetStopped should clear EnteredDeadLetterAt")
+	}
 }
 
 func testManager() *Manager {

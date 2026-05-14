@@ -87,6 +87,9 @@ func (c *pluginLifecycleController) handleCrash(pluginID string, crashCount int,
 	if crashCount >= maxRetries {
 		manager.SetDeadLetterState()
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(runtime.StateDeadLetter))
+		if c.webhooks != nil {
+			c.webhooks.DeletePlugin(pluginID)
+		}
 		c.state.Logger.Warn(
 			"plugin entered dead_letter after repeated crashes",
 			"component", "app",
