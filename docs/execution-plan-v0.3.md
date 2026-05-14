@@ -1,7 +1,7 @@
 # RayleaBot v0.3 执行计划
 
-> `docs/execution-plan-v0.3.md` 作为 v0.3 的正式执行计划使用。  
-> 已归档版本的能力清单见 `docs/CHANGELOGS/`。  
+> `docs/execution-plan-v0.3.md` 作为 v0.3 的正式执行计划使用。
+> 已归档版本的能力清单见 `docs/CHANGELOGS/`。
 > 本文档记录 v0.3 的正式范围、完成定义和延后边界。
 >
 > 状态图例：`☑️ 已完成` · `🟡 规划中` · `❌ 延后到后续版本`
