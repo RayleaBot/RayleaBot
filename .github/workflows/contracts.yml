@@ -89,10 +89,10 @@ jobs:
           launcher_package = json.loads((root / "launcher" / "package.json").read_text(encoding="utf-8"))
           launcher_deps = launcher_package.get("dependencies", {})
           launcher_dev_deps = launcher_package.get("devDependencies", {})
-          if launcher_deps.get("react") != "^18.3.1":
-              raise SystemExit("launcher/package.json must pin react ^18.3.1")
-          if launcher_deps.get("@fluentui/react-components") != "^9.54.0":
-              raise SystemExit("launcher/package.json must pin @fluentui/react-components ^9.54.0")
+          if launcher_deps.get("react") != "18.3.1":
+              raise SystemExit("launcher/package.json must pin react 18.3.1")
+          if launcher_deps.get("@fluentui/react-components") != "9.73.5":
+              raise SystemExit("launcher/package.json must pin @fluentui/react-components 9.73.5")
           if launcher_dev_deps.get("electron") != "41.1.0":
               raise SystemExit("launcher/package.json must pin electron 41.1.0")
           if launcher_dev_deps.get("electron-builder") != "26.8.1":
@@ -675,6 +675,7 @@ jobs:
               '/api/system/status',
               '/api/system/shutdown',
               '/api/system/backup',
+              '/api/system/metrics',
               '/api/system/recovery/recheck',
               '/api/system/recovery/confirm',
               '/api/system/render/preview',
@@ -683,6 +684,7 @@ jobs:
               '/api/system/render/templates/{template_id}',
               '/api/system/runtime/bootstrap',
               '/api/system/diagnostics/export',
+              '/api/system/scheduler/jobs/{job_id}/trigger',
               '/api/logs',
               '/api/logs/{log_id}',
               '/api/protocols/onebot11',
@@ -694,6 +696,7 @@ jobs:
               '/api/tasks/{task_id}/cancel',
               '/api/plugins',
               '/api/plugins/{plugin_id}',
+              '/api/plugins/{plugin_id}/dead_letter/recover',
               '/api/plugins/{plugin_id}/enable',
               '/api/plugins/{plugin_id}/disable',
               '/api/plugins/{plugin_id}/reload',
