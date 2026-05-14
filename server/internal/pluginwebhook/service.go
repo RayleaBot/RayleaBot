@@ -302,6 +302,14 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			return
 		}
 
+		// Authentication succeeded: commit the (route, event_id) into the
+		// dedup window. peek + commit replaces a single-shot observe so a
+		// failed-signature request cannot poison the dedup cache and
+		// cause the genuine retry to be rejected as a replay.
+		if replayDecision.dedupKey != "" {
+			s.dedup.commit(replayDecision.dedupKey, s.now())
+		}
+
 		if !s.dispatcher.HasDeliverablePlugin(pluginID) && s.runtime != nil {
 			botID := strings.TrimSpace(s.runtime.CurrentBotID())
 			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil && s.logger != nil {
@@ -360,7 +368,10 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 // replayDecision summarises the replay-protection outcome for a single
 // webhook request. When reject is false the request continues into HMAC
 // validation; the parsed timestamp / event id are reused to assemble the
-// downstream plugin event so the plugin sees consistent identifiers.
+// downstream plugin event so the plugin sees consistent identifiers. The
+// dedup key + ttl are populated when peek-then-commit is in play so the
+// caller can mark the (route, event_id) as seen only after authentication
+// succeeds.
 type replayDecision struct {
 	reject       bool
 	code         string
@@ -368,6 +379,8 @@ type replayDecision struct {
 	timestamp    int64
 	timestampRaw string
 	eventID      string
+	dedupKey     string
+	dedupTTL     time.Duration
 }
 
 func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayProtection, r *http.Request) replayDecision {
@@ -417,7 +430,9 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 
 	dedupKey := webhookKey(pluginID, route) + "\x00" + eventID
 	ttl := time.Duration(2*tolerance) * time.Second
-	if !s.dedup.observe(dedupKey, s.now(), ttl) {
+	decision.dedupKey = dedupKey
+	decision.dedupTTL = ttl
+	if s.dedup.peek(dedupKey, s.now(), ttl) {
 		s.recordReplayMetric("grace_observed")
 		if cfg.Enforce {
 			decision.reject = true
