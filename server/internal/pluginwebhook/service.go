@@ -302,12 +302,23 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			return
 		}
 
-		// Authentication succeeded: commit the (route, event_id) into the
-		// dedup window. peek + commit replaces a single-shot observe so a
-		// failed-signature request cannot poison the dedup cache and
-		// cause the genuine retry to be rejected as a replay.
+		// Authentication succeeded: atomically claim the (route, event_id)
+		// slot. peek + commitIfAbsent replaces a single observe so a
+		// failed-signature request cannot poison the dedup cache, and the
+		// commit step refuses concurrent legitimate retries that share the
+		// same event_id so replay protection holds under racing callers.
 		if replayDecision.dedupKey != "" {
-			s.dedup.commit(replayDecision.dedupKey, s.now())
+			if !s.dedup.commitIfAbsent(replayDecision.dedupKey, s.now(), replayDecision.dedupTTL) {
+				if registration.ReplayProtection.Enforce {
+					s.recordReplayMetric("rejected")
+					httpapi.WriteError(w, r, http.StatusUnauthorized, "plugin.webhook_replay_rejected", "插件 Webhook 重放校验失败", "errors.plugin.webhook_replay_rejected", map[string]any{
+						"plugin_id": pluginID,
+						"route":     route,
+					})
+					return
+				}
+				s.recordReplayMetric("grace_observed")
+			}
 		}
 
 		if !s.dispatcher.HasDeliverablePlugin(pluginID) && s.runtime != nil {

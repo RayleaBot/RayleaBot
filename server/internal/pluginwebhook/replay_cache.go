@@ -10,44 +10,18 @@ import (
 // window. Reads, writes, and eviction all live under a single mutex; the
 // expected cardinality stays in the low thousands per route.
 type replayCache struct {
-	mu     sync.Mutex
-	items  map[string]time.Time
+	mu    sync.Mutex
+	items map[string]time.Time
 }
 
 func newReplayCache() *replayCache {
 	return &replayCache{items: make(map[string]time.Time)}
 }
 
-// observe registers the given key as seen at observedAt. If the key has been
-// seen and is still within its ttl it returns false (caller should reject
-// the duplicate). Expired entries are dropped opportunistically so the map
-// does not grow unbounded.
-//
-// observe is the legacy single-step API. Prefer peek + commit so dedup state
-// is only mutated after authentication succeeds; otherwise a request that
-// fails signature verification would still poison the dedup window for the
-// genuine retry.
-func (c *replayCache) observe(key string, observedAt time.Time, ttl time.Duration) bool {
-	if c == nil {
-		return true
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.purgeExpiredLocked(observedAt, ttl)
-
-	if seenAt, ok := c.items[key]; ok {
-		if observedAt.Sub(seenAt) <= ttl {
-			return false
-		}
-	}
-	c.items[key] = observedAt
-	return true
-}
-
 // peek reports whether the given key would be treated as a duplicate at
 // observedAt without mutating the cache. Use it for the read-only check
-// before authentication.
+// before authentication; the authoritative duplicate decision is made
+// later by commitIfAbsent under a single critical section.
 func (c *replayCache) peek(key string, observedAt time.Time, ttl time.Duration) bool {
 	if c == nil {
 		return false
@@ -64,15 +38,32 @@ func (c *replayCache) peek(key string, observedAt time.Time, ttl time.Duration) 
 	return observedAt.Sub(seenAt) <= ttl
 }
 
-// commit records the given key as seen at observedAt. Callers should invoke
-// commit only after the request has passed all authentication checks.
-func (c *replayCache) commit(key string, observedAt time.Time) {
+// commitIfAbsent atomically checks for a live duplicate and, if none is
+// found, records the key as seen at observedAt. It returns true when the
+// caller is the unique winner for the (key, ttl) window and may proceed,
+// and false when another concurrent request already won the slot.
+//
+// Callers must invoke commitIfAbsent only after authentication has
+// succeeded. Splitting the duplicate check into peek + commit would leave
+// a race where two authenticated callers both peek empty before either
+// commits; commitIfAbsent collapses both steps under one lock so replay
+// protection holds even under concurrent legitimate retries.
+func (c *replayCache) commitIfAbsent(key string, observedAt time.Time, ttl time.Duration) bool {
 	if c == nil {
-		return
+		return true
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	c.purgeExpiredLocked(observedAt, ttl)
+
+	if seenAt, ok := c.items[key]; ok {
+		if observedAt.Sub(seenAt) <= ttl {
+			return false
+		}
+	}
 	c.items[key] = observedAt
+	return true
 }
 
 func (c *replayCache) purgeExpiredLocked(observedAt time.Time, ttl time.Duration) {

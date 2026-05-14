@@ -3,6 +3,8 @@ package pluginwebhook
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -30,17 +32,55 @@ func TestEvaluateReplayProtectionRejectsDuplicateEventID(t *testing.T) {
 	if first.reject {
 		t.Fatalf("first request must be accepted, got %+v", first)
 	}
-	// Peek-then-commit: the caller is expected to commit the dedup entry
-	// only after authentication succeeds, so simulate that here before
-	// evaluating the second request.
 	if first.dedupKey == "" {
 		t.Fatal("first decision must surface a dedup key")
 	}
-	svc.dedup.commit(first.dedupKey, fixedNow)
+	// peek + commitIfAbsent: the caller is expected to atomically claim
+	// the dedup slot only after authentication succeeds, so simulate the
+	// post-auth commit here before evaluating the second request.
+	if !svc.dedup.commitIfAbsent(first.dedupKey, fixedNow, first.dedupTTL) {
+		t.Fatal("first commitIfAbsent must succeed when the cache is empty")
+	}
 
 	second := svc.evaluateReplayProtection("repo-watcher", "github", cfg, req)
 	if !second.reject || second.code != "plugin.webhook_replay_rejected" {
 		t.Fatalf("expected replay rejection on duplicate event id, got %+v", second)
+	}
+}
+
+// TestReplayCacheCommitIfAbsentRejectsConcurrentDuplicate verifies the
+// authoritative commit step refuses duplicates even when two callers
+// both pass the pre-auth peek before either has claimed the slot. The
+// invariant under test: only one of N concurrent commitIfAbsent calls
+// for the same (key, ttl) window may return true.
+func TestReplayCacheCommitIfAbsentRejectsConcurrentDuplicate(t *testing.T) {
+	t.Parallel()
+
+	cache := newReplayCache()
+	now := time.Unix(1_700_000_000, 0)
+	ttl := 600 * time.Second
+	const concurrent = 32
+
+	var (
+		wg     sync.WaitGroup
+		startC = make(chan struct{})
+		wins   atomic.Int32
+	)
+	wg.Add(concurrent)
+	for i := 0; i < concurrent; i++ {
+		go func() {
+			defer wg.Done()
+			<-startC
+			if cache.commitIfAbsent("evt-race", now, ttl) {
+				wins.Add(1)
+			}
+		}()
+	}
+	close(startC)
+	wg.Wait()
+
+	if got := wins.Load(); got != 1 {
+		t.Fatalf("commitIfAbsent winners = %d, want exactly 1", got)
 	}
 }
 
