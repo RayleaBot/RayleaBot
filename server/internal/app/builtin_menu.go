@@ -10,6 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
@@ -165,24 +166,25 @@ func sanitizeMenuTokens(values []string) []string {
 
 func (s *eventIngressService) buildBuiltinMenuData(event adapter.NormalizedEvent, target string) map[string]any {
 	items := s.visibleBuiltinMenuItems(event)
+	runtimeEvent := runtimeEventFromAdapter(event)
 	if target != "" {
 		if item, ok := findBuiltinMenuItem(items, target); ok {
-			return builtinPluginMenuData(item)
+			return s.withBuiltinMenuIdentity(builtinPluginMenuData(item), runtimeEvent)
 		}
-		return map[string]any{
+		return s.withBuiltinMenuIdentity(map[string]any{
 			"title":    "菜单",
 			"subtitle": fmt.Sprintf("未找到插件：%s", target),
 			"items": []map[string]any{{
 				"name":        target,
 				"description": "当前没有匹配的插件菜单。",
 			}},
-		}
+		}, runtimeEvent)
 	}
 	cfg := config.Config{}
 	if s != nil && s.state != nil {
 		cfg = s.state.Config
 	}
-	return builtinRootMenuData(items, cfg)
+	return s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)
 }
 
 func (s *eventIngressService) visibleBuiltinMenuItems(event adapter.NormalizedEvent) []map[string]any {
@@ -251,6 +253,25 @@ func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
 		}
 	}
 	return result
+}
+
+func (s *eventIngressService) withBuiltinMenuIdentity(data map[string]any, event runtime.Event) map[string]any {
+	if data == nil {
+		data = map[string]any{}
+	}
+	cfg := config.Config{}
+	if s != nil && s.state != nil {
+		cfg = s.state.Config
+	}
+	identity := localaction.RenderIdentityData(cfg, event)
+	data["user"] = identity.User
+	data["permission"] = identity.Permission
+	if identity.Group != nil {
+		data["group"] = identity.Group
+	} else {
+		delete(data, "group")
+	}
+	return data
 }
 
 func visibleBuiltinCommands(commands []plugins.CommandView, cfg config.Config, event runtime.Event) []plugins.CommandView {

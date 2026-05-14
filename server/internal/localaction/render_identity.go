@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
 
@@ -15,11 +16,11 @@ func (s *Service) renderImageData(ctx context.Context, templateID string, data m
 	}
 
 	merged := cloneRenderData(data)
-	identity := s.renderIdentity(parentEvent)
-	merged["user"] = identity.user
-	merged["permission"] = identity.permission
-	if identity.group != nil {
-		merged["group"] = identity.group
+	identity := RenderIdentityData(s.config(), parentEvent)
+	merged["user"] = identity.User
+	merged["permission"] = identity.Permission
+	if identity.Group != nil {
+		merged["group"] = identity.Group
 	} else {
 		delete(merged, "group")
 	}
@@ -45,13 +46,13 @@ func (s *Service) templateAcceptsRenderIdentity(ctx context.Context, templateID 
 	return hasUser && hasPermission
 }
 
-type renderIdentity struct {
-	user       map[string]any
-	group      map[string]any
-	permission map[string]any
+type RenderIdentity struct {
+	User       map[string]any
+	Group      map[string]any
+	Permission map[string]any
 }
 
-func (s *Service) renderIdentity(event runtime.Event) renderIdentity {
+func RenderIdentityData(cfg config.Config, event runtime.Event) RenderIdentity {
 	actor := event.Actor
 	target := event.Target
 	onebot := objectValue(event.PayloadFields["onebot"])
@@ -93,29 +94,29 @@ func (s *Service) renderIdentity(event runtime.Event) renderIdentity {
 	}
 
 	level := "member"
-	if userID != "" && s.userIsSuperAdmin(userID) {
+	if userID != "" && renderIdentityUserIsSuperAdmin(cfg, userID) {
 		level = "super_admin"
 	} else {
 		level = normalizePermissionLevel(firstText(actorRole, sender["role"]))
 	}
 
-	identity := renderIdentity{
-		user: user,
-		permission: map[string]any{
+	identity := RenderIdentity{
+		User: user,
+		Permission: map[string]any{
 			"level": level,
 		},
 	}
 	if isGroup {
-		identity.group = map[string]any{}
+		identity.Group = map[string]any{}
 		if groupName := firstText(targetName); groupName != "" {
-			identity.group["name"] = groupName
+			identity.Group["name"] = groupName
 		}
 	}
 	return identity
 }
 
-func (s *Service) userIsSuperAdmin(userID string) bool {
-	for _, candidate := range s.config().Admin.SuperAdmins {
+func renderIdentityUserIsSuperAdmin(cfg config.Config, userID string) bool {
+	for _, candidate := range cfg.Admin.SuperAdmins {
 		if strings.TrimSpace(candidate) == userID {
 			return true
 		}

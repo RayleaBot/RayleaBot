@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -953,14 +954,21 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
+	runner := &captureRenderRunner{}
+	renderRoot := t.TempDir()
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
 	application := newTestAppState(config.Config{
+		Admin:   config.AdminConfig{SuperAdmins: []string{"10002"}},
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
 			Commands: []string{"help", "帮助"},
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}, nil)
-	application.renderer = newRenderService(t, t.TempDir())
+	application.renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
 	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "天气",
@@ -986,10 +994,23 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 		Timestamp:        time.Now().Unix(),
 		ConversationType: "group",
 		ConversationID:   "20001",
+		TargetName:       "测试群",
 		SenderID:         "10002",
+		ActorNickname:    "角色昵称",
 		ActorRole:        "member",
 		PlainText:        "/help",
 		MessageID:        "30001",
+		PayloadFields: map[string]any{
+			"onebot": map[string]any{
+				"user_id": "10002",
+				"sender": map[string]any{
+					"user_id":  "10002",
+					"nickname": "普通昵称",
+					"card":     "群名片",
+					"role":     "member",
+				},
+			},
+		},
 	})
 
 	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
@@ -997,6 +1018,15 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	}
 	if dispatcher.deliverCount != 0 {
 		t.Fatalf("builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
+	}
+	html := runner.lastHTML()
+	for _, want := range []string{"群名片", "ID 10002", "测试群", "超级管理员", "nk=10002"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("builtin menu html missing sender identity field %q:\n%s", want, html)
+		}
+	}
+	if strings.Contains(html, "访客") {
+		t.Fatalf("builtin menu html should not fall back to guest identity:\n%s", html)
 	}
 }
 
