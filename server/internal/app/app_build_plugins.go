@@ -12,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
+	"github.com/RayleaBot/RayleaBot/server/internal/metrics"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
@@ -323,4 +324,130 @@ func (p dispatcherRuntimePublisher) PublishDispatcherRuntime(snap dispatch.Dispa
 		IgnoredCount:   snap.Ignored,
 		DropsByReason:  rows,
 	})
+}
+
+// bridgeMetricsAdapter routes bridge outcomes into the platform-wide
+// Prometheus registry. Inc helpers are no-ops when the registry is nil so
+// tests can construct a Bridge without wiring a metrics observer.
+type bridgeMetricsAdapter struct {
+	registry *metrics.Registry
+}
+
+func (a bridgeMetricsAdapter) IncEventPipelineStage(stage, outcome string) {
+	if a.registry == nil || a.registry.EventPipelineStage == nil {
+		return
+	}
+	a.registry.EventPipelineStage.WithLabelValues(stage, outcome).Inc()
+}
+
+func (a bridgeMetricsAdapter) IncBridgeIgnored() {
+	if a.registry == nil || a.registry.BridgeIgnoredTotal == nil {
+		return
+	}
+	a.registry.BridgeIgnoredTotal.Inc()
+}
+
+// dispatchMetricsAdapter routes dispatcher outcomes into the platform-wide
+// Prometheus registry.
+type dispatchMetricsAdapter struct {
+	registry *metrics.Registry
+}
+
+func (a dispatchMetricsAdapter) IncEventPipelineStage(stage, outcome string) {
+	if a.registry == nil || a.registry.EventPipelineStage == nil {
+		return
+	}
+	a.registry.EventPipelineStage.WithLabelValues(stage, outcome).Inc()
+}
+
+func (a dispatchMetricsAdapter) IncDispatcherDrop(pluginID, reason string) {
+	if a.registry == nil || a.registry.DispatcherDropTotal == nil {
+		return
+	}
+	a.registry.DispatcherDropTotal.WithLabelValues(pluginID, reason).Inc()
+}
+
+// adapterMetricsAdapter routes adapter dedup observations into the
+// platform-wide Prometheus registry.
+type adapterMetricsAdapter struct {
+	registry *metrics.Registry
+}
+
+func (a adapterMetricsAdapter) IncAdapterDedupDrop() {
+	if a.registry == nil || a.registry.AdapterDedupDrops == nil {
+		return
+	}
+	a.registry.AdapterDedupDrops.Inc()
+}
+
+func (a adapterMetricsAdapter) IncEventPipelineStage(stage, outcome string) {
+	if a.registry == nil || a.registry.EventPipelineStage == nil {
+		return
+	}
+	a.registry.EventPipelineStage.WithLabelValues(stage, outcome).Inc()
+}
+
+// pluginRuntimeStates enumerates every formal plugin runtime state so the
+// gauge resets stale buckets to zero on each refresh. New states must be
+// added here to stay observable.
+var pluginRuntimeStates = []string{
+	"stopped",
+	"starting",
+	"running",
+	"stopping",
+	"crashed",
+	"backoff",
+	"dead_letter",
+}
+
+func refreshPluginRuntimeStateGauge(registry *metrics.Registry, catalog *plugins.Catalog) {
+	if registry == nil || registry.PluginRuntimeState == nil || catalog == nil {
+		return
+	}
+	counts := make(map[string]int, len(pluginRuntimeStates))
+	for _, state := range pluginRuntimeStates {
+		counts[state] = 0
+	}
+	for _, snapshot := range catalog.List() {
+		state := strings.TrimSpace(snapshot.RuntimeState)
+		if state == "" {
+			continue
+		}
+		if _, ok := counts[state]; !ok {
+			counts[state] = 0
+		}
+		counts[state]++
+	}
+	for state, count := range counts {
+		registry.PluginRuntimeState.WithLabelValues(state).Set(float64(count))
+	}
+}
+
+func startPluginRuntimeStateGaugeRefresh(registry *metrics.Registry, catalog *plugins.Catalog) (stop func()) {
+	if registry == nil || catalog == nil {
+		return func() {}
+	}
+	refreshPluginRuntimeStateGauge(registry, catalog)
+	events, unsubscribe := catalog.Subscribe(16)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case _, ok := <-events:
+				if !ok {
+					return
+				}
+				refreshPluginRuntimeStateGauge(registry, catalog)
+			case <-ticker.C:
+				refreshPluginRuntimeStateGauge(registry, catalog)
+			}
+		}
+	}()
+	return func() {
+		unsubscribe()
+		<-done
+	}
 }

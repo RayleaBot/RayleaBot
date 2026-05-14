@@ -167,7 +167,8 @@ type App struct {
 	taskHandler       *taskHTTPHandlers
 	eventsWS          *eventsWSHandler
 
-	metrics *metrics.Registry
+	metrics                 *metrics.Registry
+	metricsRuntimeGaugeStop func()
 }
 
 func New(options Options) (*App, error) {
@@ -198,6 +199,10 @@ func New(options Options) (*App, error) {
 		startupRuntimeStates: newStartupRuntimeStates(nil),
 	}
 	metricRegistry := metrics.New()
+	pluginState.Bridge.SetMetricsObserver(bridgeMetricsAdapter{registry: metricRegistry})
+	pluginState.Dispatcher.SetMetricsObserver(dispatchMetricsAdapter{registry: metricRegistry})
+	pluginState.Adapter.SetMetricsObserver(adapterMetricsAdapter{registry: metricRegistry})
+	stopRuntimeStateGauge := startPluginRuntimeStateGaugeRefresh(metricRegistry, pluginState.Plugins)
 	logService := newLogService(platformState.Logs, platformState.LogRepository)
 	grantView := &pluginGrantView{
 		state:           state,
@@ -331,11 +336,12 @@ func New(options Options) (*App, error) {
 		eventIngress:      eventIngress,
 		protocol:          protocolService,
 		pluginWebhooks:    pluginWebhooks,
-		governance:        governanceService,
-		governanceEvents:  governanceEvents,
-		logService:        logService,
-		systemService:     systemService,
-		metrics:           metricRegistry,
+		governance:              governanceService,
+		governanceEvents:        governanceEvents,
+		logService:              logService,
+		systemService:           systemService,
+		metrics:                 metricRegistry,
+		metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 	}
 	systemService.shuttingDown = &application.process.shuttingDown
 	systemService.RefreshRecoverySummary()

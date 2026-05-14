@@ -15,7 +15,7 @@
 | 1 | `server/internal/app` 组装边界收敛 | P1 | 否 | 无需改动 | 现有按领域 deps struct 已覆盖建议动作；`App` 字段聚合面与项 10 同源，落地以项 10 为准 |
 | 2 | `allowedTaskTypes` 与 `TaskType` 枚举对齐 | P1 | 否 | 完成 | `recovery.confirm` 已进入服务端过滤白名单；服务端白名单与 OpenAPI `TaskType` 枚举有守卫测试 |
 | 3 | Chromium 渲染浏览器生命周期复用 | P1 | 部分 | 完成 | `chromiumRunner` 复用长驻浏览器上下文，单次渲染创建独立 tab；`Service.Close` 与 `RefreshBrowserPath` 会释放默认 runner |
-| 4 | 运行时指标与时序观测面 | P2 | 是 | 部分完成 | `server/internal/metrics` 注册 Prometheus 指标族；`GET /api/system/metrics` 走 admin session 鉴权；链路侧 instrumentation 仍逐步铺设 |
+| 4 | 运行时指标与时序观测面 | P2 | 是 | 完成 | `server/internal/metrics` 注册 Prometheus 指标族；`GET /api/system/metrics` 走 admin session 鉴权；adapter / bridge / dispatcher / runtime / task / render / outbound / webhook 主链已接入 |
 | 5 | 插件 webhook 防重放与幂等窗口 | P2 | 是 | 完成 | `pluginwebhook.Service` 强制 `replay_protection`，对客户端 timestamp 与 event_id 做 LRU 去重；HMAC 输入串含 timestamp/event_id/body；新错误码 `plugin.webhook_replay_rejected`/`plugin.webhook_timestamp_skew`；Python/Node SDK 同步 |
 | 6 | Dispatcher 队列满行为可见化 | P2 | 是 | 完成 | dispatcher 维护 per-reason 窗口统计，10s 周期通过 bridge subscriber 推 `dispatcher_runtime` 帧；公开 `Stats()` / `FlushDispatcherWindow` 接入 metrics 与测试 |
 | 7 | 跨层重复 / 丢弃事件统计 | P2 | 部分 | 完成 | bridge `ObservabilityData` 扩展 `adapter_dedup_drops_total`/`bridge_ignored_total`/`dispatcher_*_total`；adapter 暴露 `DedupDropsSnapshot`；dispatcher 暴露 `Stats` 并由 bridge 拉取 |
@@ -82,33 +82,25 @@
 
 ## 4. 运行时指标与时序观测面（P2）
 
-**现状证据**
+**完成情况**
 
-- 正式诊断入口为 `/healthz`、`/readyz`、`/api/system/diagnostics/export`、结构化日志和 `recovery_summary`。
-- `server/go.mod` 没有 Prometheus / OpenTelemetry 依赖。
-- 当前没有 `/metrics` 或等价时序指标接口。
-
-**风险**
-
-- 事件丢弃、插件崩溃、调度延迟、render 排队、SQLite 写入压力只能从日志和快照间接判断。
-- 性能与稳定性问题缺少时间序列证据，难以做容量与回归比较。
-
-**建议动作**
-
-- 定义最小指标面：事件主链阶段计数、插件 runtime 状态分布、任务执行延迟、render 队列深度与等待 / 渲染时长、outbound 发送延迟与失败计数。
-- 引入新依赖前同步更新 `docs/engineering/baseline.md`、`server/go.mod` / `server/go.sum`。
-- `/metrics` 若作为正式管理接口，先进入 `contracts/web-api.openapi.yaml`；若只在本机暴露，固定访问边界写入 `docs/dev/diagnostics.md`。
+- 状态：完成。
+- `docs/engineering/baseline.md` 固定 `github.com/prometheus/client_golang 1.23.2` 作为指标依赖。
+- `contracts/web-api.openapi.yaml` 冻结 `GET /api/system/metrics`，响应为 Prometheus text exposition format，并受 admin session 保护。
+- `server/internal/metrics` 预注册正式指标族，调用方只使用已声明的 metric handle。
+- 指标面覆盖事件主链阶段计数、插件 runtime 状态分布、任务执行延迟、render 队列深度与渲染时长、outbound 发送计数与延迟、dispatcher drop、adapter dedup drop、bridge ignored、plugin webhook replay 观测。
+- adapter / bridge / dispatcher 通过窄 observer 接口接入指标，不直接依赖 Prometheus client。
+- 插件 runtime 状态 gauge 由 catalog 订阅和周期刷新共同维护，`App.Close` 会停止刷新 goroutine。
 
 **契约边界**
 
-- 新增 HTTP 端点属于 contract-first。
-- 新增依赖需要同步基线与 server 锁文件。
+- `GET /api/system/metrics` 属于正式管理 HTTP contract。
+- 新增指标族需先在 `server/internal/metrics` 注册，并保持 label 基数受控。
 
 **验证方式**
 
-- contract fixtures 覆盖 `/metrics` 或诊断入口说明。
+- `cd server && go test ./internal/metrics ./internal/app ./internal/bridge ./internal/dispatch`
 - `cd server && go test ./...`
-- 指标名、label 基数、访问权限通过单测或集成测试覆盖。
 
 ## 5. 插件 webhook 防重放与幂等窗口（P2）
 

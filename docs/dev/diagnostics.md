@@ -9,6 +9,7 @@
 | `/healthz` | 进程存活检查 |
 | `/readyz` | 本地控制面与关键资源就绪检查 |
 | `GET /api/system/diagnostics/export` | 导出诊断包 |
+| `GET /api/system/metrics` | 导出 Prometheus 文本格式运行指标 |
 | `raylea doctor` | 执行本地环境与资源检查 |
 | `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看实时日志、历史日志、日志详情与当前启动窗口增量日志 |
 | `/ws/plugins/{id}/console` | 查看插件 stderr |
@@ -28,6 +29,7 @@
 - 本次服务端启动日志与按时间范围筛选的历史日志
 - 命令策略拒绝记录，包含 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件上下文
 - 脱敏后的协议消息详情、消息段、异常原因、payload preview 和 echo 类型
+- Prometheus 指标覆盖事件主链阶段、插件 runtime 状态、任务耗时、render 队列、outbound 发送、dispatcher drop、adapter dedup、bridge ignored 和 webhook replay 观测
 
 ## 管理面诊断路径
 

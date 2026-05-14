@@ -14,6 +14,10 @@ func (a *App) Handler() http.Handler {
 
 func (a *App) Close() error {
 	var errs []error
+	if a != nil && a.metricsRuntimeGaugeStop != nil {
+		a.metricsRuntimeGaugeStop()
+		a.metricsRuntimeGaugeStop = nil
+	}
 	if a != nil && a.runtimes != nil {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		if err := a.runtimes.StopAll(stopCtx); err != nil {

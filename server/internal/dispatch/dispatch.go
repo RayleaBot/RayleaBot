@@ -76,6 +76,14 @@ type DispatcherStats struct {
 	DropsByReason map[string]map[string]uint64 // reason -> plugin_id -> count
 }
 
+// MetricsObserver routes dispatcher events into the Prometheus registry
+// without forcing this package to depend on client_golang. Implementations
+// must be safe for concurrent use.
+type MetricsObserver interface {
+	IncDispatcherDrop(pluginID, reason string)
+	IncEventPipelineStage(stage, outcome string)
+}
+
 // Dispatcher manages per-plugin event queues and fan-out delivery.
 type Dispatcher struct {
 	logger            *slog.Logger
@@ -99,6 +107,7 @@ type Dispatcher struct {
 	runtimePublisher DispatcherRuntimePublisher
 	flushStop        chan struct{}
 	flushDone        chan struct{}
+	metrics          MetricsObserver
 }
 
 // New creates a Dispatcher.
@@ -345,7 +354,6 @@ func (d *Dispatcher) recordOutcome(outcome Outcome, pluginID, reason string) {
 		return
 	}
 	d.statsMu.Lock()
-	defer d.statsMu.Unlock()
 	switch outcome {
 	case OutcomeDelivered:
 		d.delivered++
@@ -367,6 +375,18 @@ func (d *Dispatcher) recordOutcome(outcome Outcome, pluginID, reason string) {
 		d.errored++
 	case OutcomeIgnored:
 		d.ignored++
+	}
+	d.statsMu.Unlock()
+
+	if observer := d.currentMetrics(); observer != nil {
+		observer.IncEventPipelineStage("dispatch", string(outcome))
+		if outcome == OutcomeDropped {
+			normalisedReason := reason
+			if normalisedReason == "" {
+				normalisedReason = "unknown"
+			}
+			observer.IncDispatcherDrop(pluginID, normalisedReason)
+		}
 	}
 }
 
@@ -825,6 +845,26 @@ func (d *Dispatcher) SetRuntimePublisher(publisher DispatcherRuntimePublisher) {
 	d.flushMu.Lock()
 	defer d.flushMu.Unlock()
 	d.runtimePublisher = publisher
+}
+
+// SetMetricsObserver wires the Prometheus observer the dispatcher uses to
+// record drop and pipeline counters. Passing nil disables instrumentation.
+func (d *Dispatcher) SetMetricsObserver(observer MetricsObserver) {
+	if d == nil {
+		return
+	}
+	d.flushMu.Lock()
+	defer d.flushMu.Unlock()
+	d.metrics = observer
+}
+
+func (d *Dispatcher) currentMetrics() MetricsObserver {
+	if d == nil {
+		return nil
+	}
+	d.flushMu.Lock()
+	defer d.flushMu.Unlock()
+	return d.metrics
 }
 
 // FlushDispatcherWindow computes the delta against the last flushed baseline

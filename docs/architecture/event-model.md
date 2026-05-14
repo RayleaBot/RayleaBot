@@ -136,5 +136,6 @@ OneBot11 上报帧
 - `event_type` + `summary`：通用管理事件（当前包括 `governance.changed`）
 - `protocol` + `protocol_snapshot`：OneBot11 协议快照推送
 - `observability_scope` = `bridge_runtime` 时的聚合观测摘要
+- `observability_scope` = `dispatcher_runtime` 时的 dispatcher 窗口统计摘要
 
 会话失效时，连接会下发 `session_expired` session event，客户端必须换新 token 重连。

@@ -125,6 +125,14 @@ type DispatcherStatsView struct {
 	Ignored   uint64
 }
 
+// MetricsObserver lets the bridge increment Prometheus counters without
+// importing client_golang directly. Implementations must be safe for
+// concurrent use.
+type MetricsObserver interface {
+	IncEventPipelineStage(stage, outcome string)
+	IncBridgeIgnored()
+}
+
 type Bridge struct {
 	logger     *slog.Logger
 	dispatcher dispatcherClient
@@ -136,6 +144,7 @@ type Bridge struct {
 
 	adapterStats    AdapterDedupStats
 	dispatcherStats DispatcherStatsSnapshot
+	metrics         MetricsObserver
 }
 
 func New(logger *slog.Logger, dispatcher dispatcherClient) *Bridge {
@@ -184,6 +193,18 @@ func (b *Bridge) SetDispatcherStatsSource(source DispatcherStatsSnapshot) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.dispatcherStats = source
+}
+
+// SetMetricsObserver wires a Prometheus observer so bridge outcomes are
+// recorded as event_pipeline_stage_total and bridge_ignored_total
+// increments alongside the WebSocket observability fan-out.
+func (b *Bridge) SetMetricsObserver(observer MetricsObserver) {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.metrics = observer
 }
 
 // PublishDispatcherRuntime fans out a dispatcher_runtime observability frame
@@ -502,6 +523,10 @@ func (b *Bridge) recordIgnored(event adapter.NormalizedEvent, observedAt time.Ti
 	b.snapshot.LastErrorCode = ""
 	b.snapshot.LastErrorText = ""
 	b.snapshot.LastEventAt = &observedAt
+	if b.metrics != nil {
+		b.metrics.IncEventPipelineStage("bridge", string(OutcomeIgnored))
+		b.metrics.IncBridgeIgnored()
+	}
 }
 
 func (b *Bridge) recordRejected(event adapter.NormalizedEvent, observedAt time.Time, code, message string) {
@@ -516,6 +541,9 @@ func (b *Bridge) recordRejected(event adapter.NormalizedEvent, observedAt time.T
 	b.snapshot.LastErrorCode = code
 	b.snapshot.LastErrorText = message
 	b.snapshot.LastEventAt = &observedAt
+	if b.metrics != nil {
+		b.metrics.IncEventPipelineStage("bridge", string(OutcomeRejected))
+	}
 }
 
 func (b *Bridge) recordError(event adapter.NormalizedEvent, observedAt time.Time, code, message string) {
@@ -530,6 +558,9 @@ func (b *Bridge) recordError(event adapter.NormalizedEvent, observedAt time.Time
 	b.snapshot.LastErrorCode = code
 	b.snapshot.LastErrorText = message
 	b.snapshot.LastEventAt = &observedAt
+	if b.metrics != nil {
+		b.metrics.IncEventPipelineStage("bridge", string(OutcomeError))
+	}
 	b.emitObservabilityLocked(observedAt, OutcomeError)
 }
 
@@ -546,6 +577,9 @@ func (b *Bridge) recordDelivered(event adapter.NormalizedEvent, observedAt time.
 	b.snapshot.LastErrorCode = ""
 	b.snapshot.LastErrorText = ""
 	b.snapshot.LastEventAt = &observedAt
+	if b.metrics != nil {
+		b.metrics.IncEventPipelineStage("bridge", string(OutcomeDelivered))
+	}
 	b.emitObservabilityLocked(observedAt, OutcomeDelivered)
 }
 

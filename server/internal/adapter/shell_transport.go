@@ -170,9 +170,16 @@ func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
 	}
 	if _, ok := s.recentEventIDs[eventID]; ok {
 		s.dedupDrops++
+		if s.metrics != nil {
+			s.metrics.IncAdapterDedupDrop()
+			s.metrics.IncEventPipelineStage("adapter", "dedup_drop")
+		}
 		return true
 	}
 	s.recentEventIDs[eventID] = observedAt
+	if s.metrics != nil {
+		s.metrics.IncEventPipelineStage("adapter", "accepted")
+	}
 	return false
 }
 

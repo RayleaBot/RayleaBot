@@ -71,6 +71,15 @@ type Shell struct {
 	recentEventIDs   map[string]time.Time
 	identityCache    *IdentityCache
 	dedupDrops       uint64
+	metrics          MetricsObserver
+}
+
+// MetricsObserver records adapter-side counter increments without coupling
+// this package to client_golang directly. Implementations must be safe for
+// concurrent use.
+type MetricsObserver interface {
+	IncAdapterDedupDrop()
+	IncEventPipelineStage(stage, outcome string)
 }
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
@@ -243,6 +252,17 @@ func (s *Shell) SetStateHandler(handler func(Snapshot)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stateHandler = handler
+}
+
+// SetMetricsObserver wires the adapter dedup and pipeline stage counters
+// behind the MetricsObserver interface. Passing nil disables instrumentation.
+func (s *Shell) SetMetricsObserver(observer MetricsObserver) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.metrics = observer
 }
 
 func (s *Shell) run(ctx context.Context) {
