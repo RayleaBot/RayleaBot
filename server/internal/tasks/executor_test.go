@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -181,8 +182,11 @@ func TestExecutor_Close(t *testing.T) {
 
 
 // recordingTaskMetrics captures every observed task execution outcome for
-// assertions in TestExecutor_RecordsMetrics.
+// assertions in TestExecutor_RecordsMetrics. The executor invokes
+// ObserveTaskExecution from a background goroutine, so the helper must
+// guard its slice with a mutex to keep the race detector happy.
 type recordingTaskMetrics struct {
+	mu           sync.Mutex
 	observations []taskMetricObservation
 }
 
@@ -193,11 +197,21 @@ type taskMetricObservation struct {
 }
 
 func (m *recordingTaskMetrics) ObserveTaskExecution(taskType, outcome string, duration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.observations = append(m.observations, taskMetricObservation{
 		taskType: taskType,
 		outcome:  outcome,
 		duration: duration,
 	})
+}
+
+func (m *recordingTaskMetrics) snapshot() []taskMetricObservation {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]taskMetricObservation, len(m.observations))
+	copy(out, m.observations)
+	return out
 }
 
 // TestExecutor_RecordsMetrics verifies the executor calls the configured
@@ -232,11 +246,12 @@ func TestExecutor_RecordsMetrics(t *testing.T) {
 	// Allow the executor goroutine to record metrics.
 	time.Sleep(20 * time.Millisecond)
 
-	if len(metrics.observations) != 2 {
-		t.Fatalf("observations = %d, want 2", len(metrics.observations))
+	observations := metrics.snapshot()
+	if len(observations) != 2 {
+		t.Fatalf("observations = %d, want 2", len(observations))
 	}
 	outcomes := map[string]bool{}
-	for _, obs := range metrics.observations {
+	for _, obs := range observations {
 		if obs.taskType != "backup.create" {
 			t.Fatalf("taskType = %q, want backup.create", obs.taskType)
 		}
