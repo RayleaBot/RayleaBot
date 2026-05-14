@@ -6,7 +6,7 @@ const { MockManagedSocket } = vi.hoisted(() => {
 
     readonly options: {
       name: string
-      onStatusChange?: (status: string, lastError?: string) => void
+      onStatusChange?: (status: string, detail: { lastError?: string; lastErrorAt?: string; nextBackoffMs?: number }) => void
       onFrame?: (frame: TFrameData) => void
     }
 
@@ -19,8 +19,8 @@ const { MockManagedSocket } = vi.hoisted(() => {
       HoistedManagedSocket.instances.push(this)
     }
 
-    emitStatus(status: string, lastError?: string) {
-      this.options.onStatusChange?.(status, lastError)
+    emitStatus(status: string, lastError?: string, lastErrorAt?: string, nextBackoffMs?: number) {
+      this.options.onStatusChange?.(status, { lastError, lastErrorAt, nextBackoffMs })
     }
   }
 

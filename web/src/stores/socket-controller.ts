@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 
-import { ManagedSocket } from '@/lib/ws'
+import { ManagedSocket, type SocketStatusDetail } from '@/lib/ws'
 import type {
   EventsPayload,
   LogSummary,
@@ -129,8 +129,11 @@ function createSnapshotUpdater(
   snapshots: SocketSnapshotMap,
   channel: SocketChannelKey,
 ) {
-  return (status: SocketSnapshotMap[SocketChannelKey]['status'], lastError?: string) => {
-    snapshots[channel].status = status
-    snapshots[channel].lastError = lastError
+  return (status: SocketSnapshotMap[SocketChannelKey]['status'], detail: SocketStatusDetail) => {
+    const target = snapshots[channel]
+    target.status = status
+    target.lastError = detail.lastError
+    target.lastErrorAt = detail.lastErrorAt
+    target.nextBackoffMs = detail.nextBackoffMs
   }
 }

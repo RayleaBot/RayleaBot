@@ -15,6 +15,8 @@ export type SocketChannelKey = 'events' | 'tasks' | 'logs' | 'pluginConsole'
 export interface SocketSnapshot {
   status: ConnectionStatus
   lastError?: string
+  lastErrorAt?: string
+  nextBackoffMs?: number
 }
 
 export type SocketSnapshotMap = Record<SocketChannelKey, SocketSnapshot>

@@ -40,6 +40,8 @@ export const dashboard = {
   collapseEvents: '收起',
   connectionStatus: '连接状态',
   connectionStatusHint: '事件、任务和日志连接',
+  connectionReconnectIn: '{seconds} 秒后重连',
+  connectionLastErrorAt: '最近错误：{time}',
   alertFailed: '系统异常',
   alertDegraded: '运行条件受限',
   alertProtocolWarning: '协议连接警告',

@@ -12,15 +12,33 @@ const { snapshots } = storeToRefs(socketStore)
 
 const managementChannels = ['events', 'tasks', 'logs'] as const
 
+function formatLastErrorAt(value: string | undefined) {
+  if (!value) return ''
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return parsed.toLocaleTimeString()
+}
+
 const channelStates = computed(() =>
   managementChannels.map((channel) => {
     const snapshot = snapshots.value[channel]
     const genericError = `${channel} 连接异常`
+    const secondary = snapshot.lastError && snapshot.lastError !== genericError ? snapshot.lastError : ''
+    const reconnectSeconds = snapshot.nextBackoffMs !== undefined && snapshot.status === 'reconnecting'
+      ? Math.max(1, Math.round(snapshot.nextBackoffMs / 1000))
+      : null
+    const reconnectHint = reconnectSeconds !== null
+      ? t('dashboard.connectionReconnectIn', { seconds: reconnectSeconds })
+      : ''
+    const errorTime = formatLastErrorAt(snapshot.lastErrorAt)
+    const errorHint = errorTime ? t('dashboard.connectionLastErrorAt', { time: errorTime }) : ''
 
     return {
       channel,
       snapshot,
-      secondary: snapshot.lastError && snapshot.lastError !== genericError ? snapshot.lastError : '',
+      secondary,
+      reconnectHint,
+      errorHint,
     }
   }),
 )
@@ -71,7 +89,7 @@ function getPulseClass(status: ConnectionStatus) {
 
     <div class="connection-card__grid">
       <section
-        v-for="{ channel, snapshot, secondary } in channelStates"
+        v-for="{ channel, snapshot, secondary, reconnectHint, errorHint } in channelStates"
         :key="channel"
         class="connection-card__item"
         :data-testid="`connection-card-${channel}`"
@@ -83,6 +101,8 @@ function getPulseClass(status: ConnectionStatus) {
           </span>
         </div>
         <small v-if="secondary" class="connection-card__meta">{{ secondary }}</small>
+        <small v-if="reconnectHint" class="connection-card__meta">{{ reconnectHint }}</small>
+        <small v-if="errorHint" class="connection-card__meta">{{ errorHint }}</small>
       </section>
     </div>
   </a-card>
