@@ -400,24 +400,26 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 	decision := replayDecision{timestampRaw: timestampRaw, eventID: eventID}
 
 	if timestampRaw == "" || eventID == "" {
-		s.recordReplayMetric("grace_observed")
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = "plugin.webhook_replay_rejected"
 			decision.messageKey = "errors.plugin.webhook_replay_rejected"
 			s.recordReplayMetric("rejected")
+		} else {
+			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}
 
 	timestamp, parseErr := strconv.ParseInt(timestampRaw, 10, 64)
 	if parseErr != nil {
-		s.recordReplayMetric("grace_observed")
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = "plugin.webhook_timestamp_skew"
 			decision.messageKey = "errors.plugin.webhook_timestamp_skew"
 			s.recordReplayMetric("skew")
+		} else {
+			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}
@@ -429,12 +431,13 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 		tolerance = 300
 	}
 	if now-timestamp > tolerance || timestamp-now > tolerance {
-		s.recordReplayMetric("grace_observed")
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = "plugin.webhook_timestamp_skew"
 			decision.messageKey = "errors.plugin.webhook_timestamp_skew"
 			s.recordReplayMetric("skew")
+		} else {
+			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}
@@ -444,12 +447,13 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 	decision.dedupKey = dedupKey
 	decision.dedupTTL = ttl
 	if s.dedup.peek(dedupKey, s.now(), ttl) {
-		s.recordReplayMetric("grace_observed")
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = "plugin.webhook_replay_rejected"
 			decision.messageKey = "errors.plugin.webhook_replay_rejected"
 			s.recordReplayMetric("rejected")
+		} else {
+			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}

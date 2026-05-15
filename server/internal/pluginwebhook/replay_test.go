@@ -179,9 +179,11 @@ func TestEvaluateReplayProtectionEnforceMissingHeaders(t *testing.T) {
 	t.Parallel()
 
 	fixedNow := time.Unix(1_700_000_000, 0)
+	metrics := &recordingMetrics{}
 	svc := &Service{
-		dedup: newReplayCache(),
-		now:   func() time.Time { return fixedNow },
+		dedup:   newReplayCache(),
+		now:     func() time.Time { return fixedNow },
+		metrics: metrics,
 	}
 	cfg := ReplayProtection{
 		TimestampHeader:  "X-Raylea-Timestamp",
@@ -195,6 +197,12 @@ func TestEvaluateReplayProtectionEnforceMissingHeaders(t *testing.T) {
 	decision := svc.evaluateReplayProtection("repo-watcher", "github", cfg, req)
 	if !decision.reject || decision.code != "plugin.webhook_replay_rejected" {
 		t.Fatalf("enforce mode must reject missing headers, got %+v", decision)
+	}
+	if got := metrics.counts["rejected"]; got != 1 {
+		t.Fatalf("enforce mode must record one rejection, got %d", got)
+	}
+	if got := metrics.counts["grace_observed"]; got != 0 {
+		t.Fatalf("enforce mode must not record grace observation, got %d", got)
 	}
 }
 
