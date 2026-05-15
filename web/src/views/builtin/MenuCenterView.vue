@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 import { ReloadOutlined, SaveOutlined } from '@ant-design/icons-vue'
 
 import { notifySuccess } from '@/adapter/feedback'
-import AppCard from '@/components/AppCard.vue'
 import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -27,6 +26,7 @@ const { error: pluginsError, loading: pluginsLoading, sortedItems } = storeToRef
 const draftCommands = ref<string[]>([])
 const draftPrefixes = ref<string[]>([])
 const selectedPluginId = ref<string>('')
+const activeTab = ref<'root' | 'plugin'>('root')
 
 const pageError = computed(() => configError.value ?? pluginsError.value)
 const loading = computed(() => configLoading.value || pluginsLoading.value)
@@ -262,75 +262,95 @@ async function save() {
     />
 
     <div v-else class="menu-center-layout">
-      <AppCard borderless shadow="sm" class="menu-center-config">
-        <div class="menu-center-alerts">
-          <a-alert v-if="pageError" :message="t('errors.common.loadFailed')" :description="pageError" type="error" show-icon class="menu-center-alert" />
-          <a-alert v-if="hasUnsavedChanges" :message="t('builtinFeatures.menuCenter.unsaved')" type="info" show-icon class="menu-center-alert" />
+      <div class="menu-center-float-panel">
+        <div class="menu-center-float-panel__header">
+          <span class="menu-center-float-panel__title">{{ t('builtinFeatures.menuCenter.title') }}</span>
+          <a-tag v-if="hasUnsavedChanges" color="blue" class="menu-center-unsaved-tag">
+            {{ t('builtinFeatures.menuCenter.unsaved') }}
+          </a-tag>
         </div>
 
-        <a-form layout="vertical">
-          <a-form-item :label="t('builtinFeatures.menuCenter.commands.label')">
+        <div class="menu-center-float-panel__body">
+          <a-alert v-if="pageError" :message="pageError" type="error" show-icon class="menu-center-float-panel__alert" />
+
+          <div class="menu-center-float-panel__field">
+            <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.commands.label') }}</label>
             <a-select
               v-model:value="draftCommands"
               mode="tags"
               :token-separators="[',', '，', ' ']"
               :placeholder="t('builtinFeatures.menuCenter.commands.placeholder')"
               data-testid="menu-center-commands"
+              class="menu-center-float-panel__select"
             />
-          </a-form-item>
+          </div>
 
-          <a-form-item :label="t('builtinFeatures.menuCenter.prefixes.label')">
+          <div class="menu-center-float-panel__field">
+            <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.prefixes.label') }}</label>
             <a-select
               v-model:value="draftPrefixes"
               mode="tags"
               :token-separators="[',', '，', ' ']"
               :placeholder="t('builtinFeatures.menuCenter.prefixes.placeholder')"
               data-testid="menu-center-prefixes"
+              class="menu-center-float-panel__select"
             />
             <div v-if="draftPrefixes.length === 0" class="menu-center-field-note" data-testid="menu-center-inherited-prefixes">
               {{ t('builtinFeatures.menuCenter.prefixes.inherited', { prefixes: inheritedPrefixLabel }) }}
             </div>
-          </a-form-item>
-        </a-form>
-      </AppCard>
-
-      <div class="menu-center-preview-area">
-        <div class="menu-center-preview-grid">
-          <AppCard borderless :title="t('builtinFeatures.menuCenter.preview.rootTitle')" shadow="sm" class="menu-preview-card">
-            <div class="menu-trigger-row">
-              <span v-for="command in draftCommands" :key="command" class="menu-trigger-chip">{{ rootMenuTrigger(command) }}</span>
-            </div>
-            <NativeTemplatePreviewFrame
-              template-id="help.menu"
-              :data="rootPreviewData"
-              data-testid="menu-center-root-preview"
-            />
-          </AppCard>
-
-          <AppCard borderless :title="t('builtinFeatures.menuCenter.preview.pluginTitle')" shadow="sm" class="menu-preview-card">
-            <template #extra>
-              <a-select
-                v-model:value="selectedPluginId"
-                :options="pluginOptions"
-                :placeholder="t('builtinFeatures.menuCenter.preview.allPlugins')"
-                style="width: 180px;"
-                size="small"
-                data-testid="menu-center-plugin-select"
-              />
-            </template>
-
-            <div v-if="selectedPlugin" class="menu-trigger-row">
-              <span class="menu-trigger-chip">{{ pluginMenuTrigger(selectedPlugin) }}</span>
-              <span class="menu-trigger-chip">{{ suffixMenuTrigger(selectedPlugin) }}</span>
-            </div>
-
-            <NativeTemplatePreviewFrame
-              template-id="help.menu"
-              :data="selectedPluginPreviewData"
-              data-testid="menu-center-plugin-preview"
-            />
-          </AppCard>
+          </div>
         </div>
+      </div>
+
+      <div class="menu-preview-area">
+        <a-tabs v-model:activeKey="activeTab" class="menu-center-tabs">
+          <template #rightExtra>
+            <a-select
+              v-show="activeTab === 'plugin'"
+              v-model:value="selectedPluginId"
+              :options="pluginOptions"
+              :placeholder="t('builtinFeatures.menuCenter.preview.allPlugins')"
+              class="menu-center-plugin-select"
+              size="small"
+              data-testid="menu-center-plugin-select"
+            />
+          </template>
+
+          <a-tab-pane key="root" :tab="t('builtinFeatures.menuCenter.preview.rootTitle')" force-render>
+            <div class="menu-preview-card">
+              <div class="menu-trigger-row">
+                <span v-for="command in draftCommands" :key="command" class="menu-trigger-chip">{{ rootMenuTrigger(command) }}</span>
+              </div>
+              <NativeTemplatePreviewFrame
+                template-id="help.menu"
+                :data="rootPreviewData"
+                data-testid="menu-center-root-preview"
+              />
+            </div>
+          </a-tab-pane>
+
+          <a-tab-pane key="plugin" :tab="t('builtinFeatures.menuCenter.preview.pluginTitle')" force-render>
+            <div class="menu-preview-card">
+              <template v-if="selectedPlugin">
+                <div class="menu-trigger-row">
+                  <span class="menu-trigger-chip">{{ pluginMenuTrigger(selectedPlugin) }}</span>
+                  <span class="menu-trigger-chip">{{ suffixMenuTrigger(selectedPlugin) }}</span>
+                </div>
+
+                <NativeTemplatePreviewFrame
+                  template-id="help.menu"
+                  :data="selectedPluginPreviewData"
+                  data-testid="menu-center-plugin-preview"
+                />
+              </template>
+              <a-empty
+                v-else
+                :description="t('builtinFeatures.menuCenter.preview.noPlugins')"
+                class="menu-preview-empty"
+              />
+            </div>
+          </a-tab-pane>
+        </a-tabs>
       </div>
     </div>
   </AppPage>
@@ -343,92 +363,156 @@ async function save() {
   gap: var(--space-sm);
 }
 
-/* Main layout: config panel + preview area */
 .menu-center-layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-  gap: var(--space-xl);
-  min-height: 0;
-}
+  --menu-center-panel-width: 260px;
+  --menu-center-panel-inset: var(--space-md);
+  --menu-center-preview-max-width: 1040px;
+  --menu-center-preview-top-space: 0px;
 
-/* Config panel */
-.menu-center-config {
-  min-width: 0;
-  border-left: 3px solid var(--accent);
-
-  :deep(.ant-card-body) {
-    padding: var(--space-lg);
-  }
-}
-
-/* Alert group */
-.menu-center-alerts {
-  display: grid;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
-}
-
-.menu-center-alert {
-  margin-bottom: 0;
-  border-radius: var(--radius-sm);
-
-  :deep(.ant-alert-message) {
-    font-weight: 500;
-  }
-}
-
-/* Field note */
-.menu-center-field-note {
-  margin-top: var(--space-sm);
-  color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-
-/* Preview area wrapper */
-.menu-center-preview-area {
-  min-width: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-}
-
-/* Preview grid: 2 columns */
-.menu-center-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-lg);
-  min-width: 0;
-}
-
-/* Preview cards */
-.menu-preview-card {
-  min-width: 0;
-  background: linear-gradient(180deg, var(--surface-strong) 0%, var(--surface-soft) 100%);
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-card);
+}
 
-  :deep(.ant-card-body) {
-    padding: var(--space-md);
-  }
+.menu-center-float-panel {
+  position: absolute;
+  top: var(--menu-center-panel-inset);
+  left: var(--menu-center-panel-inset);
+  z-index: 10;
+  width: var(--menu-center-panel-width);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-elevated);
+}
 
-  /* Darken iframe border to blend with dark preview content */
-  :deep(.native-template-preview) {
-    border-color: rgba(255, 255, 255, 0.06);
+.menu-center-float-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.menu-center-float-panel__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.menu-center-unsaved-tag {
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.menu-center-float-panel__alert {
+  margin-bottom: var(--space-md);
+
+  :deep(.ant-alert-message) {
+    font-size: 0.8rem;
   }
 }
 
-/* Plugin selector in card header */
-.menu-preview-card :deep(.app-card__extra) {
-  .ant-select {
-    font-size: 0.85rem;
+.menu-center-float-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.menu-center-float-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.menu-center-float-panel__label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.menu-center-float-panel__select {
+  width: 100%;
+}
+
+.menu-center-field-note {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.menu-preview-area {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  padding-top: var(--menu-center-preview-top-space);
+}
+
+.menu-center-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  width: min(100%, var(--menu-center-preview-max-width));
+  min-height: 0;
+
+  :deep(.ant-tabs-content) {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
-  .ant-select-selector {
-    border-radius: var(--radius-sm) !important;
+  :deep(.ant-tabs-tabpane) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  :deep(.ant-tabs-nav) {
+    margin-bottom: var(--space-md);
+  }
+
+  :deep(.ant-tabs-tab) {
+    font-weight: 500;
+  }
+
+  :deep(.ant-tabs-extra-content) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
   }
 }
 
-/* Trigger chips row */
+.menu-center-plugin-select {
+  width: 200px;
+}
+
+.menu-preview-card {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, var(--menu-center-preview-max-width));
+  min-width: 0;
+  margin-inline: auto;
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-card);
+}
+
 .menu-trigger-row {
   display: flex;
   flex-wrap: wrap;
@@ -436,7 +520,6 @@ async function save() {
   margin-bottom: var(--space-md);
 }
 
-/* Polished trigger chips */
 .menu-trigger-chip {
   display: inline-flex;
   align-items: center;
@@ -472,55 +555,74 @@ async function save() {
   }
 }
 
-/* Responsive: medium screens */
-@media (max-width: 1399px) {
-  .menu-center-layout {
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
-    gap: var(--space-lg);
+.menu-preview-empty {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+}
+
+:deep(.ant-tabs-extra-content) {
+  .ant-select {
+    font-size: 0.85rem;
+  }
+
+  .ant-select-selector {
+    border-radius: var(--radius-sm) !important;
   }
 }
 
-/* Responsive: tablet and below */
 @media (max-width: 1023px) {
   .menu-center-layout {
-    grid-template-columns: 1fr;
+    --menu-center-preview-top-space: 0px;
   }
 
-  .menu-center-preview-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .menu-center-config {
-    border-left: 0;
-    border-top: 3px solid var(--accent);
+  .menu-center-float-panel {
+    position: static;
+    width: 100%;
+    margin-bottom: var(--space-md);
+    background: var(--surface);
   }
 }
 
-/* Responsive: mobile */
 @media (max-width: 720px) {
   .menu-center-layout {
-    gap: var(--space-md);
-  }
-
-  .menu-center-preview-grid {
-    gap: var(--space-md);
-  }
-
-  .menu-preview-card :deep(.ant-card-body) {
     padding: var(--space-sm);
   }
 
-  .menu-center-config :deep(.ant-card-body) {
-    padding: var(--space-md);
+  .menu-center-float-panel {
+    padding: var(--space-sm);
   }
 
-  .menu-preview-card :deep(.app-card__extra) {
-    width: 100%;
-    margin-top: var(--space-sm);
+  .menu-center-float-panel__body {
+    gap: var(--space-sm);
+  }
 
-    .ant-select {
-      width: 100% !important;
-    }
+  .menu-trigger-row {
+    margin-bottom: var(--space-sm);
+  }
+
+  .menu-center-tabs :deep(.ant-tabs-nav) {
+    flex-wrap: wrap;
+    row-gap: var(--space-sm);
+  }
+
+  .menu-center-tabs :deep(.ant-tabs-nav-wrap) {
+    min-width: 0;
+  }
+
+  .menu-center-tabs :deep(.ant-tabs-extra-content) {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .menu-center-plugin-select {
+    width: 100%;
+  }
+
+  .menu-preview-card {
+    padding: var(--space-sm);
   }
 }
 </style>

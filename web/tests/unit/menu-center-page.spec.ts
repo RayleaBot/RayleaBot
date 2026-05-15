@@ -215,6 +215,8 @@ describe('MenuCenterView', () => {
       ]),
     })
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('#menu Weather')
+    expect(wrapper.find('.menu-center-layout').exists()).toBe(true)
+    expect(wrapper.findAll('.menu-preview-card')).toHaveLength(2)
     expect(wrapper.find('.menu-preview-item').exists()).toBe(false)
     expect(wrapper.find('.menu-preview-surface').exists()).toBe(false)
 

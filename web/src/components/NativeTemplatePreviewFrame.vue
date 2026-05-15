@@ -389,13 +389,17 @@ function escapeCssString(input: string) {
 <style scoped lang="scss">
 .native-template-preview {
   position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   min-width: 0;
   height: var(--native-template-preview-height);
   min-height: var(--native-template-preview-height);
   overflow: hidden;
+  background: var(--surface-soft);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #111827;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .native-template-preview__frame {
@@ -405,6 +409,6 @@ function escapeCssString(input: string) {
   border: 0;
   background: transparent;
   transform: scale(var(--native-template-preview-scale));
-  transform-origin: left top;
+  transform-origin: center top;
 }
 </style>
