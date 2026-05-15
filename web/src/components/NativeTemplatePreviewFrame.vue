@@ -36,6 +36,12 @@ export function calculateNativePreviewLayout(input: {
     scaledContentHeight,
   }
 }
+
+export function stripHelpMenuPreviewFontImports(styles: string) {
+  return styles
+    .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgwwenkai-medium\/result\.css["']\);?\s*/g, '')
+    .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgw-wenkai-medium\/result\.css["']\);?\s*/g, '')
+}
 </script>
 
 <script setup lang="ts">
@@ -192,12 +198,7 @@ function renderHelpMenu(data: PreviewData) {
 }
 
 function buildHelpMenuPreviewStyles(styles: string, footerFontUrl: string) {
-  // The chat render injects every LXGW WenKai subset via the result.css
-  // import next to the styles. The Vue iframe cannot resolve those 250+
-  // relative woff2 URLs, so drop the import and let the iframe fall back
-  // to the system CJK fonts already listed in the font stack.
-  return styles
-    .replace(/@import\s+url\(["']\.\.\/fortune\.card\/assets\/fonts\/lxgwwenkai-medium\/result\.css["']\);?\s*/g, '')
+  return stripHelpMenuPreviewFontImports(styles)
     .replace(
       /url\((["'])\.\.\/fortune\.card\/assets\/fonts\/lxgw-wenkai-bold\/lxgw-wenkai-bold\.ttf\1\)/,
       `url("${escapeCssString(footerFontUrl)}")`,

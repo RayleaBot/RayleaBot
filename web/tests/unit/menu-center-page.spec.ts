@@ -4,10 +4,15 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
-import { calculateNativePreviewLayout, nativePreviewTemplateWidth } from '@/components/NativeTemplatePreviewFrame.vue'
+import {
+  calculateNativePreviewLayout,
+  nativePreviewTemplateWidth,
+  stripHelpMenuPreviewFontImports,
+} from '@/components/NativeTemplatePreviewFrame.vue'
 import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
+import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 import type { ConfigDocument, ConfigUpdateResponse, PluginSummary } from '@/types/api'
 
 const nativeMenuPreviewFooter = 'Created By RayleaBot 开发版本 & Plugin RayleaBot 开发版本'
@@ -261,6 +266,14 @@ describe('MenuCenterView', () => {
     expect(longContent.previewHeight).toBe(576)
     expect(longContent.frameHeight).toBe(1152)
     expect(longContent.isScrollable).toBe(true)
+  })
+
+  it('strips help menu font imports from the iframe preview styles', () => {
+    const preview = stripHelpMenuPreviewFontImports(helpMenuStyles)
+
+    expect(preview).not.toContain('../fortune.card/assets/fonts/lxgwwenkai-medium/result.css')
+    expect(preview).not.toContain('../fortune.card/assets/fonts/lxgw-wenkai-medium/result.css')
+    expect(preview).toContain('../fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf')
   })
 })
 
