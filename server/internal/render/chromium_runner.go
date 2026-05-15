@@ -54,6 +54,10 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	if doc.Height <= 0 {
 		doc.Height = 640
 	}
+	deviceScaleFactor := doc.DeviceScaleFactor
+	if deviceScaleFactor <= 0 {
+		deviceScaleFactor = 1
+	}
 
 	renderURL, cleanup, err := writeTemporaryRenderDocument(doc.HTML, doc.BaseURL)
 	if err != nil {
@@ -65,7 +69,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	var measuredHeight float64
 
 	actions := []chromedp.Action{
-		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), 1, false),
+		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), deviceScaleFactor, false),
 		chromedp.Navigate(renderURL),
 		chromedp.WaitReady("body"),
 		chromedp.Evaluate(waitForLocalAssetsExpression, nil),
@@ -81,7 +85,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 				if nextHeight == int64(doc.Height) {
 					return nil
 				}
-				return emulation.SetDeviceMetricsOverride(int64(doc.Width), nextHeight, 1, false).Do(ctx)
+				return emulation.SetDeviceMetricsOverride(int64(doc.Width), nextHeight, deviceScaleFactor, false).Do(ctx)
 			}),
 		)
 	}

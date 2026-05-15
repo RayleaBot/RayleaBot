@@ -396,6 +396,133 @@ func TestServiceRenderCachesArtifacts(t *testing.T) {
 	}
 }
 
+func TestServiceRenderUsesConfiguredDefaultsAndExplicitOutput(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writeRenderTemplateSeed(t, filepath.Join(repoRoot, "templates"), "help.menu")
+	runner := &fakeRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+		DefaultOutput:      "jpeg",
+		DeviceScalePercent: 200,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	defaulted, err := service.Render(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title": "帮助菜单",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render defaulted output: %v", err)
+	}
+	if defaulted.MIME != "image/jpeg" || !strings.HasSuffix(defaulted.ImagePath, ".jpg") {
+		t.Fatalf("defaulted output result = %#v, want jpeg artifact", defaulted)
+	}
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatal("expected render document")
+	}
+	if doc.Output != "jpeg" {
+		t.Fatalf("document output = %q, want jpeg", doc.Output)
+	}
+	if doc.DeviceScaleFactor != 2 {
+		t.Fatalf("device scale factor = %v, want 2", doc.DeviceScaleFactor)
+	}
+
+	explicit, err := service.Render(context.Background(), Request{
+		Template: "help.menu",
+		Output:   "png",
+		Data: map[string]any{
+			"title": "帮助菜单",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render explicit output: %v", err)
+	}
+	if explicit.MIME != "image/png" || !strings.HasSuffix(explicit.ImagePath, ".png") {
+		t.Fatalf("explicit output result = %#v, want png artifact", explicit)
+	}
+}
+
+func TestServiceRenderCacheKeyTracksDeviceScalePercent(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writeRenderTemplateSeed(t, filepath.Join(repoRoot, "templates"), "help.menu")
+	runner := &fakeRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+		DeviceScalePercent: 100,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	request := Request{
+		Template: "help.menu",
+		Output:   "png",
+		Data: map[string]any{
+			"title": "帮助菜单",
+		},
+	}
+	first, err := service.Render(context.Background(), request)
+	if err != nil {
+		t.Fatalf("first Render: %v", err)
+	}
+	service.UpdateRuntimeConfig(RuntimeConfig{DeviceScalePercent: 200})
+	second, err := service.Render(context.Background(), request)
+	if err != nil {
+		t.Fatalf("second Render: %v", err)
+	}
+	if second.FromCache {
+		t.Fatal("expected scale change to miss previous cache")
+	}
+	if second.CacheKey == first.CacheKey || second.ArtifactID == first.ArtifactID {
+		t.Fatalf("scale change reused cache: first=%#v second=%#v", first, second)
+	}
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatal("expected render document")
+	}
+	if doc.DeviceScaleFactor != 2 {
+		t.Fatalf("device scale factor = %v, want 2", doc.DeviceScaleFactor)
+	}
+	if runner.callCount() != 2 {
+		t.Fatalf("runner call count = %d, want 2", runner.callCount())
+	}
+}
+
 func TestServiceSyncsPluginTemplatesAndUsesPluginAssetDigest(t *testing.T) {
 	t.Parallel()
 
@@ -1604,7 +1731,6 @@ func openPersistentRenderService(t *testing.T, repoRoot, dbPath, outputRoot stri
 		_ = store.Close()
 	}
 }
-
 
 // recordingRenderMetrics captures every render outcome and queue depth
 // signal so TestServiceRenderRecordsMetrics can assert the observer hooks

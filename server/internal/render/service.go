@@ -30,6 +30,8 @@ const (
 	defaultRenderTimeout    = 20 * time.Second
 	defaultRenderDataLimit  = 1 << 20
 	defaultRenderFooter     = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
+	defaultRenderOutput     = "png"
+	defaultDeviceScalePct   = 100
 	developmentVersion      = "开发版本"
 	systemTemplatePlugin    = "系统模板"
 	renderCacheVersion      = "render-cache-v3-template-sources"
@@ -60,14 +62,18 @@ type Options struct {
 	RenderTimeout      time.Duration
 	MaxRenderDataBytes int
 	FooterTemplate     string
+	DefaultOutput      string
+	DeviceScalePercent int
 	Logger             *slog.Logger
 }
 
 type RuntimeConfig struct {
-	QueueMaxLength   int
-	QueueWaitTimeout time.Duration
-	RenderTimeout    time.Duration
-	FooterTemplate   string
+	QueueMaxLength     int
+	QueueWaitTimeout   time.Duration
+	RenderTimeout      time.Duration
+	FooterTemplate     string
+	DefaultOutput      string
+	DeviceScalePercent int
 }
 
 type Request struct {
@@ -84,14 +90,15 @@ type PluginContext struct {
 }
 
 type Document struct {
-	Template   string
-	Theme      string
-	Output     string
-	BaseURL    string
-	Width      int
-	Height     int
-	AutoHeight bool
-	HTML       string
+	Template          string
+	Theme             string
+	Output            string
+	BaseURL           string
+	Width             int
+	Height            int
+	AutoHeight        bool
+	DeviceScaleFactor float64
+	HTML              string
 }
 
 type Result struct {
@@ -166,6 +173,8 @@ type Service struct {
 	renderTimeout      time.Duration
 	maxRenderDataBytes int
 	footerTemplate     string
+	defaultOutput      string
+	deviceScalePercent int
 	activeRequests     int
 	cache              map[string]Result
 	artifacts          map[string]Artifact
@@ -224,6 +233,8 @@ func NewService(options Options) (*Service, error) {
 	if footerTemplate == "" {
 		footerTemplate = defaultRenderFooter
 	}
+	defaultOutput := normalizeDefaultOutput(options.DefaultOutput)
+	deviceScalePercent := normalizeDeviceScalePercent(options.DeviceScalePercent)
 
 	browserPath := strings.TrimSpace(options.BrowserPath)
 	if browserPath == "" {
@@ -255,6 +266,8 @@ func NewService(options Options) (*Service, error) {
 		renderTimeout:      renderTimeout,
 		maxRenderDataBytes: maxRenderDataBytes,
 		footerTemplate:     footerTemplate,
+		defaultOutput:      defaultOutput,
+		deviceScalePercent: deviceScalePercent,
 		templateRepo:       templateRepo,
 		templateRoots:      map[string]string{},
 		cache:              map[string]Result{},
@@ -338,6 +351,12 @@ func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
 	if strings.TrimSpace(config.FooterTemplate) != "" {
 		s.footerTemplate = config.FooterTemplate
 	}
+	if strings.TrimSpace(config.DefaultOutput) != "" {
+		s.defaultOutput = normalizeDefaultOutput(config.DefaultOutput)
+	}
+	if config.DeviceScalePercent > 0 {
+		s.deviceScalePercent = normalizeDeviceScalePercent(config.DeviceScalePercent)
+	}
 }
 
 func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
@@ -367,7 +386,8 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 	}
 	templateDir := s.templateDirFor(normalized.Template)
 	resourceDigest := templateResourceDigest(templateDir)
-	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, payloadBytes)
+	deviceScalePercent := s.currentDeviceScalePercent()
+	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, deviceScalePercent, payloadBytes)
 	if cached, ok := s.cachedResult(cacheKey); ok {
 		cached.FromCache = true
 		return cached, nil
@@ -420,14 +440,15 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 		return Result{}, &Error{Code: "platform.resource_missing", Message: "render runner is not available"}
 	}
 	content, err := runner.Render(renderCtx, Document{
-		Template:   normalized.Template,
-		Theme:      normalized.Theme,
-		Output:     normalized.Output,
-		BaseURL:    templateBaseURL(templateDir),
-		Width:      compiled.bundle.manifest.Width,
-		Height:     compiled.bundle.manifest.Height,
-		AutoHeight: true,
-		HTML:       html,
+		Template:          normalized.Template,
+		Theme:             normalized.Theme,
+		Output:            normalized.Output,
+		BaseURL:           templateBaseURL(templateDir),
+		Width:             compiled.bundle.manifest.Width,
+		Height:            compiled.bundle.manifest.Height,
+		AutoHeight:        true,
+		DeviceScaleFactor: deviceScaleFactorFromPercent(deviceScalePercent),
+		HTML:              html,
 	})
 	if err != nil {
 		if errors.Is(renderCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
@@ -934,8 +955,9 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 		request.Theme = "default"
 	}
 	switch request.Output {
-	case "", "png":
-		request.Output = "png"
+	case "":
+		request.Output = s.currentDefaultOutput()
+	case "png":
 	case "jpeg":
 	default:
 		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render output must be png or jpeg"}
@@ -1071,6 +1093,39 @@ func (s *Service) currentFooterTemplate() string {
 		return defaultRenderFooter
 	}
 	return s.footerTemplate
+}
+
+func (s *Service) currentDefaultOutput() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return normalizeDefaultOutput(s.defaultOutput)
+}
+
+func (s *Service) currentDeviceScalePercent() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return normalizeDeviceScalePercent(s.deviceScalePercent)
+}
+
+func normalizeDefaultOutput(output string) string {
+	switch strings.TrimSpace(strings.ToLower(output)) {
+	case "jpeg":
+		return "jpeg"
+	default:
+		return defaultRenderOutput
+	}
+}
+
+func normalizeDeviceScalePercent(percent int) int {
+	if percent < 50 || percent > 500 {
+		return defaultDeviceScalePct
+	}
+	return percent
+}
+
+func deviceScaleFactorFromPercent(percent int) float64 {
+	normalized := normalizeDeviceScalePercent(percent)
+	return float64(normalized) / 100
 }
 
 func (s *Service) renderFooter(plugin *PluginContext) string {
@@ -1538,9 +1593,9 @@ func issuesOrEmpty(issues []TemplateValidationIssue) []TemplateValidationIssue {
 	return issues
 }
 
-func buildCacheKey(request Request, version string, sourceDigest string, resourceDigest string, payloadBytes []byte) string {
+func buildCacheKey(request Request, version string, sourceDigest string, resourceDigest string, deviceScalePercent int, payloadBytes []byte) string {
 	sum := sha256.Sum256(payloadBytes)
-	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s", renderCacheVersion, request.Template, version, sourceDigest, resourceDigest, request.Theme, request.Output, hex.EncodeToString(sum[:12]))
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%d:%s", renderCacheVersion, request.Template, version, sourceDigest, resourceDigest, request.Theme, request.Output, normalizeDeviceScalePercent(deviceScalePercent), hex.EncodeToString(sum[:12]))
 }
 
 func buildArtifactID(cacheKey string) string {

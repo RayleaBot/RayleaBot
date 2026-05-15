@@ -68,6 +68,8 @@ render:
     browser_args:
         - --disable-gpu
     browser_path: ""
+    default_output: png
+    device_scale_percent: 100
     footer_template: Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}
     queue_max_length: 32
     queue_wait_timeout_seconds: 15

@@ -1169,6 +1169,23 @@ func TestParseRenderImageAction(t *testing.T) {
 	}
 }
 
+func TestParseRenderImageActionKeepsOmittedOutputEmpty(t *testing.T) {
+	t.Parallel()
+
+	action, err := parseRenderImageAction(json.RawMessage(`{
+		"template": "help.menu",
+		"data": {
+			"title": "帮助菜单"
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("parseRenderImageAction: %v", err)
+	}
+	if action.RenderOutput != "" {
+		t.Fatalf("RenderOutput = %q, want empty", action.RenderOutput)
+	}
+}
+
 func TestClassifyProtocolReadErrorTreatsExitedProcessAsInternalError(t *testing.T) {
 	t.Parallel()
 

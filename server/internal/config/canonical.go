@@ -13,6 +13,8 @@ import (
 
 const currentSchemaVersion = "2"
 const DefaultRenderFooterTemplate = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
+const DefaultRenderOutput = "png"
+const DefaultRenderDeviceScalePercent = 100
 
 func CurrentSchemaVersion() string {
 	return currentSchemaVersion
@@ -504,6 +506,8 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"worker_count":               cfg.Render.WorkerCount,
 			"browser_args":               append([]string{}, cfg.Render.BrowserArgs...),
 			"browser_path":               cfg.Render.BrowserPath,
+			"default_output":             configRenderDefaultOutput(cfg),
+			"device_scale_percent":       configRenderDeviceScalePercent(cfg),
 			"timeout_seconds":            cfg.Render.TimeoutSeconds,
 			"queue_wait_timeout_seconds": cfg.Render.QueueWaitTimeoutSeconds,
 			"queue_max_length":           cfg.Render.QueueMaxLength,
@@ -823,6 +827,22 @@ func configRenderFooterTemplate(cfg Config) string {
 	return DefaultRenderFooterTemplate
 }
 
+func configRenderDefaultOutput(cfg Config) string {
+	switch strings.TrimSpace(strings.ToLower(cfg.Render.DefaultOutput)) {
+	case "jpeg":
+		return "jpeg"
+	default:
+		return DefaultRenderOutput
+	}
+}
+
+func configRenderDeviceScalePercent(cfg Config) int {
+	if cfg.Render.DeviceScalePercent >= 50 && cfg.Render.DeviceScalePercent <= 500 {
+		return cfg.Render.DeviceScalePercent
+	}
+	return DefaultRenderDeviceScalePercent
+}
+
 func defaultDocument() map[string]any {
 	return map[string]any{
 		"schema_version": currentSchemaVersion,
@@ -866,6 +886,8 @@ func defaultDocument() map[string]any {
 			"worker_count":               1,
 			"browser_args":               []string{"--disable-gpu"},
 			"browser_path":               "",
+			"default_output":             DefaultRenderOutput,
+			"device_scale_percent":       DefaultRenderDeviceScalePercent,
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,

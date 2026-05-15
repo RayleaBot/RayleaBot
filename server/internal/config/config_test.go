@@ -71,6 +71,12 @@ func TestLoadBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if got := nestedString(t, document, "render", "footer_template"); got != DefaultRenderFooterTemplate {
 		t.Fatalf("render.footer_template = %q, want default footer template", got)
 	}
+	if got := nestedString(t, document, "render", "default_output"); got != DefaultRenderOutput {
+		t.Fatalf("render.default_output = %q, want %s", got, DefaultRenderOutput)
+	}
+	if got := nestedString(t, document, "render", "device_scale_percent"); got != "100" {
+		t.Fatalf("render.device_scale_percent = %q, want 100", got)
+	}
 }
 
 func TestLoadMigratesLegacyConfigShape(t *testing.T) {
@@ -336,6 +342,56 @@ func TestSaveDocumentPreservesDisabledConfiguredOneBotTransports(t *testing.T) {
 	}
 }
 
+func TestSaveDocumentRejectsInvalidRenderDeviceScalePercent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value any
+	}{
+		{name: "below_minimum", value: 49},
+		{name: "above_maximum", value: 501},
+		{name: "non_integer", value: 100.5},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+			schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+			document := newPlanningConfigDocument()
+			document["render"].(map[string]any)["device_scale_percent"] = tt.value
+
+			if _, _, err := SaveDocument(configPath, schemaPath, document); err == nil {
+				t.Fatalf("SaveDocument accepted render.device_scale_percent=%v", tt.value)
+			}
+		})
+	}
+}
+
+func TestSaveDocumentAcceptsRenderOutputAndDeviceScalePercent(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	document := newPlanningConfigDocument()
+	renderDoc := document["render"].(map[string]any)
+	renderDoc["default_output"] = "jpeg"
+	renderDoc["device_scale_percent"] = 500
+
+	cfg, _, err := SaveDocument(configPath, schemaPath, document)
+	if err != nil {
+		t.Fatalf("SaveDocument() error = %v", err)
+	}
+	if cfg.Render.DefaultOutput != "jpeg" {
+		t.Fatalf("Render.DefaultOutput = %q, want jpeg", cfg.Render.DefaultOutput)
+	}
+	if cfg.Render.DeviceScalePercent != 500 {
+		t.Fatalf("Render.DeviceScalePercent = %d, want 500", cfg.Render.DeviceScalePercent)
+	}
+}
+
 func TestSaveDocumentNormalizesShorthandOneBotConnection(t *testing.T) {
 	t.Parallel()
 
@@ -512,6 +568,8 @@ func newPlanningConfigDocument() map[string]any {
 			"worker_count":               1,
 			"browser_args":               []string{"--disable-gpu"},
 			"browser_path":               "",
+			"default_output":             DefaultRenderOutput,
+			"device_scale_percent":       DefaultRenderDeviceScalePercent,
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,
@@ -657,6 +715,8 @@ func legacyConfigDocument() map[string]any {
 			"worker_count":               1,
 			"browser_args":               []string{"--disable-gpu"},
 			"browser_path":               "",
+			"default_output":             DefaultRenderOutput,
+			"device_scale_percent":       DefaultRenderDeviceScalePercent,
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,

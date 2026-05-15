@@ -1194,10 +1194,10 @@ export interface components {
             /** @default default */
             theme: string;
             /**
-             * @default png
+             * @description Omit to use config render.default_output.
              * @enum {string}
              */
-            output: "png" | "jpeg";
+            output?: "png" | "jpeg";
             data: {
                 [key: string]: unknown;
             };
@@ -1625,6 +1625,13 @@ export interface components {
                 browser_args: string[];
                 /** @default  */
                 browser_path: string;
+                /**
+                 * @default png
+                 * @enum {string}
+                 */
+                default_output: "png" | "jpeg";
+                /** @default 100 */
+                device_scale_percent: number;
                 /** @default 30 */
                 timeout_seconds: number;
                 /** @default 15 */

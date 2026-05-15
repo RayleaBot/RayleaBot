@@ -133,6 +133,8 @@ func buildRenderService(state appBuildState, platform appPlatform, renderRunner 
 		RenderTimeout:      time.Duration(state.core.Config.Render.TimeoutSeconds) * time.Second,
 		MaxRenderDataBytes: int(httpapi.MaxManagementJSONBodyBytes),
 		FooterTemplate:     state.core.Config.Render.FooterTemplate,
+		DefaultOutput:      state.core.Config.Render.DefaultOutput,
+		DeviceScalePercent: state.core.Config.Render.DeviceScalePercent,
 		Logger:             state.core.Logger,
 	})
 	if err != nil {

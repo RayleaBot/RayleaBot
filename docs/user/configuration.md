@@ -25,6 +25,8 @@
 
 - 容器或跨时区部署建议显式设置 `scheduler.timezone`。
 - ARM64 或自定义浏览器场景可使用 `render.browser_path` 指向实际 Chromium 路径。
+- `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
+- `render.device_scale_percent` 控制图片生成精度，`100` 为当前基础倍率，范围为 `50` 到 `500`。
 - 配置结构、默认值和字段约束以 `contracts/config.user.schema.json` 为准。
 
 ## 当前目录职责

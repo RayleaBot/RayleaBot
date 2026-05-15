@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ConfigPage from '@/views/system/ConfigView.vue'
+import { getConfigSections } from '@/lib/config-form'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
@@ -41,6 +42,8 @@ function createFixtureConfig(): ConfigDocument {
       worker_count: 1,
       browser_args: ['--disable-gpu'],
       browser_path: '',
+      default_output: 'png',
+      device_scale_percent: 100,
       timeout_seconds: 30,
       queue_wait_timeout_seconds: 15,
       queue_max_length: 32,
@@ -203,6 +206,58 @@ describe('ConfigPage', () => {
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].server.port).toBeUndefined()
+  })
+
+  it('edits image generation defaults from the render section', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
+      config: store.document,
+      redacted_fields: [],
+      restart_required: false,
+      apply_effects: {
+        applied_now: ['render.default_output', 'render.device_scale_percent'],
+        reloaded_now: [],
+        restart_required_fields: [],
+      },
+    })
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as {
+      activeSectionKey: string
+      writeField: (path: string, type: string, value: unknown) => void
+    }
+
+    viewModel.activeSectionKey = 'render'
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('默认生成格式')
+    expect(wrapper.text()).toContain('图片精度')
+    const renderFields = getConfigSections().find((section) => section.key === 'render')?.fields ?? []
+    const precisionField = renderFields.find((field) => field.path === 'render.device_scale_percent')
+    expect(precisionField?.min).toBe(50)
+    expect(precisionField?.max).toBe(500)
+
+    viewModel.writeField('render.default_output', 'select', 'jpeg')
+    viewModel.writeField('render.device_scale_percent', 'number', 200)
+
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    const submitted = saveSpy.mock.calls[0][0]
+    expect(submitted.render.default_output).toBe('jpeg')
+    expect(submitted.render.device_scale_percent).toBe(200)
   })
 
   it('renders the last apply effect summary from the config store', async () => {

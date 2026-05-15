@@ -193,6 +193,8 @@ type RenderConfig struct {
 	WorkerCount             int      `json:"worker_count" yaml:"worker_count"`
 	BrowserArgs             []string `json:"browser_args" yaml:"browser_args"`
 	BrowserPath             string   `json:"browser_path" yaml:"browser_path"`
+	DefaultOutput           string   `json:"default_output" yaml:"default_output"`
+	DeviceScalePercent      int      `json:"device_scale_percent" yaml:"device_scale_percent"`
 	TimeoutSeconds          int      `json:"timeout_seconds" yaml:"timeout_seconds"`
 	QueueWaitTimeoutSeconds int      `json:"queue_wait_timeout_seconds" yaml:"queue_wait_timeout_seconds"`
 	QueueMaxLength          int      `json:"queue_max_length" yaml:"queue_max_length"`
@@ -388,6 +390,12 @@ func (cfg *Config) hydrateCompatibility() {
 	}
 	if cfg.Render.FooterTemplate == "" {
 		cfg.Render.FooterTemplate = DefaultRenderFooterTemplate
+	}
+	if cfg.Render.DefaultOutput == "" {
+		cfg.Render.DefaultOutput = DefaultRenderOutput
+	}
+	if cfg.Render.DeviceScalePercent == 0 {
+		cfg.Render.DeviceScalePercent = DefaultRenderDeviceScalePercent
 	}
 }
 

@@ -13,6 +13,9 @@ export interface ConfigFieldDefinition {
   description?: string
   options?: ConfigFieldOption[]
   defaultValue?: unknown
+  min?: number
+  max?: number
+  step?: number
 }
 
 export const DEFAULT_RENDER_FOOTER_TEMPLATE = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
@@ -60,6 +63,23 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         { path: 'render.worker_count', label: t('config.fields.renderWorkerCount'), type: 'number' },
         { path: 'render.browser_args', label: t('config.fields.renderBrowserArgs'), type: 'list' },
         { path: 'render.browser_path', label: t('config.fields.renderBrowserPath'), type: 'text' },
+        {
+          path: 'render.default_output',
+          label: t('config.fields.renderDefaultOutput'),
+          type: 'select',
+          options: [
+            { label: t('config.options.renderOutputPng'), value: 'png' },
+            { label: t('config.options.renderOutputJpeg'), value: 'jpeg' },
+          ],
+        },
+        {
+          path: 'render.device_scale_percent',
+          label: t('config.fields.renderDeviceScalePercent'),
+          type: 'number',
+          min: 50,
+          max: 500,
+          step: 1,
+        },
         { path: 'render.timeout_seconds', label: t('config.fields.renderTimeoutSeconds'), type: 'number' },
         { path: 'render.queue_wait_timeout_seconds', label: t('config.fields.renderQueueWaitTimeoutSeconds'), type: 'number' },
         { path: 'render.queue_max_length', label: t('config.fields.renderQueueMaxLength'), type: 'number' },

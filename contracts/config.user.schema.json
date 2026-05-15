@@ -219,6 +219,8 @@
         "worker_count",
         "browser_args",
         "browser_path",
+        "default_output",
+        "device_scale_percent",
         "timeout_seconds",
         "queue_wait_timeout_seconds",
         "queue_max_length",
@@ -241,6 +243,17 @@
         "browser_path": {
           "type": "string",
           "default": ""
+        },
+        "default_output": {
+          "type": "string",
+          "enum": ["png", "jpeg"],
+          "default": "png"
+        },
+        "device_scale_percent": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 500,
+          "default": 100
         },
         "timeout_seconds": {
           "type": "integer",

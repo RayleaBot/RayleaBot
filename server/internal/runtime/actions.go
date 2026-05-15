@@ -581,7 +581,6 @@ func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
 	output := strings.TrimSpace(frame.Output)
 	switch output {
 	case "", "png":
-		output = "png"
 	case "jpeg":
 	default:
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported render.image output", nil)

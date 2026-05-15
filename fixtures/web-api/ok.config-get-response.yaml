@@ -57,6 +57,8 @@ response:
         browser_args:
           - --disable-gpu
         browser_path: ""
+        default_output: png
+        device_scale_percent: 100
         timeout_seconds: 30
         queue_wait_timeout_seconds: 15
         queue_max_length: 32

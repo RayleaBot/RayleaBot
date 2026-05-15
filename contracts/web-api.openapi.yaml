@@ -2249,7 +2249,7 @@ components:
         output:
           type: string
           enum: [png, jpeg]
-          default: png
+          description: Omit to use config render.default_output.
         data:
           type: object
           additionalProperties: true

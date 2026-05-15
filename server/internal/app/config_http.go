@@ -121,12 +121,16 @@ func (h *configHTTPHandlers) applyHotReloadableFields(newCfg internalconfig.Conf
 	if h.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
 		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||
 		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength ||
-		newCfg.Render.FooterTemplate != oldCfg.Render.FooterTemplate) {
+		newCfg.Render.FooterTemplate != oldCfg.Render.FooterTemplate ||
+		newCfg.Render.DefaultOutput != oldCfg.Render.DefaultOutput ||
+		newCfg.Render.DeviceScalePercent != oldCfg.Render.DeviceScalePercent) {
 		h.renderer.UpdateRuntimeConfig(render.RuntimeConfig{
-			QueueMaxLength:   newCfg.Render.QueueMaxLength,
-			QueueWaitTimeout: time.Duration(newCfg.Render.QueueWaitTimeoutSeconds) * time.Second,
-			RenderTimeout:    time.Duration(newCfg.Render.TimeoutSeconds) * time.Second,
-			FooterTemplate:   newCfg.Render.FooterTemplate,
+			QueueMaxLength:     newCfg.Render.QueueMaxLength,
+			QueueWaitTimeout:   time.Duration(newCfg.Render.QueueWaitTimeoutSeconds) * time.Second,
+			RenderTimeout:      time.Duration(newCfg.Render.TimeoutSeconds) * time.Second,
+			FooterTemplate:     newCfg.Render.FooterTemplate,
+			DefaultOutput:      newCfg.Render.DefaultOutput,
+			DeviceScalePercent: newCfg.Render.DeviceScalePercent,
 		})
 	}
 

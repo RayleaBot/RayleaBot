@@ -221,8 +221,9 @@ async function save() {
                 v-else-if="field.type === 'number'"
                 class="config-number-input"
                 :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
-                :min="0"
-                :step="1"
+                :min="field.min ?? 0"
+                :max="field.max"
+                :step="field.step ?? 1"
                 :aria-label="field.label"
                 @update:value="(value) => writeField(field.path, field.type, value)"
               />

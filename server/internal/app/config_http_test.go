@@ -11,12 +11,15 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
@@ -242,6 +245,129 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	}
 }
 
+func TestApplyHotReloadableFieldsClassifiesRenderDefaultsAsAppliedNow(t *testing.T) {
+	t.Parallel()
+
+	oldCfg := config.Config{
+		Render: config.RenderConfig{
+			WorkerCount:             1,
+			BrowserArgs:             []string{"--disable-gpu"},
+			DefaultOutput:           "png",
+			DeviceScalePercent:      100,
+			TimeoutSeconds:          30,
+			QueueWaitTimeoutSeconds: 15,
+			QueueMaxLength:          32,
+			FooterTemplate:          config.DefaultRenderFooterTemplate,
+		},
+	}
+	newCfg := oldCfg
+	newCfg.Render.DefaultOutput = "jpeg"
+	newCfg.Render.DeviceScalePercent = 200
+
+	effects := classifyConfigApplyEffects(oldCfg, newCfg)
+	if !reflect.DeepEqual(effects.AppliedNow, []string{
+		"render.default_output",
+		"render.device_scale_percent",
+	}) {
+		t.Fatalf("applied_now = %#v, want render default output and scale", effects.AppliedNow)
+	}
+	if effects.restartRequired() {
+		t.Fatalf("restartRequired = true, want false: %#v", effects)
+	}
+}
+
+func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "user.yaml")
+	schemaPath := configHTTPTestSchemaPath(t)
+	cfg, summary, err := config.Load(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("load default config: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	writeConfigHTTPRenderTemplateSeed(t, filepath.Join(repoRoot, "templates"), "help.menu")
+	runner := &recordingConfigRenderRunner{}
+	renderer, err := render.NewService(render.Options{
+		RepoRoot:           repoRoot,
+		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		Store:              openAppTestStorage(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     cfg.Render.QueueMaxLength,
+		QueueWaitTimeout:   time.Duration(cfg.Render.QueueWaitTimeoutSeconds) * time.Second,
+		RenderTimeout:      time.Duration(cfg.Render.TimeoutSeconds) * time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+		DefaultOutput:      cfg.Render.DefaultOutput,
+		DeviceScalePercent: cfg.Render.DeviceScalePercent,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := renderer.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	app := newTestAppState(cfg, nil)
+	app.state.Summary = summary
+	document := configDocumentFromTyped(cfg)
+	renderDoc := document["render"].(map[string]any)
+	renderDoc["default_output"] = "jpeg"
+	renderDoc["device_scale_percent"] = 200
+
+	handler := newConfigHTTPHandlers(configHTTPDeps{
+		state:    app.state,
+		renderer: renderer,
+	})
+	body, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal config request: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.handleConfigPut().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("PUT /api/config status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+
+	var response configUpdateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode config response: %v", err)
+	}
+	if response.RestartRequired {
+		t.Fatalf("restart_required = true, want false")
+	}
+	if !reflect.DeepEqual(response.ApplyEffects.AppliedNow, []string{
+		"render.default_output",
+		"render.device_scale_percent",
+	}) {
+		t.Fatalf("applied_now = %#v", response.ApplyEffects.AppliedNow)
+	}
+
+	result, err := renderer.Render(context.Background(), render.Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title": "帮助菜单",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render after config PUT: %v", err)
+	}
+	if result.MIME != "image/jpeg" {
+		t.Fatalf("render MIME = %q, want image/jpeg", result.MIME)
+	}
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatal("expected render document")
+	}
+	if doc.Output != "jpeg" || doc.DeviceScaleFactor != 2 {
+		t.Fatalf("render document = %#v, want jpeg at scale 2", doc)
+	}
+}
+
 func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -373,6 +499,74 @@ func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 type recordingConfigOutboundLimiter struct {
 	inner   *outbound.MessageRateLimiter
 	applied []config.Config
+}
+
+type recordingConfigRenderRunner struct {
+	mu   sync.Mutex
+	docs []render.Document
+}
+
+func (r *recordingConfigRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
+	r.mu.Lock()
+	r.docs = append(r.docs, doc)
+	r.mu.Unlock()
+	if doc.Output == "jpeg" {
+		return []byte{0xff, 0xd8, 0xff, 0xd9}, nil
+	}
+	return []byte{137, 80, 78, 71}, nil
+}
+
+func (r *recordingConfigRenderRunner) lastDocument() (render.Document, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.docs) == 0 {
+		return render.Document{}, false
+	}
+	return r.docs[len(r.docs)-1], true
+}
+
+func openAppTestStorage(t *testing.T) *storage.Store {
+	t.Helper()
+
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+	return store
+}
+
+func writeConfigHTTPRenderTemplateSeed(t *testing.T, templatesRoot, templateID string) {
+	t.Helper()
+
+	templateDir := filepath.Join(templatesRoot, templateID)
+	if err := os.MkdirAll(templateDir, 0o755); err != nil {
+		t.Fatalf("create template dir: %v", err)
+	}
+	manifest := `{
+  "id": "` + templateID + `",
+  "name": "Help Menu",
+  "version": "1.0.0",
+  "themes": ["default"],
+  "entry": "template.html",
+  "stylesheet": "styles.css",
+  "input_schema": "input.schema.json",
+  "width": 960,
+  "height": 640
+}`
+	files := map[string]string{
+		"template.json":     manifest,
+		"template.html":     "<html><body>{{ .title }}</body></html>",
+		"styles.css":        "body { margin: 0; }",
+		"input.schema.json": `{"type":"object"}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write template file %s: %v", name, err)
+		}
+	}
 }
 
 func newRecordingConfigOutboundLimiter(cfg config.Config) *recordingConfigOutboundLimiter {
