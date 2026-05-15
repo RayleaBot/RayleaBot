@@ -58,17 +58,18 @@
         </div>
       </aside>
       <header class="hero">
-        <p class="eyebrow">RayleaBot</p>
+        <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>RayleaBot</p>
         <h1>{{ .title }}</h1>
         {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
       </header>
       {{ if .groups }}
       {{ range .groups }}
       <section class="help-group">
-        <h2>{{ .title }}</h2>
+        <h2><span class="help-group__marker" aria-hidden="true"></span><span class="help-group__title">{{ .title }}</span></h2>
         <div class="grid">
           {{ range .items }}
           <article class="card">
+            <div class="card__accent" aria-hidden="true"></div>
             <div class="card__header">
               <div class="meta">{{ if .name }}{{ .name }}{{ else }}{{ .title }}{{ end }}</div>
               {{ if .permission_label }}
@@ -86,6 +87,7 @@
       <section class="grid">
         {{ range .items }}
         <article class="card">
+          <div class="card__accent" aria-hidden="true"></div>
           <div class="card__header">
             <div class="meta">{{ .name }}</div>
             {{ if .permission_label }}

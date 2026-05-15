@@ -235,7 +235,7 @@ function renderIdentity(data: PreviewRecord) {
 
 function renderHeader(data: PreviewRecord) {
   return `<header class="hero">
-        <p class="eyebrow">RayleaBot</p>
+        <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>RayleaBot</p>
         <h1>${escapeHtml(value(data.title))}</h1>
         ${optionalElement('p', 'subtitle', data.subtitle)}
       </header>`
@@ -250,6 +250,7 @@ function renderCard(item: unknown) {
     : ''
 
   return `<article class="card">
+        <div class="card__accent" aria-hidden="true"></div>
         <div class="card__header">
           <div class="meta">${escapeHtml(value(payload.name, value(payload.title)))}</div>
           ${permission}
@@ -273,7 +274,7 @@ function renderGroups(groups: unknown) {
     .map((group) => {
       const payload = record(group)
       return `<section class="help-group">
-        <h2>${escapeHtml(value(payload.title))}</h2>
+        <h2><span class="help-group__marker" aria-hidden="true"></span><span class="help-group__title">${escapeHtml(value(payload.title))}</span></h2>
         ${renderItemGrid(payload.items)}
       </section>`
     })
