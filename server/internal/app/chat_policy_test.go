@@ -1122,7 +1122,7 @@ func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(
 	}
 }
 
-func TestBuiltinRootMenuDataUsesBuiltinMenuTriggerUsage(t *testing.T) {
+func TestBuiltinRootMenuDataUsesBuiltinMenuPrefixesAndTriggerExamples(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{
@@ -1155,12 +1155,82 @@ func TestBuiltinRootMenuDataUsesBuiltinMenuTriggerUsage(t *testing.T) {
 		SenderID:         "10002",
 		ActorRole:        "member",
 	}, "")
+	if got := data["command_prefixes"]; !reflect.DeepEqual(got, []string{"#"}) {
+		t.Fatalf("command_prefixes = %#v, want [#]", got)
+	}
+	if got := data["trigger_examples"]; !reflect.DeepEqual(got, []string{"#帮助 运势"}) {
+		t.Fatalf("trigger_examples = %#v, want [#帮助 运势]", got)
+	}
 	items, ok := data["items"].([]map[string]any)
 	if !ok || len(items) != 1 {
 		t.Fatalf("unexpected root menu items: %#v", data["items"])
 	}
-	if got := items[0]["usage"]; got != "#帮助 运势" {
-		t.Fatalf("root menu usage = %#v, want #帮助 运势", got)
+	if _, ok := items[0]["usage"]; ok {
+		t.Fatalf("root menu item should not include usage: %#v", items[0])
+	}
+}
+
+func TestBuiltinRootMenuDataFallsBackToCommandPrefixes(t *testing.T) {
+	t.Parallel()
+
+	data := builtinRootMenuData([]map[string]any{{
+		"id":          "echo",
+		"name":        "Echo",
+		"description": "复读消息",
+	}}, config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"X", "C"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Commands: []string{"help", "帮助"},
+		}},
+	})
+
+	if got := data["command_prefixes"]; !reflect.DeepEqual(got, []string{"X", "C"}) {
+		t.Fatalf("command_prefixes = %#v, want [X C]", got)
+	}
+	if got := data["trigger_examples"]; !reflect.DeepEqual(got, []string{"Xhelp Echo", "CEcho帮助"}) {
+		t.Fatalf("trigger_examples = %#v, want [Xhelp Echo CEcho帮助]", got)
+	}
+}
+
+func TestBuiltinPluginMenuDataUsesMenuPrefixesWithoutTriggerExamples(t *testing.T) {
+	t.Parallel()
+
+	data := builtinPluginMenuData(map[string]any{
+		"id":          "subscription-hub",
+		"name":        "订阅中心",
+		"description": "订阅平台内容并推送更新",
+		"commands": buildBuiltinCommands([]plugins.CommandView{{
+			Name:        "全部b站订阅列表",
+			Description: "查看所有群聊和私聊的 Bilibili 订阅列表",
+			Usage:       "/全部b站订阅列表",
+			Permission:  "super_admin",
+		}}, config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"#", "*"}}}}),
+	}, config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Prefixes: []string{"#", "*"},
+		}},
+	})
+
+	if _, ok := data["trigger_examples"]; ok {
+		t.Fatalf("plugin menu should not include trigger_examples: %#v", data)
+	}
+	if got := data["command_prefixes"]; !reflect.DeepEqual(got, []string{"#", "*"}) {
+		t.Fatalf("plugin command_prefixes = %#v, want [# *]", got)
+	}
+	groups, ok := data["groups"].([]map[string]any)
+	if !ok || len(groups) == 0 {
+		t.Fatalf("unexpected plugin menu groups: %#v", data["groups"])
+	}
+	items, ok := groups[0]["items"].([]map[string]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("unexpected command items: %#v", groups[0]["items"])
+	}
+	if got := items[0]["command_prefixes"]; !reflect.DeepEqual(got, []string{"#", "*"}) {
+		t.Fatalf("command item prefixes = %#v, want [# *]", got)
+	}
+	if _, ok := items[0]["usage"]; ok {
+		t.Fatalf("command item should not include usage: %#v", items[0])
 	}
 }
 
@@ -1205,6 +1275,54 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 
 	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
 		t.Fatalf("unexpected suffix menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
+	}
+}
+
+func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	dispatcher := &recordingDispatcherClient{}
+	application := newTestAppState(config.Config{
+		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.renderer = newRenderService(t, t.TempDir())
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "fortune",
+		Name:              "运势",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:       "fortune",
+			Aliases:    []string{"运势"},
+			Permission: "everyone",
+		}},
+	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-missing-builtin-menu-target",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/表情帮助",
+		MessageID:        "30008",
+	})
+
+	if sender.replyCount != 0 || sender.messageCount != 0 {
+		t.Fatalf("missing builtin menu target sent outbound message: replies=%d messages=%d text=%q image=%q", sender.replyCount, sender.messageCount, sender.lastReplyText, sender.lastReplyImage)
+	}
+	if dispatcher.deliverCount != 0 {
+		t.Fatalf("missing builtin menu target dispatched to plugins %d times", dispatcher.deliverCount)
 	}
 }
 

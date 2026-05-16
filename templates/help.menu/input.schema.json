@@ -13,6 +13,18 @@
     "render_footer": {
       "type": "string"
     },
+    "command_prefixes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trigger_examples": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "user": {
       "type": "object",
       "properties": {
@@ -67,6 +79,12 @@
           "usage": {
             "type": "string"
           },
+          "command_prefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "permission": {
             "type": "string",
             "enum": ["everyone", "group_admin", "super_admin"]
@@ -108,6 +126,12 @@
                 },
                 "usage": {
                   "type": "string"
+                },
+                "command_prefixes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "permission": {
                   "type": "string",

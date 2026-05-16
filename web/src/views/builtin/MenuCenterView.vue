@@ -11,7 +11,7 @@ import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
-import type { ConfigDocument, PluginCommandSummary, PluginHelpItem, PluginSummary } from '@/types/api'
+import type { ConfigDocument, PluginSummary } from '@/types/api'
 
 const defaultMenuCommands = ['help', '帮助']
 const defaultRenderFooterTemplate = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
@@ -55,7 +55,6 @@ const rootPreviewItems = computed(() => enabledPlugins.value
   .map((plugin) => ({
     name: plugin.name || plugin.id,
     description: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
-    usage: pluginMenuTrigger(plugin),
   })))
 
 const selectedPluginPreviewGroups = computed(() => {
@@ -65,8 +64,8 @@ const selectedPluginPreviewGroups = computed(() => {
 
   const commandItems = selectedPlugin.value.commands.map((command) => ({
     name: command.name,
+    command_prefixes: effectiveMenuPrefixes.value,
     description: command.description || command.name,
-    usage: formatCommandUsage(command),
     permission: command.permission || 'everyone',
   }))
   const groups = commandItems.length > 0
@@ -76,8 +75,8 @@ const selectedPluginPreviewGroups = computed(() => {
   for (const group of selectedPlugin.value.help?.groups ?? []) {
     const items = group.items.map((item) => ({
       name: item.command || item.title,
+      command_prefixes: item.command ? effectiveMenuPrefixes.value : [],
       description: item.description || item.title,
-      usage: item.usage || formatHelpCommandUsage(item),
       permission: item.permission || 'everyone',
     }))
     if (items.length > 0) {
@@ -91,6 +90,8 @@ const selectedPluginPreviewGroups = computed(() => {
 const rootPreviewData = computed(() => ({
   title: '插件菜单',
   subtitle: '当前可用插件',
+  command_prefixes: effectiveMenuPrefixes.value,
+  trigger_examples: rootMenuTriggerExamples.value,
   items: rootPreviewItems.value,
   render_footer: nativeMenuPreviewFooter.value,
 }))
@@ -108,6 +109,7 @@ const selectedPluginPreviewData = computed(() => {
   return {
     title: plugin.name || plugin.id,
     subtitle: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
+    command_prefixes: effectiveMenuPrefixes.value,
     groups: selectedPluginPreviewGroups.value,
     render_footer: nativeMenuPreviewFooter.value,
   }
@@ -115,6 +117,7 @@ const selectedPluginPreviewData = computed(() => {
 
 const inheritedPrefixLabel = computed(() => inheritedCommandPrefixes.value.join('、'))
 const nativeMenuPreviewFooter = computed(() => renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template))
+const rootMenuTriggerExamples = computed(() => buildMenuTriggerExamples(enabledPlugins.value[0] ?? null))
 
 const hasUnsavedChanges = computed(() => {
   const source = configDocument.value
@@ -169,37 +172,21 @@ function compareLabel(left: string, right: string) {
   return left.localeCompare(right, 'zh-CN')
 }
 
-function pluginMenuTrigger(plugin: PluginSummary) {
-  const command = draftCommands.value[0] || defaultMenuCommands[0]
-  return `${primaryMenuPrefix.value}${command} ${plugin.name || plugin.id}`
+function secondaryMenuPrefix() {
+  return effectiveMenuPrefixes.value[1] || primaryMenuPrefix.value
 }
 
-function suffixMenuTrigger(plugin: PluginSummary) {
-  return `${primaryMenuPrefix.value}${plugin.name || plugin.id}${draftCommands.value[1] || draftCommands.value[0] || defaultMenuCommands[1]}`
-}
-
-function rootMenuTrigger(command: string) {
-  return `${primaryMenuPrefix.value}${command}`
-}
-
-function formatCommandUsage(command: PluginCommandSummary) {
-  const commandName = command.name.trim()
-  if (!commandName) {
-    return ''
+function buildMenuTriggerExamples(plugin: PluginSummary | null) {
+  if (!plugin) {
+    return []
   }
-  const usage = command.usage?.trim()
-  if (!usage) {
-    return `${primaryMenuPrefix.value}${commandName}`
+  const target = plugin.name || plugin.id
+  const commands = normalizeTokens(draftCommands.value, defaultMenuCommands)
+  const examples = [`${primaryMenuPrefix.value}${commands[0] || defaultMenuCommands[0]} ${target}`]
+  if ((commands[1] || commands[0] || defaultMenuCommands[1])) {
+    examples.push(`${secondaryMenuPrefix()}${target}${commands[1] || commands[0] || defaultMenuCommands[1]}`)
   }
-  return usage.startsWith(primaryMenuPrefix.value) ? usage : `${primaryMenuPrefix.value}${usage}`
-}
-
-function formatHelpCommandUsage(item: PluginHelpItem) {
-  const command = item.command?.trim()
-  if (!command) {
-    return item.usage ?? ''
-  }
-  return item.usage?.trim() || `${primaryMenuPrefix.value}${command}`
+  return examples
 }
 
 function renderNativeMenuPreviewFooter(template?: string) {
@@ -319,7 +306,7 @@ async function save() {
           <a-tab-pane key="root" :tab="t('builtinFeatures.menuCenter.preview.rootTitle')" force-render>
             <div class="menu-preview-card">
               <div class="menu-trigger-row">
-                <span v-for="command in draftCommands" :key="command" class="menu-trigger-chip">{{ rootMenuTrigger(command) }}</span>
+                <span v-for="example in rootMenuTriggerExamples" :key="example" class="menu-trigger-chip">{{ example }}</span>
               </div>
               <NativeTemplatePreviewFrame
                 template-id="help.menu"
@@ -332,11 +319,6 @@ async function save() {
           <a-tab-pane key="plugin" :tab="t('builtinFeatures.menuCenter.preview.pluginTitle')" force-render>
             <div class="menu-preview-card">
               <template v-if="selectedPlugin">
-                <div class="menu-trigger-row">
-                  <span class="menu-trigger-chip">{{ pluginMenuTrigger(selectedPlugin) }}</span>
-                  <span class="menu-trigger-chip">{{ suffixMenuTrigger(selectedPlugin) }}</span>
-                </div>
-
                 <NativeTemplatePreviewFrame
                   template-id="help.menu"
                   :data="selectedPluginPreviewData"

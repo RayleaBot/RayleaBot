@@ -1616,7 +1616,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 	}
 
 	html := runner.lastHTML()
-	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-card__title-badge"`, "ID 30001", "放逐之城贴吧官方联动测试长群名", "超级管理员", `<span class="permission-badge`, "nk=30001"} {
+	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-title"`, "ID 30001", "放逐之城贴吧官方联动测试长群名", "超级管理员", `<span class="permission-badge`, "nk=30001"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("rendered html missing %q:\n%s", want, html)
 		}

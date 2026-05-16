@@ -150,21 +150,24 @@ describe('MenuCenterView', () => {
     expect(rootPreviewPayload(wrapper)).toMatchObject({
       title: '插件菜单',
       subtitle: '当前可用插件',
+      command_prefixes: ['/'],
+      trigger_examples: ['/help Echo', '/Echo帮助'],
       render_footer: nativeMenuPreviewFooter,
       items: [
         expect.objectContaining({
           name: 'Echo',
-          usage: '/help Echo',
         }),
         expect.objectContaining({
           name: 'Weather',
-          usage: '/help Weather',
         }),
       ],
     })
+    expect(rootPreviewPayload(wrapper).items[0]).not.toHaveProperty('usage')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('插件菜单')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Weather')
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('/help Weather')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('/help Echo')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('/Echo帮助')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('/help Weather')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('template-footer__text')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Created By RayleaBot 开发版本 &amp; Plugin RayleaBot 开发版本')
     expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('Raylea Footer WenKai')
@@ -176,7 +179,7 @@ describe('MenuCenterView', () => {
     expect(rootPreviewFrame(wrapper).attributes('sandbox')).toBe('allow-same-origin')
     expect(rootPreviewFrame(wrapper).attributes('data-preview-frame-width')).toBe(String(nativePreviewTemplateWidth))
     expect(rootPreviewHost(wrapper).attributes('style')).toContain('--native-template-preview-frame-width: 960px')
-    expect(wrapper.text()).toContain('/帮助')
+    expect(wrapper.text()).toContain('/Echo帮助')
 
     const pluginSelect = wrapper.getComponent('[data-testid="menu-center-plugin-select"]')
     await pluginSelect.vm.$emit('update:value', 'weather')
@@ -184,6 +187,7 @@ describe('MenuCenterView', () => {
     expect(pluginPreviewPayload(wrapper)).toMatchObject({
       title: 'Weather',
       subtitle: '天气菜单',
+      command_prefixes: ['/'],
       render_footer: nativeMenuPreviewFooter,
       groups: expect.arrayContaining([
         expect.objectContaining({
@@ -191,30 +195,52 @@ describe('MenuCenterView', () => {
           items: [
             expect.objectContaining({
               name: 'weather',
-              usage: '/weather 上海',
+              command_prefixes: ['/'],
             }),
           ],
         }),
       ]),
     })
+    expect(pluginPreviewPayload(wrapper)).not.toHaveProperty('trigger_examples')
+    expect(pluginPreviewPayload(wrapper).groups[0].items[0]).not.toHaveProperty('usage')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__prefix">/</span>')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('weather')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('card__footer')
 
     const commandSelect = wrapper.getComponent('[data-testid="menu-center-commands"]')
     const prefixSelect = wrapper.getComponent('[data-testid="menu-center-prefixes"]')
     await commandSelect.vm.$emit('update:value', ['menu', '菜单'])
-    await prefixSelect.vm.$emit('update:value', ['#'])
+    await prefixSelect.vm.$emit('update:value', ['#', '*'])
     await nextTick()
 
     expect(wrapper.text()).toContain('#menu')
-    expect(wrapper.text()).toContain('#Weather菜单')
+    expect(wrapper.text()).not.toContain('*Weather菜单')
     expect(rootPreviewPayload(wrapper)).toMatchObject({
+      command_prefixes: ['#', '*'],
+      trigger_examples: ['#menu Echo', '*Echo菜单'],
       items: expect.arrayContaining([
         expect.objectContaining({
           name: 'Weather',
-          usage: '#menu Weather',
         }),
       ]),
     })
-    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('#menu Weather')
+    expect(rootPreviewPayload(wrapper).items[0]).not.toHaveProperty('usage')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('#menu Echo')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).toContain('*Echo菜单')
+    expect(rootPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('#menu Weather')
+    expect(pluginPreviewPayload(wrapper)).not.toHaveProperty('trigger_examples')
+    expect(pluginPreviewPayload(wrapper).command_prefixes).toEqual(['#', '*'])
+    expect(pluginPreviewPayload(wrapper).groups[0].items[0]).toMatchObject({
+      command_prefixes: ['#', '*'],
+      name: 'weather',
+    })
+    expect(pluginPreviewPayload(wrapper).groups[0].items[0]).not.toHaveProperty('usage')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__prefix">#</span>')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__prefix">*</span>')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('command-title__prefixes')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('#/weather')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('/weather 上海')
     expect(wrapper.find('.menu-center-layout').exists()).toBe(true)
     expect(wrapper.findAll('.menu-preview-card')).toHaveLength(2)
     expect(wrapper.find('.menu-preview-item').exists()).toBe(false)
@@ -227,7 +253,7 @@ describe('MenuCenterView', () => {
       builtin_features: {
         menu: {
           commands: ['menu', '菜单'],
-          prefixes: ['#'],
+          prefixes: ['#', '*'],
         },
       },
     }))
@@ -293,6 +319,10 @@ function previewPayload(wrapper: ReturnType<typeof mount>, testId: string) {
 
 function rootPreviewFrame(wrapper: ReturnType<typeof mount>) {
   return previewFrame(wrapper, 'menu-center-root-preview')
+}
+
+function pluginPreviewFrame(wrapper: ReturnType<typeof mount>) {
+  return previewFrame(wrapper, 'menu-center-plugin-preview')
 }
 
 function rootPreviewHost(wrapper: ReturnType<typeof mount>) {

@@ -29,39 +29,61 @@
         {{ with .level }}{{ $permissionLevel = printf "%v" . }}{{ end }}
       {{ end }}
       {{ if or $hasGroup (eq $permissionLevel "super_admin") }}{{ $showPermissionBadge = true }}{{ end }}
-      <aside class="identity-card" aria-label="用户身份">
-        {{ if $showPermissionBadge }}
-        <span class="permission-badge {{ if eq $permissionLevel "super_admin" }}permission-badge--super-admin{{ else if eq $permissionLevel "owner" }}permission-badge--owner{{ else if eq $permissionLevel "admin" }}permission-badge--admin{{ else }}permission-badge--member{{ end }}">
-          {{ if eq $permissionLevel "super_admin" }}超级管理员{{ else if eq $permissionLevel "owner" }}群主{{ else if eq $permissionLevel "admin" }}管理员{{ else }}群员{{ end }}
-        </span>
-        {{ end }}
-        <div class="identity-card__avatar">
-          {{ if $avatarURL }}
-          <img src="{{ $avatarURL }}" alt="" />
-          {{ else }}
-          <span>{{ $displayName }}</span>
-          {{ end }}
+
+      <header class="page-header">
+        <div class="page-header__title-area">
+          <h1>{{ .title }}</h1>
+          {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
         </div>
-        <div class="identity-card__body">
-          <div class="identity-card__name-row">
-            <div class="identity-card__name">{{ $displayName }}</div>
-            {{ if $userTitle }}
-            <div class="identity-card__badges">
-              <span class="identity-card__title-badge">{{ $userTitle }}</span>
+        <div class="page-header__identity">
+          <div class="identity-avatar-wrap">
+            {{ if $avatarURL }}
+            <img src="{{ $avatarURL }}" alt="" class="identity-avatar" />
+            {{ else }}
+            <div class="identity-avatar identity-avatar--fallback"><span>{{ $displayName }}</span></div>
+            {{ end }}
+          </div>
+          <div class="identity-info">
+            <div class="identity-name-row">
+              <span class="identity-name">{{ $displayName }}</span>
+              {{ if $showPermissionBadge }}
+              <span class="permission-badge {{ if eq $permissionLevel "super_admin" }}permission-badge--super-admin{{ else if eq $permissionLevel "owner" }}permission-badge--owner{{ else if eq $permissionLevel "admin" }}permission-badge--admin{{ else }}permission-badge--member{{ end }}">
+                {{ if eq $permissionLevel "super_admin" }}超级管理员{{ else if eq $permissionLevel "owner" }}群主{{ else if eq $permissionLevel "admin" }}管理员{{ else }}群员{{ end }}
+              </span>
+              {{ end }}
+            </div>
+            {{ if $userTitle }}<span class="identity-title">{{ $userTitle }}</span>{{ end }}
+            {{ if or $groupName $userID }}
+            <div class="identity-meta">
+              {{ if $groupName }}<span>{{ $groupName }}</span>{{ end }}
+              {{ if $userID }}<span>ID {{ $userID }}</span>{{ end }}
             </div>
             {{ end }}
           </div>
-          <div class="identity-card__meta">
-            {{ if $groupName }}<span class="identity-card__meta-line identity-card__meta-line--group">{{ $groupName }}</span>{{ end }}
-            {{ if $userID }}<span class="identity-card__meta-line identity-card__meta-line--id">ID {{ $userID }}</span>{{ end }}
+        </div>
+      </header>
+
+      {{ if or .command_prefixes .trigger_examples }}
+      <section class="command-guide" aria-label="菜单触发方式">
+        {{ if .command_prefixes }}
+        <div class="command-guide__block">
+          <span class="command-guide__label">指令前缀</span>
+          <div class="command-guide__chips">
+            {{ range .command_prefixes }}<code>{{ . }}</code>{{ end }}
           </div>
         </div>
-      </aside>
-      <header class="hero">
-        <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>RayleaBot</p>
-        <h1>{{ .title }}</h1>
-        {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
-      </header>
+        {{ end }}
+        {{ if .trigger_examples }}
+        <div class="command-guide__block">
+          <span class="command-guide__label">触发指令示例</span>
+          <div class="command-guide__chips">
+            {{ range .trigger_examples }}<code>{{ . }}</code>{{ end }}
+          </div>
+        </div>
+        {{ end }}
+      </section>
+      {{ end }}
+
       {{ if .groups }}
       {{ range .groups }}
       <section class="help-group">
@@ -69,15 +91,25 @@
         <div class="grid">
           {{ range .items }}
           <article class="card">
-            <div class="card__accent" aria-hidden="true"></div>
             <div class="card__header">
-              <div class="meta">{{ if .name }}{{ .name }}{{ else }}{{ .title }}{{ end }}</div>
-              {{ if .permission_label }}
-              <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
-              {{ end }}
+              <div class="meta">
+                {{ if .name }}{{ .name }}{{ else }}{{ .title }}{{ end }}
+              </div>
             </div>
             <p class="description">{{ .description }}</p>
-            {{ if .usage }}<code>{{ .usage }}</code>{{ end }}
+            {{ $commandName := .name }}
+            {{ if and .command_prefixes $commandName }}
+            <div class="command-usage" aria-label="指令示意">
+              {{ range .command_prefixes }}
+              <code><span class="command-usage__prefix">{{ . }}</span><span class="command-usage__name">{{ $commandName }}</span></code>
+              {{ end }}
+            </div>
+            {{ end }}
+            {{ if .permission_label }}
+            <div class="card__footer">
+              <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+            </div>
+            {{ end }}
           </article>
           {{ end }}
         </div>
@@ -87,15 +119,15 @@
       <section class="grid">
         {{ range .items }}
         <article class="card">
-          <div class="card__accent" aria-hidden="true"></div>
           <div class="card__header">
             <div class="meta">{{ .name }}</div>
-            {{ if .permission_label }}
-            <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
-            {{ end }}
           </div>
           <p class="description">{{ .description }}</p>
-          {{ if .usage }}<code>{{ .usage }}</code>{{ end }}
+          {{ if .permission_label }}
+          <div class="card__footer">
+            <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+          </div>
+          {{ end }}
         </article>
         {{ end }}
       </section>

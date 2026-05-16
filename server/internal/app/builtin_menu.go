@@ -40,7 +40,6 @@ func (s *eventIngressService) handleBuiltinMenu(ctx context.Context, event adapt
 
 	data := s.buildBuiltinMenuData(event, request.Target)
 	if len(data) == 0 {
-		s.sendBuiltinMenuText(ctx, event, builtinMenuFallback)
 		return true
 	}
 
@@ -167,22 +166,15 @@ func sanitizeMenuTokens(values []string) []string {
 func (s *eventIngressService) buildBuiltinMenuData(event adapter.NormalizedEvent, target string) map[string]any {
 	items := s.visibleBuiltinMenuItems(event)
 	runtimeEvent := runtimeEventFromAdapter(event)
-	if target != "" {
-		if item, ok := findBuiltinMenuItem(items, target); ok {
-			return s.withBuiltinMenuIdentity(builtinPluginMenuData(item), runtimeEvent)
-		}
-		return s.withBuiltinMenuIdentity(map[string]any{
-			"title":    "菜单",
-			"subtitle": fmt.Sprintf("未找到插件：%s", target),
-			"items": []map[string]any{{
-				"name":        target,
-				"description": "当前没有匹配的插件菜单。",
-			}},
-		}, runtimeEvent)
-	}
 	cfg := config.Config{}
 	if s != nil && s.state != nil {
 		cfg = s.state.Config
+	}
+	if target != "" {
+		if item, ok := findBuiltinMenuItem(items, target); ok {
+			return s.withBuiltinMenuIdentity(builtinPluginMenuData(item, cfg), runtimeEvent)
+		}
+		return nil
 	}
 	return s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)
 }
@@ -328,12 +320,13 @@ func visibleBuiltinHelp(help *plugins.HelpView, allCommands []plugins.CommandVie
 
 func buildBuiltinCommands(commands []plugins.CommandView, cfg config.Config) []map[string]any {
 	items := make([]map[string]any, 0, len(commands))
+	prefixes := builtinMenuPrefixes(cfg)
 	for _, command := range commands {
 		item := map[string]any{
-			"name":        command.Name,
-			"description": firstBuiltinMenuText(command.Description, command.Name),
-			"usage":       strings.TrimSpace(command.Usage),
-			"permission":  builtinMenuEffectiveCommandPermission(command.Permission, cfg),
+			"name":             command.Name,
+			"command_prefixes": append([]string(nil), prefixes...),
+			"description":      firstBuiltinMenuText(command.Description, command.Name),
+			"permission":       builtinMenuEffectiveCommandPermission(command.Permission, cfg),
 		}
 		if len(command.Aliases) > 0 {
 			item["aliases"] = append([]string(nil), command.Aliases...)
@@ -382,37 +375,67 @@ func buildBuiltinHelp(help *plugins.HelpView) map[string]any {
 	return result
 }
 
+func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map[string]any {
+	prefixes := builtinMenuPrefixes(cfg)
+	groups, _ := help["groups"].([]map[string]any)
+	for _, group := range groups {
+		items, _ := group["items"].([]map[string]any)
+		for _, item := range items {
+			if strings.TrimSpace(stringValueFromMap(item, "name")) == "" {
+				continue
+			}
+			item["command_prefixes"] = append([]string(nil), prefixes...)
+			delete(item, "usage")
+		}
+	}
+	return help
+}
+
 func builtinRootMenuData(items []map[string]any, cfg config.Config) map[string]any {
 	rows := make([]map[string]any, 0, len(items))
+	firstTarget := ""
 	for _, item := range items {
 		help, _ := item["help"].(map[string]any)
+		target := firstBuiltinMenuText(stringValueFromMap(item, "name"), stringValueFromMap(item, "id"))
+		if firstTarget == "" {
+			firstTarget = target
+		}
 		rows = append(rows, map[string]any{
 			"name":        stringValueFromMap(item, "name"),
 			"description": firstBuiltinMenuText(stringValueFromMap(item, "description"), stringValueFromMap(help, "summary"), "可用插件菜单"),
-			"usage":       builtinRootMenuUsage(item, cfg),
 		})
 	}
 	return map[string]any{
-		"title":    "插件菜单",
-		"subtitle": "当前可用插件",
-		"items":    rows,
+		"title":            "插件菜单",
+		"subtitle":         "当前可用插件",
+		"command_prefixes": builtinMenuPrefixes(cfg),
+		"trigger_examples": builtinMenuTriggerExamples(firstTarget, cfg),
+		"items":            rows,
 	}
 }
 
-func builtinRootMenuUsage(item map[string]any, cfg config.Config) string {
+func builtinMenuTriggerExamples(target string, cfg config.Config) []string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return nil
+	}
 	prefixes := builtinMenuPrefixes(cfg)
 	commands := builtinMenuCommands(cfg)
 	if len(prefixes) == 0 || len(commands) == 0 {
-		return ""
+		return nil
 	}
-	target := firstBuiltinMenuText(stringValueFromMap(item, "name"), stringValueFromMap(item, "id"))
-	if target == "" {
-		return ""
+	examples := []string{strings.TrimSpace(prefixes[0] + commands[0] + " " + target)}
+	if len(commands) > 1 {
+		prefix := prefixes[0]
+		if len(prefixes) > 1 {
+			prefix = prefixes[1]
+		}
+		examples = append(examples, strings.TrimSpace(prefix+target+commands[1]))
 	}
-	return strings.TrimSpace(prefixes[0] + commands[0] + " " + target)
+	return examples
 }
 
-func builtinPluginMenuData(item map[string]any) map[string]any {
+func builtinPluginMenuData(item map[string]any, cfg config.Config) map[string]any {
 	title := stringValueFromMap(item, "name")
 	subtitle := stringValueFromMap(item, "description")
 	commands, _ := item["commands"].([]map[string]any)
@@ -424,14 +447,16 @@ func builtinPluginMenuData(item map[string]any) map[string]any {
 		})
 	}
 	if help, ok := item["help"].(map[string]any); ok {
+		help = applyBuiltinHelpCommandPrefixes(help, cfg)
 		if helpGroups, ok := help["groups"].([]map[string]any); ok {
 			groups = append(groups, helpGroups...)
 		}
 	}
 	return map[string]any{
-		"title":    title,
-		"subtitle": subtitle,
-		"groups":   groups,
+		"title":            title,
+		"subtitle":         subtitle,
+		"command_prefixes": builtinMenuPrefixes(cfg),
+		"groups":           groups,
 	}
 }
 

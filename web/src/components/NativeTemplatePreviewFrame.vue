@@ -190,8 +190,11 @@ function renderHelpMenu(data: PreviewData) {
     : renderItemGrid(payload.items)
 
   return `<main class="surface" id="preview-root">
-      ${renderIdentity(payload)}
-      ${renderHeader(payload)}
+      <header class="page-header">
+        ${renderTitleArea(payload)}
+        ${renderIdentity(payload)}
+      </header>
+      ${renderCommandGuide(payload)}
       ${body}
       ${renderFooter(payload.render_footer)}
     </main>`
@@ -218,34 +221,66 @@ function renderIdentity(data: PreviewRecord) {
   const showPermissionBadge = Boolean(groupName) || permissionLevel === 'super_admin'
   const badge = showPermissionBadge ? renderPermissionBadge(permissionLevel) : ''
   const avatar = avatarUrl
-    ? `<img src="${escapeAttribute(avatarUrl)}" alt="" />`
-    : `<span>${escapeHtml(displayName)}</span>`
-  const titleBadge = userTitle
-    ? `<div class="identity-card__badges"><span class="identity-card__title-badge">${escapeHtml(userTitle)}</span></div>`
+    ? `<img src="${escapeAttribute(avatarUrl)}" alt="" class="identity-avatar" />`
+    : `<div class="identity-avatar identity-avatar--fallback"><span>${escapeHtml(displayName)}</span></div>`
+  const titleEl = userTitle
+    ? `<span class="identity-title">${escapeHtml(userTitle)}</span>`
+    : ''
+  const groupEl = groupName
+    ? `<span>${escapeHtml(groupName)}</span>`
+    : ''
+  const idEl = userId
+    ? `<span>ID ${escapeHtml(userId)}</span>`
+    : ''
+  const metaEl = groupEl || idEl
+    ? `<div class="identity-meta">${groupEl}${idEl}</div>`
     : ''
 
-  return `<aside class="identity-card" aria-label="用户身份">
-        ${badge}
-        <div class="identity-card__avatar">${avatar}</div>
-        <div class="identity-card__body">
-          <div class="identity-card__name-row">
-            <div class="identity-card__name">${escapeHtml(displayName)}</div>
-            ${titleBadge}
-          </div>
-          <div class="identity-card__meta">
-            ${optionalElement('span', 'identity-card__meta-line identity-card__meta-line--group', groupName)}
-            ${optionalElement('span', 'identity-card__meta-line identity-card__meta-line--id', userId ? `ID ${userId}` : '')}
-          </div>
+  return `<div class="page-header__identity">
+        <div class="identity-avatar-wrap">
+          ${avatar}
         </div>
-      </aside>`
+        <div class="identity-info">
+          <div class="identity-name-row">
+            <span class="identity-name">${escapeHtml(displayName)}</span>
+            ${badge}
+          </div>
+          ${titleEl}
+          ${metaEl}
+        </div>
+      </div>`
 }
 
-function renderHeader(data: PreviewRecord) {
-  return `<header class="hero">
-        <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>RayleaBot</p>
+function renderTitleArea(data: PreviewRecord) {
+  return `<div class="page-header__title-area">
         <h1>${escapeHtml(value(data.title))}</h1>
         ${optionalElement('p', 'subtitle', data.subtitle)}
-      </header>`
+      </div>`
+}
+
+function renderCommandGuide(data: PreviewRecord) {
+  const prefixes = stringList(data.command_prefixes)
+  const examples = stringList(data.trigger_examples)
+  if (prefixes.length === 0 && examples.length === 0) {
+    return ''
+  }
+
+  return `<section class="command-guide" aria-label="菜单触发方式">
+        ${renderCommandGuideBlock('指令前缀', prefixes)}
+        ${renderCommandGuideBlock('触发指令示例', examples)}
+      </section>`
+}
+
+function renderCommandGuideBlock(label: string, items: string[]) {
+  if (items.length === 0) {
+    return ''
+  }
+  return `<div class="command-guide__block">
+        <span class="command-guide__label">${escapeHtml(label)}</span>
+        <div class="command-guide__chips">
+          ${items.map((item) => `<code>${escapeHtml(item)}</code>`).join('')}
+        </div>
+      </div>`
 }
 
 function renderCard(item: unknown) {
@@ -257,14 +292,24 @@ function renderCard(item: unknown) {
     : ''
 
   return `<article class="card">
-        <div class="card__accent" aria-hidden="true"></div>
         <div class="card__header">
           <div class="meta">${escapeHtml(value(payload.name, value(payload.title)))}</div>
-          ${permission}
         </div>
         ${optionalElement('p', 'description', payload.description)}
-        ${optionalElement('code', '', payload.usage)}
+        ${renderCommandUsage(payload)}
+        ${permission ? `<div class="card__footer">${permission}</div>` : ''}
       </article>`
+}
+
+function renderCommandUsage(payload: PreviewRecord) {
+  const name = value(payload.name, value(payload.title))
+  const prefixes = stringList(payload.command_prefixes)
+  if (!name || prefixes.length === 0) {
+    return ''
+  }
+  return `<div class="command-usage" aria-label="指令示意">
+        ${prefixes.map((prefix) => `<code><span class="command-usage__prefix">${escapeHtml(prefix)}</span><span class="command-usage__name">${escapeHtml(name)}</span></code>`).join('')}
+      </div>`
 }
 
 function renderItemGrid(items: unknown) {
@@ -341,6 +386,20 @@ function value(input: unknown, fallback = '') {
   if (input === undefined || input === null) return fallback
   const text = String(input).trim()
   return text || fallback
+}
+
+function stringList(input: unknown) {
+  if (!Array.isArray(input)) {
+    return []
+  }
+  const values: string[] = []
+  for (const item of input) {
+    const text = value(item)
+    if (text) {
+      values.push(text)
+    }
+  }
+  return values
 }
 
 function escapeHtml(input: string) {
