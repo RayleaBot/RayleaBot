@@ -170,10 +170,51 @@ function buildPreviewDocument(templateId: string, data: PreviewData) {
     <style>
       html, body {
         min-height: 100%;
-        width: ${nativePreviewTemplateWidth}px;
+        width: 100%;
+        max-width: 100%;
+        color-scheme: dark;
+        scrollbar-color: #39c5bb #07111f;
+        scrollbar-width: thin;
       }
       body {
-        overflow: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar {
+        width: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #07111f;
+        border-left: 1px solid var(--color-border-subtle);
+      }
+      html::-webkit-scrollbar-track,
+      body::-webkit-scrollbar-track {
+        background: #07111f;
+        border-left: 1px solid var(--color-border-subtle);
+      }
+      ::-webkit-scrollbar-thumb {
+        min-height: 48px;
+        border: 3px solid #07111f;
+        border-radius: var(--radius-full);
+        background: linear-gradient(180deg, #66ccff, #39c5bb);
+      }
+      html::-webkit-scrollbar-thumb,
+      body::-webkit-scrollbar-thumb {
+        min-height: 48px;
+        border: 3px solid #07111f;
+        border-radius: var(--radius-full);
+        background: linear-gradient(180deg, #66ccff, #39c5bb);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, #8bddff, #54ded3);
+      }
+      html::-webkit-scrollbar-thumb:hover,
+      body::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, #8bddff, #54ded3);
       }
     </style>
   </head>
@@ -294,10 +335,10 @@ function renderCard(item: unknown) {
   return `<article class="card">
         <div class="card__header">
           <div class="meta">${escapeHtml(value(payload.name, value(payload.title)))}</div>
+          ${permission}
         </div>
         ${optionalElement('p', 'description', payload.description)}
         ${renderCommandUsage(payload)}
-        ${permission ? `<div class="card__footer">${permission}</div>` : ''}
       </article>`
 }
 
@@ -308,7 +349,7 @@ function renderCommandUsage(payload: PreviewRecord) {
     return ''
   }
   return `<div class="command-usage" aria-label="指令示意">
-        ${prefixes.map((prefix) => `<code><span class="command-usage__prefix">${escapeHtml(prefix)}</span><span class="command-usage__name">${escapeHtml(name)}</span></code>`).join('')}
+        <code><span class="command-usage__prefix-group" aria-label="可用前缀">${prefixes.map((prefix) => `<span class="command-usage__prefix">${escapeHtml(prefix)}</span>`).join('')}</span><span class="command-usage__name">${escapeHtml(name)}</span></code>
       </div>`
 }
 

@@ -95,19 +95,20 @@
               <div class="meta">
                 {{ if .name }}{{ .name }}{{ else }}{{ .title }}{{ end }}
               </div>
+              {{ if .permission_label }}
+              <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+              {{ end }}
             </div>
             <p class="description">{{ .description }}</p>
             {{ $commandName := .name }}
             {{ if and .command_prefixes $commandName }}
             <div class="command-usage" aria-label="指令示意">
-              {{ range .command_prefixes }}
-              <code><span class="command-usage__prefix">{{ . }}</span><span class="command-usage__name">{{ $commandName }}</span></code>
-              {{ end }}
-            </div>
-            {{ end }}
-            {{ if .permission_label }}
-            <div class="card__footer">
-              <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+              <code>
+                <span class="command-usage__prefix-group" aria-label="可用前缀">
+                  {{ range .command_prefixes }}<span class="command-usage__prefix">{{ . }}</span>{{ end }}
+                </span>
+                <span class="command-usage__name">{{ $commandName }}</span>
+              </code>
             </div>
             {{ end }}
           </article>
@@ -121,13 +122,11 @@
         <article class="card">
           <div class="card__header">
             <div class="meta">{{ .name }}</div>
+            {{ if .permission_label }}
+            <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+            {{ end }}
           </div>
           <p class="description">{{ .description }}</p>
-          {{ if .permission_label }}
-          <div class="card__footer">
-            <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
-          </div>
-          {{ end }}
         </article>
         {{ end }}
       </section>

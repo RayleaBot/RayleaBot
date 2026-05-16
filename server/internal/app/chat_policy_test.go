@@ -1234,6 +1234,73 @@ func TestBuiltinPluginMenuDataUsesMenuPrefixesWithoutTriggerExamples(t *testing.
 	}
 }
 
+func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	runner := &captureRenderRunner{}
+	renderRoot := t.TempDir()
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	application := newTestAppState(config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Commands: []string{"help", "帮助"},
+			Prefixes: []string{"#", "*"},
+		}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}, nil)
+	application.renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	application.setTestEventIngress(plugins.NewCatalog([]plugins.Snapshot{{
+		PluginID:          "subscription-hub",
+		Name:              "订阅中心",
+		Description:       "订阅平台内容并推送更新",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands: []plugins.Command{{
+			Name:        "订阅状态",
+			Description: "查看订阅状态",
+			Usage:       "#订阅状态",
+			Permission:  "everyone",
+		}},
+	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
+
+	application.handleAdapterEvent(context.Background(), adapter.NormalizedEvent{
+		Kind:             adapter.EventKindMessage,
+		EventID:          "evt-builtin-plugin-menu-prefix-group",
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "#help 订阅中心",
+		MessageID:        "30004",
+	})
+
+	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
+		t.Fatalf("unexpected plugin menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
+	}
+	html := runner.lastHTML()
+	for _, want := range []string{`command-usage__prefix-group`, `command-usage__prefix">#</span>`, `command-usage__prefix">*</span>`} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("builtin plugin menu html missing %q:\n%s", want, html)
+		}
+	}
+	if got := strings.Count(html, `command-usage__name">订阅状态</span>`); got != 1 {
+		t.Fatalf("command name rendered %d times, want 1:\n%s", got, html)
+	}
+	if strings.Contains(html, `</span><span class="command-usage__name">订阅状态</span></code><code>`) {
+		t.Fatalf("command prefixes should share one usage code:\n%s", html)
+	}
+}
+
 func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 	t.Parallel()
 
