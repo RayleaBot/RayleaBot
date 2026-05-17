@@ -27,6 +27,8 @@ from settings import SETTINGS_KEYS, merge_settings, normalize_settings
 
 
 DEFAULT_SETTINGS_PATH = os.path.join(PLUGIN_DIR, "default_config.json")
+SUBSCRIBE_BILIBILI_USAGE = "用法：/订阅b站推送 [直播|视频|图文|文章|转发] UID；类型可选，不填表示全部类型。"
+UNSUBSCRIBE_BILIBILI_USAGE = "用法：/取消b站推送 [直播|视频|图文|文章|转发] UID；类型可选，不填表示全部类型。"
 
 
 def load_default_settings(path=DEFAULT_SETTINGS_PATH):
@@ -561,7 +563,7 @@ def sample_update(service):
 def add_bilibili_subscription(settings, ctx):
     parsed = parse_bilibili_command_args(ctx.args)
     if parsed["error"] or not parsed["uid"]:
-        return {"ok": False, "message": "用法：/订阅b站推送 [直播|视频|图文|文章|转发] <uid>"}
+        return {"ok": False, "message": SUBSCRIBE_BILIBILI_USAGE}
     target = current_target(ctx)
     if not target["target_id"]:
         return {"ok": False, "message": "当前会话无法绑定订阅目标。"}
@@ -597,7 +599,7 @@ def add_bilibili_subscription(settings, ctx):
 def remove_bilibili_subscription(settings, ctx):
     parsed = parse_bilibili_command_args(ctx.args)
     if parsed["error"] or not parsed["uid"]:
-        return {"ok": False, "message": "用法：/取消b站推送 [直播|视频|图文|文章|转发] <uid>"}
+        return {"ok": False, "message": UNSUBSCRIBE_BILIBILI_USAGE}
     target = current_target(ctx)
     subscription_id = subscription_id_for("bilibili", parsed["uid"], target["target_type"], target["target_id"])
     subscriptions = list(settings.get("subscriptions") or [])

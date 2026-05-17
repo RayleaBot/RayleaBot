@@ -12,7 +12,9 @@ sys.path.insert(0, PLUGIN_DIR)
 
 from bilibili import dynamic_updates
 from main import (
+    SUBSCRIBE_BILIBILI_USAGE,
     SubscriptionHubPlugin,
+    UNSUBSCRIBE_BILIBILI_USAGE,
     add_bilibili_subscription,
     build_status_text,
     format_subscription_list,
@@ -100,11 +102,26 @@ class SubscriptionHubTests(unittest.TestCase):
         ], [item.get("name") for item in manifest.get("commands") or []])
         self.assertEqual("super_admin", manifest["commands"][1]["permission"])
         self.assertEqual("super_admin", manifest["commands"][2]["permission"])
+        self.assertEqual("/订阅b站推送 [直播|视频|图文|文章|转发] UID", manifest["commands"][1]["usage"])
+        self.assertEqual("/取消b站推送 [直播|视频|图文|文章|转发] UID", manifest["commands"][2]["usage"])
+        self.assertIn("类型可选", manifest["commands"][1]["description"])
+        self.assertIn("类型可选", manifest["commands"][2]["description"])
         self.assertEqual("super_admin", manifest["commands"][5]["permission"])
         self.assertEqual("super_admin", manifest["commands"][6]["permission"])
         self.assertEqual("super_admin", manifest["commands"][7]["permission"])
         self.assertEqual("super_admin", manifest["commands"][8]["permission"])
         self.assertIn("help", manifest)
+        self.assertEqual([
+            "订阅操作",
+            "列表查看",
+            "维护与预览",
+            "配置说明",
+        ], [group.get("title") for group in manifest["help"].get("groups") or []])
+        operation_items = manifest["help"]["groups"][0]["items"]
+        self.assertEqual("/订阅b站推送 [直播|视频|图文|文章|转发] UID", operation_items[1]["usage"])
+        self.assertEqual("/取消b站推送 [直播|视频|图文|文章|转发] UID", operation_items[2]["usage"])
+        self.assertIn("不填表示全部类型", operation_items[1]["description"])
+        self.assertIn("不填表示全部类型", operation_items[2]["description"])
         self.assertNotIn("dynamic_commands", manifest)
 
     def test_merge_settings_normalizes_tokens_and_subscriptions(self):
@@ -240,6 +257,16 @@ class SubscriptionHubTests(unittest.TestCase):
         self.assertEqual(parse_bilibili_command_args(["123456"]), {"services": ["all"], "uid": "123456", "error": False})
         self.assertEqual(parse_bilibili_command_args(["图文", "123456"]), {"services": ["image_text"], "uid": "123456", "error": False})
         self.assertEqual(parse_bilibili_command_args(["番剧", "123456"]), {"services": [], "uid": "123456", "error": True})
+
+    def test_bilibili_subscription_usage_message_for_invalid_type(self):
+        settings = merge_settings({}, {})
+        add_result = add_bilibili_subscription(settings, FakeContext(args=["番剧", "123456"]))
+        remove_result = remove_bilibili_subscription(settings, FakeContext(args=["番剧", "123456"]))
+
+        self.assertFalse(add_result["ok"])
+        self.assertEqual(add_result["message"], SUBSCRIBE_BILIBILI_USAGE)
+        self.assertFalse(remove_result["ok"])
+        self.assertEqual(remove_result["message"], UNSUBSCRIBE_BILIBILI_USAGE)
 
     def test_add_bilibili_subscription_binds_current_target_and_subscriber(self):
         settings = merge_settings({}, {})
