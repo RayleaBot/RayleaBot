@@ -1148,13 +1148,14 @@ func TestBuiltinRootMenuDataUsesBuiltinMenuPrefixesAndTriggerExamples(t *testing
 		}},
 	}}), nil, nil, bridge.New(slog.Default(), &recordingDispatcherClient{}))
 
-	data := application.eventIngress.buildBuiltinMenuData(adapter.NormalizedEvent{
+	payload := application.eventIngress.buildBuiltinMenuData(adapter.NormalizedEvent{
 		Kind:             adapter.EventKindMessage,
 		ConversationType: "private",
 		ConversationID:   "10002",
 		SenderID:         "10002",
 		ActorRole:        "member",
 	}, "")
+	data := payload.Data
 	if got := data["command_prefixes"]; !reflect.DeepEqual(got, []string{"#"}) {
 		t.Fatalf("command_prefixes = %#v, want [#]", got)
 	}
@@ -1196,9 +1197,11 @@ func TestBuiltinPluginMenuDataUsesMenuPrefixesWithoutTriggerExamples(t *testing.
 	t.Parallel()
 
 	data := builtinPluginMenuData(map[string]any{
-		"id":          "subscription-hub",
-		"name":        "订阅中心",
-		"description": "订阅平台内容并推送更新",
+		"id":             "subscription-hub",
+		"name":           "订阅中心",
+		"plugin_name":    "订阅中心",
+		"plugin_version": "0.1.0",
+		"description":    "订阅平台内容并推送更新",
 		"commands": buildBuiltinCommands([]plugins.CommandView{{
 			Name:        "全部b站订阅列表",
 			Description: "查看所有群聊和私聊的 Bilibili 订阅列表",
@@ -1217,6 +1220,12 @@ func TestBuiltinPluginMenuDataUsesMenuPrefixesWithoutTriggerExamples(t *testing.
 	}
 	if got := data["command_prefixes"]; !reflect.DeepEqual(got, []string{"#", "*"}) {
 		t.Fatalf("plugin command_prefixes = %#v, want [# *]", got)
+	}
+	if got := data["plugin_name"]; got != "订阅中心" {
+		t.Fatalf("plugin_name = %#v, want 订阅中心", got)
+	}
+	if got := data["plugin_version"]; got != "0.1.0" {
+		t.Fatalf("plugin_version = %#v, want 0.1.0", got)
 	}
 	groups, ok := data["groups"].([]map[string]any)
 	if !ok || len(groups) == 0 {
@@ -1286,6 +1295,79 @@ func TestBuiltinPluginMenuDataDoesNotTreatHelpTitleAsCommand(t *testing.T) {
 	}
 }
 
+func TestBuiltinPluginMenuDataOmitsCommandsCoveredByHelp(t *testing.T) {
+	t.Parallel()
+
+	data := builtinPluginMenuData(map[string]any{
+		"id":          "subscription-hub",
+		"name":        "订阅中心",
+		"description": "订阅平台内容并推送更新",
+		"commands": buildBuiltinCommands([]plugins.CommandView{{
+			Name:        "订阅状态",
+			Description: "查看订阅状态",
+			Usage:       "/订阅状态",
+			Permission:  "everyone",
+		}, {
+			Name:        "立即检查订阅",
+			Description: "立即检查当前会话或全部订阅",
+			Usage:       "/立即检查订阅 [当前|全部]",
+			Permission:  "super_admin",
+		}}, config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"#", "*"}}}}),
+		"help": buildBuiltinHelp(&plugins.HelpView{
+			Groups: []plugins.HelpGroupView{{
+				Title: "订阅操作",
+				Items: []plugins.HelpItemView{{
+					Title:       "订阅状态",
+					Description: "查看启用状态。",
+					Command:     "订阅状态",
+					Usage:       "/订阅状态",
+					Permission:  "everyone",
+				}},
+			}, {
+				Title: "维护与预览",
+				Items: []plugins.HelpItemView{{
+					Title:       "立即检查订阅",
+					Description: "立即检查当前会话或全部订阅。",
+					Command:     "立即检查订阅",
+					Usage:       "/立即检查订阅 [当前|全部]",
+					Permission:  "super_admin",
+				}},
+			}},
+		}),
+	}, config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Prefixes: []string{"#", "*"},
+		}},
+	})
+
+	groups, ok := data["groups"].([]map[string]any)
+	if !ok || len(groups) != 2 {
+		t.Fatalf("unexpected plugin menu groups: %#v", data["groups"])
+	}
+	if got := groups[0]["title"]; got != "订阅操作" {
+		t.Fatalf("first group title = %#v, want 订阅操作", got)
+	}
+	if got := groups[1]["title"]; got != "维护与预览" {
+		t.Fatalf("second group title = %#v, want 维护与预览", got)
+	}
+	for _, group := range groups {
+		if group["title"] == "命令" {
+			t.Fatalf("covered commands should not render a duplicate command group: %#v", groups)
+		}
+		items, _ := group["items"].([]map[string]any)
+		for _, item := range items {
+			if got := item["command_prefixes"]; !reflect.DeepEqual(got, []string{"#", "*"}) {
+				t.Fatalf("command item prefixes = %#v, want [# *]", got)
+			}
+		}
+	}
+	items, _ := groups[1]["items"].([]map[string]any)
+	if got := items[0]["usage_args"]; got != "[当前|全部]" {
+		t.Fatalf("usage_args = %#v, want [当前|全部]", got)
+	}
+}
+
 func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *testing.T) {
 	t.Parallel()
 
@@ -1313,6 +1395,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *test
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
+		Version:           "0.1.0",
 		Commands: []plugins.Command{{
 			Name:        "订阅状态",
 			Description: "查看订阅状态",
@@ -1345,11 +1428,23 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *test
 			t.Fatalf("builtin plugin menu html missing %q:\n%s", want, html)
 		}
 	}
+	if !strings.Contains(html, `command-usage__text`) {
+		t.Fatalf("builtin plugin menu html missing command usage text wrapper:\n%s", html)
+	}
 	if got := strings.Count(html, `command-usage__name">订阅状态</span>`); got != 1 {
 		t.Fatalf("command name rendered %d times, want 1:\n%s", got, html)
 	}
 	if strings.Contains(html, `</span><span class="command-usage__name">订阅状态</span></code><code>`) {
 		t.Fatalf("command prefixes should share one usage code:\n%s", html)
+	}
+	if strings.Contains(html, `<span class="command-usage__args">`) {
+		t.Fatalf("command without usage args should not render args span:\n%s", html)
+	}
+	if !strings.Contains(html, "Plugin 订阅中心 0.1.0") {
+		t.Fatalf("builtin plugin menu html missing plugin footer context:\n%s", html)
+	}
+	if strings.Contains(html, "Plugin RayleaBot 开发版本") {
+		t.Fatalf("builtin plugin menu html should not use system footer context:\n%s", html)
 	}
 }
 

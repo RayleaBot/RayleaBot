@@ -11,12 +11,12 @@ import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
-import type { ConfigDocument, PluginSummary } from '@/types/api'
+import type { ConfigDocument, PluginCommandSummary, PluginSummary } from '@/types/api'
 
 const defaultMenuCommands = ['help', '帮助']
 const defaultRenderFooterTemplate = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
 const previewDevelopmentVersion = '开发版本'
-const previewNativeMenuPluginName = 'RayleaBot'
+const previewSystemMenuPluginName = 'RayleaBot'
 
 const configStore = useConfigStore()
 const pluginsStore = usePluginsStore()
@@ -62,7 +62,9 @@ const selectedPluginPreviewGroups = computed(() => {
     return []
   }
 
-  const commandItems = selectedPlugin.value.commands.map((command) => ({
+  const coveredCommandNames = helpCommandNames(selectedPlugin.value)
+  const visibleCommands = selectedPlugin.value.commands.filter((command) => !isCommandCoveredByHelp(command, coveredCommandNames))
+  const commandItems = visibleCommands.map((command) => ({
     name: command.name,
     command_prefixes: effectiveMenuPrefixes.value,
     description: command.description || command.name,
@@ -77,6 +79,7 @@ const selectedPluginPreviewGroups = computed(() => {
       name: item.command || item.title,
       command_prefixes: item.command ? effectiveMenuPrefixes.value : [],
       description: item.description || item.title,
+      usage_args: item.command ? commandUsageArgs(item.command, item.usage) : '',
       permission: item.permission || 'everyone',
     }))
     if (items.length > 0) {
@@ -93,7 +96,7 @@ const rootPreviewData = computed(() => ({
   command_prefixes: effectiveMenuPrefixes.value,
   trigger_examples: rootMenuTriggerExamples.value,
   items: rootPreviewItems.value,
-  render_footer: nativeMenuPreviewFooter.value,
+  render_footer: renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template),
 }))
 
 const selectedPluginPreviewData = computed(() => {
@@ -103,7 +106,7 @@ const selectedPluginPreviewData = computed(() => {
       title: '插件菜单',
       subtitle: '当前没有可预览的插件菜单。',
       groups: [],
-      render_footer: nativeMenuPreviewFooter.value,
+      render_footer: renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template),
     }
   }
   return {
@@ -111,12 +114,11 @@ const selectedPluginPreviewData = computed(() => {
     subtitle: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
     command_prefixes: effectiveMenuPrefixes.value,
     groups: selectedPluginPreviewGroups.value,
-    render_footer: nativeMenuPreviewFooter.value,
+    render_footer: renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template, plugin),
   }
 })
 
 const inheritedPrefixLabel = computed(() => inheritedCommandPrefixes.value.join('、'))
-const nativeMenuPreviewFooter = computed(() => renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template))
 const rootMenuTriggerExamples = computed(() => buildMenuTriggerExamples(enabledPlugins.value[0] ?? null))
 
 const hasUnsavedChanges = computed(() => {
@@ -189,12 +191,62 @@ function buildMenuTriggerExamples(plugin: PluginSummary | null) {
   return examples
 }
 
-function renderNativeMenuPreviewFooter(template?: string) {
+function renderNativeMenuPreviewFooter(template?: string, plugin?: Pick<PluginSummary, 'id' | 'name' | 'version'> | null) {
   const source = template?.trim() || defaultRenderFooterTemplate
+  const pluginName = plugin ? plugin.name || plugin.id : previewSystemMenuPluginName
+  const pluginVersion = displayPreviewVersion(plugin?.version)
   return source
     .replaceAll('{{rayleabot_version}}', previewDevelopmentVersion)
-    .replaceAll('{{plugin_name}}', previewNativeMenuPluginName)
-    .replaceAll('{{plugin_version}}', previewDevelopmentVersion)
+    .replaceAll('{{plugin_name}}', pluginName)
+    .replaceAll('{{plugin_version}}', pluginVersion)
+}
+
+function displayPreviewVersion(version?: string | null) {
+  const normalized = String(version ?? '').trim()
+  return normalized && normalized !== '0.0.0-dev' ? normalized : previewDevelopmentVersion
+}
+
+function helpCommandNames(plugin: PluginSummary) {
+  const names = new Set<string>()
+  for (const group of plugin.help?.groups ?? []) {
+    for (const item of group.items) {
+      const name = normalizeMenuLookup(item.command)
+      if (name) {
+        names.add(name)
+      }
+    }
+  }
+  return names
+}
+
+function isCommandCoveredByHelp(command: PluginCommandSummary, helpCommands: Set<string>) {
+  if (helpCommands.size === 0) {
+    return false
+  }
+  const names = [command.name, command.declaration_id, ...(command.aliases ?? [])]
+  return names.some((name) => helpCommands.has(normalizeMenuLookup(name)))
+}
+
+function normalizeMenuLookup(value?: string | null) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function commandUsageArgs(commandName?: string | null, usage?: string | null) {
+  const command = String(commandName ?? '').trim()
+  let value = String(usage ?? '').trim()
+  if (!command || !value) {
+    return ''
+  }
+  if (['/', '#', '*'].includes(value[0])) {
+    value = value.slice(1).trim()
+  }
+  if (value === command) {
+    return ''
+  }
+  if (value.startsWith(command)) {
+    return value.slice(command.length).trim()
+  }
+  return ''
 }
 
 function patchBuiltinMenuConfig(source: ConfigDocument) {

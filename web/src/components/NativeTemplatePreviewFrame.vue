@@ -344,12 +344,13 @@ function renderCard(item: unknown) {
 
 function renderCommandUsage(payload: PreviewRecord) {
   const name = value(payload.name, value(payload.title))
+  const usageArgs = value(payload.usage_args)
   const prefixes = stringList(payload.command_prefixes)
   if (!name || prefixes.length === 0) {
     return ''
   }
   return `<div class="command-usage" aria-label="指令示意">
-        <code><span class="command-usage__prefix-group" aria-label="可用前缀">${prefixes.map((prefix) => `<span class="command-usage__prefix">${escapeHtml(prefix)}</span>`).join('')}</span><span class="command-usage__name">${escapeHtml(name)}</span></code>
+        <code><span class="command-usage__prefix-group" aria-label="可用前缀">${prefixes.map((prefix) => `<span class="command-usage__prefix">${escapeHtml(prefix)}</span>`).join('')}</span><span class="command-usage__text"><span class="command-usage__name">${escapeHtml(name)}</span>${usageArgs ? ` <span class="command-usage__args">${escapeHtml(usageArgs)}</span>` : ''}</span></code>
       </div>`
 }
 

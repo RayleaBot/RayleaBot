@@ -451,10 +451,19 @@ h1 {
   line-height: 1;
 }
 
-.command-usage__name {
+.command-usage__text {
   display: inline-block;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.command-usage__name {
+  display: inline;
+}
+
+.command-usage__args {
+  display: inline;
+  color: var(--color-text-muted);
 }
 
 .command-permission--everyone {

@@ -29,6 +29,11 @@ type builtinMenuRequest struct {
 	Command string
 }
 
+type builtinMenuRenderData struct {
+	Data   map[string]any
+	Plugin *render.PluginContext
+}
+
 func (s *eventIngressService) handleBuiltinMenu(ctx context.Context, event adapter.NormalizedEvent) bool {
 	request := s.matchBuiltinMenu(event)
 	if !request.Matched {
@@ -38,12 +43,12 @@ func (s *eventIngressService) handleBuiltinMenu(ctx context.Context, event adapt
 		return true
 	}
 
-	data := s.buildBuiltinMenuData(event, request.Target)
-	if len(data) == 0 {
+	payload := s.buildBuiltinMenuData(event, request.Target)
+	if len(payload.Data) == 0 {
 		return true
 	}
 
-	result, err := s.renderBuiltinMenu(ctx, data)
+	result, err := s.renderBuiltinMenu(ctx, payload)
 	if err != nil || strings.TrimSpace(result.ImagePath) == "" {
 		s.logBuiltinMenuError(err)
 		s.sendBuiltinMenuText(ctx, event, builtinMenuFallback)
@@ -163,7 +168,7 @@ func sanitizeMenuTokens(values []string) []string {
 	return items
 }
 
-func (s *eventIngressService) buildBuiltinMenuData(event adapter.NormalizedEvent, target string) map[string]any {
+func (s *eventIngressService) buildBuiltinMenuData(event adapter.NormalizedEvent, target string) builtinMenuRenderData {
 	items := s.visibleBuiltinMenuItems(event)
 	runtimeEvent := runtimeEventFromAdapter(event)
 	cfg := config.Config{}
@@ -172,11 +177,18 @@ func (s *eventIngressService) buildBuiltinMenuData(event adapter.NormalizedEvent
 	}
 	if target != "" {
 		if item, ok := findBuiltinMenuItem(items, target); ok {
-			return s.withBuiltinMenuIdentity(builtinPluginMenuData(item, cfg), runtimeEvent)
+			data := s.withBuiltinMenuIdentity(builtinPluginMenuData(item, cfg), runtimeEvent)
+			return builtinMenuRenderData{
+				Data: data,
+				Plugin: &render.PluginContext{
+					Name:    stringValueFromMap(item, "plugin_name"),
+					Version: stringValueFromMap(item, "plugin_version"),
+				},
+			}
 		}
-		return nil
+		return builtinMenuRenderData{}
 	}
-	return s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)
+	return builtinMenuRenderData{Data: s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)}
 }
 
 func (s *eventIngressService) visibleBuiltinMenuItems(event adapter.NormalizedEvent) []map[string]any {
@@ -202,10 +214,12 @@ func (s *eventIngressService) visibleBuiltinMenuItems(event adapter.NormalizedEv
 			continue
 		}
 		item := map[string]any{
-			"id":          view.ID,
-			"name":        view.Name,
-			"description": view.Description,
-			"commands":    buildBuiltinCommands(commands, cfg),
+			"id":             view.ID,
+			"name":           view.Name,
+			"plugin_name":    view.Name,
+			"plugin_version": view.Version,
+			"description":    view.Description,
+			"commands":       buildBuiltinCommands(commands, cfg),
 		}
 		if help != nil {
 			item["help"] = buildBuiltinHelp(help)
@@ -362,6 +376,9 @@ func buildBuiltinHelp(help *plugins.HelpView) map[string]any {
 			}
 			if commandName != "" {
 				entry["command_name"] = commandName
+				if usageArgs := builtinCommandUsageArgs(commandName, item.Usage); usageArgs != "" {
+					entry["usage_args"] = usageArgs
+				}
 			}
 			entry["permission_label"] = builtinMenuPermissionLabel(stringValueFromMap(entry, "permission"))
 			items = append(items, entry)
@@ -445,24 +462,70 @@ func builtinPluginMenuData(item map[string]any, cfg config.Config) map[string]an
 	subtitle := stringValueFromMap(item, "description")
 	commands, _ := item["commands"].([]map[string]any)
 	groups := make([]map[string]any, 0, 2)
+	helpGroups := []map[string]any{}
+	if help, ok := item["help"].(map[string]any); ok {
+		commands = builtinCommandsNotCoveredByHelp(commands, builtinHelpCommandNames(help))
+		help = applyBuiltinHelpCommandPrefixes(help, cfg)
+		if values, ok := help["groups"].([]map[string]any); ok {
+			helpGroups = values
+		}
+	}
 	if len(commands) > 0 {
 		groups = append(groups, map[string]any{
 			"title": "命令",
 			"items": commands,
 		})
 	}
-	if help, ok := item["help"].(map[string]any); ok {
-		help = applyBuiltinHelpCommandPrefixes(help, cfg)
-		if helpGroups, ok := help["groups"].([]map[string]any); ok {
-			groups = append(groups, helpGroups...)
-		}
-	}
+	groups = append(groups, helpGroups...)
 	return map[string]any{
 		"title":            title,
 		"subtitle":         subtitle,
+		"plugin_name":      stringValueFromMap(item, "plugin_name"),
+		"plugin_version":   stringValueFromMap(item, "plugin_version"),
 		"command_prefixes": builtinMenuPrefixes(cfg),
 		"groups":           groups,
 	}
+}
+
+func builtinCommandsNotCoveredByHelp(commands []map[string]any, helpCommandNames map[string]struct{}) []map[string]any {
+	if len(commands) == 0 || len(helpCommandNames) == 0 {
+		return commands
+	}
+	items := make([]map[string]any, 0, len(commands))
+	for _, commandItem := range commands {
+		if builtinCommandCoveredByHelp(commandItem, helpCommandNames) {
+			continue
+		}
+		items = append(items, commandItem)
+	}
+	return items
+}
+
+func builtinCommandCoveredByHelp(commandItem map[string]any, helpCommandNames map[string]struct{}) bool {
+	for _, value := range append([]string{
+		stringValueFromMap(commandItem, "name"),
+		stringValueFromMap(commandItem, "declaration_id"),
+	}, stringSliceFromMap(commandItem, "aliases")...) {
+		if _, ok := helpCommandNames[normalizeMenuLookup(value)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func builtinHelpCommandNames(help map[string]any) map[string]struct{} {
+	names := map[string]struct{}{}
+	groups, _ := help["groups"].([]map[string]any)
+	for _, group := range groups {
+		items, _ := group["items"].([]map[string]any)
+		for _, item := range items {
+			name := normalizeMenuLookup(stringValueFromMap(item, "command_name"))
+			if name != "" {
+				names[name] = struct{}{}
+			}
+		}
+	}
+	return names
 }
 
 func findBuiltinMenuItem(items []map[string]any, target string) (map[string]any, bool) {
@@ -509,6 +572,24 @@ func addBuiltinMenuCommandToken(tokens map[string]struct{}, value string) {
 		return
 	}
 	tokens[value] = struct{}{}
+}
+
+func builtinCommandUsageArgs(commandName string, usage string) string {
+	commandName = strings.TrimSpace(commandName)
+	usage = strings.TrimSpace(usage)
+	if commandName == "" || usage == "" {
+		return ""
+	}
+	if strings.HasPrefix(usage, "/") || strings.HasPrefix(usage, "#") || strings.HasPrefix(usage, "*") {
+		usage = strings.TrimSpace(usage[1:])
+	}
+	if usage == commandName {
+		return ""
+	}
+	if strings.HasPrefix(usage, commandName) {
+		return strings.TrimSpace(strings.TrimPrefix(usage, commandName))
+	}
+	return ""
 }
 
 func builtinMenuCallerPermissionRank(cfg config.Config, event runtime.Event) int {
@@ -595,18 +676,20 @@ func builtinMenuPermissionLabel(level string) string {
 	}
 }
 
-func (s *eventIngressService) renderBuiltinMenu(ctx context.Context, data map[string]any) (render.Result, error) {
+func (s *eventIngressService) renderBuiltinMenu(ctx context.Context, payload builtinMenuRenderData) (render.Result, error) {
 	if s == nil || s.renderer == nil {
 		return render.Result{}, fmt.Errorf("render service is not available")
 	}
 	renderCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	plugin := payload.Plugin
+	if plugin == nil {
+		plugin = &render.PluginContext{Name: "RayleaBot"}
+	}
 	return s.renderer.Render(renderCtx, render.Request{
 		Template: builtinMenuTemplateID,
-		Data:     data,
-		Plugin: &render.PluginContext{
-			Name: "RayleaBot",
-		},
+		Data:     payload.Data,
+		Plugin:   plugin,
 	})
 }
 

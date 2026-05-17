@@ -16,6 +16,7 @@ import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 import type { ConfigDocument, ConfigUpdateResponse, PluginSummary } from '@/types/api'
 
 const nativeMenuPreviewFooter = 'Created By RayleaBot 开发版本 & Plugin RayleaBot 开发版本'
+const weatherMenuPreviewFooter = 'Created By RayleaBot 开发版本 & Plugin Weather 1.2.3'
 
 vi.mock('@/adapter/feedback', () => ({
   notifySuccess: vi.fn(),
@@ -78,6 +79,7 @@ describe('MenuCenterView', () => {
       createPlugin({
         id: 'weather',
         name: 'Weather',
+        version: '1.2.3',
         commands: [
           {
             name: 'weather',
@@ -197,24 +199,30 @@ describe('MenuCenterView', () => {
       title: 'Weather',
       subtitle: '天气菜单',
       command_prefixes: ['/'],
-      render_footer: nativeMenuPreviewFooter,
-      groups: expect.arrayContaining([
+      render_footer: weatherMenuPreviewFooter,
+      groups: [
         expect.objectContaining({
-          title: '命令',
+          title: '查询',
           items: [
             expect.objectContaining({
               name: 'weather',
               command_prefixes: ['/'],
+              usage_args: '上海',
             }),
           ],
         }),
-      ]),
+      ],
     })
+    expect(pluginPreviewPayload(wrapper).groups.some((group: { title: string }) => group.title === '命令')).toBe(false)
     expect(pluginPreviewPayload(wrapper)).not.toHaveProperty('trigger_examples')
     expect(pluginPreviewPayload(wrapper).groups[0].items[0]).not.toHaveProperty('usage')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__prefix">/</span>')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('weather')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__text')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-usage__args">上海</span>')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('Plugin Weather 1.2.3')
+    expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('Plugin RayleaBot 开发版本')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('card__header')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).toContain('command-permission')
     expect(pluginPreviewFrame(wrapper).attributes('srcdoc')).not.toContain('card__footer')
@@ -245,7 +253,10 @@ describe('MenuCenterView', () => {
     expect(pluginPreviewPayload(wrapper).groups[0].items[0]).toMatchObject({
       command_prefixes: ['#', '*'],
       name: 'weather',
+      usage_args: '上海',
     })
+    expect(pluginPreviewPayload(wrapper).groups[0].title).toBe('查询')
+    expect(pluginPreviewPayload(wrapper).groups.some((group: { title: string }) => group.title === '命令')).toBe(false)
     expect(pluginPreviewPayload(wrapper).groups[0].items[0]).not.toHaveProperty('usage')
     const pluginPreviewSrcdoc = pluginPreviewFrame(wrapper).attributes('srcdoc')
     expect(pluginPreviewSrcdoc).toContain('command-usage__prefix-group')
@@ -260,12 +271,13 @@ describe('MenuCenterView', () => {
       expect(usage.querySelector('.command-usage__prefix-group')?.textContent).toContain('#')
       expect(usage.querySelector('.command-usage__prefix-group')?.textContent).toContain('*')
       expect(usage.querySelectorAll('.command-usage__name')).toHaveLength(1)
+      expect(usage.querySelector('.command-usage__args')?.textContent).toBe('上海')
+      expect(usage.querySelector('.command-usage__text')?.textContent).toBe('weather 上海')
     }
     expect(pluginPreviewSrcdoc).not.toContain('</span><span class="command-usage__name">weather</span></code><code>')
     expect(pluginPreviewSrcdoc).not.toContain('command-title__prefixes')
     expect(pluginPreviewSrcdoc).not.toContain('#/weather')
     expect(pluginPreviewSrcdoc).not.toContain('*weather')
-    expect(pluginPreviewSrcdoc).not.toContain('/weather 上海')
     expect(wrapper.find('.menu-center-layout').exists()).toBe(true)
     expect(wrapper.findAll('.menu-preview-card')).toHaveLength(2)
     expect(wrapper.find('.menu-preview-item').exists()).toBe(false)

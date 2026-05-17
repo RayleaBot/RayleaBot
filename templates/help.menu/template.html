@@ -107,7 +107,9 @@
                 <span class="command-usage__prefix-group" aria-label="可用前缀">
                   {{ range .command_prefixes }}<span class="command-usage__prefix">{{ . }}</span>{{ end }}
                 </span>
-                <span class="command-usage__name">{{ $commandName }}</span>
+                <span class="command-usage__text">
+                  <span class="command-usage__name">{{ $commandName }}</span>{{ if .usage_args }} <span class="command-usage__args">{{ .usage_args }}</span>{{ end }}
+                </span>
               </code>
             </div>
             {{ end }}

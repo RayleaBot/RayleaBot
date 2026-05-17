@@ -79,6 +79,9 @@
           "usage": {
             "type": "string"
           },
+          "usage_args": {
+            "type": "string"
+          },
           "command_prefixes": {
             "type": "array",
             "items": {
@@ -125,6 +128,9 @@
                   "minLength": 1
                 },
                 "usage": {
+                  "type": "string"
+                },
+                "usage_args": {
                   "type": "string"
                 },
                 "command_prefixes": {
