@@ -352,12 +352,16 @@ func buildBuiltinHelp(help *plugins.HelpView) map[string]any {
 	for _, group := range help.Groups {
 		items := make([]map[string]any, 0, len(group.Items))
 		for _, item := range group.Items {
+			commandName := strings.TrimSpace(item.Command)
 			entry := map[string]any{
-				"name":        firstBuiltinMenuText(item.Command, item.Title),
+				"name":        firstBuiltinMenuText(commandName, item.Title),
 				"title":       item.Title,
 				"description": firstBuiltinMenuText(item.Description, item.Title, item.Command),
 				"usage":       item.Usage,
 				"permission":  builtinMenuEffectiveHelpPermission(item.Permission),
+			}
+			if commandName != "" {
+				entry["command_name"] = commandName
 			}
 			entry["permission_label"] = builtinMenuPermissionLabel(stringValueFromMap(entry, "permission"))
 			items = append(items, entry)
@@ -381,11 +385,12 @@ func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map
 	for _, group := range groups {
 		items, _ := group["items"].([]map[string]any)
 		for _, item := range items {
-			if strings.TrimSpace(stringValueFromMap(item, "name")) == "" {
+			if strings.TrimSpace(stringValueFromMap(item, "command_name")) == "" {
 				continue
 			}
 			item["command_prefixes"] = append([]string(nil), prefixes...)
 			delete(item, "usage")
+			delete(item, "command_name")
 		}
 	}
 	return help

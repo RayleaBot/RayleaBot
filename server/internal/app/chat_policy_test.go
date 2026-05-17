@@ -1234,6 +1234,58 @@ func TestBuiltinPluginMenuDataUsesMenuPrefixesWithoutTriggerExamples(t *testing.
 	}
 }
 
+func TestBuiltinPluginMenuDataDoesNotTreatHelpTitleAsCommand(t *testing.T) {
+	t.Parallel()
+
+	data := builtinPluginMenuData(map[string]any{
+		"id":          "subscription-hub",
+		"name":        "订阅中心",
+		"description": "订阅平台内容并推送更新",
+		"help": buildBuiltinHelp(&plugins.HelpView{
+			Groups: []plugins.HelpGroupView{{
+				Title: "说明",
+				Items: []plugins.HelpItemView{{
+					Title:       "订阅管理说明",
+					Description: "说明当前订阅配置。",
+					Permission:  "group_admin",
+				}, {
+					Title:       "查看状态",
+					Description: "查看订阅状态。",
+					Command:     "订阅状态",
+					Usage:       "/订阅状态",
+					Permission:  "everyone",
+				}},
+			}},
+		}),
+	}, config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
+			Prefixes: []string{"#", "*"},
+		}},
+	})
+
+	groups, ok := data["groups"].([]map[string]any)
+	if !ok || len(groups) != 1 {
+		t.Fatalf("unexpected plugin menu groups: %#v", data["groups"])
+	}
+	items, ok := groups[0]["items"].([]map[string]any)
+	if !ok || len(items) != 2 {
+		t.Fatalf("unexpected help items: %#v", groups[0]["items"])
+	}
+	if _, ok := items[0]["command_prefixes"]; ok {
+		t.Fatalf("non-command help item should not include command prefixes: %#v", items[0])
+	}
+	if got := items[1]["command_prefixes"]; !reflect.DeepEqual(got, []string{"#", "*"}) {
+		t.Fatalf("command help item prefixes = %#v, want [# *]", got)
+	}
+	if _, ok := items[1]["usage"]; ok {
+		t.Fatalf("command help item should not include usage: %#v", items[1])
+	}
+	if _, ok := items[1]["command_name"]; ok {
+		t.Fatalf("command_name should not leak into render data: %#v", items[1])
+	}
+}
+
 func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsSingleUsage(t *testing.T) {
 	t.Parallel()
 
