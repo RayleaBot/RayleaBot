@@ -33,19 +33,20 @@ type errorBody struct {
 }
 
 type pluginSummaryResponse struct {
-	ID                string                       `json:"id"`
-	Name              string                       `json:"name"`
-	Role              string                       `json:"role"`
-	RegistrationState string                       `json:"registration_state"`
-	DesiredState      string                       `json:"desired_state"`
-	RuntimeState      string                       `json:"runtime_state"`
-	DisplayState      string                       `json:"display_state"`
-	Source            pluginSourceResponse         `json:"source"`
-	Trust             pluginTrustResponse          `json:"trust"`
-	Commands          []pluginCommandResponse      `json:"commands"`
-	Help              pluginHelpResponse           `json:"help"`
-	CommandConflicts  []string                     `json:"command_conflicts"`
-	DeadLetter        *pluginDeadLetterResponse    `json:"dead_letter,omitempty"`
+	ID                string                    `json:"id"`
+	Name              string                    `json:"name"`
+	Version           string                    `json:"version,omitempty"`
+	Role              string                    `json:"role"`
+	RegistrationState string                    `json:"registration_state"`
+	DesiredState      string                    `json:"desired_state"`
+	RuntimeState      string                    `json:"runtime_state"`
+	DisplayState      string                    `json:"display_state"`
+	Source            pluginSourceResponse      `json:"source"`
+	Trust             pluginTrustResponse       `json:"trust"`
+	Commands          []pluginCommandResponse   `json:"commands"`
+	Help              pluginHelpResponse        `json:"help"`
+	CommandConflicts  []string                  `json:"command_conflicts"`
+	DeadLetter        *pluginDeadLetterResponse `json:"dead_letter,omitempty"`
 }
 
 type pluginDeadLetterResponse struct {
@@ -888,6 +889,7 @@ func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryRespons
 	return pluginSummaryResponse{
 		ID:                snapshot.PluginID,
 		Name:              pluginDisplayName(snapshot),
+		Version:           strings.TrimSpace(snapshot.Version),
 		Role:              role,
 		RegistrationState: snapshot.RegistrationState,
 		DesiredState:      snapshot.DesiredState,

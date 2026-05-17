@@ -50,6 +50,7 @@ type TrustView struct {
 type SummaryView struct {
 	ID                string
 	Name              string
+	Version           string
 	Description       string
 	Role              string
 	RegistrationState string
@@ -116,6 +117,7 @@ func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {
 	return SummaryView{
 		ID:                snapshot.PluginID,
 		Name:              summaryViewDisplayName(snapshot),
+		Version:           strings.TrimSpace(snapshot.Version),
 		Description:       strings.TrimSpace(snapshot.Description),
 		Role:              role,
 		RegistrationState: snapshot.RegistrationState,

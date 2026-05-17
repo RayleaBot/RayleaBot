@@ -10,6 +10,7 @@ response:
     items:
       - id: weather
         name: Weather
+        version: "1.2.3"
         role: builtin
         registration_state: installed
         desired_state: enabled
@@ -44,6 +45,7 @@ response:
         command_conflicts: []
       - id: fortune
         name: Fortune
+        version: "0.1.0"
         role: user
         registration_state: installed
         desired_state: enabled

@@ -83,6 +83,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     const nextPlugin: PluginSummary = {
       id: plugin.id,
       name: plugin.name ?? previous?.name ?? plugin.id,
+      version: plugin.version ?? previous?.version,
       role: plugin.role ?? previous?.role ?? 'user',
       registration_state: plugin.registration_state,
       desired_state: plugin.desired_state,

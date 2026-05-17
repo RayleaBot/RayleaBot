@@ -10,6 +10,7 @@ response:
     items:
       - id: weather
         name: Weather
+        version: "1.2.3"
         role: user
         registration_state: installed
         desired_state: enabled
@@ -35,6 +36,7 @@ response:
           - weather
       - id: weather-admin
         name: Weather Admin
+        version: "0.2.0"
         role: dev
         registration_state: installed
         desired_state: enabled

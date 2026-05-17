@@ -1335,6 +1335,7 @@ export interface components {
         PluginSummary: {
             id: string;
             name: string;
+            version?: string;
             role: components["schemas"]["PluginRole"];
             registration_state: components["schemas"]["PluginRegistrationState"];
             desired_state: components["schemas"]["PluginDesiredState"];

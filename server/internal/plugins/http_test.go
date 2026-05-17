@@ -91,6 +91,41 @@ func decodeErrorEnvelope(t fataler, body []byte) errorEnvelope {
 	return env
 }
 
+func TestListHandler_ReturnsPluginVersion(t *testing.T) {
+	t.Parallel()
+
+	catalog := NewCatalog([]Snapshot{{
+		PluginID:          "weather",
+		Name:              "Weather",
+		Version:           "1.2.3",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+	}})
+	router := chi.NewRouter()
+	router.Get("/api/plugins", newListHandler(catalog))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/plugins", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+	var resp pluginListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(resp.Items))
+	}
+	if got := resp.Items[0].Version; got != "1.2.3" {
+		t.Fatalf("version = %q, want 1.2.3", got)
+	}
+}
+
 // --- Property-Based Tests ---
 
 // Feature: plugin-write-api, Property 1: 安装任务创建 round-trip
@@ -1352,7 +1387,6 @@ func TestListGrantsHandler_ReturnsBuiltinAutoGrant(t *testing.T) {
 		})
 	}
 }
-
 
 // TestRecoverFromDeadLetterHandler_Success verifies the recover endpoint
 // returns the plugin detail snapshot when the controller succeeds.

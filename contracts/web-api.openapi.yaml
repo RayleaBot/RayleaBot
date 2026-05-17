@@ -2606,6 +2606,8 @@ components:
           type: string
         name:
           type: string
+        version:
+          type: string
         role:
           $ref: '#/components/schemas/PluginRole'
         registration_state:

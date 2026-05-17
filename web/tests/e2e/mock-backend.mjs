@@ -584,7 +584,7 @@ function createExampleConfigPanelPlugin() {
 }
 
 function toPluginSummary(plugin) {
-  return {
+  const summary = {
     id: plugin.id,
     name: plugin.name,
     role: plugin.role,
@@ -597,6 +597,10 @@ function toPluginSummary(plugin) {
     commands: structuredClone(plugin.commands ?? []),
     command_conflicts: structuredClone(plugin.command_conflicts ?? []),
   }
+  if (plugin.version) {
+    summary.version = plugin.version
+  }
+  return summary
 }
 
 function pluginListBody() {
