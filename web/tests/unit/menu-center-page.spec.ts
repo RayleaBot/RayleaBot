@@ -339,6 +339,9 @@ describe('MenuCenterView', () => {
     expect(preview).not.toContain('../fortune.card/assets/fonts/lxgwwenkai-medium/result.css')
     expect(preview).not.toContain('../fortune.card/assets/fonts/lxgw-wenkai-medium/result.css')
     expect(preview).toContain('../fortune.card/assets/fonts/lxgw-wenkai-bold/lxgw-wenkai-bold.ttf')
+    expect(preview).toContain('--text-base: 16px')
+    expect(preview).toContain('--text-3xl:  46px')
+    expect(preview).toMatch(/\.command-usage code\s*\{[\s\S]*font-size: 14px/)
   })
 })
 
