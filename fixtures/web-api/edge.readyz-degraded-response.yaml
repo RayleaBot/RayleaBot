@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: Readyz degraded response surfaces recovery compatibility work while keeping adapter warnings visible.
+description: Readyz degraded response surfaces recovery compatibility work.
 request:
   method: GET
   path: /readyz
@@ -15,13 +15,12 @@ response:
       config: ok
       database: ok
       runtime: ok
-      adapter: auth_failed
       render: ok
     issues:
-      - code: adapter.auth_failed
+      - code: recovery.plugin_min_core_version
         severity: warning
-        summary: OneBot authentication failed
-        remediation: 请检查对应连接方式的访问令牌后重试连接。
+        summary: 插件 weather-pro 需要更高版本的 RayleaBot core。
+        remediation: 升级程序或安装与当前版本兼容的插件包后，再手动重新启用该插件。
     recovery_summary:
       status: degraded
       phase: post_startup

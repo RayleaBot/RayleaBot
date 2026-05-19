@@ -1066,7 +1066,6 @@ export interface components {
                 config?: string;
                 database?: string;
                 runtime?: string;
-                adapter?: string;
                 render?: string;
             };
             issues?: components["schemas"]["DiagnosticIssue"][];

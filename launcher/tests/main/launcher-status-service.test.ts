@@ -132,10 +132,10 @@ describe("launcher status service", () => {
       status: "degraded",
       issues: [
         {
-          code: "adapter.connection_pending",
+          code: "platform.resource_missing",
           severity: "warning",
-          summary: "OneBot 正在建立连接",
-          remediation: "请稍后重试。",
+          summary: "运行环境尚未准备完成。",
+          remediation: "请准备缺失的运行环境资源。",
         },
       ],
     };
@@ -144,7 +144,7 @@ describe("launcher status service", () => {
     await degradedHarness.statusService.refresh(false);
 
     expect(deriveLauncherPresentation(degradedHarness.snapshotStore.snapshot).state).toBe("degraded");
-    expect(deriveLauncherPresentation(degradedHarness.snapshotStore.snapshot).detail).toBe("OneBot 正在建立连接");
+    expect(deriveLauncherPresentation(degradedHarness.snapshotStore.snapshot).detail).toBe("运行环境尚未准备完成。");
   });
 
   test("refresh preserves setup_required and shutting_down semantics", async () => {

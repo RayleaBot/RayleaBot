@@ -47,8 +47,8 @@ describe('socket frame router', () => {
       data: {
         service_status: 'degraded',
         summary: '服务运行条件受限',
-        reason: 'OneBot 正在建立连接',
-        reason_codes: ['adapter.connection_pending'],
+        reason: '运行环境尚未准备完成。',
+        reason_codes: ['platform.resource_missing'],
       },
     })
     router.handleEventsFrame({
@@ -58,8 +58,8 @@ describe('socket frame router', () => {
       data: {
         service_status: 'degraded',
         summary: '服务运行条件受限',
-        reason: 'OneBot 正在建立连接',
-        reason_codes: ['adapter.connection_pending'],
+        reason: '运行环境尚未准备完成。',
+        reason_codes: ['platform.resource_missing'],
       },
     })
 

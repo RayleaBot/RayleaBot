@@ -8,17 +8,18 @@ const snapshot: LauncherSnapshot = createLauncherSnapshot({
     health: { status: "ok" },
     readiness: {
       status: "degraded",
-      reason: "OneBot 正在建立连接",
-      reason_codes: ["adapter.connection_pending"],
+      reason: "Python 运行环境元数据不完整。",
+      reason_codes: ["platform.resource_missing"],
       checks: {
-        adapter: "connecting",
+        runtime: "resource_missing",
+        render: "ok",
       },
       issues: [
         {
-          code: "adapter.connection_pending",
+          code: "platform.resource_missing",
           severity: "warning",
-          summary: "OneBot 正在建立连接",
-          remediation: "请稍后重试，或检查上游服务是否可达。",
+          summary: "Python 运行环境元数据不完整。",
+          remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境资源。",
         },
       ],
     },
@@ -54,9 +55,9 @@ describe("buildDiagnosticsSummary", () => {
 
     expect(summary).toContain("服务端状态：");
     expect(summary).toContain("readyz：degraded");
-    expect(summary).toContain("原因：OneBot 正在建立连接");
-    expect(summary).toContain("原因代码：adapter.connection_pending");
-    expect(summary).toContain("adapter.connection_pending：OneBot 正在建立连接");
-    expect(summary).toContain("adapter：connecting");
+    expect(summary).toContain("原因：Python 运行环境元数据不完整。");
+    expect(summary).toContain("原因代码：platform.resource_missing");
+    expect(summary).toContain("platform.resource_missing：Python 运行环境元数据不完整。");
+    expect(summary).toContain("runtime：resource_missing");
   });
 });

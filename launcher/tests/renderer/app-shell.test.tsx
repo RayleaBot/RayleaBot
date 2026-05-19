@@ -172,48 +172,48 @@ describe("AppShell", () => {
           ...snapshot.server,
           health: { status: "ok" },
           readiness: {
-          status: "degraded",
-          reason: "OneBot 正在建立连接",
-          reason_codes: ["adapter.connection_pending"],
-          checks: {
-            adapter: "connecting",
-          },
-          issues: [
-            {
-              code: "adapter.connection_pending",
-              severity: "warning",
-              summary: "OneBot 正在建立连接",
-              remediation: "请稍后重试，或检查上游服务是否可达。",
+            status: "degraded",
+            reason: "Python 运行环境元数据不完整。",
+            reason_codes: ["platform.resource_missing"],
+            checks: {
+              runtime: "resource_missing",
             },
-          ],
-        },
+            issues: [
+              {
+                code: "platform.resource_missing",
+                severity: "warning",
+                summary: "Python 运行环境元数据不完整。",
+                remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境资源。",
+              },
+            ],
+          },
         },
         launcher: {
           ...snapshot.launcher,
           processLifecycle: "running",
           processOwnership: "launcher_managed",
           environmentChecks: [
-          {
-            scope: "advisory",
-            code: "runtime.python_managed_ready",
-            title: "Python 运行环境准备",
-            severity: "warning",
-            summary: "依赖 Python 运行环境的功能暂不可用。",
-            detail: "当前平台的 Python 运行环境缺少本地可用资源。",
-            remediation: "请联网准备运行环境，或按正式目录结构手动预置资源。",
-          },
-        ],
+            {
+              scope: "advisory",
+              code: "runtime.python_managed_ready",
+              title: "Python 运行环境准备",
+              severity: "warning",
+              summary: "依赖 Python 运行环境的功能暂不可用。",
+              detail: "当前平台的 Python 运行环境缺少本地可用资源。",
+              remediation: "请联网准备运行环境，或按正式目录结构手动预置资源。",
+            },
+          ],
         },
       },
     });
 
     expect(screen.getAllByText("运行条件受限").length).toBeGreaterThan(0);
     expect(screen.getByText("当前限制")).toBeInTheDocument();
-    expect(screen.getAllByText("OneBot 正在建立连接").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Python 运行环境元数据不完整。").length).toBeGreaterThan(0);
     expect(screen.getByText("处理提示")).toBeInTheDocument();
-    expect(screen.getAllByText(/请稍后重试，或检查上游服务是否可达/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/请在 \.deps\/manifest\.json 中补齐当前平台 Python 运行环境资源。/).length).toBeGreaterThan(0);
     expect(screen.getByText("服务诊断")).toBeInTheDocument();
-    expect(screen.getAllByText("adapter.connection_pending").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("platform.resource_missing").length).toBeGreaterThan(0);
   });
 
   test("shows startup preparation detail instead of constrained wording while the service is starting", () => {

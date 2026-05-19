@@ -11,18 +11,17 @@ const snapshot: LauncherSnapshot = createLauncherSnapshot({
     health: { status: "ok" },
     readiness: {
       status: "degraded",
-      reason: "OneBot 正在建立连接",
-      reason_codes: ["adapter.connection_pending"],
+      reason: "Python 运行环境元数据不完整。",
+      reason_codes: ["platform.resource_missing"],
       checks: {
-        adapter: "connecting",
         runtime: "ok",
       },
       issues: [
         {
-          code: "adapter.connection_pending",
+          code: "platform.resource_missing",
           severity: "warning",
-          summary: "OneBot 正在建立连接",
-          remediation: "请稍后重试，或检查上游服务是否可达。",
+          summary: "Python 运行环境元数据不完整。",
+          remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境资源。",
         },
       ],
     },
@@ -109,11 +108,11 @@ describe("AppShellStatusSection", () => {
     renderSection();
 
     expect(screen.getByText("当前限制")).toBeInTheDocument();
-    expect(screen.getAllByText("OneBot 正在建立连接").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Python 运行环境元数据不完整。").length).toBeGreaterThan(0);
     expect(screen.getByText("服务诊断")).toBeInTheDocument();
     expect(screen.getByText("原因代码")).toBeInTheDocument();
-    expect(screen.getAllByText("adapter.connection_pending").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("请稍后重试，或检查上游服务是否可达。").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("platform.resource_missing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("请在 .deps/manifest.json 中补齐当前平台 Python 运行环境资源。").length).toBeGreaterThan(0);
     expect(screen.queryByText("当前没有阻塞异常。")).toBeNull();
     expect(screen.getByText("stderr line")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重启服务" })).toBeInTheDocument();

@@ -302,23 +302,18 @@ describe("launcher coordinator", () => {
     expect(presentationState(coordinator.snapshot).state).toBe("running");
   });
 
-  test("initialize keeps the launcher in running state when /readyz only carries adapter warnings", async () => {
+  test("initialize keeps the launcher in running state when /readyz is ready", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
     managementClient.readiness = {
       status: "ready",
       checks: {
-        adapter: "reconnecting",
+        config: "ok",
+        database: "ok",
+        runtime: "ok",
+        render: "ok",
       },
-      issues: [
-        {
-          code: "adapter.connection_lost",
-          severity: "warning",
-          summary: "OneBot reverse WebSocket is reconnecting",
-          remediation: "请检查 OneBot 服务可用性，或等待连接自动恢复。",
-        },
-      ],
     };
 
     const coordinator = createLauncherCoordinator({
@@ -336,8 +331,8 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(presentationState(coordinator.snapshot).state).toBe("running");
-    expect(presentationState(coordinator.snapshot).detail).toBe("OneBot reverse WebSocket is reconnecting");
-    expect(coordinator.snapshot.server.readiness?.issues?.[0]?.summary).toBe("OneBot reverse WebSocket is reconnecting");
+    expect(coordinator.snapshot.server.readiness?.checks?.runtime).toBe("ok");
+    expect(coordinator.snapshot.server.readiness?.checks).not.toHaveProperty("adapter");
   });
 
   test("initialize falls back to the first readiness issue when degraded has no reason", async () => {
@@ -347,14 +342,15 @@ describe("launcher coordinator", () => {
     managementClient.readiness = {
       status: "degraded",
       checks: {
-        adapter: "connecting",
+        runtime: "resource_missing",
+        render: "ok",
       },
       issues: [
         {
-          code: "adapter.connection_pending",
+          code: "deps.python_runtime_metadata_incomplete",
           severity: "warning",
-          summary: "OneBot 正在建立连接",
-          remediation: "请稍后重试，或检查上游服务是否可达。",
+          summary: "Python 运行环境元数据不完整。",
+          remediation: "请在 .deps/manifest.json 中补齐当前平台 Python 运行环境的 archive_format、entrypoints、来源列表与 sha256。",
         },
       ],
     };
@@ -374,11 +370,11 @@ describe("launcher coordinator", () => {
     await coordinator.initialize();
 
     expect(presentationState(coordinator.snapshot).state).toBe("degraded");
-    expect(presentationState(coordinator.snapshot).detail).toBe("OneBot 正在建立连接");
-    expect(coordinator.snapshot.server.readiness?.issues?.[0]?.code).toBe("adapter.connection_pending");
+    expect(presentationState(coordinator.snapshot).detail).toBe("Python 运行环境元数据不完整。");
+    expect(coordinator.snapshot.server.readiness?.issues?.[0]?.code).toBe("deps.python_runtime_metadata_incomplete");
   });
 
-  test("initialize auto-refreshes degraded readiness after protocol recovery", async () => {
+  test("initialize auto-refreshes degraded readiness after runtime recovery", async () => {
     const settingsStore = new FakeSettingsStore();
     const endpointResolver = new FakeEndpointResolver();
     const managementClient = new FakeManagementClient();
@@ -388,10 +384,10 @@ describe("launcher coordinator", () => {
       status: "degraded",
       issues: [
         {
-          code: "adapter.connection_pending",
+          code: "platform.resource_missing",
           severity: "warning",
-          summary: "OneBot 正在建立连接",
-          remediation: "请稍后重试。",
+          summary: "运行环境尚未准备完成。",
+          remediation: "请准备缺失的运行环境资源。",
         },
       ],
     };

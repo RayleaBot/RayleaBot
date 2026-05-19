@@ -1944,8 +1944,6 @@ components:
               type: string
             runtime:
               type: string
-            adapter:
-              type: string
             render:
               type: string
         issues:
