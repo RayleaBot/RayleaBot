@@ -1376,6 +1376,18 @@ textarea:focus-visible,
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   overflow-anchor: none;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.data-viewport__scroller.is-measurements-settled {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-viewport__scroller {
+    transition: none;
+  }
 }
 
 .data-viewport__canvas {

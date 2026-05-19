@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineComponent, h, markRaw, nextTick, onBeforeUnmount, onMounted, ref, resolveDynamicComponent, watch } from 'vue'
+import { computed, defineComponent, h, markRaw, nextTick, onBeforeUnmount, onMounted, provide, readonly, ref, resolveDynamicComponent, watch } from 'vue'
 import type { Component as VueComponent } from 'vue'
 import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteRecordRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
@@ -40,6 +40,7 @@ import { adminRoutes } from '@/router/routes/modules/admin'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
+import { PAGE_TRANSITION_STAGE_KEY, type PageTransitionStage } from '@/layouts/usePageTransitionStage'
 
 const route = useRoute()
 const router = useRouter()
@@ -116,6 +117,31 @@ const effectiveTransitionName = computed(() => {
 
   return preferences.value.pageTransition === 'fade' ? 'route-fade' : 'route-fade-slide'
 })
+
+const skipPageTransitionStage = computed(() => (
+  preferences.value.pageTransition === 'none' || reducedMotion.value
+))
+const internalPageTransitionStage = ref<PageTransitionStage>('idle')
+const pageTransitionStage = computed<PageTransitionStage>(() => (
+  skipPageTransitionStage.value ? 'idle' : internalPageTransitionStage.value
+))
+provide(PAGE_TRANSITION_STAGE_KEY, readonly(pageTransitionStage))
+
+function handlePageTransitionBeforeEnter() {
+  if (skipPageTransitionStage.value) {
+    internalPageTransitionStage.value = 'idle'
+    return
+  }
+  internalPageTransitionStage.value = 'entering'
+}
+
+function handlePageTransitionAfterEnter() {
+  internalPageTransitionStage.value = 'idle'
+}
+
+function handlePageTransitionEnterCancelled() {
+  internalPageTransitionStage.value = 'idle'
+}
 const currentRouteViewName = computed(() => resolveRouteViewIdentity(route))
 const routeStageRegistry = new Map<string, VueComponent>()
 const breadcrumbItems = computed<AppBreadcrumbItem[]>(() => {
@@ -1115,7 +1141,13 @@ onBeforeUnmount(() => {
         />
 
         <RouterView v-slot="{ route: currentViewRoute }">
-          <Transition :name="effectiveTransitionName" mode="out-in">
+          <Transition
+            :name="effectiveTransitionName"
+            mode="out-in"
+            @before-enter="handlePageTransitionBeforeEnter"
+            @after-enter="handlePageTransitionAfterEnter"
+            @enter-cancelled="handlePageTransitionEnterCancelled"
+          >
             <KeepAlive :include="effectiveCachedViewNames">
               <component
                 :is="getRouteStageComponent(currentViewRoute)"

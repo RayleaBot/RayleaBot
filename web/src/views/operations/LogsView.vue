@@ -23,6 +23,7 @@ import { usePluginsStore } from '@/stores/plugins'
 import type { LogFilters } from '@/stores/log-state'
 import type { LogLevel, LogSummary, PluginSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
+import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
 const LOG_ROW_ESTIMATED_HEIGHT = 80
 
@@ -84,6 +85,22 @@ const pluginOptions = computed(() => {
 })
 
 const followBottom = computed(() => atBottom.value)
+const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
+
+function whenReadyToRenderHeavyContent(): Promise<void> {
+  if (readyToRenderHeavyContent.value) {
+    return Promise.resolve()
+  }
+
+  return new Promise<void>((resolve) => {
+    const stop = watch(readyToRenderHeavyContent, (value) => {
+      if (value) {
+        stop()
+        resolve()
+      }
+    })
+  })
+}
 
 function sameFilterValues(left: string[], right: string[]) {
   const normalizedLeft = [...left].sort((a, b) => a.localeCompare(b, 'zh-CN'))
@@ -182,6 +199,7 @@ async function activatePage() {
     followOnNextActivation = null
     try {
       await syncFromRoute()
+      await whenReadyToRenderHeavyContent()
       await nextTick()
       if (followBottom.value) {
         logsStore.acknowledgePendingNew()
@@ -203,6 +221,7 @@ async function refreshLatest() {
   try {
     await logsStore.refreshLatest()
     await replaceRouteState()
+    await whenReadyToRenderHeavyContent()
     await nextTick()
     if (followBottom.value) {
       viewportRef.value?.scrollToBottom()
@@ -217,6 +236,7 @@ async function applyFilters() {
     logsStore.setViewportAtBottom(true)
     await logsStore.applyFilters()
     await replaceRouteState(null)
+    await whenReadyToRenderHeavyContent()
     await nextTick()
     viewportRef.value?.scrollToBottom()
   } catch {
@@ -239,6 +259,7 @@ async function loadOlder() {
 async function jumpToLatest() {
   logsStore.acknowledgePendingNew()
   logsStore.setViewportAtBottom(true)
+  await whenReadyToRenderHeavyContent()
   await nextTick()
   viewportRef.value?.scrollToBottom()
 }
@@ -305,7 +326,6 @@ onUnmounted(() => {
       <a-card
         :bordered="false"
         class="app-view-card logs-toolbar"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
       >
         <a-form layout="vertical" class="logs-filter-grid">
           <a-form-item :label="t('logs.filters.level')">
@@ -368,7 +388,6 @@ onUnmounted(() => {
       <a-card
         :bordered="false"
         class="logs-feed-card"
-        v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 50 } } }"
       >
         <template #title>
           <div class="logs-feed-card__title">
@@ -380,7 +399,13 @@ onUnmounted(() => {
         </template>
 
         <div class="logs-feed-card__body">
+          <a-skeleton
+            v-if="!readyToRenderHeavyContent"
+            active
+            :paragraph="{ rows: 6 }"
+          />
           <VirtualDataViewport
+            v-else
             ref="viewportRef"
             :items="items"
             :item-height="LOG_ROW_ESTIMATED_HEIGHT"

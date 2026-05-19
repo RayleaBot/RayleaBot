@@ -34,6 +34,8 @@ const emit = defineEmits<{
 const scrollerRef = ref<HTMLElement | null>(null)
 const scrollTop = ref(0)
 const measuredViewportHeight = ref<number | null>(null)
+const measurementsSettled = ref(!props.dynamicItemHeight)
+let measurementsSettledToken = 0
 let lastAtBottom = true
 let topReachArmed = false
 let followBottomPausedByUser = false
@@ -400,6 +402,44 @@ function measureVisibleDynamicRows() {
   })
 }
 
+async function settleDynamicMeasurements() {
+  if (measurementsSettled.value) {
+    return
+  }
+
+  if (!props.dynamicItemHeight) {
+    measurementsSettled.value = true
+    return
+  }
+
+  const token = ++measurementsSettledToken
+  await nextTick()
+  if (token !== measurementsSettledToken) {
+    return
+  }
+
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    measurementsSettled.value = true
+    return
+  }
+
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve())
+  })
+  if (token !== measurementsSettledToken) {
+    return
+  }
+
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve())
+  })
+  if (token !== measurementsSettledToken) {
+    return
+  }
+
+  measurementsSettled.value = true
+}
+
 async function syncScrollerLifecycle() {
   await nextTick()
 
@@ -540,14 +580,17 @@ onMounted(() => {
   previousFirstKey = firstItemKey()
   previousLastKey = lastItemKey()
   void syncScrollerLifecycle()
+  void settleDynamicMeasurements()
 })
 
 onActivated(() => {
   void syncScrollerLifecycle()
+  void settleDynamicMeasurements()
 })
 
 onBeforeUnmount(() => {
   pendingPrependedAnchorRestoreToken += 1
+  measurementsSettledToken += 1
   clearPendingProgrammaticScrollReset()
 })
 
@@ -583,6 +626,7 @@ defineExpose({
       v-else
       ref="scrollerRef"
       class="data-viewport__scroller"
+      :class="{ 'is-measurements-settled': measurementsSettled }"
       :style="viewportStyle"
       @scroll="handleScroll"
       @wheel.passive="handleWheel"

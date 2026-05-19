@@ -22,6 +22,7 @@ import { usePluginsStore } from '@/stores/plugins'
 import type { LogFilters } from '@/stores/log-state'
 import type { LogLevel, LogSummary, PluginSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
+import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
 const LOG_ROW_ESTIMATED_HEIGHT = 80
 
@@ -49,7 +50,23 @@ const viewportRef = ref<{
 } | null>(null)
 const autoFollowBottom = ref(false)
 const routeSyncing = ref(false)
+const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
 let activatePageTask: Promise<void> | null = null
+
+function whenReadyToRenderHeavyContent(): Promise<void> {
+  if (readyToRenderHeavyContent.value) {
+    return Promise.resolve()
+  }
+
+  return new Promise<void>((resolve) => {
+    const stop = watch(readyToRenderHeavyContent, (value) => {
+      if (value) {
+        stop()
+        resolve()
+      }
+    })
+  })
+}
 
 const {
   error,
@@ -162,6 +179,7 @@ async function syncViewportAfterRender() {
   }
 
   autoFollowBottom.value = true
+  await whenReadyToRenderHeavyContent()
   await nextTick()
   await waitForAnimationFrame()
   viewportRef.value?.scrollToBottom()
@@ -436,7 +454,13 @@ onBeforeUnmount(() => {
           </div>
         </template>
 
+        <a-skeleton
+          v-if="!readyToRenderHeavyContent"
+          active
+          :paragraph="{ rows: 6 }"
+        />
         <VirtualDataViewport
+          v-if="readyToRenderHeavyContent"
           ref="viewportRef"
           :items="items"
           :item-height="LOG_ROW_ESTIMATED_HEIGHT"

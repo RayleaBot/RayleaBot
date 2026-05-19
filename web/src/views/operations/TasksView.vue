@@ -17,6 +17,7 @@ import { buildPluginDetailLocation, buildTaskContextActions, buildTaskLocation }
 import { t } from '@/i18n'
 import type { RecoveryCompatibilitySummary, TaskSummary } from '@/types/api'
 import { useTasksStore } from '@/stores/tasks'
+import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +26,7 @@ const { cancelPending, currentTask, detailLoading, error, loading, sortedItems }
 const detailVisible = ref(false)
 const previewImageSrc = ref('')
 const hasRequestedTasks = ref(false)
+const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
 let previewImageLoadVersion = 0
 let previewWatcherActive = true
 
@@ -230,8 +232,12 @@ function getStatusColor(status: string) {
       </a-button>
     </template>
 
+    <a-card v-if="!readyToRenderHeavyContent" class="tasks-empty-card" :bordered="false">
+      <a-skeleton active :paragraph="{ rows: 4 }" />
+    </a-card>
+
     <RetryPanel
-      v-if="error && sortedItems.length === 0"
+      v-else-if="error && sortedItems.length === 0"
       :title="t('errors.common.loadFailed')"
       :description="error"
       :loading="loading"
@@ -254,7 +260,6 @@ function getStatusColor(status: string) {
     <a-table
       v-else
       class="tasks-data-table app-data-table"
-      v-motion="{ initial: { opacity: 0, y: 12 }, enter: { opacity: 1, y: 0, transition: { duration: 300, delay: 0 } } }"
       :columns="tableColumns"
       :data-source="sortedItems"
       :pagination="false"
