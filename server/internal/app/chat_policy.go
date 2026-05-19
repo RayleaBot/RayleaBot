@@ -9,6 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -136,6 +137,7 @@ type eventIngressService struct {
 	outboundSender    outboundActionSender
 	outboundLimiter   outbound.MessageLimiter
 	renderer          *render.Service
+	menu              *menuext.Service
 	bridge            *bridge.Bridge
 	lifecycle         *pluginLifecycleController
 	metadataEnricher  eventMetadataEnricher
@@ -161,6 +163,7 @@ func newEventIngressService(deps eventIngressDeps) *eventIngressService {
 		outboundSender:   deps.outboundSender,
 		outboundLimiter:  deps.outboundLimiter,
 		renderer:         deps.renderer,
+		menu:             deps.menu,
 		bridge:           deps.bridge,
 		lifecycle:        deps.lifecycle,
 		metadataEnricher: deps.metadataEnricher,
@@ -274,7 +277,7 @@ func (s *eventIngressService) commandPolicyContextForEvent(event adapter.Normali
 			}
 		}
 	}
-	if s != nil && s.state != nil && s.matchBuiltinMenu(event).Matched {
+	if s != nil && s.menu != nil && s.menu.Match(event).Matched {
 		context.MatchedPluginIDs = nil
 		requiredLevel = "everyone"
 	}

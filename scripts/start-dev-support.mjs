@@ -5,11 +5,13 @@ import path from "node:path";
 export const WEB_DEV_PROFILE = "web-dev";
 export const BUILD_PROFILE = "build";
 export const LAUNCHER_DEV_PROFILE = "launcher-dev";
+export const SERVER_RELOAD_AIR = "air";
 export const WEB_DEV_PORT = 4173;
 export const WEB_DEV_BASE_URL = `http://127.0.0.1:${WEB_DEV_PORT}/`;
 
 const VALID_PROFILES = new Set([WEB_DEV_PROFILE, BUILD_PROFILE, LAUNCHER_DEV_PROFILE]);
 const VALID_INSTALL_MODES = new Set(["auto", "always", "skip"]);
+const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_AIR]);
 const WILDCARD_HOSTS = new Set(["", "*", "0.0.0.0", "::", "[::]"]);
 const INSTALL_MARKER_NAME = ".rayleabot-start-install.stamp";
 
@@ -33,6 +35,14 @@ export function resolveInstallMode(env = process.env) {
   const mode = env.RAYLEA_START_INSTALL?.trim().toLowerCase() || "auto";
   if (!VALID_INSTALL_MODES.has(mode)) {
     throw new Error(`Unsupported RAYLEA_START_INSTALL: ${env.RAYLEA_START_INSTALL}`);
+  }
+  return mode;
+}
+
+export function resolveServerReloadMode(env = process.env) {
+  const mode = env.RAYLEA_SERVER_RELOAD?.trim().toLowerCase() || "";
+  if (!VALID_SERVER_RELOAD_MODES.has(mode)) {
+    throw new Error(`Unsupported RAYLEA_SERVER_RELOAD: ${env.RAYLEA_SERVER_RELOAD}`);
   }
   return mode;
 }

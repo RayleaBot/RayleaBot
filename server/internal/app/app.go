@@ -14,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -272,6 +273,19 @@ func New(options Options) (*App, error) {
 		webhooks:         pluginState.webhooks,
 		onRecoveryChange: systemService.ReconcileRecoverySummaryBestEffort,
 	})
+	menuService := menuext.New(menuext.Deps{
+		CurrentConfig: func() config.Config { return state.Config },
+		Plugins:       pluginState.Plugins,
+		Renderer:      pluginState.renderer,
+		Sender:        pluginState.outboundSender,
+		WaitOutbound: func(ctx context.Context, request outbound.MessageLimitRequest) error {
+			if pluginState.outboundLimiter == nil {
+				return nil
+			}
+			return pluginState.outboundLimiter.Wait(ctx, request)
+		},
+		Logger: state.Logger,
+	})
 	eventIngress := newEventIngressService(eventIngressDeps{
 		state:            state,
 		plugins:          pluginState.Plugins,
@@ -279,6 +293,7 @@ func New(options Options) (*App, error) {
 		outboundSender:   pluginState.outboundSender,
 		outboundLimiter:  pluginState.outboundLimiter,
 		renderer:         pluginState.renderer,
+		menu:             menuService,
 		bridge:           pluginState.Bridge,
 		lifecycle:        lifecycle,
 		metadataEnricher: pluginState.Adapter,

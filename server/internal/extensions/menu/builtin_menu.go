@@ -1,8 +1,9 @@
-package app
+package menu
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -22,7 +23,30 @@ const (
 	builtinMenuFallback   = "菜单生成失败，请稍后重试。"
 )
 
-type builtinMenuRequest struct {
+type Sender interface {
+	SendMessage(context.Context, adapter.OutboundMessageSend) (adapter.SendMessageResult, error)
+	SendReply(context.Context, adapter.OutboundMessageReply) (adapter.SendMessageResult, error)
+}
+
+type Deps struct {
+	CurrentConfig func() config.Config
+	Plugins       *plugins.Catalog
+	Renderer      *render.Service
+	Sender        Sender
+	WaitOutbound  func(context.Context, outbound.MessageLimitRequest) error
+	Logger        *slog.Logger
+}
+
+type Service struct {
+	currentConfig func() config.Config
+	plugins       *plugins.Catalog
+	renderer      *render.Service
+	sender        Sender
+	waitOutbound  func(context.Context, outbound.MessageLimitRequest) error
+	logger        *slog.Logger
+}
+
+type Request struct {
 	Matched bool
 	Target  string
 	Prefix  string
@@ -34,12 +58,23 @@ type builtinMenuRenderData struct {
 	Plugin *render.PluginContext
 }
 
-func (s *eventIngressService) handleBuiltinMenu(ctx context.Context, event adapter.NormalizedEvent) bool {
-	request := s.matchBuiltinMenu(event)
+func New(deps Deps) *Service {
+	return &Service{
+		currentConfig: deps.CurrentConfig,
+		plugins:       deps.Plugins,
+		renderer:      deps.Renderer,
+		sender:        deps.Sender,
+		waitOutbound:  deps.WaitOutbound,
+		logger:        deps.Logger,
+	}
+}
+
+func (s *Service) Handle(ctx context.Context, event adapter.NormalizedEvent) bool {
+	request := s.Match(event)
 	if !request.Matched {
 		return false
 	}
-	if s.outboundSender == nil {
+	if s.sender == nil {
 		return true
 	}
 
@@ -59,22 +94,22 @@ func (s *eventIngressService) handleBuiltinMenu(ctx context.Context, event adapt
 	return true
 }
 
-func (s *eventIngressService) matchBuiltinMenu(event adapter.NormalizedEvent) builtinMenuRequest {
-	if s == nil || s.state == nil || strings.TrimSpace(event.PlainText) == "" {
-		return builtinMenuRequest{}
+func (s *Service) Match(event adapter.NormalizedEvent) Request {
+	if s == nil || strings.TrimSpace(event.PlainText) == "" {
+		return Request{}
 	}
-	cfg := s.state.Config
+	cfg := s.config()
 	prefixes := builtinMenuPrefixes(cfg)
 	commands := builtinMenuCommands(cfg)
 	parsed := command.NewParser(prefixes).Parse(event.PlainText)
 	if !parsed.IsCommand {
-		return builtinMenuRequest{}
+		return Request{}
 	}
 
 	commandName := strings.TrimSpace(parsed.Command)
 	for _, name := range commands {
 		if commandName == name {
-			return builtinMenuRequest{
+			return Request{
 				Matched: true,
 				Target:  strings.TrimSpace(strings.Join(parsed.Args, " ")),
 				Prefix:  parsed.Prefix,
@@ -87,7 +122,7 @@ func (s *eventIngressService) matchBuiltinMenu(event adapter.NormalizedEvent) bu
 				if s.hasExactPluginCommand(commandName) {
 					continue
 				}
-				return builtinMenuRequest{
+				return Request{
 					Matched: true,
 					Target:  target,
 					Prefix:  parsed.Prefix,
@@ -96,10 +131,10 @@ func (s *eventIngressService) matchBuiltinMenu(event adapter.NormalizedEvent) bu
 			}
 		}
 	}
-	return builtinMenuRequest{}
+	return Request{}
 }
 
-func (s *eventIngressService) hasExactPluginCommand(commandName string) bool {
+func (s *Service) hasExactPluginCommand(commandName string) bool {
 	commandName = strings.TrimSpace(commandName)
 	if commandName == "" || s == nil || s.plugins == nil {
 		return false
@@ -117,23 +152,11 @@ func (s *eventIngressService) hasExactPluginCommand(commandName string) bool {
 	return false
 }
 
-func (s *eventIngressService) isBuiltinMenuCommand(commandName string) bool {
-	if s == nil || s.state == nil {
-		return false
+func (s *Service) config() config.Config {
+	if s == nil || s.currentConfig == nil {
+		return config.Config{}
 	}
-	commandName = strings.TrimSpace(commandName)
-	if commandName == "" {
-		return false
-	}
-	for _, value := range builtinMenuCommands(s.state.Config) {
-		if commandName == value {
-			return true
-		}
-		if strings.HasSuffix(commandName, value) && strings.TrimSpace(strings.TrimSuffix(commandName, value)) != "" {
-			return true
-		}
-	}
-	return false
+	return s.currentConfig()
 }
 
 func builtinMenuPrefixes(cfg config.Config) []string {
@@ -141,6 +164,33 @@ func builtinMenuPrefixes(cfg config.Config) []string {
 		return sanitizeCommandPrefixes(cfg.Builtin.Menu.Prefixes)
 	}
 	return runtimeCommandPrefixes(cfg)
+}
+
+func runtimeCommandPrefixes(cfg config.Config) []string {
+	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
+		return sanitizeCommandPrefixes(cfg.Command.Prefixes)
+	}
+	return []string{"/"}
+}
+
+func sanitizeCommandPrefixes(prefixes []string) []string {
+	items := make([]string, 0, len(prefixes))
+	seen := make(map[string]struct{}, len(prefixes))
+	for _, prefix := range prefixes {
+		prefix = strings.TrimSpace(prefix)
+		if prefix == "" {
+			continue
+		}
+		if _, ok := seen[prefix]; ok {
+			continue
+		}
+		seen[prefix] = struct{}{}
+		items = append(items, prefix)
+	}
+	if len(items) == 0 {
+		return []string{"/"}
+	}
+	return items
 }
 
 func builtinMenuCommands(cfg config.Config) []string {
@@ -168,13 +218,28 @@ func sanitizeMenuTokens(values []string) []string {
 	return items
 }
 
-func (s *eventIngressService) buildBuiltinMenuData(event adapter.NormalizedEvent, target string) builtinMenuRenderData {
+func pluginParticipatesInCommandPolicy(snapshot plugins.Snapshot) bool {
+	return snapshot.Valid &&
+		snapshot.RegistrationState == "installed" &&
+		snapshot.DesiredState == "enabled"
+}
+
+func commandMatches(command plugins.Command, commandName string) bool {
+	if strings.TrimSpace(command.Name) == commandName {
+		return true
+	}
+	for _, alias := range command.Aliases {
+		if strings.TrimSpace(alias) == commandName {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) buildBuiltinMenuData(event adapter.NormalizedEvent, target string) builtinMenuRenderData {
 	items := s.visibleBuiltinMenuItems(event)
 	runtimeEvent := runtimeEventFromAdapter(event)
-	cfg := config.Config{}
-	if s != nil && s.state != nil {
-		cfg = s.state.Config
-	}
+	cfg := s.config()
 	if target != "" {
 		if item, ok := findBuiltinMenuItem(items, target); ok {
 			data := s.withBuiltinMenuIdentity(builtinPluginMenuData(item, cfg), runtimeEvent)
@@ -191,15 +256,12 @@ func (s *eventIngressService) buildBuiltinMenuData(event adapter.NormalizedEvent
 	return builtinMenuRenderData{Data: s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)}
 }
 
-func (s *eventIngressService) visibleBuiltinMenuItems(event adapter.NormalizedEvent) []map[string]any {
+func (s *Service) visibleBuiltinMenuItems(event adapter.NormalizedEvent) []map[string]any {
 	if s == nil || s.plugins == nil {
 		return []map[string]any{}
 	}
 	runtimeEvent := runtimeEventFromAdapter(event)
-	cfg := config.Config{}
-	if s.state != nil {
-		cfg = s.state.Config
-	}
+	cfg := s.config()
 	snapshots := s.plugins.List()
 	conflicts := plugins.DetectCommandConflicts(snapshots)
 	items := make([]map[string]any, 0, len(snapshots))
@@ -261,14 +323,11 @@ func runtimeEventFromAdapter(event adapter.NormalizedEvent) runtime.Event {
 	return result
 }
 
-func (s *eventIngressService) withBuiltinMenuIdentity(data map[string]any, event runtime.Event) map[string]any {
+func (s *Service) withBuiltinMenuIdentity(data map[string]any, event runtime.Event) map[string]any {
 	if data == nil {
 		data = map[string]any{}
 	}
-	cfg := config.Config{}
-	if s != nil && s.state != nil {
-		cfg = s.state.Config
-	}
+	cfg := s.config()
 	identity := localaction.RenderIdentityData(cfg, event)
 	data["user"] = identity.User
 	data["permission"] = identity.Permission
@@ -676,7 +735,7 @@ func builtinMenuPermissionLabel(level string) string {
 	}
 }
 
-func (s *eventIngressService) renderBuiltinMenu(ctx context.Context, payload builtinMenuRenderData) (render.Result, error) {
+func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRenderData) (render.Result, error) {
 	if s == nil || s.renderer == nil {
 		return render.Result{}, fmt.Errorf("render service is not available")
 	}
@@ -693,7 +752,7 @@ func (s *eventIngressService) renderBuiltinMenu(ctx context.Context, payload bui
 	})
 }
 
-func (s *eventIngressService) sendBuiltinMenuImage(ctx context.Context, event adapter.NormalizedEvent, imagePath string) {
+func (s *Service) sendBuiltinMenuImage(ctx context.Context, event adapter.NormalizedEvent, imagePath string) {
 	segments := []adapter.OutboundMessageSegment{{
 		Type: "image",
 		Data: map[string]any{"file": imagePath},
@@ -701,7 +760,7 @@ func (s *eventIngressService) sendBuiltinMenuImage(ctx context.Context, event ad
 	s.sendBuiltinMenuSegments(ctx, event, segments)
 }
 
-func (s *eventIngressService) sendBuiltinMenuText(ctx context.Context, event adapter.NormalizedEvent, text string) {
+func (s *Service) sendBuiltinMenuText(ctx context.Context, event adapter.NormalizedEvent, text string) {
 	segments := []adapter.OutboundMessageSegment{{
 		Type: "text",
 		Data: map[string]any{"text": text},
@@ -709,8 +768,8 @@ func (s *eventIngressService) sendBuiltinMenuText(ctx context.Context, event ada
 	s.sendBuiltinMenuSegments(ctx, event, segments)
 }
 
-func (s *eventIngressService) sendBuiltinMenuSegments(ctx context.Context, event adapter.NormalizedEvent, segments []adapter.OutboundMessageSegment) {
-	if s == nil || s.outboundSender == nil {
+func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event adapter.NormalizedEvent, segments []adapter.OutboundMessageSegment) {
+	if s == nil || s.sender == nil {
 		return
 	}
 	if ctx == nil {
@@ -724,7 +783,7 @@ func (s *eventIngressService) sendBuiltinMenuSegments(ctx context.Context, event
 	if targetType != "group" && targetType != "private" {
 		return
 	}
-	if err := s.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
+	if err := s.waitLimit(ctx, outbound.MessageLimitRequest{
 		TargetType: targetType,
 		TargetID:   targetID,
 	}); err != nil {
@@ -734,7 +793,7 @@ func (s *eventIngressService) sendBuiltinMenuSegments(ctx context.Context, event
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if targetType == "group" && strings.TrimSpace(event.MessageID) != "" {
-		_, err := s.outboundSender.SendReply(sendCtx, adapter.OutboundMessageReply{
+		_, err := s.sender.SendReply(sendCtx, adapter.OutboundMessageReply{
 			TargetType:       targetType,
 			TargetID:         targetID,
 			ReplyToMessageID: strings.TrimSpace(event.MessageID),
@@ -743,7 +802,7 @@ func (s *eventIngressService) sendBuiltinMenuSegments(ctx context.Context, event
 		s.logBuiltinMenuError(err)
 		return
 	}
-	_, err := s.outboundSender.SendMessage(sendCtx, adapter.OutboundMessageSend{
+	_, err := s.sender.SendMessage(sendCtx, adapter.OutboundMessageSend{
 		TargetType: targetType,
 		TargetID:   targetID,
 		Segments:   segments,
@@ -751,11 +810,18 @@ func (s *eventIngressService) sendBuiltinMenuSegments(ctx context.Context, event
 	s.logBuiltinMenuError(err)
 }
 
-func (s *eventIngressService) logBuiltinMenuError(err error) {
-	if err == nil || s == nil || s.state == nil || s.state.Logger == nil {
+func (s *Service) waitLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
+	if s == nil || s.waitOutbound == nil {
+		return nil
+	}
+	return s.waitOutbound(ctx, request)
+}
+
+func (s *Service) logBuiltinMenuError(err error) {
+	if err == nil || s == nil || s.logger == nil {
 		return
 	}
-	s.state.Logger.Warn("builtin menu response failed", "component", "app", "error", err)
+	s.logger.Warn("builtin menu response failed", "component", "app", "error", err)
 }
 
 func stringValueFromMap(item map[string]any, key string) string {

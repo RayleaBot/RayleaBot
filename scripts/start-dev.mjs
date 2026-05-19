@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   BUILD_PROFILE,
   LAUNCHER_DEV_PROFILE,
+  SERVER_RELOAD_AIR,
   WEB_DEV_BASE_URL,
   WEB_DEV_PORT,
   WEB_DEV_PROFILE,
@@ -15,6 +16,7 @@ import {
   markDependenciesInstalled,
   resolveBackendBaseUrl,
   resolveInstallMode,
+  resolveServerReloadMode,
   resolveStartProfile,
   shouldInstallDependencies,
 } from "./start-dev-support.mjs";
@@ -27,6 +29,7 @@ const launcherDir = path.join(rootDir, "launcher");
 const logDir = path.join(rootDir, "logs", "dev");
 const webDevLogPath = path.join(logDir, "web-dev.log");
 const launcherLogPath = path.join(logDir, "launcher.log");
+const serverDevLogPath = path.join(logDir, "server-dev.log");
 const startLogPath = path.join(logDir, "start.log");
 const longRunningChildren = new Set();
 let startLog;
@@ -56,8 +59,9 @@ try {
 async function main() {
   const profile = resolveStartProfile(process.env);
   const installMode = resolveInstallMode(process.env);
+  const serverReloadMode = resolveServerReloadMode(process.env);
 
-  log(`启动配置：profile=${profile} install=${installMode}`);
+  log(`启动配置：profile=${profile} install=${installMode} server_reload=${serverReloadMode || "off"}`);
 
   if (profile === BUILD_PROFILE) {
     await runBuildProfile({ installMode });
@@ -69,11 +73,11 @@ async function main() {
   log(`后端地址：${backendBaseUrl}`);
 
   if (profile === WEB_DEV_PROFILE) {
-    await runWebDevProfile({ installMode, devEnvironment });
+    await runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl });
     return;
   }
   if (profile === LAUNCHER_DEV_PROFILE) {
-    await runLauncherDevProfile({ installMode, devEnvironment });
+    await runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl });
     return;
   }
 
@@ -97,9 +101,9 @@ async function runBuildProfile({ installMode }) {
   });
 }
 
-async function runWebDevProfile({ installMode, devEnvironment }) {
+async function runWebDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl }) {
   await ensureDependencies("Web", webDir, installMode);
-  await buildServer();
+  await ensureServerRuntime({ serverReloadMode, backendBaseUrl });
   await ensureWebDevServer(devEnvironment);
   await ensureDependencies("Launcher", launcherDir, installMode);
   await buildLauncherApp();
@@ -114,9 +118,9 @@ async function runWebDevProfile({ installMode, devEnvironment }) {
   });
 }
 
-async function runLauncherDevProfile({ installMode, devEnvironment }) {
+async function runLauncherDevProfile({ installMode, devEnvironment, serverReloadMode, backendBaseUrl }) {
   await ensureDependencies("Web", webDir, installMode);
-  await buildServer();
+  await ensureServerRuntime({ serverReloadMode, backendBaseUrl });
   await ensureWebDevServer(devEnvironment);
   await ensureDependencies("Launcher", launcherDir, installMode);
   if (shouldSkipLaunch()) {
@@ -134,6 +138,69 @@ async function buildServer() {
   await runCommand("构建 Server", "go", ["build", "-o", "raylea-server.exe", "./cmd/raylea-server"], {
     cwd: serverDir,
   });
+}
+
+async function ensureServerRuntime({ serverReloadMode, backendBaseUrl }) {
+  if (serverReloadMode === SERVER_RELOAD_AIR) {
+    await startServerAir(backendBaseUrl);
+    return;
+  }
+  await buildServer();
+}
+
+async function startServerAir(backendBaseUrl) {
+  log("启动 Server 热重载：Air");
+  await fsp.rm(path.join(serverDir, "tmp", "raylea-server-dev.exe"), { force: true });
+  const child = spawnManaged("go", ["tool", "air", "-c", ".air.toml"], {
+    cwd: serverDir,
+    logPath: serverDevLogPath,
+  });
+  await waitForServerAir(child, backendBaseUrl);
+}
+
+async function waitForServerAir(child, backendBaseUrl) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error("Server 热重载进程已退出。");
+    }
+    try {
+      await fsp.access(path.join(serverDir, "tmp", "raylea-server-dev.exe"));
+      if (await isServerHealthy(backendBaseUrl)) {
+        log("Server 热重载已启动。");
+        return;
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw error;
+      }
+    }
+    await delay(500);
+  }
+  throw new Error(`Server 热重载未在 30 秒内完成首次构建，日志见 ${relativePath(serverDevLogPath)}。`);
+}
+
+async function isServerHealthy(backendBaseUrl) {
+  try {
+    const response = await fetchWithTimeout(new URL("healthz", ensureTrailingSlash(backendBaseUrl)).toString(), 800);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function ensureTrailingSlash(value) {
+  return value.endsWith("/") ? value : `${value}/`;
 }
 
 async function buildLauncherApp() {

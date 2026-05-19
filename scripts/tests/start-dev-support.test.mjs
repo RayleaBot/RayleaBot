@@ -8,12 +8,14 @@ import test from "node:test";
 import {
   BUILD_PROFILE,
   LAUNCHER_DEV_PROFILE,
+  SERVER_RELOAD_AIR,
   WEB_DEV_PROFILE,
   classifyWebDevServer,
   createDevEnvironment,
   parseBackendEndpointFromConfigText,
   resolveBackendBaseUrl,
   resolveInstallMode,
+  resolveServerReloadMode,
   resolveStartProfile,
   shouldInstallDependencies,
 } from "../start-dev-support.mjs";
@@ -32,6 +34,13 @@ test("resolves install mode", () => {
   assert.equal(resolveInstallMode({ RAYLEA_START_INSTALL: "always" }), "always");
   assert.equal(resolveInstallMode({ RAYLEA_START_INSTALL: "skip" }), "skip");
   assert.throws(() => resolveInstallMode({ RAYLEA_START_INSTALL: "sometimes" }), /Unsupported/);
+});
+
+test("resolves server reload mode", () => {
+  assert.equal(resolveServerReloadMode({}), "");
+  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "air" }), SERVER_RELOAD_AIR);
+  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: " AIR " }), SERVER_RELOAD_AIR);
+  assert.throws(() => resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "plugin" }), /Unsupported/);
 });
 
 test("parses backend endpoint from user config", () => {

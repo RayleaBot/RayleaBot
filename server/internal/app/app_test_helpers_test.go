@@ -10,9 +10,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginconfig"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginfile"
@@ -56,12 +58,26 @@ func (a *App) setTestEventIngressWithGovernance(catalog *plugins.Catalog, whitel
 	a.blacklistRepo = blacklistRepo
 	a.outboundSender = sender
 	a.bridge = eventBridge
+	menuService := menuext.New(menuext.Deps{
+		CurrentConfig: func() config.Config { return a.state.Config },
+		Plugins:       catalog,
+		Renderer:      a.renderer,
+		Sender:        sender,
+		WaitOutbound: func(ctx context.Context, request outbound.MessageLimitRequest) error {
+			if a.outboundLimiter == nil {
+				return nil
+			}
+			return a.outboundLimiter.Wait(ctx, request)
+		},
+		Logger: a.state.Logger,
+	})
 	a.eventIngress = newEventIngressService(eventIngressDeps{
 		state:            a.state,
 		plugins:          catalog,
 		outboundSender:   sender,
 		outboundLimiter:  a.outboundLimiter,
 		renderer:         a.renderer,
+		menu:             menuService,
 		bridge:           eventBridge,
 		metadataEnricher: a.adapter,
 		whitelistRepo:    whitelistRepo,

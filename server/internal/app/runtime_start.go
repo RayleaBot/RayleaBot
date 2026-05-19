@@ -7,6 +7,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtime"
 )
@@ -30,7 +31,7 @@ func (s *eventIngressService) HandleAdapterEvent(ctx context.Context, event adap
 		return
 	}
 
-	if s.handleBuiltinMenu(ctx, enriched) {
+	if s.menu != nil && s.menu.Handle(ctx, enriched) {
 		return
 	}
 
@@ -99,7 +100,10 @@ func (s *eventIngressService) enrichCommandEvent(event adapter.NormalizedEvent) 
 	}
 
 	parsed := s.commandParser.Parse(event.PlainText)
-	builtinParsed := s.matchBuiltinMenu(event)
+	var builtinParsed menuext.Request
+	if s.menu != nil {
+		builtinParsed = s.menu.Match(event)
+	}
 	if builtinParsed.Matched {
 		parsed = command.ParseResult{
 			IsCommand: true,

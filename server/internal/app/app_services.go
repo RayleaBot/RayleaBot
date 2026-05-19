@@ -14,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/dispatch"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/extensions/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/localaction"
@@ -235,6 +236,7 @@ type eventIngressDeps struct {
 	outboundSender   outboundActionSender
 	outboundLimiter  outbound.MessageLimiter
 	renderer         *render.Service
+	menu             *menuext.Service
 	bridge           *bridge.Bridge
 	lifecycle        *pluginLifecycleController
 	metadataEnricher eventMetadataEnricher
