@@ -123,6 +123,7 @@ describe('LogsPage', () => {
     expect(wrapper.text()).toContain('本次服务端启动以来的日志')
     expect(wrapper.text()).toContain('跟随最新')
     expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewport).props('itemHeight')).toBe(80)
     expect(wrapper.findComponent(VirtualDataViewport).props('bottomThreshold')).toBe(0)
     expect(wrapper.findAll('.logs-row')).toHaveLength(1)
     expect(store.filters.levels).toEqual(['warn', 'error'])
@@ -225,5 +226,26 @@ describe('LogsPage', () => {
     wrapper.unmount()
 
     expect(activeSpy).toHaveBeenCalledWith(false)
+  })
+
+  it('does not prefetch plugin options on mount', async () => {
+    const router = createTestRouter()
+    await router.push('/logs')
+    await router.isReady()
+
+    const pluginsStore = usePluginsStore()
+    const fetchListSpy = vi.spyOn(pluginsStore, 'fetchList')
+    const store = useLogsStore()
+    vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
+
+    mount(LogsPage, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+    expect(fetchListSpy).not.toHaveBeenCalled()
   })
 })

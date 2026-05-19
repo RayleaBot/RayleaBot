@@ -40,21 +40,31 @@ export const usePluginsStore = defineStore('plugins', () => {
   const secretsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
   let detailRequestVersion = 0
+  let listRequest: Promise<void> | null = null
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.id.localeCompare(right.id)))
 
   async function fetchList() {
+    if (listRequest) {
+      return listRequest
+    }
+
     loading.value = true
     error.value = null
-    try {
-      const response = await apiRequest<PluginListResponse>('/api/plugins')
-      items.value = response.items
-    } catch (err) {
-      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-      throw err
-    } finally {
-      loading.value = false
-    }
+    listRequest = (async () => {
+      try {
+        const response = await apiRequest<PluginListResponse>('/api/plugins')
+        items.value = response.items
+      } catch (err) {
+        error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
+        throw err
+      } finally {
+        loading.value = false
+        listRequest = null
+      }
+    })()
+
+    return listRequest
   }
 
   async function fetchDetail(pluginId: string) {

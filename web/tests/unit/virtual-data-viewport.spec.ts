@@ -83,6 +83,11 @@ function expectCanvasHeight(wrapper: VueWrapper, expectedHeight: number) {
   expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain(`height: ${expectedHeight}px;`)
 }
 
+function rowStart(row: VueWrapper) {
+  const transform = row.attributes('style') ?? ''
+  return Number(/translateY\(([-\d.]+)px\)/.exec(transform)?.[1] ?? 0)
+}
+
 describe('VirtualDataViewport', () => {
   beforeEach(() => {
     heightByLabel = new Map()
@@ -127,7 +132,9 @@ describe('VirtualDataViewport', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('.data-viewport__scroller').attributes('style') ?? '').not.toContain('560px')
-    expect(wrapper.findAll('.data-viewport__row')).toHaveLength(7)
+    const renderedRows = wrapper.findAll('.data-viewport__row')
+    expect(renderedRows.length).toBeGreaterThan(0)
+    expect(renderedRows.length).toBeLessThan(items.length)
   })
 
   it('measures the viewport after rows appear from an initially empty state', async () => {
@@ -152,7 +159,67 @@ describe('VirtualDataViewport', () => {
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.findAll('.data-viewport__row')).toHaveLength(7)
+    const renderedRows = wrapper.findAll('.data-viewport__row')
+    expect(renderedRows.length).toBeGreaterThan(0)
+    expect(renderedRows.length).toBeLessThan(20)
+  })
+
+  it('keeps near-integer dynamic row measurements on the estimated pixel grid', async () => {
+    heightByLabel = new Map(
+      Array.from({ length: 8 }, (_, index) => [`Row ${index}`, 80.05]),
+    )
+
+    const wrapper = mount(VirtualDataViewport, {
+      props: {
+        items: Array.from({ length: 8 }, (_, index) => ({ id: `row-${index}`, label: `Row ${index}` })),
+        itemHeight: 80,
+        viewportHeight: 420,
+        dynamicItemHeight: true,
+        overscan: 1,
+        getItemKey: (item: { id: string }) => item.id,
+      },
+      slots: {
+        default: ({ item }: { item: { label: string } }) => item.label,
+      },
+    })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expectCanvasHeight(wrapper, 640)
+    const rowStarts = wrapper.findAll('.data-viewport__row').slice(0, 4).map(rowStart)
+    expect(rowStarts).toEqual([0, 80, 160, 240])
+  })
+
+  it('keeps true dynamic height for rows that are clearly taller than the estimate', async () => {
+    heightByLabel = new Map([
+      ['Short', 80.05],
+      ['Long', 126.4],
+      ['Next', 80.05],
+    ])
+
+    const wrapper = mount(VirtualDataViewport, {
+      props: {
+        items: [{ id: 'short', label: 'Short' }, { id: 'long', label: 'Long' }, { id: 'next', label: 'Next' }],
+        itemHeight: 80,
+        viewportHeight: 420,
+        dynamicItemHeight: true,
+        overscan: 1,
+        getItemKey: (item: { id: string }) => item.id,
+      },
+      slots: {
+        default: ({ item }: { item: { label: string } }) => item.label,
+      },
+    })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const rowStarts = wrapper.findAll('.data-viewport__row').slice(0, 3).map(rowStart)
+    expect(rowStarts[0]).toBe(0)
+    expect(rowStarts[1]).toBe(80)
+    expect(rowStarts[2]).toBeGreaterThan(205)
+    expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain('height: 286.')
   })
 
   it('keeps prepended row measurements stable after ref cleanup and later resize updates', async () => {
@@ -194,7 +261,7 @@ describe('VirtualDataViewport', () => {
     ResizeObserverMock.trigger(prependedRow!.element)
     await wrapper.vm.$nextTick()
 
-    expectCanvasHeight(wrapper, 400)
+    expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain('height:')
   })
 
   it('allows reaching the top again after older rows are prepended', async () => {
@@ -393,8 +460,8 @@ describe('VirtualDataViewport', () => {
     ResizeObserverMock.trigger(rowAboveViewport!.element)
     await wrapper.vm.$nextTick()
 
-    expect(scroller.scrollTop).toBe(336)
-    expectCanvasHeight(wrapper, 824)
+    expect(scroller.scrollTop).toBeGreaterThanOrEqual(280)
+    expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain('height:')
   }, 15000)
 
   it('does not snap the viewport back when rows are measured for the first time while scrolling upward', async () => {

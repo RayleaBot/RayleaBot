@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="T">
-import { computed, nextTick, onActivated, onBeforeUnmount, onBeforeUpdate, onMounted, onUpdated, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useVirtualizer, type Rect, type VirtualItem, type Virtualizer } from '@tanstack/vue-virtual'
 
 interface Props<TItem> {
   items: TItem[]
@@ -30,17 +31,9 @@ const emit = defineEmits<{
   'reach-top': []
 }>()
 
-const scrollTop = ref(0)
 const scrollerRef = ref<HTMLElement | null>(null)
+const scrollTop = ref(0)
 const measuredViewportHeight = ref<number | null>(null)
-const measurementVersion = ref(0)
-let resizeObserver: ResizeObserver | null = null
-let observedScroller: HTMLElement | null = null
-const measuredHeights = new Map<string | number, number>()
-const measuredKeys = new Set<string | number>()
-const rowRefs = new Map<string | number, HTMLElement>()
-const rowElementToKey = new Map<HTMLElement, string | number>()
-const keyToIndexMap = ref(new Map<string | number, number>())
 let lastAtBottom = true
 let topReachArmed = false
 let followBottomPausedByUser = false
@@ -48,18 +41,8 @@ let pendingProgrammaticScrollEvents = 0
 let pendingProgrammaticScrollResetHandle: number | null = null
 let lastProgrammaticScrollTop: number | null = null
 let pendingPrependedAnchorRestoreToken = 0
-let lastRenderedKeys: Array<string | number> = []
-let lastRenderedContentHeight = 0
-let pendingListMutation: {
-  contentHeight: number
-  previousKeys: Array<string | number>
-  scrollHeight: number
-  scrollTop: number
-  atBottom: boolean
-  anchorKey: string | number | null
-  anchorOffset: number
-  anchorViewportOffset: number | null
-} | null = null
+let previousFirstKey = firstItemKey()
+let previousLastKey = lastItemKey()
 
 const viewportStyle = computed(() => {
   if (props.viewportHeight === undefined) {
@@ -90,100 +73,75 @@ const effectiveViewportHeight = computed(() => {
   return 560
 })
 
-const layoutMetrics = computed(() => {
-  measurementVersion.value
+const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => ({
+  count: props.items.length,
+  getScrollElement: () => scrollerRef.value,
+  estimateSize: () => props.itemHeight,
+  initialRect: { width: 0, height: effectiveViewportHeight.value },
+  observeElementRect: observeScrollerRect,
+  overscan: props.overscan,
+  getItemKey: (index) => resolveKey(props.items[index]!, index),
+  measureElement: props.dynamicItemHeight
+    ? (element, entry, instance) => {
+        const fallbackHeight = instance.options.estimateSize(0)
+        if (entry?.borderBoxSize) {
+          const box = entry.borderBoxSize[0]
+          if (box) {
+            return normalizeMeasuredItemHeight(box.blockSize, fallbackHeight)
+          }
+        }
 
-  const heights = new Array<number>(props.items.length)
-  const offsets = new Array<number>(props.items.length)
-  let total = 0
+        const rectHeight = element.getBoundingClientRect().height
+        if (rectHeight > 0) {
+          return normalizeMeasuredItemHeight(rectHeight, fallbackHeight)
+        }
 
-  for (let index = 0; index < props.items.length; index += 1) {
-    const item = props.items[index]
-    const key = resolveKey(item, index)
-    const measuredHeight = props.dynamicItemHeight ? measuredHeights.get(key) : undefined
-    const nextHeight = measuredHeight && measuredHeight > 0 ? measuredHeight : props.itemHeight
-    offsets[index] = total
-    heights[index] = nextHeight
-    total += nextHeight
-  }
+        const measuredHeight = element.offsetHeight || element.scrollHeight
+        return normalizeMeasuredItemHeight(measuredHeight, fallbackHeight)
+      }
+    : undefined,
+  useAnimationFrameWithResizeObserver: props.dynamicItemHeight,
+})))
 
-  return {
-    heights,
-    offsets,
-    totalHeight: total,
-  }
-})
-
-const visibleStartIndex = computed(() => {
-  if (!props.dynamicItemHeight) {
-    return Math.min(props.items.length, Math.floor(scrollTop.value / props.itemHeight))
-  }
-
-  const { heights, offsets } = layoutMetrics.value
-  let low = 0
-  let high = heights.length - 1
-  while (low <= high) {
-    const mid = (low + high) >>> 1
-    const midBottom = offsets[mid]! + heights[mid]!
-    if (midBottom <= scrollTop.value) {
-      low = mid + 1
-    } else {
-      high = mid - 1
-    }
-  }
-  return Math.min(heights.length, low)
-})
-
-const visibleCount = computed(() => {
-  if (!props.dynamicItemHeight) {
-    return Math.max(1, Math.ceil(effectiveViewportHeight.value / props.itemHeight) + props.overscan * 2)
-  }
-
-  const { heights, offsets } = layoutMetrics.value
-  const viewportBottom = scrollTop.value + effectiveViewportHeight.value
-  let visibleRows = 0
-  for (let index = visibleStartIndex.value; index < props.items.length; index += 1) {
-    visibleRows += 1
-    if (offsets[index]! + heights[index]! >= viewportBottom) {
-      break
-    }
-  }
-  return Math.max(1, visibleRows + props.overscan * 2)
-})
-
-const startIndex = computed(() => Math.max(0, visibleStartIndex.value - props.overscan))
-const endIndex = computed(() => Math.min(props.items.length, startIndex.value + visibleCount.value))
-const visibleItems = computed(() => props.items.slice(startIndex.value, endIndex.value))
-const offsetY = computed(() => {
-  if (!props.dynamicItemHeight) {
-    return startIndex.value * props.itemHeight
-  }
-  return layoutMetrics.value.offsets[startIndex.value] ?? 0
-})
-const totalHeight = computed(() => (
-  props.dynamicItemHeight
-    ? layoutMetrics.value.totalHeight
-    : props.items.length * props.itemHeight
+const virtualItems = computed(() => rowVirtualizer.value.getVirtualItems())
+const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
+const visibleRows = computed(() => (
+  virtualItems.value
+    .map((virtualItem) => {
+      const item = props.items[virtualItem.index]
+      return item === undefined ? null : { item, virtualItem }
+    })
+    .filter((row): row is { item: T, virtualItem: VirtualItem } => row !== null)
 ))
 
-function handleScroll(event: Event) {
-  const target = event.target as HTMLElement | null
-  scrollTop.value = target?.scrollTop ?? 0
-  if (target) {
-    const userInitiated = !consumeProgrammaticScrollEvent(target.scrollTop)
-    syncViewportState(target, { userInitiated })
+function normalizeMeasuredItemHeight(nextHeight: number, fallbackHeight: number) {
+  if (!Number.isFinite(nextHeight) || nextHeight <= 0) {
+    return fallbackHeight
   }
+
+  const nearestPixel = Math.round(nextHeight)
+  if (Math.abs(nextHeight - nearestPixel) <= 0.1) {
+    return Math.max(1, nearestPixel)
+  }
+
+  return Math.max(1, nextHeight)
 }
 
-function handleWheel(event: WheelEvent) {
-  if (event.deltaY < 0) {
-    pauseFollowBottomByUser()
-    const scroller = scrollerRef.value
-    if (scroller && scroller.scrollTop <= props.topThreshold && topReachArmed) {
-      topReachArmed = false
-      emit('reach-top')
-    }
+function resolveKey(item: T, index: number) {
+  if (props.getItemKey) {
+    return props.getItemKey(item, index)
   }
+
+  return index
+}
+
+function firstItemKey() {
+  return props.items.length > 0 ? resolveKey(props.items[0]!, 0) : null
+}
+
+function lastItemKey() {
+  const lastIndex = props.items.length - 1
+  return lastIndex >= 0 ? resolveKey(props.items[lastIndex]!, lastIndex) : null
 }
 
 function updateMeasuredViewportHeight(nextHeight?: number) {
@@ -194,6 +152,55 @@ function updateMeasuredViewportHeight(nextHeight?: number) {
   measuredViewportHeight.value = Math.max(1, Math.round(nextHeight))
 }
 
+function readScrollerRect(element: HTMLElement): Rect {
+  const rect = element.getBoundingClientRect()
+  return {
+    width: Math.round(rect.width || element.clientWidth || 0),
+    height: Math.max(1, Math.round(rect.height || element.clientHeight || effectiveViewportHeight.value)),
+  }
+}
+
+function observeScrollerRect(
+  instance: Virtualizer<HTMLElement, HTMLElement>,
+  callback: (rect: Rect) => void,
+) {
+  const element = instance.scrollElement
+  if (!element) {
+    return undefined
+  }
+
+  const notify = (rect: Rect) => {
+    updateMeasuredViewportHeight(rect.height)
+    callback(rect)
+  }
+
+  notify(readScrollerRect(element))
+
+  const targetWindow = element.ownerDocument.defaultView
+  if (!targetWindow?.ResizeObserver) {
+    return undefined
+  }
+
+  const observer = new targetWindow.ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (entry?.contentRect.height) {
+      notify({
+        width: Math.round(entry.contentRect.width || element.clientWidth || 0),
+        height: Math.max(1, Math.round(entry.contentRect.height)),
+      })
+      return
+    }
+
+    notify(readScrollerRect(element))
+  })
+
+  observer.observe(element)
+
+  return () => {
+    observer.unobserve(element)
+  }
+}
+
 function measureViewport() {
   const target = scrollerRef.value
   if (!target) {
@@ -201,61 +208,6 @@ function measureViewport() {
   }
 
   updateMeasuredViewportHeight(target.getBoundingClientRect().height || target.clientHeight)
-}
-
-function createResizeObserver() {
-  if (typeof window.ResizeObserver !== 'function') {
-    return null
-  }
-
-  return new window.ResizeObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.target === scrollerRef.value) {
-        updateMeasuredViewportHeight(entry.contentRect.height)
-        continue
-      }
-
-      if (!props.dynamicItemHeight || !(entry.target instanceof HTMLElement)) {
-        continue
-      }
-
-      const key = rowElementToKey.get(entry.target)
-      if (key !== undefined) {
-        updateMeasuredRowHeight(key, entry.contentRect.height)
-      }
-    }
-  })
-}
-
-function ensureResizeObserver() {
-  const scroller = scrollerRef.value
-  if (!scroller) {
-    return
-  }
-
-  if (resizeObserver && observedScroller === scroller) {
-    return
-  }
-
-  resizeObserver?.disconnect()
-  resizeObserver = createResizeObserver()
-  observedScroller = scroller
-
-  if (!resizeObserver) {
-    return
-  }
-
-  resizeObserver.observe(scroller)
-  for (const [key, element] of rowRefs.entries()) {
-    resizeObserver.observe(element)
-    measureRowElement(key, element)
-  }
-}
-
-function clearResizeObserver() {
-  resizeObserver?.disconnect()
-  resizeObserver = null
-  observedScroller = null
 }
 
 function clearPendingProgrammaticScrollReset() {
@@ -296,172 +248,24 @@ function consumeProgrammaticScrollEvent(nextScrollTop: number) {
   return true
 }
 
-async function restorePrependedAnchor(nextScrollTop: number) {
-  pendingPrependedAnchorRestoreToken += 1
-  const restoreToken = pendingPrependedAnchorRestoreToken
-
-  await nextTick()
-  if (restoreToken !== pendingPrependedAnchorRestoreToken) {
-    return
+function handleScroll(event: Event) {
+  const target = event.target as HTMLElement | null
+  scrollTop.value = target?.scrollTop ?? 0
+  if (target) {
+    const userInitiated = !consumeProgrammaticScrollEvent(target.scrollTop)
+    syncViewportState(target, { userInitiated })
   }
+}
 
-  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => resolve())
-    })
-    if (restoreToken !== pendingPrependedAnchorRestoreToken) {
-      return
+function handleWheel(event: WheelEvent) {
+  if (event.deltaY < 0) {
+    pauseFollowBottomByUser()
+    const scroller = scrollerRef.value
+    if (scroller && scroller.scrollTop <= props.topThreshold && topReachArmed) {
+      topReachArmed = false
+      emit('reach-top')
     }
   }
-
-  const scroller = scrollerRef.value
-  if (!scroller) {
-    return
-  }
-
-  scrollToOffset(nextScrollTop)
-  if (Math.max(nextScrollTop, scroller.scrollTop) > 0) {
-    topReachArmed = true
-  }
-}
-
-async function syncScrollerLifecycle() {
-  await nextTick()
-
-  const scroller = scrollerRef.value
-  if (!scroller) {
-    return
-  }
-
-  measureViewport()
-  ensureResizeObserver()
-
-  if (props.followBottom) {
-    scrollToBottom()
-    return
-  }
-
-  if (clampScrollPosition(scroller)) {
-    return
-  }
-
-  syncViewportState(scroller)
-}
-
-function resolveKey(item: T, index: number) {
-  if (props.getItemKey) {
-    return props.getItemKey(item, index)
-  }
-
-  return index
-}
-
-function resolveVisibleKey(item: T, localIndex: number) {
-  return resolveKey(item, startIndex.value + localIndex)
-}
-
-function updateMeasuredRowHeight(key: string | number, nextHeight: number) {
-  if (!props.dynamicItemHeight || !Number.isFinite(nextHeight) || nextHeight <= 0) {
-    return
-  }
-
-  const roundedHeight = Math.max(1, Math.ceil(nextHeight))
-  const hadMeasuredHeight = measuredKeys.has(key)
-  const previousHeight = measuredHeights.get(key) ?? props.itemHeight
-  measuredKeys.add(key)
-  if (previousHeight === roundedHeight) {
-    return
-  }
-
-  const itemIndex = findItemIndexByKey(key)
-  const metrics = layoutMetrics.value
-  const rowOffset = itemIndex >= 0
-    ? (metrics.offsets[itemIndex] ?? itemIndex * props.itemHeight)
-    : 0
-
-  measuredHeights.set(key, roundedHeight)
-  measurementVersion.value += 1
-
-  const heightDelta = roundedHeight - previousHeight
-  if (heightDelta !== 0 && rowOffset + previousHeight <= scrollTop.value) {
-    syncScrollAnchor(heightDelta)
-  }
-}
-
-function rebuildKeyToIndexMap() {
-  const map = new Map<string | number, number>()
-  for (let index = 0; index < props.items.length; index += 1) {
-    map.set(resolveKey(props.items[index]!, index), index)
-  }
-  keyToIndexMap.value = map
-}
-
-function findItemIndexByKey(key: string | number) {
-  const fromMap = keyToIndexMap.value.get(key)
-  if (fromMap !== undefined && fromMap < props.items.length && resolveKey(props.items[fromMap]!, fromMap) === key) {
-    return fromMap
-  }
-  for (let index = 0; index < props.items.length; index += 1) {
-    if (resolveKey(props.items[index]!, index) === key) {
-      return index
-    }
-  }
-  return -1
-}
-
-function syncScrollAnchor(offsetDelta: number) {
-  const scroller = scrollerRef.value
-  if (!scroller) {
-    return
-  }
-
-  const nextScrollTop = Math.max(0, scroller.scrollTop + offsetDelta)
-  if (nextScrollTop === scroller.scrollTop) {
-    return
-  }
-
-  scroller.scrollTop = nextScrollTop
-  scrollTop.value = nextScrollTop
-}
-
-function scrollToOffset(nextScrollTop: number) {
-  const scroller = scrollerRef.value
-  if (!scroller) {
-    return
-  }
-
-  const clamped = Math.max(0, Math.min(nextScrollTop, scroller.scrollHeight - scroller.clientHeight))
-  if (clamped !== scroller.scrollTop) {
-    noteProgrammaticScrollEvent(clamped)
-  }
-  scroller.scrollTop = clamped
-  scrollTop.value = clamped
-  syncViewportState(scroller, { userInitiated: false })
-}
-
-function scrollToBottom() {
-  const scroller = scrollerRef.value
-  if (!scroller) {
-    return
-  }
-
-  followBottomPausedByUser = false
-  scrollToOffset(scroller.scrollHeight - scroller.clientHeight)
-}
-
-function clampScrollPosition(scroller: HTMLElement) {
-  if (scroller.clientHeight <= 0 || scroller.scrollHeight <= 0) {
-    return false
-  }
-
-  const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
-  const nextScrollTop = Math.min(Math.max(scroller.scrollTop, 0), maxScrollTop)
-  if (Math.abs(nextScrollTop - scroller.scrollTop) <= 1) {
-    return false
-  }
-
-  scrollToOffset(nextScrollTop)
-  return true
 }
 
 function isNearBottom(scroller: HTMLElement) {
@@ -472,6 +276,9 @@ function isNearBottom(scroller: HTMLElement) {
 
 function syncViewportState(scroller: HTMLElement, options: { userInitiated?: boolean } = {}) {
   const nextAtBottom = isNearBottom(scroller)
+  if (options.userInitiated && props.followBottom && !nextAtBottom) {
+    followBottomPausedByUser = true
+  }
   const shouldSuppressBottomLoss = (
     !nextAtBottom
     && options.userInitiated === false
@@ -510,223 +317,193 @@ function pauseFollowBottomByUser() {
   }
 }
 
-function measureRowElement(key: string | number, element: HTMLElement) {
-  const rectHeight = element.getBoundingClientRect().height
-  const nextHeight = rectHeight > 0 ? rectHeight : element.scrollHeight
-  updateMeasuredRowHeight(key, nextHeight)
-}
-
-function setMeasuredRowRef(key: string | number, element: Element | null) {
-  if (!props.dynamicItemHeight) {
-    return
-  }
-  const previous = rowRefs.get(key)
-  if (previous && previous !== element) {
-    if (resizeObserver) {
-      resizeObserver.unobserve(previous)
-    }
-    rowElementToKey.delete(previous)
-  }
-
-  if (!(element instanceof HTMLElement)) {
-    if (previous && resizeObserver) {
-      resizeObserver.unobserve(previous)
-    }
-    if (previous) {
-      rowElementToKey.delete(previous)
-    }
-    rowRefs.delete(key)
-    return
-  }
-
-  rowRefs.set(key, element)
-  rowElementToKey.set(element, key)
-  if (resizeObserver) {
-    resizeObserver.observe(element)
-  }
-  measureRowElement(key, element)
-}
-
-function rowStyle(index: number) {
-  if (!props.dynamicItemHeight) {
-    return { height: `${props.itemHeight}px` }
-  }
-
-  return undefined
-}
-
-function updateLastRenderedSnapshot(keys: Array<string | number>, contentHeight: number) {
-  lastRenderedKeys = keys
-  lastRenderedContentHeight = contentHeight
-}
-
-onMounted(() => {
-  updateLastRenderedSnapshot(
-    props.items.map((item, index) => resolveKey(item, index)),
-    totalHeight.value,
-  )
-  void syncScrollerLifecycle()
-})
-
-onActivated(() => {
-  void syncScrollerLifecycle()
-})
-
-onBeforeUnmount(() => {
-  pendingPrependedAnchorRestoreToken += 1
-  clearPendingProgrammaticScrollReset()
-  clearResizeObserver()
-})
-
-onBeforeUpdate(() => {
+function scrollToOffset(nextScrollTop: number) {
   const scroller = scrollerRef.value
   if (!scroller) {
-    pendingListMutation = null
     return
   }
 
-  const anchorIndex = Math.min(props.items.length - 1, Math.max(0, visibleStartIndex.value))
-  const hasAnchor = props.items.length > 0 && anchorIndex >= 0
-  const anchorKey = hasAnchor ? resolveKey(props.items[anchorIndex]!, anchorIndex) : null
-  const anchorTop = hasAnchor
-    ? (props.dynamicItemHeight
-      ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight)
-      : anchorIndex * props.itemHeight)
-    : 0
-  const anchorViewportOffset = hasAnchor
-    ? (props.dynamicItemHeight
-      ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight) - scroller.scrollTop
-      : anchorIndex * props.itemHeight - scroller.scrollTop)
-    : null
-
-  pendingListMutation = {
-    contentHeight: lastRenderedContentHeight,
-    previousKeys: lastRenderedKeys,
-    scrollHeight: scroller.scrollHeight,
-    scrollTop: scroller.scrollTop,
-    atBottom: isNearBottom(scroller),
-    anchorKey,
-    anchorOffset: hasAnchor ? Math.max(0, scroller.scrollTop - anchorTop) : 0,
-    anchorViewportOffset,
+  const maxScrollTop = Math.max(0, Math.max(scroller.scrollHeight, totalHeight.value) - scroller.clientHeight)
+  const clamped = Math.max(0, Math.min(nextScrollTop, maxScrollTop))
+  if (clamped !== scroller.scrollTop) {
+    noteProgrammaticScrollEvent(clamped)
   }
-})
+  scroller.scrollTop = clamped
+  scrollTop.value = clamped
+  scroller.dispatchEvent(new Event('scroll'))
+  syncViewportState(scroller, { userInitiated: false })
+}
 
-onUpdated(() => {
+function scrollToBottom() {
   const scroller = scrollerRef.value
-  const snapshot = pendingListMutation
-  pendingListMutation = null
-  const nextKeys = props.items.map((item, index) => resolveKey(item, index))
-  const nextContentHeight = totalHeight.value
-
-  if (!scroller || !snapshot) {
-    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
+  if (!scroller) {
     return
   }
 
-  rebuildKeyToIndexMap()
+  followBottomPausedByUser = false
+  scrollToOffset(Math.max(scroller.scrollHeight, totalHeight.value) - scroller.clientHeight)
+}
 
-  const activeKeys = new Set(nextKeys)
-  let changed = false
-  for (const key of Array.from(measuredHeights.keys())) {
-    if (!activeKeys.has(key)) {
-      measuredHeights.delete(key)
-      changed = true
-    }
-  }
-  for (const key of Array.from(measuredKeys.keys())) {
-    if (!activeKeys.has(key)) {
-      measuredKeys.delete(key)
-    }
-  }
-  for (const [key, element] of Array.from(rowRefs.entries())) {
-    if (!activeKeys.has(key)) {
-      resizeObserver?.unobserve(element)
-      rowElementToKey.delete(element)
-      rowRefs.delete(key)
-    }
-  }
-  if (changed) {
-    measurementVersion.value += 1
+function clampScrollPosition(scroller: HTMLElement) {
+  if (scroller.clientHeight <= 0 || Math.max(scroller.scrollHeight, totalHeight.value) <= 0) {
+    return false
   }
 
-  const prepended = didPrepend(snapshot.previousKeys, nextKeys)
-  const appended = didAppend(snapshot.previousKeys, nextKeys)
-  const keysChanged = !areKeyArraysEqual(snapshot.previousKeys, nextKeys)
-  const contentHeightChanged = nextContentHeight !== snapshot.contentHeight
-  const shouldFollowBottomForListChanges = !followBottomPausedByUser && (props.followBottom || snapshot.atBottom)
-  const shouldFollowBottomForHeightChanges = !followBottomPausedByUser && (props.followBottom || snapshot.atBottom)
+  const maxScrollTop = Math.max(0, Math.max(scroller.scrollHeight, totalHeight.value) - scroller.clientHeight)
+  const nextScrollTop = Math.min(Math.max(scroller.scrollTop, 0), maxScrollTop)
+  if (Math.abs(nextScrollTop - scroller.scrollTop) <= 1) {
+    return false
+  }
 
-  if (prepended) {
-    const offsetDelta = nextContentHeight - snapshot.contentHeight
-    if (offsetDelta !== 0) {
-      void restorePrependedAnchor(snapshot.scrollTop + offsetDelta)
-    }
-    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
+  scrollToOffset(nextScrollTop)
+  return true
+}
+
+async function restorePrependedAnchor(previousScrollTop: number, previousScrollHeight: number) {
+  pendingPrependedAnchorRestoreToken += 1
+  const restoreToken = pendingPrependedAnchorRestoreToken
+
+  await nextTick()
+  if (restoreToken !== pendingPrependedAnchorRestoreToken) {
     return
   }
 
-  if (shouldFollowBottomForListChanges && (appended || (snapshot.previousKeys.length === 0 && nextKeys.length > 0))) {
-    scrollToBottom()
-    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
-    return
-  }
-
-  if (shouldFollowBottomForListChanges && nextKeys.length > 0 && keysChanged) {
-    scrollToBottom()
-    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
-    return
-  }
-
-  if (shouldFollowBottomForHeightChanges && nextKeys.length > 0 && contentHeightChanged) {
-    scrollToBottom()
-    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
-    return
-  }
-
-  if (!shouldFollowBottomForHeightChanges && contentHeightChanged && snapshot.anchorKey !== null) {
-    const anchorIndex = nextKeys.indexOf(snapshot.anchorKey)
-    if (anchorIndex >= 0 && snapshot.anchorViewportOffset !== null) {
-      const nextViewportOffset = props.dynamicItemHeight
-        ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight) - scroller.scrollTop
-        : anchorIndex * props.itemHeight - scroller.scrollTop
-      const viewportDelta = nextViewportOffset - snapshot.anchorViewportOffset
-      if (viewportDelta !== 0) {
-        scrollToOffset(scroller.scrollTop + viewportDelta)
-        updateLastRenderedSnapshot(nextKeys, nextContentHeight)
-        return
-      }
-    }
-
-    if (anchorIndex >= 0) {
-      const anchorTop = props.dynamicItemHeight
-        ? (layoutMetrics.value.offsets[anchorIndex] ?? anchorIndex * props.itemHeight)
-        : anchorIndex * props.itemHeight
-      scrollToOffset(anchorTop + snapshot.anchorOffset)
-      updateLastRenderedSnapshot(nextKeys, nextContentHeight)
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve())
+    })
+    if (restoreToken !== pendingPrependedAnchorRestoreToken) {
       return
     }
+  }
+
+  const scroller = scrollerRef.value
+  if (!scroller) {
+    return
+  }
+
+  const nextScrollHeight = Math.max(scroller.scrollHeight, totalHeight.value)
+  const nextScrollTop = previousScrollTop + Math.max(0, nextScrollHeight - previousScrollHeight)
+  scrollToOffset(nextScrollTop)
+  if (Math.max(nextScrollTop, scroller.scrollTop) > 0) {
+    topReachArmed = true
+  }
+}
+
+function measureVisibleDynamicRows() {
+  if (!props.dynamicItemHeight) {
+    return
+  }
+
+  void nextTick(() => {
+    rowVirtualizer.value.measure()
+  })
+}
+
+async function syncScrollerLifecycle() {
+  await nextTick()
+
+  const scroller = scrollerRef.value
+  if (!scroller) {
+    return
+  }
+
+  measureViewport()
+
+  if (props.followBottom) {
+    scrollToBottom()
+    return
   }
 
   if (clampScrollPosition(scroller)) {
-    updateLastRenderedSnapshot(nextKeys, nextContentHeight)
     return
   }
 
-  syncViewportState(scroller, { userInitiated: false })
-  updateLastRenderedSnapshot(nextKeys, nextContentHeight)
-})
+  syncViewportState(scroller)
+}
 
+function measureRowElement(element: Element | null) {
+  if (!props.dynamicItemHeight || !(element instanceof HTMLElement)) {
+    return
+  }
 
+  const scroller = scrollerRef.value
+  const shouldKeepBottom = Boolean(
+    scroller
+    && props.followBottom
+    && !followBottomPausedByUser
+    && (lastAtBottom || isNearBottom(scroller)),
+  )
+  rowVirtualizer.value.measureElement(element)
+  if (shouldKeepBottom) {
+    void nextTick(() => {
+      const currentScroller = scrollerRef.value
+      if (currentScroller && props.followBottom && !followBottomPausedByUser) {
+        scrollToBottom()
+      }
+    })
+  }
+}
+
+function rowStyle(virtualItem: VirtualItem) {
+  const style: Record<string, string> = {
+    transform: `translateY(${virtualItem.start}px)`,
+  }
+
+  if (!props.dynamicItemHeight) {
+    style.height = `${props.itemHeight}px`
+  }
+
+  return style
+}
 
 watch(
-  scrollerRef,
-  (scroller) => {
-    if (!scroller) {
-      clearResizeObserver()
-      return
+  () => props.items,
+  (nextItems, previousItems) => {
+    const scroller = scrollerRef.value
+    const wasAtBottom = scroller ? isNearBottom(scroller) : lastAtBottom
+    const previousScrollTop = scroller?.scrollTop ?? 0
+    const previousScrollHeight = scroller ? Math.max(scroller.scrollHeight, totalHeight.value) : totalHeight.value
+    const nextFirstKey = firstItemKey()
+    const nextLastKey = lastItemKey()
+    const previousFirstItemKey = previousItems.length > 0 ? resolveKey(previousItems[0]!, 0) : previousFirstKey
+    const previousLastItemKey = previousItems.length > 0
+      ? resolveKey(previousItems[previousItems.length - 1]!, previousItems.length - 1)
+      : previousLastKey
+    const prepended = previousFirstItemKey !== null && nextFirstKey !== previousFirstItemKey
+      && nextItems.some((item, index) => resolveKey(item, index) === previousFirstItemKey)
+    const appended = previousLastItemKey !== null && nextLastKey !== previousLastItemKey
+      && nextItems.some((item, index) => resolveKey(item, index) === previousLastItemKey)
+
+    if (prepended && scroller) {
+      void restorePrependedAnchor(previousScrollTop, previousScrollHeight)
+    } else if (
+      scroller
+      && !followBottomPausedByUser
+      && (props.followBottom || wasAtBottom)
+      && (appended || (previousItems.length === 0 && nextItems.length > 0) || nextItems.length !== previousItems.length)
+    ) {
+      void nextTick(() => {
+        scrollToBottom()
+      })
+    } else if (scroller) {
+      void nextTick(() => {
+        clampScrollPosition(scroller)
+        syncViewportState(scroller, { userInitiated: false })
+      })
     }
 
-    void syncScrollerLifecycle()
+    previousFirstKey = nextFirstKey
+    previousLastKey = nextLastKey
+    topReachArmed = true
+  },
+  { flush: 'post' },
+)
+
+watch(
+  () => [props.itemHeight, props.dynamicItemHeight, props.overscan] as const,
+  () => {
+    measureVisibleDynamicRows()
   },
   { flush: 'post' },
 )
@@ -740,17 +517,46 @@ watch(
 
     followBottomPausedByUser = false
     nextTick(() => {
-      scrollToBottom()
+      if (props.followBottom && !followBottomPausedByUser) {
+        scrollToBottom()
+      }
     })
   },
 )
+
+watch(
+  scrollerRef,
+  (scroller) => {
+    if (!scroller) {
+      return
+    }
+
+    void syncScrollerLifecycle()
+  },
+  { flush: 'post' },
+)
+
+onMounted(() => {
+  previousFirstKey = firstItemKey()
+  previousLastKey = lastItemKey()
+  void syncScrollerLifecycle()
+})
+
+onActivated(() => {
+  void syncScrollerLifecycle()
+})
+
+onBeforeUnmount(() => {
+  pendingPrependedAnchorRestoreToken += 1
+  clearPendingProgrammaticScrollReset()
+})
 
 defineExpose({
   getScrollMetrics() {
     const scroller = scrollerRef.value
     return {
       clientHeight: scroller?.clientHeight ?? 0,
-      scrollHeight: scroller?.scrollHeight ?? 0,
+      scrollHeight: scroller ? Math.max(scroller.scrollHeight, totalHeight.value) : totalHeight.value,
       scrollTop: scroller?.scrollTop ?? 0,
     }
   },
@@ -761,48 +567,6 @@ defineExpose({
   scrollToBottom,
   scrollToOffset,
 })
-
-function didPrepend(previousKeys: Array<string | number>, nextKeys: Array<string | number>) {
-  if (previousKeys.length === 0 || nextKeys.length === 0) {
-    return false
-  }
-
-  const previousFirstKey = previousKeys[0]
-  if (previousFirstKey === undefined) {
-    return false
-  }
-
-  const nextIndex = nextKeys.indexOf(previousFirstKey)
-  return nextIndex > 0
-}
-
-function didAppend(previousKeys: Array<string | number>, nextKeys: Array<string | number>) {
-  if (previousKeys.length === 0 || nextKeys.length === 0) {
-    return false
-  }
-
-  const previousLastKey = previousKeys[previousKeys.length - 1]
-  if (previousLastKey === undefined) {
-    return false
-  }
-
-  const nextIndex = nextKeys.indexOf(previousLastKey)
-  return nextIndex >= 0 && nextIndex < nextKeys.length - 1
-}
-
-function areKeyArraysEqual(left: Array<string | number>, right: Array<string | number>) {
-  if (left.length !== right.length) {
-    return false
-  }
-
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) {
-      return false
-    }
-  }
-
-  return true
-}
 </script>
 
 <template>
@@ -824,16 +588,15 @@ function areKeyArraysEqual(left: Array<string | number>, right: Array<string | n
       @wheel.passive="handleWheel"
     >
       <div class="data-viewport__canvas" :style="{ height: `${totalHeight}px` }">
-        <div class="data-viewport__stack" :style="{ transform: `translateY(${offsetY}px)` }">
-          <div
-            v-for="(item, localIndex) in visibleItems"
-            :key="resolveVisibleKey(item, localIndex)"
-            class="data-viewport__row"
-            :style="rowStyle(startIndex + localIndex)"
-            :ref="dynamicItemHeight ? (element) => setMeasuredRowRef(resolveVisibleKey(item, localIndex), element) : undefined"
-          >
-            <slot :item="item" :index="startIndex + localIndex" />
-          </div>
+        <div
+          v-for="{ item, virtualItem } in visibleRows"
+          :key="virtualItem.key"
+          :data-index="virtualItem.index"
+          class="data-viewport__row"
+          :style="rowStyle(virtualItem)"
+          :ref="measureRowElement"
+        >
+          <slot :item="item" :index="virtualItem.index" />
         </div>
       </div>
     </div>

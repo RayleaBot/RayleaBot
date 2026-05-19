@@ -158,7 +158,7 @@ describe('web bootstrap', () => {
     expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins/settings?panel=limits#rate')
   })
 
-  it('returns authenticated restored workspace routes to the affix home page', async () => {
+  it('keeps authenticated startup deep links on the target page', async () => {
     const router = {
       currentRoute: {
         value: {
@@ -196,7 +196,7 @@ describe('web bootstrap', () => {
 
     const uiShellStore = useUiShellStore.mock.results[0]?.value
     expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
-    expect(router.replace).toHaveBeenCalledWith({ name: 'status' })
+    expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
   })
 
   it('keeps authenticated startup exception routes in place', async () => {

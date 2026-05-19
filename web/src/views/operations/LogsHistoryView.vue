@@ -23,6 +23,8 @@ import type { LogFilters } from '@/stores/log-state'
 import type { LogLevel, LogSummary, PluginSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 
+const LOG_ROW_ESTIMATED_HEIGHT = 80
+
 const route = useRoute()
 const router = useRouter()
 const historyStore = useLogHistoryStore()
@@ -47,10 +49,7 @@ const viewportRef = ref<{
 } | null>(null)
 const autoFollowBottom = ref(false)
 const routeSyncing = ref(false)
-const latestViewportBottomThreshold = 4
-const latestViewportSyncMaxAttempts = 6
-const latestViewportStablePasses = 2
-let latestViewportSyncToken = 0
+let activatePageTask: Promise<void> | null = null
 
 const {
   error,
@@ -118,6 +117,10 @@ async function loadPluginOptions() {
   }
 }
 
+async function openPluginFilter() {
+  await loadPluginOptions()
+}
+
 function toLocalInput(value: string) {
   if (!value) {
     return ''
@@ -141,20 +144,6 @@ function shouldSyncViewportToLatest() {
     && !currentRouteLogId()
 }
 
-function nextViewportSyncToken() {
-  latestViewportSyncToken += 1
-  return latestViewportSyncToken
-}
-
-function cancelViewportSyncToLatest() {
-  nextViewportSyncToken()
-  autoFollowBottom.value = false
-}
-
-function isViewportSyncCurrent(token: number) {
-  return token === latestViewportSyncToken && shouldSyncViewportToLatest()
-}
-
 async function waitForAnimationFrame() {
   if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
     await nextTick()
@@ -166,60 +155,17 @@ async function waitForAnimationFrame() {
   })
 }
 
-async function syncViewportToLatest() {
+async function syncViewportAfterRender() {
   if (!shouldSyncViewportToLatest()) {
-    cancelViewportSyncToLatest()
+    autoFollowBottom.value = false
     return
   }
 
-  const syncToken = nextViewportSyncToken()
   autoFollowBottom.value = true
-  let stablePasses = 0
-
-  try {
-    for (let attempt = 0; attempt < latestViewportSyncMaxAttempts; attempt += 1) {
-      if (!isViewportSyncCurrent(syncToken)) {
-        return
-      }
-
-      await nextTick()
-      if (!isViewportSyncCurrent(syncToken)) {
-        return
-      }
-
-      await waitForAnimationFrame()
-      if (!isViewportSyncCurrent(syncToken)) {
-        return
-      }
-
-      viewportRef.value?.scrollToBottom()
-      await nextTick()
-      if (!isViewportSyncCurrent(syncToken)) {
-        return
-      }
-
-      const metrics = viewportRef.value?.getScrollMetrics?.()
-      if (!metrics || metrics.clientHeight < 1) {
-        stablePasses = 0
-        continue
-      }
-
-      const distanceToBottom = Math.max(0, metrics.scrollHeight - metrics.clientHeight - metrics.scrollTop)
-      if (distanceToBottom <= latestViewportBottomThreshold) {
-        stablePasses += 1
-        if (stablePasses >= latestViewportStablePasses) {
-          return
-        }
-        continue
-      }
-
-      stablePasses = 0
-    }
-  } finally {
-    if (syncToken === latestViewportSyncToken) {
-      autoFollowBottom.value = false
-    }
-  }
+  await nextTick()
+  await waitForAnimationFrame()
+  viewportRef.value?.scrollToBottom()
+  autoFollowBottom.value = false
 }
 
 async function replaceRouteState(nextLogId: string | null = selectedLogId.value) {
@@ -246,7 +192,7 @@ async function replaceRouteState(nextLogId: string | null = selectedLogId.value)
 
 async function syncFromRoute() {
   if (route.name !== 'logs-history') {
-    cancelViewportSyncToLatest()
+    autoFollowBottom.value = false
     return
   }
 
@@ -279,7 +225,7 @@ async function syncFromRoute() {
   }
 
   if (routeState.logId) {
-    cancelViewportSyncToLatest()
+    autoFollowBottom.value = false
     const targetSummary = items.value.find((item) => item.log_id === routeState.logId) ?? null
     if (targetSummary && selectedLogId.value !== routeState.logId) {
       await detailController.openDetail(targetSummary)
@@ -293,41 +239,49 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
-  void loadPluginOptions()
-  if (!currentRouteLogId()) {
-    nextViewportSyncToken()
-    autoFollowBottom.value = true
+  if (activatePageTask) {
+    return activatePageTask
   }
 
+  activatePageTask = (async () => {
+    if (!currentRouteLogId()) {
+      autoFollowBottom.value = true
+    }
+
+    try {
+      await syncFromRoute()
+      await syncViewportAfterRender()
+    } catch {
+      // store error drives the page
+    }
+  })()
+
   try {
-    await syncFromRoute()
-    await syncViewportToLatest()
-  } catch {
-    // store error drives the page
+    await activatePageTask
+  } finally {
+    activatePageTask = null
   }
 }
 
 async function refreshHistory() {
-  nextViewportSyncToken()
   autoFollowBottom.value = true
 
   try {
     await historyStore.refreshAnchor()
     await replaceRouteState()
-    await syncViewportToLatest()
+    await syncViewportAfterRender()
   } catch {
     // store error drives the page
   }
 }
 
 async function applyFilters() {
-  nextViewportSyncToken()
   autoFollowBottom.value = true
 
   try {
     await historyStore.applyFilters()
     await replaceRouteState(null)
-    await syncViewportToLatest()
+    await syncViewportAfterRender()
   } catch {
     // store error drives the page
   }
@@ -363,7 +317,7 @@ function getLevelColor(level: string) {
 }
 
 async function openLogDetail(item: LogSummary) {
-  cancelViewportSyncToLatest()
+  autoFollowBottom.value = false
   await detailController.openDetail(item)
   await replaceRouteState(item.log_id)
 }
@@ -393,7 +347,7 @@ onActivated(() => {
 })
 
 onBeforeUnmount(() => {
-  cancelViewportSyncToLatest()
+  autoFollowBottom.value = false
 })
 </script>
 
@@ -435,6 +389,7 @@ onBeforeUnmount(() => {
               allow-clear
               :options="pluginOptions"
               :placeholder="t('logs.filters.all')"
+              @focus="openPluginFilter"
             />
           </a-form-item>
           <a-form-item :label="t('logs.filters.requestId')">
@@ -484,7 +439,7 @@ onBeforeUnmount(() => {
         <VirtualDataViewport
           ref="viewportRef"
           :items="items"
-          :item-height="96"
+          :item-height="LOG_ROW_ESTIMATED_HEIGHT"
           :dynamic-item-height="true"
           :overscan="6"
           :follow-bottom="autoFollowBottom"
@@ -523,6 +478,7 @@ onBeforeUnmount(() => {
       </a-card>
 
       <ManagementLogDetailDrawer
+        v-if="detailOpen || selectedSummary"
         :open="detailOpen"
         :loading="detailLoading"
         :error="detailError"

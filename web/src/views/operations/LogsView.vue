@@ -24,6 +24,8 @@ import type { LogFilters } from '@/stores/log-state'
 import type { LogLevel, LogSummary, PluginSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 
+const LOG_ROW_ESTIMATED_HEIGHT = 80
+
 const route = useRoute()
 const router = useRouter()
 const logsStore = useLogsStore()
@@ -42,6 +44,8 @@ const viewportRef = ref<{
   scrollToBottom: () => void
 } | null>(null)
 const routeSyncing = ref(false)
+let activatePageTask: Promise<void> | null = null
+let followOnNextActivation: boolean | null = null
 
 const {
   atBottom,
@@ -112,6 +116,10 @@ async function loadPluginOptions() {
   }
 }
 
+async function openPluginFilter() {
+  await loadPluginOptions()
+}
+
 async function replaceRouteState(nextLogId: string | null = selectedLogId.value) {
   const target = buildLogsLocation({
     filters: filters.value,
@@ -162,17 +170,32 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
-  void loadPluginOptions()
-  logsStore.setViewportActive(true)
-  try {
-    await syncFromRoute()
-    await nextTick()
-    if (followBottom.value) {
-      logsStore.acknowledgePendingNew()
-      viewportRef.value?.scrollToBottom()
+  if (activatePageTask) {
+    return activatePageTask
+  }
+
+  activatePageTask = (async () => {
+    logsStore.setViewportActive(true)
+    if (followOnNextActivation === true) {
+      logsStore.setViewportAtBottom(true)
     }
-  } catch {
-    // store error drives the page
+    followOnNextActivation = null
+    try {
+      await syncFromRoute()
+      await nextTick()
+      if (followBottom.value) {
+        logsStore.acknowledgePendingNew()
+        viewportRef.value?.scrollToBottom()
+      }
+    } catch {
+      // store error drives the page
+    }
+  })()
+
+  try {
+    await activatePageTask
+  } finally {
+    activatePageTask = null
   }
 }
 
@@ -261,6 +284,7 @@ onActivated(() => {
 })
 
 onDeactivated(() => {
+  followOnNextActivation = atBottom.value
   logsStore.setViewportActive(false)
 })
 
@@ -311,6 +335,7 @@ onUnmounted(() => {
               allow-clear
               :options="pluginOptions"
               :placeholder="t('logs.filters.all')"
+              @focus="openPluginFilter"
             />
           </a-form-item>
           <a-form-item :label="t('logs.filters.requestId')">
@@ -358,7 +383,7 @@ onUnmounted(() => {
           <VirtualDataViewport
             ref="viewportRef"
             :items="items"
-            :item-height="96"
+            :item-height="LOG_ROW_ESTIMATED_HEIGHT"
             :dynamic-item-height="true"
             :overscan="6"
             :follow-bottom="followBottom"
@@ -421,6 +446,7 @@ onUnmounted(() => {
       </a-card>
 
       <ManagementLogDetailDrawer
+        v-if="detailOpen || selectedSummary"
         :open="detailOpen"
         :loading="detailLoading"
         :error="detailError"

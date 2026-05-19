@@ -40,8 +40,9 @@ function readRouteRedirectTarget(value: unknown) {
   return candidate
 }
 
-function shouldNormalizeStartupRoute(routeName: unknown) {
-  return routeName !== 'status'
+function shouldNormalizeStartupRoute(fullPath: string, routeName: unknown) {
+  return (fullPath === '' || fullPath === '/')
+    && routeName !== 'status'
     && routeName !== 'login'
     && routeName !== 'setup'
     && routeName !== 'offline'
@@ -275,7 +276,7 @@ async function bootstrap() {
   if (
     sessionStore.isAuthenticated
     && !availabilityStore.isOffline
-    && shouldNormalizeStartupRoute(router.currentRoute.value.name)
+    && shouldNormalizeStartupRoute(router.currentRoute.value.fullPath, router.currentRoute.value.name)
   ) {
     await router.replace({ name: 'status' })
   }

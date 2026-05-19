@@ -124,6 +124,43 @@ function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
 }
 
+async function visibleLogRowHeights(page: import('@playwright/test').Page) {
+  return logRows(page).evaluateAll((rows) => (
+    rows
+      .slice(0, 6)
+      .map((row) => Math.round(row.getBoundingClientRect().height))
+  ))
+}
+
+async function visibleLogVirtualRowGaps(page: import('@playwright/test').Page) {
+  return page.locator('.logs-feed-card .data-viewport__row').evaluateAll((rows) => {
+    function translateY(row: Element) {
+      const transform = window.getComputedStyle(row).transform
+      if (!transform || transform === 'none') {
+        return 0
+      }
+
+      const matrix3d = /^matrix3d\((.+)\)$/.exec(transform)
+      if (matrix3d?.[1]) {
+        const parts = matrix3d[1].split(',').map((part) => Number(part.trim()))
+        return parts[13] ?? 0
+      }
+
+      const matrix = /^matrix\((.+)\)$/.exec(transform)
+      if (matrix?.[1]) {
+        const parts = matrix[1].split(',').map((part) => Number(part.trim()))
+        return parts[5] ?? 0
+      }
+
+      const translate = /translateY\(([-\d.]+)px\)/.exec(transform)
+      return translate?.[1] ? Number(translate[1]) : 0
+    }
+
+    const starts = rows.slice(0, 7).map(translateY)
+    return starts.slice(1).map((start, index) => Math.round(start - starts[index]))
+  })
+}
+
 function logFilterField(page: import('@playwright/test').Page, label: string) {
   return page.locator('.logs-filter-grid .ant-form-item').filter({ hasText: label }).first()
 }
@@ -921,6 +958,17 @@ test('logs page keeps the feed and floating detail window inside the viewport', 
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await expect.poll(async () => {
+    const heights = await visibleLogRowHeights(page)
+    return heights.length > 0 && heights.every((height) => height >= 72 && height <= 88)
+  }).toBe(true)
+  const initialRowHeights = await visibleLogRowHeights(page)
+  const initialVirtualRowGaps = await visibleLogVirtualRowGaps(page)
+  expect(initialVirtualRowGaps).not.toHaveLength(0)
+  expect(initialVirtualRowGaps.every((gap) => gap === 80)).toBe(true)
+  await page.waitForTimeout(300)
+  expect(await visibleLogRowHeights(page)).toEqual(initialRowHeights)
+  expect(await visibleLogVirtualRowGaps(page)).toEqual(initialVirtualRowGaps)
 
   const targetRow = logRows(page).last()
   await expect(targetRow).toBeVisible()
@@ -1883,7 +1931,7 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await expect.poll(() => page.url()).toContain('/commands')
   await expect(page.url()).toContain('plugin_id=weather')
   await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
-  await expect(page.locator('.commands-section-card').filter({ hasText: '插件指令' })).toContainText('weather')
+  await expect(page.locator('.commands-data-table')).toContainText('weather')
   await expect((await readTabLabels(page)).filter((label) => label === '指令中心')).toHaveLength(1)
 
   await page.goto('/tasks?task_id=task_render_preview_0001')
@@ -1964,6 +2012,41 @@ test('repeated log filters restore history logs and preserve workspace jumps', a
   expect(relatedHistoryUrl.searchParams.getAll('plugin_id')).toHaveLength(0)
   await expect(page.locator('.logs-feed-card')).toContainText(rows.echoMessage)
   expect((await readTabLabels(page)).filter((label) => label === '历史日志')).toHaveLength(1)
+})
+
+test('logs pages load plugin options only when the plugin filter is opened', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  const pluginRequests: string[] = []
+  page.on('request', (requestEvent) => {
+    if (requestEvent.method() === 'GET' && requestEvent.url().includes('/api/plugins')) {
+      pluginRequests.push(requestEvent.url())
+    }
+  })
+
+  await page.goto('/logs')
+  await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
+  await page.waitForTimeout(200)
+  expect(pluginRequests).toHaveLength(0)
+
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && response.url().endsWith('/api/plugins')
+    )),
+    logFilterField(page, '插件').locator('.ant-select').click(),
+  ])
+  expect(pluginRequests).toHaveLength(1)
+
+  await navigateThroughMenu(page, '历史日志', '日志中心')
+  await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
+  await page.waitForTimeout(200)
+  expect(pluginRequests).toHaveLength(1)
+
+  await logFilterField(page, '插件').locator('.ant-select').click()
+  await page.waitForTimeout(200)
+  expect(pluginRequests).toHaveLength(1)
 })
 
 test('logs page filters both history and live log appends', async ({ page, request }) => {

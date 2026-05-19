@@ -62,6 +62,10 @@ const VirtualDataViewportStub = defineComponent({
       type: Array,
       default: () => [],
     },
+    itemHeight: {
+      type: Number,
+      default: 0,
+    },
     dynamicItemHeight: {
       type: Boolean,
       default: false,
@@ -175,8 +179,6 @@ describe('LogsHistoryPage', () => {
     const refreshSpy = vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
     queueScrollMetrics([
       { clientHeight: 420, scrollHeight: 900, scrollTop: 456 },
-      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
-      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
     ])
 
     const wrapper = mount(LogsHistoryPage, {
@@ -192,8 +194,8 @@ describe('LogsHistoryPage', () => {
     await flushPromises()
 
     expect(refreshSpy).toHaveBeenCalledTimes(1)
-    expect(scrollToBottomSpy).toHaveBeenCalledTimes(3)
-    expect(getScrollMetricsSpy).toHaveBeenCalledTimes(3)
+    expect(scrollToBottomSpy).toHaveBeenCalledTimes(1)
+    expect(getScrollMetricsSpy).toHaveBeenCalledTimes(0)
     expect(wrapper.text()).toContain('历史日志')
     expect(wrapper.text()).toContain('固定时间窗口')
     expect(wrapper.text()).toContain('最近一天')
@@ -201,6 +203,7 @@ describe('LogsHistoryPage', () => {
     expect(wrapper.text()).toContain('最近一个月')
     expect(wrapper.text()).toContain('最近半年')
     expect(wrapper.findComponent(VirtualDataViewportStub).props('dynamicItemHeight')).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewportStub).props('itemHeight')).toBe(80)
     expect(wrapper.find('input[type="datetime-local"]').exists()).toBe(true)
   })
 
@@ -355,8 +358,6 @@ describe('LogsHistoryPage', () => {
     vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
     queueScrollMetrics([
       { clientHeight: 420, scrollHeight: 900, scrollTop: 452 },
-      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
-      { clientHeight: 420, scrollHeight: 900, scrollTop: 480 },
     ])
 
     const Host = defineComponent({
@@ -398,8 +399,6 @@ describe('LogsHistoryPage', () => {
     getScrollMetricsSpy.mockClear()
     queueScrollMetrics([
       { clientHeight: 420, scrollHeight: 920, scrollTop: 472 },
-      { clientHeight: 420, scrollHeight: 920, scrollTop: 500 },
-      { clientHeight: 420, scrollHeight: 920, scrollTop: 500 },
     ])
 
     ;(wrapper.vm as { current: 'history' | 'other' }).current = 'other'
@@ -409,7 +408,31 @@ describe('LogsHistoryPage', () => {
     await nextTick()
     await flushPromises()
 
-    expect(scrollToBottomSpy).toHaveBeenCalledTimes(3)
-    expect(getScrollMetricsSpy).toHaveBeenCalledTimes(3)
+    expect(scrollToBottomSpy).toHaveBeenCalledTimes(1)
+    expect(getScrollMetricsSpy).toHaveBeenCalledTimes(0)
+  })
+
+  it('does not prefetch plugin options on mount', async () => {
+    const router = createTestRouter()
+    await router.push('/logs/history')
+    await router.isReady()
+
+    const pluginsStore = usePluginsStore()
+    const fetchListSpy = vi.spyOn(pluginsStore, 'fetchList')
+    const store = useLogHistoryStore()
+    vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
+
+    mount(LogsHistoryPage, {
+      attachTo: document.body,
+      global: {
+        plugins: [Antd, router],
+        stubs: {
+          VirtualDataViewport: VirtualDataViewportStub,
+        },
+      },
+    })
+
+    await flushPromises()
+    expect(fetchListSpy).not.toHaveBeenCalled()
   })
 })

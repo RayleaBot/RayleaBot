@@ -108,6 +108,7 @@ const useFloatingWindow = computed(() => (
   && hostWidth.value > 0
   && hostHeight.value > 0
 ))
+const isOpen = computed(() => props.open)
 const floatingWindowStyle = computed(() => ({
   left: `${floatingPosition.value.left}px`,
   top: `${floatingPosition.value.top}px`,
@@ -475,7 +476,7 @@ onBeforeUnmount(() => {
 
 <template>
   <a-drawer
-    v-if="!useFloatingWindow"
+    v-if="isOpen && !useFloatingWindow"
     :open="open"
     :get-container="false"
     placement="right"
@@ -495,7 +496,7 @@ onBeforeUnmount(() => {
 
   <Transition name="log-detail-window">
     <section
-      v-if="open && useFloatingWindow"
+      v-if="isOpen && useFloatingWindow"
       ref="panelRef"
       data-testid="management-log-detail-window"
       class="log-detail-window"
