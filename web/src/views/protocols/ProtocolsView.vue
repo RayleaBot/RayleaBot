@@ -324,7 +324,7 @@ const adapterConfigFields = computed(() => {
         <div class="strip-divider"></div>
 
         <div class="strip-item">
-          <span class="strip-label">运行健康度</span>
+          <span class="strip-label">{{ t('protocols.healthLabel') }}</span>
           <div class="strip-value-wrap">
             <span class="status-pulse-dot" :class="protocolStatusType"></span>
             <span class="strip-value" :class="`text-${protocolStatusType}`">{{ readinessLabel }}</span>
@@ -360,17 +360,17 @@ const adapterConfigFields = computed(() => {
         <div class="diagnostics-header">
           <div class="diagnostics-title-wrap">
             <span class="diagnostics-alert-icon">⚠️</span>
-            <span class="diagnostics-badge">传输异常诊断报告</span>
+            <span class="diagnostics-badge">{{ t('protocols.diagnosticsTitle') }}</span>
           </div>
-          <span class="diagnostics-subtitle">检测到当前通道存在运行异常，请根据诊断信息进行排查：</span>
+          <span class="diagnostics-subtitle">{{ t('protocols.diagnosticsSubtitle') }}</span>
         </div>
         <div class="diagnostics-list">
-          <div v-for="issue in transportIssues" :key="issue.code" class="diagnostics-item">
+          <div v-for="issue in transportIssues" :key="`${issue.code}-${issue.summary}`" class="diagnostics-item">
             <div class="diagnostics-meta">
               <a-tag :color="getIssueTagColor(issue.severity)" class="diagnostics-tag">
                 {{ issue.code }}
               </a-tag>
-              <span class="diagnostics-time">最新发生</span>
+              <span class="diagnostics-time">{{ t('protocols.diagnosticsLatest') }}</span>
             </div>
             <p class="diagnostics-summary">{{ issue.summary }}</p>
           </div>
@@ -381,8 +381,8 @@ const adapterConfigFields = computed(() => {
       <div class="unified-workspace-card" v-motion="{ initial: { opacity: 0, y: 15 }, enter: { opacity: 1, y: 0, transition: { duration: 350 } } }">
         <div class="workspace-header">
           <div class="title-area">
-            <h2 class="workspace-title">传输通道与连接配置</h2>
-            <p class="workspace-subtitle">整合传输状态、传输异常反馈与通道连接设置，进行一体化可视化治理。</p>
+            <h2 class="workspace-title">{{ t('protocols.workspaceTitle') }}</h2>
+            <p class="workspace-subtitle">{{ t('protocols.workspaceSubtitle') }}</p>
           </div>
           <div v-if="restartRequired !== null" class="restart-indicator">
             <a-tag :color="restartRequired ? 'warning' : 'success'" class="pulse-tag">
@@ -448,8 +448,8 @@ const adapterConfigFields = computed(() => {
                       <span class="status-summary">{{ getLiveTransport(record.type)?.summary }}</span>
                     </template>
                     <template v-else>
-                      <a-tag class="state-tag default-tag">未启用</a-tag>
-                      <span class="status-summary text-muted">服务未加载</span>
+                      <a-tag class="state-tag default-tag">{{ t('protocols.inactiveTransport') }}</a-tag>
+                      <span class="status-summary text-muted">{{ t('protocols.unloadedTransport') }}</span>
                     </template>
                   </div>
                 </template>
@@ -498,9 +498,9 @@ const adapterConfigFields = computed(() => {
         <div class="advanced-toggle-bar" @click="advancedExpanded = !advancedExpanded">
           <div class="toggle-left">
             <span class="toggle-icon" :class="{ 'is-active': advancedExpanded }">⚙</span>
-            <span class="toggle-title">适配器高级参数与重连策略设置</span>
+            <span class="toggle-title">{{ t('protocols.advancedSettingsTitle') }}</span>
           </div>
-          <span class="toggle-hint">{{ advancedExpanded ? '收起配置项' : '展开更多配置项' }}</span>
+          <span class="toggle-hint">{{ advancedExpanded ? t('protocols.collapseSettings') : t('protocols.expandSettings') }}</span>
         </div>
 
         <transition name="collapse-fade">
