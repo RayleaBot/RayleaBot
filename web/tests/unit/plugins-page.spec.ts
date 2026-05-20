@@ -217,6 +217,22 @@ describe('PluginsPage', () => {
             permission: 'group_admin',
             command_source: 'manifest',
           },
+          {
+            name: '订阅状态',
+            aliases: [],
+            description: '查看订阅状态',
+            usage: '订阅状态',
+            permission: 'member',
+            command_source: 'manifest',
+          },
+          {
+            name: '订阅刷新',
+            aliases: [],
+            description: '刷新订阅',
+            usage: '订阅刷新',
+            permission: 'member',
+            command_source: 'manifest',
+          },
         ],
         command_conflicts: ['我的运势'],
       },
@@ -250,7 +266,64 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugin-cell-source').exists()).toBe(true)
     expect(wrapper.find('.plugin-cell-commands').exists()).toBe(true)
     expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
+    expect(wrapper.text()).toContain('还有 2 个')
+    expect(wrapper.text()).not.toContain('订阅状态')
     expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
+  })
+
+  it('expands and collapses overflow plugin commands in the list', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [
+      {
+        id: 'subscription-hub',
+        name: '订阅中心',
+        role: 'user',
+        registration_state: 'installed',
+        desired_state: 'enabled',
+        runtime_state: 'running',
+        display_state: 'running',
+        commands: [
+          { name: '订阅状态', command_source: 'manifest' },
+          { name: '订阅刷新', command_source: 'manifest' },
+          { name: '订阅暂停', command_source: 'manifest' },
+          { name: '订阅恢复', command_source: 'manifest' },
+          { name: '订阅删除', command_source: 'manifest' },
+        ],
+        command_conflicts: [],
+      },
+    ]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
+    expect(wrapper.text()).toContain('还有 2 个')
+    expect(wrapper.text()).not.toContain('订阅恢复')
+
+    const expandButton = wrapper.get('.plugin-command-expander')
+    expect(expandButton.attributes('aria-expanded')).toBe('false')
+    await expandButton.trigger('click')
+
+    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(5)
+    expect(wrapper.text()).toContain('订阅恢复')
+    expect(wrapper.text()).toContain('收起')
+    expect(wrapper.get('.plugin-command-expander').attributes('aria-expanded')).toBe('true')
+
+    await wrapper.get('.plugin-command-expander').trigger('click')
+
+    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
+    expect(wrapper.text()).not.toContain('订阅恢复')
   })
 
   it('uses a compact plugin table layout instead of the old metadata grid', async () => {

@@ -38,6 +38,7 @@ const installDialogVisible = ref(false)
 const installError = ref<string | null>(null)
 const summaryDrawerVisible = ref(false)
 const summaryPluginId = ref<string | null>(null)
+const expandedCommandPluginIds = ref(new Set<string>())
 const installForm = reactive<PluginInstallRequest>({
   source_type: 'local_zip',
   source: '',
@@ -86,12 +87,26 @@ function getPluginHealthNotices(row: (typeof sortedItems.value)[number]) {
   return notices.slice(0, 3)
 }
 
-function getVisibleCommands(commands: PluginCommandSummary[]) {
-  return commands.slice(0, 3)
+function isCommandsExpanded(pluginId: string) {
+  return expandedCommandPluginIds.value.has(pluginId)
+}
+
+function getVisibleCommands(pluginId: string, commands: PluginCommandSummary[]) {
+  return isCommandsExpanded(pluginId) ? commands : commands.slice(0, 3)
 }
 
 function getOverflowCommandCount(commands: PluginCommandSummary[]) {
   return Math.max(commands.length - 3, 0)
+}
+
+function toggleCommandExpansion(pluginId: string) {
+  const next = new Set(expandedCommandPluginIds.value)
+  if (next.has(pluginId)) {
+    next.delete(pluginId)
+  } else {
+    next.add(pluginId)
+  }
+  expandedCommandPluginIds.value = next
 }
 
 function getCommandAliasesText(command: PluginCommandSummary) {
@@ -257,7 +272,7 @@ async function submitInstall() {
           <template v-else-if="column.key === 'commands'">
             <div v-if="record.commands.length > 0" class="plugin-cell-commands">
               <div
-                v-for="command in getVisibleCommands(record.commands)"
+                v-for="command in getVisibleCommands(record.id, record.commands)"
                 :key="`${record.id}-${command.name}`"
                 class="plugin-command-chip"
               >
@@ -272,9 +287,21 @@ async function submitInstall() {
                   <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
                 </a-tooltip>
               </div>
-              <small v-if="getOverflowCommandCount(record.commands) > 0" class="plugin-command-overflow">
-                {{ t('plugins.commandOverflow', { count: getOverflowCommandCount(record.commands) }) }}
-              </small>
+              <a-button
+                v-if="getOverflowCommandCount(record.commands) > 0"
+                class="plugin-command-expander"
+                size="small"
+                type="link"
+                :aria-expanded="isCommandsExpanded(record.id)"
+                :aria-label="isCommandsExpanded(record.id)
+                  ? t('plugins.commandCollapseAria', { name: record.name })
+                  : t('plugins.commandExpandAria', { name: record.name, count: getOverflowCommandCount(record.commands) })"
+                @click="toggleCommandExpansion(record.id)"
+              >
+                {{ isCommandsExpanded(record.id)
+                  ? t('plugins.commandCollapse')
+                  : t('plugins.commandOverflow', { count: getOverflowCommandCount(record.commands) }) }}
+              </a-button>
             </div>
             <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
           </template>
@@ -547,10 +574,22 @@ async function submitInstall() {
 }
 
 .plugin-command-chip small,
-.plugin-command-overflow,
 .plugin-command-empty {
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.plugin-command-expander {
+  height: 22px;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 20px;
+}
+
+.plugin-command-expander:hover,
+.plugin-command-expander:focus-visible {
+  color: var(--primary);
 }
 
 .plugin-cell-actions {
