@@ -91,13 +91,15 @@ func decodeErrorEnvelope(t fataler, body []byte) errorEnvelope {
 	return env
 }
 
-func TestListHandler_ReturnsPluginVersion(t *testing.T) {
+func TestListHandler_ReturnsPluginMetadata(t *testing.T) {
 	t.Parallel()
 
 	catalog := NewCatalog([]Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.2.3",
+		Description:       "Weather query plugin",
+		Author:            "raylea",
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
@@ -123,6 +125,12 @@ func TestListHandler_ReturnsPluginVersion(t *testing.T) {
 	}
 	if got := resp.Items[0].Version; got != "1.2.3" {
 		t.Fatalf("version = %q, want 1.2.3", got)
+	}
+	if got := resp.Items[0].Description; got != "Weather query plugin" {
+		t.Fatalf("description = %q, want Weather query plugin", got)
+	}
+	if got := resp.Items[0].Author; got != "raylea" {
+		t.Fatalf("author = %q, want raylea", got)
 	}
 }
 

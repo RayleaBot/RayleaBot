@@ -2618,6 +2618,10 @@ components:
           type: string
         version:
           type: string
+        description:
+          type: string
+        author:
+          type: string
         role:
           $ref: '#/components/schemas/PluginRole'
         registration_state:

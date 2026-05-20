@@ -36,6 +36,8 @@ type pluginSummaryResponse struct {
 	ID                string                    `json:"id"`
 	Name              string                    `json:"name"`
 	Version           string                    `json:"version,omitempty"`
+	Description       string                    `json:"description,omitempty"`
+	Author            string                    `json:"author,omitempty"`
 	Role              string                    `json:"role"`
 	RegistrationState string                    `json:"registration_state"`
 	DesiredState      string                    `json:"desired_state"`
@@ -890,6 +892,8 @@ func toPluginSummary(snapshot Snapshot, conflicts []string) pluginSummaryRespons
 		ID:                snapshot.PluginID,
 		Name:              pluginDisplayName(snapshot),
 		Version:           strings.TrimSpace(snapshot.Version),
+		Description:       strings.TrimSpace(snapshot.Description),
+		Author:            strings.TrimSpace(snapshot.Author),
 		Role:              role,
 		RegistrationState: snapshot.RegistrationState,
 		DesiredState:      snapshot.DesiredState,

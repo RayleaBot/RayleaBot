@@ -173,6 +173,9 @@ describe('PluginsPage', () => {
       {
         id: 'weather',
         name: 'Weather',
+        version: '1.2.3',
+        author: 'raylea',
+        description: '提供当前城市天气与未来天气查询。',
         role: 'user',
         registration_state: 'installed',
         desired_state: 'enabled',
@@ -198,6 +201,22 @@ describe('PluginsPage', () => {
             command_source: 'dynamic',
             declaration_id: 'fortune',
           },
+          {
+            name: '天气',
+            aliases: [],
+            description: '查询天气',
+            usage: '天气 上海',
+            permission: 'member',
+            command_source: 'manifest',
+          },
+          {
+            name: '天气后台',
+            aliases: [],
+            description: '查询天气后台信息',
+            usage: '天气后台',
+            permission: 'group_admin',
+            command_source: 'manifest',
+          },
         ],
         command_conflicts: ['我的运势'],
       },
@@ -214,6 +233,10 @@ describe('PluginsPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Weather')
+    expect(wrapper.text()).toContain('1.2.3')
+    expect(wrapper.text()).toContain('raylea')
+    expect(wrapper.text()).toContain('提供当前城市天气与未来天气查询。')
+    expect(wrapper.text()).toContain('操作')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
@@ -226,6 +249,7 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugins-data-table').exists()).toBe(true)
     expect(wrapper.find('.plugin-cell-source').exists()).toBe(true)
     expect(wrapper.find('.plugin-cell-commands').exists()).toBe(true)
+    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
     expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
   })
 

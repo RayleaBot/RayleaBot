@@ -599,6 +599,12 @@ function toPluginSummary(plugin) {
   if (plugin.version) {
     summary.version = plugin.version
   }
+  if (plugin.description) {
+    summary.description = plugin.description
+  }
+  if (plugin.author) {
+    summary.author = plugin.author
+  }
   return summary
 }
 

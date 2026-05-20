@@ -11,6 +11,8 @@ response:
       - id: weather
         name: Weather
         version: "1.2.3"
+        description: 提供当前城市天气与未来天气查询。
+        author: raylea
         role: builtin
         registration_state: installed
         desired_state: enabled
@@ -46,6 +48,8 @@ response:
       - id: fortune
         name: Fortune
         version: "0.1.0"
+        description: 查看今日运势。
+        author: raylea
         role: user
         registration_state: installed
         desired_state: enabled

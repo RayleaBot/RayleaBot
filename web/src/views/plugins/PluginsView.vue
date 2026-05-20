@@ -45,11 +45,14 @@ const installForm = reactive<PluginInstallRequest>({
 
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
 const tableColumns = computed(() => [
-  { title: t('plugins.fields.plugin'), key: 'title', dataIndex: 'name', width: 260 },
+  { title: t('plugins.fields.plugin'), key: 'title', dataIndex: 'name', width: 240 },
+  { title: t('plugins.fields.version'), key: 'version', dataIndex: 'version', width: 96 },
+  { title: t('plugins.fields.author'), key: 'author', dataIndex: 'author', width: 140 },
+  { title: t('plugins.fields.description'), key: 'description', dataIndex: 'description', width: 320 },
   { title: t('plugins.fields.source'), key: 'source', dataIndex: 'source', width: 220 },
-  { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 280 },
+  { title: t('plugins.fields.commands'), key: 'commands', dataIndex: 'commands', width: 300 },
   { title: t('plugins.fields.runtime'), key: 'runtime', dataIndex: 'runtime_state', width: 300 },
-  { title: '', key: 'actions', dataIndex: 'actions', width: 396 },
+  { title: t('plugins.fields.actions'), key: 'actions', dataIndex: 'actions', width: 396 },
 ])
 
 function getConflictNotice(count: number) {
@@ -93,6 +96,11 @@ function getOverflowCommandCount(commands: PluginCommandSummary[]) {
 
 function getCommandAliasesText(command: PluginCommandSummary) {
   return command.aliases?.length ? command.aliases.join(', ') : t('display.empty')
+}
+
+function getOptionalDisplayText(value?: string | null) {
+  const text = value?.trim()
+  return text ? text : t('display.empty')
 }
 
 function isConflictedCommand(command: PluginCommandSummary, conflicts?: string[]) {
@@ -199,7 +207,7 @@ async function submitInstall() {
         :data-source="sortedItems"
         :pagination="false"
         :row-key="(row) => row.id"
-        :scroll="{ x: 1520 }"
+        :scroll="{ x: 2012 }"
       >
         <template #emptyText>
           <AppEmptyState
@@ -228,6 +236,22 @@ async function submitInstall() {
                 {{ record.trust?.label ?? t('display.empty') }}
               </div>
             </div>
+          </template>
+
+          <template v-else-if="column.key === 'version'">
+            <span class="plugin-cell-version">{{ getOptionalDisplayText(record.version) }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'author'">
+            <span class="plugin-cell-author" :title="getOptionalDisplayText(record.author)">
+              {{ getOptionalDisplayText(record.author) }}
+            </span>
+          </template>
+
+          <template v-else-if="column.key === 'description'">
+            <span class="plugin-cell-description" :title="getOptionalDisplayText(record.description)">
+              {{ getOptionalDisplayText(record.description) }}
+            </span>
           </template>
 
           <template v-else-if="column.key === 'commands'">
@@ -463,6 +487,32 @@ async function submitInstall() {
   color: var(--muted);
 }
 
+.plugin-cell-version {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.plugin-cell-author {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-cell-description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .plugin-cell-status {
   display: flex;
   flex-direction: column;
@@ -479,16 +529,21 @@ async function submitInstall() {
 
 .plugin-cell-commands {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
+  gap: 6px 8px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .plugin-command-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.plugin-command-chip :deep(.ant-tag) {
+  margin-inline-end: 0;
 }
 
 .plugin-command-chip small,

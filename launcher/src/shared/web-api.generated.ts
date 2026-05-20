@@ -1341,6 +1341,8 @@ export interface components {
             id: string;
             name: string;
             version?: string;
+            description?: string;
+            author?: string;
             role: components["schemas"]["PluginRole"];
             registration_state: components["schemas"]["PluginRegistrationState"];
             desired_state: components["schemas"]["PluginDesiredState"];
