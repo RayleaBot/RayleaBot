@@ -20,12 +20,18 @@ type protocolIssueResponse struct {
 }
 
 type protocolTransportStatusResponse struct {
-	Transport  string `json:"transport"`
-	Enabled    bool   `json:"enabled"`
-	Configured bool   `json:"configured"`
-	Endpoint   string `json:"endpoint"`
-	State      string `json:"state"`
-	Summary    string `json:"summary"`
+	Transport       string `json:"transport"`
+	Enabled         bool   `json:"enabled"`
+	Configured      bool   `json:"configured"`
+	Endpoint        string `json:"endpoint"`
+	State           string `json:"state"`
+	Summary         string `json:"summary"`
+	Provider        string `json:"provider,omitempty"`
+	AppName         string `json:"app_name,omitempty"`
+	ProtocolVersion string `json:"protocol_version,omitempty"`
+	AppVersion      string `json:"app_version,omitempty"`
+	UserID          string `json:"user_id,omitempty"`
+	Nickname        string `json:"nickname,omitempty"`
 }
 
 type oneBot11ProtocolSnapshotResponse = oneBot11ProtocolSnapshotView
@@ -173,13 +179,20 @@ func (s *protocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 		if transport.snapshot.Configured {
 			configured = append(configured, string(transport.key))
 		}
+		runtimeInfo := transport.snapshot.RuntimeInfo
 		status = append(status, protocolTransportStatusResponse{
-			Transport:  string(transport.key),
-			Enabled:    transport.snapshot.Enabled,
-			Configured: transport.snapshot.Configured,
-			Endpoint:   transport.snapshot.Endpoint,
-			State:      string(transport.snapshot.State),
-			Summary:    protocolTransportSummary(transport.key, transport.snapshot),
+			Transport:       string(transport.key),
+			Enabled:         transport.snapshot.Enabled,
+			Configured:      transport.snapshot.Configured,
+			Endpoint:        transport.snapshot.Endpoint,
+			State:           string(transport.snapshot.State),
+			Summary:         protocolTransportSummary(transport.key, transport.snapshot),
+			Provider:        currentOneBotProvider(runtimeInfo.Provider),
+			AppName:         runtimeInfo.AppName,
+			ProtocolVersion: runtimeInfo.ProtocolVersion,
+			AppVersion:      runtimeInfo.AppVersion,
+			UserID:          runtimeInfo.UserID,
+			Nickname:        runtimeInfo.Nickname,
 		})
 	}
 
@@ -191,7 +204,7 @@ func (s *protocolService) currentOneBot11ProtocolSnapshot() oneBot11ProtocolSnap
 	readiness := protocolReadinessStatus(adapterSnapshot)
 	return oneBot11ProtocolSnapshotResponse{
 		Protocol:              "onebot11",
-		Provider:              currentOneBotProvider(s.state.Config.OneBot.Provider),
+		Provider:              adapterSnapshot.DetectedProvider(),
 		ConfiguredTransports:  configured,
 		ActiveTransports:      active,
 		TransportStatus:       status,
@@ -531,10 +544,10 @@ func allowOneBotIngress(r *http.Request, accessToken string) bool {
 
 func currentOneBotProvider(raw string) string {
 	switch strings.TrimSpace(raw) {
-	case "napcat", "luckylillia":
+	case "standard", "napcat", "luckylillia":
 		return strings.TrimSpace(raw)
 	default:
-		return "standard"
+		return "unknown"
 	}
 }
 

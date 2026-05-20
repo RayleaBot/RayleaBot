@@ -119,7 +119,6 @@ describe('socket frame router', () => {
         protocol: 'onebot11',
         protocol_snapshot: {
           protocol: 'onebot11',
-          provider: 'standard',
           configured_transports: ['reverse_ws'],
           active_transports: ['reverse_ws'],
           transport_status: [

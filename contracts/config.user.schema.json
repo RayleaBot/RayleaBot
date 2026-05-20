@@ -55,18 +55,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "provider",
         "reverse_ws",
         "forward_ws",
         "http_api",
         "webhook"
       ],
       "properties": {
-        "provider": {
-          "type": "string",
-          "enum": ["standard", "napcat", "luckylillia"],
-          "default": "standard"
-        },
         "reverse_ws": {
           "$ref": "#/$defs/onebotWsTransport"
         },

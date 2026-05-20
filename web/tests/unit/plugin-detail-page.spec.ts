@@ -17,7 +17,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
     schema_version: '2',
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
-      provider: 'standard',
       reverse_ws: { enabled: false, url: '', access_token: '' },
       forward_ws: { enabled: false, url: '', access_token: '' },
       http_api: { enabled: false, url: '', access_token: '' },

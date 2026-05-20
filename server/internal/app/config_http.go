@@ -268,8 +268,7 @@ func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) 
 }
 
 func oneBotHotReloadChanged(oldCfg internalconfig.Config, newCfg internalconfig.Config) bool {
-	return newCfg.OneBot.Provider != oldCfg.OneBot.Provider ||
-		newCfg.OneBot.ReverseWS != oldCfg.OneBot.ReverseWS ||
+	return newCfg.OneBot.ReverseWS != oldCfg.OneBot.ReverseWS ||
 		newCfg.OneBot.ForwardWS != oldCfg.OneBot.ForwardWS ||
 		newCfg.OneBot.HTTPAPI != oldCfg.OneBot.HTTPAPI ||
 		newCfg.OneBot.Webhook != oldCfg.OneBot.Webhook ||

@@ -182,15 +182,6 @@ func cloneHTTPHeaders(headers map[string]string) map[string]string {
 	return cloned
 }
 
-func currentOneBotProvider(raw string) string {
-	switch strings.TrimSpace(raw) {
-	case "napcat", "luckylillia":
-		return strings.TrimSpace(raw)
-	default:
-		return "standard"
-	}
-}
-
 func requiredActionString(data map[string]any, key string) (string, error) {
 	if len(data) == 0 {
 		return "", &runtime.Error{

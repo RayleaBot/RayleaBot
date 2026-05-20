@@ -19,7 +19,6 @@ describe('config store', () => {
     const config = {
       schema_version: '2',
       onebot: {
-        provider: 'standard',
         reverse_ws: { enabled: false, url: '', access_token: '' },
         forward_ws: { enabled: false, url: '', access_token: '' },
         http_api: { enabled: false, url: '', access_token: '' },
@@ -44,7 +43,6 @@ describe('config store', () => {
     const config = {
       schema_version: '2',
       onebot: {
-        provider: 'standard',
         reverse_ws: { enabled: false, url: '', access_token: '' },
         forward_ws: { enabled: true, url: 'ws://127.0.0.1:2658', access_token: 'forward-secret' },
         http_api: { enabled: false, url: '', access_token: '' },

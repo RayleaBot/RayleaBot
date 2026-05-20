@@ -121,7 +121,7 @@ func toRuntimeActionError(err error) error {
 }
 
 func (s *Service) executeOneBotProviderAction(ctx context.Context, action runtime.Action) (map[string]any, error) {
-	provider := currentOneBotProvider(s.config().OneBot.Provider)
+	provider := s.adapter.Snapshot().DetectedProvider()
 
 	var (
 		requiredProvider string

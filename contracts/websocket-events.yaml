@@ -286,7 +286,7 @@ channels:
                       enum: [onebot11]
                     provider:
                       type: string
-                      enum: [standard, napcat, luckylillia]
+                      enum: [unknown, standard, napcat, luckylillia]
                     configured_transports:
                       type: array
                       items:
@@ -317,6 +317,19 @@ channels:
                             type: string
                             enum: [idle, listening, connecting, connected, auth_failed, reconnecting, stopped]
                           summary:
+                            type: string
+                          provider:
+                            type: string
+                            enum: [unknown, standard, napcat, luckylillia]
+                          app_name:
+                            type: string
+                          protocol_version:
+                            type: string
+                          app_version:
+                            type: string
+                          user_id:
+                            type: string
+                          nickname:
                             type: string
                     readiness_status:
                       type: string

@@ -10,7 +10,6 @@ request:
       host: 127.0.0.1
       port: 8081
     onebot:
-      provider: standard
       reverse_ws:
         enabled: false
         url: ""
@@ -126,7 +125,6 @@ response:
         host: 127.0.0.1
         port: 8081
       onebot:
-        provider: standard
         reverse_ws:
           enabled: false
           url: ""

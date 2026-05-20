@@ -10,7 +10,6 @@ request:
       host: 127.0.0.1
       port: 8080
     onebot:
-      provider: standard
       reverse_ws:
         enabled: true
         url: http://127.0.0.1:6700

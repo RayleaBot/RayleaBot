@@ -185,9 +185,7 @@ func normalizeOneBotSection(document map[string]any) {
 		return
 	}
 
-	if strings.TrimSpace(stringValue(onebot["provider"])) == "" {
-		onebot["provider"] = "standard"
-	}
+	delete(onebot, "provider")
 	delete(onebot, "access_token")
 
 	wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
@@ -337,7 +335,6 @@ func legacyToCanonical(document map[string]any) map[string]any {
 	if onebot := section(document, "onebot"); onebot != nil {
 		wsURL := strings.TrimSpace(stringValue(onebot["ws_url"]))
 		canonical["onebot"] = map[string]any{
-			"provider":   "standard",
 			"reverse_ws": oneBotTransportDocument(false, "", ""),
 			"forward_ws": oneBotTransportDocument(wsURL != "", wsURL, ""),
 			"http_api":   oneBotTransportDocument(false, "", ""),
@@ -471,7 +468,6 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 			"port": cfg.Server.Port,
 		},
 		"onebot": map[string]any{
-			"provider":   configOneBotProvider(cfg),
 			"reverse_ws": oneBotTransportConfigDocument(reverseWS),
 			"forward_ws": oneBotTransportConfigDocument(forwardWS),
 			"http_api":   oneBotTransportConfigDocument(cfg.OneBot.HTTPAPI),
@@ -800,13 +796,6 @@ func configAdapterReconnectJitter(cfg Config) float64 {
 	return cfg.OneBot.ReconnectJitterRatio
 }
 
-func configOneBotProvider(cfg Config) string {
-	if strings.TrimSpace(cfg.OneBot.Provider) != "" {
-		return cfg.OneBot.Provider
-	}
-	return "standard"
-}
-
 func configOneBotReverseWS(cfg Config) OneBotTransportConfig {
 	return cfg.OneBot.ReverseWS
 }
@@ -851,7 +840,6 @@ func defaultDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"provider":   "standard",
 			"reverse_ws": oneBotTransportDocument(false, "", ""),
 			"forward_ws": oneBotTransportDocument(false, "", ""),
 			"http_api":   oneBotTransportDocument(false, "", ""),

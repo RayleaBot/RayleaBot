@@ -6,7 +6,6 @@
       "port": 8080
     },
     "onebot": {
-      "provider": "standard",
       "reverse_ws": {
         "enabled": false,
         "url": "",

@@ -52,7 +52,6 @@ onebot:
         access_token: ""
         enabled: false
         url: ""
-    provider: standard
     reverse_ws:
         access_token: ""
         enabled: false

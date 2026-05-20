@@ -1674,7 +1674,7 @@ components:
 
     ProtocolProvider:
       type: string
-      enum: [standard, napcat, luckylillia]
+      enum: [unknown, standard, napcat, luckylillia]
 
     ProtocolTransportKey:
       type: string
@@ -1717,6 +1717,18 @@ components:
         state:
           $ref: '#/components/schemas/ProtocolTransportState'
         summary:
+          type: string
+        provider:
+          $ref: '#/components/schemas/ProtocolProvider'
+        app_name:
+          type: string
+        protocol_version:
+          type: string
+        app_version:
+          type: string
+        user_id:
+          type: string
+        nickname:
           type: string
 
     OneBot11ProtocolSnapshotResponse:

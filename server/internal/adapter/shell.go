@@ -38,11 +38,12 @@ type dialFunc func(context.Context, string, *websocket.DialOptions) (*websocket.
 type sleepFunc func(context.Context, time.Duration) error
 
 type shellDeps struct {
-	now            func() time.Time
-	dial           dialFunc
-	sleep          sleepFunc
-	connectTimeout time.Duration
-	backoff        *Backoff
+	now             func() time.Time
+	dial            dialFunc
+	sleep           sleepFunc
+	connectTimeout  time.Duration
+	backoff         *Backoff
+	skipRuntimeInfo bool
 }
 
 type Shell struct {
@@ -84,6 +85,10 @@ type MetricsObserver interface {
 
 func New(cfg config.OneBotConfig, logger *slog.Logger) *Shell {
 	return newShell(cfg, logger, shellDeps{})
+}
+
+func NewForTest(cfg config.OneBotConfig, logger *slog.Logger, skipRuntimeInfo bool) *Shell {
+	return newShell(cfg, logger, shellDeps{skipRuntimeInfo: skipRuntimeInfo})
 }
 
 func newShell(cfg config.OneBotConfig, logger *slog.Logger, deps shellDeps) *Shell {
@@ -445,6 +450,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 		"transport", string(TransportForwardWS),
 		"ws_url", sanitizeWSURL(s.forwardWSURL()),
 	)
+	go s.refreshRuntimeInfo(ctx, TransportForwardWS)
 	if handler := s.currentReadyHandler(); handler != nil {
 		go handler(ctx)
 	}
@@ -639,6 +645,7 @@ func (s *Shell) markConnecting() {
 	s.snapshot.ForwardWS.State = TransportStateConnecting
 	s.snapshot.ForwardWS.LastErrorCode = ""
 	s.snapshot.ForwardWS.LastErrorMessage = ""
+	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
 	s.snapshot.LastErrorCode = ""
 	s.snapshot.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = false
@@ -677,6 +684,7 @@ func (s *Shell) markAuthFailed(err error) {
 	s.snapshot.ForwardWS.State = TransportStateAuthFailed
 	s.snapshot.ForwardWS.LastErrorCode = errorCodeForwardWSConnectFail
 	s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
+	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
 	s.snapshot.LastErrorCode = errorCodeForwardWSConnectFail
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
@@ -693,6 +701,7 @@ func (s *Shell) markReconnecting(code string, err error) {
 	s.snapshot.ForwardWS.State = TransportStateReconnecting
 	s.snapshot.ForwardWS.LastErrorCode = code
 	s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
+	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
 	s.snapshot.LastErrorCode = code
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
@@ -707,21 +716,25 @@ func (s *Shell) markReconnecting(code string, err error) {
 func (s *Shell) markStopped() {
 	s.mu.Lock()
 	s.snapshot.ForwardWS.State = TransportStateStopped
+	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
 	if s.snapshot.ReverseWS.Configured && s.snapshot.ReverseWS.Enabled {
 		s.snapshot.ReverseWS.State = TransportStateStopped
 	} else {
 		s.snapshot.ReverseWS.State = TransportStateIdle
 	}
+	s.snapshot.ReverseWS.RuntimeInfo = TransportRuntimeInfo{}
 	if s.snapshot.Webhook.Configured && s.snapshot.Webhook.Enabled {
 		s.snapshot.Webhook.State = TransportStateStopped
 	} else {
 		s.snapshot.Webhook.State = TransportStateIdle
 	}
+	s.snapshot.Webhook.RuntimeInfo = TransportRuntimeInfo{}
 	if s.snapshot.HTTPAPI.Configured && s.snapshot.HTTPAPI.Enabled {
 		s.snapshot.HTTPAPI.State = TransportStateStopped
 	} else {
 		s.snapshot.HTTPAPI.State = TransportStateIdle
 	}
+	s.snapshot.HTTPAPI.RuntimeInfo = TransportRuntimeInfo{}
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
 	s.refreshAggregateStateLocked()

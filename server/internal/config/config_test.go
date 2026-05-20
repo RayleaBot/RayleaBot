@@ -286,6 +286,7 @@ func TestSaveDocumentDropsLegacyOneBotAccessToken(t *testing.T) {
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
 	document["onebot"].(map[string]any)["access_token"] = "legacy-secret"
+	document["onebot"].(map[string]any)["provider"] = "napcat"
 	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "forward-secret"
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
@@ -302,6 +303,9 @@ func TestSaveDocumentDropsLegacyOneBotAccessToken(t *testing.T) {
 	}
 	if _, ok := saved["onebot"].(map[string]any)["access_token"]; ok {
 		t.Fatal("legacy onebot.access_token should not be persisted")
+	}
+	if _, ok := saved["onebot"].(map[string]any)["provider"]; ok {
+		t.Fatal("legacy onebot.provider should not be persisted")
 	}
 	if got := nestedString(t, saved, "onebot", "forward_ws", "access_token"); got != "forward-secret" {
 		t.Fatalf("saved onebot.forward_ws.access_token = %q, want forward-secret", got)
@@ -517,7 +521,6 @@ func newPlanningConfigDocument() map[string]any {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"provider": "standard",
 			"reverse_ws": map[string]any{
 				"enabled":      false,
 				"url":          "",

@@ -18,6 +18,13 @@ type LoginInfo struct {
 	Nickname string
 }
 
+// VersionInfo holds implementation metadata returned by get_version_info.
+type VersionInfo struct {
+	AppName         string
+	ProtocolVersion string
+	AppVersion      string
+}
+
 // GroupMemberInfo holds a group member's role and display names.
 type GroupMemberInfo struct {
 	Role     string
@@ -58,12 +65,81 @@ func (s *Shell) callAPI(ctx context.Context, action string, params map[string]an
 	return data, nil
 }
 
+func (s *Shell) callAPIOnTransport(ctx context.Context, transport TransportKey, action string, params map[string]any) (map[string]any, error) {
+	responseData, err := s.callAPIAnyOnTransport(ctx, transport, action, params)
+	if err != nil {
+		return nil, err
+	}
+	data, ok := responseData.(map[string]any)
+	if !ok {
+		return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s returned a non-object payload", action), nil)
+	}
+	return data, nil
+}
+
 func (s *Shell) CallAPIAny(ctx context.Context, action string, params map[string]any) (any, error) {
+	return s.callAPIAnyOnTransport(ctx, "", action, params)
+}
+
+func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKey, action string, params map[string]any) (any, error) {
 	echo := s.nextRequestEcho()
 	request := apiCallRequest{
 		Action: action,
 		Params: params,
 		Echo:   echo,
+	}
+
+	if transport != "" {
+		switch transport {
+		case TransportForwardWS, TransportReverseWS:
+			conn, _, snapshot := s.currentWSConnForTransport(transport)
+			if conn == nil || snapshot.State != StateConnected {
+				return nil, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
+			}
+			responseCh := make(chan apiResponse, 1)
+			s.registerPendingResponse(echo, responseCh)
+			defer s.dropPendingResponse(echo)
+
+			s.sendMu.Lock()
+			writeErr := wsjsonWrite(ctx, conn, request)
+			s.sendMu.Unlock()
+			if writeErr != nil {
+				return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s request failed", action), writeErr)
+			}
+
+			select {
+			case response := <-responseCh:
+				if response.Status != "ok" || response.RetCode != 0 {
+					message := fmt.Sprintf("%s call failed", action)
+					if response.Wording != "" {
+						message = response.Wording
+					}
+					return nil, errorf(errorCodeAPICallFailed, message, nil)
+				}
+				result := normalizeAPIResult(response.Data)
+				s.invalidateIdentityCacheForAPICall(action, params)
+				return result, nil
+			case <-ctx.Done():
+				return nil, errorf(errorCodeAPICallFailed, fmt.Sprintf("%s response timed out", action), ctx.Err())
+			}
+		case TransportHTTPAPI:
+			response, err := s.doHTTPAPIRequest(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+			if response.Status != "ok" || response.RetCode != 0 {
+				message := fmt.Sprintf("%s call failed", action)
+				if response.Wording != "" {
+					message = response.Wording
+				}
+				return nil, errorf(errorCodeAPICallFailed, message, nil)
+			}
+			result := normalizeAPIResult(response.Data)
+			s.invalidateIdentityCacheForAPICall(action, params)
+			return result, nil
+		default:
+			return nil, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
+		}
 	}
 
 	conn, _, snapshot := s.currentWSConn()
@@ -116,6 +192,46 @@ func (s *Shell) CallAPIAny(ctx context.Context, action string, params map[string
 // user ID and nickname.
 func (s *Shell) GetLoginInfo(ctx context.Context) (LoginInfo, error) {
 	data, err := s.callAPI(ctx, "get_login_info", nil)
+	if err != nil {
+		return LoginInfo{}, err
+	}
+
+	return LoginInfo{
+		ID:       extractStringField(data, "user_id"),
+		Nickname: extractStringField(data, "nickname"),
+	}, nil
+}
+
+// GetVersionInfo calls the OneBot11 get_version_info API and returns the
+// implementation metadata used for provider detection.
+func (s *Shell) GetVersionInfo(ctx context.Context) (VersionInfo, error) {
+	data, err := s.callAPI(ctx, "get_version_info", nil)
+	if err != nil {
+		return VersionInfo{}, err
+	}
+
+	return VersionInfo{
+		AppName:         extractStringField(data, "app_name"),
+		ProtocolVersion: extractStringField(data, "protocol_version"),
+		AppVersion:      extractStringField(data, "app_version"),
+	}, nil
+}
+
+func (s *Shell) getVersionInfoOnTransport(ctx context.Context, transport TransportKey) (VersionInfo, error) {
+	data, err := s.callAPIOnTransport(ctx, transport, "get_version_info", nil)
+	if err != nil {
+		return VersionInfo{}, err
+	}
+
+	return VersionInfo{
+		AppName:         extractStringField(data, "app_name"),
+		ProtocolVersion: extractStringField(data, "protocol_version"),
+		AppVersion:      extractStringField(data, "app_version"),
+	}, nil
+}
+
+func (s *Shell) getLoginInfoOnTransport(ctx context.Context, transport TransportKey) (LoginInfo, error) {
+	data, err := s.callAPIOnTransport(ctx, transport, "get_login_info", nil)
 	if err != nil {
 		return LoginInfo{}, err
 	}

@@ -366,22 +366,6 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
   return [
     {
       key: 'onebot',
-      title: t('config.sections.onebot'),
-      fields: [
-        {
-          path: 'onebot.provider',
-          label: t('config.fields.onebotProvider'),
-          type: 'select',
-          options: [
-            { label: t('config.options.onebotProviderStandard'), value: 'standard' },
-            { label: t('config.options.onebotProviderNapCat'), value: 'napcat' },
-            { label: t('config.options.onebotProviderLuckyLillia'), value: 'luckylillia' },
-          ],
-        },
-      ],
-    },
-    {
-      key: 'onebot',
       title: t('config.sections.onebotReverseWs'),
       fields: [
         {

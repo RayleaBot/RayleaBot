@@ -1,8 +1,17 @@
 package app
 
 import (
+	"context"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/adapter"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -116,17 +125,90 @@ func TestProtocolIssuesFromSnapshotSkipsClearedErrors(t *testing.T) {
 func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	t.Parallel()
 
-	service := newProtocolService(&appRuntimeState{
-		Config: config.Config{
-			OneBot: config.OneBotConfig{
-				Provider: "luckylillia",
-			},
-		},
-	}, nil)
+	requests := make(chan map[string]any, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("write ready frame: %v", err)
+			return
+		}
+
+		for i := 0; i < 2; i++ {
+			var request map[string]any
+			if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+				t.Errorf("read runtime info request: %v", err)
+				return
+			}
+			requests <- request
+			data := map[string]any{}
+			switch request["action"] {
+			case "get_version_info":
+				data = map[string]any{
+					"app_name":         "LLOneBot",
+					"protocol_version": 11,
+					"app_version":      "6.5.0",
+				}
+			case "get_login_info":
+				data = map[string]any{
+					"user_id":  10001,
+					"nickname": "LuckyBot",
+				}
+			default:
+				t.Errorf("unexpected action: %v", request["action"])
+			}
+			if err := wsjson.Write(context.Background(), conn, map[string]any{
+				"status":  "ok",
+				"retcode": 0,
+				"data":    data,
+				"echo":    request["echo"],
+			}); err != nil {
+				t.Errorf("write runtime info response: %v", err)
+				return
+			}
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := adapter.New(config.OneBotConfig{
+		WSURL: "ws" + server.URL[len("http"):],
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	shell.Start(ctx)
+	waitForAdapterState(t, shell, adapter.StateConnected, time.Second)
+	waitForRuntimeInfo(t, shell, adapter.TransportForwardWS, "luckylillia", time.Second)
+	if len(requests) != 2 {
+		t.Fatalf("runtime info requests = %d, want 2", len(requests))
+	}
+	service := newProtocolService(&appRuntimeState{}, shell)
 
 	snapshot := service.currentOneBot11ProtocolSnapshot()
 	if snapshot.Provider != "luckylillia" {
 		t.Fatalf("unexpected provider: got %q want %q", snapshot.Provider, "luckylillia")
+	}
+	var forward protocolTransportStatusResponse
+	for _, item := range snapshot.TransportStatus {
+		if item.Transport == "forward_ws" {
+			forward = item
+			break
+		}
+	}
+	if forward.Provider != "luckylillia" || forward.AppName != "LLOneBot" || forward.ProtocolVersion != "11" || forward.UserID != "10001" || forward.Nickname != "LuckyBot" {
+		t.Fatalf("unexpected forward runtime info: %#v", forward)
 	}
 	if len(snapshot.TransportStatus) != 4 {
 		t.Fatalf("unexpected transport count: got %d want 4", len(snapshot.TransportStatus))
@@ -149,18 +231,18 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	if !reflect.DeepEqual(projected, snapshot) {
 		t.Fatalf("unexpected event projection: got %#v want %#v", projected, snapshot)
 	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
 }
 
 func TestProtocolCompatibilityProjectionKeepsUnsupportedGapsVisible(t *testing.T) {
 	t.Parallel()
 
-	service := newProtocolService(&appRuntimeState{
-		Config: config.Config{
-			OneBot: config.OneBotConfig{
-				Provider: "napcat",
-			},
-		},
-	}, nil)
+	service := newProtocolService(&appRuntimeState{}, nil)
 
 	response, err := service.currentOneBot11ProtocolCompatibility()
 	if err != nil {

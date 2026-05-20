@@ -33,7 +33,7 @@ const transportLabelMap = {
 const pageLoading = computed(() => protocolsLoading.value || compatibilityLoading.value)
 const pageError = computed(() => protocolsError.value || compatibilityError.value)
 const matrixSections = computed(() => matrix.value?.categories ?? [])
-const currentProvider = computed(() => snapshot.value?.provider ?? 'standard')
+const currentProvider = computed(() => snapshot.value?.provider ?? 'unknown')
 const currentProviderLabel = computed(() => formatProvider(currentProvider.value))
 const currentTransportText = computed(() => joinTransportLabels(snapshot.value?.active_transports))
 const configuredTransportText = computed(() => joinTransportLabels(snapshot.value?.configured_transports))
@@ -63,12 +63,14 @@ onMounted(() => {
 
 function formatProvider(provider?: string) {
   switch (provider) {
+    case 'standard':
+      return 'Standard'
     case 'napcat':
       return 'NapCat'
     case 'luckylillia':
       return 'LuckyLillia'
     default:
-      return 'Standard'
+      return t('protocols.unknownValue')
   }
 }
 
@@ -97,6 +99,9 @@ function supportClass(status?: string) {
 }
 
 function providerColumnClass(provider: string) {
+  if (currentProvider.value === 'unknown') {
+    return {}
+  }
   return {
     'is-current-provider': currentProvider.value === provider,
   }

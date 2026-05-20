@@ -107,6 +107,44 @@ const transportStatusItems = computed(() => (
 const transportIssues = computed(() => snapshot.value?.recent_transport_issues ?? [])
 const protocolWorkbenchActions = computed(() => buildProtocolWorkbenchActions(snapshot.value))
 
+function formatProvider(provider?: string) {
+  switch (provider) {
+    case 'standard':
+      return 'OneBot11'
+    case 'napcat':
+      return 'NapCat'
+    case 'luckylillia':
+      return 'LuckyLillia'
+    default:
+      return t('protocols.unknownValue')
+  }
+}
+
+function runtimeInfoItems(type: string) {
+  const live = getLiveTransport(type)
+  if (!live) {
+    return []
+  }
+  if (!live.provider && !live.app_name && !live.protocol_version && !live.app_version) {
+    return []
+  }
+  return [
+    formatProvider(live.provider),
+    live.app_name,
+    live.protocol_version,
+    live.app_version,
+  ].filter((value): value is string => Boolean(value && value.trim()))
+}
+
+function loginInfoText(type: string) {
+  const live = getLiveTransport(type)
+  if (!live) {
+    return t('display.empty')
+  }
+  const parts = [live.user_id, live.nickname].filter((value): value is string => Boolean(value && value.trim()))
+  return parts.length > 0 ? parts.join(' / ') : t('protocols.unknownValue')
+}
+
 function getIssueTagColor(severity?: string) {
   if (severity === 'error') return 'error'
   if (severity === 'info') return 'processing'
@@ -255,14 +293,11 @@ const tableColumns = computed(() => [
   { title: t('protocols.transportStatusTitle'), key: 'name', width: 220 },
   { title: t('display.empty'), key: 'enabled', width: 80 },
   { title: t('protocols.activeTransportLabel'), key: 'status', width: 160 },
+  { title: t('protocols.runtimeInfoColumn'), key: 'runtime', width: 260 },
+  { title: t('protocols.loginInfoColumn'), key: 'login', width: 220 },
   { title: t('config.fields.onebotReverseWsUrl'), key: 'url', width: 320 },
   { title: t('config.fields.onebotAccessToken'), key: 'token', width: 220 },
 ])
-
-const providerConfig = computed(() => {
-  const mainSec = configSections.value.find(s => s.key === 'onebot')
-  return mainSec?.fields.find(f => f.path === 'onebot.provider')
-})
 
 const adapterConfigFields = computed(() => {
   const adapterSec = configSections.value.find(s => s.key === 'adapter')
@@ -298,17 +333,6 @@ const adapterConfigFields = computed(() => {
             <span class="strip-value font-semibold">{{ ONEBOT11_PROTOCOL_NAME }}</span>
             <ManagementContextActions :actions="protocolWorkbenchActions" class="compact-actions" />
           </div>
-        </div>
-
-        <div class="strip-divider"></div>
-
-        <div class="strip-item">
-          <span class="strip-label">{{ t('protocols.providerLabel') }}</span>
-          <span class="strip-value">
-            <a-tag color="purple" class="provider-tag">
-              {{ snapshot?.provider || t('display.empty') }}
-            </a-tag>
-          </span>
         </div>
 
         <div class="strip-divider"></div>
@@ -408,7 +432,7 @@ const adapterConfigFields = computed(() => {
               :data-source="transportConfigs"
               :pagination="false"
               :row-key="(row) => row.key"
-              :scroll="{ x: 1040 }"
+              :scroll="{ x: 1420 }"
             >
               <template #bodyCell="{ column, record }">
                 <!-- Column 1: Transport Name & Icon -->
@@ -454,7 +478,27 @@ const adapterConfigFields = computed(() => {
                   </div>
                 </template>
 
-                <!-- Column 4: Connection URL Input -->
+                <!-- Column 4: Runtime endpoint metadata -->
+                <template v-else-if="column.key === 'runtime'">
+                  <div class="runtime-cell">
+                    <template v-if="runtimeInfoItems(record.type).length > 0">
+                      <a-tag class="provider-runtime-tag">
+                        {{ runtimeInfoItems(record.type)[0] }}
+                      </a-tag>
+                      <span class="runtime-meta">{{ runtimeInfoItems(record.type).slice(1).join(' / ') || t('protocols.unknownValue') }}</span>
+                    </template>
+                    <template v-else>
+                      <span class="text-muted">{{ t('display.empty') }}</span>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Column 5: Login identity -->
+                <template v-else-if="column.key === 'login'">
+                  <span class="login-cell">{{ loginInfoText(record.type) }}</span>
+                </template>
+
+                <!-- Column 6: Connection URL Input -->
                 <template v-else-if="column.key === 'url'">
                   <div class="input-cell-wrap">
                     <a-input
@@ -475,7 +519,7 @@ const adapterConfigFields = computed(() => {
                   </div>
                 </template>
 
-                <!-- Column 5: Access Token Password Input -->
+                <!-- Column 7: Access Token Password Input -->
                 <template v-else-if="column.key === 'token'">
                   <div class="input-cell-wrap">
                     <a-input-password
@@ -507,27 +551,6 @@ const adapterConfigFields = computed(() => {
           <div v-show="advancedExpanded" class="advanced-content-panel">
             <a-card :bordered="false" class="advanced-card">
               <a-form layout="vertical" class="advanced-form-grid">
-                <!-- Provider Select in Advanced Panel -->
-                <div v-if="providerConfig" class="grid-item span-full">
-                  <a-form-item class="advanced-form-item">
-                    <template #label>
-                      <div class="field-label-wrap">
-                        <span class="field-label-text">{{ providerConfig.label }}</span>
-                        <a-tooltip v-if="providerConfig.description" :title="providerConfig.description">
-                          <span class="field-info-icon">?</span>
-                        </a-tooltip>
-                      </div>
-                    </template>
-                    <a-select
-                      :value="String(readField(providerConfig.path, providerConfig.type) ?? '')"
-                      :aria-label="providerConfig.label"
-                      class="refined-select-input"
-                      :options="providerConfig.options"
-                      @update:value="(value) => writeField(providerConfig.path, providerConfig.type, value)"
-                    />
-                  </a-form-item>
-                </div>
-
                 <!-- Adapter Parameter inputs -->
                 <div v-for="field in adapterConfigFields" :key="field.path" class="grid-item">
                   <a-form-item class="advanced-form-item">

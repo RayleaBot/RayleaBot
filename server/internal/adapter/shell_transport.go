@@ -75,6 +75,9 @@ func (s *Shell) markTransportPrimed() {
 	handler := s.stateHandler
 	s.mu.Unlock()
 	s.emitStateSnapshot(handler, snapshot)
+	if s.snapshot.HTTPAPI.Enabled && s.snapshot.HTTPAPI.Configured {
+		go s.refreshRuntimeInfo(context.Background(), TransportHTTPAPI)
+	}
 }
 
 func (s *Shell) forwardWSURL() string {
@@ -238,6 +241,7 @@ func (s *Shell) handleReverseSession(conn *websocket.Conn, done chan struct{}) {
 			s.mu.Unlock()
 			return
 		}
+		s.clearTransportRuntimeInfoLocked(TransportReverseWS)
 		if s.stopping && s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
 			s.snapshot.ReverseWS.State = TransportStateStopped
 		} else if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
@@ -273,6 +277,7 @@ func (s *Shell) handleReverseSession(conn *websocket.Conn, done chan struct{}) {
 	handler := s.stateHandler
 	s.mu.Unlock()
 	s.emitStateSnapshot(handler, snapshot)
+	go s.refreshRuntimeInfo(ctx, TransportReverseWS)
 
 	if readyHandler := s.currentReadyHandler(); readyHandler != nil {
 		go readyHandler(ctx)
@@ -340,6 +345,7 @@ func (s *Shell) markTransportFailure(transport TransportKey, fallback TransportS
 		s.snapshot.ForwardWS.LastErrorCode = code
 		s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
 	}
+	s.clearTransportRuntimeInfoLocked(transport)
 	s.snapshot.LastErrorCode = code
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.refreshAggregateStateLocked()
@@ -347,6 +353,74 @@ func (s *Shell) markTransportFailure(transport TransportKey, fallback TransportS
 	handler := s.stateHandler
 	s.mu.Unlock()
 	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) refreshRuntimeInfo(ctx context.Context, transport TransportKey) {
+	if transport == TransportWebhook || s.deps.skipRuntimeInfo {
+		return
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, defaultIdentityLookupTimeout)
+	defer cancel()
+
+	version, versionErr := s.getVersionInfoOnTransport(lookupCtx, transport)
+	login, loginErr := s.getLoginInfoOnTransport(lookupCtx, transport)
+	if versionErr != nil && loginErr != nil {
+		s.clearTransportRuntimeInfo(transport)
+		return
+	}
+
+	info := TransportRuntimeInfo{
+		Provider:        DetectProvider(version.AppName),
+		AppName:         version.AppName,
+		ProtocolVersion: version.ProtocolVersion,
+		AppVersion:      version.AppVersion,
+		UserID:          login.ID,
+		Nickname:        login.Nickname,
+	}
+	s.updateTransportRuntimeInfo(transport, info)
+}
+
+func (s *Shell) updateTransportRuntimeInfo(transport TransportKey, info TransportRuntimeInfo) {
+	s.mu.Lock()
+	switch transport {
+	case TransportForwardWS:
+		s.snapshot.ForwardWS.RuntimeInfo = info
+	case TransportReverseWS:
+		s.snapshot.ReverseWS.RuntimeInfo = info
+	case TransportHTTPAPI:
+		s.snapshot.HTTPAPI.RuntimeInfo = info
+	default:
+		s.mu.Unlock()
+		return
+	}
+	s.refreshAggregateStateLocked()
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) clearTransportRuntimeInfo(transport TransportKey) {
+	s.mu.Lock()
+	s.clearTransportRuntimeInfoLocked(transport)
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) clearTransportRuntimeInfoLocked(transport TransportKey) {
+	switch transport {
+	case TransportForwardWS:
+		s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
+	case TransportReverseWS:
+		s.snapshot.ReverseWS.RuntimeInfo = TransportRuntimeInfo{}
+	case TransportHTTPAPI:
+		s.snapshot.HTTPAPI.RuntimeInfo = TransportRuntimeInfo{}
+	case TransportWebhook:
+		s.snapshot.Webhook.RuntimeInfo = TransportRuntimeInfo{}
+	}
 }
 
 func (s *Shell) syncLastErrorLocked() {
@@ -368,10 +442,29 @@ func (s *Shell) syncLastErrorLocked() {
 }
 
 func (s *Shell) currentWSConn() (*websocket.Conn, TransportKey, Snapshot) {
+	return s.currentWSConnForTransport("")
+}
+
+func (s *Shell) currentWSConnForTransport(transport TransportKey) (*websocket.Conn, TransportKey, Snapshot) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	snapshot := cloneSnapshot(s.snapshot)
+	switch transport {
+	case TransportForwardWS:
+		if s.conn != nil && snapshot.ForwardWS.State == TransportStateConnected {
+			return s.conn, TransportForwardWS, snapshot
+		}
+		return nil, "", snapshot
+	case TransportReverseWS:
+		if s.reverseConn != nil && snapshot.ReverseWS.State == TransportStateConnected {
+			return s.reverseConn, TransportReverseWS, snapshot
+		}
+		return nil, "", snapshot
+	case TransportHTTPAPI:
+		return nil, "", snapshot
+	}
+
 	switch {
 	case s.conn != nil && snapshot.ForwardWS.State == TransportStateConnected:
 		return s.conn, TransportForwardWS, snapshot

@@ -8,7 +8,7 @@ response:
   status: 200
   body:
     protocol: onebot11
-    provider: standard
+    provider: napcat
     configured_transports:
       - forward_ws
     active_transports:
@@ -26,6 +26,12 @@ response:
         endpoint: ws://127.0.0.1:8089
         state: connected
         summary: 主动连接已建立
+        provider: napcat
+        app_name: NapCat.Onebot
+        protocol_version: v11
+        app_version: 1.0.0
+        user_id: "12345678"
+        nickname: TestBot
       - transport: http_api
         enabled: false
         configured: false

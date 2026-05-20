@@ -31,7 +31,6 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 			Port: 8080,
 		},
 		OneBot: config.OneBotConfig{
-			Provider: "standard",
 			ReverseWS: config.OneBotTransportConfig{
 				Enabled: false,
 				URL:     "",
@@ -87,7 +86,6 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 			Port: 8081,
 		},
 		OneBot: config.OneBotConfig{
-			Provider: "standard",
 			ReverseWS: config.OneBotTransportConfig{
 				Enabled: false,
 				URL:     "",
@@ -169,7 +167,6 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	baseConfig := config.Config{
 		OneBot: config.OneBotConfig{
-			Provider: "standard",
 			ReverseWS: config.OneBotTransportConfig{
 				Enabled: false,
 				URL:     "",
@@ -210,7 +207,6 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 
 	effects := applyConfigApplyEffects(app, config.Config{
 		OneBot: config.OneBotConfig{
-			Provider: "standard",
 			ReverseWS: config.OneBotTransportConfig{
 				Enabled: false,
 				URL:     "",

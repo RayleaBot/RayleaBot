@@ -122,7 +122,6 @@ type ServerConfig struct {
 }
 
 type OneBotConfig struct {
-	Provider                string                `json:"provider" yaml:"provider"`
 	ReverseWS               OneBotTransportConfig `json:"reverse_ws" yaml:"reverse_ws"`
 	ForwardWS               OneBotTransportConfig `json:"forward_ws" yaml:"forward_ws"`
 	HTTPAPI                 OneBotTransportConfig `json:"http_api" yaml:"http_api"`
@@ -330,9 +329,6 @@ func (cfg *Config) hydrateCompatibility() {
 		cfg.Adapter.ReconnectMultiplier = cfg.OneBot.ReconnectMultiplier
 		cfg.Adapter.ReconnectMaxSeconds = cfg.OneBot.ReconnectMaxSeconds
 		cfg.Adapter.ReconnectJitterRatio = cfg.OneBot.ReconnectJitterRatio
-	}
-	if cfg.OneBot.Provider == "" {
-		cfg.OneBot.Provider = "standard"
 	}
 	if cfg.OneBot.WSURL == "" && cfg.OneBot.ForwardWS.URL != "" {
 		cfg.OneBot.WSURL = cfg.OneBot.ForwardWS.URL

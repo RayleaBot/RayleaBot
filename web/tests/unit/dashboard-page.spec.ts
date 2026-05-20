@@ -12,7 +12,6 @@ import { useTasksStore } from '@/stores/tasks'
 function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
   return {
     protocol: 'onebot11',
-    provider: 'standard',
     configured_transports: ['forward_ws'],
     active_transports: ['forward_ws'],
     transport_status: [

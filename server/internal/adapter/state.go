@@ -39,6 +39,16 @@ type TransportSnapshot struct {
 	State            TransportState
 	LastErrorCode    string
 	LastErrorMessage string
+	RuntimeInfo      TransportRuntimeInfo
+}
+
+type TransportRuntimeInfo struct {
+	Provider        string
+	AppName         string
+	ProtocolVersion string
+	AppVersion      string
+	UserID          string
+	Nickname        string
 }
 
 type Snapshot struct {
@@ -72,6 +82,31 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		cloned.ActiveTransports = append([]TransportKey(nil), snapshot.ActiveTransports...)
 	}
 	return cloned
+}
+
+func (snapshot Snapshot) DetectedProvider() string {
+	for _, transport := range snapshot.ActiveTransports {
+		info := snapshot.transportRuntimeInfo(transport)
+		if info.Provider != "" && info.Provider != ProviderUnknown {
+			return info.Provider
+		}
+	}
+	return ProviderUnknown
+}
+
+func (snapshot Snapshot) transportRuntimeInfo(transport TransportKey) TransportRuntimeInfo {
+	switch transport {
+	case TransportForwardWS:
+		return snapshot.ForwardWS.RuntimeInfo
+	case TransportReverseWS:
+		return snapshot.ReverseWS.RuntimeInfo
+	case TransportHTTPAPI:
+		return snapshot.HTTPAPI.RuntimeInfo
+	case TransportWebhook:
+		return snapshot.Webhook.RuntimeInfo
+	default:
+		return TransportRuntimeInfo{}
+	}
 }
 
 func cloneTime(value *time.Time) *time.Time {

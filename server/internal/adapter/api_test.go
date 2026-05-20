@@ -3,6 +3,8 @@ package adapter
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -157,6 +159,165 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	_, err := shell.GetLoginInfo(context.Background())
 	if err == nil {
 		t.Fatal("expected GetLoginInfo to fail")
+	}
+	var adapterErr *Error
+	if !errors.As(err, &adapterErr) {
+		t.Fatalf("expected *adapter.Error, got %T", err)
+	}
+	if adapterErr.Code != errorCodeAPICallFailed {
+		t.Fatalf("unexpected error code: got %q want %q", adapterErr.Code, errorCodeAPICallFailed)
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestGetVersionInfoReturnsImplementationMetadata(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+		if request["action"] != "get_version_info" {
+			t.Errorf("unexpected action: %v", request["action"])
+		}
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "ok",
+			"retcode": 0,
+			"data": map[string]any{
+				"app_name":         "NapCat.Onebot",
+				"protocol_version": 11,
+				"app_version":      "1.0.0",
+			},
+			"echo": request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
+		connectTimeout:  75 * time.Millisecond,
+		sleep:           blockingSleep,
+		skipRuntimeInfo: true,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	info, err := shell.GetVersionInfo(context.Background())
+	if err != nil {
+		t.Fatalf("GetVersionInfo failed: %v", err)
+	}
+	if info.AppName != "NapCat.Onebot" {
+		t.Fatalf("unexpected AppName: got %q want %q", info.AppName, "NapCat.Onebot")
+	}
+	if info.ProtocolVersion != "11" {
+		t.Fatalf("unexpected ProtocolVersion: got %q want %q", info.ProtocolVersion, "11")
+	}
+	if info.AppVersion != "1.0.0" {
+		t.Fatalf("unexpected AppVersion: got %q want %q", info.AppVersion, "1.0.0")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := shell.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+}
+
+func TestGetVersionInfoReturnsErrorOnFailedResponse(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+
+		var request map[string]any
+		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
+			t.Errorf("wsjson.Read request failed: %v", err)
+			return
+		}
+
+		if err := wsjson.Write(context.Background(), conn, map[string]any{
+			"status":  "failed",
+			"retcode": 1400,
+			"wording": "not available",
+			"echo":    request["echo"],
+		}); err != nil {
+			t.Errorf("wsjson.Write response failed: %v", err)
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	shell := newShell(config.OneBotConfig{
+		WSURL: wsURL(server.URL),
+	}, slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
+		connectTimeout:  75 * time.Millisecond,
+		sleep:           blockingSleep,
+		skipRuntimeInfo: true,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shell.Start(ctx)
+	waitForState(t, shell, StateConnected, 500*time.Millisecond)
+
+	_, err := shell.GetVersionInfo(context.Background())
+	if err == nil {
+		t.Fatal("expected GetVersionInfo to fail")
 	}
 	var adapterErr *Error
 	if !errors.As(err, &adapterErr) {

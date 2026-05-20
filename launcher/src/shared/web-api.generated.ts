@@ -949,7 +949,7 @@ export interface components {
             recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
         };
         /** @enum {string} */
-        ProtocolProvider: "standard" | "napcat" | "luckylillia";
+        ProtocolProvider: "unknown" | "standard" | "napcat" | "luckylillia";
         /** @enum {string} */
         ProtocolTransportKey: "reverse_ws" | "forward_ws" | "http_api" | "webhook";
         /** @enum {string} */
@@ -969,6 +969,12 @@ export interface components {
             endpoint: string;
             state: components["schemas"]["ProtocolTransportState"];
             summary: string;
+            provider?: components["schemas"]["ProtocolProvider"];
+            app_name?: string;
+            protocol_version?: string;
+            app_version?: string;
+            user_id?: string;
+            nickname?: string;
         };
         OneBot11ProtocolSnapshotResponse: {
             /** @constant */
@@ -1558,11 +1564,6 @@ export interface components {
                 port: number;
             };
             onebot: {
-                /**
-                 * @default standard
-                 * @enum {string}
-                 */
-                provider: "standard" | "napcat" | "luckylillia";
                 reverse_ws: components["schemas"]["onebotWsTransport"];
                 forward_ws: components["schemas"]["onebotWsTransport"];
                 http_api: components["schemas"]["onebotHttpTransport"];

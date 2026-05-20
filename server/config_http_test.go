@@ -226,7 +226,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"port": 8080,
 		},
 		"onebot": map[string]any{
-			"provider": "standard",
 			"reverse_ws": map[string]any{
 				"enabled":      false,
 				"url":          "wss://bot.example.com/reverse",
@@ -277,6 +276,8 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"worker_count":               1,
 			"browser_args":               []any{"--disable-gpu"},
 			"browser_path":               "",
+			"default_output":             "png",
+			"device_scale_percent":       100,
 			"timeout_seconds":            30,
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,

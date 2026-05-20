@@ -131,4 +131,30 @@ describe('ProtocolCompatibilityPage', () => {
     expect(wrapper.text()).toContain('不支持')
     expect(wrapper.text()).toContain('provider.napcat.group.sign.set')
   })
+
+  it('does not highlight provider columns when current provider is unknown', async () => {
+    const protocolsStore = useProtocolsStore()
+    const compatibilityStore = useProtocolCompatibilityStore()
+
+    protocolsStore.snapshot = createProtocolSnapshot({ provider: 'unknown' })
+    compatibilityStore.matrix = createCompatibilityMatrix()
+
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+    vi.spyOn(compatibilityStore, 'refresh').mockResolvedValue({ matrix: compatibilityStore.matrix! })
+
+    const router = createTestRouter()
+    await router.push('/protocols/compatibility')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolCompatibilityPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('未知')
+    expect(wrapper.findAll('.is-current-provider')).toHaveLength(0)
+  })
 })

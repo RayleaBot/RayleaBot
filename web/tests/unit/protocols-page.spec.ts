@@ -14,7 +14,6 @@ function createFixtureConfig(): ConfigDocument {
     schema_version: '2',
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
-      provider: 'standard',
       reverse_ws: { enabled: false, url: '', access_token: '' },
       forward_ws: { enabled: false, url: '', access_token: '' },
       http_api: { enabled: false, url: '', access_token: '' },
@@ -126,12 +125,24 @@ describe('ProtocolsPage', () => {
     configStore.redactedFields = []
     protocolsStore.snapshot = {
       protocol: 'onebot11',
-      provider: 'standard',
       configured_transports: ['forward_ws'],
       active_transports: ['forward_ws'],
       transport_status: [
         { transport: 'reverse_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
-        { transport: 'forward_ws', enabled: true, configured: true, endpoint: 'ws://127.0.0.1:8089', state: 'auth_failed', summary: '主动连接鉴权失败' },
+        {
+          transport: 'forward_ws',
+          enabled: true,
+          configured: true,
+          endpoint: 'ws://127.0.0.1:8089',
+          state: 'auth_failed',
+          summary: '主动连接鉴权失败',
+          provider: 'napcat',
+          app_name: 'NapCat.Onebot',
+          protocol_version: 'v11',
+          app_version: '1.0.0',
+          user_id: '12345678',
+          nickname: 'TestBot',
+        },
         { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
         { transport: 'webhook', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
       ],
@@ -165,6 +176,12 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('OneBot11')
     expect(wrapper.text()).toContain('OneBot11 鉴权失败，请检查访问令牌')
     expect(wrapper.text()).toContain('传输状态')
+    expect(wrapper.text()).toContain('连接端')
+    expect(wrapper.text()).toContain('NapCat')
+    expect(wrapper.text()).toContain('NapCat.Onebot')
+    expect(wrapper.text()).toContain('v11 / 1.0.0')
+    expect(wrapper.text()).toContain('登录账号')
+    expect(wrapper.text()).toContain('12345678 / TestBot')
     expect(wrapper.text()).toContain('传输异常')
     expect(wrapper.text()).toContain('主动连接 WebSocket')
     expect(wrapper.text()).toContain('主动连接鉴权失败')
@@ -192,7 +209,6 @@ describe('ProtocolsPage', () => {
     configStore.document = createFixtureConfig()
     protocolsStore.snapshot = {
       protocol: 'onebot11',
-      provider: 'standard',
       configured_transports: ['forward_ws'],
       active_transports: ['forward_ws'],
       transport_status: [
@@ -246,7 +262,6 @@ describe('ProtocolsPage', () => {
     configStore.document = createFixtureConfig()
     protocolsStore.snapshot = {
       protocol: 'onebot11',
-      provider: 'standard',
       configured_transports: ['forward_ws'],
       active_transports: ['forward_ws'],
       transport_status: [
@@ -266,7 +281,6 @@ describe('ProtocolsPage', () => {
       .mockImplementationOnce(async () => {
         protocolsStore.snapshot = {
           protocol: 'onebot11',
-          provider: 'standard',
           configured_transports: ['reverse_ws', 'forward_ws'],
           active_transports: ['forward_ws'],
           transport_status: [
@@ -332,7 +346,6 @@ describe('ProtocolsPage', () => {
     configStore.document = createFixtureConfig()
     protocolsStore.snapshot = {
       protocol: 'onebot11',
-      provider: 'standard',
       configured_transports: ['forward_ws'],
       active_transports: ['forward_ws'],
       transport_status: [
@@ -396,7 +409,6 @@ describe('ProtocolsPage', () => {
     configStore.restartRequired = true
     protocolsStore.snapshot = {
       protocol: 'onebot11',
-      provider: 'standard',
       configured_transports: ['forward_ws'],
       active_transports: ['forward_ws'],
       transport_status: [
@@ -430,5 +442,64 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).toContain('需重启生效')
     expect(wrapper.text()).toContain('onebot.forward_ws.url')
     expect(wrapper.text()).toContain('render.browser_args')
+  })
+
+  it('shows unknown runtime fallback and omits provider from saved config', async () => {
+    const configStore = useConfigStore()
+    const protocolsStore = useProtocolsStore()
+
+    configStore.document = createFixtureConfig()
+    protocolsStore.snapshot = {
+      protocol: 'onebot11',
+      provider: 'unknown',
+      configured_transports: ['webhook'],
+      active_transports: ['webhook'],
+      transport_status: [
+        { transport: 'reverse_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'forward_ws', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'http_api', enabled: false, configured: false, endpoint: '', state: 'idle', summary: '未启用' },
+        { transport: 'webhook', enabled: true, configured: true, endpoint: 'https://bot.example.com', state: 'listening', summary: 'Webhook 入口可接收上报' },
+      ],
+      readiness_status: 'degraded',
+      summary: 'OneBot11 仅 Webhook 上报可用',
+      recent_transport_issues: [],
+    }
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+    const saveSpy = vi.spyOn(configStore, 'saveConfig').mockResolvedValue({
+      config: configStore.document,
+      redacted_fields: [],
+      restart_required: false,
+      apply_effects: {
+        applied_now: [],
+        reloaded_now: [],
+        restart_required_fields: [],
+      },
+    })
+
+    const router = createTestRouter()
+    await router.push('/protocols')
+    await router.isReady()
+
+    const wrapper = mount(ProtocolsPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Webhook 入口可接收上报')
+    expect(wrapper.text()).toContain('未知')
+    expect(wrapper.text()).not.toContain('Provider')
+    expect(wrapper.find('input[aria-label="Provider"]').exists()).toBe(false)
+
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存协议设置'))
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect('provider' in saveSpy.mock.calls[0][0].onebot).toBe(false)
   })
 })

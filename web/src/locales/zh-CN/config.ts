@@ -46,7 +46,6 @@ export const config = {
   fields: {
     serverHost: '监听地址',
     serverPort: '监听端口',
-    onebotProvider: 'Provider',
     onebotTransportEnabled: '启用',
     onebotReverseWsUrl: '回连地址',
     onebotForwardWsUrl: '主动连接地址',
@@ -119,9 +118,6 @@ export const config = {
     backupDefaultConsistency: '默认一致性',
   },
   options: {
-    onebotProviderStandard: '标准 OneBot11',
-    onebotProviderNapCat: 'NapCat',
-    onebotProviderLuckyLillia: '幸运莉莉娅',
     permissionEveryone: '所有人',
     permissionGroupAdmin: '群管理员',
     permissionSuperAdmin: '超级管理员',

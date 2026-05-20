@@ -1884,6 +1884,7 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 }
 
 func newTestShell(cfg config.OneBotConfig, deps shellDeps) *Shell {
+	deps.skipRuntimeInfo = true
 	if deps.sleep == nil {
 		deps.sleep = blockingSleep
 	}

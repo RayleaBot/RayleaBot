@@ -163,7 +163,7 @@ function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
     ['webhook', webhook],
   ]
 
-  snapshot.provider = onebot.provider ?? 'standard'
+  snapshot.provider = 'unknown'
   snapshot.transport_status = transports.map(([transport, entry]) => {
     const configured = Boolean(entry.url)
     let state = 'idle'
@@ -247,7 +247,6 @@ function pickOneBotHotState(config) {
       reconnect_jitter_ratio: adapter.reconnect_jitter_ratio ?? 0,
     },
     onebot: {
-      provider: onebot.provider ?? 'standard',
       reverse_ws: normalizeTransport(onebot.reverse_ws),
       forward_ws: normalizeTransport(onebot.forward_ws),
       http_api: normalizeTransport(onebot.http_api),
