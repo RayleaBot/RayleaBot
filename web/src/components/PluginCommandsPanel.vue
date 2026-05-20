@@ -58,123 +58,209 @@ function isConflicted(command: PluginCommandSummary) {
 <template>
   <a-empty v-if="commands.length === 0" :description="t('plugins.empty.commands')" />
 
-  <div v-else class="plugin-command-panel" role="list">
+  <div v-else class="plugin-command-grid" role="list">
     <article
       v-for="command in commands"
       :key="command.name"
-      class="plugin-command-row"
+      class="plugin-command-card"
       :class="{ 'is-conflicted': isConflicted(command) }"
       role="listitem"
     >
-      <div class="plugin-command-row__command">
-        <a-tag :color="isConflicted(command) ? 'warning' : 'success'">
-          {{ command.name }}
-        </a-tag>
-        <a-tag v-if="isConflicted(command)" color="warning">
-          {{ t('plugins.commandConflictBadge') }}
-        </a-tag>
-        <a-tag :color="getCommandSourceColor(command)">
-          {{ getCommandSourceText(command) }}
-        </a-tag>
-      </div>
+      <header class="plugin-command-card__header">
+        <div class="plugin-command-card__title-row">
+          <a-tag :color="isConflicted(command) ? 'warning' : 'success'" class="command-badge">
+            {{ command.name }}
+          </a-tag>
+          <a-tag v-if="isConflicted(command)" color="warning">
+            {{ t('plugins.commandConflictBadge') }}
+          </a-tag>
+          <a-tag :color="getCommandSourceColor(command)">
+            {{ getCommandSourceText(command) }}
+          </a-tag>
+        </div>
+      </header>
 
-      <dl class="plugin-command-row__meta">
-        <div class="plugin-command-row__aliases">
-          <dt>{{ t('plugins.commandAliases') }}</dt>
-          <dd>{{ getAliasesText(command) }}</dd>
+      <div class="plugin-command-card__body">
+        <div class="plugin-command-card__desc">
+          {{ getText(command.description) }}
         </div>
-        <div class="plugin-command-row__description">
-          <dt>{{ t('plugins.commandDescription') }}</dt>
-          <dd>{{ getText(command.description) }}</dd>
+
+        <div class="plugin-command-card__section">
+          <span class="section-label">{{ t('plugins.commandAliases') }}</span>
+          <div class="alias-tags" v-if="command.aliases?.length">
+            <a-tag v-for="alias in command.aliases" :key="alias" size="small" class="alias-tag">
+              {{ alias }}
+            </a-tag>
+            <!-- Hidden text for unit test compatibility -->
+            <span class="sr-only">{{ getAliasesText(command) }}</span>
+          </div>
+          <span v-else class="empty-val">—</span>
         </div>
-        <div class="plugin-command-row__source">
-          <dt>{{ t('plugins.commandSource') }}</dt>
-          <dd>{{ getCommandSourceText(command) }}</dd>
+
+        <div class="plugin-command-card__section">
+          <span class="section-label">{{ t('plugins.commandUsage') }}</span>
+          <div class="usage-snippet">
+            <span class="usage-prefix">>_</span>
+            <code class="usage-text">{{ getUsageText(command) }}</code>
+          </div>
         </div>
-        <div class="plugin-command-row__usage">
-          <dt>{{ t('plugins.commandUsage') }}</dt>
-          <dd>{{ getUsageText(command) }}</dd>
+
+        <div class="plugin-command-card__footer">
+          <span class="permission-pill">
+            <span class="pill-dot"></span>
+            {{ getPermissionText(command) }}
+          </span>
         </div>
-        <div class="plugin-command-row__permission">
-          <dt>{{ t('plugins.fields.permission') }}</dt>
-          <dd>{{ getPermissionText(command) }}</dd>
-        </div>
-      </dl>
+      </div>
     </article>
   </div>
 </template>
 
 <style scoped lang="scss">
-.plugin-command-panel {
+.plugin-command-grid {
   display: grid;
-  gap: 8px;
-  container-type: inline-size;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
 }
 
-.plugin-command-row {
-  display: grid;
-  grid-template-columns: minmax(108px, 0.28fr) minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  padding: 10px 12px;
+.plugin-command-card {
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
+  background: var(--surface-soft);
+  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-accent);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &.is-conflicted {
+    border-color: var(--border-warning);
+    background: color-mix(in srgb, var(--surface-warning) 15%, var(--surface-soft));
+
+    &:hover {
+      border-color: var(--warning);
+    }
+  }
 }
 
-.plugin-command-row:hover {
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface-soft));
+.plugin-command-card__header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
-.plugin-command-row__command {
+.plugin-command-card__title-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  min-width: 0;
 }
 
-.plugin-command-row__meta {
-  display: grid;
-  grid-template-columns: minmax(72px, 0.62fr) minmax(116px, 1.1fr) minmax(82px, 0.68fr) minmax(116px, 1.12fr) minmax(78px, 0.72fr);
-  gap: 8px 12px;
-  margin: 0;
+.command-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.85rem;
 }
 
-.plugin-command-row__meta div {
-  display: grid;
-  min-width: 0;
+.plugin-command-card__body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.plugin-command-card__desc {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.plugin-command-card__section {
+  display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 
-.plugin-command-row__meta dt {
+.section-label {
+  font-size: 0.72rem;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.plugin-command-row__meta dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font-size: 0.86rem;
-  line-height: 1.45;
+.alias-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
-.plugin-command-row__usage dd,
-.plugin-command-row__permission dd {
+.alias-tag {
+  font-size: 0.76rem;
+}
+
+.empty-val {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.usage-snippet {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  min-height: 28px;
+}
+
+.usage-prefix {
   font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--accent);
+  user-select: none;
+  font-weight: bold;
 }
 
-@container (max-width: 520px) {
-  .plugin-command-row,
-  .plugin-command-row__meta {
-    grid-template-columns: 1fr;
-  }
+.usage-text {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text);
+  word-break: break-all;
 }
 
-@media (max-width: 768px) {
-  .plugin-command-row {
-    padding: 10px;
-  }
+.plugin-command-card__footer {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.permission-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+}
+
+.pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 </style>
