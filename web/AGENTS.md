@@ -36,6 +36,17 @@
 - 单元测试：`pnpm test`
 - E2E：`pnpm test:e2e`
 
+### Browser Verification for Protected Pages
+
+- 受保护页面包括 `/plugins`、`/protocols`、`/logs`、`/config` 等管理面路由；浏览器验证这些页面时必须使用有效管理会话。
+- Playwright E2E 复用 `web/tests/e2e/web-ui.spec.ts` 的登录路径：打开 `/login`，管理员标识使用 `admin`，mock 后端密钥使用 `fixture-only-secret`。
+- Codex in-app Browser 手动验证受保护页面时，先打开 `/login` 完成登录，再打开目标页面。
+- 当前 URL 为 `/login?redirect=...` 时，当前截图或快照只证明会话缺失；完成登录后重新打开目标页面。
+- 使用 mock backend 时，通过正式登录接口取得会话；不要只写 `localStorage`，否则后端 token 状态不同步。
+- 使用真实后端时，只使用用户本地已有凭据，不在代码、文档、日志或提交信息中记录真实 secret、token、凭据。
+- 视觉验证不得修改 router guard、session store 或 API 鉴权。
+- 不提交临时浏览器日志、快照、trace、dev-server 日志。
+
 ## Consult Before Major Changes
 
 - 工程基线与固定栈：`docs/engineering/baseline.md`
