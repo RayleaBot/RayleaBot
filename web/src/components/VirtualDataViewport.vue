@@ -370,26 +370,40 @@ async function restorePrependedAnchor(previousScrollTop: number, previousScrollH
     return
   }
 
-  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+  const supportsRaf = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+
+  applyAnchorDelta(previousScrollTop, previousScrollHeight)
+
+  if (!supportsRaf) {
+    return
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => resolve())
     })
     if (restoreToken !== pendingPrependedAnchorRestoreToken) {
       return
     }
-  }
 
+    applyAnchorDelta(previousScrollTop, previousScrollHeight)
+  }
+}
+
+function applyAnchorDelta(previousScrollTop: number, previousScrollHeight: number) {
   const scroller = scrollerRef.value
   if (!scroller) {
     return
   }
 
-  const nextScrollHeight = Math.max(scroller.scrollHeight, totalHeight.value)
-  const nextScrollTop = previousScrollTop + Math.max(0, nextScrollHeight - previousScrollHeight)
-  scrollToOffset(nextScrollTop)
-  if (Math.max(nextScrollTop, scroller.scrollTop) > 0) {
-    topReachArmed = true
+  const currentScrollHeight = Math.max(scroller.scrollHeight, totalHeight.value)
+  const delta = Math.max(0, currentScrollHeight - previousScrollHeight)
+  const nextScrollTop = previousScrollTop + delta
+  if (Math.abs(nextScrollTop - scroller.scrollTop) <= 1) {
+    return
   }
+
+  scrollToOffset(nextScrollTop)
 }
 
 function measureVisibleDynamicRows() {
@@ -497,13 +511,32 @@ function rowStyle(virtualItem: VirtualItem) {
   return style
 }
 
+let preItemUpdateScrollTop = 0
+let preItemUpdateScrollHeight = 0
+
+watch(
+  () => props.items,
+  () => {
+    const scroller = scrollerRef.value
+    if (!scroller) {
+      preItemUpdateScrollTop = 0
+      preItemUpdateScrollHeight = totalHeight.value
+      return
+    }
+
+    preItemUpdateScrollTop = scroller.scrollTop
+    preItemUpdateScrollHeight = scroller.scrollHeight
+  },
+  { flush: 'sync' },
+)
+
 watch(
   () => props.items,
   (nextItems, previousItems) => {
     const scroller = scrollerRef.value
     const wasAtBottom = scroller ? isNearBottom(scroller) : lastAtBottom
-    const previousScrollTop = scroller?.scrollTop ?? 0
-    const previousScrollHeight = scroller ? Math.max(scroller.scrollHeight, totalHeight.value) : totalHeight.value
+    const previousScrollTop = preItemUpdateScrollTop
+    const previousScrollHeight = preItemUpdateScrollHeight
     const nextFirstKey = firstItemKey()
     const nextLastKey = lastItemKey()
     const previousFirstItemKey = previousItems.length > 0 ? resolveKey(previousItems[0]!, 0) : previousFirstKey
@@ -535,7 +568,9 @@ watch(
 
     previousFirstKey = nextFirstKey
     previousLastKey = nextLastKey
-    topReachArmed = true
+    if (scroller && scroller.scrollTop > props.topThreshold) {
+      topReachArmed = true
+    }
   },
   { flush: 'post' },
 )

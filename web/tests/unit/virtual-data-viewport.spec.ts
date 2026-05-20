@@ -264,7 +264,7 @@ describe('VirtualDataViewport', () => {
     expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain('height:')
   })
 
-  it('allows reaching the top again after older rows are prepended', async () => {
+  it('allows reaching the top again after older rows are prepended without an intermediate scroll-away', async () => {
     heightByLabel = new Map([
       ['Older 1', 120],
       ['Older 2', 100],
@@ -322,11 +322,19 @@ describe('VirtualDataViewport', () => {
 
     expect(wrapper.emitted('reach-top')).toHaveLength(1)
 
+    const previousScrollHeight = scroller.scrollHeight
+
     await wrapper.setProps({
       items: [{ id: 'Older 1' }, { id: 'Older 2' }, { id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }],
     })
     await flushPromises()
     await wrapper.vm.$nextTick()
+
+    const nextScrollHeight = scroller.scrollHeight
+    const expectedDelta = nextScrollHeight - previousScrollHeight
+    expect(expectedDelta).toBeGreaterThan(0)
+    expect(scroller.scrollTop).toBeGreaterThanOrEqual(expectedDelta - 2)
+    expect(scroller.scrollTop).toBeLessThanOrEqual(expectedDelta + 2)
 
     scroller.scrollTop = 0
     await wrapper.get('.data-viewport__scroller').trigger('scroll')
@@ -335,7 +343,7 @@ describe('VirtualDataViewport', () => {
     expect(wrapper.emitted('reach-top')).toHaveLength(2)
   })
 
-  it('treats another upward wheel at the top as a new older-load request after prepending rows', async () => {
+  it('advances scrollTop to anchor the prior viewport position after older rows are prepended', async () => {
     heightByLabel = new Map([
       ['Older 1', 120],
       ['Older 2', 100],
@@ -392,19 +400,25 @@ describe('VirtualDataViewport', () => {
 
     expect(wrapper.emitted('reach-top')).toHaveLength(1)
 
+    const previousScrollHeight = scroller.scrollHeight
+
     await wrapper.setProps({
       items: [{ id: 'Older 1' }, { id: 'Older 2' }, { id: 'A' }, { id: 'B' }, { id: 'C' }],
     })
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    scroller.scrollTop = 0
-    await wrapper.get('.data-viewport__scroller').trigger('wheel', {
-      deltaY: -120,
-    })
-    await wrapper.vm.$nextTick()
+    const nextScrollHeight = scroller.scrollHeight
+    const expectedDelta = nextScrollHeight - previousScrollHeight
+    expect(scroller.scrollTop).toBeGreaterThanOrEqual(expectedDelta - 2)
+    expect(scroller.scrollTop).toBeLessThanOrEqual(expectedDelta + 2)
 
-    expect(wrapper.emitted('reach-top')).toHaveLength(2)
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await wrapper.get('.data-viewport__scroller').trigger('scroll')
+      await wrapper.vm.$nextTick()
+    }
+
+    expect(wrapper.emitted('reach-top')).toHaveLength(1)
   })
 
   it('keeps the scroll anchor stable when a row above the viewport is remeasured', async () => {
